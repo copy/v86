@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <sys/ucontext.h>
 #include <sys/mman.h>
+#include <sys/user.h>
 
 #if !defined(__x86_64__)
 //#define TEST_VM86
@@ -65,6 +66,7 @@
 #define glue(x, y) xglue(x, y)
 #define stringify(s)	tostring(s)
 #define tostring(s)	#s
+#define UNUSED(s)	(void)(s)
 
 #define CC_C   	0x0001
 #define CC_P 	0x0004
@@ -211,7 +213,7 @@ static inline long i2l(long v)
 #define TEST_LEA16(STR)\
 {\
     asm(".code16 ; .byte 0x67 ; leal " STR ", %0 ; .code32"\
-        : "=wq" (res)\
+        : "=r" (res)\
         : "a" (eax), "b" (ebx), "c" (ecx), "d" (edx), "S" (esi), "D" (edi));\
     printf("lea %s = %08lx\n", STR, res);\
 }
@@ -338,21 +340,21 @@ void test_lea(void)
     TEST_LEAQ("0x4000(%%rsi, %%rcx, 8)");
 #else
     /* limited 16 bit addressing test */
-    //TEST_LEA16("0x4000");
-    //TEST_LEA16("(%%bx)");
-    //TEST_LEA16("(%%si)");
-    //TEST_LEA16("(%%di)");
-    //TEST_LEA16("0x40(%%bx)");
-    //TEST_LEA16("0x40(%%si)");
-    //TEST_LEA16("0x40(%%di)");
-    //TEST_LEA16("0x4000(%%bx)");
-    //TEST_LEA16("0x4000(%%si)");
-    //TEST_LEA16("(%%bx,%%si)");
-    //TEST_LEA16("(%%bx,%%di)");
-    //TEST_LEA16("0x40(%%bx,%%si)");
-    //TEST_LEA16("0x40(%%bx,%%di)");
-    //TEST_LEA16("0x4000(%%bx,%%si)");
-    //TEST_LEA16("0x4000(%%bx,%%di)");
+    TEST_LEA16("0x4000");
+    TEST_LEA16("(%%bx)");
+    TEST_LEA16("(%%si)");
+    TEST_LEA16("(%%di)");
+    TEST_LEA16("0x40(%%bx)");
+    TEST_LEA16("0x40(%%si)");
+    TEST_LEA16("0x40(%%di)");
+    TEST_LEA16("0x4000(%%bx)");
+    TEST_LEA16("0x4000(%%si)");
+    TEST_LEA16("(%%bx,%%si)");
+    TEST_LEA16("(%%bx,%%di)");
+    TEST_LEA16("0x40(%%bx,%%si)");
+    TEST_LEA16("0x40(%%bx,%%di)");
+    TEST_LEA16("0x4000(%%bx,%%si)");
+    TEST_LEA16("0x4000(%%bx,%%di)");
 #endif
 }
 
@@ -1072,7 +1074,7 @@ void test_fbcd(double a)
 
 void test_fenv(void)
 {
-    struct QEMU_PACKED {
+    struct __attribute__((__packed__)) {
         uint16_t fpuc;
         uint16_t dummy1;
         uint16_t fpus;
@@ -1082,7 +1084,7 @@ void test_fenv(void)
         uint32_t ignored[4];
         long double fpregs[8];
     } float_env32;
-    struct QEMU_PACKED {
+    struct __attribute__((__packed__)) {
         uint16_t fpuc;
         uint16_t fpus;
         uint16_t fptag;
@@ -1267,17 +1269,14 @@ void test_bcd(void)
 #define TEST_CMPXCHG(op, size, opconst, eax)\
 {\
     long op0, op1, op2;\
-    long eflags;\
     op0 = i2l(0x12345678);\
     op1 = i2l(0xfbca7654);\
     op2 = i2l(eax);\
-    asm(#op " %" size "0, %" size "1\n" \
-        "pushf\n" \
-        "pop %2\n" \
-        : "=q" (op0), opconst (op1), "=g" (eflags) \
+    asm(#op " %" size "0, %" size "1" \
+        : "=q" (op0), opconst (op1) \
         : "0" (op0), "a" (op2));\
-    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX " CC=%02lx\n",\
-           #op, op2, op0, op1, eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A));\
+    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX "\n",\
+           #op, op2, op0, op1);\
 }
 
 void test_xchg(void)
@@ -1432,7 +1431,7 @@ void test_segs(void)
     struct {
         uint32_t offset;
         uint16_t seg;
-    } QEMU_PACKED segoff;
+    } __attribute__((__packed__)) segoff;
 
     ldt.entry_number = 1;
     ldt.base_addr = (unsigned long)&seg_data1;
@@ -1877,7 +1876,7 @@ int tab[2];
 
 void sig_handler(int sig, siginfo_t *info, void *puc)
 {
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
 
     printf("si_signo=%d si_errno=%d si_code=%d",
            info->si_signo, info->si_errno, info->si_code);
@@ -1988,7 +1987,7 @@ void test_exceptions(void)
     printf("lock nop exception:\n");
     if (setjmp(jmp_env) == 0) {
         /* now execute an invalid instruction */
-        asm volatile(".byte 0xf0, 0x90"); /* lock nop */
+        asm volatile(".byte 0xf0, 0x90");
     }
 #endif
 
@@ -2076,7 +2075,7 @@ void test_exceptions(void)
 /* specific precise single step test */
 void sig_trap_handler(int sig, siginfo_t *info, void *puc)
 {
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
     printf("EIP=" FMTLX "\n", (long)uc->uc_mcontext.gregs[REG_EIP]);
 }
 
@@ -2958,9 +2957,209 @@ void test_conv(void)
 #endif
 }
 
+
+void fatal(char *msg)
+{
+    fprintf(stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
+    fflush(stderr);
+    abort();
+}
+
+void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes)
+{
+    printf("%-12s: offset=%x value=", "byte_r", offset);
+    size_t i = num_bytes;
+    while(i > 0)
+    {
+        i--;
+        printf("%02" PRIx8, buffer[offset + i]);
+    }
+    printf("\n");
+}
+
+uint64_t seq_counter = 0x8070605040302010;
+uint64_t get_seq64()
+{
+    seq_counter += 0x0101010101010101;
+    return seq_counter;
+}
+
+void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
+{
+    printf("%-12s: offset=%x value=", "byte_w", offset);
+    size_t i = num_bytes;
+    while(i > 0)
+    {
+        i--;
+        uint8_t byte = get_seq64();
+        target[offset + i] = byte;
+        printf("%02" PRIx8, byte);
+    }
+    printf("\n");
+}
+
+#define GENERATE_CHUNK_READ(INSTR, BITS, CONSTR)                    \
+    void chunk_read ## BITS(uint8_t* addr, uint16_t offset)         \
+    {                                                               \
+        uint ## BITS ## _t chunk = 0;                               \
+        asm volatile(INSTR " %1, %0" :                              \
+                     "=" CONSTR (chunk) :                           \
+                     "m" (*(addr + offset)), "0" (chunk));          \
+        printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
+               "chunk" #BITS "_r",                                  \
+               offset,                                              \
+               chunk);                                              \
+    }
+
+#define GENERATE_CHUNK_WRITE(INSTR, BITS, CONSTR)                   \
+    void chunk_write ## BITS(uint8_t* addr, uint16_t offset)        \
+    {                                                               \
+        uint ## BITS ## _t chunk = get_seq64();                     \
+        asm volatile(INSTR " %0, %1" :                              \
+                     "=" CONSTR (chunk) :                           \
+                     "m" (*(addr + offset)), "0" (chunk));          \
+        printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
+               "chunk" #BITS "_w",                                  \
+               offset,                                              \
+               chunk);                                              \
+    }
+
+#define GENERATE_CHUNK_FNS(INSTR, BITS, CONSTR)                   \
+    GENERATE_CHUNK_READ(INSTR, BITS, CONSTR)                      \
+    GENERATE_CHUNK_WRITE(INSTR, BITS, CONSTR)
+
+#define TEST_CHUNK_READ(BITS, ADDR, OFFSET)         \
+    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);      \
+    chunk_read ## BITS(ADDR, OFFSET);
+
+#define TEST_CHUNK_WRITE(BITS, ADDR, OFFSET)    \
+    chunk_write ## BITS(ADDR, OFFSET);          \
+    byte_read(ADDR, OFFSET, (BITS) >> 3);
+
+#define TEST_CHUNK_READ_WRITE(BITS, ADDR, OFFSET)   \
+    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);      \
+    chunk_read_write ## BITS(ADDR, OFFSET);         \
+    byte_read(ADDR, OFFSET, (BITS) >> 3);           \
+
+// Based on BITS, we calculate the offset where cross-page reads/writes would begin
+#define TEST_CROSS_PAGE(BITS, ADDR)                                     \
+    for(size_t offset = (PAGE_SIZE + 1 - (BITS >> 3));                  \
+        offset < PAGE_SIZE; offset++)                                   \
+    {                                                                   \
+        TEST_CHUNK_READ(BITS, ADDR, offset);                            \
+        TEST_CHUNK_WRITE(BITS, ADDR, offset);                           \
+        TEST_CHUNK_READ_WRITE(BITS, ADDR, offset);                      \
+    }
+
+GENERATE_CHUNK_FNS("movw", 16, "r");
+GENERATE_CHUNK_FNS("mov", 32, "r");
+
+#ifdef TEST_SSE
+GENERATE_CHUNK_FNS("movq", 64, "y");
+
+void chunk_read_write16(uint8_t* addr, uint16_t offset)
+{
+    uint16_t chunk = get_seq64();
+    asm volatile("addw %0, %1" :
+                 "=r" (chunk) :
+                 "m" (*(addr + offset)), "0" (chunk));
+    printf("%-12s: offset=%x value=%" PRIx16 "\n",
+           "chunk16_rw",
+           offset,
+           chunk);
+}
+
+void chunk_read_write32(uint8_t* addr, uint16_t offset)
+{
+    uint32_t chunk = get_seq64();
+    asm volatile("add %0, %1" :
+                 "=r" (chunk) :
+                 "m" (*(addr + offset)), "0" (chunk));
+    printf("%-12s: offset=%x value=%" PRIx32 "\n",
+           "chunk32_rw",
+           offset,
+           chunk);
+}
+
+// No 64 or 128-bit read-write x86 instructions support a memory address as the destination
+void chunk_read_write64(uint8_t* addr, uint16_t offset)
+{
+    UNUSED(addr);
+    UNUSED(offset);
+}
+
+void chunk_read_write128(uint8_t* addr, uint16_t offset)
+{
+    UNUSED(addr);
+    UNUSED(offset);
+}
+
+void chunk_read128(uint8_t* addr, uint16_t offset)
+{
+    XMMReg chunk;
+    chunk.q[0] = chunk.q[1] = 0.0;
+    asm volatile("movdqu %1, %0" :
+                 "=x" (chunk.dq) :
+                 "m" (*(addr + offset)), "0" (chunk.dq)
+        );
+    printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
+           "chunk128_r",
+           offset,
+           chunk.q[1],
+           chunk.q[0]);
+}
+
+void chunk_write128(uint8_t* addr, uint16_t offset)
+{
+    XMMReg chunk;
+    chunk.q[0] = get_seq64();
+    chunk.q[1] = get_seq64();
+    asm volatile("movdqu %0, %1" :
+                 "=x" (chunk.dq) :
+                 "m" (*(addr + offset)), "0" (chunk.dq)
+        );
+    printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
+           "chunk128_w",
+           offset,
+           chunk.q[1],
+           chunk.q[0]);
+}
+#endif
+
+void test_page_boundaries()
+{
+    // mmap 2 consecutive pages
+    uint8_t *const page0 = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
+    uint8_t *const throwaway = mmap(NULL, PAGE_SIZE, PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    uint8_t *const page1 = mmap(page0 + PAGE_SIZE, PAGE_SIZE,
+                                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+
+    if(page0 == MAP_FAILED || throwaway == MAP_FAILED || page1 == MAP_FAILED)
+    {
+        fatal("mmap");
+    }
+
+    // Trigger page-faults causing virtual pages to be allocated to physical frames
+    page0[0] = 0x42;
+    throwaway[0] = 0x42;
+    page1[0] = 0x42;
+
+    TEST_CROSS_PAGE(16, page0);
+    TEST_CROSS_PAGE(32, page0);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, page0);
+    TEST_CROSS_PAGE(128, page0);
+#endif
+
+    munmap(page0, PAGE_SIZE);
+    munmap(page1, PAGE_SIZE);
+}
+
 extern void *__start_initcall;
 extern void *__stop_initcall;
-
 
 int main(int argc, char **argv)
 {
@@ -2993,7 +3192,9 @@ int main(int argc, char **argv)
     test_vm86();
 #endif
 #if !defined(__x86_64__)
+    test_exceptions();
     test_self_modifying_code();
+    //test_single_step();
 #endif
     test_enter();
     test_conv();
@@ -3001,7 +3202,6 @@ int main(int argc, char **argv)
     test_sse();
     //test_fxsave();
 #endif
-    test_exceptions();
-    //test_single_step();
+    test_page_boundaries();
     return 0;
 }

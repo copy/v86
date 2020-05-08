@@ -57,9 +57,13 @@ a {
     width: 0;
     height: 0;
     resize: none;
-    border: 0;
-    padding: 0;
     position: absolute;
+    opacity: 0;
+    left: -9999em;
+    top: 0;
+    z-index: -10;
+    white-space: nowrap;
+    overflow: hidden;
 }
 h4 {
     margin: 0px 0px 20px 0px;

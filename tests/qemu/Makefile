@@ -2,7 +2,7 @@
 CC=gcc
 CC_I386=$(CC) -m32
 QEMU_INCLUDES += -I../..
-CFLAGS=-Wall -O2 -g -fno-strict-aliasing -static -mmmx -mno-sse
+CFLAGS=-Wall -O2 -g -fno-strict-aliasing -static -mmmx -msse
 LDFLAGS=
 
 

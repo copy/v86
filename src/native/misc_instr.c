@@ -15,6 +15,13 @@ void branch_not_taken();
 void writable_or_pagefault(int32_t, int32_t);
 
 
+static void write_reg8(int32_t index, int32_t value);
+static int32_t read_reg16(int32_t index);
+static void write_reg16(int32_t index, int32_t value);
+static int32_t read_reg32(int32_t index);
+static void write_reg32(int32_t index, int32_t value);
+
+
 int32_t getcf()
 {
     if(*flags_changed & 1)
@@ -106,9 +113,8 @@ void jmp_rel16(int32_t rel16)
     branch_taken();
 }
 
-void jmpcc8(bool condition)
+void jmpcc8(bool condition, int32_t imm8)
 {
-    int32_t imm8 = read_imm8s();
     if(condition)
     {
         *instruction_pointer += imm8;
@@ -120,10 +126,8 @@ void jmpcc8(bool condition)
     }
 }
 
-void jmpcc16(bool condition)
+void jmpcc16(bool condition, int32_t imm16)
 {
-    int32_t imm16 = read_imm16();
-
     if(condition)
     {
         jmp_rel16(imm16);
@@ -135,13 +139,11 @@ void jmpcc16(bool condition)
     }
 }
 
-void jmpcc32(bool condition)
+void jmpcc32(bool condition, int32_t imm32)
 {
-    int32_t op = read_imm32s();
-
     if(condition)
     {
-        *instruction_pointer += op;
+        *instruction_pointer += imm32;
         branch_taken();
     }
     else
@@ -150,21 +152,19 @@ void jmpcc32(bool condition)
     }
 }
 
-static void cmovcc16(bool condition)
+static void cmovcc16(bool condition, int32_t value, int32_t r)
 {
-    int32_t data = read_e16();
     if(condition)
     {
-        write_g16(data);
+        write_reg16(r, value);
     }
 }
 
-static void cmovcc32(bool condition)
+static void cmovcc32(bool condition, int32_t value, int32_t r)
 {
-    int32_t data = read_e32s();
     if(condition)
     {
-        write_g32(data);
+        write_reg32(r, value);
     }
 }
 
@@ -285,8 +285,12 @@ void pusha32()
     push32(reg32s[EDI]);
 }
 
-void setcc(bool condition) {
-    set_e8(condition);
+void setcc_reg(bool condition, int32_t r) {
+    write_reg8(r, condition ? 1 : 0);
+}
+
+void setcc_mem(bool condition, int32_t addr) {
+    safe_write8(addr, condition ? 1 : 0);
 }
 
 int32_t fpu_load_status_word();
@@ -320,10 +324,10 @@ void fxsave(uint32_t addr)
     // implementation dependent.
     for(int32_t i = 0; i < 8; i++)
     {
-        safe_write32(addr + 160 + (i << 4) +  0, reg_xmm32s[i << 2 | 0]);
-        safe_write32(addr + 160 + (i << 4) +  4, reg_xmm32s[i << 2 | 1]);
-        safe_write32(addr + 160 + (i << 4) +  8, reg_xmm32s[i << 2 | 2]);
-        safe_write32(addr + 160 + (i << 4) + 12, reg_xmm32s[i << 2 | 3]);
+        safe_write32(addr + 160 + (i << 4) +  0, reg_xmm[i].u32[0]);
+        safe_write32(addr + 160 + (i << 4) +  4, reg_xmm[i].u32[1]);
+        safe_write32(addr + 160 + (i << 4) +  8, reg_xmm[i].u32[2]);
+        safe_write32(addr + 160 + (i << 4) + 12, reg_xmm[i].u32[3]);
     }
 }
 
@@ -336,7 +340,7 @@ void fxrstor(uint32_t addr)
 
     if(new_mxcsr & ~MXCSR_MASK)
     {
-        //dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK) >>> 0, 8));
+        dbg_log("#gp Invalid mxcsr bits");
         trigger_gp(0);
     }
 
@@ -358,10 +362,44 @@ void fxrstor(uint32_t addr)
 
     for(int32_t i = 0; i < 8; i++)
     {
-        reg_xmm32s[i << 2 | 0] = safe_read32s(addr + 160 + (i << 4) +  0);
-        reg_xmm32s[i << 2 | 1] = safe_read32s(addr + 160 + (i << 4) +  4);
-        reg_xmm32s[i << 2 | 2] = safe_read32s(addr + 160 + (i << 4) +  8);
-        reg_xmm32s[i << 2 | 3] = safe_read32s(addr + 160 + (i << 4) + 12);
+        reg_xmm[i].u32[0] = safe_read32s(addr + 160 + (i << 4) +  0);
+        reg_xmm[i].u32[1] = safe_read32s(addr + 160 + (i << 4) +  4);
+        reg_xmm[i].u32[2] = safe_read32s(addr + 160 + (i << 4) +  8);
+        reg_xmm[i].u32[3] = safe_read32s(addr + 160 + (i << 4) + 12);
     }
 }
 
+int32_t xchg8(int32_t data, int32_t r8)
+{
+    int32_t tmp = reg8[r8];
+    reg8[r8] = data;
+    return tmp;
+}
+
+int32_t xchg16(int32_t data, int32_t r16)
+{
+    int32_t tmp = reg16[r16];
+    reg16[r16] = data;
+    return tmp;
+}
+
+void xchg16r(int32_t r16)
+{
+    int32_t tmp = reg16[AX];
+    reg16[AX] = reg16[r16];
+    reg16[r16] = tmp;
+}
+
+int32_t xchg32(int32_t data, int32_t r32)
+{
+    int32_t tmp = reg32s[r32];
+    reg32s[r32] = data;
+    return tmp;
+}
+
+void xchg32r(int32_t r32)
+{
+    int32_t tmp = reg32s[EAX];
+    reg32s[EAX] = reg32s[r32];
+    reg32s[r32] = tmp;
+}

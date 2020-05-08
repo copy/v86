@@ -177,6 +177,8 @@ CPU.prototype.debug_init = function()
             return;
         }
 
+        _ip = _ip >>> 0;
+
         if(debug.trace_all && debug.all_ops)
         {
             debug.all_ops.push(_ip, op);

@@ -3,6 +3,7 @@
 deploy.sh
 screenshots/
 tests/qemu/test-i386
+tests/jit-paging/test-jit
 *.map
 build/
 closure-compiler/

@@ -3,8 +3,9 @@
 /**
  * @constructor
  * @param {Object=} wm
+ * @param {Object=} codegen
  */
-function v86(bus, wm)
+function v86(bus, wm, codegen)
 {
     /** @type {boolean} */
     this.running = false;
@@ -13,7 +14,7 @@ function v86(bus, wm)
     this.stopped = false;
 
     /** @type {CPU} */
-    this.cpu = new CPU(bus, wm);
+    this.cpu = new CPU(bus, wm, codegen);
 
     this.bus = bus;
     bus.register("cpu-init", this.init, this);

@@ -161,3 +161,17 @@
 #define USE_A20 false
 
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
+
+// Mask used to map physical address to index in cache array
+#define JIT_PHYS_MASK 0xFFFF
+
+#define CACHE_LEN 0x10000
+#define HASH_PRIME 6151
+#define JIT_THRESHOLD 10000
+// XXX: Consider making this the same as page size (12) during perf testing
+#define DIRTY_ARR_SHIFT 16
+#define MAX_INSTR_LEN 15
+#define MAX_BLOCK_LENGTH ((1 << DIRTY_ARR_SHIFT) - MAX_INSTR_LEN)
+
+#define ENABLE_JIT 0
+#define ENABLE_PROFILER 0

@@ -1,6 +1,12 @@
 #ifndef _GLOBAL_POINTERS_H
 #define _GLOBAL_POINTERS_H
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+#include "const.h"
+#include "shared.h"
+
 uint8_t* const reg8 = (uint8_t* const) 4;
 uint16_t* const reg16 = (uint16_t* const) 4;
 int8_t* const reg8s = (int8_t* const) 4;
@@ -14,8 +20,7 @@ int32_t* const last_add_result = (int32_t* const) 524;
 int32_t* const last_result = (int32_t* const) 528;
 int32_t* const flags_changed = (int32_t* const) 532;
 int32_t* const flags = (int32_t* const) 536;
-int32_t* const modrm_byte = (int32_t* const) 540;
-int32_t* const mul32_result = (int32_t* const) 544; // length 8
+// gap 16
 
 bool* const a20_enabled = (bool* const) 552;
 int32_t* const instruction_pointer = (int32_t* const) 556;
@@ -40,7 +45,7 @@ uint8_t* const prefixes = (uint8_t* const) 648;
 int32_t* const tsc_offset = (int32_t* const) 652;
 int32_t* const phys_addr = (int32_t* const) 656;
 int32_t* const phys_addr_high = (int32_t* const) 660;
-int32_t* const timestamp_counter = (int32_t* const) 664;
+uint32_t* const timestamp_counter = (uint32_t* const) 664;
 
 uint16_t* const sreg = (uint16_t* const) 668;
 int32_t* const dreg = (int32_t* const) 684; // length 32
@@ -59,32 +64,17 @@ bool* const paging = (bool* const) 820;
 
 int32_t* const mxcsr = (int32_t* const) 824;
 
-union reg128 {
-    uint8_t   u8[16];
-    uint16_t  u16[8];
-    uint32_t  u32[4];
-};
-
-union reg64 {
-    int8_t   s8[8];
-    int16_t  s16[4];
-    int32_t  s32[2];
-    uint8_t   u8[8];
-    uint16_t  u16[4];
-    uint32_t  u32[2];
-    double   f64[1];
-};
-
-int32_t* const reg_xmm32s = (int32_t* const) 828; // length 128
 union reg128* const reg_xmm = (union reg128* const) 828; // length 128
 
 uint8_t* const tlb_info = (uint8_t* const) 2048; // length 0x100000
 uint8_t* const tlb_info_global = (uint8_t* const) (2048 + 0x100000); // length 0x100000
 int32_t* const tlb_data = (int32_t* const) (2048 + 0x100000 + 0x100000); // length 0x100000*4
 
-uint8_t* const mem8 = (uint8_t* const) (2048 + 0x100000 * 6);
-uint16_t* const mem16 = (uint16_t* const) (2048 + 0x100000 * 6);
-int32_t* const mem32s = (int32_t* const) (2048 + 0x100000 * 6);
+uint8_t* const codegen_buffers = (uint8_t* const) (2048 + 0x100000 * 6); // length 2048
+
+uint8_t* const mem8 = (uint8_t* const) (2048 + 0x100000 * 6 + 2048);
+uint16_t* const mem16 = (uint16_t* const) (2048 + 0x100000 * 6 + 2048);
+int32_t* const mem32s = (int32_t* const) (2048 + 0x100000 * 6 + 2048);
 
 float_t* const fpu_float32 = (float_t* const) 956;
 uint8_t* const fpu_float32_byte = (uint8_t* const) 956;
@@ -107,7 +97,8 @@ double_t* const fpu_st = (double_t* const) 968;
 uint8_t* const fpu_st8 = (uint8_t* const) 968;
 int32_t* const fpu_st32 = (int32_t* const) 968;
 
-int32_t* const reg_mmx32s = (int32_t* const) 1064; // length 64
 union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
 
+uint32_t* const cache_hit = (uint32_t* const) 1280;
+uint32_t* const cache_compile = (uint32_t* const) 1284;
 #endif

@@ -1,5 +1,7 @@
 # Invocation: gdb -x gdbauto xyz.bin
 
+set $STACK_TOP=0x120000
+
 break loop
 run
 
@@ -67,22 +69,22 @@ printf "    %d,\n", $xmm7.v4_int32[2]
 printf "    %d,\n", $xmm7.v4_int32[3]
 printf "    \n"
 
-printf "    %d,\n", *(int*)(0x120000-64)
-printf "    %d,\n", *(int*)(0x120000-60)
-printf "    %d,\n", *(int*)(0x120000-56)
-printf "    %d,\n", *(int*)(0x120000-52)
-printf "    %d,\n", *(int*)(0x120000-48)
-printf "    %d,\n", *(int*)(0x120000-44)
-printf "    %d,\n", *(int*)(0x120000-40)
-printf "    %d,\n", *(int*)(0x120000-36)
-printf "    %d,\n", *(int*)(0x120000-32)
-printf "    %d,\n", *(int*)(0x120000-28)
-printf "    %d,\n", *(int*)(0x120000-24)
-printf "    %d,\n", *(int*)(0x120000-20)
-printf "    %d,\n", *(int*)(0x120000-16)
-printf "    %d,\n", *(int*)(0x120000-12)
-printf "    %d,\n", *(int*)(0x120000-8)
-printf "    %d,\n", *(int*)(0x120000-4)
+printf "    %d,\n", *(int*)($STACK_TOP-64)
+printf "    %d,\n", *(int*)($STACK_TOP-60)
+printf "    %d,\n", *(int*)($STACK_TOP-56)
+printf "    %d,\n", *(int*)($STACK_TOP-52)
+printf "    %d,\n", *(int*)($STACK_TOP-48)
+printf "    %d,\n", *(int*)($STACK_TOP-44)
+printf "    %d,\n", *(int*)($STACK_TOP-40)
+printf "    %d,\n", *(int*)($STACK_TOP-36)
+printf "    %d,\n", *(int*)($STACK_TOP-32)
+printf "    %d,\n", *(int*)($STACK_TOP-28)
+printf "    %d,\n", *(int*)($STACK_TOP-24)
+printf "    %d,\n", *(int*)($STACK_TOP-20)
+printf "    %d,\n", *(int*)($STACK_TOP-16)
+printf "    %d,\n", *(int*)($STACK_TOP-12)
+printf "    %d,\n", *(int*)($STACK_TOP-8)
+printf "    %d,\n", *(int*)($STACK_TOP-4)
 printf "    \n"
 
 printf "    %d\n", $eflags

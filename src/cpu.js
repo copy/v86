@@ -11,9 +11,10 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm)
+function CPU(bus, wm, codegen)
 {
     this.wm = wm;
+    this.codegen = codegen;
     this.wasm_patch(wm);
 
     this.memory_size = new Uint32Array(wm.mem.buffer, 812, 1);
@@ -182,7 +183,7 @@ function CPU(bus, wm)
         vga: null,
     };
 
-    this.timestamp_counter = new Int32Array(wm.mem.buffer, 664, 1);
+    this.timestamp_counter = new Uint32Array(wm.mem.buffer, 664, 1);
 
     // registers
     this.reg32s = new Int32Array(wm.mem.buffer, 4, 8);
@@ -197,6 +198,9 @@ function CPU(bus, wm)
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
+
+    this.cache_hit = new Uint32Array(wm.mem.buffer, 1280, 1);
+    this.cache_compile = new Uint32Array(wm.mem.buffer, 1284, 1);
 
     this.reg_xmm32s = new Int32Array(wm.mem.buffer, 828, 8 * 4);
 
@@ -372,6 +376,88 @@ CPU.prototype.wasm_patch = function(wm)
     this.fxsave = this.wm.funcs['_fxsave'];
     this.fxrstor = this.wm.funcs['_fxrstor'];
 };
+
+//*
+CPU.prototype.resolve_modrm16 = function(modrm_byte)
+{
+    dbg_log("resolve_modrm16, modrm_byte=" + h(modrm_byte));
+
+    let buf;
+    const RESULT_LOC = 1600;
+
+    try {
+        const gen = this.codegen;
+        gen.reset();
+        gen.jit_resolve_modrm16(modrm_byte);
+        gen.finish();
+        buf = gen.get_module_code();
+
+        //XXX: move the following logic to a separate function
+        const module = new WebAssembly.Module(buf);
+        const imports = { "e": {
+            "get_seg": v => this.get_seg(v),
+            "get_reg": v => v, //XXX: no get_reg on CPU :|
+            "get_seg_prefix_ds": v => this.get_seg_prefix_ds(v),
+            "get_seg_prefix_ss": v => this.get_seg_prefix_ss(v),
+            "get_seg_prefix": v => this.get_seg_prefix(v),
+            "m": this.wm.mem,
+        } };
+        const o = new WebAssembly.Instance(module, imports);
+        o.exports["f"]();
+        const view = new Int32Array(this.wm.mem.buffer, RESULT_LOC, 4);
+        return view[0];
+    }
+    catch(err)
+    {
+        if (typeof buf !== "undefined")
+        {
+            v86util.add_download_button(buf, "myjit.wasm");
+        }
+        throw err;
+    }
+};
+//*/
+
+//*
+CPU.prototype.resolve_modrm32 = function(modrm_byte)
+{
+    dbg_log("resolve_modrm32, modrm_byte=" + h(modrm_byte));
+
+    let buf;
+    const RESULT_LOC = 1600;
+
+    try {
+        const gen = this.codegen;
+        gen.reset();
+        gen.jit_resolve_modrm32(modrm_byte);
+        gen.finish();
+        buf = gen.get_module_code();
+
+        //XXX: move the following logic to a separate function
+        const module = new WebAssembly.Module(buf);
+        const imports = { "e": {
+            "get_seg": v => this.get_seg(v),
+            "get_reg": v => v, //XXX: no get_reg on CPU :|
+            "get_seg_prefix_ds": v => this.get_seg_prefix_ds(v),
+            "get_seg_prefix_ss": v => this.get_seg_prefix_ss(v),
+            "get_seg_prefix": v => this.get_seg_prefix(v),
+            "m": this.wm.mem,
+        } };
+        const o = new WebAssembly.Instance(module, imports);
+        o.exports["f"]();
+        const view = new Int32Array(this.wm.mem.buffer, RESULT_LOC, 4);
+        return view[0];
+    }
+    catch(err)
+    {
+        if (typeof buf !== "undefined")
+        {
+            v86util.add_download_button(buf, "myjit.wasm");
+        }
+        throw err;
+    }
+};
+//*/
 
 CPU.prototype.get_state = function()
 {
@@ -701,9 +787,9 @@ CPU.prototype.create_memory = function(size)
 
     var buffer = this.wm.mem.buffer;
 
-    this.mem8 = new Uint8Array(buffer, 2048 + 0x100000 * 6, size);
-    this.mem16 = new Uint16Array(buffer, 2048 + 0x100000 * 6, size >> 1);
-    this.mem32s = new Int32Array(buffer, 2048 + 0x100000 * 6, size >> 2);
+    this.mem8 = new Uint8Array(buffer, 2048 + 0x100000 * 6 + 2048, size);
+    this.mem16 = new Uint16Array(buffer, 2048 + 0x100000 * 6 + 2048, size >> 1);
+    this.mem32s = new Int32Array(buffer, 2048 + 0x100000 * 6 + 2048, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
@@ -712,6 +798,12 @@ CPU.prototype.init = function(settings, device_bus)
         settings.memory_size : 1024 * 1024 * 64);
 
     this.reset();
+
+    if(typeof settings.log_level === "number")
+    {
+        // XXX: Shared between all emulator instances
+        LOG_LEVEL = settings.log_level;
+    }
 
     var io = new IO(this);
     this.io = io;
@@ -857,6 +949,8 @@ CPU.prototype.init = function(settings, device_bus)
     {
         this.debug.init();
     }
+
+    this.wm.funcs["_profiler_init"]();
 };
 
 CPU.prototype.load_multiboot = function(buffer)
@@ -1161,6 +1255,9 @@ CPU.prototype.load_bios = function()
 
 CPU.prototype.do_run = function()
 {
+    // Idle time is when no instructions are being executed
+    this.wm.funcs["_profiler_end"](P_IDLE);
+
     /** @type {number} */
     var start = v86.microtick();
 
@@ -1183,10 +1280,15 @@ CPU.prototype.do_run = function()
 
         now = v86.microtick();
     }
+
+    this.wm.funcs["_profiler_start"](P_IDLE);
 };
 
 CPU.prototype.do_many_cycles = function()
 {
+    // Capture the total time we were executing instructions
+    this.wm.funcs["_profiler_start"](P_DO_MANY_CYCLES);
+
     try {
         this.do_many_cycles_unsafe();
     }
@@ -1194,6 +1296,8 @@ CPU.prototype.do_many_cycles = function()
     {
         this.exception_cleanup(e);
     }
+
+    this.wm.funcs["_profiler_end"](P_DO_MANY_CYCLES);
 };
 
 CPU.prototype.do_many_cycles_unsafe = function()
@@ -1419,12 +1523,15 @@ CPU.prototype.set_cr0 = function(cr0)
     }
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
+
+    this.wm.funcs._jit_empty_cache();
 };
 
 CPU.prototype.set_cr4 = function(cr4)
 {
     if(cr4 & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
     {
+        dbg_log("trigger_gp: Invalid cr4 bit", LOG_CPU);
         this.trigger_gp(0);
     }
 
@@ -1553,9 +1660,20 @@ CPU.prototype.read_disp16 = CPU.prototype.read_imm16;
 CPU.prototype.read_disp32s = CPU.prototype.read_imm32s;
 
 CPU.prototype.init2 = function () {};
-CPU.prototype.branch_taken = function () {};
-CPU.prototype.branch_not_taken = function () {};
-CPU.prototype.diverged = function () {};
+
+CPU.prototype.after_jump = function () {
+    // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
+    this.wm.funcs._after_jump();
+};
+CPU.prototype.branch_taken = function () {
+    this.after_jump();
+};
+CPU.prototype.branch_not_taken = function () {
+    this.after_jump();
+};
+CPU.prototype.diverged = function () {
+    this.after_jump();
+};
 
 CPU.prototype.modrm_resolve = function(modrm_byte)
 {
@@ -3240,6 +3358,7 @@ CPU.prototype.hlt_op = function()
 {
     if(this.cpl[0])
     {
+        dbg_log("#gp hlt with cpl != 0", LOG_CPU);
         this.trigger_gp(0);
     }
 
@@ -3387,13 +3506,6 @@ CPU.prototype.unimplemented_sse = function()
     dbg_log("No SSE", LOG_CPU);
     dbg_assert(false);
     this.trigger_ud();
-};
-
-CPU.prototype.unimplemented_sse_wasm = function()
-{
-    this.instruction_pointer[0] -= 1;
-
-    this.table0F_32[this.read_op0F()](this);
 };
 
 CPU.prototype.get_seg_prefix_ds = function(offset)
@@ -3930,9 +4042,10 @@ CPU.prototype.cpuid = function()
     var edx = 0;
     var ebx = 0;
 
-    var winnt_fix = false;
+    const winnt_fix = false;
+    const level = this.reg32s[reg_eax];
 
-    switch(this.reg32s[reg_eax])
+    switch(level)
     {
         case 0:
             // maximum supported level
@@ -4029,7 +4142,14 @@ CPU.prototype.cpuid = function()
             dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
     }
 
-    dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
+    if(level === 4)
+    {
+        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
+    }
+    else
+    {
+        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8), LOG_CPU);
+    }
 
     this.reg32s[reg_eax] = eax;
     this.reg32s[reg_ecx] = ecx;
@@ -4403,6 +4523,12 @@ CPU.prototype.lar = function(selector, original)
 {
     dbg_log("lar sel=" + h(selector, 4), LOG_CPU);
 
+    if(!this.protected_mode[0] || this.vm86_mode())
+    {
+        dbg_log("lar #ud");
+        this.trigger_ud();
+    }
+
     /** @const */
     var LAR_INVALID_TYPE = 1 << 0 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 0xA |
                            1 << 0xD | 1 << 0xE | 1 << 0xF;
@@ -4430,6 +4556,12 @@ CPU.prototype.lar = function(selector, original)
 CPU.prototype.lsl = function(selector, original)
 {
     dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
+
+    if(!this.protected_mode[0] || this.vm86_mode())
+    {
+        dbg_log("lsl #ud");
+        this.trigger_ud();
+    }
 
     /** @const */
     var LSL_INVALID_TYPE = 1 << 0 | 1 << 4 | 1 << 5 | 1 << 6 | 1 << 7 | 1 << 8 |

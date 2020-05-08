@@ -6,11 +6,14 @@
 #include "const.h"
 #include "global_pointers.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+
 // XXX: Remove these declarations when they are implemented in C
-static void cmovcc16(bool);
-static void cmovcc32(bool);
-void jmpcc16(bool);
-void jmpcc32(bool);
+static void cmovcc16(bool, int32_t, int32_t);
+static void cmovcc32(bool, int32_t, int32_t);
+void jmpcc16(bool, int32_t);
+void jmpcc32(bool, int32_t);
 void setcc(bool);
 void cpuid();
 
@@ -30,10 +33,6 @@ int32_t bsr32(int32_t, int32_t);
 int32_t popcnt(int32_t);
 int32_t bswap(int32_t);
 
-int32_t read_g16s(void);
-int32_t read_reg_e16(void);
-int32_t read_reg_e32s(void);
-
 void cpl_changed(void);
 void update_cs_size(int32_t);
 void unimplemented_sse(void);
@@ -52,7 +51,7 @@ void undefined_instruction();
 void clear_tlb();
 void full_clear_tlb();
 
-int32_t microtick();
+double_t microtick();
 
 int32_t lsl(int32_t, int32_t);
 int32_t lar(int32_t, int32_t);
@@ -69,236 +68,192 @@ void writable_or_pagefault(int32_t, int32_t);
 bool* const apic_enabled;
 
 
-static void instr_0F00() { read_modrm_byte();
-    if(!protected_mode[0] || vm86_mode())
-    {
-        // No GP, UD is correct here
-        dbg_log("0f 00 #ud");
-        trigger_ud();
-    }
+static void write_reg8(int32_t index, int32_t value);
+static int32_t read_reg16(int32_t index);
+static void write_reg16(int32_t index, int32_t value);
+static int32_t read_reg32(int32_t index);
+static void write_reg32(int32_t index, int32_t value);
 
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0:
-            // sldt
-            set_e16(sreg[LDTR]);
-            if(is_osize_32() && modrm_byte[0] >= 0xC0)
-            {
-                reg32s[modrm_byte[0] & 7] &= 0xFFFF;
-            }
-            break;
-        case 1:
-            // str
-            set_e16(sreg[LDTR]);
-            if(is_osize_32() && modrm_byte[0] >= 0xC0)
-            {
-                reg32s[modrm_byte[0] & 7] &= 0xFFFF;
-            }
-            break;
-        case 2:
-            // lldt
-            if(cpl[0])
-            {
-                trigger_gp(0);
-            }
 
-            {
-                int32_t data = read_e16();
-                load_ldt(data);
-            }
-            break;
-        case 3:
-            // ltr
-            if(cpl[0])
-            {
-                trigger_gp(0);
-            }
+#define DEFINE_MODRM_INSTR_READ16(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
 
-            int32_t data = read_e16();
-            load_tr(data);
-            break;
-        case 4:
-            verr(read_e16());
-            break;
-        case 5:
-            verw(read_e16());
-            break;
+#define DEFINE_MODRM_INSTR_READ32(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
 
-        default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
-            todo();
-    }
+
+#define DEFINE_MODRM_INSTR_IMM_READ_WRITE_16(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+
+#define DEFINE_MODRM_INSTR_IMM_READ_WRITE_32(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+
+
+#define DEFINE_SSE_SPLIT(name, mem_fn, reg_fn) \
+    static void name ## _reg(int32_t r1, int32_t r2) { name(reg_fn(r1), r2); } \
+    static void name ## _mem(int32_t addr, int32_t r) { name(mem_fn(addr), r); } \
+
+#define DEFINE_SSE_SPLIT_IMM(name, mem_fn, reg_fn) \
+    static void name ## _reg(int32_t r1, int32_t r2, int32_t imm) { name(reg_fn(r1), r2, imm); } \
+    static void name ## _mem(int32_t addr, int32_t r, int32_t imm) { name(mem_fn(addr), r, imm); } \
+
+#define DEFINE_SSE_SPLIT_WRITE(name, mem_fn, reg_fn) \
+    static void name ## _reg(int32_t r1, int32_t r2) { reg_fn(r1, name(r2)); } \
+    static void name ## _mem(int32_t addr, int32_t r) { mem_fn(addr, name(r)); } \
+
+
+static void instr_0F00_0_mem(int32_t addr) {
+    // sldt
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    safe_write16(addr, sreg[LDTR]);
+}
+static void instr_0F00_0_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    write_reg_osize(r, sreg[LDTR]);
+}
+static void instr_0F00_1_mem(int32_t addr) {
+    // str
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    safe_write16(addr, sreg[TR]);
+}
+static void instr_0F00_1_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    write_reg_osize(r, sreg[TR]);
+}
+static void instr_0F00_2_mem(int32_t addr) {
+    // lldt
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(cpl[0]) trigger_gp(0);
+    load_ldt(safe_read16(addr));
+}
+static void instr_0F00_2_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(cpl[0]) trigger_gp(0);
+    load_ldt(read_reg16(r));
+}
+static void instr_0F00_3_mem(int32_t addr) {
+    // ltr
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(cpl[0]) trigger_gp(0);
+    load_tr(safe_read16(addr));
+}
+static void instr_0F00_3_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(cpl[0]) trigger_gp(0);
+    load_tr(read_reg16(r));
+}
+static void instr_0F00_4_mem(int32_t addr) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    verr(safe_read16(addr));
+}
+static void instr_0F00_4_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    verr(read_reg16(r));
+}
+static void instr_0F00_5_mem(int32_t addr) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    verw(safe_read16(addr));
+}
+static void instr_0F00_5_reg(int32_t r) {
+    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    verw(read_reg16(r));
 }
 
-static void instr_0F01() { read_modrm_byte();
-    int32_t mod = modrm_byte[0] >> 3 & 7;
 
-    if(mod == 4)
-    {
-        // smsw
-        if(modrm_byte[0] >= 0xC0 && is_osize_32())
-        {
-            set_e32(cr[0]);
-        }
-        else
-        {
-            set_e16(cr[0]);
-        }
-        return;
-    }
-    else if(mod == 6)
-    {
-        // lmsw
-        if(cpl[0])
-        {
-            trigger_gp(0);
-        }
-
-        int32_t cr0 = read_e16();
-
-        cr0 = (cr[0] & ~0xF) | (cr0 & 0xF);
-
-        if(protected_mode[0])
-        {
-            // lmsw cannot be used to switch back
-            cr0 |= CR0_PE;
-        }
-
-        set_cr0(cr0);
-        return;
-    }
-
-    if(modrm_byte[0] >= 0xC0)
-    {
-        // only memory
-        dbg_log("0f 01 #ud");
-        trigger_ud();
-    }
-
-    int32_t addr = modrm_resolve(modrm_byte[0]);
-
-    switch(mod)
-    {
-        case 0:
-            // sgdt
-            writable_or_pagefault(addr, 6);
-            safe_write16(addr, gdtr_size[0]);
-            {
-                int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
-                safe_write32(addr + 2, gdtr_offset[0] & mask);
-            }
-            break;
-        case 1:
-            // sidt
-            writable_or_pagefault(addr, 6);
-            safe_write16(addr, idtr_size[0]);
-            {
-                int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
-                safe_write32(addr + 2, idtr_offset[0] & mask);
-            }
-            break;
-        case 2:
-            // lgdt
-            if(cpl[0])
-            {
-                trigger_gp(0);
-            }
-
-            {
-                int32_t size = safe_read16(addr);
-                int32_t offset = safe_read32s(addr + 2);
-
-                gdtr_size[0] = size;
-                gdtr_offset[0] = offset;
-
-                if(!is_osize_32())
-                {
-                    gdtr_offset[0] &= 0xFFFFFF;
-                }
-
-                //dbg_log("gdt at " + h(gdtr_offset[0]) + ", " + gdtr_size[0] + " bytes");
-                //debug.dump_state();
-                //debug.dump_regs_short();
-                //debug.dump_gdt_ldt();
-            }
-            break;
-        case 3:
-            // lidt
-            if(cpl[0])
-            {
-                trigger_gp(0);
-            }
-
-            {
-                int32_t size = safe_read16(addr);
-                int32_t offset = safe_read32s(addr + 2);
-
-                idtr_size[0] = size;
-                idtr_offset[0] = offset;
-
-                if(!is_osize_32())
-                {
-                    idtr_offset[0] &= 0xFFFFFF;
-                }
-
-                //dbg_log("[" + h(instruction_pointer) + "] idt at " +
-                //        h(idtr_offset) + ", " + idtr_size[0] + " bytes " + h(addr));
-            }
-            break;
-        case 7:
-            // flush translation lookaside buffer
-            if(cpl[0])
-            {
-                trigger_gp(0);
-            }
-
-            invlpg(addr);
-            break;
-        default:
-            dbg_log("%d", mod);
-            todo();
-    }
+static void instr_0F01_0_reg(int32_t r) { trigger_ud(); }
+static void instr_0F01_0_mem(int32_t addr) {
+    // sgdt
+    writable_or_pagefault(addr, 6);
+    int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
+    safe_write16(addr, gdtr_size[0]);
+    safe_write32(addr + 2, gdtr_offset[0] & mask);
+}
+static void instr_0F01_1_reg(int32_t r) { trigger_ud(); }
+static void instr_0F01_1_mem(int32_t addr) {
+    // sidt
+    writable_or_pagefault(addr, 6);
+    int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
+    safe_write16(addr, idtr_size[0]);
+    safe_write32(addr + 2, idtr_offset[0] & mask);
+}
+static void instr_0F01_2_reg(int32_t r) { trigger_ud(); }
+static void instr_0F01_2_mem(int32_t addr) {
+    // lgdt
+    if(cpl[0]) trigger_gp(0);
+    int32_t size = safe_read16(addr);
+    int32_t offset = safe_read32s(addr + 2);
+    int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
+    gdtr_size[0] = size;
+    gdtr_offset[0] = offset & mask;
+}
+static void instr_0F01_3_reg(int32_t r) { trigger_ud(); }
+static void instr_0F01_3_mem(int32_t addr) {
+    // lidt
+    if(cpl[0]) trigger_gp(0);
+    int32_t size = safe_read16(addr);
+    int32_t offset = safe_read32s(addr + 2);
+    int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
+    idtr_size[0] = size;
+    idtr_offset[0] = offset & mask;
 }
 
-static void instr16_0F02() { read_modrm_byte();
-    // lar
-    if(!protected_mode[0] || vm86_mode())
-    {
-        dbg_log("lar #ud");
-        trigger_ud();
-    }
-    int32_t data = read_e16();
-    write_g16(lar(data, read_g16()));
+static void instr_0F01_4_reg(int32_t r) {
+    // smsw
+    write_reg_osize(r, cr[0]);
 }
-static void instr32_0F02() { read_modrm_byte();
-    if(!protected_mode[0] || vm86_mode())
-    {
-        dbg_log("lar #ud");
-        trigger_ud();
-    }
-    int32_t data = read_e16();
-    write_g32(lar(data, read_g32s()));
+static void instr_0F01_4_mem(int32_t addr) {
+    safe_write16(addr, cr[0] & 0xFFFF);
 }
 
-static void instr16_0F03() { read_modrm_byte();
-    // lsl
-    if(!protected_mode[0] || vm86_mode())
+static void lmsw(int32_t new_cr0) {
+    new_cr0 = (cr[0] & ~0xF) | (new_cr0 & 0xF);
+
+    if(protected_mode[0])
     {
-        dbg_log("lsl #ud");
-        trigger_ud();
+        // lmsw cannot be used to switch back
+        new_cr0 |= CR0_PE;
     }
-    int32_t data = read_e16();
-    write_g16(lsl(data, read_g16()));
+
+    set_cr0(new_cr0);
 }
-static void instr32_0F03() { read_modrm_byte();
-    if(!protected_mode[0] || vm86_mode())
-    {
-        dbg_log("lsl #ud");
-        trigger_ud();
-    }
-    int32_t data = read_e16();
-    write_g32(lsl(data, read_g32s()));
+static void instr_0F01_6_reg(int32_t r) {
+    if(cpl[0]) trigger_gp(0);
+    lmsw(read_reg16(r));
 }
+static void instr_0F01_6_mem(int32_t addr) {
+    if(cpl[0]) trigger_gp(0);
+    lmsw(safe_read16(addr));
+}
+
+static void instr_0F01_7_reg(int32_t r) { trigger_ud(); }
+static void instr_0F01_7_mem(int32_t addr) {
+    // invlpg
+    if(cpl[0]) trigger_gp(0);
+    invlpg(addr);
+}
+
+DEFINE_MODRM_INSTR_READ16(instr16_0F02, write_reg16(r, lar(___, read_reg16(r))))
+DEFINE_MODRM_INSTR_READ16(instr32_0F02, write_reg32(r, lar(___, read_reg32(r))))
+
+DEFINE_MODRM_INSTR_READ16(instr16_0F03, write_reg16(r, lsl(___, read_reg16(r))))
+DEFINE_MODRM_INSTR_READ16(instr32_0F03, write_reg32(r, lsl(___, read_reg32(r))))
 
 static void instr_0F04() { undefined_instruction(); }
 static void instr_0F05() { undefined_instruction(); }
@@ -350,55 +305,64 @@ static void instr_0F0F() { undefined_instruction(); }
 
 static void instr_0F10() { unimplemented_sse(); }
 static void instr_0F11() { unimplemented_sse(); }
-static void instr_0F12() { unimplemented_sse(); }
+static void instr_0F12_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660F12() {
-    // movlpd xmm, xmm/m64
+static void instr_660F12_reg(int32_t r1, int32_t r) { trigger_ud(); }
+static void instr_660F12_mem(int32_t addr, int32_t r) {
+    // movlpd xmm, m64
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_xmm_mem64s();
-    write_xmm64(data.u32[0], data.u32[1]);
+    union reg64 data = safe_read64s(addr);
+    write_xmm64(r, data);
+}
+static void instr_F20F12_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F20F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_F30F12_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F30F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0F13_mem(int32_t addr, int32_t r) {
+    // movlps m64, xmm
+    task_switch_test_mmx();
+    union reg64 data = read_xmm64s(r);
+    safe_write64(addr, data.u64[0]);
 }
 
-static void instr_0F13() { unimplemented_sse(); }
+static void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660F13()
-{
+static void instr_660F13_reg(int32_t r1, int32_t r) { trigger_ud(); }
+static void instr_660F13_mem(int32_t addr, int32_t r) {
     // movlpd xmm/m64, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_xmm64s();
-    int32_t addr = modrm_resolve(*modrm_byte);
-    safe_write64(addr, data.s32[0], data.s32[1]);
+    union reg64 data = read_xmm64s(r);
+    safe_write64(addr, data.u64[0]);
 }
 
-static void instr_0F14() { unimplemented_sse(); }
+static void instr_0F14_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0F14_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660F14()
-{
+static void instr_660F14(union reg64 source, int32_t r) {
     // unpcklpd xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 source = read_xmm_mem64s();
-    union reg64 destination = read_xmm64s();
+    union reg64 destination = read_xmm64s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         destination.u32[0],
         destination.u32[1],
         source.u32[0],
         source.u32[1]
     );
 }
+DEFINE_SSE_SPLIT(instr_660F14, safe_read64s, read_xmm64s)
 
 static void instr_0F15() { unimplemented_sse(); }
 static void instr_0F16() { unimplemented_sse(); }
 static void instr_0F17() { unimplemented_sse(); }
 
-static void instr_0F18() { read_modrm_byte();
+static void instr_0F18_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr_0F18_mem(int32_t addr, int32_t r) {
     // prefetch
     // nop for us
-    if(modrm_byte[0] < 0xC0)
-        modrm_resolve(modrm_byte[0]);
 }
 
 static void instr_0F19() { unimplemented_sse(); }
@@ -407,77 +371,78 @@ static void instr_0F1B() { unimplemented_sse(); }
 static void instr_0F1C() { unimplemented_sse(); }
 static void instr_0F1D() { unimplemented_sse(); }
 static void instr_0F1E() { unimplemented_sse(); }
-static void instr_0F1F() { read_modrm_byte();
+static void instr_0F1F_reg(int32_t r1, int32_t r2) {
     // multi-byte nop
-    if(modrm_byte[0] < 0xC0)
-        modrm_resolve(modrm_byte[0]);
+}
+static void instr_0F1F_mem(int32_t addr, int32_t r) {
+    // multi-byte nop
 }
 
 
-static void instr_0F20() { read_modrm_byte();
+static void instr_0F20(int32_t r, int32_t creg) {
 
     if(cpl[0])
     {
         trigger_gp(0);
     }
-    //dbg_log("cr" + (modrm_byte[0] >> 3 & 7) + " read");
 
-    // mov addr, cr
-    // mod = which control register
-    switch(modrm_byte[0] >> 3 & 7)
+    switch(creg)
     {
         case 0:
-            write_reg_e32(cr[0]);
+            write_reg32(r, cr[0]);
             break;
         case 2:
-            //dbg_log("read cr2 at " + h(instruction_pointer, 8));
-            write_reg_e32(cr[2]);
+            write_reg32(r, cr[2]);
             break;
         case 3:
-            //dbg_log("read cr3 (" + h(cr[3], 8) + ")");
-            write_reg_e32(cr[3]);
+            write_reg32(r, cr[3]);
             break;
         case 4:
-            write_reg_e32(cr[4]);
+            write_reg32(r, cr[4]);
             break;
         default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
+            dbg_log("%d", creg);
             todo();
+            trigger_ud();
     }
 }
 
-static void instr_0F21() { read_modrm_byte();
+static void instr_0F21(int32_t r, int32_t dreg_index) {
     if(cpl[0])
     {
         trigger_gp(0);
     }
 
-    int32_t dreg_index = modrm_byte[0] >> 3 & 7;
-    if((cr[4] & CR4_DE) && (dreg_index == 4 || dreg_index == 5))
+    if(dreg_index == 4 || dreg_index == 5)
     {
-        dbg_log("#ud mov dreg 4/5 with cr4.DE set");
-        trigger_ud();
+        if(cr[4] & CR4_DE)
+        {
+            dbg_log("#ud mov dreg 4/5 with cr4.DE set");
+            trigger_ud();
+        }
+        else
+        {
+            // DR4 and DR5 refer to DR6 and DR7 respectively
+            dreg_index += 2;
+        }
     }
 
-    // high two bits of modrm are ignored
-    reg32s[modrm_byte[0] & 7] = dreg[dreg_index];
+    write_reg32(r, dreg[dreg_index]);
 
-    //dbg_log("read dr" + dreg + ": " + h(dreg[dreg_index]));
+    //dbg_log("read dr%d: %x", dreg_index, dreg[dreg_index]);
 }
 
-static void instr_0F22() { read_modrm_byte();
+static void instr_0F22(int32_t r, int32_t creg) {
 
     if(cpl[0])
     {
         trigger_gp(0);
     }
 
-    int32_t data = read_reg_e32s();
-    //dbg_log("cr" + (modrm_byte[0] >> 3 & 7) + " written: " + h(data, 8));
+    int32_t data = read_reg32(r);
 
     // mov cr, addr
-    // mod = which control register
-    switch(modrm_byte[0] >> 3 & 7)
+    switch(creg)
     {
         case 0:
             set_cr0(data);
@@ -534,27 +499,34 @@ static void instr_0F22() { read_modrm_byte();
             break;
 
         default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
+            dbg_log("%d", creg);
             todo();
+            trigger_ud();
     }
 }
-static void instr_0F23() { read_modrm_byte();
+static void instr_0F23(int32_t r, int32_t dreg_index) {
     if(cpl[0])
     {
         trigger_gp(0);
     }
 
-    int32_t dreg_index = modrm_byte[0] >> 3 & 7;
-    if((cr[4] & CR4_DE) && (dreg_index == 4 || dreg_index == 5))
+    if(dreg_index == 4 || dreg_index == 5)
     {
-        dbg_log("#ud mov dreg 4/5 with cr4.DE set");
-        trigger_ud();
+        if(cr[4] & CR4_DE)
+        {
+            dbg_log("#ud mov dreg 4/5 with cr4.DE set");
+            trigger_ud();
+        }
+        else
+        {
+            // DR4 and DR5 refer to DR6 and DR7 respectively
+            dreg_index += 2;
+        }
     }
 
-    // high two bits of modrm are ignored
-    dreg[dreg_index] = read_reg_e32s();
+    dreg[dreg_index] = read_reg32(r);
 
-    //dbg_log("write dr" + dreg + ": " + h(dreg[dreg_index]));
+    //dbg_log("write dr%d: %x", dreg_index, dreg[dreg_index]);
 }
 
 static void instr_0F24() { undefined_instruction(); }
@@ -562,92 +534,82 @@ static void instr_0F25() { undefined_instruction(); }
 static void instr_0F26() { undefined_instruction(); }
 static void instr_0F27() { undefined_instruction(); }
 
-static void instr_0F28()
-{
+static void instr_0F28(union reg128 source, int32_t r) {
     // movaps xmm, xmm/m128
+    // XXX: Aligned read or #gp
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm_mem128s();
-    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+    write_xmm_reg128(r, source);
 }
+DEFINE_SSE_SPLIT(instr_0F28, safe_read128s, read_xmm128s)
 
-static void instr_660F28() {
+static void instr_660F28(union reg128 source, int32_t r) {
     // movapd xmm, xmm/m128
+    // XXX: Aligned read or #gp
+    // Note: Same as movdqa (660F6F)
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm_mem128s();
-    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+    write_xmm_reg128(r, source);
 }
+DEFINE_SSE_SPLIT(instr_660F28, safe_read128s, read_xmm128s)
 
-static void instr_0F29() {
-    // movaps xmm/m128, xmm
+static void instr_0F29_mem(int32_t addr, int32_t r) {
+    // movaps m128, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 data = read_xmm128s();
-    assert(*modrm_byte < 0xC0);
-    int32_t addr = modrm_resolve(*modrm_byte);
+    union reg128 data = read_xmm128s(r);
+    // XXX: Aligned write or #gp
     safe_write128(addr, data);
 }
-static void instr_660F29()
-{
-    // movapd xmm/m128, xmm
+static void instr_0F29_reg(int32_t r1, int32_t r2) {
+    // movaps xmm, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 data = read_xmm128s();
-    assert(*modrm_byte < 0xC0);
-    int32_t addr = modrm_resolve(*modrm_byte);
+    union reg128 data = read_xmm128s(r2);
+    write_xmm_reg128(r1, data);
+}
+static void instr_660F29_mem(int32_t addr, int32_t r) {
+    // movapd m128, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r);
+    // XXX: Aligned write or #gp
     safe_write128(addr, data);
+}
+static void instr_660F29_reg(int32_t r1, int32_t r2) {
+    // movapd xmm, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r2);
+    write_xmm_reg128(r1, data);
 }
 
 static void instr_0F2A() { unimplemented_sse(); }
 
-static void instr_0F2B()
-{
+static void instr_0F2B_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr_0F2B_mem(int32_t addr, int32_t r) {
     // movntps m128, xmm
-    // movntpd m128, xmm
+    // XXX: Aligned write or #gp
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    if(*modrm_byte >= 0xC0)
-    {
-        trigger_ud();
-    }
-
-    union reg128 data = read_xmm128s();
-    int32_t addr = modrm_resolve(*modrm_byte);
+    union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
 }
 
-static void instr_660F2B()
-{
-
-    task_switch_test_mmx();
-    read_modrm_byte();
-
-    if(*modrm_byte >= 0xC0)
-    {
-        trigger_ud();
-    }
-
-    // movntps m128, xmm
+static void instr_660F2B_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr_660F2B_mem(int32_t addr, int32_t r) {
     // movntpd m128, xmm
-
-    union reg128 data = read_xmm128s();
-    int32_t addr = modrm_resolve(*modrm_byte);
+    // XXX: Aligned write or #gp
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
 }
 
-static void instr_0F2C() { unimplemented_sse(); }
+static void instr_0F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_F20F2C()
-{
+int32_t convert_f64_to_i32(double_t);
+static void instr_F20F2C(union reg64 source, int32_t r) {
     // cvttsd2si r32, xmm/m64
     // emscripten bug causes this ported instruction to throw "integer result unpresentable"
     // https://github.com/kripken/emscripten/issues/5433
     task_switch_test_mmx();
-    read_modrm_byte();
+#if 0
     union reg64 source = read_xmm_mem64s();
     double f = source.f64[0];
 
@@ -660,7 +622,14 @@ static void instr_F20F2C()
     {
         write_g32(0x80000000);
     }
+#else
+    write_reg32(r, convert_f64_to_i32(source.f64[0]));
+#endif
 }
+DEFINE_SSE_SPLIT(instr_F20F2C, safe_read64s, read_xmm64s)
+
+static void instr_F30F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F30F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F2D() { unimplemented_sse(); }
 static void instr_0F2E() { unimplemented_sse(); }
@@ -672,7 +641,6 @@ static void instr_0F30() {
 
     if(cpl[0])
     {
-        // cpl > 0 or vm86 mode (vm86 mode is always runs with cpl=3)
         trigger_gp(0);
     }
 
@@ -712,7 +680,7 @@ static void instr_0F30() {
 
         case IA32_TIME_STAMP_COUNTER:
             {
-                int32_t new_tick = (low) + 0x100000000 * (high);
+                uint64_t new_tick = (low) + 0x100000000 * (high);
                 tsc_offset[0] = microtick() - new_tick / TSC_RATE; // XXX: float
             }
             break;
@@ -743,11 +711,11 @@ static void instr_0F31() {
 
     if(!cpl[0] || !(cr[4] & CR4_TSD))
     {
-        int32_t n = microtick() - tsc_offset[0]; // XXX: float
         //dbg_assert(isFinite(n), "non-finite tsc: " + n);
+        uint64_t tsc = read_tsc();
 
-        reg32s[EAX] = n * TSC_RATE;
-        reg32s[EDX] = n * (TSC_RATE / 0x100000000);
+        reg32s[EAX] = tsc;
+        reg32s[EDX] = tsc >> 32;
 
         //dbg_log("rdtsc  edx:eax=" + h(reg32[EDX], 8) + ":" + h(reg32[EAX], 8));
     }
@@ -787,9 +755,9 @@ static void instr_0F32() {
 
         case IA32_TIME_STAMP_COUNTER:
             {
-                int32_t n = microtick() - tsc_offset[0]; // XXX: float
-                low = n * TSC_RATE;
-                high = n * (TSC_RATE / 0x100000000);
+                uint64_t tsc = read_tsc();
+                low = tsc;
+                high = tsc >> 32;
             }
             break;
 
@@ -938,38 +906,38 @@ static void instr_0F3F() { unimplemented_sse(); }
 
 
 // cmov
-static void instr16_0F40() { read_modrm_byte(); cmovcc16( test_o()); }
-static void instr32_0F40() { read_modrm_byte(); cmovcc32( test_o()); }
-static void instr16_0F41() { read_modrm_byte(); cmovcc16(!test_o()); }
-static void instr32_0F41() { read_modrm_byte(); cmovcc32(!test_o()); }
-static void instr16_0F42() { read_modrm_byte(); cmovcc16( test_b()); }
-static void instr32_0F42() { read_modrm_byte(); cmovcc32( test_b()); }
-static void instr16_0F43() { read_modrm_byte(); cmovcc16(!test_b()); }
-static void instr32_0F43() { read_modrm_byte(); cmovcc32(!test_b()); }
-static void instr16_0F44() { read_modrm_byte(); cmovcc16( test_z()); }
-static void instr32_0F44() { read_modrm_byte(); cmovcc32( test_z()); }
-static void instr16_0F45() { read_modrm_byte(); cmovcc16(!test_z()); }
-static void instr32_0F45() { read_modrm_byte(); cmovcc32(!test_z()); }
-static void instr16_0F46() { read_modrm_byte(); cmovcc16( test_be()); }
-static void instr32_0F46() { read_modrm_byte(); cmovcc32( test_be()); }
-static void instr16_0F47() { read_modrm_byte(); cmovcc16(!test_be()); }
-static void instr32_0F47() { read_modrm_byte(); cmovcc32(!test_be()); }
-static void instr16_0F48() { read_modrm_byte(); cmovcc16( test_s()); }
-static void instr32_0F48() { read_modrm_byte(); cmovcc32( test_s()); }
-static void instr16_0F49() { read_modrm_byte(); cmovcc16(!test_s()); }
-static void instr32_0F49() { read_modrm_byte(); cmovcc32(!test_s()); }
-static void instr16_0F4A() { read_modrm_byte(); cmovcc16( test_p()); }
-static void instr32_0F4A() { read_modrm_byte(); cmovcc32( test_p()); }
-static void instr16_0F4B() { read_modrm_byte(); cmovcc16(!test_p()); }
-static void instr32_0F4B() { read_modrm_byte(); cmovcc32(!test_p()); }
-static void instr16_0F4C() { read_modrm_byte(); cmovcc16( test_l()); }
-static void instr32_0F4C() { read_modrm_byte(); cmovcc32( test_l()); }
-static void instr16_0F4D() { read_modrm_byte(); cmovcc16(!test_l()); }
-static void instr32_0F4D() { read_modrm_byte(); cmovcc32(!test_l()); }
-static void instr16_0F4E() { read_modrm_byte(); cmovcc16( test_le()); }
-static void instr32_0F4E() { read_modrm_byte(); cmovcc32( test_le()); }
-static void instr16_0F4F() { read_modrm_byte(); cmovcc16(!test_le()); }
-static void instr32_0F4F() { read_modrm_byte(); cmovcc32(!test_le()); }
+DEFINE_MODRM_INSTR_READ16(instr16_0F40, cmovcc16( test_o(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F40, cmovcc32( test_o(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F41, cmovcc16(!test_o(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F41, cmovcc32(!test_o(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F42, cmovcc16( test_b(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F42, cmovcc32( test_b(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F43, cmovcc16(!test_b(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F43, cmovcc32(!test_b(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F44, cmovcc16( test_z(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F44, cmovcc32( test_z(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F45, cmovcc16(!test_z(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F45, cmovcc32(!test_z(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F46, cmovcc16( test_be(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F46, cmovcc32( test_be(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F47, cmovcc16(!test_be(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F47, cmovcc32(!test_be(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F48, cmovcc16( test_s(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F48, cmovcc32( test_s(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F49, cmovcc16(!test_s(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F49, cmovcc32(!test_s(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4A, cmovcc16( test_p(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4A, cmovcc32( test_p(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4B, cmovcc16(!test_p(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4B, cmovcc32(!test_p(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4C, cmovcc16( test_l(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4C, cmovcc32( test_l(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4D, cmovcc16(!test_l(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4D, cmovcc32(!test_l(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4E, cmovcc16( test_le(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4E, cmovcc32( test_le(), ___, r))
+DEFINE_MODRM_INSTR_READ16(instr16_0F4F, cmovcc16(!test_le(), ___, r))
+DEFINE_MODRM_INSTR_READ32(instr32_0F4F, cmovcc32(!test_le(), ___, r))
 
 
 static void instr_0F50() { unimplemented_sse(); }
@@ -977,82 +945,68 @@ static void instr_0F51() { unimplemented_sse(); }
 static void instr_0F52() { unimplemented_sse(); }
 static void instr_0F53() { unimplemented_sse(); }
 
-static void instr_0F54()
-{
+static void instr_0F54(union reg128 source, int32_t r) {
     // andps xmm, xmm/mem128
-    // andpd xmm, xmm/mem128
     // Note: Same code as pand
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    union reg128 destination = read_xmm128s(r);
+    write_xmm128(
+        r,
         source.u32[0] & destination.u32[0],
         source.u32[1] & destination.u32[1],
         source.u32[2] & destination.u32[2],
         source.u32[3] & destination.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_0F54, safe_read128s, read_xmm128s)
 
-static void instr_660F54() {
-    // andps xmm, xmm/mem128
+static void instr_660F54(union reg128 source, int32_t r) {
     // andpd xmm, xmm/mem128
     // Note: Same code as pand
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    union reg128 destination = read_xmm128s(r);
+    write_xmm128(
+        r,
         source.u32[0] & destination.u32[0],
         source.u32[1] & destination.u32[1],
         source.u32[2] & destination.u32[2],
         source.u32[3] & destination.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_660F54, safe_read128s, read_xmm128s)
 
 static void instr_0F55() { unimplemented_sse(); }
 static void instr_0F56() { unimplemented_sse(); }
 
-static void instr_0F57()
-{
+static void instr_0F57(union reg128 source, int32_t r) {
     // xorps xmm, xmm/mem128
-    // xorpd xmm, xmm/mem128
     // Note: Same code as pxor
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    union reg128 destination = read_xmm128s(r);
+    write_xmm128(
+        r,
         source.u32[0] ^ destination.u32[0],
         source.u32[1] ^ destination.u32[1],
         source.u32[2] ^ destination.u32[2],
         source.u32[3] ^ destination.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_0F57, safe_read128s, read_xmm128s)
 
-static void instr_660F57() {
-    // xorps xmm, xmm/mem128
+static void instr_660F57(union reg128 source, int32_t r) {
     // xorpd xmm, xmm/mem128
     // Note: Same code as pxor
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    union reg128 destination = read_xmm128s(r);
+    write_xmm128(
+        r,
         source.u32[0] ^ destination.u32[0],
         source.u32[1] ^ destination.u32[1],
         source.u32[2] ^ destination.u32[2],
         source.u32[3] ^ destination.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_660F57, safe_read128s, read_xmm128s)
 
 static void instr_0F58() { unimplemented_sse(); }
 static void instr_0F59() { unimplemented_sse(); }
@@ -1064,210 +1018,186 @@ static void instr_0F5E() { unimplemented_sse(); }
 static void instr_0F5F() { unimplemented_sse(); }
 
 
-static void instr_0F60()
-{
+static void instr_0F60(int32_t source, int32_t r) {
     // punpcklbw mm, mm/m32
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t source = read_mmx_mem32s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = destination.u32[0] & 0xFF;
+    int32_t byte0 = destination.u8[0];
     int32_t byte1 = source & 0xFF;
-    int32_t byte2 = (destination.u32[0] >> 8) & 0xFF;
+    int32_t byte2 = destination.u8[1];
     int32_t byte3 = (source >> 8) & 0xFF;
-    int32_t byte4 = (destination.u32[0] >> 16) & 0xFF;
+    int32_t byte4 = destination.u8[2];
     int32_t byte5 = (source >> 16) & 0xFF;
-    int32_t byte6 = destination.u32[0] >> 24;
+    int32_t byte6 = destination.u8[3];
     int32_t byte7 = source >> 24;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F60, safe_read32s, read_mmx32s)
 
-void instr_660F60() {
+void instr_660F60(union reg64 source, int32_t r) {
     // punpcklbw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 source = read_xmm_mem64s();
-    union reg64 destination = read_xmm64s();
-    write_xmm128s(
+    union reg64 destination = read_xmm64s(r);
+    write_xmm128(
+        r,
         destination.u8[0] | source.u8[0] << 8 | destination.u8[1] << 16 | source.u8[1] << 24,
         destination.u8[2] | source.u8[2] << 8 | destination.u8[3] << 16 | source.u8[3] << 24,
         destination.u8[4] | source.u8[4] << 8 | destination.u8[5] << 16 | source.u8[5] << 24,
         destination.u8[6] | source.u8[6] << 8 | destination.u8[7] << 16 | source.u8[7] << 24
     );
 }
+DEFINE_SSE_SPLIT(instr_660F60, safe_read64s, read_xmm64s)
 
-static void instr_0F61()
-{
+static void instr_0F61(int32_t source, int32_t r) {
     // punpcklwd mm, mm/m32
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t source = read_mmx_mem32s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t word0 = destination.u32[0] & 0xFFFF;
+    int32_t word0 = destination.u16[0];
     int32_t word1 = source & 0xFFFF;
-    int32_t word2 = destination.u32[0] >> 16;
+    int32_t word2 = destination.u16[1];
     int32_t word3 = source >> 16;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F61, safe_read32s, read_mmx32s)
 
-
-static void instr_660F61()
-{
+static void instr_660F61(union reg64 source, int32_t r) {
     // punpcklwd xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_xmm_mem64s();
-    union reg64 destination = read_xmm64s();
-
-    write_xmm128s(
+    union reg64 destination = read_xmm64s(r);
+    write_xmm128(
+        r,
         destination.u16[0] | source.u16[0] << 16,
         destination.u16[1] | source.u16[1] << 16,
         destination.u16[2] | source.u16[2] << 16,
         destination.u16[3] | source.u16[3] << 16
     );
 }
+DEFINE_SSE_SPLIT(instr_660F61, safe_read64s, read_xmm64s)
 
-static void instr_0F62()
-{
+static void instr_0F62(int32_t source, int32_t r) {
     // punpckldq mm, mm/m32
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    int32_t source = read_mmx_mem32s();
-    union reg64 destination = read_mmx64s();
-
-    write_mmx64s(destination.u32[0], source);
+    union reg64 destination = read_mmx64s(r);
+    write_mmx64(r, destination.u32[0], source);
 }
+DEFINE_SSE_SPLIT(instr_0F62, safe_read32s, read_mmx32s)
+static void instr_660F62_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F62_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F63() {
+static void instr_0F63(union reg64 source, int32_t r) {
     // packsswb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = 0;
-    low |= (saturate_sw_to_sb((destination.u32[0]) & 0xFFFF));
-    low |= (saturate_sw_to_sb(destination.u32[0] >> 16)) << 8;
-    low |= (saturate_sw_to_sb((destination.u32[1]) & 0xFFFF)) << 16;
-    low |= (saturate_sw_to_sb(destination.u32[1] >> 16)) << 24;
+    low |= saturate_sw_to_sb(destination.u16[0]);
+    low |= saturate_sw_to_sb(destination.u16[1]) << 8;
+    low |= saturate_sw_to_sb(destination.u16[2]) << 16;
+    low |= saturate_sw_to_sb(destination.u16[3]) << 24;
 
     int32_t high = 0;
-    high |= (saturate_sw_to_sb((source.u32[0]) & 0xFFFF));
-    high |= (saturate_sw_to_sb(source.u32[0] >> 16)) << 8;
-    high |= (saturate_sw_to_sb((source.u32[1]) & 0xFFFF)) << 16;
-    high |= (saturate_sw_to_sb(source.u32[1] >> 16)) << 24;
+    high |= saturate_sw_to_sb(source.u16[0]);
+    high |= saturate_sw_to_sb(source.u16[1]) << 8;
+    high |= saturate_sw_to_sb(source.u16[2]) << 16;
+    high |= saturate_sw_to_sb(source.u16[3]) << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F63, safe_read64s, read_mmx64s)
+static void instr_660F63_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F63_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-
-static void instr_0F64()
-{
+static void instr_0F64(union reg64 source, int32_t r) {
     // pcmpgtb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = destination.s8[0] > source.s8[0] ? 0xFF : 0;
-    int32_t byte1 = destination.s8[1] > source.s8[1] ? 0xFF : 0;
-    int32_t byte2 = destination.s8[2] > source.s8[2] ? 0xFF : 0;
-    int32_t byte3 = destination.s8[3] > source.s8[3] ? 0xFF : 0;
-    int32_t byte4 = destination.s8[4] > source.s8[4] ? 0xFF : 0;
-    int32_t byte5 = destination.s8[5] > source.s8[5] ? 0xFF : 0;
-    int32_t byte6 = destination.s8[6] > source.s8[6] ? 0xFF : 0;
-    int32_t byte7 = destination.s8[7] > source.s8[7] ? 0xFF : 0;
+    int32_t byte0 = destination.i8[0] > source.i8[0] ? 0xFF : 0;
+    int32_t byte1 = destination.i8[1] > source.i8[1] ? 0xFF : 0;
+    int32_t byte2 = destination.i8[2] > source.i8[2] ? 0xFF : 0;
+    int32_t byte3 = destination.i8[3] > source.i8[3] ? 0xFF : 0;
+    int32_t byte4 = destination.i8[4] > source.i8[4] ? 0xFF : 0;
+    int32_t byte5 = destination.i8[5] > source.i8[5] ? 0xFF : 0;
+    int32_t byte6 = destination.i8[6] > source.i8[6] ? 0xFF : 0;
+    int32_t byte7 = destination.i8[7] > source.i8[7] ? 0xFF : 0;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F64, safe_read64s, read_mmx64s)
+static void instr_660F64_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F64_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-
-static void instr_0F65()
-{
+static void instr_0F65(union reg64 source, int32_t r) {
     // pcmpgtw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t word0 = (destination.s16[0]) > (source.s16[0]) ? 0xFFFF : 0;
-    int32_t word1 = (destination.s16[1]) > (source.s16[1]) ? 0xFFFF : 0;
-    int32_t word2 = (destination.s16[2]) > (source.s16[2]) ? 0xFFFF : 0;
-    int32_t word3 = (destination.s16[3]) > (source.s16[3]) ? 0xFFFF : 0;
+    int32_t word0 = destination.i16[0] > source.i16[0] ? 0xFFFF : 0;
+    int32_t word1 = destination.i16[1] > source.i16[1] ? 0xFFFF : 0;
+    int32_t word2 = destination.i16[2] > source.i16[2] ? 0xFFFF : 0;
+    int32_t word3 = destination.i16[3] > source.i16[3] ? 0xFFFF : 0;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F65, safe_read64s, read_mmx64s)
+static void instr_660F65_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F65_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F66()
-{
+static void instr_0F66(union reg64 source, int32_t r) {
     // pcmpgtd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    int32_t low = destination.i32[0] > source.i32[0] ? -1 : 0;
+    int32_t high = destination.i32[1] > source.i32[1] ? -1 : 0;
 
-    int32_t low = destination.s32[0] > source.s32[0] ? -1 : 0;
-    int32_t high = destination.s32[1] > source.s32[1] ? -1 : 0;
-
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F66, safe_read64s, read_mmx64s)
+static void instr_660F66_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F66_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F67()
-{
+static void instr_0F67(union reg64 source, int32_t r) {
     // packuswb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t low = 0;
-    low |= (saturate_sw_to_ub((destination.u32[0]) & 0xFFFF));
-    low |= (saturate_sw_to_ub(destination.u32[0] >> 16)) << 8;
-    low |= (saturate_sw_to_ub((destination.u32[1]) & 0xFFFF)) << 16;
-    low |= (saturate_sw_to_ub(destination.u32[1] >> 16)) << 24;
+    low |= saturate_sw_to_ub(destination.u16[0]);
+    low |= saturate_sw_to_ub(destination.u16[1]) << 8;
+    low |= saturate_sw_to_ub(destination.u16[2]) << 16;
+    low |= saturate_sw_to_ub(destination.u16[3]) << 24;
 
     uint32_t high = 0;
-    high |= (saturate_sw_to_ub((source.u32[0]) & 0xFFFF));
-    high |= (saturate_sw_to_ub(source.u32[0] >> 16)) << 8;
-    high |= (saturate_sw_to_ub((source.u32[1]) & 0xFFFF)) << 16;
-    high |= (saturate_sw_to_ub(source.u32[1] >> 16)) << 24;
+    high |= saturate_sw_to_ub(source.u16[0]);
+    high |= saturate_sw_to_ub(source.u16[1]) << 8;
+    high |= saturate_sw_to_ub(source.u16[2]) << 16;
+    high |= saturate_sw_to_ub(source.u16[3]) << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F67, safe_read64s, read_mmx64s)
 
-static void instr_660F67()
-{
+static void instr_660F67(union reg128 source, int32_t r) {
     // packuswb xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(int32_t i = 0; i < 8; i++)
@@ -1276,93 +1206,80 @@ static void instr_660F67()
         result.u8[i | 8] = saturate_sw_to_ub(source.u16[i]);
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660F67, safe_read128s, read_xmm128s)
 
 
-static void instr_0F68()
-{
+static void instr_0F68(union reg64 source, int32_t r) {
     // punpckhbw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = destination.u32[1] & 0xFF;
-    int32_t byte1 = source.u32[1] & 0xFF;
-    int32_t byte2 = (destination.u32[1] >> 8) & 0xFF;
-    int32_t byte3 = (source.u32[1] >> 8) & 0xFF;
-    int32_t byte4 = (destination.u32[1] >> 16) & 0xFF;
-    int32_t byte5 = (source.u32[1] >> 16) & 0xFF;
-    int32_t byte6 = destination.u32[1] >> 24;
-    int32_t byte7 = source.u32[1] >> 24;
+    int32_t byte0 = destination.u8[4];
+    int32_t byte1 = source.u8[4];
+    int32_t byte2 = destination.u8[5];
+    int32_t byte3 = source.u8[5];
+    int32_t byte4 = destination.u8[6];
+    int32_t byte5 = source.u8[6];
+    int32_t byte6 = destination.u8[7];
+    int32_t byte7 = source.u8[7];
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F68, safe_read64s, read_mmx64s)
 
-
-static void instr_660F68()
-{
+static void instr_660F68(union reg128 source, int32_t r) {
     // punpckhbw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg128 destination = read_xmm128s(r);
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    write_xmm128(
+        r,
         destination.u8[ 8] | source.u8[ 8] << 8 | destination.u8[ 9] << 16 | source.u8[ 9] << 24,
         destination.u8[10] | source.u8[10] << 8 | destination.u8[11] << 16 | source.u8[11] << 24,
         destination.u8[12] | source.u8[12] << 8 | destination.u8[13] << 16 | source.u8[13] << 24,
         destination.u8[14] | source.u8[14] << 8 | destination.u8[15] << 16 | source.u8[15] << 24
     );
 }
+DEFINE_SSE_SPLIT(instr_660F68, safe_read128s, read_xmm128s)
 
-
-static void instr_0F69()
-{
+static void instr_0F69(union reg64 source, int32_t r) {
     // punpckhwd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t word0 = destination.u32[1] & 0xFFFF;
-    int32_t word1 = source.u32[1] & 0xFFFF;
-    int32_t word2 = destination.u32[1] >> 16;
-    int32_t word3 = source.u32[1] >> 16;
+    int32_t word0 = destination.u16[2];
+    int32_t word1 = source.u16[2];
+    int32_t word2 = destination.u16[3];
+    int32_t word3 = source.u16[3];
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F69, safe_read64s, read_mmx64s)
+static void instr_660F69_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F69_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F6A()
-{
+static void instr_0F6A(union reg64 source, int32_t r) {
     // punpckhdq mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    write_mmx64s(destination.u32[1], source.u32[1]);
+    union reg64 destination = read_mmx64s(r);
+    write_mmx64(r, destination.u32[1], source.u32[1]);
 }
+DEFINE_SSE_SPLIT(instr_0F6A, safe_read64s, read_mmx64s)
+static void instr_660F6A_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F6A_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F6B()
-{
+static void instr_0F6B(union reg64 source, int32_t r) {
     // packssdw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = 0;
     low |= saturate_sd_to_sw(destination.u32[0]);
@@ -1372,422 +1289,352 @@ static void instr_0F6B()
     high |= saturate_sd_to_sw(source.u32[0]);
     high |= saturate_sd_to_sw(source.u32[1]) << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F6B, safe_read64s, read_mmx64s)
+static void instr_660F6B_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F6B_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F6C() { unimplemented_sse(); }
-static void instr_0F6D() { unimplemented_sse(); }
+static void instr_0F6C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0F6C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F6C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F6C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0F6D_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0F6D_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F6D_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F6D_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0F6E()
-{
+static void instr_0F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
     task_switch_test_mmx();
-    read_modrm_byte();
-    int32_t data = read_e32s();
-    write_mmx64s(data, 0);
+    write_mmx64(r, source, 0);
 }
+DEFINE_SSE_SPLIT(instr_0F6E, safe_read32s, read_reg32)
 
-static void instr_660F6E() {
+static void instr_660F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
     task_switch_test_mmx();
-    read_modrm_byte();
-    int32_t data = read_e32s();
-    write_xmm128s(data, 0, 0, 0);
+    write_xmm128(r, source, 0, 0, 0);
 }
+DEFINE_SSE_SPLIT(instr_660F6E, safe_read32s, read_reg32)
 
-static void instr_0F6F()
-{
+static void instr_0F6F(union reg64 source, int32_t r) {
     // movq mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_mmx_mem64s();
-    write_mmx64s(data.u32[0], data.u32[1]);
+    write_mmx64(r, source.u32[0], source.u32[1]);
 }
+DEFINE_SSE_SPLIT(instr_0F6F, safe_read64s, read_mmx64s)
 
-static void instr_660F6F() {
+static void instr_660F6F(union reg128 source, int32_t r) {
     // movdqa xmm, xmm/mem128
+    // XXX: Aligned read or #gp
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm_mem128s();
-    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+    write_xmm_reg128(r, source);
 }
-static void instr_F30F6F() {
+DEFINE_SSE_SPLIT(instr_660F6F, safe_read128s, read_xmm128s)
+static void instr_F30F6F(union reg128 source, int32_t r) {
     // movdqu xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm_mem128s();
-    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+    write_xmm_reg128(r, source);
 }
+DEFINE_SSE_SPLIT(instr_F30F6F, safe_read128s, read_xmm128s)
 
-
-static void instr_0F70()
-{
+static void instr_0F70(union reg64 source, int32_t r, int32_t imm8) {
     // pshufw mm1, mm2/m64, imm8
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    int32_t order = read_op8();
-
-    int32_t word0_shift = order & 0b11;
+    int32_t word0_shift = imm8 & 0b11;
     uint32_t word0 = source.u32[word0_shift >> 1] >> ((word0_shift & 1) << 4) & 0xFFFF;
-    int32_t word1_shift = (order >> 2) & 0b11;
+    int32_t word1_shift = (imm8 >> 2) & 0b11;
     uint32_t word1 = source.u32[word1_shift >> 1] >> ((word1_shift & 1) << 4);
     int32_t low = word0 | word1 << 16;
 
-    int32_t word2_shift = (order >> 4) & 0b11;
+    int32_t word2_shift = (imm8 >> 4) & 0b11;
     uint32_t word2 = source.u32[word2_shift >> 1] >> ((word2_shift & 1) << 4) & 0xFFFF;
-    uint32_t word3_shift = (order >> 6);
+    uint32_t word3_shift = (imm8 >> 6);
     uint32_t word3 = source.u32[word3_shift >> 1] >> ((word3_shift & 1) << 4);
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT_IMM(instr_0F70, safe_read64s, read_mmx64s)
 
-static void instr_660F70() {
+static void instr_660F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshufd xmm, xmm/mem128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 source = read_xmm_mem128s();
-    int32_t order = read_op8();
-
-    write_xmm128s(
-        source.u32[order & 3],
-        source.u32[order >> 2 & 3],
-        source.u32[order >> 4 & 3],
-        source.u32[order >> 6 & 3]
+    write_xmm128(
+        r,
+        source.u32[imm8 & 3],
+        source.u32[imm8 >> 2 & 3],
+        source.u32[imm8 >> 4 & 3],
+        source.u32[imm8 >> 6 & 3]
     );
 }
+DEFINE_SSE_SPLIT_IMM(instr_660F70, safe_read128s, read_xmm128s)
 
-static void instr_F20F70()
-{
+static void instr_F20F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshuflw xmm, xmm/m128, imm8
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 source = read_xmm_mem128s();
-    uint32_t order = read_op8();
-
-    write_xmm128s(
-        source.u16[order & 3] | source.u16[order >> 2 & 3] << 16,
-        source.u16[order >> 4 & 3] | source.u16[order >> 6 & 3] << 16,
+    write_xmm128(
+        r,
+        source.u16[imm8 & 3] | source.u16[imm8 >> 2 & 3] << 16,
+        source.u16[imm8 >> 4 & 3] | source.u16[imm8 >> 6 & 3] << 16,
         source.u32[2],
         source.u32[3]
     );
 }
+DEFINE_SSE_SPLIT_IMM(instr_F20F70, safe_read128s, read_xmm128s)
 
-
-static void instr_F30F70()
-{
+static void instr_F30F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshufhw xmm, xmm/m128, imm8
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 source = read_xmm_mem128s();
-    uint32_t order = read_op8();
-
-    write_xmm128s(
+    write_xmm128(
+        r,
         source.u32[0],
         source.u32[1],
-        source.u16[order & 3 | 4] | source.u16[order >> 2 & 3 | 4] << 16,
-        source.u16[order >> 4 & 3 | 4] | source.u16[order >> 6 & 3 | 4] << 16
+        source.u16[imm8 & 3 | 4] | source.u16[imm8 >> 2 & 3 | 4] << 16,
+        source.u16[imm8 >> 4 & 3 | 4] | source.u16[imm8 >> 6 & 3 | 4] << 16
     );
 }
+DEFINE_SSE_SPLIT_IMM(instr_F30F70, safe_read128s, read_xmm128s)
 
-static void instr_0F71()
-{
-    read_modrm_byte();
+static void instr_0F71_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F71_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F71_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+
+static void instr_0F71_2_reg(int32_t r, int32_t imm8) {
+    // psrlw mm, imm8
     task_switch_test_mmx();
-
-    if(*modrm_byte < 0xC0)
-    {
-        trigger_ud();
-    }
-
-    uint32_t shift = read_op8();
-    int32_t destination = (*modrm_byte & 7) << 1;
-
-    int32_t destination_low = reg_mmx32s[destination];
-    int32_t destination_high = reg_mmx32s[destination + 1];
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = 0;
     int32_t high = 0;
 
-    int32_t word0, word1, word2, word3;
-
-    // psrlw, psraw, psllw
-    //     2,     4,     6
-    switch(*modrm_byte >> 3 & 7)
-    {
-    case 2:
-        // psrlw mm, imm8
-        if (shift <= 15) {
-            word0 = ((uint32_t) destination_low & 0xFFFF) >> shift;
-            word1 = ((uint32_t) destination_low >> 16) >> shift;
-            low = word0 | word1 << 16;
-
-            word2 = ((uint32_t) destination_high & 0xFFFF) >> shift;
-            word3 = ((uint32_t) destination_high >> 16) >> shift;
-            high = word2 | word3 << 16;
-        }
-
-        reg_mmx32s[destination] = low;
-        reg_mmx32s[destination + 1] = high;
-
-        break;
-    case 4:
-        // psraw mm, imm8
-        if (shift > 15) {
-            shift = 16;
-        }
-
-        word0 = ((destination_low << 16 >> 16) >> shift) & 0xFFFF;
-        word1 = ((destination_low >> 16) >> shift) & 0xFFFF;
+    if(imm8 <= 15) {
+        int32_t word0 = ((uint32_t) destination.u16[0]) >> imm8;
+        int32_t word1 = ((uint32_t) destination.u16[1]) >> imm8;
         low = word0 | word1 << 16;
 
-        word2 = ((destination_high << 16 >> 16) >> shift) & 0xFFFF;
-        word3 = ((destination_high >> 16) >> shift) & 0xFFFF;
+        int32_t word2 = ((uint32_t) destination.u16[2]) >> imm8;
+        int32_t word3 = ((uint32_t) destination.u16[3]) >> imm8;
         high = word2 | word3 << 16;
-
-        reg_mmx32s[destination] = low;
-        reg_mmx32s[destination + 1] = high;
-
-        break;
-    case 6:
-        // psllw mm, imm8
-        if (shift <= 15) {
-            word0 = ((destination_low & 0xFFFF) << shift) & 0xFFFF;
-            word1 = ((uint32_t) destination_low >> 16) << shift;
-            low = word0 | word1 << 16;
-
-            word2 = ((destination_high & 0xFFFF) << shift) & 0xFFFF;
-            word3 = ((uint32_t) destination_high >> 16) << shift;
-            high = word2 | word3 << 16;
-        }
-
-        reg_mmx32s[destination] = low;
-        reg_mmx32s[destination + 1] = high;
-
-        break;
-    default:
-        unimplemented_sse();
-        break;
     }
+
+    write_mmx64(r, low, high);
 }
 
-static void instr_0F72()
-{
+static void instr_0F71_4_reg(int32_t r, int32_t imm8) {
+    // psraw mm, imm8
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    if(*modrm_byte < 0xC0)
-    {
-        trigger_ud();
-    }
+    int32_t shift = imm8 > 15 ? 16 : imm8;
 
-    uint32_t source = read_op8();
-    uint32_t destination = (*modrm_byte & 7) << 1;
+    int32_t word0 = (destination.i16[0] >> shift) & 0xFFFF;
+    int32_t word1 = (destination.i16[1] >> shift) & 0xFFFF;
+    int32_t low = word0 | word1 << 16;
 
-    uint32_t low = 0;
-    uint32_t high = 0;
-    int32_t shift = source;
+    int32_t word2 = (destination.i16[2] >> shift) & 0xFFFF;
+    int32_t word3 = (destination.i16[3] >> shift) & 0xFFFF;
+    int32_t high = word2 | word3 << 16;
 
-    int32_t destination_low, destination_high;
-
-    // psrld, psrad, pslld
-    //     2,     4,     6
-    switch(*modrm_byte >> 3 & 7)
-    {
-        case 2:
-            // psrld mm, imm8
-            destination_low = reg_mmx32s[destination];
-            destination_high = reg_mmx32s[destination + 1];
-
-            if (shift <= 31) {
-                low = ((uint32_t) destination_low) >> shift;
-                high = ((uint32_t) destination_high) >> shift;
-            }
-
-            reg_mmx32s[destination] = low;
-            reg_mmx32s[destination + 1] = high;
-
-            break;
-        case 4:
-            // psrad mm, imm8
-            destination_low = reg_mmx32s[destination];
-            destination_high = reg_mmx32s[destination + 1];
-
-            if (shift > 31) {
-                shift = 31;
-            }
-
-            low = destination_low >> shift;
-            high = destination_high >> shift;
-
-            reg_mmx32s[destination] = low;
-            reg_mmx32s[destination + 1] = high;
-
-            break;
-        case 6:
-            // pslld mm, imm8
-            destination_low = reg_mmx32s[destination];
-            destination_high = reg_mmx32s[destination + 1];
-
-            if (shift <= 31) {
-                low = destination_low << shift;
-                high = destination_high << shift;
-            }
-
-            reg_mmx32s[destination] = low;
-            reg_mmx32s[destination + 1] = high;
-
-            break;
-        default:
-            unimplemented_sse();
-            break;
-    }
+    write_mmx64(r, low, high);
 }
 
-
-static void instr_0F73()
-{
-    read_modrm_byte();
+static void instr_0F71_6_reg(int32_t r, int32_t imm8) {
+    // psllw mm, imm8
     task_switch_test_mmx();
-
-    if(*modrm_byte < 0xC0)
-    {
-        trigger_ud();
-    }
-
-    uint32_t shift = read_op8();
-    int32_t destination = (*modrm_byte & 7) << 1;
-
-    int32_t destination_low = reg_mmx32s[destination];
-    int32_t destination_high = reg_mmx32s[destination + 1];
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = 0;
     int32_t high = 0;
 
-    // psrlq, psllq
-    //     2,     6
-    switch(*modrm_byte >> 3 & 7)
-    {
-    case 2:
-        // psrlq mm, imm8
-        if (shift <= 31) {
-            low = (uint32_t) destination_low >> shift | (destination_high << (32 - shift));
-            high = (uint32_t) destination_high >> shift;
-        }
-        else if (shift <= 63) {
-            low = (uint32_t) destination_high >> (shift & 0x1F);
-            high = 0;
-        }
+    if(imm8 <= 15) {
+        int32_t word0 = (uint32_t)destination.u16[0] << imm8 & 0xFFFF;
+        int32_t word1 = (uint32_t)destination.u16[1] << imm8;
+        low = word0 | word1 << 16;
 
-        reg_mmx32s[destination] = low;
-        reg_mmx32s[destination + 1] = high;
-        break;
-    case 6:
-        // psllq mm, imm8
-        if (shift <= 31) {
-            low = destination_low << shift;
-            high = destination_high << shift | ((uint32_t) destination_low >> (32 - shift));
-        }
-        else if (shift <= 63) {
-            high = destination_low << (shift & 0x1F);
-            low = 0;
-        }
-
-        reg_mmx32s[destination] = low;
-        reg_mmx32s[destination + 1] = high;
-
-        break;
-
-    default:
-        unimplemented_sse();
-        break;
+        int32_t word2 = (uint32_t)destination.u16[2] << imm8 & 0xFFFF;
+        int32_t word3 = (uint32_t)destination.u16[3] << imm8;
+        high = word2 | word3 << 16;
     }
+
+    write_mmx64(r, low, high);
 }
 
-static void instr_660F73()
-{
+static void instr_660F71_2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F71_2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F71_4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F71_4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F71_6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F71_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-    read_modrm_byte();
+static void instr_0F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+
+static void instr_0F72_2_reg(int32_t r, int32_t imm8) {
+    // psrld mm, imm8
     task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
 
-    if(*modrm_byte < 0xC0)
-    {
-        trigger_ud();
+    int32_t low = 0;
+    int32_t high = 0;
+
+    if(imm8 <= 31) {
+        low = (uint32_t)destination.u32[0] >> imm8;
+        high = (uint32_t)destination.u32[1] >> imm8;
     }
 
-    uint32_t shift = read_op8();
-
-    union reg128 destination = read_xmm128s();
-    union reg128 result;
-
-    // psrlq, psllq
-    //     2,     6
-    switch(*modrm_byte >> 3 & 7)
-    {
-        case 2:
-            // psrlq xmm, imm8
-            if(shift == 0)
-            {
-                return;
-            }
-
-            if (shift <= 31)
-            {
-                result.u32[0] = (uint32_t) destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
-                result.u32[1] = (uint32_t) destination.u32[1] >> shift;
-
-                result.u32[2] = (uint32_t) destination.u32[2] >> shift | destination.u32[3] << (32 - shift);
-                result.u32[3] = (uint32_t) destination.u32[3] >> shift;
-            }
-            else if (shift <= 63)
-            {
-                result.u32[0] = (uint32_t) destination.u32[1] >> shift;
-                result.u32[2] = (uint32_t) destination.u32[3] >> shift;
-            }
-
-            write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
-            break;
-        default:
-            unimplemented_sse();
-            break;
-    }
+    write_mmx64(r, low, high);
 }
 
-static void instr_0F74()
-{
+static void instr_0F72_4_reg(int32_t r, int32_t imm8) {
+    // psrad mm, imm8
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t shift = imm8 > 31 ? 31 : imm8;
+
+    int32_t low = destination.i32[0] >> shift;
+    int32_t high = destination.i32[1] >> shift;
+
+    write_mmx64(r, low, high);
+}
+
+static void instr_0F72_6_reg(int32_t r, int32_t imm8) {
+    // pslld mm, imm8
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t low = 0;
+    int32_t high = 0;
+
+    if(imm8 <= 31) {
+        low = destination.i32[0] << imm8;
+        high = destination.i32[1] << imm8;
+    }
+
+    write_mmx64(r, low, high);
+}
+
+static void instr_660F72_2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F72_2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F72_4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F72_4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F72_6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F72_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F73_3_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F73_3_reg(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F73_7_reg(int32_t addr, int32_t r) { trigger_ud(); }
+
+static void instr_0F73_2_reg(int32_t r, int32_t imm8) {
+    // psrlq mm, imm8
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t low = 0;
+    int32_t high = 0;
+
+    if(imm8 <= 31) {
+        low = (uint32_t) destination.u32[0] >> imm8 | (destination.u32[1] << (32 - imm8));
+        high = (uint32_t) destination.u32[1] >> imm8;
+    }
+    else if(imm8 <= 63) {
+        low = (uint32_t) destination.u32[1] >> (imm8 & 0x1F);
+        high = 0;
+    }
+
+    write_mmx64(r, low, high);
+}
+
+static void instr_0F73_6_reg(int32_t r, int32_t imm8) {
+    // psllq mm, imm8
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t low = 0;
+    int32_t high = 0;
+
+    if(imm8 <= 31) {
+        low = destination.u32[0] << imm8;
+        high = destination.u32[1] << imm8 | ((uint32_t) destination.u32[0] >> (32 - imm8));
+    }
+    else if(imm8 <= 63) {
+        high = destination.u32[0] << (imm8 & 0x1F);
+        low = 0;
+    }
+
+    write_mmx64(r, low, high);
+}
+
+static void instr_660F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660F73_3_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+
+static void instr_660F73_2_reg(int32_t r, int32_t imm8) {
+    // psrlq mm, imm8
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    if(imm8 == 0)
+    {
+        return;
+    }
+
+    union reg128 result = { { 0 } };
+
+    if(imm8 <= 31)
+    {
+        result.u32[0] = (uint32_t) destination.u32[0] >> imm8 | destination.u32[1] << (32 - imm8);
+        result.u32[1] = (uint32_t) destination.u32[1] >> imm8;
+
+        result.u32[2] = (uint32_t) destination.u32[2] >> imm8 | destination.u32[3] << (32 - imm8);
+        result.u32[3] = (uint32_t) destination.u32[3] >> imm8;
+    }
+    else if(imm8 <= 63)
+    {
+        result.u32[0] = (uint32_t) destination.u32[1] >> imm8;
+        result.u32[2] = (uint32_t) destination.u32[3] >> imm8;
+    }
+
+    write_xmm_reg128(r, result);
+}
+static void instr_660F73_3_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F73_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F73_7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0F74(union reg64 source, int32_t r) {
     // pcmpeqb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = destination.s8[0] == source.s8[0] ? 0xFF : 0;
-    int32_t byte1 = destination.s8[1] == source.s8[1] ? 0xFF : 0;
-    int32_t byte2 = destination.s8[2] == source.s8[2] ? 0xFF : 0;
-    int32_t byte3 = destination.s8[3] == source.s8[3] ? 0xFF : 0;
-    int32_t byte4 = destination.s8[4] == source.s8[4] ? 0xFF : 0;
-    int32_t byte5 = destination.s8[5] == source.s8[5] ? 0xFF : 0;
-    int32_t byte6 = destination.s8[6] == source.s8[6] ? 0xFF : 0;
-    int32_t byte7 = destination.s8[7] == source.s8[7] ? 0xFF : 0;
+    int32_t byte0 = destination.i8[0] == source.i8[0] ? 0xFF : 0;
+    int32_t byte1 = destination.i8[1] == source.i8[1] ? 0xFF : 0;
+    int32_t byte2 = destination.i8[2] == source.i8[2] ? 0xFF : 0;
+    int32_t byte3 = destination.i8[3] == source.i8[3] ? 0xFF : 0;
+    int32_t byte4 = destination.i8[4] == source.i8[4] ? 0xFF : 0;
+    int32_t byte5 = destination.i8[5] == source.i8[5] ? 0xFF : 0;
+    int32_t byte6 = destination.i8[6] == source.i8[6] ? 0xFF : 0;
+    int32_t byte7 = destination.i8[7] == source.i8[7] ? 0xFF : 0;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F74, safe_read64s, read_mmx64s)
 
-static void instr_660F74() {
+static void instr_660F74(union reg128 source, int32_t r) {
     // pcmpeqb xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(int32_t i = 0; i < 16; i++)
@@ -1795,36 +1642,31 @@ static void instr_660F74() {
         result.u8[i] = source.u8[i] == destination.u8[i] ? 0xFF : 0;
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660F74, safe_read128s, read_xmm128s)
 
-static void instr_0F75()
-{
+static void instr_0F75(union reg64 source, int32_t r) {
     // pcmpeqw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    int32_t word0 = (destination.u32[0] & 0xFFFF) == (source.u32[0] & 0xFFFF) ? 0xFFFF : 0;
-    int32_t word1 = (destination.u32[0] & 0xFFFF0000) == (source.u32[0] & 0xFFFF0000) ? 0xFFFF : 0;
-    int32_t word2 = (destination.u32[1] & 0xFFFF) == (source.u32[1] & 0xFFFF) ? 0xFFFF : 0;
-    int32_t word3 = (destination.u32[1] & 0xFFFF0000) == (source.u32[1] & 0xFFFF0000) ? 0xFFFF : 0;
+    int32_t word0 = destination.u16[0] == source.u16[0] ? 0xFFFF : 0;
+    int32_t word1 = destination.u16[1] == source.u16[1] ? 0xFFFF : 0;
+    int32_t word2 = destination.u16[2] == source.u16[2] ? 0xFFFF : 0;
+    int32_t word3 = destination.u16[3] == source.u16[3] ? 0xFFFF : 0;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F75, safe_read64s, read_mmx64s)
 
-static void instr_660F75()
-{
+static void instr_660F75(union reg128 source, int32_t r) {
     // pcmpeqw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(int32_t i = 0; i < 8; i++)
@@ -1832,40 +1674,37 @@ static void instr_660F75()
         result.u16[i] = source.u16[i] == destination.u16[i] ? 0xFFFF : 0;
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660F75, safe_read128s, read_xmm128s)
 
-static void instr_0F76()
-{
+static void instr_0F76(union reg64 source, int32_t r) {
     // pcmpeqd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = destination.u32[0] == source.u32[0] ? -1 : 0;
     int32_t high = destination.u32[1] == source.u32[1] ? -1 : 0;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0F76, safe_read64s, read_mmx64s)
 
-static void instr_660F76()
-{
+static void instr_660F76(union reg128 source, int32_t r) {
     // pcmpeqd xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
+    union reg128 destination = read_xmm128s(r);
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
-
-    write_xmm128s(
+    write_xmm128(
+        r,
         source.u32[0] == destination.u32[0] ? -1 : 0,
         source.u32[1] == destination.u32[1] ? -1 : 0,
         source.u32[2] == destination.u32[2] ? -1 : 0,
         source.u32[3] == destination.u32[3] ? -1 : 0
     );
 }
+DEFINE_SSE_SPLIT(instr_660F76, safe_read128s, read_xmm128s)
+
 static void instr_0F77() {
     // emms
 
@@ -1888,109 +1727,140 @@ static void instr_0F7B() { unimplemented_sse(); }
 static void instr_0F7C() { unimplemented_sse(); }
 static void instr_0F7D() { unimplemented_sse(); }
 
-static void instr_0F7E()
-{
+static int32_t instr_0F7E(int32_t r) {
     // movd r/m32, mm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_mmx64s();
-    set_e32(data.u32[0]);
+    union reg64 data = read_mmx64s(r);
+    return data.u32[0];
 }
-
-static void instr_660F7E() {
+DEFINE_SSE_SPLIT_WRITE(instr_0F7E, safe_write32, write_reg32)
+static int32_t instr_660F7E(int32_t r) {
     // movd r/m32, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_xmm64s();
-    set_e32(data.u32[0]);
+    union reg64 data = read_xmm64s(r);
+    return data.u32[0];
 }
-static void instr_F30F7E() {
+DEFINE_SSE_SPLIT_WRITE(instr_660F7E, safe_write32, write_reg32)
+static void instr_F30F7E_mem(int32_t addr, int32_t r) {
     // movq xmm, xmm/mem64
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_xmm_mem64s();
-    write_xmm128s(data.u32[0], data.u32[1], 0, 0);
+    union reg64 data = safe_read64s(addr);
+    write_xmm128(r, data.u32[0], data.u32[1], 0, 0);
+}
+static void instr_F30F7E_reg(int32_t r1, int32_t r2) {
+    // movq xmm, xmm/mem64
+    task_switch_test_mmx();
+    union reg64 data = read_xmm64s(r1);
+    write_xmm128(r2, data.u32[0], data.u32[1], 0, 0);
 }
 
-static void instr_0F7F()
-{
+static void instr_0F7F_mem(int32_t addr, int32_t r) {
     // movq mm/m64, mm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 data = read_mmx64s();
-    write_mmx_mem64s(data.u32[0], data.u32[1]);
+    union reg64 data = read_mmx64s(r);
+    safe_write64(addr, data.u64[0]);
 }
-
-static void instr_660F7F() {
+static void instr_0F7F_reg(int32_t r1, int32_t r2) {
+    // movq mm/m64, mm
+    task_switch_test_mmx();
+    union reg64 data = read_mmx64s(r2);
+    write_mmx64(r1, data.u32[0], data.u32[1]);
+}
+static void instr_660F7F_mem(int32_t addr, int32_t r) {
+    // movdqa xmm/m128, xmm
+    // XXX: Aligned write or #gp
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r);
+    safe_write128(addr, data);
+}
+static void instr_660F7F_reg(int32_t r1, int32_t r2) {
     // movdqa xmm/m128, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm128s();
-    assert(*modrm_byte < 0xC0);
-    int32_t addr = modrm_resolve(*modrm_byte);
-    safe_write128(addr, data);
+    union reg128 data = read_xmm128s(r2);
+    write_xmm_reg128(r1, data);
 }
-static void instr_F30F7F() {
+static void instr_F30F7F_mem(int32_t addr, int32_t r) {
     // movdqu xmm/m128, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 data = read_xmm128s();
-    assert(*modrm_byte < 0xC0);
-    int32_t addr = modrm_resolve(*modrm_byte);
+    union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
+}
+static void instr_F30F7F_reg(int32_t r1, int32_t r2) {
+    // movdqu xmm/m128, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r2);
+    write_xmm_reg128(r1, data);
 }
 
 // jmpcc
-static void instr16_0F80() { jmpcc16( test_o()); }
-static void instr32_0F80() { jmpcc32( test_o()); }
-static void instr16_0F81() { jmpcc16(!test_o()); }
-static void instr32_0F81() { jmpcc32(!test_o()); }
-static void instr16_0F82() { jmpcc16( test_b()); }
-static void instr32_0F82() { jmpcc32( test_b()); }
-static void instr16_0F83() { jmpcc16(!test_b()); }
-static void instr32_0F83() { jmpcc32(!test_b()); }
-static void instr16_0F84() { jmpcc16( test_z()); }
-static void instr32_0F84() { jmpcc32( test_z()); }
-static void instr16_0F85() { jmpcc16(!test_z()); }
-static void instr32_0F85() { jmpcc32(!test_z()); }
-static void instr16_0F86() { jmpcc16( test_be()); }
-static void instr32_0F86() { jmpcc32( test_be()); }
-static void instr16_0F87() { jmpcc16(!test_be()); }
-static void instr32_0F87() { jmpcc32(!test_be()); }
-static void instr16_0F88() { jmpcc16( test_s()); }
-static void instr32_0F88() { jmpcc32( test_s()); }
-static void instr16_0F89() { jmpcc16(!test_s()); }
-static void instr32_0F89() { jmpcc32(!test_s()); }
-static void instr16_0F8A() { jmpcc16( test_p()); }
-static void instr32_0F8A() { jmpcc32( test_p()); }
-static void instr16_0F8B() { jmpcc16(!test_p()); }
-static void instr32_0F8B() { jmpcc32(!test_p()); }
-static void instr16_0F8C() { jmpcc16( test_l()); }
-static void instr32_0F8C() { jmpcc32( test_l()); }
-static void instr16_0F8D() { jmpcc16(!test_l()); }
-static void instr32_0F8D() { jmpcc32(!test_l()); }
-static void instr16_0F8E() { jmpcc16( test_le()); }
-static void instr32_0F8E() { jmpcc32( test_le()); }
-static void instr16_0F8F() { jmpcc16(!test_le()); }
-static void instr32_0F8F() { jmpcc32(!test_le()); }
+static void instr16_0F80(int32_t imm) { jmpcc16( test_o(), imm); }
+static void instr32_0F80(int32_t imm) { jmpcc32( test_o(), imm); }
+static void instr16_0F81(int32_t imm) { jmpcc16(!test_o(), imm); }
+static void instr32_0F81(int32_t imm) { jmpcc32(!test_o(), imm); }
+static void instr16_0F82(int32_t imm) { jmpcc16( test_b(), imm); }
+static void instr32_0F82(int32_t imm) { jmpcc32( test_b(), imm); }
+static void instr16_0F83(int32_t imm) { jmpcc16(!test_b(), imm); }
+static void instr32_0F83(int32_t imm) { jmpcc32(!test_b(), imm); }
+static void instr16_0F84(int32_t imm) { jmpcc16( test_z(), imm); }
+static void instr32_0F84(int32_t imm) { jmpcc32( test_z(), imm); }
+static void instr16_0F85(int32_t imm) { jmpcc16(!test_z(), imm); }
+static void instr32_0F85(int32_t imm) { jmpcc32(!test_z(), imm); }
+static void instr16_0F86(int32_t imm) { jmpcc16( test_be(), imm); }
+static void instr32_0F86(int32_t imm) { jmpcc32( test_be(), imm); }
+static void instr16_0F87(int32_t imm) { jmpcc16(!test_be(), imm); }
+static void instr32_0F87(int32_t imm) { jmpcc32(!test_be(), imm); }
+static void instr16_0F88(int32_t imm) { jmpcc16( test_s(), imm); }
+static void instr32_0F88(int32_t imm) { jmpcc32( test_s(), imm); }
+static void instr16_0F89(int32_t imm) { jmpcc16(!test_s(), imm); }
+static void instr32_0F89(int32_t imm) { jmpcc32(!test_s(), imm); }
+static void instr16_0F8A(int32_t imm) { jmpcc16( test_p(), imm); }
+static void instr32_0F8A(int32_t imm) { jmpcc32( test_p(), imm); }
+static void instr16_0F8B(int32_t imm) { jmpcc16(!test_p(), imm); }
+static void instr32_0F8B(int32_t imm) { jmpcc32(!test_p(), imm); }
+static void instr16_0F8C(int32_t imm) { jmpcc16( test_l(), imm); }
+static void instr32_0F8C(int32_t imm) { jmpcc32( test_l(), imm); }
+static void instr16_0F8D(int32_t imm) { jmpcc16(!test_l(), imm); }
+static void instr32_0F8D(int32_t imm) { jmpcc32(!test_l(), imm); }
+static void instr16_0F8E(int32_t imm) { jmpcc16( test_le(), imm); }
+static void instr32_0F8E(int32_t imm) { jmpcc32( test_le(), imm); }
+static void instr16_0F8F(int32_t imm) { jmpcc16(!test_le(), imm); }
+static void instr32_0F8F(int32_t imm) { jmpcc32(!test_le(), imm); }
 
 // setcc
-static void instr_0F90() { read_modrm_byte(); setcc( test_o()); }
-static void instr_0F91() { read_modrm_byte(); setcc(!test_o()); }
-static void instr_0F92() { read_modrm_byte(); setcc( test_b()); }
-static void instr_0F93() { read_modrm_byte(); setcc(!test_b()); }
-static void instr_0F94() { read_modrm_byte(); setcc( test_z()); }
-static void instr_0F95() { read_modrm_byte(); setcc(!test_z()); }
-static void instr_0F96() { read_modrm_byte(); setcc( test_be()); }
-static void instr_0F97() { read_modrm_byte(); setcc(!test_be()); }
-static void instr_0F98() { read_modrm_byte(); setcc( test_s()); }
-static void instr_0F99() { read_modrm_byte(); setcc(!test_s()); }
-static void instr_0F9A() { read_modrm_byte(); setcc( test_p()); }
-static void instr_0F9B() { read_modrm_byte(); setcc(!test_p()); }
-static void instr_0F9C() { read_modrm_byte(); setcc( test_l()); }
-static void instr_0F9D() { read_modrm_byte(); setcc(!test_l()); }
-static void instr_0F9E() { read_modrm_byte(); setcc( test_le()); }
-static void instr_0F9F() { read_modrm_byte(); setcc(!test_le()); }
+static void instr_0F90_reg(int32_t r, int32_t unused) { setcc_reg( test_o(), r); }
+static void instr_0F91_reg(int32_t r, int32_t unused) { setcc_reg(!test_o(), r); }
+static void instr_0F92_reg(int32_t r, int32_t unused) { setcc_reg( test_b(), r); }
+static void instr_0F93_reg(int32_t r, int32_t unused) { setcc_reg(!test_b(), r); }
+static void instr_0F94_reg(int32_t r, int32_t unused) { setcc_reg( test_z(), r); }
+static void instr_0F95_reg(int32_t r, int32_t unused) { setcc_reg(!test_z(), r); }
+static void instr_0F96_reg(int32_t r, int32_t unused) { setcc_reg( test_be(), r); }
+static void instr_0F97_reg(int32_t r, int32_t unused) { setcc_reg(!test_be(), r); }
+static void instr_0F98_reg(int32_t r, int32_t unused) { setcc_reg( test_s(), r); }
+static void instr_0F99_reg(int32_t r, int32_t unused) { setcc_reg(!test_s(), r); }
+static void instr_0F9A_reg(int32_t r, int32_t unused) { setcc_reg( test_p(), r); }
+static void instr_0F9B_reg(int32_t r, int32_t unused) { setcc_reg(!test_p(), r); }
+static void instr_0F9C_reg(int32_t r, int32_t unused) { setcc_reg( test_l(), r); }
+static void instr_0F9D_reg(int32_t r, int32_t unused) { setcc_reg(!test_l(), r); }
+static void instr_0F9E_reg(int32_t r, int32_t unused) { setcc_reg( test_le(), r); }
+static void instr_0F9F_reg(int32_t r, int32_t unused) { setcc_reg(!test_le(), r); }
+
+static void instr_0F90_mem(int32_t addr, int32_t unused) { setcc_mem( test_o(), addr); }
+static void instr_0F91_mem(int32_t addr, int32_t unused) { setcc_mem(!test_o(), addr); }
+static void instr_0F92_mem(int32_t addr, int32_t unused) { setcc_mem( test_b(), addr); }
+static void instr_0F93_mem(int32_t addr, int32_t unused) { setcc_mem(!test_b(), addr); }
+static void instr_0F94_mem(int32_t addr, int32_t unused) { setcc_mem( test_z(), addr); }
+static void instr_0F95_mem(int32_t addr, int32_t unused) { setcc_mem(!test_z(), addr); }
+static void instr_0F96_mem(int32_t addr, int32_t unused) { setcc_mem( test_be(), addr); }
+static void instr_0F97_mem(int32_t addr, int32_t unused) { setcc_mem(!test_be(), addr); }
+static void instr_0F98_mem(int32_t addr, int32_t unused) { setcc_mem( test_s(), addr); }
+static void instr_0F99_mem(int32_t addr, int32_t unused) { setcc_mem(!test_s(), addr); }
+static void instr_0F9A_mem(int32_t addr, int32_t unused) { setcc_mem( test_p(), addr); }
+static void instr_0F9B_mem(int32_t addr, int32_t unused) { setcc_mem(!test_p(), addr); }
+static void instr_0F9C_mem(int32_t addr, int32_t unused) { setcc_mem( test_l(), addr); }
+static void instr_0F9D_mem(int32_t addr, int32_t unused) { setcc_mem(!test_l(), addr); }
+static void instr_0F9E_mem(int32_t addr, int32_t unused) { setcc_mem( test_le(), addr); }
+static void instr_0F9F_mem(int32_t addr, int32_t unused) { setcc_mem(!test_le(), addr); }
+
 
 static void instr16_0FA0() { push16(sreg[FS]); }
 static void instr32_0FA0() { push32(sreg[FS]); }
@@ -2005,39 +1875,15 @@ static void instr32_0FA1() {
 
 static void instr_0FA2() { cpuid(); }
 
-static void instr16_0FA3() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0)
-    {
-        bt_mem(modrm_resolve(modrm_byte[0]), read_g16s());
-    }
-    else
-    {
-        bt_reg(read_reg_e16(), read_g16() & 15);
-    }
-}
-static void instr32_0FA3() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0)
-    {
-        bt_mem(modrm_resolve(modrm_byte[0]), read_g32s());
-    }
-    else
-    {
-        bt_reg(read_reg_e32s(), read_g32s() & 31);
-    }
-}
+static void instr16_0FA3_reg(int32_t r1, int32_t r2) { bt_reg(read_reg16(r1), read_reg16(r2) & 15); }
+static void instr16_0FA3_mem(int32_t addr, int32_t r) { bt_mem(addr, read_reg16(r) << 16 >> 16); }
+static void instr32_0FA3_reg(int32_t r1, int32_t r2) { bt_reg(read_reg32(r1), read_reg32(r2) & 31); }
+static void instr32_0FA3_mem(int32_t addr, int32_t r) { bt_mem(addr, read_reg32(r)); }
 
-static void instr16_0FA4() { read_modrm_byte();
-    int32_t data = read_write_e16(); write_e16(shld16(data, read_g16(), read_op8() & 31));
-}
-static void instr32_0FA4() { read_modrm_byte();
-    int32_t data = read_write_e32(); write_e32(shld32(data, read_g32s(), read_op8() & 31));
-}
-static void instr16_0FA5() { read_modrm_byte();
-    int32_t data = read_write_e16(); write_e16(shld16(data, read_g16(), reg8[CL] & 31));
-}
-static void instr32_0FA5() { read_modrm_byte();
-    int32_t data = read_write_e32(); write_e32(shld32(data, read_g32s(), reg8[CL] & 31));
-}
+DEFINE_MODRM_INSTR_IMM_READ_WRITE_16(instr16_0FA4, shld16(___, read_reg16(r), imm & 31))
+DEFINE_MODRM_INSTR_IMM_READ_WRITE_32(instr32_0FA4, shld32(___, read_reg32(r), imm & 31))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_0FA5, shld16(___, read_reg16(r), reg8[CL] & 31))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_0FA5, shld32(___, read_reg32(r), reg8[CL] & 31))
 
 static void instr_0FA6() {
     // obsolete cmpxchg (os/2)
@@ -2062,533 +1908,364 @@ static void instr_0FAA() {
     todo();
 }
 
-static void instr16_0FAB() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        bts_mem(modrm_resolve(modrm_byte[0]), read_g16s());
-    } else {
-        write_reg_e16(bts_reg(read_reg_e16(), read_g16s() & 15));
-    }
-}
-static void instr32_0FAB() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        bts_mem(modrm_resolve(modrm_byte[0]), read_g32s());
-    } else {
-        write_reg_e32(bts_reg(read_reg_e32s(), read_g32s() & 31));
-    }
-}
+static void instr16_0FAB_reg(int32_t r1, int32_t r2) { write_reg16(r1, bts_reg(read_reg16(r1), read_reg16(r2) & 15)); }
+static void instr16_0FAB_mem(int32_t addr, int32_t r) { bts_mem(addr, read_reg16(r) << 16 >> 16); }
+static void instr32_0FAB_reg(int32_t r1, int32_t r2) { write_reg32(r1, bts_reg(read_reg32(r1), read_reg32(r2) & 31)); }
+static void instr32_0FAB_mem(int32_t addr, int32_t r) { bts_mem(addr, read_reg32(r)); }
 
+DEFINE_MODRM_INSTR_IMM_READ_WRITE_16(instr16_0FAC, shrd16(___, read_reg16(r), imm & 31))
+DEFINE_MODRM_INSTR_IMM_READ_WRITE_32(instr32_0FAC, shrd32(___, read_reg32(r), imm & 31))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_0FAD, shrd16(___, read_reg16(r), reg8[CL] & 31))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_0FAD, shrd32(___, read_reg32(r), reg8[CL] & 31))
 
-static void instr16_0FAC() { read_modrm_byte();
-    int32_t data = read_write_e16(); write_e16(shrd16(data, read_g16(), read_op8() & 31));
+static void instr_0FAE_0_reg(int32_t r) { trigger_ud(); }
+static void instr_0FAE_0_mem(int32_t addr) {
+    fxsave(addr);
 }
-static void instr32_0FAC() { read_modrm_byte();
-    int32_t data = read_write_e32(); write_e32(shrd32(data, read_g32s(), read_op8() & 31));
+static void instr_0FAE_1_reg(int32_t r) { trigger_ud(); }
+static void instr_0FAE_1_mem(int32_t addr) {
+    fxrstor(addr);
 }
-static void instr16_0FAD() { read_modrm_byte();
-    int32_t data = read_write_e16(); write_e16(shrd16(data, read_g16(), reg8[CL] & 31));
-}
-static void instr32_0FAD() { read_modrm_byte();
-    int32_t data = read_write_e32(); write_e32(shrd32(data, read_g32s(), reg8[CL] & 31));
-}
-
-static void instr_0FAE() { read_modrm_byte();
-    // fxsave, fxrstor, ldmxcsr ...
-
-    switch(modrm_byte[0] >> 3 & 7)
+static void instr_0FAE_2_reg(int32_t r) { trigger_ud(); }
+static void instr_0FAE_2_mem(int32_t addr) {
+    // ldmxcsr
+    int32_t new_mxcsr = safe_read32s(addr);
+    if(new_mxcsr & ~MXCSR_MASK)
     {
-        case 0: // fxsave
-            if(modrm_byte[0] >= 0xC0) trigger_ud();
-            {
-                int32_t addr = modrm_resolve(modrm_byte[0]);
-                fxsave(addr);
-            }
-            break;
-
-        case 1: // fxrstor
-            if(modrm_byte[0] >= 0xC0) trigger_ud();
-            {
-                int32_t addr = modrm_resolve(modrm_byte[0]);
-                fxrstor(addr);
-            }
-            break;
-
-        case 2: // ldmxcsr
-            if(modrm_byte[0] >= 0xC0) trigger_ud();
-            {
-                int32_t addr = modrm_resolve(modrm_byte[0]);
-                int32_t new_mxcsr = safe_read32s(addr);
-                if(new_mxcsr & ~MXCSR_MASK)
-                {
-                    //dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK), 8));
-                    assert(false);
-                    trigger_gp(0);
-                }
-                *mxcsr = new_mxcsr;
-            }
-            break;
-
-        case 3: // stmxcsr
-            if(modrm_byte[0] >= 0xC0) trigger_ud();
-            {
-                int32_t addr = modrm_resolve(modrm_byte[0]);
-                safe_write32(addr, *mxcsr);
-            }
-            break;
-
-        case 5:
-            // lfence
-            dbg_assert_message(modrm_byte[0] >= 0xC0, "Unexpected mfence encoding");
-            if(modrm_byte[0] < 0xC0) trigger_ud();
-            break;
-
-        case 6:
-            // mfence
-            dbg_assert_message(modrm_byte[0] >= 0xC0, "Unexpected mfence encoding");
-            if(modrm_byte[0] < 0xC0) trigger_ud();
-            break;
-
-        case 7:
-            // sfence or clflush
-            dbg_assert_message(modrm_byte[0] >= 0xC0, "Unexpected sfence encoding");
-            if(modrm_byte[0] < 0xC0) trigger_ud();
-            break;
-
-        default:
-            //dbg_log("missing " + (modrm_byte[0] >> 3 & 7));
-            todo();
+        dbg_log("Invalid mxcsr bits: %x", (new_mxcsr & ~MXCSR_MASK));
+        assert(false);
+        trigger_gp(0);
     }
+    *mxcsr = new_mxcsr;
+}
+static void instr_0FAE_3_reg(int32_t r) { trigger_ud(); }
+static void instr_0FAE_3_mem(int32_t addr) {
+    // stmxcsr
+    safe_write32(addr, *mxcsr);
+}
+static void instr_0FAE_4_reg(int32_t r) { trigger_ud(); }
+static void instr_0FAE_4_mem(int32_t addr) {
+    // xsave
+    todo();
+}
+static void instr_0FAE_5_reg(int32_t r) {
+    // lfence
+    dbg_assert_message(r == 0, "Unexpected lfence encoding");
+}
+static void instr_0FAE_5_mem(int32_t addr) {
+    // xrstor
+    todo();
+}
+static void instr_0FAE_6_reg(int32_t r) {
+    // mfence
+    dbg_assert_message(r == 0, "Unexpected mfence encoding");
+}
+static void instr_0FAE_6_mem(int32_t addr) {
+    dbg_assert_message(false, "0fae/5 #ud");
+    trigger_ud();
+}
+static void instr_0FAE_7_reg(int32_t r) {
+    // sfence
+    dbg_assert_message(r == 0, "Unexpected sfence encoding");
+}
+static void instr_0FAE_7_mem(int32_t addr) {
+    // clflush
+    todo();
 }
 
-static void instr16_0FAF() { read_modrm_byte();
-    int32_t data = read_e16s();
-    write_g16(imul_reg16(read_g16s(), data));
-}
-static void instr32_0FAF() { read_modrm_byte();
-    int32_t data = read_e32s();
-    write_g32(imul_reg32(read_g32s(), data));
-}
+DEFINE_MODRM_INSTR_READ16(instr16_0FAF, write_reg16(r, imul_reg16(read_reg16(r) << 16 >> 16, ___ << 16 >> 16)))
+DEFINE_MODRM_INSTR_READ32(instr32_0FAF, write_reg32(r, imul_reg32(read_reg32(r), ___)))
 
-
-static void instr_0FB0() { read_modrm_byte();
+static void instr_0FB0_reg(int32_t r1, int32_t r2) {
     // cmpxchg8
-    int32_t data = 0;
-    int32_t virt_addr = 0;
-    if(modrm_byte[0] < 0xC0)
-    {
-        virt_addr = modrm_resolve(modrm_byte[0]);
-        writable_or_pagefault(virt_addr, 1);
-
-        data = safe_read8(virt_addr);
-    }
-    else
-        data = reg8[modrm_byte[0] << 2 & 0xC | modrm_byte[0] >> 2 & 1];
-
-
+    int32_t data = read_reg8(r1);
     cmp8(reg8[AL], data);
 
     if(getzf())
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write8(virt_addr, read_g8());
-        else
-            reg8[modrm_byte[0] << 2 & 0xC | modrm_byte[0] >> 2 & 1] = read_g8();
+        write_reg8(r1, read_reg8(r2));
     }
     else
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write8(virt_addr, data);
-
         reg8[AL] = data;
     }
 }
-static void instr16_0FB1() { read_modrm_byte();
-    // cmpxchg16/32
-    int32_t data = 0;
-    int32_t virt_addr = 0;
-    if(modrm_byte[0] < 0xC0)
-    {
-        virt_addr = modrm_resolve(modrm_byte[0]);
-        writable_or_pagefault(virt_addr, 2);
+static void instr_0FB0_mem(int32_t addr, int32_t r) {
+    // cmpxchg8
+    writable_or_pagefault(addr, 1);
+    int32_t data = safe_read8(addr);
+    cmp8(reg8[AL], data);
 
-        data = safe_read16(virt_addr);
+    if(getzf())
+    {
+        safe_write8(addr, read_reg8(r));
     }
     else
-        data = read_reg_e16();
+    {
+        safe_write8(addr, data);
+        reg8[AL] = data;
+    }
+}
 
+static void instr16_0FB1_reg(int32_t r1, int32_t r2) {
+    // cmpxchg16
+    int32_t data = read_reg16(r1);
     cmp16(reg16[AX], data);
 
     if(getzf())
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write16(virt_addr, read_g16());
-        else
-            write_reg_e16(read_g16());
+        write_reg16(r1, read_reg16(r2));
     }
     else
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write16(virt_addr, data);
-
         reg16[AX] = data;
     }
 }
-static void instr32_0FB1() { read_modrm_byte();
-    int32_t virt_addr = 0;
-    int32_t data = 0;
-    if(modrm_byte[0] < 0xC0)
-    {
-        virt_addr = modrm_resolve(modrm_byte[0]);
-        writable_or_pagefault(virt_addr, 4);
+static void instr16_0FB1_mem(int32_t addr, int32_t r) {
+    // cmpxchg16
+    writable_or_pagefault(addr, 2);
+    int32_t data = safe_read16(addr);
+    cmp16(reg16[AX], data);
 
-        data = safe_read32s(virt_addr);
+    if(getzf())
+    {
+        safe_write16(addr, read_reg16(r));
     }
     else
     {
-        data = read_reg_e32s();
+        safe_write16(addr, data);
+        reg16[AX] = data;
     }
+}
 
+static void instr32_0FB1_reg(int32_t r1, int32_t r2) {
+    // cmpxchg32
+    int32_t data = read_reg32(r1);
     cmp32(reg32s[EAX], data);
 
     if(getzf())
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write32(virt_addr, read_g32s());
-        else
-            write_reg_e32(read_g32s());
+        write_reg32(r1, read_reg32(r2));
     }
     else
     {
-        if(modrm_byte[0] < 0xC0)
-            safe_write32(virt_addr, data);
+        reg32s[EAX] = data;
+    }
+}
+static void instr32_0FB1_mem(int32_t addr, int32_t r) {
+    // cmpxchg32
+    writable_or_pagefault(addr, 4);
+    int32_t data = safe_read32s(addr);
+    cmp32(reg32s[EAX], data);
 
+    if(getzf())
+    {
+        safe_write32(addr, read_reg32(r));
+    }
+    else
+    {
+        safe_write32(addr, data);
         reg32s[EAX] = data;
     }
 }
 
 // lss
-static void instr16_0FB2() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, SS);
+static void instr16_0FB2_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr16_0FB2_mem(int32_t addr, int32_t r) {
+    lss16(addr, get_reg16_index(r), SS);
 }
-static void instr32_0FB2() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, SS);
+static void instr32_0FB2_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr32_0FB2_mem(int32_t addr, int32_t r) {
+    lss32(addr, r, SS);
 }
 
-static void instr16_0FB3() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        btr_mem(modrm_resolve(modrm_byte[0]), read_g16s());
-    } else {
-        write_reg_e16(btr_reg(read_reg_e16(), read_g16s() & 15));
-    }
-}
-static void instr32_0FB3() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        btr_mem(modrm_resolve(modrm_byte[0]), read_g32s());
-    } else {
-        write_reg_e32(btr_reg(read_reg_e32s(), read_g32s() & 31));
-    }
-}
+static void instr16_0FB3_reg(int32_t r1, int32_t r2) { write_reg16(r1, btr_reg(read_reg16(r1), read_reg16(r2) & 15)); }
+static void instr16_0FB3_mem(int32_t addr, int32_t r) { btr_mem(addr, read_reg16(r) << 16 >> 16); }
+static void instr32_0FB3_reg(int32_t r1, int32_t r2) { write_reg32(r1, btr_reg(read_reg32(r1), read_reg32(r2) & 31)); }
+static void instr32_0FB3_mem(int32_t addr, int32_t r) { btr_mem(addr, read_reg32(r)); }
 
 // lfs, lgs
-static void instr16_0FB4() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, FS);
+static void instr16_0FB4_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr16_0FB4_mem(int32_t addr, int32_t r) {
+    lss16(addr, get_reg16_index(r), FS);
 }
-static void instr32_0FB4() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, FS);
+static void instr32_0FB4_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr32_0FB4_mem(int32_t addr, int32_t r) {
+    lss32(addr, r, FS);
 }
-static void instr16_0FB5() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, GS);
+static void instr16_0FB5_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr16_0FB5_mem(int32_t addr, int32_t r) {
+    lss16(addr, get_reg16_index(r), GS);
 }
-static void instr32_0FB5() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0) trigger_ud();
-    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, GS);
-}
-
-static void instr16_0FB6() { read_modrm_byte();
-    // movzx
-    int32_t data = read_e8();
-    write_g16(data);
-}
-static void instr32_0FB6() { read_modrm_byte();
-    int32_t data = read_e8();
-    write_g32(data);
+static void instr32_0FB5_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
+static void instr32_0FB5_mem(int32_t addr, int32_t r) {
+    lss32(addr, r, GS);
 }
 
-static void instr16_0FB7() { read_modrm_byte();
-    // movzx
-    int32_t data = read_e16();
-    write_g16(data);
-}
-static void instr32_0FB7() { read_modrm_byte();
-    int32_t data = read_e16();
-    write_g32(data);
-}
+// movzx
+DEFINE_MODRM_INSTR_READ8(instr16_0FB6, write_reg16(r, ___))
+DEFINE_MODRM_INSTR_READ8(instr32_0FB6, write_reg32(r, ___))
+DEFINE_MODRM_INSTR_READ16(instr16_0FB7, write_reg16(r, ___))
+DEFINE_MODRM_INSTR_READ16(instr32_0FB7, write_reg32(r, ___))
 
-static void instr16_0FB8() { read_modrm_byte();
-    // popcnt
-    int32_t data = read_e16();
-    write_g16(popcnt(data));
-}
-static void instr32_0FB8() { read_modrm_byte();
-    int32_t data = read_e32s();
-    write_g32(popcnt(data));
-}
+static void instr16_0FB8_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr16_0FB8_mem(int32_t addr, int32_t r) { trigger_ud(); }
+DEFINE_MODRM_INSTR_READ16(instr16_F30FB8, write_reg16(r, popcnt(___)))
+
+static void instr32_0FB8_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr32_0FB8_mem(int32_t addr, int32_t r) { trigger_ud(); }
+DEFINE_MODRM_INSTR_READ32(instr32_F30FB8, write_reg32(r, popcnt(___)))
 
 static void instr_0FB9() {
     // UD
     todo();
 }
 
-static void instr16_0FBA() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 4:
-            if(modrm_byte[0] < 0xC0)
-            {
-                bt_mem(modrm_resolve(modrm_byte[0]), read_op8() & 15);
-            }
-            else
-            {
-                bt_reg(read_reg_e16(), read_op8() & 15);
-            }
-            break;
-        case 5:
-            if(modrm_byte[0] < 0xC0) {
-                bts_mem(modrm_resolve(modrm_byte[0]), read_op8() & 15);
-            } else {
-                write_reg_e16(bts_reg(read_reg_e16(), read_op8() & 15));
-            }
-            break;
-        case 6:
-            if(modrm_byte[0] < 0xC0) {
-                btr_mem(modrm_resolve(modrm_byte[0]), read_op8() & 15);
-            } else {
-                write_reg_e16(btr_reg(read_reg_e16(), read_op8() & 15));
-            }
-            break;
-        case 7:
-            if(modrm_byte[0] < 0xC0) {
-                btc_mem(modrm_resolve(modrm_byte[0]), read_op8() & 15);
-            } else {
-                write_reg_e16(btc_reg(read_reg_e16(), read_op8() & 15));
-            }
-            break;
-        default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
-            todo();
-    }
+static void instr16_0FBA_4_reg(int32_t r, int32_t imm) {
+    bt_reg(read_reg16(r), imm & 15);
 }
-static void instr32_0FBA() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 4:
-            if(modrm_byte[0] < 0xC0)
-            {
-                bt_mem(modrm_resolve(modrm_byte[0]), read_op8() & 31);
-            }
-            else
-            {
-                bt_reg(read_reg_e32s(), read_op8() & 31);
-            }
-            break;
-        case 5:
-            if(modrm_byte[0] < 0xC0) {
-                bts_mem(modrm_resolve(modrm_byte[0]), read_op8() & 31);
-            } else {
-                write_reg_e32(bts_reg(read_reg_e32s(), read_op8() & 31));
-            }
-            break;
-        case 6:
-            if(modrm_byte[0] < 0xC0) {
-                btr_mem(modrm_resolve(modrm_byte[0]), read_op8() & 31);
-            } else {
-                write_reg_e32(btr_reg(read_reg_e32s(), read_op8() & 31));
-            }
-            break;
-        case 7:
-            if(modrm_byte[0] < 0xC0) {
-                btc_mem(modrm_resolve(modrm_byte[0]), read_op8() & 31);
-            } else {
-                write_reg_e32(btc_reg(read_reg_e32s(), read_op8() & 31));
-            }
-            break;
-        default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
-            todo();
-    }
+static void instr16_0FBA_4_mem(int32_t addr, int32_t imm) {
+    bt_mem(addr, imm & 15);
+}
+static void instr16_0FBA_5_reg(int32_t r, int32_t imm) {
+    write_reg16(r, bts_reg(read_reg16(r), imm & 15));
+}
+static void instr16_0FBA_5_mem(int32_t addr, int32_t imm) {
+    bts_mem(addr, imm & 15);
+}
+static void instr16_0FBA_6_reg(int32_t r, int32_t imm) {
+    write_reg16(r, btr_reg(read_reg16(r), imm & 15));
+}
+static void instr16_0FBA_6_mem(int32_t addr, int32_t imm) {
+    btr_mem(addr, imm & 15);
+}
+static void instr16_0FBA_7_reg(int32_t r, int32_t imm) {
+    write_reg16(r, btc_reg(read_reg16(r), imm & 15));
+}
+static void instr16_0FBA_7_mem(int32_t addr, int32_t imm) {
+    btc_mem(addr, imm & 15);
 }
 
-static void instr16_0FBB() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        btc_mem(modrm_resolve(modrm_byte[0]), read_g16s());
-    } else {
-        write_reg_e16(btc_reg(read_reg_e16(), read_g16s() & 15));
-    }
+static void instr32_0FBA_4_reg(int32_t r, int32_t imm) {
+    bt_reg(read_reg32(r), imm & 31);
 }
-static void instr32_0FBB() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        btc_mem(modrm_resolve(modrm_byte[0]), read_g32s());
-    } else {
-        write_reg_e32(btc_reg(read_reg_e32s(), read_g32s() & 31));
-    }
+static void instr32_0FBA_4_mem(int32_t addr, int32_t imm) {
+    bt_mem(addr, imm & 31);
 }
-
-static void instr16_0FBC() { read_modrm_byte();
-    int32_t data = read_e16();
-    write_g16(bsf16(read_g16(), data));
+static void instr32_0FBA_5_reg(int32_t r, int32_t imm) {
+    write_reg32(r, bts_reg(read_reg32(r), imm & 31));
 }
-static void instr32_0FBC() { read_modrm_byte();
-    int32_t data = read_e32s();
-    write_g32(bsf32(read_g32s(), data));
+static void instr32_0FBA_5_mem(int32_t addr, int32_t imm) {
+    bts_mem(addr, imm & 31);
 }
-
-static void instr16_0FBD() { read_modrm_byte();
-    int32_t data = read_e16();
-    write_g16(bsr16(read_g16(), data));
+static void instr32_0FBA_6_reg(int32_t r, int32_t imm) {
+    write_reg32(r, btr_reg(read_reg32(r), imm & 31));
 }
-static void instr32_0FBD() { read_modrm_byte();
-    int32_t data = read_e32s();
-    write_g32(bsr32(read_g32s(), data));
+static void instr32_0FBA_6_mem(int32_t addr, int32_t imm) {
+    btr_mem(addr, imm & 31);
+}
+static void instr32_0FBA_7_reg(int32_t r, int32_t imm) {
+    write_reg32(r, btc_reg(read_reg32(r), imm & 31));
+}
+static void instr32_0FBA_7_mem(int32_t addr, int32_t imm) {
+    btc_mem(addr, imm & 31);
 }
 
-static void instr16_0FBE() { read_modrm_byte();
-    // movsx
-    int32_t data = read_e8s();
-    write_g16(data);
-}
-static void instr32_0FBE() { read_modrm_byte();
-    int32_t data = read_e8s();
-    write_g32(data);
-}
+static void instr16_0FBB_reg(int32_t r1, int32_t r2) { write_reg16(r1, btc_reg(read_reg16(r1), read_reg16(r2) & 15)); }
+static void instr16_0FBB_mem(int32_t addr, int32_t r) { btc_mem(addr, read_reg16(r) << 16 >> 16); }
+static void instr32_0FBB_reg(int32_t r1, int32_t r2) { write_reg32(r1, btc_reg(read_reg32(r1), read_reg32(r2) & 31)); }
+static void instr32_0FBB_mem(int32_t addr, int32_t r) { btc_mem(addr, read_reg32(r)); }
 
-static void instr16_0FBF() { read_modrm_byte();
-    // movsx
-    int32_t data = read_e16();
-    write_g16(data);
-}
+DEFINE_MODRM_INSTR_READ16(instr16_0FBC, write_reg16(r, bsf16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_0FBC, write_reg32(r, bsf32(read_reg32(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_0FBD, write_reg16(r, bsr16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_0FBD, write_reg32(r, bsr32(read_reg32(r), ___)))
 
-static void instr32_0FBF() { read_modrm_byte();
-    int32_t data = read_e16s();
-    write_g32(data);
-}
+// movsx
+DEFINE_MODRM_INSTR_READ8(instr16_0FBE, write_reg16(r, ___ << 24 >> 24))
+DEFINE_MODRM_INSTR_READ8(instr32_0FBE, write_reg32(r, ___ << 24 >> 24))
+DEFINE_MODRM_INSTR_READ16(instr16_0FBF, write_reg16(r, ___ << 16 >> 16))
+DEFINE_MODRM_INSTR_READ16(instr32_0FBF, write_reg32(r, ___ << 16 >> 16))
 
-static void instr_0FC0() { read_modrm_byte();
-    int32_t data = read_write_e8(); write_e8(xadd8(data, modrm_byte[0] >> 1 & 0xC | modrm_byte[0] >> 5 & 1));
-}
-
-static void instr16_0FC1() { read_modrm_byte();
-    int32_t data = read_write_e16();
-    write_e16(xadd16(data, modrm_byte[0] >> 2 & 14));
-}
-static void instr32_0FC1() { read_modrm_byte();
-    int32_t data = read_write_e32();
-    write_e32(xadd32(data, modrm_byte[0] >> 3 & 7));
-}
-
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_0FC0, xadd8(___, get_reg8_index(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_0FC1, xadd16(___, get_reg16_index(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_0FC1, xadd32(___, r))
 
 static void instr_0FC2() { unimplemented_sse(); }
 
-static void instr_0FC3()
-{
+static void instr_0FC3_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr_0FC3_mem(int32_t addr, int32_t r) {
     // movnti
-    read_modrm_byte();
-    if(*modrm_byte >= 0xC0) trigger_ud();
-    set_e32(read_g32s());
+    safe_write32(addr, read_reg32(r));
 }
 
 static void instr_0FC4() { unimplemented_sse(); }
-static void instr_0FC5() { unimplemented_sse(); }
+static void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { unimplemented_sse(); }
+static void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) { unimplemented_sse(); }
 
-static void instr_660FC5() {
-    // pextrw r32/m16, xmm, imm8
+static void instr_660FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
+static void instr_660FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
+    // pextrw r32, xmm, imm8
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    if(*modrm_byte < 0xC0) trigger_ud();
-
-    union reg128 data = read_xmm_mem128s();
-    uint32_t index = read_imm8() & 7;
+    union reg128 data = read_xmm128s(r1);
+    uint32_t index = imm8 & 7;
     uint32_t result = data.u16[index];
 
-    write_g32(result);
+    write_reg32(r2, result);
 }
 
 static void instr_0FC6() { unimplemented_sse(); }
 
-static void instr_0FC7() {
-    read_modrm_byte();
+static void instr_0FC7_1_reg(int32_t r) { trigger_ud(); }
+static void instr_0FC7_1_mem(int32_t addr) {
+    // cmpxchg8b
+    writable_or_pagefault(addr, 8);
 
-    switch(modrm_byte[0] >> 3 & 7)
+    int32_t m64_low = safe_read32s(addr);
+    int32_t m64_high = safe_read32s(addr + 4);
+
+    if(reg32s[EAX] == m64_low &&
+            reg32s[EDX] == m64_high)
     {
-        case 1:
-            // cmpxchg8b
-            if(modrm_byte[0] >= 0xC0)
-            {
-                trigger_ud();
-            }
+        flags[0] |= FLAG_ZERO;
 
-            int32_t addr = modrm_resolve(modrm_byte[0]);
-            writable_or_pagefault(addr, 8);
-
-            int32_t m64_low = safe_read32s(addr);
-            int32_t m64_high = safe_read32s(addr + 4);
-
-            if(reg32s[EAX] == m64_low &&
-               reg32s[EDX] == m64_high)
-            {
-                flags[0] |= FLAG_ZERO;
-
-                safe_write32(addr, reg32s[EBX]);
-                safe_write32(addr + 4, reg32s[ECX]);
-            }
-            else
-            {
-                flags[0] &= ~FLAG_ZERO;
-
-                reg32s[EAX] = m64_low;
-                reg32s[EDX] = m64_high;
-
-                safe_write32(addr, m64_low);
-                safe_write32(addr + 4, m64_high);
-            }
-
-            flags_changed[0] &= ~FLAG_ZERO;
-            break;
-
-        case 6:
-            {
-                int32_t has_rand = has_rand_int();
-
-                int32_t rand = 0;
-                if(has_rand)
-                {
-                    rand = get_rand_int();
-                }
-                //dbg_log("rdrand -> " + h(rand, 8));
-
-                if(is_osize_32())
-                {
-                    set_e32(rand);
-                }
-                else
-                {
-                    set_e16(rand);
-                }
-
-                flags[0] &= ~FLAGS_ALL;
-                flags[0] |= has_rand;
-                flags_changed[0] = 0;
-            }
-            break;
-
-        default:
-            dbg_log("%d", modrm_byte[0] >> 3 & 7);
-            todo();
+        safe_write32(addr, reg32s[EBX]);
+        safe_write32(addr + 4, reg32s[ECX]);
     }
+    else
+    {
+        flags[0] &= ~FLAG_ZERO;
+
+        reg32s[EAX] = m64_low;
+        reg32s[EDX] = m64_high;
+
+        safe_write32(addr, m64_low);
+        safe_write32(addr + 4, m64_high);
+    }
+
+    flags_changed[0] &= ~FLAG_ZERO;
+}
+
+static void instr_0FC7_6_reg(int32_t r) {
+    // rdrand
+    int32_t has_rand = has_rand_int();
+
+    int32_t rand = 0;
+    if(has_rand)
+    {
+        rand = get_rand_int();
+    }
+
+    write_reg_osize(r, rand);
+
+    flags[0] &= ~FLAGS_ALL;
+    flags[0] |= has_rand;
+    flags_changed[0] = 0;
+}
+static void instr_0FC7_6_mem(int32_t addr) {
+    todo();
+    trigger_ud();
 }
 
 static void instr_0FC8() { bswap(EAX); }
@@ -2602,40 +2279,38 @@ static void instr_0FCF() { bswap(EDI); }
 
 static void instr_0FD0() { unimplemented_sse(); }
 
-static void instr_0FD1()
-{
+static void instr_0FD1(union reg64 source, int32_t r) {
     // psrlw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
     int32_t high = 0;
 
     if (shift <= 15) {
-        uint32_t word0 = (destination.u32[0] & 0xFFFF) >> shift;
-        uint32_t word1 = ((uint32_t) destination.u32[0] >> 16) >> shift;
+        uint32_t word0 = destination.u16[0] >> shift;
+        uint32_t word1 = ((uint32_t) destination.u16[1]) >> shift;
         low = word0 | word1 << 16;
 
-        uint32_t word2 = ((uint32_t) destination.u32[1] & 0xFFFF) >> shift;
-        uint32_t word3 = ((uint32_t) destination.u32[1] >> 16) >> shift;
+        uint32_t word2 = ((uint32_t) destination.u16[2]) >> shift;
+        uint32_t word3 = ((uint32_t) destination.u16[3]) >> shift;
         high = word2 | word3 << 16;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD1, safe_read64s, read_mmx64s)
 
-static void instr_0FD2()
-{
+static void instr_660FD1_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FD1_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FD2(union reg64 source, int32_t r) {
     // psrld mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
@@ -2646,18 +2321,18 @@ static void instr_0FD2()
         high = (uint32_t) destination.u32[1] >> shift;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD2, safe_read64s, read_mmx64s)
 
+static void instr_660FD2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FD2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FD3()
-{
+static void instr_0FD3(union reg64 source, int32_t r) {
     // psrlq mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
 
@@ -2680,16 +2355,14 @@ static void instr_0FD3()
         high = 0;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD3, safe_read64s, read_mmx64s)
 
-static void instr_660FD3()
-{
+static void instr_660FD3(union reg128 source, int32_t r) {
     // psrlq xmm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_xmm_mem64s();
     uint32_t shift = source.u32[0];
 
     if(shift == 0)
@@ -2697,8 +2370,8 @@ static void instr_660FD3()
         return;
     }
 
-    union reg128 destination = read_xmm128s();
-    union reg128 result;
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = { { 0 } };
 
     if (shift <= 31)
     {
@@ -2714,84 +2387,88 @@ static void instr_660FD3()
         result.u32[2] = destination.u32[3] >> shift;
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660FD3, safe_read128s, read_xmm128s)
 
-static void instr_0FD4() { unimplemented_sse(); }
+static void instr_0FD4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FD4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FD4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FD4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FD5()
-{
+static void instr_0FD5(union reg64 source, int32_t r) {
     // pmullw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = ((destination.u16[0]) * (source.u16[0])) & 0xFFFF;
-    int32_t word1 = ((destination.u16[1]) * (source.u16[1])) & 0xFFFF;
-    int32_t word2 = ((destination.u16[2]) * (source.u16[2])) & 0xFFFF;
-    int32_t word3 = ((destination.u16[3]) * (source.u16[3])) & 0xFFFF;
+    int32_t word0 = (destination.u16[0] * source.u16[0]) & 0xFFFF;
+    int32_t word1 = (destination.u16[1] * source.u16[1]) & 0xFFFF;
+    int32_t word2 = (destination.u16[2] * source.u16[2]) & 0xFFFF;
+    int32_t word3 = (destination.u16[3] * source.u16[3]) & 0xFFFF;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD5, safe_read64s, read_mmx64s)
 
-
-static void instr_660FD5()
-{
+static void instr_660FD5(union reg128 source, int32_t r) {
     // pmullw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         source.u16[0] * destination.u16[0] & 0xFFFF | source.u16[1] * destination.u16[1] << 16,
         source.u16[2] * destination.u16[2] & 0xFFFF | source.u16[3] * destination.u16[3] << 16,
         source.u16[4] * destination.u16[4] & 0xFFFF | source.u16[5] * destination.u16[5] << 16,
         source.u16[6] * destination.u16[6] & 0xFFFF | source.u16[7] * destination.u16[7] << 16
     );
 }
+DEFINE_SSE_SPLIT(instr_660FD5, safe_read128s, read_xmm128s)
 
-static void instr_0FD6() { unimplemented_sse(); }
-static void instr_660FD6() {
+static void instr_0FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FD6_mem(int32_t addr, int32_t r) {
     // movq xmm/m64, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    assert(*modrm_byte < 0xC0);
-    union reg64 data = read_xmm64s();
-    int32_t addr = modrm_resolve(*modrm_byte);
-    safe_write64(addr, data.u32[0], data.u32[1]);
+    union reg64 data = read_xmm64s(r);
+    safe_write64(addr, data.u64[0]);
 }
-static void instr_0FD7() { unimplemented_sse(); }
-static void instr_660FD7() {
+static void instr_660FD6_reg(int32_t r1, int32_t r2) {
+    // movq xmm/m64, xmm
+    task_switch_test_mmx();
+    union reg64 data = read_xmm64s(r2);
+    write_xmm128(r1, data.u32[0], data.u32[1], 0, 0);
+}
+static void instr_F20FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F20FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_F30FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F30FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FD7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FD7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb reg, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-    if(*modrm_byte < 0xC0) trigger_ud();
 
-    union reg128 x = read_xmm_mem128s();
+    union reg128 x = read_xmm128s(r1);
     int32_t result =
         x.u8[0] >> 7 << 0 | x.u8[1] >> 7 << 1 | x.u8[2] >> 7 << 2 | x.u8[3] >> 7 << 3 |
         x.u8[4] >> 7 << 4 | x.u8[5] >> 7 << 5 | x.u8[6] >> 7 << 6 | x.u8[7] >> 7 << 7 |
         x.u8[8] >> 7 << 8 | x.u8[9] >> 7 << 9 | x.u8[10] >> 7 << 10 | x.u8[11] >> 7 << 11 |
         x.u8[12] >> 7 << 12 | x.u8[13] >> 7 << 13 | x.u8[14] >> 7 << 14 | x.u8[15] >> 7 << 15;
-    write_g32(result);
+    write_reg32(r2, result);
 }
 
-
-static void instr_0FD8()
-{
+static void instr_0FD8(union reg64 source, int32_t r) {
     // psubusb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t byte0 = saturate_sd_to_ub(destination.u8[0] - source.u8[0]);
     int32_t byte1 = saturate_sd_to_ub(destination.u8[1] - source.u8[1]);
@@ -2805,21 +2482,21 @@ static void instr_0FD8()
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD8, safe_read64s, read_mmx64s)
 
+static void instr_660FD8_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FD8_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FD9()
-{
+static void instr_0FD9(union reg64 source, int32_t r) {
     // psubusw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = (destination.u32[0] & 0xFFFF) - (source.u32[0] & 0xFFFF);
-    int32_t word1 = ((uint32_t) destination.u32[0] >> 16) - (source.u32[0] >> 16);
+    int32_t word0 = destination.u16[0] - source.u16[0];
+    int32_t word1 = ((uint32_t) destination.u16[1]) - source.u16[1];
     if (word0 < 0) {
         word0 = 0;
     }
@@ -2827,8 +2504,8 @@ static void instr_0FD9()
         word1 = 0;
     }
 
-    int32_t word2 = (destination.u32[1] & 0xFFFF) - (source.u32[1] & 0xFFFF);
-    int32_t word3 = ((uint32_t) destination.u32[1] >> 16) - (source.u32[1] >> 16);
+    int32_t word2 = destination.u16[2] - source.u16[2];
+    int32_t word3 = ((uint32_t) destination.u16[3]) - source.u16[3];
     if (word2 < 0) {
         word2 = 0;
     }
@@ -2839,19 +2516,21 @@ static void instr_0FD9()
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FD9, safe_read64s, read_mmx64s)
 
-static void instr_0FDA() { unimplemented_sse(); }
+static void instr_660FD9_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FD9_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660FDA()
-{
+static void instr_0FDA_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FDA_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660FDA(union reg128 source, int32_t r) {
     // pminub xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(uint32_t i = 0; i < 16; i++)
@@ -2859,32 +2538,31 @@ static void instr_660FDA()
         result.u8[i] = source.u8[i] < destination.u8[i] ? source.u8[i] : destination.u8[i];
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660FDA, safe_read128s, read_xmm128s)
 
-static void instr_0FDB()
-{
+static void instr_0FDB(union reg64 source, int32_t r) {
     // pand mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = source.u32[0] & destination.u32[0];
     int32_t high = source.u32[1] & destination.u32[1];
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FDB, safe_read64s, read_mmx64s)
 
-static void instr_0FDC()
-{
+static void instr_660FDB_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FDB_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FDC(union reg64 source, int32_t r) {
     // paddusb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-    union reg64 source = read_mmx_mem64s();
 
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t byte0 = saturate_ud_to_ub(destination.u8[0] + source.u8[0]);
     uint32_t byte1 = saturate_ud_to_ub(destination.u8[1] + source.u8[1]);
@@ -2898,18 +2576,15 @@ static void instr_0FDC()
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FDC, safe_read64s, read_mmx64s)
 
-
-static void instr_660FDC()
-{
+static void instr_660FDC(union reg128 source, int32_t r) {
     // paddusb xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(uint32_t i = 0; i < 16; i++)
@@ -2917,57 +2592,52 @@ static void instr_660FDC()
         result.u8[i] = saturate_ud_to_ub(source.u8[i] + destination.u8[i]);
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660FDC, safe_read128s, read_xmm128s)
 
-static void instr_0FDD()
-{
+static void instr_0FDD(union reg64 source, int32_t r) {
     // paddusw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = saturate_uw((destination.u32[0] & 0xFFFF) + (source.u32[0] & 0xFFFF));
-    int32_t word1 = saturate_uw((destination.u32[0] >> 16) + (source.u32[0] >> 16));
-    int32_t word2 = saturate_uw((destination.u32[1] & 0xFFFF) + (source.u32[1] & 0xFFFF));
-    int32_t word3 = saturate_uw((destination.u32[1] >> 16) + (source.u32[1] >> 16));
+    int32_t word0 = saturate_uw(destination.u16[0] + source.u16[0]);
+    int32_t word1 = saturate_uw(destination.u16[1] + source.u16[1]);
+    int32_t word2 = saturate_uw(destination.u16[2] + source.u16[2]);
+    int32_t word3 = saturate_uw(destination.u16[3] + source.u16[3]);
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FDD, safe_read64s, read_mmx64s)
 
-
-static void instr_660FDD()
-{
+static void instr_660FDD(union reg128 source, int32_t r) {
     // paddusw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         saturate_uw(source.u16[0] + destination.u16[0]) | saturate_uw(source.u16[1] + destination.u16[1]) << 16,
         saturate_uw(source.u16[2] + destination.u16[2]) | saturate_uw(source.u16[3] + destination.u16[3]) << 16,
         saturate_uw(source.u16[4] + destination.u16[4]) | saturate_uw(source.u16[5] + destination.u16[5]) << 16,
         saturate_uw(source.u16[6] + destination.u16[6]) | saturate_uw(source.u16[7] + destination.u16[7]) << 16
     );
 }
+DEFINE_SSE_SPLIT(instr_660FDD, safe_read128s, read_xmm128s)
 
-static void instr_0FDE() { unimplemented_sse(); }
+static void instr_0FDE_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FDE_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660FDE()
-{
+static void instr_660FDE(union reg128 source, int32_t r) {
     // pmaxub xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
     for(uint32_t i = 0; i < 16; i++)
@@ -2975,318 +2645,331 @@ static void instr_660FDE()
         result.u8[i] = source.u8[i] > destination.u8[i] ? source.u8[i] : destination.u8[i];
     }
 
-    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+    write_xmm_reg128(r, result);
 }
+DEFINE_SSE_SPLIT(instr_660FDE, safe_read128s, read_xmm128s)
 
-static void instr_0FDF()
-{
+static void instr_0FDF(union reg64 source, int32_t r) {
     // pandn mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = source.u32[0] & ~destination.u32[0];
     int32_t high = source.u32[1] & ~destination.u32[1];
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FDF, safe_read64s, read_mmx64s)
 
-static void instr_0FE0() { unimplemented_sse(); }
+static void instr_660FDF_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FDF_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FE1()
-{
+static void instr_0FE0_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FE0_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE0_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE0_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FE1(union reg64 source, int32_t r) {
     // psraw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     if (shift > 15) {
         shift = 16;
     }
 
-    int32_t word0 = (destination.s16[0] >> shift) & 0xFFFF;
-    int32_t word1 = (destination.s16[1] >> shift) & 0xFFFF;
+    int32_t word0 = (destination.i16[0] >> shift) & 0xFFFF;
+    int32_t word1 = (destination.i16[1] >> shift) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
-    int32_t word2 = (destination.s16[2] >> shift) & 0xFFFF;
-    int32_t word3 = (destination.s16[3] >> shift) & 0xFFFF;
+    int32_t word2 = (destination.i16[2] >> shift) & 0xFFFF;
+    int32_t word3 = (destination.i16[3] >> shift) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FE1, safe_read64s, read_mmx64s)
 
-static void instr_0FE2()
-{
+static void instr_660FE1_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE1_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FE2(union reg64 source, int32_t r) {
     // psrad mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     if (shift > 31) {
         shift = 31;
     }
 
-    int32_t low = destination.s32[0] >> shift;
-    int32_t high = destination.s32[1] >> shift;
+    int32_t low = destination.i32[0] >> shift;
+    int32_t high = destination.i32[1] >> shift;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FE2, safe_read64s, read_mmx64s)
 
-static void instr_0FE3() { unimplemented_sse(); }
-static void instr_0FE4() { unimplemented_sse(); }
+static void instr_660FE2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_660FE4()
-{
+static void instr_0FE3_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FE3_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE3_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE3_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FE4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FE4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660FE4(union reg128 source, int32_t r) {
     // pmulhuw xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         (source.u16[0] * destination.u16[0] >> 16) & 0xFFFF | source.u16[1] * destination.u16[1] & 0xFFFF0000,
         (source.u16[2] * destination.u16[2] >> 16) & 0xFFFF | source.u16[3] * destination.u16[3] & 0xFFFF0000,
         (source.u16[4] * destination.u16[4] >> 16) & 0xFFFF | source.u16[5] * destination.u16[5] & 0xFFFF0000,
         (source.u16[6] * destination.u16[6] >> 16) & 0xFFFF | source.u16[7] * destination.u16[7] & 0xFFFF0000
     );
 }
+DEFINE_SSE_SPLIT(instr_660FE4, safe_read128s, read_xmm128s)
 
-static void instr_0FE5()
-{
+static void instr_0FE5(union reg64 source, int32_t r) {
     // pmulhw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    uint32_t word0 = ((destination.s16[0] * source.s16[0]) >> 16) & 0xFFFF;
-    uint32_t word1 = ((destination.s16[1] * source.s16[1]) >> 16) & 0xFFFF;
-    uint32_t word2 = ((destination.s16[2] * source.s16[2]) >> 16) & 0xFFFF;
-    uint32_t word3 = ((destination.s16[3] * source.s16[3]) >> 16) & 0xFFFF;
+    uint32_t word0 = ((destination.i16[0] * source.i16[0]) >> 16) & 0xFFFF;
+    uint32_t word1 = ((destination.i16[1] * source.i16[1]) >> 16) & 0xFFFF;
+    uint32_t word2 = ((destination.i16[2] * source.i16[2]) >> 16) & 0xFFFF;
+    uint32_t word3 = ((destination.i16[3] * source.i16[3]) >> 16) & 0xFFFF;
 
     int32_t low = word0 | (word1 << 16);
     int32_t high = word2 | (word3 << 16);
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FE5, safe_read64s, read_mmx64s)
 
-static void instr_0FE6() { unimplemented_sse(); }
-static void instr_0FE7() { unimplemented_sse(); }
-static void instr_660FE7() {
+static void instr_660FE5_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE5_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_F20FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F20FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_F30FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_F30FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FE7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FE7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+static void instr_660FE7_mem(int32_t addr, int32_t r) {
     // movntdq m128, xmm
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    if(*modrm_byte >= 0xC0) trigger_ud();
-
-    union reg128 data = read_xmm128s();
-    int32_t addr = modrm_resolve(*modrm_byte);
+    union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
 }
 
-
-static void instr_0FE8()
-{
+static void instr_0FE8(union reg64 source, int32_t r) {
     // psubsb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = saturate_sd_to_sb(destination.s8[0] - source.s8[0]);
-    int32_t byte1 = saturate_sd_to_sb(destination.s8[1] - source.s8[1]);
-    int32_t byte2 = saturate_sd_to_sb(destination.s8[2] - source.s8[2]);
-    int32_t byte3 = saturate_sd_to_sb(destination.s8[3] - source.s8[3]);
-    int32_t byte4 = saturate_sd_to_sb(destination.s8[4] - source.s8[4]);
-    int32_t byte5 = saturate_sd_to_sb(destination.s8[5] - source.s8[5]);
-    int32_t byte6 = saturate_sd_to_sb(destination.s8[6] - source.s8[6]);
-    int32_t byte7 = saturate_sd_to_sb(destination.s8[7] - source.s8[7]);
+    int32_t byte0 = saturate_sd_to_sb(destination.i8[0] - source.i8[0]);
+    int32_t byte1 = saturate_sd_to_sb(destination.i8[1] - source.i8[1]);
+    int32_t byte2 = saturate_sd_to_sb(destination.i8[2] - source.i8[2]);
+    int32_t byte3 = saturate_sd_to_sb(destination.i8[3] - source.i8[3]);
+    int32_t byte4 = saturate_sd_to_sb(destination.i8[4] - source.i8[4]);
+    int32_t byte5 = saturate_sd_to_sb(destination.i8[5] - source.i8[5]);
+    int32_t byte6 = saturate_sd_to_sb(destination.i8[6] - source.i8[6]);
+    int32_t byte7 = saturate_sd_to_sb(destination.i8[7] - source.i8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FE8, safe_read64s, read_mmx64s)
 
+static void instr_660FE8_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE8_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FE9()
-{
+static void instr_0FE9(union reg64 source, int32_t r) {
     // psubsw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = saturate_sd_to_sw(destination.s16[0] - source.s16[0]);
-    int32_t word1 = saturate_sd_to_sw(destination.s16[1] - source.s16[1]);
-    int32_t word2 = saturate_sd_to_sw(destination.s16[2] - source.s16[2]);
-    int32_t word3 = saturate_sd_to_sw(destination.s16[3] - source.s16[3]);
+    int32_t word0 = saturate_sd_to_sw(destination.i16[0] - source.i16[0]);
+    int32_t word1 = saturate_sd_to_sw(destination.i16[1] - source.i16[1]);
+    int32_t word2 = saturate_sd_to_sw(destination.i16[2] - source.i16[2]);
+    int32_t word3 = saturate_sd_to_sw(destination.i16[3] - source.i16[3]);
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FE9, safe_read64s, read_mmx64s)
 
-static void instr_0FEA() { unimplemented_sse(); }
+static void instr_660FE9_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FE9_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FEB()
-{
+static void instr_0FEA_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FEA_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FEA_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FEA_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FEB(union reg64 source, int32_t r) {
     // por mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = source.u32[0] | destination.u32[0];
     int32_t high = source.u32[1] | destination.u32[1];
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FEB, safe_read64s, read_mmx64s)
 
-
-static void instr_660FEB()
-{
+static void instr_660FEB(union reg128 source, int32_t r) {
     // por xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         source.u32[0] | destination.u32[0],
         source.u32[1] | destination.u32[1],
         source.u32[2] | destination.u32[2],
         source.u32[3] | destination.u32[3]
      );
 }
+DEFINE_SSE_SPLIT(instr_660FEB, safe_read128s, read_xmm128s)
 
-static void instr_0FEC()
-{
+static void instr_0FEC(union reg64 source, int32_t r) {
     // paddsb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 destination = read_mmx64s();
-
-    uint32_t byte0 = saturate_sd_to_sb(destination.s8[0] + source.s8[0]);
-    uint32_t byte1 = saturate_sd_to_sb(destination.s8[1] + source.s8[1]);
-    uint32_t byte2 = saturate_sd_to_sb(destination.s8[2] + source.s8[2]);
-    uint32_t byte3 = saturate_sd_to_sb(destination.s8[3] + source.s8[3]);
-    uint32_t byte4 = saturate_sd_to_sb(destination.s8[4] + source.s8[4]);
-    uint32_t byte5 = saturate_sd_to_sb(destination.s8[5] + source.s8[5]);
-    uint32_t byte6 = saturate_sd_to_sb(destination.s8[6] + source.s8[6]);
-    uint32_t byte7 = saturate_sd_to_sb(destination.s8[7] + source.s8[7]);
+    uint32_t byte0 = saturate_sd_to_sb(destination.i8[0] + source.i8[0]);
+    uint32_t byte1 = saturate_sd_to_sb(destination.i8[1] + source.i8[1]);
+    uint32_t byte2 = saturate_sd_to_sb(destination.i8[2] + source.i8[2]);
+    uint32_t byte3 = saturate_sd_to_sb(destination.i8[3] + source.i8[3]);
+    uint32_t byte4 = saturate_sd_to_sb(destination.i8[4] + source.i8[4]);
+    uint32_t byte5 = saturate_sd_to_sb(destination.i8[5] + source.i8[5]);
+    uint32_t byte6 = saturate_sd_to_sb(destination.i8[6] + source.i8[6]);
+    uint32_t byte7 = saturate_sd_to_sb(destination.i8[7] + source.i8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FEC, safe_read64s, read_mmx64s)
 
-static void instr_0FED() {
+static void instr_660FEC_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FEC_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FED(union reg64 source, int32_t r) {
     // paddsw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = saturate_sd_to_sw((destination.s16[0]) + (source.s16[0]));
-    int32_t word1 = saturate_sd_to_sw((destination.s16[1]) + (source.s16[1]));
-    int32_t word2 = saturate_sd_to_sw((destination.s16[2]) + (source.s16[2]));
-    int32_t word3 = saturate_sd_to_sw((destination.s16[3]) + (source.s16[3]));
+    int32_t word0 = saturate_sd_to_sw(destination.i16[0] + source.i16[0]);
+    int32_t word1 = saturate_sd_to_sw(destination.i16[1] + source.i16[1]);
+    int32_t word2 = saturate_sd_to_sw(destination.i16[2] + source.i16[2]);
+    int32_t word3 = saturate_sd_to_sw(destination.i16[3] + source.i16[3]);
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FED, safe_read64s, read_mmx64s)
 
-static void instr_0FEE() { unimplemented_sse(); }
+static void instr_660FED_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FED_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FEF()
-{
+static void instr_0FEE_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FEE_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FEE_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FEE_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FEF(union reg64 source, int32_t r) {
     // pxor mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
-
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
-    write_mmx64s(source.u32[0] ^ destination.u32[0], source.u32[1] ^ destination.u32[1]);
+    union reg64 destination = read_mmx64s(r);
+    write_mmx64(r, source.u32[0] ^ destination.u32[0], source.u32[1] ^ destination.u32[1]);
 }
+DEFINE_SSE_SPLIT(instr_0FEF, safe_read64s, read_mmx64s)
 
-static void instr_660FEF() {
+static void instr_660FEF(union reg128 source, int32_t r) {
     // pxor xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         source.u32[0] ^ destination.u32[0],
         source.u32[1] ^ destination.u32[1],
         source.u32[2] ^ destination.u32[2],
         source.u32[3] ^ destination.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_660FEF, safe_read128s, read_xmm128s)
 
 static void instr_0FF0() { unimplemented_sse(); }
 
-static void instr_0FF1()
-{
+static void instr_0FF1(union reg64 source, int32_t r) {
     // psllw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
-
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
     int32_t high = 0;
 
     if (shift <= 15) {
-        int32_t word0 = ((destination.u32[0] & 0xFFFF) << shift) & 0xFFFF;
+        int32_t word0 = (destination.u16[0] << shift) & 0xFFFF;
         int32_t word1 = (((uint32_t) destination.u32[0]) >> 16) << shift;
         low = word0 | word1 << 16;
 
-        int32_t word2 = ((destination.u32[1] & 0xFFFF) << shift) & 0xFFFF;
+        int32_t word2 = (destination.u16[2] << shift) & 0xFFFF;
         int32_t word3 = (((uint32_t) destination.u32[1]) >> 16) << shift;
         high = word2 | word3 << 16;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF1, safe_read64s, read_mmx64s)
 
-static void instr_0FF2()
-{
+static void instr_660FF1_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF1_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FF2(union reg64 source, int32_t r) {
     // pslld mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
@@ -3297,18 +2980,18 @@ static void instr_0FF2()
         high = destination.u32[1] << shift;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF2, safe_read64s, read_mmx64s)
 
+static void instr_660FF2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FF3()
-{
+static void instr_0FF3(union reg64 source, int32_t r) {
     // psllq mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint32_t shift = source.u32[0];
 
@@ -3329,123 +3012,162 @@ static void instr_0FF3()
         low = 0;
     }
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF3, safe_read64s, read_mmx64s)
 
-static void instr_0FF4() { unimplemented_sse(); }
+static void instr_660FF3(union reg128 source, int32_t r) {
+    // psllq xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+    uint32_t shift = source.u32[0];
 
-static void instr_0FF5()
-{
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg128 result = { { 0 } };
+
+    if(shift <= 31) {
+        result.u32[0] = destination.u32[0] << shift;
+        result.u32[1] = destination.u32[1] << shift | (((uint32_t) destination.u32[0]) >> (32 - shift));
+        result.u32[2] = destination.u32[2] << shift;
+        result.u32[3] = destination.u32[3] << shift | (((uint32_t) destination.u32[2]) >> (32 - shift));
+    }
+    else if(shift <= 63) {
+        result.u32[0] = 0;
+        result.u32[1] = destination.u32[0] << (shift & 0x1F);
+        result.u32[2] = 0;
+        result.u32[3] = destination.u32[2] << (shift & 0x1F);
+    }
+
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660FF3, safe_read128s, read_xmm128s)
+
+static void instr_0FF4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FF4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FF5(union reg64 source, int32_t r) {
     // pmaddwd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    int32_t mul0 = (destination.s16[0] * (source.s16[0]));
-    int32_t mul1 = (destination.s16[1] * (source.s16[1]));
-    int32_t mul2 = (destination.s16[2] * (source.s16[2]));
-    int32_t mul3 = (destination.s16[3] * (source.s16[3]));
+    int32_t mul0 = destination.i16[0] * source.i16[0];
+    int32_t mul1 = destination.i16[1] * source.i16[1];
+    int32_t mul2 = destination.i16[2] * source.i16[2];
+    int32_t mul3 = destination.i16[3] * source.i16[3];
 
     int32_t low = mul0 + mul1;
     int32_t high = mul2 + mul3;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF5, safe_read64s, read_mmx64s)
 
-static void instr_0FF6() { unimplemented_sse(); }
-static void instr_0FF7() { unimplemented_sse(); }
+static void instr_660FF5_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF5_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
+static void instr_0FF6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FF6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FF8()
-{
+static void instr_0FF7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FF7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FF8(union reg64 source, int32_t r) {
     // psubb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s(r);
 
-    union reg64 destination = read_mmx64s();
-
-    int32_t byte0 = (destination.s8[0] - source.s8[0]) & 0xFF;
-    int32_t byte1 = (destination.s8[1] - source.s8[1]) & 0xFF;
-    int32_t byte2 = (destination.s8[2] - source.s8[2]) & 0xFF;
-    int32_t byte3 = (destination.s8[3] - source.s8[3]) & 0xFF;
-    int32_t byte4 = (destination.s8[4] - source.s8[4]) & 0xFF;
-    int32_t byte5 = (destination.s8[5] - source.s8[5]) & 0xFF;
-    int32_t byte6 = (destination.s8[6] - source.s8[6]) & 0xFF;
-    int32_t byte7 = (destination.s8[7] - source.s8[7]) & 0xFF;
+    int32_t byte0 = (destination.i8[0] - source.i8[0]) & 0xFF;
+    int32_t byte1 = (destination.i8[1] - source.i8[1]) & 0xFF;
+    int32_t byte2 = (destination.i8[2] - source.i8[2]) & 0xFF;
+    int32_t byte3 = (destination.i8[3] - source.i8[3]) & 0xFF;
+    int32_t byte4 = (destination.i8[4] - source.i8[4]) & 0xFF;
+    int32_t byte5 = (destination.i8[5] - source.i8[5]) & 0xFF;
+    int32_t byte6 = (destination.i8[6] - source.i8[6]) & 0xFF;
+    int32_t byte7 = (destination.i8[7] - source.i8[7]) & 0xFF;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF8, safe_read64s, read_mmx64s)
 
+static void instr_660FF8_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF8_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FF9()
-{
+static void instr_0FF9(union reg64 source, int32_t r) {
     // psubw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = (destination.u32[0] - source.u32[0]) & 0xFFFF;
-    int32_t word1 = (((uint32_t) destination.u32[0] >> 16) - (source.u32[0] >> 16)) & 0xFFFF;
+    int32_t word1 = (((uint32_t) destination.u16[1]) - source.u16[1]) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
     int32_t word2 = (destination.u32[1] - source.u32[1]) & 0xFFFF;
-    int32_t word3 = (((uint32_t) destination.u32[1] >> 16) - (source.u32[1] >> 16)) & 0xFFFF;
+    int32_t word3 = (((uint32_t) destination.u16[3]) - source.u16[3]) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FF9, safe_read64s, read_mmx64s)
 
-static void instr_0FFA()
-{
+static void instr_660FF9_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FF9_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FFA(union reg64 source, int32_t r) {
     // psubd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
-    write_mmx64s(
+    write_mmx64(
+        r,
         destination.u32[0] - source.u32[0],
         destination.u32[1] - source.u32[1]
     );
 }
+DEFINE_SSE_SPLIT(instr_0FFA, safe_read64s, read_mmx64s)
 
-static void instr_660FFA()
-{
+static void instr_660FFA(union reg128 source, int32_t r) {
     // psubd xmm, xmm/m128
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg128 source = read_xmm_mem128s();
-    union reg128 destination = read_xmm128s();
+    union reg128 destination = read_xmm128s(r);
 
-    write_xmm128s(
+    write_xmm128(
+        r,
         destination.u32[0] - source.u32[0],
         destination.u32[1] - source.u32[1],
         destination.u32[2] - source.u32[2],
         destination.u32[3] - source.u32[3]
     );
 }
+DEFINE_SSE_SPLIT(instr_660FFA, safe_read128s, read_xmm128s)
 
-static void instr_0FFB() { unimplemented_sse(); }
+static void instr_0FFB_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_0FFB_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FFB_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FFB_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FFC()
-{
+static void instr_0FFC(union reg64 source, int32_t r) {
     // paddb mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     uint8_t byte0 = (destination.u8[0] + source.u8[0]) & 0xFF;
     uint8_t byte1 = (destination.u8[1] + source.u8[1]) & 0xFF;
@@ -3459,44 +3181,49 @@ static void instr_0FFC()
     uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FFC, safe_read64s, read_mmx64s)
 
-static void instr_0FFD()
-{
+static void instr_660FFC_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FFC_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FFD(union reg64 source, int32_t r) {
     // paddw mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = (destination.u32[0] + source.u32[0]) & 0xFFFF;
-    int32_t word1 = ((destination.u32[0] >> 16) + (source.u32[0] >> 16)) & 0xFFFF;
+    int32_t word1 = (destination.u16[1] + source.u16[1]) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
     int32_t word2 = (destination.u32[1] + source.u32[1]) & 0xFFFF;
-    int32_t word3 = ((destination.u32[1] >> 16) + (source.u32[1] >> 16)) & 0xFFFF;
+    int32_t word3 = (destination.u16[3] + source.u16[3]) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
-    write_mmx64s(low, high);
-
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FFD, safe_read64s, read_mmx64s)
 
-static void instr_0FFE()
-{
+static void instr_660FFD_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FFD_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_0FFE(union reg64 source, int32_t r) {
     // paddd mm, mm/m64
     task_switch_test_mmx();
-    read_modrm_byte();
 
-    union reg64 source = read_mmx_mem64s();
-    union reg64 destination = read_mmx64s();
+    union reg64 destination = read_mmx64s(r);
 
     int32_t low = destination.u32[0] + source.u32[0];
     int32_t high = destination.u32[1] + source.u32[1];
 
-    write_mmx64s(low, high);
+    write_mmx64(r, low, high);
 }
+DEFINE_SSE_SPLIT(instr_0FFE, safe_read64s, read_mmx64s)
+
+static void instr_660FFE_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660FFE_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0FFF() {
     // Windows 98
@@ -3508,1635 +3235,8691 @@ static void instr_0FFF() {
 static void run_instruction0f_16(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
-    switch(opcode)
+switch(opcode)
+{
+    case 0x00:
     {
-case 0x00:
-    instr_0F00();
-    break;
-case 0x01:
-    instr_0F01();
-    break;
-case 0x02:
-    instr16_0F02();
-    break;
-case 0x03:
-    instr16_0F03();
-    break;
-case 0x04:
-    instr_0F04();
-    break;
-case 0x05:
-    instr_0F05();
-    break;
-case 0x06:
-    instr_0F06();
-    break;
-case 0x07:
-    instr_0F07();
-    break;
-case 0x08:
-    instr_0F08();
-    break;
-case 0x09:
-    instr_0F09();
-    break;
-case 0x0A:
-    instr_0F0A();
-    break;
-case 0x0B:
-    instr_0F0B();
-    break;
-case 0x0C:
-    instr_0F0C();
-    break;
-case 0x0D:
-    instr_0F0D();
-    break;
-case 0x0E:
-    instr_0F0E();
-    break;
-case 0x0F:
-    instr_0F0F();
-    break;
-case 0x10:
-    instr_0F10();
-    break;
-case 0x11:
-    instr_0F11();
-    break;
-case 0x12:
-    (*prefixes & PREFIX_66) ? instr_660F12() :
-    instr_0F12();
-    break;
-case 0x13:
-    (*prefixes & PREFIX_66) ? instr_660F13() :
-    instr_0F13();
-    break;
-case 0x14:
-    (*prefixes & PREFIX_66) ? instr_660F14() :
-    instr_0F14();
-    break;
-case 0x15:
-    instr_0F15();
-    break;
-case 0x16:
-    instr_0F16();
-    break;
-case 0x17:
-    instr_0F17();
-    break;
-case 0x18:
-    instr_0F18();
-    break;
-case 0x19:
-    instr_0F19();
-    break;
-case 0x1A:
-    instr_0F1A();
-    break;
-case 0x1B:
-    instr_0F1B();
-    break;
-case 0x1C:
-    instr_0F1C();
-    break;
-case 0x1D:
-    instr_0F1D();
-    break;
-case 0x1E:
-    instr_0F1E();
-    break;
-case 0x1F:
-    instr_0F1F();
-    break;
-case 0x20:
-    instr_0F20();
-    break;
-case 0x21:
-    instr_0F21();
-    break;
-case 0x22:
-    instr_0F22();
-    break;
-case 0x23:
-    instr_0F23();
-    break;
-case 0x24:
-    instr_0F24();
-    break;
-case 0x25:
-    instr_0F25();
-    break;
-case 0x26:
-    instr_0F26();
-    break;
-case 0x27:
-    instr_0F27();
-    break;
-case 0x28:
-    (*prefixes & PREFIX_66) ? instr_660F28() :
-    instr_0F28();
-    break;
-case 0x29:
-    (*prefixes & PREFIX_66) ? instr_660F29() :
-    instr_0F29();
-    break;
-case 0x2A:
-    instr_0F2A();
-    break;
-case 0x2B:
-    (*prefixes & PREFIX_66) ? instr_660F2B() :
-    instr_0F2B();
-    break;
-case 0x2C:
-    (*prefixes & PREFIX_F2) ? instr_F20F2C() :
-    instr_0F2C();
-    break;
-case 0x2D:
-    instr_0F2D();
-    break;
-case 0x2E:
-    instr_0F2E();
-    break;
-case 0x2F:
-    instr_0F2F();
-    break;
-case 0x30:
-    instr_0F30();
-    break;
-case 0x31:
-    instr_0F31();
-    break;
-case 0x32:
-    instr_0F32();
-    break;
-case 0x33:
-    instr_0F33();
-    break;
-case 0x34:
-    instr_0F34();
-    break;
-case 0x35:
-    instr_0F35();
-    break;
-case 0x36:
-    instr_0F36();
-    break;
-case 0x37:
-    instr_0F37();
-    break;
-case 0x38:
-    instr_0F38();
-    break;
-case 0x39:
-    instr_0F39();
-    break;
-case 0x3A:
-    instr_0F3A();
-    break;
-case 0x3B:
-    instr_0F3B();
-    break;
-case 0x3C:
-    instr_0F3C();
-    break;
-case 0x3D:
-    instr_0F3D();
-    break;
-case 0x3E:
-    instr_0F3E();
-    break;
-case 0x3F:
-    instr_0F3F();
-    break;
-case 0x40:
-    instr16_0F40();
-    break;
-case 0x41:
-    instr16_0F41();
-    break;
-case 0x42:
-    instr16_0F42();
-    break;
-case 0x43:
-    instr16_0F43();
-    break;
-case 0x44:
-    instr16_0F44();
-    break;
-case 0x45:
-    instr16_0F45();
-    break;
-case 0x46:
-    instr16_0F46();
-    break;
-case 0x47:
-    instr16_0F47();
-    break;
-case 0x48:
-    instr16_0F48();
-    break;
-case 0x49:
-    instr16_0F49();
-    break;
-case 0x4A:
-    instr16_0F4A();
-    break;
-case 0x4B:
-    instr16_0F4B();
-    break;
-case 0x4C:
-    instr16_0F4C();
-    break;
-case 0x4D:
-    instr16_0F4D();
-    break;
-case 0x4E:
-    instr16_0F4E();
-    break;
-case 0x4F:
-    instr16_0F4F();
-    break;
-case 0x50:
-    instr_0F50();
-    break;
-case 0x51:
-    instr_0F51();
-    break;
-case 0x52:
-    instr_0F52();
-    break;
-case 0x53:
-    instr_0F53();
-    break;
-case 0x54:
-    (*prefixes & PREFIX_66) ? instr_660F54() :
-    instr_0F54();
-    break;
-case 0x55:
-    instr_0F55();
-    break;
-case 0x56:
-    instr_0F56();
-    break;
-case 0x57:
-    (*prefixes & PREFIX_66) ? instr_660F57() :
-    instr_0F57();
-    break;
-case 0x58:
-    instr_0F58();
-    break;
-case 0x59:
-    instr_0F59();
-    break;
-case 0x5A:
-    instr_0F5A();
-    break;
-case 0x5B:
-    instr_0F5B();
-    break;
-case 0x5C:
-    instr_0F5C();
-    break;
-case 0x5D:
-    instr_0F5D();
-    break;
-case 0x5E:
-    instr_0F5E();
-    break;
-case 0x5F:
-    instr_0F5F();
-    break;
-case 0x60:
-    (*prefixes & PREFIX_66) ? instr_660F60() :
-    instr_0F60();
-    break;
-case 0x61:
-    (*prefixes & PREFIX_66) ? instr_660F61() :
-    instr_0F61();
-    break;
-case 0x62:
-    instr_0F62();
-    break;
-case 0x63:
-    instr_0F63();
-    break;
-case 0x64:
-    instr_0F64();
-    break;
-case 0x65:
-    instr_0F65();
-    break;
-case 0x66:
-    instr_0F66();
-    break;
-case 0x67:
-    (*prefixes & PREFIX_66) ? instr_660F67() :
-    instr_0F67();
-    break;
-case 0x68:
-    (*prefixes & PREFIX_66) ? instr_660F68() :
-    instr_0F68();
-    break;
-case 0x69:
-    instr_0F69();
-    break;
-case 0x6A:
-    instr_0F6A();
-    break;
-case 0x6B:
-    instr_0F6B();
-    break;
-case 0x6C:
-    instr_0F6C();
-    break;
-case 0x6D:
-    instr_0F6D();
-    break;
-case 0x6E:
-    (*prefixes & PREFIX_66) ? instr_660F6E() :
-    instr_0F6E();
-    break;
-case 0x6F:
-    (*prefixes & PREFIX_66) ? instr_660F6F() :
-    (*prefixes & PREFIX_F3) ? instr_F30F6F() :
-    instr_0F6F();
-    break;
-case 0x70:
-    (*prefixes & PREFIX_66) ? instr_660F70() :
-    (*prefixes & PREFIX_F2) ? instr_F20F70() :
-    (*prefixes & PREFIX_F3) ? instr_F30F70() :
-    instr_0F70();
-    break;
-case 0x71:
-    instr_0F71();
-    break;
-case 0x72:
-    instr_0F72();
-    break;
-case 0x73:
-    (*prefixes & PREFIX_66) ? instr_660F73() :
-    instr_0F73();
-    break;
-case 0x74:
-    (*prefixes & PREFIX_66) ? instr_660F74() :
-    instr_0F74();
-    break;
-case 0x75:
-    (*prefixes & PREFIX_66) ? instr_660F75() :
-    instr_0F75();
-    break;
-case 0x76:
-    (*prefixes & PREFIX_66) ? instr_660F76() :
-    instr_0F76();
-    break;
-case 0x77:
-    instr_0F77();
-    break;
-case 0x78:
-    instr_0F78();
-    break;
-case 0x79:
-    instr_0F79();
-    break;
-case 0x7A:
-    instr_0F7A();
-    break;
-case 0x7B:
-    instr_0F7B();
-    break;
-case 0x7C:
-    instr_0F7C();
-    break;
-case 0x7D:
-    instr_0F7D();
-    break;
-case 0x7E:
-    (*prefixes & PREFIX_66) ? instr_660F7E() :
-    (*prefixes & PREFIX_F3) ? instr_F30F7E() :
-    instr_0F7E();
-    break;
-case 0x7F:
-    (*prefixes & PREFIX_66) ? instr_660F7F() :
-    (*prefixes & PREFIX_F3) ? instr_F30F7F() :
-    instr_0F7F();
-    break;
-case 0x80:
-    instr16_0F80();
-    break;
-case 0x81:
-    instr16_0F81();
-    break;
-case 0x82:
-    instr16_0F82();
-    break;
-case 0x83:
-    instr16_0F83();
-    break;
-case 0x84:
-    instr16_0F84();
-    break;
-case 0x85:
-    instr16_0F85();
-    break;
-case 0x86:
-    instr16_0F86();
-    break;
-case 0x87:
-    instr16_0F87();
-    break;
-case 0x88:
-    instr16_0F88();
-    break;
-case 0x89:
-    instr16_0F89();
-    break;
-case 0x8A:
-    instr16_0F8A();
-    break;
-case 0x8B:
-    instr16_0F8B();
-    break;
-case 0x8C:
-    instr16_0F8C();
-    break;
-case 0x8D:
-    instr16_0F8D();
-    break;
-case 0x8E:
-    instr16_0F8E();
-    break;
-case 0x8F:
-    instr16_0F8F();
-    break;
-case 0x90:
-    instr_0F90();
-    break;
-case 0x91:
-    instr_0F91();
-    break;
-case 0x92:
-    instr_0F92();
-    break;
-case 0x93:
-    instr_0F93();
-    break;
-case 0x94:
-    instr_0F94();
-    break;
-case 0x95:
-    instr_0F95();
-    break;
-case 0x96:
-    instr_0F96();
-    break;
-case 0x97:
-    instr_0F97();
-    break;
-case 0x98:
-    instr_0F98();
-    break;
-case 0x99:
-    instr_0F99();
-    break;
-case 0x9A:
-    instr_0F9A();
-    break;
-case 0x9B:
-    instr_0F9B();
-    break;
-case 0x9C:
-    instr_0F9C();
-    break;
-case 0x9D:
-    instr_0F9D();
-    break;
-case 0x9E:
-    instr_0F9E();
-    break;
-case 0x9F:
-    instr_0F9F();
-    break;
-case 0xA0:
-    instr16_0FA0();
-    break;
-case 0xA1:
-    instr16_0FA1();
-    break;
-case 0xA2:
-    instr_0FA2();
-    break;
-case 0xA3:
-    instr16_0FA3();
-    break;
-case 0xA4:
-    instr16_0FA4();
-    break;
-case 0xA5:
-    instr16_0FA5();
-    break;
-case 0xA6:
-    instr_0FA6();
-    break;
-case 0xA7:
-    instr_0FA7();
-    break;
-case 0xA8:
-    instr16_0FA8();
-    break;
-case 0xA9:
-    instr16_0FA9();
-    break;
-case 0xAA:
-    instr_0FAA();
-    break;
-case 0xAB:
-    instr16_0FAB();
-    break;
-case 0xAC:
-    instr16_0FAC();
-    break;
-case 0xAD:
-    instr16_0FAD();
-    break;
-case 0xAE:
-    instr_0FAE();
-    break;
-case 0xAF:
-    instr16_0FAF();
-    break;
-case 0xB0:
-    instr_0FB0();
-    break;
-case 0xB1:
-    instr16_0FB1();
-    break;
-case 0xB2:
-    instr16_0FB2();
-    break;
-case 0xB3:
-    instr16_0FB3();
-    break;
-case 0xB4:
-    instr16_0FB4();
-    break;
-case 0xB5:
-    instr16_0FB5();
-    break;
-case 0xB6:
-    instr16_0FB6();
-    break;
-case 0xB7:
-    instr16_0FB7();
-    break;
-case 0xB8:
-    instr16_0FB8();
-    break;
-case 0xB9:
-    instr_0FB9();
-    break;
-case 0xBA:
-    instr16_0FBA();
-    break;
-case 0xBB:
-    instr16_0FBB();
-    break;
-case 0xBC:
-    instr16_0FBC();
-    break;
-case 0xBD:
-    instr16_0FBD();
-    break;
-case 0xBE:
-    instr16_0FBE();
-    break;
-case 0xBF:
-    instr16_0FBF();
-    break;
-case 0xC0:
-    instr_0FC0();
-    break;
-case 0xC1:
-    instr16_0FC1();
-    break;
-case 0xC2:
-    instr_0FC2();
-    break;
-case 0xC3:
-    instr_0FC3();
-    break;
-case 0xC4:
-    instr_0FC4();
-    break;
-case 0xC5:
-    (*prefixes & PREFIX_66) ? instr_660FC5() :
-    instr_0FC5();
-    break;
-case 0xC6:
-    instr_0FC6();
-    break;
-case 0xC7:
-    instr_0FC7();
-    break;
-case 0xC8:
-    instr_0FC8();
-    break;
-case 0xC9:
-    instr_0FC9();
-    break;
-case 0xCA:
-    instr_0FCA();
-    break;
-case 0xCB:
-    instr_0FCB();
-    break;
-case 0xCC:
-    instr_0FCC();
-    break;
-case 0xCD:
-    instr_0FCD();
-    break;
-case 0xCE:
-    instr_0FCE();
-    break;
-case 0xCF:
-    instr_0FCF();
-    break;
-case 0xD0:
-    instr_0FD0();
-    break;
-case 0xD1:
-    instr_0FD1();
-    break;
-case 0xD2:
-    instr_0FD2();
-    break;
-case 0xD3:
-    (*prefixes & PREFIX_66) ? instr_660FD3() :
-    instr_0FD3();
-    break;
-case 0xD4:
-    instr_0FD4();
-    break;
-case 0xD5:
-    (*prefixes & PREFIX_66) ? instr_660FD5() :
-    instr_0FD5();
-    break;
-case 0xD6:
-    (*prefixes & PREFIX_66) ? instr_660FD6() :
-    instr_0FD6();
-    break;
-case 0xD7:
-    (*prefixes & PREFIX_66) ? instr_660FD7() :
-    instr_0FD7();
-    break;
-case 0xD8:
-    instr_0FD8();
-    break;
-case 0xD9:
-    instr_0FD9();
-    break;
-case 0xDA:
-    (*prefixes & PREFIX_66) ? instr_660FDA() :
-    instr_0FDA();
-    break;
-case 0xDB:
-    instr_0FDB();
-    break;
-case 0xDC:
-    (*prefixes & PREFIX_66) ? instr_660FDC() :
-    instr_0FDC();
-    break;
-case 0xDD:
-    (*prefixes & PREFIX_66) ? instr_660FDD() :
-    instr_0FDD();
-    break;
-case 0xDE:
-    (*prefixes & PREFIX_66) ? instr_660FDE() :
-    instr_0FDE();
-    break;
-case 0xDF:
-    instr_0FDF();
-    break;
-case 0xE0:
-    instr_0FE0();
-    break;
-case 0xE1:
-    instr_0FE1();
-    break;
-case 0xE2:
-    instr_0FE2();
-    break;
-case 0xE3:
-    instr_0FE3();
-    break;
-case 0xE4:
-    (*prefixes & PREFIX_66) ? instr_660FE4() :
-    instr_0FE4();
-    break;
-case 0xE5:
-    instr_0FE5();
-    break;
-case 0xE6:
-    instr_0FE6();
-    break;
-case 0xE7:
-    (*prefixes & PREFIX_66) ? instr_660FE7() :
-    instr_0FE7();
-    break;
-case 0xE8:
-    instr_0FE8();
-    break;
-case 0xE9:
-    instr_0FE9();
-    break;
-case 0xEA:
-    instr_0FEA();
-    break;
-case 0xEB:
-    (*prefixes & PREFIX_66) ? instr_660FEB() :
-    instr_0FEB();
-    break;
-case 0xEC:
-    instr_0FEC();
-    break;
-case 0xED:
-    instr_0FED();
-    break;
-case 0xEE:
-    instr_0FEE();
-    break;
-case 0xEF:
-    (*prefixes & PREFIX_66) ? instr_660FEF() :
-    instr_0FEF();
-    break;
-case 0xF0:
-    instr_0FF0();
-    break;
-case 0xF1:
-    instr_0FF1();
-    break;
-case 0xF2:
-    instr_0FF2();
-    break;
-case 0xF3:
-    instr_0FF3();
-    break;
-case 0xF4:
-    instr_0FF4();
-    break;
-case 0xF5:
-    instr_0FF5();
-    break;
-case 0xF6:
-    instr_0FF6();
-    break;
-case 0xF7:
-    instr_0FF7();
-    break;
-case 0xF8:
-    instr_0FF8();
-    break;
-case 0xF9:
-    instr_0FF9();
-    break;
-case 0xFA:
-    (*prefixes & PREFIX_66) ? instr_660FFA() :
-    instr_0FFA();
-    break;
-case 0xFB:
-    instr_0FFB();
-    break;
-case 0xFC:
-    instr_0FFC();
-    break;
-case 0xFD:
-    instr_0FFD();
-    break;
-case 0xFE:
-    instr_0FFE();
-    break;
-case 0xFF:
-    instr_0FFF();
-    break;
-default: assert(false);
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_5_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_5_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
     }
+    break;
+    case 0x01:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_7_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_7_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x02:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F02_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F02_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x03:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F03_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F03_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x04:
+    {
+        instr_0F04();
+    }
+    break;
+    case 0x05:
+    {
+        instr_0F05();
+    }
+    break;
+    case 0x06:
+    {
+        instr_0F06();
+    }
+    break;
+    case 0x07:
+    {
+        instr_0F07();
+    }
+    break;
+    case 0x08:
+    {
+        instr_0F08();
+    }
+    break;
+    case 0x09:
+    {
+        instr_0F09();
+    }
+    break;
+    case 0x0A:
+    {
+        instr_0F0A();
+    }
+    break;
+    case 0x0B:
+    {
+        instr_0F0B();
+    }
+    break;
+    case 0x0C:
+    {
+        instr_0F0C();
+    }
+    break;
+    case 0x0D:
+    {
+        instr_0F0D();
+    }
+    break;
+    case 0x0E:
+    {
+        instr_0F0E();
+    }
+    break;
+    case 0x0F:
+    {
+        instr_0F0F();
+    }
+    break;
+    case 0x10:
+    {
+        instr_0F10();
+    }
+    break;
+    case 0x11:
+    {
+        instr_0F11();
+    }
+    break;
+    case 0x12:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x13:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x14:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F14_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F14_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F14_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F14_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x15:
+    {
+        instr_0F15();
+    }
+    break;
+    case 0x16:
+    {
+        instr_0F16();
+    }
+    break;
+    case 0x17:
+    {
+        instr_0F17();
+    }
+    break;
+    case 0x18:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F18_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F18_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x19:
+    {
+        instr_0F19();
+    }
+    break;
+    case 0x1A:
+    {
+        instr_0F1A();
+    }
+    break;
+    case 0x1B:
+    {
+        instr_0F1B();
+    }
+    break;
+    case 0x1C:
+    {
+        instr_0F1C();
+    }
+    break;
+    case 0x1D:
+    {
+        instr_0F1D();
+    }
+    break;
+    case 0x1E:
+    {
+        instr_0F1E();
+    }
+    break;
+    case 0x1F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F1F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F1F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x20:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F20(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x21:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F21(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x22:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F22(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x23:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F23(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x24:
+    {
+        instr_0F24();
+    }
+    break;
+    case 0x25:
+    {
+        instr_0F25();
+    }
+    break;
+    case 0x26:
+    {
+        instr_0F26();
+    }
+    break;
+    case 0x27:
+    {
+        instr_0F27();
+    }
+    break;
+    case 0x28:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F28_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F28_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F28_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F28_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x29:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2A:
+    {
+        instr_0F2A();
+    }
+    break;
+    case 0x2B:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2C:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2D:
+    {
+        instr_0F2D();
+    }
+    break;
+    case 0x2E:
+    {
+        instr_0F2E();
+    }
+    break;
+    case 0x2F:
+    {
+        instr_0F2F();
+    }
+    break;
+    case 0x30:
+    {
+        instr_0F30();
+    }
+    break;
+    case 0x31:
+    {
+        instr_0F31();
+    }
+    break;
+    case 0x32:
+    {
+        instr_0F32();
+    }
+    break;
+    case 0x33:
+    {
+        instr_0F33();
+    }
+    break;
+    case 0x34:
+    {
+        instr_0F34();
+    }
+    break;
+    case 0x35:
+    {
+        instr_0F35();
+    }
+    break;
+    case 0x36:
+    {
+        instr_0F36();
+    }
+    break;
+    case 0x37:
+    {
+        instr_0F37();
+    }
+    break;
+    case 0x38:
+    {
+        instr_0F38();
+    }
+    break;
+    case 0x39:
+    {
+        instr_0F39();
+    }
+    break;
+    case 0x3A:
+    {
+        instr_0F3A();
+    }
+    break;
+    case 0x3B:
+    {
+        instr_0F3B();
+    }
+    break;
+    case 0x3C:
+    {
+        instr_0F3C();
+    }
+    break;
+    case 0x3D:
+    {
+        instr_0F3D();
+    }
+    break;
+    case 0x3E:
+    {
+        instr_0F3E();
+    }
+    break;
+    case 0x3F:
+    {
+        instr_0F3F();
+    }
+    break;
+    case 0x40:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F40_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F40_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x41:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F41_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F41_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x42:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F42_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F42_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x43:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F43_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F43_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x44:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F44_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F44_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x45:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F45_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F45_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x46:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F46_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F46_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x47:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F47_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F47_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x48:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F48_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F48_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x49:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F49_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F49_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4A:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4B:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4C:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4D:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4E:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0F4F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0F4F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x50:
+    {
+        instr_0F50();
+    }
+    break;
+    case 0x51:
+    {
+        instr_0F51();
+    }
+    break;
+    case 0x52:
+    {
+        instr_0F52();
+    }
+    break;
+    case 0x53:
+    {
+        instr_0F53();
+    }
+    break;
+    case 0x54:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F54_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F54_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F54_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F54_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x55:
+    {
+        instr_0F55();
+    }
+    break;
+    case 0x56:
+    {
+        instr_0F56();
+    }
+    break;
+    case 0x57:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F57_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F57_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F57_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F57_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x58:
+    {
+        instr_0F58();
+    }
+    break;
+    case 0x59:
+    {
+        instr_0F59();
+    }
+    break;
+    case 0x5A:
+    {
+        instr_0F5A();
+    }
+    break;
+    case 0x5B:
+    {
+        instr_0F5B();
+    }
+    break;
+    case 0x5C:
+    {
+        instr_0F5C();
+    }
+    break;
+    case 0x5D:
+    {
+        instr_0F5D();
+    }
+    break;
+    case 0x5E:
+    {
+        instr_0F5E();
+    }
+    break;
+    case 0x5F:
+    {
+        instr_0F5F();
+    }
+    break;
+    case 0x60:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F60_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F60_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F60_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F60_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x61:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F61_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F61_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F61_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F61_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x62:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F62_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F62_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F62_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F62_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x63:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F63_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F63_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F63_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F63_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x64:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F64_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F64_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F64_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F64_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x65:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F65_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F65_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F65_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F65_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x66:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F66_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F66_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F66_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F66_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x67:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F67_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F67_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F67_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F67_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x68:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F68_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F68_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F68_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F68_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x69:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6A:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6B:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6C:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6D:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6E:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6F:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x70:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_660F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_F20F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_F30F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_0F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+    }
+    break;
+    case 0x71:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 4:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x72:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 4:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x73:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 3:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_3_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_3_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_3_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_3_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 7:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_7_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_7_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x74:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F74_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F74_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F74_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F74_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x75:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F75_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F75_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F75_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F75_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x76:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F76_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F76_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F76_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F76_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x77:
+    {
+        instr_0F77();
+    }
+    break;
+    case 0x78:
+    {
+        instr_0F78();
+    }
+    break;
+    case 0x79:
+    {
+        instr_0F79();
+    }
+    break;
+    case 0x7A:
+    {
+        instr_0F7A();
+    }
+    break;
+    case 0x7B:
+    {
+        instr_0F7B();
+    }
+    break;
+    case 0x7C:
+    {
+        instr_0F7C();
+    }
+    break;
+    case 0x7D:
+    {
+        instr_0F7D();
+    }
+    break;
+    case 0x7E:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x7F:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x80:
+    {
+        instr16_0F80(read_imm16());
+    }
+    break;
+    case 0x81:
+    {
+        instr16_0F81(read_imm16());
+    }
+    break;
+    case 0x82:
+    {
+        instr16_0F82(read_imm16());
+    }
+    break;
+    case 0x83:
+    {
+        instr16_0F83(read_imm16());
+    }
+    break;
+    case 0x84:
+    {
+        instr16_0F84(read_imm16());
+    }
+    break;
+    case 0x85:
+    {
+        instr16_0F85(read_imm16());
+    }
+    break;
+    case 0x86:
+    {
+        instr16_0F86(read_imm16());
+    }
+    break;
+    case 0x87:
+    {
+        instr16_0F87(read_imm16());
+    }
+    break;
+    case 0x88:
+    {
+        instr16_0F88(read_imm16());
+    }
+    break;
+    case 0x89:
+    {
+        instr16_0F89(read_imm16());
+    }
+    break;
+    case 0x8A:
+    {
+        instr16_0F8A(read_imm16());
+    }
+    break;
+    case 0x8B:
+    {
+        instr16_0F8B(read_imm16());
+    }
+    break;
+    case 0x8C:
+    {
+        instr16_0F8C(read_imm16());
+    }
+    break;
+    case 0x8D:
+    {
+        instr16_0F8D(read_imm16());
+    }
+    break;
+    case 0x8E:
+    {
+        instr16_0F8E(read_imm16());
+    }
+    break;
+    case 0x8F:
+    {
+        instr16_0F8F(read_imm16());
+    }
+    break;
+    case 0x90:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F90_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F90_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x91:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F91_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F91_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x92:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F92_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F92_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x93:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F93_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F93_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x94:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F94_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F94_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x95:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F95_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F95_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x96:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F96_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F96_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x97:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F97_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F97_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x98:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F98_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F98_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x99:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F99_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F99_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9A:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9B:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9C:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9D:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9E:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA0:
+    {
+        instr16_0FA0();
+    }
+    break;
+    case 0xA1:
+    {
+        instr16_0FA1();
+    }
+    break;
+    case 0xA2:
+    {
+        instr_0FA2();
+    }
+    break;
+    case 0xA3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FA3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FA3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA4:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FA4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr16_0FA4_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
+    }
+    break;
+    case 0xA5:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FA5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FA5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA6:
+    {
+        instr_0FA6();
+    }
+    break;
+    case 0xA7:
+    {
+        instr_0FA7();
+    }
+    break;
+    case 0xA8:
+    {
+        instr16_0FA8();
+    }
+    break;
+    case 0xA9:
+    {
+        instr16_0FA9();
+    }
+    break;
+    case 0xAA:
+    {
+        instr_0FAA();
+    }
+    break;
+    case 0xAB:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FAB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FAB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xAC:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FAC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr16_0FAC_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
+    }
+    break;
+    case 0xAD:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FAD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FAD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xAE:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_5_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_5_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_7_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_7_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xAF:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FAF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FAF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB0:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FB0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FB0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB1:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB2:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB4:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB5:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB6:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB7:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FB7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FB7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr16_F30FB8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr16_F30FB8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr16_0FB8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr16_0FB8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xB9:
+    {
+        instr_0FB9();
+    }
+    break;
+    case 0xBA:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr16_0FBA_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr16_0FBA_4_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr16_0FBA_5_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr16_0FBA_5_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr16_0FBA_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr16_0FBA_6_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr16_0FBA_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr16_0FBA_7_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xBB:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FBB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FBB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBC:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FBC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FBC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBD:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FBD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FBD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBE:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FBE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FBE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBF:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FBF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FBF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC0:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FC0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC1:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr16_0FC1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr16_0FC1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC2:
+    {
+        instr_0FC2();
+    }
+    break;
+    case 0xC3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FC3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC4:
+    {
+        instr_0FC4();
+    }
+    break;
+    case 0xC5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FC5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_660FC5_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FC5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_0FC5_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+    }
+    break;
+    case 0xC6:
+    {
+        instr_0FC6();
+    }
+    break;
+    case 0xC7:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FC7_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FC7_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FC7_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FC7_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xC8:
+    {
+        instr_0FC8();
+    }
+    break;
+    case 0xC9:
+    {
+        instr_0FC9();
+    }
+    break;
+    case 0xCA:
+    {
+        instr_0FCA();
+    }
+    break;
+    case 0xCB:
+    {
+        instr_0FCB();
+    }
+    break;
+    case 0xCC:
+    {
+        instr_0FCC();
+    }
+    break;
+    case 0xCD:
+    {
+        instr_0FCD();
+    }
+    break;
+    case 0xCE:
+    {
+        instr_0FCE();
+    }
+    break;
+    case 0xCF:
+    {
+        instr_0FCF();
+    }
+    break;
+    case 0xD0:
+    {
+        instr_0FD0();
+    }
+    break;
+    case 0xD1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDD:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDF:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE0:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xED:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FED_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FED_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FED_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FED_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEF:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF0:
+    {
+        instr_0FF0();
+    }
+    break;
+    case 0xF1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFD:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFF:
+    {
+        instr_0FFF();
+    }
+    break;
+    default:
+        assert(false);
+}
 }
 
 static void run_instruction0f_32(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
-    switch(opcode)
+switch(opcode)
+{
+    case 0x00:
     {
-case 0x00:
-    instr_0F00();
-    break;
-case 0x01:
-    instr_0F01();
-    break;
-case 0x02:
-    instr32_0F02();
-    break;
-case 0x03:
-    instr32_0F03();
-    break;
-case 0x04:
-    instr_0F04();
-    break;
-case 0x05:
-    instr_0F05();
-    break;
-case 0x06:
-    instr_0F06();
-    break;
-case 0x07:
-    instr_0F07();
-    break;
-case 0x08:
-    instr_0F08();
-    break;
-case 0x09:
-    instr_0F09();
-    break;
-case 0x0A:
-    instr_0F0A();
-    break;
-case 0x0B:
-    instr_0F0B();
-    break;
-case 0x0C:
-    instr_0F0C();
-    break;
-case 0x0D:
-    instr_0F0D();
-    break;
-case 0x0E:
-    instr_0F0E();
-    break;
-case 0x0F:
-    instr_0F0F();
-    break;
-case 0x10:
-    instr_0F10();
-    break;
-case 0x11:
-    instr_0F11();
-    break;
-case 0x12:
-    (*prefixes & PREFIX_66) ? instr_660F12() :
-    instr_0F12();
-    break;
-case 0x13:
-    (*prefixes & PREFIX_66) ? instr_660F13() :
-    instr_0F13();
-    break;
-case 0x14:
-    (*prefixes & PREFIX_66) ? instr_660F14() :
-    instr_0F14();
-    break;
-case 0x15:
-    instr_0F15();
-    break;
-case 0x16:
-    instr_0F16();
-    break;
-case 0x17:
-    instr_0F17();
-    break;
-case 0x18:
-    instr_0F18();
-    break;
-case 0x19:
-    instr_0F19();
-    break;
-case 0x1A:
-    instr_0F1A();
-    break;
-case 0x1B:
-    instr_0F1B();
-    break;
-case 0x1C:
-    instr_0F1C();
-    break;
-case 0x1D:
-    instr_0F1D();
-    break;
-case 0x1E:
-    instr_0F1E();
-    break;
-case 0x1F:
-    instr_0F1F();
-    break;
-case 0x20:
-    instr_0F20();
-    break;
-case 0x21:
-    instr_0F21();
-    break;
-case 0x22:
-    instr_0F22();
-    break;
-case 0x23:
-    instr_0F23();
-    break;
-case 0x24:
-    instr_0F24();
-    break;
-case 0x25:
-    instr_0F25();
-    break;
-case 0x26:
-    instr_0F26();
-    break;
-case 0x27:
-    instr_0F27();
-    break;
-case 0x28:
-    (*prefixes & PREFIX_66) ? instr_660F28() :
-    instr_0F28();
-    break;
-case 0x29:
-    (*prefixes & PREFIX_66) ? instr_660F29() :
-    instr_0F29();
-    break;
-case 0x2A:
-    instr_0F2A();
-    break;
-case 0x2B:
-    (*prefixes & PREFIX_66) ? instr_660F2B() :
-    instr_0F2B();
-    break;
-case 0x2C:
-    (*prefixes & PREFIX_F2) ? instr_F20F2C() :
-    instr_0F2C();
-    break;
-case 0x2D:
-    instr_0F2D();
-    break;
-case 0x2E:
-    instr_0F2E();
-    break;
-case 0x2F:
-    instr_0F2F();
-    break;
-case 0x30:
-    instr_0F30();
-    break;
-case 0x31:
-    instr_0F31();
-    break;
-case 0x32:
-    instr_0F32();
-    break;
-case 0x33:
-    instr_0F33();
-    break;
-case 0x34:
-    instr_0F34();
-    break;
-case 0x35:
-    instr_0F35();
-    break;
-case 0x36:
-    instr_0F36();
-    break;
-case 0x37:
-    instr_0F37();
-    break;
-case 0x38:
-    instr_0F38();
-    break;
-case 0x39:
-    instr_0F39();
-    break;
-case 0x3A:
-    instr_0F3A();
-    break;
-case 0x3B:
-    instr_0F3B();
-    break;
-case 0x3C:
-    instr_0F3C();
-    break;
-case 0x3D:
-    instr_0F3D();
-    break;
-case 0x3E:
-    instr_0F3E();
-    break;
-case 0x3F:
-    instr_0F3F();
-    break;
-case 0x40:
-    instr32_0F40();
-    break;
-case 0x41:
-    instr32_0F41();
-    break;
-case 0x42:
-    instr32_0F42();
-    break;
-case 0x43:
-    instr32_0F43();
-    break;
-case 0x44:
-    instr32_0F44();
-    break;
-case 0x45:
-    instr32_0F45();
-    break;
-case 0x46:
-    instr32_0F46();
-    break;
-case 0x47:
-    instr32_0F47();
-    break;
-case 0x48:
-    instr32_0F48();
-    break;
-case 0x49:
-    instr32_0F49();
-    break;
-case 0x4A:
-    instr32_0F4A();
-    break;
-case 0x4B:
-    instr32_0F4B();
-    break;
-case 0x4C:
-    instr32_0F4C();
-    break;
-case 0x4D:
-    instr32_0F4D();
-    break;
-case 0x4E:
-    instr32_0F4E();
-    break;
-case 0x4F:
-    instr32_0F4F();
-    break;
-case 0x50:
-    instr_0F50();
-    break;
-case 0x51:
-    instr_0F51();
-    break;
-case 0x52:
-    instr_0F52();
-    break;
-case 0x53:
-    instr_0F53();
-    break;
-case 0x54:
-    (*prefixes & PREFIX_66) ? instr_660F54() :
-    instr_0F54();
-    break;
-case 0x55:
-    instr_0F55();
-    break;
-case 0x56:
-    instr_0F56();
-    break;
-case 0x57:
-    (*prefixes & PREFIX_66) ? instr_660F57() :
-    instr_0F57();
-    break;
-case 0x58:
-    instr_0F58();
-    break;
-case 0x59:
-    instr_0F59();
-    break;
-case 0x5A:
-    instr_0F5A();
-    break;
-case 0x5B:
-    instr_0F5B();
-    break;
-case 0x5C:
-    instr_0F5C();
-    break;
-case 0x5D:
-    instr_0F5D();
-    break;
-case 0x5E:
-    instr_0F5E();
-    break;
-case 0x5F:
-    instr_0F5F();
-    break;
-case 0x60:
-    (*prefixes & PREFIX_66) ? instr_660F60() :
-    instr_0F60();
-    break;
-case 0x61:
-    (*prefixes & PREFIX_66) ? instr_660F61() :
-    instr_0F61();
-    break;
-case 0x62:
-    instr_0F62();
-    break;
-case 0x63:
-    instr_0F63();
-    break;
-case 0x64:
-    instr_0F64();
-    break;
-case 0x65:
-    instr_0F65();
-    break;
-case 0x66:
-    instr_0F66();
-    break;
-case 0x67:
-    (*prefixes & PREFIX_66) ? instr_660F67() :
-    instr_0F67();
-    break;
-case 0x68:
-    (*prefixes & PREFIX_66) ? instr_660F68() :
-    instr_0F68();
-    break;
-case 0x69:
-    instr_0F69();
-    break;
-case 0x6A:
-    instr_0F6A();
-    break;
-case 0x6B:
-    instr_0F6B();
-    break;
-case 0x6C:
-    instr_0F6C();
-    break;
-case 0x6D:
-    instr_0F6D();
-    break;
-case 0x6E:
-    (*prefixes & PREFIX_66) ? instr_660F6E() :
-    instr_0F6E();
-    break;
-case 0x6F:
-    (*prefixes & PREFIX_66) ? instr_660F6F() :
-    (*prefixes & PREFIX_F3) ? instr_F30F6F() :
-    instr_0F6F();
-    break;
-case 0x70:
-    (*prefixes & PREFIX_66) ? instr_660F70() :
-    (*prefixes & PREFIX_F2) ? instr_F20F70() :
-    (*prefixes & PREFIX_F3) ? instr_F30F70() :
-    instr_0F70();
-    break;
-case 0x71:
-    instr_0F71();
-    break;
-case 0x72:
-    instr_0F72();
-    break;
-case 0x73:
-    (*prefixes & PREFIX_66) ? instr_660F73() :
-    instr_0F73();
-    break;
-case 0x74:
-    (*prefixes & PREFIX_66) ? instr_660F74() :
-    instr_0F74();
-    break;
-case 0x75:
-    (*prefixes & PREFIX_66) ? instr_660F75() :
-    instr_0F75();
-    break;
-case 0x76:
-    (*prefixes & PREFIX_66) ? instr_660F76() :
-    instr_0F76();
-    break;
-case 0x77:
-    instr_0F77();
-    break;
-case 0x78:
-    instr_0F78();
-    break;
-case 0x79:
-    instr_0F79();
-    break;
-case 0x7A:
-    instr_0F7A();
-    break;
-case 0x7B:
-    instr_0F7B();
-    break;
-case 0x7C:
-    instr_0F7C();
-    break;
-case 0x7D:
-    instr_0F7D();
-    break;
-case 0x7E:
-    (*prefixes & PREFIX_66) ? instr_660F7E() :
-    (*prefixes & PREFIX_F3) ? instr_F30F7E() :
-    instr_0F7E();
-    break;
-case 0x7F:
-    (*prefixes & PREFIX_66) ? instr_660F7F() :
-    (*prefixes & PREFIX_F3) ? instr_F30F7F() :
-    instr_0F7F();
-    break;
-case 0x80:
-    instr32_0F80();
-    break;
-case 0x81:
-    instr32_0F81();
-    break;
-case 0x82:
-    instr32_0F82();
-    break;
-case 0x83:
-    instr32_0F83();
-    break;
-case 0x84:
-    instr32_0F84();
-    break;
-case 0x85:
-    instr32_0F85();
-    break;
-case 0x86:
-    instr32_0F86();
-    break;
-case 0x87:
-    instr32_0F87();
-    break;
-case 0x88:
-    instr32_0F88();
-    break;
-case 0x89:
-    instr32_0F89();
-    break;
-case 0x8A:
-    instr32_0F8A();
-    break;
-case 0x8B:
-    instr32_0F8B();
-    break;
-case 0x8C:
-    instr32_0F8C();
-    break;
-case 0x8D:
-    instr32_0F8D();
-    break;
-case 0x8E:
-    instr32_0F8E();
-    break;
-case 0x8F:
-    instr32_0F8F();
-    break;
-case 0x90:
-    instr_0F90();
-    break;
-case 0x91:
-    instr_0F91();
-    break;
-case 0x92:
-    instr_0F92();
-    break;
-case 0x93:
-    instr_0F93();
-    break;
-case 0x94:
-    instr_0F94();
-    break;
-case 0x95:
-    instr_0F95();
-    break;
-case 0x96:
-    instr_0F96();
-    break;
-case 0x97:
-    instr_0F97();
-    break;
-case 0x98:
-    instr_0F98();
-    break;
-case 0x99:
-    instr_0F99();
-    break;
-case 0x9A:
-    instr_0F9A();
-    break;
-case 0x9B:
-    instr_0F9B();
-    break;
-case 0x9C:
-    instr_0F9C();
-    break;
-case 0x9D:
-    instr_0F9D();
-    break;
-case 0x9E:
-    instr_0F9E();
-    break;
-case 0x9F:
-    instr_0F9F();
-    break;
-case 0xA0:
-    instr32_0FA0();
-    break;
-case 0xA1:
-    instr32_0FA1();
-    break;
-case 0xA2:
-    instr_0FA2();
-    break;
-case 0xA3:
-    instr32_0FA3();
-    break;
-case 0xA4:
-    instr32_0FA4();
-    break;
-case 0xA5:
-    instr32_0FA5();
-    break;
-case 0xA6:
-    instr_0FA6();
-    break;
-case 0xA7:
-    instr_0FA7();
-    break;
-case 0xA8:
-    instr32_0FA8();
-    break;
-case 0xA9:
-    instr32_0FA9();
-    break;
-case 0xAA:
-    instr_0FAA();
-    break;
-case 0xAB:
-    instr32_0FAB();
-    break;
-case 0xAC:
-    instr32_0FAC();
-    break;
-case 0xAD:
-    instr32_0FAD();
-    break;
-case 0xAE:
-    instr_0FAE();
-    break;
-case 0xAF:
-    instr32_0FAF();
-    break;
-case 0xB0:
-    instr_0FB0();
-    break;
-case 0xB1:
-    instr32_0FB1();
-    break;
-case 0xB2:
-    instr32_0FB2();
-    break;
-case 0xB3:
-    instr32_0FB3();
-    break;
-case 0xB4:
-    instr32_0FB4();
-    break;
-case 0xB5:
-    instr32_0FB5();
-    break;
-case 0xB6:
-    instr32_0FB6();
-    break;
-case 0xB7:
-    instr32_0FB7();
-    break;
-case 0xB8:
-    instr32_0FB8();
-    break;
-case 0xB9:
-    instr_0FB9();
-    break;
-case 0xBA:
-    instr32_0FBA();
-    break;
-case 0xBB:
-    instr32_0FBB();
-    break;
-case 0xBC:
-    instr32_0FBC();
-    break;
-case 0xBD:
-    instr32_0FBD();
-    break;
-case 0xBE:
-    instr32_0FBE();
-    break;
-case 0xBF:
-    instr32_0FBF();
-    break;
-case 0xC0:
-    instr_0FC0();
-    break;
-case 0xC1:
-    instr32_0FC1();
-    break;
-case 0xC2:
-    instr_0FC2();
-    break;
-case 0xC3:
-    instr_0FC3();
-    break;
-case 0xC4:
-    instr_0FC4();
-    break;
-case 0xC5:
-    (*prefixes & PREFIX_66) ? instr_660FC5() :
-    instr_0FC5();
-    break;
-case 0xC6:
-    instr_0FC6();
-    break;
-case 0xC7:
-    instr_0FC7();
-    break;
-case 0xC8:
-    instr_0FC8();
-    break;
-case 0xC9:
-    instr_0FC9();
-    break;
-case 0xCA:
-    instr_0FCA();
-    break;
-case 0xCB:
-    instr_0FCB();
-    break;
-case 0xCC:
-    instr_0FCC();
-    break;
-case 0xCD:
-    instr_0FCD();
-    break;
-case 0xCE:
-    instr_0FCE();
-    break;
-case 0xCF:
-    instr_0FCF();
-    break;
-case 0xD0:
-    instr_0FD0();
-    break;
-case 0xD1:
-    instr_0FD1();
-    break;
-case 0xD2:
-    instr_0FD2();
-    break;
-case 0xD3:
-    (*prefixes & PREFIX_66) ? instr_660FD3() :
-    instr_0FD3();
-    break;
-case 0xD4:
-    instr_0FD4();
-    break;
-case 0xD5:
-    (*prefixes & PREFIX_66) ? instr_660FD5() :
-    instr_0FD5();
-    break;
-case 0xD6:
-    (*prefixes & PREFIX_66) ? instr_660FD6() :
-    instr_0FD6();
-    break;
-case 0xD7:
-    (*prefixes & PREFIX_66) ? instr_660FD7() :
-    instr_0FD7();
-    break;
-case 0xD8:
-    instr_0FD8();
-    break;
-case 0xD9:
-    instr_0FD9();
-    break;
-case 0xDA:
-    (*prefixes & PREFIX_66) ? instr_660FDA() :
-    instr_0FDA();
-    break;
-case 0xDB:
-    instr_0FDB();
-    break;
-case 0xDC:
-    (*prefixes & PREFIX_66) ? instr_660FDC() :
-    instr_0FDC();
-    break;
-case 0xDD:
-    (*prefixes & PREFIX_66) ? instr_660FDD() :
-    instr_0FDD();
-    break;
-case 0xDE:
-    (*prefixes & PREFIX_66) ? instr_660FDE() :
-    instr_0FDE();
-    break;
-case 0xDF:
-    instr_0FDF();
-    break;
-case 0xE0:
-    instr_0FE0();
-    break;
-case 0xE1:
-    instr_0FE1();
-    break;
-case 0xE2:
-    instr_0FE2();
-    break;
-case 0xE3:
-    instr_0FE3();
-    break;
-case 0xE4:
-    (*prefixes & PREFIX_66) ? instr_660FE4() :
-    instr_0FE4();
-    break;
-case 0xE5:
-    instr_0FE5();
-    break;
-case 0xE6:
-    instr_0FE6();
-    break;
-case 0xE7:
-    (*prefixes & PREFIX_66) ? instr_660FE7() :
-    instr_0FE7();
-    break;
-case 0xE8:
-    instr_0FE8();
-    break;
-case 0xE9:
-    instr_0FE9();
-    break;
-case 0xEA:
-    instr_0FEA();
-    break;
-case 0xEB:
-    (*prefixes & PREFIX_66) ? instr_660FEB() :
-    instr_0FEB();
-    break;
-case 0xEC:
-    instr_0FEC();
-    break;
-case 0xED:
-    instr_0FED();
-    break;
-case 0xEE:
-    instr_0FEE();
-    break;
-case 0xEF:
-    (*prefixes & PREFIX_66) ? instr_660FEF() :
-    instr_0FEF();
-    break;
-case 0xF0:
-    instr_0FF0();
-    break;
-case 0xF1:
-    instr_0FF1();
-    break;
-case 0xF2:
-    instr_0FF2();
-    break;
-case 0xF3:
-    instr_0FF3();
-    break;
-case 0xF4:
-    instr_0FF4();
-    break;
-case 0xF5:
-    instr_0FF5();
-    break;
-case 0xF6:
-    instr_0FF6();
-    break;
-case 0xF7:
-    instr_0FF7();
-    break;
-case 0xF8:
-    instr_0FF8();
-    break;
-case 0xF9:
-    instr_0FF9();
-    break;
-case 0xFA:
-    (*prefixes & PREFIX_66) ? instr_660FFA() :
-    instr_0FFA();
-    break;
-case 0xFB:
-    instr_0FFB();
-    break;
-case 0xFC:
-    instr_0FFC();
-    break;
-case 0xFD:
-    instr_0FFD();
-    break;
-case 0xFE:
-    instr_0FFE();
-    break;
-case 0xFF:
-    instr_0FFF();
-    break;
-default: assert(false);
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F00_5_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F00_5_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
     }
+    break;
+    case 0x01:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0F01_7_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0F01_7_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x02:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F02_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F02_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x03:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F03_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F03_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x04:
+    {
+        instr_0F04();
+    }
+    break;
+    case 0x05:
+    {
+        instr_0F05();
+    }
+    break;
+    case 0x06:
+    {
+        instr_0F06();
+    }
+    break;
+    case 0x07:
+    {
+        instr_0F07();
+    }
+    break;
+    case 0x08:
+    {
+        instr_0F08();
+    }
+    break;
+    case 0x09:
+    {
+        instr_0F09();
+    }
+    break;
+    case 0x0A:
+    {
+        instr_0F0A();
+    }
+    break;
+    case 0x0B:
+    {
+        instr_0F0B();
+    }
+    break;
+    case 0x0C:
+    {
+        instr_0F0C();
+    }
+    break;
+    case 0x0D:
+    {
+        instr_0F0D();
+    }
+    break;
+    case 0x0E:
+    {
+        instr_0F0E();
+    }
+    break;
+    case 0x0F:
+    {
+        instr_0F0F();
+    }
+    break;
+    case 0x10:
+    {
+        instr_0F10();
+    }
+    break;
+    case 0x11:
+    {
+        instr_0F11();
+    }
+    break;
+    case 0x12:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x13:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x14:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F14_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F14_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F14_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F14_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x15:
+    {
+        instr_0F15();
+    }
+    break;
+    case 0x16:
+    {
+        instr_0F16();
+    }
+    break;
+    case 0x17:
+    {
+        instr_0F17();
+    }
+    break;
+    case 0x18:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F18_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F18_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x19:
+    {
+        instr_0F19();
+    }
+    break;
+    case 0x1A:
+    {
+        instr_0F1A();
+    }
+    break;
+    case 0x1B:
+    {
+        instr_0F1B();
+    }
+    break;
+    case 0x1C:
+    {
+        instr_0F1C();
+    }
+    break;
+    case 0x1D:
+    {
+        instr_0F1D();
+    }
+    break;
+    case 0x1E:
+    {
+        instr_0F1E();
+    }
+    break;
+    case 0x1F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F1F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F1F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x20:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F20(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x21:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F21(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x22:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F22(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x23:
+    {
+        int32_t modrm_byte = read_imm8();
+        instr_0F23(modrm_byte & 7, modrm_byte >> 3 & 7);
+    }
+    break;
+    case 0x24:
+    {
+        instr_0F24();
+    }
+    break;
+    case 0x25:
+    {
+        instr_0F25();
+    }
+    break;
+    case 0x26:
+    {
+        instr_0F26();
+    }
+    break;
+    case 0x27:
+    {
+        instr_0F27();
+    }
+    break;
+    case 0x28:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F28_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F28_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F28_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F28_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x29:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2A:
+    {
+        instr_0F2A();
+    }
+    break;
+    case 0x2B:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2C:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F2C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F2C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x2D:
+    {
+        instr_0F2D();
+    }
+    break;
+    case 0x2E:
+    {
+        instr_0F2E();
+    }
+    break;
+    case 0x2F:
+    {
+        instr_0F2F();
+    }
+    break;
+    case 0x30:
+    {
+        instr_0F30();
+    }
+    break;
+    case 0x31:
+    {
+        instr_0F31();
+    }
+    break;
+    case 0x32:
+    {
+        instr_0F32();
+    }
+    break;
+    case 0x33:
+    {
+        instr_0F33();
+    }
+    break;
+    case 0x34:
+    {
+        instr_0F34();
+    }
+    break;
+    case 0x35:
+    {
+        instr_0F35();
+    }
+    break;
+    case 0x36:
+    {
+        instr_0F36();
+    }
+    break;
+    case 0x37:
+    {
+        instr_0F37();
+    }
+    break;
+    case 0x38:
+    {
+        instr_0F38();
+    }
+    break;
+    case 0x39:
+    {
+        instr_0F39();
+    }
+    break;
+    case 0x3A:
+    {
+        instr_0F3A();
+    }
+    break;
+    case 0x3B:
+    {
+        instr_0F3B();
+    }
+    break;
+    case 0x3C:
+    {
+        instr_0F3C();
+    }
+    break;
+    case 0x3D:
+    {
+        instr_0F3D();
+    }
+    break;
+    case 0x3E:
+    {
+        instr_0F3E();
+    }
+    break;
+    case 0x3F:
+    {
+        instr_0F3F();
+    }
+    break;
+    case 0x40:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F40_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F40_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x41:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F41_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F41_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x42:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F42_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F42_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x43:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F43_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F43_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x44:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F44_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F44_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x45:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F45_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F45_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x46:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F46_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F46_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x47:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F47_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F47_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x48:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F48_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F48_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x49:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F49_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F49_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4A:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4B:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4C:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4D:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4E:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x4F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0F4F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0F4F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x50:
+    {
+        instr_0F50();
+    }
+    break;
+    case 0x51:
+    {
+        instr_0F51();
+    }
+    break;
+    case 0x52:
+    {
+        instr_0F52();
+    }
+    break;
+    case 0x53:
+    {
+        instr_0F53();
+    }
+    break;
+    case 0x54:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F54_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F54_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F54_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F54_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x55:
+    {
+        instr_0F55();
+    }
+    break;
+    case 0x56:
+    {
+        instr_0F56();
+    }
+    break;
+    case 0x57:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F57_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F57_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F57_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F57_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x58:
+    {
+        instr_0F58();
+    }
+    break;
+    case 0x59:
+    {
+        instr_0F59();
+    }
+    break;
+    case 0x5A:
+    {
+        instr_0F5A();
+    }
+    break;
+    case 0x5B:
+    {
+        instr_0F5B();
+    }
+    break;
+    case 0x5C:
+    {
+        instr_0F5C();
+    }
+    break;
+    case 0x5D:
+    {
+        instr_0F5D();
+    }
+    break;
+    case 0x5E:
+    {
+        instr_0F5E();
+    }
+    break;
+    case 0x5F:
+    {
+        instr_0F5F();
+    }
+    break;
+    case 0x60:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F60_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F60_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F60_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F60_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x61:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F61_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F61_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F61_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F61_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x62:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F62_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F62_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F62_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F62_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x63:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F63_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F63_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F63_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F63_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x64:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F64_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F64_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F64_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F64_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x65:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F65_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F65_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F65_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F65_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x66:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F66_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F66_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F66_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F66_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x67:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F67_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F67_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F67_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F67_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x68:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F68_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F68_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F68_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F68_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x69:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6A:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6B:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6C:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6D:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6E:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x6F:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F6F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F6F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x70:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_660F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_F20F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_F30F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F70_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_0F70_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+    }
+    break;
+    case 0x71:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 4:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F71_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F71_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F71_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F71_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x72:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 4:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_4_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F72_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F72_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F72_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F72_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x73:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 2:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_2_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_2_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 3:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_3_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_3_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_3_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_3_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 6:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_6_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            case 7:
+            {
+                int32_t prefixes_ = *prefixes;
+                if(prefixes_ & PREFIX_66)
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_660F73_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_660F73_7_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+                else
+                {
+                    if(modrm_byte < 0xC0)
+                    {
+                        instr_0F73_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                    }
+                    else
+                    {
+                        instr_0F73_7_reg(modrm_byte & 7, read_imm8());
+                    }
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0x74:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F74_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F74_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F74_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F74_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x75:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F75_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F75_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F75_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F75_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x76:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F76_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F76_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F76_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F76_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x77:
+    {
+        instr_0F77();
+    }
+    break;
+    case 0x78:
+    {
+        instr_0F78();
+    }
+    break;
+    case 0x79:
+    {
+        instr_0F79();
+    }
+    break;
+    case 0x7A:
+    {
+        instr_0F7A();
+    }
+    break;
+    case 0x7B:
+    {
+        instr_0F7B();
+    }
+    break;
+    case 0x7C:
+    {
+        instr_0F7C();
+    }
+    break;
+    case 0x7D:
+    {
+        instr_0F7D();
+    }
+    break;
+    case 0x7E:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F7E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F7E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x7F:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F7F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F7F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0x80:
+    {
+        instr32_0F80(read_imm32s());
+    }
+    break;
+    case 0x81:
+    {
+        instr32_0F81(read_imm32s());
+    }
+    break;
+    case 0x82:
+    {
+        instr32_0F82(read_imm32s());
+    }
+    break;
+    case 0x83:
+    {
+        instr32_0F83(read_imm32s());
+    }
+    break;
+    case 0x84:
+    {
+        instr32_0F84(read_imm32s());
+    }
+    break;
+    case 0x85:
+    {
+        instr32_0F85(read_imm32s());
+    }
+    break;
+    case 0x86:
+    {
+        instr32_0F86(read_imm32s());
+    }
+    break;
+    case 0x87:
+    {
+        instr32_0F87(read_imm32s());
+    }
+    break;
+    case 0x88:
+    {
+        instr32_0F88(read_imm32s());
+    }
+    break;
+    case 0x89:
+    {
+        instr32_0F89(read_imm32s());
+    }
+    break;
+    case 0x8A:
+    {
+        instr32_0F8A(read_imm32s());
+    }
+    break;
+    case 0x8B:
+    {
+        instr32_0F8B(read_imm32s());
+    }
+    break;
+    case 0x8C:
+    {
+        instr32_0F8C(read_imm32s());
+    }
+    break;
+    case 0x8D:
+    {
+        instr32_0F8D(read_imm32s());
+    }
+    break;
+    case 0x8E:
+    {
+        instr32_0F8E(read_imm32s());
+    }
+    break;
+    case 0x8F:
+    {
+        instr32_0F8F(read_imm32s());
+    }
+    break;
+    case 0x90:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F90_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F90_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x91:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F91_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F91_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x92:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F92_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F92_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x93:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F93_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F93_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x94:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F94_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F94_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x95:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F95_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F95_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x96:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F96_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F96_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x97:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F97_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F97_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x98:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F98_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F98_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x99:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F99_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F99_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9A:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9B:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9C:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9D:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9E:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0x9F:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F9F_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F9F_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA0:
+    {
+        instr32_0FA0();
+    }
+    break;
+    case 0xA1:
+    {
+        instr32_0FA1();
+    }
+    break;
+    case 0xA2:
+    {
+        instr_0FA2();
+    }
+    break;
+    case 0xA3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FA3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FA3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA4:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FA4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr32_0FA4_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
+    }
+    break;
+    case 0xA5:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FA5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FA5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xA6:
+    {
+        instr_0FA6();
+    }
+    break;
+    case 0xA7:
+    {
+        instr_0FA7();
+    }
+    break;
+    case 0xA8:
+    {
+        instr32_0FA8();
+    }
+    break;
+    case 0xA9:
+    {
+        instr32_0FA9();
+    }
+    break;
+    case 0xAA:
+    {
+        instr_0FAA();
+    }
+    break;
+    case 0xAB:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FAB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FAB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xAC:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FAC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr32_0FAC_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
+    }
+    break;
+    case 0xAD:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FAD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FAD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xAE:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 0:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_0_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_0_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 2:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_2_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_2_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 3:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_3_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_3_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_4_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_4_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_5_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_5_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FAE_7_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FAE_7_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xAF:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FAF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FAF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB0:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FB0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FB0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB1:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB2:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB4:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB5:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB6:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB7:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FB7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FB7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xB8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr32_F30FB8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr32_F30FB8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr32_0FB8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr32_0FB8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xB9:
+    {
+        instr_0FB9();
+    }
+    break;
+    case 0xBA:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 4:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr32_0FBA_4_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr32_0FBA_4_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 5:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr32_0FBA_5_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr32_0FBA_5_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr32_0FBA_6_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr32_0FBA_6_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            case 7:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr32_0FBA_7_mem(modrm_resolve(modrm_byte), read_imm8());
+                }
+                else
+                {
+                    instr32_0FBA_7_reg(modrm_byte & 7, read_imm8());
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xBB:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FBB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FBB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBC:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FBC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FBC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBD:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FBD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FBD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBE:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FBE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FBE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xBF:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FBF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FBF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC0:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FC0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC1:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr32_0FC1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr32_0FC1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC2:
+    {
+        instr_0FC2();
+    }
+    break;
+    case 0xC3:
+    {
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0FC3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
+    }
+    break;
+    case 0xC4:
+    {
+        instr_0FC4();
+    }
+    break;
+    case 0xC5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FC5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_660FC5_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FC5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+            }
+            else
+            {
+                instr_0FC5_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+    }
+    break;
+    case 0xC6:
+    {
+        instr_0FC6();
+    }
+    break;
+    case 0xC7:
+    {
+        int32_t modrm_byte = read_imm8();
+        switch(modrm_byte >> 3 & 7)
+        {
+            case 1:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FC7_1_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FC7_1_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            case 6:
+            {
+                if(modrm_byte < 0xC0)
+                {
+                    instr_0FC7_6_mem(modrm_resolve(modrm_byte));
+                }
+                else
+                {
+                    instr_0FC7_6_reg(modrm_byte & 7);
+                }
+            }
+            break;
+            default:
+                assert(false);
+                trigger_ud();
+        }
+    }
+    break;
+    case 0xC8:
+    {
+        instr_0FC8();
+    }
+    break;
+    case 0xC9:
+    {
+        instr_0FC9();
+    }
+    break;
+    case 0xCA:
+    {
+        instr_0FCA();
+    }
+    break;
+    case 0xCB:
+    {
+        instr_0FCB();
+    }
+    break;
+    case 0xCC:
+    {
+        instr_0FCC();
+    }
+    break;
+    case 0xCD:
+    {
+        instr_0FCD();
+    }
+    break;
+    case 0xCE:
+    {
+        instr_0FCE();
+    }
+    break;
+    case 0xCF:
+    {
+        instr_0FCF();
+    }
+    break;
+    case 0xD0:
+    {
+        instr_0FD0();
+    }
+    break;
+    case 0xD1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xD9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FD9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FD9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FD9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FD9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDD:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xDF:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FDF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FDF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FDF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FDF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE0:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE0_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE0_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F30FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F30FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xE9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FE9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FE9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FE9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FE9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xED:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FED_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FED_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FED_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FED_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xEF:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FEF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FEF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FEF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FEF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF0:
+    {
+        instr_0FF0();
+    }
+    break;
+    case 0xF1:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF1_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF1_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF2:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF2_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF2_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF3:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF3_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF3_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF4:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF5:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF6:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF6_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF6_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF7:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF7_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF7_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF8:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xF9:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FF9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FF9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FF9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FF9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFA:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFB:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFC:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFD:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFE:
+    {
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660FFE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660FFE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0FFE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0FFE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+    }
+    break;
+    case 0xFF:
+    {
+        instr_0FFF();
+    }
+    break;
+    default:
+        assert(false);
 }
+}
+
+#pragma clang diagnostic pop

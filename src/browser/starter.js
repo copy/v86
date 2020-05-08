@@ -97,18 +97,28 @@ function V86Starter(options)
     var mem;
     var mem8;
     var wasm_shared_funcs = {
-        "_throw_cpu_exception": () => { throw MAGIC_CPU_EXCEPTION; },
+        "_throw_cpu_exception": () => {
+            throw MAGIC_CPU_EXCEPTION;
+        },
+        "_cpu_exception_hook": (n) => {
+            return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
+        },
         "_hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
         "_dbg_assert": function() { return cpu.dbg_assert.apply(cpu, arguments); },
         "_dbg_log": function() { return cpu.dbg_log.apply(cpu, arguments); },
+        "_dbg_trace": function() { return dbg_trace(); },
+        "_logop": function(eip, op) { return cpu.debug.logop(eip, op); },
         "_todo": function() { return cpu.todo.apply(cpu, arguments); },
         "_undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
-        "_unimplemented_sse": function() { return cpu.unimplemented_sse_wasm(); },
+        "_unimplemented_sse": function() { return cpu.unimplemented_sse(); },
         "_microtick": function() { return v86.microtick(); },
         "_get_rand_int": function() { return v86util.get_rand_int(); },
         "_has_rand_int": function() { return v86util.has_rand_int(); },
-        "_printf": function(offset) { dbg_log_wasm(mem, offset, [].slice.call(arguments, 1)); },
+        "_printf": function(format_string_offset, stack_top) {
+            dbg_assert(arguments.length === 2);
+            dbg_log_wasm(mem, format_string_offset, stack_top);
+        },
         "_memcpy_large": function(dest, source, length) {
             mem8.set(mem8.subarray(source, source + length), dest);
             return dest;
@@ -122,6 +132,11 @@ function V86Starter(options)
         "_switch_seg": function(reg, selector) { cpu.switch_seg(reg, selector); },
         "_iret16": function() { return cpu.iret16(); },
         "_iret32": function() { return cpu.iret32(); },
+        "_handle_irqs": function() { return cpu.handle_irqs(); },
+
+        //XXX: These are temporary for as long as we are testing the JIT
+        "_resolve_modrm16": function(modrm_byte) { return cpu.resolve_modrm16(modrm_byte); },
+        "_resolve_modrm32": function(modrm_byte) { return cpu.resolve_modrm32(modrm_byte); },
 
         "_io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "_io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -160,22 +175,12 @@ function V86Starter(options)
         "_math_pow": function(x, y) { return Math.pow(x, y); },
 
         "_do_page_translation": function() { return cpu.do_page_translation.apply(cpu, arguments); },
-        "_read_reg_e16": function() { return cpu.read_reg_e16.apply(cpu, arguments); },
-        "_read_reg_e32s": function() { return cpu.read_reg_e32s.apply(cpu, arguments); },
-        "_write_reg_e16": function() { return cpu.write_reg_e16.apply(cpu, arguments); },
-        "_write_reg_e32": function() { return cpu.write_reg_e32.apply(cpu, arguments); },
         "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },
-        "_trigger_ud": function() { return cpu.trigger_ud.apply(cpu, arguments); },
-        "_trigger_nm": function() { return cpu.trigger_nm.apply(cpu, arguments); },
-        "_virt_boundary_read16": function() { return cpu.virt_boundary_read16.apply(cpu, arguments); },
-        "_virt_boundary_read32s": function() { return cpu.virt_boundary_read32s.apply(cpu, arguments); },
-        "_virt_boundary_write16": function() { return cpu.virt_boundary_write16.apply(cpu, arguments); },
-        "_virt_boundary_write32": function() { return cpu.virt_boundary_write32.apply(cpu, arguments); },
         "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
         "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
-        
+
         "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
         "_lar": function() { return cpu.lar.apply(cpu, arguments); },
@@ -200,12 +205,6 @@ function V86Starter(options)
         "_enter16": function() { return cpu.enter16.apply(cpu, arguments); },
         "_enter32": function() { return cpu.enter32.apply(cpu, arguments); },
         "_update_eflags": function() { return cpu.update_eflags.apply(cpu, arguments); },
-        "_handle_irqs": function() { return cpu.handle_irqs.apply(cpu, arguments); },
-        "_xchg8": function() { return cpu.xchg8.apply(cpu, arguments); },
-        "_xchg16": function() { return cpu.xchg16.apply(cpu, arguments); },
-        "_xchg16r": function() { return cpu.xchg16r.apply(cpu, arguments); },
-        "_xchg32": function() { return cpu.xchg32.apply(cpu, arguments); },
-        "_xchg32r": function() { return cpu.xchg32r.apply(cpu, arguments); },
         "_loop": function() { return cpu.loop.apply(cpu, arguments); },
         "_loope": function() { return cpu.loope.apply(cpu, arguments); },
         "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
@@ -214,6 +213,20 @@ function V86Starter(options)
         "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 
+        "_convert_f64_to_i32": function(f) {
+            // implemented here due to emscripten bug
+            if(!(f <= 0x7FFFFFFF && f >= -0x80000000))
+            {
+                f = 0x80000000 | 0;
+            }
+
+            return f | 0;
+        },
+        "_get_time": () => Date.now(),
+        // XXX: Closure compiler hack; these functions are actually wasm exports
+        "_jit_empty_cache": () => {},
+        "_jit_dirty_cache": () => {},
+        "_after_jump": () => {},
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
@@ -229,7 +242,7 @@ function V86Starter(options)
 
     v86util.load_wasm(wasm_file, { 'env': wasm_shared_funcs }, wm => {
         wm.instance.exports["__post_instantiate"]();
-        emulator = this.v86 = new v86(this.emulator_bus, wm);
+        emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm));
         cpu = emulator.cpu;
         mem = wm.mem.buffer;
         mem8 = new Uint8Array(mem);
@@ -255,6 +268,7 @@ function V86Starter(options)
     };
 
     settings.load_devices = true;
+    settings.log_level = options["log_level"];
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
     settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
     settings.boot_order = options["boot_order"] || 0x213;

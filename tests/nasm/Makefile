@@ -1,13 +1,14 @@
 source_files := $(wildcard build/*.asm)
 source_files += $(addprefix build/,$(wildcard *.asm))
 
+obj_files := $(patsubst %.asm,%.o,$(source_files))
 host_executables := $(patsubst %.asm,%.bin,$(source_files))
 v86_executables := $(patsubst %.asm,%.img,$(source_files))
 host_fixtures := $(patsubst %.asm,%.fixture,$(source_files))
 
 inc_files := $(addprefix build/,$(wildcard *.inc))
 
-all: $(source_files) $(host_executables) $(v86_executables) $(host_fixtures)
+all: $(source_files) $(obj_files) $(inc_files) $(host_executables) $(v86_executables) $(host_fixtures)
 .PHONY: all
 
 build/%.o: build/%.asm $(inc_files)
@@ -31,6 +32,7 @@ build/%.asm: %.asm
 build/%.inc: %.inc
 	mkdir -p build; cp $< $@
 
+.PHONY: clean
 clean:
 	rm -f *.o *.bin *.img *.fixture gen_*.asm # old location
 	rm -f build/*.o build/*.bin build/*.img build/*.fixture build/*.asm

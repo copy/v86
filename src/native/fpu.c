@@ -94,8 +94,8 @@ void fpu_store_m80(uint32_t addr, double_t n)
 double_t fpu_load_m80(uint32_t addr)
 {
     int32_t exponent = safe_read16(addr + 8);
-    uint32_t low = ((uint32_t)(safe_read32s(addr))) >> 0;
-    uint32_t high = ((uint32_t)(safe_read32s(addr + 4))) >> 0;
+    uint32_t low = ((uint32_t)(safe_read32s(addr)));
+    uint32_t high = ((uint32_t)(safe_read32s(addr + 4)));
 
     int32_t sign = exponent >> 15;
     exponent &= ~0x8000;

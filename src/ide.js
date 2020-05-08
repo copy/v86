@@ -151,7 +151,7 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     {
         dbg_log("Read error: " + h(this.current_interface.error & 0xFF) +
                 " slave=" + (this.current_interface === this.slave), LOG_DISK);
-        return this.current_interface.error;
+        return this.current_interface.error & 0xFF;
     });
     cpu.io.register_read(this.ata_port | 2, this, function()
     {
@@ -177,7 +177,7 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     cpu.io.register_read(this.ata_port | 6, this, function()
     {
         dbg_log("Read 1F6", LOG_DISK);
-        return this.current_interface.drive_head;
+        return this.current_interface.drive_head & 0xFF;
     });
 
     cpu.io.register_write(this.ata_port | 0, this, function(data)

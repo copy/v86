@@ -56,7 +56,11 @@ emulator.add_listener("serial0-output-char", function(chr)
 
         emulator.read_file("/result", function(err, data)
             {
-                if(err) throw err;
+                if(err)
+                {
+                    console.error("Reading test result failed: " + err);
+                    process.exit(1);
+                }
                 console.error("Got result, writing to stdout");
                 process.stdout.write(new Buffer(data));
                 emulator.stop();

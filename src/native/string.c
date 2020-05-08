@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #define MAX_COUNT_PER_CYCLE 0x1000
 #define MIN(x, y) (x < y ? x : y)
 
@@ -29,7 +31,8 @@ void movsb_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -48,7 +51,7 @@ void movsb_rep()
         cont = --count != 0;
     }
     while(cont && cycle_counter--);
-    int32_t diff = size * (start_count - count) | 0;
+    int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     add_reg_asize(ESI, diff);
     set_ecx_asize(count);
@@ -57,7 +60,6 @@ void movsb_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void movsb_no_rep()
@@ -90,7 +92,8 @@ void movsw_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -112,7 +115,7 @@ void movsw_rep()
             cont = --count != 0;
         }
         while(cont && cycle_counter--);
-        int32_t diff = size * (start_count - count) | 0;
+        int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -135,7 +138,6 @@ void movsw_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void movsw_no_rep()
@@ -168,7 +170,8 @@ void movsd_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -190,7 +193,7 @@ void movsd_rep()
             cont = --count != 0;
         }
         while(cont && cycle_counter--);
-        int32_t diff = size * (start_count - count) | 0;
+        int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -213,7 +216,6 @@ void movsd_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void movsd_no_rep()
@@ -247,7 +249,8 @@ void cmpsb_rep()
     int32_t data_src, data_dest;
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -279,7 +282,6 @@ void cmpsb_rep()
     }
 
     cmp8(data_src, data_dest);
-    diverged();
 }
 
 void cmpsb_no_rep()
@@ -317,7 +319,8 @@ void cmpsw_rep()
     int32_t data_src, data_dest;
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -341,7 +344,7 @@ void cmpsw_rep()
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
         while(cont && cycle_counter--);
-        int32_t diff = size * (start_count - count) | 0;
+        int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -367,7 +370,6 @@ void cmpsw_rep()
     }
 
     cmp16(data_src, data_dest);
-    diverged();
 }
 
 void cmpsw_no_rep()
@@ -405,7 +407,8 @@ void cmpsd_rep()
     int32_t data_src, data_dest;
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -429,7 +432,7 @@ void cmpsd_rep()
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
         while(cont && cycle_counter--);
-        int32_t diff = size * (start_count - count) | 0;
+        int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -455,7 +458,6 @@ void cmpsd_rep()
     }
 
     cmp32(data_src, data_dest);
-    diverged();
 }
 
 void cmpsd_no_rep()
@@ -492,7 +494,8 @@ void stosb_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -517,7 +520,6 @@ void stosb_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void stosb_no_rep()
@@ -549,7 +551,8 @@ void stosw_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -589,7 +592,6 @@ void stosw_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void stosw_no_rep()
@@ -621,7 +623,8 @@ void stosd_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -661,7 +664,6 @@ void stosd_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void stosd_no_rep()
@@ -691,7 +693,8 @@ void lodsb_rep()
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -716,7 +719,6 @@ void lodsb_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void lodsb_no_rep()
@@ -746,7 +748,8 @@ void lodsw_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    uint32_t count = ((uint32_t) get_reg_asize(ECX)) >> 0;
+    uint32_t count = ((uint32_t) get_reg_asize(ECX));
+    diverged();
     if(count == 0) return;
     bool cont = false;
     uint32_t cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -762,7 +765,6 @@ void lodsw_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void lodsw_no_rep()
@@ -793,7 +795,8 @@ void lodsd_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -809,7 +812,6 @@ void lodsd_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void lodsd_no_rep()
@@ -841,7 +843,8 @@ void scasb_rep()
     int32_t data_dest;
     int32_t data_src = reg8[AL];
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -868,7 +871,6 @@ void scasb_rep()
         *instruction_pointer = *previous_ip;
     }
     cmp8(data_src, data_dest);
-    diverged();
 }
 
 void scasb_no_rep()
@@ -903,7 +905,8 @@ void scasw_rep()
     int32_t data_dest;
     int32_t data_src = reg16[AL];
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -945,7 +948,6 @@ void scasw_rep()
         *instruction_pointer = *previous_ip;
     }
     cmp16(data_src, data_dest);
-    diverged();
 }
 
 void scasw_no_rep()
@@ -980,7 +982,8 @@ void scasd_rep()
     int32_t data_dest;
     int32_t data_src = reg32s[EAX];
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1022,7 +1025,6 @@ void scasd_rep()
         *instruction_pointer = *previous_ip;
     }
     cmp32(data_src, data_dest);
-    diverged();
 }
 
 void scasd_no_rep()
@@ -1059,7 +1061,8 @@ void insb_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1084,7 +1087,6 @@ void insb_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void insb_no_rep()
@@ -1121,7 +1123,8 @@ void insw_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1161,7 +1164,6 @@ void insw_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void insw_no_rep()
@@ -1198,7 +1200,8 @@ void insd_rep()
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1238,7 +1241,6 @@ void insd_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void insd_no_rep()
@@ -1275,7 +1277,8 @@ void outsb_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-        int32_t count = get_reg_asize(ECX) >> 0;
+        int32_t count = get_reg_asize(ECX);
+    diverged();
         if(count == 0) return;
         int32_t cont = false;
         int32_t start_count = count;
@@ -1300,7 +1303,6 @@ void outsb_rep()
         {
             *instruction_pointer = *previous_ip;
         }
-    diverged();
     }
 
 void outsb_no_rep()
@@ -1336,7 +1338,8 @@ void outsw_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1376,7 +1379,6 @@ void outsw_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void outsw_no_rep()
@@ -1412,7 +1414,8 @@ void outsd_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
-    int32_t count = get_reg_asize(ECX) >> 0;
+    int32_t count = get_reg_asize(ECX);
+    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1452,7 +1455,6 @@ void outsd_rep()
     {
         *instruction_pointer = *previous_ip;
     }
-    diverged();
 }
 
 void outsd_no_rep()
@@ -1479,4 +1481,3 @@ void outsd()
         outsd_no_rep();
     }
 }
-

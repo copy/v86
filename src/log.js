@@ -87,25 +87,50 @@ var dbg_log = (function()
     return dbg_log_;
 })();
 
-function dbg_log_wasm(memory, offset, args)
+function dbg_log_wasm(memory, format_string_offset, stack)
 {
-    if(!(LOG_LEVEL & LOG_CPU))
+    if(!DEBUG || !(LOG_LEVEL & LOG_CPU))
     {
         return;
     }
 
-    let s = new Uint8Array(memory, offset);
-    let length = s.indexOf(0);
+    let s = new Uint8Array(memory, format_string_offset);
+
+    const length = s.indexOf(0);
     if(length !== -1)
     {
-        s = new Uint8Array(memory, offset, length);
+        s = new Uint8Array(memory, format_string_offset, length);
     }
 
-    let format_string = "[CPU ] " + String.fromCharCode.apply(String, s);
-    let format_args = [format_string];
-    format_args.push.apply(format_args, args);
+    function pop_arg()
+    {
+        const arg = new Int32Array(memory, stack, 1)[0];
+        stack += 4;
+        return arg;
+    }
 
-    console.log.apply(console, format_args);
+    let format_string = String.fromCharCode.apply(String, s);
+    format_string = format_string.replace(/%([xd%])/g, function(full_match, identifier)
+        {
+            if(identifier === "x")
+            {
+                return (pop_arg() >>> 0).toString(16);
+            }
+            else if(identifier === "d")
+            {
+                return pop_arg().toString(10);
+            }
+            else if(identifier === "%")
+            {
+                return "%";
+            }
+            else
+            {
+                console.assert(false);
+            }
+        });
+
+    dbg_log(format_string, LOG_CPU);
 }
 
 /**

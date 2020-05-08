@@ -349,3 +349,8 @@ var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
 
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
+
+/** @const */
+const P_IDLE = 0;
+/** @const */
+const P_DO_MANY_CYCLES = 2;

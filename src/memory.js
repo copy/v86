@@ -70,14 +70,14 @@ CPU.prototype.mmap_read32 = function(addr)
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
     return this.memory_map_read32[aligned_addr](addr);
-}
+};
 
 CPU.prototype.mmap_write32 = function(addr, value)
 {
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
     this.memory_map_write32[aligned_addr](addr, value);
-}
+};
 
 CPU.prototype.in_mapped_range = function(addr)
 {
@@ -223,12 +223,14 @@ CPU.prototype.write16 = function(addr, value)
 CPU.prototype.write_aligned16 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x80000000);
-    this.debug_write(addr << 1, 2, value);
+
+    let phys_addr = addr << 1;
+    this.debug_write(phys_addr, 2, value);
     if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK16;
 
-    if(this.in_mapped_range(addr << 1))
+    if(this.in_mapped_range(phys_addr))
     {
-        this.mmap_write16(addr << 1, value);
+        this.mmap_write16(phys_addr, value);
     }
     else
     {
@@ -261,12 +263,14 @@ CPU.prototype.write32 = function(addr, value)
 CPU.prototype.write_aligned32 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x40000000);
-    this.debug_write(addr << 2, 4, value);
+
+    let phys_addr = addr << 2;
+    this.debug_write(phys_addr, 4, value);
     if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK32;
 
-    if(this.in_mapped_range(addr << 2))
+    if(this.in_mapped_range(phys_addr))
     {
-        this.mmap_write32(addr << 2, value);
+        this.mmap_write32(phys_addr, value);
     }
     else
     {
@@ -280,7 +284,9 @@ CPU.prototype.write_aligned32 = function(addr, value)
  */
 CPU.prototype.write_blob = function(blob, offset)
 {
-    this.debug_write(offset, blob.length, 0)
+    this.debug_write(offset, blob.length, 0);
+    this.wm.funcs._jit_dirty_cache(offset, offset + blob.length);
+
     dbg_assert(blob && blob.length >= 0);
 
     this.mem8.set(blob, offset);
@@ -293,6 +299,9 @@ CPU.prototype.write_blob = function(blob, offset)
 CPU.prototype.write_blob32 = function(blob, offset)
 {
     dbg_assert(blob && blob.length);
+    let phys_addr = offset << 2;
+    this.wm.funcs._jit_dirty_cache(phys_addr, phys_addr + blob.length);
+
     this.debug_write(offset, blob.length << 2, 0);
     this.mem32s.set(blob, offset);
 };

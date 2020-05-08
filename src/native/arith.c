@@ -249,51 +249,21 @@ int32_t imul_reg16(int32_t operand1, int32_t operand2)
     return result;
 }
 
-void do_mul32(uint32_t a, uint32_t b)
-{
-    uint32_t a00 = a & 0xFFFF;
-    uint32_t a16 = a >> 16;
-    uint32_t b00 = b & 0xFFFF;
-    int32_t b16 = b >> 16;
-    uint32_t low_result = a00 * b00;
-    uint32_t mid = (low_result >> 16) + (a16 * b00);
-    uint32_t high_result = mid >> 16;
-    mid = (mid & 0xFFFF) + (a00 * b16);
-    mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
-    mul32_result[1] = ((mid >> 16) + (a16 * b16)) + high_result;
-}
-
-void do_imul32(int32_t a, int32_t b)
-{
-    bool is_neg = false;
-    if(a < 0) {
-        is_neg = true;
-        a = -a;
-    }
-    if(b < 0) {
-        is_neg = !is_neg;
-        b = -b;
-    }
-    do_mul32(a, b);
-    if(is_neg) {
-        mul32_result[0] = -mul32_result[0];
-        mul32_result[1] = ~mul32_result[1] + !mul32_result[0];
-    }
-}
-
 void mul32(int32_t source_operand)
 {
     int32_t dest_operand = reg32s[EAX];
 
-    do_mul32(dest_operand, source_operand);
+    uint64_t result = (uint64_t)(uint32_t)dest_operand * (uint32_t)source_operand;
+    int32_t result_low = result;
+    int32_t result_high = result >> 32;
 
-    reg32s[EAX] = mul32_result[0];
-    reg32s[EDX] = mul32_result[1];
+    reg32s[EAX] = result_low;
+    reg32s[EDX] = result_high;
 
-    *last_result = mul32_result[0];
+    *last_result = result_low;
     *last_op_size = OPSIZE_32;
 
-    if(mul32_result[1] == 0)
+    if(result_high == 0)
     {
         *flags &= ~1 & ~FLAG_OVERFLOW;
     }
@@ -307,16 +277,17 @@ void mul32(int32_t source_operand)
 void imul32(int32_t source_operand)
 {
     int32_t dest_operand = reg32s[EAX];
+    int64_t result = (int64_t)dest_operand * (int64_t)source_operand;
+    int32_t result_low = result;
+    int32_t result_high = result >> 32;
 
-    do_imul32(dest_operand, source_operand);
+    reg32s[EAX] = result_low;
+    reg32s[EDX] = result_high;
 
-    reg32s[EAX] = mul32_result[0];
-    reg32s[EDX] = mul32_result[1];
-
-    *last_result = mul32_result[0];
+    *last_result = result_low;
     *last_op_size = OPSIZE_32;
 
-    if(mul32_result[1] == (mul32_result[0] >> 31))
+    if(result_high == (result_low >> 31))
     {
         *flags &= ~1 & ~FLAG_OVERFLOW;
     }
@@ -329,12 +300,14 @@ void imul32(int32_t source_operand)
 
 int32_t imul_reg32(int32_t operand1, int32_t operand2)
 {
-    do_imul32(operand1, operand2);
+    int64_t result = (int64_t)operand1 * (int64_t)operand2;
+    int32_t result_low = result;
+    int32_t result_high = result >> 32;
 
-    *last_result = mul32_result[0];
+    *last_result = result_low;
     *last_op_size = OPSIZE_32;
 
-    if(mul32_result[1] == (mul32_result[0] >> 31))
+    if(result_high == (result_low >> 31))
     {
         *flags &= ~1 & ~FLAG_OVERFLOW;
     }
@@ -344,7 +317,7 @@ int32_t imul_reg32(int32_t operand1, int32_t operand2)
     }
     *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
 
-    return mul32_result[0];
+    return result_low;
 }
 
 int32_t xadd8(int32_t source_operand, int32_t reg)
@@ -1011,7 +984,7 @@ int32_t sar8(int32_t dest_operand, int32_t count)
 
     if(count < 8)
     {
-        *last_result = dest_operand << 24 >> count + 24;
+        *last_result = dest_operand << 24 >> (count + 24);
         // of is zero
         *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (count - 1) & 1);
     }
@@ -1036,7 +1009,7 @@ int32_t sar16(int32_t dest_operand, int32_t count)
 
     if(count < 16)
     {
-        *last_result = dest_operand << 16 >> count + 16;
+        *last_result = dest_operand << 16 >> (count + 16);
         *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (count - 1) & 1);
     }
     else
@@ -1193,7 +1166,7 @@ int32_t btr_reg(int32_t bit_base, int32_t bit_offset)
 
 void bt_mem(int32_t virt_addr, int32_t bit_offset)
 {
-    int32_t bit_base = safe_read8(virt_addr + (bit_offset >> 3) | 0);
+    int32_t bit_base = safe_read8(virt_addr + (bit_offset >> 3));
     bit_offset &= 7;
 
     *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
@@ -1202,7 +1175,7 @@ void bt_mem(int32_t virt_addr, int32_t bit_offset)
 
 void btc_mem(int32_t virt_addr, int32_t bit_offset)
 {
-    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3));
     int32_t bit_base = read8(phys_addr);
 
     bit_offset &= 7;
@@ -1215,7 +1188,7 @@ void btc_mem(int32_t virt_addr, int32_t bit_offset)
 
 void btr_mem(int32_t virt_addr, int32_t bit_offset)
 {
-    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3));
     int32_t bit_base = read8(phys_addr);
 
     bit_offset &= 7;
@@ -1228,7 +1201,7 @@ void btr_mem(int32_t virt_addr, int32_t bit_offset)
 
 void bts_mem(int32_t virt_addr, int32_t bit_offset)
 {
-    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3));
     int32_t bit_base = read8(phys_addr);
 
     bit_offset &= 7;
@@ -1277,7 +1250,7 @@ int32_t bsf32(int32_t old, int32_t bit_base)
     {
         *flags &= ~FLAG_ZERO;
 
-        return *last_result = int_log2(((uint32_t) (-bit_base & bit_base)) >> 0);
+        return *last_result = int_log2(((uint32_t) (-bit_base & bit_base)));
     }
 }
 
@@ -1316,7 +1289,7 @@ int32_t bsr32(int32_t old, int32_t bit_base)
     else
     {
         *flags &= ~FLAG_ZERO;
-        return *last_result = int_log2(((uint32_t) bit_base) >> 0);
+        return *last_result = int_log2(((uint32_t) bit_base));
     }
 }
 
@@ -1343,7 +1316,7 @@ uint32_t saturate_sw_to_ub(uint32_t v)
 {
     dbg_assert((v & 0xFFFF0000) == 0);
 
-    uint32_t ret = v >> 0;
+    uint32_t ret = v;
     if (ret >= 0x8000) {
         ret = 0;
     }
@@ -1377,7 +1350,7 @@ int32_t saturate_sw_to_sb(int32_t v)
 
 uint32_t saturate_sd_to_sw(uint32_t v)
 {
-    uint32_t ret = v >> 0;
+    uint32_t ret = v;
 
     if (ret > 0xFFFF8000) {
         ret = ret & 0xFFFF;
@@ -1395,7 +1368,7 @@ uint32_t saturate_sd_to_sw(uint32_t v)
 
 uint32_t saturate_sd_to_sb(uint32_t v)
 {
-    uint32_t ret = v >> 0;
+    uint32_t ret = v;
 
     if (ret > 0xFFFFFF80) {
         ret = ret & 0xFF;
@@ -1413,7 +1386,7 @@ uint32_t saturate_sd_to_sb(uint32_t v)
 
 int32_t saturate_sd_to_ub(int32_t v)
 {
-    int32_t ret = v | 0;
+    int32_t ret = v;
 
     if (ret < 0) {
         ret = 0;
@@ -1425,7 +1398,7 @@ int32_t saturate_sd_to_ub(int32_t v)
 
 uint32_t saturate_ud_to_ub(uint32_t v)
 {
-    uint32_t ret = v >> 0;
+    uint32_t ret = v;
 
     if (ret > 0xFF) {
         ret = 0xFF;

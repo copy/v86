@@ -283,6 +283,7 @@ function run_test(test, done)
         bios: { url: bios },
         vga_bios: { url: vga_bios },
         autostart: true,
+        memory_size: 128 * 1024 * 1024,
     };
 
     if(test.cdrom)
@@ -295,7 +296,7 @@ function run_test(test, done)
     }
     if(test.hda)
     {
-        settings.hda = { url: test.hda };
+        settings.hda = { url: test.hda, async: true, };
     }
 
     if(test.expected_texts)
@@ -431,10 +432,19 @@ function run_test(test, done)
         if(on_text.length)
         {
             let expected = on_text[0].text;
+
             if(x < expected.length && bytearray_starts_with(line, expected))
             {
                 var action = on_text.shift();
-                emulator.keyboard_send_text(action.run);
+
+                if(action.after)
+                {
+                    setTimeout(() => emulator.keyboard_send_text(action.run), action.after);
+                }
+                else
+                {
+                    emulator.keyboard_send_text(action.run);
+                }
             }
         }
     });
@@ -443,7 +453,7 @@ function run_test(test, done)
     {
         if(action.on_text)
         {
-            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, });
+            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after, });
         }
     });
 }

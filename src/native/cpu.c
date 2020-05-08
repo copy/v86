@@ -6,10 +6,7 @@
 
 #include "const.h"
 #include "global_pointers.h"
-
-int32_t read_e8_partial_branch() {
-    return reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1];
-}
+#include "profiler.h"
 
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
@@ -21,13 +18,18 @@ int32_t translate_address_write(int32_t);
 int32_t read8(uint32_t);
 int32_t read16(uint32_t);
 int32_t read32s(uint32_t);
+int64_t read64s(uint32_t);
+int32_t read_aligned16(uint32_t addr);
 int32_t virt_boundary_read16(int32_t, int32_t);
 int32_t virt_boundary_read32s(int32_t, int32_t);
-void write8(uint32_t, uint8_t);
-void write16(uint32_t, uint16_t);
+void write8(uint32_t, int32_t);
+void write16(uint32_t, int32_t);
 void write32(uint32_t, int32_t);
+void write64(uint32_t, int64_t);
 void virt_boundary_write16(int32_t, int32_t, int32_t);
 void virt_boundary_write32(int32_t, int32_t, int32_t);
+
+bool cpu_exception_hook(int32_t);
 
 bool in_mapped_range(uint32_t);
 
@@ -48,9 +50,25 @@ void fxrstor(uint32_t);
 
 int32_t do_page_translation(int32_t, bool, bool);
 
-void diverged() {}
-void branch_taken() {}
-void branch_not_taken() {}
+void after_jump()
+{
+    jit_jump = 1;
+}
+
+void diverged() {
+    after_jump();
+}
+
+void branch_taken()
+{
+    after_jump();
+}
+
+void branch_not_taken()
+{
+    after_jump();
+}
+
 
 int32_t getcf(void);
 int32_t getpf(void);
@@ -58,6 +76,9 @@ int32_t getaf(void);
 int32_t getzf(void);
 int32_t getsf(void);
 int32_t getof(void);
+
+
+double_t microtick();
 
 
 int32_t get_eflags()
@@ -148,17 +169,6 @@ int32_t read_imm32s()
     return data32;
 }
 
-int32_t read_op0F() { return read_imm8(); }
-int32_t read_sib() { return read_imm8(); }
-int32_t read_op8() { return read_imm8(); }
-int32_t read_op8s() { return read_imm8s(); }
-int32_t read_op16() { return read_imm16(); }
-int32_t read_op32s() { return read_imm32s(); }
-int32_t read_disp8() { return read_imm8(); }
-int32_t read_disp8s() { return read_imm8s(); }
-int32_t read_disp16() { return read_imm16(); }
-int32_t read_disp32s() { return read_imm32s(); }
-
 bool is_osize_32()
 {
     return *is_32 != ((*prefixes & PREFIX_MASK_OPSIZE) == PREFIX_MASK_OPSIZE);
@@ -167,11 +177,6 @@ bool is_osize_32()
 bool is_asize_32()
 {
     return *is_32 != ((*prefixes & PREFIX_MASK_ADDRSIZE) == PREFIX_MASK_ADDRSIZE);
-}
-
-void read_modrm_byte()
-{
-    *modrm_byte = read_imm8();
 }
 
 int32_t get_seg(int32_t segment)
@@ -184,6 +189,7 @@ int32_t get_seg(int32_t segment)
         if(segment_is_null[segment])
         {
             assert(segment != CS && segment != SS);
+            dbg_log("#gp: Access null segment");
             trigger_gp(0);
         }
     }
@@ -232,129 +238,117 @@ static int32_t modrm_resolve(int32_t modrm_byte)
     }
 }
 
-void set_e8(int32_t value)
+uint32_t jit_hot_hash(uint32_t addr)
 {
-    int32_t modrm_byte_ = *modrm_byte;
-    if(modrm_byte_ < 0xC0) {
-        int32_t addr = modrm_resolve(modrm_byte_);
-        safe_write8(addr, value);
-    } else {
-        reg8[modrm_byte_ << 2 & 0xC | modrm_byte_ >> 2 & 1] = value;
-    }
-}
-
-void set_e16(int32_t value)
-{
-    int32_t modrm_byte_ = *modrm_byte;
-    if(modrm_byte_ < 0xC0) {
-        int32_t addr = modrm_resolve(modrm_byte_);
-        safe_write16(addr, value);
-    } else {
-        reg16[modrm_byte_ << 1 & 14] = value;
-    }
-}
-
-void set_e32(int32_t value)
-{
-    int32_t modrm_byte_ = *modrm_byte;
-    if(modrm_byte_ < 0xC0) {
-        int32_t addr = modrm_resolve(modrm_byte_);
-        safe_write32(addr, value);
-    } else {
-        reg32s[modrm_byte_ & 7] = value;
-    }
-}
-
-int32_t read_g8()
-{
-    return reg8[*modrm_byte >> 1 & 0xC | *modrm_byte >> 5 & 1];
-}
-
-int32_t read_g16()
-{
-    return reg16[*modrm_byte >> 2 & 14];
-}
-
-int32_t read_g16s()
-{
-    return reg16s[*modrm_byte >> 2 & 14];
-}
-
-int32_t read_g32s()
-{
-    return reg32s[*modrm_byte >> 3 & 7];
-}
-
-void write_g8(int32_t value)
-{
-    reg8[*modrm_byte >> 1 & 0xC | *modrm_byte >> 5 & 1] = value;
-}
-
-void write_g16(int32_t value)
-{
-    reg16[*modrm_byte >> 2 & 14] = value;
-}
-
-void write_g32(int32_t value)
-{
-    reg32s[*modrm_byte >> 3 & 7] = value;
-}
-
-int32_t read_e8()
-{
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read8(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        return reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1];
-    }
-}
-
-int32_t read_e8s()
-{
-    return read_e8() << 24 >> 24;
-}
-
-int32_t read_e16()
-{
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read16(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        return reg16[*modrm_byte << 1 & 14];
-    }
-}
-
-int32_t read_e16s()
-{
-    return read_e16() << 16 >> 16;
-}
-
-int32_t read_e32s()
-{
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read32s(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        return reg32s[*modrm_byte & 7];
-    }
+    return addr % HASH_PRIME;
 }
 
 void cycle_internal()
 {
+#if ENABLE_JIT
+/* Use JIT mode */
+    int32_t eip = *instruction_pointer;
+    // Save previous_ip now since translate_address_read might trigger a page-fault
+    *previous_ip = *instruction_pointer;
+
+    if((eip & ~0xFFF) ^ *last_virt_eip)
+    {
+        *eip_phys = translate_address_read(eip) ^ eip;
+        *last_virt_eip = eip & ~0xFFF;
+    }
+
+    uint32_t phys_addr = *eip_phys ^ eip;
+    assert(!in_mapped_range(phys_addr));
+
+    struct code_cache *entry = &jit_cache_arr[phys_addr & JIT_PHYS_MASK];
+
+    if(entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] &&
+       entry->start_addr == phys_addr)
+    {
+        // XXX: With the code-generation, we need to figure out how we
+        // would call the function from the other module here; likely
+        // through a handler in JS. For now:
+
+        // Confirm that cache is not dirtied (through page-writes,
+        // mode switch, or just cache eviction)
+        for(int32_t i = 0; i < entry->len; i++)
+        {
+            *previous_ip = *instruction_pointer;
+            int32_t opcode = read_imm8();
+            phys_addr = *eip_phys ^ (*instruction_pointer - 1);
+            assert(opcode == entry->opcode[i]);
+            run_instruction(entry->opcode[i] | !!*is_32 << 8);
+            (*timestamp_counter)++;
+        }
+        // XXX: Try to find an assert to detect self-modifying code
+        // JIT compiled self-modifying basic blocks may trigger this assert
+        // assert(entry->group_status != group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
+        *cache_hit = *cache_hit + 1;
+    }
+    // A jump just occured indicating the start of a basic block + the
+    // address is hot; let's JIT compile it
+    else if(jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
+    {
+        // Minimize collision based thrashing
+        hot_code_addresses[jit_hot_hash(phys_addr)] = 0;
+        jit_jump = 0;
+        entry->len = 0;
+        entry->start_addr = phys_addr;
+        entry->end_addr = phys_addr + 1;
+        jit_cache_arr[phys_addr & JIT_PHYS_MASK] = *entry;
+
+        *cache_compile = *cache_compile + 1;
+
+        // XXX: Artificial limit allows jit_dirty_cache to be
+        // simplified by only dirtying 2 entries based on a mask
+        // (instead of all possible entries)
+        while(jit_jump == 0 && entry->len < 100 &&
+              (entry->end_addr - entry->start_addr) < MAX_BLOCK_LENGTH)
+        {
+            *previous_ip = *instruction_pointer;
+            int32_t opcode = read_imm8();
+            // XXX: Currently only includes opcode of final jmp, not operands
+            entry->end_addr = *eip_phys ^ *instruction_pointer;
+            entry->opcode[entry->len] = opcode;
+            entry->len++;
+
+            // XXX: Generate the instruction instead of running it
+            // XXX: If it's a jmp instruction, make sure
+            // generate_instruction sets jit_jump=1 and end_addr is set correctly
+            run_instruction(opcode | !!*is_32 << 8);
+            (*timestamp_counter)++;
+        }
+        jit_jump = 0;
+        // When the hot instruction is a jmp (backwards),
+        // leave its group_status unupdated, thereby invalidating it
+        if (entry->end_addr > entry->start_addr)
+        {
+            entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+        }
+    }
+    // Regular un-hot code execution
+    else
+    {
+        jit_jump = 0;
+        int32_t opcode = read_imm8();
+        run_instruction(opcode | !!*is_32 << 8);
+        (*timestamp_counter)++;
+    }
+
+#else
+/* Use non-JIT mode */
     previous_ip[0] = instruction_pointer[0];
 
     (*timestamp_counter)++;
 
     int32_t opcode = read_imm8();
 
+#if DEBUG
+    logop(previous_ip[0], opcode);
+#endif
+
     run_instruction(opcode | !!*is_32 << 8);
+#endif
 }
 
 static void run_prefix_instruction()
@@ -385,12 +379,26 @@ void do_many_cycles_unsafe()
 
 void raise_exception(int32_t interrupt_nr)
 {
+#if DEBUG
+    if(cpu_exception_hook(interrupt_nr))
+    {
+        throw_cpu_exception();
+        return;
+    }
+#endif
     call_interrupt_vector(interrupt_nr, false, false, 0);
     throw_cpu_exception();
 }
 
 void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 {
+#if DEBUG
+    if(cpu_exception_hook(interrupt_nr))
+    {
+        throw_cpu_exception();
+        return;
+    }
+#endif
     call_interrupt_vector(interrupt_nr, false, true, error_code);
     throw_cpu_exception();
 }
@@ -401,10 +409,102 @@ void trigger_de()
     raise_exception(0);
 }
 
+void trigger_ud()
+{
+    dbg_log("#ud");
+    dbg_trace();
+    *instruction_pointer = *previous_ip;
+    raise_exception(6);
+}
+
+void trigger_nm()
+{
+    *instruction_pointer = *previous_ip;
+    raise_exception(7);
+}
+
 void trigger_gp(int32_t code)
 {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(13, code);
+}
+
+int32_t virt_boundary_read16(int32_t low, int32_t high)
+{
+    dbg_assert((low & 0xFFF) == 0xFFF);
+    dbg_assert((high & 0xFFF) == 0);
+
+    return read8(low) | read8(high) << 8;
+}
+
+int32_t virt_boundary_read32s(int32_t low, int32_t high)
+{
+    dbg_assert((low & 0xFFF) >= 0xFFD);
+    dbg_assert((high - 3 & 0xFFF) == (low & 0xFFF));
+
+    int32_t mid = 0;
+
+    if(low & 1)
+    {
+        if(low & 2)
+        {
+            // 0xFFF
+            mid = read_aligned16((high - 2) >> 1);
+        }
+        else
+        {
+            // 0xFFD
+            mid = read_aligned16((low + 1) >> 1);
+        }
+    }
+    else
+    {
+        // 0xFFE
+        mid = virt_boundary_read16(low + 1, high - 1);
+    }
+
+    return read8(low) | mid << 8 | read8(high) << 24;
+}
+
+void virt_boundary_write16(int32_t low, int32_t high, int32_t value)
+{
+    dbg_assert((low & 0xFFF) == 0xFFF);
+    dbg_assert((high & 0xFFF) == 0);
+
+    write8(low, value);
+    write8(high, value >> 8);
+}
+
+void virt_boundary_write32(int32_t low, int32_t high, int32_t value)
+{
+    dbg_assert((low & 0xFFF) >= 0xFFD);
+    dbg_assert((high - 3 & 0xFFF) == (low & 0xFFF));
+
+    write8(low, value);
+
+    if(low & 1)
+    {
+        if(low & 2)
+        {
+            // 0xFFF
+            write8(high - 2, value >> 8);
+            write8(high - 1, value >> 16);
+        }
+        else
+        {
+            // 0xFFD
+            write8(low + 1, value >> 8);
+            write8(low + 2, value >> 16);
+        }
+    }
+    else
+    {
+        // 0xFFE
+        write8(low + 1, value >> 8);
+        write8(high - 1, value >> 16);
+    }
+
+    write8(high, value >> 24);
 }
 
 int32_t safe_read8(int32_t addr)
@@ -439,7 +539,7 @@ int32_t safe_read32s(int32_t addr)
 union reg64 safe_read64s(int32_t addr)
 {
     union reg64 x;
-    if((addr & 0xFFF) >= 0xFF9)
+    if((addr & 0xFFF) > (0x1000 - 8))
     {
         x.u32[0] = safe_read32s(addr);
         x.u32[1] = safe_read32s(addr + 4);
@@ -447,8 +547,7 @@ union reg64 safe_read64s(int32_t addr)
     else
     {
         int32_t addr_phys = translate_address_read(addr);
-        x.u32[0] = read32s(addr_phys);
-        x.u32[1] = read32s(addr_phys + 4);
+        x.u64[0] = read64s(addr_phys);
     }
     return x;
 }
@@ -456,7 +555,7 @@ union reg64 safe_read64s(int32_t addr)
 union reg128 safe_read128s(int32_t addr)
 {
     union reg128 x;
-    if((addr & 0xFFF) >= 0xFF1)
+    if((addr & 0xFFF) > (0x1000 - 16))
     {
         x.u32[0] = safe_read32s(addr);
         x.u32[1] = safe_read32s(addr + 4);
@@ -466,30 +565,10 @@ union reg128 safe_read128s(int32_t addr)
     else
     {
         int32_t addr_phys = translate_address_read(addr);
-        x.u32[0] = read32s(addr_phys);
-        x.u32[1] = read32s(addr_phys + 4);
-        x.u32[2] = read32s(addr_phys + 8);
-        x.u32[3] = read32s(addr_phys + 12);
+        x.u64[0] = read64s(addr_phys);
+        x.u64[1] = read64s(addr_phys + 8);
     }
     return x;
-}
-
-void safe_write64(int32_t addr, int32_t low, int32_t high)
-{
-    // TODO: Optimize
-    writable_or_pagefault(addr, 8);
-    safe_write32(addr, low);
-    safe_write32(addr + 4, high);
-}
-
-void safe_write128(int32_t addr, union reg128 value)
-{
-    // TODO: Optimize
-    writable_or_pagefault(addr, 16);
-    safe_write32(addr, value.u32[0]);
-    safe_write32(addr + 4, value.u32[1]);
-    safe_write32(addr + 8, value.u32[2]);
-    safe_write32(addr + 12, value.u32[3]);
 }
 
 void safe_write8(int32_t addr, int32_t value)
@@ -515,7 +594,7 @@ void safe_write32(int32_t addr, int32_t value)
 {
     int32_t phys_low = translate_address_write(addr);
 
-    if((addr & 0xFFF) >= 0xFFD)
+    if((addr & 0xFFF) > (0x1000 - 4))
     {
         virt_boundary_write32(phys_low, translate_address_write(addr + 3 & ~3) | (addr + 3) & 3, value);
     }
@@ -525,245 +604,127 @@ void safe_write32(int32_t addr, int32_t value)
     }
 }
 
-int32_t read_write_e8()
+void safe_write64(int32_t addr, int64_t value)
 {
-    if(*modrm_byte < 0xC0)
+    if((addr & 0xFFF) > (0x1000 - 8))
     {
-        int32_t virt_addr = modrm_resolve(*modrm_byte);
-        *phys_addr = translate_address_write(virt_addr);
-        return read8(*phys_addr);
+        safe_write32(addr, value);
+        safe_write32(addr + 4, value >> 32);
     }
     else
     {
-        return reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1];
+        int32_t phys = translate_address_write(addr);
+        write64(phys, value);
     }
 }
 
-void write_e8(int32_t value)
+void safe_write128(int32_t addr, union reg128 value)
 {
-    if(*modrm_byte < 0xC0)
+    if((addr & 0xFFF) > (0x1000 - 16))
     {
-        write8(*phys_addr, value);
+        safe_write64(addr, value.u64[0]);
+        safe_write64(addr + 8, value.u64[1]);
     }
     else
     {
-        reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1] = value;
+        int32_t phys = translate_address_write(addr);
+        write64(phys, value.u64[0]);
+        write64(phys + 8, value.u64[1]);
     }
 }
 
-int32_t read_write_e16()
+static int32_t get_reg8_index(int32_t index) { return index << 2 & 0xC | index >> 2 & 1; }
+
+static int32_t read_reg8(int32_t index)
 {
-    if(*modrm_byte < 0xC0)
+    return reg8[get_reg8_index(index)];
+}
+
+static void write_reg8(int32_t index, int32_t value)
+{
+    reg8[get_reg8_index(index)] = value;
+}
+
+static int32_t get_reg16_index(int32_t index) { return index << 1; }
+
+static int32_t read_reg16(int32_t index)
+{
+    return reg16[get_reg16_index(index)];
+}
+
+static void write_reg16(int32_t index, int32_t value)
+{
+    reg16[get_reg16_index(index)] = value;
+}
+
+
+static int32_t read_reg32(int32_t index)
+{
+    return reg32s[index];
+}
+
+static void write_reg32(int32_t index, int32_t value)
+{
+    reg32s[index] = value;
+}
+
+static void write_reg_osize(int32_t index, int32_t value)
+{
+    assert(index >= 0 && index < 8);
+
+    if(is_osize_32())
     {
-        int32_t virt_addr = modrm_resolve(*modrm_byte);
-        *phys_addr = translate_address_write(virt_addr);
-        if((virt_addr & 0xFFF) == 0xFFF)
-        {
-            *phys_addr_high = translate_address_write(virt_addr + 1);
-            dbg_assert(*phys_addr_high);
-            return virt_boundary_read16(*phys_addr, *phys_addr_high);
-        }
-        else
-        {
-            *phys_addr_high = 0;
-            return read16(*phys_addr);
-        }
+        write_reg32(index, value);
     }
     else
     {
-        return reg16[*modrm_byte << 1 & 14];
+        write_reg16(index, value & 0xFFFF);
     }
 }
 
-void write_e16(int32_t value)
+int32_t read_mmx32s(int32_t r)
 {
-    if(*modrm_byte < 0xC0)
-    {
-        if(*phys_addr_high)
-        {
-            virt_boundary_write16(*phys_addr, *phys_addr_high, value);
-        }
-        else
-        {
-            write16(*phys_addr, value);
-        }
-    }
-    else
-    {
-        reg16[*modrm_byte << 1 & 14] = value;
-    }
+    return reg_mmx[r].u32[0];
 }
 
-int32_t read_write_e32()
+union reg64 read_mmx64s(int32_t r)
 {
-    if(*modrm_byte < 0xC0)
-    {
-        int32_t virt_addr = modrm_resolve(*modrm_byte);
-        *phys_addr = translate_address_write(virt_addr);
-        if((virt_addr & 0xFFF) >= 0xFFD)
-        {
-            *phys_addr_high = translate_address_write(virt_addr + 3 & ~3) | (virt_addr + 3) & 3;
-            dbg_assert(*phys_addr_high);
-            return virt_boundary_read32s(*phys_addr, *phys_addr_high);
-        }
-        else
-        {
-            *phys_addr_high = 0;
-            return read32s(*phys_addr);
-        }
-    }
-    else
-    {
-        return reg32s[*modrm_byte & 7];
-    }
+    return reg_mmx[r];
 }
 
-void write_e32(int32_t value)
+void write_mmx64(int32_t r, int32_t low, int32_t high)
 {
-    if(*modrm_byte < 0xC0)
-    {
-        if(*phys_addr_high)
-        {
-            virt_boundary_write32(*phys_addr, *phys_addr_high, value);
-        }
-        else
-        {
-            write32(*phys_addr, value);
-        }
-    }
-    else
-    {
-        reg32s[*modrm_byte & 7] = value;
-    }
+    reg_mmx[r].u32[0] = low;
+    reg_mmx[r].u32[1] = high;
 }
 
-union reg64 read_mmx64s()
+union reg64 read_xmm64s(int32_t r)
 {
     union reg64 x;
-    int32_t i = (*modrm_byte >> 3 & 7) << 1;
-    x.u32[0] = reg_mmx32s[i];
-    x.u32[1] = reg_mmx32s[i | 1];
+    x.u64[0] = reg_xmm[r].u64[0];
     return x;
 }
 
-
-int32_t read_mmx_mem32s()
+union reg128 read_xmm128s(int32_t r)
 {
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read32s(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        // Returning lower dword of qword
-        return reg_mmx32s[(*modrm_byte & 7) << 1];
-    }
+    return reg_xmm[r];
 }
 
-union reg64 read_mmx_mem64s()
+void write_xmm64(int32_t r, union reg64 data)
 {
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read64s(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        union reg64 x;
-        int32_t i = (*modrm_byte & 7) << 1;
-        x.u32[0] = reg_mmx32s[i];
-        x.u32[1] = reg_mmx32s[i | 1];
-
-        return x;
-    }
+    reg_xmm[r].u64[0] = data.u64[0];
 }
 
-void write_mmx64s(int32_t low, int32_t high)
+void write_xmm128(int32_t r, int32_t i0, int32_t i1, int32_t i2, int32_t i3)
 {
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    reg_mmx32s[offset] = low;
-    reg_mmx32s[offset | 1] = high;
+    union reg128 x = { .u32 = { i0, i1, i2, i3 } };
+    reg_xmm[r] = x;
 }
 
-void write_mmx_mem64s(int32_t low, int32_t high)
+void write_xmm_reg128(int32_t r, union reg128 data)
 {
-    if(*modrm_byte < 0xC0) {
-        int32_t addr = modrm_resolve(*modrm_byte);
-        safe_write64(addr, low, high);
-    } else {
-        int32_t offset = (*modrm_byte & 7) << 1;
-        reg_mmx32s[offset] = low;
-        reg_mmx32s[offset | 1] = high;
-    }
-}
-
-union reg64 read_xmm64s()
-{
-    union reg64 x;
-    int32_t i = (*modrm_byte >> 3 & 7) << 2;
-    x.u32[0] = reg_xmm32s[i];
-    x.u32[1] = reg_xmm32s[i | 1];
-    return x;
-}
-
-union reg128 read_xmm128s()
-{
-    union reg128 x;
-    int32_t i = (*modrm_byte >> 3 & 7) << 2;
-    x.u32[0] = reg_xmm32s[i];
-    x.u32[1] = reg_xmm32s[i | 1];
-    x.u32[2] = reg_xmm32s[i | 2];
-    x.u32[3] = reg_xmm32s[i | 3];
-    return x;
-}
-
-union reg64 read_xmm_mem64s()
-{
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read64s(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        union reg64 x;
-        int32_t i = (*modrm_byte & 7) << 2;
-        x.u32[0] = reg_xmm32s[i];
-        x.u32[1] = reg_xmm32s[i | 1];
-        return x;
-    }
-}
-
-union reg128 read_xmm_mem128s()
-{
-    if(*modrm_byte < 0xC0)
-    {
-        return safe_read128s(modrm_resolve(*modrm_byte));
-    }
-    else
-    {
-        union reg128 x;
-        int32_t i = (*modrm_byte & 7) << 2;
-        x.u32[0] = reg_xmm32s[i];
-        x.u32[1] = reg_xmm32s[i | 1];
-        x.u32[2] = reg_xmm32s[i | 2];
-        x.u32[3] = reg_xmm32s[i | 3];
-        return x;
-    }
-}
-
-void write_xmm64(int32_t d0, int32_t d1)
-{
-    int32_t i = (*modrm_byte >> 3 & 7) << 2;
-    reg_xmm32s[i] = d0;
-    reg_xmm32s[i | 1] = d1;
-}
-
-void write_xmm128s(int32_t d0, int32_t d1, int32_t d2, int32_t d3)
-{
-    int32_t i = (*modrm_byte >> 3 & 7) << 2;
-    reg_xmm32s[i] = d0;
-    reg_xmm32s[i | 1] = d1;
-    reg_xmm32s[i | 2] = d2;
-    reg_xmm32s[i | 3] = d3;
+    reg_xmm[r].u64[0] = data.u64[0];
+    reg_xmm[r].u64[1] = data.u64[1];
 }
 
 void clear_tlb()
@@ -791,11 +752,11 @@ int32_t read_moffs()
 {
     if(is_asize_32())
     {
-        return get_seg_prefix(DS) + read_op32s();
+        return read_imm32s();
     }
     else
     {
-        return get_seg_prefix(DS) + read_op16();
+        return read_imm16();
     }
 }
 
@@ -874,3 +835,9 @@ int32_t decr_ecx_asize()
     return is_asize_32() ? --reg32s[ECX] : --reg16[CX];
 }
 
+uint64_t read_tsc()
+{
+    double_t n = microtick() - tsc_offset[0]; // XXX: float
+    n = n * TSC_RATE;
+    return n;
+}

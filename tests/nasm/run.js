@@ -2,8 +2,8 @@
 'use strict';
 
 // Mapping between signals and x86 exceptions:
-// "Program received signal SIGILL, Illegal instruction." -> #UD
-// "Program received signal SIGFPE, Arithmetic exception." -> #GP
+// "Program received signal SIGILL, Illegal instruction." -> #UD (6)
+// "Program received signal SIGFPE, Arithmetic exception." -> #DE (0)
 // to be determined -> #GP
 // to be determined -> #NM
 // to be determined -> #TS
@@ -26,7 +26,7 @@ const TERMINATE_MSG = 'DONE';
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
-    var V86 = require('../../build/libv86.js').V86Starter;
+    var V86 = require('../../build/libv86-debug.js').V86Starter;
 }
 catch(e) {
     console.error('Failed to import build/libv86.js. Run ' +
@@ -61,9 +61,10 @@ function h(n, len)
     return "0x" + pad0(str.toUpperCase(), len || 1);
 }
 
-if (cluster.isMaster) {
-
-    function extract_json(name, fixture_text) {
+if(cluster.isMaster)
+{
+    function extract_json(name, fixture_text)
+    {
         if(fixture_text.includes("SIGFPE, Arithmetic exception"))
         {
             return { exception: "DE", };
@@ -150,7 +151,8 @@ if (cluster.isMaster) {
     let failed_tests = [];
     let finished_workers = 0;
 
-    for (let i = 0; i < nr_of_cpus; i++) {
+    for(let i = 0; i < nr_of_cpus; i++)
+    {
         let worker = cluster.fork();
 
         worker.on('message', function(message) {
@@ -188,10 +190,16 @@ if (cluster.isMaster) {
 
                 console.error('\n[-] %s:', test_failure.img_name);
 
-                test_failure.failures.forEach(function(individual_failure) {
-                    console.error("\n\t" + individual_failure.name);
-                    console.error("\tActual: 0x" + (individual_failure.actual >>> 0).toString(16));
-                    console.error("\tExpected: 0x" + (individual_failure.expected >>> 0).toString(16));
+                test_failure.failures.forEach(function(failure) {
+                    function format_value(v) {
+                        if(typeof v === "number")
+                            return "0x" + (v >>> 0).toString(16);
+                        else
+                            return String(v);
+                    }
+                    console.error("\n\t" + failure.name);
+                    console.error("\tActual:   " + format_value(failure.actual));
+                    console.error("\tExpected: " + format_value(failure.expected));
                 });
             });
             process.exit(1);
@@ -207,6 +215,7 @@ else {
             return;
         }
 
+        waiting_for_test = false;
         current_test = test;
         console.info('Testing', test.img_name);
 
@@ -222,10 +231,12 @@ else {
     let loaded = false;
     let current_test = undefined;
     let first_test = undefined;
+    let waiting_for_test = false;
 
     let emulator = new V86({
         autostart: false,
         memory_size: 2 * 1024 * 1024,
+        log_level: 0,
     });
 
     emulator.add_listener("emulator-loaded", function()
@@ -238,7 +249,51 @@ else {
             }
         });
 
+    emulator.cpu_exception_hook = function(n)
+    {
+        if(waiting_for_test)
+        {
+            return true;
+        }
+
+        waiting_for_test = true;
+        emulator.stop();
+
+        const exceptions = {
+            0: "DE",
+            6: "UD",
+        };
+
+        const exception = exceptions[n];
+
+        if(exception === undefined)
+        {
+            console.error("Unexpected CPU exception: " + n);
+            process.exit(1);
+        }
+
+        if(current_test.fixture.exception !== exception)
+        {
+            process.send({
+                failures: [{
+                    name: "Exception",
+                    actual: exception,
+                    expected: current_test.fixture.exception || "(none)",
+                }],
+                img_name: current_test.img_name,
+            });
+        }
+        else
+        {
+            process.send(DONE_MSG);
+        }
+
+        return true;
+    };
+
     emulator.bus.register('cpu-event-halt', function() {
+        console.assert(!waiting_for_test);
+        waiting_for_test = true;
         emulator.stop();
         var cpu = emulator.v86.cpu;
 

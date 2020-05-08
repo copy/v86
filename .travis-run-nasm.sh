@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -e
-make nasmtests
+./tests/nasm/create_tests.js
+make -j $(nproc --all) nasmtests

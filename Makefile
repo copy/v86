@@ -76,7 +76,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.j
 	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
 	   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js \
-	   elf.js
+	   elf.js codegen.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
 	      keyboard.js mouse.js serial.js \
@@ -135,14 +135,15 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
-build/v86.wasm: src/native/*.c src/native/*.h
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
 	mkdir -p build
 	-ls -lh build/v86.wasm
 	# --llvm-opts 3
 	# -Wno-extra-semi
 	# EMCC_DEBUG=1  EMCC_WASM_BACKEND=1
 	# -fno-inline
-	emcc src/native/all.c \
+	emcc src/native/all.c src/native/codegen/api.c \
+	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -DDEBUG=false \
 	    -DNDEBUG \
@@ -150,6 +151,7 @@ build/v86.wasm: src/native/*.c src/native/*.h
 	    -fcolor-diagnostics \
 	    -fwrapv \
 	    --llvm-opts 3 \
+	    --llvm-lto 3 \
 	    -O3 \
 	    -g4 \
 	    -s LEGALIZE_JS_FFI=0 \
@@ -157,8 +159,9 @@ build/v86.wasm: src/native/*.c src/native/*.h
 	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h
-	emcc src/native/all.c \
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+	emcc src/native/all.c src/native/codegen/api.c \
+	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
 	    -fcolor-diagnostics \
@@ -170,12 +173,27 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h
 	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
+build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+	emcc src/native/codegen/api.c \
+	    -Wall -Wpedantic -Wextra \
+	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
+	    -fcolor-diagnostics \
+	    -fwrapv \
+	    -Os \
+	    -g4 \
+	    -s LEGALIZE_JS_FFI=0 \
+	    -s "BINARYEN_TRAP_MODE='allow'" \
+	    -s WASM=1 -s SIDE_MODULE=1 -o build/codegen-test.wasm
+	ls -lh build/codegen-test.wasm
+
 clean:
 	-rm build/libv86.js
+	-rm build/libv86-debug.js
 	-rm build/v86_all.js
-	-rm build/libv86.js.map
-	-rm build/v86_all.js.map
 	-rm build/v86.wasm
+	-rm build/v86-debug.wasm
+	-rm build/*.map
+	-rm build/*.wast
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
@@ -202,15 +220,19 @@ $(CLOSURE):
 tests: build/libv86.js build/v86.wasm
 	./tests/full/run.js
 
-nasmtests: build/libv86.js build/v86.wasm
+nasmtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/run.js
 
+jitpagingtests: build/libv86.js build/v86.wasm
+	$(MAKE) -C tests/jit-paging test-jit
+	./tests/jit-paging/run.js
+
 qemutests: build/libv86.js build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
-	./tests/qemu/run.js > result
-	./tests/qemu/test-i386 > reference
-	diff result reference
+	./tests/qemu/run.js > /tmp/v86-test-result
+	./tests/qemu/test-i386 > /tmp/v86-test-reference
+	diff /tmp/v86-test-result /tmp/v86-test-reference
 
 kvm-unit-test: build/libv86.js build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure)

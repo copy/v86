@@ -1,5 +1,8 @@
 "use strict";
 
+/** @const */
+let PS2_LOG_VERBOSE = false;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -270,7 +273,10 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
 
-    dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
+    if(PS2_LOG_VERBOSE)
+    {
+        dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
+    }
 
     this.mouse_irq();
 };
@@ -320,7 +326,11 @@ PS2.prototype.port60_read = function()
     {
         this.cpu.device_lower_irq(12);
         this.last_port60_byte = this.mouse_buffer.shift();
-        dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
+
+        if(PS2_LOG_VERBOSE)
+        {
+            dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
+        }
 
         if(this.mouse_buffer.length >= 1)
         {
