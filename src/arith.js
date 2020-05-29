@@ -461,7 +461,7 @@ CPU.prototype.idiv16 = function(source_operand)
 }
 
 // If the dividend is too large, the division cannot be done precisely using
-// JavaScript's double floating point numbers. Run simple long divsion until
+// JavaScript's double floating point numbers. Run simple long division until
 // the dividend is small enough
 CPU.prototype.do_div32 = function(div_low, div_high, quot)
 {
