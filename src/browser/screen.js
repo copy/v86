@@ -9,7 +9,7 @@ if(typeof window !== "undefined" && !window.requestAnimationFrame)
 
 
 /**
- * Adapter to use visual screen in browsers (in constrast to node)
+ * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  *
  * @param {BusConnector} bus
