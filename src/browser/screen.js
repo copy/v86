@@ -78,7 +78,7 @@ function ScreenAdapter(screen_container, bus)
 
 
     /**
-     * Charmaps that containt unicode sequences for the default dospage
+     * Charmaps that constraint unicode sequences for the default dospage
      * @const
      */
     var charmap_high = new Uint16Array([
