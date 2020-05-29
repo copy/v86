@@ -478,7 +478,7 @@ SB16.prototype.port2x9_read = function()
 };
 
 // Read Data.
-// Used to acces in-bound DSP data.
+// Used to access in-bound DSP data.
 SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
