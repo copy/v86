@@ -151,11 +151,18 @@
                 settings.cdrom = { buffer: cd_file };
             }
 
-            var hd_file = $("hd_image").files[0];
-            if(hd_file)
+            var hda_file = $("hda_image").files[0];
+            if(hda_file)
             {
-                last_file = hd_file;
-                settings.hda = { buffer: hd_file };
+                last_file = hda_file;
+                settings.hda = { buffer: hda_file };
+            }
+
+            var hdb_file = $("hdb_image").files[0];
+            if(hdb_file)
+            {
+                last_file = hdb_file;
+                settings.hdb = { buffer: hdb_file };
             }
 
             if($("multiboot_image"))
@@ -704,6 +711,7 @@
 
             "fda": settings.fda,
             "hda": settings.hda,
+            "hdb": settings.hdb,
             "cdrom": settings.cdrom,
 
             "multiboot": settings.multiboot,

@@ -760,17 +760,12 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.hda)
         {
-            this.devices.hda = new IDEDevice(this, settings.hda, false, ide_device_count++, device_bus);
+            this.devices.hda = new IDEDevice(this, settings.hda, settings.hdb, false, ide_device_count++, device_bus);
         }
 
         if(settings.cdrom)
         {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, ide_device_count++, device_bus);
-        }
-
-        if(settings.hdb)
-        {
-            this.devices.hdb = new IDEDevice(this, settings.hdb, false, ide_device_count++, device_bus);
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, undefined, true, ide_device_count++, device_bus);
         }
 
         this.devices.pit = new PIT(this, device_bus);
