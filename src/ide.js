@@ -44,10 +44,10 @@ var HD_SECTOR_SIZE = 512;
  * @param {number} nr
  * @param {BusConnector} bus
  * */
-function IDEDevice(cpu, buffer, is_cd, nr, bus)
+function IDEDevice(cpu, masterBuffer, slaveBuffer, is_cd, nr, bus)
 {
-    this.master = new IDEInterface(this, cpu, buffer, is_cd, nr, 0, bus);
-    this.slave = new IDEInterface(this, cpu, undefined, false, nr, 1, bus);
+    this.master = new IDEInterface(this, cpu, masterBuffer, is_cd, nr, 0, bus);
+    this.slave = new IDEInterface(this, cpu, slaveBuffer, is_cd, nr, 1, bus);
 
     this.current_interface = this.master;
 
