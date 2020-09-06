@@ -2390,15 +2390,12 @@ t[0x32] = cpu => {
             break;
 
         case IA32_APIC_BASE_MSR:
-            if(ENABLE_ACPI)
-            {
                 low = APIC_ADDRESS;
 
                 if(cpu.apic_enabled)
                 {
                     low |= IA32_APIC_BASE_EN;
                 }
-            }
             break;
 
         case IA32_BIOS_SIGN_ID:

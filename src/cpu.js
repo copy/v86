@@ -715,10 +715,11 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.pic = new PIC(this);
         this.devices.pci = new PCI(this);
 
-        if(ENABLE_ACPI)
+        this.devices.ioapic = new IOAPIC(this);
+        this.devices.apic = new APIC(this);
+        
+		if(ENABLE_ACPI)
         {
-            this.devices.ioapic = new IOAPIC(this);
-            this.devices.apic = new APIC(this);
             this.devices.acpi = new ACPI(this);
         }
 
@@ -1274,8 +1275,9 @@ CPU.prototype.run_hardware_timers = function(now)
     if(ENABLE_ACPI)
     {
         this.devices.acpi.timer(now);
-        this.devices.apic.timer(now);
     }
+        
+		this.devices.apic.timer(now);
 };
 
 CPU.prototype.clear_prefixes = function()
@@ -3841,7 +3843,7 @@ CPU.prototype.cpuid = function()
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
                     0 << 23 | 0 << 24 | 0 << 25 | 0 << 26;   // mmx, fxsr, sse, sse2
 
-            if(ENABLE_ACPI && this.apic_enabled)
+            if(this.apic_enabled)
             {
                 edx |= 1 << 9; // apic
             }
