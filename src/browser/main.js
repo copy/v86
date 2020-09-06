@@ -152,7 +152,7 @@
                 settings.hda = { buffer: hda_file };
             }
 
-            var hdb_file = $("hdb_image").files[0];
+            var hdb_file = $("hdb_image") && $("hdb_image").files[0];
             if(hdb_file)
             {
                 last_file = hdb_file;
