@@ -9,7 +9,7 @@ if(typeof window !== "undefined" && !window.requestAnimationFrame)
 
 
 /**
- * Adapter to use visual screen in browsers (in constrast to node)
+ * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  *
  * @param {BusConnector} bus
@@ -78,7 +78,7 @@ function ScreenAdapter(screen_container, bus)
 
 
     /**
-     * Charmaps that containt unicode sequences for the default dospage
+     * Charmaps that constraint unicode sequences for the default dospage
      * @const
      */
     var charmap_high = new Uint16Array([

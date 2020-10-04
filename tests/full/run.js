@@ -323,7 +323,7 @@ function run_test(test, done)
 
     var graphical_test_done = false;
     var size_test_done = false;
-    function check_grapical_test_done()
+    function check_graphical_test_done()
     {
         return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size ||  size_test_done));
     }
@@ -343,7 +343,7 @@ function run_test(test, done)
             return;
         }
 
-        if(check_text_test_done() && check_mouse_test_done() && check_grapical_test_done())
+        if(check_text_test_done() && check_mouse_test_done() && check_graphical_test_done())
         {
             var end = Date.now();
 
@@ -373,7 +373,7 @@ function run_test(test, done)
                 console.warn('Expected text "%s" after %d seconds.', bytearray_to_string(test.expected_texts[0]), timeout_seconds);
             }
 
-            if(!check_grapical_test_done())
+            if(!check_graphical_test_done())
             {
                 console.warn("Expected graphical mode after %d seconds.", timeout_seconds);
             }

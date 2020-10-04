@@ -272,7 +272,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
-            // acknoledge interrupts where bit is set
+            // acknowledge interrupts where bit is set
             dbg_log("Write isr: " + h(data_byte, 2), LOG_NET);
             this.isr &= ~data_byte
             this.update_irq();
@@ -359,7 +359,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
-            dbg_log("Write start addresse count high: " + h(data_byte, 2), LOG_NET);
+            dbg_log("Write start address count high: " + h(data_byte, 2), LOG_NET);
             this.rsar = this.rsar & 0xFF | data_byte << 8 & 0xFF00;
         }
         else

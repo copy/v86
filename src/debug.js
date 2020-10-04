@@ -134,7 +134,7 @@ CPU.prototype.debug_init = function()
     }
 
     // http://ref.x86asm.net/x86reference.xml
-    // for debuggin" purposes
+    // for debugging purposes
     var opcode_map = [
         "ADD", "ADD", "ADD", "ADD", "ADD", "ADD", "PUSH", "POP",
         "OR", "OR", "OR", "OR", "OR", "OR", "PUSH", "0F:",

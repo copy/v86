@@ -231,7 +231,7 @@ function V86Starter(options)
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot")
         {
-            // Ignore async for these because they must be availabe before boot.
+            // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
             file.async = false;
         }

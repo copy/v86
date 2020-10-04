@@ -478,7 +478,7 @@ SB16.prototype.port2x9_read = function()
 };
 
 // Read Data.
-// Used to acces in-bound DSP data.
+// Used to access in-bound DSP data.
 SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
@@ -807,7 +807,7 @@ register_dsp_command([0x14, 0x15], 2, function()
     this.dma_transfer_start();
 });
 
-// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitzed sound output.
+// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitized sound output.
 register_dsp_command([0x16], 2);
 
 // Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitzed sound output
