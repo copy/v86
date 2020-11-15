@@ -93,3 +93,7 @@ a img {
 .btn{
     margin: 5px;
 }
+
+.action-card-button-container{
+    padding: 0.5rem;
+}
