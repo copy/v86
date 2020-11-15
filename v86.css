@@ -1,22 +1,25 @@
-#log, #serial {
+.log-box-conterint {
     font-family: DejaVu Sans Mono, monospace;
     font-size: 13px;
     border: 1px solid #333;
     background-color: #000;
-    padding: 4px;
+    color: #fff;
+
+    height: 100px;
+}
+
+.serial-box-conterint {
+    font-family: DejaVu Sans Mono, monospace;
+    font-size: 13px;
+    border: 1px solid #333;
+    background-color: #000;
     color: #fff;
 }
 
-#log {
-    height: 100px;
-    width: 550px;
-}
-#serial {
-    margin: 0px;
-}
-#serial:focus {
+.serial-box-conterint:focus {
     outline: 1px solid rgb(229, 151, 0);
 }
+
 #screen {
     white-space: pre;
     position: relative;

@@ -48,8 +48,8 @@
 
         <br />
 
-		<div class="container-fluid">
-        	<div id="boot_options" class="row">
+		<div class="container-fluid pb-3">
+			<div id="boot_options" class="row">
 				<div class="col-lg-6">
 					<div class="card text-white bg-dark mb-3">
 						<div class="card-header">
@@ -126,14 +126,20 @@
 							<hr />
 							<div class="row">
 								<div class="col-lg-6">Memory size</div>
-								<div class="col-lg-6 form-inline">
-									<input id="memory_size" type="number" value="128" min="16" max="2048" step="16" class="form-control">&nbsp&nbsp MB<br>
+								<div class="col-lg-4">
+									<input id="memory_size" type="number" value="128" min="16" max="2048" step="16" class="form-control w-100">
+								</div>
+								<div class="col-lg-2">
+									MB
 								</div>
 							</div>
 							<div class="row">
 								<div class="col-lg-6">Video Memory size</div>
-								<div class="col-lg-6 form-inline">
-									<input id="video_memory_size" type="number" value="8" min="1" max="128" step="1" class="form-control">&nbsp&nbsp MB<br>
+								<div class="col-lg-4 form-inline">
+									<input id="video_memory_size" type="number" value="8" min="1" max="128" step="1" class="form-control w-100">
+								</div>
+								<div class="col-lg-2">
+									MB
 								</div>
 							</div>
 							<hr />
@@ -297,16 +303,13 @@
 					</div>
 				</div>
 			</div>
-			<br />
+			
+			<textarea class="w-100 serial-box-conterint" style="display: none;" spellcheck="false" rows="12" id="serial">
+This is the serial console. Whatever you type or paste here will be sent to COM1.
+In Linux it can be accessed with `cat /dev/ttyS0`
+			</textarea>
 
-			<div class="row">
-				<textarea class="col-lg-12" spellcheck="false" rows="12" id="serial" style="display:none">This is the serial console. Whatever you type or paste here will be sent to COM1.
-In Linux it can be accessed with `cat /dev/ttyS0`</textarea>
-			</div>
-
-			<div class="row">
-				<textarea readonly id="log" style="display:none"></textarea>
-			</div>
+			<textarea class="w-100 log-box-conterint" style="display: none;" readonly id="log"></textarea>
 		</div>
 	</body>
 </html>
