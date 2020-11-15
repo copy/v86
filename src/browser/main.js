@@ -1189,7 +1189,12 @@
             $("take_screenshot").blur();
         };
 
-        $("serial").style.display = "block";
+        /* @ElCresh - 15/11/2020
+         * Commented because not styling, when possibile is stricly 
+         * managed on html (if possibile)
+        */ 
+        
+        //$("serial").style.display = "block";
 
         window.addEventListener("keydown", ctrl_w_rescue, false);
         window.addEventListener("keyup", ctrl_w_rescue, false);
