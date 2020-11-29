@@ -125,7 +125,15 @@ function V86Starter(options)
     settings.uart2 = options["uart2"] || false;
     settings.uart3 = options["uart3"] || false;
 
-    if(options["network_relay_url"])
+    // optional fixed mac address
+    settings.network_mac = null;
+
+    if(options["network_adapter"])
+    {
+        this.network_adapter = options["network_adapter"](adapter_bus);
+        settings.enable_ne2k = true;
+
+    } else if(options["network_relay_url"])
     {
         this.network_adapter = new NetworkAdapter(options["network_relay_url"], adapter_bus);
         settings.enable_ne2k = true;
@@ -157,6 +165,10 @@ function V86Starter(options)
     if(!options["disable_speaker"])
     {
         this.speaker_adapter = new SpeakerAdapter(adapter_bus);
+    }
+    if(options["initial_state"])
+    {
+        settings.initial_state = options.initial_state;
     }
 
     // ugly, but required for closure compiler compilation
