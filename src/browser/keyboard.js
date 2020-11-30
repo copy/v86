@@ -213,7 +213,7 @@ function KeyboardAdapter(bus)
         "NumpadDivide": 0xe035,
         //"PrintScreen": 0x0063,
         "AltRight": 0xe038,
-        "Home": 0xe04f,
+        "Home": 0xe047,
         "ArrowUp": 0xe048,
         "PageUp": 0xe049,
         "ArrowLeft": 0xe04b,
