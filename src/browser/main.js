@@ -8,12 +8,6 @@
     /** @const */
     var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
 
-    /** @const */
-    var ON_HTTPS = location.protocol === "https:";
-
-    /** @const */
-    var OTHER_HOST = ON_LOCALHOST ? "" : ON_HTTPS ? "//j.copy.sh:8443/" : "//j.copy.sh:8880/";
-
     /**
      * @return {Object.<string, string>}
      */
@@ -151,11 +145,18 @@
                 settings.cdrom = { buffer: cd_file };
             }
 
-            var hd_file = $("hd_image").files[0];
-            if(hd_file)
+            var hda_file = $("hda_image").files[0];
+            if(hda_file)
             {
-                last_file = hd_file;
-                settings.hda = { buffer: hd_file };
+                last_file = hda_file;
+                settings.hda = { buffer: hda_file };
+            }
+
+            var hdb_file = $("hdb_image") && $("hdb_image").files[0];
+            if(hdb_file)
+            {
+                last_file = hdb_file;
+                settings.hdb = { buffer: hdb_file };
             }
 
             if($("multiboot_image"))
@@ -264,7 +265,7 @@
             {
                 id: "kolibrios",
                 fda: {
-                    "url": (ON_LOCALHOST || ON_HTTPS) ?
+                    "url": ON_LOCALHOST ?
                             "images/kolibri.img" :
                             "//builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
@@ -346,8 +347,7 @@
                     "size": 142815292,
                 },
                 hda: {
-                    "url": ON_LOCALHOST ? "../v86-images/os/freebsd3.img" :
-                                          OTHER_HOST + "images/freebsd3.img",
+                    "url": HOST + "images/freebsd3.img",
                     "size": 17179869184,
                     "async": true,
                 },
@@ -712,6 +712,7 @@
 
             "fda": settings.fda,
             "hda": settings.hda,
+            "hdb": settings.hdb,
             "cdrom": settings.cdrom,
 
             "multiboot": settings.multiboot,

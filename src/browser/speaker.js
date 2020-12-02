@@ -16,7 +16,7 @@ function SpeakerAdapter(bus)
     {
         return;
     }
-    if(!window.AudioContext && !window.webkitAudioContext)
+    if(!window.AudioContext && !window["webkitAudioContext"])
     {
         console.warn("Web browser doesn't support Web Audio API");
         return;
@@ -28,7 +28,7 @@ function SpeakerAdapter(bus)
     this.bus = bus;
 
     /** @const */
-    this.audio_context = new (window.AudioContext || window.webkitAudioContext)();
+    this.audio_context = new (window.AudioContext || window["webkitAudioContext"])();
 
     /** @const */
     this.mixer = new SpeakerMixer(bus, this.audio_context);
@@ -962,8 +962,17 @@ SpeakerBufferSourceDAC.prototype.queue = function(data)
         // Allocating new AudioBuffer every block
         // - Memory profiles show insignificant improvements if recycling old buffers.
         buffer = this.audio_context.createBuffer(2, sample_count, this.sampling_rate);
-        buffer.copyToChannel(data[0], 0);
-        buffer.copyToChannel(data[1], 1);
+        if(buffer.copyToChannel)
+        {
+            buffer.copyToChannel(data[0], 0);
+            buffer.copyToChannel(data[1], 1);
+        }
+        else
+        {
+            // Safari doesn't support copyToChannel yet. See #286
+            buffer.getChannelData(0).set(data[0]);
+            buffer.getChannelData(1).set(data[1]);
+        }
     }
 
     var source = this.audio_context.createBufferSource();

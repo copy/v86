@@ -121,6 +121,9 @@ function V86Starter(options)
     settings.fastboot = options["fastboot"] || false;
     settings.fda = undefined;
     settings.fdb = undefined;
+    settings.uart1 = options["uart1"] || false;
+    settings.uart2 = options["uart2"] || false;
+    settings.uart3 = options["uart3"] || false;
 
     if(options["network_relay_url"])
     {
@@ -228,7 +231,7 @@ function V86Starter(options)
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot")
         {
-            // Ignore async for these because they must be availabe before boot.
+            // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
             file.async = false;
         }
@@ -456,7 +459,14 @@ V86Starter.prototype.stop = function()
  */
 V86Starter.prototype.destroy = function()
 {
-    this.keyboard_adapter.destroy();
+    this.stop();
+
+    this.v86.destroy();
+    this.keyboard_adapter && this.keyboard_adapter.destroy();
+    this.network_adapter && this.network_adapter.destroy();
+    this.mouse_adapter && this.mouse_adapter.destroy();
+    this.screen_adapter && this.screen_adapter.destroy();
+    this.serial_adapter && this.serial_adapter.destroy();
 };
 
 /**
@@ -824,6 +834,20 @@ V86Starter.prototype.serial0_send = function(data)
     for(var i = 0; i < data.length; i++)
     {
         this.bus.send("serial0-input", data.charCodeAt(i));
+    }
+};
+
+/**
+ * Send bytes to a serial port (to be received by the emulated PC).
+ *
+ * @param {Uint8Array} data
+ * @export
+ */
+V86Starter.prototype.serial_send_bytes = function(serial, data)
+{
+    for(var i = 0; i < data.length; i++)
+    {
+        this.bus.send("serial" + serial + "-input", data[i]);
     }
 };
 

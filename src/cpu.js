@@ -10,6 +10,21 @@ var CPU_LOG_VERBOSE = false;
 // http://ref.x86asm.net/geek32.html
 
 
+// exception bits in the MXCSR Register
+var
+    /** @const */
+    CPU_EX_P = 1 << 5,
+    /** @const */
+    CPU_EX_U = 1 << 4,
+    /** @const */
+    CPU_EX_O = 1 << 3,
+    /** @const */
+    CPU_EX_Z = 1 << 2,
+    /** @const */
+    CPU_EX_D = 1 << 1,
+    /** @const */
+    CPU_EX_I = 1 << 0;
+
 /** @constructor */
 function CPU(bus)
 {
@@ -166,7 +181,6 @@ function CPU(bus)
     /** @type {number} */
     this.last_result = 0;
 
-    this.mul32_result = new Int32Array(2);
     this.div32_result = new Float64Array(2);
 
     this.tsc_offset = 0;
@@ -318,7 +332,7 @@ CPU.prototype.get_state = function()
     state[51] = this.devices.hpet;
     state[52] = this.devices.vga;
     state[53] = this.devices.ps2;
-    state[54] = this.devices.uart;
+    state[54] = this.devices.uart0;
     state[55] = this.devices.fdc;
     state[56] = this.devices.cdrom;
     state[57] = this.devices.hda;
@@ -335,6 +349,10 @@ CPU.prototype.get_state = function()
     state[65] = this.tss_size_32;
 
     state[66] = this.reg_mmxs;
+
+    state[67] = this.devices.uart1;
+    state[68] = this.devices.uart2;
+    state[69] = this.devices.uart3;
 
     return state;
 };
@@ -394,7 +412,7 @@ CPU.prototype.set_state = function(state)
     this.devices.hpet = state[51];
     this.devices.vga = state[52];
     this.devices.ps2 = state[53];
-    this.devices.uart = state[54];
+    this.devices.uart0 = state[54];
     this.devices.fdc = state[55];
     this.devices.cdrom = state[56];
     this.devices.hda = state[57];
@@ -411,6 +429,10 @@ CPU.prototype.set_state = function(state)
     this.tss_size_32 = state[65];
 
     this.reg_mmxs = state[66];
+
+    this.devices.uart1 = state[67];
+    this.devices.uart2 = state[68];
+    this.devices.uart3 = state[69];
 
     this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
     this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
@@ -717,7 +739,20 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.ps2 = new PS2(this, device_bus);
 
-        this.devices.uart = new UART(this, 0x3F8, device_bus);
+        this.devices.uart0 = new UART(this, 0x3F8, device_bus);
+
+        if(settings.uart1)
+        {
+            this.devices.uart1 = new UART(this, 0x2F8, device_bus);
+        }
+        if(settings.uart2)
+        {
+            this.devices.uart2 = new UART(this, 0x3E8, device_bus);
+        }
+        if(settings.uart3)
+        {
+            this.devices.uart3 = new UART(this, 0x3E8, device_bus);
+        }
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
@@ -725,17 +760,12 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.hda)
         {
-            this.devices.hda = new IDEDevice(this, settings.hda, false, ide_device_count++, device_bus);
+            this.devices.hda = new IDEDevice(this, settings.hda, settings.hdb, false, ide_device_count++, device_bus);
         }
 
         if(settings.cdrom)
         {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, ide_device_count++, device_bus);
-        }
-
-        if(settings.hdb)
-        {
-            this.devices.hdb = new IDEDevice(this, settings.hdb, false, ide_device_count++, device_bus);
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, undefined, true, ide_device_count++, device_bus);
         }
 
         this.devices.pit = new PIT(this, device_bus);
@@ -1113,18 +1143,6 @@ CPU.prototype.do_many_cycles_unsafe = function()
         this.cycle_internal();
     }
 };
-
-// Some functions must not be inlined, because then more code is in the
-// deoptimized try-catch block.
-// This trick is a bit ugly, but it works without further complication.
-if(typeof window !== "undefined")
-{
-    window["__no_inline_for_closure_compiler__"] = [
-        CPU.prototype.exception_cleanup,
-        CPU.prototype.do_many_cycles_unsafe,
-        CPU.prototype.do_many_cycles,
-    ];
-}
 
 /** @const */
 var PROFILING = false;
@@ -4759,6 +4777,20 @@ CPU.prototype.add_reg_asize = function(reg, value)
 CPU.prototype.decr_ecx_asize = function()
 {
     return this.is_asize_32() ? --this.reg32s[reg_ecx] : --this.reg16[reg_cx];
+};
+
+CPU.prototype.invalid_arithmatic = function()
+{
+    this.mxcsr |= CPU_EX_I;
+};
+
+CPU.prototype.is_SNaN32 = function(value)
+{
+    let exponent = (value >>> 23) & 0xFF;
+    let most_significand = (value >>> 22) & 1;
+    let less_significand = (value >>> 0) & 0x3FFFFF;
+
+    return exponent === 0xFF && most_significand === 0 && less_significand > 0;
 };
 
 // Closure Compiler's way of exporting

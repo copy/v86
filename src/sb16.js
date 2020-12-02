@@ -82,6 +82,7 @@ var DSP_COMMAND_SIZES = new Uint8Array(256);
 var DSP_COMMAND_HANDLERS = [];
 var MIXER_READ_HANDLERS = [];
 var MIXER_WRITE_HANDLERS = [];
+var MIXER_REGISTER_IS_LEGACY = new Uint8Array(256);
 var FM_HANDLERS = [];
 
 
@@ -477,7 +478,7 @@ SB16.prototype.port2x9_read = function()
 };
 
 // Read Data.
-// Used to acces in-bound DSP data.
+// Used to access in-bound DSP data.
 SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
@@ -806,7 +807,7 @@ register_dsp_command([0x14, 0x15], 2, function()
     this.dma_transfer_start();
 });
 
-// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitzed sound output.
+// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitized sound output.
 register_dsp_command([0x16], 2);
 
 // Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitzed sound output
@@ -1191,6 +1192,12 @@ SB16.prototype.mixer_full_update = function()
     // Start at 1. Don't re-reset.
     for(var i = 1; i < this.mixer_registers.length; i++)
     {
+        if(MIXER_REGISTER_IS_LEGACY[i])
+        {
+            // Legacy registers are actually mapped to other register locations. Update
+            // using the new registers rather than the legacy registers.
+            continue;
+        }
         this.mixer_write(i, this.mixer_registers[i]);
     }
 };
@@ -1224,6 +1231,8 @@ function register_mixer_write(address, handler)
 // Legacy registers map each nibble to the last 4 bits of the new registers
 function register_mixer_legacy(address_old, address_new_left, address_new_right)
 {
+    MIXER_REGISTER_IS_LEGACY[address_old] = 1;
+
     /** @this {SB16} */
     MIXER_READ_HANDLERS[address_old] = function()
     {

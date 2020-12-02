@@ -9,7 +9,7 @@ if(typeof window !== "undefined" && !window.requestAnimationFrame)
 
 
 /**
- * Adapter to use visual screen in browsers (in constrast to node)
+ * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  *
  * @param {BusConnector} bus
@@ -64,6 +64,8 @@ function ScreenAdapter(screen_container, bus)
         // number of rows
         text_mode_height;
 
+    var stopped = false;
+
     var screen = this;
 
     // 0x12345 -> "#012345"
@@ -76,7 +78,7 @@ function ScreenAdapter(screen_container, bus)
 
 
     /**
-     * Charmaps that containt unicode sequences for the default dospage
+     * Charmaps that constraint unicode sequences for the default dospage
      * @const
      */
     var charmap_high = new Uint16Array([
@@ -212,7 +214,10 @@ function ScreenAdapter(screen_container, bus)
 
     this.timer = function()
     {
-        requestAnimationFrame(is_graphical ? update_graphical : update_text);
+        if(!stopped)
+        {
+            requestAnimationFrame(is_graphical ? update_graphical : update_text);
+        }
     };
 
     var update_text = function()
@@ -237,6 +242,7 @@ function ScreenAdapter(screen_container, bus)
 
     this.destroy = function()
     {
+        stopped = true;
     };
 
     this.set_mode = function(graphical)

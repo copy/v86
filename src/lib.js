@@ -131,6 +131,37 @@ SyncBuffer.prototype.get_buffer = function(fn)
 
 (function()
 {
+    if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 &&
+       Math.clz32(0x12345) === 15 && Math.clz32(-1) === 0)
+    {
+        /**
+         * calculate the integer logarithm base 2 of a byte
+         * @param {number} x
+         * @return {number}
+         */
+        v86util.int_log2_byte = function(x)
+        {
+            dbg_assert(x > 0);
+            dbg_assert(x < 0x100);
+
+            return 31 - Math.clz32(x);
+        };
+
+        /**
+         * calculate the integer logarithm base 2
+         * @param {number} x
+         * @return {number}
+         */
+        v86util.int_log2 = function(x)
+        {
+            dbg_assert(x > 0);
+
+            return 31 - Math.clz32(x);
+        };
+
+        return;
+    }
+
     var int_log2_table = new Int8Array(256);
 
     for(var i = 0, b = -2; i < 256; i++)
@@ -193,6 +224,22 @@ SyncBuffer.prototype.get_buffer = function(fn)
     };
 })();
 
+
+v86util.mul_low = v86util.imul_low =
+    typeof Math.imul === "function" &&
+    Math.imul(0x01234567, 0x89abcdef) === -0x36b1b9d7 ? Math.imul : function(a, b) {
+        b |= 0;
+        return (a & 0x003fffff) * b + ((a & 0xffc00000) * b | 0) | 0;
+    };
+
+
+v86util.imul_high = function(a, b) {
+    return Math.floor(a * b / 0x100000000) | 0;
+};
+
+v86util.mul_high = function(a, b) {
+    return Math.floor((a >>> 0) * (b >>> 0) / 0x100000000) | 0;
+};
 
 /**
  * @constructor

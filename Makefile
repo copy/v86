@@ -119,6 +119,7 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
 		--define=ENABLE_ACPI=$(ACPI)\
+		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
 		$(TRANSPILE_ES6_FLAGS)\
@@ -126,6 +127,8 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+
+	echo '//# sourceMappingURL=libv86.js.map' >> build/libv86.js
 
 	ls -lh build/libv86.js
 
@@ -137,7 +140,7 @@ clean:
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
-	python2 -m SimpleHTTPServer 2> /dev/null
+	python3 -m http.server 2> /dev/null
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
 
@@ -152,10 +155,10 @@ update_version:
 
 
 $(CLOSURE):
-	wget -P $(CLOSURE_DIR) http://dl.google.com/closure-compiler/compiler-latest.zip
-	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-latest.zip \*.jar
+	wget -P $(CLOSURE_DIR) https://dl.google.com/closure-compiler/compiler-20190709.zip
+	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-20190709.zip \*.jar
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
-	rm $(CLOSURE_DIR)/compiler-latest.zip
+	rm $(CLOSURE_DIR)/compiler-20190709.zip
 
 tests: build/libv86.js
 	./tests/full/run.js

@@ -412,30 +412,7 @@ FPU.prototype.fxtract = function()
 FPU.prototype.integer_round = function(f)
 {
     var rc = this.control_word >> 10 & 3;
-
-    if(rc === 0)
-    {
-        // Round to nearest, or even if equidistant
-        var rounded = Math.round(f);
-
-        if(rounded - f === 0.5 && (rounded % 2))
-        {
-            // Special case: Math.round rounds to positive infinity
-            // if equidistant
-            rounded--;
-        }
-
-        return rounded;
-    }
-        // rc=3 is truncate -> floor for positive numbers
-    else if(rc === 1 || (rc === 3 && f > 0))
-    {
-        return Math.floor(f);
-    }
-    else
-    {
-        return Math.ceil(f);
-    }
+    return this.cpu.integer_round(f, rc);
 }
 
 FPU.prototype.truncate = function(x)

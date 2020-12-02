@@ -1930,7 +1930,12 @@ t[0x1A] = cpu => { cpu.unimplemented_sse(); };
 t[0x1B] = cpu => { cpu.unimplemented_sse(); };
 t[0x1C] = cpu => { cpu.unimplemented_sse(); };
 t[0x1D] = cpu => { cpu.unimplemented_sse(); };
-t[0x1E] = cpu => { cpu.unimplemented_sse(); };
+// endbr32/endbr64
+t[0x1E] = cpu => { cpu.read_modrm_byte()
+    // multi-byte nop
+    if(cpu.modrm_byte < 0xC0)
+        cpu.modrm_resolve(cpu.modrm_byte);
+};
 t[0x1F] = cpu => { cpu.read_modrm_byte()
     // multi-byte nop
     if(cpu.modrm_byte < 0xC0)
@@ -2089,12 +2094,176 @@ t[0x29] = cpu => {
         cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
     }
 };
-t[0x2A] = cpu => { cpu.unimplemented_sse(); };
-t[0x2B] = cpu => { cpu.unimplemented_sse(); };
-t[0x2C] = cpu => { cpu.unimplemented_sse(); };
-t[0x2D] = cpu => { cpu.unimplemented_sse(); };
-t[0x2E] = cpu => { cpu.unimplemented_sse(); };
-t[0x2F] = cpu => { cpu.unimplemented_sse(); };
+t[0x2A] = cpu => {
+    // cvtpi2ps xmm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let data = cpu.read_mmx_mem64s();
+    let float32 = new Float32Array(2);
+    let res32 = new Uint32Array(float32.buffer);
+    float32[0] = data[0];
+    float32[1] = data[1];
+    cpu.write_xmm64(res32[0], res32[1]);
+ };
+t[0x2B] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // movntpd m128, xmm
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        // movntps m128, xmm
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+ };
+t[0x2C] = cpu => {
+    // cvttps2pi mm, xmm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let data = cpu.read_xmm_mem64s();
+    let float32 = new Float32Array(data.buffer);
+    let low = 0;
+    let high = 0;
+
+    var res0 = Math.trunc(float32[0]);
+    if(res0 <= 0x7FFFFFFF && res0 >= -0x80000000)
+    {
+        low = res0;
+    }
+    else
+    {
+        low = 0x80000000|0;
+    }
+
+    var res1 = Math.trunc(float32[1]);
+    if(res1 <= 0x7FFFFFFF && res1 >= -0x80000000)
+    {
+        high = res1;
+    }
+    else
+    {
+        high = 0x80000000|0;
+    }
+
+    cpu.write_mmx64s(low, high);
+};
+
+t[0x2D] = cpu => {
+    // cvtps2pi mm, xmm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let data = cpu.read_xmm_mem64s();
+    let float32 = new Float32Array(data.buffer);
+    let low = 0;
+    let high = 0;
+    var rc = cpu.mxcsr >> 13 & 3;
+
+    var res0 = cpu.integer_round(float32[0], rc);
+    if(res0 <= 0x7FFFFFFF && res0 >= -0x80000000)
+    {
+        low = res0;
+    }
+    else
+    {
+        low = 0x80000000|0;
+    }
+
+    var res1 = cpu.integer_round(float32[1], rc);
+    if(res1 <= 0x7FFFFFFF && res1 >= -0x80000000)
+    {
+        high = res1;
+    }
+    else
+    {
+        high = 0x80000000|0;
+    }
+
+    cpu.write_mmx64s(low, high);
+};
+
+t[0x2E] = cpu => {
+    // ucomiss xmm1, xmm2/m32
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let source1 = cpu.read_xmm128s();
+    let source2 = cpu.read_xmm_mem128s();
+
+    let x = (new Float32Array(source1.buffer))[0];
+    let y = (new Float32Array(source2.buffer))[0];
+
+    cpu.flags_changed &= ~(1 | flag_parity | flag_zero);
+    cpu.flags &= ~(1 | flag_parity | flag_zero);
+
+    if(x > y)
+    {
+    }
+    else if(y > x)
+    {
+        cpu.flags |= 1;
+    }
+    else if(x === y)
+    {
+        cpu.flags |= flag_zero;
+    }
+    else
+    {
+        cpu.flags |= 1 | flag_parity | flag_zero;
+
+        if (cpu.is_SNaN32(source1[0]) || cpu.is_SNaN32(source2[0])) {
+            cpu.invalid_arithmatic();
+        }
+    }
+};
+
+t[0x2F] = cpu => {
+    // comiss xmm1, xmm2/m32
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let source1 = cpu.read_xmm128s();
+    let source2 = cpu.read_xmm_mem128s();
+
+    let x = (new Float32Array(source1.buffer))[0];
+    let y = (new Float32Array(source2.buffer))[0];
+
+    cpu.flags_changed &= ~(1 | flag_parity | flag_zero);
+    cpu.flags &= ~(1 | flag_parity | flag_zero);
+
+    if(x > y)
+    {
+    }
+    else if(y > x)
+    {
+        cpu.flags |= 1;
+    }
+    else if(x === y)
+    {
+        cpu.flags |= flag_zero;
+    }
+    else
+    {
+        cpu.flags |= 1 | flag_parity | flag_zero;
+        cpu.invalid_arithmatic();
+    }
+};
 
 // wrmsr
 t[0x30] = cpu => {
@@ -4665,7 +4834,33 @@ t[0xF3] = cpu => {
     cpu.write_mmx64s(low, high);
 };
 
-t[0xF4] = cpu => { cpu.unimplemented_sse(); };
+t[0xF4] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pmuludq xmm1, xmm2/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
+
+        let i = (cpu.modrm_byte >> 3 & 7) << 2;
+
+        cpu.reg_xmm32s[i] = v86util.mul_low(destination[0], source[0]);
+        cpu.reg_xmm32s[i + 1] = v86util.mul_high(destination[0], source[0]);
+        cpu.reg_xmm32s[i + 2] = v86util.mul_low(destination[2], source[2]);
+        cpu.reg_xmm32s[i + 3] = v86util.mul_high(destination[2], source[2]);
+    }
+    else
+    {
+        // pmuludq mm1, mm2/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let s = cpu.read_mmx_mem64s()[0];
+        let d = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+
+        cpu.write_mmx64s(v86util.mul_low(d, s), v86util.mul_high(d, s));
+    }
+};
 
 t[0xF5] = cpu => {
     // pmaddwd mm, mm/m64

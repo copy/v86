@@ -172,16 +172,32 @@ else {
         emulator.bus.register('cpu-event-halt', function() {
             const filename = TEST_DIR + test.img_name;
             const evaluated_mmxs = this.cpu.reg_mmxs;
+            const evaluated_xmm32s = this.cpu.reg_xmm32s;
             let individual_failures = [];
+            let json_index = 0 ;
 
             for (let i = 0; i < evaluated_mmxs.length; i++) {
                 if (evaluated_mmxs[i] !== test.fixture_array[i]) {
                     individual_failures.push({
+                        reg: `mmx${ i>>1 }[${ i%2 }]`,
                         index: i,
                         actual: evaluated_mmxs[i],
                         expected: test.fixture_array[i]
                     });
                 }
+                json_index++;
+            }
+
+            for (let i = 0; i < evaluated_xmm32s.length; i++) {
+                if (evaluated_xmm32s[i] !== test.fixture_array[json_index]) {
+                    individual_failures.push({
+                        reg: `xmm${ i>>2 }[${ i%4 }]`,
+                        index: i,
+                        actual: evaluated_xmm32s[i],
+                        expected: test.fixture_array[json_index]
+                    });
+                }
+                json_index++;
             }
 
             if (individual_failures.length > 0) {

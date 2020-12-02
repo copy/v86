@@ -14,6 +14,7 @@
 - [`serial0_send(string data)`](#serial0_sendstring-data)
 - [`create_file(string file, Uint8Array data, function(Object) callback)`](#create_filestring-file-uint8array-data-functionobject-callback)
 - [`read_file(string file, function(Object, Uint8Array) callback)`](#read_filestring-file-functionobject-uint8array-callback)
+- [`lock_mouse()`](#lock_mouse)
 
 ***
 ## `V86Starter`
@@ -113,6 +114,10 @@ Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
 ***
 #### `restart()`
 Restart (force a reboot).
+
+***
+#### `lock_mouse()`
+Locks the mouse to the canvas the emulator was initated with
 
 ***
 #### `add_listener(string event, function(*) listener)`
