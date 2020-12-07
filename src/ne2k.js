@@ -125,9 +125,10 @@ function Ne2k(cpu, bus)
         this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
     }
 
-    for(var i = 28; i < 32; i++) {
-      this.memory[i] = 0x57;
-    }
+    // the PROM signature of 0x57, 0x57 is also doubled
+    // resulting in setting the 4 bytes at the end, 28, 29, 30 and 31 to 0x57
+    this.memory[14 << 1] = this.memory[14 << 1 | 1] = 0x57;
+    this.memory[15 << 1] = this.memory[15 << 1 | 1] = 0x57;
 
     dbg_log("Mac: " + h(mac[0], 2) + ":" +
                       h(mac[1], 2) + ":" +
