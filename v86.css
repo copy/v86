@@ -1,32 +1,25 @@
-#log, #runtime_infos, #serial, #filesystem_panel, #debug_panel {
+.log-box-conterint {
     font-family: DejaVu Sans Mono, monospace;
     font-size: 13px;
     border: 1px solid #333;
     background-color: #000;
-    padding: 4px;
+    color: #fff;
+
+    height: 100px;
+}
+
+.serial-box-conterint {
+    font-family: DejaVu Sans Mono, monospace;
+    font-size: 13px;
+    border: 1px solid #333;
+    background-color: #000;
     color: #fff;
 }
-#runtime_infos, #filesystem_panel {
-    float: left;
-    width: 250px;
-    margin-bottom: 7px;
-    margin-right: 7px;
-    padding-bottom: 7px;
-}
-#log {
-    height: 100px;
-    width: 550px;
-}
-#debug_panel {
-    white-space: pre;
-    float: left;
-}
-#serial {
-    margin: 0px;
-}
-#serial:focus {
+
+.serial-box-conterint:focus {
     outline: 1px solid rgb(229, 151, 0);
 }
+
 #screen {
     white-space: pre;
     position: relative;
@@ -45,9 +38,7 @@
 }
 body {
     background-color: #111;
-    color: #fff;
-    line-height: 1.5;
-    padding: 10px;
+    /*padding: 10px;*/
     font-family: sans-serif;
 }
 a {
@@ -96,4 +87,13 @@ a img {
 }
 .screenshots a {
     text-decoration: none;
+}
+
+/* Bootstrap 4 edit */
+.btn{
+    margin: 5px;
+}
+
+.action-card-button-container{
+    padding: 0.5rem;
 }

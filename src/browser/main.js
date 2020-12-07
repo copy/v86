@@ -551,12 +551,16 @@
                 continue;
 
             var name = LOG_NAMES[i][1].toLowerCase(),
+                div = document.createElement("div"),
                 input = document.createElement("input"),
                 label = document.createElement("label");
 
-            input.type = "checkbox";
+            /* creating BS4 form element grouping div */
+            div.className = "form-group form-check";
 
-            label.htmlFor = input.id = "log_" + name;
+            /* Creating input element */
+            input.type = "checkbox";
+            input.className = "form-check-input";             // BS4 checkbox input class
 
             if(LOG_LEVEL & mask)
             {
@@ -564,14 +568,18 @@
             }
             input.mask = mask;
 
-            label.appendChild(input);
+            /* Creating label for input element */
+            label.htmlFor = input.id = "log_" + name;
+            label.className = "form-check-label";             // BS4 form label class
             label.appendChild(document.createTextNode(v86util.pads(name, 4) + " "));
-            log_levels.appendChild(label);
+            label.innerHTML += '&nbsp';
 
-            if(i === Math.floor(LOG_NAMES.length / 2))
-            {
-                log_levels.appendChild(document.createTextNode("\n"));
-            }
+            /* Appending input and label as child of div container */
+            div.appendChild(input);
+            div.appendChild(label);
+
+            /* Appending block to log_level block */
+            log_levels.appendChild(div);
         }
 
         log_levels.onchange = function(e)
