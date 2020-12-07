@@ -125,7 +125,10 @@ function Ne2k(cpu, bus)
         this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
     }
 
-    this.memory[14] = this.memory[15] = 0x57;
+    // the PROM signature of 0x57, 0x57 is also doubled
+    // resulting in setting the 4 bytes at the end, 28, 29, 30 and 31 to 0x57
+    this.memory[14 << 1] = this.memory[14 << 1 | 1] = 0x57;
+    this.memory[15 << 1] = this.memory[15 << 1 | 1] = 0x57;
 
     dbg_log("Mac: " + h(mac[0], 2) + ":" +
                       h(mac[1], 2) + ":" +
@@ -152,7 +155,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {
-        this.cr = data_byte & ~4;
+        this.cr = data_byte;
         dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6) + " txcr=" + h(this.txcr, 2), LOG_NET);
 
         if(this.cr & 1)
@@ -160,7 +163,7 @@ function Ne2k(cpu, bus)
             return;
         }
 
-        if((data_byte | 0x18) && this.rcnt === 0)
+        if((data_byte & 0x18) && this.rcnt === 0)
         {
             this.do_interrupt(ENISR_RDC);
         }
@@ -171,6 +174,7 @@ function Ne2k(cpu, bus)
             var data = this.memory.subarray(start, start + this.tcnt);
             this.bus.send("net0-send", data);
             this.bus.send("eth-transmit-end", [data.length]);
+            this.cr &= ~4;
             this.do_interrupt(ENISR_TX);
 
             dbg_log("Command: Transfer. length=" + h(data.byteLength), LOG_NET);
