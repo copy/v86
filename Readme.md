@@ -124,9 +124,11 @@ Compatibility
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well.
-  - Tinycore (3.16, 4.8 kernel): Works.
-  - Nanolinux works.
+  - Tinycore (11.1, 5.4.3 kernel): Works.
+  - Slitaz (5.0) works
+  - Alpine linux (3.12.3) does work but takes about 20min to boot
   - Archlinux works with some caveats. See [archlinux.md](docs/archlinux.md).
+  - Nanolinux (1.3) does not work.
   - Damn Small Linux (2.4 Kernel): Doesn't work.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
