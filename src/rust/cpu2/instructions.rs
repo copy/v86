@@ -3348,10 +3348,10 @@ pub unsafe fn instr16_D9_6_mem(addr: i32) { fpu_fstenv16(addr); }
 pub unsafe fn instr32_D9_6_mem(addr: i32) { fpu_fstenv32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_6_reg(r: i32) {
-    let st0 = fpu_get_st0();
     match r {
         0 => {
             // f2xm1
+            let st0 = fpu_get_st0();
             let mut r = pow(2.0, st0) - 1.0;
             if r == -1.0 {
                 // Intel ...
@@ -3365,6 +3365,7 @@ pub unsafe fn instr16_D9_6_reg(r: i32) {
         },
         2 => {
             // fptan
+            let st0 = fpu_get_st0();
             if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
                 fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
                 // no bug: push constant 1
@@ -3377,6 +3378,7 @@ pub unsafe fn instr16_D9_6_reg(r: i32) {
         },
         3 => {
             // fpatan
+            let st0 = fpu_get_st0();
             fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, fpu_get_sti(1).atan2(st0));
             fpu_pop();
         },

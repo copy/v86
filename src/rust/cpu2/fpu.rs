@@ -516,6 +516,18 @@ pub unsafe fn fpu_fprem(ieee: bool) {
 
     let st0 = fpu_get_st0();
     let st1 = fpu_get_sti(1);
+
+    if st1 == 0.0 {
+        if st0 == 0.0 {
+            fpu_invalid_arithmetic();
+        }
+        else {
+            fpu_zero_fault();
+        }
+        fpu_write_st(*fpu_stack_ptr as i32, INDEFINITE_NAN);
+        return;
+    }
+
     let exp0 = st0.log2();
     let exp1 = st1.log2();
     let d = (exp0 - exp1).abs();
