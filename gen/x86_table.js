@@ -797,10 +797,10 @@ const encodings = [
     { sse: 1, opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // sse3
     { sse: 1, opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // sse3
 
-    { sse: 1, opcode: 0x0F7E, e: 1 },
+    { sse: 1, opcode: 0x0F7E, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F7E, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F7E, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x0F7F, e: 1 },
+    { sse: 1, opcode: 0x0F7F, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F7F, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F7F, e: 1, custom: 1 },
 

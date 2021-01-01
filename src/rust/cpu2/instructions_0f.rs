@@ -2579,6 +2579,13 @@ pub unsafe fn instr_F30F7E_reg(r1: i32, r2: i32) {
     // movq xmm, xmm/mem64
     write_xmm128_2(r2, read_xmm64s(r1), 0);
 }
+
+#[no_mangle]
+pub unsafe fn instr_0F7F(r: i32) -> u64 {
+    // movq mm/m64, mm
+    transition_fpu_to_mmx();
+    read_mmx64s(r)
+}
 #[no_mangle]
 pub unsafe fn instr_0F7F_mem(addr: i32, r: i32) {
     // movq mm/m64, mm
