@@ -106,12 +106,6 @@
                 (i32.load
                   (i32.const 556))
                 (i32.const 4)))
-            (i32.store
-              (i32.const 648)
-              (i32.or
-                (i32.load
-                  (i32.const 648))
-                (i32.const 32)))
             (if $I6
               (i32.and
                 (i32.load8_u
@@ -151,9 +145,6 @@
                   (i32.const 92)
                   (get_local $l9))
                 (call $e.task_switch_test_mmx_jit)
-                (i32.store
-                  (i32.const 648)
-                  (i32.const 0))
                 (return)))
             (i32.store
               (i32.const 64)
@@ -206,9 +197,6 @@
             (set_local $l9
               (i32.load
                 (i32.const 92)))
-            (i32.store
-              (i32.const 648)
-              (i32.const 0))
             (i32.store
               (i32.const 64)
               (get_local $l2))
@@ -349,8 +337,5 @@
           (i32.const 92)
           (get_local $l9))
         (call $e.trigger_pagefault_end_jit)
-        (i32.store
-          (i32.const 648)
-          (i32.const 0))
         (return))
       (unreachable))))

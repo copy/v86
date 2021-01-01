@@ -829,26 +829,6 @@ fn gen_safe_write(
     ctx.builder.free_local(entry_local);
 }
 
-pub fn gen_clear_prefixes(ctx: &mut JitContext) {
-    let instruction_body = &mut ctx.builder.instruction_body;
-    instruction_body.const_i32(global_pointers::PREFIXES as i32); // load address of prefixes
-    instruction_body.const_i32(0);
-    instruction_body.store_aligned_i32(0);
-}
-
-pub fn gen_add_prefix_bits(ctx: &mut JitContext, mask: u32) {
-    dbg_assert!(mask < 0x100);
-
-    let instruction_body = &mut ctx.builder.instruction_body;
-    instruction_body.const_i32(global_pointers::PREFIXES as i32); // load address of prefixes
-
-    instruction_body.load_aligned_i32(global_pointers::PREFIXES); // load old value
-    instruction_body.const_i32(mask as i32);
-    instruction_body.or_i32();
-
-    instruction_body.store_aligned_i32(0);
-}
-
 pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
     let cs_offset_addr = global_pointers::get_seg_offset(regs::CS);
     builder.instruction_body.load_aligned_i32(cs_offset_addr);
@@ -1087,7 +1067,6 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "task_switch_test_jit");
 
-    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -1116,7 +1095,6 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "task_switch_test_mmx_jit");
 
-    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -1668,7 +1646,6 @@ pub fn gen_trigger_ud(ctx: &mut JitContext) {
     );
     gen_fn0_const(ctx.builder, "trigger_ud");
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 }
 
@@ -1680,7 +1657,6 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
     );
     gen_fn1_const(ctx.builder, "trigger_gp", error_code);
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 }
 

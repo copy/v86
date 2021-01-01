@@ -1298,7 +1298,6 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
-    *prefixes = 0;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_PF) {
             return;
@@ -1342,7 +1341,6 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(
         CPU_EXCEPTION_PF,
@@ -1823,12 +1821,10 @@ pub unsafe fn cycle_internal() {
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = (entry & 0xFFFF) as u16;
             let initial_state = (entry >> 16) as u16;
-            dbg_assert!(*prefixes == 0);
             call_indirect1(
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
             );
-            dbg_assert!(*prefixes == 0);
             profiler::stat_increment_by(
                 RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
@@ -2003,8 +1999,6 @@ pub unsafe fn run_prefix_instruction() {
     run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8);
 }
 
-pub unsafe fn clear_prefixes() { *prefixes = 0 }
-
 pub unsafe fn segment_prefix_op(seg: i32) {
     dbg_assert!(seg <= 5);
     *prefixes = (*prefixes as i32 | seg + 1) as u8;
@@ -2025,7 +2019,6 @@ pub unsafe fn do_many_cycles_native() {
 
 pub unsafe fn trigger_de() {
     dbg_log!("#de");
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_DE) {
@@ -2039,7 +2032,6 @@ pub unsafe fn trigger_de() {
 pub unsafe fn trigger_ud() {
     dbg_log!("#ud");
     dbg_trace();
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_UD) {
@@ -2052,7 +2044,6 @@ pub unsafe fn trigger_ud() {
 pub unsafe fn trigger_nm() {
     dbg_log!("#nm eip={:x}", *previous_ip);
     dbg_trace();
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NM) {
@@ -2065,7 +2056,6 @@ pub unsafe fn trigger_nm() {
 #[no_mangle]
 pub unsafe fn trigger_gp(code: i32) {
     dbg_log!("#gp");
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_GP) {
@@ -2991,7 +2981,6 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
 #[no_mangle]
 pub unsafe fn trigger_np(code: i32) {
     dbg_log!("#np");
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NP) {
@@ -3004,7 +2993,6 @@ pub unsafe fn trigger_np(code: i32) {
 #[no_mangle]
 pub unsafe fn trigger_ss(code: i32) {
     dbg_log!("#ss");
-    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_SS) {

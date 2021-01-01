@@ -3017,11 +3017,6 @@ CPU.prototype.verw = function(selector)
     }
 };
 
-CPU.prototype.is_asize_32 = function()
-{
-    return Boolean(this.is_32[0]) !== ((this.prefixes[0] & PREFIX_MASK_ADDRSIZE) === PREFIX_MASK_ADDRSIZE);
-};
-
 CPU.prototype.lss16 = function(addr, reg, seg)
 {
     var new_reg = this.safe_read16(addr),

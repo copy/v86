@@ -11,7 +11,7 @@ pub const PAGE_FAULT: u32 = 540;
 pub const INSTRUCTION_POINTER: u32 = 556;
 pub const PREVIOUS_IP: u32 = 560;
 pub const CR: u32 = 580;
-pub const PREFIXES: u32 = 648;
+
 pub const TIMESTAMP_COUNTER: u32 = 664;
 pub const SREG: u32 = 668;
 pub const SEGMENT_OFFSETS: u32 = 736;

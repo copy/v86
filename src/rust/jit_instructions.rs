@@ -49,14 +49,11 @@ pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
         ctx,
         instr_flags,
     );
-    codegen::gen_clear_prefixes(ctx);
 }
 
 pub fn jit_handle_segment_prefix(segment: u32, ctx: &mut JitContext, instr_flags: &mut u32) {
     dbg_assert!(segment <= 5);
     ctx.cpu.prefixes |= segment + 1;
-    // TODO: Could merge multiple prefix updates into one
-    codegen::gen_add_prefix_bits(ctx, segment + 1);
     jit_handle_prefix(ctx, instr_flags)
 }
 
@@ -88,14 +85,10 @@ pub fn instr_65_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 
 pub fn instr_66_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_66;
-    // TODO: Could merge multiple prefix updates into one
-    codegen::gen_add_prefix_bits(ctx, PREFIX_66);
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_67_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_67;
-    // TODO: Could merge multiple prefix updates into one
-    codegen::gen_add_prefix_bits(ctx, PREFIX_67);
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_F0_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
@@ -104,14 +97,10 @@ pub fn instr_F0_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 pub fn instr_F2_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_F2;
-    // string/sse prefix: Don't generate code to update prefixes at runtime. This means runtime
-    // instructions can't inspect the prefixes for this flags
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_F3;
-    // string/sse prefix: Don't generate code to update prefixes at runtime. This means runtime
-    // instructions can't inspect the prefixes for this flags
     jit_handle_prefix(ctx, instr_flags)
 }
 
@@ -2367,7 +2356,6 @@ pub fn instr16_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 }
@@ -2419,7 +2407,6 @@ pub fn instr16_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 }
@@ -2517,7 +2504,6 @@ pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 }
@@ -4156,7 +4142,6 @@ pub fn instr_0FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 }
@@ -4189,7 +4174,6 @@ pub fn instr_660FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 }

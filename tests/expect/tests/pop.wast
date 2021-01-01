@@ -256,8 +256,5 @@
           (i32.const 92)
           (get_local $l9))
         (call $e.trigger_pagefault_end_jit)
-        (i32.store
-          (i32.const 648)
-          (i32.const 0))
         (return))
       (unreachable))))
