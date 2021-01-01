@@ -30,7 +30,6 @@ var DUMP_GENERATED_WASM = false;
 
 /**
  * @const
- * Note: Needs to be enabled here and in const.h
  */
 var DUMP_UNCOMPILED_ASSEMBLY = false;
 
