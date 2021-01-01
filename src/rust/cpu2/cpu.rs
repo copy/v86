@@ -1322,7 +1322,7 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     let present = fault.present;
     let user = fault.user;
 
-    if false {
+    if ::config::LOG_PAGE_FAULTS {
         dbg_log!(
             "page fault jit w={} u={} p={} eip={:x} cr2={:x}",
             write as i32,
@@ -1372,7 +1372,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     let present = fault.present;
     let user = fault.user;
 
-    if false {
+    if ::config::LOG_PAGE_FAULTS {
         dbg_log!(
             "page fault w={} u={} p={} eip={:x} cr2={:x}",
             write as i32,
