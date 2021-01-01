@@ -70,7 +70,7 @@ CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
 		-- \
 		-C linker=tools/rust-lld-wrapper \
-		-C link-args="--import-table --global-base=8388608 $(STRIP_DEBUG_FLAG)" \
+		-C link-args="--import-table --global-base=262144 $(STRIP_DEBUG_FLAG)" \
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \

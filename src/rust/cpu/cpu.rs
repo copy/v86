@@ -262,6 +262,7 @@ pub static mut rdtsc_imprecision_offset: u64 = 0;
 pub static mut rdtsc_last_value: u64 = 0;
 pub static mut tsc_offset: u64 = 0;
 
+pub static mut tlb_data: [i32; 0x400000] = [0; 0x400000];
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
@@ -1506,7 +1507,7 @@ pub unsafe fn get_eflags() -> i32 {
 pub unsafe fn get_eflags_no_arith() -> i32 { return *flags; }
 
 pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
@@ -1517,7 +1518,7 @@ pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
 }
 
 pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
@@ -1669,7 +1670,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
     }
-    if *tlb_data.offset(page as isize) == 0 {
+    if tlb_data[page as usize] == 0 {
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
             profiler::stat_increment(TLB_FULL);
             clear_tlb();
@@ -1705,7 +1706,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
         | if global && 0 != *cr.offset(4) & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
     dbg_assert!((high ^ page << 12) & 0xFFF == 0);
-    *tlb_data.offset(page as isize) = high ^ page << 12 | info_bits;
+    tlb_data[page as usize] = high ^ page << 12 | info_bits;
     return Ok(high);
 }
 
@@ -1716,13 +1717,13 @@ pub unsafe fn full_clear_tlb() {
     *last_virt_eip = -1;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
-        *tlb_data.offset(page as isize) = 0;
+        tlb_data[page as usize] = 0;
     }
     valid_tlb_entries_count = 0;
 
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
-            dbg_assert!(*tlb_data.offset(i) == 0);
+            dbg_assert!(tlb_data[i] == 0);
         }
     };
 }
@@ -1735,21 +1736,21 @@ pub unsafe fn clear_tlb() {
     let mut global_page_offset: i32 = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
-        let entry = *tlb_data.offset(page as isize);
+        let entry = tlb_data[page as usize];
         if 0 != entry & TLB_GLOBAL {
             // reinsert at the front
             valid_tlb_entries[global_page_offset as usize] = page;
             global_page_offset += 1;
         }
         else {
-            *tlb_data.offset(page as isize) = 0
+            tlb_data[page as usize] = 0
         }
     }
     valid_tlb_entries_count = global_page_offset;
 
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
-            dbg_assert!(*tlb_data.offset(i) == 0 || 0 != *tlb_data.offset(i) & TLB_GLOBAL);
+            dbg_assert!(tlb_data[i] == 0 || 0 != tlb_data[i] & TLB_GLOBAL);
         }
     };
 }
@@ -1792,7 +1793,7 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     *cr.offset(2) = addr;
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
-    *tlb_data.offset(page as isize) = 0;
+    tlb_data[page as usize] = 0;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_PF) {
             return;
@@ -1835,7 +1836,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     *cr.offset(2) = addr;
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
-    *tlb_data.offset(page as isize) = 0;
+    tlb_data[page as usize] = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(
         CPU_EXCEPTION_PF,
@@ -1845,7 +1846,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
 }
 
 pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPageFault<(u32, bool)> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
         return Ok(((entry & !0xFFF ^ address) as u32, entry & TLB_HAS_CODE == 0));
@@ -1859,7 +1860,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
 }
 
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
         return Ok((entry & !0xFFF ^ address) as u32);
@@ -1870,7 +1871,7 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
 }
 
 pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
@@ -1891,12 +1892,12 @@ pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
     let physical_page = physical_page.to_u32();
     for i in 0..unsafe { valid_tlb_entries_count } {
         let page = unsafe { valid_tlb_entries[i as usize] };
-        let entry = unsafe { *tlb_data.offset(page as isize) };
+        let entry = unsafe { tlb_data[page as usize] };
         if 0 != entry {
             let tlb_physical_page = entry as u32 >> 12 ^ page as u32;
             if physical_page == tlb_physical_page {
                 unsafe {
-                    *tlb_data.offset(page as isize) =
+                    tlb_data[page as usize] =
                         if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
                 }
             }
@@ -1914,7 +1915,7 @@ pub fn check_tlb_invariants() {
 
     for i in 0..unsafe { valid_tlb_entries_count } {
         let page = unsafe { valid_tlb_entries[i as usize] };
-        let entry = unsafe { *tlb_data.offset(page as isize) };
+        let entry = unsafe { tlb_data[page as usize] };
 
         if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
             // there's no code in mapped memory
@@ -1943,13 +1944,13 @@ pub unsafe fn readable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
     let mask = TLB_VALID | if user { TLB_NO_USER } else { 0 };
     let expect = TLB_VALID;
     let page = (addr as u32 >> 12) as i32;
-    if *tlb_data.offset(page as isize) & mask != expect {
+    if tlb_data[page as usize] & mask != expect {
         do_page_translation(addr, false, user)?;
     }
     let next_page = ((addr + size - 1) as u32 >> 12) as i32;
     if page != next_page {
         dbg_assert!(next_page == page + 1);
-        if *tlb_data.offset(next_page as isize) & mask != expect {
+        if tlb_data[next_page as usize] & mask != expect {
             do_page_translation(next_page << 12, false, user)?;
         }
     }
@@ -1967,13 +1968,13 @@ pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
     let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
     let expect = TLB_VALID;
     let page = (addr as u32 >> 12) as i32;
-    if *tlb_data.offset(page as isize) & mask != expect {
+    if tlb_data[page as usize] & mask != expect {
         do_page_translation(addr, true, user)?;
     }
     let next_page = ((addr + size - 1) as u32 >> 12) as i32;
     if page != next_page {
         dbg_assert!(next_page == page + 1);
-        if *tlb_data.offset(next_page as isize) & mask != expect {
+        if tlb_data[next_page as usize] & mask != expect {
             do_page_translation(next_page << 12, true, user)?;
         }
     }
@@ -3381,7 +3382,7 @@ pub unsafe fn invlpg(addr: i32) {
     // necessary, because when valid_tlb_entries grows too large, it will be
     // empties by calling clear_tlb, which removes this entry as it isn't global.
     // This however means that valid_tlb_entries can contain some invalid entries
-    *tlb_data.offset(page as isize) = 0;
+    tlb_data[page as usize] = 0;
     *last_virt_eip = -1;
 }
 
@@ -3428,7 +3429,7 @@ pub unsafe fn get_valid_tlb_entries_count() -> i32 {
     let mut result: i32 = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
-        let entry = *tlb_data.offset(page as isize);
+        let entry = tlb_data[page as usize];
         if 0 != entry {
             result += 1
         }
@@ -3444,7 +3445,7 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
     let mut result: i32 = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
-        let entry = *tlb_data.offset(page as isize);
+        let entry = tlb_data[page as usize];
         if 0 != entry & TLB_GLOBAL {
             result += 1
         }
@@ -3453,7 +3454,7 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
 }
 
 pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     if 0 != entry & TLB_VALID {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
@@ -3463,7 +3464,7 @@ pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
 }
 
 pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
-    let entry = *tlb_data.offset((address as u32 >> 12) as isize);
+    let entry = tlb_data[(address as u32 >> 12) as usize];
     if entry & (TLB_VALID | TLB_READONLY) == TLB_VALID {
         return Ok((entry & !0xFFF ^ address) as u32);
     }

@@ -1,6 +1,6 @@
 use cpu::cpu::{
-    FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER,
-    TLB_READONLY, TLB_VALID,
+    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE,
+    TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use cpu::global_pointers;
 use cpu::imports::mem8;
@@ -508,7 +508,7 @@ fn gen_safe_read(
     ctx.builder.shl_i32();
 
     ctx.builder
-        .load_aligned_i32(global_pointers::tlb_data as u32);
+        .load_aligned_i32(unsafe { &tlb_data[0] as *const i32 as u32 });
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder.const_i32(
@@ -651,7 +651,7 @@ fn gen_safe_write(
     ctx.builder.shl_i32();
 
     ctx.builder
-        .load_aligned_i32(global_pointers::tlb_data as u32);
+        .load_aligned_i32(unsafe { &tlb_data[0] as *const i32 as u32 });
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder
@@ -802,7 +802,7 @@ pub fn gen_safe_read_write(
     ctx.builder.shl_i32();
 
     ctx.builder
-        .load_aligned_i32(global_pointers::tlb_data as u32);
+        .load_aligned_i32(unsafe { &tlb_data[0] as *const i32 as u32 });
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder

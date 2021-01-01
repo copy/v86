@@ -70,7 +70,6 @@ pub const opstats_compiled_buffer: *mut u32 = 0x10000 as *mut u32;
 pub const opstats_jit_exit_buffer: *mut u32 = 0x18000 as *mut u32;
 pub const opstats_unguarded_register_buffer: *mut u32 = 0x20000 as *mut u32;
 pub const opstats_wasm_size: *mut u32 = 0x28000 as *mut u32;
-pub const tlb_data: *mut i32 = 0x400000 as *mut i32;
 
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
