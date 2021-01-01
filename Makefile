@@ -251,6 +251,13 @@ qemutests: all-debug
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
+qemutests-release: all
+	$(MAKE) -C tests/qemu test-i386
+	time ./tests/qemu/run.js > /tmp/v86-test-result
+	#./tests/qemu/test-i386 > /tmp/v86-test-reference
+	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
+	diff /tmp/v86-test-result /tmp/v86-test-reference
+
 kvm-unit-test: all-debug
 	(cd tests/kvm-unit-tests && ./configure && make)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
