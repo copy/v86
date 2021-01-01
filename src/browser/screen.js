@@ -42,6 +42,8 @@ function ScreenAdapter(screen_container, bus)
         /** @type {number} */
         scale_y = 1,
 
+        base_scale = 1,
+
         graphical_mode_width,
         graphical_mode_height,
 
@@ -314,6 +316,16 @@ function ScreenAdapter(screen_container, bus)
         graphical_mode_width = width;
         graphical_mode_height = height;
 
+        // add some scaling to tiny resolutions
+        if(graphical_mode_width <= 640)
+        {
+            base_scale = 2;
+        }
+        else
+        {
+            base_scale = 1;
+        }
+
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
         update_scale_graphic();
     };
@@ -335,7 +347,7 @@ function ScreenAdapter(screen_container, bus)
 
     function update_scale_graphic()
     {
-        elem_set_scale(graphic_screen, scale_x, scale_y, false);
+        elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
     }
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)
