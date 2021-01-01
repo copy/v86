@@ -210,9 +210,11 @@ if(cluster.isMaster)
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/linux4.iso",
             timeout: 200,
-            // TODO: Check serial
             expected_texts: [
                 "~%",
+                "Files send via emulator appear in",
+            ],
+            expected_serial_text: [
                 "Files send via emulator appear in",
             ],
             expect_mouse_registered: true,
@@ -224,6 +226,9 @@ if(cluster.isMaster)
             timeout: 200,
             expected_texts: [
                 "~%",
+                "Files send via emulator appear in",
+            ],
+            expected_serial_text: [
                 "Files send via emulator appear in",
             ],
             expect_mouse_registered: true,
@@ -239,6 +244,9 @@ if(cluster.isMaster)
             timeout: 200,
             expected_texts: [
                 "~%",
+                "Files send via emulator appear in",
+            ],
+            expected_serial_text: [
                 "Files send via emulator appear in",
             ],
             expect_mouse_registered: true,
@@ -320,7 +328,6 @@ if(cluster.isMaster)
                 }
             ],
         },
-        // TODO: Check serial text
         {
             name: "Haiku",
             skip_if_disk_image_missing: true,
@@ -561,12 +568,22 @@ function run_test(test, done)
         test.expected_texts = [];
     }
 
+    if(!test.expected_serial_text)
+    {
+        test.expected_serial_text = [];
+    }
+
     var emulator = new V86(settings);
     var screen = new Uint8Array(SCREEN_WIDTH * 25);
 
     function check_text_test_done()
     {
         return test.expected_texts.length === 0;
+    }
+
+    function check_serial_test_done()
+    {
+        return test.expected_serial_text.length === 0;
     }
 
     var mouse_test_done = false;
@@ -579,7 +596,7 @@ function run_test(test, done)
     var size_test_done = false;
     function check_grapical_test_done()
     {
-        return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size ||  size_test_done));
+        return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size || size_test_done));
     }
 
     var test_start = Date.now();
@@ -597,7 +614,10 @@ function run_test(test, done)
             return;
         }
 
-        if(check_text_test_done() && check_mouse_test_done() && check_grapical_test_done())
+        if(check_text_test_done() &&
+            check_mouse_test_done() &&
+            check_grapical_test_done() &&
+            check_serial_test_done())
         {
             var end = Date.now();
 
@@ -702,6 +722,33 @@ function run_test(test, done)
             }
         }
     });
+
+    let serial_line = "";
+    emulator.add_listener("serial0-output-char", function(c)
+        {
+            if(c === "\n")
+            {
+                if(VERBOSE)
+                {
+                    console.log("Serial:", serial_line);
+                }
+
+                if(test.expected_serial_text.length)
+                {
+                    if(serial_line.includes(test.expected_serial_text[0]))
+                    {
+                        test.expected_serial_text.shift();
+                        check_test_done();
+                    }
+                }
+
+                serial_line = "";
+            }
+            else if(c >= " " && c <= "~")
+            {
+                serial_line += c;
+            }
+        });
 
     test.actions && test.actions.forEach(function(action)
     {
