@@ -137,10 +137,8 @@ fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
     ctx.builder.free_local(value_local);
 }
 fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
-    codegen::gen_get_reg32(ctx, r);
-    let value_local = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &value_local);
-    ctx.builder.free_local(value_local);
+    let reg = ctx.register_locals[r as usize].unsafe_clone();
+    codegen::gen_push32(ctx, &reg);
 }
 fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
     ctx.builder.instruction_body.const_i32(imm as i32);

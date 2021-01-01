@@ -64,6 +64,9 @@ pub struct WasmBuilder {
 pub struct WasmLocal(u8);
 impl WasmLocal {
     pub fn idx(&self) -> u8 { self.0 }
+    /// Unsafe: Can result in multiple free's. Should only be used for locals that are used during
+    /// the whole module (for example, registers)
+    pub fn unsafe_clone(&self) -> WasmLocal { WasmLocal(self.0) }
 }
 
 pub struct WasmLocalI64(u8);
