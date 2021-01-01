@@ -4654,6 +4654,20 @@ pub fn instr_F30F6F_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) { sse_mov_xmm_xmm(ctx, r1, r2) }
 
+pub fn instr_0F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3_i64_i32_i32("instr_0F70");
+}
+pub fn instr_0F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_mmx_offset(r1) as i32);
+    ctx.builder.load_aligned_i64(0);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3_i64_i32_i32("instr_0F70");
+}
 pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
     let dest = global_pointers::sse_scratch_register as u32;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
