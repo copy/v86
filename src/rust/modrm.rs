@@ -16,6 +16,15 @@ pub struct ModrmByte {
     immediate: i32,
     is_16: bool,
 }
+impl ModrmByte {
+    pub fn is_nop(&self, reg: u32) -> bool {
+        self.first_reg == Some(reg)
+            && self.second_reg.is_none()
+            && self.shift == 0
+            && self.immediate == 0
+            && !self.is_16
+    }
+}
 
 pub fn decode(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
     if ctx.asize_32() { decode32(ctx, modrm_byte) } else { decode16(ctx, modrm_byte) }

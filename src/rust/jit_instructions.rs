@@ -29,6 +29,18 @@ impl<'a> LocalOrImmediate<'a> {
             LocalOrImmediate::Immediate(i) => builder.const_i32(*i),
         }
     }
+    pub fn eq_local(&self, other_local: &WasmLocal) -> bool {
+        match self {
+            &LocalOrImmediate::WasmLocal(local) => local == other_local,
+            LocalOrImmediate::Immediate(_) => false,
+        }
+    }
+    pub fn is_zero(&self) -> bool {
+        match self {
+            LocalOrImmediate::Immediate(0) => true,
+            _ => false,
+        }
+    }
 }
 
 pub fn jit_instruction(ctx: &mut JitContext, instr_flags: &mut u32) {
@@ -882,9 +894,14 @@ fn gen_cmp(
     size: i32,
 ) {
     builder.const_i32(global_pointers::last_result as i32);
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.sub_i32();
+    if source_operand.is_zero() {
+        builder.get_local(&dest_operand);
+    }
+    else {
+        builder.get_local(&dest_operand);
+        source_operand.gen_get(builder);
+        builder.sub_i32();
+    }
     if size == OPSIZE_8 || size == OPSIZE_16 {
         builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
         builder.and_i32();
@@ -959,9 +976,14 @@ fn gen_test(
     size: i32,
 ) {
     builder.const_i32(global_pointers::last_result as i32);
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.and_i32();
+    if source_operand.eq_local(dest_operand) {
+        builder.get_local(&dest_operand);
+    }
+    else {
+        builder.get_local(&dest_operand);
+        source_operand.gen_get(builder);
+        builder.and_i32();
+    }
     builder.store_aligned_i32(0);
 
     codegen::gen_set_last_op_size(builder, size);
@@ -1005,10 +1027,19 @@ fn gen_xor32(
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
 ) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.xor_i32();
-    builder.set_local(dest_operand);
+    if source_operand.eq_local(dest_operand) {
+        builder.const_i32(0);
+        builder.set_local(dest_operand);
+    // TODO:
+    // - Set last_result to zero rather than reading from local
+    // - Skip setting opsize (not relevant for SF, ZF, and PF on zero)
+    }
+    else {
+        builder.get_local(&dest_operand);
+        source_operand.gen_get(builder);
+        builder.xor_i32();
+        builder.set_local(dest_operand);
+    }
 
     codegen::gen_set_last_result(builder, &dest_operand);
     codegen::gen_set_last_op_size(builder, OPSIZE_32);
@@ -2518,9 +2549,11 @@ pub fn instr16_8D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, reg: u32)
     codegen::gen_set_reg16(ctx, reg);
 }
 pub fn instr32_8D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, reg: u32) {
-    ctx.cpu.prefixes |= SEG_PREFIX_ZERO;
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_set_reg32(ctx, reg);
+    if !modrm_byte.is_nop(reg) {
+        ctx.cpu.prefixes |= SEG_PREFIX_ZERO;
+        codegen::gen_modrm_resolve(ctx, modrm_byte);
+        codegen::gen_set_reg32(ctx, reg);
+    }
 }
 
 pub fn instr16_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {

@@ -73,6 +73,7 @@ pub struct WasmBuilder {
     pub arg_local_initial_state: WasmLocal,
 }
 
+#[derive(Eq, PartialEq)]
 pub struct WasmLocal(u8);
 impl WasmLocal {
     pub fn idx(&self) -> u8 { self.0 }
