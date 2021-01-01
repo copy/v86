@@ -1405,16 +1405,30 @@ pub unsafe fn check_tlb_invariants() {
     if !CHECK_TLB_INVARIANTS {
         return;
     }
-    else {
-        for i in 0..valid_tlb_entries_count {
-            let page = valid_tlb_entries[i as usize];
-            let entry = *tlb_data.offset(page as isize);
-            if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
-                // there's no code in mapped memory
-            }
+
+    for i in 0..valid_tlb_entries_count {
+        let page = valid_tlb_entries[i as usize];
+        let entry = *tlb_data.offset(page as isize);
+
+        if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
+            // there's no code in mapped memory
+            continue;
         }
-        return;
-    };
+
+        let target = (entry ^ page << 12) as u32;
+        dbg_assert!(!in_mapped_range(target));
+
+        let entry_has_code = entry & TLB_HAS_CODE != 0;
+        let has_code = ::jit::jit_page_has_code(Page::page_of(target));
+
+        // If some code has been created in a page, the corresponding tlb entries must be marked
+        dbg_assert!(!has_code || entry_has_code);
+
+        // If a tlb entry is marked to have code, the physical page should
+        // contain code (the converse is not a bug, but indicates a cleanup
+        // problem when clearing code from a page)
+        dbg_assert!(!entry_has_code || has_code);
+    }
 }
 
 pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
