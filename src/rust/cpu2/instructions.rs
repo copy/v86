@@ -1696,9 +1696,11 @@ pub unsafe fn instr_9B() {
     };
 }
 #[no_mangle]
+pub unsafe fn instr_9C_check() -> bool { 0 != *flags & FLAG_VM && getiopl() < 3 }
+#[no_mangle]
 pub unsafe fn instr16_9C() {
     // pushf
-    if 0 != *flags & FLAG_VM && getiopl() < 3 {
+    if instr_9C_check() {
         dbg_assert!(*protected_mode);
         dbg_log!("pushf #gp");
         trigger_gp(0);
@@ -1710,7 +1712,7 @@ pub unsafe fn instr16_9C() {
 #[no_mangle]
 pub unsafe fn instr32_9C() {
     // pushf
-    if 0 != *flags & FLAG_VM && getiopl() < 3 {
+    if instr_9C_check() {
         // trap to virtual 8086 monitor
         dbg_assert!(*protected_mode);
         dbg_log!("pushf #gp");

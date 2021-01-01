@@ -2,7 +2,7 @@
 
 use codegen;
 use cpu::BitSize;
-use cpu2::cpu::{FLAGS_ALL, FLAG_OVERFLOW, OPSIZE_32};
+use cpu2::cpu::{FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_OVERFLOW, OPSIZE_32};
 use global_pointers;
 use jit::JitContext;
 use modrm;
@@ -3407,6 +3407,85 @@ pub fn instr32_94_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::SP); }
 pub fn instr32_95_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::BP); }
 pub fn instr32_96_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::SI); }
 pub fn instr32_97_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::DI); }
+
+pub fn instr16_98_jit(ctx: &mut JitContext) {
+    codegen::gen_get_reg8(ctx, regs::AL);
+    codegen::sign_extend_i8(ctx.builder);
+    codegen::gen_set_reg16(ctx, regs::AX);
+}
+pub fn instr32_98_jit(ctx: &mut JitContext) {
+    codegen::gen_get_reg16(ctx, regs::AX);
+    codegen::sign_extend_i16(ctx.builder);
+    codegen::gen_set_reg32(ctx, regs::EAX);
+}
+
+pub fn instr16_99_jit(ctx: &mut JitContext) {
+    codegen::gen_get_reg16(ctx, regs::AX);
+    ctx.builder.instruction_body.const_i32(16);
+    ctx.builder.instruction_body.shl_i32();
+    ctx.builder.instruction_body.const_i32(31);
+    ctx.builder.instruction_body.shr_s_i32();
+    codegen::gen_set_reg16(ctx, regs::DX);
+}
+pub fn instr32_99_jit(ctx: &mut JitContext) {
+    codegen::gen_get_reg32(ctx, regs::EAX);
+    ctx.builder.instruction_body.const_i32(31);
+    ctx.builder.instruction_body.shr_s_i32();
+    codegen::gen_set_reg32(ctx, regs::EDX);
+}
+
+pub fn instr16_9C_jit(ctx: &mut JitContext) {
+    codegen::gen_fn0_const_ret(ctx.builder, "instr_9C_check");
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.instruction_body.else_();
+    codegen::gen_fn0_const_ret(ctx.builder, "get_eflags");
+    let value = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value);
+    ctx.builder.instruction_body.block_end();
+    ctx.builder.free_local(value);
+}
+pub fn instr32_9C_jit(ctx: &mut JitContext) {
+    codegen::gen_fn0_const_ret(ctx.builder, "instr_9C_check");
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.instruction_body.else_();
+    codegen::gen_fn0_const_ret(ctx.builder, "get_eflags");
+    ctx.builder.instruction_body.const_i32(0xFCFFFF);
+    ctx.builder.instruction_body.and_i32();
+    let value = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value);
+    ctx.builder.instruction_body.block_end();
+    ctx.builder.free_local(value);
+}
+
+pub fn instr_9E_jit(ctx: &mut JitContext) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    ctx.builder.instruction_body.const_i32(!0xFF);
+    ctx.builder.instruction_body.and_i32();
+    codegen::gen_get_reg8(ctx, regs::AH);
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.const_i32(FLAGS_MASK);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.const_i32(FLAGS_DEFAULT);
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
+
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS_CHANGED as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    ctx.builder.instruction_body.const_i32(!0xFF);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
 
 pub fn instr_A0_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.instruction_body.const_i32(immaddr as i32);
