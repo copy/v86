@@ -134,13 +134,13 @@ pub const SI: i32 = 6;
 pub const DI: i32 = 7;
 
 pub const AL: i32 = 0;
-pub const CL: i32 = 4;
-pub const DL: i32 = 8;
-pub const BL: i32 = 12;
-pub const AH: i32 = 1;
+pub const CL: i32 = 1;
+pub const DL: i32 = 2;
+pub const BL: i32 = 3;
+pub const AH: i32 = 4;
 pub const CH: i32 = 5;
-pub const DH: i32 = 9;
-pub const BH: i32 = 13;
+pub const DH: i32 = 6;
+pub const BH: i32 = 7;
 
 pub const ES: i32 = 0;
 pub const CS: i32 = 1;

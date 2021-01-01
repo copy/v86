@@ -4,7 +4,6 @@ use cpu2::cpu::reg128;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;
-pub const reg8s: *mut i8 = 64 as *mut i8;
 pub const reg32: *mut i32 = 64 as *mut i32;
 
 pub const last_op1: *mut i32 = 96 as *mut i32;

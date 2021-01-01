@@ -134,7 +134,7 @@ pub unsafe fn neg32(x: i32) -> i32 { return neg(x, OPSIZE_32); }
 
 #[no_mangle]
 pub unsafe fn mul8(source_operand: i32) {
-    let result = source_operand * *reg8.offset(AL as isize) as i32;
+    let result = source_operand * read_reg8(AL);
     write_reg16(AX, result);
     *last_result = result & 255;
     *last_op_size = OPSIZE_8;
@@ -148,7 +148,7 @@ pub unsafe fn mul8(source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn imul8(source_operand: i32) {
-    let result = source_operand * *reg8s.offset(AL as isize) as i32;
+    let result = source_operand * (read_reg8(AL) << 24 >> 24);
     write_reg16(AX, result);
     *last_result = result & 255;
     *last_op_size = OPSIZE_8;
@@ -281,12 +281,12 @@ pub unsafe fn xadd32(source_operand: i32, reg: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe fn cmpxchg8(data: i32, r: i32) -> i32 {
-    cmp8(*reg8.offset(AL as isize) as i32, data);
+    cmp8(read_reg8(AL), data);
     if getzf() {
         read_reg8(r)
     }
     else {
-        *reg8.offset(AL as isize) = data as u8;
+        write_reg8(AL, data);
         data
     }
 }
@@ -315,29 +315,29 @@ pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe fn bcd_daa() {
-    let old_al = *reg8.offset(AL as isize) as i32;
+    let old_al = read_reg8(AL);
     let old_cf = getcf();
     let old_af = getaf();
     *flags &= !1 & !FLAG_ADJUST;
     if old_al & 15 > 9 || old_af {
-        *reg8.offset(AL as isize) += 6;
+        write_reg8(AL, read_reg8(AL) + 6);
         *flags |= FLAG_ADJUST
     }
     if old_al > 153 || old_cf {
-        *reg8.offset(AL as isize) += 96;
+        write_reg8(AL, read_reg8(AL) + 96);
         *flags |= 1
     }
-    *last_result = *reg8.offset(AL as isize) as i32;
+    *last_result = read_reg8(AL);
     *last_op_size = OPSIZE_8;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
 pub unsafe fn bcd_das() {
-    let old_al = *reg8.offset(AL as isize) as i32;
+    let old_al = read_reg8(AL);
     let old_cf = getcf();
     *flags &= !1;
     if old_al & 15 > 9 || getaf() {
-        *reg8.offset(AL as isize) -= 6;
+        write_reg8(AL, read_reg8(AL) - 6);
         *flags |= FLAG_ADJUST;
         *flags = *flags & !1 | old_cf as i32 | (old_al < 6) as i32
     }
@@ -345,16 +345,16 @@ pub unsafe fn bcd_das() {
         *flags &= !FLAG_ADJUST
     }
     if old_al > 153 || old_cf {
-        *reg8.offset(AL as isize) -= 96;
+        write_reg8(AL, read_reg8(AL) - 96);
         *flags |= 1
     }
-    *last_result = *reg8.offset(AL as isize) as i32;
+    *last_result = read_reg8(AL);
     *last_op_size = OPSIZE_8;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
 pub unsafe fn bcd_aad(imm8: i32) {
-    let result = *reg8.offset(AL as isize) as i32 + *reg8.offset(AH as isize) as i32 * imm8;
+    let result = read_reg8(AL) + read_reg8(AH) * imm8;
     *last_result = result & 255;
     write_reg16(AX, *last_result);
     *last_op_size = OPSIZE_8;
@@ -371,38 +371,38 @@ pub unsafe fn bcd_aam(imm8: i32) {
         trigger_de();
     }
     else {
-        let temp = *reg8.offset(AL as isize);
-        *reg8.offset(AH as isize) = (temp as i32 / imm8) as u8;
-        *reg8.offset(AL as isize) = (temp as i32 % imm8) as u8;
-        *last_result = *reg8.offset(AL as isize) as i32;
+        let temp = read_reg8(AL);
+        write_reg8(AH, temp as i32 / imm8);
+        write_reg8(AL, temp as i32 % imm8);
+        *last_result = read_reg8(AL);
         *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
         *flags &= !1 & !FLAG_ADJUST & !FLAG_OVERFLOW
     };
 }
 #[no_mangle]
 pub unsafe fn bcd_aaa() {
-    if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
+    if read_reg8(AL) & 15 > 9 || getaf() {
         write_reg16(AX, read_reg16(AX) + 6);
-        *reg8.offset(AH as isize) += 1;
+        write_reg8(AH, read_reg8(AH) + 1);
         *flags |= FLAG_ADJUST | 1
     }
     else {
         *flags &= !FLAG_ADJUST & !1
     }
-    *reg8.offset(AL as isize) &= 15;
+    write_reg8(AL, read_reg8(AL) & 15);
     *flags_changed &= !FLAG_ADJUST & !1;
 }
 #[no_mangle]
 pub unsafe fn bcd_aas() {
-    if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
+    if read_reg8(AL) & 15 > 9 || getaf() {
         write_reg16(AX, read_reg16(AX) - 6);
-        *reg8.offset(AH as isize) -= 1;
+        write_reg8(AH, read_reg8(AH) - 1);
         *flags |= FLAG_ADJUST | 1
     }
     else {
         *flags &= !FLAG_ADJUST & !1
     }
-    *reg8.offset(AL as isize) &= 15;
+    write_reg8(AL, read_reg8(AL) & 15);
     *flags_changed &= !FLAG_ADJUST & !1;
 }
 #[no_mangle]
@@ -668,8 +668,11 @@ pub unsafe fn div8(source_operand: u32) {
             trigger_de();
         }
         else {
-            *reg8.offset(AL as isize) = result as u8;
-            *reg8.offset(AH as isize) = (target_operand as u32).wrapping_rem(source_operand) as u8
+            write_reg8(AL, result as i32);
+            write_reg8(
+                AH,
+                (target_operand as u32).wrapping_rem(source_operand) as i32,
+            );
         }
         return;
     };
@@ -688,8 +691,8 @@ pub unsafe fn idiv8(source_operand: i32) {
             trigger_de();
         }
         else {
-            *reg8.offset(AL as isize) = result as u8;
-            *reg8.offset(AH as isize) = (target_operand % source_operand) as u8
+            write_reg8(AL, result);
+            write_reg8(AH, target_operand % source_operand);
         }
         return;
     };

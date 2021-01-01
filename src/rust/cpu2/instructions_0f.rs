@@ -2737,40 +2737,24 @@ pub unsafe fn instr32_0FA4_reg(r1: i32, r: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0FA5_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE16!(
-        ___,
-        addr,
-        shld16(___, read_reg16(r), *reg8.offset(CL as isize) as i32 & 31)
-    );
+    SAFE_READ_WRITE16!(___, addr, shld16(___, read_reg16(r), read_reg8(CL) & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_0FA5_reg(r1: i32, r: i32) {
     write_reg16(
         r1,
-        shld16(
-            read_reg16(r1),
-            read_reg16(r),
-            *reg8.offset(CL as isize) as i32 & 31,
-        ),
+        shld16(read_reg16(r1), read_reg16(r), read_reg8(CL) & 31),
     );
 }
 #[no_mangle]
 pub unsafe fn instr32_0FA5_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE32!(
-        ___,
-        addr,
-        shld32(___, read_reg32(r), *reg8.offset(CL as isize) as i32 & 31)
-    );
+    SAFE_READ_WRITE32!(___, addr, shld32(___, read_reg32(r), read_reg8(CL) & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_0FA5_reg(r1: i32, r: i32) {
     write_reg32(
         r1,
-        shld32(
-            read_reg32(r1),
-            read_reg32(r),
-            *reg8.offset(CL as isize) as i32 & 31,
-        ),
+        shld32(read_reg32(r1), read_reg32(r), read_reg8(CL) & 31),
     );
 }
 #[no_mangle]
@@ -2846,40 +2830,24 @@ pub unsafe fn instr32_0FAC_reg(r1: i32, r: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0FAD_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE16!(
-        ___,
-        addr,
-        shrd16(___, read_reg16(r), *reg8.offset(CL as isize) as i32 & 31)
-    );
+    SAFE_READ_WRITE16!(___, addr, shrd16(___, read_reg16(r), read_reg8(CL) & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_0FAD_reg(r1: i32, r: i32) {
     write_reg16(
         r1,
-        shrd16(
-            read_reg16(r1),
-            read_reg16(r),
-            *reg8.offset(CL as isize) as i32 & 31,
-        ),
+        shrd16(read_reg16(r1), read_reg16(r), read_reg8(CL) & 31),
     );
 }
 #[no_mangle]
 pub unsafe fn instr32_0FAD_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE32!(
-        ___,
-        addr,
-        shrd32(___, read_reg32(r), *reg8.offset(CL as isize) as i32 & 31)
-    );
+    SAFE_READ_WRITE32!(___, addr, shrd32(___, read_reg32(r), read_reg8(CL) & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_0FAD_reg(r1: i32, r: i32) {
     write_reg32(
         r1,
-        shrd32(
-            read_reg32(r1),
-            read_reg32(r),
-            *reg8.offset(CL as isize) as i32 & 31,
-        ),
+        shrd32(read_reg32(r1), read_reg32(r), read_reg8(CL) & 31),
     );
 }
 #[no_mangle]

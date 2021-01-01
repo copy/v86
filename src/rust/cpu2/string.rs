@@ -14,10 +14,10 @@ use cpu2::cpu::{
     get_seg, io_port_read8, io_port_read16, io_port_read32, io_port_write8, io_port_write16,
     io_port_write32, read_reg16, read_reg32, safe_read8, safe_read16, safe_read32s, safe_write8,
     safe_write16, safe_write32, set_reg_asize, test_privileges_for_io, translate_address_read,
-    translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg16, AL, AX, DX,
-    EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
+    translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg8, write_reg16, AL,
+    AX, DX, EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
 };
-use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg8, reg32};
+use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg32};
 use cpu2::memory::{
     in_mapped_range, memcpy_no_mmap_or_dirty_check, memset_no_mmap_or_dirty_check,
     read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check, write8_no_mmap_or_dirty_check,
@@ -242,7 +242,7 @@ unsafe fn string_instruction(
                     Size::D => io_port_write32(port, src_val),
                 },
                 Instruction::Lods => match size {
-                    Size::B => *reg8.offset(AL as isize) = src_val as u8,
+                    Size::B => write_reg8(AL, src_val),
                     Size::W => write_reg16(AX, src_val),
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
@@ -374,7 +374,7 @@ unsafe fn string_instruction(
                     Size::D => io_port_write32(port, src_val),
                 },
                 Instruction::Lods => match size {
-                    Size::B => *reg8.offset(AL as isize) = src_val as u8,
+                    Size::B => write_reg8(AL, src_val),
                     Size::W => write_reg16(AX, src_val),
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
