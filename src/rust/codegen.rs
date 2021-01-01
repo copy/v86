@@ -17,10 +17,14 @@ pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     ctx.builder.add_i32();
 }
 
+fn gen_get_eip(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+}
+
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     // previous_ip = instruction_pointer + n
     builder.const_i32(global_pointers::PREVIOUS_IP as i32);
-    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(builder);
     if n != 0 {
         builder.const_i32(n as i32);
         builder.add_i32();
@@ -31,8 +35,7 @@ pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
 pub fn gen_set_eip_to_after_current_instruction(ctx: &mut JitContext) {
     ctx.builder
         .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    ctx.builder
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(ctx.builder);
     ctx.builder.const_i32(!0xFFF);
     ctx.builder.and_i32();
     ctx.builder.const_i32(ctx.cpu.eip as i32 & 0xFFF);
@@ -46,7 +49,7 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
 ) {
     // previous_ip = instruction_pointer & ~0xFFF | low_bits;
     builder.const_i32(global_pointers::PREVIOUS_IP as i32);
-    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(builder);
     builder.const_i32(!0xFFF);
     builder.and_i32();
     builder.const_i32(low_bits);
@@ -56,7 +59,7 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
 
 pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
     builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(builder);
     builder.const_i32(n as i32);
     builder.add_i32();
     builder.store_aligned_i32(0);
@@ -65,7 +68,7 @@ pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     // add n to instruction_pointer (without setting the offset as above)
     builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(builder);
     builder.const_i32(n);
     builder.add_i32();
     builder.store_aligned_i32(0);
@@ -232,6 +235,31 @@ pub fn decr_exc_asize(ctx: &mut JitContext) {
 pub fn gen_get_sreg(ctx: &mut JitContext, r: u32) {
     ctx.builder
         .load_aligned_u16(global_pointers::get_sreg_offset(r));
+}
+
+pub fn gen_get_ss_offset(ctx: &mut JitContext) {
+    ctx.builder
+        .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+}
+
+pub fn gen_get_flags(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::FLAGS);
+}
+pub fn gen_get_flags_changed(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+}
+pub fn gen_get_last_result(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::LAST_RESULT);
+}
+pub fn gen_get_last_op_size(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+}
+pub fn gen_get_last_op1(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::LAST_OP1);
+}
+
+pub fn gen_get_page_fault(builder: &mut WasmBuilder) {
+    builder.load_u8(global_pointers::PAGE_FAULT);
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack
@@ -1020,7 +1048,7 @@ pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
     {
         builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
 
-        builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+        gen_get_eip(builder);
         builder.get_local(&local);
         builder.sub_i32();
 
@@ -1043,8 +1071,7 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     gen_get_reg16(ctx, regs::SP);
 
     if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        gen_get_ss_offset(ctx);
         ctx.builder.add_i32();
     }
 
@@ -1067,8 +1094,7 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     gen_get_reg32(ctx, regs::ESP);
 
     if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        gen_get_ss_offset(ctx);
         ctx.builder.add_i32();
     }
 
@@ -1101,8 +1127,7 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 
     // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        gen_get_ss_offset(ctx);
         ctx.builder.add_i32();
     }
 
@@ -1122,8 +1147,7 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     if !ctx.cpu.has_flat_segmentation() {
         gen_get_reg32(ctx, regs::ESP);
-        ctx.builder
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        gen_get_ss_offset(ctx);
         ctx.builder.add_i32();
         let address_local = ctx.builder.set_new_local();
         gen_safe_read32(ctx, &address_local);
@@ -1179,8 +1203,7 @@ pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
     let old_vbp = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        gen_get_ss_offset(ctx);
         ctx.builder.add_i32();
     }
     if os32 {
@@ -1285,8 +1308,7 @@ pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
         }
 
         if !ctx.cpu.has_flat_segmentation() {
-            ctx.builder
-                .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+            gen_get_ss_offset(ctx);
             ctx.builder.add_i32();
         }
 
@@ -1332,8 +1354,7 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
         }
 
         if !ctx.cpu.has_flat_segmentation() {
-            ctx.builder
-                .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+            gen_get_ss_offset(ctx);
             ctx.builder.add_i32();
         }
 
@@ -1362,8 +1383,7 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
 }
 
 pub fn gen_get_real_eip(ctx: &mut JitContext) {
-    ctx.builder
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    gen_get_eip(ctx.builder);
     ctx.builder
         .load_aligned_i32(global_pointers::get_seg_offset(regs::CS));
     ctx.builder.sub_i32();
@@ -1395,7 +1415,7 @@ pub fn gen_set_flags_changed(builder: &mut WasmBuilder, value: i32) {
 
 pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    gen_get_flags(builder);
     builder.const_i32(bits_to_set);
     builder.or_i32();
     builder.store_aligned_i32(0);
@@ -1403,19 +1423,19 @@ pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
 
 pub fn gen_clear_flags_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    gen_get_flags(builder);
     builder.const_i32(!bits_to_clear);
     builder.and_i32();
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_getzf(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    gen_get_flags_changed(builder);
     builder.const_i32(FLAG_ZERO);
     builder.and_i32();
     builder.if_i32();
 
-    builder.load_aligned_i32(global_pointers::LAST_RESULT);
+    gen_get_last_result(builder);
     let last_result = builder.tee_new_local();
     builder.const_i32(-1);
     builder.xor_i32();
@@ -1424,20 +1444,20 @@ pub fn gen_getzf(builder: &mut WasmBuilder) {
     builder.const_i32(1);
     builder.sub_i32();
     builder.and_i32();
-    builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+    gen_get_last_op_size(builder);
     builder.shr_u_i32();
     builder.const_i32(1);
     builder.and_i32();
 
     builder.else_();
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    gen_get_flags(builder);
     builder.const_i32(FLAG_ZERO);
     builder.and_i32();
     builder.block_end();
 }
 
 pub fn gen_getcf(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    gen_get_flags_changed(builder);
     let flags_changed = builder.tee_new_local();
     builder.const_i32(FLAG_CARRY);
     builder.and_i32();
@@ -1449,18 +1469,18 @@ pub fn gen_getcf(builder: &mut WasmBuilder) {
     builder.free_local(flags_changed);
     let sub_mask = builder.set_new_local();
 
-    builder.load_aligned_i32(global_pointers::LAST_RESULT);
+    gen_get_last_result(builder);
     builder.get_local(&sub_mask);
     builder.xor_i32();
 
-    builder.load_aligned_i32(global_pointers::LAST_OP1);
+    gen_get_last_op1(builder);
     builder.get_local(&sub_mask);
     builder.xor_i32();
 
     builder.ltu_i32();
 
     builder.else_();
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    gen_get_flags(builder);
     builder.const_i32(FLAG_CARRY);
     builder.and_i32();
     builder.block_end();
@@ -1469,20 +1489,20 @@ pub fn gen_getcf(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_getsf(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    gen_get_flags_changed(builder);
     builder.const_i32(FLAG_SIGN);
     builder.and_i32();
     builder.if_i32();
     {
-        builder.load_aligned_i32(global_pointers::LAST_RESULT);
-        builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+        gen_get_last_result(builder);
+        gen_get_last_op_size(builder);
         builder.shr_u_i32();
         builder.const_i32(1);
         builder.and_i32();
     }
     builder.else_();
     {
-        builder.load_aligned_i32(global_pointers::FLAGS);
+        gen_get_flags(builder);
         builder.const_i32(FLAG_SIGN);
         builder.and_i32();
     }
@@ -1490,22 +1510,22 @@ pub fn gen_getsf(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_getof(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    gen_get_flags_changed(builder);
     let flags_changed = builder.tee_new_local();
     builder.const_i32(FLAG_OVERFLOW);
     builder.and_i32();
     builder.if_i32();
     {
-        builder.load_aligned_i32(global_pointers::LAST_OP1);
+        gen_get_last_op1(builder);
         let last_op1 = builder.tee_new_local();
-        builder.load_aligned_i32(global_pointers::LAST_RESULT);
+        gen_get_last_result(builder);
         let last_result = builder.tee_new_local();
         builder.xor_i32();
 
         builder.get_local(&last_result);
         builder.get_local(&last_op1);
         builder.sub_i32();
-        builder.get_local(&flags_changed);
+        gen_get_flags_changed(builder);
         builder.const_i32(31);
         builder.shr_u_i32();
         builder.sub_i32();
@@ -1515,7 +1535,7 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
 
         builder.and_i32();
 
-        builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+        gen_get_last_op_size(builder);
         builder.shr_u_i32();
         builder.const_i32(1);
         builder.and_i32();
@@ -1525,7 +1545,7 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
     }
     builder.else_();
     {
-        builder.load_aligned_i32(global_pointers::FLAGS);
+        gen_get_flags(builder);
         builder.const_i32(FLAG_OVERFLOW);
         builder.and_i32();
     }

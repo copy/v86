@@ -1160,7 +1160,7 @@ pub fn gen_bt(
     offset_mask: u32,
 ) {
     builder.const_i32(global_pointers::FLAGS as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
     builder.get_local(bit_base);
@@ -1179,7 +1179,7 @@ pub fn gen_bt(
     builder.store_aligned_i32(0);
 
     builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    codegen::gen_get_flags_changed(builder);
     builder.const_i32(!1);
     builder.and_i32();
     builder.store_aligned_i32(0);
@@ -1412,7 +1412,7 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
 
 fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
     codegen::gen_getcf(builder);
@@ -1456,7 +1456,7 @@ fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
 
 fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
-    builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
     codegen::gen_getcf(builder);
@@ -2647,7 +2647,7 @@ pub fn instr16_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_call_fn1(ctx.builder, "fpu_fldenv32");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
@@ -2695,7 +2695,7 @@ pub fn instr16_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_call_fn1(ctx.builder, "fpu_fstenv32");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
@@ -2789,7 +2789,7 @@ pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_call_fn1(ctx.builder, "fpu_fldm80");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
@@ -3285,7 +3285,7 @@ pub fn instr_FB_jit(ctx: &mut JitContext) {
 
 pub fn instr_FC_jit(ctx: &mut JitContext) {
     ctx.builder.const_i32(global_pointers::FLAGS as i32);
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(!FLAG_DIRECTION);
     ctx.builder.and_i32();
     ctx.builder.store_aligned_i32(0);
@@ -3293,7 +3293,7 @@ pub fn instr_FC_jit(ctx: &mut JitContext) {
 
 pub fn instr_FD_jit(ctx: &mut JitContext) {
     ctx.builder.const_i32(global_pointers::FLAGS as i32);
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(FLAG_DIRECTION);
     ctx.builder.or_i32();
     ctx.builder.store_aligned_i32(0);
@@ -3517,7 +3517,7 @@ fn gen_popf(ctx: &mut JitContext, is_32: bool) {
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.else_();
 
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(ctx.builder);
     let old_eflags = ctx.builder.set_new_local();
 
     if is_32 {
@@ -3539,7 +3539,7 @@ fn gen_popf(ctx: &mut JitContext, is_32: bool) {
     ctx.builder.and_i32();
     ctx.builder.eqz_i32();
 
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(FLAG_INTERRUPT);
     ctx.builder.and_i32();
     ctx.builder.eqz_i32();
@@ -3564,7 +3564,7 @@ pub fn instr32_9D_jit(ctx: &mut JitContext) { gen_popf(ctx, true) }
 
 pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.const_i32(global_pointers::FLAGS as i32);
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(!0xFF);
     ctx.builder.and_i32();
     codegen::gen_get_reg8(ctx, regs::AH);
@@ -3576,7 +3576,7 @@ pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.store_aligned_i32(0);
 
     ctx.builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
-    ctx.builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    codegen::gen_get_flags_changed(ctx.builder);
     ctx.builder.const_i32(!0xFF);
     ctx.builder.and_i32();
     ctx.builder.store_aligned_i32(0);
@@ -4769,7 +4769,7 @@ pub fn instr_0FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_call_fn3(ctx.builder, "maskmovq");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
@@ -4799,7 +4799,7 @@ pub fn instr_660FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_call_fn3(ctx.builder, "maskmovdqu");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
