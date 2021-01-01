@@ -351,6 +351,7 @@ PCI.prototype.pci_write16 = function(address, written)
     {
         // Bochs bios
         dbg_log("Warning: PCI: Expected 32-bit write, got 16-bit (addr: " + h(addr) + ")");
+        return;
     }
 
     dbg_assert(!(addr >= 0x30 && addr < 0x34),
