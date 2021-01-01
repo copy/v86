@@ -8,9 +8,6 @@
     /** @const */
     var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
 
-    /** @const */
-    var OTHER_HOST = ON_LOCALHOST ? "" : "//j.copy.sh:8880/";
-
     function dump_file(ab, name)
     {
         if(!(ab instanceof Array))
@@ -406,8 +403,7 @@
                     "size": 142815292,
                 },
                 hda: {
-                    "url": ON_LOCALHOST ? "../v86-images/os/freebsd3.img" :
-                                          OTHER_HOST + "images/freebsd3.img",
+                    "url": HOST + "images/freebsd3.img",
                     "size": 17179869184,
                     "async": true,
                 },
