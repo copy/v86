@@ -1,8 +1,8 @@
-use cpu2::cpu::{
+use cpu::cpu::{
     safe_read16, safe_read32s, safe_write16, safe_write32, translate_address_system_read,
     translate_address_system_write, writable_or_pagefault,
 };
-use cpu2::misc_instr::{push16, push32};
+use cpu::misc_instr::{push16, push32};
 
 #[no_mangle]
 pub unsafe fn safe_read16_js(addr: i32) -> i32 { safe_read16(addr).unwrap() }

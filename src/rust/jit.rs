@@ -5,9 +5,8 @@ use std::ptr::NonNull;
 
 use analysis::AnalysisType;
 use codegen;
-use cpu2;
-use cpu2::cpu;
-use cpu2::memory;
+use cpu::cpu;
+use cpu::memory;
 use cpu_context::CpuContext;
 use global_pointers;
 use jit_instructions;
@@ -556,7 +555,7 @@ pub fn record_entry_point(phys_address: u32) {
         .insert(offset_in_page);
 
     if is_new {
-        cpu2::cpu::tlb_set_has_code(page, true);
+        cpu::tlb_set_has_code(page, true);
     }
 }
 
@@ -1026,10 +1025,10 @@ fn jit_analyze_and_generate(
 
         dbg_assert!(entry_point_count > 0);
 
-        cpu2::cpu::tlb_set_has_code(page, true);
+        cpu::tlb_set_has_code(page, true);
 
         jit_cache_array::check_invariants();
-        cpu2::cpu::check_tlb_invariants();
+        cpu::check_tlb_invariants();
 
         let end_addr = 0;
         let first_opcode = 0;
@@ -1496,7 +1495,7 @@ fn remove_jit_cache_wasm_index(ctx: &mut JitState, page: Page, wasm_table_index:
     }
 
     if !jit_page_has_code(page) {
-        cpu2::cpu::tlb_set_has_code(page, false);
+        cpu::tlb_set_has_code(page, false);
     }
 
     if CHECK_JIT_CACHE_ARRAY_INVARIANTS {
@@ -1580,7 +1579,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
     }
 
     if did_have_code {
-        cpu2::cpu::tlb_set_has_code(page, false);
+        cpu::tlb_set_has_code(page, false);
     }
 }
 
@@ -1718,9 +1717,8 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
         {
             profiler::stat_increment(stat::RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
 
-            let last_jump_type = unsafe { ::cpu2::cpu::debug_last_jump.name() };
-            let last_jump_addr =
-                unsafe { ::cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
+            let last_jump_type = unsafe { cpu::debug_last_jump.name() };
+            let last_jump_addr = unsafe { cpu::debug_last_jump.phys_address() }.unwrap_or(0);
             let last_jump_opcode =
                 if last_jump_addr != 0 { memory::read32s(last_jump_addr) } else { 0 };
 

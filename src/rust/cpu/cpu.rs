@@ -29,19 +29,19 @@ extern "C" {
     pub fn io_port_write32(port: i32, value: i32);
 }
 
-use cpu2::fpu::fpu_set_tag_word;
-use cpu2::global_pointers::*;
-pub use cpu2::imports::mem8;
-use cpu2::memory;
-use cpu2::memory::{
+use cpu::fpu::fpu_set_tag_word;
+use cpu::global_pointers::*;
+pub use cpu::imports::mem8;
+use cpu::memory;
+use cpu::memory::{
     in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32, write8,
     write_aligned32,
 };
-use cpu2::misc_instr::{
+use cpu::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
     push16, push32,
 };
-use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
+use cpu::modrm::{resolve_modrm16, resolve_modrm32};
 use page::Page;
 use paging::OrPageFault;
 use profiler;
@@ -2359,11 +2359,11 @@ pub unsafe fn cycle_internal() {
             dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
 
             if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
-                dbg_assert!(match ::cpu2::cpu::debug_last_jump {
+                dbg_assert!(match ::cpu::cpu::debug_last_jump {
                     LastJump::Compiled { .. } => true,
                     _ => false,
                 });
-                let last_jump_addr = ::cpu2::cpu::debug_last_jump.phys_address().unwrap();
+                let last_jump_addr = ::cpu::cpu::debug_last_jump.phys_address().unwrap();
                 let last_jump_opcode = if last_jump_addr != 0 {
                     read32s(last_jump_addr)
                 }

@@ -408,11 +408,11 @@ function gen_table()
         const code = [
             "#![cfg_attr(rustfmt, rustfmt_skip)]",
 
-            "use cpu2::cpu::{after_block_boundary, modrm_resolve};",
-            "use cpu2::cpu::{read_imm8, read_imm8s, read_imm16, read_imm32s, read_moffs};",
-            "use cpu2::cpu::{task_switch_test, trigger_ud, DEBUG, PREFIX_F2, PREFIX_F3};",
-            "use cpu2::instructions;",
-            "use cpu2::global_pointers::{instruction_pointer, prefixes};",
+            "use cpu::cpu::{after_block_boundary, modrm_resolve};",
+            "use cpu::cpu::{read_imm8, read_imm8s, read_imm16, read_imm32s, read_moffs};",
+            "use cpu::cpu::{task_switch_test, trigger_ud, DEBUG, PREFIX_F2, PREFIX_F3};",
+            "use cpu::instructions;",
+            "use cpu::global_pointers::{instruction_pointer, prefixes};",
 
             "pub unsafe fn run(opcode: u32) {",
             table,
@@ -471,12 +471,12 @@ function gen_table()
         const code = [
             "#![cfg_attr(rustfmt, rustfmt_skip)]",
 
-            "use cpu2::cpu::{after_block_boundary, modrm_resolve};",
-            "use cpu2::cpu::{read_imm8, read_imm16, read_imm32s};",
-            "use cpu2::cpu::{task_switch_test, task_switch_test_mmx, trigger_ud};",
-            "use cpu2::cpu::{DEBUG, PREFIX_66, PREFIX_F2, PREFIX_F3};",
-            "use cpu2::instructions_0f;",
-            "use cpu2::global_pointers::{instruction_pointer, prefixes};",
+            "use cpu::cpu::{after_block_boundary, modrm_resolve};",
+            "use cpu::cpu::{read_imm8, read_imm16, read_imm32s};",
+            "use cpu::cpu::{task_switch_test, task_switch_test_mmx, trigger_ud};",
+            "use cpu::cpu::{DEBUG, PREFIX_66, PREFIX_F2, PREFIX_F3};",
+            "use cpu::instructions_0f;",
+            "use cpu::global_pointers::{instruction_pointer, prefixes};",
 
             "pub unsafe fn run(opcode: u32) {",
             table0f,

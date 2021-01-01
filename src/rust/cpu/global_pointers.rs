@@ -1,6 +1,6 @@
 #![allow(non_upper_case_globals)]
 
-use cpu2::cpu::reg128;
+use cpu::cpu::reg128;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;

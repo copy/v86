@@ -1,4 +1,4 @@
-use cpu2;
+use cpu;
 use global_pointers;
 use wasmgen::wasm_builder::WasmBuilder;
 
@@ -154,7 +154,7 @@ pub fn record_opstat_compiled(opcode: u32) {
 
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
-        unsafe { *cpu2::global_pointers::opstats_compiled_buffer.offset(index as isize) += 1 }
+        unsafe { *cpu::global_pointers::opstats_compiled_buffer.offset(index as isize) += 1 }
     }
 
     let index = (instruction.is_0f as u32) << 12
@@ -162,7 +162,7 @@ pub fn record_opstat_compiled(opcode: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    unsafe { *cpu2::global_pointers::opstats_compiled_buffer.offset(index as isize) += 1 }
+    unsafe { *cpu::global_pointers::opstats_compiled_buffer.offset(index as isize) += 1 }
 }
 
 pub fn record_opstat_jit_exit(opcode: u32) {
@@ -174,7 +174,7 @@ pub fn record_opstat_jit_exit(opcode: u32) {
 
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
-        unsafe { *cpu2::global_pointers::opstats_jit_exit_buffer.offset(index as isize) += 1 }
+        unsafe { *cpu::global_pointers::opstats_jit_exit_buffer.offset(index as isize) += 1 }
     }
 
     let index = (instruction.is_0f as u32) << 12
@@ -182,7 +182,7 @@ pub fn record_opstat_jit_exit(opcode: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    unsafe { *cpu2::global_pointers::opstats_jit_exit_buffer.offset(index as isize) += 1 }
+    unsafe { *cpu::global_pointers::opstats_jit_exit_buffer.offset(index as isize) += 1 }
 }
 
 pub fn record_opstat_unguarded_register(opcode: u32) {
@@ -195,7 +195,7 @@ pub fn record_opstat_unguarded_register(opcode: u32) {
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
         unsafe {
-            *cpu2::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1
+            *cpu::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1
         }
     }
 
@@ -204,7 +204,7 @@ pub fn record_opstat_unguarded_register(opcode: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    unsafe { *cpu2::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1 }
+    unsafe { *cpu::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1 }
 }
 
 pub fn gen_opstat_unguarded_register(builder: &mut WasmBuilder, opcode: u32) {
@@ -242,7 +242,7 @@ pub fn record_opstat_size_wasm(opcode: u32, size: u32) {
 
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
-        unsafe { *cpu2::global_pointers::opstats_wasm_size.offset(index as isize) += size }
+        unsafe { *cpu::global_pointers::opstats_wasm_size.offset(index as isize) += size }
     }
 
     let index = (instruction.is_0f as u32) << 12
@@ -250,5 +250,5 @@ pub fn record_opstat_size_wasm(opcode: u32, size: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    unsafe { *cpu2::global_pointers::opstats_wasm_size.offset(index as isize) += size }
+    unsafe { *cpu::global_pointers::opstats_wasm_size.offset(index as isize) += size }
 }

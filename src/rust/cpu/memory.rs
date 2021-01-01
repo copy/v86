@@ -18,8 +18,8 @@ extern "C" {
     pub fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
 }
 
-use cpu2::cpu::{mem8, reg128};
-use cpu2::global_pointers::memory_size;
+use cpu::cpu::{mem8, reg128};
+use cpu::global_pointers::memory_size;
 use page::Page;
 use std::ptr;
 

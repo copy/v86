@@ -1,7 +1,7 @@
 use std::mem::transmute;
 
-use cpu2::cpu::*;
-use cpu2::global_pointers::*;
+use cpu::cpu::*;
+use cpu::global_pointers::*;
 use paging::OrPageFault;
 use std::f64;
 

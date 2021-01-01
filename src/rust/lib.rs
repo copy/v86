@@ -12,7 +12,7 @@ mod dbg;
 #[macro_use]
 mod paging;
 
-pub mod cpu2;
+pub mod cpu;
 
 pub mod js_api;
 pub mod profiler;

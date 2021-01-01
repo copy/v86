@@ -1,9 +1,9 @@
-use cpu2::cpu::{
+use cpu::cpu::{
     FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER,
     TLB_READONLY, TLB_VALID,
 };
-use cpu2::imports::mem8;
-use cpu2::memory;
+use cpu::imports::mem8;
+use cpu::memory;
 use global_pointers;
 use jit::JitContext;
 use modrm;

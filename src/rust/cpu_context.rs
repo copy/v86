@@ -1,4 +1,4 @@
-use cpu2::memory;
+use cpu::memory;
 use prefix::{PREFIX_MASK_ADDRSIZE, PREFIX_MASK_OPSIZE};
 use state_flags::CachedStateFlags;
 

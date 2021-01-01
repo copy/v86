@@ -1,7 +1,7 @@
 macro_rules! SAFE_READ_WRITE8 {
     ($value:ident, $addr:expr, $instruction:expr) => {{
-        use cpu2::cpu::translate_address_write_and_can_skip_dirty;
-        use cpu2::memory;
+        use cpu::cpu::translate_address_write_and_can_skip_dirty;
+        use cpu::memory;
         use page::Page;
         let (phys_addr, can_skip_dirty_page) =
             return_on_pagefault!(translate_address_write_and_can_skip_dirty($addr));
@@ -23,10 +23,10 @@ macro_rules! SAFE_READ_WRITE8 {
 }
 macro_rules! SAFE_READ_WRITE16 {
     ($value:ident, $addr:expr, $instruction:expr) => {{
-        use cpu2::cpu::{
+        use cpu::cpu::{
             translate_address_write_and_can_skip_dirty, virt_boundary_read16, virt_boundary_write16,
         };
-        use cpu2::memory;
+        use cpu::memory;
         use page::Page;
         let (phys_addr, can_skip_dirty_page) =
             return_on_pagefault!(translate_address_write_and_can_skip_dirty($addr));
@@ -55,11 +55,11 @@ macro_rules! SAFE_READ_WRITE16 {
 }
 macro_rules! SAFE_READ_WRITE32 {
     ($value:ident, $addr:expr, $instruction:expr) => {{
-        use cpu2::cpu::{
+        use cpu::cpu::{
             translate_address_write_and_can_skip_dirty, virt_boundary_read32s,
             virt_boundary_write32,
         };
-        use cpu2::memory;
+        use cpu::memory;
         use page::Page;
         let (phys_addr, can_skip_dirty_page) =
             return_on_pagefault!(translate_address_write_and_can_skip_dirty($addr));

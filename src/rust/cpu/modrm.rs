@@ -1,4 +1,4 @@
-use cpu2::cpu::*;
+use cpu::cpu::*;
 use paging::OrPageFault;
 
 pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {

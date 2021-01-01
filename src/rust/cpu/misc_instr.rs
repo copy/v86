@@ -1,6 +1,6 @@
-use cpu2::cpu::*;
-use cpu2::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};
-use cpu2::global_pointers::*;
+use cpu::cpu::*;
+use cpu::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};
+use cpu::global_pointers::*;
 use paging::OrPageFault;
 
 pub unsafe fn getcf() -> bool {

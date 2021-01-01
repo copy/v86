@@ -1,5 +1,5 @@
-use cpu2::cpu::*;
-use cpu2::global_pointers::mxcsr;
+use cpu::cpu::*;
+use cpu::global_pointers::mxcsr;
 
 #[no_mangle]
 pub unsafe fn mov_r_m64(addr: i32, r: i32) {

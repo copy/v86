@@ -1,7 +1,7 @@
-use cpu2::cpu::*;
-use cpu2::global_pointers::*;
-use cpu2::memory::{read8, write8};
-use cpu2::misc_instr::{getaf, getcf, getzf};
+use cpu::cpu::*;
+use cpu::global_pointers::*;
+use cpu::memory::{read8, write8};
+use cpu::misc_instr::{getaf, getcf, getzf};
 
 pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 

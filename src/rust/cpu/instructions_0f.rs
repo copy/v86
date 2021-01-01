@@ -28,26 +28,26 @@ unsafe fn unimplemented_sse() {
     trigger_ud()
 }
 
-use cpu2::arith::{
+use cpu::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
     bts_reg, cmpxchg8, cmpxchg16, cmpxchg32, popcnt, shld16, shld32, shrd16, shrd32, xadd8, xadd16,
     xadd32,
 };
-use cpu2::arith::{
+use cpu::arith::{
     imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
     saturate_sw_to_sb, saturate_sw_to_ub, saturate_ud_to_ub, saturate_uw,
 };
-use cpu2::cpu::*;
-use cpu2::fpu::fpu_load_m32;
-use cpu2::fpu::fpu_set_tag_word;
-use cpu2::global_pointers::*;
-use cpu2::misc_instr::{
+use cpu::cpu::*;
+use cpu::fpu::fpu_load_m32;
+use cpu::fpu::fpu_set_tag_word;
+use cpu::global_pointers::*;
+use cpu::misc_instr::{
     adjust_stack_reg, bswap, cmovcc16, cmovcc32, fxrstor, fxsave, get_stack_pointer, jmpcc16,
     jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
     test_p, test_s, test_z,
 };
-use cpu2::misc_instr::{lss16, lss32};
-use cpu2::sse_instr::*;
+use cpu::misc_instr::{lss16, lss32};
+use cpu::sse_instr::*;
 
 #[no_mangle]
 pub unsafe fn instr16_0F00_0_mem(addr: i32) {
