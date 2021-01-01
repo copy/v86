@@ -117,7 +117,6 @@ function V86Starter(options)
             dbg_trace();
         },
 
-        "far_jump": function(eip, selector, is_call, is_osize_32) { return cpu.far_jump(eip, selector, !!is_call, !!is_osize_32); },
         "far_return": function(eip, selector, stack_adjust, is_osize_32) { return cpu.far_return(eip, selector, stack_adjust, !!is_osize_32); },
         "pic_acknowledge": function() { cpu.pic_acknowledge(); },
 
