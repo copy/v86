@@ -1162,7 +1162,22 @@ fn jit_generate_module(
 
         if block.has_sti {
             match block.ty {
-                BasicBlockType::ConditionalJump { .. } => dbg_assert!(false, "TODO"),
+                BasicBlockType::ConditionalJump {
+                    condition,
+                    jump_offset,
+                    jump_offset_is_32,
+                    ..
+                } => {
+                    codegen::gen_condition_fn(ctx, condition);
+                    ctx.builder.if_void();
+                    if jump_offset_is_32 {
+                        codegen::gen_relative_jump(ctx.builder, jump_offset);
+                    }
+                    else {
+                        codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                    }
+                    ctx.builder.block_end();
+                },
                 _ => {},
             };
             codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
