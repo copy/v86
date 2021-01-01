@@ -223,6 +223,18 @@ pub fn gen_set_reg32(ctx: &mut JitContext, r: u32) {
     ctx.builder.set_local(&ctx.register_locals[r as usize]);
 }
 
+pub fn decr_exc_asize(ctx: &mut JitContext) {
+    gen_get_reg32(ctx, regs::ECX);
+    ctx.builder.const_i32(1);
+    ctx.builder.sub_i32();
+    if ctx.cpu.asize_32() {
+        gen_set_reg32(ctx, regs::ECX);
+    }
+    else {
+        gen_set_reg16(ctx, regs::CX);
+    }
+}
+
 pub fn gen_get_sreg(ctx: &mut JitContext, r: u32) {
     ctx.builder
         .load_aligned_u16(global_pointers::get_sreg_offset(r));
@@ -1570,16 +1582,6 @@ pub fn gen_test_loop(ctx: &mut JitContext, is_asize_32: bool) {
         gen_get_reg32(ctx, regs::ECX);
     }
     else {
-        gen_get_reg16(ctx, regs::CX);
-    }
-    ctx.builder.const_i32(1);
-    ctx.builder.sub_i32();
-    if is_asize_32 {
-        gen_set_reg32(ctx, regs::ECX);
-        gen_get_reg32(ctx, regs::ECX);
-    }
-    else {
-        gen_set_reg16(ctx, regs::ECX);
         gen_get_reg16(ctx, regs::CX);
     }
 }

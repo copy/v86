@@ -1700,12 +1700,13 @@ pub fn instr32_7E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr16_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
-pub fn instr16_E0_jit(_ctx: &mut JitContext, _imm: u32) {}
-pub fn instr32_E0_jit(_ctx: &mut JitContext, _imm: u32) {}
-pub fn instr16_E1_jit(_ctx: &mut JitContext, _imm: u32) {}
-pub fn instr32_E1_jit(_ctx: &mut JitContext, _imm: u32) {}
-pub fn instr16_E2_jit(_ctx: &mut JitContext, _imm: u32) {}
-pub fn instr32_E2_jit(_ctx: &mut JitContext, _imm: u32) {}
+// loop/loopz/loopnz/jcxz: Conditional jump is generated in main loop
+pub fn instr16_E0_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
+pub fn instr32_E0_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
+pub fn instr16_E1_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
+pub fn instr32_E1_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
+pub fn instr16_E2_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
+pub fn instr32_E2_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize(ctx) }
 pub fn instr16_E3_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_E3_jit(_ctx: &mut JitContext, _imm: u32) {}
 
