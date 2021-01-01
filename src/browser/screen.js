@@ -191,7 +191,10 @@ function ScreenAdapter(screen_container, bus)
     this.make_screenshot = function()
     {
         try {
-            window.open(graphic_screen.toDataURL());
+            const image = new Image();
+            image.src = graphic_screen.toDataURL("image/png");
+            const w = window.open("");
+            w.document.write(image.outerHTML);
         }
         catch(e) {}
     };
