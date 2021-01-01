@@ -11,6 +11,7 @@ window.onload = function()
     var container2 = document.getElementById("screen_container2");
 
     var emulator1 = new V86Starter({
+        wasm_path: "../build/v86.wasm",
         screen_container: container1,
         bios: {
             url: "../bios/seabios.bin",
@@ -25,6 +26,7 @@ window.onload = function()
     });
 
     var emulator2 = new V86Starter({
+        wasm_path: "../build/v86.wasm",
         screen_container: container2,
         bios: {
             url: "../bios/seabios.bin",
