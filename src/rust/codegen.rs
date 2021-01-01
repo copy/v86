@@ -171,17 +171,18 @@ pub fn gen_set_reg8(ctx: &mut JitContext, r: u32) {
 }
 
 pub fn gen_set_reg16(ctx: &mut JitContext, r: u32) {
+    gen_set_reg16_local(ctx.builder, &ctx.register_locals[r as usize]);
+}
+
+pub fn gen_set_reg16_local(builder: &mut WasmBuilder, local: &WasmLocal) {
     // reg32[r] = v & 0xFFFF | reg32[r] & ~0xFFFF
-
-    ctx.builder.const_i32(0xFFFF);
-    ctx.builder.and_i32();
-
-    ctx.builder.get_local(&ctx.register_locals[r as usize]);
-    ctx.builder.const_i32(!0xFFFF);
-    ctx.builder.and_i32();
-
-    ctx.builder.or_i32();
-    ctx.builder.set_local(&ctx.register_locals[r as usize]);
+    builder.const_i32(0xFFFF);
+    builder.and_i32();
+    builder.get_local(local);
+    builder.const_i32(!0xFFFF);
+    builder.and_i32();
+    builder.or_i32();
+    builder.set_local(local);
 }
 
 pub fn gen_set_reg32(ctx: &mut JitContext, r: u32) {

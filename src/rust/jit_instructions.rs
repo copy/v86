@@ -589,15 +589,16 @@ macro_rules! define_instruction_read_write_mem16(
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
-                codegen::gen_call_fn1_ret(ctx.builder, $fn);
+                let mut dest_operand = ctx.builder.set_new_local();
+                $fn(ctx.builder, &mut dest_operand);
+                ctx.builder.get_local(&dest_operand);
+                ctx.builder.free_local(dest_operand);
             });
             ctx.builder.free_local(address_local);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
-            codegen::gen_get_reg16(ctx, r1);
-            codegen::gen_call_fn1_ret(ctx.builder, $fn);
-            codegen::gen_set_reg16(ctx, r1);
+            $fn(ctx.builder, &mut ctx.register_locals[r1 as usize]);
         }
     );
 
@@ -1292,13 +1293,7 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
     );
 }
 
-fn gen_inc16(ctx: &mut JitContext, r: u32) {
-    codegen::gen_get_reg16(ctx, r);
-    codegen::gen_call_fn1_ret(ctx.builder, "inc16");
-    codegen::gen_set_reg16(ctx, r);
-}
-
-fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
     builder.load_aligned_i32(global_pointers::FLAGS);
     builder.const_i32(!1);
@@ -1315,22 +1310,27 @@ fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
     builder.const_i32(1);
     builder.add_i32();
-    builder.set_local(dest_operand);
+    if size == OPSIZE_16 {
+        codegen::gen_set_reg16_local(builder, dest_operand);
+    }
+    else {
+        builder.set_local(dest_operand);
+    }
 
     codegen::gen_set_last_add_result(builder, dest_operand);
     codegen::gen_set_last_result(builder, dest_operand);
 
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
 }
-
-fn gen_dec16(ctx: &mut JitContext, r: u32) {
-    codegen::gen_get_reg16(ctx, r);
-    codegen::gen_call_fn1_ret(ctx.builder, "dec16");
-    codegen::gen_set_reg16(ctx, r);
+fn gen_inc16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    gen_inc(builder, dest_operand, OPSIZE_16);
+}
+fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    gen_inc(builder, dest_operand, OPSIZE_32);
 }
 
-fn gen_dec32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.const_i32(global_pointers::FLAGS as i32);
     builder.load_aligned_i32(global_pointers::FLAGS);
     builder.const_i32(!1);
@@ -1347,28 +1347,55 @@ fn gen_dec32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
     builder.const_i32(1);
     builder.sub_i32();
-    builder.set_local(dest_operand);
+    if size == OPSIZE_16 {
+        codegen::gen_set_reg16_local(builder, dest_operand);
+    }
+    else {
+        builder.set_local(dest_operand);
+    }
 
     codegen::gen_set_last_op1(builder, dest_operand);
     codegen::gen_set_last_result(builder, dest_operand);
 
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
 }
+fn gen_dec16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    gen_dec(builder, dest_operand, OPSIZE_16)
+}
+fn gen_dec32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    gen_dec(builder, dest_operand, OPSIZE_32)
+}
 
+fn gen_inc16_r(ctx: &mut JitContext, r: u32) {
+    gen_inc16(ctx.builder, &mut ctx.register_locals[r as usize])
+}
 fn gen_inc32_r(ctx: &mut JitContext, r: u32) {
     gen_inc32(ctx.builder, &mut ctx.register_locals[r as usize])
+}
+fn gen_dec16_r(ctx: &mut JitContext, r: u32) {
+    gen_dec16(ctx.builder, &mut ctx.register_locals[r as usize])
 }
 fn gen_dec32_r(ctx: &mut JitContext, r: u32) {
     gen_dec32(ctx.builder, &mut ctx.register_locals[r as usize])
 }
 
+fn gen_not16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    builder.get_local(dest_operand);
+    codegen::gen_call_fn1_ret(builder, "not16");
+    codegen::gen_set_reg16_local(builder, dest_operand);
+}
 fn gen_not32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
     codegen::gen_call_fn1_ret(builder, "not32");
     builder.set_local(dest_operand);
 }
 
+fn gen_neg16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+    builder.get_local(dest_operand);
+    codegen::gen_call_fn1_ret(builder, "neg16");
+    codegen::gen_set_reg16_local(builder, dest_operand);
+}
 fn gen_neg32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
     codegen::gen_call_fn1_ret(builder, "neg32");
@@ -1427,38 +1454,38 @@ pub fn instr32_1E_jit(ctx: &mut JitContext) {
     ctx.builder.free_local(sreg);
 }
 
-pub fn instr16_40_jit(ctx: &mut JitContext) { gen_inc16(ctx, AX); }
+pub fn instr16_40_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, AX); }
 pub fn instr32_40_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EAX); }
-pub fn instr16_41_jit(ctx: &mut JitContext) { gen_inc16(ctx, CX); }
+pub fn instr16_41_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, CX); }
 pub fn instr32_41_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, ECX); }
-pub fn instr16_42_jit(ctx: &mut JitContext) { gen_inc16(ctx, DX); }
+pub fn instr16_42_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, DX); }
 pub fn instr32_42_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EDX); }
-pub fn instr16_43_jit(ctx: &mut JitContext) { gen_inc16(ctx, BX); }
+pub fn instr16_43_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, BX); }
 pub fn instr32_43_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EBX); }
-pub fn instr16_44_jit(ctx: &mut JitContext) { gen_inc16(ctx, SP); }
+pub fn instr16_44_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, SP); }
 pub fn instr32_44_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, ESP); }
-pub fn instr16_45_jit(ctx: &mut JitContext) { gen_inc16(ctx, BP); }
+pub fn instr16_45_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, BP); }
 pub fn instr32_45_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EBP); }
-pub fn instr16_46_jit(ctx: &mut JitContext) { gen_inc16(ctx, SI); }
+pub fn instr16_46_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, SI); }
 pub fn instr32_46_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, ESI); }
-pub fn instr16_47_jit(ctx: &mut JitContext) { gen_inc16(ctx, DI); }
+pub fn instr16_47_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, DI); }
 pub fn instr32_47_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EDI); }
 
-pub fn instr16_48_jit(ctx: &mut JitContext) { gen_dec16(ctx, AX); }
+pub fn instr16_48_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, AX); }
 pub fn instr32_48_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, EAX); }
-pub fn instr16_49_jit(ctx: &mut JitContext) { gen_dec16(ctx, CX); }
+pub fn instr16_49_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, CX); }
 pub fn instr32_49_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, ECX); }
-pub fn instr16_4A_jit(ctx: &mut JitContext) { gen_dec16(ctx, DX); }
+pub fn instr16_4A_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, DX); }
 pub fn instr32_4A_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, EDX); }
-pub fn instr16_4B_jit(ctx: &mut JitContext) { gen_dec16(ctx, BX); }
+pub fn instr16_4B_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, BX); }
 pub fn instr32_4B_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, EBX); }
-pub fn instr16_4C_jit(ctx: &mut JitContext) { gen_dec16(ctx, SP); }
+pub fn instr16_4C_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, SP); }
 pub fn instr32_4C_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, ESP); }
-pub fn instr16_4D_jit(ctx: &mut JitContext) { gen_dec16(ctx, BP); }
+pub fn instr16_4D_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, BP); }
 pub fn instr32_4D_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, EBP); }
-pub fn instr16_4E_jit(ctx: &mut JitContext) { gen_dec16(ctx, SI); }
+pub fn instr16_4E_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, SI); }
 pub fn instr32_4E_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, ESI); }
-pub fn instr16_4F_jit(ctx: &mut JitContext) { gen_dec16(ctx, DI); }
+pub fn instr16_4F_jit(ctx: &mut JitContext) { gen_dec16_r(ctx, DI); }
 pub fn instr32_4F_jit(ctx: &mut JitContext) { gen_dec32_r(ctx, EDI); }
 
 pub fn instr16_50_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, AX); }
@@ -2971,9 +2998,9 @@ pub fn instr32_F7_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     instr32_F7_0_reg_jit(ctx, r, imm)
 }
 
-define_instruction_read_write_mem16!("not16", instr16_F7_2_mem_jit, instr16_F7_2_reg_jit, none);
+define_instruction_read_write_mem16!(gen_not16, instr16_F7_2_mem_jit, instr16_F7_2_reg_jit, none);
 define_instruction_read_write_mem32!(gen_not32, instr32_F7_2_mem_jit, instr32_F7_2_reg_jit, none);
-define_instruction_read_write_mem16!("neg16", instr16_F7_3_mem_jit, instr16_F7_3_reg_jit, none);
+define_instruction_read_write_mem16!(gen_neg16, instr16_F7_3_mem_jit, instr16_F7_3_reg_jit, none);
 define_instruction_read_write_mem32!(gen_neg32, instr32_F7_3_mem_jit, instr32_F7_3_reg_jit, none);
 
 pub fn instr16_F7_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
@@ -3048,10 +3075,10 @@ pub fn instr_FD_jit(ctx: &mut JitContext) {
     ctx.builder.store_aligned_i32(0);
 }
 
-define_instruction_read_write_mem16!("inc16", instr16_FF_0_mem_jit, instr16_FF_0_reg_jit, none);
+define_instruction_read_write_mem16!(gen_inc16, instr16_FF_0_mem_jit, instr16_FF_0_reg_jit, none);
 define_instruction_read_write_mem32!(gen_inc32, instr32_FF_0_mem_jit, instr32_FF_0_reg_jit, none);
 
-define_instruction_read_write_mem16!("dec16", instr16_FF_1_mem_jit, instr16_FF_1_reg_jit, none);
+define_instruction_read_write_mem16!(gen_dec16, instr16_FF_1_mem_jit, instr16_FF_1_reg_jit, none);
 define_instruction_read_write_mem32!(gen_dec32, instr32_FF_1_mem_jit, instr32_FF_1_reg_jit, none);
 
 pub fn instr16_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
