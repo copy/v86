@@ -1,6 +1,7 @@
 use cpu::BitSize;
 use cpu2::cpu::{
-    FLAG_CARRY, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID, FLAG_SIGN, FLAG_OVERFLOW
+    FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER,
+    TLB_READONLY, TLB_VALID,
 };
 use cpu2::imports::mem8;
 use global_pointers;
@@ -10,11 +11,6 @@ use modrm;
 use profiler;
 use regs;
 use wasmgen::wasm_builder::{FunctionType, WasmBuilder, WasmLocal, WasmLocalI64};
-
-const CONDITION_FUNCTIONS: [&str; 16] = [
-    "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
-    "test_ns", "test_p", "test_np", "test_l", "test_nl", "test_le", "test_nle",
-];
 
 pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     ctx.builder
@@ -1467,7 +1463,6 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
         builder.shr_u_i32();
         builder.const_i32(1);
         builder.and_i32();
-
     }
     builder.else_();
     {
@@ -1581,61 +1576,61 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
     ctx.builder.return_();
 }
 
-pub fn gen_condition_fn(ctx: &mut JitContext, mut condition: u8) {
+pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
     if condition & 0xF0 == 0x00 || condition & 0xF0 == 0x70 || condition & 0xF0 == 0x80 {
-        condition &= 0xF;
-        if condition == 0 {
-            gen_getof(ctx.builder);
-        }
-        else if condition == 1 {
-            gen_getof(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 2 {
-            gen_getcf(ctx.builder);
-        }
-        else if condition == 3 {
-            gen_getcf(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 4 {
-            gen_getzf(ctx.builder);
-        }
-        else if condition == 5 {
-            gen_getzf(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 6 {
-            gen_test_be(ctx.builder);
-        }
-        else if condition == 7 {
-            gen_test_be(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 8 {
-            gen_getsf(ctx.builder);
-        }
-        else if condition == 9 {
-            gen_getsf(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 0xC {
-            gen_test_l(ctx.builder);
-        }
-        else if condition == 0xD {
-            gen_test_l(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else if condition == 0xE {
-            gen_test_le(ctx.builder);
-        }
-        else if condition == 0xF {
-            gen_test_le(ctx.builder);
-            ctx.builder.eqz_i32();
-        }
-        else {
-            let condition_name = CONDITION_FUNCTIONS[condition as usize];
-            gen_fn0_const_ret(ctx.builder, condition_name);
+        match condition & 0xF {
+            0x0 => {
+                gen_getof(ctx.builder);
+            },
+            0x1 => {
+                gen_getof(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0x2 => {
+                gen_getcf(ctx.builder);
+            },
+            0x3 => {
+                gen_getcf(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0x4 => {
+                gen_getzf(ctx.builder);
+            },
+            0x5 => {
+                gen_getzf(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0x6 => {
+                gen_test_be(ctx.builder);
+            },
+            0x7 => {
+                gen_test_be(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0x8 => {
+                gen_getsf(ctx.builder);
+            },
+            0x9 => {
+                gen_getsf(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0xA => gen_fn0_const_ret(ctx.builder, "test_p"),
+            0xB => gen_fn0_const_ret(ctx.builder, "test_np"),
+            0xC => {
+                gen_test_l(ctx.builder);
+            },
+            0xD => {
+                gen_test_l(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            0xE => {
+                gen_test_le(ctx.builder);
+            },
+            0xF => {
+                gen_test_le(ctx.builder);
+                ctx.builder.eqz_i32();
+            },
+            _ => dbg_assert!(false),
         }
     }
     else {

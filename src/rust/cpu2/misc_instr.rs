@@ -3,7 +3,6 @@ use cpu2::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_sto
 use cpu2::global_pointers::*;
 use paging::OrPageFault;
 
-#[no_mangle]
 pub unsafe fn getcf() -> bool {
     if 0 != *flags_changed & 1 {
         return 0
@@ -25,7 +24,6 @@ pub unsafe fn getpf() -> bool {
         return 0 != *flags & FLAG_PARITY;
     };
 }
-#[no_mangle]
 pub unsafe fn getaf() -> bool {
     if 0 != *flags_changed & FLAG_ADJUST {
         return 0 != (*last_op1 ^ *last_op2 ^ *last_add_result) & FLAG_ADJUST;
@@ -34,7 +32,6 @@ pub unsafe fn getaf() -> bool {
         return 0 != *flags & FLAG_ADJUST;
     };
 }
-#[no_mangle]
 pub unsafe fn getzf() -> bool {
     if 0 != *flags_changed & FLAG_ZERO {
         return 0 != (!*last_result & *last_result - 1) >> *last_op_size & 1;
@@ -43,7 +40,6 @@ pub unsafe fn getzf() -> bool {
         return 0 != *flags & FLAG_ZERO;
     };
 }
-#[no_mangle]
 pub unsafe fn getsf() -> bool {
     if 0 != *flags_changed & FLAG_SIGN {
         return 0 != *last_result >> *last_op_size & 1;
@@ -52,7 +48,6 @@ pub unsafe fn getsf() -> bool {
         return 0 != *flags & FLAG_SIGN;
     };
 }
-#[no_mangle]
 pub unsafe fn getof() -> bool {
     if 0 != *flags_changed & FLAG_OVERFLOW {
         return 0
@@ -63,38 +58,26 @@ pub unsafe fn getof() -> bool {
         return 0 != *flags & FLAG_OVERFLOW;
     };
 }
-#[no_mangle]
+
 pub unsafe fn test_o() -> bool { return getof(); }
-#[no_mangle]
 pub unsafe fn test_b() -> bool { return getcf(); }
-#[no_mangle]
 pub unsafe fn test_z() -> bool { return getzf(); }
-#[no_mangle]
 pub unsafe fn test_s() -> bool { return getsf(); }
 #[no_mangle]
 pub unsafe fn test_p() -> bool { return getpf(); }
-#[no_mangle]
 pub unsafe fn test_be() -> bool { return getcf() || getzf(); }
-#[no_mangle]
 pub unsafe fn test_l() -> bool { return getsf() != getof(); }
-#[no_mangle]
 pub unsafe fn test_le() -> bool { return getzf() || getsf() != getof(); }
-#[no_mangle]
 pub unsafe fn test_no() -> bool { return !test_o(); }
-#[no_mangle]
 pub unsafe fn test_nb() -> bool { return !test_b(); }
-#[no_mangle]
 pub unsafe fn test_nz() -> bool { return !test_z(); }
-#[no_mangle]
 pub unsafe fn test_ns() -> bool { return !test_s(); }
 #[no_mangle]
 pub unsafe fn test_np() -> bool { return !test_p(); }
-#[no_mangle]
 pub unsafe fn test_nbe() -> bool { return !test_be(); }
-#[no_mangle]
 pub unsafe fn test_nl() -> bool { return !test_l(); }
-#[no_mangle]
 pub unsafe fn test_nle() -> bool { return !test_le(); }
+
 #[no_mangle]
 pub unsafe fn jmp_rel16(rel16: i32) {
     let cs_offset = get_seg_cs();
