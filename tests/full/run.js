@@ -409,6 +409,24 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Tiny Core 11 CD",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Tiny Core 11 HD",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
             name: "Core 9",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
@@ -455,6 +473,14 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/experimental/os/Core-4.7.7.iso",
             expected_texts: ["tc@box"],
             actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Damn Small Linux",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/dsl-4.11.rc2.iso",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
         },
     ];
 
