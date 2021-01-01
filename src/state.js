@@ -21,6 +21,7 @@ var STATE_INDEX_INFO_LEN = 3;
 /** @const */
 var STATE_INFO_BLOCK_START = 16;
 
+const ZSTD_MAGIC = 0xFD2FB528;
 
 /** @constructor */
 function StateLoadError(msg)
@@ -118,19 +119,8 @@ function restore_buffers(obj, buffers)
     const constructor = CONSTRUCTOR_TABLE[type];
     dbg_assert(constructor, "Unkown type: " + type);
 
-    const info = buffers.infos[obj["buffer_id"]];
-
-    // restore large buffers by just returning a view on the state blob
-    // get_state is responsible for copying the data
-    if(info.length >= 1024 * 1024 && constructor === Uint8Array)
-    {
-        return new Uint8Array(buffers.full, info.offset, info.length);
-    }
-    else
-    {
-        var buf = buffers.full.slice(info.offset, info.offset + info.length);
-        return new constructor(buf);
-    }
+    const buffer = buffers[obj["buffer_id"]];
+    return new constructor(buffer);
 }
 
 CPU.prototype.save_state = function()
@@ -194,44 +184,47 @@ CPU.prototype.save_state = function()
         buffer_block.set(buffer, buffer_infos[i].offset);
     }
 
+    dbg_log("State: json size " + (info_block.byteLength >> 10) + "k");
+    dbg_log("State: Total buffers size " + (buffer_block.byteLength >> 10) + "k");
+
     return result;
 };
 
 CPU.prototype.restore_state = function(state)
 {
-    var len = state.byteLength;
+    state = new Uint8Array(state);
 
-    if(len < STATE_INFO_BLOCK_START)
+    function read_state_header(state, check_length)
     {
-        throw new StateLoadError("Invalid length: " + len);
-    }
+        const len = state.length;
 
-    var header_block = new Int32Array(state, 0, 4);
+        if(len < STATE_INFO_BLOCK_START)
+        {
+            throw new StateLoadError("Invalid length: " + len);
+        }
 
-    if(header_block[STATE_INDEX_MAGIC] !== STATE_MAGIC)
-    {
-        throw new StateLoadError("Invalid header: " + h(header_block[STATE_INDEX_MAGIC] >>> 0));
-    }
+        const header_block = new Int32Array(state.buffer, state.byteOffset, 4);
 
-    if(header_block[STATE_INDEX_VERSION] !== STATE_VERSION)
-    {
-        throw new StateLoadError(
-                "Version mismatch: dump=" + header_block[STATE_INDEX_VERSION] +
-                " we=" + STATE_VERSION);
-    }
+        if(header_block[STATE_INDEX_MAGIC] !== STATE_MAGIC)
+        {
+            throw new StateLoadError("Invalid header: " + h(header_block[STATE_INDEX_MAGIC] >>> 0));
+        }
 
-    if(header_block[STATE_INDEX_TOTAL_LEN] !== len)
-    {
-        throw new StateLoadError(
-                "Length doesn't match header: " +
-                "real=" + len + " header=" + header_block[STATE_INDEX_TOTAL_LEN]);
-    }
+        if(header_block[STATE_INDEX_VERSION] !== STATE_VERSION)
+        {
+            throw new StateLoadError(
+                    "Version mismatch: dump=" + header_block[STATE_INDEX_VERSION] +
+                    " we=" + STATE_VERSION);
+        }
 
-    var info_block_len = header_block[STATE_INDEX_INFO_LEN];
+        if(check_length && header_block[STATE_INDEX_TOTAL_LEN] !== len)
+        {
+            throw new StateLoadError(
+                    "Length doesn't match header: " +
+                    "real=" + len + " header=" + header_block[STATE_INDEX_TOTAL_LEN]);
+        }
 
-    if(info_block_len < 0 || info_block_len + 12 >= state.length)
-    {
-        throw new StateLoadError("Invalid info block length: " + info_block_len);
+        return header_block[STATE_INDEX_INFO_LEN];
     }
 
     function read_info_block(info_block_buffer)
@@ -240,24 +233,93 @@ CPU.prototype.restore_state = function(state)
         return JSON.parse(info_block);
     }
 
-    const info_block_buffer = new Uint8Array(state, STATE_INFO_BLOCK_START, info_block_len);
-    var info_block_obj = read_info_block(info_block_buffer);
-
-    var state_object = info_block_obj["state"];
-    var buffer_infos = info_block_obj["buffer_infos"];
-    var buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
-    buffer_block_start = buffer_block_start + 3 & ~3;
-
-    for(var i = 0; i < buffer_infos.length; i++)
+    if(new Uint32Array(state.buffer, 0, 1)[0] === ZSTD_MAGIC)
     {
-        buffer_infos[i].offset += buffer_block_start;
+        const ctx = this.zstd_create_ctx(state.length);
+
+        new Uint8Array(this.wasm_memory.buffer, this.zstd_get_src_ptr(ctx), state.length).set(state);
+
+        let ptr = this.zstd_read(ctx, 16);
+        const header_block = new Uint8Array(this.wasm_memory.buffer, ptr, 16);
+        const info_block_len = read_state_header(header_block, false);
+        this.zstd_read_free(ptr, 16);
+
+        ptr = this.zstd_read(ctx, info_block_len);
+        const info_block_buffer = new Uint8Array(this.wasm_memory.buffer, ptr, info_block_len);
+        const info_block_obj = read_info_block(info_block_buffer);
+        this.zstd_read_free(ptr, info_block_len);
+
+        let state_object = info_block_obj["state"];
+        const buffer_infos = info_block_obj["buffer_infos"];
+        const buffers = [];
+
+        let position = STATE_INFO_BLOCK_START + info_block_len;
+
+        for(const buffer_info of buffer_infos)
+        {
+            const front_padding = (position + 3 & ~3) - position;
+            const CHUNK_SIZE = 1 * 1024 * 1024;
+
+            if(buffer_info.length > CHUNK_SIZE)
+            {
+                const ptr = this.zstd_read(ctx, front_padding);
+                this.zstd_read_free(ptr, front_padding);
+
+                const buffer = new Uint8Array(buffer_info.length);
+                buffers.push(buffer.buffer);
+
+                let have = 0;
+                while(have < buffer_info.length)
+                {
+                    const remaining = buffer_info.length - have;
+                    dbg_assert(remaining >= 0);
+                    const to_read = Math.min(remaining, CHUNK_SIZE);
+
+                    const ptr = this.zstd_read(ctx, to_read);
+                    buffer.set(new Uint8Array(this.wasm_memory.buffer, ptr, to_read), have);
+                    this.zstd_read_free(ptr, to_read);
+
+                    have += to_read;
+                }
+            }
+            else
+            {
+                const ptr = this.zstd_read(ctx, front_padding + buffer_info.length);
+                const offset = ptr + front_padding;
+                buffers.push(this.wasm_memory.buffer.slice(offset, offset + buffer_info.length));
+                this.zstd_read_free(ptr, front_padding + buffer_info.length);
+            }
+
+            position += front_padding + buffer_info.length;
+        }
+
+        state_object = restore_buffers(state_object, buffers);
+        this.set_state(state_object);
+
+        this.zstd_free_ctx(ctx);
     }
+    else
+    {
+        const info_block_len = read_state_header(state, true);
 
-    var buffers = {
-        full: state,
-        infos: buffer_infos,
-    };
+        if(info_block_len < 0 || info_block_len + 12 >= state.length)
+        {
+            throw new StateLoadError("Invalid info block length: " + info_block_len);
+        }
 
-    state_object = restore_buffers(state_object, buffers);
-    this.set_state(state_object);
+        const info_block_buffer = state.subarray(STATE_INFO_BLOCK_START, STATE_INFO_BLOCK_START + info_block_len);
+        const info_block_obj = read_info_block(info_block_buffer);
+        let state_object = info_block_obj["state"];
+        const buffer_infos = info_block_obj["buffer_infos"];
+        let buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
+        buffer_block_start = buffer_block_start + 3 & ~3;
+
+        const buffers = buffer_infos.map(buffer_info => {
+            const offset = buffer_block_start + buffer_info.offset;
+            return state.buffer.slice(offset, offset + buffer_info.length);
+        });
+
+        state_object = restore_buffers(state_object, buffers);
+        this.set_state(state_object);
+    }
 };
