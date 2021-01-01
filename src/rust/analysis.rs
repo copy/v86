@@ -50,10 +50,10 @@ pub fn analyze_step_handle_segment_prefix(
 }
 
 pub fn instr16_0F_analyze(cpu: &mut CpuContext, analysis: &mut Analysis) {
-    ::gen::analyzer0f_16::analyzer(cpu.read_imm8(), cpu, analysis)
+    ::gen::analyzer0f::analyzer(cpu.read_imm8() as u32, cpu, analysis)
 }
 pub fn instr32_0F_analyze(cpu: &mut CpuContext, analysis: &mut Analysis) {
-    ::gen::analyzer0f_32::analyzer(cpu.read_imm8(), cpu, analysis)
+    ::gen::analyzer0f::analyzer(cpu.read_imm8() as u32 | 0x100, cpu, analysis)
 }
 pub fn instr_26_analyze(cpu: &mut CpuContext, analysis: &mut Analysis) {
     analyze_step_handle_segment_prefix(ES, cpu, analysis)

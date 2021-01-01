@@ -16,13 +16,12 @@ const table_arg = get_switch_value("--table");
 const gen_all = get_switch_exist("--all");
 const to_generate = {
     interpreter: gen_all || table_arg === "interpreter",
-    interpreter0f_16: gen_all || table_arg === "interpreter0f_16",
-    interpreter0f_32: gen_all || table_arg === "interpreter0f_32",
+    interpreter0f: gen_all || table_arg === "interpreter0f",
 };
 
 assert(
     Object.keys(to_generate).some(k => to_generate[k]),
-    "Pass --table [interpreter|interpreter0f_16|interpreter0f_32] or --all to pick which tables to generate"
+    "Pass --table [interpreter|interpreter0f] or --all to pick which tables to generate"
 );
 
 gen_table();
@@ -424,8 +423,7 @@ function gen_table()
         );
     }
 
-    const cases0f_16 = [];
-    const cases0f_32 = [];
+    const cases0f = [];
     for(let opcode = 0; opcode < 0x100; opcode++)
     {
         let encoding = by_opcode0f[opcode];
@@ -433,41 +431,39 @@ function gen_table()
         assert(encoding && encoding.length);
 
         let opcode_hex = hex(opcode, 2);
+        let opcode_high_hex = hex(opcode | 0x100, 2);
 
         if(encoding[0].os)
         {
-            cases0f_16.push({
+            cases0f.push({
                 conditions: [`0x${opcode_hex}`],
                 body: gen_instruction_body(encoding, 16),
             });
-            cases0f_32.push({
-                conditions: [`0x${opcode_hex}`],
+            cases0f.push({
+                conditions: [`0x${opcode_high_hex}`],
                 body: gen_instruction_body(encoding, 32),
             });
         }
         else
         {
             let block = {
-                conditions: [`0x${opcode_hex}`],
+                conditions: [`0x${opcode_hex}`, `0x${opcode_high_hex}`],
                 body: gen_instruction_body(encoding, undefined),
             };
-            cases0f_16.push(block);
-            cases0f_32.push(block);
+            cases0f.push(block);
         }
     }
 
-    const table0f_16 = {
+    const table0f = {
         type: "switch",
         condition: "opcode",
-        cases: cases0f_16,
-    };
-    const table0f_32 = {
-        type: "switch",
-        condition: "opcode",
-        cases: cases0f_32,
+        cases: cases0f,
+        default_case: {
+            body: ["assert!(false);"]
+        },
     };
 
-    if(to_generate.interpreter0f_16)
+    if(to_generate.interpreter0f)
     {
         const code = [
             "#![cfg_attr(rustfmt, rustfmt_skip)]",
@@ -476,35 +472,14 @@ function gen_table()
             "use cpu2::instructions_0f::*;",
             "use cpu2::global_pointers::*;",
 
-            "pub unsafe fn run(opcode: u8) {",
-            table0f_16,
+            "pub unsafe fn run(opcode: u32) {",
+            table0f,
             "}",
         ];
 
         finalize_table_rust(
             OUT_DIR,
-            "interpreter0f_16.rs",
-            rust_ast.print_syntax_tree([].concat(code)).join("\n") + "\n"
-        );
-    }
-
-    if(to_generate.interpreter0f_32)
-    {
-        const code = [
-            "#![cfg_attr(rustfmt, rustfmt_skip)]",
-
-            "use cpu2::cpu::*;",
-            "use cpu2::instructions_0f::*;",
-            "use cpu2::global_pointers::*;",
-
-            "pub unsafe fn run(opcode: u8) {",
-            table0f_32,
-            "}",
-        ];
-
-        finalize_table_rust(
-            OUT_DIR,
-            "interpreter0f_32.rs",
+            "interpreter0f.rs",
             rust_ast.print_syntax_tree([].concat(code)).join("\n") + "\n"
         );
     }

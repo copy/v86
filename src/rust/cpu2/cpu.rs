@@ -2313,8 +2313,8 @@ pub unsafe fn modrm_resolve(modrm_byte: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u32) }
-pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f_16::run(opcode as u8) }
-pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(opcode as u8) }
+pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f::run(opcode as u32) }
+pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opcode as u32 | 0x100) }
 
 #[no_mangle]
 pub unsafe fn cycle_internal() {
