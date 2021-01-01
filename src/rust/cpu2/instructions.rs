@@ -3167,11 +3167,11 @@ pub unsafe fn instr_F9() {
 pub unsafe fn instr_FA_without_fault() -> bool {
     // cli
     if !*protected_mode
-        || 0 != if 0 != *flags & FLAG_VM {
-            (getiopl() == 3) as i32
+        || if 0 != *flags & FLAG_VM {
+            getiopl() == 3
         }
         else {
-            (getiopl() >= *cpl as i32) as i32
+            getiopl() >= *cpl as i32
         }
     {
         *flags &= !FLAG_INTERRUPT;
@@ -3179,11 +3179,11 @@ pub unsafe fn instr_FA_without_fault() -> bool {
     }
     else if false
         && getiopl() < 3
-        && 0 != if 0 != *flags & FLAG_VM {
-            *cr.offset(4) & CR4_VME
+        && if 0 != *flags & FLAG_VM {
+            0 != *cr.offset(4) & CR4_VME
         }
         else {
-            (*cpl == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+            *cpl == 3 && 0 != *cr.offset(4) & CR4_PVI
         }
     {
         *flags &= !FLAG_VIF;
@@ -3205,11 +3205,11 @@ pub unsafe fn instr_FB() {
     // sti
     let old_if = *flags & FLAG_INTERRUPT;
     if !*protected_mode
-        || 0 != if 0 != *flags & FLAG_VM {
-            (getiopl() == 3) as i32
+        || if 0 != *flags & FLAG_VM {
+            getiopl() == 3
         }
         else {
-            (getiopl() >= *cpl as i32) as i32
+            getiopl() >= *cpl as i32
         }
     {
         *flags |= FLAG_INTERRUPT;
@@ -3220,11 +3220,11 @@ pub unsafe fn instr_FB() {
     else if false
         && getiopl() < 3
         && *flags & FLAG_VIP == 0
-        && 0 != if 0 != *flags & FLAG_VM {
-            *cr.offset(4) & CR4_VME
+        && if 0 != *flags & FLAG_VM {
+            0 != *cr.offset(4) & CR4_VME
         }
         else {
-            (*cpl == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+            *cpl == 3 && 0 != *cr.offset(4) & CR4_PVI
         }
     {
         *flags |= FLAG_VIF

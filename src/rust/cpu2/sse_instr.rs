@@ -350,10 +350,10 @@ pub unsafe fn sse_comparison(op: i32, x: f64, y: f64) -> bool {
         0 => return x == y,
         1 => return x < y,
         2 => return x <= y,
-        3 => return 0 != x.is_nan() as i32 || 0 != y.is_nan() as i32,
-        4 => return x != y || 0 != x.is_nan() as i32 || 0 != y.is_nan() as i32,
-        5 => return x >= y || 0 != x.is_nan() as i32 || 0 != y.is_nan() as i32,
-        6 => return x > y || 0 != x.is_nan() as i32 || 0 != y.is_nan() as i32,
+        3 => return x.is_nan() || y.is_nan(),
+        4 => return x != y || x.is_nan() || y.is_nan(),
+        5 => return x >= y || x.is_nan() || y.is_nan(),
+        6 => return x > y || x.is_nan() || y.is_nan(),
         7 => return !x.is_nan() && !y.is_nan(),
         _ => {
             dbg_assert!(false);
