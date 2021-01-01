@@ -95,7 +95,7 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
             .const_i32(ctx.start_of_current_instruction as i32);
         ctx.builder.const_i32(ctx.our_wasm_table_index as i32);
         ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
-        gen_call_fn4_ret(ctx.builder, "jit_find_cache_entry_in_page");
+        ctx.builder.call_fn4_ret("jit_find_cache_entry_in_page");
         let new_basic_block_index = ctx.builder.tee_new_local();
         ctx.builder.const_i32(0);
         ctx.builder.ge_i32();
@@ -277,92 +277,15 @@ pub fn sign_extend_i16(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_fn0_const(builder: &mut WasmBuilder, name: &str) { builder.call_fn0(name) }
-
-pub fn gen_fn0_const_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn0_ret(name); }
-
 pub fn gen_fn1_const(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     builder.const_i32(arg0 as i32);
     builder.call_fn1(name);
 }
-
-pub fn gen_call_fn1_ret(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn1_ret(name);
-}
-
-pub fn gen_call_fn1_ret_f64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn1_ret_f64(name);
-}
-
-pub fn gen_call_fn1_f64_ret_i32(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn1_f64_ret(name);
-}
-
-pub fn gen_call_fn0_ret_i64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn0_ret_i64(name);
-}
-
-pub fn gen_call_fn1_ret_i64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn1_ret_i64(name);
-}
-
-pub fn gen_call_fn1_f64_ret_i64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn1_f64_ret_i64(name);
-}
-
 pub fn gen_fn2_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
     builder.call_fn2(name);
 }
-
-pub fn gen_call_fn1(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _ ) where _ must be left on the stack before calling this
-    builder.call_fn1(name);
-}
-
-pub fn gen_call_fn2(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    builder.call_fn2(name);
-}
-
-pub fn gen_call_fn2_i32_f64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    builder.call_fn2_i32_f64(name);
-}
-
-pub fn gen_call_fn2_i64_i32(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    builder.call_fn2_i64_i32(name);
-}
-
-pub fn gen_call_fn3_i32_i64_i32_ret(builder: &mut WasmBuilder, name: &str) {
-    builder.call_fn3_i32_i64_i32_ret(name);
-}
-
-pub fn gen_call_fn1_f64(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    builder.call_fn1_f64(name);
-}
-
-pub fn gen_call_fn2_ret(builder: &mut WasmBuilder, name: &str) {
-    // generates: fn( _, _ ) where _ must be left on the stack before calling this, and fn returns a value
-    builder.call_fn2_ret(name);
-}
-
-pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) { builder.call_fn3(name); }
-
-pub fn gen_call_fn4_i32_i64_i64_i32_ret(builder: &mut WasmBuilder, name: &str) {
-    builder.call_fn4_i32_i64_i64_i32_ret(name);
-}
-
-pub fn gen_call_fn3_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn3_ret(name); }
-
 pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32, arg2: u32) {
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
@@ -370,24 +293,21 @@ pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32
     builder.call_fn3(name);
 }
 
-pub fn gen_call_fn4_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn4_ret(name); }
-
+// helper functions for gen/generate_jit.js
 pub fn gen_modrm_fn0(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ )
-    gen_call_fn1(builder, name);
+    builder.call_fn1(name);
 }
-
 pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     // generates: fn( _, arg0 )
     builder.const_i32(arg0 as i32);
-    gen_call_fn2(builder, name);
+    builder.call_fn2(name);
 }
-
 pub fn gen_modrm_fn2(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     // generates: fn( _, arg0, arg1 )
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
-    gen_call_fn3(builder, name);
+    builder.call_fn3(name);
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx, modrm_byte) }
@@ -566,7 +486,7 @@ fn gen_safe_read(
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
-        gen_call_fn2(ctx.builder, "report_safe_read_jit_slow");
+        ctx.builder.call_fn2("report_safe_read_jit_slow");
     }
 
     ctx.builder.get_local(&address_local);
@@ -574,19 +494,19 @@ fn gen_safe_read(
         .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
     match bits {
         BitSize::BYTE => {
-            gen_call_fn2_ret(ctx.builder, "safe_read8_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read8_slow_jit");
         },
         BitSize::WORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read16_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read32s_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read32s_slow_jit");
         },
         BitSize::QWORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read64s_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read64s_slow_jit");
         },
         BitSize::DQWORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read128s_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read128s_slow_jit");
         },
     }
     ctx.builder.tee_local(&entry_local);
@@ -703,7 +623,7 @@ fn gen_safe_write(
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
-        gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
+        ctx.builder.call_fn2("report_safe_write_jit_slow");
     }
 
     ctx.builder.get_local(&address_local);
@@ -719,19 +639,21 @@ fn gen_safe_write(
         .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
     match bits {
         BitSize::BYTE => {
-            gen_call_fn3_ret(ctx.builder, "safe_write8_slow_jit");
+            ctx.builder.call_fn3_ret("safe_write8_slow_jit");
         },
         BitSize::WORD => {
-            gen_call_fn3_ret(ctx.builder, "safe_write16_slow_jit");
+            ctx.builder.call_fn3_ret("safe_write16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn3_ret(ctx.builder, "safe_write32_slow_jit");
+            ctx.builder.call_fn3_ret("safe_write32_slow_jit");
         },
         BitSize::QWORD => {
-            gen_call_fn3_i32_i64_i32_ret(ctx.builder, "safe_write64_slow_jit");
+            ctx.builder
+                .call_fn3_i32_i64_i32_ret("safe_write64_slow_jit");
         },
         BitSize::DQWORD => {
-            gen_call_fn4_i32_i64_i64_i32_ret(ctx.builder, "safe_write128_slow_jit");
+            ctx.builder
+                .call_fn4_i32_i64_i64_i32_ret("safe_write128_slow_jit");
         },
     }
     ctx.builder.tee_local(&entry_local);
@@ -852,7 +774,7 @@ pub fn gen_safe_read_write(
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
-        gen_call_fn2(ctx.builder, "report_safe_read_write_jit_slow");
+        ctx.builder.call_fn2("report_safe_read_write_jit_slow");
     }
 
     ctx.builder.get_local(&address_local);
@@ -861,13 +783,13 @@ pub fn gen_safe_read_write(
 
     match bits {
         BitSize::BYTE => {
-            gen_call_fn2_ret(ctx.builder, "safe_read_write8_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read_write8_slow_jit");
         },
         BitSize::WORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read_write16_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read_write16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn2_ret(ctx.builder, "safe_read_write32s_slow_jit");
+            ctx.builder.call_fn2_ret("safe_read_write32s_slow_jit");
         },
         BitSize::QWORD => dbg_assert!(false),
         BitSize::DQWORD => dbg_assert!(false),
@@ -937,13 +859,13 @@ pub fn gen_safe_read_write(
 
         match bits {
             BitSize::BYTE => {
-                gen_call_fn3_ret(ctx.builder, "safe_write8_slow_jit");
+                ctx.builder.call_fn3_ret("safe_write8_slow_jit");
             },
             BitSize::WORD => {
-                gen_call_fn3_ret(ctx.builder, "safe_write16_slow_jit");
+                ctx.builder.call_fn3_ret("safe_write16_slow_jit");
             },
             BitSize::DWORD => {
-                gen_call_fn3_ret(ctx.builder, "safe_write32_slow_jit");
+                ctx.builder.call_fn3_ret("safe_write32_slow_jit");
             },
             BitSize::QWORD => dbg_assert!(false),
             BitSize::DQWORD => dbg_assert!(false),
@@ -966,7 +888,7 @@ pub fn gen_safe_read_write(
                     },
                 });
                 ctx.builder.get_local(&address_local);
-                gen_call_fn2(ctx.builder, "bug_gen_safe_read_write_page_fault");
+                ctx.builder.call_fn2("bug_gen_safe_read_write_page_fault");
             }
             else {
                 ctx.builder.unreachable();
@@ -1577,7 +1499,7 @@ pub fn gen_test_jcxz(ctx: &mut JitContext, is_asize_32: bool) {
 
 pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     ctx.builder.const_i32(i as i32);
-    gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");
+    ctx.builder.call_fn1_ret_f64("fpu_get_sti");
 }
 
 pub fn gen_fpu_load_m32(ctx: &mut JitContext, modrm_byte: u8) {
@@ -1662,8 +1584,8 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
                 gen_getsf(ctx.builder);
                 ctx.builder.eqz_i32();
             },
-            0xA => gen_fn0_const_ret(ctx.builder, "test_p"),
-            0xB => gen_fn0_const_ret(ctx.builder, "test_np"),
+            0xA => ctx.builder.call_fn0_ret("test_p"),
+            0xB => ctx.builder.call_fn0_ret("test_np"),
             0xC => {
                 gen_test_l(ctx.builder);
             },
