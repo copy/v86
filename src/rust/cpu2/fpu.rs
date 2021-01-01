@@ -110,6 +110,12 @@ pub unsafe fn fpu_zero_fault() {
 }
 
 #[no_mangle]
+pub unsafe fn fpu_underflow_fault() {
+    // TODO: Interrupt
+    *fpu_status_word |= FPU_EX_U;
+}
+
+#[no_mangle]
 pub unsafe fn fpu_sti_empty(mut i: i32) -> bool {
     dbg_assert!(i >= 0 && i < 8);
     i = ((i as u32).wrapping_add(*fpu_stack_ptr) & 7) as i32;
@@ -135,19 +141,19 @@ pub unsafe fn fpu_integer_round(f: f64) -> f64 {
     // XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions
     if rc == 0 {
         // Round to nearest, or even if equidistant
-        let mut rounded: f64 = round(f);
+        let mut rounded = f.round();
         let diff = rounded - f;
-        if diff == 0.5f64 || diff == -0.5f64 {
-            rounded = 2.0f64 * round(f * 0.5f64)
+        if diff == 0.5 || diff == -0.5 {
+            rounded = 2.0 * (f * 0.5).round()
         }
         return rounded;
     }
     else if rc == 1 || rc == 3 && f > 0.0 {
         // rc=3 is truncate -> floor for positive numbers
-        return floor(f);
+        return f.floor();
     }
     else {
-        return ceil(f);
+        return f.ceil();
     };
 }
 
@@ -728,6 +734,11 @@ pub unsafe fn fpu_fstm32(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_store_m32(addr: i32, x: f64) -> OrPageFault<()> {
+    // TODO: Round according to RC
+    let y = x as f32;
+    if x != 0.0 && y == 0.0 {
+        fpu_underflow_fault();
+    }
     let v = transmute(x as f32);
     safe_write32(addr, v)
 }

@@ -1,4 +1,5 @@
 use cpu2::cpu::*;
+use cpu2::global_pointers::mxcsr;
 
 #[no_mangle]
 pub unsafe fn mov_r_m64(addr: i32, r: i32) {
@@ -335,8 +336,19 @@ pub unsafe fn sse_max(x: f64, y: f64) -> f64 {
 }
 
 #[no_mangle]
+pub unsafe fn sse_convert_with_truncation_f32_to_i32(x: f32) -> i32 {
+    let x = x.trunc();
+    if x >= -2147483648.0 && x < 2147483648.0 {
+        return x as i64 as i32;
+    }
+    else {
+        // TODO: Signal
+        return -0x80000000;
+    };
+}
+#[no_mangle]
 pub unsafe fn sse_convert_f32_to_i32(x: f32) -> i32 {
-    // TODO: Rounding modes
+    let x = sse_integer_round(x as f64);
     if x >= -2147483648.0 && x < 2147483648.0 {
         return x as i64 as i32;
     }
@@ -347,13 +359,45 @@ pub unsafe fn sse_convert_f32_to_i32(x: f32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn sse_convert_f64_to_i32(x: f64) -> i32 {
-    // TODO: Rounding modes
+pub unsafe fn sse_convert_with_truncation_f64_to_i32(x: f64) -> i32 {
+    let x = x.trunc();
     if x >= -2147483648.0 && x < 2147483648.0 {
         return x as i64 as i32;
     }
     else {
         // TODO: Signal
         return -0x80000000;
+    };
+}
+#[no_mangle]
+pub unsafe fn sse_convert_f64_to_i32(x: f64) -> i32 {
+    let x = sse_integer_round(x);
+    if x >= -2147483648.0 && x < 2147483648.0 {
+        return x as i64 as i32;
+    }
+    else {
+        // TODO: Signal
+        return -0x80000000;
+    };
+}
+
+pub unsafe fn sse_integer_round(f: f64) -> f64 {
+    // see fpu_integer_round
+    let rc = *mxcsr >> MXCSR_RC_SHIFT & 3;
+    if rc == 0 {
+        // Round to nearest, or even if equidistant
+        let mut rounded = f.round();
+        let diff = rounded - f;
+        if diff == 0.5 || diff == -0.5 {
+            rounded = 2.0 * (f * 0.5).round()
+        }
+        return rounded;
+    }
+    else if rc == 1 || rc == 3 && f > 0.0 {
+        // rc=3 is truncate -> floor for positive numbers
+        return f.floor();
+    }
+    else {
+        return f.ceil();
     };
 }

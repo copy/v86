@@ -991,11 +991,12 @@ pub unsafe fn instr_660F2B_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F2C(source: u64, r: i32) {
     // cvttps2pi mm, xmm/m64
+    let low = f32::from_bits(source as u32);
+    let high = f32::from_bits((source >> 32) as u32);
     write_mmx_reg64(
         r,
-        sse_convert_f32_to_i32(f32::from_bits(source as u32).trunc()) as u32 as u64
-            | (sse_convert_f32_to_i32(f32::from_bits((source >> 32) as u32).trunc()) as u32 as u64)
-                << 32,
+        sse_convert_with_truncation_f32_to_i32(low) as u32 as u64
+            | (sse_convert_with_truncation_f32_to_i32(high) as u32 as u64) << 32,
     );
     transition_fpu_to_mmx();
 }
@@ -1009,11 +1010,10 @@ pub unsafe fn instr_0F2C_reg(r1: i32, r2: i32) { instr_0F2C(read_xmm64s(r1), r2)
 #[no_mangle]
 pub unsafe fn instr_660F2C(source: reg128, r: i32) {
     // cvttpd2pi mm, xmm/m128
-    // XXX: Check conversion
     write_mmx_reg64(
         r,
-        sse_convert_f64_to_i32(source.f64_0[0]) as u32 as u64
-            | (sse_convert_f64_to_i32(source.f64_0[1]) as u32 as u64) << 32,
+        sse_convert_with_truncation_f64_to_i32(source.f64_0[0]) as u32 as u64
+            | (sse_convert_with_truncation_f64_to_i32(source.f64_0[1]) as u32 as u64) << 32,
     );
     transition_fpu_to_mmx();
 }
@@ -1027,7 +1027,8 @@ pub unsafe fn instr_660F2C_reg(r1: i32, r2: i32) { instr_660F2C(read_xmm128s(r1)
 #[no_mangle]
 pub unsafe fn instr_F20F2C(source: u64, r: i32) {
     // cvttsd2si r32, xmm/m64
-    write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source)));
+    let source = f64::from_bits(source);
+    write_reg32(r, sse_convert_with_truncation_f64_to_i32(source));
 }
 #[no_mangle]
 pub unsafe fn instr_F20F2C_reg(r1: i32, r2: i32) { instr_F20F2C(read_xmm64s(r1), r2); }
@@ -1038,8 +1039,8 @@ pub unsafe fn instr_F20F2C_mem(addr: i32, r: i32) {
 
 #[no_mangle]
 pub unsafe fn instr_F30F2C(source: f32, r: i32) {
-    let result = source.trunc();
-    write_reg32(r, sse_convert_f32_to_i32(source));
+    // cvttss2si
+    write_reg32(r, sse_convert_with_truncation_f32_to_i32(source));
 }
 #[no_mangle]
 pub unsafe fn instr_F30F2C_mem(addr: i32, r: i32) {
@@ -3990,8 +3991,8 @@ pub unsafe fn instr_660FE6(source: reg128, r: i32) {
     // cvttpd2dq xmm1, xmm2/m128
     let result = reg128 {
         i32_0: [
-            sse_convert_f64_to_i32(source.f64_0[0].trunc()),
-            sse_convert_f64_to_i32(source.f64_0[1].trunc()),
+            sse_convert_with_truncation_f64_to_i32(source.f64_0[0]),
+            sse_convert_with_truncation_f64_to_i32(source.f64_0[1]),
             0,
             0,
         ],
@@ -4011,8 +4012,8 @@ pub unsafe fn instr_F20FE6(source: reg128, r: i32) {
     let result = reg128 {
         i32_0: [
             // XXX: Precision exception
-            sse_convert_f64_to_i32(source.f64_0[0].round()),
-            sse_convert_f64_to_i32(source.f64_0[1].round()),
+            sse_convert_f64_to_i32(source.f64_0[0]),
+            sse_convert_f64_to_i32(source.f64_0[1]),
             0,
             0,
         ],
@@ -4826,6 +4827,7 @@ pub unsafe fn instr_0F1E_mem(addr: i32, r: i32) {}
 pub unsafe fn instr_0F2A(source: u64, r: i32) {
     // cvtpi2ps xmm, mm/m64
     // Note: Casts here can fail
+    // XXX: Should round according to round control
     let source: [i32; 2] = std::mem::transmute(source);
     let result = [source[0] as f32, source[1] as f32];
     write_xmm64(r, std::mem::transmute(result));
@@ -4870,6 +4872,7 @@ pub unsafe fn instr_F20F2A_mem(addr: i32, r: i32) {
 pub unsafe fn instr_F30F2A(source: i32, r: i32) {
     // cvtsi2ss xmm, r/m32
     // Note: This cast can fail
+    // XXX: Should round according to round control
     let result = source as f32;
     write_xmm_f32(r, result);
 }
@@ -4885,8 +4888,8 @@ pub unsafe fn instr_0F2D(source: u64, r: i32) {
     // cvtps2pi mm, xmm/m64
     let source: [f32; 2] = std::mem::transmute(source);
     let result = [
-        sse_convert_f32_to_i32(source[0].round()),
-        sse_convert_f32_to_i32(source[1].round()),
+        sse_convert_f32_to_i32(source[0]),
+        sse_convert_f32_to_i32(source[1]),
     ];
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
@@ -4902,8 +4905,8 @@ pub unsafe fn instr_0F2D_mem(addr: i32, r: i32) {
 pub unsafe fn instr_660F2D(source: reg128, r: i32) {
     // cvtpd2pi mm, xmm/m128
     let result = [
-        sse_convert_f64_to_i32(source.f64_0[0].round()),
-        sse_convert_f64_to_i32(source.f64_0[1].round()),
+        sse_convert_f64_to_i32(source.f64_0[0]),
+        sse_convert_f64_to_i32(source.f64_0[1]),
     ];
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
@@ -4917,7 +4920,7 @@ pub unsafe fn instr_660F2D_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F20F2D(source: u64, r: i32) {
     // cvtsd2si r32, xmm/m64
-    write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source).round()));
+    write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source)));
 }
 #[no_mangle]
 pub unsafe fn instr_F20F2D_reg(r1: i32, r2: i32) { instr_F20F2D(read_xmm64s(r1), r2); }
@@ -4928,7 +4931,7 @@ pub unsafe fn instr_F20F2D_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F30F2D(source: f32, r: i32) {
     // cvtss2si r32, xmm1/m32
-    write_reg32(r, sse_convert_f32_to_i32(source.round()));
+    write_reg32(r, sse_convert_f32_to_i32(source));
 }
 #[no_mangle]
 pub unsafe fn instr_F30F2D_reg(r1: i32, r2: i32) { instr_F30F2D(read_xmm_f32(r1), r2); }
@@ -4940,6 +4943,7 @@ pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F51(source: reg128, r: i32) {
     // sqrtps xmm, xmm/mem128
+    // XXX: Should round according to round control
     let result = reg128 {
         f32_0: [
             source.f32_0[0].sqrt(),
@@ -4959,6 +4963,7 @@ pub unsafe fn instr_0F51_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_660F51(source: reg128, r: i32) {
     // sqrtpd xmm, xmm/mem128
+    // XXX: Should round according to round control
     let result = reg128 {
         f64_0: [source.f64_0[0].sqrt(), source.f64_0[1].sqrt()],
     };
@@ -4973,6 +4978,7 @@ pub unsafe fn instr_660F51_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F20F51(source: u64, r: i32) {
     // sqrtsd xmm, xmm/mem64
+    // XXX: Should round according to round control
     write_xmm_f64(r, f64::from_bits(source).sqrt());
 }
 #[no_mangle]
@@ -4984,6 +4990,7 @@ pub unsafe fn instr_F20F51_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F30F51(source: f32, r: i32) {
     // sqrtss xmm, xmm/mem32
+    // XXX: Should round according to round control
     write_xmm_f32(r, source.sqrt());
 }
 #[no_mangle]
@@ -5240,6 +5247,7 @@ pub unsafe fn instr_F30F5A_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F5B(source: reg128, r: i32) {
     // cvtdq2ps xmm1, xmm2/m128
+    // XXX: Should round according to round control
     let result = reg128 {
         f32_0: [
             // XXX: Precision exception
@@ -5263,10 +5271,10 @@ pub unsafe fn instr_660F5B(source: reg128, r: i32) {
     let result = reg128 {
         i32_0: [
             // XXX: Precision exception
-            sse_convert_f32_to_i32(source.f32_0[0].round()),
-            sse_convert_f32_to_i32(source.f32_0[1].round()),
-            sse_convert_f32_to_i32(source.f32_0[2].round()),
-            sse_convert_f32_to_i32(source.f32_0[3].round()),
+            sse_convert_f32_to_i32(source.f32_0[0]),
+            sse_convert_f32_to_i32(source.f32_0[1]),
+            sse_convert_f32_to_i32(source.f32_0[2]),
+            sse_convert_f32_to_i32(source.f32_0[3]),
         ],
     };
     write_xmm_reg128(r, result);
@@ -5282,10 +5290,10 @@ pub unsafe fn instr_F30F5B(source: reg128, r: i32) {
     // cvttps2dq xmm1, xmm2/m128
     let result = reg128 {
         i32_0: [
-            sse_convert_f32_to_i32(source.f32_0[0].trunc()),
-            sse_convert_f32_to_i32(source.f32_0[1].trunc()),
-            sse_convert_f32_to_i32(source.f32_0[2].trunc()),
-            sse_convert_f32_to_i32(source.f32_0[3].trunc()),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[0]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[1]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[2]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[3]),
         ],
     };
     write_xmm_reg128(r, result);
