@@ -110,7 +110,10 @@ pub fn sse_read128_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: ModrmBy
     ctx.builder.call_fn2(name);
 }
 pub fn sse_read128_xmm_xmm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
-    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    // Make a copy to avoid aliasing problems: Called function expects a reg128, which must not
+    // alias with memory
+    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.call_fn2(name);
@@ -4472,7 +4475,8 @@ pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
     ctx.builder.call_fn3("instr_660F70");
 }
 pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
@@ -4487,7 +4491,8 @@ pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
     ctx.builder.call_fn3("instr_F20F70");
 }
 pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
@@ -4502,7 +4507,8 @@ pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
     ctx.builder.call_fn3("instr_F30F70");
 }
 pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
