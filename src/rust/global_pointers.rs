@@ -20,7 +20,10 @@ pub const FPU_CONTROL_WORD: u32 = 1036;
 pub const SSE_SCRATCH_REGISTER: u32 = 1040;
 pub const OPSTATS_BUFFER: u32 = 0x08000;
 pub const OPSTATS_UNGUARDED_REGISTER_BUFFER: u32 = 0x20000;
-pub const TLB_DATA: u32 = 0x400000;
+pub const TLB_DATA: u32 = 0x400000; // 2**20 32-bit words = 4MB
+
+pub const JIT_PAGE_FIRST_ENTRY: u32 = 0x800000; // 2**20 32-bit words = 4MB
+pub const JIT_CACHE_ARRAY: u32 = 0xC00000; // jit_cache_array::SIZE * sizeof(jit_cache_array::Entry) = 0x40000 * 24 = 6MB
 
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);

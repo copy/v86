@@ -38,6 +38,7 @@ mod jit_cache_array {
 
     const NO_NEXT_ENTRY: u32 = 0xffff_ffff;
 
+    // When changing this, you also need to bump global-base
     pub const SIZE: u32 = 0x40000;
     pub const MASK: u32 = SIZE - 1;
 
@@ -119,25 +120,22 @@ mod jit_cache_array {
     };
 
     #[allow(non_upper_case_globals)]
-    static mut jit_cache_array: [Entry; SIZE as usize] = [Entry {
-        start_addr: 0,
-        next_index_same_page: 0,
-        wasm_table_index: 0,
-        initial_state: 0,
-        state_flags: CachedStateFlags::EMPTY,
-        pending: false,
+    pub const jit_cache_array: *mut Entry = ::global_pointers::JIT_CACHE_ARRAY as *mut Entry;
 
-        #[cfg(any(debug_assertions, feature = "profiler"))]
-        len: 0,
-        #[cfg(debug_assertions)]
-        opcode: 0,
-    }; SIZE as usize];
+    #[allow(unreachable_code)]
+    #[cfg(debug_assertions)]
+    unsafe fn _static_assert() { std::mem::transmute::<Entry, [u8; 24]>(panic!()); }
 
+    #[allow(unreachable_code)]
+    #[cfg(all(not(debug_assertions), not(feature = "profiler")))]
+    unsafe fn _static_assert() { std::mem::transmute::<Entry, [u8; 16]>(panic!()); }
+
+    // XXX: Probably doesn't need to be statically allocated
     #[allow(non_upper_case_globals)]
-    static mut page_first_entry: [u32; 0x100000] = [0; 0x100000];
+    pub const page_first_entry: *mut u32 = ::global_pointers::JIT_PAGE_FIRST_ENTRY as *mut u32;
 
     pub fn get_page_index(page: Page) -> Option<u32> {
-        let index = unsafe { page_first_entry[page.to_u32() as usize] };
+        let index = unsafe { *page_first_entry.offset(page.to_u32() as isize) };
         if index == NO_NEXT_ENTRY {
             None
         }
@@ -148,17 +146,15 @@ mod jit_cache_array {
 
     pub fn set_page_index(page: Page, index: Option<u32>) {
         let index = index.unwrap_or(NO_NEXT_ENTRY);
-        unsafe { page_first_entry[page.to_u32() as usize] = index }
+        unsafe { *page_first_entry.offset(page.to_u32() as isize) = index }
     }
 
-    pub fn get(i: u32) -> &'static Entry { unsafe { &jit_cache_array[i as usize] } }
-    pub fn get_mut(i: u32) -> &'static mut Entry { unsafe { &mut jit_cache_array[i as usize] } }
-
-    pub fn get_unchecked(i: u32) -> &'static Entry {
-        unsafe { jit_cache_array.get_unchecked(i as usize) }
+    pub fn get(i: u32) -> &'static Entry { unsafe { &*jit_cache_array.offset(i as isize) } }
+    pub fn get_mut(i: u32) -> &'static mut Entry {
+        unsafe { &mut *jit_cache_array.offset(i as isize) }
     }
 
-    fn set(i: u32, entry: Entry) { unsafe { jit_cache_array[i as usize] = entry }; }
+    fn set(i: u32, entry: Entry) { unsafe { *jit_cache_array.offset(i as isize) = entry }; }
 
     pub fn insert(index: u32, mut entry: Entry) {
         let page = Page::page_of(entry.start_addr);
@@ -182,21 +178,21 @@ mod jit_cache_array {
     }
 
     pub fn remove(index: u32) {
-        let page = Page::page_of(get(index).start_addr);
+        let page = Page::page_of((get(index)).start_addr);
 
         let mut page_index = get_page_index(page);
         let mut did_remove = false;
 
         if page_index == Some(index) {
-            set_page_index(page, get(index).next_index_same_page());
+            set_page_index(page, (get(index)).next_index_same_page());
             did_remove = true;
         }
         else {
             while let Some(page_index_ok) = page_index {
-                let next_index = get(page_index_ok).next_index_same_page();
+                let next_index = (get(page_index_ok)).next_index_same_page();
                 if next_index == Some(index) {
-                    get_mut(page_index_ok)
-                        .set_next_index_same_page(get(index).next_index_same_page());
+                    (get_mut(page_index_ok))
+                        .set_next_index_same_page((get(index)).next_index_same_page());
                     did_remove = true;
                     break;
                 }
@@ -204,21 +200,19 @@ mod jit_cache_array {
             }
         }
 
-        get_mut(index).set_next_index_same_page(None);
+        (get_mut(index)).set_next_index_same_page(None);
 
         dbg_assert!(did_remove);
     }
 
-    pub fn iter() -> ::std::slice::Iter<'static, Entry> { unsafe { jit_cache_array.iter() } }
-
     pub fn clear() {
         unsafe {
-            for (i, _) in jit_cache_array.iter().enumerate() {
-                jit_cache_array[i] = DEFAULT_ENTRY;
+            for i in 0..SIZE {
+                *jit_cache_array.offset(i as isize) = DEFAULT_ENTRY;
             }
 
-            for (i, _) in page_first_entry.iter().enumerate() {
-                page_first_entry[i] = NO_NEXT_ENTRY;
+            for i in 0..0x100000 {
+                *page_first_entry.offset(i) = NO_NEXT_ENTRY;
             }
         }
     }
@@ -235,11 +229,11 @@ mod jit_cache_array {
             let mut fast = slow;
 
             while let Some(fast_ok) = fast {
-                fast = get(fast_ok).next_index_same_page();
-                slow = get(slow.unwrap()).next_index_same_page();
+                fast = (get(fast_ok)).next_index_same_page();
+                slow = (get(slow.unwrap())).next_index_same_page();
 
                 if let Some(fast_ok) = fast {
-                    fast = get(fast_ok).next_index_same_page();
+                    fast = (get(fast_ok)).next_index_same_page();
                 }
                 else {
                     break;
@@ -251,7 +245,8 @@ mod jit_cache_array {
 
         let mut wasm_table_index_to_jit_cache_index = [0; ::jit::WASM_TABLE_SIZE as usize];
 
-        for (i, entry) in iter().enumerate() {
+        for i in 0..SIZE {
+            let entry = get(i);
             dbg_assert!(entry.next_index_same_page().map_or(true, |i| i < SIZE));
 
             if entry.pending {
@@ -400,7 +395,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
 
     for i in 0..CODE_CACHE_SEARCH_SIZE {
         let index = (phys_address + i) & jit_cache_array::MASK;
-        let entry = jit_cache_array::get_unchecked(index);
+        let entry = jit_cache_array::get(index);
 
         if entry.start_addr == phys_address {
             if entry.pending {
@@ -942,12 +937,12 @@ pub fn codegen_finalize_finished(
             while let Some(index) = cache_array_index {
                 let mut entry = jit_cache_array::get_mut(index);
 
-                if entry.wasm_table_index == wasm_table_index {
-                    dbg_assert!(entry.pending);
-                    entry.pending = false;
+                if (*entry).wasm_table_index == wasm_table_index {
+                    dbg_assert!((*entry).pending);
+                    (*entry).pending = false;
                 }
 
-                cache_array_index = entry.next_index_same_page();
+                cache_array_index = (*entry).next_index_same_page();
             }
         },
     }
@@ -957,7 +952,8 @@ pub fn codegen_finalize_finished(
     if CHECK_JIT_CACHE_ARRAY_INVARIANTS {
         // sanity check that the above iteration marked all entries as not pending
 
-        for entry in jit_cache_array::iter() {
+        for i in 0..jit_cache_array::SIZE {
+            let entry = jit_cache_array::get(i);
             if entry.wasm_table_index == wasm_table_index {
                 dbg_assert!(!entry.pending);
             }
@@ -1348,7 +1344,8 @@ fn remove_jit_cache_wasm_index(ctx: &mut JitState, page: Page, wasm_table_index:
     if CHECK_JIT_CACHE_ARRAY_INVARIANTS {
         // sanity check that the above iteration deleted all entries
 
-        for entry in jit_cache_array::iter() {
+        for i in 0..jit_cache_array::SIZE {
+            let entry = jit_cache_array::get(i);
             dbg_assert!(entry.wasm_table_index != wasm_table_index);
         }
     }
@@ -1470,16 +1467,20 @@ pub fn jit_page_has_code(ctx: &JitState, page: Page) -> bool {
 
 #[cfg(debug_assertions)]
 pub fn jit_unused_cache_stat() -> u32 {
-    jit_cache_array::iter()
-        .filter(|e| e.start_addr == 0)
-        .count() as u32
+    let mut count = 0;
+    for i in 0..jit_cache_array::SIZE {
+        if (jit_cache_array::get(i)).start_addr == 0 {
+            count += 1
+        }
+    }
+    return count;
 }
 #[cfg(debug_assertions)]
-pub fn jit_get_entry_length(i: u32) -> u32 { jit_cache_array::get(i).len }
+pub fn jit_get_entry_length(i: u32) -> u32 { (jit_cache_array::get(i)).len }
 #[cfg(debug_assertions)]
-pub fn jit_get_entry_address(i: u32) -> u32 { jit_cache_array::get(i).start_addr }
+pub fn jit_get_entry_address(i: u32) -> u32 { (jit_cache_array::get(i)).start_addr }
 #[cfg(debug_assertions)]
-pub fn jit_get_entry_pending(i: u32) -> bool { jit_cache_array::get(i).pending }
+pub fn jit_get_entry_pending(i: u32) -> bool { (jit_cache_array::get(i)).pending }
 #[cfg(debug_assertions)]
 pub fn jit_get_wasm_table_index_free_list_count(ctx: &JitState) -> u32 {
     ctx.wasm_table_index_free_list.len() as u32
@@ -1496,7 +1497,7 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
         // No need to check [CODE_CACHE_SEARCH_SIZE] entries here as we look at consecutive
         // addresses anyway
         let index = i & jit_cache_array::MASK;
-        let entry = jit_cache_array::get_unchecked(index);
+        let entry = jit_cache_array::get(index);
 
         if !entry.pending
             && entry.state_flags == state_flags
