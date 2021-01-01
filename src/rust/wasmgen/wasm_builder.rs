@@ -208,8 +208,10 @@ impl WasmBuilder {
 
         let idx_section_size = self.output.len();
         self.output.push(0);
+        self.output.push(0);
 
         let nr_of_function_types = FunctionType::to_u8(FunctionType::LAST) + 1;
+        dbg_assert!(nr_of_function_types < 128);
         self.output.push(nr_of_function_types);
 
         for i in 0..(nr_of_function_types) {
@@ -365,8 +367,8 @@ impl WasmBuilder {
         }
 
         let new_len = self.output.len();
-        let size = (new_len - 1) - idx_section_size;
-        self.output[idx_section_size] = size.safe_to_u8();
+        let size = (new_len - 2) - idx_section_size;
+        write_fixed_leb16_at_idx(&mut self.output, idx_section_size, size.safe_to_u16());
     }
 
     /// Goes over the import block to find index of an import entry by function name
