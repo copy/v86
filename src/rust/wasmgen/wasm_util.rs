@@ -67,7 +67,7 @@ pub trait WasmBuf {
     fn block_void(&mut self);
     fn block_end(&mut self);
     fn return_(&mut self);
-    fn drop(&mut self);
+    fn drop_(&mut self);
     fn brtable_and_cases(&mut self, cases_count: u32);
     fn br(&mut self, depth: u32);
     fn get_local(&mut self, local: &WasmLocal);
@@ -290,7 +290,7 @@ impl WasmBuf for Vec<u8> {
 
     fn return_(&mut self) { self.push(op::OP_RETURN); }
 
-    fn drop(&mut self) { self.push(op::OP_DROP); }
+    fn drop_(&mut self) { self.push(op::OP_DROP); }
 
     // Generate a br_table where an input of [i] will branch [i]th outer block,
     // where [i] is passed on the wasm stack
