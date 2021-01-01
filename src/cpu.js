@@ -289,7 +289,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.fpu_load_tag_word = get_import("fpu_load_tag_word");
     this.fpu_load_status_word = get_import("fpu_load_status_word");
 
-    this.translate_address_read = get_import("translate_address_read_js");
     this.translate_address_system_read = get_import("translate_address_system_read_js");
     this.translate_address_system_write = get_import("translate_address_system_write_js");
 
@@ -1504,7 +1503,7 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
 
         for(let i = start; i < end; i++)
         {
-            buffer[i - start] = this.read8(this.translate_address_read(i));
+            buffer[i - start] = this.read8(this.translate_address_system_read(i));
         }
 
         dbg_log("---" + (is_entry_block ? " entry" : ""));

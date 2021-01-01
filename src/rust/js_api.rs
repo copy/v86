@@ -1,6 +1,6 @@
 use cpu2::cpu::{
-    safe_read16, safe_read32s, safe_write16, safe_write32, translate_address_read,
-    translate_address_system_read, translate_address_system_write, writable_or_pagefault,
+    safe_read16, safe_read32s, safe_write16, safe_write32, translate_address_system_read,
+    translate_address_system_write, writable_or_pagefault,
 };
 use cpu2::misc_instr::{push16, push32};
 
@@ -14,8 +14,6 @@ pub unsafe fn safe_write16_js(addr: i32, value: i32) { safe_write16(addr, value)
 #[no_mangle]
 pub unsafe fn safe_write32_js(addr: i32, value: i32) { safe_write32(addr, value).unwrap() }
 
-#[no_mangle]
-pub unsafe fn translate_address_read_js(addr: i32) -> u32 { translate_address_read(addr).unwrap() }
 #[no_mangle]
 pub unsafe fn translate_address_system_read_js(addr: i32) -> u32 {
     translate_address_system_read(addr).unwrap()
