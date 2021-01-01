@@ -35,7 +35,7 @@ const config_filesystem = {
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
-    bzimage: __dirname + "/../../images/buildroot-bzimage.bin",
+    bzimage: { url: __dirname + "/../../images/buildroot-bzimage.bin" },
     cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
     network_relay_url: "<UNUSED>",
     log_level: 0,
