@@ -805,89 +805,63 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, depth);
     }
 
-    fn call_fn(&mut self, fn_idx: u16) {
+    fn call_fn(&mut self, name: &str, function: FunctionType) {
+        let i = self.get_fn_idx(name, function);
         self.instruction_body.push(op::OP_CALL);
-        write_leb_u32(&mut self.instruction_body, fn_idx as u32);
+        write_leb_u32(&mut self.instruction_body, i as u32);
     }
 
-    pub fn call_fn0(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN0_TYPE_INDEX);
-        self.call_fn(i);
-    }
+    pub fn call_fn0(&mut self, name: &str) { self.call_fn(name, FunctionType::FN0_TYPE_INDEX) }
     pub fn call_fn0_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN0_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN0_RET_TYPE_INDEX)
     }
     pub fn call_fn0_ret_i64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN0_RET_I64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN0_RET_I64_TYPE_INDEX)
     }
-    pub fn call_fn1(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_TYPE_INDEX);
-        self.call_fn(i);
-    }
+    pub fn call_fn1(&mut self, name: &str) { self.call_fn(name, FunctionType::FN1_TYPE_INDEX) }
     pub fn call_fn1_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_RET_TYPE_INDEX)
     }
     pub fn call_fn1_ret_i64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_RET_I64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_RET_I64_TYPE_INDEX)
     }
     pub fn call_fn1_ret_f64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_RET_F64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_RET_F64_TYPE_INDEX)
     }
     pub fn call_fn1_f64_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_F64_RET_I32_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_F64_RET_I32_TYPE_INDEX)
     }
     pub fn call_fn1_f64_ret_i64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_F64_RET_I64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_F64_RET_I64_TYPE_INDEX)
     }
     pub fn call_fn1_f64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN1_F64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN1_F64_TYPE_INDEX)
     }
-    pub fn call_fn2(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN2_TYPE_INDEX);
-        self.call_fn(i);
-    }
+    pub fn call_fn2(&mut self, name: &str) { self.call_fn(name, FunctionType::FN2_TYPE_INDEX) }
     pub fn call_fn2_i32_f64(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN2_I32_F64_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN2_I32_F64_TYPE_INDEX)
     }
     pub fn call_fn2_i64_i32(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN2_I64_I32_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN2_I64_I32_TYPE_INDEX)
     }
     pub fn call_fn2_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN2_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN2_RET_TYPE_INDEX)
     }
-    pub fn call_fn3(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN3_TYPE_INDEX);
-        self.call_fn(i);
-    }
+    pub fn call_fn3(&mut self, name: &str) { self.call_fn(name, FunctionType::FN3_TYPE_INDEX) }
     pub fn call_fn3_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN3_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN3_RET_TYPE_INDEX)
     }
     pub fn call_fn3_i32_i64_i32_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX)
     }
     pub fn call_fn4_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN4_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN4_RET_TYPE_INDEX)
     }
     pub fn call_fn4_i32_i64_i64_i32_ret(&mut self, name: &str) {
-        let i = self.get_fn_idx(name, FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX);
-        self.call_fn(i);
+        self.call_fn(name, FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX)
     }
 
-    pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE); }
+    pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE) }
 
     pub fn instruction_body_length(&self) -> u32 { self.instruction_body.len() as u32 }
 }
@@ -912,11 +886,8 @@ mod tests {
     fn builder_test() {
         let mut m = WasmBuilder::new();
 
-        let mut foo_index = m.get_fn_idx("foo", FunctionType::FN0_TYPE_INDEX);
-        m.call_fn(foo_index);
-
-        let bar_index = m.get_fn_idx("bar", FunctionType::FN0_TYPE_INDEX);
-        m.call_fn(bar_index);
+        m.call_fn("foo", FunctionType::FN0_TYPE_INDEX);
+        m.call_fn("bar", FunctionType::FN0_TYPE_INDEX);
 
         let local0 = m.alloc_local(); // for ensuring that reset clears previous locals
         m.free_local(local0);
@@ -926,10 +897,8 @@ mod tests {
 
         m.const_i32(2);
 
-        let baz_index = m.get_fn_idx("baz", FunctionType::FN1_RET_TYPE_INDEX);
-        m.call_fn(baz_index);
-        foo_index = m.get_fn_idx("foo", FunctionType::FN1_TYPE_INDEX);
-        m.call_fn(foo_index);
+        m.call_fn("baz", FunctionType::FN1_RET_TYPE_INDEX);
+        m.call_fn("foo", FunctionType::FN1_TYPE_INDEX);
 
         m.const_i32(10);
         let local1 = m.alloc_local();
