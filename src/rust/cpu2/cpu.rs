@@ -1867,16 +1867,18 @@ pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
 }
 
 #[no_mangle]
-pub unsafe fn tlb_set_has_code(physical_page: Page, has_code: bool) {
+pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
     let physical_page = physical_page.to_u32();
-    for i in 0..valid_tlb_entries_count {
-        let page = valid_tlb_entries[i as usize];
-        let entry = *tlb_data.offset(page as isize);
+    for i in 0..unsafe { valid_tlb_entries_count } {
+        let page = unsafe { valid_tlb_entries[i as usize] };
+        let entry = unsafe { *tlb_data.offset(page as isize) };
         if 0 != entry {
             let tlb_physical_page = entry as u32 >> 12 ^ page as u32;
             if physical_page == tlb_physical_page {
-                *tlb_data.offset(page as isize) =
-                    if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
+                unsafe {
+                    *tlb_data.offset(page as isize) =
+                        if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
+                }
             }
         }
     }
@@ -1884,14 +1886,14 @@ pub unsafe fn tlb_set_has_code(physical_page: Page, has_code: bool) {
 }
 
 #[no_mangle]
-pub unsafe fn check_tlb_invariants() {
+pub fn check_tlb_invariants() {
     if !CHECK_TLB_INVARIANTS {
         return;
     }
 
-    for i in 0..valid_tlb_entries_count {
-        let page = valid_tlb_entries[i as usize];
-        let entry = *tlb_data.offset(page as isize);
+    for i in 0..unsafe { valid_tlb_entries_count } {
+        let page = unsafe { valid_tlb_entries[i as usize] };
+        let entry = unsafe { *tlb_data.offset(page as isize) };
 
         if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
             // there's no code in mapped memory

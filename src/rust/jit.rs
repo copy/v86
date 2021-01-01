@@ -6,6 +6,7 @@ use std::ptr::NonNull;
 use analysis::AnalysisType;
 use codegen;
 use cpu;
+use cpu2;
 use cpu2::memory;
 use cpu_context::CpuContext;
 use global_pointers;
@@ -517,7 +518,7 @@ pub fn record_entry_point(phys_address: u32) {
         .insert(offset_in_page);
 
     if is_new {
-        cpu::tlb_set_has_code(page, true);
+        cpu2::cpu::tlb_set_has_code(page, true);
     }
 }
 
@@ -985,10 +986,10 @@ fn jit_analyze_and_generate(
 
         dbg_assert!(entry_point_count > 0);
 
-        cpu::tlb_set_has_code(page, true);
+        cpu2::cpu::tlb_set_has_code(page, true);
 
         jit_cache_array::check_invariants();
-        cpu::check_tlb_invariants();
+        cpu2::cpu::check_tlb_invariants();
 
         let end_addr = 0;
         let first_opcode = 0;
@@ -1455,7 +1456,7 @@ fn remove_jit_cache_wasm_index(ctx: &mut JitState, page: Page, wasm_table_index:
     }
 
     if !jit_page_has_code(page) {
-        cpu::tlb_set_has_code(page, false);
+        cpu2::cpu::tlb_set_has_code(page, false);
     }
 
     if CHECK_JIT_CACHE_ARRAY_INVARIANTS {
@@ -1539,7 +1540,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
     }
 
     if did_have_code {
-        cpu::tlb_set_has_code(page, false);
+        cpu2::cpu::tlb_set_has_code(page, false);
     }
 }
 
