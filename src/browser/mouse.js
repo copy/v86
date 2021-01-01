@@ -248,7 +248,7 @@ function MouseAdapter(bus, screen_container)
         }
         else
         {
-            console.log("Unknown event.which: " + e.which);
+            dbg_log("Unknown event.which: " + e.which);
         }
         mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
     }
