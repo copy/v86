@@ -77,7 +77,15 @@ const nr_of_cpus = Math.min(
     test_files.length,
     MAX_PARALLEL_PROCS
 );
-console.log("[+] Using %d cpus to generate %d fixtures", nr_of_cpus, test_files.length);
+
+if(SYNC_GDB_EXECUTION)
+{
+    console.log("[+] Generating %d fixtures", test_files.length);
+}
+else
+{
+    console.log("[+] Using %d cpus to generate %d fixtures", nr_of_cpus, test_files.length);
+}
 
 const workloads = chunk(test_files, nr_of_cpus);
 
