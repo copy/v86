@@ -790,11 +790,6 @@ CPU.prototype.init = function(settings, device_bus)
             return new Uint8Array(new Int32Array([x]).buffer);
         }
 
-        function i64(x0, x1)
-        {
-            return new Uint8Array(new Int32Array([x0, x1]).buffer);
-        }
-
         function to_be16(x)
         {
             return x >> 8 | x << 8 & 0xFF00;
@@ -830,7 +825,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_NUMA)
         {
-            this.fw_value = i64(0, 0);
+            this.fw_value = new Uint8Array(16);
         }
         else if(value === FW_CFG_FILE_DIR)
         {
