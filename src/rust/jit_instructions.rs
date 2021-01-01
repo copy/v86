@@ -2753,6 +2753,15 @@ pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_call_fn1(ctx.builder, "fpu_fucomi");
 }
 
+pub fn instr_DB_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    modrm::skip(ctx.cpu, modrm_byte);
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_DB_6_reg_jit(ctx: &mut JitContext, r: u32) {
+    ctx.builder.const_i32(r as i32);
+    codegen::gen_call_fn1(ctx.builder, "fpu_fcomi");
+}
+
 fn instr_group_DC_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
     ctx.builder.const_i32(0);
     codegen::gen_fpu_load_m64(ctx, modrm_byte);
