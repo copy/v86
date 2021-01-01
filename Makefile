@@ -30,17 +30,6 @@ CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
 		--create_source_map '%outname%.map'
 
-		#--jscomp_error reportUnknownTypes\
-		#--jscomp_error unusedLocalVariables\
-		#--jscomp_error unusedPrivateMembers\
-		#--new_type_inf\
-
-		# Easily breaks code:
-		#--assume_function_wrapper\
-
-		# implies new type inferrence
-		#--jscomp_error newCheckTypes\
-
 CLOSURE_FLAGS=\
 		--generate_exports\
 		--externs src/externs.js\
@@ -85,14 +74,15 @@ CARGO_FLAGS=\
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \
-	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
+	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js \
+	   acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
 	   cpu.js debug.js \
 	   elf.js kernel.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
-BROWSER_FILES=screen.js \
-		  keyboard.js mouse.js serial.js \
-		  network.js lib.js starter.js worker_bus.js dummy_screen.js print_stats.js filestorage.js
+BROWSER_FILES=screen.js keyboard.js mouse.js serial.js \
+	      network.js lib.js starter.js worker_bus.js dummy_screen.js \
+	      print_stats.js filestorage.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -148,10 +138,6 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
-
-
-.PHONY: instruction_tables
-instruction_tables: $(INSTRUCTION_TABLES)
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit
@@ -289,7 +275,6 @@ api-tests: all-debug
 
 all-tests: jshint kvm-unit-test qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
-	# - debiantests (requires network)
 	# - devices-test (hangs)
 
 jshint:
