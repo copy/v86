@@ -43,9 +43,10 @@ function load_kernel(mem8, bzimage, initrd, cmdline)
 
     const KERNEL_HIGH_ADDRESS = 0x100000;
 
-    // Puts the initrd at the 32 mb boundary. This means the mininum memory size
-    // is 32 mb plus the size of the initrd
-    const INITRD_ADDRESS = 32 << 20;
+    // Put the initrd at the 64 MB boundary. This means the minimum memory size
+    // is 64 MB plus the size of the initrd.
+    // Note: If set too low, kernel may fail to load the initrd with "invalid magic at start of compressed archive"
+    const INITRD_ADDRESS = 64 << 20;
 
     const quiet = false;
 
