@@ -914,8 +914,8 @@ const encodings = [
     { sse: 1, opcode: 0x660FF6, e: 1 },
     // maskmovq (0FF7), maskmovdqu (660FF7) tested manually
     // Generated tests don't setup EDI as required (yet)
-    { sse: 1, opcode: 0x0FF7, mem_ud: 1, e: 1, skip: 1, },
-    { sse: 1, opcode: 0x660FF7, mem_ud: 1, e: 1, skip: 1, },
+    { sse: 1, opcode: 0x0FF7, mem_ud: 1, e: 1, custom: 1, skip: 1, },
+    { sse: 1, opcode: 0x660FF7, mem_ud: 1, e: 1, custom: 1, skip: 1, },
 
     { sse: 1, opcode: 0x0FF8, e: 1 },
     { sse: 1, opcode: 0x660FF8, e: 1 },

@@ -3974,3 +3974,69 @@ pub fn instr_660FEF_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
 pub fn instr_660FEF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660FEF", r1, r2);
 }
+
+pub fn instr_0FF7_mem_jit(ctx: &mut JitContext, _modrm_byte: u8, _r: u32) {
+    codegen::gen_trigger_ud(ctx)
+}
+pub fn instr_0FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    if ctx.cpu.asize_32() {
+        codegen::gen_get_reg32(ctx, regs::EDI);
+    }
+    else {
+        codegen::gen_get_reg16(ctx, regs::DI);
+    }
+    jit_add_seg_offset(ctx, regs::DS);
+    codegen::gen_call_fn3(ctx.builder, "maskmovq");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+
+    ctx.builder
+        .instruction_body
+        .load_u8(global_pointers::PAGE_FAULT);
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_clear_prefixes(ctx);
+    ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
+}
+
+pub fn instr_660FF7_mem_jit(ctx: &mut JitContext, _modrm_byte: u8, _r: u32) {
+    codegen::gen_trigger_ud(ctx)
+}
+pub fn instr_660FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    if ctx.cpu.asize_32() {
+        codegen::gen_get_reg32(ctx, regs::EDI);
+    }
+    else {
+        codegen::gen_get_reg16(ctx, regs::DI);
+    }
+    jit_add_seg_offset(ctx, regs::DS);
+    codegen::gen_call_fn3(ctx.builder, "maskmovdqu");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+
+    ctx.builder
+        .instruction_body
+        .load_u8(global_pointers::PAGE_FAULT);
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_clear_prefixes(ctx);
+    ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
+}

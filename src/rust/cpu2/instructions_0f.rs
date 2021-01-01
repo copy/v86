@@ -5039,15 +5039,21 @@ pub unsafe fn instr_660FF6_reg(r1: i32, r2: i32) { instr_660FF6(read_xmm128s(r1)
 pub unsafe fn instr_660FF6_mem(addr: i32, r: i32) {
     instr_660FF6(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0FF7_mem(addr: i32, r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
+pub unsafe fn maskmovq(r1: i32, r2: i32, addr: i32) {
     // maskmovq mm, mm
     let source = read_mmx64s(r2);
     let mask = read_mmx64s(r1);
-    let addr = get_seg_prefix(DS) + get_reg_asize(EDI);
-    return_on_pagefault!(writable_or_pagefault(addr, 8));
+    match writable_or_pagefault(addr, 8) {
+        Ok(()) => *page_fault = false,
+        Err(()) => {
+            *page_fault = true;
+            return;
+        },
+    }
     for i in 0..8 {
         if 0 != mask.u8_0[i as usize] as i32 & 128 {
             safe_write8(
@@ -5060,14 +5066,24 @@ pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
     transition_fpu_to_mmx();
 }
 #[no_mangle]
+pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
+    maskmovq(r1, r2, get_seg_prefix(DS) + get_reg_asize(EDI))
+}
+
+#[no_mangle]
 pub unsafe fn instr_660FF7_mem(addr: i32, r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
+pub unsafe fn maskmovdqu(r1: i32, r2: i32, addr: i32) {
     // maskmovdqu xmm, xmm
     let source = read_xmm128s(r2);
     let mask = read_xmm128s(r1);
-    let addr = get_seg_prefix(DS) + get_reg_asize(EDI);
-    return_on_pagefault!(writable_or_pagefault(addr, 16));
+    match writable_or_pagefault(addr, 16) {
+        Ok(()) => *page_fault = false,
+        Err(()) => {
+            *page_fault = true;
+            return;
+        },
+    }
     for i in 0..16 {
         if 0 != mask.u8_0[i as usize] as i32 & 128 {
             safe_write8(
@@ -5077,6 +5093,10 @@ pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
             .unwrap();
         }
     }
+}
+#[no_mangle]
+pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
+    maskmovdqu(r1, r2, get_seg_prefix(DS) + get_reg_asize(EDI))
 }
 #[no_mangle]
 pub unsafe fn instr_0FF8(source: reg64, r: i32) {
