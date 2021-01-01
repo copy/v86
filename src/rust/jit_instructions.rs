@@ -1262,21 +1262,52 @@ fn gen_sar32(
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
 ) {
-    builder.get_local(dest_operand);
-    match source_operand {
+    let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
+            let exit = builder.block_void();
             builder.get_local(l);
-            builder.const_i32(31);
+            builder.const_i32(31); // Note: mask can probably be avoided since wasm has the same semantics on shl_i32
             builder.and_i32();
+            let count = builder.tee_new_local();
+            builder.eqz_i32();
+            builder.br_if(exit);
+            ShiftCount::Local(count)
         },
         LocalOrImmediate::Immediate(i) => {
-            builder.const_i32(*i & 31);
+            if *i & 31 == 0 {
+                return;
+            }
+            ShiftCount::Immediate(*i & 31)
         },
-    }
-    builder.const_i32(31);
+    };
+
+    builder.const_i32(global_pointers::flags as i32);
+    codegen::gen_get_flags(builder);
+    builder.const_i32(!(FLAG_CARRY | FLAG_OVERFLOW));
     builder.and_i32();
-    builder.call_fn2_ret("sar32");
+    {
+        builder.get_local(dest_operand);
+        ShiftCount::gen_get_minus_one(builder, &count);
+        builder.shr_u_i32();
+        builder.const_i32(1);
+        builder.and_i32();
+        builder.or_i32()
+    }
+    builder.store_aligned_i32(0);
+
+    builder.get_local(dest_operand);
+    ShiftCount::gen_get(builder, &count);
+    builder.shr_s_i32();
     builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(builder, dest_operand);
+    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW);
+
+    if let ShiftCount::Local(l) = count {
+        builder.block_end();
+        builder.free_local(l);
+    }
 }
 
 fn gen_xadd32(ctx: &mut JitContext, dest_operand: &WasmLocal, r: u32) {
