@@ -1676,6 +1676,70 @@ define_instruction_read8!("test8", instr_84_mem_jit, instr_84_reg_jit);
 define_instruction_read16!("test16", instr16_85_mem_jit, instr16_85_reg_jit);
 define_instruction_read32!(gen_test32, instr32_85_mem_jit, instr32_85_reg_jit, reg);
 
+pub fn instr_86_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read_write(ctx, BitSize::BYTE, &address_local, &|ref mut ctx| {
+        codegen::gen_get_reg8(ctx, r);
+        let tmp = ctx.builder.set_new_local();
+        codegen::gen_set_reg8(ctx, r);
+        ctx.builder.get_local(&tmp);
+        ctx.builder.free_local(tmp);
+    });
+    ctx.builder.free_local(address_local);
+}
+pub fn instr_86_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg8(ctx, r2);
+    let tmp = ctx.builder.set_new_local();
+    codegen::gen_get_reg8(ctx, r1);
+    codegen::gen_set_reg8(ctx, r2);
+    ctx.builder.get_local(&tmp);
+    codegen::gen_set_reg8(ctx, r1);
+    ctx.builder.free_local(tmp);
+}
+pub fn instr16_87_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
+        codegen::gen_get_reg16(ctx, r);
+        let tmp = ctx.builder.set_new_local();
+        codegen::gen_set_reg16(ctx, r);
+        ctx.builder.get_local(&tmp);
+        ctx.builder.free_local(tmp);
+    });
+    ctx.builder.free_local(address_local);
+}
+pub fn instr32_87_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
+        codegen::gen_get_reg32(ctx, r);
+        let tmp = ctx.builder.set_new_local();
+        codegen::gen_set_reg32(ctx, r);
+        ctx.builder.get_local(&tmp);
+        ctx.builder.free_local(tmp);
+    });
+    ctx.builder.free_local(address_local);
+}
+pub fn instr16_87_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg16(ctx, r2);
+    let tmp = ctx.builder.set_new_local();
+    codegen::gen_get_reg16(ctx, r1);
+    codegen::gen_set_reg16(ctx, r2);
+    ctx.builder.get_local(&tmp);
+    codegen::gen_set_reg16(ctx, r1);
+    ctx.builder.free_local(tmp);
+}
+pub fn instr32_87_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx, r2);
+    let tmp = ctx.builder.set_new_local();
+    codegen::gen_get_reg32(ctx, r1);
+    codegen::gen_set_reg32(ctx, r2);
+    ctx.builder.get_local(&tmp);
+    codegen::gen_set_reg32(ctx, r1);
+    ctx.builder.free_local(tmp);
+}
+
 pub fn instr_88_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
 

@@ -169,8 +169,8 @@ const encodings = [
 
     { opcode: 0x84, custom: 1, e: 1, },
     { opcode: 0x85, custom: 1, e: 1, os: 1, },
-    { opcode: 0x86, e: 1, },
-    { opcode: 0x87, os: 1, e: 1, },
+    { opcode: 0x86, custom: 1, e: 1, },
+    { opcode: 0x87, custom: 1, os: 1, e: 1, },
     { opcode: 0x88, custom: 1, e: 1, },
     { opcode: 0x89, custom: 1, os: 1, e: 1, },
     { opcode: 0x8A, custom: 1, e: 1, },
