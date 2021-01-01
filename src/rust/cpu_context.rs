@@ -11,10 +11,6 @@ pub struct CpuContext {
 }
 
 impl CpuContext {
-    pub fn advance8(&mut self) {
-        dbg_assert!(self.eip & 0xFFF < 0xFFF);
-        self.eip += 1;
-    }
     pub fn advance16(&mut self) {
         dbg_assert!(self.eip & 0xFFF < 0xFFE);
         self.eip += 2;
@@ -41,7 +37,6 @@ impl CpuContext {
         self.eip += 2;
         v
     }
-    pub fn read_imm16s(&mut self) -> i16 { self.read_imm16() as i16 }
     pub fn read_imm32(&mut self) -> u32 {
         dbg_assert!(self.eip & 0xFFF < 0xFFC);
         let v = memory::read32s(self.eip) as u32;

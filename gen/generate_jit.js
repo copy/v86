@@ -291,7 +291,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
         else if(encoding.custom)
         {
-            const mem_args = ["ctx", "modrm_byte"];
+            const mem_args = ["ctx", "addr"];
             const reg_args = ["ctx", "(modrm_byte & 7) as u32"];
 
             if(encoding.fixed_g === undefined)
@@ -315,6 +315,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                             // Note: Custom function is responsible for calling
                             //       the proper read_imm function after calling
                             //       gen_modrm_resolve
+                            "let addr = ::modrm::decode(ctx.cpu, modrm_byte);",
                             gen_call(`::jit_instructions::${instruction_name}_mem_jit`, mem_args),
                             mem_postfix
                         ),
@@ -354,7 +355,8 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                     if_blocks: [{
                         condition: "modrm_byte < 0xC0",
                         body: [].concat(
-                            gen_call(`::codegen::gen_modrm_resolve`, ["ctx", "modrm_byte"]),
+                            "let addr = ::modrm::decode(ctx.cpu, modrm_byte);",
+                            gen_call(`::codegen::gen_modrm_resolve`, ["ctx", "addr"]),
                             imm_read_bindings,
                             gen_call(`::codegen::gen_modrm_fn${mem_args.length - 2}`, mem_args),
                             mem_postfix
