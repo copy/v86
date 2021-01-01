@@ -369,7 +369,7 @@ pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     gen_set_reg16(ctx, dest);
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
-    // generates: reg32s[r_dest] = reg32s[r_src]
+    // generates: reg32[r_dest] = reg32[r_src]
     gen_get_reg32(ctx, src);
     gen_set_reg32(ctx, dest);
 }
@@ -905,7 +905,7 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
 }
 
 pub fn gen_pop16_ss32(ctx: &mut JitContext) {
-    // esp = segment_offsets[SS] + reg32s[ESP] (or just reg32s[ESP] if has_flat_segmentation)
+    // esp = segment_offsets[SS] + reg32[ESP] (or just reg32[ESP] if has_flat_segmentation)
     gen_get_reg32(ctx, regs::ESP);
 
     if !ctx.cpu.has_flat_segmentation() {
@@ -920,7 +920,7 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     gen_safe_read16(ctx, &address_local);
     ctx.builder.free_local(address_local);
 
-    // reg32s[ESP] += 2;
+    // reg32[ESP] += 2;
     gen_get_reg32(ctx, regs::ESP);
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.add_i32();

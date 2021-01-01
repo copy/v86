@@ -623,7 +623,7 @@ pub unsafe fn stosw_no_rep() {
 #[no_mangle]
 pub unsafe fn stosd_rep() {
     let diff;
-    let data: i32 = *reg32s.offset(EAX as isize);
+    let data: i32 = *reg32.offset(EAX as isize);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let size: i32 = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let mut count: i32 = get_reg_asize(ECX);
@@ -696,7 +696,7 @@ pub unsafe fn stosd_rep() {
 }
 #[no_mangle]
 pub unsafe fn stosd_no_rep() {
-    let data: i32 = *reg32s.offset(EAX as isize);
+    let data: i32 = *reg32.offset(EAX as isize);
     let dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let size: i32 = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     return_on_pagefault!(safe_write32(dest, data));
@@ -793,7 +793,7 @@ pub unsafe fn lodsd_rep() {
         let mut cont;
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         loop {
-            *reg32s.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
+            *reg32.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
             src += size;
             add_reg_asize(ESI, size);
             cont = (decr_ecx_asize() != 0) as i32;
@@ -814,7 +814,7 @@ pub unsafe fn lodsd_rep() {
 pub unsafe fn lodsd_no_rep() {
     let src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let size: i32 = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
-    *reg32s.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
+    *reg32.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
@@ -943,7 +943,7 @@ pub unsafe fn scasd_rep(prefix_flag: i32) {
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let size: i32 = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let mut data_dest;
-    let data_src: i32 = *reg32s.offset(EAX as isize);
+    let data_src: i32 = *reg32.offset(EAX as isize);
     let mut count: i32 = get_reg_asize(ECX);
     if count == 0 {
         return;
@@ -1002,7 +1002,7 @@ pub unsafe fn scasd_no_rep() {
     let dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let size: i32 = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let data_dest;
-    let data_src: i32 = *reg32s.offset(EAX as isize);
+    let data_src: i32 = *reg32.offset(EAX as isize);
     data_dest = return_on_pagefault!(safe_read32s(dest));
     add_reg_asize(EDI, size);
     cmp32(data_src, data_dest);

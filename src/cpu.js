@@ -137,8 +137,7 @@ function CPU(bus, wm)
     this.timestamp_counter = v86util.view(Uint32Array, memory, 664, 1);
 
     // registers
-    this.reg32s = v86util.view(Int32Array, memory, 64, 8);
-    this.reg32 = v86util.view(Uint32Array, memory, 64, 8);
+    this.reg32 = v86util.view(Int32Array, memory, 64, 8);
     this.reg16s = v86util.view(Int16Array, memory, 64, 16);
     this.reg16 = v86util.view(Uint16Array, memory, 64, 16);
     this.reg8s = v86util.view(Int8Array, memory, 64, 32);
@@ -390,7 +389,7 @@ CPU.prototype.get_state = function()
 
     state[37] = this.instruction_pointer[0];
     state[38] = this.previous_ip[0];
-    state[39] = this.reg32s;
+    state[39] = this.reg32;
     state[40] = this.sreg;
     state[41] = this.dreg;
 
@@ -486,7 +485,7 @@ CPU.prototype.set_state = function(state)
 
     this.instruction_pointer[0] = state[37];
     this.previous_ip[0] = state[38];
-    this.reg32s.set(state[39]);
+    this.reg32.set(state[39]);
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
 
@@ -643,7 +642,7 @@ CPU.prototype.reset = function()
     //this.segment_infos = new Uint32Array(8);
     this.segment_offsets.fill(0);
 
-    this.reg32s.fill(0);
+    this.reg32.fill(0);
 
     this.sreg.fill(0);
     this.dreg.fill(0);
@@ -1050,10 +1049,10 @@ CPU.prototype.load_multiboot = function(buffer)
         dbg_log("Multiboot magic found, flags: " + h(flags >>> 0, 8), LOG_CPU);
         dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS) === 0, "TODO");
 
-        this.reg32s[reg_eax] = 0x2BADB002;
+        this.reg32[reg_eax] = 0x2BADB002;
 
         let multiboot_info_addr = 0x7C00;
-        this.reg32s[reg_ebx] = multiboot_info_addr;
+        this.reg32[reg_ebx] = multiboot_info_addr;
         this.write32(multiboot_info_addr, 0);
 
         this.cr[0] = 1;
@@ -1909,7 +1908,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                     }
                 }
 
-                var old_esp = this.reg32s[reg_esp];
+                var old_esp = this.reg32[reg_esp];
                 var old_ss = this.sreg[reg_ss];
                 var old_stack_pointer = this.get_stack_pointer(0);
 
@@ -2159,15 +2158,15 @@ CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
     this.safe_write32(tsr_offset + TSR_EIP, this.get_real_eip());
     this.safe_write32(tsr_offset + TSR_EFLAGS, old_eflags);
 
-    this.safe_write32(tsr_offset + TSR_EAX, this.reg32s[reg_eax]);
-    this.safe_write32(tsr_offset + TSR_ECX, this.reg32s[reg_ecx]);
-    this.safe_write32(tsr_offset + TSR_EDX, this.reg32s[reg_edx]);
-    this.safe_write32(tsr_offset + TSR_EBX, this.reg32s[reg_ebx]);
+    this.safe_write32(tsr_offset + TSR_EAX, this.reg32[reg_eax]);
+    this.safe_write32(tsr_offset + TSR_ECX, this.reg32[reg_ecx]);
+    this.safe_write32(tsr_offset + TSR_EDX, this.reg32[reg_edx]);
+    this.safe_write32(tsr_offset + TSR_EBX, this.reg32[reg_ebx]);
 
-    this.safe_write32(tsr_offset + TSR_ESP, this.reg32s[reg_esp]);
-    this.safe_write32(tsr_offset + TSR_EBP, this.reg32s[reg_ebp]);
-    this.safe_write32(tsr_offset + TSR_ESI, this.reg32s[reg_esi]);
-    this.safe_write32(tsr_offset + TSR_EDI, this.reg32s[reg_edi]);
+    this.safe_write32(tsr_offset + TSR_ESP, this.reg32[reg_esp]);
+    this.safe_write32(tsr_offset + TSR_EBP, this.reg32[reg_ebp]);
+    this.safe_write32(tsr_offset + TSR_ESI, this.reg32[reg_esi]);
+    this.safe_write32(tsr_offset + TSR_EDI, this.reg32[reg_edi]);
 
     this.safe_write32(tsr_offset + TSR_ES, this.sreg[reg_es]);
     this.safe_write32(tsr_offset + TSR_CS, this.sreg[reg_cs]);
@@ -2278,15 +2277,15 @@ CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
     var new_ldt = this.safe_read16(new_tsr_offset + TSR_LDT);
     this.load_ldt(new_ldt);
 
-    this.reg32s[reg_eax] = this.safe_read32s(new_tsr_offset + TSR_EAX);
-    this.reg32s[reg_ecx] = this.safe_read32s(new_tsr_offset + TSR_ECX);
-    this.reg32s[reg_edx] = this.safe_read32s(new_tsr_offset + TSR_EDX);
-    this.reg32s[reg_ebx] = this.safe_read32s(new_tsr_offset + TSR_EBX);
+    this.reg32[reg_eax] = this.safe_read32s(new_tsr_offset + TSR_EAX);
+    this.reg32[reg_ecx] = this.safe_read32s(new_tsr_offset + TSR_ECX);
+    this.reg32[reg_edx] = this.safe_read32s(new_tsr_offset + TSR_EDX);
+    this.reg32[reg_ebx] = this.safe_read32s(new_tsr_offset + TSR_EBX);
 
-    this.reg32s[reg_esp] = this.safe_read32s(new_tsr_offset + TSR_ESP);
-    this.reg32s[reg_ebp] = this.safe_read32s(new_tsr_offset + TSR_EBP);
-    this.reg32s[reg_esi] = this.safe_read32s(new_tsr_offset + TSR_ESI);
-    this.reg32s[reg_edi] = this.safe_read32s(new_tsr_offset + TSR_EDI);
+    this.reg32[reg_esp] = this.safe_read32s(new_tsr_offset + TSR_ESP);
+    this.reg32[reg_ebp] = this.safe_read32s(new_tsr_offset + TSR_EBP);
+    this.reg32[reg_esi] = this.safe_read32s(new_tsr_offset + TSR_ESI);
+    this.reg32[reg_edi] = this.safe_read32s(new_tsr_offset + TSR_EDI);
 
     if(
         !this.switch_seg(reg_es, this.safe_read16(new_tsr_offset + TSR_ES)) ||
@@ -2429,7 +2428,7 @@ CPU.prototype.cpuid = function()
     var ebx = 0;
 
     const winnt_fix = false;
-    const level = this.reg32s[reg_eax];
+    const level = this.reg32[reg_eax];
 
     switch(level)
     {
@@ -2477,7 +2476,7 @@ CPU.prototype.cpuid = function()
 
         case 4:
             // from my local machine
-            switch(this.reg32s[reg_ecx])
+            switch(this.reg32[reg_ecx])
             {
                 case 0:
                     eax = 0x00000121;
@@ -2557,10 +2556,10 @@ CPU.prototype.cpuid = function()
         dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8), LOG_CPU);
     }
 
-    this.reg32s[reg_eax] = eax;
-    this.reg32s[reg_ecx] = ecx;
-    this.reg32s[reg_edx] = edx;
-    this.reg32s[reg_ebx] = ebx;
+    this.reg32[reg_eax] = eax;
+    this.reg32[reg_ecx] = ecx;
+    this.reg32[reg_edx] = edx;
+    this.reg32[reg_ebx] = ebx;
 };
 
 CPU.prototype.update_cs_size = function(new_size)
@@ -3045,7 +3044,7 @@ CPU.prototype.lss32 = function(addr, reg, seg)
 
     if(!this.switch_seg(seg, new_seg)) return;
 
-    this.reg32s[reg] = new_reg;
+    this.reg32[reg] = new_reg;
 };
 
 CPU.prototype.enter16 = function(size, nesting_level)
@@ -3056,11 +3055,11 @@ CPU.prototype.enter16 = function(size, nesting_level)
 
     var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
     var ss = this.get_seg_ss();
-    var frame_temp = this.reg32s[reg_esp] - 2;
+    var frame_temp = this.reg32[reg_esp] - 2;
 
     if(nesting_level > 0)
     {
-        var tmp_ebp = this.reg32s[reg_ebp];
+        var tmp_ebp = this.reg32[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 2;
@@ -3088,11 +3087,11 @@ CPU.prototype.enter32 = function(size, nesting_level)
 
     var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
     var ss = this.get_seg_ss();
-    var frame_temp = this.reg32s[reg_esp] - 4;
+    var frame_temp = this.reg32[reg_esp] - 4;
 
     if(nesting_level > 0)
     {
-        var tmp_ebp = this.reg32s[reg_ebp];
+        var tmp_ebp = this.reg32[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 4;
@@ -3107,16 +3106,16 @@ CPU.prototype.enter32 = function(size, nesting_level)
         return;
     }
 
-    this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32s[reg_ebp]);
-    this.reg32s[reg_ebp] = frame_temp;
+    this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32[reg_ebp]);
+    this.reg32[reg_ebp] = frame_temp;
     this.adjust_stack_reg(-size - 4);
 };
 
 CPU.prototype.bswap = function(reg)
 {
-    var temp = this.reg32s[reg];
+    var temp = this.reg32[reg];
 
-    this.reg32s[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
+    this.reg32[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
 };
 
 // Closure Compiler's way of exporting

@@ -1669,7 +1669,7 @@ pub fn instr16_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg16_r(ctx, r1, r2);
 }
 pub fn instr32_89_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32s[r]);
+    // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32[r]);
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
 
@@ -1704,7 +1704,7 @@ pub fn instr16_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg16_r(ctx, r2, r1);
 }
 pub fn instr32_8B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    // Pseudo: reg32s[r] = safe_read32s(modrm_resolve(modrm_byte));
+    // Pseudo: reg32[r] = safe_read32s(modrm_resolve(modrm_byte));
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
 
     codegen::gen_set_reg32(ctx, r);
@@ -3517,7 +3517,7 @@ pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 
 pub fn instr32_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
-    // reg32s[r] = imm;
+    // reg32[r] = imm;
     ctx.builder.instruction_body.const_i32(imm as i32);
     codegen::gen_set_reg32(ctx, r);
 }

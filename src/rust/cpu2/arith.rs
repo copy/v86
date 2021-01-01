@@ -220,12 +220,12 @@ pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn mul32(source_operand: i32) {
-    let dest_operand: i32 = *reg32s.offset(EAX as isize);
+    let dest_operand: i32 = *reg32.offset(EAX as isize);
     let result: u64 = (dest_operand as u32 as u64).wrapping_mul(source_operand as u32 as u64);
     let result_low: i32 = result as i32;
     let result_high: i32 = (result >> 32) as i32;
-    *reg32s.offset(EAX as isize) = result_low;
-    *reg32s.offset(EDX as isize) = result_high;
+    *reg32.offset(EAX as isize) = result_low;
+    *reg32.offset(EDX as isize) = result_high;
     *last_result = result_low;
     *last_op_size = OPSIZE_32;
     if result_high == 0 {
@@ -238,12 +238,12 @@ pub unsafe fn mul32(source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn imul32(source_operand: i32) {
-    let dest_operand: i32 = *reg32s.offset(EAX as isize);
+    let dest_operand: i32 = *reg32.offset(EAX as isize);
     let result: i64 = dest_operand as i64 * source_operand as i64;
     let result_low: i32 = result as i32;
     let result_high: i32 = (result >> 32) as i32;
-    *reg32s.offset(EAX as isize) = result_low;
-    *reg32s.offset(EDX as isize) = result_high;
+    *reg32.offset(EAX as isize) = result_low;
+    *reg32.offset(EDX as isize) = result_high;
     *last_result = result_low;
     *last_op_size = OPSIZE_32;
     if result_high == result_low >> 31 {
@@ -285,8 +285,8 @@ pub unsafe fn xadd16(source_operand: i32, reg: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn xadd32(source_operand: i32, reg: i32) -> i32 {
-    let tmp: i32 = *reg32s.offset(reg as isize);
-    *reg32s.offset(reg as isize) = source_operand;
+    let tmp: i32 = *reg32.offset(reg as isize);
+    *reg32.offset(reg as isize) = source_operand;
     return add(source_operand, tmp, OPSIZE_32);
 }
 
@@ -314,12 +314,12 @@ pub unsafe fn cmpxchg16(data: i32, r: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
-    cmp32(*reg32s.offset(EAX as isize), data);
+    cmp32(*reg32.offset(EAX as isize), data);
     if getzf() {
         read_reg32(r)
     }
     else {
-        *reg32s.offset(EAX as isize) = data;
+        *reg32.offset(EAX as isize) = data;
         data
     }
 }
@@ -756,8 +756,8 @@ pub unsafe fn div32(source_operand: u32) {
         return;
     }
     else {
-        let target_low: u32 = *reg32s.offset(EAX as isize) as u32;
-        let target_high: u32 = *reg32s.offset(EDX as isize) as u32;
+        let target_low: u32 = *reg32.offset(EAX as isize) as u32;
+        let target_high: u32 = *reg32.offset(EDX as isize) as u32;
         let target_operand: u64 = (target_high as u64) << 32 | target_low as u64;
         let result: u64 = target_operand.wrapping_div(source_operand as u64);
         if result > 0xFFFFFFFF {
@@ -766,8 +766,8 @@ pub unsafe fn div32(source_operand: u32) {
         }
         else {
             let mod_0: i32 = target_operand.wrapping_rem(source_operand as u64) as i32;
-            *reg32s.offset(EAX as isize) = result as i32;
-            *reg32s.offset(EDX as isize) = mod_0;
+            *reg32.offset(EAX as isize) = result as i32;
+            *reg32.offset(EDX as isize) = mod_0;
             return;
         }
     };
@@ -779,8 +779,8 @@ pub unsafe fn idiv32(source_operand: i32) {
         return;
     }
     else {
-        let target_low: u32 = *reg32s.offset(EAX as isize) as u32;
-        let target_high: u32 = *reg32s.offset(EDX as isize) as u32;
+        let target_low: u32 = *reg32.offset(EAX as isize) as u32;
+        let target_high: u32 = *reg32.offset(EDX as isize) as u32;
         let target_operand: i64 = ((target_high as u64) << 32 | target_low as u64) as i64;
         if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
             trigger_de();
@@ -794,8 +794,8 @@ pub unsafe fn idiv32(source_operand: i32) {
             }
             else {
                 let mod_0: i32 = (target_operand % source_operand as i64) as i32;
-                *reg32s.offset(EAX as isize) = result as i32;
-                *reg32s.offset(EDX as isize) = mod_0;
+                *reg32.offset(EAX as isize) = result as i32;
+                *reg32.offset(EDX as isize) = mod_0;
                 return;
             }
         }

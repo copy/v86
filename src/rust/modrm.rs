@@ -331,7 +331,7 @@ fn gen_sib(ctx: &mut JitContext, sib_byte: u8, mod_is_zero: bool) {
         return;
     }
 
-    // Offset is reg32s[m] << s, where s is:
+    // Offset is reg32[m] << s, where s is:
 
     let s = sib_byte >> 6 & 3;
 

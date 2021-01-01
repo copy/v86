@@ -225,7 +225,7 @@ CPU.prototype.debug_init = function()
         var iopl = cpu.getiopl();
         var cpl = cpu.cpl[0];
         var cs_eip = h(cpu.sreg[reg_cs], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
-        var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.reg32s[reg_es] >>> 0, 8);
+        var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.reg32[reg_es] >>> 0, 8);
         var op_size = cpu.is_32[0] ? "32" : "16";
         var if_ = (cpu.flags[0] & flag_interrupt) ? 1 : 0;
 

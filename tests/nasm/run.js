@@ -384,7 +384,7 @@ else {
         };
 
         let offset = 0;
-        const expected_reg32s = current_test.fixture.array.slice(offset, offset += 8);
+        const expected_reg32 = current_test.fixture.array.slice(offset, offset += 8);
         const expected_eip = current_test.fixture.array[offset++];
         const expected_fpu_regs =
             current_test.fixture.array.slice(offset, offset += 8) .map(x => x in FLOAT_TRANSLATION ? FLOAT_TRANSLATION[x] : x);
@@ -397,12 +397,12 @@ else {
 
         if(!current_test.fixture.exception)
         {
-            for (let i = 0; i < cpu.reg32s.length; i++) {
-                let reg = cpu.reg32s[i];
-                if (reg !== expected_reg32s[i]) {
+            for (let i = 0; i < cpu.reg32.length; i++) {
+                let reg = cpu.reg32[i];
+                if (reg !== expected_reg32[i]) {
                     individual_failures.push({
-                        name: "cpu.reg32s[" + i + "]",
-                        expected: expected_reg32s[i],
+                        name: "cpu.reg32[" + i + "]",
+                        expected: expected_reg32[i],
                         actual: reg,
                     });
                 }
