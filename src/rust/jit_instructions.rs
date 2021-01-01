@@ -1386,6 +1386,40 @@ fn gen_mul32(ctx: &mut JitContext) {
     codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
 }
 
+fn gen_imul32(ctx: &mut JitContext) {
+    ctx.builder.extend_signed_i32_to_i64();
+
+    codegen::gen_get_reg32(ctx, regs::EAX);
+    ctx.builder.extend_signed_i32_to_i64();
+    ctx.builder.mul_i64();
+
+    let result = ctx.builder.tee_new_local_i64();
+    ctx.builder.const_i64(32);
+    ctx.builder.shr_u_i64();
+    ctx.builder.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EDX);
+
+    ctx.builder.get_local_i64(&result);
+    ctx.builder.free_local_i64(result);
+    ctx.builder.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EAX);
+
+    codegen::gen_get_reg32(ctx, regs::EDX);
+    codegen::gen_get_reg32(ctx, regs::EAX);
+    ctx.builder.const_i32(31);
+    ctx.builder.shr_s_i32();
+    ctx.builder.eq_i32();
+    ctx.builder.if_void();
+    codegen::gen_clear_flags_bits(ctx.builder, 1 | FLAG_OVERFLOW);
+    ctx.builder.else_();
+    codegen::gen_set_flags_bits(ctx.builder, 1 | FLAG_OVERFLOW);
+    ctx.builder.block_end();
+
+    codegen::gen_set_last_result(ctx.builder, &ctx.register_locals[regs::EAX as usize]);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+}
+
 fn gen_imul_reg32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
@@ -3582,15 +3616,11 @@ pub fn instr16_F7_5_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 pub fn instr32_F7_5_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.call_fn1("imul32");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
+    gen_imul32(ctx);
 }
 pub fn instr32_F7_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg32(ctx, r);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.call_fn1("imul32");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
+    gen_imul32(ctx);
 }
 
 pub fn instr16_F7_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
