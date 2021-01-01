@@ -15,7 +15,7 @@ build/%.o: build/%.asm $(inc_files)
 
 # To run / debug locally
 build/%.bin: build/%.o
-	ld -g $< -m elf_i386 --section-start=.bss=0x100000 -o $@
+	ld -g $< -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x800000 -o $@
 
 # To use as a multiboot kernel image for v86
 build/%.img: build/%.o

@@ -25,7 +25,9 @@ define extract-state
   printf "    %d,\n", $ebp
   printf "    %d,\n", $esi
   printf "    %d,\n", $edi
+  printf "    \n"
 
+  printf "    %d,\n", $eip
   printf "    \n"
 
   # For fpu registers, check the tag register first. If the tag index is

@@ -1341,11 +1341,6 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
         }
     }
     profiler::stat_increment(PAGE_FAULT);
-    if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_PF) {
-            return;
-        }
-    }
     //if *page_fault {
     //    dbg_log!(("double fault"));
     //    dbg_trace();
@@ -1356,6 +1351,11 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *prefixes = 0;
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_PF) {
+            return;
+        }
+    }
     *page_fault_error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
     //*page_fault = true;
 }
@@ -2095,13 +2095,14 @@ pub unsafe fn do_many_cycles_native() {
 }
 
 pub unsafe fn trigger_de() {
+    dbg_log!("#de");
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_DE) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_DE, false, None);
 }
 
@@ -2109,36 +2110,39 @@ pub unsafe fn trigger_de() {
 pub unsafe fn trigger_ud() {
     dbg_log!("#ud");
     dbg_trace();
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_UD) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_UD, false, None);
 }
 
 pub unsafe fn trigger_nm() {
+    dbg_log!("#nm eip={:x}", *previous_ip);
+    dbg_trace();
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NM) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NM, false, None);
 }
 
 #[no_mangle]
 pub unsafe fn trigger_gp(code: i32) {
+    dbg_log!("#gp");
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_GP, false, Some(code));
 }
 
@@ -3124,25 +3128,27 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
 
 #[no_mangle]
 pub unsafe fn trigger_np(code: i32) {
+    dbg_log!("#np");
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NP) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NP, false, Some(code));
 }
 
 #[no_mangle]
 pub unsafe fn trigger_ss(code: i32) {
+    dbg_log!("#ss");
+    *prefixes = 0;
+    *instruction_pointer = *previous_ip;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_SS) {
             return;
         }
     }
-    *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_SS, false, Some(code));
 }
 

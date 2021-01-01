@@ -31,6 +31,10 @@ const TERMINATE_MSG = "DONE";
 
 const FORCE_JIT = process.argv.includes("--force-jit");
 
+// see --section-start= in makefile
+const V86_TEXT_OFFSET = 0x8000;
+const NASM_TEXT_OFFSET = 0x800000;
+
 // alternative representation for infinity for json
 const JSON_POS_INFINITY = "+INFINITY";
 const JSON_NEG_INFINITY = "-INFINITY";
@@ -89,27 +93,29 @@ if(cluster.isMaster)
 {
     function extract_json(name, fixture_text)
     {
+        let exception;
+
         if(fixture_text.includes("(signal SIGFPE)"))
         {
-            return { exception: "DE", };
+            exception = "DE";
         }
 
         if(fixture_text.includes("(signal SIGILL)"))
         {
-            return { exception: "UD", };
+            exception = "UD";
         }
 
         if(fixture_text.includes("(signal SIGSEGV)"))
         {
-            return { exception: "GP", };
+            exception = "GP";
         }
 
         if(fixture_text.includes("(signal SIGBUS)"))
         {
-            return { exception: "PF", };
+            exception = "PF";
         }
 
-        if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
+        if(!exception && fixture_text.includes("Program received signal"))
         {
             throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
         }
@@ -126,13 +132,11 @@ if(cluster.isMaster)
             throw new Error("Could not find JSON in fixture text: " + fixture_text + "\nTest: " + name);
         }
 
-        try {
-            let array = JSON.parse(regex_match[1]);
-            return { array: array };
-        }
-        catch (e) {
-            throw e;
-        }
+        let array = JSON.parse(regex_match[1]);
+        return {
+            array: array,
+            exception,
+        };
     }
 
 
@@ -334,10 +338,12 @@ else {
             process.exit(1);
         }
 
+        const eip = emulator.v86.cpu.instruction_pointer[0];
+
         // XXX: On gdb execution is stopped at this point. On v86 we
         // currently don't have this ability, so we record the exception
         // and continue execution
-        recorded_exceptions.push(exception);
+        recorded_exceptions.push({ exception, eip });
         finish_test();
         return true;
     };
@@ -368,7 +374,7 @@ else {
 
         let individual_failures = [];
 
-        console.assert(current_test.fixture.array || current_test.fixture.exception);
+        console.assert(current_test.fixture.array);
 
         const FLOAT_TRANSLATION = {
             [JSON_POS_INFINITY]: Infinity,
@@ -377,19 +383,20 @@ else {
             [JSON_NEG_NAN]: NaN, // XXX: Ignore sign of NaN
         };
 
-        if(current_test.fixture.array)
-        {
-            let offset = 0;
-            const expected_reg32s = current_test.fixture.array.slice(offset, offset += 8);
-            const expected_fpu_regs =
-                current_test.fixture.array.slice(offset, offset += 8) .map(x => x in FLOAT_TRANSLATION ? FLOAT_TRANSLATION[x] : x);
-            const expected_mmx_registers = current_test.fixture.array.slice(offset, offset += 16);
-            const expected_xmm_registers = current_test.fixture.array.slice(offset, offset += 32);
-            const expected_memory = current_test.fixture.array.slice(offset, offset += 16);
-            const expected_eflags = current_test.fixture.array[offset++] & MASK_ARITH;
-            const fpu_tag = current_test.fixture.array[offset++];
-            const fpu_status = current_test.fixture.array[offset++] & FPU_STATUS_MASK;
+        let offset = 0;
+        const expected_reg32s = current_test.fixture.array.slice(offset, offset += 8);
+        const expected_eip = current_test.fixture.array[offset++];
+        const expected_fpu_regs =
+            current_test.fixture.array.slice(offset, offset += 8) .map(x => x in FLOAT_TRANSLATION ? FLOAT_TRANSLATION[x] : x);
+        const expected_mmx_registers = current_test.fixture.array.slice(offset, offset += 16);
+        const expected_xmm_registers = current_test.fixture.array.slice(offset, offset += 32);
+        const expected_memory = current_test.fixture.array.slice(offset, offset += 16);
+        const expected_eflags = current_test.fixture.array[offset++] & MASK_ARITH;
+        const fpu_tag = current_test.fixture.array[offset++];
+        const fpu_status = current_test.fixture.array[offset++] & FPU_STATUS_MASK;
 
+        if(!current_test.fixture.exception)
+        {
             for (let i = 0; i < cpu.reg32s.length; i++) {
                 let reg = cpu.reg32s[i];
                 if (reg !== expected_reg32s[i]) {
@@ -467,11 +474,25 @@ else {
             }
         }
 
-        if(current_test.fixture.exception !== recorded_exceptions[0])
+        if(current_test.fixture.exception)
+        {
+            const seen_eip = (recorded_exceptions[0] || {}).eip;
+            if(seen_eip - V86_TEXT_OFFSET !== expected_eip - NASM_TEXT_OFFSET)
+            {
+                individual_failures.push({
+                    name: "exception eip",
+                    expected: expected_eip - NASM_TEXT_OFFSET,
+                    actual: seen_eip === undefined ? "(none)" : seen_eip - V86_TEXT_OFFSET,
+                });
+            }
+        }
+
+        const seen_exception = (recorded_exceptions[0] || {}).exception;
+        if(current_test.fixture.exception !== seen_exception)
         {
             individual_failures.push({
                 name: "Exception",
-                actual: recorded_exceptions[0] || "(none)",
+                actual: seen_exception || "(none)",
                 expected: current_test.fixture.exception,
             });
         }
