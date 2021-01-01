@@ -582,7 +582,7 @@ const encodings = [
     { opcode: 0x0FAF, os: 1, e: 1, mask_flags: af | zf, custom: 1, }, // imul
 
     { opcode: 0x0FB0, e: 1 }, // cmxchg
-    { opcode: 0x0FB1, os: 1, e: 1 },
+    { opcode: 0x0FB1, os: 1, e: 1, custom: 1 },
     { opcode: 0x0FC7, e: 1, fixed_g: 1, reg_ud: 1, }, // cmpxchg8b (memory)
     { opcode: 0x0FC7, e: 1, fixed_g: 6, mem_ud: 1, skip: 1, }, // rdrand
 
