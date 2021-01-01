@@ -275,8 +275,6 @@ else {
 
         if(FORCE_JIT)
         {
-            cpu.jit_force_generate(cpu.instruction_pointer[0]);
-
             cpu.test_hook_did_finalize_wasm = function()
             {
                 cpu.test_hook_did_finalize_wasm = null;
@@ -286,6 +284,8 @@ else {
                     emulator.run();
                 }, 0);
             };
+
+            cpu.jit_force_generate(cpu.instruction_pointer[0]);
         }
         else
         {

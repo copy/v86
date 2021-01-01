@@ -1410,14 +1410,29 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     // WebAssembly.instantiate looks them up asynchronously
     const jit_imports = new this.jit_imports.constructor();
 
+    if(false)
+    {
+        const module = new WebAssembly.Module(code);
+        const result = new WebAssembly.Instance(module, { "e": jit_imports });
+        const f = result.exports["f"];
+
+        this.codegen_finalize_finished(wasm_table_index, start, end, first_opcode, state_flags);
+
+        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
+
+        if(this.test_hook_did_finalize_wasm)
+        {
+            this.test_hook_did_finalize_wasm(code);
+        }
+
+        return;
+    }
+
     const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
         const f = result.instance.exports["f"];
 
-        this.codegen_finalize_finished(
-            wasm_table_index, start, end,
-            first_opcode, state_flags);
+        this.codegen_finalize_finished(wasm_table_index, start, end, first_opcode, state_flags);
 
-        // The following will throw if f isn't an exported function
         this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
         if(this.test_hook_did_finalize_wasm)
