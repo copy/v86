@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::iter;
 
-use jit::{BasicBlock, BasicBlockType};
+use jit::{BasicBlock, BasicBlockType, MAX_EXTRA_BASIC_BLOCKS};
 use profiler;
 
 const ENTRY_NODE_ID: u32 = 0xffff_ffff;
@@ -265,9 +265,7 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                 );
             }
 
-            let max_extra_basic_blocks = 100;
-
-            if entries_to_group.len() * group.len() > max_extra_basic_blocks {
+            if entries_to_group.len() * group.len() > MAX_EXTRA_BASIC_BLOCKS {
                 let mut subgroup_edges: Graph = Graph::new();
                 for elem in group {
                     subgroup_edges.insert(

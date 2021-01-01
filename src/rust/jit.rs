@@ -70,6 +70,8 @@ pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
+pub const MAX_EXTRA_BASIC_BLOCKS: usize = 100;
+
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
 #[allow(non_upper_case_globals)]
@@ -1954,5 +1956,16 @@ pub fn enter_basic_block(phys_eip: u32) {
             eip
         );
         panic!();
+    }
+}
+
+#[no_mangle]
+#[cfg(feature = "profiler")]
+pub fn get_config(index: u32) -> u32 {
+    match index {
+        0 => MAX_PAGES as u32,
+        1 => JIT_ALWAYS_USE_LOOP_SAFETY as u32,
+        2 => MAX_EXTRA_BASIC_BLOCKS as u32,
+        _ => 0,
     }
 }

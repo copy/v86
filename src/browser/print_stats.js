@@ -139,6 +139,11 @@ const print_stats = {
         text += "do_many_cycles avg: " + (do_many_cycles_total / do_many_cycles_count || 0) + "\n";
         text += "wasm memory size: " + (cpu.wasm_memory.buffer.byteLength >> 20) + "m\n";
 
+        text += "Config:\n";
+        text += "MAX_PAGES=" + cpu.wm.exports["get_config"](0) + "\n";
+        text += "JIT_ALWAYS_USE_LOOP_SAFETY=" + cpu.wm.exports["get_config"](1) + "\n";
+        text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_config"](2) + "\n";
+
         return text;
     },
 
