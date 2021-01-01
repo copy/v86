@@ -1349,6 +1349,13 @@ pub fn gen_set_flags_changed(builder: &mut WasmBuilder, value: i32) {
     builder.const_i32(value);
     builder.store_aligned_i32(0);
 }
+pub fn gen_clear_flags_changed_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
+    builder.const_i32(global_pointers::flags_changed as i32);
+    gen_get_flags_changed(builder);
+    builder.const_i32(!bits_to_clear);
+    builder.and_i32();
+    builder.store_aligned_i32(0);
+}
 
 pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
     builder.const_i32(global_pointers::flags as i32);

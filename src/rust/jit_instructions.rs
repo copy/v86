@@ -1252,11 +1252,7 @@ pub fn gen_bt(
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::flags_changed as i32);
-    codegen::gen_get_flags_changed(builder);
-    builder.const_i32(!1);
-    builder.and_i32();
-    builder.store_aligned_i32(0);
+    codegen::gen_clear_flags_changed_bits(builder, 1);
 }
 
 pub fn gen_bsf32(
@@ -3384,6 +3380,15 @@ pub fn instr32_F7_7_reg_jit(ctx: &mut JitContext, r: u32) {
     ctx.builder.block_end();
 }
 
+pub fn instr_F8_jit(ctx: &mut JitContext) {
+    codegen::gen_clear_flags_changed_bits(ctx.builder, 1);
+    codegen::gen_clear_flags_bits(ctx.builder, 1);
+}
+pub fn instr_F9_jit(ctx: &mut JitContext) {
+    codegen::gen_clear_flags_changed_bits(ctx.builder, 1);
+    codegen::gen_set_flags_bits(ctx.builder, 1);
+}
+
 pub fn instr_FA_jit(ctx: &mut JitContext) {
     ctx.builder.call_fn0_ret("instr_FA_without_fault");
     ctx.builder.eqz_i32();
@@ -3696,11 +3701,7 @@ pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.or_i32();
     ctx.builder.store_aligned_i32(0);
 
-    ctx.builder.const_i32(global_pointers::flags_changed as i32);
-    codegen::gen_get_flags_changed(ctx.builder);
-    ctx.builder.const_i32(!0xFF);
-    ctx.builder.and_i32();
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_clear_flags_changed_bits(ctx.builder, 0xFF);
 }
 
 pub fn instr_9F_jit(ctx: &mut JitContext) {

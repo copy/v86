@@ -389,8 +389,8 @@ const encodings = [
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, custom: 1 },
 
-    { opcode: 0xF8, },
-    { opcode: 0xF9, },
+    { opcode: 0xF8, custom: 1 },
+    { opcode: 0xF9, custom: 1 },
     { opcode: 0xFA, custom: 1, skip: 1 },
     // STI: Note: Has special handling in jit in order to call handle_irqs safely
     { opcode: 0xFB, custom: 1, custom_sti: 1, skip: 1, },
