@@ -140,10 +140,9 @@
 
     function onload()
     {
-        if(!("responseType" in new XMLHttpRequest))
+        if(!window.WebAssembly)
         {
-            alert("Your browser is not supported " +
-                  "because it doesn't have XMLHttpRequest.responseType");
+            alert("Your browser is not supported because it doesn't support WebAssembly");
             return;
         }
 

@@ -1,13 +1,5 @@
 "use strict";
 
-if(typeof window !== "undefined" && !window.requestAnimationFrame)
-{
-    window.requestAnimationFrame =
-        window.mozRequestAnimationFrame ||
-        window.webkitRequestAnimationFrame;
-}
-
-
 /**
  * Adapter to use visual screen in browsers (in constrast to node)
  * @constructor
@@ -360,7 +352,7 @@ function ScreenAdapter(screen_container, bus)
 
         if(use_scale)
         {
-            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = "";
+            elem.style.transform = "";
         }
 
         var rectangle = elem.getBoundingClientRect();
@@ -372,18 +364,15 @@ function ScreenAdapter(screen_container, bus)
             scale_str += scale_x === 1 ? "" : " scaleX(" + scale_x + ")";
             scale_str += scale_y === 1 ? "" : " scaleY(" + scale_y + ")";
 
-            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = scale_str;
+            elem.style.transform = scale_str;
         }
         else
         {
             // unblur non-fractional scales
             if(scale_x % 1 === 0 && scale_y % 1 === 0)
             {
-                graphic_screen.style.imageRendering = "-moz-crisp-edges";
-                graphic_screen.style.imageRendering = "moz-crisp-edges";
-                graphic_screen.style.imageRendering = "webkit-optimize-contrast";
-                graphic_screen.style.imageRendering = "o-crisp-edges";
-                graphic_screen.style.imageRendering = "pixelated";
+                graphic_screen.style["imageRendering"] = "crisp-edges"; // firefox
+                graphic_screen.style["imageRendering"] = "pixelated";
                 graphic_screen.style["-ms-interpolation-mode"] = "nearest-neighbor";
             }
             else
