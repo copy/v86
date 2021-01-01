@@ -197,7 +197,7 @@ const encodings = [
     { opcode: 0x9C, os: 1, custom: 1 },
     { opcode: 0x9D, os: 1, skip: 1, custom: 1, },
     { opcode: 0x9E, custom: 1 },
-    { opcode: 0x9F, },
+    { opcode: 0x9F, custom: 1 },
 
     { opcode: 0xA0, custom: 1, immaddr: 1 },
     { opcode: 0xA1, custom: 1, os: 1, immaddr: 1 },

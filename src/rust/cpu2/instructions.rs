@@ -1198,7 +1198,6 @@ pub unsafe fn instr_9E() {
     *flags = *flags & FLAGS_MASK | FLAGS_DEFAULT;
     *flags_changed &= !255;
 }
-#[no_mangle]
 pub unsafe fn instr_9F() {
     // lahf
     *reg8.offset(AH as isize) = get_eflags() as u8;

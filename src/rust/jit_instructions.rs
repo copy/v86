@@ -3476,6 +3476,11 @@ pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.store_aligned_i32(0);
 }
 
+pub fn instr_9F_jit(ctx: &mut JitContext) {
+    codegen::gen_fn0_const_ret(ctx.builder, "get_eflags");
+    codegen::gen_set_reg8(ctx, regs::AH);
+}
+
 pub fn instr_A0_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
