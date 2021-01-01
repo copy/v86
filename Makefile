@@ -247,14 +247,12 @@ jitpagingtests: all-debug
 qemutests: all-debug
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > /tmp/v86-test-result
-	#./tests/qemu/test-i386 > /tmp/v86-test-reference
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
 qemutests-release: all
 	$(MAKE) -C tests/qemu test-i386
 	time ./tests/qemu/run.js > /tmp/v86-test-result
-	#./tests/qemu/test-i386 > /tmp/v86-test-reference
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
