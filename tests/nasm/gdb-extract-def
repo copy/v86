@@ -36,42 +36,42 @@ define extract-state
   if ($ftag & (3 << 0)) != (2 << 0)
     printf "    %.100e,\n", $st0
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 2)) != (2 << 2)
     printf "    %.100e,\n", $st1
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 4)) != (2 << 4)
     printf "    %.100e,\n", $st2
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 6)) != (2 << 6)
     printf "    %.100e,\n", $st3
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 8)) != (2 << 8)
     printf "    %.100e,\n", $st4
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 10)) != (2 << 10)
     printf "    %.100e,\n", $st5
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 12)) != (2 << 12)
     printf "    %.100e,\n", $st6
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   if ($ftag & (3 << 14)) != (2 << 14)
     printf "    %.100e,\n", $st7
   else
-    printf "    \"invalid\","
+    printf "    \"invalid\",\n"
   end
   printf "    \n"
 
