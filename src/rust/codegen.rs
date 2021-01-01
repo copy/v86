@@ -1343,21 +1343,10 @@ pub fn gen_safe_read_write(
         gen_call_fn2(ctx.builder, "report_safe_read_write_jit_slow");
     }
 
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::PREVIOUS_IP as i32);
-
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    ctx.builder.instruction_body.const_i32(!0xFFF);
-    ctx.builder.instruction_body.and_i32();
-    ctx.builder
-        .instruction_body
-        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
-    ctx.builder.instruction_body.or_i32();
-
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
 
     ctx.builder.instruction_body.get_local(&address_local);
 
