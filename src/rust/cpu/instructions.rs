@@ -1,4 +1,4 @@
-#![allow(non_snake_case, unused_variables)]
+#![allow(non_snake_case)]
 
 extern "C" {
     fn hlt_op();
@@ -547,13 +547,13 @@ pub unsafe fn instr16_61() { popa16(); }
 pub unsafe fn instr32_61() { popa32(); }
 
 #[no_mangle]
-pub unsafe fn instr_62_reg(r2: i32, r: i32) {
+pub unsafe fn instr_62_reg(_r2: i32, _r: i32) {
     // bound
     dbg_log!("Unimplemented BOUND instruction");
     dbg_assert!(false);
 }
 #[no_mangle]
-pub unsafe fn instr_62_mem(addr: i32, r: i32) {
+pub unsafe fn instr_62_mem(_addr: i32, _r: i32) {
     dbg_log!("Unimplemented BOUND instruction");
     dbg_assert!(false);
 }
@@ -929,7 +929,7 @@ pub unsafe fn instr32_8C_mem(addr: i32, seg: i32) {
     };
 }
 
-pub unsafe fn instr16_8D_reg(r: i32, r2: i32) {
+pub unsafe fn instr16_8D_reg(_r: i32, _r2: i32) {
     dbg_log!("lea #ud");
     trigger_ud();
 }
@@ -941,7 +941,7 @@ pub unsafe fn instr16_8D_mem(modrm_byte: i32, r: i32) {
     }
     *prefixes = 0;
 }
-pub unsafe fn instr32_8D_reg(r: i32, r2: i32) {
+pub unsafe fn instr32_8D_reg(_r: i32, _r2: i32) {
     dbg_log!("lea #ud");
     trigger_ud();
 }
@@ -2084,7 +2084,6 @@ pub unsafe fn instr_FA() {
 #[no_mangle]
 pub unsafe fn instr_FB_without_fault() -> bool {
     // sti
-    let old_if = *flags & FLAG_INTERRUPT;
     if !*protected_mode
         || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
@@ -2161,7 +2160,7 @@ pub unsafe fn instr16_FF_2_mem(addr: i32) {
 pub unsafe fn instr16_FF_2_reg(r1: i32) { instr16_FF_2_helper(read_reg16(r1)); }
 
 #[no_mangle]
-pub unsafe fn instr16_FF_3_reg(r: i32) {
+pub unsafe fn instr16_FF_3_reg(_r: i32) {
     dbg_log!("callf #ud");
     trigger_ud();
 }
@@ -2184,7 +2183,7 @@ pub unsafe fn instr16_FF_4_mem(addr: i32) {
 pub unsafe fn instr16_FF_4_reg(r1: i32) { instr16_FF_4_helper(read_reg16(r1)); }
 
 #[no_mangle]
-pub unsafe fn instr16_FF_5_reg(r: i32) {
+pub unsafe fn instr16_FF_5_reg(_r: i32) {
     dbg_log!("jmpf #ud");
     trigger_ud();
 }
@@ -2224,7 +2223,7 @@ pub unsafe fn instr32_FF_2_mem(addr: i32) {
 }
 pub unsafe fn instr32_FF_2_reg(r1: i32) { instr32_FF_2_helper(read_reg32(r1)); }
 #[no_mangle]
-pub unsafe fn instr32_FF_3_reg(r: i32) {
+pub unsafe fn instr32_FF_3_reg(_r: i32) {
     dbg_log!("callf #ud");
     trigger_ud();
 }
@@ -2253,7 +2252,7 @@ pub unsafe fn instr32_FF_4_mem(addr: i32) {
 pub unsafe fn instr32_FF_4_reg(r1: i32) { instr32_FF_4_helper(read_reg32(r1)); }
 
 #[no_mangle]
-pub unsafe fn instr32_FF_5_reg(r: i32) {
+pub unsafe fn instr32_FF_5_reg(_r: i32) {
     dbg_log!("jmpf #ud");
     trigger_ud();
 }
@@ -2381,7 +2380,7 @@ pub unsafe fn instr_D8_7_reg(r: i32) { fpu_fdivr(0, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_D9_0_mem(addr: i32) { fpu_fldm32(addr); }
 pub unsafe fn instr16_D9_0_reg(r: i32) { fpu_push(fpu_get_sti(r)); }
-pub unsafe fn instr16_D9_1_mem(addr: i32) {
+pub unsafe fn instr16_D9_1_mem(_addr: i32) {
     dbg_log!("d9/1");
     trigger_ud();
 }
@@ -2507,7 +2506,7 @@ pub unsafe fn instr_DA_2_reg(r: i32) { fpu_fcmovcc(test_be(), r); }
 #[no_mangle]
 pub unsafe fn instr_DA_3_reg(r: i32) { fpu_fcmovcc(test_p(), r); }
 #[no_mangle]
-pub unsafe fn instr_DA_4_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DA_4_reg(_r: i32) { trigger_ud(); }
 pub unsafe fn instr_DA_5_reg(r: i32) {
     if r == 1 {
         fpu_fucompp();
@@ -2517,22 +2516,22 @@ pub unsafe fn instr_DA_5_reg(r: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn instr_DA_6_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DA_6_reg(_r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_DA_7_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DA_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fildm32(addr); }
 #[no_mangle]
-pub unsafe fn instr_DB_1_mem(addr: i32) {
+pub unsafe fn instr_DB_1_mem(_addr: i32) {
     dbg_log!("fisttp");
     fpu_unimpl();
 }
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
 #[no_mangle]
-pub unsafe fn instr_DB_4_mem(addr: i32) { trigger_ud(); }
+pub unsafe fn instr_DB_4_mem(_addr: i32) { trigger_ud(); }
 pub unsafe fn instr_DB_5_mem(addr: i32) { fpu_fldm80(addr); }
-pub unsafe fn instr_DB_6_mem(addr: i32) { trigger_ud(); }
+pub unsafe fn instr_DB_6_mem(_addr: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_DB_7_mem(addr: i32) { fpu_fst80p(addr); }
 #[no_mangle]
@@ -2561,7 +2560,7 @@ pub unsafe fn instr_DB_4_reg(r: i32) {
 pub unsafe fn instr_DB_5_reg(r: i32) { fpu_fucomi(r); }
 pub unsafe fn instr_DB_6_reg(r: i32) { fpu_fcomi(r); }
 #[no_mangle]
-pub unsafe fn instr_DB_7_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DB_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr_DC_0_mem(addr: i32) { fpu_fadd(0, return_on_pagefault!(fpu_load_m64(addr))); }
 pub unsafe fn instr_DC_1_mem(addr: i32) { fpu_fmul(0, return_on_pagefault!(fpu_load_m64(addr))); }
@@ -2581,7 +2580,7 @@ pub unsafe fn instr_DC_6_reg(r: i32) { fpu_fdiv(r, fpu_get_sti(r)); }
 pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
-pub unsafe fn instr16_DD_1_mem(addr: i32) {
+pub unsafe fn instr16_DD_1_mem(_addr: i32) {
     dbg_log!("fisttp");
     fpu_unimpl();
 }
@@ -2591,7 +2590,7 @@ pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 pub unsafe fn instr16_DD_4_mem(addr: i32) { fpu_frstor16(addr); }
 #[no_mangle]
 pub unsafe fn instr32_DD_4_mem(addr: i32) { fpu_frstor32(addr); }
-pub unsafe fn instr16_DD_5_mem(addr: i32) {
+pub unsafe fn instr16_DD_5_mem(_addr: i32) {
     dbg_log!("dd/5");
     trigger_ud();
 }
@@ -2610,9 +2609,9 @@ pub unsafe fn instr16_DD_3_reg(r: i32) { fpu_fstp(r); }
 pub unsafe fn instr16_DD_4_reg(r: i32) { fpu_fucom(r); }
 pub unsafe fn instr16_DD_5_reg(r: i32) { fpu_fucomp(r); }
 #[no_mangle]
-pub unsafe fn instr16_DD_6_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr16_DD_6_reg(_r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_DD_7_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr16_DD_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr32_DD_0_reg(r: i32) { instr16_DD_0_reg(r) }
 #[no_mangle]
@@ -2695,19 +2694,19 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
 #[no_mangle]
-pub unsafe fn instr_DF_1_mem(addr: i32) {
+pub unsafe fn instr_DF_1_mem(_addr: i32) {
     dbg_log!("fisttp");
     fpu_unimpl();
 }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
-pub unsafe fn instr_DF_4_mem(addr: i32) {
+pub unsafe fn instr_DF_4_mem(_addr: i32) {
     dbg_log!("fbld");
     fpu_unimpl();
 }
 pub unsafe fn instr_DF_5_mem(addr: i32) { fpu_fildm64(addr); }
 #[no_mangle]
-pub unsafe fn instr_DF_6_mem(addr: i32) {
+pub unsafe fn instr_DF_6_mem(_addr: i32) {
     dbg_log!("fbstp");
     fpu_unimpl();
 }
@@ -2733,7 +2732,7 @@ pub unsafe fn instr_DF_4_reg(r: i32) {
 pub unsafe fn instr_DF_5_reg(r: i32) { fpu_fucomip(r); }
 #[no_mangle]
 pub unsafe fn instr_DF_6_reg(r: i32) { fpu_fcomip(r); }
-pub unsafe fn instr_DF_7_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DF_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr16_E0(imm8s: i32) { loopne16(imm8s); }
 pub unsafe fn instr16_E1(imm8s: i32) { loope16(imm8s); }
