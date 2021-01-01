@@ -382,7 +382,7 @@ if(cluster.isMaster)
             ].join(" "),
             filesystem: {
                 basefs: "images/fs.json",
-                baseurl: "images/arch/",
+                baseurl: "images/arch-nongz/",
             },
             expected_texts: [
                 "root@localhost",
@@ -557,7 +557,7 @@ if(cluster.isMaster)
             name: "Mobius",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
-            fda: root_path + "/images/experimental/os/mobius-fd-release5.img",
+            fda: root_path + "/images/mobius-fd-release5.img",
             expect_graphical_mode: true,
             actions: [
                 {
@@ -570,7 +570,7 @@ if(cluster.isMaster)
             name: "Tiny Core 11 CD",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
-            cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
+            cdrom: root_path + "/images/TinyCore-11.0.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
             actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],
@@ -579,7 +579,7 @@ if(cluster.isMaster)
             name: "Tiny Core 11 HD",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
-            cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
+            cdrom: root_path + "/images/TinyCore-11.0.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
             actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],

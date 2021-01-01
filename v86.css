@@ -22,7 +22,7 @@
     float: left;
 }
 #serial {
-    margin: 0px;
+    margin: 0;
 }
 #serial:focus {
     outline: 1px solid rgb(229, 151, 0);
@@ -52,6 +52,7 @@ body {
 }
 a {
     color: wheat;
+    text-decoration: none;
 }
 .phone_keyboard {
     width: 0;
@@ -66,7 +67,7 @@ a {
     overflow: hidden;
 }
 h4 {
-    margin: 0px 0px 20px 0px;
+    margin: 0 0 9px 0;
 }
 #start_emulation {
     padding: 6px 18px;
@@ -90,13 +91,37 @@ h4 {
     margin-bottom: 10px;
     outline: 1px solid #555;
 }
-a img {
-    margin: 10px;
-}
-.screenshots a {
+#boot_options a {
     text-decoration: none;
+    font-weight: bold;
+    font-size: 16px;
+}
+#boot_options td {
+    padding: 1px 7px;
+}
+#oses small {
+    font-size: 80%;
+    color: #ccc;
+    padding-left: 5px;
+}
+#oses tr {
+    cursor: pointer;
+}
+#oses {
+    border-spacing: 0;
+}
+#oses tr:hover {
+    background-color: #311;
+}
+#oses td:nth-child(1) {
+    white-space: pre;
+    vertical-align: top;
+}
+#terminal {
+    max-width: 1024px;
 }
 
+/* the code below was copied from xterm.css */
 
 .xterm {
     font-feature-settings: "liga" 0;
