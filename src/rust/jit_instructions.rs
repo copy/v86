@@ -3473,6 +3473,16 @@ pub fn instr_DF_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "fpu_fucomip", r);
 }
 
+pub fn instr_DF_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    dbg_log!("fbstp");
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_DF_6_reg_jit(ctx: &mut JitContext, r: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.call_fn1("fpu_fcomip");
+}
+
 pub fn instr_DF_7_reg_jit(ctx: &mut JitContext, _r: u32) { codegen::gen_trigger_ud(ctx); }
 pub fn instr_DF_7_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
