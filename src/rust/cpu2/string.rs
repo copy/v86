@@ -29,9 +29,9 @@ use cpu2::arith::{cmp8, cmp16, cmp32};
 use cpu2::cpu::*;
 use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg8, reg16, reg32};
 use cpu2::memory::{
-    in_mapped_range, memset_no_mmap_or_dirty_check, read8_no_mmap_check, read16_no_mmap_check,
-    read32_no_mmap_check, write8_no_mmap_or_dirty_check, write16_no_mmap_or_dirty_check,
-    write32_no_mmap_or_dirty_check,
+    in_mapped_range, memcpy_no_mmap_or_dirty_check, memset_no_mmap_or_dirty_check,
+    read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check, write8_no_mmap_or_dirty_check,
+    write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check,
 };
 use page::Page;
 
@@ -178,6 +178,13 @@ unsafe fn string_instruction(
             },
             _ => {},
         };
+
+        match instruction {
+            Instruction::Movs => {
+                rep_fast = rep_fast && Page::page_of(phys_src) != Page::page_of(phys_dst)
+            },
+            _ => {},
+        }
     }
 
     if rep_fast {
@@ -242,8 +249,21 @@ unsafe fn string_instruction(
                     Size::W => *reg16.offset(AX as isize) = src_val as u16,
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
-                Instruction::Movs | Instruction::Ins => match size {
+                Instruction::Ins => match size {
                     Size::B => write8_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
+                },
+                Instruction::Movs => match size {
+                    Size::B => {
+                        if direction == -1 {
+                            phys_src -= count_until_end_of_page - 1;
+                            phys_dst -= count_until_end_of_page - 1;
+                        }
+                        memcpy_no_mmap_or_dirty_check(phys_src, phys_dst, count_until_end_of_page);
+                        i = count_until_end_of_page;
+                        break;
+                    },
                     Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
                     Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
                 },
