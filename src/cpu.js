@@ -751,7 +751,7 @@ CPU.prototype.create_memory = function(size)
     dbg_assert((size | 0) > 0);
     dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    console.assert(this.memory_size[0] === 0);
+    console.assert(this.memory_size[0] === 0, "Expected uninitialised memory");
 
     this.memory_size[0] = size;
 
