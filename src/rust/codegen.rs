@@ -30,26 +30,42 @@ pub fn gen_add_cs_offset(ctx: &mut JitContext) {
 }
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
+    // previous_ip = instruction_pointer + n
     let cs = &mut builder.instruction_body;
-    cs.const_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
-    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
+    cs.const_i32(global_pointers::PREVIOUS_IP as i32);
+    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
     if n != 0 {
         cs.const_i32(n as i32);
-        cs.add_i32(); // add constant to ip value
+        cs.add_i32();
     }
-    cs.store_aligned_i32(0); // store it as previous ip
+    cs.store_aligned_i32(0);
+}
+
+pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
+    builder: &mut WasmBuilder,
+    low_bits: i32,
+) {
+    // previous_ip = instruction_pointer & ~0xFFF | low_bits;
+    builder
+        .instruction_body
+        .const_i32(global_pointers::PREVIOUS_IP as i32);
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    builder.instruction_body.const_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.const_i32(low_bits);
+    builder.instruction_body.or_i32();
+    builder.instruction_body.store_aligned_i32(0);
 }
 
 pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.instruction_body;
-    cs.const_i32(global_pointers::INSTRUCTION_POINTER as i32); // store address of ip
-
-    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
-
+    cs.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
     cs.const_i32(n as i32);
-
     cs.add_i32();
-    cs.store_aligned_i32(0); // store it back in
+    cs.store_aligned_i32(0);
 }
 
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
@@ -598,21 +614,10 @@ fn gen_safe_read(
         gen_call_fn2(ctx.builder, "report_safe_read_jit_slow");
     }
 
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::PREVIOUS_IP as i32);
-
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    ctx.builder.instruction_body.const_i32(!0xFFF);
-    ctx.builder.instruction_body.and_i32();
-    ctx.builder
-        .instruction_body
-        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
-    ctx.builder.instruction_body.or_i32();
-
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
 
     ctx.builder.instruction_body.get_local(&address_local);
     match bits {
@@ -774,21 +779,10 @@ fn gen_safe_write(
         gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
     }
 
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::PREVIOUS_IP as i32);
-
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    ctx.builder.instruction_body.const_i32(!0xFFF);
-    ctx.builder.instruction_body.and_i32();
-    ctx.builder
-        .instruction_body
-        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
-    ctx.builder.instruction_body.or_i32();
-
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
 
     ctx.builder.instruction_body.get_local(&address_local);
     match value_local {
