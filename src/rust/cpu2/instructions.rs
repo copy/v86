@@ -2816,23 +2816,21 @@ pub unsafe fn instr_FA_without_fault() -> bool {
         return false;
     };
 }
-#[no_mangle]
 pub unsafe fn instr_FA() {
     if !instr_FA_without_fault() {
         trigger_gp(0);
     }
 }
+
 #[no_mangle]
-pub unsafe fn instr_FB() {
+pub unsafe fn instr_FB_without_fault() -> bool {
     // sti
     let old_if = *flags & FLAG_INTERRUPT;
     if !*protected_mode
         || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
         *flags |= FLAG_INTERRUPT;
-        if old_if == 0 {
-            handle_irqs();
-        }
+        return true;
     }
     else if false
         && getiopl() < 3
@@ -2844,13 +2842,28 @@ pub unsafe fn instr_FB() {
             *cpl == 3 && 0 != *cr.offset(4) & CR4_PVI
         }
     {
-        *flags |= FLAG_VIF
+        *flags |= FLAG_VIF;
+        return true;
     }
     else {
         dbg_log!("sti #gp");
-        trigger_gp(0);
+        return false;
     };
 }
+pub unsafe fn instr_FB() {
+    if !instr_FB_without_fault() {
+        trigger_gp(0);
+    }
+    else {
+        *prefixes = 0;
+        *previous_ip = *instruction_pointer;
+        *timestamp_counter += 1;
+        run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8);
+
+        handle_irqs();
+    }
+}
+
 #[no_mangle]
 pub unsafe fn instr_FC() {
     // cld

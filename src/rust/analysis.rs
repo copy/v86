@@ -13,6 +13,7 @@ pub enum AnalysisType {
         is_32: bool,
         condition: Option<u8>,
     },
+    STI,
 }
 
 pub struct Analysis {

@@ -372,6 +372,7 @@ struct BasicBlock {
     end_addr: u32,
     is_entry_block: bool,
     ty: BasicBlockType,
+    has_sti: bool,
     number_of_instructions: u32,
 }
 
@@ -548,6 +549,7 @@ fn jit_find_basic_blocks(
             end_addr: 0,
             ty: BasicBlockType::Exit,
             is_entry_block: false,
+            has_sti: false,
             number_of_instructions: 0,
         };
         loop {
@@ -562,17 +564,40 @@ fn jit_find_basic_blocks(
             current_address = ctx.eip;
 
             match analysis.ty {
-                AnalysisType::Normal => {
+                AnalysisType::Normal | AnalysisType::STI => {
                     dbg_assert!(has_next_instruction);
 
-                    if basic_blocks.contains_key(&current_address) {
+                    if current_block.has_sti {
+                        // Convert next instruction after STI (i.e., the current instruction) into block boundary
+                        marked_as_entry.insert(current_address as u16 & 0xFFF);
+                        to_visit_stack.push(current_address as u16 & 0xFFF);
+
                         current_block.last_instruction_addr = addr_before_instruction;
                         current_block.end_addr = current_address;
-                        dbg_assert!(!is_near_end_of_page(current_address));
-                        current_block.ty = BasicBlockType::Normal {
-                            next_block_addr: current_address,
-                        };
                         break;
+                    }
+
+                    if analysis.ty == AnalysisType::STI {
+                        current_block.has_sti = true;
+
+                        dbg_assert!(
+                            !is_near_end_of_page(current_address),
+                            "TODO: Handle STI instruction near end of page"
+                        );
+                    }
+                    else {
+                        // Only split non-STI blocks (one instruction needs to run after STI before
+                        // handle_irqs may be called)
+
+                        if basic_blocks.contains_key(&current_address) {
+                            current_block.last_instruction_addr = addr_before_instruction;
+                            current_block.end_addr = current_address;
+                            dbg_assert!(!is_near_end_of_page(current_address));
+                            current_block.ty = BasicBlockType::Normal {
+                                next_block_addr: current_address,
+                            };
+                            break;
+                        }
                     }
                 },
                 AnalysisType::Jump {
@@ -704,6 +729,7 @@ fn jit_find_basic_blocks(
         let previous_block = basic_blocks
             .range(..current_block.addr)
             .next_back()
+            .filter(|(_, previous_block)| (!previous_block.has_sti))
             .map(|(_, previous_block)| (previous_block.addr, previous_block.end_addr));
 
         if let Some((start_addr, end_addr)) = previous_block {
@@ -1133,6 +1159,18 @@ fn jit_generate_module(
 
         let invalid_connection_to_next_block = block.end_addr != ctx.cpu.eip;
         dbg_assert!(!invalid_connection_to_next_block);
+
+        if block.has_sti {
+            match block.ty {
+                BasicBlockType::ConditionalJump { .. } => dbg_assert!(false, "TODO"),
+                _ => {},
+            };
+            codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+            codegen::gen_move_registers_from_locals_to_memory(ctx);
+            codegen::gen_fn0_const(ctx.builder, "handle_irqs");
+            ctx.builder.return_();
+            continue;
+        }
 
         match &block.ty {
             BasicBlockType::Exit => {

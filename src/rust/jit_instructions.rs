@@ -3161,6 +3161,15 @@ pub fn instr_FA_jit(ctx: &mut JitContext) {
     ctx.builder.block_end();
 }
 
+pub fn instr_FB_jit(ctx: &mut JitContext) {
+    codegen::gen_fn0_const_ret(ctx.builder, "instr_FB_without_fault");
+    ctx.builder.eqz_i32();
+    ctx.builder.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.block_end();
+    // handle_irqs is specially handled in jit to be called one instruction after this one
+}
+
 pub fn instr_FC_jit(ctx: &mut JitContext) {
     ctx.builder.const_i32(global_pointers::FLAGS as i32);
     ctx.builder.load_aligned_i32(global_pointers::FLAGS);

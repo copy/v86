@@ -218,8 +218,13 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     const imm_read = gen_read_imm_call(encoding, size);
     const instruction_postfix = [];
 
-    // jump_offset_imm: Is a block boundary, but gets a different type (Jump) below
-    if(encoding.block_boundary && !encoding.jump_offset_imm || (!encoding.custom && encoding.e))
+    if(encoding.custom_sti) {
+        instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::STI;");
+    }
+    else if(
+        encoding.block_boundary &&
+        // jump_offset_imm: Is a block boundary, but gets a different type (Jump) below
+        !encoding.jump_offset_imm || (!encoding.custom && encoding.e))
     {
         instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::BlockBoundary;");
     }

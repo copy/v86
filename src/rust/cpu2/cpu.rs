@@ -2948,6 +2948,7 @@ pub unsafe fn trigger_ss(code: i32) {
 #[no_mangle]
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
+#[no_mangle]
 pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
         pic_acknowledge()

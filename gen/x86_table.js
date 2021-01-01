@@ -393,8 +393,8 @@ const encodings = [
     { opcode: 0xF8, },
     { opcode: 0xF9, },
     { opcode: 0xFA, custom: 1, skip: 1 },
-    // sti: not a jump, but can cause a change in eip
-    { opcode: 0xFB, block_boundary: 1, skip: 1, },
+    // STI: Note: Has special handling in jit in order to call handle_irqs safely
+    { opcode: 0xFB, custom: 1, custom_sti: 1, skip: 1, },
     { opcode: 0xFC, custom: 1, },
     { opcode: 0xFD, custom: 1, },
 
