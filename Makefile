@@ -182,14 +182,14 @@ with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 
 build/softfloat.o: lib/softfloat/softfloat.c
 	clang -c -Wall \
-	    --target=wasm32 -Os -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
+	    --target=wasm32 -O3 -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
 	    -DSOFTFLOAT_FAST_INT64 -DINLINE_LEVEL=5 -DSOFTFLOAT_FAST_DIV32TO16 -DSOFTFLOAT_FAST_DIV64TO32 \
 	    -o build/softfloat.o \
 	    lib/softfloat/softfloat.c
 
 build/zstddeclib.o: lib/zstd/zstddeclib.c
 	clang -c -Wall \
-	    --target=wasm32 -Os -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
+	    --target=wasm32 -O3 -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
 	    -I /usr/include \
 	    -o build/zstddeclib.o \
 	    lib/zstd/zstddeclib.c
