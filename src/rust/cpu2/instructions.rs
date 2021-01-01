@@ -893,10 +893,20 @@ pub unsafe fn instr_62_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_63_mem(addr: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("arpl #ud");
+        trigger_ud();
+        return;
+    }
     SAFE_READ_WRITE16!(___, addr, arpl(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_63_reg(r1: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("arpl #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = read_reg16(r1);
     write_reg16(r1, arpl(____0, read_reg16(r)));
 }

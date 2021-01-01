@@ -2919,12 +2919,6 @@ CPU.prototype.load_ldt = function(selector)
 
 CPU.prototype.arpl = function(seg, r16)
 {
-    if(!this.protected_mode[0] || this.vm86_mode())
-    {
-        this.trigger_ud();
-        return;
-    }
-
     this.flags_changed[0] &= ~flag_zero;
 
     if((seg & 3) < (r16 & 3))
@@ -2944,13 +2938,6 @@ CPU.prototype.lar = function(selector, original)
     if(CPU_LOG_VERBOSE)
     {
         dbg_log("lar sel=" + h(selector, 4), LOG_CPU);
-    }
-
-    if(!this.protected_mode[0] || this.vm86_mode())
-    {
-        dbg_log("lar #ud");
-        this.trigger_ud();
-        return;
     }
 
     /** @const */
@@ -2982,13 +2969,6 @@ CPU.prototype.lsl = function(selector, original)
     if(CPU_LOG_VERBOSE)
     {
         dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
-    }
-
-    if(!this.protected_mode[0] || this.vm86_mode())
-    {
-        dbg_log("lsl #ud");
-        this.trigger_ud();
-        return;
     }
 
     /** @const */

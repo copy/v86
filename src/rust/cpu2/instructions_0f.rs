@@ -161,46 +161,38 @@ pub unsafe fn instr_0F00_3_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F00_4_mem(addr: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("verr #ud");
         trigger_ud();
         return;
     }
-    else {
-        verr(return_on_pagefault!(safe_read16(addr)));
-        return;
-    };
+    verr(return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_4_reg(r: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("verr #ud");
         trigger_ud();
         return;
     }
-    else {
-        verr(read_reg16(r));
-        return;
-    };
+    verr(read_reg16(r));
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_mem(addr: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("verw #ud");
         trigger_ud();
         return;
     }
-    else {
-        verw(return_on_pagefault!(safe_read16(addr)));
-        return;
-    };
+    verw(return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_reg(r: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("verw #ud");
         trigger_ud();
         return;
     }
-    else {
-        verw(read_reg16(r));
-        return;
-    };
+    verw(read_reg16(r));
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_0_reg(r: i32) { trigger_ud(); }
@@ -334,41 +326,81 @@ pub unsafe fn instr_0F01_7_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0F02_mem(addr: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lar #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = return_on_pagefault!(safe_read16(addr));
     write_reg16(r, lar(____0, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_0F02_reg(r1: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lar #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = read_reg16(r1);
     write_reg16(r, lar(____0, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_0F02_mem(addr: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lar #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = return_on_pagefault!(safe_read16(addr));
     write_reg32(r, lar(____0, read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_0F02_reg(r1: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lar #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = read_reg16(r1);
     write_reg32(r, lar(____0, read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_0F03_mem(addr: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lsl #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = return_on_pagefault!(safe_read16(addr));
     write_reg16(r, lsl(____0, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_0F03_reg(r1: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lsl #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = read_reg16(r1);
     write_reg16(r, lsl(____0, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_0F03_mem(addr: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lsl #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = return_on_pagefault!(safe_read16(addr));
     write_reg32(r, lsl(____0, read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_0F03_reg(r1: i32, r: i32) {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
+        dbg_log!("lsl #ud");
+        trigger_ud();
+        return;
+    }
     let ____0: i32 = read_reg16(r1);
     write_reg32(r, lsl(____0, read_reg32(r)));
 }
