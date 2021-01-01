@@ -74,40 +74,49 @@ pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     builder.store_aligned_i32(0);
 }
 
+pub fn gen_page_switch_check(
+    ctx: &mut JitContext,
+    next_block_addr: u32,
+    last_instruction_addr: u32,
+) {
+    // After switching a page while in jitted code, check if the page mapping still holds
+
+    gen_get_eip(ctx.builder);
+    let address_local = ctx.builder.set_new_local();
+    gen_get_phys_eip(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+
+    ctx.builder.const_i32(next_block_addr as i32);
+    ctx.builder.ne_i32();
+    ctx.builder.if_void();
+    gen_profiler_stat_increment(ctx.builder, profiler::stat::FAILED_PAGE_CHANGE);
+    gen_debug_track_jit_exit(ctx.builder, last_instruction_addr);
+    gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.return_();
+    ctx.builder.block_end();
+}
+
 pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder
         .const_i32(global_pointers::instruction_pointer as i32);
     ctx.builder.get_local(&new_eip);
     ctx.builder.store_aligned_i32(0);
 
-    ctx.builder.get_local(&new_eip);
-    ctx.builder
-        .load_fixed_i32(global_pointers::previous_ip as u32);
-    ctx.builder.xor_i32();
-    ctx.builder.const_i32(!0xFFF);
-    ctx.builder.and_i32();
-    ctx.builder.eqz_i32();
+    gen_get_phys_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+
+    ctx.builder.const_i32(ctx.our_wasm_table_index as i32);
+    ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
+    ctx.builder.call_fn3_ret("jit_find_cache_entry_in_page");
+    let new_basic_block_index = ctx.builder.tee_new_local();
+    ctx.builder.const_i32(0);
+    ctx.builder.ge_i32();
     ctx.builder.if_void();
-    {
-        // try staying in same page
-        ctx.builder.get_local(&new_eip);
-        ctx.builder.free_local(new_eip);
-        ctx.builder
-            .const_i32(ctx.start_of_current_instruction as i32);
-        ctx.builder.const_i32(ctx.our_wasm_table_index as i32);
-        ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
-        ctx.builder.call_fn4_ret("jit_find_cache_entry_in_page");
-        let new_basic_block_index = ctx.builder.tee_new_local();
-        ctx.builder.const_i32(0);
-        ctx.builder.ge_i32();
-        ctx.builder.if_void();
-        ctx.builder.get_local(&new_basic_block_index);
-        ctx.builder.set_local(ctx.basic_block_index_local);
-        ctx.builder.br(ctx.current_brtable_depth + 2); // to the loop
-        ctx.builder.block_end();
-        ctx.builder.free_local(new_basic_block_index);
-    }
+    ctx.builder.get_local(&new_basic_block_index);
+    ctx.builder.set_local(ctx.basic_block_index_local);
+    ctx.builder.br(ctx.current_brtable_depth + 1); // to the loop
     ctx.builder.block_end();
+    ctx.builder.free_local(new_basic_block_index);
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
@@ -622,6 +631,76 @@ fn gen_safe_read(
             ctx.builder.free_local(virt_address_local);
         },
     }
+
+    ctx.builder.free_local(entry_local);
+}
+
+pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
+    // Similar to gen_safe_read, but return the physical eip rather than reading from memory
+    // Does not (need to) handle mapped memory
+    // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
+    //      already correct (pointing at the current instruction)
+
+    ctx.builder.block_void();
+    ctx.builder.get_local(&address_local);
+
+    ctx.builder.const_i32(12);
+    ctx.builder.shr_u_i32();
+    ctx.builder.const_i32(2);
+    ctx.builder.shl_i32();
+
+    ctx.builder
+        .load_aligned_i32(unsafe { &tlb_data[0] as *const i32 as u32 });
+    let entry_local = ctx.builder.tee_new_local();
+
+    ctx.builder.const_i32(
+        (0xFFF
+            & !TLB_READONLY
+            & !TLB_GLOBAL
+            & !TLB_HAS_CODE
+            & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
+    );
+    ctx.builder.and_i32();
+
+    ctx.builder.const_i32(TLB_VALID as i32);
+    ctx.builder.eq_i32();
+
+    ctx.builder.br_if(0);
+
+    if cfg!(feature = "profiler") {
+        ctx.builder.get_local(&address_local);
+        ctx.builder.get_local(&entry_local);
+        ctx.builder.call_fn2("report_safe_read_jit_slow");
+    }
+
+    ctx.builder.get_local(&address_local);
+    ctx.builder.call_fn1_ret("get_phys_eip_slow_jit");
+    ctx.builder.tee_local(&entry_local);
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
+
+    if cfg!(feature = "profiler") {
+        ctx.builder.if_void();
+        gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction); // XXX
+        ctx.builder.block_end();
+
+        ctx.builder.get_local(&entry_local);
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
+    }
+
+    // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
+    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
+
+    ctx.builder.block_end();
+
+    gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_READ_FAST); // XXX: Both fast and slow
+
+    ctx.builder.get_local(&entry_local);
+    ctx.builder.const_i32(!0xFFF);
+    ctx.builder.and_i32();
+    ctx.builder.get_local(&address_local);
+    ctx.builder.xor_i32();
 
     ctx.builder.free_local(entry_local);
 }

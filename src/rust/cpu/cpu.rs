@@ -17,7 +17,6 @@ extern "C" {
     pub fn io_port_write32(port: i32, value: i32);
 }
 
-use ::jit;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::memory;
@@ -31,6 +30,8 @@ use cpu::misc_instr::{
     push16, push32,
 };
 use cpu::modrm::{resolve_modrm16, resolve_modrm32};
+use jit;
+use jit::is_near_end_of_page;
 use page::Page;
 use paging::OrPageFault;
 use profiler;
@@ -1493,14 +1494,28 @@ pub unsafe fn get_eflags() -> i32 {
 #[no_mangle]
 pub unsafe fn get_eflags_no_arith() -> i32 { return *flags; }
 
-pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
-    let entry = tlb_data[(address as u32 >> 12) as usize];
-    let user = *cpl == 3;
+pub fn translate_address_read_no_side_effects(address: i32) -> Option<u32> {
+    let entry = unsafe { tlb_data[(address as u32 >> 12) as usize] };
+    let user = unsafe { *cpl } == 3;
+    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
+        Some((entry & !0xFFF ^ address) as u32)
+    }
+    else {
+        match unsafe { do_page_walk(address, false, user, false) } {
+            Ok(phys_addr_high) => Some((phys_addr_high | address & 0xFFF) as u32),
+            Err(_pagefault) => None,
+        }
+    }
+}
+
+pub fn translate_address_read(address: i32) -> OrPageFault<u32> {
+    let entry = unsafe { tlb_data[(address as u32 >> 12) as usize] };
+    let user = unsafe { *cpl == 3 };
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
     }
     else {
-        Ok((do_page_translation(address, false, user)? | address & 0xFFF) as u32)
+        Ok((unsafe { do_page_translation(address, false, user) }? | address & 0xFFF) as u32)
     }
 }
 
@@ -1511,7 +1526,7 @@ pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
         Ok((entry & !0xFFF ^ address) as u32)
     }
     else {
-        match do_page_walk(address, false, user) {
+        match do_page_walk(address, false, user, true) {
             Ok(phys_addr_high) => Ok((phys_addr_high | address & 0xFFF) as u32),
             Err(pagefault) => {
                 trigger_pagefault_jit(pagefault);
@@ -1528,8 +1543,9 @@ pub struct PageFault {
     present: bool,
 }
 
+#[inline(never)]
 pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> OrPageFault<i32> {
-    match do_page_walk(addr, for_writing, user) {
+    match do_page_walk(addr, for_writing, user, true) {
         Ok(phys_addr) => Ok(phys_addr),
         Err(pagefault) => {
             trigger_pagefault(pagefault);
@@ -1538,7 +1554,12 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
     }
 }
 
-pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i32, PageFault> {
+pub unsafe fn do_page_walk(
+    addr: i32,
+    for_writing: bool,
+    user: bool,
+    side_effects: bool,
+) -> Result<i32, PageFault> {
     let mut can_write: bool = true;
     let global;
     let mut allow_user: bool = true;
@@ -1550,6 +1571,8 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
         global = false
     }
     else {
+        profiler::stat_increment(TLB_MISS);
+
         let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add((page >> 10) as u32) as i32;
         let page_dir_entry = read_aligned32(page_dir_addr as u32);
         // XXX
@@ -1598,7 +1621,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
                 | PAGE_TABLE_ACCESSED_MASK
                 | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
 
-            if page_dir_entry != new_page_dir_entry {
+            if side_effects && page_dir_entry != new_page_dir_entry {
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
             }
 
@@ -1643,13 +1666,13 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             // Set the accessed and dirty bits
             // Note: dirty bit is only set on the page table entry
             let new_page_dir_entry = page_dir_entry | PAGE_TABLE_ACCESSED_MASK;
-            if new_page_dir_entry != page_dir_entry {
+            if side_effects && new_page_dir_entry != page_dir_entry {
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
             }
             let new_page_table_entry = page_table_entry
                 | PAGE_TABLE_ACCESSED_MASK
                 | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
-            if page_table_entry != new_page_table_entry {
+            if side_effects && page_table_entry != new_page_table_entry {
                 write_aligned32(page_table_addr as u32, new_page_table_entry);
             }
 
@@ -1657,7 +1680,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
     }
-    if tlb_data[page as usize] == 0 {
+    if side_effects && tlb_data[page as usize] == 0 {
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
             profiler::stat_increment(TLB_FULL);
             clear_tlb();
@@ -1693,7 +1716,9 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
         | if global && 0 != *cr.offset(4) & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
     dbg_assert!((high ^ page << 12) & 0xFFF == 0);
-    tlb_data[page as usize] = high ^ page << 12 | info_bits;
+    if side_effects {
+        tlb_data[page as usize] = high ^ page << 12 | info_bits
+    }
     return Ok(high);
 }
 
@@ -1864,7 +1889,7 @@ pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
         Ok((entry & !0xFFF ^ address) as u32)
     }
     else {
-        match do_page_walk(address, true, user) {
+        match do_page_walk(address, true, user, true) {
             Ok(phys_addr_high) => Ok((phys_addr_high | address & 0xFFF) as u32),
             Err(pagefault) => {
                 trigger_pagefault_jit(pagefault);
@@ -2330,8 +2355,9 @@ pub unsafe fn cycle_internal() {
             {
                 in_jit = true;
             }
+            let initial_eip = *instruction_pointer;
             call_indirect1(
-                (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
+                wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
                 initial_state,
             );
             #[cfg(debug_assertions)]
@@ -2357,10 +2383,16 @@ pub unsafe fn cycle_internal() {
                     // Happens during exit due to loop iteration limit
                     0
                 };
+
                 ::opstats::record_opstat_jit_exit(last_jump_opcode as u32);
             }
 
-            if Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32) {
+            if is_near_end_of_page(*instruction_pointer as u32) {
+                profiler::stat_increment(RUN_FROM_CACHE_EXIT_NEAR_END_OF_PAGE);
+            }
+            else if Page::page_of(initial_eip as u32)
+                == Page::page_of(*instruction_pointer as u32)
+            {
                 profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
             }
             else {
@@ -2368,6 +2400,7 @@ pub unsafe fn cycle_internal() {
             }
         }
         else {
+            let initial_eip = *instruction_pointer;
             jit::record_entry_point(phys_addr);
 
             #[cfg(feature = "profiler")]
@@ -2389,6 +2422,7 @@ pub unsafe fn cycle_internal() {
             jit_run_interpreted(phys_addr as i32);
 
             jit::jit_increase_hotness_and_maybe_compile(
+                initial_eip,
                 phys_addr,
                 get_seg_cs() as u32,
                 state_flags,
@@ -2845,6 +2879,20 @@ pub unsafe fn safe_read64s_slow_jit(addr: i32, eip: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
     safe_read_slow_jit(addr, 128, eip, false)
+}
+
+#[no_mangle]
+pub unsafe fn get_phys_eip_slow_jit(addr: i32) -> i32 {
+    match translate_address_read_jit(addr) {
+        Err(()) => {
+            *previous_ip = *instruction_pointer;
+            1
+        },
+        Ok(addr_low) => {
+            dbg_assert!(!in_mapped_range(addr_low as u32)); // same assumption as in read_imm8
+            (addr_low as i32 ^ addr) & !0xFFF
+        },
+    }
 }
 
 #[no_mangle]
@@ -3507,4 +3555,22 @@ pub unsafe fn handle_irqs() {
 pub unsafe fn pic_call_irq(interrupt_nr: i32) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
     call_interrupt_vector(interrupt_nr, false, None);
+}
+
+#[no_mangle]
+pub unsafe fn check_page_switch(block_addr: u32, next_block_addr: u32) {
+    let x = translate_address_read_jit(*instruction_pointer);
+    if x != Ok(next_block_addr) {
+        dbg_log!(
+            "page switch from={:x} to={:x} prev_eip={:x} eip={:x} phys_eip={:x}",
+            block_addr,
+            next_block_addr,
+            *previous_ip,
+            *instruction_pointer,
+            x.unwrap_or(0),
+        );
+    }
+    dbg_assert!(next_block_addr & 0xFFF == *instruction_pointer as u32 & 0xFFF);
+    dbg_assert!(x.is_ok());
+    dbg_assert!(x == Ok(next_block_addr));
 }

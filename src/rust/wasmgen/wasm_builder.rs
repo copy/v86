@@ -25,7 +25,6 @@ enum FunctionType {
     FN2_I64_I32_RET_I64_TYPE_INDEX,
 
     FN3_RET_TYPE_INDEX,
-    FN4_RET_TYPE_INDEX,
 
     FN3_I64_I32_I32_TYPE_INDEX,
     FN3_I32_I64_I32_TYPE_INDEX,
@@ -308,16 +307,6 @@ impl WasmBuilder {
                 FunctionType::FN3_RET_TYPE_INDEX => {
                     self.output.push(op::TYPE_FUNC);
                     self.output.push(3);
-                    self.output.push(op::TYPE_I32);
-                    self.output.push(op::TYPE_I32);
-                    self.output.push(op::TYPE_I32);
-                    self.output.push(1);
-                    self.output.push(op::TYPE_I32);
-                },
-                FunctionType::FN4_RET_TYPE_INDEX => {
-                    self.output.push(op::TYPE_FUNC);
-                    self.output.push(4);
-                    self.output.push(op::TYPE_I32);
                     self.output.push(op::TYPE_I32);
                     self.output.push(op::TYPE_I32);
                     self.output.push(op::TYPE_I32);
@@ -868,9 +857,6 @@ impl WasmBuilder {
     }
     pub fn call_fn3_i32_i64_i32_ret(&mut self, name: &str) {
         self.call_fn(name, FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX)
-    }
-    pub fn call_fn4_ret(&mut self, name: &str) {
-        self.call_fn(name, FunctionType::FN4_RET_TYPE_INDEX)
     }
     pub fn call_fn4_i32_i64_i64_i32_ret(&mut self, name: &str) {
         self.call_fn(name, FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX)
