@@ -117,6 +117,13 @@ function PCI(cpu)
         },
         function(out_byte)
         {
+            if((this.pci_addr[1] & 0x06) === 0x02 && (out_byte & 0x06) === 0x06)
+            {
+                dbg_log("CPU reboot via PCI");
+                cpu.reboot_internal();
+                return;
+            }
+
             this.pci_addr[1] = out_byte;
         },
         function(out_byte)
