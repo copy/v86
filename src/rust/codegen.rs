@@ -88,12 +88,17 @@ pub fn gen_page_switch_check(
 
     ctx.builder.const_i32(next_block_addr as i32);
     ctx.builder.ne_i32();
-    ctx.builder.if_void();
-    // TODO: br_if
-    gen_profiler_stat_increment(ctx.builder, profiler::stat::FAILED_PAGE_CHANGE);
-    gen_debug_track_jit_exit(ctx.builder, last_instruction_addr);
-    ctx.builder.br(ctx.exit_label);
-    ctx.builder.block_end();
+
+    if cfg!(debug_assertions) {
+        ctx.builder.if_void();
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::FAILED_PAGE_CHANGE);
+        gen_debug_track_jit_exit(ctx.builder, last_instruction_addr);
+        ctx.builder.br(ctx.exit_label);
+        ctx.builder.block_end();
+    }
+    else {
+        ctx.builder.br_if(ctx.exit_label);
+    }
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
@@ -1000,13 +1005,13 @@ pub fn gen_safe_read_write(
             BitSize::DQWORD => dbg_assert!(false),
         }
 
-        ctx.builder.const_i32(1);
-        ctx.builder.and_i32();
+        if cfg!(debug_assertions) {
+            ctx.builder.const_i32(1);
+            ctx.builder.and_i32();
 
-        ctx.builder.if_void();
-        {
-            // handled above
-            if cfg!(debug_assertions) {
+            ctx.builder.if_void();
+            {
+                // handled above
                 ctx.builder.const_i32(match bits {
                     BitSize::BYTE => 8,
                     BitSize::WORD => 16,
@@ -1020,11 +1025,11 @@ pub fn gen_safe_read_write(
                 ctx.builder.get_local(&address_local);
                 ctx.builder.call_fn2("bug_gen_safe_read_write_page_fault");
             }
-            else {
-                ctx.builder.unreachable();
-            }
+            ctx.builder.block_end();
         }
-        ctx.builder.block_end();
+        else {
+            ctx.builder.drop_();
+        }
     }
     ctx.builder.block_end();
 
