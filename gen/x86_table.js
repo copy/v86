@@ -339,8 +339,7 @@ const encodings = [
     { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: fisttp (sse3)
     { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, skip: 1 }, // unimplemented (mem): Binary Coded Decimals
-                                                                                            // skipped (reg): fnstsw
+    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
     { opcode: 0xDF, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
     { opcode: 0xDF, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
