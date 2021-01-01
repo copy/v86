@@ -17,8 +17,6 @@ images/
 *.fixture
 *.fuse_hidden*
 node_modules/
-package-lock.json
-profile*.json
 Cargo.lock
 build-head
 src/rust/gen/interpreter.rs
