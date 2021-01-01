@@ -1276,18 +1276,22 @@ pub fn gen_safe_read_write(
         ctx.builder.if_void();
         {
             // handled above
-            //ctx.builder.unreachable();
-            ctx.builder.const_i32(match bits {
-                BitSize::BYTE => 8,
-                BitSize::WORD => 16,
-                BitSize::DWORD => 32,
-                _ => {
-                    dbg_assert!(false);
-                    0
-                },
-            });
-            ctx.builder.get_local(&address_local);
-            gen_call_fn2(ctx.builder, "bug_gen_safe_read_write_page_fault");
+            if cfg!(debug_assertions) {
+                ctx.builder.const_i32(match bits {
+                    BitSize::BYTE => 8,
+                    BitSize::WORD => 16,
+                    BitSize::DWORD => 32,
+                    _ => {
+                        dbg_assert!(false);
+                        0
+                    },
+                });
+                ctx.builder.get_local(&address_local);
+                gen_call_fn2(ctx.builder, "bug_gen_safe_read_write_page_fault");
+            }
+            else {
+                ctx.builder.unreachable();
+            }
         }
         ctx.builder.block_end();
     }
