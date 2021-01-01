@@ -181,7 +181,10 @@ unsafe fn string_instruction(
 
         match instruction {
             Instruction::Movs => {
-                rep_fast = rep_fast && Page::page_of(phys_src) != Page::page_of(phys_dst)
+                // note: This check is also valid for both direction == 1 and direction == -1
+                let overlap = u32::max(phys_src, phys_dst) - u32::min(phys_src, phys_dst)
+                    < count * size_bytes as u32;
+                rep_fast = rep_fast && !overlap;
             },
             _ => {},
         }
