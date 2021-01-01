@@ -1200,8 +1200,9 @@ fn jit_generate_basic_block(
     ctx.cpu.eip = start_addr;
 
     loop {
+        let mut instruction = 0;
         if cfg!(feature = "profiler") {
-            let instruction = cpu::read32(ctx.cpu.eip);
+            instruction = cpu::read32(ctx.cpu.eip);
             ::opstats::gen_opstats(ctx.builder, instruction);
             ::opstats::record_opstat_compiled(instruction);
         }
@@ -1217,6 +1218,8 @@ fn jit_generate_basic_block(
             codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
         }
 
+        let wasm_length_before = ctx.builder.instruction_body.len();
+
         ctx.start_of_current_instruction = ctx.cpu.eip;
         let start_eip = ctx.cpu.eip;
         let mut instruction_flags = 0;
@@ -1225,6 +1228,9 @@ fn jit_generate_basic_block(
 
         let instruction_length = end_eip - start_eip;
         let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
+
+        let wasm_length = ctx.builder.instruction_body.len() - wasm_length_before;
+        ::opstats::record_opstat_size_wasm(instruction, wasm_length as u32);
 
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);

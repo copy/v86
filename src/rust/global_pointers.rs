@@ -14,10 +14,10 @@ pub const PREFIXES: u32 = 648;
 pub const TIMESTAMP_COUNTER: u32 = 664;
 pub const SREG: u32 = 668;
 pub const SEGMENT_OFFSETS: u32 = 736;
-pub const OPSTATS_BUFFER: u32 = 0x1000;
-pub const OPSTATS_BUFFER_0F: u32 = 0x1400;
 pub const REG_XMM: u32 = 828;
 pub const FPU_CONTROL_WORD: u32 = 1036;
+pub const OPSTATS_BUFFER: u32 = 0x08000;
+pub const OPSTATS_UNGUARDED_REGISTER_BUFFER: u32 = 0x20000;
 pub const TLB_DATA: u32 = 0x400000;
 
 pub fn get_reg32_offset(r: u32) -> u32 {

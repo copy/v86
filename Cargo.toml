@@ -9,6 +9,7 @@ quickcheck = "0.6.2"
 [features]
 default = []
 profiler = []
+profiler_instrument = []
 
 [lib]
 crate-type = ["cdylib"]

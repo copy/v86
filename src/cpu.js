@@ -21,6 +21,8 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     const memory = v86oxide.instance.exports.memory;
 
+    this.wasm_memory = memory;
+
     this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
 
     // Note: Currently unused (degrades performance and not required by any OS
@@ -206,6 +208,11 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     //Object.seal(this);
 }
+
+CPU.prototype.clear_opstats = function()
+{
+    new Uint8Array(this.wasm_memory.buffer, 0x8000, 0x20000).fill(0);
+};
 
 CPU.prototype.wasmgen_get_module_code = function()
 {

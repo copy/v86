@@ -75,12 +75,7 @@ const print_stats = {
         {
             let stat = cpu.v86oxide.exports["profiler_stat_get"](i);
             stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
-            text += stat_names[i] + "=" + stat + " ";
-
-            if(((i + 1) % Math.floor(stat_names.length / 3) === 0))
-            {
-                text += "\n";
-            }
+            text += stat_names[i] + "=" + stat + "\n";
         }
 
         text += "\n";
@@ -172,23 +167,41 @@ const print_stats = {
 
     print_instruction_counts: function(cpu)
     {
-        return print_stats.print_instruction_counts_offset(cpu, 0) + "\n\n" +
-            print_stats.print_instruction_counts_offset(cpu, 0x200);
+        return [
+            print_stats.print_instruction_counts_offset(cpu, false, false, false, false),
+            print_stats.print_instruction_counts_offset(cpu, true, false, false, false),
+            print_stats.print_instruction_counts_offset(cpu, false, true, false, false),
+            print_stats.print_instruction_counts_offset(cpu, false, false, true, false),
+            print_stats.print_instruction_counts_offset(cpu, false, false, false, true),
+        ].join("\n\n");
     },
 
-    print_instruction_counts_offset: function(cpu, offset)
+    print_instruction_counts_offset: function(cpu, compiled, jit_exit, unguarded_register, wasm_size)
     {
         let text = "";
 
         const counts = [];
 
-        for(let i = 0; i < 0x100; i++)
-        {
-            const count = cpu.v86oxide.exports["get_opstats_buffer"](i + offset);
-            counts.push([i, count]);
+        const label =
+            compiled ? "compiled" :
+            jit_exit ? "jit exit" :
+            unguarded_register ? "unguarded register" :
+            wasm_size ? "wasm size" :
+            "executed";
 
-            const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](i + 0x100 + offset);
-            counts.push([0x0f00 | i, count_0f]);
+        for(let opcode = 0; opcode < 0x100; opcode++)
+        {
+            for(let fixed_g = 0; fixed_g < 8; fixed_g++)
+            {
+                for(let is_mem of [false, true])
+                {
+                    const count = cpu.v86oxide.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, false, is_mem, fixed_g);
+                    counts.push({ opcode, count, is_mem, fixed_g });
+
+                    const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, true, is_mem, fixed_g);
+                    counts.push({ opcode: 0x0f00 | opcode, count: count_0f, is_mem, fixed_g });
+                }
+            }
         }
 
         let total = 0;
@@ -197,14 +210,32 @@ const print_stats = {
             0x64, 0x65, 0x66, 0x67,
             0xF0, 0xF2, 0xF3,
         ]);
-        for(let [i, count] of counts)
+        for(let { count, opcode } of counts)
         {
-            total += i < 0x100 && !prefixes.has(i) ? count : 0;
+            if(!prefixes.has(opcode))
+            {
+                total += count;
+            }
         }
 
         if(total === 0)
         {
             return "";
+        }
+
+        const per_opcode = new Uint32Array(0x100);
+        const per_opcode0f = new Uint32Array(0x100);
+
+        for(let { opcode, count } of counts)
+        {
+            if((opcode & 0xFF00) == 0x0F00)
+            {
+                per_opcode0f[opcode & 0xFF] += count;
+            }
+            else
+            {
+                per_opcode[opcode & 0xFF] += count;
+            }
         }
 
         text += "------------------\n";
@@ -213,47 +244,42 @@ const print_stats = {
         const factor = total > 1e7 ? 1000 : 1;
 
         const max_count = Math.max.apply(Math,
-            counts.map(([_, count]) => Math.round(count / factor))
+            counts.map(({ count }) => Math.round(count / factor))
         );
         const pad_length = String(max_count).length;
 
-        text += `Instruction counts (in ${factor}):\n`;
+        text += `Instruction counts ${label} (in ${factor}):\n`;
 
-        for(let [i, count] of counts)
+        for(let i = 0; i < 0x100; i++)
         {
-            if((i & 0xFF00) === 0)
-            {
-                text += h(i, 2).slice(2) + ":" + v86util.pads(Math.round(count / factor), pad_length);
+            text += h(i, 2).slice(2) + ":" + v86util.pads(Math.round(per_opcode[i] / factor), pad_length);
 
-                if(i % 16 == 15)
-                    text += "\n";
-                else
-                    text += " ";
-            }
+            if(i % 16 == 15)
+                text += "\n";
+            else
+                text += " ";
         }
 
         text += "\n";
-        text += `Instruction counts (0f, in ${factor}):\n`;
+        text += `Instruction counts ${label} (0f, in ${factor}):\n`;
 
-        for(let [i, count] of counts)
+        for(let i = 0; i < 0x100; i++)
         {
-            if((i & 0xFF00) === 0x0F00)
-            {
-                text += h(i & 0xFF, 2).slice(2) + ":" + v86util.pads(Math.round(count / factor), pad_length);
+            text += h(i & 0xFF, 2).slice(2) + ":" + v86util.pads(Math.round(per_opcode0f[i] / factor), pad_length);
 
-                if(i % 16 == 15)
-                    text += "\n";
-                else
-                    text += " ";
-            }
+            if(i % 16 == 15)
+                text += "\n";
+            else
+                text += " ";
         }
         text += "\n";
 
-        const top_counts = counts.sort(([o1, c1], [o2, c2]) => c2 - c1);
+        const top_counts = counts.filter(({ count }) => count).sort(({ count: count1 }, { count: count2 }) => count2 - count1);
 
-        for(let [opcode, count] of top_counts.slice(0, 100))
+        for(let { opcode, is_mem, fixed_g, count } of top_counts.slice(0, 200))
         {
-            text += opcode.toString(16) + ":" + (count / total * 100).toFixed(1) + " ";
+            let opcode_description = opcode.toString(16) + "_" + fixed_g + (is_mem ? "_m" : "_r");
+            text += opcode_description + ":" + (count / total * 100).toFixed(2) + " ";
         }
         text += "\n";
 

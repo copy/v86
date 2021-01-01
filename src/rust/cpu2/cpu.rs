@@ -1903,6 +1903,22 @@ pub unsafe fn cycle_internal() {
                 (*timestamp_counter - initial_tsc) as u64,
             );
 
+            if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+                dbg_assert!(match ::cpu2::cpu::debug_last_jump {
+                    LastJump::Compiled { .. } => true,
+                    _ => false,
+                });
+                let last_jump_addr = ::cpu2::cpu::debug_last_jump.phys_address().unwrap();
+                let last_jump_opcode = if last_jump_addr != 0 {
+                    read32s(last_jump_addr)
+                }
+                else {
+                    // Happens during exit due to loop iteration limit
+                    0
+                };
+                ::opstats::record_opstat_jit_exit(last_jump_opcode as u32);
+            }
+
             if Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32) {
                 profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
             }
@@ -2524,7 +2540,7 @@ pub unsafe fn safe_write32(address: i32, value: i32) -> OrPageFault<()> {
         *(mem8.offset(phys_address as isize) as *mut i32) = value;
     }
     else {
-        if false {
+        if true {
             if address & 0xFFF > 0x1000 - 4 {
                 profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
             }
@@ -2973,19 +2989,31 @@ pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
 pub unsafe fn getiopl() -> i32 { return *flags >> 12 & 3; }
 
 #[no_mangle]
-pub unsafe fn get_opstats_buffer(index: i32) -> i32 {
-    dbg_assert!(index >= 0 && index < 0x400);
-    if index < 0x100 {
-        return *opstats_buffer.offset(index as isize) as i32;
+pub unsafe fn get_opstats_buffer(
+    compiled: bool,
+    jit_exit: bool,
+    unguarded_register: bool,
+    wasm_size: bool,
+    opcode: u8,
+    is_0f: bool,
+    is_mem: bool,
+    fixed_g: u8,
+) -> u32 {
+    let index = (is_0f as u32) << 12 | (opcode as u32) << 4 | (is_mem as u32) << 3 | fixed_g as u32;
+    if compiled {
+        *opstats_compiled_buffer.offset(index as isize)
     }
-    else if index < 0x200 {
-        return *opstats_buffer_0f.offset((index - 0x100) as isize) as i32;
+    else if jit_exit {
+        *opstats_jit_exit_buffer.offset(index as isize)
     }
-    else if index < 0x300 {
-        return *opstats_compiled_buffer.offset((index - 0x200) as isize) as i32;
+    else if unguarded_register {
+        *opstats_unguarded_register_buffer.offset(index as isize)
+    }
+    else if wasm_size {
+        *opstats_wasm_size.offset(index as isize)
     }
     else {
-        return *opstats_compiled_buffer_0f.offset((index - 0x300) as isize) as i32;
+        *opstats_buffer.offset(index as isize)
     }
 }
 
