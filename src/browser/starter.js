@@ -1156,6 +1156,72 @@ V86Starter.prototype.read_file = function(file, callback)
     });
 };
 
+V86Starter.prototype.automatically = function(steps)
+{
+    const run = (steps) =>
+    {
+        const step = steps[0];
+
+        if(!step)
+        {
+            return;
+        }
+
+        const remaining_steps = steps.slice(1);
+
+        if(step.sleep)
+        {
+            setTimeout(() => run(remaining_steps), step.sleep * 1000);
+            return;
+        }
+
+        if(step.vga_text)
+        {
+            const screen = this.screen_adapter.get_text_screen();
+
+            for(let line of screen)
+            {
+                if(line.includes(step.vga_text))
+                {
+                    run(remaining_steps);
+                    return;
+                }
+            }
+
+            setTimeout(() => run(steps), 1000);
+            return;
+        }
+
+        if(step.keyboard_send)
+        {
+            if(step.keyboard_send instanceof Array)
+            {
+                this.keyboard_send_scancodes(step.keyboard_send);
+            }
+            else
+            {
+                dbg_assert(typeof step.keyboard_send === "string");
+                this.keyboard_send_text(step.keyboard_send);
+            }
+
+            run(remaining_steps);
+            return;
+        }
+
+        if(step.call)
+        {
+            step.call();
+            run(remaining_steps);
+            return;
+        }
+
+        console.assert(false, step);
+    };
+
+    run(steps);
+
+};
+
 /**
  * @ignore
  * @constructor
