@@ -461,12 +461,8 @@ pub unsafe fn fpu_fldenv32(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_unimpl() {
-    if DEBUG {
-        dbg_assert!(false);
-    }
-    else {
-        trigger_ud();
-    };
+    dbg_assert!(false);
+    trigger_ud();
 }
 #[no_mangle]
 pub unsafe fn fpu_set_tag_word(tag_word: i32) {
