@@ -170,6 +170,16 @@ build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.t
 	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
+debug-with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	cargo +nightly rustc --features profiler $(CARGO_FLAGS)
+	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm || true
+
+with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	cargo +nightly rustc --release --features profiler $(CARGO_FLAGS)
+	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm || true
+
 build/softfloat.o: lib/softfloat/softfloat.c
 	clang -c -Wall \
 	    --target=wasm32 -Os -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
@@ -252,7 +262,7 @@ qemutests: all-debug
 
 qemutests-release: all
 	$(MAKE) -C tests/qemu test-i386
-	time ./tests/qemu/run.js > /tmp/v86-test-result
+	time TEST_RELEASE_BUILD=1 ./tests/qemu/run.js > /tmp/v86-test-result
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
