@@ -215,7 +215,7 @@ function V86Starter(options)
     });
 }
 
-V86Starter.prototype.continue_init = async function(emulator, options) // jshint ignore:line
+V86Starter.prototype.continue_init = async function(emulator, options)
 {
     this.bus.register("emulator-stopped", function()
     {
@@ -447,7 +447,7 @@ V86Starter.prototype.continue_init = async function(emulator, options) // jshint
 
         let file_storage = typeof window === "undefined" || !window.indexedDB ?
             new MemoryFileStorage() :
-            await IndexedDBFileStorage.try_create(); // jshint ignore:line
+            await IndexedDBFileStorage.try_create();
         if(base_url)
         {
             file_storage = new ServerFileStorageWrapper(file_storage, base_url);
@@ -605,7 +605,7 @@ V86Starter.prototype.continue_init = async function(emulator, options) // jshint
             this.emulator_bus.send("emulator-loaded");
         }
     }
-}; // jshint ignore:line
+};
 
 V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 {
@@ -1046,11 +1046,11 @@ V86Starter.prototype.serial0_send = function(data)
  * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback) // jshint ignore:line
+V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
 {
     let file_storage = typeof window === "undefined" || !window.indexedDB ?
         new MemoryFileStorage() :
-        await IndexedDBFileStorage.try_create(); // jshint ignore:line
+        await IndexedDBFileStorage.try_create();
     if(baseurl)
     {
         file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
@@ -1090,7 +1090,7 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback) 
     {
         mount();
     }
-}; // jshint ignore:line
+};
 
 /**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has

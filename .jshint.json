@@ -1,5 +1,5 @@
 {
-    "esversion": 6,
+    "esversion": 8,
     "globalstrict": true,
     "sub": true,
     "expr": true,

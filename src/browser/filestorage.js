@@ -55,7 +55,7 @@ function MemoryFileStorage()
  * @param {number} count
  * @return {!Promise<Uint8Array>} null if file does not exist.
  */
-MemoryFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
+MemoryFileStorage.prototype.read = async function(sha256sum, offset, count)
 {
     dbg_assert(sha256sum, "MemoryFileStorage read: sha256sum should be a non-empty string");
     const data = this.filedata.get(sha256sum);
@@ -66,19 +66,19 @@ MemoryFileStorage.prototype.read = async function(sha256sum, offset, count) // j
     }
 
     return data.subarray(offset, offset + count);
-}; // jshint ignore:line
+};
 
 /**
  * @param {string} sha256sum
  * @param {!Uint8Array} data
  */
-MemoryFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
+MemoryFileStorage.prototype.set = async function(sha256sum, data)
 {
     dbg_assert(sha256sum, "MemoryFileStorage set: sha256sum should be a non-empty string");
     dbg_assert(!this.filedata.has(sha256sum), "MemoryFileStorage set: Storage should be read-only");
 
     this.filedata.set(sha256sum, data);
-}; // jshint ignore:line
+};
 
 /**
  * @param {string} sha256sum
@@ -100,16 +100,16 @@ function IndexedDBFileStorage(db)
     this.db = db;
 }
 
-IndexedDBFileStorage.try_create = async function() // jshint ignore:line
+IndexedDBFileStorage.try_create = async function()
 {
     if(typeof window === "undefined" || !window.indexedDB)
     {
         throw new Error("IndexedDB is not available");
     }
-    const db = await IndexedDBFileStorage.init_db(); // jshint ignore:line
+    const db = await IndexedDBFileStorage.init_db();
     const file_storage = new IndexedDBFileStorage(db);
     return file_storage;
-}; // jshint ignore:line
+};
 
 /**
  * @return {!Promise<!IDBDatabase>}
@@ -223,7 +223,7 @@ IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
 
             const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, 0);
             const block_request = store.get(block_key);
-            block_request.onsuccess = async event => // jshint ignore:line
+            block_request.onsuccess = async event =>
             {
                 const block_entry = block_request.result;
                 if(!block_entry)
@@ -245,16 +245,16 @@ IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
             const block_offset = block_number_start * INDEXEDDB_STORAGE_BLOCKSIZE;
             const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number_start);
             const block_request = store.get(block_key);
-            block_request.onsuccess = async event => // jshint ignore:line
+            block_request.onsuccess = async event =>
             {
                 const block_entry = block_request.result;
                 if(!block_entry)
                 {
-                    if(!await this.db_has_file(store, sha256sum)) // jshint ignore:line
+                    if(!await this.db_has_file(store, sha256sum))
                     {
                         resolve(null);
                     }
-                    else // jshint ignore:line
+                    else
                     {
                         resolve(new Uint8Array(0));
                     }
@@ -280,7 +280,7 @@ IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
                 const block_offset = block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
                 const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
                 const block_request = store.get(block_key);
-                block_request.onsuccess = async event => // jshint ignore:line
+                block_request.onsuccess = async event =>
                 {
                     const block_entry = block_request.result;
 
@@ -290,7 +290,7 @@ IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
                         // cannot exist.
                         if(block_number === block_number_start)
                         {
-                            if(!await this.db_has_file(store, sha256sum)) // jshint ignore:line
+                            if(!await this.db_has_file(store, sha256sum))
                             {
                                 // Not aborting transaction here because:
                                 //  - Abort is treated like an error,
@@ -404,25 +404,25 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
  * @param {number} count
  * @return {!Promise<Uint8Array>}
  */
-ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
+ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count)
 {
-    const data = await this.storage.read(sha256sum, offset, count); // jshint ignore:line
+    const data = await this.storage.read(sha256sum, offset, count);
     if(!data)
     {
-        const full_file = await this.load_from_server(sha256sum); // jshint ignore:line
+        const full_file = await this.load_from_server(sha256sum);
         return full_file.subarray(offset, offset + count);
     }
     return data;
-}; // jshint ignore:line
+};
 
 /**
  * @param {string} sha256sum
  * @param {!Uint8Array} data
  */
-ServerFileStorageWrapper.prototype.set = async function(sha256sum, data) // jshint ignore:line
+ServerFileStorageWrapper.prototype.set = async function(sha256sum, data)
 {
-    return await this.storage.set(sha256sum, data); // jshint ignore:line
-}; // jshint ignore:line
+    return await this.storage.set(sha256sum, data);
+};
 
 /**
  * @param {string} sha256sum
