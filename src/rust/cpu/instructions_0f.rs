@@ -468,6 +468,7 @@ pub unsafe fn instr_0F0D() {
 pub unsafe fn instr_0F0E() { undefined_instruction(); }
 #[no_mangle]
 pub unsafe fn instr_0F0F() { undefined_instruction(); }
+
 pub unsafe fn instr_0F10(source: reg128, r: i32) {
     // movups xmm, xmm/m128
     mov_rm_r128(source, r);
@@ -476,13 +477,11 @@ pub unsafe fn instr_0F10_reg(r1: i32, r2: i32) { instr_0F10(read_xmm128s(r1), r2
 pub unsafe fn instr_0F10_mem(addr: i32, r: i32) {
     instr_0F10(return_on_pagefault!(safe_read128s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F10_reg(r1: i32, r2: i32) {
     // movss xmm, xmm/m32
     let data = read_xmm128s(r1);
     write_xmm32(r2, data.u32_0[0] as i32);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F10_mem(addr: i32, r: i32) {
     // movss xmm, xmm/m32
     let data = return_on_pagefault!(safe_read32s(addr));
@@ -502,7 +501,6 @@ pub unsafe fn instr_F20F10_reg(r1: i32, r2: i32) {
     let data = read_xmm128s(r1);
     write_xmm64(r2, data.u64_0[0]);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F10_mem(addr: i32, r: i32) {
     // movsd xmm, xmm/m64
     let data = return_on_pagefault!(safe_read64s(addr));
