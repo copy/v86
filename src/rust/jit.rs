@@ -567,7 +567,6 @@ fn jit_find_basic_blocks(
                         // Execution will eventually come back to the next instruction (CALL)
                         marked_as_entry.insert(current_virt_addr);
                         to_visit_stack.push(current_virt_addr);
-
                     }
 
                     current_block.ty = BasicBlockType::Normal {
@@ -1318,213 +1317,259 @@ fn jit_generate_module(
                         // Conditional jump to next basic block
                         // - jnz, jc, loop, jcxz, etc.
 
+                        // Generate:
+                        // (1) condition()
+                        // (2) br_if()
+                        // (3) br()
+                        // Except:
+                        // If we need to update eip in case (2), it's replaced by if { update_eip(); br() }
+                        // If case (3) can fall through to the next basic block, the branch is eliminated
+                        // Dispatcher target writes can be generated in either case
+
                         codegen::gen_profiler_stat_increment(ctx.builder, stat::CONDITIONAL_JUMP);
-                        codegen::gen_condition_fn(ctx, condition);
-                        ctx.builder.if_void();
 
-                        // Branch taken
+                        #[derive(PartialEq)]
+                        enum Case {
+                            BranchTaken,
+                            BranchNotTaken,
+                        }
 
-                        if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
-                            dbg_assert!(
-                                (block.end_addr + jump_offset as u32) & 0xFFF
-                                    == next_block_branch_taken_addr & 0xFFF
-                            );
+                        let mut handle_case = |case: Case, is_first| {
+                            if is_first {
+                                // first case generates condition and *has* to branch away,
+                                // second case branches unconditionally or falls through
+                                codegen::gen_condition_fn(ctx, condition);
+                                if case == Case::BranchNotTaken {
+                                    // TODO: pass to gen_condition_fn
+                                    ctx.builder.eqz_i32();
+                                }
+                            }
 
-                            if Page::page_of(next_block_branch_taken_addr)
-                                != Page::page_of(block.addr)
-                            {
-                                if jump_offset_is_32 {
-                                    codegen::gen_set_eip_low_bits_and_jump_rel32(
+                            let next_block_addr = if case == Case::BranchTaken {
+                                next_block_branch_taken_addr
+                            }
+                            else {
+                                next_block_addr
+                            };
+
+                            if let Some(next_block_addr) = next_block_addr {
+                                if Page::page_of(next_block_addr) != Page::page_of(block.addr) {
+                                    dbg_assert!(case == Case::BranchTaken); // currently not possible in other case
+                                    if is_first {
+                                        ctx.builder.if_i32();
+                                    }
+                                    if jump_offset_is_32 {
+                                        codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                            ctx.builder,
+                                            block.end_addr as i32 & 0xFFF,
+                                            jump_offset,
+                                        );
+                                    }
+                                    else {
+                                        codegen::gen_set_eip_low_bits(
+                                            ctx.builder,
+                                            block.end_addr as i32 & 0xFFF,
+                                        );
+                                        codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                                    }
+
+                                    codegen::gen_profiler_stat_increment(
                                         ctx.builder,
-                                        block.end_addr as i32 & 0xFFF,
-                                        jump_offset,
+                                        stat::CONDITIONAL_JUMP_PAGE_CHANGE,
                                     );
+                                    codegen::gen_page_switch_check(
+                                        ctx,
+                                        next_block_addr,
+                                        block.last_instruction_addr,
+                                    );
+
+                                    #[cfg(debug_assertions)]
+                                    codegen::gen_fn2_const(
+                                        ctx.builder,
+                                        "check_page_switch",
+                                        block.addr,
+                                        next_block_addr,
+                                    );
+
+                                    if is_first {
+                                        ctx.builder.const_i32(1);
+                                        ctx.builder.else_();
+                                        ctx.builder.const_i32(0);
+                                        ctx.builder.block_end();
+                                    }
+                                }
+
+                                if next_addr
+                                    .as_ref()
+                                    .map_or(false, |n| n.contains(&next_block_addr))
+                                {
+                                    // blocks are consecutive
+
+                                    // fallthrough, has to be second
+                                    dbg_assert!(!is_first);
+
+                                    if next_addr.as_ref().unwrap().len() > 1 {
+                                        let target_index =
+                                            *index_for_addr.get(&next_block_addr).unwrap();
+                                        if cfg!(feature = "profiler") {
+                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                        }
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.set_local(target_block);
+                                        codegen::gen_profiler_stat_increment(
+                                            ctx.builder,
+                                            stat::CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK,
+                                        );
+                                    }
+                                    else {
+                                        codegen::gen_profiler_stat_increment(
+                                            ctx.builder,
+                                            stat::CONDITIONAL_JUMP_FALLTHRU,
+                                        );
+                                    }
+                                }
+                                else {
+                                    let &(br, target_index) =
+                                        label_for_addr.get(&next_block_addr).unwrap();
+                                    if let Some(target_index) = target_index {
+                                        if cfg!(feature = "profiler") {
+                                            // Note: Currently called unconditionally, even if the
+                                            // br_if below doesn't branch
+                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                        }
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.set_local(target_block);
+                                    }
+
+                                    if is_first {
+                                        if cfg!(feature = "profiler") {
+                                            ctx.builder.if_void();
+                                            codegen::gen_profiler_stat_increment(
+                                                ctx.builder,
+                                                if target_index.is_some() {
+                                                    stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK
+                                                }
+                                                else {
+                                                    stat::CONDITIONAL_JUMP_BRANCH
+                                                },
+                                            );
+                                            ctx.builder.br(br);
+                                            ctx.builder.block_end();
+                                        }
+                                        else {
+                                            ctx.builder.br_if(br);
+                                        }
+                                    }
+                                    else {
+                                        codegen::gen_profiler_stat_increment(
+                                            ctx.builder,
+                                            if target_index.is_some() {
+                                                stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK
+                                            }
+                                            else {
+                                                stat::CONDITIONAL_JUMP_BRANCH
+                                            },
+                                        );
+                                        ctx.builder.br(br);
+                                    }
+                                }
+                            }
+                            else {
+                                // target is outside of this module, update eip and exit
+                                if is_first {
+                                    ctx.builder.if_void();
+                                }
+
+                                if case == Case::BranchTaken {
+                                    if jump_offset_is_32 {
+                                        codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                            ctx.builder,
+                                            block.end_addr as i32 & 0xFFF,
+                                            jump_offset,
+                                        );
+                                    }
+                                    else {
+                                        codegen::gen_set_eip_low_bits(
+                                            ctx.builder,
+                                            block.end_addr as i32 & 0xFFF,
+                                        );
+                                        codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                                    }
                                 }
                                 else {
                                     codegen::gen_set_eip_low_bits(
                                         ctx.builder,
                                         block.end_addr as i32 & 0xFFF,
                                     );
-                                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                                 }
 
-                                codegen::gen_profiler_stat_increment(
+                                codegen::gen_debug_track_jit_exit(
                                     ctx.builder,
-                                    stat::CONDITIONAL_JUMP_PAGE_CHANGE,
-                                );
-                                codegen::gen_page_switch_check(
-                                    ctx,
-                                    next_block_branch_taken_addr,
                                     block.last_instruction_addr,
                                 );
-
-                                #[cfg(debug_assertions)]
-                                codegen::gen_fn2_const(
+                                codegen::gen_profiler_stat_increment(
                                     ctx.builder,
-                                    "check_page_switch",
-                                    block.addr,
-                                    next_block_branch_taken_addr,
+                                    stat::CONDITIONAL_JUMP_EXIT,
                                 );
-                            }
+                                ctx.builder.br(ctx.exit_label);
 
-                            if next_addr
-                                .as_ref()
-                                .map_or(false, |n| n.contains(&next_block_branch_taken_addr))
-                            {
-                                // blocks are consecutive
-                                if next_addr.as_ref().unwrap().len() > 1 {
-                                    let target_index =
-                                        *index_for_addr.get(&next_block_branch_taken_addr).unwrap();
-                                    if cfg!(feature = "profiler") {
-                                        ctx.builder.const_i32(target_index);
-                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
-                                    }
-                                    ctx.builder.const_i32(target_index);
-                                    ctx.builder.set_local(target_block);
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK,
-                                    );
-                                }
-                                else {
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_FALLTHRU,
-                                    );
+                                if is_first {
+                                    ctx.builder.block_end();
                                 }
                             }
-                            else {
-                                let &(br, target_index) =
-                                    label_for_addr.get(&next_block_branch_taken_addr).unwrap();
-                                if let Some(target_index) = target_index {
-                                    if cfg!(feature = "profiler") {
-                                        ctx.builder.const_i32(target_index);
-                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
-                                    }
-                                    ctx.builder.const_i32(target_index);
-                                    ctx.builder.set_local(target_block);
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK,
-                                    );
-                                }
-                                else {
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_BRANCH,
-                                    );
-                                }
-                                ctx.builder.br(br);
-                            }
-                        }
-                        else {
-                            // Jump to different page
-                            // TODO: Could generate br_if
-                            if jump_offset_is_32 {
-                                codegen::gen_set_eip_low_bits_and_jump_rel32(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                    jump_offset,
-                                );
-                            }
-                            else {
-                                codegen::gen_set_eip_low_bits(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                );
-                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                            }
+                        };
 
-                            codegen::gen_debug_track_jit_exit(
-                                ctx.builder,
-                                block.last_instruction_addr,
-                            );
-                            codegen::gen_profiler_stat_increment(
-                                ctx.builder,
-                                stat::CONDITIONAL_JUMP_EXIT,
-                            );
-                            ctx.builder.br(ctx.exit_label);
-                        }
+                        let branch_taken_is_fallthrough = next_block_branch_taken_addr
+                            .map_or(false, |addr| {
+                                next_addr.as_ref().map_or(false, |n| n.contains(&addr))
+                            });
+                        let branch_not_taken_is_fallthrough = next_block_addr
+                            .map_or(false, |addr| {
+                                next_addr.as_ref().map_or(false, |n| n.contains(&addr))
+                            });
 
-                        if let Some(next_block_addr) = next_block_addr {
+                        if branch_not_taken_is_fallthrough && branch_taken_is_fallthrough {
                             dbg_assert!(
-                                Page::page_of(next_block_addr) == Page::page_of(block.addr)
+                                Page::page_of(next_block_branch_taken_addr.unwrap())
+                                    == Page::page_of(block.addr)
                             );
-                            // Branch not taken
+                            if next_addr.unwrap().len() > 1 {
+                                let &(br_taken, target_index_taken) = label_for_addr
+                                    .get(&next_block_branch_taken_addr.unwrap())
+                                    .unwrap();
+                                let &(br_not_taken, target_index_not_taken) =
+                                    label_for_addr.get(&next_block_addr.unwrap()).unwrap();
 
-                            if next_addr
-                                .as_ref()
-                                .map_or(false, |n| n.contains(&next_block_addr))
-                            {
-                                // nothing to do: blocks are consecutive
-                                ctx.builder.else_();
-                                if next_addr.unwrap().len() > 1 {
-                                    let target_index =
-                                        *index_for_addr.get(&next_block_addr).unwrap();
-                                    if cfg!(feature = "profiler") {
+                                dbg_assert!(br_taken == br_not_taken);
+
+                                if target_index_taken == target_index_not_taken {
+                                    dbg_assert!(next_block_branch_taken_addr == next_block_addr);
+                                    // weird case: both branch and non-branch jump to same address
+                                    if let Some(target_index) = target_index_taken {
                                         ctx.builder.const_i32(target_index);
-                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                        ctx.builder.set_local(target_block);
                                     }
-                                    ctx.builder.const_i32(target_index);
-                                    ctx.builder.set_local(target_block);
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK,
-                                    );
                                 }
                                 else {
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_FALLTHRU,
-                                    );
-                                }
-                                ctx.builder.block_end();
-                            }
-                            else {
-                                ctx.builder.else_();
-                                let &(br, target_index) =
-                                    label_for_addr.get(&next_block_addr).unwrap();
-                                if let Some(target_index) = target_index {
-                                    if cfg!(feature = "profiler") {
-                                        ctx.builder.const_i32(target_index);
-                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
-                                    }
-                                    ctx.builder.const_i32(target_index);
+                                    codegen::gen_condition_fn(ctx, condition);
+                                    ctx.builder.if_i32();
+                                    ctx.builder.const_i32(target_index_taken.unwrap());
+                                    ctx.builder.else_();
+                                    ctx.builder.const_i32(target_index_not_taken.unwrap());
+                                    ctx.builder.block_end();
                                     ctx.builder.set_local(target_block);
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK,
-                                    );
                                 }
-                                else {
-                                    codegen::gen_profiler_stat_increment(
-                                        ctx.builder,
-                                        stat::CONDITIONAL_JUMP_BRANCH,
-                                    );
-                                }
-                                ctx.builder.br(br);
-                                ctx.builder.block_end();
                             }
                         }
+                        else if branch_taken_is_fallthrough {
+                            handle_case(Case::BranchNotTaken, true);
+                            handle_case(Case::BranchTaken, false);
+                        }
                         else {
-                            ctx.builder.else_();
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
-
-                            // End of this page
-                            codegen::gen_debug_track_jit_exit(
-                                ctx.builder,
-                                block.last_instruction_addr,
-                            );
-                            codegen::gen_profiler_stat_increment(
-                                ctx.builder,
-                                stat::CONDITIONAL_JUMP_EXIT,
-                            );
-                            ctx.builder.br(ctx.exit_label);
-
-                            ctx.builder.block_end();
+                            handle_case(Case::BranchTaken, true);
+                            handle_case(Case::BranchNotTaken, false);
                         }
                     },
                 }
