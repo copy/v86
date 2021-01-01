@@ -1177,18 +1177,13 @@ pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
 
 #[cfg(feature = "profiler")]
 pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlags) {
+    let ctx = get_jit_state();
     let page = Page::page_of(phys_address);
 
-    for i in page.to_address()..page.to_address() + 4096 {
-        // No need to check [CODE_CACHE_SEARCH_SIZE] entries here as we look at consecutive
-        // addresses anyway
-        let index = i & jit_cache_array::MASK;
-        let entry = jit_cache_array::get(index);
-
-        if !entry.pending
-            && entry.state_flags == state_flags
-            && phys_address >= entry.start_addr
-            && phys_address < entry.start_addr + entry.len
+    for (addr, entry) in ctx.cache.range(page.address_range()) {
+        if entry.state_flags == state_flags
+            && phys_address >= *addr
+            && phys_address < *addr + entry.len
         {
             profiler::stat_increment(stat::RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
 
@@ -1202,8 +1197,8 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
                 "Compiled exists, but no entry point, \
                  start={:x} end={:x} phys_addr={:x} opcode={:02x} {:02x} {:02x} {:02x}. \
                  Last jump at {:x} ({}) opcode={:02x} {:02x} {:02x} {:02x}",
-                entry.start_addr,
-                entry.start_addr + entry.len,
+                *addr,
+                *addr + entry.len,
                 phys_address,
                 opcode & 0xFF,
                 opcode >> 8 & 0xFF,
