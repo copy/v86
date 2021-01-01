@@ -3084,8 +3084,7 @@ pub fn instr16_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 pub fn instr16_D9_4_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3134,8 +3133,7 @@ pub fn instr16_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 pub fn instr16_D9_6_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3230,8 +3228,7 @@ pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -6225,8 +6222,7 @@ pub fn instr_0FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 
@@ -6335,8 +6331,7 @@ pub fn instr_660FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_page_fault(ctx.builder);
     ctx.builder.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 
