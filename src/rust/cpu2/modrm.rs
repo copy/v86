@@ -90,7 +90,7 @@ pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn resolve_modrm32_(modrm_byte: i32) -> OrPageFault<i32> {
-    let r: u8 = (modrm_byte & 7) as u8;
+    let r = (modrm_byte & 7) as u8;
     dbg_assert!(modrm_byte < 192);
     Ok(if r as i32 == 4 {
         if modrm_byte < 64 {
@@ -139,9 +139,9 @@ pub unsafe fn resolve_modrm32_(modrm_byte: i32) -> OrPageFault<i32> {
 }
 unsafe fn resolve_sib(mod_0: bool) -> OrPageFault<i32> {
     let s;
-    let sib_byte: u8 = read_imm8()? as u8;
-    let r: u8 = (sib_byte as i32 & 7) as u8;
-    let m: u8 = (sib_byte as i32 >> 3 & 7) as u8;
+    let sib_byte = read_imm8()? as u8;
+    let r = (sib_byte as i32 & 7) as u8;
+    let m = (sib_byte as i32 >> 3 & 7) as u8;
     let base;
     let seg;
     if r as i32 == 4 {

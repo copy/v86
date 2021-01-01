@@ -127,7 +127,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
 #[no_mangle]
 pub unsafe fn write_aligned16(addr: u32, value: u32) {
     dbg_assert!(addr < 0x80000000);
-    let phys_addr: u32 = addr << 1;
+    let phys_addr = addr << 1;
     if in_mapped_range(phys_addr) {
         mmap_write16(phys_addr, value as i32);
     }
@@ -154,7 +154,7 @@ pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
 #[no_mangle]
 pub unsafe fn write_aligned32(addr: u32, value: i32) {
     dbg_assert!(addr < 0x40000000 as u32);
-    let phys_addr: u32 = addr << 2;
+    let phys_addr = addr << 2;
     if in_mapped_range(phys_addr) {
         mmap_write32(phys_addr, value);
     }
