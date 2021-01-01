@@ -1116,6 +1116,16 @@ impl ShiftCount {
             ShiftCount::Immediate(i) => builder.const_i32(*i),
         }
     }
+    pub fn gen_get_thirtytwo_minus(builder: &mut WasmBuilder, count: &ShiftCount) {
+        match &count {
+            ShiftCount::Local(l) => {
+                builder.const_i32(32);
+                builder.get_local(l);
+                builder.sub_i32();
+            },
+            ShiftCount::Immediate(i) => builder.const_i32(32 - *i),
+        }
+    }
     pub fn gen_get_minus_one(builder: &mut WasmBuilder, count: &ShiftCount) {
         match &count {
             ShiftCount::Local(l) => {
@@ -1153,9 +1163,7 @@ fn gen_shl32(
     };
 
     builder.get_local(&dest_operand);
-    builder.const_i32(32);
-    ShiftCount::gen_get(builder, &count);
-    builder.sub_i32();
+    ShiftCount::gen_get_thirtytwo_minus(builder, &count);
     builder.shr_u_i32();
     builder.const_i32(1);
     builder.and_i32();
