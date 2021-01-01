@@ -4449,7 +4449,36 @@ pub fn instr_660F61_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 pub fn instr_660F61_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F61", r1, r2);
 }
-
+pub fn instr_660F62_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F62", modrm_byte, r);
+}
+pub fn instr_660F62_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F62", r1, r2);
+}
+pub fn instr_660F63_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F63", modrm_byte, r);
+}
+pub fn instr_660F63_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F63", r1, r2);
+}
+pub fn instr_660F64_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F64", modrm_byte, r);
+}
+pub fn instr_660F64_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F64", r1, r2);
+}
+pub fn instr_660F65_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F65", modrm_byte, r);
+}
+pub fn instr_660F65_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F65", r1, r2);
+}
+pub fn instr_660F66_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F66", modrm_byte, r);
+}
+pub fn instr_660F66_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F66", r1, r2);
+}
 pub fn instr_660F67_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_660F67", modrm_byte, r);
 }
@@ -4461,6 +4490,36 @@ pub fn instr_660F68_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_660F68_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F68", r1, r2);
+}
+pub fn instr_660F69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F69", modrm_byte, r);
+}
+pub fn instr_660F69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F69", r1, r2);
+}
+pub fn instr_660F6A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F6A", modrm_byte, r);
+}
+pub fn instr_660F6A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F6A", r1, r2);
+}
+pub fn instr_660F6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F6B", modrm_byte, r);
+}
+pub fn instr_660F6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F6B", r1, r2);
+}
+pub fn instr_660F6C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F6C", modrm_byte, r);
+}
+pub fn instr_660F6C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F6C", r1, r2);
+}
+pub fn instr_660F6D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F6D", modrm_byte, r);
+}
+pub fn instr_660F6D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F6D", r1, r2);
 }
 
 pub fn instr_0F6E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
