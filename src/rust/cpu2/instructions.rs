@@ -3154,20 +3154,25 @@ pub unsafe fn instr_F9() {
 #[no_mangle]
 pub unsafe fn instr_FA() {
     // cli
-    if !*protected_mode || 0 != if 0 != *flags & FLAG_VM {
-        (getiopl() == 3) as i32
-    }
-    else {
-        (getiopl() >= *cpl as i32) as i32
-    } {
+    if !*protected_mode
+        || 0 != if 0 != *flags & FLAG_VM {
+            (getiopl() == 3) as i32
+        }
+        else {
+            (getiopl() >= *cpl as i32) as i32
+        }
+    {
         *flags &= !FLAG_INTERRUPT;
     }
-    else if false && getiopl() < 3 && 0 != if 0 != *flags & FLAG_VM {
-        *cr.offset(4) & CR4_VME
-    }
-    else {
-        (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
-    } {
+    else if false
+        && getiopl() < 3
+        && 0 != if 0 != *flags & FLAG_VM {
+            *cr.offset(4) & CR4_VME
+        }
+        else {
+            (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+        }
+    {
         *flags &= !FLAG_VIF
     }
     else {
@@ -3179,23 +3184,29 @@ pub unsafe fn instr_FA() {
 pub unsafe fn instr_FB() {
     // sti
     let old_if: i32 = *flags & FLAG_INTERRUPT;
-    if !*protected_mode || 0 != if 0 != *flags & FLAG_VM {
-        (getiopl() == 3) as i32
-    }
-    else {
-        (getiopl() >= *cpl as i32) as i32
-    } {
+    if !*protected_mode
+        || 0 != if 0 != *flags & FLAG_VM {
+            (getiopl() == 3) as i32
+        }
+        else {
+            (getiopl() >= *cpl as i32) as i32
+        }
+    {
         *flags |= FLAG_INTERRUPT;
         if old_if == 0 {
             handle_irqs();
         }
     }
-    else if false && getiopl() < 3 && *flags & FLAG_VIP == 0 && 0 != if 0 != *flags & FLAG_VM {
-        *cr.offset(4) & CR4_VME
-    }
-    else {
-        (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
-    } {
+    else if false
+        && getiopl() < 3
+        && *flags & FLAG_VIP == 0
+        && 0 != if 0 != *flags & FLAG_VM {
+            *cr.offset(4) & CR4_VME
+        }
+        else {
+            (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+        }
+    {
         *flags |= FLAG_VIF
     }
     else {

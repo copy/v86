@@ -829,13 +829,13 @@ pub unsafe fn call_interrupt_vector(
             let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
 
             let stack_space = bytes_per_arg * (5 + error_code_space + vm86_space);
-            let new_stack_pointer = ss_segment_descriptor.base() + if ss_segment_descriptor.is_32()
-            {
-                new_esp - stack_space
-            }
-            else {
-                new_esp - stack_space & 0xFFFF
-            };
+            let new_stack_pointer = ss_segment_descriptor.base()
+                + if ss_segment_descriptor.is_32() {
+                    new_esp - stack_space
+                }
+                else {
+                    new_esp - stack_space & 0xFFFF
+                };
 
             return_on_pagefault!(translate_address_system_write(new_stack_pointer));
             return_on_pagefault!(translate_address_system_write(
@@ -1117,12 +1117,14 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             // size bit is set
             // set the accessed and dirty bits
 
-            let new_page_dir_entry = page_dir_entry | PAGE_TABLE_ACCESSED_MASK | if for_writing {
-                PAGE_TABLE_DIRTY_MASK
-            }
-            else {
-                0
-            };
+            let new_page_dir_entry = page_dir_entry
+                | PAGE_TABLE_ACCESSED_MASK
+                | if for_writing {
+                    PAGE_TABLE_DIRTY_MASK
+                }
+                else {
+                    0
+                };
 
             if page_dir_entry != new_page_dir_entry {
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
@@ -1172,13 +1174,14 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             if new_page_dir_entry != page_dir_entry {
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
             }
-            let new_page_table_entry = page_table_entry | PAGE_TABLE_ACCESSED_MASK | if for_writing
-            {
-                PAGE_TABLE_DIRTY_MASK
-            }
-            else {
-                0
-            };
+            let new_page_table_entry = page_table_entry
+                | PAGE_TABLE_ACCESSED_MASK
+                | if for_writing {
+                    PAGE_TABLE_DIRTY_MASK
+                }
+                else {
+                    0
+                };
             if page_table_entry != new_page_table_entry {
                 write_aligned32(page_table_addr as u32, new_page_table_entry);
             }
