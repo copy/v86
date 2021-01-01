@@ -1584,7 +1584,7 @@ static void test_nopl(void)
 
 static u64 perf_baseline;
 
-#define PERF_COUNT_SHIFT (27)
+#define PERF_COUNT_SHIFT (30)
 // 2**27 = ~1 second at 100 mIPS
 #define PERF_COUNT (1 << PERF_COUNT_SHIFT)
 
@@ -1678,6 +1678,28 @@ static void test_perf_memory_rmw(void)
 	print_serial(" millicycles/emulated memory RMW instruction\n");
 }
 
+static void test_perf_memory_shl(void)
+{
+	u64 cyc, tmp;
+
+	MK_INSN_PERF(perf_memory_shl, "shl $1, %edi");
+	init_inregs(&(struct regs){ .edi = (u32)&tmp });
+	cyc = cycles_in_big_real_mode(&insn_perf_memory_shl);
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated SHL instruction\n");
+}
+
+static void test_perf_memory_adc(void)
+{
+	u64 cyc, tmp;
+
+	MK_INSN_PERF(perf_memory_adc, "adc $1, %edi");
+	init_inregs(&(struct regs){ .edi = (u32)&tmp });
+	cyc = cycles_in_big_real_mode(&insn_perf_memory_adc);
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated ADC instruction\n");
+}
+
 void test_dr_mod(void)
 {
 	MK_INSN(drmod, "movl %ebx, %dr0\n\t"
@@ -1767,6 +1789,8 @@ void realmode_start(void)
 	test_perf_loop();
 	test_perf_mov();
 	test_perf_arith();
+	test_perf_memory_shl();
+	test_perf_memory_adc();
 	test_perf_memory_load();
 	test_perf_memory_store();
 	test_perf_memory_rmw();
