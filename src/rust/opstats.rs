@@ -21,8 +21,6 @@ fn decode(mut instruction: u32) -> Instruction {
         instruction >>= 8;
 
         // TODO:
-        // - If instruction depends on middle bits of modrm_byte, split
-        // - Split depending on memory or register variant
         // - If the instruction uses 4 or more prefixes, only the prefixes will be counted
 
         if is_0f {
