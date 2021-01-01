@@ -7,4 +7,3 @@ global _start
     fyl2x
 
 %include "footer.inc"
-

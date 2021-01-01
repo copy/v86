@@ -7,4 +7,3 @@ global _start
     fscale
 
 %include "footer.inc"
-

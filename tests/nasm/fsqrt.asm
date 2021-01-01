@@ -6,4 +6,3 @@ global _start
     fsqrt
 
 %include "footer.inc"
-

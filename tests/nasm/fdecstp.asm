@@ -5,4 +5,3 @@ global _start
     fdecstp
 
 %include "footer.inc"
-

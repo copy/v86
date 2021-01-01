@@ -10,4 +10,3 @@ global _start
     fpatan
 
 %include "footer.inc"
-

@@ -15,4 +15,3 @@ global _start
     frndint
 
 %include "footer.inc"
-

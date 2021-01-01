@@ -19,4 +19,3 @@ section .data
     and dword [esp], 8ffh
 
 %include "footer.inc"
-
