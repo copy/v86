@@ -1817,7 +1817,6 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
 
 #[no_mangle]
 pub unsafe fn trigger_pagefault_end_jit() {
-    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_PF, false, Some(*page_fault_error_code));
 }
 
@@ -2812,7 +2811,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         translate_address_read_jit(addr)
     } {
         Err(()) => {
-            *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
             return 1;
         },
         Ok(addr) => addr,
@@ -2826,7 +2825,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
             translate_address_read_jit(boundary_addr)
         } {
             Err(()) => {
-                *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
                 return 1;
             },
             Ok(addr) => addr,
@@ -2885,10 +2884,7 @@ pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn get_phys_eip_slow_jit(addr: i32) -> i32 {
     match translate_address_read_jit(addr) {
-        Err(()) => {
-            *previous_ip = *instruction_pointer;
-            1
-        },
+        Err(()) => 1,
         Ok(addr_low) => {
             dbg_assert!(!in_mapped_range(addr_low as u32)); // same assumption as in read_imm8
             (addr_low as i32 ^ addr) & !0xFFF
@@ -2932,7 +2928,7 @@ pub unsafe fn safe_write_slow_jit(
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
     let addr_low = match translate_address_write_jit(addr) {
         Err(()) => {
-            *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
             return 1;
         },
         Ok(addr) => addr,
@@ -2940,8 +2936,7 @@ pub unsafe fn safe_write_slow_jit(
     if crosses_page {
         let addr_high = match translate_address_write_jit((addr | 0xFFF) + 1) {
             Err(()) => {
-                *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-                *page_fault = true;
+                *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
                 return 1;
             },
             Ok(addr) => addr,
