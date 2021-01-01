@@ -116,9 +116,8 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 
 pub fn sse_read128_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
     ctx.builder.instruction_body.const_i32(dest as i32);
     ctx.builder.instruction_body.const_i32(r as i32);
     codegen::gen_call_fn2(ctx.builder, name);
@@ -2887,8 +2886,7 @@ define_instruction_read_write_mem32!(
 
 fn instr_group_D8_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
     ctx.builder.instruction_body.const_i32(0);
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m32(ctx);
+    codegen::gen_fpu_load_m32(ctx, modrm_byte);
     codegen::gen_call_fn2_i32_f64(ctx.builder, op)
 }
 fn instr_group_D8_reg_jit(ctx: &mut JitContext, r: u32, op: &str) {
@@ -2910,8 +2908,7 @@ pub fn instr_D8_1_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_D8_reg_jit(ctx, r, "fpu_fmul")
 }
 pub fn instr_D8_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m32(ctx);
+    codegen::gen_fpu_load_m32(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcom")
 }
 pub fn instr_D8_2_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -2919,8 +2916,7 @@ pub fn instr_D8_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcom")
 }
 pub fn instr_D8_3_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m32(ctx);
+    codegen::gen_fpu_load_m32(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcomp")
 }
 pub fn instr_D8_3_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -2953,8 +2949,7 @@ pub fn instr_D8_7_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 pub fn instr_D9_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m32(ctx);
+    codegen::gen_fpu_load_m32(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
 }
 pub fn instr_D9_0_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3127,8 +3122,7 @@ pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
 
 fn instr_group_DC_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
     ctx.builder.instruction_body.const_i32(0);
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m64(ctx);
+    codegen::gen_fpu_load_m64(ctx, modrm_byte);
     codegen::gen_call_fn2_i32_f64(ctx.builder, op)
 }
 fn instr_group_DC_reg_jit(ctx: &mut JitContext, r: u32, op: &str) {
@@ -3150,8 +3144,7 @@ pub fn instr_DC_1_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_DC_reg_jit(ctx, r, "fpu_fmul")
 }
 pub fn instr_DC_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m64(ctx);
+    codegen::gen_fpu_load_m64(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcom")
 }
 pub fn instr_DC_2_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3159,8 +3152,7 @@ pub fn instr_DC_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcom")
 }
 pub fn instr_DC_3_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m64(ctx);
+    codegen::gen_fpu_load_m64(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_fcomp")
 }
 pub fn instr_DC_3_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3193,8 +3185,7 @@ pub fn instr_DC_7_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 pub fn instr_DD_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_fpu_load_m64(ctx);
+    codegen::gen_fpu_load_m64(ctx, modrm_byte);
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
 }
 pub fn instr_DD_0_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3361,8 +3352,7 @@ pub fn instr_DF_4_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 pub fn instr_DF_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_safe_read64(ctx);
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
     ctx.builder.instruction_body.convert_i64_to_f64();
     codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
 }
@@ -4464,9 +4454,8 @@ pub fn instr_660F6E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 
 pub fn instr_660F6F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // XXX: Aligned read or #gp
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
     let dest = global_pointers::get_reg_xmm_low_offset(r);
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
 }
 pub fn instr_660F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.instruction_body.const_i32(r1 as i32);
@@ -4474,9 +4463,8 @@ pub fn instr_660F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_call_fn2(ctx.builder, "instr_660F6F_reg")
 }
 pub fn instr_F30F6F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
     let dest = global_pointers::get_reg_xmm_low_offset(r);
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
 }
 pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.instruction_body.const_i32(r1 as i32);
@@ -4485,10 +4473,9 @@ pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 
 pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let imm8 = ctx.cpu.read_imm8();
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
+    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.instruction_body.const_i32(dest as i32);
     ctx.builder.instruction_body.const_i32(r as i32);
     ctx.builder.instruction_body.const_i32(imm8 as i32);
@@ -4502,10 +4489,9 @@ pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_call_fn3(ctx.builder, "instr_660F70");
 }
 pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let imm8 = ctx.cpu.read_imm8();
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
+    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.instruction_body.const_i32(dest as i32);
     ctx.builder.instruction_body.const_i32(r as i32);
     ctx.builder.instruction_body.const_i32(imm8 as i32);
@@ -4519,10 +4505,9 @@ pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_call_fn3(ctx.builder, "instr_F20F70");
 }
 pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let imm8 = ctx.cpu.read_imm8();
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
-    codegen::gen_safe_read128(ctx, dest);
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
+    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.instruction_body.const_i32(dest as i32);
     ctx.builder.instruction_body.const_i32(r as i32);
     ctx.builder.instruction_body.const_i32(imm8 as i32);
@@ -4565,8 +4550,7 @@ pub fn instr_F30F7E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_safe_read64(ctx);
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
     ctx.builder.instruction_body.store_aligned_i64(0);
 
     ctx.builder

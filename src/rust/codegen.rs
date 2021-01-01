@@ -376,6 +376,18 @@ pub fn gen_modrm_resolve_safe_read32(ctx: &mut JitContext, modrm_byte: u8) {
     gen_safe_read32(ctx, &address_local);
     ctx.builder.free_local(address_local);
 }
+pub fn gen_modrm_resolve_safe_read64(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read64(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+}
+pub fn gen_modrm_resolve_safe_read128(ctx: &mut JitContext, modrm_byte: u8, where_to_write: u32) {
+    gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read128(ctx, &address_local, where_to_write);
+    ctx.builder.free_local(address_local);
+}
 
 pub fn gen_safe_read8(ctx: &mut JitContext, address_local: &WasmLocal) {
     gen_safe_read(ctx, BitSize::BYTE, address_local, None);
@@ -386,15 +398,11 @@ pub fn gen_safe_read16(ctx: &mut JitContext, address_local: &WasmLocal) {
 pub fn gen_safe_read32(ctx: &mut JitContext, address_local: &WasmLocal) {
     gen_safe_read(ctx, BitSize::DWORD, address_local, None);
 }
-pub fn gen_safe_read64(ctx: &mut JitContext) {
-    let address_local = ctx.builder.set_new_local();
+pub fn gen_safe_read64(ctx: &mut JitContext, address_local: &WasmLocal) {
     gen_safe_read(ctx, BitSize::QWORD, &address_local, None);
-    ctx.builder.free_local(address_local);
 }
-pub fn gen_safe_read128(ctx: &mut JitContext, where_to_write: u32) {
-    let address_local = ctx.builder.set_new_local();
+pub fn gen_safe_read128(ctx: &mut JitContext, address_local: &WasmLocal, where_to_write: u32) {
     gen_safe_read(ctx, BitSize::DQWORD, &address_local, Some(where_to_write));
-    ctx.builder.free_local(address_local);
 }
 
 // only used internally for gen_safe_write
@@ -1530,16 +1538,14 @@ pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");
 }
 
-pub fn gen_fpu_load_m32(ctx: &mut JitContext) {
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read32(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+pub fn gen_fpu_load_m32(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve_safe_read32(ctx, modrm_byte);
     ctx.builder.instruction_body.reinterpret_i32_as_f32();
     ctx.builder.instruction_body.promote_f32_to_f64();
 }
 
-pub fn gen_fpu_load_m64(ctx: &mut JitContext) {
-    gen_safe_read64(ctx);
+pub fn gen_fpu_load_m64(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve_safe_read64(ctx, modrm_byte);
     ctx.builder.instruction_body.reinterpret_i64_as_f64();
 }
 
