@@ -1,6 +1,6 @@
 use cpu::BitSize;
 use cpu2::cpu::{
-    FLAG_CARRY, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
+    FLAG_CARRY, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID, FLAG_SIGN, FLAG_OVERFLOW
 };
 use cpu2::imports::mem8;
 use global_pointers;
@@ -1428,9 +1428,74 @@ pub fn gen_getcf(builder: &mut WasmBuilder) {
     builder.block_end();
 }
 
+pub fn gen_getsf(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.const_i32(FLAG_SIGN);
+    builder.and_i32();
+    builder.if_i32();
+    {
+        builder.load_aligned_i32(global_pointers::LAST_RESULT);
+        builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+        builder.shr_u_i32();
+        builder.const_i32(1);
+        builder.and_i32();
+    }
+    builder.else_();
+    {
+        builder.load_aligned_i32(global_pointers::FLAGS);
+        builder.const_i32(FLAG_SIGN);
+        builder.and_i32();
+    }
+    builder.block_end();
+}
+
+pub fn gen_getof(builder: &mut WasmBuilder) {
+    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.const_i32(FLAG_OVERFLOW);
+    builder.and_i32();
+    builder.if_i32();
+    {
+        builder.load_aligned_i32(global_pointers::LAST_OP1);
+        builder.load_aligned_i32(global_pointers::LAST_ADD_RESULT);
+        builder.xor_i32();
+        builder.load_aligned_i32(global_pointers::LAST_OP2);
+        builder.load_aligned_i32(global_pointers::LAST_ADD_RESULT);
+        builder.xor_i32();
+        builder.and_i32();
+
+        builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+        builder.shr_u_i32();
+        builder.const_i32(1);
+        builder.and_i32();
+
+    }
+    builder.else_();
+    {
+        builder.load_aligned_i32(global_pointers::FLAGS);
+        builder.const_i32(FLAG_OVERFLOW);
+        builder.and_i32();
+    }
+    builder.block_end();
+}
+
 pub fn gen_test_be(builder: &mut WasmBuilder) {
     // TODO: Could be made lazy
     gen_getcf(builder);
+    gen_getzf(builder);
+    builder.or_i32();
+}
+
+pub fn gen_test_l(builder: &mut WasmBuilder) {
+    gen_getsf(builder);
+    builder.eqz_i32();
+    gen_getof(builder);
+    builder.eqz_i32();
+    builder.xor_i32();
+}
+
+pub fn gen_test_le(builder: &mut WasmBuilder) {
+    // TODO: Could be made lazy
+    gen_test_l(builder);
     gen_getzf(builder);
     builder.or_i32();
 }
@@ -1519,7 +1584,14 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
 pub fn gen_condition_fn(ctx: &mut JitContext, mut condition: u8) {
     if condition & 0xF0 == 0x00 || condition & 0xF0 == 0x70 || condition & 0xF0 == 0x80 {
         condition &= 0xF;
-        if condition == 2 {
+        if condition == 0 {
+            gen_getof(ctx.builder);
+        }
+        else if condition == 1 {
+            gen_getof(ctx.builder);
+            ctx.builder.eqz_i32();
+        }
+        else if condition == 2 {
             gen_getcf(ctx.builder);
         }
         else if condition == 3 {
@@ -1538,6 +1610,27 @@ pub fn gen_condition_fn(ctx: &mut JitContext, mut condition: u8) {
         }
         else if condition == 7 {
             gen_test_be(ctx.builder);
+            ctx.builder.eqz_i32();
+        }
+        else if condition == 8 {
+            gen_getsf(ctx.builder);
+        }
+        else if condition == 9 {
+            gen_getsf(ctx.builder);
+            ctx.builder.eqz_i32();
+        }
+        else if condition == 0xC {
+            gen_test_l(ctx.builder);
+        }
+        else if condition == 0xD {
+            gen_test_l(ctx.builder);
+            ctx.builder.eqz_i32();
+        }
+        else if condition == 0xE {
+            gen_test_le(ctx.builder);
+        }
+        else if condition == 0xF {
+            gen_test_le(ctx.builder);
             ctx.builder.eqz_i32();
         }
         else {
