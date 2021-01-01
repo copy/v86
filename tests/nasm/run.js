@@ -340,6 +340,7 @@ else {
         }
 
         const eip = emulator.v86.cpu.instruction_pointer[0];
+        emulator.v86.cpu.safe_write32(eip, 0xF4F4F4F4); // hlt
 
         // XXX: On gdb execution is stopped at this point. On v86 we
         // currently don't have this ability, so we record the exception
