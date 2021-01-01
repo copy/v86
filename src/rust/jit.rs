@@ -849,13 +849,13 @@ fn jit_analyze_and_generate(
     dbg_log!("Compile code for page at {:x}", page.to_address());
     profiler::stat_increment(stat::COMPILE);
 
+    if jit_page_has_pending_code(ctx, page) {
+        return;
+    }
+
     let entry_points = ctx.entry_points.remove(&page);
 
     if let Some(entry_points) = entry_points {
-        if jit_page_has_pending_code(ctx, page) {
-            return;
-        }
-
         let cpu = CpuContext {
             eip: 0,
             prefixes: 0,
