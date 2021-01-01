@@ -6,7 +6,7 @@ extern "C" {
     #[no_mangle]
     fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
     #[no_mangle]
-    fn dbg_trace();
+    pub fn dbg_trace();
     //#[no_mangle]
     //fn logop(addr: i32, op: i32);
     #[no_mangle]
