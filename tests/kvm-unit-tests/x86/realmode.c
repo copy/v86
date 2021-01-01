@@ -624,11 +624,11 @@ void test_push_pop()
 	MK_INSN(push_es, "mov $0x231, %bx\n\t" //Just write a dummy value to see if it gets overwritten
 			 "mov $0x123, %ax\n\t"
 			 "mov %ax, %es\n\t"
-			 "push %es\n\t"
-			 "pop %bx \n\t"
+			 "pushl %es\n\t"
+			 "popl %bx \n\t"
 			 );
-	MK_INSN(pop_es, "push %ax\n\t"
-			"pop %es\n\t"
+	MK_INSN(pop_es, "pushl %ax\n\t"
+			"popl %es\n\t"
 			"mov %es, %bx\n\t"
 			);
 	MK_INSN(push_pop_ss, "push %ss\n\t"
@@ -732,7 +732,7 @@ void test_iret()
 			"pushl %cs\n\t"
 			"call 1f\n\t" /* a near call will push eip onto the stack */
 			"jmp 2f\n\t"
-			"1: iret\n\t"
+			"1: iretl\n\t"
 			"2:\n\t"
 		     );
 
@@ -751,7 +751,7 @@ void test_iret()
 			      "pushl %cs\n\t"
 			      "call 1f\n\t"
 			      "jmp 2f\n\t"
-			      "1: iret\n\t"
+			      "1: iretl\n\t"
 			      "2:\n\t");
 
 	MK_INSN(iret_flags16, "pushfw\n\t"
