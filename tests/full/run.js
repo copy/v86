@@ -676,6 +676,11 @@ function run_test(test, done)
                 console.warn("Expected mouse activation after %d seconds.", timeout_seconds);
             }
 
+            if(on_text.length)
+            {
+                console.warn(`Note: Expected text "${bytearray_to_string(on_text[0].text)}" to run "${on_text[0].run}"`);
+            }
+
             process.exit(1);
         }
     }
@@ -717,6 +722,7 @@ function run_test(test, done)
             if(x < expected.length && bytearray_starts_with(line, expected))
             {
                 test.expected_texts.shift();
+                if(VERBOSE) console.log(`Passed: "${bytearray_to_string(expected)}" on screen (${test.name})`);
                 check_test_done();
             }
         }
@@ -729,18 +735,20 @@ function run_test(test, done)
             {
                 var action = on_text.shift();
 
-                if(action.after)
-                {
-                    setTimeout(() => emulator.keyboard_send_text(action.run), action.after);
-                }
-                else
-                {
+                setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
                     emulator.keyboard_send_text(action.run);
-                }
+                }, action.after || 0);
             }
         }
     });
+
+    //if(VERBOSE)
+    //{
+    //    setInterval(() => {
+    //        console.warn(screen_to_text(screen));
+    //    }, 10000);
+    //}
 
     let serial_line = "";
     emulator.add_listener("serial0-output-char", function(c)
@@ -749,14 +757,16 @@ function run_test(test, done)
             {
                 if(VERBOSE)
                 {
-                    console.log("Serial:", serial_line);
+                    console.log(`Serial (${test.name}):`, serial_line);
                 }
 
                 if(test.expected_serial_text.length)
                 {
-                    if(serial_line.includes(test.expected_serial_text[0]))
+                    const expected = test.expected_serial_text[0];
+                    if(serial_line.includes(expected))
                     {
                         test.expected_serial_text.shift();
+                        if(VERBOSE) console.log(`Passed: "${expected}" on serial (${test.name})`);
                         check_test_done();
                     }
                 }
