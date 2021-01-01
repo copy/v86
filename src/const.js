@@ -361,8 +361,3 @@ const WASM_EXPORT_TABLE_NAME = "__indirect_function_table";
 
 /** @const */
 const WASM_PAGE_SIZE = 64 * 1024;
-
-/** @const */
-const COVERAGE_EXPORT_PREFIX = "___profn_";
-/** @const */
-const COVERAGE_FILE_PREFIX = "coverage_data";

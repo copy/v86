@@ -11,11 +11,10 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm, v86oxide, coverage_logger)
+function CPU(bus, wm, v86oxide)
 {
     this.wm = wm;
     this.v86oxide = v86oxide;
-    this.coverage_logger = coverage_logger;
     this.wasm_patch(wm);
     this.create_jit_imports();
 
@@ -1360,9 +1359,6 @@ let do_many_cycles_total = 0;
 
 CPU.prototype.do_many_cycles = function()
 {
-    // Capture the total time we were executing instructions
-    //this.coverage_logger.log_start();
-
     if(ENABLE_PROFILER)
     {
         var start_time = v86.microtick();
@@ -1375,8 +1371,6 @@ CPU.prototype.do_many_cycles = function()
         do_many_cycles_total += v86.microtick() - start_time;
         do_many_cycles_count++;
     }
-
-    //this.coverage_logger.log_end();
 };
 
 /** @export */

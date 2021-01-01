@@ -71,8 +71,3 @@ var APIC_TIMER_FREQ = TSC_RATE;
 
 /** @const */
 var VMWARE_HYPERVISOR_PORT = true;
-
-/** @const
- * Whether the coverage logger should be enabled under the appropriate conditions
- */
-const COVERAGE_LOGGER_ALLOW = true;

@@ -1,7 +1,6 @@
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
 NASM_TEST_DIR=./tests/nasm
-COVERAGE_DIR=./tests/coverage
 
 INSTRUCTION_TABLES=src/rust/gen/jit.rs src/rust/gen/jit0f_16.rs src/rust/gen/jit0f_32.rs \
 		   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f_16.rs src/rust/gen/interpreter0f_32.rs \
@@ -85,7 +84,7 @@ CARGO_FLAGS=\
 		-C link-args="--import-table --global-base=8388608 $(STRIP_DEBUG_FLAG)" \
 		--verbose
 
-CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
+CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
 	   cpu.js debug.js \
@@ -200,8 +199,6 @@ clean:
 	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))
 	-rm build/*.map
 	-rm build/*.wast
-	-rm build/coverage/coverage_data*
-	-rm $(COVERAGE_DIR)/build/*
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
@@ -290,10 +287,6 @@ all-tests: jshint kvm-unit-test expect-tests qemutests jitpagingtests api-tests 
 	# Skipping:
 	# - debiantests (requires network)
 	# - devices-test (hangs)
-
-covreport:
-	mkdir -p $(COVERAGE_DIR)/build/
-	$(COVERAGE_DIR)/gen_report.js
 
 node_modules/.bin/jshint:
 	npm install
