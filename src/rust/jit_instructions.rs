@@ -1101,9 +1101,18 @@ pub fn gen_imul_reg32(
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmedate,
 ) {
-    builder.get_local(&dest_operand);
+    gen_imul3_reg32(builder, dest_operand, dest_operand, source_operand);
+}
+
+pub fn gen_imul3_reg32(
+    builder: &mut WasmBuilder,
+    dest_operand: &WasmLocal,
+    source_operand1: &WasmLocal,
+    source_operand2: &LocalOrImmedate,
+) {
+    builder.get_local(&source_operand1);
     builder.extend_signed_i32_to_i64();
-    source_operand.gen_get(builder);
+    source_operand2.gen_get(builder);
     builder.extend_signed_i32_to_i64();
     builder.mul_i64();
 
@@ -1712,16 +1721,23 @@ pub fn instr16_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm16: u32) {
 
 pub fn instr32_69_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    let value_local = ctx.builder.set_new_local();
     let imm32 = ctx.cpu.read_imm32();
-    ctx.builder.const_i32(imm32 as i32);
-    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
-    codegen::gen_set_reg32(ctx, r);
+    gen_imul3_reg32(
+        ctx.builder,
+        &ctx.register_locals[r as usize],
+        &value_local,
+        &LocalOrImmedate::Immediate(imm32 as i32),
+    );
+    ctx.builder.free_local(value_local);
 }
 pub fn instr32_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm32: u32) {
-    codegen::gen_get_reg32(ctx, r1);
-    ctx.builder.const_i32(imm32 as i32);
-    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
-    codegen::gen_set_reg32(ctx, r2);
+    gen_imul3_reg32(
+        ctx.builder,
+        &ctx.register_locals[r2 as usize],
+        &ctx.register_locals[r1 as usize],
+        &LocalOrImmedate::Immediate(imm32 as i32),
+    );
 }
 
 pub fn instr16_6B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
@@ -1740,16 +1756,23 @@ pub fn instr16_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
 
 pub fn instr32_6B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    let value_local = ctx.builder.set_new_local();
     let imm8s = ctx.cpu.read_imm8s();
-    ctx.builder.const_i32(imm8s as i32);
-    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
-    codegen::gen_set_reg32(ctx, r);
+    gen_imul3_reg32(
+        ctx.builder,
+        &ctx.register_locals[r as usize],
+        &value_local,
+        &LocalOrImmedate::Immediate(imm8s as i32),
+    );
+    ctx.builder.free_local(value_local);
 }
 pub fn instr32_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
-    codegen::gen_get_reg32(ctx, r1);
-    ctx.builder.const_i32(imm8s as i32);
-    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
-    codegen::gen_set_reg32(ctx, r2);
+    gen_imul3_reg32(
+        ctx.builder,
+        &ctx.register_locals[r2 as usize],
+        &ctx.register_locals[r1 as usize],
+        &LocalOrImmedate::Immediate(imm8s as i32),
+    );
 }
 
 // Code for conditional jumps is generated automatically by the basic block codegen
