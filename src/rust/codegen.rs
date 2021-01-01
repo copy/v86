@@ -1460,14 +1460,22 @@ pub fn gen_clear_flags_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_getzf(ctx: &mut JitContext) {
+#[derive(PartialEq)]
+pub enum ConditionNegate {
+    True,
+    False,
+}
+
+pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.last_instruction {
         Instruction::Cmp { .. } | Instruction::Sub { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // TODO: Could use local for cmp x, 0; sub x, y
             // TODO: Could use eq(local, local) for cmp x, y
             gen_get_last_result(ctx.builder);
-            ctx.builder.eqz_i32();
+            if negate == ConditionNegate::False {
+                ctx.builder.eqz_i32();
+            }
         },
         &Instruction::Arithmetic { opsize } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
@@ -1484,7 +1492,9 @@ pub fn gen_getzf(ctx: &mut JitContext) {
                 ctx.builder
                     .load_fixed_u8(global_pointers::last_result as u32);
             }
-            ctx.builder.eqz_i32();
+            if negate == ConditionNegate::False {
+                ctx.builder.eqz_i32();
+            }
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
@@ -1512,11 +1522,15 @@ pub fn gen_getzf(ctx: &mut JitContext) {
             ctx.builder.const_i32(FLAG_ZERO);
             ctx.builder.and_i32();
             ctx.builder.block_end();
+
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
 
-pub fn gen_getcf(ctx: &mut JitContext) {
+pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.last_instruction {
         Instruction::Cmp {
             dest,
@@ -1549,11 +1563,21 @@ pub fn gen_getcf(ctx: &mut JitContext) {
                     },
                 }
             }
-            ctx.builder.ltu_i32();
+
+            if negate == ConditionNegate::True {
+                ctx.builder.geu_i32();
+            }
+            else {
+                ctx.builder.ltu_i32();
+            }
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf_unoptimised(ctx.builder);
+
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
@@ -1680,7 +1704,7 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
     builder.free_local(flags_changed);
 }
 
-pub fn gen_test_be(ctx: &mut JitContext) {
+pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.last_instruction {
         Instruction::Cmp {
             dest,
@@ -1725,7 +1749,13 @@ pub fn gen_test_be(ctx: &mut JitContext) {
                     ctx.builder.const_i32(i);
                 },
             }
-            ctx.builder.leu_i32();
+
+            if negate == ConditionNegate::True {
+                ctx.builder.gtu_i32();
+            }
+            else {
+                ctx.builder.leu_i32();
+            }
         },
         Instruction::Sub { opsize } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
@@ -1741,18 +1771,26 @@ pub fn gen_test_be(ctx: &mut JitContext) {
                 ctx.builder.and_i32();
             }
 
-            ctx.builder.leu_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.gtu_i32();
+            }
+            else {
+                ctx.builder.leu_i32();
+            }
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
-            gen_getcf(ctx);
-            gen_getzf(ctx);
+            gen_getcf(ctx, ConditionNegate::False);
+            gen_getzf(ctx, ConditionNegate::False);
             ctx.builder.or_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
 
-pub fn gen_test_l(ctx: &mut JitContext) {
+pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.last_instruction {
         Instruction::Cmp {
             dest,
@@ -1807,7 +1845,12 @@ pub fn gen_test_l(ctx: &mut JitContext) {
                     }
                 },
             }
-            ctx.builder.lt_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.ge_i32();
+            }
+            else {
+                ctx.builder.lt_i32();
+            }
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
@@ -1816,11 +1859,14 @@ pub fn gen_test_l(ctx: &mut JitContext) {
             gen_getof(ctx.builder);
             ctx.builder.eqz_i32();
             ctx.builder.xor_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
 
-pub fn gen_test_le(ctx: &mut JitContext) {
+pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.last_instruction {
         Instruction::Cmp {
             dest,
@@ -1875,13 +1921,21 @@ pub fn gen_test_le(ctx: &mut JitContext) {
                     }
                 },
             }
-            ctx.builder.le_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.gt_i32();
+            }
+            else {
+                ctx.builder.le_i32();
+            }
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
-            gen_test_l(ctx);
-            gen_getzf(ctx);
+            gen_test_l(ctx, ConditionNegate::False);
+            gen_getzf(ctx, ConditionNegate::False);
             ctx.builder.or_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
@@ -1889,14 +1943,14 @@ pub fn gen_test_le(ctx: &mut JitContext) {
 pub fn gen_test_loopnz(ctx: &mut JitContext, is_asize_32: bool) {
     gen_test_loop(ctx, is_asize_32);
     ctx.builder.eqz_i32();
-    gen_getzf(ctx);
+    gen_getzf(ctx, ConditionNegate::False);
     ctx.builder.or_i32();
     ctx.builder.eqz_i32();
 }
 pub fn gen_test_loopz(ctx: &mut JitContext, is_asize_32: bool) {
     gen_test_loop(ctx, is_asize_32);
     ctx.builder.eqz_i32();
-    gen_getzf(ctx);
+    gen_getzf(ctx, ConditionNegate::False);
     ctx.builder.eqz_i32();
     ctx.builder.or_i32();
     ctx.builder.eqz_i32();
@@ -2026,25 +2080,22 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
                 ctx.builder.eqz_i32();
             },
             0x2 => {
-                gen_getcf(ctx);
+                gen_getcf(ctx, ConditionNegate::False);
             },
             0x3 => {
-                gen_getcf(ctx);
-                ctx.builder.eqz_i32();
+                gen_getcf(ctx, ConditionNegate::True);
             },
             0x4 => {
-                gen_getzf(ctx);
+                gen_getzf(ctx, ConditionNegate::False);
             },
             0x5 => {
-                gen_getzf(ctx);
-                ctx.builder.eqz_i32();
+                gen_getzf(ctx, ConditionNegate::True);
             },
             0x6 => {
-                gen_test_be(ctx);
+                gen_test_be(ctx, ConditionNegate::False);
             },
             0x7 => {
-                gen_test_be(ctx);
-                ctx.builder.eqz_i32();
+                gen_test_be(ctx, ConditionNegate::True);
             },
             0x8 => {
                 gen_getsf(ctx);
@@ -2056,18 +2107,16 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
             0xA => ctx.builder.call_fn0_ret("test_p"),
             0xB => ctx.builder.call_fn0_ret("test_np"),
             0xC => {
-                gen_test_l(ctx);
+                gen_test_l(ctx, ConditionNegate::False);
             },
             0xD => {
-                gen_test_l(ctx);
-                ctx.builder.eqz_i32();
+                gen_test_l(ctx, ConditionNegate::True);
             },
             0xE => {
-                gen_test_le(ctx);
+                gen_test_le(ctx, ConditionNegate::False);
             },
             0xF => {
-                gen_test_le(ctx);
-                ctx.builder.eqz_i32();
+                gen_test_le(ctx, ConditionNegate::True);
             },
             _ => dbg_assert!(false),
         }

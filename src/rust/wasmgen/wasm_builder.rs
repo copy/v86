@@ -784,17 +784,18 @@ impl WasmBuilder {
     pub fn eq_i64(&mut self) { self.instruction_body.push(op::OP_I64EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
     pub fn ne_i64(&mut self) { self.instruction_body.push(op::OP_I64NE); }
-    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
-    #[allow(dead_code)]
-    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
-    #[allow(dead_code)]
-    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
-    #[allow(dead_code)]
-    pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
-    pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
 
+    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
+    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
+    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
+    pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
+
+    pub fn gtu_i32(&mut self) { self.instruction_body.push(op::OP_I32GTU); }
+    pub fn geu_i32(&mut self) { self.instruction_body.push(op::OP_I32GEU); }
     pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
     pub fn leu_i32(&mut self) { self.instruction_body.push(op::OP_I32LEU); }
+
+    pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
 
     pub fn reinterpret_i32_as_f32(&mut self) {
         self.instruction_body.push(op::OP_F32REINTERPRETI32);
