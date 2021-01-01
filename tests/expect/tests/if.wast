@@ -91,6 +91,12 @@
               (block $B6
                 (br_table $B6 $B5 $B4 $B3 $B2
                   (get_local $l0)))
+              (i32.store
+                (i32.const 664)
+                (i32.add
+                  (i32.load
+                    (i32.const 664))
+                  (i32.const 2)))
               (set_local $l10
                 (i32.sub
                   (get_local $l2)
@@ -125,12 +131,6 @@
                   (i32.load
                     (i32.const 556))
                   (i32.const 5)))
-              (i32.store
-                (i32.const 664)
-                (i32.add
-                  (i32.load
-                    (i32.const 664))
-                  (i32.const 2)))
               (if $I7
                 (call $e.test_nle)
                 (then
@@ -144,6 +144,12 @@
                     (i32.const 2))
                   (br $L0))))
             (i32.store
+              (i32.const 664)
+              (i32.add
+                (i32.load
+                  (i32.const 664))
+                (i32.const 1)))
+            (i32.store
               (i32.const 560)
               (i32.load
                 (i32.const 556)))
@@ -155,13 +161,13 @@
                 (i32.const 1)))
             (set_local $l3
               (call $e.inc32
-                (get_local $l3)))
-            (i32.store
-              (i32.const 664)
-              (i32.add
-                (i32.load
-                  (i32.const 664))
-                (i32.const 1))))
+                (get_local $l3))))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 2)))
           (set_local $l5
             (call $e.inc32
               (get_local $l5)))
@@ -226,12 +232,6 @@
           (set_local $l9
             (i32.load
               (i32.const 92)))
-          (i32.store
-            (i32.const 664)
-            (i32.add
-              (i32.load
-                (i32.const 664))
-              (i32.const 2)))
           (i32.store
             (i32.const 64)
             (get_local $l2))

@@ -91,6 +91,12 @@
               (br_table $B5 $B4 $B3 $B2
                 (get_local $l0)))
             (i32.store
+              (i32.const 664)
+              (i32.add
+                (i32.load
+                  (i32.const 664))
+                (i32.const 1)))
+            (i32.store
               (i32.const 560)
               (i32.load
                 (i32.const 556)))
@@ -213,12 +219,6 @@
               (i32.const 556)
               (get_local $l10))
             (i32.store
-              (i32.const 664)
-              (i32.add
-                (i32.load
-                  (i32.const 664))
-                (i32.const 1)))
-            (i32.store
               (i32.const 64)
               (get_local $l2))
             (i32.store
@@ -243,6 +243,12 @@
               (i32.const 92)
               (get_local $l9))
             (return))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 1)))
           (i32.store
             (i32.const 560)
             (i32.load
@@ -302,12 +308,6 @@
           (set_local $l9
             (i32.load
               (i32.const 92)))
-          (i32.store
-            (i32.const 664)
-            (i32.add
-              (i32.load
-                (i32.const 664))
-              (i32.const 1)))
           (i32.store
             (i32.const 64)
             (get_local $l2))

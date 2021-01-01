@@ -88,6 +88,12 @@
           (block $B4
             (br_table $B4 $B3 $B2
               (get_local $l0)))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 2)))
           (set_local $l10
             (i32.add
               (get_local $l6)
@@ -200,12 +206,6 @@
           (set_local $l9
             (i32.load
               (i32.const 92)))
-          (i32.store
-            (i32.const 664)
-            (i32.add
-              (i32.load
-                (i32.const 664))
-              (i32.const 2)))
           (i32.store
             (i32.const 64)
             (get_local $l2))

@@ -360,6 +360,7 @@ struct BasicBlock {
     end_addr: u32,
     is_entry_block: bool,
     ty: BasicBlockType,
+    number_of_instructions: u32,
 }
 
 #[repr(C)]
@@ -482,6 +483,7 @@ fn jit_find_basic_blocks(
             end_addr: 0,
             ty: BasicBlockType::Exit,
             is_entry_block: false,
+            number_of_instructions: 0,
         };
         loop {
             let addr_before_instruction = current_address;
@@ -490,6 +492,7 @@ fn jit_find_basic_blocks(
                 ..cpu
             };
             let analysis = ::analysis::analyze_step(&mut ctx);
+            current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = ctx.eip;
 
@@ -1064,7 +1067,7 @@ fn jit_generate_module(
 
         dbg_assert!(block.addr < block.end_addr);
 
-        jit_generate_basic_block(ctx, block.addr, block.last_instruction_addr, block.end_addr);
+        jit_generate_basic_block(ctx, block);
 
         let invalid_connection_to_next_block = block.end_addr != ctx.cpu.eip;
         dbg_assert!(!invalid_connection_to_next_block);
@@ -1207,17 +1210,15 @@ fn jit_generate_module(
     ctx.builder.finish();
 }
 
-fn jit_generate_basic_block(
-    ctx: &mut JitContext,
-    start_addr: u32,
-    last_instruction_addr: u32,
-    stop_addr: u32,
-) {
-    let mut count = 0;
+fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
+    let start_addr = block.addr;
+    let last_instruction_addr = block.last_instruction_addr;
+    let stop_addr = block.end_addr;
 
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
 
+    codegen::gen_increment_timestamp_counter(ctx.builder, block.number_of_instructions as i32);
     ctx.cpu.eip = start_addr;
 
     loop {
@@ -1257,7 +1258,6 @@ fn jit_generate_basic_block(
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);
 
         let end_addr = ctx.cpu.eip;
-        count += 1;
 
         if end_addr == stop_addr {
             // no page was crossed
@@ -1273,8 +1273,6 @@ fn jit_generate_basic_block(
             break;
         }
     }
-
-    codegen::gen_increment_timestamp_counter(ctx.builder, count);
 }
 
 pub fn jit_increase_hotness_and_maybe_compile(
