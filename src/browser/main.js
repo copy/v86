@@ -52,7 +52,7 @@
         for(var i = 0; i < query.length; i++)
         {
             var param = query[i].split("=");
-            parameters[param[0]] = decodeURIComponent(param[1]);
+            parameters[param[0]] = decodeURIComponent(param.slice(1).join("="));
         }
 
         return parameters;
