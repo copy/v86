@@ -171,11 +171,8 @@
                       (i32.const 556))
                     (i32.const -6)))
                 (set_local $l0
-                  (i32.const 0)))
-              (else
-                (set_local $l0
-                  (i32.const 1))))
-            (br $L0))
+                  (i32.const 0))
+                (br $L0))))
           (i32.store
             (i32.const 560)
             (i32.load

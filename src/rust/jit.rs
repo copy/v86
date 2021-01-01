@@ -1081,15 +1081,22 @@ fn jit_generate_module(
                 // - All instructions that don't change eip
                 // - Unconditional jump
 
-                let next_bb_index = *basic_block_indices
+                let next_basic_block_index = *basic_block_indices
                     .get(&next_block_addr)
                     .expect("basic_block_indices.get (Normal)");
 
-                // set state variable to next basic block
-                ctx.builder.instruction_body.const_i32(next_bb_index as i32);
-                ctx.builder.instruction_body.set_local(&gen_local_state);
+                if next_basic_block_index == (i as u32) + 1 {
+                    // fallthru
+                }
+                else {
+                    // set state variable to next basic block
+                    ctx.builder
+                        .instruction_body
+                        .const_i32(next_basic_block_index as i32);
+                    ctx.builder.instruction_body.set_local(&gen_local_state);
 
-                ctx.builder.instruction_body.br(ctx.current_brtable_depth); // to the loop
+                    ctx.builder.instruction_body.br(ctx.current_brtable_depth); // to the loop
+                }
             },
             &BasicBlockType::ConditionalJump {
                 next_block_addr,
@@ -1122,6 +1129,10 @@ fn jit_generate_module(
                         .instruction_body
                         .const_i32(next_basic_block_branch_taken_index as i32);
                     ctx.builder.instruction_body.set_local(&gen_local_state);
+
+                    ctx.builder
+                        .instruction_body
+                        .br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
                 }
                 else {
                     // Jump to different page
@@ -1130,32 +1141,42 @@ fn jit_generate_module(
                     ctx.builder.instruction_body.return_();
                 }
 
-                ctx.builder.instruction_body.else_();
-
                 if let Some(next_block_addr) = next_block_addr {
                     // Branch not taken
-                    // TODO: Could use fall-through here
+
                     let next_basic_block_index = *basic_block_indices
                         .get(&next_block_addr)
                         .expect("basic_block_indices.get (branch not taken)");
 
-                    ctx.builder
-                        .instruction_body
-                        .const_i32(next_basic_block_index as i32);
-                    ctx.builder.instruction_body.set_local(&gen_local_state);
+                    if next_basic_block_index == (i as u32) + 1 {
+                        // fallthru
+                        ctx.builder.instruction_body.block_end();
+                    }
+                    else {
+                        ctx.builder.instruction_body.else_();
+
+                        ctx.builder
+                            .instruction_body
+                            .const_i32(next_basic_block_index as i32);
+                        ctx.builder.instruction_body.set_local(&gen_local_state);
+
+                        ctx.builder
+                            .instruction_body
+                            .br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
+
+                        ctx.builder.instruction_body.block_end();
+                    }
                 }
                 else {
+                    ctx.builder.instruction_body.else_();
+
                     // End of this page
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                     codegen::gen_move_registers_from_locals_to_memory(ctx);
                     ctx.builder.instruction_body.return_();
+
+                    ctx.builder.instruction_body.block_end();
                 }
-
-                ctx.builder.instruction_body.block_end();
-
-                ctx.builder
-                    .instruction_body
-                    .br(basic_blocks.len() as u32 + 1 - i as u32); // to the loop
             },
         }
     }

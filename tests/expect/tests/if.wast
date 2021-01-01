@@ -145,11 +145,8 @@
                         (i32.const 556))
                       (i32.const 1)))
                   (set_local $l0
-                    (i32.const 2)))
-                (else
-                  (set_local $l0
-                    (i32.const 1))))
-              (br $L0))
+                    (i32.const 2))
+                  (br $L0))))
             (i32.store
               (i32.const 560)
               (i32.load
@@ -168,10 +165,7 @@
               (i32.add
                 (i32.load
                   (i32.const 664))
-                (i32.const 1)))
-            (set_local $l0
-              (i32.const 2))
-            (br $L0))
+                (i32.const 1))))
           (set_local $l5
             (call $e.inc32
               (get_local $l5)))

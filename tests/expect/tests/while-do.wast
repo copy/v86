@@ -168,11 +168,8 @@
                         (i32.const 556))
                       (i32.const 3)))
                   (set_local $l0
-                    (i32.const 2)))
-                (else
-                  (set_local $l0
-                    (i32.const 1))))
-              (br $L0))
+                    (i32.const 2))
+                  (br $L0))))
             (set_local $l5
               (call $e.inc32
                 (get_local $l5)))
