@@ -205,19 +205,12 @@
         var oses = [
             {
                 id: "archlinux",
-                state: {
-                    "url": HOST + "images/v86state.bin",
-                    "size": 142770436,
-                },
                 name: "Arch Linux",
-                memory_size: 128 * 1024 * 1024,
+                memory_size: 512 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
 
-                // required for restoring state, should not be used when booted on 9p
-                hda: {
-                    "url": HOST + "images/arch3.img",
-                    "size": 16 * 1024 * 1024 * 1024,
-                    "async": true,
+                state: {
+                    "url": HOST + "images/v86state.bin",
                 },
 
                 filesystem: {
@@ -225,7 +218,7 @@
                         "url": HOST + "images/fs.json",
                         "size": 10232633,
                     },
-                    "baseurl": HOST + "arch/",
+                    "baseurl": HOST + "images/arch/",
                 },
             },
             {
@@ -341,9 +334,9 @@
             },
             {
                 id: "openbsd",
-                fda: {
-                    "url": HOST + "images/openbsd.img",
-                    "size": 1474560,
+                hda: {
+                    "url": HOST + "images/internal/openbsd/openbsd.img",
+                    async: true,
                 },
                 name: "OpenBSD",
             },
@@ -430,6 +423,518 @@
                 description: 'Running <a href="https://reactos.org/">ReactOS</a>',
             },
         ];
+
+        DEBUG &&
+        oses.push(
+            {
+                id: "archlinux-hd",
+                name: "Arch Linux",
+                memory_size: 128 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "images/internal/packer/output-qemu/archlinux",
+                    "size": 8 * 1024 * 1024 * 1024,
+                    "async": true,
+                },
+            },
+            {
+                id: "archlinux-9p",
+                name: "Arch Linux",
+                memory_size: 128 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+
+                hda: {
+                    "url": HOST + "images/internal/packer/output-qemu/archlinux",
+                    "size": 2 * 1024 * 1024 * 1024,
+                    "async": true,
+                },
+
+                filesystem: {
+                    "basefs": {
+                        "url": HOST + "images/fs.json",
+                        "size": 10232633,
+                    },
+                    "baseurl": HOST + "images/arch/",
+                },
+            },
+            {
+                id: "archlinux-9p-cool",
+                name: "Arch Linux",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                bzimage_initrd_from_filesystem: true,
+                //cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
+                // quiet
+                cmdline: "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8 root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off audit=0 init=/usr/bin/openrc-init net.ifnames=0 biosdevname=0",
+                //cmdline: "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8 root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off audit=0 init=/lib/systemd/systemd quiet",
+                filesystem: {
+                    "basefs": {
+                        "url": HOST + "images/fs.json",
+                        "size": 10232633,
+                    },
+                    "baseurl": HOST + "images/arch/",
+                },
+            },
+            {
+                id: "freebsd-boot",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "images/internal/freebsd/freebsd.img",
+                    "async": true,
+                },
+                name: "FreeBSD",
+            },
+            {
+                id: "freebsd-cdrom",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": HOST + "images/internal/freebsd/FreeBSD-12.0-RELEASE-i386-disc1.iso",
+                    "async": true,
+                },
+                name: "FreeBSD",
+            },
+            {
+                id: "reactos-boot",
+                memory_size: 256 * 1024 * 1024,
+                cdrom: {
+                    "url": HOST + "images/ReactOS-0.4.11-Live.iso",
+                    "async": true,
+                },
+                name: "ReactOS",
+                description: 'Running <a href="https://reactos.org/">ReactOS</a>',
+            },
+            {
+                id: "serenity",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/serenity.img",
+                    async: true
+                },
+                name: "Serenity",
+            },
+            {
+                id: "9front",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/9front-7408.1d345066125a.386.iso",
+                    async: true
+                },
+                name: "9front",
+            },
+            {
+                id: "plan9",
+                memory_size: 256 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/qemu-advent-2014/plan9/plan9.img",
+                    async: true
+                },
+                name: "Plan9",
+            },
+            {
+                id: "windows30",
+                memory_size: 64 * 1024 * 1024,
+                //cdrom: {
+                //    "url": "images/experimental/os/Win30.iso",
+                //    "async": false,
+                //},
+                hda: {
+                    "url": "images/experimental/os/Windows 3.0.img",
+                    "async": true,
+                },
+                name: "Windows 3.0",
+            },
+            {
+                id: "windows31",
+                memory_size: 64 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/windows31.img",
+                    "async": true,
+                },
+                name: "Windows 3.1",
+            },
+            {
+                id: "windows98-boot",
+                memory_size: 64 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "images/windows98.img",
+                    "async": true,
+                    "size": 300 * 1024 * 1024,
+                },
+                name: "Windows 98",
+            },
+            {
+                id: "windows95-boot",
+                memory_size: 32 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "images/W95.IMG",
+                    "size": 242049024,
+                    "async": true,
+                },
+                name: "Windows 95",
+            },
+            {
+                id: "windowsme",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/windows/Windows Me/windowsme.img",
+                    "async": true,
+                },
+                name: "Windows ME",
+            },
+            {
+                id: "windowsme2",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/winme.img",
+                    "async": true,
+                },
+                name: "Windows ME",
+            },
+            {
+                id: "windows2000",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/windows/windows_2000_server/win2000.img",
+                    "async": true,
+                },
+                name: "Windows 2000",
+            },
+            {
+                id: "ubuntu10",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/ubuntu-10.04.4-desktop-i386.iso",
+                    "async": true,
+                },
+                name: "Ubuntu 10.04",
+            },
+            {
+                id: "hirens",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/hirens.bootcd.15.2.iso",
+                    "async": true,
+                },
+                name: "Hirens",
+            },
+            {
+                id: "haiku",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/os/haiku-r1beta1-x86_gcc2_hybrid-anyboot.iso",
+                    async: true,
+                },
+                name: "Haiku",
+            },
+            {
+                id: "haiku-state",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/os/haiku-r1beta1-x86_gcc2_hybrid-anyboot.iso",
+                    async: true,
+                },
+                state: {
+                    url: "images/experimental/os/haiku-state.bin",
+                },
+                name: "Haiku",
+            },
+            {
+                id: "haiku-cdrom",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    url: "images/experimental/os/haiku-r1beta1-x86_gcc2_hybrid-anyboot.iso",
+                    async: true,
+                },
+                name: "Haiku",
+            },
+            {
+                id: "dsl",
+                memory_size: 128 * 1024 * 1024,
+                // http://www.damnsmalllinux.org/
+                cdrom: {
+                    url: "images/experimental/os/dsl-4.11.rc2.iso",
+                    async: true,
+                },
+                name: "Damn Small Linux",
+            },
+            {
+                id: "dsl-state",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    url: "images/experimental/os/dsl-4.11.rc2.iso",
+                    async: true,
+                },
+                state: {
+                    url: "images/experimental/os/dsl-state.bin",
+                },
+                name: "Damn Small Linux",
+            },
+            {
+                id: "minix2",
+                name: "Minix 2",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: "images/experimental/os/minix2hd.img",
+                    async: true,
+                },
+            },
+            {
+                id: "minix",
+                name: "Minix",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    url: "images/minix-3.3.0.iso",
+                    async: true,
+                },
+            },
+            {
+                id: "alpine",
+                name: "Alpine",
+                bzimage_initrd_from_filesystem: true,
+                cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio mitigations=off audit=0 console=ttyS0 nosmp",
+                memory_size: 128 * 1024 * 1024,
+                filesystem: {
+                    baseurl: "images/alpine-9p-rootfs-flat",
+                    basefs: "images/alpine-base-fs.json",
+                },
+            },
+            {
+                id: "redox",
+                name: "Redox",
+                memory_size: 512 * 1024 * 1024,
+                // requires 64-bit
+                cdrom: { url: "images/experimental/redox_0.5.0_livedisk.iso" }
+            },
+            {
+                id: "helenos",
+                memory_size: 128 * 1024 * 1024,
+                // http://www.helenos.org/
+                cdrom: {
+                    "url": "images/experimental/os/HelenOS-0.5.0-ia32.iso",
+                    "async": false,
+                },
+                name: "HelenOS",
+            },
+            {
+                id: "beos",
+                name: "BeOS",
+                memory_size: 64 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                boot_order: 0x132,
+                cdrom: {
+                    url: "images/experimental/os/beos-4.5-demo-i386-powerpc.iso",
+                    async: true,
+                },
+            },
+            {
+                id: "fdgame",
+                memory_size: 64 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/fdgame135_HD.iso",
+                    "async": true,
+                },
+                name: "FreeDOS games",
+            },
+            {
+                id: "freedos_cd",
+                memory_size: 64 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/FD12CD.iso",
+                    "async": false,
+                },
+                name: "FreeDOS CD",
+            },
+            {
+                id: "freedos_installed",
+                memory_size: 64 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/freedos-installed.img",
+                    "async": false,
+                },
+                name: "FreeDOS Installed",
+            },
+            {
+                id: "netbsd",
+                memory_size: 64 * 1024 * 1024,
+                cdrom: {
+                    //"url": "images/experimental/os/netbsd-boot.iso",
+                    "url": "images/experimental/NetBSD-9.0-boot.iso",
+                    "async": true,
+                },
+                name: "NetBSD",
+            },
+            {
+                id: "android",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/android-x86-1.6-r2.iso",
+                    "size": 54661120,
+                    "async": true,
+                },
+                name: "Android",
+            },
+            {
+                id: "ubuntu5",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/ubuntu-5.10-live-i386.iso",
+                    "size": 657975296,
+                    "async": true,
+                },
+                name: "Ubuntu 5.10",
+            },
+            {
+                id: "ubuntu6",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/os/ubuntu-6.10.iso",
+                    "async": true,
+                },
+                name: "Ubuntu 6.10",
+            },
+            {
+                id: "qbasic",
+                memory_size: 128 * 1024 * 1024,
+                fda: {
+                    "url": "images/experimental/os/qbasic.img",
+                    "async": false,
+                },
+                name: "FreeDOS + qbasic",
+            },
+            {
+                id: "os2_3",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/os2/3/disk.img",
+                    "async": true,
+                },
+                name: "OS/2 3",
+            },
+            {
+                id: "os2_4",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/experimental/os/os2_4.img",
+                    "async": true,
+                },
+                boot_order: 0x132,
+                name: "OS/2 4",
+            },
+            {
+                id: "mikeos",
+                memory_size: 32 * 1024 * 1024,
+                name: "MikeOS",
+                // qemu advent
+                fda: {
+                    "url": "images/experimental/os/mikeos.flp",
+                    "size": 1024 * 1440,
+                    "async": false,
+                },
+            },
+            {
+                id: "syllable",
+                memory_size: 128 * 1024 * 1024,
+                name: "Syllable",
+                // qemu advent
+                hda: {
+                    "url": "images/experimental/os/Syllable.bin",
+                    "async": true,
+                },
+            },
+            {
+                id: "freegem",
+                memory_size: 128 * 1024 * 1024,
+                name: "FreeGEM",
+                // qemu advent
+                hda: {
+                    "url": "images/experimental/os/freegem.bin",
+                    "async": true,
+                },
+            },
+            {
+                id: "tinycore",
+                // http://www.tinycorelinux.net/
+                cdrom: {
+                    "url": "images/experimental/os/TinyCore-current.iso",
+                    "async": false,
+                },
+                name: "Tinycore",
+            },
+            {
+                id: "tinycore8",
+                cdrom: {
+                    "url": "images/experimental/os/TinyCore-8.0.iso",
+                    "async": false,
+                },
+                name: "Tinycore 8",
+            },
+            {
+                id: "core9",
+                cdrom: {
+                    "url": "images/experimental/os/Core-9.0.iso",
+                    "async": false,
+                },
+                name: "Core 9",
+            },
+            {
+                id: "core8",
+                cdrom: {
+                    "url": "images/experimental/os/Core-8.0.iso",
+                    "async": false,
+                },
+                name: "Core 8",
+            },
+            {
+                id: "core7",
+                cdrom: {
+                    "url": "images/experimental/os/Core-7.2.iso",
+                    "async": false,
+                },
+                name: "Core 7",
+            },
+            {
+                id: "core6",
+                cdrom: {
+                    "url": "images/experimental/os/Core-6.4.1.iso",
+                    "async": false,
+                },
+                name: "Core 6",
+            },
+            {
+                id: "core5",
+                cdrom: {
+                    "url": "images/experimental/os/Core-5.4.iso",
+                    "async": false,
+                },
+                name: "Core 5",
+            },
+            {
+                id: "core4",
+                cdrom: {
+                    "url": "images/experimental/os/Core-4.7.7.iso",
+                    "async": false,
+                },
+                name: "Core 4",
+            },
+            {
+                id: "openwrt",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    "url": "images/openwrt-18.06.4-x86-legacy-combined-ext4.img",
+                    "async": true,
+                },
+                name: "OpenWrt",
+            },
+            {
+                id: "genode",
+                memory_size: 1 * 1024 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/experimental/qemu-advent-2016/genode/Genode_on_seL4.iso",
+                    "async": true,
+                },
+                name: "Genode on seL4",
+            },
+        );
 
         if(DEBUG)
         {
