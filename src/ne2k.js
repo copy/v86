@@ -715,10 +715,7 @@ Ne2k.prototype.receive = function(data)
 
         if(data.length < 60)
         {
-            for(var i = data.length; i < 60; i++)
-            {
-                this.memory[data_start + i] = 0;
-            }
+            this.memory.fill(0, data_start + data.length, data_start + 60);
         }
     }
 
