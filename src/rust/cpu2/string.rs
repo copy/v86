@@ -34,8 +34,9 @@ use cpu2::memory::{
 };
 use page::Page;
 
-fn count_until_end_of_page(direction: i32, size: i32, addr: i32) -> i32 {
-    if direction == 1 { (0x1000 - (addr & 0xFFF)) / size } else { (addr & 0xFFF) / size + 1 }
+fn count_until_end_of_page(direction: i32, size: i32, addr: i32) -> u32 {
+    (if direction == 1 { (0x1000 - (addr & 0xFFF)) / size } else { (addr & 0xFFF) / size + 1 })
+        as u32
 }
 
 #[derive(Copy, Clone)]
@@ -118,7 +119,7 @@ unsafe fn string_instruction(
     };
     let mut count = match rep {
         Rep::Z | Rep::NZ => {
-            let c = read_reg32(ECX) & asize_mask;
+            let c = (read_reg32(ECX) & asize_mask) as u32;
             if c == 0 {
                 return;
             };
@@ -179,27 +180,33 @@ unsafe fn string_instruction(
     }
 
     if rep_fast {
-        let count_until_end_of_page = match instruction {
-            Instruction::Movs | Instruction::Cmps => i32::min(
-                count_until_end_of_page(direction, size_bytes, src),
-                count_until_end_of_page(direction, size_bytes, dst),
-            ),
-            Instruction::Stos | Instruction::Ins | Instruction::Scas => {
-                count_until_end_of_page(direction, size_bytes, dst)
+        let count_until_end_of_page = u32::min(
+            count,
+            match instruction {
+                Instruction::Movs | Instruction::Cmps => u32::min(
+                    count_until_end_of_page(direction, size_bytes, src),
+                    count_until_end_of_page(direction, size_bytes, dst),
+                ),
+                Instruction::Stos | Instruction::Ins | Instruction::Scas => {
+                    count_until_end_of_page(direction, size_bytes, dst)
+                },
+                Instruction::Lods | Instruction::Outs => {
+                    count_until_end_of_page(direction, size_bytes, src)
+                },
             },
-            Instruction::Lods | Instruction::Outs => {
-                count_until_end_of_page(direction, size_bytes, src)
-            },
-        };
+        );
         dbg_assert!(count_until_end_of_page > 0);
 
         if !skip_dirty_page {
             ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_dst));
         }
 
-        let mut finished = true;
+        let mut rep_cmp_finished = false;
 
-        for _ in 0..count_until_end_of_page {
+        let mut i = 0;
+        while i < count_until_end_of_page {
+            i += 1;
+
             let src_val = match instruction {
                 Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
                     match size {
@@ -247,55 +254,58 @@ unsafe fn string_instruction(
                 | Instruction::Stos
                 | Instruction::Scas
                 | Instruction::Ins => {
-                    dst += increment;
                     phys_dst += increment as u32;
                 },
                 _ => {},
             }
             match instruction {
                 Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
-                    src += increment;
                     phys_src += increment as u32;
                 },
                 _ => {},
             };
 
-            finished = match rep {
-                Rep::Z | Rep::NZ => {
-                    let rep_cmp = match (rep, instruction) {
-                        (Rep::Z, Instruction::Scas | Instruction::Cmps) => src_val == dst_val,
-                        (Rep::NZ, Instruction::Scas | Instruction::Cmps) => src_val != dst_val,
-                        _ => true,
+            match instruction {
+                Instruction::Scas | Instruction::Cmps => {
+                    let rep_cmp = match rep {
+                        Rep::Z => src_val == dst_val,
+                        Rep::NZ => src_val != dst_val,
+                        Rep::None => {
+                            dbg_assert!(false);
+                            true
+                        },
                     };
-                    count -= 1;
-                    if count != 0 && rep_cmp { false } else { true }
+                    if !rep_cmp || count == i {
+                        match size {
+                            Size::B => cmp8(src_val, dst_val),
+                            Size::W => cmp16(src_val, dst_val),
+                            Size::D => cmp32(src_val, dst_val),
+                        };
+                        rep_cmp_finished = true;
+                        break;
+                    }
                 },
-                Rep::None => true,
-            };
-
-            if finished {
-                match instruction {
-                    Instruction::Scas | Instruction::Cmps => match size {
-                        Size::B => cmp8(src_val, dst_val),
-                        Size::W => cmp16(src_val, dst_val),
-                        Size::D => cmp32(src_val, dst_val),
-                    },
-                    _ => {},
-                }
-                break;
+                _ => {},
             }
         }
 
-        if !finished {
+        dbg_assert!(i <= count);
+        count -= i;
+
+        if !rep_cmp_finished && count != 0 {
             // go back to the current instruction, since this loop just handles a single page
             *instruction_pointer = *previous_ip;
         }
+
+        src += i as i32 * increment;
+        dst += i as i32 * increment;
     }
     else {
         loop {
             match instruction {
                 Instruction::Ins => {
                     // check fault *before* reading from port
+                    // (technically not necessary according to Intel manuals)
                     break_on_pagefault!(writable_or_pagefault(es + dst, size_bytes));
                 },
                 _ => {},
@@ -406,7 +416,7 @@ unsafe fn string_instruction(
 
     match rep {
         Rep::Z | Rep::NZ => {
-            set_reg_asize(is_asize_32, ECX, count);
+            set_reg_asize(is_asize_32, ECX, count as i32);
         },
         Rep::None => {},
     }
