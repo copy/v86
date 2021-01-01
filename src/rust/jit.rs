@@ -12,6 +12,7 @@ use cpu::global_pointers;
 use cpu::memory;
 use cpu_context::CpuContext;
 use jit_instructions;
+use opstats;
 use page::Page;
 use profiler;
 use profiler::stat;
@@ -748,7 +749,7 @@ fn jit_analyze_and_generate(
                 break;
             }
             let last_instruction_opcode = memory::read32s(b.last_instruction_addr);
-            let op = ::opstats::decode(last_instruction_opcode as u32);
+            let op = opstats::decode(last_instruction_opcode as u32);
             dbg_log!(
                 "BB: 0x{:x} {}{:02x} {} {}",
                 b.addr,
@@ -1827,8 +1828,8 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         let mut instruction = 0;
         if cfg!(feature = "profiler") {
             instruction = memory::read32s(ctx.cpu.eip) as u32;
-            ::opstats::gen_opstats(ctx.builder, instruction);
-            ::opstats::record_opstat_compiled(instruction);
+            opstats::gen_opstats(ctx.builder, instruction);
+            opstats::record_opstat_compiled(instruction);
         }
 
         if ctx.cpu.eip == last_instruction_addr {
@@ -1859,7 +1860,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
 
         let wasm_length = ctx.builder.instruction_body_length() - wasm_length_before;
-        ::opstats::record_opstat_size_wasm(instruction, wasm_length as u32);
+        opstats::record_opstat_size_wasm(instruction, wasm_length as u32);
 
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);
