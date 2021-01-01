@@ -35,18 +35,14 @@ pub unsafe fn instr_00_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, add8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_00_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, add8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_00_reg(r1: i32, r: i32) { write_reg8(r1, add8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_01_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, add16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_01_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, add16(____0, read_reg16(r)));
+    write_reg16(r1, add16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_01_mem(addr: i32, r: i32) {
@@ -54,38 +50,38 @@ pub unsafe fn instr32_01_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_01_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, add32(____0, read_reg32(r)));
+    write_reg32(r1, add32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_02_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, add8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        add8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_02_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, add8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_02_reg(r1: i32, r: i32) { write_reg8(r, add8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_03_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, add16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        add16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_03_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, add16(read_reg16(r), ____0));
+    write_reg16(r, add16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_03_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, add32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        add32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_03_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, add32(read_reg32(r), ____0));
+    write_reg32(r, add32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_04(imm8: i32) {
@@ -135,18 +131,14 @@ pub unsafe fn instr_08_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, or8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_08_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, or8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_08_reg(r1: i32, r: i32) { write_reg8(r1, or8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_09_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, or16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_09_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, or16(____0, read_reg16(r)));
+    write_reg16(r1, or16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_09_mem(addr: i32, r: i32) {
@@ -154,38 +146,35 @@ pub unsafe fn instr32_09_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_09_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, or32(____0, read_reg32(r)));
+    write_reg32(r1, or32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_0A_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, or8(read_reg8(r), ____0));
+    write_reg8(r, or8(read_reg8(r), return_on_pagefault!(safe_read8(addr))));
 }
 #[no_mangle]
-pub unsafe fn instr_0A_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, or8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_0A_reg(r1: i32, r: i32) { write_reg8(r, or8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_0B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, or16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        or16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_0B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, or16(read_reg16(r), ____0));
+    write_reg16(r, or16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_0B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, or32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        or32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_0B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, or32(read_reg32(r), ____0));
+    write_reg32(r, or32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_0C(imm8: i32) {
@@ -216,18 +205,14 @@ pub unsafe fn instr_10_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, adc8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_10_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, adc8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_10_reg(r1: i32, r: i32) { write_reg8(r1, adc8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_11_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, adc16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_11_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, adc16(____0, read_reg16(r)));
+    write_reg16(r1, adc16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_11_mem(addr: i32, r: i32) {
@@ -235,38 +220,38 @@ pub unsafe fn instr32_11_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_11_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, adc32(____0, read_reg32(r)));
+    write_reg32(r1, adc32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_12_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, adc8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        adc8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_12_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, adc8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_12_reg(r1: i32, r: i32) { write_reg8(r, adc8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_13_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, adc16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        adc16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_13_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, adc16(read_reg16(r), ____0));
+    write_reg16(r, adc16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_13_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, adc32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        adc32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_13_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, adc32(read_reg32(r), ____0));
+    write_reg32(r, adc32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_14(imm8: i32) {
@@ -316,18 +301,14 @@ pub unsafe fn instr_18_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, sbb8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_18_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sbb8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_18_reg(r1: i32, r: i32) { write_reg8(r1, sbb8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_19_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, sbb16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_19_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sbb16(____0, read_reg16(r)));
+    write_reg16(r1, sbb16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_19_mem(addr: i32, r: i32) {
@@ -335,38 +316,38 @@ pub unsafe fn instr32_19_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_19_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sbb32(____0, read_reg32(r)));
+    write_reg32(r1, sbb32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_1A_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, sbb8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        sbb8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_1A_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, sbb8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_1A_reg(r1: i32, r: i32) { write_reg8(r, sbb8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_1B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, sbb16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        sbb16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_1B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, sbb16(read_reg16(r), ____0));
+    write_reg16(r, sbb16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_1B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, sbb32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        sbb32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_1B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, sbb32(read_reg32(r), ____0));
+    write_reg32(r, sbb32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_1C(imm8: i32) {
@@ -416,18 +397,14 @@ pub unsafe fn instr_20_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, and8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_20_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, and8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_20_reg(r1: i32, r: i32) { write_reg8(r1, and8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_21_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, and16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_21_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, and16(____0, read_reg16(r)));
+    write_reg16(r1, and16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_21_mem(addr: i32, r: i32) {
@@ -435,38 +412,38 @@ pub unsafe fn instr32_21_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_21_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, and32(____0, read_reg32(r)));
+    write_reg32(r1, and32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_22_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, and8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        and8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_22_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, and8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_22_reg(r1: i32, r: i32) { write_reg8(r, and8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_23_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, and16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        and16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_23_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, and16(read_reg16(r), ____0));
+    write_reg16(r, and16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_23_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, and32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        and32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_23_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, and32(read_reg32(r), ____0));
+    write_reg32(r, and32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_24(imm8: i32) {
@@ -489,18 +466,14 @@ pub unsafe fn instr_28_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, sub8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_28_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sub8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_28_reg(r1: i32, r: i32) { write_reg8(r1, sub8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_29_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, sub16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_29_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sub16(____0, read_reg16(r)));
+    write_reg16(r1, sub16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_29_mem(addr: i32, r: i32) {
@@ -508,38 +481,38 @@ pub unsafe fn instr32_29_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_29_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sub32(____0, read_reg32(r)));
+    write_reg32(r1, sub32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_2A_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, sub8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        sub8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_2A_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, sub8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_2A_reg(r1: i32, r: i32) { write_reg8(r, sub8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_2B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, sub16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        sub16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_2B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, sub16(read_reg16(r), ____0));
+    write_reg16(r, sub16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_2B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, sub32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        sub32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_2B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, sub32(read_reg32(r), ____0));
+    write_reg32(r, sub32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_2C(imm8: i32) {
@@ -562,18 +535,14 @@ pub unsafe fn instr_30_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, xor8(___, read_reg8(r)));
 }
 #[no_mangle]
-pub unsafe fn instr_30_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, xor8(____0, read_reg8(r)));
-}
+pub unsafe fn instr_30_reg(r1: i32, r: i32) { write_reg8(r1, xor8(read_reg8(r1), read_reg8(r))); }
 #[no_mangle]
 pub unsafe fn instr16_31_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE16!(___, addr, xor16(___, read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_31_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, xor16(____0, read_reg16(r)));
+    write_reg16(r1, xor16(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_31_mem(addr: i32, r: i32) {
@@ -581,38 +550,38 @@ pub unsafe fn instr32_31_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_31_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, xor32(____0, read_reg32(r)));
+    write_reg32(r1, xor32(read_reg32(r1), read_reg32(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_32_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, xor8(read_reg8(r), ____0));
+    write_reg8(
+        r,
+        xor8(read_reg8(r), return_on_pagefault!(safe_read8(addr))),
+    );
 }
 #[no_mangle]
-pub unsafe fn instr_32_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, xor8(read_reg8(r), ____0));
-}
+pub unsafe fn instr_32_reg(r1: i32, r: i32) { write_reg8(r, xor8(read_reg8(r), read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_33_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, xor16(read_reg16(r), ____0));
+    write_reg16(
+        r,
+        xor16(read_reg16(r), return_on_pagefault!(safe_read16(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_33_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, xor16(read_reg16(r), ____0));
+    write_reg16(r, xor16(read_reg16(r), read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_33_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, xor32(read_reg32(r), ____0));
+    write_reg32(
+        r,
+        xor32(read_reg32(r), return_on_pagefault!(safe_read32s(addr))),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_33_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, xor32(read_reg32(r), ____0));
+    write_reg32(r, xor32(read_reg32(r), read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_34(imm8: i32) {
@@ -632,64 +601,40 @@ pub unsafe fn instr_36() { segment_prefix_op(SS); }
 pub unsafe fn instr_37() { bcd_aaa(); }
 #[no_mangle]
 pub unsafe fn instr_38_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    cmp8(____0, read_reg8(r));
+    cmp8(return_on_pagefault!(safe_read8(addr)), read_reg8(r));
 }
 #[no_mangle]
-pub unsafe fn instr_38_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    cmp8(____0, read_reg8(r));
-}
+pub unsafe fn instr_38_reg(r1: i32, r: i32) { cmp8(read_reg8(r1), read_reg8(r)); }
 #[no_mangle]
 pub unsafe fn instr16_39_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    cmp16(____0, read_reg16(r));
+    cmp16(return_on_pagefault!(safe_read16(addr)), read_reg16(r));
 }
 #[no_mangle]
-pub unsafe fn instr16_39_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    cmp16(____0, read_reg16(r));
-}
+pub unsafe fn instr16_39_reg(r1: i32, r: i32) { cmp16(read_reg16(r1), read_reg16(r)); }
 #[no_mangle]
 pub unsafe fn instr32_39_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    cmp32(____0, read_reg32(r));
+    cmp32(return_on_pagefault!(safe_read32s(addr)), read_reg32(r));
 }
 #[no_mangle]
-pub unsafe fn instr32_39_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    cmp32(____0, read_reg32(r));
-}
+pub unsafe fn instr32_39_reg(r1: i32, r: i32) { cmp32(read_reg32(r1), read_reg32(r)); }
 #[no_mangle]
 pub unsafe fn instr_3A_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    cmp8(read_reg8(r), ____0);
+    cmp8(read_reg8(r), return_on_pagefault!(safe_read8(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr_3A_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    cmp8(read_reg8(r), ____0);
-}
+pub unsafe fn instr_3A_reg(r1: i32, r: i32) { cmp8(read_reg8(r), read_reg8(r1)); }
 #[no_mangle]
 pub unsafe fn instr16_3B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    cmp16(read_reg16(r), ____0);
+    cmp16(read_reg16(r), return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr16_3B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    cmp16(read_reg16(r), ____0);
-}
+pub unsafe fn instr16_3B_reg(r1: i32, r: i32) { cmp16(read_reg16(r), read_reg16(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_3B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    cmp32(read_reg32(r), ____0);
+    cmp32(read_reg32(r), return_on_pagefault!(safe_read32s(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr32_3B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    cmp32(read_reg32(r), ____0);
-}
+pub unsafe fn instr32_3B_reg(r1: i32, r: i32) { cmp32(read_reg32(r), read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr_3C(imm8: i32) { cmp8(*reg8.offset(AL as isize) as i32, imm8); }
 #[no_mangle]
@@ -907,8 +852,7 @@ pub unsafe fn instr_63_reg(r1: i32, r: i32) {
         trigger_ud();
         return;
     }
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, arpl(____0, read_reg16(r)));
+    write_reg16(r1, arpl(read_reg16(r1), read_reg16(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_64() { segment_prefix_op(FS); }
@@ -994,64 +938,43 @@ pub unsafe fn instr_80_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, add8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, add8(____0, imm));
-}
+pub unsafe fn instr_80_0_reg(r1: i32, imm: i32) { write_reg8(r1, add8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, or8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, or8(____0, imm));
-}
+pub unsafe fn instr_80_1_reg(r1: i32, imm: i32) { write_reg8(r1, or8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, adc8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, adc8(____0, imm));
-}
+pub unsafe fn instr_80_2_reg(r1: i32, imm: i32) { write_reg8(r1, adc8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, sbb8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sbb8(____0, imm));
-}
+pub unsafe fn instr_80_3_reg(r1: i32, imm: i32) { write_reg8(r1, sbb8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, and8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, and8(____0, imm));
-}
+pub unsafe fn instr_80_4_reg(r1: i32, imm: i32) { write_reg8(r1, and8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, sub8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sub8(____0, imm));
-}
+pub unsafe fn instr_80_5_reg(r1: i32, imm: i32) { write_reg8(r1, sub8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, xor8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_80_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, xor8(____0, imm));
-}
+pub unsafe fn instr_80_6_reg(r1: i32, imm: i32) { write_reg8(r1, xor8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_80_7_reg(r: i32, imm: i32) { cmp8(read_reg8(r), imm); }
 #[no_mangle]
@@ -1063,64 +986,43 @@ pub unsafe fn instr16_81_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, add16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, add16(____0, imm));
-}
+pub unsafe fn instr16_81_0_reg(r1: i32, imm: i32) { write_reg16(r1, add16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, or16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, or16(____0, imm));
-}
+pub unsafe fn instr16_81_1_reg(r1: i32, imm: i32) { write_reg16(r1, or16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, adc16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, adc16(____0, imm));
-}
+pub unsafe fn instr16_81_2_reg(r1: i32, imm: i32) { write_reg16(r1, adc16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, sbb16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sbb16(____0, imm));
-}
+pub unsafe fn instr16_81_3_reg(r1: i32, imm: i32) { write_reg16(r1, sbb16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, and16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, and16(____0, imm));
-}
+pub unsafe fn instr16_81_4_reg(r1: i32, imm: i32) { write_reg16(r1, and16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, sub16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sub16(____0, imm));
-}
+pub unsafe fn instr16_81_5_reg(r1: i32, imm: i32) { write_reg16(r1, sub16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, xor16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_81_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, xor16(____0, imm));
-}
+pub unsafe fn instr16_81_6_reg(r1: i32, imm: i32) { write_reg16(r1, xor16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_81_7_reg(r: i32, imm: i32) { cmp16(read_reg16(r), imm); }
 #[no_mangle]
@@ -1132,64 +1034,43 @@ pub unsafe fn instr32_81_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, add32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, add32(____0, imm));
-}
+pub unsafe fn instr32_81_0_reg(r1: i32, imm: i32) { write_reg32(r1, add32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, or32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, or32(____0, imm));
-}
+pub unsafe fn instr32_81_1_reg(r1: i32, imm: i32) { write_reg32(r1, or32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, adc32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, adc32(____0, imm));
-}
+pub unsafe fn instr32_81_2_reg(r1: i32, imm: i32) { write_reg32(r1, adc32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, sbb32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sbb32(____0, imm));
-}
+pub unsafe fn instr32_81_3_reg(r1: i32, imm: i32) { write_reg32(r1, sbb32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, and32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, and32(____0, imm));
-}
+pub unsafe fn instr32_81_4_reg(r1: i32, imm: i32) { write_reg32(r1, and32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, sub32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sub32(____0, imm));
-}
+pub unsafe fn instr32_81_5_reg(r1: i32, imm: i32) { write_reg32(r1, sub32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, xor32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_81_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, xor32(____0, imm));
-}
+pub unsafe fn instr32_81_6_reg(r1: i32, imm: i32) { write_reg32(r1, xor32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_81_7_reg(r: i32, imm: i32) { cmp32(read_reg32(r), imm); }
 #[no_mangle]
@@ -1201,64 +1082,43 @@ pub unsafe fn instr_82_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, add8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, add8(____0, imm));
-}
+pub unsafe fn instr_82_0_reg(r1: i32, imm: i32) { write_reg8(r1, add8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, or8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, or8(____0, imm));
-}
+pub unsafe fn instr_82_1_reg(r1: i32, imm: i32) { write_reg8(r1, or8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, adc8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, adc8(____0, imm));
-}
+pub unsafe fn instr_82_2_reg(r1: i32, imm: i32) { write_reg8(r1, adc8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, sbb8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sbb8(____0, imm));
-}
+pub unsafe fn instr_82_3_reg(r1: i32, imm: i32) { write_reg8(r1, sbb8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, and8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, and8(____0, imm));
-}
+pub unsafe fn instr_82_4_reg(r1: i32, imm: i32) { write_reg8(r1, and8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, sub8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sub8(____0, imm));
-}
+pub unsafe fn instr_82_5_reg(r1: i32, imm: i32) { write_reg8(r1, sub8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, xor8(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr_82_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, xor8(____0, imm));
-}
+pub unsafe fn instr_82_6_reg(r1: i32, imm: i32) { write_reg8(r1, xor8(read_reg8(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr_82_7_reg(r: i32, imm: i32) { cmp8(read_reg8(r), imm); }
 #[no_mangle]
@@ -1270,64 +1130,43 @@ pub unsafe fn instr16_83_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, add16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, add16(____0, imm));
-}
+pub unsafe fn instr16_83_0_reg(r1: i32, imm: i32) { write_reg16(r1, add16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, or16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, or16(____0, imm));
-}
+pub unsafe fn instr16_83_1_reg(r1: i32, imm: i32) { write_reg16(r1, or16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, adc16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, adc16(____0, imm));
-}
+pub unsafe fn instr16_83_2_reg(r1: i32, imm: i32) { write_reg16(r1, adc16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, sbb16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sbb16(____0, imm));
-}
+pub unsafe fn instr16_83_3_reg(r1: i32, imm: i32) { write_reg16(r1, sbb16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, and16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, and16(____0, imm));
-}
+pub unsafe fn instr16_83_4_reg(r1: i32, imm: i32) { write_reg16(r1, and16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, sub16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sub16(____0, imm));
-}
+pub unsafe fn instr16_83_5_reg(r1: i32, imm: i32) { write_reg16(r1, sub16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, xor16(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr16_83_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, xor16(____0, imm));
-}
+pub unsafe fn instr16_83_6_reg(r1: i32, imm: i32) { write_reg16(r1, xor16(read_reg16(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr16_83_7_reg(r: i32, imm: i32) { cmp16(read_reg16(r), imm); }
 #[no_mangle]
@@ -1339,64 +1178,43 @@ pub unsafe fn instr32_83_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, add32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, add32(____0, imm));
-}
+pub unsafe fn instr32_83_0_reg(r1: i32, imm: i32) { write_reg32(r1, add32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, or32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, or32(____0, imm));
-}
+pub unsafe fn instr32_83_1_reg(r1: i32, imm: i32) { write_reg32(r1, or32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, adc32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, adc32(____0, imm));
-}
+pub unsafe fn instr32_83_2_reg(r1: i32, imm: i32) { write_reg32(r1, adc32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, sbb32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sbb32(____0, imm));
-}
+pub unsafe fn instr32_83_3_reg(r1: i32, imm: i32) { write_reg32(r1, sbb32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, and32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, and32(____0, imm));
-}
+pub unsafe fn instr32_83_4_reg(r1: i32, imm: i32) { write_reg32(r1, and32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, sub32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sub32(____0, imm));
-}
+pub unsafe fn instr32_83_5_reg(r1: i32, imm: i32) { write_reg32(r1, sub32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE32!(___, addr, xor32(___, imm));
 }
 #[no_mangle]
-pub unsafe fn instr32_83_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, xor32(____0, imm));
-}
+pub unsafe fn instr32_83_6_reg(r1: i32, imm: i32) { write_reg32(r1, xor32(read_reg32(r1), imm)); }
 #[no_mangle]
 pub unsafe fn instr32_83_7_reg(r: i32, imm: i32) { cmp32(read_reg32(r), imm); }
 #[no_mangle]
@@ -1405,42 +1223,29 @@ pub unsafe fn instr32_83_7_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_84_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    test8(____0, read_reg8(r));
+    test8(return_on_pagefault!(safe_read8(addr)), read_reg8(r));
 }
 #[no_mangle]
-pub unsafe fn instr_84_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    test8(____0, read_reg8(r));
-}
+pub unsafe fn instr_84_reg(r1: i32, r: i32) { test8(read_reg8(r1), read_reg8(r)); }
 #[no_mangle]
 pub unsafe fn instr16_85_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    test16(____0, read_reg16(r));
+    test16(return_on_pagefault!(safe_read16(addr)), read_reg16(r));
 }
 #[no_mangle]
-pub unsafe fn instr16_85_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    test16(____0, read_reg16(r));
-}
+pub unsafe fn instr16_85_reg(r1: i32, r: i32) { test16(read_reg16(r1), read_reg16(r)); }
 #[no_mangle]
 pub unsafe fn instr32_85_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    test32(____0, read_reg32(r));
+    test32(return_on_pagefault!(safe_read32s(addr)), read_reg32(r));
 }
 #[no_mangle]
-pub unsafe fn instr32_85_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    test32(____0, read_reg32(r));
-}
+pub unsafe fn instr32_85_reg(r1: i32, r: i32) { test32(read_reg32(r1), read_reg32(r)); }
 #[no_mangle]
 pub unsafe fn instr_86_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE8!(___, addr, xchg8(___, get_reg8_index(r)));
 }
 #[no_mangle]
 pub unsafe fn instr_86_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, xchg8(____0, get_reg8_index(r)));
+    write_reg8(r1, xchg8(read_reg8(r1), get_reg8_index(r)));
 }
 #[no_mangle]
 pub unsafe fn instr16_87_mem(addr: i32, r: i32) {
@@ -1448,18 +1253,14 @@ pub unsafe fn instr16_87_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_87_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, xchg16(____0, get_reg16_index(r)));
+    write_reg16(r1, xchg16(read_reg16(r1), get_reg16_index(r)));
 }
 #[no_mangle]
 pub unsafe fn instr32_87_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE32!(___, addr, xchg32(___, r));
 }
 #[no_mangle]
-pub unsafe fn instr32_87_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, xchg32(____0, r));
-}
+pub unsafe fn instr32_87_reg(r1: i32, r: i32) { write_reg32(r1, xchg32(read_reg32(r1), r)); }
 #[no_mangle]
 pub unsafe fn instr_88_reg(r2: i32, r: i32) { write_reg8(r2, read_reg8(r)); }
 #[no_mangle]
@@ -1480,34 +1281,22 @@ pub unsafe fn instr32_89_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_8A_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    write_reg8(r, ____0);
+    write_reg8(r, return_on_pagefault!(safe_read8(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr_8A_reg(r1: i32, r: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r, ____0);
-}
+pub unsafe fn instr_8A_reg(r1: i32, r: i32) { write_reg8(r, read_reg8(r1)); }
 #[no_mangle]
 pub unsafe fn instr16_8B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(r, ____0);
+    write_reg16(r, return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr16_8B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r, ____0);
-}
+pub unsafe fn instr16_8B_reg(r1: i32, r: i32) { write_reg16(r, read_reg16(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_8B_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    write_reg32(r, ____0);
+    write_reg32(r, return_on_pagefault!(safe_read32s(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr32_8B_reg(r1: i32, r: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r, ____0);
-}
+pub unsafe fn instr32_8B_reg(r1: i32, r: i32) { write_reg32(r, read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr_8C_check_sreg(seg: i32) -> bool {
     if seg >= 6 {
@@ -1586,14 +1375,10 @@ pub unsafe fn instr_8E_helper(data: i32, mod_0: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_8E_mem(addr: i32, r: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    instr_8E_helper(____0, r);
+    instr_8E_helper(return_on_pagefault!(safe_read16(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_8E_reg(r1: i32, r: i32) {
-    let ____0 = read_reg16(r1);
-    instr_8E_helper(____0, r);
-}
+pub unsafe fn instr_8E_reg(r1: i32, r: i32) { instr_8E_helper(read_reg16(r1), r); }
 
 #[no_mangle]
 pub unsafe fn instr16_8F_0_mem(modrm_byte: i32) {
@@ -1894,81 +1679,56 @@ pub unsafe fn instr_C0_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, rol8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rol8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_0_reg(r1: i32, imm: i32) { write_reg8(r1, rol8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_1_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, ror8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, ror8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_1_reg(r1: i32, imm: i32) { write_reg8(r1, ror8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_2_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, rcl8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcl8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_2_reg(r1: i32, imm: i32) { write_reg8(r1, rcl8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_3_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, rcr8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcr8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_3_reg(r1: i32, imm: i32) { write_reg8(r1, rcr8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_4_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, shl8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_4_reg(r1: i32, imm: i32) { write_reg8(r1, shl8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_5_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, shr8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shr8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_5_reg(r1: i32, imm: i32) { write_reg8(r1, shr8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_6_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, shl8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_6_reg(r1: i32, imm: i32) { write_reg8(r1, shl8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr_C0_7_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, sar8(___, imm & 31));
 }
 #[no_mangle]
-pub unsafe fn instr_C0_7_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sar8(____0, imm & 31));
-}
+pub unsafe fn instr_C0_7_reg(r1: i32, imm: i32) { write_reg8(r1, sar8(read_reg8(r1), imm & 31)); }
 #[no_mangle]
 pub unsafe fn instr16_C1_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE16!(___, addr, rol16(___, imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rol16(____0, imm & 31));
+    write_reg16(r1, rol16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_1_mem(addr: i32, imm: i32) {
@@ -1976,8 +1736,7 @@ pub unsafe fn instr16_C1_1_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, ror16(____0, imm & 31));
+    write_reg16(r1, ror16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_2_mem(addr: i32, imm: i32) {
@@ -1985,8 +1744,7 @@ pub unsafe fn instr16_C1_2_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcl16(____0, imm & 31));
+    write_reg16(r1, rcl16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_3_mem(addr: i32, imm: i32) {
@@ -1994,8 +1752,7 @@ pub unsafe fn instr16_C1_3_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcr16(____0, imm & 31));
+    write_reg16(r1, rcr16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_4_mem(addr: i32, imm: i32) {
@@ -2003,8 +1760,7 @@ pub unsafe fn instr16_C1_4_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, imm & 31));
+    write_reg16(r1, shl16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_5_mem(addr: i32, imm: i32) {
@@ -2012,8 +1768,7 @@ pub unsafe fn instr16_C1_5_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shr16(____0, imm & 31));
+    write_reg16(r1, shr16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_6_mem(addr: i32, imm: i32) {
@@ -2021,8 +1776,7 @@ pub unsafe fn instr16_C1_6_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, imm & 31));
+    write_reg16(r1, shl16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_7_mem(addr: i32, imm: i32) {
@@ -2030,8 +1784,7 @@ pub unsafe fn instr16_C1_7_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_C1_7_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sar16(____0, imm & 31));
+    write_reg16(r1, sar16(read_reg16(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_0_mem(addr: i32, imm: i32) {
@@ -2039,8 +1792,7 @@ pub unsafe fn instr32_C1_0_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rol32(____0, imm & 31));
+    write_reg32(r1, rol32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_1_mem(addr: i32, imm: i32) {
@@ -2048,8 +1800,7 @@ pub unsafe fn instr32_C1_1_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, ror32(____0, imm & 31));
+    write_reg32(r1, ror32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_2_mem(addr: i32, imm: i32) {
@@ -2057,8 +1808,7 @@ pub unsafe fn instr32_C1_2_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_2_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcl32(____0, imm & 31));
+    write_reg32(r1, rcl32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_3_mem(addr: i32, imm: i32) {
@@ -2066,8 +1816,7 @@ pub unsafe fn instr32_C1_3_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_3_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcr32(____0, imm & 31));
+    write_reg32(r1, rcr32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_4_mem(addr: i32, imm: i32) {
@@ -2075,8 +1824,7 @@ pub unsafe fn instr32_C1_4_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_4_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, imm & 31));
+    write_reg32(r1, shl32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_5_mem(addr: i32, imm: i32) {
@@ -2084,8 +1832,7 @@ pub unsafe fn instr32_C1_5_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_5_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shr32(____0, imm & 31));
+    write_reg32(r1, shr32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_6_mem(addr: i32, imm: i32) {
@@ -2093,8 +1840,7 @@ pub unsafe fn instr32_C1_6_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_6_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, imm & 31));
+    write_reg32(r1, shl32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_7_mem(addr: i32, imm: i32) {
@@ -2102,8 +1848,7 @@ pub unsafe fn instr32_C1_7_mem(addr: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_C1_7_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sar32(____0, imm & 31));
+    write_reg32(r1, sar32(read_reg32(r1), imm & 31));
 }
 #[no_mangle]
 pub unsafe fn instr16_C2(imm16: i32) {
@@ -2263,225 +2008,155 @@ pub unsafe fn instr_D0_0_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, rol8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_0_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rol8(____0, 1));
-}
+pub unsafe fn instr_D0_0_reg(r1: i32) { write_reg8(r1, rol8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_1_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, ror8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_1_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, ror8(____0, 1));
-}
+pub unsafe fn instr_D0_1_reg(r1: i32) { write_reg8(r1, ror8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_2_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, rcl8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_2_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcl8(____0, 1));
-}
+pub unsafe fn instr_D0_2_reg(r1: i32) { write_reg8(r1, rcl8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_3_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, rcr8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_3_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcr8(____0, 1));
-}
+pub unsafe fn instr_D0_3_reg(r1: i32) { write_reg8(r1, rcr8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_4_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, shl8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_4_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, 1));
-}
+pub unsafe fn instr_D0_4_reg(r1: i32) { write_reg8(r1, shl8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_5_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, shr8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_5_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shr8(____0, 1));
-}
+pub unsafe fn instr_D0_5_reg(r1: i32) { write_reg8(r1, shr8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_6_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, shl8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_6_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, 1));
-}
+pub unsafe fn instr_D0_6_reg(r1: i32) { write_reg8(r1, shl8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D0_7_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, sar8(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr_D0_7_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sar8(____0, 1));
-}
+pub unsafe fn instr_D0_7_reg(r1: i32) { write_reg8(r1, sar8(read_reg8(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_0_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, rol16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_0_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rol16(____0, 1));
-}
+pub unsafe fn instr16_D1_0_reg(r1: i32) { write_reg16(r1, rol16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_1_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, ror16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_1_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, ror16(____0, 1));
-}
+pub unsafe fn instr16_D1_1_reg(r1: i32) { write_reg16(r1, ror16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_2_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, rcl16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_2_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcl16(____0, 1));
-}
+pub unsafe fn instr16_D1_2_reg(r1: i32) { write_reg16(r1, rcl16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_3_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, rcr16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_3_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcr16(____0, 1));
-}
+pub unsafe fn instr16_D1_3_reg(r1: i32) { write_reg16(r1, rcr16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_4_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, shl16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_4_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, 1));
-}
+pub unsafe fn instr16_D1_4_reg(r1: i32) { write_reg16(r1, shl16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_5_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, shr16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_5_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shr16(____0, 1));
-}
+pub unsafe fn instr16_D1_5_reg(r1: i32) { write_reg16(r1, shr16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_6_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, shl16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_6_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, 1));
-}
+pub unsafe fn instr16_D1_6_reg(r1: i32) { write_reg16(r1, shl16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr16_D1_7_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, sar16(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr16_D1_7_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sar16(____0, 1));
-}
+pub unsafe fn instr16_D1_7_reg(r1: i32) { write_reg16(r1, sar16(read_reg16(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_0_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, rol32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_0_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rol32(____0, 1));
-}
+pub unsafe fn instr32_D1_0_reg(r1: i32) { write_reg32(r1, rol32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_1_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, ror32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_1_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, ror32(____0, 1));
-}
+pub unsafe fn instr32_D1_1_reg(r1: i32) { write_reg32(r1, ror32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_2_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, rcl32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_2_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcl32(____0, 1));
-}
+pub unsafe fn instr32_D1_2_reg(r1: i32) { write_reg32(r1, rcl32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_3_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, rcr32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_3_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcr32(____0, 1));
-}
+pub unsafe fn instr32_D1_3_reg(r1: i32) { write_reg32(r1, rcr32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_4_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, shl32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_4_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, 1));
-}
+pub unsafe fn instr32_D1_4_reg(r1: i32) { write_reg32(r1, shl32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_5_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, shr32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_5_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shr32(____0, 1));
-}
+pub unsafe fn instr32_D1_5_reg(r1: i32) { write_reg32(r1, shr32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_6_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, shl32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_6_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, 1));
-}
+pub unsafe fn instr32_D1_6_reg(r1: i32) { write_reg32(r1, shl32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr32_D1_7_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, sar32(___, 1));
 }
 #[no_mangle]
-pub unsafe fn instr32_D1_7_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sar32(____0, 1));
-}
+pub unsafe fn instr32_D1_7_reg(r1: i32) { write_reg32(r1, sar32(read_reg32(r1), 1)); }
 #[no_mangle]
 pub unsafe fn instr_D2_0_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, rol8(___, *reg8.offset(CL as isize) as i32 & 31));
 }
 #[no_mangle]
 pub unsafe fn instr_D2_0_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rol8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        rol8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_1_mem(addr: i32) {
@@ -2489,8 +2164,10 @@ pub unsafe fn instr_D2_1_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_1_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, ror8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        ror8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_2_mem(addr: i32) {
@@ -2498,8 +2175,10 @@ pub unsafe fn instr_D2_2_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_2_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcl8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        rcl8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_3_mem(addr: i32) {
@@ -2507,8 +2186,10 @@ pub unsafe fn instr_D2_3_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_3_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, rcr8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        rcr8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_4_mem(addr: i32) {
@@ -2516,8 +2197,10 @@ pub unsafe fn instr_D2_4_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_4_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        shl8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_5_mem(addr: i32) {
@@ -2525,8 +2208,10 @@ pub unsafe fn instr_D2_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_5_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shr8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        shr8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_6_mem(addr: i32) {
@@ -2534,8 +2219,10 @@ pub unsafe fn instr_D2_6_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_6_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, shl8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        shl8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D2_7_mem(addr: i32) {
@@ -2543,8 +2230,10 @@ pub unsafe fn instr_D2_7_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_D2_7_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, sar8(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg8(
+        r1,
+        sar8(read_reg8(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_0_mem(addr: i32) {
@@ -2552,8 +2241,10 @@ pub unsafe fn instr16_D3_0_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_0_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rol16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        rol16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_1_mem(addr: i32) {
@@ -2561,8 +2252,10 @@ pub unsafe fn instr16_D3_1_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_1_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, ror16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        ror16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_2_mem(addr: i32) {
@@ -2570,8 +2263,10 @@ pub unsafe fn instr16_D3_2_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_2_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcl16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        rcl16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_3_mem(addr: i32) {
@@ -2579,8 +2274,10 @@ pub unsafe fn instr16_D3_3_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_3_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, rcr16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        rcr16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_4_mem(addr: i32) {
@@ -2588,8 +2285,10 @@ pub unsafe fn instr16_D3_4_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_4_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        shl16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_5_mem(addr: i32) {
@@ -2597,8 +2296,10 @@ pub unsafe fn instr16_D3_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_5_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shr16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        shr16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_6_mem(addr: i32) {
@@ -2606,8 +2307,10 @@ pub unsafe fn instr16_D3_6_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_6_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, shl16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        shl16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_7_mem(addr: i32) {
@@ -2615,8 +2318,10 @@ pub unsafe fn instr16_D3_7_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_D3_7_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, sar16(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg16(
+        r1,
+        sar16(read_reg16(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_0_mem(addr: i32) {
@@ -2624,8 +2329,10 @@ pub unsafe fn instr32_D3_0_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_0_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rol32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        rol32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_1_mem(addr: i32) {
@@ -2633,8 +2340,10 @@ pub unsafe fn instr32_D3_1_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_1_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, ror32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        ror32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_2_mem(addr: i32) {
@@ -2642,8 +2351,10 @@ pub unsafe fn instr32_D3_2_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_2_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcl32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        rcl32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_3_mem(addr: i32) {
@@ -2651,8 +2362,10 @@ pub unsafe fn instr32_D3_3_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_3_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, rcr32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        rcr32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_4_mem(addr: i32) {
@@ -2660,8 +2373,10 @@ pub unsafe fn instr32_D3_4_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_4_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        shl32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_5_mem(addr: i32) {
@@ -2669,8 +2384,10 @@ pub unsafe fn instr32_D3_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_5_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shr32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        shr32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_6_mem(addr: i32) {
@@ -2678,8 +2395,10 @@ pub unsafe fn instr32_D3_6_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_6_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, shl32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        shl32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_7_mem(addr: i32) {
@@ -2687,8 +2406,10 @@ pub unsafe fn instr32_D3_7_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_D3_7_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, sar32(____0, *reg8.offset(CL as isize) as i32 & 31));
+    write_reg32(
+        r1,
+        sar32(read_reg32(r1), *reg8.offset(CL as isize) as i32 & 31),
+    );
 }
 #[no_mangle]
 pub unsafe fn instr_D4(arg: i32) { bcd_aam(arg); }
@@ -2919,238 +2640,134 @@ pub unsafe fn instr_F5() {
 }
 #[no_mangle]
 pub unsafe fn instr_F6_0_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    test8(____0, imm);
+    test8(return_on_pagefault!(safe_read8(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr_F6_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    test8(____0, imm);
-}
+pub unsafe fn instr_F6_0_reg(r1: i32, imm: i32) { test8(read_reg8(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr_F6_1_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    test8(____0, imm);
+    test8(return_on_pagefault!(safe_read8(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr_F6_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg8(r1);
-    test8(____0, imm);
-}
+pub unsafe fn instr_F6_1_reg(r1: i32, imm: i32) { test8(read_reg8(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr_F6_2_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, !___);
 }
 #[no_mangle]
-pub unsafe fn instr_F6_2_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, !____0);
-}
+pub unsafe fn instr_F6_2_reg(r1: i32) { write_reg8(r1, !read_reg8(r1)); }
 #[no_mangle]
 pub unsafe fn instr_F6_3_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, neg8(___));
 }
 #[no_mangle]
-pub unsafe fn instr_F6_3_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, neg8(____0));
-}
+pub unsafe fn instr_F6_3_reg(r1: i32) { write_reg8(r1, neg8(read_reg8(r1))); }
 #[no_mangle]
-pub unsafe fn instr_F6_4_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    mul8(____0);
-}
+pub unsafe fn instr_F6_4_mem(addr: i32) { mul8(return_on_pagefault!(safe_read8(addr))); }
 #[no_mangle]
-pub unsafe fn instr_F6_4_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    mul8(____0);
-}
+pub unsafe fn instr_F6_4_reg(r1: i32) { mul8(read_reg8(r1)); }
 #[no_mangle]
 pub unsafe fn instr_F6_5_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    imul8(____0 << 24 >> 24);
+    imul8(return_on_pagefault!(safe_read8(addr)) << 24 >> 24);
 }
 #[no_mangle]
-pub unsafe fn instr_F6_5_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    imul8(____0 << 24 >> 24);
-}
+pub unsafe fn instr_F6_5_reg(r1: i32) { imul8(read_reg8(r1) << 24 >> 24); }
 #[no_mangle]
-pub unsafe fn instr_F6_6_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    div8(____0 as u32);
-}
+pub unsafe fn instr_F6_6_mem(addr: i32) { div8(return_on_pagefault!(safe_read8(addr)) as u32); }
 #[no_mangle]
-pub unsafe fn instr_F6_6_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    div8(____0 as u32);
-}
+pub unsafe fn instr_F6_6_reg(r1: i32) { div8(read_reg8(r1) as u32); }
 #[no_mangle]
 pub unsafe fn instr_F6_7_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read8(addr));
-    idiv8(____0 << 24 >> 24);
+    idiv8(return_on_pagefault!(safe_read8(addr)) << 24 >> 24);
 }
 #[no_mangle]
-pub unsafe fn instr_F6_7_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    idiv8(____0 << 24 >> 24);
-}
+pub unsafe fn instr_F6_7_reg(r1: i32) { idiv8(read_reg8(r1) << 24 >> 24); }
 #[no_mangle]
 pub unsafe fn instr16_F7_0_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    test16(____0, imm);
+    test16(return_on_pagefault!(safe_read16(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    test16(____0, imm);
-}
+pub unsafe fn instr16_F7_0_reg(r1: i32, imm: i32) { test16(read_reg16(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr16_F7_1_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    test16(____0, imm);
+    test16(return_on_pagefault!(safe_read16(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg16(r1);
-    test16(____0, imm);
-}
+pub unsafe fn instr16_F7_1_reg(r1: i32, imm: i32) { test16(read_reg16(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr16_F7_2_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, !___);
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_2_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, !____0);
-}
+pub unsafe fn instr16_F7_2_reg(r1: i32) { write_reg16(r1, !read_reg16(r1)); }
 #[no_mangle]
 pub unsafe fn instr16_F7_3_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, neg16(___));
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_3_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, neg16(____0));
-}
+pub unsafe fn instr16_F7_3_reg(r1: i32) { write_reg16(r1, neg16(read_reg16(r1))); }
 #[no_mangle]
-pub unsafe fn instr16_F7_4_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    mul16(____0 as u32);
-}
+pub unsafe fn instr16_F7_4_mem(addr: i32) { mul16(return_on_pagefault!(safe_read16(addr)) as u32); }
 #[no_mangle]
-pub unsafe fn instr16_F7_4_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    mul16(____0 as u32);
-}
+pub unsafe fn instr16_F7_4_reg(r1: i32) { mul16(read_reg16(r1) as u32); }
 #[no_mangle]
 pub unsafe fn instr16_F7_5_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    imul16(____0 << 16 >> 16);
+    imul16(return_on_pagefault!(safe_read16(addr)) << 16 >> 16);
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_5_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    imul16(____0 << 16 >> 16);
-}
+pub unsafe fn instr16_F7_5_reg(r1: i32) { imul16(read_reg16(r1) << 16 >> 16); }
 #[no_mangle]
-pub unsafe fn instr16_F7_6_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    div16(____0 as u32);
-}
+pub unsafe fn instr16_F7_6_mem(addr: i32) { div16(return_on_pagefault!(safe_read16(addr)) as u32); }
 #[no_mangle]
-pub unsafe fn instr16_F7_6_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    div16(____0 as u32);
-}
+pub unsafe fn instr16_F7_6_reg(r1: i32) { div16(read_reg16(r1) as u32); }
 #[no_mangle]
 pub unsafe fn instr16_F7_7_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    idiv16(____0 << 16 >> 16);
+    idiv16(return_on_pagefault!(safe_read16(addr)) << 16 >> 16);
 }
 #[no_mangle]
-pub unsafe fn instr16_F7_7_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    idiv16(____0 << 16 >> 16);
-}
+pub unsafe fn instr16_F7_7_reg(r1: i32) { idiv16(read_reg16(r1) << 16 >> 16); }
 #[no_mangle]
 pub unsafe fn instr32_F7_0_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    test32(____0, imm);
+    test32(return_on_pagefault!(safe_read32s(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr32_F7_0_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    test32(____0, imm);
-}
+pub unsafe fn instr32_F7_0_reg(r1: i32, imm: i32) { test32(read_reg32(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr32_F7_1_mem(addr: i32, imm: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    test32(____0, imm);
+    test32(return_on_pagefault!(safe_read32s(addr)), imm);
 }
 #[no_mangle]
-pub unsafe fn instr32_F7_1_reg(r1: i32, imm: i32) {
-    let ____0 = read_reg32(r1);
-    test32(____0, imm);
-}
+pub unsafe fn instr32_F7_1_reg(r1: i32, imm: i32) { test32(read_reg32(r1), imm); }
 #[no_mangle]
 pub unsafe fn instr32_F7_2_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, !___);
 }
 #[no_mangle]
-pub unsafe fn instr32_F7_2_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, !____0);
-}
+pub unsafe fn instr32_F7_2_reg(r1: i32) { write_reg32(r1, !read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_F7_3_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, neg32(___));
 }
 #[no_mangle]
-pub unsafe fn instr32_F7_3_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, neg32(____0));
-}
+pub unsafe fn instr32_F7_3_reg(r1: i32) { write_reg32(r1, neg32(read_reg32(r1))); }
 #[no_mangle]
-pub unsafe fn instr32_F7_4_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    mul32(____0);
-}
+pub unsafe fn instr32_F7_4_mem(addr: i32) { mul32(return_on_pagefault!(safe_read32s(addr))); }
 #[no_mangle]
-pub unsafe fn instr32_F7_4_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    mul32(____0);
-}
+pub unsafe fn instr32_F7_4_reg(r1: i32) { mul32(read_reg32(r1)); }
 #[no_mangle]
-pub unsafe fn instr32_F7_5_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    imul32(____0);
-}
+pub unsafe fn instr32_F7_5_mem(addr: i32) { imul32(return_on_pagefault!(safe_read32s(addr))); }
 #[no_mangle]
-pub unsafe fn instr32_F7_5_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    imul32(____0);
-}
+pub unsafe fn instr32_F7_5_reg(r1: i32) { imul32(read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_F7_6_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    div32(____0 as u32);
+    div32(return_on_pagefault!(safe_read32s(addr)) as u32);
 }
 #[no_mangle]
-pub unsafe fn instr32_F7_6_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    div32(____0 as u32);
-}
+pub unsafe fn instr32_F7_6_reg(r1: i32) { div32(read_reg32(r1) as u32); }
 #[no_mangle]
-pub unsafe fn instr32_F7_7_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    idiv32(____0);
-}
+pub unsafe fn instr32_F7_7_mem(addr: i32) { idiv32(return_on_pagefault!(safe_read32s(addr))); }
 #[no_mangle]
-pub unsafe fn instr32_F7_7_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    idiv32(____0);
-}
+pub unsafe fn instr32_F7_7_reg(r1: i32) { idiv32(read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr_F8() {
     // clc
@@ -3249,37 +2866,25 @@ pub unsafe fn instr_FE_0_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, inc8(___));
 }
 #[no_mangle]
-pub unsafe fn instr_FE_0_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, inc8(____0));
-}
+pub unsafe fn instr_FE_0_reg(r1: i32) { write_reg8(r1, inc8(read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr_FE_1_mem(addr: i32) {
     SAFE_READ_WRITE8!(___, addr, dec8(___));
 }
 #[no_mangle]
-pub unsafe fn instr_FE_1_reg(r1: i32) {
-    let ____0 = read_reg8(r1);
-    write_reg8(r1, dec8(____0));
-}
+pub unsafe fn instr_FE_1_reg(r1: i32) { write_reg8(r1, dec8(read_reg8(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_FF_0_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, inc16(___));
 }
 #[no_mangle]
-pub unsafe fn instr16_FF_0_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, inc16(____0));
-}
+pub unsafe fn instr16_FF_0_reg(r1: i32) { write_reg16(r1, inc16(read_reg16(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_FF_1_mem(addr: i32) {
     SAFE_READ_WRITE16!(___, addr, dec16(___));
 }
 #[no_mangle]
-pub unsafe fn instr16_FF_1_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    write_reg16(r1, dec16(____0));
-}
+pub unsafe fn instr16_FF_1_reg(r1: i32) { write_reg16(r1, dec16(read_reg16(r1))); }
 #[no_mangle]
 pub unsafe fn instr16_FF_2_helper(data: i32) {
     // call near
@@ -3290,14 +2895,10 @@ pub unsafe fn instr16_FF_2_helper(data: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_2_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    instr16_FF_2_helper(____0);
+    instr16_FF_2_helper(return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr16_FF_2_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    instr16_FF_2_helper(____0);
-}
+pub unsafe fn instr16_FF_2_reg(r1: i32) { instr16_FF_2_helper(read_reg16(r1)); }
 #[no_mangle]
 pub unsafe fn instr16_FF_3_reg(r: i32) {
     dbg_log!("callf #ud");
@@ -3319,14 +2920,10 @@ pub unsafe fn instr16_FF_4_helper(data: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_4_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    instr16_FF_4_helper(____0);
+    instr16_FF_4_helper(return_on_pagefault!(safe_read16(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr16_FF_4_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    instr16_FF_4_helper(____0);
-}
+pub unsafe fn instr16_FF_4_reg(r1: i32) { instr16_FF_4_helper(read_reg16(r1)); }
 #[no_mangle]
 pub unsafe fn instr16_FF_5_reg(r: i32) {
     dbg_log!("jmpf #ud");
@@ -3342,32 +2939,24 @@ pub unsafe fn instr16_FF_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_6_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read16(addr));
-    return_on_pagefault!(push16(____0));
+    return_on_pagefault!(push16(return_on_pagefault!(safe_read16(addr))));
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_6_reg(r1: i32) {
-    let ____0 = read_reg16(r1);
-    return_on_pagefault!(push16(____0));
+    return_on_pagefault!(push16(read_reg16(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_0_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, inc32(___));
 }
 #[no_mangle]
-pub unsafe fn instr32_FF_0_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, inc32(____0));
-}
+pub unsafe fn instr32_FF_0_reg(r1: i32) { write_reg32(r1, inc32(read_reg32(r1))); }
 #[no_mangle]
 pub unsafe fn instr32_FF_1_mem(addr: i32) {
     SAFE_READ_WRITE32!(___, addr, dec32(___));
 }
 #[no_mangle]
-pub unsafe fn instr32_FF_1_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    write_reg32(r1, dec32(____0));
-}
+pub unsafe fn instr32_FF_1_reg(r1: i32) { write_reg32(r1, dec32(read_reg32(r1))); }
 #[no_mangle]
 pub unsafe fn instr32_FF_2_helper(data: i32) {
     // call near
@@ -3378,14 +2967,10 @@ pub unsafe fn instr32_FF_2_helper(data: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_2_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    instr32_FF_2_helper(____0);
+    instr32_FF_2_helper(return_on_pagefault!(safe_read32s(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr32_FF_2_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    instr32_FF_2_helper(____0);
-}
+pub unsafe fn instr32_FF_2_reg(r1: i32) { instr32_FF_2_helper(read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_FF_3_reg(r: i32) {
     dbg_log!("callf #ud");
@@ -3412,14 +2997,10 @@ pub unsafe fn instr32_FF_4_helper(data: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_4_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    instr32_FF_4_helper(____0);
+    instr32_FF_4_helper(return_on_pagefault!(safe_read32s(addr)));
 }
 #[no_mangle]
-pub unsafe fn instr32_FF_4_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    instr32_FF_4_helper(____0);
-}
+pub unsafe fn instr32_FF_4_reg(r1: i32) { instr32_FF_4_helper(read_reg32(r1)); }
 #[no_mangle]
 pub unsafe fn instr32_FF_5_reg(r: i32) {
     dbg_log!("jmpf #ud");
@@ -3440,13 +3021,11 @@ pub unsafe fn instr32_FF_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_6_mem(addr: i32) {
-    let ____0 = return_on_pagefault!(safe_read32s(addr));
-    return_on_pagefault!(push32(____0));
+    return_on_pagefault!(push32(return_on_pagefault!(safe_read32s(addr))));
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_6_reg(r1: i32) {
-    let ____0 = read_reg32(r1);
-    return_on_pagefault!(push32(____0));
+    return_on_pagefault!(push32(read_reg32(r1)));
 }
 #[no_mangle]
 pub unsafe fn instr_F26C() { insb_rep(); }
