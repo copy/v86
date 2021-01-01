@@ -429,17 +429,11 @@ function gen_table()
         type: "switch",
         condition: "opcode",
         cases: cases0f_16,
-        default_case: {
-            body: ["dbg_assert!(false);"]
-        },
     };
     const table0f_32 = {
         type: "switch",
         condition: "opcode",
         cases: cases0f_32,
-        default_case: {
-            body: ["dbg_assert!(false);"]
-        },
     };
 
     if(to_generate.analyzer0f_16)

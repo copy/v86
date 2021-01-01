@@ -1,6 +1,5 @@
 #![feature(const_fn)]
 #![feature(extern_types)]
-#![feature(range_contains)]
 
 #[cfg(test)]
 #[macro_use]

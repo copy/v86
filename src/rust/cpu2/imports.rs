@@ -3,14 +3,12 @@ use std::alloc;
 #[no_mangle]
 pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
-extern "C" {
-    #[no_mangle]
-    pub static mut mem8: *mut u8;
-    #[no_mangle]
-    pub static mut mem16: *mut u16;
-    #[no_mangle]
-    pub static mut mem32s: *mut i32;
-}
+#[no_mangle]
+pub static mut mem8: *mut u8 = 0 as *mut u8;
+#[no_mangle]
+pub static mut mem16: *mut u16 = 0 as *mut u16;
+#[no_mangle]
+pub static mut mem32s: *mut i32 = 0 as *mut i32;
 
 #[no_mangle]
 pub fn allocate_memory(size: u32) -> u32 {

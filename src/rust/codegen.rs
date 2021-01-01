@@ -1220,8 +1220,8 @@ pub fn gen_safe_read_write(
     ctx: &mut JitContext,
     bits: BitSize,
     address_local: &WasmLocal,
-    f: &Fn(&mut JitContext),
-    fallback_fn: &Fn(&mut JitContext),
+    f: &dyn Fn(&mut JitContext),
+    fallback_fn: &dyn Fn(&mut JitContext),
 ) {
     ctx.builder.instruction_body.get_local(address_local);
 

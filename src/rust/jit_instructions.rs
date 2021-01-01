@@ -190,7 +190,7 @@ fn group_arith_ax_imm16(ctx: &mut JitContext, op: &str, imm16: u32) {
 
 fn group_arith_eax_imm32(
     ctx: &mut JitContext,
-    op: &Fn(&mut WasmBuilder, &WasmLocal, &LocalOrImmedate),
+    op: &dyn Fn(&mut WasmBuilder, &WasmLocal, &LocalOrImmedate),
     imm32: u32,
 ) {
     op(

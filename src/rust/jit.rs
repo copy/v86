@@ -792,7 +792,7 @@ fn jit_analyze_and_generate(
     };
 
     if let Some(entry_points) = entry_points {
-        let (mut basic_blocks, requires_loop_limit) =
+        let (basic_blocks, requires_loop_limit) =
             jit_find_basic_blocks(page, &entry_points, cpu.clone());
 
         //for b in basic_blocks.iter() {
