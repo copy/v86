@@ -614,11 +614,6 @@ fn gen_safe_read(
         gen_call_fn2(ctx.builder, "report_safe_read_jit_slow");
     }
 
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
-        ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
-    );
-
     ctx.builder.instruction_body.get_local(&address_local);
     match bits {
         BitSize::BYTE => {
@@ -647,6 +642,12 @@ fn gen_safe_read(
 
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
     // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
     let br_offset = ctx.current_brtable_depth - 2 + 2;
     ctx.builder.instruction_body.br(br_offset);
@@ -779,11 +780,6 @@ fn gen_safe_write(
         gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
     }
 
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
-        ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
-    );
-
     ctx.builder.instruction_body.get_local(&address_local);
     match value_local {
         GenSafeWriteValue::I32(local) => ctx.builder.instruction_body.get_local(local),
@@ -817,6 +813,12 @@ fn gen_safe_write(
 
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
     // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
     let br_offset = ctx.current_brtable_depth - 2 + 2;
     ctx.builder.instruction_body.br(br_offset);

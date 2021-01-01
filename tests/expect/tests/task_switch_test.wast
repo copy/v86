@@ -98,6 +98,14 @@
               (i32.const 12))
             (then
               (i32.store
+                (i32.const 560)
+                (i32.or
+                  (i32.and
+                    (i32.load
+                      (i32.const 556))
+                    (i32.const -4096))
+                  (i32.const 0)))
+              (i32.store
                 (i32.const 64)
                 (get_local $l2))
               (i32.store

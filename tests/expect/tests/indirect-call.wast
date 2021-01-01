@@ -133,20 +133,20 @@
                           (i32.const -4096))
                         (get_local $l10))))
                   (else
-                    (i32.store
-                      (i32.const 560)
-                      (i32.or
-                        (i32.and
-                          (i32.load
-                            (i32.const 556))
-                          (i32.const -4096))
-                        (i32.const 0)))
                     (call $e.safe_read32s_slow_jit
                       (get_local $l10))
                     (if $I7
                       (i32.load8_u
                         (i32.const 540))
                       (then
+                        (i32.store
+                          (i32.const 560)
+                          (i32.or
+                            (i32.and
+                              (i32.load
+                                (i32.const 556))
+                              (i32.const -4096))
+                            (i32.const 0)))
                         (br $B3)))))
                 (i32.load
                   (i32.const 740))))
@@ -191,14 +191,6 @@
                     (get_local $l13))
                   (get_local $l11)))
               (else
-                (i32.store
-                  (i32.const 560)
-                  (i32.or
-                    (i32.and
-                      (i32.load
-                        (i32.const 556))
-                      (i32.const -4096))
-                    (i32.const 0)))
                 (call $e.safe_write32_slow_jit
                   (get_local $l13)
                   (get_local $l11))
@@ -206,6 +198,14 @@
                   (i32.load8_u
                     (i32.const 540))
                   (then
+                    (i32.store
+                      (i32.const 560)
+                      (i32.or
+                        (i32.and
+                          (i32.load
+                            (i32.const 556))
+                          (i32.const -4096))
+                        (i32.const 0)))
                     (br $B3)))))
             (set_local $l6
               (get_local $l12))

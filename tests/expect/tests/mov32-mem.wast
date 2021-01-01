@@ -125,14 +125,6 @@
                   (get_local $l10))
                 (get_local $l11)))
             (else
-              (i32.store
-                (i32.const 560)
-                (i32.or
-                  (i32.and
-                    (i32.load
-                      (i32.const 556))
-                    (i32.const -4096))
-                  (i32.const 0)))
               (call $e.safe_write32_slow_jit
                 (get_local $l10)
                 (get_local $l11))
@@ -140,6 +132,14 @@
                 (i32.load8_u
                   (i32.const 540))
                 (then
+                  (i32.store
+                    (i32.const 560)
+                    (i32.or
+                      (i32.and
+                        (i32.load
+                          (i32.const 556))
+                        (i32.const -4096))
+                      (i32.const 0)))
                   (br $B3)))))
           (set_local $l11
             (i32.add
@@ -177,14 +177,6 @@
                   (get_local $l11))
                 (get_local $l10)))
             (else
-              (i32.store
-                (i32.const 560)
-                (i32.or
-                  (i32.and
-                    (i32.load
-                      (i32.const 556))
-                    (i32.const -4096))
-                  (i32.const 6)))
               (call $e.safe_write32_slow_jit
                 (get_local $l11)
                 (get_local $l10))
@@ -192,6 +184,14 @@
                 (i32.load8_u
                   (i32.const 540))
                 (then
+                  (i32.store
+                    (i32.const 560)
+                    (i32.or
+                      (i32.and
+                        (i32.load
+                          (i32.const 556))
+                        (i32.const -4096))
+                      (i32.const 6)))
                   (br $B3)))))
           (set_local $l10
             (i32.add
@@ -227,20 +227,20 @@
                       (i32.const -4096))
                     (get_local $l10))))
               (else
-                (i32.store
-                  (i32.const 560)
-                  (i32.or
-                    (i32.and
-                      (i32.load
-                        (i32.const 556))
-                      (i32.const -4096))
-                    (i32.const 12)))
                 (call $e.safe_read32s_slow_jit
                   (get_local $l10))
                 (if $I10
                   (i32.load8_u
                     (i32.const 540))
                   (then
+                    (i32.store
+                      (i32.const 560)
+                      (i32.or
+                        (i32.and
+                          (i32.load
+                            (i32.const 556))
+                          (i32.const -4096))
+                        (i32.const 12)))
                     (br $B3))))))
           (set_local $l10
             (i32.add
@@ -276,20 +276,20 @@
                       (i32.const -4096))
                     (get_local $l10))))
               (else
-                (i32.store
-                  (i32.const 560)
-                  (i32.or
-                    (i32.and
-                      (i32.load
-                        (i32.const 556))
-                      (i32.const -4096))
-                    (i32.const 18)))
                 (call $e.safe_read32s_slow_jit
                   (get_local $l10))
                 (if $I12
                   (i32.load8_u
                     (i32.const 540))
                   (then
+                    (i32.store
+                      (i32.const 560)
+                      (i32.or
+                        (i32.and
+                          (i32.load
+                            (i32.const 556))
+                          (i32.const -4096))
+                        (i32.const 18)))
                     (br $B3))))))
           (i32.store
             (i32.const 560)

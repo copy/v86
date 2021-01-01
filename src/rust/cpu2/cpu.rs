@@ -1356,13 +1356,13 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *prefixes = 0;
-    *instruction_pointer = *previous_ip;
     *page_fault_error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
     //*page_fault = true;
 }
 
 #[no_mangle]
 pub unsafe fn trigger_pagefault_end_jit() {
+    *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_PF, false, Some(*page_fault_error_code));
 }
 
