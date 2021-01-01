@@ -9,11 +9,6 @@
  */
 var DEBUG = true;
 
-/** @const
- * Also needs to be set in cargo.toml
- */
-var ENABLE_PROFILER = false;
-
 /** @const */
 var LOG_TO_FILE = false;
 

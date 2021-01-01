@@ -102,4 +102,7 @@ pub fn profiler_stat_get(stat: stat) -> f64 {
 }
 
 #[no_mangle]
+pub fn profiler_is_enabled() -> bool { cfg!(feature = "profiler") }
+
+#[no_mangle]
 pub fn profiler_stat_increment_do_run() { stat_increment(stat::DO_RUN); }

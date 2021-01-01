@@ -1352,14 +1352,14 @@ let do_many_cycles_total = 0;
 
 CPU.prototype.do_many_cycles = function()
 {
-    if(ENABLE_PROFILER)
+    if(DEBUG)
     {
         var start_time = v86.microtick();
     }
 
     this.do_many_cycles_native();
 
-    if(ENABLE_PROFILER)
+    if(DEBUG)
     {
         do_many_cycles_total += v86.microtick() - start_time;
         do_many_cycles_count++;
