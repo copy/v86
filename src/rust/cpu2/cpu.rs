@@ -174,6 +174,7 @@ pub const CR4_PAE: i32 = 1 << 5;
 pub const CR4_PGE: i32 = 1 << 7;
 pub const CR4_OSFXSR: i32 = 1 << 9;
 pub const CR4_OSXMMEXCPT: i32 = 1 << 10;
+
 pub const IA32_SYSENTER_CS: i32 = 372;
 pub const IA32_SYSENTER_ESP: i32 = 373;
 pub const IA32_SYSENTER_EIP: i32 = 374;
@@ -186,12 +187,15 @@ pub const MSR_MISC_FEATURE_ENABLES: i32 = 320;
 pub const IA32_MISC_ENABLE: i32 = 416;
 pub const IA32_RTIT_CTL: i32 = 1392;
 pub const MSR_SMI_COUNT: i32 = 52;
+pub const MSR_TEST_CTRL: i32 = 0x33;
+pub const MSR_IA32_FEAT_CTL: i32 = 0x3a;
 pub const IA32_MCG_CAP: i32 = 377;
 pub const IA32_KERNEL_GS_BASE: i32 = 0xC0000101u32 as i32;
 pub const MSR_PKG_C2_RESIDENCY: i32 = 1549;
 pub const IA32_APIC_BASE_BSP: i32 = 1 << 8;
 pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
 pub const IA32_APIC_BASE_EN: i32 = 1 << 11;
+
 pub const APIC_ADDRESS: i32 = 0xFEE00000u32 as i32;
 pub const SEG_PREFIX_NONE: i32 = -1;
 pub const SEG_PREFIX_ZERO: i32 = 7;
