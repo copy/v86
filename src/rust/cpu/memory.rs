@@ -16,7 +16,7 @@ use page::Page;
 use std::alloc;
 use std::ptr;
 
-#[no_mangle]
+#[allow(non_upper_case_globals)]
 pub static mut mem8: *mut u8 = ptr::null_mut();
 
 #[no_mangle]
