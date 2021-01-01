@@ -178,14 +178,14 @@ build/v86.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86.wasm
 	cargo +nightly rustc --release $(CARGO_FLAGS)
-	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/release/v86.wasm > build/v86.wasm
+	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86-debug.wasm
 	cargo +nightly rustc $(CARGO_FLAGS)
-	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/debug/v86.wasm > build/v86-debug.wasm
+	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
 clean:
