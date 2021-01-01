@@ -18,10 +18,6 @@ mod unsafe_cpu {
     }
 }
 
-pub fn read8(addr: u32) -> u8 { unsafe { cpu2::memory::read8(addr) as u8 } }
-pub fn read16(addr: u32) -> u16 { unsafe { cpu2::memory::read16(addr) as u16 } }
-pub fn read32(addr: u32) -> u32 { unsafe { cpu2::memory::read32s(addr) as u32 } }
-
 pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
     unsafe { cpu2::cpu::tlb_set_has_code(physical_page, has_code) }
 }

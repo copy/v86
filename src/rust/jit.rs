@@ -6,6 +6,7 @@ use std::ptr::NonNull;
 use analysis::AnalysisType;
 use codegen;
 use cpu;
+use cpu2::memory;
 use cpu_context::CpuContext;
 use global_pointers;
 use jit_instructions;
@@ -434,7 +435,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
         if !entry.pending && entry.start_addr == phys_address && entry.state_flags == state_flags {
             #[cfg(debug_assertions)] // entry.opcode is not defined otherwise
             {
-                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode);
+                dbg_assert!(memory::read32s(entry.start_addr) as u32 == entry.opcode);
             }
             return cached_code {
                 wasm_table_index: entry.wasm_table_index,
@@ -475,7 +476,7 @@ pub fn jit_find_cache_entry_in_page(
         {
             #[cfg(debug_assertions)] // entry.opcode is not defined otherwise
             {
-                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode);
+                dbg_assert!(memory::read32s(entry.start_addr) as u32 == entry.opcode);
             }
             if false {
                 dbg_log!(
@@ -970,7 +971,7 @@ fn jit_analyze_and_generate(
 
                 #[cfg(debug_assertions)]
                 {
-                    entry.opcode = cpu::read32(block.addr);
+                    entry.opcode = memory::read32s(block.addr) as u32;
                 }
 
                 create_cache_entry(ctx, entry);
@@ -1329,7 +1330,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
     loop {
         let mut instruction = 0;
         if cfg!(feature = "profiler") {
-            instruction = cpu::read32(ctx.cpu.eip);
+            instruction = memory::read32s(ctx.cpu.eip) as u32;
             ::opstats::gen_opstats(ctx.builder, instruction);
             ::opstats::record_opstat_compiled(instruction);
         }
@@ -1680,9 +1681,9 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
             let last_jump_addr =
                 unsafe { ::cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
             let last_jump_opcode =
-                if last_jump_addr != 0 { cpu::read32(last_jump_addr) } else { 0 };
+                if last_jump_addr != 0 { memory::read32s(last_jump_addr) } else { 0 };
 
-            let opcode = cpu::read32(phys_address);
+            let opcode = memory::read32s(phys_address);
             dbg_log!(
                 "Compiled exists, but no entry point, \
                  start={:x} end={:x} phys_addr={:x} opcode={:02x} {:02x} {:02x} {:02x}. \

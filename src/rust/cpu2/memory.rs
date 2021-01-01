@@ -24,32 +24,32 @@ use page::Page;
 use std::ptr;
 
 #[no_mangle]
-pub unsafe fn in_mapped_range(addr: u32) -> bool {
-    return addr >= 0xA0000 && addr < 0xC0000 || addr >= *memory_size;
+pub fn in_mapped_range(addr: u32) -> bool {
+    return addr >= 0xA0000 && addr < 0xC0000 || addr >= unsafe { *memory_size };
 }
 
 #[no_mangle]
-pub unsafe fn read8(addr: u32) -> i32 {
+pub fn read8(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return mmap_read8(addr);
+        return unsafe { mmap_read8(addr) };
     }
     else {
         return read8_no_mmap_check(addr);
     };
 }
-pub unsafe fn read8_no_mmap_check(addr: u32) -> i32 { *mem8.offset(addr as isize) as i32 }
+pub fn read8_no_mmap_check(addr: u32) -> i32 { unsafe { *mem8.offset(addr as isize) as i32 } }
 
 #[no_mangle]
-pub unsafe fn read16(addr: u32) -> i32 {
+pub fn read16(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return mmap_read16(addr);
+        return unsafe { mmap_read16(addr) };
     }
     else {
         return read16_no_mmap_check(addr);
     };
 }
-pub unsafe fn read16_no_mmap_check(addr: u32) -> i32 {
-    *(mem8.offset(addr as isize) as *mut u16) as i32
+pub fn read16_no_mmap_check(addr: u32) -> i32 {
+    unsafe { *(mem8.offset(addr as isize) as *mut u16) as i32 }
 }
 
 #[no_mangle]
@@ -64,15 +64,17 @@ pub unsafe fn read_aligned16(addr: u32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn read32s(addr: u32) -> i32 {
+pub fn read32s(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return mmap_read32(addr);
+        return unsafe { mmap_read32(addr) };
     }
     else {
         return read32_no_mmap_check(addr);
     };
 }
-pub unsafe fn read32_no_mmap_check(addr: u32) -> i32 { *(mem8.offset(addr as isize) as *mut i32) }
+pub fn read32_no_mmap_check(addr: u32) -> i32 {
+    unsafe { *(mem8.offset(addr as isize) as *mut i32) }
+}
 
 #[no_mangle]
 pub unsafe fn read64s(addr: u32) -> i64 {
