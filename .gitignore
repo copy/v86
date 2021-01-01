@@ -30,3 +30,4 @@ src/rust/gen/analyzer0f_32.rs
 src/rust/gen/jit.rs
 src/rust/gen/jit0f_16.rs
 src/rust/gen/jit0f_32.rs
+bios/seabios
