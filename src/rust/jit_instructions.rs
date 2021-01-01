@@ -4356,6 +4356,17 @@ pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_call_fn3(ctx.builder, "instr_F30F70");
 }
 
+pub fn instr_0F73_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    modrm::skip(ctx.cpu, modrm_byte);
+    let _ = ctx.cpu.read_imm8();
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_0F73_2_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_0F73_2_reg");
+}
+
 pub fn instr_660F74_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_660F74", modrm_byte, r);
 }
