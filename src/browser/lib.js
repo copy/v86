@@ -15,6 +15,7 @@ var ASYNC_SAFE = false;
     }
 
     v86util.AsyncXHRBuffer = AsyncXHRBuffer;
+    v86util.AsyncXHRPartfileBuffer = AsyncXHRPartfileBuffer;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
 
@@ -343,7 +344,7 @@ var ASYNC_SAFE = false;
     /**
      * Relies on this.byteLength, this.loaded_blocks and this.block_size
      *
-     * @this {AsyncFileBuffer|AsyncXHRBuffer}
+     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
      *
      * @param {number} start
      * @param {!Uint8Array} data
@@ -381,7 +382,7 @@ var ASYNC_SAFE = false;
     };
 
     /**
-     * @this {AsyncFileBuffer|AsyncXHRBuffer}
+     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
      * @param {number} offset
      * @param {number} len
      * @param {!Uint8Array} block
@@ -469,6 +470,96 @@ var ASYNC_SAFE = false;
             this.loaded_blocks[index] = block;
         }
     };
+
+    /**
+     * Asynchronous access to ArrayBuffer, loading blocks lazily as needed,
+     * downloading files named filename-\d-\d.ext.
+     *
+     * @constructor
+     * @param {string} filename Name of the file to download
+     * @param {number|undefined} size
+     */
+    function AsyncXHRPartfileBuffer(filename, size)
+    {
+        const parts = filename.match(/(.*)(\..*)/);
+
+        if(parts)
+        {
+            this.basename = parts[1];
+            this.extension = parts[2];
+        }
+        else
+        {
+            this.basename = filename;
+            this.extension = "";
+        }
+
+        /** @const */
+        this.block_size = 256;
+        this.byteLength = size;
+
+        this.loaded_blocks = Object.create(null);
+
+        this.onload = undefined;
+        this.onprogress = undefined;
+    }
+
+    AsyncXHRPartfileBuffer.prototype.load = function()
+    {
+        if(this.byteLength !== undefined)
+        {
+            this.onload && this.onload(Object.create(null));
+            return;
+        }
+        dbg_assert(false);
+        this.onload && this.onload(Object.create(null));
+    };
+    AsyncXHRPartfileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
+
+    /**
+     * @param {number} offset
+     * @param {number} len
+     * @param {function(!Uint8Array)} fn
+     */
+    AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn)
+    {
+        console.assert(offset + len <= this.byteLength);
+        console.assert(offset % this.block_size === 0);
+        console.assert(len % this.block_size === 0);
+        console.assert(len);
+
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            if(ASYNC_SAFE)
+            {
+                setTimeout(fn.bind(this, block), 0);
+            }
+            else
+            {
+                fn(block);
+            }
+            return;
+        }
+
+        const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
+
+        v86util.load_file(part_filename, {
+            done: function done(buffer)
+            {
+                dbg_assert(buffer.byteLength === len);
+                var block = new Uint8Array(buffer);
+                this.handle_read(offset, len, block);
+                fn(block);
+            }.bind(this),
+        });
+    };
+
+    AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
+    AsyncXHRPartfileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
+    AsyncXHRPartfileBuffer.prototype.get_written_blocks = AsyncXHRBuffer.prototype.get_written_blocks;
+    AsyncXHRPartfileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
+    AsyncXHRPartfileBuffer.prototype.set_state = AsyncXHRBuffer.prototype.set_state;
 
     /**
      * Synchronous access to File, loading blocks from the input type=file

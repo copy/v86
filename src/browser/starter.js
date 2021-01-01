@@ -332,6 +332,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             async: file["async"],
             url: file["url"],
             size: file["size"],
+            use_parts: file.use_parts,
         };
 
         if(name === "bios" || name === "vga_bios" ||
@@ -386,7 +387,17 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         {
             if(file.async)
             {
-                var buffer = new v86util.AsyncXHRBuffer(file.url, file.size);
+                let buffer;
+
+                if(file.use_parts)
+                {
+                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size);
+                }
+                else
+                {
+                    buffer = new v86util.AsyncXHRBuffer(file.url, file.size);
+                }
+
                 files_to_load.push({
                     name: name,
                     loadable: buffer,
