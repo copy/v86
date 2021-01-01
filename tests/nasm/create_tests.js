@@ -154,9 +154,9 @@ function create_nasm(op, config)
         return [];
     }
 
-    if(config.mem ? op.only_reg : op.only_mem)
+    if(config.mem ? op.skip_mem : op.skip_reg)
     {
-        // illegal opcode
+        // Not supported by test
         return [];
     }
 
@@ -322,7 +322,7 @@ function create_nasm(op, config)
                 codes.push("db " + (e | g << 3));
                 codes.push("db " + sib);
             }
-            else // op.only_mem
+            else
             {
                 const es = op.is_fpu ? [0, 1, 2, 3, 4, 5, 6, 7] : [
                     2 // edx

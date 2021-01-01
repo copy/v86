@@ -284,10 +284,10 @@ const encodings = [
     { opcode: 0xD9, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xD9, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, only_reg: 1, }, // fldenv (mem)
+    { opcode: 0xD9, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1, }, // fldenv (mem)
     { opcode: 0xD9, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 6, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, skip: 1, }, // fstenv (mem), fprem (reg)
-    { opcode: 0xD9, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, only_mem: 1, }, // fprem, fyl2xp1
+    { opcode: 0xD9, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, skip_reg: 1, }, // fprem, fyl2xp1
 
     { opcode: 0xDA, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDA, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -299,7 +299,7 @@ const encodings = [
     { opcode: 0xDA, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDB, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // unimplemented: fisttp (sse3)
+    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, skip_mem: 1, }, // unimplemented: fisttp (sse3)
     { opcode: 0xDB, e: 1, fixed_g: 2, custom: 2, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 3, custom: 2, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -317,12 +317,12 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, only_reg: 1, }, // unimplemented: fisttp (sse3)
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1, }, // unimplemented: fisttp (sse3)
     { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, only_reg: 1 }, // frstor
+    { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1 }, // frstor
     { opcode: 0xDD, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, only_reg: 1 }, // fsave
+    { opcode: 0xDD, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1 }, // fsave
     { opcode: 0xDD, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, },
 
     { opcode: 0xDE, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
@@ -335,12 +335,12 @@ const encodings = [
     { opcode: 0xDE, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: fisttp (sse3)
+    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, skip_mem: 1 }, // unimplemented: fisttp (sse3)
     { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
+    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, skip_mem: 1 }, // unimplemented: Binary Coded Decimals
     { opcode: 0xDF, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
+    { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, skip_mem: 1 }, // unimplemented: Binary Coded Decimals
     { opcode: 0xDF, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     // loop, jcxz, etc.
@@ -539,10 +539,10 @@ const encodings = [
     { opcode: 0x0FA8, os: 1, custom: 1, },
     { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, }, // pop gs
 
-    { opcode: 0x0FA3, os: 1, e: 1, custom: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)
-    { opcode: 0x0FAB, os: 1, e: 1, only_reg: 1, },
-    { opcode: 0x0FB3, os: 1, e: 1, only_reg: 1, },
-    { opcode: 0x0FBB, os: 1, e: 1, only_reg: 1, },
+    { opcode: 0x0FA3, os: 1, e: 1, custom: 1, skip_mem: 1, }, // bt (can also index memory, but not supported by test right now)
+    { opcode: 0x0FAB, os: 1, e: 1, skip_mem: 1, },
+    { opcode: 0x0FB3, os: 1, e: 1, skip_mem: 1, },
+    { opcode: 0x0FBB, os: 1, e: 1, skip_mem: 1, },
 
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 4, imm8: 1, custom: 1 }, // bt
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 5, imm8: 1 },
