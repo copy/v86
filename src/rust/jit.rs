@@ -1517,7 +1517,12 @@ pub fn jit_unused_cache_stat() -> u32 {
 }
 #[no_mangle]
 pub fn jit_get_entry_length(i: u32) -> u32 {
-    if cfg!(debug_assertions) { jit_cache_array::get(i).len } else { 0 }
+    #[allow(unused_variables)]
+    let entry = jit_cache_array::get(i);
+    #[cfg(debug_assertions)]
+    return entry.len;
+    #[cfg(not(debug_assertions))]
+    0
 }
 #[no_mangle]
 pub fn jit_get_entry_address(i: u32) -> u32 {
