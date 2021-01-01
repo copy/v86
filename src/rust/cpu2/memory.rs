@@ -53,17 +53,6 @@ pub fn read16_no_mmap_check(addr: u32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn read_aligned16(addr: u32) -> i32 {
-    dbg_assert!(addr < 0x80000000);
-    if in_mapped_range(addr << 1) {
-        return mmap_read16(addr << 1);
-    }
-    else {
-        return *mem16.offset(addr as isize) as i32;
-    };
-}
-
-#[no_mangle]
 pub fn read32s(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         return unsafe { mmap_read32(addr) };
@@ -93,7 +82,7 @@ pub unsafe fn read_aligned32(addr: u32) -> i32 {
         return mmap_read32(addr << 2);
     }
     else {
-        return *mem32s.offset(addr as isize);
+        return *(mem8 as *mut i32).offset(addr as isize);
     };
 }
 
@@ -143,18 +132,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
 pub unsafe fn write16_no_mmap_or_dirty_check(addr: u32, value: i32) {
     *(mem8.offset(addr as isize) as *mut u16) = value as u16
 }
-#[no_mangle]
-pub unsafe fn write_aligned16(addr: u32, value: u32) {
-    dbg_assert!(addr < 0x80000000);
-    let phys_addr = addr << 1;
-    if in_mapped_range(phys_addr) {
-        mmap_write16(phys_addr, value as i32);
-    }
-    else {
-        ::jit::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(2 as u32));
-        *mem16.offset(addr as isize) = value as u16
-    };
-}
+
 #[no_mangle]
 pub unsafe fn write32(addr: u32, value: i32) {
     if in_mapped_range(addr) {
@@ -171,7 +149,7 @@ pub unsafe fn write32_no_mmap_or_dirty_check(addr: u32, value: i32) {
 }
 
 pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
-    *mem32s.offset(addr as isize) = value
+    *(mem8 as *mut i32).offset(addr as isize) = value
 }
 
 #[no_mangle]

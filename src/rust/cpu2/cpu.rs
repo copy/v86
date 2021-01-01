@@ -17,11 +17,11 @@ extern "C" {
 
 use cpu2::fpu::fpu_set_tag_word;
 use cpu2::global_pointers::*;
-pub use cpu2::imports::{mem8, mem16, mem32s};
+pub use cpu2::imports::mem8;
 use cpu2::memory;
 use cpu2::memory::{
-    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned16, read_aligned32,
-    write8, write_aligned32,
+    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32, write8,
+    write_aligned32,
 };
 use cpu2::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
@@ -2595,11 +2595,11 @@ pub unsafe fn virt_boundary_read32s(low: u32, high: u32) -> i32 {
     if 0 != low & 1 {
         if 0 != low & 2 {
             // 0xFFF
-            mid = read_aligned16((high - 2 >> 1) as u32)
+            mid = read16(high - 2)
         }
         else {
             // 0xFFD
-            mid = read_aligned16((low + 1 >> 1) as u32)
+            mid = read16(low + 1)
         }
     }
     else {
