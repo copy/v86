@@ -2774,6 +2774,15 @@ struct ScratchBuffer([u8; 0x1000 * 2]);
 static mut jit_paging_scratch_buffer: ScratchBuffer = ScratchBuffer([0; 2 * 0x1000]);
 
 pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_write: bool) -> i32 {
+    if is_write && Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
+        // XXX: Check based on virtual address
+        dbg_log!(
+            "SMC (rmw): bits={} eip={:x} writeaddr={:x}",
+            bitsize,
+            start_eip as u32,
+            addr as u32
+        );
+    }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
     let addr_low = match if is_write {
         translate_address_write_jit(addr)
