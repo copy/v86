@@ -1618,8 +1618,8 @@ static void test_perf_loop(void)
 	 */
 	MK_INSN_PERF(perf_loop, "");
 	perf_baseline = cycles_in_big_real_mode(&insn_perf_loop);
-	print_serial_u32(perf_baseline >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated jump instruction\n");
+	print_serial_u32(perf_baseline * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated jump instruction\n");
 }
 
 static void test_perf_mov(void)
@@ -1628,8 +1628,8 @@ static void test_perf_mov(void)
 
 	MK_INSN_PERF(perf_move, "mov %esi, %edi");
 	cyc = cycles_in_big_real_mode(&insn_perf_move);
-	print_serial_u32(cyc >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated move instruction\n");
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated move instruction\n");
 }
 
 static void test_perf_arith(void)
@@ -1638,8 +1638,8 @@ static void test_perf_arith(void)
 
 	MK_INSN_PERF(perf_arith, "add $4, %edi");
 	cyc = cycles_in_big_real_mode(&insn_perf_arith);
-	print_serial_u32(cyc >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated arithmetic instruction\n");
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated arithmetic instruction\n");
 }
 
 static void test_perf_memory_load(void)
@@ -1651,8 +1651,8 @@ static void test_perf_memory_load(void)
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 
 	cyc = cycles_in_big_real_mode(&insn_perf_memory_load);
-	print_serial_u32(cyc >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated memory load instruction\n");
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated memory load instruction\n");
 }
 
 static void test_perf_memory_store(void)
@@ -1663,8 +1663,8 @@ static void test_perf_memory_store(void)
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 
 	cyc = cycles_in_big_real_mode(&insn_perf_memory_store);
-	print_serial_u32(cyc >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated memory store instruction\n");
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated memory store instruction\n");
 }
 
 static void test_perf_memory_rmw(void)
@@ -1674,8 +1674,8 @@ static void test_perf_memory_rmw(void)
 	MK_INSN_PERF(perf_memory_rmw, "add $1, (%edi)");
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 	cyc = cycles_in_big_real_mode(&insn_perf_memory_rmw);
-	print_serial_u32(cyc >> PERF_COUNT_SHIFT);
-	print_serial(" cycles/emulated memory RMW instruction\n");
+	print_serial_u32(cyc * 1000 >> PERF_COUNT_SHIFT);
+	print_serial(" millicycles/emulated memory RMW instruction\n");
 }
 
 void test_dr_mod(void)
