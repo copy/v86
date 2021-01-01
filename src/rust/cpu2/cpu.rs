@@ -1721,14 +1721,15 @@ pub unsafe fn get_seg(segment: i32) -> i32 {
 }
 
 pub unsafe fn set_cr0(cr0: i32) {
-    if cr0 & CR0_AM != 0 {
+    let old_cr0 = *cr;
+
+    if old_cr0 & CR0_AM == 0 && cr0 & CR0_AM != 0 {
         dbg_log!("Warning: Unimplemented: cr0 alignment mask");
     }
     if (cr0 & (CR0_PE | CR0_PG)) == CR0_PG {
         panic!("cannot load PG without PE");
     }
 
-    let old_cr0 = *cr;
     *cr = cr0;
     *cr |= CR0_ET;
 
