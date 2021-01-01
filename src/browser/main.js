@@ -1863,27 +1863,14 @@
         // called as soon as soon as emulation is started, in debug mode
         var debug = emulator.v86.cpu.debug;
 
-        $("step").onclick = debug.step.bind(debug);
-        $("run_until").onclick = debug.run_until.bind(debug);
         $("dump_gdt").onclick = debug.dump_gdt_ldt.bind(debug);
         $("dump_idt").onclick = debug.dump_idt.bind(debug);
         $("dump_regs").onclick = debug.dump_regs.bind(debug);
         $("dump_pt").onclick = debug.dump_page_directory.bind(debug);
-        $("dump_instructions").onclick = debug.dump_instructions.bind(debug);
 
         $("dump_log").onclick = function()
         {
             dump_file(log_data.join(""), "v86.log");
-        };
-
-        $("dump_instructions_file").onclick = function()
-        {
-            var ins = debug.get_instructions();
-
-            if(ins)
-            {
-                dump_file(ins, "trace.txt");
-            }
         };
 
         var cpu = emulator.v86.cpu;
