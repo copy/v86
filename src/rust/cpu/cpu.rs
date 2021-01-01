@@ -2238,7 +2238,7 @@ pub unsafe fn get_seg(segment: i32) -> OrPageFault<i32> {
         dbg_assert!(segment != CS && segment != SS);
         dbg_log!("#gp: Access null segment");
         dbg_trace();
-        dbg_assert!(!in_jit, "TODO");
+        dbg_assert!(!in_jit);
         trigger_gp(0);
         return Err(());
     }
