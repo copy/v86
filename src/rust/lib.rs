@@ -1,6 +1,7 @@
 #![feature(const_fn)]
 #![feature(extern_types)]
 #![feature(or_patterns)]
+#![allow(const_item_mutation)]
 
 #[cfg(test)]
 #[macro_use]
