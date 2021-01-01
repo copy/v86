@@ -142,7 +142,6 @@ unsafe fn string_instruction(
 
     let is_aligned = src & (size_bytes - 1) == 0 && dst & (size_bytes - 1) == 0;
     let mut rep_fast = is_aligned
-        && direction == 1
         && is_asize_32 // 16-bit address wraparound
         && match rep {
             Rep::NZ | Rep::Z => true,
@@ -250,6 +249,9 @@ unsafe fn string_instruction(
                 },
                 Instruction::Stos => match size {
                     Size::B => {
+                        if direction == -1 {
+                            phys_dst -= count_until_end_of_page - 1
+                        }
                         memset_no_mmap_or_dirty_check(
                             phys_dst,
                             src_val as u8,
