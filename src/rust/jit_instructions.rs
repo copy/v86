@@ -3008,9 +3008,6 @@ pub fn instr_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder
         .instruction_body
         .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
     ctx.builder.instruction_body.load_aligned_u16_from_stack(0);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write16(ctx, &address_local, &value_local);
