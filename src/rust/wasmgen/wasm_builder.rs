@@ -740,6 +740,7 @@ impl WasmBuilder {
 
     pub fn return_(&mut self) { self.instruction_body.push(op::OP_RETURN); }
 
+    #[allow(dead_code)]
     pub fn drop_(&mut self) { self.instruction_body.push(op::OP_DROP); }
 
     // Generate a br_table where an input of [i] will branch [i]th outer block,
