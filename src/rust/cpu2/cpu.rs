@@ -2325,7 +2325,7 @@ pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe fn safe_read_write16_slow_jit(addr: i32) -> i32 {
-    match safe_read16_slow_jit2(addr) {
+    match safe_read_write16_slow_jit2(addr) {
         Ok(v) => {
             *page_fault = false;
             v
