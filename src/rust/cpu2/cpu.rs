@@ -1713,7 +1713,6 @@ pub unsafe fn full_clear_tlb() {
     profiler::stat_increment(FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1;
-    *last_virt_esp = -1;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         *tlb_data.offset(page as isize) = 0;
@@ -1731,7 +1730,6 @@ pub unsafe fn clear_tlb() {
     profiler::stat_increment(CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1;
-    *last_virt_esp = -1;
     let mut global_page_offset: i32 = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
@@ -2213,10 +2211,7 @@ pub unsafe fn set_cr0(cr0: i32) {
     *protected_mode = (*cr & CR0_PE) == CR0_PE;
 }
 
-pub unsafe fn cpl_changed() {
-    *last_virt_eip = -1;
-    *last_virt_esp = -1;
-}
+pub unsafe fn cpl_changed() { *last_virt_eip = -1; }
 
 pub unsafe fn update_cs_size(new_size: bool) {
     if *is_32 != new_size {
@@ -3386,7 +3381,6 @@ pub unsafe fn invlpg(addr: i32) {
     // This however means that valid_tlb_entries can contain some invalid entries
     *tlb_data.offset(page as isize) = 0;
     *last_virt_eip = -1;
-    *last_virt_esp = -1;
 }
 
 #[no_mangle]

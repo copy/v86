@@ -79,9 +79,6 @@ function CPU(bus, wm)
     this.last_virt_eip = v86util.view(Int32Array, memory, 620, 1);
     this.eip_phys = v86util.view(Int32Array, memory, 624, 1);
 
-    this.last_virt_esp = v86util.view(Int32Array, memory, 628, 1);
-    this.esp_phys = v86util.view(Int32Array, memory, 632, 1);
-
 
     this.sysenter_cs = v86util.view(Int32Array, memory, 636, 1);
 
@@ -374,8 +371,7 @@ CPU.prototype.get_state = function()
     state[17] = this.in_hlt[0];
     state[18] = this.last_virt_eip[0];
     state[19] = this.eip_phys[0];
-    state[20] = this.last_virt_esp[0];
-    state[21] = this.esp_phys[0];
+
     state[22] = this.sysenter_cs[0];
     state[23] = this.sysenter_eip[0];
     state[24] = this.sysenter_esp[0];
@@ -468,8 +464,7 @@ CPU.prototype.set_state = function(state)
     this.in_hlt[0] = state[17];
     this.last_virt_eip[0] = state[18];
     this.eip_phys[0] = state[19];
-    this.last_virt_esp[0] = state[20];
-    this.esp_phys[0] = state[21];
+
     this.sysenter_cs[0] = state[22];
     this.sysenter_eip[0] = state[23];
     this.sysenter_esp[0] = state[24];
@@ -688,7 +683,6 @@ CPU.prototype.reset = function()
     this.prefixes[0] = 0;
 
     this.last_virt_eip[0] = -1;
-    this.last_virt_esp[0] = -1;
 
     this.update_operand_size();
 
@@ -1562,7 +1556,6 @@ CPU.prototype.run_hardware_timers = function(now)
 CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip[0] = -1;
-    this.last_virt_esp[0] = -1;
 };
 
 CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
