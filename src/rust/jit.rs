@@ -5,7 +5,6 @@ use std::ptr::NonNull;
 
 use analysis::AnalysisType;
 use codegen;
-use cpu;
 use cpu2;
 use cpu2::memory;
 use cpu_context::CpuContext;
@@ -17,6 +16,44 @@ use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
 use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
+
+mod unsafe_jit {
+    extern "C" {
+        pub fn codegen_finalize(
+            wasm_table_index: u16,
+            phys_addr: u32,
+            end_addr: u32,
+            first_opcode: u32,
+            state_flags: u32,
+        );
+        pub fn jit_clear_func(wasm_table_index: u16);
+        pub fn jit_clear_all_funcs();
+    }
+}
+
+fn codegen_finalize(
+    wasm_table_index: u16,
+    phys_addr: u32,
+    end_addr: u32,
+    first_opcode: u32,
+    state_flags: CachedStateFlags,
+) {
+    unsafe {
+        unsafe_jit::codegen_finalize(
+            wasm_table_index,
+            phys_addr,
+            end_addr,
+            first_opcode,
+            state_flags.to_u32(),
+        )
+    }
+}
+
+pub fn jit_clear_func(wasm_table_index: u16) {
+    unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
+}
+
+pub fn jit_clear_all_funcs() { unsafe { unsafe_jit::jit_clear_all_funcs() } }
 
 pub const WASM_TABLE_SIZE: u32 = 900;
 
@@ -996,7 +1033,7 @@ fn jit_analyze_and_generate(
         let phys_addr = page.to_address();
 
         // will call codegen_finalize_finished asynchronously when finished
-        cpu::codegen_finalize(
+        codegen_finalize(
             wasm_table_index,
             phys_addr,
             end_addr,
@@ -1413,7 +1450,7 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: u16) {
 
     // It is not strictly necessary to clear the function, but it will fail more predictably if we
     // accidentally use the function and may garbage collect unused modules earlier
-    cpu::jit_clear_func(wasm_table_index);
+    jit_clear_func(wasm_table_index);
 }
 
 /// Remove all entries with the given wasm_table_index in page
@@ -1583,7 +1620,7 @@ pub fn jit_clear_cache(ctx: &mut JitState) {
         jit_dirty_page(ctx, Page::page_of(page_index << 12))
     }
 
-    cpu::jit_clear_all_funcs();
+    jit_clear_all_funcs();
 }
 
 pub fn jit_page_has_code(page: Page) -> bool {
