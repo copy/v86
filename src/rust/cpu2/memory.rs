@@ -105,7 +105,7 @@ pub unsafe fn write8(addr: u32, value: i32) {
         mmap_write8(addr, value);
     }
     else {
-        ::c_api::jit_dirty_page(Page::page_of(addr));
+        ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(addr));
         write8_no_mmap_or_dirty_check(addr, value);
     };
 }
@@ -120,7 +120,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
         mmap_write16(addr, value);
     }
     else {
-        ::c_api::jit_dirty_cache_small(addr, addr.wrapping_add(2 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(2 as u32));
         *(mem8.offset(addr as isize) as *mut u16) = value as u16
     };
 }
@@ -132,7 +132,7 @@ pub unsafe fn write_aligned16(addr: u32, value: u32) {
         mmap_write16(phys_addr, value as i32);
     }
     else {
-        ::c_api::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(2 as u32));
+        ::jit::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(2 as u32));
         *mem16.offset(addr as isize) = value as u16
     };
 }
@@ -142,7 +142,7 @@ pub unsafe fn write32(addr: u32, value: i32) {
         mmap_write32(addr, value);
     }
     else {
-        ::c_api::jit_dirty_cache_small(addr, addr.wrapping_add(4 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(4 as u32));
         *(mem8.offset(addr as isize) as *mut i32) = value
     };
 }
@@ -159,7 +159,7 @@ pub unsafe fn write_aligned32(addr: u32, value: i32) {
         mmap_write32(phys_addr, value);
     }
     else {
-        ::c_api::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(4 as u32));
+        ::jit::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(4 as u32));
         write_aligned32_no_mmap_or_dirty_check(addr, value);
     };
 }
@@ -173,7 +173,7 @@ pub unsafe fn write64(addr: u32, value: i64) {
         mmap_write32(addr.wrapping_add(4 as u32), (value >> 32) as i32);
     }
     else {
-        ::c_api::jit_dirty_cache_small(addr, addr.wrapping_add(8 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(8 as u32));
         *(mem8.offset(addr as isize) as *mut i64) = value
     };
 }
@@ -189,7 +189,7 @@ pub unsafe fn write128(addr: u32, value: reg128) {
         );
     }
     else {
-        ::c_api::jit_dirty_cache_small(addr, addr.wrapping_add(16 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(16 as u32));
         *(mem8.offset(addr as isize) as *mut i64) = value.i64_0[0];
         *(mem8.offset(addr as isize).offset(8) as *mut i64) = value.i64_0[1]
     };

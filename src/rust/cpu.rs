@@ -14,7 +14,7 @@ mod unsafe_cpu {
             state_flags: u32,
         );
         pub fn jit_clear_func(wasm_table_index: u16);
-        pub fn jit_clear_cache();
+        pub fn jit_clear_all_funcs();
     }
 }
 
@@ -70,4 +70,4 @@ pub fn jit_clear_func(wasm_table_index: u16) {
     unsafe { unsafe_cpu::jit_clear_func(wasm_table_index) }
 }
 
-pub fn jit_clear_cache() { unsafe { unsafe_cpu::jit_clear_cache() } }
+pub fn jit_clear_all_funcs() { unsafe { unsafe_cpu::jit_clear_all_funcs() } }

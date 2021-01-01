@@ -1200,8 +1200,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
         dbg_assert!(found);
     }
     let is_in_mapped_range = in_mapped_range(high as u32);
-    let physical_page = (high as u32 >> 12) as i32;
-    let has_code = !is_in_mapped_range && ::c_api::jit_page_has_code(physical_page as u32);
+    let has_code = !is_in_mapped_range && ::jit::jit_page_has_code(Page::page_of(high as u32));
     let info_bits = TLB_VALID
         | if can_write { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
@@ -1873,7 +1872,7 @@ pub unsafe fn cycle_internal() {
             }
         }
         else {
-            ::jit::record_entry_point(::c_api::get_module(), phys_addr);
+            ::jit::record_entry_point(phys_addr);
 
             #[cfg(feature = "profiler")]
             {
@@ -1893,7 +1892,7 @@ pub unsafe fn cycle_internal() {
             let initial_tsc = *timestamp_counter;
             jit_run_interpreted(phys_addr as i32);
 
-            ::c_api::jit_increase_hotness_and_maybe_compile(
+            ::jit::jit_increase_hotness_and_maybe_compile(
                 phys_addr,
                 get_seg_cs() as u32,
                 state_flags,

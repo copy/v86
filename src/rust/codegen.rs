@@ -2,6 +2,7 @@ use cpu::BitSize;
 use cpu2::cpu::{
     FLAG_CARRY, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
+use cpu2::imports::mem8;
 use global_pointers;
 use jit::JitContext;
 use jit_instructions::LocalOrImmedate;
@@ -11,11 +12,6 @@ use regs;
 use wasmgen::module_init;
 use wasmgen::module_init::{WasmBuilder, WasmLocal, WasmLocalI64};
 use wasmgen::wasm_util::WasmBuf;
-
-extern "C" {
-    #[no_mangle]
-    static mut mem8: *mut u8;
-}
 
 const CONDITION_FUNCTIONS: [&str; 16] = [
     "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",

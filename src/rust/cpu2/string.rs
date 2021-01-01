@@ -64,7 +64,7 @@ pub unsafe fn movsb_rep(is_asize_32: bool, ds: i32) {
         let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
         let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
         if !in_mapped_range(phys_dest as u32) {
-            ::c_api::jit_dirty_page(Page::page_of(phys_dest as u32));
+            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_dest as u32));
             loop {
                 write8_no_mmap_or_dirty_check(phys_dest as u32, read8(phys_src as u32));
                 phys_dest += size;
@@ -211,7 +211,10 @@ pub unsafe fn movsd_rep(is_asize_32: bool, ds: i32) {
                 (return_on_pagefault!(translate_address_write(dest)) >> 2) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
             if !in_mapped_range((phys_dest << 2) as u32) {
-                ::c_api::jit_dirty_page(Page::page_of((phys_dest << 2) as u32));
+                ::jit::jit_dirty_page(
+                    ::jit::get_jit_state(),
+                    Page::page_of((phys_dest << 2) as u32),
+                );
                 loop {
                     write_aligned32_no_mmap_or_dirty_check(
                         phys_dest as u32,
@@ -527,7 +530,7 @@ pub unsafe fn stosb_rep(is_asize_32: bool) {
         let mut cycle_counter: i32 = string_get_cycle_count(size, dest);
         let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
         if !in_mapped_range(phys_dest as u32) {
-            ::c_api::jit_dirty_page(Page::page_of(phys_dest as u32));
+            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_dest as u32));
             loop {
                 write8_no_mmap_or_dirty_check(phys_dest as u32, data);
                 phys_dest += size;
@@ -663,7 +666,10 @@ pub unsafe fn stosd_rep(is_asize_32: bool) {
                 (return_on_pagefault!(translate_address_write(dest)) >> 2) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
             if !in_mapped_range(phys_dest as u32) {
-                ::c_api::jit_dirty_page(Page::page_of((phys_dest << 2) as u32));
+                ::jit::jit_dirty_page(
+                    ::jit::get_jit_state(),
+                    Page::page_of((phys_dest << 2) as u32),
+                );
                 loop {
                     write_aligned32_no_mmap_or_dirty_check(phys_dest as u32, data);
                     phys_dest += single_size;

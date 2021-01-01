@@ -322,7 +322,7 @@ CPU.prototype.wasm_patch = function(wm)
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
     }
 
-    this.jit_empty_cache = get_import("jit_empty_cache");
+    this.jit_clear_cache = get_import("jit_clear_cache_js");
     this.jit_dirty_cache = get_import("jit_dirty_cache");
     this.codegen_finalize_finished = get_import("codegen_finalize_finished");
 
@@ -349,6 +349,16 @@ CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
     this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(index + WASM_TABLE_OFFSET, null);
+};
+
+CPU.prototype.jit_clear_all_funcs = function()
+{
+    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
+
+    for(let i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        table.set(WASM_TABLE_OFFSET + i, null);
+    }
 };
 
 CPU.prototype.get_state = function()
@@ -1566,18 +1576,6 @@ CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip[0] = -1;
     this.last_virt_esp[0] = -1;
-};
-
-CPU.prototype.jit_clear_cache = function()
-{
-    this.jit_empty_cache();
-
-    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
-
-    for(let i = 0; i < WASM_TABLE_SIZE; i++)
-    {
-        table.set(WASM_TABLE_OFFSET + i, null);
-    }
 };
 
 CPU.prototype.far_return = function(eip, selector, stack_adjust, is_osize_32)

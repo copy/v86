@@ -178,7 +178,7 @@ function V86Starter(options)
             cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags);
         },
         "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
-        "jit_clear_cache": () => cpu.jit_clear_cache(),
+        "jit_clear_all_funcs": () => cpu.jit_clear_all_funcs(),
         "do_task_switch": (selector, has_error_code, error_code) => {
             cpu.do_task_switch(selector, has_error_code, error_code);
         },
@@ -206,7 +206,7 @@ function V86Starter(options)
         { "env": wasm_shared_funcs },
         v86_wasm => {
             wasm_memory = v86_wasm.exports.memory;
-            v86_wasm.exports["rust_setup"]();
+            v86_wasm.exports["rust_init"]();
 
             const emulator = this.v86 = new v86(this.emulator_bus, v86_wasm);
             cpu = emulator.cpu;

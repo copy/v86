@@ -13,7 +13,6 @@ mod paging;
 
 pub mod cpu2;
 
-pub mod c_api;
 pub mod js_api;
 pub mod profiler;
 
