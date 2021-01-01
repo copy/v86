@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var STATE_VERSION = 3;
+var STATE_VERSION = 6;
 
 /** @const */
 var STATE_MAGIC = 0x86768676|0;
@@ -53,7 +53,11 @@ function save_object(obj, saved_buffers)
         return obj.map(x => save_object(x, saved_buffers));
     }
 
-    dbg_assert(obj.constructor !== Object);
+    if(obj.constructor === Object)
+    {
+        console.log(obj);
+        dbg_assert(obj.constructor !== Object, "Expected non-object");
+    }
 
     if(obj.BYTES_PER_ELEMENT)
     {
@@ -156,8 +160,9 @@ CPU.prototype.save_state = function()
         "buffer_infos": buffer_infos,
         "state": state,
     });
+    var info_block = new TextEncoder().encode(info_object);
 
-    var buffer_block_start = STATE_INFO_BLOCK_START + 2 * info_object.length;
+    var buffer_block_start = STATE_INFO_BLOCK_START + info_block.length;
     buffer_block_start = buffer_block_start + 3 & ~3;
     var total_size = buffer_block_start + total_buffer_size;
 
@@ -171,11 +176,7 @@ CPU.prototype.save_state = function()
         0,
         STATE_INFO_BLOCK_START / 4
     );
-    var info_block = new Uint16Array(
-        result,
-        STATE_INFO_BLOCK_START,
-        info_object.length
-    );
+    new Uint8Array(result, STATE_INFO_BLOCK_START, info_block.length).set(info_block);
     var buffer_block = new Uint8Array(
         result,
         buffer_block_start
@@ -184,12 +185,7 @@ CPU.prototype.save_state = function()
     header_block[STATE_INDEX_MAGIC] = STATE_MAGIC;
     header_block[STATE_INDEX_VERSION] = STATE_VERSION;
     header_block[STATE_INDEX_TOTAL_LEN] = total_size;
-    header_block[STATE_INDEX_INFO_LEN] = info_object.length * 2;
-
-    for(var i = 0; i < info_object.length; i++)
-    {
-        info_block[i] = info_object.charCodeAt(i);
-    }
+    header_block[STATE_INDEX_INFO_LEN] = info_block.length;
 
     for(var i = 0; i < saved_buffers.length; i++)
     {
@@ -233,33 +229,20 @@ CPU.prototype.restore_state = function(state)
 
     var info_block_len = header_block[STATE_INDEX_INFO_LEN];
 
-    if(info_block_len < 0 ||
-       info_block_len + 12 >= len ||
-       info_block_len % 2)
+    if(info_block_len < 0 || info_block_len + 12 >= state.length)
     {
         throw new StateLoadError("Invalid info block length: " + info_block_len);
     }
 
-    var info_block_str_len = info_block_len / 2;
-    var info_block_buffer = new Uint16Array(state, STATE_INFO_BLOCK_START, info_block_str_len);
-    var info_block = "";
-
-    for(var i = 0; i < info_block_str_len - 8; )
+    function read_info_block(info_block_buffer)
     {
-        info_block += String.fromCharCode(
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++]
-        );
+        const info_block = new TextDecoder().decode(info_block_buffer);
+        return JSON.parse(info_block);
     }
 
-    for(; i < info_block_str_len; )
-    {
-        info_block += String.fromCharCode(info_block_buffer[i++]);
-    }
+    const info_block_buffer = new Uint8Array(state, STATE_INFO_BLOCK_START, info_block_len);
+    var info_block_obj = read_info_block(info_block_buffer);
 
-    var info_block_obj = JSON.parse(info_block);
     var state_object = info_block_obj["state"];
     var buffer_infos = info_block_obj["buffer_infos"];
     var buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
