@@ -3,7 +3,8 @@
 use codegen;
 use cpu::BitSize;
 use cpu2::cpu::{
-    FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_OVERFLOW, OPSIZE_32,
+    FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_OVERFLOW,
+    OPSIZE_32,
 };
 use global_pointers;
 use jit::JitContext;
@@ -3495,6 +3496,30 @@ pub fn instr_FA_jit(ctx: &mut JitContext) {
     ctx.builder.instruction_body.if_void();
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.instruction_body.block_end();
+}
+
+pub fn instr_FC_jit(ctx: &mut JitContext) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    ctx.builder.instruction_body.const_i32(!FLAG_DIRECTION);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn instr_FD_jit(ctx: &mut JitContext) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    ctx.builder.instruction_body.const_i32(FLAG_DIRECTION);
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
 define_instruction_read_write_mem16!(

@@ -241,7 +241,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
     if(!encoding.prefix)
     {
-        if(encoding.custom && !encoding.unguarded_register || encoding.no_register)
+        if(encoding.custom)
         {
         }
         else
@@ -252,7 +252,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             instruction_postfix.push(
                 gen_call("::codegen::gen_move_registers_from_memory_to_locals", ["ctx"])
             );
-
         }
     }
 

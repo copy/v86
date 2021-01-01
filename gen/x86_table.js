@@ -399,8 +399,8 @@ const encodings = [
     { opcode: 0xFA, custom: 1, skip: 1 },
     // sti: not a jump, but can cause a change in eip
     { opcode: 0xFB, block_boundary: 1, skip: 1, },
-    { opcode: 0xFC, no_register: 1, },
-    { opcode: 0xFD, no_register: 1, },
+    { opcode: 0xFC, custom: 1, },
+    { opcode: 0xFD, custom: 1, },
 
     { opcode: 0xFE, e: 1, fixed_g: 0, },
     { opcode: 0xFE, e: 1, fixed_g: 1, },
