@@ -198,22 +198,19 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-tests: all-debug
-	mkdir -p images/integration-test-fs/flat # XXX
-	cp images/bzImage images/integration-test-fs/
-	touch images/integration-test-fs/initrd
-	cd images/integration-test-fs && tar cfv fs.tar bzImage initrd
-	./tools/fs2json.py images/integration-test-fs/fs.tar --out images/integration-test-fs/fs.json
-	./tools/copy-to-sha256.py images/integration-test-fs/fs.tar images/integration-test-fs/flat
+build/integration-test-fs/fs.json:
+	mkdir -p build/integration-test-fs/flat
+	cp images/bzImage build/integration-test-fs/
+	touch build/integration-test-fs/initrd
+	cd build/integration-test-fs && tar cfv fs.tar bzImage initrd
+	./tools/fs2json.py build/integration-test-fs/fs.tar --out build/integration-test-fs/fs.json
+	./tools/copy-to-sha256.py build/integration-test-fs/fs.tar build/integration-test-fs/flat
+	rm build/integration-test-fs/fs.tar build/integration-test-fs/bzImage build/integration-test-fs/initrd
+
+tests: all-debug build/integration-test-fs/fs.json
 	./tests/full/run.js
 
-tests-release: all
-	mkdir -p images/integration-test-fs/flat # XXX
-	cp images/bzImage images/integration-test-fs/
-	touch images/integration-test-fs/initrd
-	cd images/integration-test-fs && tar cfv fs.tar bzImage initrd
-	./tools/fs2json.py images/integration-test-fs/fs.tar --out images/integration-test-fs/fs.json
-	./tools/copy-to-sha256.py images/integration-test-fs/fs.tar images/integration-test-fs/flat
+tests-release: all build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
 nasmtests: all-debug
