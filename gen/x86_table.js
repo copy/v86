@@ -544,10 +544,10 @@ const encodings = [
     { opcode: 0x0FB3, os: 1, e: 1, only_reg: 1, },
     { opcode: 0x0FBB, os: 1, e: 1, only_reg: 1, },
 
-    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 4, imm8: 1, only_reg: 1, }, // bt
-    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 5, imm8: 1, only_reg: 1, },
-    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1, only_reg: 1, },
-    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1, only_reg: 1, },
+    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 4, imm8: 1 }, // bt
+    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 5, imm8: 1 },
+    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1 },
+    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1 },
 
     { opcode: 0x0FBC, os: 1, e: 1, mask_flags: af, }, // bsf
     { opcode: 0x0FBD, os: 1, e: 1, mask_flags: af, },
