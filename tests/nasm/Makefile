@@ -11,7 +11,7 @@ all: $(source_files) $(obj_files) $(inc_files) $(host_executables) $(v86_executa
 .PHONY: all
 
 build/%.o: build/%.asm $(inc_files)
-	nasm -felf32 -o $@ $<
+	nasm -w+error -felf32 -o $@ $<
 
 # To run / debug locally
 build/%.bin: build/%.o
