@@ -1174,6 +1174,9 @@ pub unsafe fn instr_0F30() {
         // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
         dbg_log!("GS Base written");
     }
+    else if index == IA32_PAT {
+        //
+    }
     else {
         dbg_log!("Unknown msr: {:x}", index);
         dbg_assert!(false);
@@ -1258,7 +1261,12 @@ pub unsafe fn instr_0F32() {
     else if index == IA32_MCG_CAP {
         // netbsd
     }
-    else if !(index == MSR_PKG_C2_RESIDENCY) {
+    else if index == IA32_PAT {
+        //
+    }
+    else if index == MSR_PKG_C2_RESIDENCY {
+    }
+    else {
         dbg_log!("Unknown msr: {:x}", index);
         dbg_assert!(false);
     }

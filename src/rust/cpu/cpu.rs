@@ -184,6 +184,7 @@ pub const IA32_RTIT_CTL: i32 = 1392;
 pub const MSR_SMI_COUNT: i32 = 52;
 pub const MSR_TEST_CTRL: i32 = 0x33;
 pub const MSR_IA32_FEAT_CTL: i32 = 0x3a;
+pub const IA32_PAT: i32 = 0x277;
 pub const IA32_MCG_CAP: i32 = 377;
 pub const IA32_KERNEL_GS_BASE: i32 = 0xC0000101u32 as i32;
 pub const MSR_PKG_C2_RESIDENCY: i32 = 1549;
