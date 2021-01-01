@@ -262,7 +262,7 @@ else {
 
         var cpu = emulator.v86.cpu;
 
-        console.assert(!emulator.running);
+        assert(!emulator.running);
 
         cpu.reset();
         cpu.reset_memory();
@@ -375,7 +375,7 @@ else {
 
         let individual_failures = [];
 
-        console.assert(current_test.fixture.array);
+        assert(current_test.fixture.array);
 
         const FLOAT_TRANSLATION = {
             [JSON_POS_INFINITY]: Infinity,
