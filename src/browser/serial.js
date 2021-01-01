@@ -192,3 +192,19 @@ function SerialAdapter(element, bus)
         }
     }
 }
+
+/**
+ * @constructor
+ *
+ * @param {BusConnector} bus
+ */
+function SerialRecordingAdapter(bus)
+{
+    var serial = this;
+    this.text = "";
+
+    bus.register("serial0-output-char", function(chr)
+    {
+        this.text += chr;
+    }, this);
+}
