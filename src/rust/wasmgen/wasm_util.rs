@@ -1,5 +1,5 @@
 use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
-use wasmgen::module_init::{WasmLocal, WasmLocalI64};
+use wasmgen::wasm_builder::{WasmLocal, WasmLocalI64};
 use wasmgen::wasm_opcodes as op;
 
 pub trait WasmBuf {

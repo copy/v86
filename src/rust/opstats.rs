@@ -1,7 +1,7 @@
 use codegen::gen_increment_mem32;
 use cpu2;
 use global_pointers;
-use wasmgen::module_init::WasmBuilder;
+use wasmgen::wasm_builder::WasmBuilder;
 
 struct Instruction {
     prefixes: Vec<u8>,

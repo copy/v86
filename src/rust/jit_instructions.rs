@@ -16,7 +16,7 @@ use regs;
 use regs::{AX, BP, BX, CX, DI, DX, SI, SP};
 use regs::{CS, DS, ES, FS, GS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
-use wasmgen::module_init::{WasmBuilder, WasmLocal};
+use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
 
 pub enum LocalOrImmedate<'a> {

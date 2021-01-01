@@ -529,7 +529,7 @@ impl WasmBuilder {
 mod tests {
     use std::fs::File;
     use std::io::prelude::*;
-    use wasmgen::module_init::*;
+    use wasmgen::wasm_builder::*;
 
     #[test]
     fn import_table_management() {

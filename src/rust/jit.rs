@@ -14,7 +14,7 @@ use profiler;
 use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
-use wasmgen::module_init::{WasmBuilder, WasmLocal};
+use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
 
 pub const WASM_TABLE_SIZE: u32 = 900;
