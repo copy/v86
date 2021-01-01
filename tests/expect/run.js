@@ -179,6 +179,11 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
                             }
                         }
                     }
+                    else if(process.argv.includes("--accept-all"))
+                    {
+                        console.log(`Running: cp ${actual_file} ${expect_file}`);
+                        fs.copyFileSync(actual_file, expect_file);
+                    }
                     else
                     {
                         const failure_message = `${name}.asm failed:
@@ -190,6 +195,7 @@ verify the diff above and run the following command to accept the change:
 When done, re-run this test to confirm that all expect-tests pass.
 
 Hint: Use tests/expect/run.js --interactive to interactively accept changes.
+      Or use tests/expect/run.js --accept-all to accept all changes (use git diff to verify).
 `;
 
                         console.log(failure_message);
