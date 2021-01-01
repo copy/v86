@@ -204,13 +204,6 @@ var ASYNC_SAFE = false;
                 },
                 headers: {
                     Range: "bytes=0-0",
-
-                    //"Accept-Encoding": "",
-
-                    // Added by Chromium, but can cause the whole file to be sent
-                    // Settings this to empty also causes problems and Chromium
-                    // doesn't seem to create this header any more
-                    //"If-Range": "",
                 }
             });
         };
