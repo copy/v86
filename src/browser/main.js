@@ -201,6 +201,7 @@
             debug_onload(settings);
         }
 
+        // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
             {
                 id: "archlinux",
@@ -246,6 +247,7 @@
             },
             {
                 id: "oberon",
+                // https://lists.inf.ethz.ch/pipermail/oberon/2013/006844.html
                 fda: {
                     "url": HOST + "images/oberon-boot.dsk",
                     "size": 1440 * 1024,
@@ -320,6 +322,7 @@
             },
             {
                 id: "kolibrios",
+                // https://kolibrios.org/en/
                 fda: {
                     "url": ON_LOCALHOST ?
                             "images/kolibri.img" :
@@ -347,6 +350,7 @@
             {
                 id: "solos",
                 fda: {
+                    // http://oby.ro/os/
                     "url": HOST + "images/os8.dsk",
                     "size": 1474560,
                 },
@@ -355,6 +359,7 @@
             {
                 id: "dexos",
                 cdrom: {
+                    // https://dex-os.github.io/
                     "url": HOST + "images/DexOSv6.iso",
                     "size": 1837056,
                 },
@@ -363,6 +368,7 @@
             {
                 id: "bootchess",
                 fda: {
+                    // http://www.pouet.net/prod.php?which=64962
                     "url": HOST + "images/bootchess.img",
                 },
                 name: "Bootchess",
