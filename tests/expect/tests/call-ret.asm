@@ -1,5 +1,4 @@
 BITS 32
-
     call test
     hlt
 

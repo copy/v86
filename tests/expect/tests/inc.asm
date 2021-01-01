@@ -1,3 +1,3 @@
 BITS 32
-    push eax
+    inc eax
     hlt
