@@ -2346,20 +2346,6 @@ CPU.prototype.hlt_op = function()
     this.hlt_loop();
 };
 
-CPU.prototype.undefined_instruction = function()
-{
-    dbg_assert(false, "Possible fault: undefined instruction");
-    this.trigger_ud();
-};
-
-CPU.prototype.unimplemented_sse = function()
-{
-    const opcode = this.safe_read32s(this.previous_ip[0]);
-    console.log("No SSE: " + h(opcode & 0xFF) + " " + h(opcode >> 8 & 0xFF) + " " + h(opcode >> 16 & 0xFF), LOG_CPU);
-    dbg_assert(false);
-    this.trigger_ud();
-};
-
 CPU.prototype.handle_irqs = function()
 {
     //dbg_assert(this.prefixes[0] === 0);

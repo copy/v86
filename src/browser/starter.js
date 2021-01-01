@@ -111,8 +111,6 @@ function V86Starter(options)
         "hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
         "logop": function(eip, op) { return cpu.debug.logop(eip, op); },
-        "undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
-        "unimplemented_sse": function() { return cpu.unimplemented_sse(); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
         "dbg_trace": function()

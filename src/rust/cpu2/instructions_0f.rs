@@ -2,10 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    fn unimplemented_sse();
-    #[no_mangle]
-    fn undefined_instruction();
-    #[no_mangle]
     fn lss16(x: i32, y: i32, z: i32);
     #[no_mangle]
     fn lss32(x: i32, y: i32, z: i32);
@@ -25,6 +21,15 @@ extern "C" {
     fn load_tr(v: i32);
     #[no_mangle]
     fn load_ldt(v: i32);
+}
+
+unsafe fn undefined_instruction() {
+    dbg_assert!(false, "Undefined instructions");
+    trigger_ud()
+}
+unsafe fn unimplemented_sse() {
+    dbg_assert!(false, "Unimplemented SSE instruction");
+    trigger_ud()
 }
 
 use cpu2::arith::{
