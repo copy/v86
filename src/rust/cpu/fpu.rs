@@ -352,7 +352,7 @@ pub unsafe fn fpu_fdivr(target_index: i32, val: f64) {
 }
 #[no_mangle]
 pub unsafe fn fpu_ffree(r: i32) {
-    *fpu_stack_empty |= 1 << (*fpu_stack_ptr).wrapping_add(r as u32);
+    *fpu_stack_empty |= 1 << (*fpu_stack_ptr + r as u32 & 7);
 }
 
 #[no_mangle]
