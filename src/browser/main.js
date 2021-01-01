@@ -1442,27 +1442,43 @@
         var stats_9p = {
             read: 0,
             write: 0,
+            files: [],
         };
 
-        emulator.add_listener("9p-read-start", function()
+        emulator.add_listener("9p-read-start", function(args)
         {
+            const file = args[0];
+            stats_9p.files.push(file);
             $("info_filesystem").style.display = "block";
             $("info_filesystem_status").textContent = "Loading ...";
+            $("info_filesystem_last_file").textContent = file;
         });
         emulator.add_listener("9p-read-end", function(args)
         {
             stats_9p.read += args[1];
-
-            $("info_filesystem_status").textContent = "Idle";
-            $("info_filesystem_last_file").textContent = args[0];
             $("info_filesystem_bytes_read").textContent = stats_9p.read;
+
+            const file = args[0];
+            stats_9p.files = stats_9p.files.filter(f => f !== file);
+
+            if(stats_9p.files[0])
+            {
+                $("info_filesystem_last_file").textContent = stats_9p.files[0];
+            }
+            else
+            {
+                $("info_filesystem_status").textContent = "Idle";
+            }
         });
         emulator.add_listener("9p-write-end", function(args)
         {
             stats_9p.write += args[1];
-
-            $("info_filesystem_last_file").textContent = args[0];
             $("info_filesystem_bytes_written").textContent = stats_9p.write;
+
+            if(!stats_9p.files[0])
+            {
+                $("info_filesystem_last_file").textContent = args[0];
+            }
         });
 
         var stats_storage = {
