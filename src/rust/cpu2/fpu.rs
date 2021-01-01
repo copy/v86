@@ -435,8 +435,15 @@ pub unsafe fn fpu_fldcw(addr: i32) {
 pub unsafe fn fpu_fldenv(addr: i32) {
     if is_osize_32() {
         // TODO: Add readable_or_pagefault
-        return_on_pagefault!(translate_address_read(addr));
-        return_on_pagefault!(translate_address_read(addr + 28));
+        if let Err(()) = translate_address_read(addr) {
+            *page_fault = true;
+            return;
+        }
+        if let Err(()) = translate_address_read(addr + 28) {
+            *page_fault = true;
+            return;
+        }
+        *page_fault = false;
         *fpu_control_word = safe_read16(addr).unwrap();
         fpu_set_status_word(safe_read16(addr + 4).unwrap());
         fpu_set_tag_word(safe_read16(addr + 8).unwrap());
@@ -478,7 +485,17 @@ pub unsafe fn fpu_fldm32(addr: i32) { fpu_push(return_on_pagefault!(safe_read32s
 #[no_mangle]
 pub unsafe fn fpu_fldm64(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m64(addr))); }
 #[no_mangle]
-pub unsafe fn fpu_fldm80(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m80(addr))); }
+pub unsafe fn fpu_fldm80(addr: i32) {
+    match fpu_load_m80(addr) {
+        Ok(x) => {
+            *page_fault = false;
+            fpu_push(x)
+        },
+        Err(()) => {
+            *page_fault = true;
+        },
+    }
+}
 #[no_mangle]
 pub unsafe fn fpu_fmul(target_index: i32, val: f64) {
     let st0: f64 = fpu_get_st0();
@@ -614,7 +631,13 @@ pub unsafe fn fpu_f64_to_f80(f: f64) -> (u64, u16) {
 #[no_mangle]
 pub unsafe fn fpu_fstenv(addr: i32) {
     if is_osize_32() {
-        return_on_pagefault!(writable_or_pagefault(addr, 26));
+        match writable_or_pagefault(addr, 26) {
+            Ok(()) => *page_fault = false,
+            Err(()) => {
+                *page_fault = true;
+                return;
+            },
+        }
         safe_write16(addr, *fpu_control_word).unwrap();
         safe_write16(addr + 4, fpu_load_status_word()).unwrap();
         safe_write16(addr + 8, fpu_load_tag_word()).unwrap();

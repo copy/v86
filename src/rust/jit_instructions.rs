@@ -3000,12 +3000,25 @@ pub fn instr_D9_3_reg_jit(ctx: &mut JitContext, r: u32) {
 
 pub fn instr_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    // XXX: generated because fldenv might page-fault, but doesn't generate a proper block boundary
+
+    codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
     codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_call_fn1(ctx.builder, "fpu_fldenv");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+
+    ctx.builder
+        .instruction_body
+        .load_u8(global_pointers::PAGE_FAULT);
+    ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
 }
 pub fn instr_D9_4_reg_jit(ctx: &mut JitContext, r: u32) {
     ctx.builder.instruction_body.const_i32(r as i32);
@@ -3027,12 +3040,25 @@ pub fn instr_D9_5_reg_jit(ctx: &mut JitContext, r: u32) {
 
 pub fn instr_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    // XXX: generated because fpu_fstenv might page-fault, but doesn't generate a proper block boundary
+
+    codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
     codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_call_fn1(ctx.builder, "fpu_fstenv");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+
+    ctx.builder
+        .instruction_body
+        .load_u8(global_pointers::PAGE_FAULT);
+    ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
 }
 pub fn instr_D9_6_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "instr_D9_6_reg", r);
@@ -3108,12 +3134,25 @@ pub fn instr_DB_3_reg_jit(ctx: &mut JitContext, r: u32) {
 
 pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    // XXX: generated because fpu_fldm80 might page-fault, but doesn't generate a proper block boundary
+
+    codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+
     codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_call_fn1(ctx.builder, "fpu_fldm80");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+
+    ctx.builder
+        .instruction_body
+        .load_u8(global_pointers::PAGE_FAULT);
+    ctx.builder.instruction_body.if_void();
     codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
 }
 pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
     ctx.builder.instruction_body.const_i32(r as i32);
