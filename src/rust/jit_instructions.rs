@@ -4383,16 +4383,14 @@ pub fn instr_660F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 
 pub fn instr_660F60_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    // Note: Only requires 64-bit read, but is allowed to do 128-bit read. Interpreted mode does
-    // 64-bit read.
+    // Note: Only requires 64-bit read, but is allowed to do 128-bit read
     sse_read128_xmm_mem(ctx, "instr_660F60", modrm_byte, r);
 }
 pub fn instr_660F60_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F60", r1, r2);
 }
 pub fn instr_660F61_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    // Note: Only requires 64-bit read, but is allowed to do 128-bit read. Interpreted mode does
-    // 64-bit read.
+    // Note: Only requires 64-bit read, but is allowed to do 128-bit read
     sse_read128_xmm_mem(ctx, "instr_660F61", modrm_byte, r);
 }
 pub fn instr_660F61_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
