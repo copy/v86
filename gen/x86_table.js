@@ -86,13 +86,13 @@ const encodings = [
     { opcode: 0x3A, custom: 1, e: 1, },
     { opcode: 0x3B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x06, os: 1, skip: 1, },
+    { opcode: 0x06, os: 1, custom: 1 },
     { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, }, // pop es: block_boundary since it uses non-raising cpu exceptions
-    { opcode: 0x0E, os: 1, skip: 1, },
+    { opcode: 0x0E, os: 1, custom: 1 },
     { opcode: 0x0F, os: 1, prefix: 1, },
-    { opcode: 0x16, os: 1, skip: 1, },
+    { opcode: 0x16, os: 1, custom: 1 },
     { opcode: 0x17, block_boundary: 1, os: 1, skip: 1, }, // pop ss
-    { opcode: 0x1E, os: 1, skip: 1, },
+    { opcode: 0x1E, os: 1, custom: 1 },
     { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1, }, // pop ds
     { opcode: 0x26, prefix: 1, },
     { opcode: 0x27, mask_flags: of, },
@@ -537,14 +537,12 @@ const encodings = [
     { opcode: 0x0F9E, e: 1, custom: 1, },
     { opcode: 0x0F9F, e: 1, custom: 1, },
 
-    // XXX: Temporary block boundary
-    { opcode: 0x0FA0, os: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0FA0, os: 1, custom: 1, },
     { opcode: 0x0FA1, os: 1, block_boundary: 1, skip: 1, }, // pop fs: block_boundary since it uses non-raising cpu exceptions
 
     { opcode: 0x0FA2, skip: 1, },
 
-    // XXX: Temporary block boundary
-    { opcode: 0x0FA8, os: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0FA8, os: 1, custom: 1, },
     { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, }, // pop gs
 
     { opcode: 0x0FA3, os: 1, e: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)
