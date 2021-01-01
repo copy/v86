@@ -250,6 +250,23 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         // instruction with modrm byte where the middle 3 bits encode a register
 
+        const reg_postfix = [];
+        const mem_postfix = [];
+
+        if(encoding.mem_ud)
+        {
+            mem_postfix.push(
+                "analysis.ty = ::analysis::AnalysisType::BlockBoundary;"
+            );
+        }
+
+        if(encoding.reg_ud)
+        {
+            reg_postfix.push(
+                "analysis.ty = ::analysis::AnalysisType::BlockBoundary;"
+            );
+        }
+
         if(encoding.ignore_mod)
         {
             assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
@@ -266,10 +283,14 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                     type: "if-else",
                     if_blocks: [{
                         condition: "modrm_byte < 0xC0",
-                        body: [
-                            gen_call("::analysis::modrm_analyze", ["cpu", "modrm_byte"])
-                        ],
+                        body: [].concat(
+                            gen_call("::analysis::modrm_analyze", ["cpu", "modrm_byte"]),
+                            mem_postfix,
+                        ),
                     }],
+                    else_block: {
+                        body: reg_postfix,
+                    },
                 },
                 imm_read ? [imm_read + ";"] : [],
                 instruction_postfix
