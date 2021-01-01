@@ -66,7 +66,7 @@ def handle_dir(logger, from_path, to_path):
             to_abs = os.path.join(to_path, sha256)
 
             if os.path.exists(to_abs):
-                logger.info("Exists, skipped {}".format(to_abs))
+                logger.info("Exists, skipped {} ({})".format(to_abs, absname))
             else:
                 logger.info("cp {} {}".format(absname, to_abs))
                 shutil.copyfile(absname, to_abs)
@@ -80,9 +80,9 @@ def handle_tar(logger, tar, to_path):
             to_abs = os.path.join(to_path, sha256)
 
             if os.path.exists(to_abs):
-                logger.info("Exists, skipped {}".format(to_abs))
+                logger.info("Exists, skipped {} ({})".format(to_abs, member.name))
             else:
-                logger.info("Extracted {}".format(to_abs))
+                logger.info("Extracted {} ({})".format(to_abs, member.name))
                 to_file = open(to_abs, "wb")
                 f.seek(0)
                 shutil.copyfileobj(f, to_file)
