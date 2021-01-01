@@ -408,6 +408,11 @@ enum GenSafeWriteValue<'a> {
     TwoI64s(&'a WasmLocalI64, &'a WasmLocalI64),
 }
 
+enum GenSafeReadWriteValue {
+    I32(WasmLocal),
+    I64(WasmLocalI64),
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum BitSize {
     BYTE,
@@ -840,7 +845,9 @@ pub fn gen_safe_read_write(
         BitSize::DWORD => {
             ctx.builder.call_fn2_ret("safe_read_write32s_slow_jit");
         },
-        BitSize::QWORD => dbg_assert!(false),
+        BitSize::QWORD => {
+            ctx.builder.call_fn2_ret("safe_read_write64_slow_jit");
+        },
         BitSize::DQWORD => dbg_assert!(false),
     }
     ctx.builder.tee_local(&entry_local);
@@ -886,14 +893,23 @@ pub fn gen_safe_read_write(
         BitSize::DWORD => {
             ctx.builder.load_unaligned_i32(0);
         },
-        BitSize::QWORD => assert!(false),  // not used
+        BitSize::QWORD => {
+            ctx.builder.load_unaligned_i64(0);
+        },
         BitSize::DQWORD => assert!(false), // not used
     }
 
     // value is now on stack
 
     f(ctx);
-    let value_local = ctx.builder.set_new_local(); // TODO: Could get rid of this local by returning one from f
+
+    // TODO: Could get rid of this local by returning one from f
+    let value_local = if bits == BitSize::QWORD {
+        GenSafeReadWriteValue::I64(ctx.builder.set_new_local_i64())
+    }
+    else {
+        GenSafeReadWriteValue::I32(ctx.builder.set_new_local())
+    };
 
     ctx.builder.get_local(&can_use_fast_path_local);
 
@@ -901,7 +917,11 @@ pub fn gen_safe_read_write(
     ctx.builder.if_void();
     {
         ctx.builder.get_local(&address_local);
-        ctx.builder.get_local(&value_local);
+
+        match &value_local {
+            GenSafeReadWriteValue::I32(l) => ctx.builder.get_local(l),
+            GenSafeReadWriteValue::I64(l) => ctx.builder.get_local_i64(l),
+        }
 
         ctx.builder
             .const_i32(ctx.start_of_current_instruction as i32);
@@ -916,7 +936,10 @@ pub fn gen_safe_read_write(
             BitSize::DWORD => {
                 ctx.builder.call_fn3_ret("safe_write32_slow_jit");
             },
-            BitSize::QWORD => dbg_assert!(false),
+            BitSize::QWORD => {
+                ctx.builder
+                    .call_fn3_i32_i64_i32_ret("safe_write64_slow_jit");
+            },
             BitSize::DQWORD => dbg_assert!(false),
         }
 
@@ -931,6 +954,7 @@ pub fn gen_safe_read_write(
                     BitSize::BYTE => 8,
                     BitSize::WORD => 16,
                     BitSize::DWORD => 32,
+                    BitSize::QWORD => 64,
                     _ => {
                         dbg_assert!(false);
                         0
@@ -948,7 +972,10 @@ pub fn gen_safe_read_write(
     ctx.builder.block_end();
 
     ctx.builder.get_local(&phys_addr_local);
-    ctx.builder.get_local(&value_local);
+    match &value_local {
+        GenSafeReadWriteValue::I32(l) => ctx.builder.get_local(l),
+        GenSafeReadWriteValue::I64(l) => ctx.builder.get_local_i64(l),
+    }
 
     match bits {
         BitSize::BYTE => {
@@ -960,11 +987,16 @@ pub fn gen_safe_read_write(
         BitSize::DWORD => {
             ctx.builder.store_unaligned_i32(0);
         },
-        BitSize::QWORD => dbg_assert!(false),
+        BitSize::QWORD => {
+            ctx.builder.store_unaligned_i64(0);
+        },
         BitSize::DQWORD => dbg_assert!(false),
     }
 
-    ctx.builder.free_local(value_local);
+    match value_local {
+        GenSafeReadWriteValue::I32(l) => ctx.builder.free_local(l),
+        GenSafeReadWriteValue::I64(l) => ctx.builder.free_local_i64(l),
+    }
     ctx.builder.free_local(can_use_fast_path_local);
     ctx.builder.free_local(phys_addr_local);
 }

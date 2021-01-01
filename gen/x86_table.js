@@ -576,7 +576,7 @@ const encodings = [
 
     { opcode: 0x0FB0, e: 1 }, // cmxchg
     { opcode: 0x0FB1, os: 1, e: 1, custom: 1 },
-    { opcode: 0x0FC7, e: 1, fixed_g: 1, os: 1, reg_ud: 1, }, // cmpxchg8b (memory)
+    { opcode: 0x0FC7, e: 1, fixed_g: 1, os: 1, reg_ud: 1, custom: 1 }, // cmpxchg8b (memory)
     { opcode: 0x0FC7, e: 1, fixed_g: 6, os: 1, mem_ud: 1, skip: 1, }, // rdrand
 
     { opcode: 0x0FB2, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lss

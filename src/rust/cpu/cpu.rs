@@ -2859,6 +2859,10 @@ pub unsafe fn safe_read_write16_slow_jit(addr: i32, eip: i32) -> i32 {
 pub unsafe fn safe_read_write32s_slow_jit(addr: i32, eip: i32) -> i32 {
     safe_read_slow_jit(addr, 32, eip, true)
 }
+#[no_mangle]
+pub unsafe fn safe_read_write64_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 64, eip, true)
+}
 
 pub unsafe fn safe_write_slow_jit(
     addr: i32,

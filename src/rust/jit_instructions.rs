@@ -4,7 +4,7 @@ use codegen;
 use codegen::BitSize;
 use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
-    FLAG_OVERFLOW, FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAG_OVERFLOW, FLAG_SUB, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use cpu::global_pointers;
 use jit::JitContext;
@@ -4225,6 +4225,56 @@ pub fn instr_0FC3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     ctx.builder.free_local(address_local);
 }
 pub fn instr_0FC3_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) { codegen::gen_trigger_ud(ctx) }
+
+pub fn instr16_0FC7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    // cmpxchg8b
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read_write(ctx, BitSize::QWORD, &address_local, &|ref mut ctx| {
+        let dest_operand = ctx.builder.tee_new_local_i64();
+        codegen::gen_get_reg32(ctx, regs::EDX);
+        ctx.builder.extend_unsigned_i32_to_i64();
+        ctx.builder.const_i64(32);
+        ctx.builder.shl_i64();
+        codegen::gen_get_reg32(ctx, regs::EAX);
+        ctx.builder.extend_unsigned_i32_to_i64();
+        ctx.builder.or_i64();
+        ctx.builder.eq_i64();
+        ctx.builder.if_i64();
+        {
+            codegen::gen_set_flags_bits(ctx.builder, FLAG_ZERO);
+            codegen::gen_get_reg32(ctx, regs::ECX);
+            ctx.builder.extend_unsigned_i32_to_i64();
+            ctx.builder.const_i64(32);
+            ctx.builder.shl_i64();
+            codegen::gen_get_reg32(ctx, regs::EBX);
+            ctx.builder.extend_unsigned_i32_to_i64();
+            ctx.builder.or_i64();
+        }
+        ctx.builder.else_();
+        {
+            codegen::gen_clear_flags_bits(ctx.builder, FLAG_ZERO);
+            ctx.builder.get_local_i64(&dest_operand);
+            ctx.builder.wrap_i64_to_i32();
+            codegen::gen_set_reg32(ctx, regs::EAX);
+            ctx.builder.get_local_i64(&dest_operand);
+            ctx.builder.const_i64(32);
+            ctx.builder.shr_u_i64();
+            ctx.builder.wrap_i64_to_i32();
+            codegen::gen_set_reg32(ctx, regs::EDX);
+            ctx.builder.get_local_i64(&dest_operand);
+        }
+        ctx.builder.block_end();
+        codegen::gen_clear_flags_changed_bits(ctx.builder, FLAG_ZERO);
+        ctx.builder.free_local_i64(dest_operand);
+    });
+    ctx.builder.free_local(address_local);
+}
+pub fn instr16_0FC7_1_reg_jit(ctx: &mut JitContext, _r: u32) { codegen::gen_trigger_ud(ctx); }
+pub fn instr32_0FC7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    instr16_0FC7_1_mem_jit(ctx, modrm_byte);
+}
+pub fn instr32_0FC7_1_reg_jit(ctx: &mut JitContext, _r: u32) { codegen::gen_trigger_ud(ctx); }
 
 pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg8[r] = imm;

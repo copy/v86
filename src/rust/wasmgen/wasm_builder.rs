@@ -717,6 +717,7 @@ impl WasmBuilder {
     pub fn shr_s_i32(&mut self) { self.instruction_body.push(op::OP_I32SHRS); }
 
     pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
+    pub fn eq_i64(&mut self) { self.instruction_body.push(op::OP_I64EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
     pub fn ne_i64(&mut self) { self.instruction_body.push(op::OP_I64NE); }
     pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
