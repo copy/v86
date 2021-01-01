@@ -2359,6 +2359,8 @@ pub unsafe fn safe_write_slow_jit(
         *page_fault = false;
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
 
+        // do write, return dummy pointer for fast path to write into
+
         match bitsize {
             128 => safe_write128(
                 addr,
@@ -2368,13 +2370,15 @@ pub unsafe fn safe_write_slow_jit(
             )
             .unwrap(),
             64 => safe_write64(addr, value_low as i64).unwrap(),
-            32 => safe_write32(addr, value_low as i32).unwrap(),
-            16 => safe_write16(addr, value_low as i32).unwrap(),
-            8 => safe_write8(addr, value_low as i32).unwrap(),
+            32 => virt_boundary_write32(
+                addr_low,
+                addr_high | (addr as u32 + 3 & 3),
+                value_low as i32,
+            ),
+            16 => virt_boundary_write16(addr_low, addr_high, value_low as i32),
+            8 => dbg_assert!(false),
             _ => dbg_assert!(false),
         }
-
-        // do write, return dummy pointer for fast path to write into
 
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
         dbg_assert!(scratch & 0xFFF == 0);
@@ -2384,17 +2388,16 @@ pub unsafe fn safe_write_slow_jit(
         *page_fault = false;
 
         match bitsize {
-            128 => safe_write128(
-                addr,
+            128 => write128(
+                addr_low,
                 reg128 {
                     u64_0: [value_low, value_high],
                 },
-            )
-            .unwrap(),
-            64 => safe_write64(addr, value_low as i64).unwrap(),
-            32 => safe_write32(addr, value_low as i32).unwrap(),
-            16 => safe_write16(addr, value_low as i32).unwrap(),
-            8 => safe_write8(addr, value_low as i32).unwrap(),
+            ),
+            64 => write64(addr_low, value_low as i64),
+            32 => write32(addr_low, value_low as i32),
+            16 => write16(addr_low, value_low as i32),
+            8 => write8(addr_low, value_low as i32),
             _ => dbg_assert!(false),
         }
 
@@ -2403,20 +2406,7 @@ pub unsafe fn safe_write_slow_jit(
         (scratch as i32 - mem8 as i32) ^ addr
     }
     else {
-        match bitsize {
-            128 => safe_write128(
-                addr,
-                reg128 {
-                    u64_0: [value_low, value_high],
-                },
-            )
-            .unwrap(),
-            64 => safe_write64(addr, value_low as i64).unwrap(),
-            32 => safe_write32(addr, value_low as i32).unwrap(),
-            16 => safe_write16(addr, value_low as i32).unwrap(),
-            8 => safe_write8(addr, value_low as i32).unwrap(),
-            _ => dbg_assert!(false),
-        }
+        ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(addr_low));
         *page_fault = false;
         addr_low as i32 ^ addr
     }
