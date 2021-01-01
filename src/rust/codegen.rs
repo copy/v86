@@ -236,14 +236,14 @@ pub fn decr_exc_asize(ctx: &mut JitContext) {
 pub fn gen_read_reg_xmm128_into_scratch(ctx: &mut JitContext, r: u32) {
     ctx.builder
         .const_i32(global_pointers::SSE_SCRATCH_REGISTER as i32);
-    let dest = global_pointers::get_reg_xmm_low_offset(r);
+    let dest = global_pointers::get_reg_xmm_offset(r);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.load_aligned_i64(0);
     ctx.builder.store_aligned_i64(0);
 
     ctx.builder
         .const_i32(global_pointers::SSE_SCRATCH_REGISTER as i32 + 8);
-    let dest = global_pointers::get_reg_xmm_low_offset(r) + 8;
+    let dest = global_pointers::get_reg_xmm_offset(r) + 8;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.load_aligned_i64(0);
     ctx.builder.store_aligned_i64(0);

@@ -4357,11 +4357,11 @@ pub fn instr_0F29_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     ctx.builder
-        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32);
     ctx.builder.load_aligned_i64(0);
     let value_local_low = ctx.builder.set_new_local_i64();
     ctx.builder
-        .const_i32(global_pointers::get_reg_xmm_high_offset(r) as i32);
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32 + 8);
     ctx.builder.load_aligned_i64(0);
     let value_local_high = ctx.builder.set_new_local_i64();
     codegen::gen_safe_write128(ctx, &address_local, &value_local_low, &value_local_high);
@@ -4448,7 +4448,7 @@ pub fn instr_0F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 
 pub fn instr_660F6F_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     // XXX: Aligned read or #gp
-    let dest = global_pointers::get_reg_xmm_low_offset(r);
+    let dest = global_pointers::get_reg_xmm_offset(r);
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
 }
 pub fn instr_660F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -4457,7 +4457,7 @@ pub fn instr_660F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.call_fn2("instr_660F6F_reg")
 }
 pub fn instr_F30F6F_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    let dest = global_pointers::get_reg_xmm_low_offset(r);
+    let dest = global_pointers::get_reg_xmm_offset(r);
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
 }
 pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -4551,7 +4551,7 @@ pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     ctx.builder
-        .load_fixed_i32(global_pointers::get_reg_xmm_low_offset(r));
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r));
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
@@ -4559,7 +4559,7 @@ pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_660F7E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder
-        .load_fixed_i32(global_pointers::get_reg_xmm_low_offset(r2));
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r2));
     codegen::gen_set_reg32(ctx, r1);
 }
 
@@ -4581,12 +4581,12 @@ pub fn instr_0F7F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 
 pub fn instr_F30F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     ctx.builder
-        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32);
     codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
     ctx.builder.store_aligned_i64(0);
 
     ctx.builder
-        .const_i32(global_pointers::get_reg_xmm_high_offset(r) as i32);
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32 + 8);
     ctx.builder.const_i64(0);
     ctx.builder.store_aligned_i64(0);
 }
@@ -4757,7 +4757,7 @@ pub fn instr_660FD6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     let address_local = ctx.builder.set_new_local();
 
     ctx.builder
-        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32);
     ctx.builder.load_aligned_i64(0);
     let value_local = ctx.builder.set_new_local_i64();
 

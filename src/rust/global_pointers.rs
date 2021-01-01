@@ -35,13 +35,9 @@ pub fn get_reg_mmx_offset(r: u32) -> u32 {
     REG_MMX + 8 * r
 }
 
-pub fn get_reg_xmm_low_offset(r: u32) -> u32 {
+pub fn get_reg_xmm_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     REG_XMM + 16 * r
-}
-pub fn get_reg_xmm_high_offset(r: u32) -> u32 {
-    dbg_assert!(r < 8);
-    REG_XMM + 16 * r + 8
 }
 
 pub fn get_sreg_offset(s: u32) -> u32 {
