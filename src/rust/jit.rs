@@ -1135,10 +1135,8 @@ fn jit_generate_module(
 
     let mut register_locals = (0..8)
         .map(|i| {
-            builder.const_i32(global_pointers::get_reg32_offset(i) as i32);
-            builder.load_aligned_i32(0);
-            let local = builder.set_new_local();
-            local
+            builder.load_fixed_i32(global_pointers::get_reg32_offset(i));
+            builder.set_new_local()
         })
         .collect();
 
