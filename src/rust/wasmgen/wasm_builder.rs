@@ -525,7 +525,7 @@ impl WasmBuilder {
             Some(local) => local,
             None => {
                 let new_idx = self.local_count + WASM_MODULE_ARGUMENT_COUNT;
-                self.local_count += 1;
+                self.local_count = self.local_count.checked_add(1).unwrap();
                 WasmLocal(new_idx)
             },
         }
