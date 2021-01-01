@@ -132,7 +132,7 @@ pub unsafe fn write8(mut addr: u32, value: i32) {
     }
     else {
         ::c_api::jit_dirty_page(Page::page_of(addr));
-        *mem8.offset(addr as isize) = value as u8
+        write8_no_mmap_or_dirty_check(addr, value);
     };
 }
 
@@ -198,7 +198,7 @@ pub unsafe fn write_aligned32(mut addr: u32, value: i32) {
     }
     else {
         ::c_api::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(4 as u32));
-        *mem32s.offset(addr as isize) = value
+        write_aligned32_no_mmap_or_dirty_check(addr, value);
     };
 }
 #[no_mangle]
