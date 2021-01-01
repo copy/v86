@@ -1911,14 +1911,14 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 }
                 if(ss_info.size)
                 {
-                    if(this.writable_or_pagefault(ss_info.base + new_esp - stack_space | 0, stack_space)) // , cs_info.dpl
+                    if(!this.writable_or_pagefault(ss_info.base + new_esp - stack_space | 0, stack_space)) // , cs_info.dpl
                     {
                         return;
                     }
                 }
                 else
                 {
-                    if(this.writable_or_pagefault(ss_info.base + (new_esp - stack_space & 0xFFFF) | 0, stack_space)) // , cs_info.dpl
+                    if(!this.writable_or_pagefault(ss_info.base + (new_esp - stack_space & 0xFFFF) | 0, stack_space)) // , cs_info.dpl
                     {
                         return;
                     }
@@ -2163,7 +2163,7 @@ CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
         old_eflags &= ~flag_nt;
     }
 
-    if(this.writable_or_pagefault(tsr_offset, 0x66))
+    if(!this.writable_or_pagefault(tsr_offset, 0x66))
     {
         return;
     }
