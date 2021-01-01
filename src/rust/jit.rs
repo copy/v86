@@ -69,7 +69,7 @@ pub const JIT_USE_LOOP_SAFETY: bool = true;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
-pub const MAX_EXTRA_BASIC_BLOCKS: usize = 100;
+pub const MAX_EXTRA_BASIC_BLOCKS: usize = 250;
 
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
