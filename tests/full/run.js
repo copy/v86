@@ -235,8 +235,8 @@ if(cluster.isMaster)
             name: "Linux 4 with bzImage from filesystem",
             bzimage_initrd_from_filesystem: true,
             filesystem: {
-                basefs: "./images/integration-test-fs/fs.json",
-                baseurl: "./images/integration-test-fs/flat/",
+                basefs: root_path + "/build/integration-test-fs/fs.json",
+                baseurl: root_path + "/build/integration-test-fs/flat/",
             },
             cmdline: "auto",
             timeout: 200,

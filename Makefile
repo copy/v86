@@ -270,7 +270,7 @@ api-tests: all-debug
 	./tests/api/state.js
 	./tests/api/reset.js
 
-all-tests: jshint kvm-unit-test qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests expect-tests
+all-tests: jshint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 
