@@ -1102,9 +1102,34 @@ pub fn gen_imul_reg32(
     source_operand: &LocalOrImmedate,
 ) {
     builder.get_local(&dest_operand);
+    builder.extend_signed_i32_to_i64();
     source_operand.gen_get(builder);
-    codegen::gen_call_fn2_ret(builder, "imul_reg32");
-    builder.set_local(dest_operand);
+    builder.extend_signed_i32_to_i64();
+    builder.mul_i64();
+
+    let result = builder.tee_new_local_i64();
+    builder.wrap_i64_to_i32();
+    builder.set_local(&dest_operand);
+
+    codegen::gen_set_last_result(builder, &dest_operand);
+    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+
+    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.get_local_i64(&result);
+    builder.wrap_i64_to_i32();
+    builder.extend_signed_i32_to_i64();
+    builder.get_local_i64(&result);
+    builder.ne_i64();
+    builder.const_i32(1 | FLAG_OVERFLOW);
+    builder.mul_i32();
+    codegen::gen_get_flags(builder);
+    builder.const_i32(!1 & !FLAG_OVERFLOW);
+    builder.and_i32();
+    builder.or_i32();
+    builder.store_aligned_i32(0);
+
+    builder.free_local_i64(result);
 }
 
 pub fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {

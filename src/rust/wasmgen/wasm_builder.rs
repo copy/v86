@@ -689,6 +689,7 @@ impl WasmBuilder {
     pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }
     pub fn or_i64(&mut self) { self.instruction_body.push(op::OP_I64OR); }
     pub fn xor_i32(&mut self) { self.instruction_body.push(op::OP_I32XOR); }
+    pub fn mul_i32(&mut self) { self.instruction_body.push(op::OP_I32MUL); }
     pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
     pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
     pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
@@ -701,6 +702,7 @@ impl WasmBuilder {
 
     pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
+    pub fn ne_i64(&mut self) { self.instruction_body.push(op::OP_I64NE); }
     pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
     #[allow(dead_code)]
     pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
@@ -731,6 +733,7 @@ impl WasmBuilder {
     pub fn extend_unsigned_i32_to_i64(&mut self) {
         self.instruction_body.push(op::OP_I64EXTENDUI32);
     }
+    pub fn extend_signed_i32_to_i64(&mut self) { self.instruction_body.push(op::OP_I64EXTENDSI32); }
     pub fn wrap_i64_to_i32(&mut self) { self.instruction_body.push(op::OP_I32WRAPI64); }
 
     pub fn eqz_i32(&mut self) { self.instruction_body.push(op::OP_I32EQZ); }
