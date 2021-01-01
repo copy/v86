@@ -749,10 +749,10 @@ const encodings = [
     { sse: 1, opcode: 0x660F6D, e: 1 },
     { sse: 1, opcode: 0x0F6D, e: 1, block_boundary: 1, }, // ud
     { sse: 1, opcode: 0x660F6E, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x0F6E, e: 1 },
+    { sse: 1, opcode: 0x0F6E, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F6F, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F6F, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x0F6F, e: 1 },
+    { sse: 1, opcode: 0x0F6F, e: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0F70, e: 1, imm8: 1, },
     { sse: 1, opcode: 0x660F70, e: 1, imm8: 1, custom: 1 },
