@@ -290,14 +290,33 @@ if(cluster.isMaster)
         {
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
-            timeout: 5 * 60,
-            hda: root_path + "/../v86-images/os/freebsd.img",
-            expected_texts: ["FreeBSD/i386 (nyu) (ttyv0)"],
+            timeout: 10 * 60,
+            hda: root_path + "/images/internal/freebsd/freebsd.img",
+            expected_texts: [
+                "FreeBSD/i386 (nyu) (ttyv0)",
+                "root@nyu:~ #",
+            ],
             actions: [
                 {
-                    on_text: "   Autoboot in ",
+                    on_text: "   Autoboot in",
                     run: "\n",
-                }
+                },
+                {
+                    // workaround for freebsd not accepting key inputs just before the boot prompt
+                    // (probably needs delay between keydown and keyup)
+                    on_text: "FreeBSD/i386 (nyu) (ttyv0)",
+                    run: "\x08", // backspace to avoid messing with login prompt
+                },
+                {
+                    on_text: "login:",
+                    after: 1000,
+                    run: "root\n",
+                },
+                {
+                    on_text: "Password:",
+                    after: 1000,
+                    run: "\n",
+                },
             ],
         },
         {
