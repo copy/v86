@@ -240,33 +240,11 @@ macro_rules! define_instruction_read16(
         }
     );
 
-    ($fn:expr, $name_mem:ident, $name_reg:ident, imm8s) => (
+    ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
             codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm8s);
-            $fn(
-                ctx.builder,
-                &dest_operand,
-                &LocalOrImmedate::Immediate(imm as i32),
-            );
-            ctx.builder.free_local(dest_operand);
-        }
-
-        pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
-            $fn(
-                ctx.builder,
-                &ctx.register_locals[r as usize],
-                &LocalOrImmedate::Immediate(imm as i32),
-            );
-        }
-    );
-
-    ($fn:expr, $name_mem:ident, $name_reg:ident, imm16) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
-            codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-            let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm16);
+            let imm = make_imm_read!(ctx, $imm);
             $fn(
                 ctx.builder,
                 &dest_operand,
@@ -307,33 +285,11 @@ macro_rules! define_instruction_read32(
         }
     );
 
-    ($fn:expr, $name_mem:ident, $name_reg:ident, imm8s) => (
+    ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
             codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm8s);
-            $fn(
-                ctx.builder,
-                &dest_operand,
-                &LocalOrImmedate::Immediate(imm as i32),
-            );
-            ctx.builder.free_local(dest_operand);
-        }
-
-        pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
-            $fn(
-                ctx.builder,
-                &ctx.register_locals[r as usize],
-                &LocalOrImmedate::Immediate(imm as i32),
-            );
-        }
-    );
-
-    ($fn:expr, $name_mem:ident, $name_reg:ident, imm32) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
-            codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-            let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm32);
+            let imm = make_imm_read!(ctx, $imm);
             $fn(
                 ctx.builder,
                 &dest_operand,
