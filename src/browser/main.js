@@ -1439,7 +1439,7 @@
         emulator.add_listener("emulator-stopped", function()
         {
             update_info();
-            if(interval === null)
+            if(interval !== null)
             {
                 clearInterval(interval);
             }
