@@ -29,6 +29,18 @@ const config_sync_cdrom = {
     log_level: 0,
 };
 
+const config_filesystem = {
+    bios: { url: __dirname + "/../../bios/seabios.bin" },
+    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+    autostart: true,
+    memory_size: 32 * 1024 * 1024,
+    filesystem: {},
+    bzimage: __dirname + "/../../images/buildroot-bzimage",
+    cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+    network_relay_url: "<UNUSED>",
+    log_level: 0,
+};
+
 function run_test(name, config, done)
 {
     const emulator = new V86(config);
@@ -62,5 +74,10 @@ function run_test(name, config, done)
 
 run_test("async cdrom", config_async_cdrom, function()
     {
-        run_test("sync cdrom", config_sync_cdrom);
+        run_test("sync cdrom", config_sync_cdrom, function()
+        {
+            run_test("filesystem", config_filesystem, function()
+            {
+            });
+        });
     });
