@@ -248,8 +248,10 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     let seg = if prefix != 0 { prefix - 1 } else { default_segment };
 
     if can_optimize_get_seg(ctx, seg) || prefix == SEG_PREFIX_ZERO {
+        codegen::gen_profiler_stat_increment(ctx.builder, profiler::stat::SEG_OFFSET_OPTIMISED);
         return;
     }
+    codegen::gen_profiler_stat_increment(ctx.builder, profiler::stat::SEG_OFFSET_NOT_OPTIMISED);
 
     if cfg!(debug_assertions) && seg != CS && seg != SS {
         ctx.builder.const_i32(seg as i32);

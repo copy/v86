@@ -71,6 +71,8 @@ const print_stats = {
             "MODRM_SIMPLE_REG_WITH_OFFSET",
             "MODRM_SIMPLE_CONST_OFFSET",
             "MODRM_COMPLEX",
+            "SEG_OFFSET_OPTIMISED",
+            "SEG_OFFSET_NOT_OPTIMISED",
         ];
 
         for(let i = 0; i < stat_names.length; i++)
