@@ -63,9 +63,49 @@ pub const fpu_dp_selector: *mut i32 = 1060 as *mut i32;
 pub const reg_mmx: *mut u64 = 1064 as *mut u64;
 pub const tss_size_32: *mut bool = 1128 as *mut bool;
 pub const fxsave_store_fpu_mask: *mut u8 = 1132 as *mut u8;
+pub const sse_scratch_register: *mut reg128 = 1136 as *mut reg128;
+
 pub const opstats_buffer: *mut u32 = 0x08000 as *mut u32;
 pub const opstats_compiled_buffer: *mut u32 = 0x10000 as *mut u32;
 pub const opstats_jit_exit_buffer: *mut u32 = 0x18000 as *mut u32;
 pub const opstats_unguarded_register_buffer: *mut u32 = 0x20000 as *mut u32;
 pub const opstats_wasm_size: *mut u32 = 0x28000 as *mut u32;
 pub const tlb_data: *mut i32 = 0x400000 as *mut i32;
+
+pub const jit_page_first_entry: *mut u32 = 0x800000 as *mut u32; // 2**20 32-bit words = 4MB
+pub const jit_cache_array: u32 = 0xC00000; // jit_cache_array::SIZE * sizeof(jit_cache_array::Entry) = 0x40000 * 24 = 6MB
+
+pub fn get_reg32_offset(r: u32) -> u32 {
+    dbg_assert!(r < 8);
+    (unsafe { reg32.offset(r as isize) }) as u32
+}
+
+pub fn get_reg_mmx_offset(r: u32) -> u32 {
+    dbg_assert!(r < 8);
+    (unsafe { reg_mmx.offset(r as isize) }) as u32
+}
+
+pub fn get_reg_xmm_offset(r: u32) -> u32 {
+    dbg_assert!(r < 8);
+    (unsafe { reg_xmm.offset(r as isize) }) as u32
+}
+
+pub fn get_sreg_offset(s: u32) -> u32 {
+    dbg_assert!(s < 6);
+    (unsafe { sreg.offset(s as isize) }) as u32
+}
+
+pub fn get_seg_offset(s: u32) -> u32 {
+    dbg_assert!(s < 8);
+    (unsafe { segment_offsets.offset(s as isize) }) as u32
+}
+
+pub fn get_segment_is_null_offset(s: u32) -> u32 {
+    dbg_assert!(s < 8);
+    (unsafe { segment_is_null.offset(s as isize) }) as u32
+}
+
+pub fn get_creg_offset(i: u32) -> u32 {
+    dbg_assert!(i < 8);
+    (unsafe { cr.offset(i as isize) }) as u32
+}

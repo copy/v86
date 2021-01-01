@@ -22,7 +22,6 @@ mod codegen;
 mod config;
 mod cpu_context;
 mod gen;
-mod global_pointers;
 mod jit;
 mod jit_instructions;
 mod leb;

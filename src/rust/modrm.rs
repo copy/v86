@@ -1,6 +1,6 @@
 use codegen;
+use cpu::global_pointers;
 use cpu_context::CpuContext;
-use global_pointers;
 use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use profiler;
@@ -259,7 +259,7 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     }
 
     ctx.builder
-        .load_fixed_u8(global_pointers::SEGMENT_IS_NULL + seg);
+        .load_fixed_u8(global_pointers::get_segment_is_null_offset(seg));
     ctx.builder.if_void();
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.block_end();

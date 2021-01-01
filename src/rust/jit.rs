@@ -6,9 +6,9 @@ use std::ptr::NonNull;
 use analysis::AnalysisType;
 use codegen;
 use cpu::cpu;
+use cpu::global_pointers;
 use cpu::memory;
 use cpu_context::CpuContext;
-use global_pointers;
 use jit_instructions;
 use page::Page;
 use profiler;
@@ -91,6 +91,7 @@ pub fn rust_init() {
 }
 
 mod jit_cache_array {
+    use cpu::global_pointers;
     use page::Page;
     use state_flags::CachedStateFlags;
 
@@ -180,7 +181,7 @@ mod jit_cache_array {
     };
 
     #[allow(non_upper_case_globals)]
-    pub const jit_cache_array: *mut Entry = ::global_pointers::JIT_CACHE_ARRAY as *mut Entry;
+    pub const jit_cache_array: *mut Entry = global_pointers::jit_cache_array as *mut Entry;
 
     #[allow(unreachable_code)]
     #[cfg(debug_assertions)]
@@ -192,7 +193,7 @@ mod jit_cache_array {
 
     // XXX: Probably doesn't need to be statically allocated
     #[allow(non_upper_case_globals)]
-    pub const page_first_entry: *mut u32 = ::global_pointers::JIT_PAGE_FIRST_ENTRY as *mut u32;
+    pub const page_first_entry: *mut u32 = global_pointers::jit_page_first_entry;
 
     pub fn get_page_index(page: Page) -> Option<u32> {
         let index = unsafe { *page_first_entry.offset(page.to_u32() as isize) };

@@ -2,9 +2,9 @@ use cpu::cpu::{
     FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER,
     TLB_READONLY, TLB_VALID,
 };
+use cpu::global_pointers;
 use cpu::imports::mem8;
 use cpu::memory;
-use global_pointers;
 use jit::JitContext;
 use modrm;
 use modrm::ModrmByte;
@@ -19,12 +19,12 @@ pub fn gen_add_cs_offset(ctx: &mut JitContext) {
 }
 
 fn gen_get_eip(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::INSTRUCTION_POINTER);
+    builder.load_fixed_i32(global_pointers::instruction_pointer as u32);
 }
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     // previous_ip = instruction_pointer + n
-    builder.const_i32(global_pointers::PREVIOUS_IP as i32);
+    builder.const_i32(global_pointers::previous_ip as i32);
     gen_get_eip(builder);
     if n != 0 {
         builder.const_i32(n as i32);
@@ -35,7 +35,7 @@ pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
 
 pub fn gen_set_eip_to_after_current_instruction(ctx: &mut JitContext) {
     ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+        .const_i32(global_pointers::instruction_pointer as i32);
     gen_get_eip(ctx.builder);
     ctx.builder.const_i32(!0xFFF);
     ctx.builder.and_i32();
@@ -49,7 +49,7 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
     low_bits: i32,
 ) {
     // previous_ip = instruction_pointer & ~0xFFF | low_bits;
-    builder.const_i32(global_pointers::PREVIOUS_IP as i32);
+    builder.const_i32(global_pointers::previous_ip as i32);
     gen_get_eip(builder);
     builder.const_i32(!0xFFF);
     builder.and_i32();
@@ -59,7 +59,7 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
 }
 
 pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
-    builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    builder.const_i32(global_pointers::instruction_pointer as i32);
     gen_get_eip(builder);
     builder.const_i32(n as i32);
     builder.add_i32();
@@ -68,7 +68,7 @@ pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
 
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     // add n to instruction_pointer (without setting the offset as above)
-    builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    builder.const_i32(global_pointers::instruction_pointer as i32);
     gen_get_eip(builder);
     builder.const_i32(n);
     builder.add_i32();
@@ -77,12 +77,13 @@ pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
 
 pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+        .const_i32(global_pointers::instruction_pointer as i32);
     ctx.builder.get_local(&new_eip);
     ctx.builder.store_aligned_i32(0);
 
     ctx.builder.get_local(&new_eip);
-    ctx.builder.load_fixed_i32(global_pointers::PREVIOUS_IP);
+    ctx.builder
+        .load_fixed_i32(global_pointers::previous_ip as u32);
     ctx.builder.xor_i32();
     ctx.builder.const_i32(!0xFFF);
     ctx.builder.and_i32();
@@ -111,7 +112,7 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
-    builder.increment_fixed_i32(global_pointers::TIMESTAMP_COUNTER, n)
+    builder.increment_fixed_i32(global_pointers::timestamp_counter as u32, n)
 }
 
 pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
@@ -235,14 +236,14 @@ pub fn decr_exc_asize(ctx: &mut JitContext) {
 
 pub fn gen_read_reg_xmm128_into_scratch(ctx: &mut JitContext, r: u32) {
     ctx.builder
-        .const_i32(global_pointers::SSE_SCRATCH_REGISTER as i32);
+        .const_i32(global_pointers::sse_scratch_register as i32);
     let dest = global_pointers::get_reg_xmm_offset(r);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.load_aligned_i64(0);
     ctx.builder.store_aligned_i64(0);
 
     ctx.builder
-        .const_i32(global_pointers::SSE_SCRATCH_REGISTER as i32 + 8);
+        .const_i32(global_pointers::sse_scratch_register as i32 + 8);
     let dest = global_pointers::get_reg_xmm_offset(r) + 8;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.load_aligned_i64(0);
@@ -259,22 +260,24 @@ pub fn gen_get_ss_offset(ctx: &mut JitContext) {
         .load_fixed_i32(global_pointers::get_seg_offset(regs::SS));
 }
 
-pub fn gen_get_flags(builder: &mut WasmBuilder) { builder.load_fixed_i32(global_pointers::FLAGS); }
+pub fn gen_get_flags(builder: &mut WasmBuilder) {
+    builder.load_fixed_i32(global_pointers::flags as u32);
+}
 pub fn gen_get_flags_changed(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::FLAGS_CHANGED);
+    builder.load_fixed_i32(global_pointers::flags_changed as u32);
 }
 pub fn gen_get_last_result(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::LAST_RESULT);
+    builder.load_fixed_i32(global_pointers::last_result as u32);
 }
 pub fn gen_get_last_op_size(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::LAST_OP_SIZE);
+    builder.load_fixed_i32(global_pointers::last_op_size as u32);
 }
 pub fn gen_get_last_op1(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::LAST_OP1);
+    builder.load_fixed_i32(global_pointers::last_op1 as u32);
 }
 
 pub fn gen_get_page_fault(builder: &mut WasmBuilder) {
-    builder.load_fixed_u8(global_pointers::PAGE_FAULT);
+    builder.load_fixed_u8(global_pointers::page_fault as u32);
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack
@@ -499,7 +502,8 @@ fn gen_safe_read(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
+    ctx.builder
+        .load_aligned_i32(global_pointers::tlb_data as u32);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder.const_i32(
@@ -641,7 +645,8 @@ fn gen_safe_write(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
+    ctx.builder
+        .load_aligned_i32(global_pointers::tlb_data as u32);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder
@@ -791,7 +796,8 @@ pub fn gen_safe_read_write(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
+    ctx.builder
+        .load_aligned_i32(global_pointers::tlb_data as u32);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder
@@ -977,7 +983,7 @@ pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
     // generate:
     // *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
     {
-        builder.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+        builder.const_i32(global_pointers::instruction_pointer as i32);
 
         gen_get_eip(builder);
         builder.get_local(&local);
@@ -1321,31 +1327,31 @@ pub fn gen_get_real_eip(ctx: &mut JitContext) {
 }
 
 pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {
-    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(global_pointers::last_op1 as i32);
     builder.get_local(&source);
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_set_last_result(builder: &mut WasmBuilder, source: &WasmLocal) {
-    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.const_i32(global_pointers::last_result as i32);
     builder.get_local(&source);
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_set_last_op_size(builder: &mut WasmBuilder, value: i32) {
-    builder.const_i32(global_pointers::LAST_OP_SIZE as i32);
+    builder.const_i32(global_pointers::last_op_size as i32);
     builder.const_i32(value);
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_set_flags_changed(builder: &mut WasmBuilder, value: i32) {
-    builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
+    builder.const_i32(global_pointers::flags_changed as i32);
     builder.const_i32(value);
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     gen_get_flags(builder);
     builder.const_i32(bits_to_set);
     builder.or_i32();
@@ -1353,7 +1359,7 @@ pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
 }
 
 pub fn gen_clear_flags_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     gen_get_flags(builder);
     builder.const_i32(!bits_to_clear);
     builder.and_i32();

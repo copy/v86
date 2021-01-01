@@ -6,7 +6,7 @@ use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
     FLAG_OVERFLOW, FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
-use global_pointers;
+use cpu::global_pointers;
 use jit::JitContext;
 use modrm::{jit_add_seg_offset, ModrmByte};
 use prefix::SEG_PREFIX_ZERO;
@@ -103,7 +103,7 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 
 pub fn sse_read128_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: ModrmByte, r: u32) {
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register as u32;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
@@ -113,7 +113,7 @@ pub fn sse_read128_xmm_xmm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
     // Make a copy to avoid aliasing problems: Called function expects a reg128, which must not
     // alias with memory
     codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.call_fn2(name);
@@ -884,7 +884,7 @@ pub fn gen_cmp(
     source_operand: &LocalOrImmedate,
     size: i32,
 ) {
-    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.const_i32(global_pointers::last_result as i32);
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
     builder.sub_i32();
@@ -894,7 +894,7 @@ pub fn gen_cmp(
     }
     builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(global_pointers::last_op1 as i32);
     builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
         builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
@@ -961,7 +961,7 @@ pub fn gen_test(
     source_operand: &LocalOrImmedate,
     size: i32,
 ) {
-    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.const_i32(global_pointers::last_result as i32);
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
     builder.and_i32();
@@ -1118,7 +1118,7 @@ pub fn gen_imul3_reg32(
     codegen::gen_set_last_op_size(builder, OPSIZE_32);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
 
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     builder.get_local_i64(&result);
     builder.wrap_i64_to_i32();
     builder.extend_signed_i32_to_i64();
@@ -1189,7 +1189,7 @@ pub fn gen_bt(
     bit_offset: &LocalOrImmedate,
     offset_mask: u32,
 ) {
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
@@ -1208,7 +1208,7 @@ pub fn gen_bt(
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
+    builder.const_i32(global_pointers::flags_changed as i32);
     codegen::gen_get_flags_changed(builder);
     builder.const_i32(!1);
     builder.and_i32();
@@ -1441,7 +1441,7 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
 }
 
 fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
@@ -1449,7 +1449,7 @@ fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(global_pointers::last_op1 as i32);
     builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
         builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
@@ -1467,7 +1467,7 @@ fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
         builder.set_local(dest_operand);
     }
 
-    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.const_i32(global_pointers::last_result as i32);
     builder.get_local(&dest_operand);
     if size == OPSIZE_16 {
         builder.const_i32(0xFFFF);
@@ -1485,7 +1485,7 @@ fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
 }
 
 fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
-    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
@@ -1493,7 +1493,7 @@ fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(global_pointers::last_op1 as i32);
     builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
         builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
@@ -1511,7 +1511,7 @@ fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
         builder.set_local(dest_operand);
     }
 
-    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.const_i32(global_pointers::last_result as i32);
     builder.get_local(&dest_operand);
     if size == OPSIZE_16 {
         builder.const_i32(0xFFFF);
@@ -1560,7 +1560,7 @@ fn gen_neg16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     codegen::gen_set_reg16_local(builder, dest_operand);
 }
 fn gen_neg32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(global_pointers::last_op1 as i32);
     builder.const_i32(0);
     builder.store_aligned_i32(0);
 
@@ -2729,7 +2729,7 @@ pub fn instr32_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
 pub fn instr16_D9_5_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     ctx.builder
-        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
+        .const_i32(global_pointers::fpu_control_word as i32);
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
     ctx.builder.store_aligned_u16(0);
 }
@@ -2777,7 +2777,7 @@ pub fn instr16_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     ctx.builder
-        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
+        .const_i32(global_pointers::fpu_control_word as i32);
     ctx.builder.load_aligned_u16(0);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write16(ctx, &address_local, &value_local);
@@ -3358,7 +3358,7 @@ pub fn instr_FB_jit(ctx: &mut JitContext) {
 }
 
 pub fn instr_FC_jit(ctx: &mut JitContext) {
-    ctx.builder.const_i32(global_pointers::FLAGS as i32);
+    ctx.builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(!FLAG_DIRECTION);
     ctx.builder.and_i32();
@@ -3366,7 +3366,7 @@ pub fn instr_FC_jit(ctx: &mut JitContext) {
 }
 
 pub fn instr_FD_jit(ctx: &mut JitContext) {
-    ctx.builder.const_i32(global_pointers::FLAGS as i32);
+    ctx.builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(FLAG_DIRECTION);
     ctx.builder.or_i32();
@@ -3637,7 +3637,7 @@ pub fn instr16_9D_jit(ctx: &mut JitContext) { gen_popf(ctx, false) }
 pub fn instr32_9D_jit(ctx: &mut JitContext) { gen_popf(ctx, true) }
 
 pub fn instr_9E_jit(ctx: &mut JitContext) {
-    ctx.builder.const_i32(global_pointers::FLAGS as i32);
+    ctx.builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(ctx.builder);
     ctx.builder.const_i32(!0xFF);
     ctx.builder.and_i32();
@@ -3649,7 +3649,7 @@ pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.or_i32();
     ctx.builder.store_aligned_i32(0);
 
-    ctx.builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
+    ctx.builder.const_i32(global_pointers::flags_changed as i32);
     codegen::gen_get_flags_changed(ctx.builder);
     ctx.builder.const_i32(!0xFF);
     ctx.builder.and_i32();
@@ -3884,7 +3884,7 @@ pub fn instr32_F2AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS
 pub fn instr32_F3AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0xF3) }
 
 pub fn instr_0F31_jit(ctx: &mut JitContext) {
-    ctx.builder.load_fixed_u8(global_pointers::CPL);
+    ctx.builder.load_fixed_u8(global_pointers::cpl as u32);
     ctx.builder.eqz_i32();
 
     dbg_assert!(regs::CR4_TSD < 0x100);
@@ -4467,7 +4467,7 @@ pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 
 pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register as u32;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
@@ -4476,14 +4476,14 @@ pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
 }
 pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
     ctx.builder.call_fn3("instr_660F70");
 }
 pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register as u32;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
@@ -4492,14 +4492,14 @@ pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
 }
 pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
     ctx.builder.call_fn3("instr_F20F70");
 }
 pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register as u32;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
@@ -4508,7 +4508,7 @@ pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
 }
 pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    let dest = global_pointers::sse_scratch_register;
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.const_i32(imm8 as i32);
