@@ -1758,16 +1758,9 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
     }
 }
 
-const RECORD_LOCAL_MEMORY_MOVES_AT_COMPILE_TIME: bool = false;
-
 pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
     let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-    if RECORD_LOCAL_MEMORY_MOVES_AT_COMPILE_TIME {
-        ::opstats::record_opstat_unguarded_register(instruction);
-    }
-    else {
-        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
-    }
+    ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
 
     for i in 0..8 {
         ctx.builder
@@ -1778,12 +1771,7 @@ pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
 }
 pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
     let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-    if RECORD_LOCAL_MEMORY_MOVES_AT_COMPILE_TIME {
-        ::opstats::record_opstat_unguarded_register(instruction);
-    }
-    else {
-        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
-    }
+    ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
 
     for i in 0..8 {
         ctx.builder

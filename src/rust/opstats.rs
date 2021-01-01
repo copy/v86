@@ -185,28 +185,6 @@ pub fn record_opstat_jit_exit(opcode: u32) {
     unsafe { *cpu::global_pointers::opstats_jit_exit_buffer.offset(index as isize) += 1 }
 }
 
-pub fn record_opstat_unguarded_register(opcode: u32) {
-    if !cfg!(feature = "profiler") {
-        return;
-    }
-
-    let instruction = decode(opcode);
-
-    for prefix in instruction.prefixes {
-        let index = (prefix as u32) << 4;
-        unsafe {
-            *cpu::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1
-        }
-    }
-
-    let index = (instruction.is_0f as u32) << 12
-        | (instruction.opcode as u32) << 4
-        | (instruction.is_mem as u32) << 3
-        | instruction.fixed_g as u32;
-
-    unsafe { *cpu::global_pointers::opstats_unguarded_register_buffer.offset(index as isize) += 1 }
-}
-
 pub fn gen_opstat_unguarded_register(builder: &mut WasmBuilder, opcode: u32) {
     if !cfg!(feature = "profiler") {
         return;
