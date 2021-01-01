@@ -1572,7 +1572,7 @@ CPU.prototype.jit_clear_cache = function()
 {
     this.jit_empty_cache();
 
-    const table = this.wm.exports[WASM_EXPORT_TABLE_NAME] || this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
+    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
 
     for(let i = 0; i < WASM_TABLE_SIZE; i++)
     {
