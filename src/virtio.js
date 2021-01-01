@@ -807,14 +807,26 @@ VirtIO.prototype.init_capabilities = function(capabilities)
             }
             else
             {
+                // DSL (2.4 kernel) does these reads
+                const shim_read8_on_16 = function(addr)
+                {
+                    dbg_log("Warning: 8-bit read from 16-bit virtio port", LOG_VIRTIO);
+                    return read(addr & ~1) >> ((addr & 1) << 3) & 0xFF;
+                };
+                const shim_read8_on_32 = function(addr)
+                {
+                    dbg_log("Warning: 8-bit read from 32-bit virtio port", LOG_VIRTIO);
+                    return read(addr & ~3) >> ((addr & 3) << 3) & 0xFF;
+                };
+
                 switch(field.bytes)
                 {
                     case 4:
-                        this.cpu.io.register_read(port, this, undefined, undefined, read);
+                        this.cpu.io.register_read(port, this, shim_read8_on_32, undefined, read);
                         this.cpu.io.register_write(port, this, undefined, undefined, write);
                         break;
                     case 2:
-                        this.cpu.io.register_read(port, this, undefined, read);
+                        this.cpu.io.register_read(port, this, shim_read8_on_16, read);
                         this.cpu.io.register_write(port, this, undefined, write);
                         break;
                     case 1:
