@@ -371,7 +371,7 @@ function KeyboardAdapter(bus)
 
         if(!code)
         {
-            console.log("Missing char in map: " + e.keyCode.toString(16));
+            console.log("Missing char in map: keyCode=" + (e.keyCode || -1).toString(16) + " code=" + e.code);
             return;
         }
 
