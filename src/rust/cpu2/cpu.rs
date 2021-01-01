@@ -254,6 +254,7 @@ pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
 pub static mut apic_enabled: bool = false;
+pub static mut in_jit: bool = false;
 
 pub enum LastJump {
     Interrupt {
@@ -1506,10 +1507,12 @@ pub unsafe fn read_imm32s() -> OrPageFault<i32> {
 }
 
 pub unsafe fn is_osize_32() -> bool {
+    dbg_assert!(!in_jit);
     return *is_32 != (*prefixes as i32 & PREFIX_MASK_OPSIZE == PREFIX_MASK_OPSIZE);
 }
 
 pub unsafe fn is_asize_32() -> bool {
+    dbg_assert!(!in_jit);
     return *is_32 != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE);
 }
 
@@ -1781,6 +1784,7 @@ pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize);
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 
 pub unsafe fn get_seg_prefix(default_segment: i32) -> i32 {
+    dbg_assert!(!in_jit);
     let prefix = *prefixes as i32 & PREFIX_MASK_SEGMENT;
     if 0 != prefix {
         if prefix == SEG_PREFIX_ZERO {
@@ -1821,10 +1825,18 @@ pub unsafe fn cycle_internal() {
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = (entry & 0xFFFF) as u16;
             let initial_state = (entry >> 16) as u16;
+            #[cfg(debug_assertions)]
+            {
+                in_jit = true;
+            }
             call_indirect1(
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
             );
+            #[cfg(debug_assertions)]
+            {
+                in_jit = false;
+            }
             profiler::stat_increment_by(
                 RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,

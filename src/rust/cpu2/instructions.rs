@@ -2423,6 +2423,7 @@ pub unsafe fn instr_D6() {
 #[no_mangle]
 pub unsafe fn instr_D7() {
     // xlat
+    dbg_assert!(!in_jit, "TODO");
     if is_asize_32() {
         *reg8.offset(AL as isize) = return_on_pagefault!(safe_read8(
             get_seg_prefix(DS) + *reg32.offset(EBX as isize) + *reg8.offset(AL as isize) as i32,
