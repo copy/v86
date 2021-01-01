@@ -578,8 +578,7 @@ impl WasmBuilder {
         // doesn't cause a failure in the generated code, but it will be much slower
         dbg_assert!((addr & 1) == 0);
 
-        self.instruction_body.push(op::OP_I32CONST);
-        write_leb_u32(&mut self.instruction_body, addr);
+        self.const_i32(addr as i32);
         self.instruction_body.push(op::OP_I32LOAD16U);
         self.instruction_body.push(op::MEM_ALIGN16);
         self.instruction_body.push(0); // immediate offset
