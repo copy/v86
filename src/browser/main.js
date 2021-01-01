@@ -928,8 +928,8 @@
             running_time += delta_time;
             last_tick = now;
 
-            $("speed").textContent = last_ips / delta_time | 0;
-            $("avg_speed").textContent = total_instructions / running_time | 0;
+            $("speed").textContent = (last_ips / 1000 / delta_time).toFixed(1);
+            $("avg_speed").textContent = (total_instructions / 1000 / running_time).toFixed(1);
             $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
         }
 
