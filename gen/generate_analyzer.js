@@ -227,18 +227,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         instruction_postfix.push("analysis.no_next_instruction = true;");
     }
 
-    if(!encoding.prefix)
-    {
-        if(encoding.custom && !encoding.unguarded_register || encoding.no_register)
-        {
-            instruction_postfix.push("analysis.unguarded_register = false;");
-        }
-        else
-        {
-            instruction_postfix.push("analysis.unguarded_register = true;");
-        }
-    }
-
     if(encoding.prefix)
     {
         const instruction_name = "::analysis::" + make_instruction_name(encoding, size) + "_analyze";
