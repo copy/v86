@@ -17,16 +17,16 @@ use regs::{CS, DS, ES, FS, GS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
 
-pub enum LocalOrImmedate<'a> {
+enum LocalOrImmediate<'a> {
     WasmLocal(&'a WasmLocal),
     Immediate(i32),
 }
 
-impl<'a> LocalOrImmedate<'a> {
+impl<'a> LocalOrImmediate<'a> {
     pub fn gen_get(&self, builder: &mut WasmBuilder) {
         match self {
-            LocalOrImmedate::WasmLocal(l) => builder.get_local(l),
-            LocalOrImmedate::Immediate(i) => builder.const_i32(*i),
+            LocalOrImmediate::WasmLocal(l) => builder.get_local(l),
+            LocalOrImmediate::Immediate(i) => builder.const_i32(*i),
         }
     }
 }
@@ -220,13 +220,13 @@ fn group_arith_ax_imm16(ctx: &mut JitContext, op: &str, imm16: u32) {
 
 fn group_arith_eax_imm32(
     ctx: &mut JitContext,
-    op: &dyn Fn(&mut WasmBuilder, &WasmLocal, &LocalOrImmedate),
+    op: &dyn Fn(&mut WasmBuilder, &WasmLocal, &LocalOrImmediate),
     imm32: u32,
 ) {
     op(
         ctx.builder,
         &ctx.register_locals[regs::EAX as usize],
-        &LocalOrImmedate::Immediate(imm32 as i32),
+        &LocalOrImmediate::Immediate(imm32 as i32),
     );
 }
 
@@ -236,7 +236,7 @@ macro_rules! define_instruction_read8(
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmedate::WasmLocal(&source_operand));
+            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
             ctx.builder.free_local(dest_operand);
             codegen::gen_free_reg8_or_alias(ctx, r, source_operand);
         }
@@ -244,7 +244,7 @@ macro_rules! define_instruction_read8(
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
             let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r2);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmedate::WasmLocal(&source_operand));
+            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
             codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
             codegen::gen_free_reg8_or_alias(ctx, r2, source_operand);
         }
@@ -255,13 +255,13 @@ macro_rules! define_instruction_read8(
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             let imm = mask_imm!(imm, $imm);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmedate::Immediate(imm as i32));
+            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
             ctx.builder.free_local(dest_operand);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
             let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmedate::Immediate(imm as i32));
+            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
             codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
         }
     );
@@ -275,7 +275,7 @@ macro_rules! define_instruction_read16(
             $fn(
                 ctx.builder,
                 &dest_operand,
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
             );
             ctx.builder.free_local(dest_operand);
         }
@@ -284,7 +284,7 @@ macro_rules! define_instruction_read16(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r1 as usize],
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize])
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize])
             );
         }
     );
@@ -297,7 +297,7 @@ macro_rules! define_instruction_read16(
             $fn(
                 ctx.builder,
                 &dest_operand,
-                &LocalOrImmedate::Immediate(imm as i32),
+                &LocalOrImmediate::Immediate(imm as i32),
             );
             ctx.builder.free_local(dest_operand);
         }
@@ -306,7 +306,7 @@ macro_rules! define_instruction_read16(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r as usize],
-                &LocalOrImmedate::Immediate(imm as i32),
+                &LocalOrImmediate::Immediate(imm as i32),
             );
         }
     );
@@ -320,7 +320,7 @@ macro_rules! define_instruction_read32(
             $fn(
                 ctx.builder,
                 &dest_operand,
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
             );
             ctx.builder.free_local(dest_operand);
         }
@@ -329,7 +329,7 @@ macro_rules! define_instruction_read32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r1 as usize],
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize])
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize])
             );
         }
     );
@@ -342,7 +342,7 @@ macro_rules! define_instruction_read32(
             $fn(
                 ctx.builder,
                 &dest_operand,
-                &LocalOrImmedate::Immediate(imm as i32),
+                &LocalOrImmediate::Immediate(imm as i32),
             );
             ctx.builder.free_local(dest_operand);
         }
@@ -351,7 +351,7 @@ macro_rules! define_instruction_read32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r as usize],
-                &LocalOrImmedate::Immediate(imm as i32),
+                &LocalOrImmediate::Immediate(imm as i32),
             );
         }
     );
@@ -401,7 +401,7 @@ macro_rules! define_instruction_write_reg32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r as usize],
-                &LocalOrImmedate::WasmLocal(&source_operand),
+                &LocalOrImmediate::WasmLocal(&source_operand),
             );
             ctx.builder.free_local(source_operand);
         }
@@ -410,7 +410,7 @@ macro_rules! define_instruction_write_reg32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r2 as usize],
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r1 as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
             );
         }
     );
@@ -685,7 +685,7 @@ macro_rules! define_instruction_read_write_mem32(
                 $fn(
                     ctx.builder,
                     &dest_operand,
-                    &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+                    &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
                 );
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
@@ -697,7 +697,7 @@ macro_rules! define_instruction_read_write_mem32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r1 as usize],
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize]),
             );
         }
     );
@@ -708,7 +708,7 @@ macro_rules! define_instruction_read_write_mem32(
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
-                $fn(ctx.builder, &dest_operand, &LocalOrImmedate::Immediate(1));
+                $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(1));
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
             });
@@ -716,7 +716,7 @@ macro_rules! define_instruction_read_write_mem32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
-            $fn(ctx.builder, &ctx.register_locals[r1 as usize], &LocalOrImmedate::Immediate(1));
+            $fn(ctx.builder, &ctx.register_locals[r1 as usize], &LocalOrImmediate::Immediate(1));
         }
     );
 
@@ -729,7 +729,7 @@ macro_rules! define_instruction_read_write_mem32(
                 $fn(
                     ctx.builder,
                     &dest_operand,
-                    &LocalOrImmedate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
+                    &LocalOrImmediate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
                 );
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
@@ -741,7 +741,7 @@ macro_rules! define_instruction_read_write_mem32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r1 as usize],
-                &LocalOrImmedate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
             );
         }
     );
@@ -822,7 +822,7 @@ macro_rules! define_instruction_read_write_mem32(
                 $fn(
                     ctx.builder,
                     &dest_operand,
-                    &LocalOrImmedate::Immediate(imm),
+                    &LocalOrImmediate::Immediate(imm),
                 );
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
@@ -835,7 +835,7 @@ macro_rules! define_instruction_read_write_mem32(
             $fn(
                 ctx.builder,
                 &ctx.register_locals[r1 as usize],
-                &LocalOrImmedate::Immediate(imm as i32),
+                &LocalOrImmediate::Immediate(imm as i32),
             );
         }
     );
@@ -844,7 +844,7 @@ macro_rules! define_instruction_read_write_mem32(
 fn gen_add32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     codegen::gen_set_last_op1(builder, &dest_operand);
 
@@ -861,7 +861,7 @@ fn gen_add32(
 fn gen_sub32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     codegen::gen_set_last_op1(builder, &dest_operand);
 
@@ -878,7 +878,7 @@ fn gen_sub32(
 fn gen_cmp(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
     size: i32,
 ) {
     builder.const_i32(global_pointers::last_result as i32);
@@ -901,20 +901,20 @@ fn gen_cmp(
     codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
 }
-fn gen_cmp8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_cmp8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_cmp(builder, dest, source, OPSIZE_8)
 }
-fn gen_cmp16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_cmp16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_cmp(builder, dest, source, OPSIZE_16)
 }
-fn gen_cmp32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_cmp32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_cmp(builder, dest, source, OPSIZE_32)
 }
 
 fn gen_adc32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -925,7 +925,7 @@ fn gen_adc32(
 fn gen_sbb32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -936,7 +936,7 @@ fn gen_sbb32(
 fn gen_and32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -955,7 +955,7 @@ fn gen_and32(
 fn gen_test(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
     size: i32,
 ) {
     builder.const_i32(global_pointers::last_result as i32);
@@ -971,17 +971,21 @@ fn gen_test(
     );
     codegen::gen_clear_flags_bits(builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
-fn gen_test8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_test8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_test(builder, dest, source, OPSIZE_8)
 }
-fn gen_test16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_test16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_test(builder, dest, source, OPSIZE_16)
 }
-fn gen_test32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
+fn gen_test32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_test(builder, dest, source, OPSIZE_32)
 }
 
-fn gen_or32(builder: &mut WasmBuilder, dest_operand: &WasmLocal, source_operand: &LocalOrImmedate) {
+fn gen_or32(
+    builder: &mut WasmBuilder,
+    dest_operand: &WasmLocal,
+    source_operand: &LocalOrImmediate,
+) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
     builder.or_i32();
@@ -999,7 +1003,7 @@ fn gen_or32(builder: &mut WasmBuilder, dest_operand: &WasmLocal, source_operand:
 fn gen_xor32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -1018,16 +1022,16 @@ fn gen_xor32(
 fn gen_rol32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1039,16 +1043,16 @@ fn gen_rol32(
 fn gen_ror32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1061,16 +1065,16 @@ fn gen_ror32(
 fn gen_rcl32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1082,16 +1086,16 @@ fn gen_rcl32(
 fn gen_rcr32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1104,35 +1108,35 @@ fn gen_rcr32(
 fn gen_shl32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
-    }
+    };
     builder.call_fn2_ret("shl32");
     builder.set_local(dest_operand);
 }
 fn gen_shr32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1144,16 +1148,16 @@ fn gen_shr32(
 fn gen_sar32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(dest_operand);
     match source_operand {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(31);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(i) => {
+        LocalOrImmediate::Immediate(i) => {
             builder.const_i32(*i & 31);
         },
     }
@@ -1173,7 +1177,7 @@ fn gen_xadd32(ctx: &mut JitContext, dest_operand: &WasmLocal, r: u32) {
     gen_add32(
         ctx.builder,
         &dest_operand,
-        &LocalOrImmedate::WasmLocal(&tmp),
+        &LocalOrImmediate::WasmLocal(&tmp),
     );
 
     ctx.builder.free_local(tmp);
@@ -1184,7 +1188,7 @@ fn gen_cmpxchg32(ctx: &mut JitContext, r: u32) {
     gen_cmp32(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::WasmLocal(&source),
+        &LocalOrImmediate::WasmLocal(&source),
     );
 
     ctx.builder.get_local(&ctx.register_locals[0]);
@@ -1234,7 +1238,7 @@ fn gen_mul32(ctx: &mut JitContext) {
 fn gen_imul_reg32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     gen_imul3_reg32(builder, dest_operand, dest_operand, source_operand);
 }
@@ -1243,7 +1247,7 @@ fn gen_imul3_reg32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
     source_operand1: &WasmLocal,
-    source_operand2: &LocalOrImmedate,
+    source_operand2: &LocalOrImmediate,
 ) {
     builder.get_local(&source_operand1);
     builder.extend_signed_i32_to_i64();
@@ -1327,7 +1331,7 @@ fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {
 fn gen_bt(
     builder: &mut WasmBuilder,
     bit_base: &WasmLocal,
-    bit_offset: &LocalOrImmedate,
+    bit_offset: &LocalOrImmediate,
     offset_mask: u32,
 ) {
     builder.const_i32(global_pointers::flags as i32);
@@ -1336,12 +1340,12 @@ fn gen_bt(
     builder.and_i32();
     builder.get_local(bit_base);
     match bit_offset {
-        LocalOrImmedate::WasmLocal(l) => {
+        LocalOrImmediate::WasmLocal(l) => {
             builder.get_local(l);
             builder.const_i32(offset_mask as i32);
             builder.and_i32();
         },
-        LocalOrImmedate::Immediate(imm) => builder.const_i32(imm & offset_mask as i32),
+        LocalOrImmediate::Immediate(imm) => builder.const_i32(imm & offset_mask as i32),
     }
     builder.shr_u_i32();
     builder.const_i32(1);
@@ -1355,7 +1359,7 @@ fn gen_bt(
 fn gen_bsf32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -1366,7 +1370,7 @@ fn gen_bsf32(
 fn gen_bsr32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmedate,
+    source_operand: &LocalOrImmediate,
 ) {
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
@@ -1497,7 +1501,7 @@ pub fn instr_3A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     gen_cmp8(
         ctx.builder,
         &dest_operand,
-        &LocalOrImmedate::WasmLocal(&source_operand),
+        &LocalOrImmediate::WasmLocal(&source_operand),
     );
     codegen::gen_free_reg8_or_alias(ctx, r, dest_operand);
     ctx.builder.free_local(source_operand);
@@ -1509,7 +1513,7 @@ pub fn instr_3A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_cmp8(
         ctx.builder,
         &dest_operand,
-        &LocalOrImmedate::WasmLocal(&source_operand),
+        &LocalOrImmediate::WasmLocal(&source_operand),
     );
     codegen::gen_free_reg8_or_alias(ctx, r2, dest_operand);
     codegen::gen_free_reg8_or_alias(ctx, r1, source_operand);
@@ -1521,7 +1525,7 @@ pub fn instr16_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     gen_cmp16(
         ctx.builder,
         &ctx.register_locals[r as usize],
-        &LocalOrImmedate::WasmLocal(&source_operand),
+        &LocalOrImmediate::WasmLocal(&source_operand),
     );
     ctx.builder.free_local(source_operand);
 }
@@ -1530,7 +1534,7 @@ pub fn instr16_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_cmp16(
         ctx.builder,
         &ctx.register_locals[r2 as usize],
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r1 as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
     );
 }
 
@@ -1540,7 +1544,7 @@ pub fn instr32_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     gen_cmp32(
         ctx.builder,
         &ctx.register_locals[r as usize],
-        &LocalOrImmedate::WasmLocal(&source_operand),
+        &LocalOrImmediate::WasmLocal(&source_operand),
     );
     ctx.builder.free_local(source_operand);
 }
@@ -1549,7 +1553,7 @@ pub fn instr32_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_cmp32(
         ctx.builder,
         &ctx.register_locals[r2 as usize],
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r1 as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
     );
 }
 
@@ -1557,7 +1561,7 @@ pub fn instr_3C_jit(ctx: &mut JitContext, imm8: u32) {
     gen_cmp8(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
     );
 }
 
@@ -1565,7 +1569,7 @@ pub fn instr16_3D_jit(ctx: &mut JitContext, imm16: u32) {
     gen_cmp16(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm16 as i32),
+        &LocalOrImmediate::Immediate(imm16 as i32),
     );
 }
 
@@ -1573,7 +1577,7 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
     gen_cmp32(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm32 as i32),
+        &LocalOrImmediate::Immediate(imm32 as i32),
     );
 }
 
@@ -1856,7 +1860,7 @@ pub fn instr32_69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, i
         ctx.builder,
         &ctx.register_locals[r as usize],
         &value_local,
-        &LocalOrImmedate::Immediate(imm32 as i32),
+        &LocalOrImmediate::Immediate(imm32 as i32),
     );
     ctx.builder.free_local(value_local);
 }
@@ -1865,7 +1869,7 @@ pub fn instr32_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm32: u32) {
         ctx.builder,
         &ctx.register_locals[r2 as usize],
         &ctx.register_locals[r1 as usize],
-        &LocalOrImmedate::Immediate(imm32 as i32),
+        &LocalOrImmediate::Immediate(imm32 as i32),
     );
 }
 
@@ -1889,7 +1893,7 @@ pub fn instr32_6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, i
         ctx.builder,
         &ctx.register_locals[r as usize],
         &value_local,
-        &LocalOrImmedate::Immediate(imm8s as i32),
+        &LocalOrImmediate::Immediate(imm8s as i32),
     );
     ctx.builder.free_local(value_local);
 }
@@ -1898,7 +1902,7 @@ pub fn instr32_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
         ctx.builder,
         &ctx.register_locals[r2 as usize],
         &ctx.register_locals[r1 as usize],
-        &LocalOrImmedate::Immediate(imm8s as i32),
+        &LocalOrImmediate::Immediate(imm8s as i32),
     );
 }
 
@@ -3796,7 +3800,7 @@ pub fn instr_A8_jit(ctx: &mut JitContext, imm8: u32) {
     gen_test8(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
     );
 }
 
@@ -3804,7 +3808,7 @@ pub fn instr16_A9_jit(ctx: &mut JitContext, imm16: u32) {
     gen_test16(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm16 as i32),
+        &LocalOrImmediate::Immediate(imm16 as i32),
     );
 }
 
@@ -3812,7 +3816,7 @@ pub fn instr32_A9_jit(ctx: &mut JitContext, imm32: u32) {
     gen_test32(
         ctx.builder,
         &ctx.register_locals[0],
-        &LocalOrImmedate::Immediate(imm32 as i32),
+        &LocalOrImmediate::Immediate(imm32 as i32),
     );
 }
 
@@ -5072,7 +5076,7 @@ pub fn instr16_0FA3_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_bt(
         &mut ctx.builder,
         &ctx.register_locals[r1 as usize],
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize]),
         15,
     )
 }
@@ -5090,7 +5094,7 @@ pub fn instr16_0FA3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     gen_bt(
         &mut ctx.builder,
         &value,
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
         7,
     );
     ctx.builder.free_local(value);
@@ -5099,7 +5103,7 @@ pub fn instr32_0FA3_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_bt(
         &mut ctx.builder,
         &ctx.register_locals[r1 as usize],
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize]),
         31,
     )
 }
@@ -5116,7 +5120,7 @@ pub fn instr32_0FA3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     gen_bt(
         &mut ctx.builder,
         &value,
-        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
         7,
     );
     ctx.builder.free_local(value);
@@ -5126,7 +5130,7 @@ pub fn instr16_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
     gen_bt(
         &mut ctx.builder,
         &ctx.register_locals[r as usize],
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
         15,
     )
 }
@@ -5141,7 +5145,7 @@ pub fn instr16_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm8:
     gen_bt(
         &mut ctx.builder,
         &value,
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
         7,
     );
     ctx.builder.free_local(value);
@@ -5150,7 +5154,7 @@ pub fn instr32_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
     gen_bt(
         &mut ctx.builder,
         &ctx.register_locals[r as usize],
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
         31,
     )
 }
@@ -5165,7 +5169,7 @@ pub fn instr32_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm8:
     gen_bt(
         &mut ctx.builder,
         &value,
-        &LocalOrImmedate::Immediate(imm8 as i32),
+        &LocalOrImmediate::Immediate(imm8 as i32),
         7,
     );
     ctx.builder.free_local(value);
