@@ -3892,3 +3892,11 @@ pub fn instr32_0FA8_jit(ctx: &mut JitContext) {
     codegen::gen_push32(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
+
+pub fn instr_0FAE_5_mem_jit(ctx: &mut JitContext, _modrm_byte: u8) {
+    dbg_log!("Generating #ud for unimplemented instruction: instr_0FAE_5_mem_jit");
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_0FAE_5_reg_jit(_ctx: &mut JitContext, r: u32) {
+    dbg_assert!(r == 0, "Unexpected lfence encoding");
+}
