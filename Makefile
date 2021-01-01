@@ -113,6 +113,18 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 
 	ls -lh build/v86_all.js
 
+build/v86_all_debug.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) \
+		--js_output_file build/v86_all_debug.js\
+		--define=DEBUG=true\
+		$(CLOSURE_SOURCE_MAP)\
+		$(CLOSURE_FLAGS)\
+		--compilation_level ADVANCED\
+		--js $(CORE_FILES)\
+		--js $(LIB_FILES)\
+		--js $(BROWSER_FILES)\
+		--js src/browser/main.js
 
 build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
