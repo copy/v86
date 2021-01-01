@@ -17,7 +17,6 @@
   (type $t15 (func (param i32 i64 i64)))
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
-  (import "e" "inc32" (func $e.inc32 (type $t5)))
   (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 256))
@@ -272,9 +271,65 @@
               (i32.load
                 (i32.const 664))
               (i32.const 2)))
+          (i32.store
+            (i32.const 120)
+            (i32.or
+              (i32.and
+                (i32.load
+                  (i32.const 120))
+                (i32.const -2))
+              (if $I9 (result i32)
+                (i32.and
+                  (i32.load
+                    (i32.const 116))
+                  (i32.const 1))
+                (then
+                  (i32.and
+                    (i32.shr_u
+                      (i32.xor
+                        (i32.and
+                          (i32.xor
+                            (tee_local $l10
+                              (i32.load
+                                (i32.const 96)))
+                            (tee_local $l11
+                              (i32.load
+                                (i32.const 100))))
+                          (i32.xor
+                            (get_local $l11)
+                            (i32.load
+                              (i32.const 108))))
+                        (get_local $l10))
+                      (i32.load
+                        (i32.const 104)))
+                    (i32.const 1)))
+                (else
+                  (i32.and
+                    (i32.load
+                      (i32.const 120))
+                    (i32.const 1))))))
+          (i32.store
+            (i32.const 96)
+            (get_local $l2))
+          (i32.store
+            (i32.const 100)
+            (i32.const 1))
           (set_local $l2
-            (call $e.inc32
-              (get_local $l2)))
+            (i32.add
+              (get_local $l2)
+              (i32.const 1)))
+          (i32.store
+            (i32.const 108)
+            (get_local $l2))
+          (i32.store
+            (i32.const 112)
+            (get_local $l2))
+          (i32.store
+            (i32.const 104)
+            (i32.const 31))
+          (i32.store
+            (i32.const 116)
+            (i32.const 2260))
           (i32.store
             (i32.const 560)
             (i32.add
@@ -290,40 +345,40 @@
           (i32.const 556)
           (i32.load
             (i32.const 740))
-          (set_local $l10
+          (set_local $l11
             (i32.add
               (get_local $l6)
               (i32.load
                 (i32.const 744))))
-          (if $I9 (result i32)
+          (if $I10 (result i32)
             (i32.and
               (i32.eq
                 (i32.and
-                  (tee_local $l11
+                  (tee_local $l10
                     (i32.load offset=4194304
                       (i32.shl
                         (i32.shr_u
-                          (get_local $l10)
+                          (get_local $l11)
                           (i32.const 12))
                         (i32.const 2))))
                   (i32.const 4041))
                 (i32.const 1))
               (i32.le_s
                 (i32.and
-                  (get_local $l10)
+                  (get_local $l11)
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
               (i32.load offset={normalised output} align=1
                 (i32.xor
                   (i32.and
-                    (get_local $l11)
+                    (get_local $l10)
                     (i32.const -4096))
-                  (get_local $l10))))
+                  (get_local $l11))))
             (else
               (call $e.safe_read32s_slow_jit
-                (get_local $l10))
-              (if $I10
+                (get_local $l11))
+              (if $I11
                 (i32.load8_u
                   (i32.const 540))
                 (then
