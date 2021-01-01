@@ -570,7 +570,11 @@ impl WasmBuilder {
         write_leb_i64(&mut self.instruction_body, v);
     }
 
-    pub fn load_aligned_u16(&mut self, addr: u32) {
+    pub fn load_fixed_u8(&mut self, addr: u32) {
+        self.const_i32(addr as i32);
+        self.load_u8_from_stack(0);
+    }
+    pub fn load_fixed_u16(&mut self, addr: u32) {
         // doesn't cause a failure in the generated code, but it will be much slower
         dbg_assert!((addr & 1) == 0);
 
@@ -580,8 +584,7 @@ impl WasmBuilder {
         self.instruction_body.push(op::MEM_ALIGN16);
         self.instruction_body.push(0); // immediate offset
     }
-
-    pub fn load_aligned_i32(&mut self, addr: u32) {
+    pub fn load_fixed_i32(&mut self, addr: u32) {
         // doesn't cause a failure in the generated code, but it will be much slower
         dbg_assert!((addr & 3) == 0);
 
@@ -593,11 +596,6 @@ impl WasmBuilder {
         self.instruction_body.push(op::OP_I32LOAD8U);
         self.instruction_body.push(op::MEM_NO_ALIGN);
         write_leb_u32(&mut self.instruction_body, byte_offset);
-    }
-
-    pub fn load_u8(&mut self, addr: u32) {
-        self.const_i32(addr as i32);
-        self.load_u8_from_stack(0);
     }
 
     pub fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32) {
@@ -678,9 +676,9 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn increment_mem32(&mut self, byte_offset: u32, n: i32) {
+    pub fn increment_fixed_i32(&mut self, byte_offset: u32, n: i32) {
         self.const_i32(byte_offset as i32);
-        self.load_aligned_i32(byte_offset);
+        self.load_fixed_i32(byte_offset);
         self.const_i32(n);
         self.add_i32();
         self.store_aligned_i32(0);

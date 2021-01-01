@@ -13,12 +13,12 @@ use wasmgen::wasm_builder::{FunctionType, WasmBuilder, WasmLocal, WasmLocalI64};
 
 pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(regs::CS));
+        .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
     ctx.builder.add_i32();
 }
 
 fn gen_get_eip(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    builder.load_fixed_i32(global_pointers::INSTRUCTION_POINTER);
 }
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
@@ -81,7 +81,7 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder.store_aligned_i32(0);
 
     ctx.builder.get_local(&new_eip);
-    ctx.builder.load_aligned_i32(global_pointers::PREVIOUS_IP);
+    ctx.builder.load_fixed_i32(global_pointers::PREVIOUS_IP);
     ctx.builder.xor_i32();
     ctx.builder.const_i32(!0xFFF);
     ctx.builder.and_i32();
@@ -110,7 +110,7 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
-    builder.increment_mem32(global_pointers::TIMESTAMP_COUNTER, n)
+    builder.increment_fixed_i32(global_pointers::TIMESTAMP_COUNTER, n)
 }
 
 pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
@@ -234,32 +234,30 @@ pub fn decr_exc_asize(ctx: &mut JitContext) {
 
 pub fn gen_get_sreg(ctx: &mut JitContext, r: u32) {
     ctx.builder
-        .load_aligned_u16(global_pointers::get_sreg_offset(r));
+        .load_fixed_u16(global_pointers::get_sreg_offset(r))
 }
 
 pub fn gen_get_ss_offset(ctx: &mut JitContext) {
     ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        .load_fixed_i32(global_pointers::get_seg_offset(regs::SS));
 }
 
-pub fn gen_get_flags(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS);
-}
+pub fn gen_get_flags(builder: &mut WasmBuilder) { builder.load_fixed_i32(global_pointers::FLAGS); }
 pub fn gen_get_flags_changed(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.load_fixed_i32(global_pointers::FLAGS_CHANGED);
 }
 pub fn gen_get_last_result(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::LAST_RESULT);
+    builder.load_fixed_i32(global_pointers::LAST_RESULT);
 }
 pub fn gen_get_last_op_size(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
+    builder.load_fixed_i32(global_pointers::LAST_OP_SIZE);
 }
 pub fn gen_get_last_op1(builder: &mut WasmBuilder) {
-    builder.load_aligned_i32(global_pointers::LAST_OP1);
+    builder.load_fixed_i32(global_pointers::LAST_OP1);
 }
 
 pub fn gen_get_page_fault(builder: &mut WasmBuilder) {
-    builder.load_u8(global_pointers::PAGE_FAULT);
+    builder.load_fixed_u8(global_pointers::PAGE_FAULT);
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack
@@ -1040,7 +1038,7 @@ pub fn bug_gen_safe_read_write_page_fault(bits: i32, addr: u32) {
 
 pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
     let cs_offset_addr = global_pointers::get_seg_offset(regs::CS);
-    builder.load_aligned_i32(cs_offset_addr);
+    builder.load_fixed_i32(cs_offset_addr);
     let local = builder.set_new_local();
 
     // generate:
@@ -1242,7 +1240,7 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     let cr0_offset = global_pointers::get_creg_offset(0);
 
     dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
-    ctx.builder.load_u8(cr0_offset);
+    ctx.builder.load_fixed_u8(cr0_offset);
     ctx.builder.const_i32((regs::CR0_EM | regs::CR0_TS) as i32);
     ctx.builder.and_i32();
 
@@ -1268,7 +1266,7 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     let cr0_offset = global_pointers::get_creg_offset(0);
 
     dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
-    ctx.builder.load_u8(cr0_offset);
+    ctx.builder.load_fixed_u8(cr0_offset);
     ctx.builder.const_i32((regs::CR0_EM | regs::CR0_TS) as i32);
     ctx.builder.and_i32();
 
@@ -1385,7 +1383,7 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
 pub fn gen_get_real_eip(ctx: &mut JitContext) {
     gen_get_eip(ctx.builder);
     ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(regs::CS));
+        .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
     ctx.builder.sub_i32();
 }
 
@@ -1773,7 +1771,7 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
         return;
     }
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
-    builder.increment_mem32(addr, 1)
+    builder.increment_fixed_i32(addr, 1)
 }
 
 pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {

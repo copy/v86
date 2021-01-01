@@ -347,6 +347,6 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     }
 
     ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(seg));
+        .load_fixed_i32(global_pointers::get_seg_offset(seg));
     ctx.builder.add_i32();
 }

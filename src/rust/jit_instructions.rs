@@ -4465,7 +4465,7 @@ pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     ctx.builder
-        .load_aligned_i32(global_pointers::get_reg_xmm_low_offset(r));
+        .load_fixed_i32(global_pointers::get_reg_xmm_low_offset(r));
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
@@ -4473,7 +4473,7 @@ pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
 }
 pub fn instr_660F7E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder
-        .load_aligned_i32(global_pointers::get_reg_xmm_low_offset(r2));
+        .load_fixed_i32(global_pointers::get_reg_xmm_low_offset(r2));
     codegen::gen_set_reg32(ctx, r1);
 }
 
