@@ -1205,15 +1205,22 @@ pub fn instr_3A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 
 pub fn instr16_3B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_get_reg16(ctx, r);
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-    codegen::gen_call_fn2(ctx.builder, "cmp16")
+    let source_operand = ctx.builder.set_new_local();
+    gen_cmp16(
+        ctx.builder,
+        &ctx.register_locals[r as usize],
+        &LocalOrImmedate::WasmLocal(&source_operand),
+    );
+    ctx.builder.free_local(source_operand);
 }
 
 pub fn instr16_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg16(ctx, r2);
-    codegen::gen_get_reg16(ctx, r1);
-    codegen::gen_call_fn2(ctx.builder, "cmp16")
+    gen_cmp16(
+        ctx.builder,
+        &ctx.register_locals[r2 as usize],
+        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r1 as usize]),
+    );
 }
 
 pub fn instr32_3B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
@@ -1242,9 +1249,11 @@ pub fn instr_3C_jit(ctx: &mut JitContext, imm8: u32) {
 }
 
 pub fn instr16_3D_jit(ctx: &mut JitContext, imm16: u32) {
-    codegen::gen_get_reg16(ctx, 0);
-    ctx.builder.const_i32(imm16 as i32);
-    codegen::gen_call_fn2(ctx.builder, "cmp16");
+    gen_cmp16(
+        ctx.builder,
+        &ctx.register_locals[0],
+        &LocalOrImmedate::Immediate(imm16 as i32),
+    );
 }
 
 pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
@@ -2923,15 +2932,22 @@ pub fn instr_F6_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
 
 pub fn instr16_F7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-    let imm = ctx.cpu.read_imm16();
-    ctx.builder.const_i32(imm as i32);
-    codegen::gen_call_fn2(ctx.builder, "test16")
+    let imm16 = ctx.cpu.read_imm16();
+    let dest_operand = ctx.builder.set_new_local();
+    gen_test16(
+        ctx.builder,
+        &dest_operand,
+        &LocalOrImmedate::Immediate(imm16 as i32),
+    );
+    ctx.builder.free_local(dest_operand);
 }
 
 pub fn instr16_F7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
-    codegen::gen_get_reg16(ctx, r);
-    ctx.builder.const_i32(imm as i32);
-    codegen::gen_call_fn2(ctx.builder, "test16")
+    gen_test16(
+        ctx.builder,
+        &ctx.register_locals[r as usize],
+        &LocalOrImmedate::Immediate(imm as i32),
+    );
 }
 
 pub fn instr16_F7_1_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
@@ -3348,9 +3364,11 @@ pub fn instr_A8_jit(ctx: &mut JitContext, imm8: u32) {
 }
 
 pub fn instr16_A9_jit(ctx: &mut JitContext, imm16: u32) {
-    codegen::gen_get_reg16(ctx, 0);
-    ctx.builder.const_i32(imm16 as i32);
-    codegen::gen_call_fn2(ctx.builder, "test16");
+    gen_test16(
+        ctx.builder,
+        &ctx.register_locals[0],
+        &LocalOrImmedate::Immediate(imm16 as i32),
+    );
 }
 
 pub fn instr32_A9_jit(ctx: &mut JitContext, imm32: u32) {
