@@ -2857,6 +2857,15 @@ pub unsafe fn safe_write_slow_jit(
     value_high: u64,
     start_eip: i32,
 ) -> i32 {
+    if Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
+        // XXX: Check based on virtual address
+        dbg_log!(
+            "SMC: bits={} eip={:x} writeaddr={:x}",
+            bitsize,
+            start_eip as u32,
+            addr as u32
+        );
+    }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
     let addr_low = match translate_address_write_jit(addr) {
         Err(()) => {
