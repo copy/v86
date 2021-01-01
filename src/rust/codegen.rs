@@ -115,7 +115,7 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder.if_void();
     ctx.builder.get_local(&new_basic_block_index);
     ctx.builder.set_local(ctx.basic_block_index_local);
-    ctx.builder.br(ctx.current_brtable_depth + 1); // to the loop
+    ctx.builder.br(ctx.main_loop_label);
     ctx.builder.block_end();
     ctx.builder.free_local(new_basic_block_index);
 }
@@ -508,7 +508,7 @@ fn gen_safe_read(
     //   if page_fault: goto exit-with-pagefault
     //   fast: mem[(entry & ~0xFFF) ^ addr]
 
-    ctx.builder.block_void();
+    let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
 
     ctx.builder.const_i32(12);
@@ -542,7 +542,7 @@ fn gen_safe_read(
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(0);
+    ctx.builder.br_if(cont);
 
     if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
@@ -584,8 +584,7 @@ fn gen_safe_read(
         ctx.builder.and_i32();
     }
 
-    // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
-    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
+    ctx.builder.br_if(ctx.exit_with_pagefault_label);
 
     ctx.builder.block_end();
 
@@ -642,7 +641,7 @@ pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
     //      already correct (pointing at the current instruction)
 
-    ctx.builder.block_void();
+    let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
 
     ctx.builder.const_i32(12);
@@ -666,7 +665,7 @@ pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
     ctx.builder.const_i32(TLB_VALID as i32);
     ctx.builder.eq_i32();
 
-    ctx.builder.br_if(0);
+    ctx.builder.br_if(cont);
 
     if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
@@ -690,8 +689,7 @@ pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
         ctx.builder.and_i32();
     }
 
-    // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
-    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
+    ctx.builder.br_if(ctx.exit_with_pagefault_label);
 
     ctx.builder.block_end();
 
@@ -721,7 +719,7 @@ fn gen_safe_write(
     //   if page_fault: goto exit-with-pagefault
     //   fast: mem[(entry & ~0xFFF) ^ addr] <- value
 
-    ctx.builder.block_void();
+    let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
 
     ctx.builder.const_i32(12);
@@ -750,7 +748,7 @@ fn gen_safe_write(
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(0);
+    ctx.builder.br_if(cont);
 
     if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
@@ -802,8 +800,7 @@ fn gen_safe_write(
         ctx.builder.and_i32();
     }
 
-    // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
-    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
+    ctx.builder.br_if(ctx.exit_with_pagefault_label);
 
     ctx.builder.block_end();
 
@@ -872,7 +869,7 @@ pub fn gen_safe_read_write(
     //   if !can_use_fast_path { safe_write_jit_slow(addr, value, instruction_pointer) }
     //   mem[(entry & ~0xFFF) ^ addr] <- value
 
-    ctx.builder.block_void();
+    let cont = ctx.builder.block_void();
     ctx.builder.get_local(address_local);
 
     ctx.builder.const_i32(12);
@@ -902,7 +899,7 @@ pub fn gen_safe_read_write(
 
     let can_use_fast_path_local = ctx.builder.tee_new_local();
 
-    ctx.builder.br_if(0);
+    ctx.builder.br_if(cont);
 
     if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
@@ -943,8 +940,7 @@ pub fn gen_safe_read_write(
         ctx.builder.and_i32();
     }
 
-    // -2 for the exit-with-pagefault block, +1 for leaving the two nested ifs from this function
-    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
+    ctx.builder.br_if(ctx.exit_with_pagefault_label);
 
     ctx.builder.block_end();
 

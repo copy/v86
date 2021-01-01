@@ -1180,13 +1180,13 @@ pub fn gen_imul3_reg32(
 }
 
 pub fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {
-    ctx.builder.block_void();
+    let done = ctx.builder.block_void();
     {
-        ctx.builder.block_void();
+        let exception = ctx.builder.block_void();
         {
             ctx.builder.get_local(source);
             ctx.builder.eqz_i32();
-            ctx.builder.br_if(0);
+            ctx.builder.br_if(exception);
 
             codegen::gen_get_reg32(ctx, regs::EDX);
             ctx.builder.extend_unsigned_i32_to_i64();
@@ -1203,7 +1203,7 @@ pub fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {
             let result = ctx.builder.tee_new_local_i64();
             ctx.builder.const_i64(0xFFFF_FFFF);
             ctx.builder.gtu_i64();
-            ctx.builder.br_if(0);
+            ctx.builder.br_if(exception);
 
             ctx.builder.get_local_i64(&dest_operand);
             ctx.builder.get_local(source);
@@ -1215,7 +1215,7 @@ pub fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {
             ctx.builder.get_local_i64(&result);
             ctx.builder.wrap_i64_to_i32();
             codegen::gen_set_reg32(ctx, regs::EAX);
-            ctx.builder.br(1);
+            ctx.builder.br(done);
 
             ctx.builder.free_local_i64(dest_operand);
             ctx.builder.free_local_i64(result);

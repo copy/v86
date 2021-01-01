@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use leb::{
     write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_i64, write_leb_u32,
 };
@@ -57,6 +59,11 @@ pub struct WasmBuilder {
 
     initial_static_size: usize, // size of module after initialization, rest is drained on reset
 
+    // label for referencing block/if/loop constructs directly via branch instructions
+    next_label: Label,
+    label_stack: Vec<Label>,
+    label_to_depth: HashMap<Label, usize>,
+
     free_locals_i32: Vec<WasmLocal>,
     free_locals_i64: Vec<WasmLocalI64>,
     local_count: u8,
@@ -76,6 +83,13 @@ impl WasmLocalI64 {
     pub fn idx(&self) -> u8 { self.0 }
 }
 
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+pub struct Label(u32);
+impl Label {
+    const ZERO: Label = Label(0);
+    fn next(&self) -> Label { Label(self.0.wrapping_add(1)) }
+}
+
 impl WasmBuilder {
     pub fn new() -> Self {
         let mut b = WasmBuilder {
@@ -90,6 +104,10 @@ impl WasmBuilder {
             import_count: 0,
 
             initial_static_size: 0,
+
+            label_to_depth: HashMap::new(),
+            label_stack: Vec::new(),
+            next_label: Label::ZERO,
 
             free_locals_i32: Vec::with_capacity(8),
             free_locals_i64: Vec::with_capacity(8),
@@ -124,9 +142,16 @@ impl WasmBuilder {
         self.free_locals_i32.clear();
         self.free_locals_i64.clear();
         self.local_count = 0;
+
+        dbg_assert!(self.label_to_depth.is_empty());
+        dbg_assert!(self.label_stack.is_empty());
+        self.next_label = Label::ZERO;
     }
 
     pub fn finish(&mut self) -> usize {
+        dbg_assert!(self.label_to_depth.is_empty());
+        dbg_assert!(self.label_stack.is_empty());
+
         self.write_memory_import();
         self.write_function_section();
         self.write_export_section();
@@ -478,8 +503,21 @@ impl WasmBuilder {
     }
 
     pub fn get_output_ptr(&self) -> *const u8 { self.output.as_ptr() }
-
     pub fn get_output_len(&self) -> u32 { self.output.len() as u32 }
+
+    fn open_block(&mut self) -> Label {
+        let label = self.next_label;
+        self.next_label = self.next_label.next();
+        self.label_to_depth
+            .insert(label, self.label_stack.len() + 1);
+        self.label_stack.push(label);
+        label
+    }
+    fn close_block(&mut self) {
+        let label = self.label_stack.pop().unwrap();
+        let old_depth = self.label_to_depth.remove(&label).unwrap();
+        dbg_assert!(self.label_to_depth.len() + 1 == old_depth);
+    }
 
     #[must_use = "local allocated but not used"]
     fn alloc_local(&mut self) -> WasmLocal {
@@ -750,38 +788,50 @@ impl WasmBuilder {
     pub fn eqz_i32(&mut self) { self.instruction_body.push(op::OP_I32EQZ); }
 
     pub fn if_i32(&mut self) {
+        self.open_block();
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_I32);
     }
     #[allow(dead_code)]
     pub fn if_i64(&mut self) {
+        self.open_block();
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_I64);
     }
     #[allow(dead_code)]
     pub fn block_i32(&mut self) {
+        self.open_block();
         self.instruction_body.push(op::OP_BLOCK);
         self.instruction_body.push(op::TYPE_I32);
     }
 
     pub fn if_void(&mut self) {
+        self.open_block();
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_VOID_BLOCK);
     }
 
-    pub fn else_(&mut self) { self.instruction_body.push(op::OP_ELSE); }
+    pub fn else_(&mut self) {
+        dbg_assert!(!self.label_stack.is_empty());
+        self.instruction_body.push(op::OP_ELSE);
+    }
 
-    pub fn loop_void(&mut self) {
+    pub fn loop_void(&mut self) -> Label {
         self.instruction_body.push(op::OP_LOOP);
         self.instruction_body.push(op::TYPE_VOID_BLOCK);
+        self.open_block()
     }
 
-    pub fn block_void(&mut self) {
+    pub fn block_void(&mut self) -> Label {
         self.instruction_body.push(op::OP_BLOCK);
         self.instruction_body.push(op::TYPE_VOID_BLOCK);
+        self.open_block()
     }
 
-    pub fn block_end(&mut self) { self.instruction_body.push(op::OP_END); }
+    pub fn block_end(&mut self) {
+        self.close_block();
+        self.instruction_body.push(op::OP_END);
+    }
 
     pub fn return_(&mut self) { self.instruction_body.push(op::OP_RETURN); }
 
@@ -799,14 +849,23 @@ impl WasmBuilder {
         }
     }
 
-    pub fn br(&mut self, depth: u32) {
+    pub fn br(&mut self, label: Label) {
+        let depth = *self.label_to_depth.get(&label).unwrap();
+        dbg_assert!(depth <= self.label_stack.len());
         self.instruction_body.push(op::OP_BR);
-        write_leb_u32(&mut self.instruction_body, depth);
+        write_leb_u32(
+            &mut self.instruction_body,
+            (self.label_stack.len() - depth) as u32,
+        );
     }
-
-    pub fn br_if(&mut self, depth: u32) {
+    pub fn br_if(&mut self, label: Label) {
+        let depth = *self.label_to_depth.get(&label).unwrap();
+        dbg_assert!(depth <= self.label_stack.len());
         self.instruction_body.push(op::OP_BRIF);
-        write_leb_u32(&mut self.instruction_body, depth);
+        write_leb_u32(
+            &mut self.instruction_body,
+            (self.label_stack.len() - depth) as u32,
+        );
     }
 
     fn call_fn(&mut self, name: &str, function: FunctionType) {

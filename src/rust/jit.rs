@@ -15,7 +15,7 @@ use profiler;
 use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
-use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
+use wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal};
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(transparent)]
@@ -198,7 +198,8 @@ pub struct JitContext<'a> {
     pub builder: &'a mut WasmBuilder,
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
-    pub current_brtable_depth: u32,
+    pub main_loop_label: Label,
+    pub exit_with_pagefault_label: Label,
     pub our_wasm_table_index: WasmTableIndex,
     pub basic_block_index_local: &'a WasmLocal,
     pub state_flags: CachedStateFlags,
@@ -873,19 +874,23 @@ fn jit_generate_module(
         })
         .collect();
 
+    // main state machine loop
+    let main_loop_label = builder.loop_void();
+
+    builder.block_void(); // for the default case
+    let exit_with_pagefault_label = builder.block_void(); // for the exit-with-pagefault case
+
     let ctx = &mut JitContext {
         cpu: &mut cpu,
         builder,
         register_locals: &mut register_locals,
         start_of_current_instruction: 0,
-        current_brtable_depth: 0,
+        main_loop_label,
+        exit_with_pagefault_label,
         our_wasm_table_index: wasm_table_index,
         basic_block_index_local: &gen_local_state,
         state_flags,
     };
-
-    // main state machine loop
-    ctx.builder.loop_void();
 
     if let Some(gen_local_iteration_counter) = gen_local_iteration_counter.as_ref() {
         profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
@@ -906,10 +911,6 @@ fn jit_generate_module(
         ctx.builder.block_end();
     }
 
-    ctx.builder.block_void(); // for the default case
-
-    ctx.builder.block_void(); // for the exit-with-pagefault case
-
     // generate the opening blocks for the cases
 
     for _ in 0..basic_blocks.len() {
@@ -923,8 +924,6 @@ fn jit_generate_module(
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
         ctx.builder.block_end();
-
-        ctx.current_brtable_depth = basic_blocks.len() as u32 + 1 - i as u32;
 
         dbg_assert!(block.addr < block.end_addr);
 
@@ -1001,7 +1000,7 @@ fn jit_generate_module(
                     ctx.builder.const_i32(next_basic_block_index as i32);
                     ctx.builder.set_local(&gen_local_state);
 
-                    ctx.builder.br(ctx.current_brtable_depth); // to the loop
+                    ctx.builder.br(main_loop_label);
                 }
             },
             &BasicBlockType::ConditionalJump {
@@ -1037,13 +1036,11 @@ fn jit_generate_module(
                     );
 
                     if Page::page_of(next_block_branch_taken_addr) != Page::page_of(block.addr) {
-                        ctx.current_brtable_depth += 1;
                         codegen::gen_page_switch_check(
                             ctx,
                             next_block_branch_taken_addr,
                             block.last_instruction_addr,
                         );
-                        ctx.current_brtable_depth -= 1;
 
                         #[cfg(debug_assertions)]
                         codegen::gen_fn2_const(
@@ -1058,7 +1055,7 @@ fn jit_generate_module(
                         .const_i32(next_basic_block_branch_taken_index as i32);
                     ctx.builder.set_local(&gen_local_state);
 
-                    ctx.builder.br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
+                    ctx.builder.br(main_loop_label);
                 }
                 else {
                     // Jump to different page
@@ -1085,7 +1082,7 @@ fn jit_generate_module(
                         ctx.builder.const_i32(next_basic_block_index as i32);
                         ctx.builder.set_local(&gen_local_state);
 
-                        ctx.builder.br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
+                        ctx.builder.br(main_loop_label);
 
                         ctx.builder.block_end();
                     }
@@ -1181,7 +1178,6 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         if end_addr == stop_addr {
             // no page was crossed
             dbg_assert!(Page::page_of(end_addr) == Page::page_of(start_addr));
-
             break;
         }
 
