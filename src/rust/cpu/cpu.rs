@@ -1895,7 +1895,6 @@ pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
     check_tlb_invariants();
 }
 
-#[no_mangle]
 pub fn check_tlb_invariants() {
     if !CHECK_TLB_INVARIANTS {
         return;
