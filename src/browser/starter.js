@@ -113,9 +113,6 @@ function V86Starter(options)
         "logop": function(eip, op) { return cpu.debug.logop(eip, op); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
-        "dbg_trace": function() {
-            dbg_trace();
-        },
 
         "pic_acknowledge": function() { cpu.pic_acknowledge(); },
 
@@ -163,6 +160,9 @@ function V86Starter(options)
         "console_log_from_wasm": function(offset, len) {
             const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             console.error(str);
+        },
+        "dbg_trace_from_wasm": function() {
+            dbg_trace();
         },
 
         "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => {

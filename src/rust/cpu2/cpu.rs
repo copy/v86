@@ -5,8 +5,6 @@ extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
     #[no_mangle]
     fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
-    #[no_mangle]
-    pub fn dbg_trace();
     //#[no_mangle]
     //fn logop(addr: i32, op: i32);
     #[no_mangle]
@@ -35,6 +33,7 @@ use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
 use state_flags::CachedStateFlags;
+pub use util::dbg_trace;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions

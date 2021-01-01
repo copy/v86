@@ -81,6 +81,10 @@ extern "C" {
     pub fn abort();
 }
 
+extern "C" {
+    pub fn dbg_trace_from_wasm();
+}
+
 #[cfg(target_arch = "wasm32")]
 use std::string::ToString;
 
@@ -99,5 +103,13 @@ pub fn console_log_to_js_console<T: ToString>(s: T) {
     let len = s.len();
     unsafe {
         console_log_from_wasm(s.as_bytes().as_ptr(), len);
+    }
+}
+
+pub fn dbg_trace() {
+    if DEBUG {
+        unsafe {
+            dbg_trace_from_wasm();
+        }
     }
 }
