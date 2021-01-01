@@ -6,6 +6,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+const assert = require("assert").strict;
 var fs = require("fs");
 
 const config_async_cdrom = {
@@ -40,7 +41,7 @@ function run_test(name, config, done)
                     if(error)
                     {
                         console.error(error);
-                        console.assert(false);
+                        assert(false);
                     }
 
                     setTimeout(function()

@@ -21,6 +21,7 @@ catch(e)
     process.exit(1);
 }
 
+const assert = require("assert").strict;
 var cluster = require("cluster");
 var os = require("os");
 var fs = require("fs");
@@ -517,7 +518,7 @@ function run_test(test, done)
     console.log("Starting test: %s", test.name);
 
     let image = test.fda || test.hda || test.cdrom || test.bzimage || test.filesystem.basefs;
-    console.assert(image, "Bootable drive expected");
+    assert(image, "Bootable drive expected");
 
     if(!fs.existsSync(image))
     {

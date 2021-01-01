@@ -4,6 +4,7 @@
 // TODO
 // - multiple random tests
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const encodings = require("../../gen/x86_table.js");
 const Prand = require("./prand.js");
@@ -88,7 +89,7 @@ function create_nasm_modrm_combinations_16()
         let has_imm8 = mod === 1;
         let has_imm16 = mod === 2 || rm === 6 && mod === 0;
 
-        console.assert(!has_imm8 || !has_imm16);
+        assert(!has_imm8 || !has_imm16);
 
         let line = ["db " + modrm];
         if(has_imm8) line.push("db 9ah");
@@ -117,7 +118,7 @@ function create_nasm_modrm_combinations_32()
         let has_imm32 = mod === 2 || rm === 5 && mod === 0;
         let has_sib = rm === 4;
 
-        console.assert(!has_imm8 || !has_imm32);
+        assert(!has_imm8 || !has_imm32);
 
         if(has_sib)
         {
@@ -278,7 +279,7 @@ function create_nasm(op, config)
     if(opcode === 0x8D)
     {
         // special case: lea: generate 16-bit addressing and all modrm combinations
-        console.assert(is_modrm);
+        assert(is_modrm);
 
         codes.push([].concat(
             create_nasm_modrm_combinations_16().map(lines => ["db 67h", "db 8dh"].concat(lines).join("\n")),
@@ -287,18 +288,18 @@ function create_nasm(op, config)
     }
     else
     {
-        console.assert(opcode < 0x1000000);
+        assert(opcode < 0x1000000);
         if(opcode >= 0x10000)
         {
             let c = opcode >> 16;
-            console.assert(c === 0x66 || c === 0xF3 || c === 0xF2);
+            assert(c === 0x66 || c === 0xF3 || c === 0xF2);
             codes.push("db " + c);
             opcode &= ~0xFF0000;
         }
         if(opcode >= 0x100)
         {
             let c = opcode >> 8;
-            console.assert(c === 0x0F || c === 0xF2 || c === 0xF3, "Expected 0F, F2, or F3 prefix, got " + c.toString(16));
+            assert(c === 0x0F || c === 0xF2 || c === 0xF3, "Expected 0F, F2, or F3 prefix, got " + c.toString(16));
             codes.push("db " + c);
             opcode &= ~0xFF00;
         }
@@ -353,7 +354,7 @@ function create_nasm(op, config)
             }
             else
             {
-                console.assert(op.imm1632 || op.imm16 || op.imm32);
+                assert(op.imm1632 || op.imm16 || op.imm32);
 
                 if(op.imm1632 && size === 16 || op.imm16)
                 {
@@ -361,7 +362,7 @@ function create_nasm(op, config)
                 }
                 else
                 {
-                    console.assert(op.imm1632 && size === 32 || op.imm32);
+                    assert(op.imm1632 && size === 32 || op.imm32);
                     codes.push("dd 1234abcdh");
                 }
             }

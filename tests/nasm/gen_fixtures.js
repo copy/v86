@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -47,7 +48,7 @@ function chunk(source, num_chunks)
     }
     return ret;
 }
-console.assert(
+assert(
     JSON.stringify(chunk("0 0 1 1 2 2 2 3 3 3".split(" "), 4)) ===
         JSON.stringify([["0", "0"],
                         ["1", "1"],

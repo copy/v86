@@ -3,6 +3,7 @@
 
 process.on("unhandledRejection", exn => { throw exn; });
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const path = require("path");
 
@@ -29,5 +30,5 @@ function foo(arg) {
 const i = new WebAssembly.Instance(wm, { "e": { m: mem, baz, foo } });
 i.exports.f();
 
-console.assert(baz_recd_arg === 2, `baz returned: "${baz_recd_arg}"`);
-console.assert(foo_recd_arg === 456, `foo returned: "${foo_recd_arg}"`);
+assert(baz_recd_arg === 2, `baz returned: "${baz_recd_arg}"`);
+assert(foo_recd_arg === 456, `foo returned: "${foo_recd_arg}"`);

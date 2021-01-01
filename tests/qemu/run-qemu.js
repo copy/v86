@@ -3,6 +3,7 @@
 
 const QEMU = "qemu-system-x86_64";
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const { spawn, spawnSync } = require("child_process");
 const path = require("path");
@@ -12,7 +13,7 @@ const share_dir_9p = fs.mkdtempSync("/tmp/v86-test-qemu-9p");
 fs.copyFileSync(path.join(__dirname, "/test-i386"), path.join(share_dir_9p, "/test-i386"));
 
 const qemu_version = spawnSync(QEMU, ["--version"]);
-console.assert(qemu_version.status === 0, "QEMU not found, return code: " + qemu_version.status);
+assert(qemu_version.status === 0, "QEMU not found, return code: " + qemu_version.status);
 console.error("Using QEMU:");
 console.error(qemu_version.stdout.toString("utf8"));
 

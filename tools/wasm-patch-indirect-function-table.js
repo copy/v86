@@ -9,6 +9,7 @@
 
 process.on("unhandledRejection", exn => { throw exn; });
 
+const assert = require("assert").strict;
 const fs = require("fs");
 
 const SECTION_IMPORT = 2;
@@ -25,11 +26,11 @@ function main()
     var ptr = 0;
 
     // magic
-    console.assert(view.getUint32(ptr, true) === 0x6d736100);
+    assert(view.getUint32(ptr, true) === 0x6d736100);
     ptr += 4;
 
     // version
-    console.assert(view.getUint32(ptr, true) === 1);
+    assert(view.getUint32(ptr, true) === 1);
     ptr += 4;
 
     while(ptr < view.byteLength)
@@ -75,10 +76,10 @@ function patch_import_section(ptr, view)
         {
             const table_offset = ptr;
             var { ptr, value: table_element_type } = read_leb_u32(ptr, view);
-            console.assert(table_element_type === 0x70);
+            assert(table_element_type === 0x70);
 
             const maximum_present = new Uint8Array(view.buffer, ptr, 1);
-            console.assert(maximum_present[0] === 0 || maximum_present[0] === 1);
+            assert(maximum_present[0] === 0 || maximum_present[0] === 1);
             ptr++;
 
             var { ptr, value: initial_table_size, leb_view: initial_table_size_view } = read_leb_u32(ptr, view);
@@ -111,7 +112,7 @@ function patch_import_section(ptr, view)
         else if(kind === IMPORT_KIND_MEMORY)
         {
             const maximum_present = view.getUint8(ptr);
-            console.assert(maximum_present === 0 || maximum_present === 1);
+            assert(maximum_present === 0 || maximum_present === 1);
             ptr++;
 
             var { ptr, value: initial_memory_size } = read_leb_u32(ptr, view);
@@ -126,12 +127,12 @@ function patch_import_section(ptr, view)
             const content_type = view.getUint8(ptr);
             ptr++;
             const mutability = view.getUint8(ptr);
-            console.assert(mutability === 0 || mutability === 1);
+            assert(mutability === 0 || mutability === 1);
             ptr++;
         }
         else
         {
-            console.assert(false, `Unexpected import kind: 0x${kind.toString(16)} at offset ${ptr - 1}`);
+            assert(false, `Unexpected import kind: 0x${kind.toString(16)} at offset ${ptr - 1}`);
         }
     }
 }
@@ -143,7 +144,7 @@ function patch_maximum_limit(maximum_present, initial_size, maximum_size)
 
     // set the highest bit of the initial size, in order to use it to pad the existing maximum size bytes
     const last_byte_initial_size = initial_size[initial_size.length - 1];
-    console.assert((last_byte_initial_size & 0x80) === 0);
+    assert((last_byte_initial_size & 0x80) === 0);
     initial_size[initial_size.length - 1] = last_byte_initial_size | 0x80;
 
     for(let i = 0; i < maximum_size.length - 1; i++)
@@ -174,7 +175,7 @@ function read_leb_u32(ptr, view)
         }
     }
 
-    console.assert(byte_length <= 4);
+    assert(byte_length <= 4);
 
     const leb_view = new Uint8Array(view.buffer, ptr - byte_length, byte_length);
 

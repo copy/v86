@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const path = require("path");
 const x86_table = require("./x86_table");
@@ -19,7 +20,7 @@ const to_generate = {
     analyzer0f_32: gen_all || table_arg === "analyzer0f_32",
 };
 
-console.assert(
+assert(
     Object.keys(to_generate).some(k => to_generate[k]),
     "Pass --table [analyzer|analyzer0f_16|analyzer0f_32] or --all to pick which tables to generate"
 );
@@ -49,7 +50,7 @@ function gen_read_imm_call(op, size_variant)
             }
             else
             {
-                console.assert(op.imm1632 || op.imm16 || op.imm32);
+                assert(op.imm1632 || op.imm16 || op.imm32);
 
                 if(op.imm1632 && size === 16 || op.imm16)
                 {
@@ -57,7 +58,7 @@ function gen_read_imm_call(op, size_variant)
                 }
                 else
                 {
-                    console.assert(op.imm1632 && size === 32 || op.imm32);
+                    assert(op.imm1632 && size === 32 || op.imm32);
                     return "cpu.read_imm32()";
                 }
             }
@@ -87,8 +88,8 @@ function make_instruction_name(encoding, size)
     const second_prefix = (encoding.opcode & 0xFF0000) === 0 ? "" : hex(encoding.opcode >> 16 & 0xFF, 2);
     const fixed_g_suffix = encoding.fixed_g === undefined ? "" : `_${encoding.fixed_g}`;
 
-    console.assert(first_prefix === "" || first_prefix === "0F" || first_prefix === "F2" || first_prefix === "F3");
-    console.assert(second_prefix === "" || second_prefix === "66" || second_prefix === "F2" || second_prefix === "F3");
+    assert(first_prefix === "" || first_prefix === "0F" || first_prefix === "F2" || first_prefix === "F3");
+    assert(second_prefix === "" || second_prefix === "66" || second_prefix === "F2" || second_prefix === "F3");
 
     return `instr${suffix}_${second_prefix}${first_prefix}${opcode_hex}${fixed_g_suffix}`;
 }
@@ -112,12 +113,12 @@ function gen_instruction_body(encodings, size)
 
     if(has_F2.length || has_F3.length)
     {
-        console.assert((encoding.opcode & 0xFF0000) === 0 || (encoding.opcode & 0xFF00) === 0x0F00);
+        assert((encoding.opcode & 0xFF0000) === 0 || (encoding.opcode & 0xFF00) === 0x0F00);
     }
 
     if(has_66.length)
     {
-        console.assert((encoding.opcode & 0xFF00) === 0x0F00);
+        assert((encoding.opcode & 0xFF00) === 0x0F00);
     }
 
     const code = [];
@@ -171,13 +172,13 @@ function gen_instruction_body_after_prefix(encodings, size)
 
     if(encoding.fixed_g !== undefined)
     {
-        console.assert(encoding.e);
+        assert(encoding.e);
 
         // instruction with modrm byte where the middle 3 bits encode the instruction
 
         // group by opcode without prefix plus middle bits of modrm byte
         let cases = encodings.reduce((cases_by_opcode, case_) => {
-            console.assert(typeof case_.fixed_g === "number");
+            assert(typeof case_.fixed_g === "number");
             cases_by_opcode[case_.opcode & 0xFFFF | case_.fixed_g << 16] = case_;
             return cases_by_opcode;
         }, Object.create(null));
@@ -207,7 +208,7 @@ function gen_instruction_body_after_prefix(encodings, size)
         ];
     }
     else {
-        console.assert(encodings.length === 1);
+        assert(encodings.length === 1);
         return gen_instruction_body_after_fixed_g(encodings[0], size);
     }
 }
@@ -233,7 +234,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         const instruction_name = "::analysis::" + make_instruction_name(encoding, size) + "_analyze";
         const args = ["cpu", "analysis"];
 
-        console.assert(!imm_read);
+        assert(!imm_read);
 
         return [].concat(
             gen_call(instruction_name, args),
@@ -246,7 +247,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
         if(encoding.ignore_mod)
         {
-            console.assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
+            assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
 
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
@@ -284,7 +285,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
                 if(encoding.conditional_jump)
                 {
-                    console.assert(
+                    assert(
                         (encoding.opcode & ~0xF) === 0x70 ||
                         (encoding.opcode & ~0xF) === 0x0F80 ||
                         (encoding.opcode & ~0x3) === 0xE0
@@ -305,12 +306,12 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
         if(encoding.extra_imm16)
         {
-            console.assert(imm_read);
+            assert(imm_read);
             body.push(gen_call("cpu.read_imm16"));
         }
         else if(encoding.extra_imm8)
         {
-            console.assert(imm_read);
+            assert(imm_read);
             body.push(gen_call("cpu.read_imm8"));
         }
 
@@ -348,7 +349,7 @@ function gen_table()
     for(let opcode = 0; opcode < 0x100; opcode++)
     {
         let encoding = by_opcode[opcode];
-        console.assert(encoding && encoding.length);
+        assert(encoding && encoding.length);
 
         let opcode_hex = hex(opcode, 2);
         let opcode_high_hex = hex(opcode | 0x100, 2);
@@ -403,7 +404,7 @@ function gen_table()
     {
         let encoding = by_opcode0f[opcode];
 
-        console.assert(encoding && encoding.length);
+        assert(encoding && encoding.length);
 
         let opcode_hex = hex(opcode, 2);
 

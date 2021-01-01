@@ -1,5 +1,7 @@
 "use strict";
 
+const assert = require("assert").strict;
+
 function repeat(s, n)
 {
     let out = "";
@@ -24,13 +26,13 @@ function print_syntax_tree(statements)
         }
         else if(statement.type === "switch")
         {
-            console.assert(statement.condition);
+            assert(statement.condition);
 
             const cases = [];
 
             for(let case_ of statement.cases)
             {
-                console.assert(case_.conditions.length >= 1);
+                assert(case_.conditions.length >= 1);
 
                 cases.push(case_.conditions.join(" | ") + " => {");
                 cases.push.apply(cases, indent(print_syntax_tree(case_.body), 4));
@@ -50,7 +52,7 @@ function print_syntax_tree(statements)
         }
         else if(statement.type === "if-else")
         {
-            console.assert(statement.if_blocks.length >= 1);
+            assert(statement.if_blocks.length >= 1);
 
             let first_if_block = statement.if_blocks[0];
 
@@ -76,7 +78,7 @@ function print_syntax_tree(statements)
         }
         else
         {
-            console.assert(false, "Unexpected type: " + statement.type, "In:", statement);
+            assert(false, "Unexpected type: " + statement.type, "In:", statement);
         }
     }
 

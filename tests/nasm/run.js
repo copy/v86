@@ -15,6 +15,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 
 // A #UD might indicate a bug in the test generation
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -58,8 +59,8 @@ catch(e) {
 
 function float_equal(x, y)
 {
-    console.assert(typeof x === "number");
-    console.assert(typeof y === "number");
+    assert(typeof x === "number");
+    assert(typeof y === "number");
 
     if(x === Infinity && y === Infinity || x === -Infinity && y === -Infinity || isNaN(x) && isNaN(y))
     {

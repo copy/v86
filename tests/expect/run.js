@@ -3,6 +3,7 @@
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
+const assert = require("assert").strict;
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
@@ -199,8 +200,8 @@ Hint: Use tests/expect/run.js --interactive to interactively accept changes.
                 else
                 {
                     console.log("%s ok", name);
-                    console.assert(!result.stdout);
-                    console.assert(!result.stderr);
+                    assert(!result.stdout);
+                    assert(!result.stderr);
                 }
 
                 onfinished();
