@@ -91,11 +91,12 @@ function make_instruction_name(encoding, size)
     const first_prefix = (encoding.opcode & 0xFF00) === 0 ? "" : hex(encoding.opcode >> 8 & 0xFF, 2);
     const second_prefix = (encoding.opcode & 0xFF0000) === 0 ? "" : hex(encoding.opcode >> 16 & 0xFF, 2);
     const fixed_g_suffix = encoding.fixed_g === undefined ? "" : `_${encoding.fixed_g}`;
+    const module = first_prefix === "0F" || second_prefix === "0F" ? "instructions_0f" : "instructions";
 
     assert(first_prefix === "" || first_prefix === "0F" || first_prefix === "F2" || first_prefix === "F3");
     assert(second_prefix === "" || second_prefix === "66" || second_prefix === "F2" || second_prefix === "F3");
 
-    return `instr${suffix}_${second_prefix}${first_prefix}${opcode_hex}${fixed_g_suffix}`;
+    return `${module}::instr${suffix}_${second_prefix}${first_prefix}${opcode_hex}${fixed_g_suffix}`;
 }
 
 function gen_instruction_body(encodings, size)
@@ -407,9 +408,11 @@ function gen_table()
         const code = [
             "#![cfg_attr(rustfmt, rustfmt_skip)]",
 
-            "use cpu2::cpu::*;",
-            "use cpu2::instructions::*;",
-            "use cpu2::global_pointers::*;",
+            "use cpu2::cpu::{after_block_boundary, modrm_resolve};",
+            "use cpu2::cpu::{read_imm8, read_imm8s, read_imm16, read_imm32s, read_moffs};",
+            "use cpu2::cpu::{task_switch_test, trigger_ud, DEBUG, PREFIX_F2, PREFIX_F3};",
+            "use cpu2::instructions;",
+            "use cpu2::global_pointers::{instruction_pointer, prefixes};",
 
             "pub unsafe fn run(opcode: u32) {",
             table,
@@ -468,9 +471,12 @@ function gen_table()
         const code = [
             "#![cfg_attr(rustfmt, rustfmt_skip)]",
 
-            "use cpu2::cpu::*;",
-            "use cpu2::instructions_0f::*;",
-            "use cpu2::global_pointers::*;",
+            "use cpu2::cpu::{after_block_boundary, modrm_resolve};",
+            "use cpu2::cpu::{read_imm8, read_imm16, read_imm32s};",
+            "use cpu2::cpu::{task_switch_test, task_switch_test_mmx, trigger_ud};",
+            "use cpu2::cpu::{DEBUG, PREFIX_66, PREFIX_F2, PREFIX_F3};",
+            "use cpu2::instructions_0f;",
+            "use cpu2::global_pointers::{instruction_pointer, prefixes};",
 
             "pub unsafe fn run(opcode: u32) {",
             table0f,
