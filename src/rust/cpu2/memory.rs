@@ -33,18 +33,24 @@ pub unsafe fn read8(addr: u32) -> i32 {
         return mmap_read8(addr);
     }
     else {
-        return *mem8.offset(addr as isize) as i32;
+        return read8_no_mmap_check(addr);
     };
 }
+pub unsafe fn read8_no_mmap_check(addr: u32) -> i32 { *mem8.offset(addr as isize) as i32 }
+
 #[no_mangle]
 pub unsafe fn read16(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         return mmap_read16(addr);
     }
     else {
-        return *(mem8.offset(addr as isize) as *mut u16) as i32;
+        return read16_no_mmap_check(addr);
     };
 }
+pub unsafe fn read16_no_mmap_check(addr: u32) -> i32 {
+    *(mem8.offset(addr as isize) as *mut u16) as i32
+}
+
 #[no_mangle]
 pub unsafe fn read_aligned16(addr: u32) -> i32 {
     dbg_assert!(addr < 0x80000000);
@@ -55,15 +61,18 @@ pub unsafe fn read_aligned16(addr: u32) -> i32 {
         return *mem16.offset(addr as isize) as i32;
     };
 }
+
 #[no_mangle]
 pub unsafe fn read32s(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         return mmap_read32(addr);
     }
     else {
-        return *(mem8.offset(addr as isize) as *mut i32);
+        return read32_no_mmap_check(addr);
     };
 }
+pub unsafe fn read32_no_mmap_check(addr: u32) -> i32 { *(mem8.offset(addr as isize) as *mut i32) }
+
 #[no_mangle]
 pub unsafe fn read64s(addr: u32) -> i64 {
     if in_mapped_range(addr) {
@@ -73,6 +82,7 @@ pub unsafe fn read64s(addr: u32) -> i64 {
         return *(mem8.offset(addr as isize) as *mut i64);
     };
 }
+
 #[no_mangle]
 pub unsafe fn read_aligned32(addr: u32) -> i32 {
     dbg_assert!(addr < 0x40000000 as u32);
@@ -83,6 +93,7 @@ pub unsafe fn read_aligned32(addr: u32) -> i32 {
         return *mem32s.offset(addr as isize);
     };
 }
+
 #[no_mangle]
 pub unsafe fn read128(addr: u32) -> reg128 {
     let mut value: reg128 = reg128 {
