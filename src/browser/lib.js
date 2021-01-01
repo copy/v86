@@ -80,6 +80,16 @@ var ASYNC_SAFE = false;
             let start = options.range.start;
             let end = start + options.range.length - 1;
             http.setRequestHeader("Range", "bytes=" + start + "-" + end);
+
+            // Abort if server responds with complete file in response to range
+            // request, to prevent downloading large files from broken http servers
+            http.onreadystatechange = function()
+            {
+                if(http.status === 200)
+                {
+                    http.abort();
+                }
+            };
         }
 
         http.onload = function(e)
