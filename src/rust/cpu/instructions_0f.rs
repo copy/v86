@@ -809,7 +809,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 }
                 *cr.offset(4) = data;
                 if 0 != *cr.offset(4) & CR4_PAE {
-                    dbg_assert!(false);
+                    dbg_assert!(false, "PAE is not supported");
                 }
             }
         },
