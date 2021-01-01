@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
-// TODO
-// - multiple random tests
+// number of tests per instruction
+const NO_TESTS = 1;
 
 const assert = require("assert").strict;
 const fs = require("fs");
@@ -40,28 +40,37 @@ function generate_tests()
 
         for(const config of configurations)
         {
-            for(const code of create_nasm(op, config))
+            for(let nth_test = 0; nth_test < NO_TESTS; nth_test++)
             {
-                const filename = "gen_" + format_opcode(op.opcode) + "_" + (op.fixed_g || 0) + "_" + i + ".asm";
-                const dirname = build_folder + filename;
-
-                let old_code = undefined;
-
-                try
+                if(nth_test > 0 && op.opcode === 0x8D)
                 {
-                    old_code = fs.readFileSync(dirname, { encoding: "ascii" });
-                }
-                catch(e)
-                {
+                    // is already tested exhaustively in first run
+                    continue;
                 }
 
-                if(old_code !== code)
+                for(const code of create_nasm(op, config, nth_test))
                 {
-                    console.log("Creating %s", filename);
-                    fs.writeFileSync(dirname, code);
-                }
+                    const filename = "gen_" + format_opcode(op.opcode) + "_" + (op.fixed_g || 0) + "_" + i + ".asm";
+                    const dirname = build_folder + filename;
 
-                i++;
+                    let old_code = undefined;
+
+                    try
+                    {
+                        old_code = fs.readFileSync(dirname, { encoding: "ascii" });
+                    }
+                    catch(e)
+                    {
+                    }
+
+                    if(old_code !== code)
+                    {
+                        console.log("Creating %s", filename);
+                        fs.writeFileSync(dirname, code);
+                    }
+
+                    i++;
+                }
             }
         }
     }
@@ -142,9 +151,8 @@ function create_nasm_modrm_combinations_32()
 }
 
 
-function create_nasm(op, config)
+function create_nasm(op, config, nth_test)
 {
-    const op_rand = new Prand(op.opcode);
     if(op.prefix || op.skip)
     {
         return [];
@@ -173,6 +181,8 @@ function create_nasm(op, config)
             return [];
         }
     }
+
+    const op_rand = new Prand(op.opcode + nth_test * 0x10000);
 
     const size = (op.os || op.opcode % 2 === 1) ? config.size : 8;
     const is_modrm = op.e || op.fixed_g !== undefined;
