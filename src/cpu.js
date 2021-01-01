@@ -24,7 +24,6 @@ function CPU(bus, wm)
     this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
 
     this.mem8 = new Uint8Array(0);
-    this.mem16 = new Uint16Array(this.mem8.buffer);
     this.mem32s = new Int32Array(this.mem8.buffer);
 
     this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
@@ -54,17 +53,8 @@ function CPU(bus, wm)
 
     this.cr = v86util.view(Int32Array, memory, 580, 8);
 
-    /** @type {number} */
-    this.cr[0] = 0;
-    /** @type {number} */
-    this.cr[2] = 0;
-    /** @type {number} */
-    this.cr[3] = 0;
-    /** @type {number} */
-    this.cr[4] = 0;
-
     // current privilege level
-    this.cpl = v86util.view(Int32Array, memory, 612, 1);
+    this.cpl = v86util.view(Uint8Array, memory, 612, 1);
 
     // current operand/address size
     this.is_32 = v86util.view(Int32Array, memory, 804, 1);
@@ -132,10 +122,6 @@ function CPU(bus, wm)
 
     // registers
     this.reg32 = v86util.view(Int32Array, memory, 64, 8);
-    this.reg16s = v86util.view(Int16Array, memory, 64, 16);
-    this.reg16 = v86util.view(Uint16Array, memory, 64, 16);
-    this.reg8s = v86util.view(Int8Array, memory, 64, 32);
-    this.reg8 = v86util.view(Uint8Array, memory, 64, 32);
 
     this.fpu_st = v86util.view(Int32Array, memory, 1152, 4 * 8);
 
@@ -684,7 +670,7 @@ CPU.prototype.reset = function()
     this.switch_cs_real_mode(0xF000);
 
     if(!this.switch_seg(reg_ss, 0x30)) dbg_assert(false);
-    this.reg16[reg_sp] = 0x100;
+    this.reg32[reg_esp] = 0x100;
 
     if(this.devices.virtio)
     {
@@ -724,7 +710,6 @@ CPU.prototype.create_memory = function(size)
     const memory_offset = this.allocate_memory(size);
 
     this.mem8 = v86util.view(Uint8Array, this.wm.instance.exports.memory, memory_offset, size);
-    this.mem16 = v86util.view(Uint16Array, this.wm.instance.exports.memory, memory_offset, size >> 1);
     this.mem32s = v86util.view(Uint32Array, this.wm.instance.exports.memory, memory_offset, size >> 2);
 };
 
@@ -1992,7 +1977,7 @@ CPU.prototype.cpuid = function()
 
     if(level === 4)
     {
-        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
+        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8) + " cl=" + h(this.reg32[reg_ecx] & 0xFF, 2), LOG_CPU);
     }
     else if(level !== 0 && level !== 2 && level !== (0x80000000 | 0))
     {

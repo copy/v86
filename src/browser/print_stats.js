@@ -4,8 +4,6 @@ const print_stats = {
     stats_to_string: function(cpu)
     {
         return print_stats.print_misc_stats(cpu) +
-            print_stats.print_basic_block_duplication(cpu) +
-            print_stats.print_wasm_basic_block_count_histogram(cpu) +
             print_stats.print_instruction_counts(cpu);
     },
 
@@ -93,77 +91,6 @@ const print_stats = {
         text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 
         text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
-
-        return text;
-    },
-
-    print_basic_block_duplication: function(cpu)
-    {
-        let unique = 0;
-        let total = 0;
-        let duplicates = 0;
-        const histogram = [];
-        const addresses = {};
-
-        for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
-        {
-            const address = cpu.wm.exports["jit_get_entry_address"](i);
-
-            if(address !== 0)
-            {
-                addresses[address] = (addresses[address] || 0) + 1;
-            }
-        }
-
-        for(let [address, count] of Object.entries(addresses))
-        {
-            dbg_assert(count >= 1);
-            unique++;
-            total += count;
-            duplicates += count - 1;
-
-            //for(let i = histogram.length; i < count + 1; i++) histogram.push(0);
-            //histogram[count]++;
-        }
-
-        let text = "";
-        text += "UNIQUE=" + unique + " DUPLICATES=" + duplicates + " TOTAL=" + total + "\n";
-
-        return text;
-    },
-
-    print_wasm_basic_block_count_histogram: function(cpu)
-    {
-        let text = "";
-        let pending_count = 0;
-        const histogram = Object.create(null);
-
-        for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
-        {
-            const length = cpu.wm.exports["jit_get_entry_length"](i);
-            pending_count += cpu.wm.exports["jit_get_entry_pending"](i);
-            histogram[length] = (histogram[length] || 0) + 1;
-        }
-
-        let above = 0;
-
-        for(let i of Object.keys(histogram))
-        {
-            i = +i;
-            if(i >= 32)
-            {
-                above += histogram[i];
-            }
-        }
-
-        for(let i = 0; i < 32; i++)
-        {
-            text += i + ":" + (histogram[i] || 0) + " ";
-        }
-
-        text += "32+:" + above + "\n";
-
-        text += "Pending: " + pending_count + "\n";
 
         return text;
     },

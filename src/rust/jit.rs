@@ -1161,25 +1161,6 @@ pub fn jit_page_has_code(page: Page) -> bool {
 }
 
 #[no_mangle]
-pub fn jit_get_entry_length(_i: u32) -> u32 {
-    //#[allow(unused_variables)]
-    //let entry = jit_cache_array::get(i);
-    //#[cfg(debug_assertions)]
-    //return entry.len;
-    //#[cfg(not(debug_assertions))]
-    0
-}
-#[no_mangle]
-pub fn jit_get_entry_address(_i: u32) -> u32 {
-    //if cfg!(debug_assertions) { jit_cache_array::get(i).start_addr } else { 0 }
-    0
-}
-#[no_mangle]
-pub fn jit_get_entry_pending(_i: u32) -> bool {
-    //if cfg!(debug_assertions) { jit_cache_array::get(i).pending } else { false }
-    false
-}
-#[no_mangle]
 pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
     if cfg!(debug_assertions) {
         get_jit_state().wasm_table_index_free_list.len() as u32

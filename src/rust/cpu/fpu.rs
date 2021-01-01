@@ -775,7 +775,6 @@ pub unsafe fn fpu_fchs() {
     fpu_write_st(*fpu_stack_ptr as i32, -st0);
 }
 
-#[no_mangle]
 pub unsafe fn fpu_fabs() {
     let st0 = fpu_get_st0();
     fpu_write_st(*fpu_stack_ptr as i32, st0.abs());

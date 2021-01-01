@@ -86,36 +86,6 @@ var
  */
 flags_default = 1 << 1,
 
-/**
- * bitmask to select non-reserved flags bits
- * @const
- */
-flags_mask =
-    flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_trap | flag_interrupt |
-    flag_direction | flag_overflow | flag_iopl | flag_nt | flag_rf | flag_vm | flag_ac |
-    flag_vif | flag_vip | flag_id,
-
-
-/**
- * all arithmetic flags
- * @const
- */
-flags_all = flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_overflow,
-
-
-/**
- * opsizes used by get flag functions
- *
- * @const
- */
-OPSIZE_8 = 7,
-/** @const */
-OPSIZE_16 = 15,
-/** @const */
-OPSIZE_32 = 31,
-
-/** @const */
-PSE_ENABLED = 128,
 
 /** @const */ reg_eax = 0,
 /** @const */ reg_ecx = 1,
@@ -125,25 +95,6 @@ PSE_ENABLED = 128,
 /** @const */ reg_ebp = 5,
 /** @const */ reg_esi = 6,
 /** @const */ reg_edi = 7,
-
-/** @const */ reg_ax = 0,
-/** @const */ reg_cx = 2,
-/** @const */ reg_dx = 4,
-/** @const */ reg_bx = 6,
-/** @const */ reg_sp = 8,
-/** @const */ reg_bp = 10,
-/** @const */ reg_si = 12,
-/** @const */ reg_di = 14,
-
-/** @const */ reg_al = 0,
-/** @const */ reg_cl = 4,
-/** @const */ reg_dl = 8,
-/** @const */ reg_bl = 12,
-/** @const */ reg_ah = 1,
-/** @const */ reg_ch = 5,
-/** @const */ reg_dh = 9,
-/** @const */ reg_bh = 13,
-
 
 /** @const */ reg_es = 0,
 /** @const */ reg_cs = 1,
@@ -320,29 +271,6 @@ var IA32_APIC_BASE_EN = 1 << 11;
 
 /** @const */ var FW_CFG_SIGNATURE_QEMU = 0x554D4551;
 
-
-/** @const */
-var PREFIX_MASK_REP = 0b11000;
-/** @const */
-var PREFIX_REPZ = 0b01000;
-/** @const */
-var PREFIX_REPNZ = 0b10000;
-
-/** @const */
-var PREFIX_MASK_SEGMENT = 0b111;
-
-/** @const */
-var PREFIX_MASK_OPSIZE = 0b100000;
-/** @const */
-var PREFIX_MASK_ADDRSIZE = 0b1000000;
-
-/** @const */
-var PREFIX_F2 = PREFIX_REPNZ; // alias
-/** @const */
-var PREFIX_F3 = PREFIX_REPZ; // alias
-/** @const */
-var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
-
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
 
@@ -354,10 +282,4 @@ var WASM_TABLE_SIZE = 900;
 var WASM_TABLE_OFFSET = 1024;
 
 /** @const */
-var JIT_CACHE_ARRAY_SIZE = 0x40000;
-
-/** @const */
 const WASM_EXPORT_TABLE_NAME = "__indirect_function_table";
-
-/** @const */
-const WASM_PAGE_SIZE = 64 * 1024;
