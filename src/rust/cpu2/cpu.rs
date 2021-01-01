@@ -1914,56 +1914,52 @@ pub unsafe fn check_tlb_invariants() {
     }
 }
 
+pub unsafe fn readable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
+    dbg_assert!(size < 0x1000);
+    dbg_assert!(size > 0);
+    if *cr & CR0_PG == 0 {
+        return Ok(());
+    }
+
+    let user = *cpl == 3;
+    let mask = TLB_VALID | if user { TLB_NO_USER } else { 0 };
+    let expect = TLB_VALID;
+    let page = (addr as u32 >> 12) as i32;
+    if *tlb_data.offset(page as isize) & mask != expect {
+        do_page_translation(addr, false, user)?;
+    }
+    let next_page = ((addr + size - 1) as u32 >> 12) as i32;
+    if page != next_page {
+        dbg_assert!(next_page == page + 1);
+        if *tlb_data.offset(next_page as isize) & mask != expect {
+            do_page_translation(next_page << 12, false, user)?;
+        }
+    }
+    return Ok(());
+}
+
 pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
     dbg_assert!(size < 0x1000);
     dbg_assert!(size > 0);
     if *cr & CR0_PG == 0 {
         return Ok(());
     }
-    else {
-        let user = *cpl == 3;
-        let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
-        let expect = TLB_VALID;
-        let page = (addr as u32 >> 12) as i32;
-        if *tlb_data.offset(page as isize) & mask != expect {
-            do_page_translation(addr, true, user)?;
-        }
-        let next_page = ((addr + size - 1) as u32 >> 12) as i32;
-        if page != next_page {
-            dbg_assert!(next_page == page + 1);
-            // XXX: possibly out of bounds
-            if *tlb_data.offset(next_page as isize) & mask != expect {
-                do_page_translation(next_page << 12, true, user)?;
-            }
-        }
-        return Ok(());
-    };
-}
 
-pub unsafe fn writable_or_pagefault_jit(addr: i32, size: i32) -> OrPageFault<()> {
-    dbg_assert!(size < 0x1000);
-    dbg_assert!(size > 0);
-    if *cr & CR0_PG == 0 {
-        return Ok(());
+    let user = *cpl == 3;
+    let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
+    let expect = TLB_VALID;
+    let page = (addr as u32 >> 12) as i32;
+    if *tlb_data.offset(page as isize) & mask != expect {
+        do_page_translation(addr, true, user)?;
     }
-    else {
-        let user = *cpl == 3;
-        let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
-        let expect = TLB_VALID;
-        let page = (addr as u32 >> 12) as i32;
-        if *tlb_data.offset(page as isize) & mask != expect {
-            translate_address_write_jit(addr)?;
+    let next_page = ((addr + size - 1) as u32 >> 12) as i32;
+    if page != next_page {
+        dbg_assert!(next_page == page + 1);
+        if *tlb_data.offset(next_page as isize) & mask != expect {
+            do_page_translation(next_page << 12, true, user)?;
         }
-        let next_page = ((addr + size - 1) as u32 >> 12) as i32;
-        if page != next_page {
-            dbg_assert!(next_page == page + 1);
-            // XXX: possibly out of bounds
-            if *tlb_data.offset(next_page as isize) & mask != expect {
-                translate_address_write_jit(next_page << 12)?;
-            }
-        }
-        return Ok(());
-    };
+    }
+    return Ok(());
 }
 
 pub unsafe fn read_imm8() -> OrPageFault<i32> {

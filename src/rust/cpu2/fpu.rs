@@ -473,12 +473,7 @@ pub unsafe fn fpu_fldenv16(_addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_fldenv32(addr: i32) {
-    // TODO: Add readable_or_pagefault
-    if let Err(()) = translate_address_read(addr) {
-        *page_fault = true;
-        return;
-    }
-    if let Err(()) = translate_address_read(addr + 28) {
+    if let Err(()) = readable_or_pagefault(addr, 28) {
         *page_fault = true;
         return;
     }
@@ -598,9 +593,7 @@ pub unsafe fn fpu_frstor16(_addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_frstor32(mut addr: i32) {
-    // TODO: Add readable_or_pagefault
-    return_on_pagefault!(translate_address_read(addr));
-    return_on_pagefault!(translate_address_read(addr + 28 + 8 * 10));
+    return_on_pagefault!(readable_or_pagefault(addr, 28 + 8 * 10));
     fpu_fldenv32(addr);
     addr += 28;
     for i in 0..8 {

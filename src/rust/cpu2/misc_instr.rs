@@ -404,9 +404,8 @@ pub unsafe fn fxsave(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fxrstor(addr: i32) {
-    // TODO: Add readable_or_pagefault
-    return_on_pagefault!(translate_address_read(addr));
-    return_on_pagefault!(translate_address_read(addr.wrapping_add(511)));
+    return_on_pagefault!(readable_or_pagefault(addr, 512));
+
     let new_mxcsr = safe_read32s(addr.wrapping_add(24) as i32).unwrap();
     if 0 != new_mxcsr & !MXCSR_MASK {
         dbg_log!("#gp Invalid mxcsr bits");
