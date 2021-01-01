@@ -1587,19 +1587,68 @@ pub fn gen_test_jcxz(ctx: &mut JitContext, is_asize_32: bool) {
 }
 
 pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
     ctx.builder.const_i32(i as i32);
-    ctx.builder.call_fn1_ret_f64("fpu_get_sti");
+    ctx.builder.call_fn2("fpu_get_sti");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
 }
 
 pub fn gen_fpu_load_m32(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-    ctx.builder.reinterpret_i32_as_f32();
-    ctx.builder.promote_f32_to_f64();
+    ctx.builder.call_fn2("f32_to_f80");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
 }
 
 pub fn gen_fpu_load_m64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read64(ctx, modrm_byte);
-    ctx.builder.reinterpret_i64_as_f64();
+    ctx.builder.call_fn2_i32_i64("f64_to_f80");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
+}
+
+pub fn gen_fpu_load_i16(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
+    gen_modrm_resolve_safe_read16(ctx, modrm_byte);
+    sign_extend_i16(ctx.builder);
+    ctx.builder.call_fn2("i32_to_f80");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
+}
+pub fn gen_fpu_load_i32(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
+    gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.call_fn2("i32_to_f80");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
+}
+pub fn gen_fpu_load_i64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    ctx.builder
+        .const_i32(global_pointers::sse_scratch_register as i32);
+    gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.call_fn2_i32_i64("i64_to_f80");
+    ctx.builder
+        .load_fixed_i64(global_pointers::sse_scratch_register as u32);
+    ctx.builder
+        .load_fixed_u16(global_pointers::sse_scratch_register as u32 + 8);
 }
 
 pub fn gen_trigger_de(ctx: &mut JitContext) {

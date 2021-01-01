@@ -1,5 +1,7 @@
 use cpu::cpu::*;
-use cpu::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};
+use cpu::fpu::{
+    fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80, set_control_word,
+};
 use cpu::global_pointers::*;
 use paging::OrPageFault;
 
@@ -363,9 +365,9 @@ pub unsafe fn setcc_mem(condition: bool, addr: i32) {
 #[no_mangle]
 pub unsafe fn fxsave(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr as i32, 512));
-    safe_write16(addr.wrapping_add(0) as i32, *fpu_control_word).unwrap();
-    safe_write16(addr.wrapping_add(2) as i32, fpu_load_status_word()).unwrap();
-    safe_write8(addr.wrapping_add(4) as i32, !*fpu_stack_empty & 255).unwrap();
+    safe_write16(addr.wrapping_add(0) as i32, (*fpu_control_word).into()).unwrap();
+    safe_write16(addr.wrapping_add(2) as i32, fpu_load_status_word().into()).unwrap();
+    safe_write8(addr.wrapping_add(4) as i32, !*fpu_stack_empty as i32 & 255).unwrap();
     safe_write16(addr.wrapping_add(6) as i32, *fpu_opcode).unwrap();
     safe_write32(addr.wrapping_add(8) as i32, *fpu_ip).unwrap();
     safe_write16(addr.wrapping_add(12) as i32, *fpu_ip_selector).unwrap();
@@ -376,13 +378,7 @@ pub unsafe fn fxsave(addr: i32) {
 
     for i in 0..8 {
         let reg_index = i + *fpu_stack_ptr as i32 & 7;
-        if *fxsave_store_fpu_mask & 1 << reg_index != 0 {
-            fpu_store_m80(addr + 32 + (i << 4), *fpu_st.offset(reg_index as isize));
-        }
-        else {
-            safe_write64(addr + 32 + (i << 4), *reg_mmx.offset(reg_index as isize)).unwrap();
-            safe_write64(addr + 32 + (i << 4) | 8, 0).unwrap();
-        }
+        fpu_store_m80(addr + 32 + (i << 4), *fpu_st.offset(reg_index as isize));
     }
 
     // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
@@ -407,9 +403,9 @@ pub unsafe fn fxrstor(addr: i32) {
         return;
     }
     else {
-        *fpu_control_word = safe_read16(addr.wrapping_add(0) as i32).unwrap();
-        fpu_set_status_word(safe_read16(addr.wrapping_add(2) as i32).unwrap());
-        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() & 255;
+        set_control_word(safe_read16(addr.wrapping_add(0) as i32).unwrap() as u16);
+        fpu_set_status_word(safe_read16(addr.wrapping_add(2) as i32).unwrap() as u16);
+        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() as u8;
         *fpu_opcode = safe_read16(addr.wrapping_add(6) as i32).unwrap();
         *fpu_ip = safe_read32s(addr.wrapping_add(8) as i32).unwrap();
         *fpu_ip = safe_read16(addr.wrapping_add(12) as i32).unwrap();
@@ -421,13 +417,7 @@ pub unsafe fn fxrstor(addr: i32) {
             let reg_index = *fpu_stack_ptr as i32 + i & 7;
             *fpu_st.offset(reg_index as isize) =
                 fpu_load_m80(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
-            *reg_mmx.offset(reg_index as isize) =
-                safe_read64s(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
         }
-
-        // Mark values as coming from the fpu: xmm registers fit into x87 registers, but not the
-        // other way around
-        *fxsave_store_fpu_mask = 0xff;
 
         for i in 0..8 {
             (*reg_xmm.offset(i as isize)).u32_0[0] =

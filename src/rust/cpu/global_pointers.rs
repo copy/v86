@@ -1,6 +1,7 @@
 #![allow(non_upper_case_globals)]
 
 use cpu::cpu::reg128;
+use softfloat::F80;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;
@@ -44,26 +45,25 @@ pub const protected_mode: *mut bool = 800 as *mut bool;
 pub const is_32: *mut bool = 804 as *mut bool;
 pub const stack_size_32: *mut bool = 808 as *mut bool;
 pub const memory_size: *mut u32 = 812 as *mut u32;
-pub const fpu_stack_empty: *mut i32 = 816 as *mut i32;
+pub const fpu_stack_empty: *mut u8 = 816 as *mut u8;
 pub const mxcsr: *mut i32 = 824 as *mut i32;
-// gap
+
 pub const reg_xmm: *mut reg128 = 832 as *mut reg128;
 pub const current_tsc: *mut u64 = 960 as *mut u64;
-pub const fpu_st: *mut f64 = 968 as *mut f64;
-pub const fpu_st8: *mut u8 = 968 as *mut u8;
-pub const fpu_st32: *mut i32 = 968 as *mut i32;
-pub const fpu_stack_ptr: *mut u32 = 1032 as *mut u32;
-pub const fpu_control_word: *mut i32 = 1036 as *mut i32;
-pub const fpu_status_word: *mut i32 = 1040 as *mut i32;
+
+pub const fpu_stack_ptr: *mut u8 = 1032 as *mut u8;
+pub const fpu_control_word: *mut u16 = 1036 as *mut u16;
+pub const fpu_status_word: *mut u16 = 1040 as *mut u16;
 pub const fpu_opcode: *mut i32 = 1044 as *mut i32;
 pub const fpu_ip: *mut i32 = 1048 as *mut i32;
 pub const fpu_ip_selector: *mut i32 = 1052 as *mut i32;
 pub const fpu_dp: *mut i32 = 1056 as *mut i32;
 pub const fpu_dp_selector: *mut i32 = 1060 as *mut i32;
-pub const reg_mmx: *mut u64 = 1064 as *mut u64;
 pub const tss_size_32: *mut bool = 1128 as *mut bool;
-pub const fxsave_store_fpu_mask: *mut u8 = 1132 as *mut u8;
+
 pub const sse_scratch_register: *mut reg128 = 1136 as *mut reg128;
+
+pub const fpu_st: *mut F80 = 1152 as *mut F80;
 
 pub const opstats_buffer: *mut u32 = 0x08000 as *mut u32;
 pub const opstats_compiled_buffer: *mut u32 = 0x10000 as *mut u32;
@@ -78,7 +78,7 @@ pub fn get_reg32_offset(r: u32) -> u32 {
 
 pub fn get_reg_mmx_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
-    (unsafe { reg_mmx.offset(r as isize) }) as u32
+    (unsafe { fpu_st.offset(r as isize) }) as u32
 }
 
 pub fn get_reg_xmm_offset(r: u32) -> u32 {

@@ -137,17 +137,16 @@ function CPU(bus, wm)
     this.reg8s = v86util.view(Int8Array, memory, 64, 32);
     this.reg8 = v86util.view(Uint8Array, memory, 64, 32);
 
-    // Why no Float80Array :-(
-    this.fpu_st = v86util.view(Float64Array, memory, 968, 8);
+    this.fpu_st = v86util.view(Int32Array, memory, 1152, 4 * 8);
 
-    this.fpu_stack_empty = v86util.view(Int32Array, memory, 816, 1);
+    this.fpu_stack_empty = v86util.view(Uint8Array, memory, 816, 1);
     this.fpu_stack_empty[0] = 0xFF;
-    this.fpu_stack_ptr = v86util.view(Uint32Array, memory, 1032, 1);
+    this.fpu_stack_ptr = v86util.view(Uint8Array, memory, 1032, 1);
     this.fpu_stack_ptr[0] = 0;
 
-    this.fpu_control_word = v86util.view(Int32Array, memory, 1036, 1);
+    this.fpu_control_word = v86util.view(Uint16Array, memory, 1036, 1);
     this.fpu_control_word[0] = 0x37F;
-    this.fpu_status_word = v86util.view(Int32Array, memory, 1040, 1);
+    this.fpu_status_word = v86util.view(Uint16Array, memory, 1040, 1);
     this.fpu_status_word[0] = 0;
     this.fpu_ip = v86util.view(Int32Array, memory, 1048, 1);
     this.fpu_ip[0] = 0;
@@ -159,14 +158,6 @@ function CPU(bus, wm)
     this.fpu_dp[0] = 0;
     this.fpu_dp_selector = v86util.view(Int32Array, memory, 1060, 1);
     this.fpu_dp_selector[0] = 0;
-
-    // mm0-mm7 split up into 32 bit pairs
-    this.reg_mmxs = v86util.view(Int32Array, memory, 1064, 16);
-    this.reg_mmx = v86util.view(Uint32Array, this.reg_mmxs.buffer, 1064, 16);
-    this.reg_mmx8s = v86util.view(Int8Array, this.reg_mmxs.buffer, 1064, 64);
-    this.reg_mmx8 = v86util.view(Uint8Array, this.reg_mmxs.buffer, 1064, 64);
-
-    this.fxsave_store_fpu_mask = v86util.view(Uint8Array, memory, 1132, 1);
 
     this.reg_xmm32s = v86util.view(Int32Array, memory, 832, 8 * 4);
 
@@ -297,6 +288,8 @@ CPU.prototype.wasm_patch = function(wm)
     this.set_tsc = get_import("set_tsc");
     this.store_current_tsc = get_import("store_current_tsc");
 
+    this.fpu_get_sti_f64 = get_import("fpu_get_sti_f64");
+
     if(DEBUG)
     {
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
@@ -402,7 +395,6 @@ CPU.prototype.get_state = function()
 
     state[64] = this.tss_size_32[0];
 
-    state[65] = this.reg_mmxs;
     state[66] = this.reg_xmm32s;
 
     state[67] = this.fpu_st;
@@ -495,7 +487,6 @@ CPU.prototype.set_state = function(state)
 
     this.tss_size_32[0] = state[64];
 
-    this.reg_mmxs.set(state[65]);
     this.reg_xmm32s.set(state[66]);
 
     this.fpu_st.set(state[67]);
@@ -641,7 +632,6 @@ CPU.prototype.reset = function()
     this.fpu_dp[0] = 0;
     this.fpu_dp_selector[0] = 0;
 
-    this.reg_mmxs.fill(0);
     this.reg_xmm32s.fill(0);
 
     this.mxcsr[0] = 0x1F80;

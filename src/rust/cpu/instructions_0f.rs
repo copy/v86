@@ -38,7 +38,6 @@ use cpu::arith::{
     saturate_sw_to_sb, saturate_sw_to_ub, saturate_ud_to_ub, saturate_uw,
 };
 use cpu::cpu::*;
-use cpu::fpu::fpu_load_m32;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::misc_instr::{
@@ -1009,7 +1008,7 @@ pub unsafe fn instr_F30F2C(source: f32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F30F2C_mem(addr: i32, r: i32) {
-    instr_F30F2C(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F2C(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 #[no_mangle]
 pub unsafe fn instr_F30F2C_reg(r1: i32, r2: i32) { instr_F30F2C(read_xmm_f32(r1), r2); }
@@ -1037,7 +1036,7 @@ pub unsafe fn instr_0F2E(source: f32, r: i32) {
 pub unsafe fn instr_0F2E_reg(r1: i32, r2: i32) { instr_0F2E(read_xmm_f32(r1), r2) }
 #[no_mangle]
 pub unsafe fn instr_0F2E_mem(addr: i32, r: i32) {
-    instr_0F2E(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_0F2E(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_660F2E(source: u64, r: i32) {
@@ -1090,7 +1089,7 @@ pub unsafe fn instr_0F2F(source: f32, r: i32) {
 pub unsafe fn instr_0F2F_reg(r1: i32, r2: i32) { instr_0F2F(read_xmm_f32(r1), r2) }
 #[no_mangle]
 pub unsafe fn instr_0F2F_mem(addr: i32, r: i32) {
-    instr_0F2F(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_0F2F(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_660F2F(source: u64, r: i32) {
@@ -4520,7 +4519,7 @@ pub unsafe fn instr_F30F2D(source: f32, r: i32) {
 pub unsafe fn instr_F30F2D_reg(r1: i32, r2: i32) { instr_F30F2D(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
-    instr_F30F2D(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F2D(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F51(source: reg128, r: i32) {
@@ -4576,7 +4575,7 @@ pub unsafe fn instr_F30F51(source: f32, r: i32) {
 pub unsafe fn instr_F30F51_reg(r1: i32, r2: i32) { instr_F30F51(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F51_mem(addr: i32, r: i32) {
-    instr_F30F51(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F51(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F52(source: reg128, r: i32) {
@@ -4605,7 +4604,7 @@ pub unsafe fn instr_F30F52(source: f32, r: i32) {
 pub unsafe fn instr_F30F52_reg(r1: i32, r2: i32) { instr_F30F52(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F52_mem(addr: i32, r: i32) {
-    instr_F30F52(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F52(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F53(source: reg128, r: i32) {
@@ -4634,7 +4633,7 @@ pub unsafe fn instr_F30F53(source: f32, r: i32) {
 pub unsafe fn instr_F30F53_reg(r1: i32, r2: i32) { instr_F30F53(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F53_mem(addr: i32, r: i32) {
-    instr_F30F53(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F53(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F58(source: reg128, r: i32) {
@@ -4694,7 +4693,7 @@ pub unsafe fn instr_F30F58(source: f32, r: i32) {
 pub unsafe fn instr_F30F58_reg(r1: i32, r2: i32) { instr_F30F58(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F58_mem(addr: i32, r: i32) {
-    instr_F30F58(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F58(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F59(source: reg128, r: i32) {
@@ -4754,7 +4753,7 @@ pub unsafe fn instr_F30F59(source: f32, r: i32) {
 pub unsafe fn instr_F30F59_reg(r1: i32, r2: i32) { instr_F30F59(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
-    instr_F30F59(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F5A(source: u64, r: i32) {
@@ -4804,7 +4803,7 @@ pub unsafe fn instr_F30F5A(source: f32, r: i32) {
 pub unsafe fn instr_F30F5A_reg(r1: i32, r2: i32) { instr_F30F5A(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F5A_mem(addr: i32, r: i32) {
-    instr_F30F5A(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F5A(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
 pub unsafe fn instr_0F5B(source: reg128, r: i32) {
@@ -4922,7 +4921,7 @@ pub unsafe fn instr_F30F5C(source: f32, r: i32) {
 pub unsafe fn instr_F30F5C_reg(r1: i32, r2: i32) { instr_F30F5C(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F5C_mem(addr: i32, r: i32) {
-    instr_F30F5C(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F5C(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 pub unsafe fn instr_0F5D(source: reg128, r: i32) {
     // minps xmm, xmm/mem128
@@ -4984,7 +4983,7 @@ pub unsafe fn instr_F30F5D(source: f32, r: i32) {
 pub unsafe fn instr_F30F5D_reg(r1: i32, r2: i32) { instr_F30F5D(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F5D_mem(addr: i32, r: i32) {
-    instr_F30F5D(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F5D(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 pub unsafe fn instr_0F5E(source: reg128, r: i32) {
     // divps xmm, xmm/mem128
@@ -5043,7 +5042,7 @@ pub unsafe fn instr_F30F5E(source: f32, r: i32) {
 pub unsafe fn instr_F30F5E_reg(r1: i32, r2: i32) { instr_F30F5E(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F5E_mem(addr: i32, r: i32) {
-    instr_F30F5E(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F5E(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 pub unsafe fn instr_0F5F(source: reg128, r: i32) {
     // maxps xmm, xmm/mem128
@@ -5105,7 +5104,7 @@ pub unsafe fn instr_F30F5F(source: f32, r: i32) {
 pub unsafe fn instr_F30F5F_reg(r1: i32, r2: i32) { instr_F30F5F(read_xmm_f32(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_F30F5F_mem(addr: i32, r: i32) {
-    instr_F30F5F(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+    instr_F30F5F(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
     // cmpps xmm, xmm/m128
@@ -5182,5 +5181,5 @@ pub unsafe fn instr_F30FC2_reg(r1: i32, r2: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F30FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_F30FC2(return_on_pagefault!(fpu_load_m32(addr)) as f32, r, imm);
+    instr_F30FC2(return_on_pagefault!(safe_read_f32(addr)), r, imm);
 }

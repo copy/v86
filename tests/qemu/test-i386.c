@@ -882,15 +882,12 @@ void test_fops(double a, double b)
     int ib = (int)b;
     int dest = 0;
 
-    // XXX: Tests below are disabled since libc (which is statically linked)
-    //      contains sse instructions, some of which aren't supported.
-
     printf("a=%f b=%f a+b=%f\n", a, b, a + b);
     printf("a=%f b=%f a-b=%f\n", a, b, a - b);
     printf("a=%f b=%f a*b=%f\n", a, b, a * b);
     printf("a=%f b=%f a/b=%f\n", a, b, a / b);
     printf("a=%f b=%f =%f\n", a, b, a + a + a + 3 * b / a * (a * a * a / b / b / (a + 1.0) - 3.5 + a * b / (3.7 * a / (a - b * b) + 6.5 * a / (b * b * a / -b - a * b) + 5.5 * (b - a))));
-    printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b));
+    //printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b)); // difference in sign bit on zero and nan
     printf("a=%f fma(a,b,a)=%f\n", a, fma(a, b, a));
     printf("a=%f fdim(a,b)=%f\n", a, fdim(a, b));
     printf("a=%f copysign(a,b)=%f\n", a, copysign(a, b));
@@ -898,10 +895,10 @@ void test_fops(double a, double b)
     printf("a=%f sin(a)=%f\n", a, sin(a));
     printf("a=%f cos(a)=%f\n", a, cos(a));
     printf("a=%f tan(a)=%f\n", a, tan(a));
-    //printf("a=%f log(a)=%f\n", a, log(a));
-    //printf("a=%f log10(a)=%f\n", a, log10(a));
-    //printf("a=%f log1p(a)=%f\n", a, log1p(a));
-    //printf("a=%f log2(a)=%f\n", a, log2(a));
+    printf("a=%f log(a)=%f\n", a, log(a));
+    printf("a=%f log10(a)=%f\n", a, log10(a));
+    printf("a=%f log1p(a)=%f\n", a, log1p(a));
+    printf("a=%f log2(a)=%f\n", a, log2(a));
     printf("a=%f logb(a)=%f\n", a, logb(a));
     printf("a=%f ilogb(a)=%d\n", a, ilogb(a));
     printf("a=%f exp(a)=%f\n", a, exp(a));
@@ -909,11 +906,11 @@ void test_fops(double a, double b)
     printf("a=%f frexp(a)=%f, %d\n", a, frexp(a, &dest), dest);
     printf("a=%f ldexp(a,b)=%f\n", a, ldexp(a, ib));
     printf("a=%f scalbn(a,b)=%f\n", a, scalbn(a, ib));
-    //printf("a=%f sinh(a)=%f\n", a, sinh(a));
-    //printf("a=%f cosh(a)=%f\n", a, cosh(a));
+    printf("a=%f sinh(a)=%f\n", a, sinh(a));
+    printf("a=%f cosh(a)=%f\n", a, cosh(a));
     printf("a=%f tanh(a)=%f\n", a, tanh(a));
     printf("a=%f fabs(a)=%f\n", a, fabs(a));
-    //printf("a=%f pow(a,b)=%f\n", a, pow(a,b));
+    printf("a=%f pow(a,b)=%f\n", a, pow(a,b));
     printf("a=%f b=%f atan2(a, b)=%f\n", a, b, atan2(a, b));
     /* just to test some op combining */
     printf("a=%f asin(sin(a))=%f\n", a, asin(sin(a)));
@@ -1005,7 +1002,7 @@ void test_fcvt(double a)
     fa = a;
     la = a;
     printf("(float)%f = %f\n", a, fa);
-    //printf("(long double)%f = %Lf\n", a, la); // XXX: currently broken for infinity
+    printf("(long double)%f = %Lf\n", a, la);
     printf("a=" FMT64X "\n", *(uint64_t *)&a);
     printf("la=" FMT64X " %04x\n", *(uint64_t *)&la,
            *(unsigned short *)((char *)(&la) + 8));
@@ -1098,10 +1095,11 @@ void test_fenv(void)
     for(i=0;i<8;i++)
         dtab[i] = i + 1;
 
+    asm volatile ("fninit");
     //TEST_ENV(&float_env16, "data16 fnstenv", "data16 fldenv");
     //TEST_ENV(&float_env16, "data16 fnsave", "data16 frstor");
-    //TEST_ENV(&float_env32, "fnstenv", "fldenv"); // XXX: Temporarily disabled
-    //TEST_ENV(&float_env32, "fnsave", "frstor"); // XXX: Temporarily disabled
+    TEST_ENV(&float_env32, "fnstenv", "fldenv");
+    TEST_ENV(&float_env32, "fnsave", "frstor");
 
     /* test for ffree */
     for(i=0;i<5;i++)

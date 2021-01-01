@@ -2672,6 +2672,10 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
     }
 }
 
+pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
+    Ok(std::mem::transmute(safe_read32s(addr)?))
+}
+
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
     if addr & 0xFFF > 0x1000 - 8 {
         Ok(safe_read32s(addr)? as u32 as u64 | (safe_read32s(addr + 4)? as u32 as u64) << 32)
@@ -3121,14 +3125,11 @@ pub unsafe fn write_reg32(index: i32, value: i32) {
     *reg32.offset(index as isize) = value;
 }
 
-pub unsafe fn read_mmx32s(r: i32) -> i32 { *reg_mmx.offset(r as isize) as i32 }
+pub unsafe fn read_mmx32s(r: i32) -> i32 { (*fpu_st.offset(r as isize)).mantissa as i32 }
 
-pub unsafe fn read_mmx64s(r: i32) -> u64 { *reg_mmx.offset(r as isize) }
+pub unsafe fn read_mmx64s(r: i32) -> u64 { (*fpu_st.offset(r as isize)).mantissa }
 
-pub unsafe fn write_mmx_reg64(r: i32, data: u64) {
-    *fxsave_store_fpu_mask &= !(1 << r);
-    *reg_mmx.offset(r as isize) = data;
-}
+pub unsafe fn write_mmx_reg64(r: i32, data: u64) { (*fpu_st.offset(r as isize)).mantissa = data; }
 
 pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32_0[0]; }
 

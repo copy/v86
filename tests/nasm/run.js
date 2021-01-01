@@ -366,8 +366,8 @@ else {
         emulator.stop();
         var cpu = emulator.v86.cpu;
 
-        const evaluated_fpu_regs = new Float64Array(8).map((_, i) => cpu.fpu_st[i + cpu.fpu_stack_ptr[0] & 7]);
-        const evaluated_mmxs = cpu.reg_mmxs;
+        const evaluated_fpu_regs = new Float64Array(8).map((_, i) => cpu.fpu_get_sti_f64(i));
+        const evaluated_mmxs = new Int32Array(16).map((_, i) => cpu.fpu_st[(i & ~1) << 1 | (i & 1)]);
         const evaluated_xmms = cpu.reg_xmm32s;
         const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
         const evaluated_fpu_tag = cpu.fpu_load_tag_word();
@@ -436,7 +436,7 @@ else {
                 for (let i = 0; i < evaluated_mmxs.length; i++) {
                     if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
                         individual_failures.push({
-                            name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
+                            name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "]",
                             expected: expected_mmx_registers[i],
                             actual: evaluated_mmxs[i],
                         });
