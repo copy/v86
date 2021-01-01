@@ -16,6 +16,7 @@ pub const SEGMENT_OFFSETS: u32 = 736;
 pub const REG_XMM: u32 = 832;
 pub const FPU_CONTROL_WORD: u32 = 1036;
 pub const SSE_SCRATCH_REGISTER: u32 = 1040;
+pub const REG_MMX: u32 = 1064;
 pub const OPSTATS_BUFFER: u32 = 0x08000;
 pub const OPSTATS_UNGUARDED_REGISTER_BUFFER: u32 = 0x20000;
 pub const TLB_DATA: u32 = 0x400000; // 2**20 32-bit words = 4MB
@@ -26,6 +27,11 @@ pub const JIT_CACHE_ARRAY: u32 = 0xC00000; // jit_cache_array::SIZE * sizeof(jit
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     REG + 4 * r
+}
+
+pub fn get_reg_mmx_offset(r: u32) -> u32 {
+    dbg_assert!(r < 8);
+    REG_MMX + 8 * r
 }
 
 pub fn get_reg_xmm_low_offset(r: u32) -> u32 {
