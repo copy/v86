@@ -185,11 +185,13 @@ unsafe fn string_instruction(
             },
         };
 
+        let mut dst_val = 0;
+
         match instruction {
             Instruction::Cmps | Instruction::Scas => match size {
-                Size::B => cmp8(src_val, break_on_pagefault!(safe_read8(es + dst))),
-                Size::W => cmp16(src_val, break_on_pagefault!(safe_read16(es + dst))),
-                Size::D => cmp32(src_val, break_on_pagefault!(safe_read32s(es + dst))),
+                Size::B => dst_val = break_on_pagefault!(safe_read8(es + dst)),
+                Size::W => dst_val = break_on_pagefault!(safe_read16(es + dst)),
+                Size::D => dst_val = break_on_pagefault!(safe_read32s(es + dst)),
             },
             Instruction::Outs => match size {
                 Size::B => io_port_write8(port, src_val),
@@ -223,24 +225,35 @@ unsafe fn string_instruction(
             _ => {},
         };
 
-        match rep {
+        let finished = match rep {
             Rep::Z | Rep::NZ => {
                 let rep_cmp = match (rep, instruction) {
-                    (Rep::Z, Instruction::Scas | Instruction::Cmps) => getzf(),
-                    (Rep::NZ, Instruction::Scas | Instruction::Cmps) => !getzf(),
+                    (Rep::Z, Instruction::Scas | Instruction::Cmps) => src_val == dst_val,
+                    (Rep::NZ, Instruction::Scas | Instruction::Cmps) => src_val != dst_val,
                     _ => true,
                 };
                 count -= 1;
                 if count != 0 && rep_cmp {
                     //*instruction_pointer = *previous_ip
+                    false
                 }
                 else {
-                    break;
+                    true
                 }
             },
-            Rep::None => {
-                break;
-            },
+            Rep::None => true,
+        };
+
+        if finished {
+            match instruction {
+                Instruction::Scas | Instruction::Cmps => match size {
+                    Size::B => cmp8(src_val, dst_val),
+                    Size::W => cmp16(src_val, dst_val),
+                    Size::D => cmp32(src_val, dst_val),
+                },
+                _ => {},
+            }
+            break;
         }
     }
 
