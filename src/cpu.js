@@ -163,8 +163,6 @@ function CPU(bus, wm)
 
     this.bus = bus;
 
-    this.update_operand_size();
-
     this.set_tsc(0, 0);
 
     this.debug_init();
@@ -489,8 +487,6 @@ CPU.prototype.set_state = function(state)
 
     this.full_clear_tlb();
 
-    this.update_operand_size();
-
     this.jit_clear_cache();
 };
 
@@ -643,8 +639,6 @@ CPU.prototype.reset = function()
     this.prefixes[0] = 0;
 
     this.last_virt_eip[0] = -1;
-
-    this.update_operand_size();
 
     this.timestamp_counter[0] = 0;
     this.previous_ip[0] = 0;
@@ -1993,11 +1987,8 @@ CPU.prototype.update_cs_size = function(new_size)
     if(Boolean(this.is_32[0]) !== new_size)
     {
         this.is_32[0] = +new_size;
-        this.update_operand_size();
     }
 };
-
-CPU.prototype.update_operand_size = function() {};
 
 /**
  * @param {number} selector
