@@ -2197,69 +2197,17 @@ pub unsafe fn virt_boundary_write32(low: u32, high: u32, value: i32) {
     write8(high as u32, value >> 24);
 }
 
-pub unsafe fn safe_read8(addr: i32) -> OrPageFault<i32> {
-    return Ok(read8(translate_address_read(addr)?));
-}
+pub unsafe fn safe_read8(addr: i32) -> OrPageFault<i32> { Ok(read8(translate_address_read(addr)?)) }
 
-pub unsafe fn safe_read16(address: i32) -> OrPageFault<i32> {
-    let base: i32 = (address as u32 >> 12) as i32;
-    let entry: i32 = *tlb_data.offset(base as isize);
-    let info_bits: i32 = entry & 0xFFF & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
-    if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 2 {
-        // - not in memory mapped area
-        // - can be accessed from any cpl
-        let phys_address: u32 = (entry & !0xFFF ^ address) as u32;
-        dbg_assert!(!in_mapped_range(phys_address));
-        return Ok(*(mem8.offset(phys_address as isize) as *mut u16) as i32);
-    }
-    else {
-        return Ok(safe_read16_slow(address)?);
-    };
-}
+pub unsafe fn safe_read16(address: i32) -> OrPageFault<i32> { Ok(safe_read16_slow(address)?) }
 
 pub unsafe fn safe_read16_slow(addr: i32) -> OrPageFault<i32> {
     if addr & 0xFFF == 0xFFF {
-        return Ok(safe_read8(addr)? | safe_read8(addr + 1)? << 8);
+        Ok(safe_read8(addr)? | safe_read8(addr + 1)? << 8)
     }
     else {
-        return Ok(read16(translate_address_read(addr)?));
-    };
-}
-
-pub unsafe fn safe_read32s(address: i32) -> OrPageFault<i32> {
-    let base: i32 = (address as u32 >> 12) as i32;
-    let entry: i32 = *tlb_data.offset(base as isize);
-    let info_bits: i32 = entry & 0xFFF & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
-    if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 4 {
-        if false {
-            profiler::stat_increment(SAFE_READ_FAST);
-        }
-        // - not in memory mapped area
-        // - can be accessed from any cpl
-        let phys_address: u32 = (entry & !0xFFF ^ address) as u32;
-        dbg_assert!(!in_mapped_range(phys_address));
-        return Ok(*(mem8.offset(phys_address as isize) as *mut i32));
+        Ok(read16(translate_address_read(addr)?))
     }
-    else {
-        if false {
-            if address & 0xFFF > 0x1000 - 4 {
-                profiler::stat_increment(SAFE_READ_SLOW_PAGE_CROSSED);
-            }
-            else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(SAFE_READ_SLOW_NOT_VALID);
-            }
-            else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(SAFE_READ_SLOW_NOT_USER);
-            }
-            else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(SAFE_READ_SLOW_IN_MAPPED_RANGE);
-            }
-            else {
-                dbg_assert!(false);
-            }
-        }
-        return safe_read32s_slow(address);
-    };
 }
 
 #[no_mangle]
@@ -2335,13 +2283,13 @@ pub fn report_safe_read_write_jit_slow(address: u32, entry: i32) {
     }
 }
 
-pub unsafe fn safe_read32s_slow(addr: i32) -> OrPageFault<i32> {
+pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
     if addr & 0xFFF >= 0xFFD {
-        return Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16);
+        Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16)
     }
     else {
-        return Ok(read32s(translate_address_read(addr)?));
-    };
+        Ok(read32s(translate_address_read(addr)?))
+    }
 }
 
 #[no_mangle]
@@ -2558,27 +2506,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn safe_write16(address: i32, value: i32) -> OrPageFault<()> {
-    let base: i32 = (address as u32 >> 12) as i32;
-    let entry: i32 = *tlb_data.offset(base as isize);
-    let info_bits: i32 = entry & 0xFFF & !TLB_GLOBAL;
-    if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 2 {
-        // - allowed to write in user-mode
-        // - not in memory mapped area
-        // - can be accessed from any cpl
-        // - does not contain code
-        let phys_address: u32 = (entry & !0xFFF ^ address) as u32;
-        dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12));
-        dbg_assert!(!in_mapped_range(phys_address));
-        *(mem8.offset(phys_address as isize) as *mut u16) = value as u16;
-    }
-    else {
-        safe_write16_slow(address, value)?;
-    };
-    Ok(())
-}
-
-pub unsafe fn safe_write16_slow(addr: i32, value: i32) -> OrPageFault<()> {
+pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     let phys_low = translate_address_write(addr)?;
     if addr & 0xFFF == 0xFFF {
         virt_boundary_write16(phys_low, translate_address_write(addr + 1)?, value);
@@ -2589,53 +2517,7 @@ pub unsafe fn safe_write16_slow(addr: i32, value: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn safe_write32(address: i32, value: i32) -> OrPageFault<()> {
-    let base: i32 = (address as u32 >> 12) as i32;
-    let entry: i32 = *tlb_data.offset(base as isize);
-    let info_bits: i32 =
-        entry & 0xFFF & !TLB_GLOBAL & !if *cpl as i32 == 3 { 0 } else { TLB_NO_USER };
-    if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 4 {
-        if false {
-            profiler::stat_increment(SAFE_WRITE_FAST);
-        }
-        // - allowed to write in user-mode
-        // - not in memory mapped area
-        // - does not contain code
-        let phys_address: u32 = (entry & !0xFFF ^ address) as u32;
-        dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12));
-        dbg_assert!(!in_mapped_range(phys_address));
-        *(mem8.offset(phys_address as isize) as *mut i32) = value;
-    }
-    else {
-        if true {
-            if address & 0xFFF > 0x1000 - 4 {
-                profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
-            }
-            else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(SAFE_WRITE_SLOW_NOT_VALID);
-            }
-            else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(SAFE_WRITE_SLOW_NOT_USER);
-            }
-            else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
-            }
-            else if 0 != info_bits & TLB_READONLY {
-                profiler::stat_increment(SAFE_WRITE_SLOW_READ_ONLY);
-            }
-            else if 0 != info_bits & TLB_HAS_CODE {
-                profiler::stat_increment(SAFE_WRITE_SLOW_HAS_CODE);
-            }
-            else {
-                dbg_assert!(false);
-            }
-        }
-        safe_write32_slow(address, value)?;
-    };
-    Ok(())
-}
-
-pub unsafe fn safe_write32_slow(addr: i32, value: i32) -> OrPageFault<()> {
+pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     let phys_low = translate_address_write(addr)?;
     if addr & 0xFFF > 0x1000 - 4 {
         virt_boundary_write32(
