@@ -94,7 +94,7 @@ function dbg_trace(level)
 {
     if(!DEBUG) return;
 
-    dbg_log(Error().stack.replace(/(?:(?:t|t16|t32)\.\(anonymous function\)\.)+/g, "t.(anonymous function)."), level);
+    dbg_log(Error().stack, level);
 }
 
 /**
