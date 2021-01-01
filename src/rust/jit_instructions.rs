@@ -4607,8 +4607,8 @@ pub fn instr_0FAE_5_mem_jit(ctx: &mut JitContext, _modrm_byte: u8) {
     dbg_log!("Generating #ud for unimplemented instruction: instr_0FAE_5_mem_jit");
     codegen::gen_trigger_ud(ctx);
 }
-pub fn instr_0FAE_5_reg_jit(_ctx: &mut JitContext, r: u32) {
-    dbg_assert!(r == 0, "Unexpected lfence encoding");
+pub fn instr_0FAE_5_reg_jit(_ctx: &mut JitContext, _r: u32) {
+    // For this instruction, the processor ignores the r/m field of the ModR/M byte.
 }
 
 pub fn instr_660FD6_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {

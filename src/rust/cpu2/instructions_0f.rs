@@ -3312,9 +3312,8 @@ pub unsafe fn instr_0FAE_4_mem(addr: i32) {
     undefined_instruction();
 }
 #[no_mangle]
-pub unsafe fn instr_0FAE_5_reg(r: i32) {
+pub unsafe fn instr_0FAE_5_reg(_r: i32) {
     // lfence
-    dbg_assert!(r == 0, "Unexpected lfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_5_mem(addr: i32) {
@@ -3322,9 +3321,8 @@ pub unsafe fn instr_0FAE_5_mem(addr: i32) {
     undefined_instruction();
 }
 #[no_mangle]
-pub unsafe fn instr_0FAE_6_reg(r: i32) {
+pub unsafe fn instr_0FAE_6_reg(_r: i32) {
     // mfence
-    dbg_assert!(r == 0, "Unexpected mfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_6_mem(addr: i32) {
@@ -3332,9 +3330,8 @@ pub unsafe fn instr_0FAE_6_mem(addr: i32) {
     undefined_instruction();
 }
 #[no_mangle]
-pub unsafe fn instr_0FAE_7_reg(r: i32) {
+pub unsafe fn instr_0FAE_7_reg(_r: i32) {
     // sfence
-    dbg_assert!(r == 0, "Unexpected sfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_7_mem(addr: i32) {
