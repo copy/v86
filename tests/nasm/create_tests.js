@@ -60,10 +60,6 @@ function generate_tests()
                     console.log("Creating %s", filename);
                     fs.writeFileSync(dirname, code);
                 }
-                else
-                {
-                    console.log("Unchanged: %s", filename);
-                }
 
                 i++;
             }
