@@ -4600,7 +4600,7 @@ pub unsafe fn maskmovdqu(r1: i32, r2: i32, addr: i32) {
         },
     }
     for i in 0..16 {
-        if 0 != mask.u8_0[i] as i32 & 128 {
+        if 0 != mask.u8_0[i] & 0x80 {
             safe_write8(addr + i as i32, source.u8_0[i] as i32).unwrap();
         }
     }
