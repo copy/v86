@@ -101,6 +101,31 @@ pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
     }
 }
 
+/// Return a new local referencing one of the 8 bit registers or a direct reference to one of the
+/// register locals. Higher bits might be garbage (suitable for gen_cmp8 etc.). Must be freed with
+/// gen_free_reg8_or_alias.
+pub fn gen_get_reg8_or_alias_to_reg32(ctx: &mut JitContext, r: u32) -> WasmLocal {
+    match r {
+        regs::AL | regs::CL | regs::DL | regs::BL => ctx.register_locals[r as usize].unsafe_clone(),
+        regs::AH | regs::CH | regs::DH | regs::BH => {
+            ctx.builder
+                .get_local(&ctx.register_locals[(r - 4) as usize]);
+            ctx.builder.const_i32(8);
+            ctx.builder.shr_u_i32();
+            ctx.builder.set_new_local()
+        },
+        _ => panic!(),
+    }
+}
+
+pub fn gen_free_reg8_or_alias(ctx: &mut JitContext, r: u32, local: WasmLocal) {
+    match r {
+        regs::AL | regs::CL | regs::DL | regs::BL => {},
+        regs::AH | regs::CH | regs::DH | regs::BH => ctx.builder.free_local(local),
+        _ => panic!(),
+    }
+}
+
 pub fn gen_get_reg16(ctx: &mut JitContext, r: u32) {
     ctx.builder.get_local(&ctx.register_locals[r as usize]);
     ctx.builder.const_i32(0xFFFF);
