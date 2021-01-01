@@ -2,8 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    fn arpl(seg: i32, r: i32) -> i32;
-    #[no_mangle]
     fn hlt_op();
 }
 
@@ -560,6 +558,20 @@ pub unsafe fn instr_62_mem(addr: i32, r: i32) {
     dbg_log!("Unimplemented BOUND instruction");
     dbg_assert!(false);
 }
+
+pub unsafe fn arpl(seg: i32, r16: i32) -> i32 {
+    *flags_changed &= !FLAG_ZERO;
+
+    if (seg & 3) < (r16 & 3) {
+        *flags |= FLAG_ZERO;
+        seg & !3 | r16 & 3
+    }
+    else {
+        *flags &= !FLAG_ZERO;
+        seg
+    }
+}
+
 #[no_mangle]
 pub unsafe fn instr_63_mem(addr: i32, r: i32) {
     if !*protected_mode || vm86_mode() {

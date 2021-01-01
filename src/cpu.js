@@ -2346,22 +2346,6 @@ CPU.prototype.load_ldt = function(selector)
     //dbg_log("ldt at " + h(info.base >>> 0) + "; (" + info.effective_limit + " bytes)", LOG_CPU);
 };
 
-CPU.prototype.arpl = function(seg, r16)
-{
-    this.flags_changed[0] &= ~flag_zero;
-
-    if((seg & 3) < (r16 & 3))
-    {
-        this.flags[0] |= flag_zero;
-        return seg & ~3 | r16 & 3;
-    }
-    else
-    {
-        this.flags[0] &= ~flag_zero;
-        return seg;
-    }
-};
-
 CPU.prototype.lar = function(selector, original)
 {
     if(CPU_LOG_VERBOSE)

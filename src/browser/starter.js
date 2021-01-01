@@ -134,8 +134,6 @@ function V86Starter(options)
             cpu.mmap_write128(addr, value0, value1, value2, value3);
         },
 
-        "arpl": function() { return cpu.arpl.apply(cpu, arguments); },
-
         "lar": function() { return cpu.lar.apply(cpu, arguments); },
         "lsl": function() { return cpu.lsl.apply(cpu, arguments); },
         "verw": function() { return cpu.verw.apply(cpu, arguments); },
