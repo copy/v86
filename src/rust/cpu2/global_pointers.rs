@@ -1,6 +1,6 @@
 #![allow(non_upper_case_globals)]
 
-use cpu2::cpu::{reg64, reg128};
+use cpu2::cpu::reg128;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;
@@ -63,7 +63,7 @@ pub const fpu_ip: *mut i32 = 1048 as *mut i32;
 pub const fpu_ip_selector: *mut i32 = 1052 as *mut i32;
 pub const fpu_dp: *mut i32 = 1056 as *mut i32;
 pub const fpu_dp_selector: *mut i32 = 1060 as *mut i32;
-pub const reg_mmx: *mut reg64 = 1064 as *mut reg64;
+pub const reg_mmx: *mut u64 = 1064 as *mut u64;
 pub const tss_size_32: *mut bool = 1128 as *mut bool;
 pub const fxsave_store_fpu_mask: *mut u8 = 1132 as *mut u8;
 pub const opstats_buffer: *mut u32 = 0x08000 as *mut u32;

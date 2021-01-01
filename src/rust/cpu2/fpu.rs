@@ -145,14 +145,14 @@ pub unsafe fn fpu_load_m32(addr: i32) -> OrPageFault<f64> {
 }
 #[no_mangle]
 pub unsafe fn fpu_load_m64(addr: i32) -> OrPageFault<f64> {
-    let value = safe_read64s(addr)?.u64_0[0];
+    let value = safe_read64s(addr)?;
     let f = transmute(value);
     Ok(f)
 }
 
 #[no_mangle]
 pub unsafe fn fpu_load_m80(addr: i32) -> OrPageFault<f64> {
-    let value = safe_read64s(addr as i32)?.u64_0[0];
+    let value = safe_read64s(addr as i32)?;
     let exponent = safe_read16(addr.wrapping_add(8) as i32)?;
     let f = fpu_f80_to_f64((value, exponent as u16));
     Ok(f)
@@ -332,7 +332,7 @@ pub unsafe fn fpu_ffree(r: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_fildm64(addr: i32) {
-    let value = return_on_pagefault!(safe_read64s(addr)).i64_0[0];
+    let value = return_on_pagefault!(safe_read64s(addr)) as i64;
     let m64 = value as f64;
     fpu_push(m64);
 }
@@ -423,7 +423,7 @@ pub unsafe fn fpu_convert_to_i64(f: f64) -> i64 {
 #[no_mangle]
 pub unsafe fn fpu_fistm64p(addr: i32) {
     let v = fpu_convert_to_i64(fpu_get_st0());
-    return_on_pagefault!(safe_write64(addr, v));
+    return_on_pagefault!(safe_write64(addr, v as u64));
     fpu_pop();
 }
 
@@ -597,7 +597,7 @@ pub unsafe fn fpu_fsave32(mut addr: i32) {
             fpu_store_m80(addr, *fpu_st.offset(reg_index as isize));
         }
         else {
-            safe_write64(addr, (*reg_mmx.offset(reg_index as isize)).i64_0[0]).unwrap();
+            safe_write64(addr, *reg_mmx.offset(reg_index as isize)).unwrap();
         }
         addr += 10;
     }
@@ -608,7 +608,7 @@ pub unsafe fn fpu_fsave32(mut addr: i32) {
 pub unsafe fn fpu_store_m80(addr: i32, n: f64) {
     let (value, exponent) = fpu_f64_to_f80(n);
     // writable_or_pagefault must have checked called by the caller!
-    safe_write64(addr, value as i64).unwrap();
+    safe_write64(addr, value).unwrap();
     safe_write16(addr + 8, exponent as i32).unwrap();
 }
 

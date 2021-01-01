@@ -4,14 +4,14 @@ use cpu2::cpu::*;
 pub unsafe fn mov_r_m64(addr: i32, r: i32) {
     // mov* m64, mm
     let data = read_mmx64s(r);
-    return_on_pagefault!(safe_write64(addr, data.u64_0[0] as i64));
+    return_on_pagefault!(safe_write64(addr, data));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn movl_r128_m64(addr: i32, r: i32) {
     // mov* m64, xmm
     let data = read_xmm64s(r);
-    return_on_pagefault!(safe_write64(addr, data.u64_0[0] as i64));
+    return_on_pagefault!(safe_write64(addr, data));
 }
 #[no_mangle]
 pub unsafe fn mov_r_r128(r1: i32, r2: i32) {
@@ -39,24 +39,23 @@ pub unsafe fn movh_m64_r128(addr: i32, r: i32) {
         r,
         orig.u32_0[0] as i32,
         orig.u32_0[1] as i32,
-        data.u32_0[0] as i32,
-        data.u32_0[1] as i32,
+        data as i32,
+        (data >> 32) as i32,
     );
 }
 #[no_mangle]
 pub unsafe fn movh_r128_m64(addr: i32, r: i32) {
     // movhp* m64, xmm
     let data = read_xmm128s(r);
-    return_on_pagefault!(safe_write64(addr, data.u64_0[1] as i64));
+    return_on_pagefault!(safe_write64(addr, data.u64_0[1]));
 }
+
 #[no_mangle]
 pub unsafe fn pand_r128(source: reg128, r: i32) {
     // pand xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result: reg128 = reg128 {
-        i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
+    let mut result = reg128 { i8_0: [0; 16] };
     result.u64_0[0] = source.u64_0[0] & destination.u64_0[0];
     result.u64_0[1] = source.u64_0[1] & destination.u64_0[1];
     write_xmm_reg128(r, result);
@@ -66,9 +65,7 @@ pub unsafe fn pandn_r128(source: reg128, r: i32) {
     // pandn xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result: reg128 = reg128 {
-        i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
+    let mut result = reg128 { i8_0: [0; 16] };
     result.u64_0[0] = source.u64_0[0] & !destination.u64_0[0];
     result.u64_0[1] = source.u64_0[1] & !destination.u64_0[1];
     write_xmm_reg128(r, result);
@@ -78,9 +75,7 @@ pub unsafe fn pxor_r128(source: reg128, r: i32) {
     // pxor xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result: reg128 = reg128 {
-        i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
+    let mut result = reg128 { i8_0: [0; 16] };
     result.u64_0[0] = source.u64_0[0] ^ destination.u64_0[0];
     result.u64_0[1] = source.u64_0[1] ^ destination.u64_0[1];
     write_xmm_reg128(r, result);
@@ -90,126 +85,108 @@ pub unsafe fn por_r128(source: reg128, r: i32) {
     // por xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result: reg128 = reg128 {
-        i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
+    let mut result = reg128 { i8_0: [0; 16] };
     result.u64_0[0] = source.u64_0[0] | destination.u64_0[0];
     result.u64_0[1] = source.u64_0[1] | destination.u64_0[1];
     write_xmm_reg128(r, result);
 }
+
 #[no_mangle]
 pub unsafe fn psrlw_r64(r: i32, shift: u64) {
     // psrlw mm, {shift}
-    let destination = read_mmx64s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
-    if shift <= 15 {
-        dword0 = destination.u16_0[0] as i32 >> shift | destination.u16_0[1] as i32 >> shift << 16;
-        dword1 = destination.u16_0[2] as i32 >> shift | destination.u16_0[3] as i32 >> shift << 16
+    let destination: [u16; 4] = std::mem::transmute(read_mmx64s(r));
+    let shift = if shift > 15 { 16 } else { shift };
+    let mut result = [0; 4];
+    for i in 0..4 {
+        result[i] = ((destination[i] as u32) >> shift) as u16
     }
-    write_mmx64(r, dword0, dword1);
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psraw_r64(r: i32, shift: u64) {
     // psraw mm, {shift}
-    let destination = read_mmx64s(r);
-    let shift_clamped = (if shift > 15 { 16 } else { shift }) as i32;
-    let dword0 = destination.i16_0[0] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[1] as i32 >> shift_clamped << 16;
-    let dword1 = destination.i16_0[2] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[3] as i32 >> shift_clamped << 16;
-    write_mmx64(r, dword0, dword1);
+    let destination: [i16; 4] = std::mem::transmute(read_mmx64s(r));
+    let shift = if shift > 15 { 16 } else { shift };
+    let mut result = [0; 4];
+    for i in 0..4 {
+        result[i] = (destination[i] as i32 >> shift) as i16
+    }
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psllw_r64(r: i32, shift: u64) {
     // psllw mm, {shift}
-    let destination = read_mmx64s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
+    let destination: [i16; 4] = std::mem::transmute(read_mmx64s(r));
+    let mut result = [0; 4];
     if shift <= 15 {
-        dword0 = (destination.u16_0[0] as i32) << shift & 0xFFFF
-            | (destination.u16_0[1] as i32) << shift << 16;
-        dword1 = (destination.u16_0[2] as i32) << shift & 0xFFFF
-            | (destination.u16_0[3] as i32) << shift << 16
+        for i in 0..4 {
+            result[i] = destination[i] << shift
+        }
     }
-    write_mmx64(r, dword0, dword1);
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrld_r64(r: i32, shift: u64) {
     // psrld mm, {shift}
-    let destination = read_mmx64s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
+    let destination: [u32; 2] = std::mem::transmute(read_mmx64s(r));
+    let mut result = [0; 2];
     if shift <= 31 {
-        dword0 = (destination.u32_0[0] >> shift) as i32;
-        dword1 = (destination.u32_0[1] >> shift) as i32
+        for i in 0..2 {
+            result[i] = destination[i] >> shift;
+        }
     }
-    write_mmx64(r, dword0, dword1);
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrad_r64(r: i32, shift: u64) {
     // psrad mm, {shift}
-    let destination = read_mmx64s(r);
-    let shift_clamped = (if shift > 31 { 31 } else { shift }) as i32;
-    let dword0 = destination.i32_0[0] >> shift_clamped;
-    let dword1 = destination.i32_0[1] >> shift_clamped;
-    write_mmx64(r, dword0, dword1);
+    let destination: [i32; 2] = std::mem::transmute(read_mmx64s(r));
+    let shift = if shift > 31 { 31 } else { shift };
+    let mut result = [0; 2];
+    for i in 0..2 {
+        result[i] = destination[i] >> shift;
+    }
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn pslld_r64(r: i32, shift: u64) {
     // pslld mm, {shift}
-    let destination = read_mmx64s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
+    let destination: [i32; 2] = std::mem::transmute(read_mmx64s(r));
+    let mut result = [0; 2];
     if shift <= 31 {
-        dword0 = destination.i32_0[0] << shift;
-        dword1 = destination.i32_0[1] << shift
+        for i in 0..2 {
+            result[i] = destination[i] << shift;
+        }
     }
-    write_mmx64(r, dword0, dword1);
+    write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrlq_r64(r: i32, shift: u64) {
     // psrlq mm, {shift}
-    if shift == 0 {
-        return;
+    let destination = read_mmx64s(r);
+    let mut result = 0;
+    if shift <= 63 {
+        result = destination >> shift
     }
-    else {
-        let destination = read_mmx64s(r);
-        let mut result: reg64 = reg64 {
-            i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
-        };
-        if shift <= 63 {
-            result.u64_0[0] = destination.u64_0[0] >> shift
-        }
-        write_mmx_reg64(r, result);
-        transition_fpu_to_mmx();
-        return;
-    };
+    write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psllq_r64(r: i32, shift: u64) {
     // psllq mm, {shift}
     let destination = read_mmx64s(r);
-    if shift == 0 {
-        return;
+    let mut result = 0;
+    if shift <= 63 {
+        result = destination << shift
     }
-    else {
-        let mut result: reg64 = reg64 {
-            i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
-        };
-        if shift <= 63 {
-            result.u64_0[0] = destination.u64_0[0] << shift
-        }
-        write_mmx_reg64(r, result);
-        transition_fpu_to_mmx();
-        return;
-    };
+    write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrlw_r128(r: i32, shift: u64) {
@@ -308,41 +285,26 @@ pub unsafe fn pslld_r128(r: i32, shift: u64) {
 #[no_mangle]
 pub unsafe fn psrlq_r128(r: i32, shift: u64) {
     // psrlq xmm, {shift}
-    if shift == 0 {
-        return;
+    let destination = read_xmm128s(r);
+    let mut result = reg128 { i8_0: [0; 16] };
+    if shift <= 63 {
+        result.u64_0[0] = destination.u64_0[0] >> shift;
+        result.u64_0[1] = destination.u64_0[1] >> shift
     }
-    else {
-        let destination = read_xmm128s(r);
-        let mut result: reg128 = reg128 {
-            i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        };
-        if shift <= 63 {
-            result.u64_0[0] = destination.u64_0[0] >> shift;
-            result.u64_0[1] = destination.u64_0[1] >> shift
-        }
-        write_xmm_reg128(r, result);
-        return;
-    };
+    write_xmm_reg128(r, result);
 }
 #[no_mangle]
 pub unsafe fn psllq_r128(r: i32, shift: u64) {
     // psllq xmm, {shift}
     let destination = read_xmm128s(r);
-    if shift == 0 {
-        return;
+    let mut result = reg128 { i8_0: [0; 16] };
+    if shift <= 63 {
+        result.u64_0[0] = destination.u64_0[0] << shift;
+        result.u64_0[1] = destination.u64_0[1] << shift
     }
-    else {
-        let mut result: reg128 = reg128 {
-            i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        };
-        if shift <= 63 {
-            result.u64_0[0] = destination.u64_0[0] << shift;
-            result.u64_0[1] = destination.u64_0[1] << shift
-        }
-        write_xmm_reg128(r, result);
-        return;
-    };
+    write_xmm_reg128(r, result);
 }
+
 #[no_mangle]
 pub unsafe fn sse_comparison(op: i32, x: f64, y: f64) -> bool {
     // TODO: Signaling

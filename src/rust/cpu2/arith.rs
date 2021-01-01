@@ -1166,22 +1166,21 @@ pub unsafe fn popcnt(v: i32) -> i32 {
         return 0;
     };
 }
+
 #[no_mangle]
-pub unsafe fn saturate_sw_to_ub(v: u32) -> u32 {
-    dbg_assert!(v & 4294901760 == 0);
-    let mut ret: u32 = v;
+pub unsafe fn saturate_sw_to_ub(v: u16) -> u8 {
+    let mut ret = v;
     if ret >= 32768 {
         ret = 0
     }
     else if ret > 255 {
         ret = 255
     }
-    dbg_assert!(ret & 4294967040 == 0);
-    return ret;
+    return ret as u8;
 }
 #[no_mangle]
-pub unsafe fn saturate_sw_to_sb(v: i32) -> i32 {
-    dbg_assert!(v as u32 & 4294901760 == 0);
+pub unsafe fn saturate_sw_to_sb(v: i32) -> u8 {
+    dbg_assert!(v as u32 & 0xFFFF_0000 == 0);
     let mut ret: i32 = v;
     if ret > 65408 {
         ret = ret & 255
@@ -1192,11 +1191,11 @@ pub unsafe fn saturate_sw_to_sb(v: i32) -> i32 {
     else if ret > 127 {
         ret = 127
     }
-    dbg_assert!(ret as u32 & 4294967040 == 0);
-    return ret;
+    dbg_assert!(ret as u32 & 0xFFFF_FF00 == 0);
+    return ret as u8;
 }
 #[no_mangle]
-pub unsafe fn saturate_sd_to_sw(v: u32) -> u32 {
+pub unsafe fn saturate_sd_to_sw(v: u32) -> u16 {
     let mut ret: u32 = v;
     if ret > 4294934528 {
         ret = ret & 0xFFFF
@@ -1207,13 +1206,13 @@ pub unsafe fn saturate_sd_to_sw(v: u32) -> u32 {
     else if ret > 32767 {
         ret = 32767
     }
-    dbg_assert!(ret & 4294901760 == 0);
-    return ret;
+    dbg_assert!(ret & 0xFFFF_0000 == 0);
+    return ret as u16;
 }
 #[no_mangle]
-pub unsafe fn saturate_sd_to_sb(v: u32) -> u32 {
+pub unsafe fn saturate_sd_to_sb(v: u32) -> i8 {
     let mut ret: u32 = v;
-    if ret > 4294967168 {
+    if ret > 0xFFFFFF80 {
         ret = ret & 255
     }
     else if ret > 0x7FFFFFFF {
@@ -1222,8 +1221,8 @@ pub unsafe fn saturate_sd_to_sb(v: u32) -> u32 {
     else if ret > 127 {
         ret = 127
     }
-    dbg_assert!(ret & 4294967040 == 0);
-    return ret;
+    dbg_assert!(ret & 0xFFFF_FF00 == 0);
+    return ret as i8;
 }
 #[no_mangle]
 pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
@@ -1231,20 +1230,20 @@ pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
     if ret < 0 {
         ret = 0
     }
-    dbg_assert!(ret as u32 & 4294967040 == 0);
+    dbg_assert!(ret as u32 & 0xFFFF_FF00 == 0);
     return ret;
 }
 #[no_mangle]
-pub unsafe fn saturate_ud_to_ub(v: u32) -> u32 {
+pub unsafe fn saturate_ud_to_ub(v: u32) -> u8 {
     let mut ret: u32 = v;
     if ret > 255 {
         ret = 255
     }
-    dbg_assert!(ret & 4294967040 == 0);
-    return ret;
+    dbg_assert!(ret & 0xFFFF_FF00 == 0);
+    return ret as u8;
 }
 #[no_mangle]
-pub unsafe fn saturate_uw(v: u32) -> i32 {
+pub unsafe fn saturate_uw(v: u32) -> u16 {
     let mut ret: u32 = v;
     if ret > 0x7FFFFFFF {
         ret = 0
@@ -1252,6 +1251,6 @@ pub unsafe fn saturate_uw(v: u32) -> i32 {
     else if ret > 0xFFFF {
         ret = 0xFFFF
     }
-    dbg_assert!(ret & 4294901760 == 0);
-    return ret as i32;
+    dbg_assert!(ret & 0xFFFF_0000 == 0);
+    return ret as u16;
 }

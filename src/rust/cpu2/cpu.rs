@@ -41,21 +41,6 @@ pub const WASM_TABLE_OFFSET: u32 = 1024;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union reg64 {
-    pub i8_0: [i8; 8],
-    pub i16_0: [i16; 4],
-    pub i32_0: [i32; 2],
-    pub i64_0: [i64; 1],
-    pub u8_0: [u8; 8],
-    pub u16_0: [u16; 4],
-    pub u32_0: [u32; 2],
-    pub u64_0: [u64; 1],
-    pub f32_0: [f32; 2],
-    pub f64_0: [f64; 1],
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub union reg128 {
     pub i8_0: [i8; 16],
     pub i16_0: [i16; 8],
@@ -1230,7 +1215,7 @@ pub unsafe fn full_clear_tlb() {
     valid_tlb_entries_count = 0;
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
-            dbg_assert!(*tlb_data.offset(i as isize) == 0);
+            dbg_assert!(*tlb_data.offset(i) == 0);
         }
     };
 }
@@ -1257,9 +1242,7 @@ pub unsafe fn clear_tlb() {
     valid_tlb_entries_count = global_page_offset;
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
-            dbg_assert!(
-                *tlb_data.offset(i as isize) == 0 || 0 != *tlb_data.offset(i as isize) & TLB_GLOBAL
-            );
+            dbg_assert!(*tlb_data.offset(i) == 0 || 0 != *tlb_data.offset(i) & TLB_GLOBAL);
         }
     };
 }
@@ -2171,6 +2154,35 @@ pub unsafe fn safe_read16(addr: i32) -> OrPageFault<i32> {
     }
 }
 
+pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
+    if addr & 0xFFF >= 0xFFD {
+        Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16)
+    }
+    else {
+        Ok(read32s(translate_address_read(addr)?))
+    }
+}
+
+pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
+    if addr & 0xFFF > 0x1000 - 8 {
+        Ok(safe_read32s(addr)? as u32 as u64 | (safe_read32s(addr + 4)? as u32 as u64) << 32)
+    }
+    else {
+        Ok(read64s(translate_address_read(addr)?) as u64)
+    }
+}
+
+pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
+    if addr & 0xFFF > 0x1000 - 16 {
+        Ok(reg128 {
+            u64_0: [safe_read64s(addr)?, safe_read64s(addr + 8)?],
+        })
+    }
+    else {
+        Ok(read128(translate_address_read(addr)?))
+    }
+}
+
 #[no_mangle]
 #[cfg(feature = "profiler")]
 pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
@@ -2241,15 +2253,6 @@ pub fn report_safe_read_write_jit_slow(address: u32, entry: i32) {
     }
     else {
         dbg_assert!(false);
-    }
-}
-
-pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
-    if addr & 0xFFF >= 0xFFD {
-        Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16)
-    }
-    else {
-        Ok(read32s(translate_address_read(addr)?))
     }
 }
 
@@ -2385,7 +2388,7 @@ pub unsafe fn safe_write_slow_jit(
                 },
             )
             .unwrap(),
-            64 => safe_write64(addr, value_low as i64).unwrap(),
+            64 => safe_write64(addr, value_low).unwrap(),
             32 => virt_boundary_write32(
                 addr_low,
                 addr_high | (addr as u32 + 3 & 3),
@@ -2408,7 +2411,7 @@ pub unsafe fn safe_write_slow_jit(
                     u64_0: [value_low, value_high],
                 },
             ),
-            64 => write64(addr_low, value_low as i64),
+            64 => write64(addr_low, value_low),
             32 => write32(addr_low, value_low as i32),
             16 => write16(addr_low, value_low as i32),
             8 => write8(addr_low, value_low as i32),
@@ -2446,32 +2449,6 @@ pub unsafe fn safe_write128_slow_jit(addr: i32, low: u64, high: u64, start_eip: 
     safe_write_slow_jit(addr, 128, low, high, start_eip)
 }
 
-pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<reg64> {
-    let mut x: reg64 = reg64 { i8_0: [0; 8] };
-    if addr & 0xFFF > 0x1000 - 8 {
-        x.u32_0[0] = safe_read32s(addr)? as u32;
-        x.u32_0[1] = safe_read32s(addr + 4)? as u32
-    }
-    else {
-        let addr_phys = translate_address_read(addr)?;
-        x.u64_0[0] = read64s(addr_phys) as u64
-    }
-    Ok(x)
-}
-
-pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
-    let mut x: reg128 = reg128 { i8_0: [0; 16] };
-    if addr & 0xFFF > 0x1000 - 16 {
-        x.u64_0[0] = safe_read64s(addr)?.u64_0[0];
-        x.u64_0[1] = safe_read64s(addr + 8)?.u64_0[0]
-    }
-    else {
-        let addr_phys = translate_address_read(addr)?;
-        x = read128(addr_phys)
-    }
-    Ok(x)
-}
-
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     write8(translate_address_write(addr)?, value);
     Ok(())
@@ -2503,7 +2480,7 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn safe_write64(addr: i32, value: i64) -> OrPageFault<()> {
+pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
     if addr & 0xFFF > 0x1000 - 8 {
         writable_or_pagefault(addr, 8)?;
         safe_write32(addr, value as i32).unwrap();
@@ -2519,8 +2496,8 @@ pub unsafe fn safe_write64(addr: i32, value: i64) -> OrPageFault<()> {
 pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     if addr & 0xFFF > 0x1000 - 16 {
         writable_or_pagefault(addr, 16)?;
-        safe_write64(addr, value.u64_0[0] as i64).unwrap();
-        safe_write64(addr + 8, value.u64_0[1] as i64).unwrap();
+        safe_write64(addr, value.u64_0[0]).unwrap();
+        safe_write64(addr + 8, value.u64_0[1]).unwrap();
     }
     else {
         let phys = translate_address_write(addr)?;
@@ -2549,34 +2526,24 @@ pub unsafe fn write_reg16(index: i32, value: i32) {
     *reg16.offset(get_reg16_index(index) as isize) = value as u16;
 }
 
-pub unsafe fn read_reg32(index: i32) -> i32 { return *reg32.offset(index as isize); }
+pub unsafe fn read_reg32(index: i32) -> i32 { *reg32.offset(index as isize) }
 
 pub unsafe fn write_reg32(index: i32, value: i32) { *reg32.offset(index as isize) = value; }
 
-pub unsafe fn read_mmx32s(r: i32) -> i32 { return (*reg_mmx.offset(r as isize)).u32_0[0] as i32; }
+pub unsafe fn read_mmx32s(r: i32) -> i32 { *reg_mmx.offset(r as isize) as i32 }
 
-pub unsafe fn read_mmx64s(r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
+pub unsafe fn read_mmx64s(r: i32) -> u64 { *reg_mmx.offset(r as isize) }
 
-pub unsafe fn write_mmx64(r: i32, low: i32, high: i32) {
+pub unsafe fn write_mmx_reg64(r: i32, data: u64) {
     *fxsave_store_fpu_mask &= !(1 << r);
-    (*reg_mmx.offset(r as isize)).u32_0[0] = low as u32;
-    (*reg_mmx.offset(r as isize)).u32_0[1] = high as u32;
-}
-
-pub unsafe fn write_mmx_reg64(r: i32, data: reg64) {
-    *fxsave_store_fpu_mask &= !(1 << r);
-    (*reg_mmx.offset(r as isize)).u64_0[0] = data.u64_0[0];
+    *reg_mmx.offset(r as isize) = data;
 }
 
 pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32_0[0]; }
 
 pub unsafe fn read_xmm32(r: i32) -> i32 { return (*reg_xmm.offset(r as isize)).u32_0[0] as i32; }
 
-pub unsafe fn read_xmm64s(r: i32) -> reg64 {
-    let mut x: reg64 = reg64 { i8_0: [0; 8] };
-    x.u64_0[0] = (*reg_xmm.offset(r as isize)).u64_0[0];
-    return x;
-}
+pub unsafe fn read_xmm64s(r: i32) -> u64 { (*reg_xmm.offset(r as isize)).u64_0[0] }
 
 pub unsafe fn read_xmm128s(r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
 
@@ -2584,9 +2551,8 @@ pub unsafe fn write_xmm_f32(r: i32, data: f32) { (*reg_xmm.offset(r as isize)).f
 
 pub unsafe fn write_xmm32(r: i32, data: i32) { (*reg_xmm.offset(r as isize)).i32_0[0] = data; }
 
-pub unsafe fn write_xmm64(r: i32, data: reg64) {
-    (*reg_xmm.offset(r as isize)).u64_0[0] = data.u64_0[0];
-}
+pub unsafe fn write_xmm64(r: i32, data: u64) { (*reg_xmm.offset(r as isize)).u64_0[0] = data }
+pub unsafe fn write_xmm_f64(r: i32, data: f64) { (*reg_xmm.offset(r as isize)).f64_0[0] = data }
 
 pub unsafe fn write_xmm128(r: i32, i0: i32, i1: i32, i2: i32, i3: i32) {
     let x = reg128 {
@@ -2595,10 +2561,11 @@ pub unsafe fn write_xmm128(r: i32, i0: i32, i1: i32, i2: i32, i3: i32) {
     *reg_xmm.offset(r as isize) = x;
 }
 
-pub unsafe fn write_xmm_reg128(r: i32, data: reg128) {
-    (*reg_xmm.offset(r as isize)).u64_0[0] = data.u64_0[0];
-    (*reg_xmm.offset(r as isize)).u64_0[1] = data.u64_0[1];
+pub unsafe fn write_xmm128_2(r: i32, i0: u64, i1: u64) {
+    *reg_xmm.offset(r as isize) = reg128 { u64_0: [i0, i1] };
 }
+
+pub unsafe fn write_xmm_reg128(r: i32, data: reg128) { *reg_xmm.offset(r as isize) = data; }
 
 /// Set the fpu tag word to valid and the top-of-stack to 0 on mmx instructions
 pub fn transition_fpu_to_mmx() {

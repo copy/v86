@@ -386,11 +386,7 @@ pub unsafe fn fxsave(addr: i32) {
             fpu_store_m80(addr + 32 + (i << 4), *fpu_st.offset(reg_index as isize));
         }
         else {
-            safe_write64(
-                addr + 32 + (i << 4),
-                (*reg_mmx.offset(reg_index as isize)).i64_0[0],
-            )
-            .unwrap();
+            safe_write64(addr + 32 + (i << 4), *reg_mmx.offset(reg_index as isize)).unwrap();
             safe_write64(addr + 32 + (i << 4) | 8, 0).unwrap();
         }
     }
