@@ -69,6 +69,7 @@ CLOSURE_FLAGS=\
 CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
 		-- \
+		-C target-feature=+bulk-memory \
 		-C linker=tools/rust-lld-wrapper \
 		-C link-args="--import-table --global-base=262144 $(STRIP_DEBUG_FLAG)" \
 		-C link-args="build/softfloat.o" \
