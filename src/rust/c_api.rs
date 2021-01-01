@@ -1,7 +1,7 @@
 use std::mem;
 use std::ptr::NonNull;
 
-use jit::{cached_code, JitState};
+use jit::JitState;
 use page::Page;
 use state_flags::CachedStateFlags;
 
@@ -23,14 +23,6 @@ pub fn rust_setup() {
     panic::set_hook(Box::new(|panic_info| {
         console_log!("{}", panic_info.to_string());
     }));
-}
-
-pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> u32 {
-    let cached_code {
-        wasm_table_index,
-        initial_state,
-    } = ::jit::jit_find_cache_entry(phys_address, state_flags);
-    wasm_table_index as u32 | (initial_state as u32) << 16
 }
 
 #[no_mangle]

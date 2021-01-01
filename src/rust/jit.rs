@@ -358,14 +358,14 @@ struct BasicBlock {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct cached_code {
     pub wasm_table_index: u16,
     pub initial_state: u16,
 }
 
 impl cached_code {
-    const NONE: cached_code = cached_code {
+    pub const NONE: cached_code = cached_code {
         wasm_table_index: 0,
         initial_state: 0,
     };

@@ -1818,13 +1818,13 @@ pub unsafe fn cycle_internal() {
         *previous_ip = *instruction_pointer;
         let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
         let state_flags = pack_current_state_flags();
-        let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
+        let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
 
-        if 0 != entry {
+        if entry != ::jit::cached_code::NONE {
             profiler::stat_increment(RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter;
-            let wasm_table_index = (entry & 0xFFFF) as u16;
-            let initial_state = (entry >> 16) as u16;
+            let wasm_table_index = entry.wasm_table_index;
+            let initial_state = entry.initial_state;
             #[cfg(debug_assertions)]
             {
                 in_jit = true;
@@ -1956,9 +1956,9 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
         if CHECK_MISSED_ENTRY_POINTS {
             let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
             let state_flags = pack_current_state_flags();
-            let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
+            let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
 
-            if entry != 0 {
+            if entry != ::jit::cached_code::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
                 //dbg_log!(
                 //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
