@@ -29,12 +29,12 @@ else
         vga_memory_size: 8 * 1024 * 1024,
         network_relay_url: "<UNUSED>",
         bzimage_initrd_from_filesystem: true,
-        cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
+        cmdline: "rw console=ttyS0 apm=off root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off audit=0 tsc=reliable nowatchdog init=/usr/bin/init-openrc",
         filesystem: {
             basefs: {
-                url: path.join(V86_ROOT, "/images/debian-base-fs.json"),
+                url: path.join(V86_ROOT, "/images/fs.json"),
             },
-            baseurl: path.join(V86_ROOT, "/images/debian-9p-rootfs-flat/"),
+            baseurl: path.join(V86_ROOT, "/images/arch/"),
         },
         screen_dummy: true,
     });
