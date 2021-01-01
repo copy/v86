@@ -1410,7 +1410,9 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     // WebAssembly.instantiate looks them up asynchronously
     const jit_imports = new this.jit_imports.constructor();
 
-    if(false)
+    const SYNC_COMPILATION = false;
+
+    if(SYNC_COMPILATION)
     {
         const module = new WebAssembly.Module(code);
         const result = new WebAssembly.Instance(module, { "e": jit_imports });
