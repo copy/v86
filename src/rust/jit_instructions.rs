@@ -4770,6 +4770,14 @@ pub fn instr_660F10_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
 }
 pub fn instr_660F10_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) { sse_mov_xmm_xmm(ctx, r1, r2) }
+pub fn instr_F20F10_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    instr_F30F7E_mem_jit(ctx, modrm_byte, r)
+}
+pub fn instr_F20F10_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.const_i32(r1 as i32);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.call_fn2("instr_F20F10_reg");
+}
 
 pub fn instr_0F11_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     instr_0F29_mem_jit(ctx, modrm_byte, r)
