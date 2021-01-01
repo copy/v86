@@ -1465,7 +1465,7 @@ pub fn jit_empty_cache(ctx: &mut JitState) {
 }
 
 pub fn jit_page_has_code(ctx: &JitState, page: Page) -> bool {
-    (jit_cache_array::get_page_index(page) != None || ctx.entry_points.contains_key(&page))
+    jit_cache_array::get_page_index(page) != None || ctx.entry_points.contains_key(&page)
 }
 
 #[cfg(debug_assertions)]
