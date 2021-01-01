@@ -13,11 +13,6 @@ v86util.pads = function(str, len)
     return str.padEnd(len, " ");
 };
 
-v86util.check_env_node = function()
-{
-    return typeof process !== "undefined" && process.versions && process.versions.node;
-};
-
 // pad string with zeros on the left
 v86util.pad0 = function(str, len)
 {

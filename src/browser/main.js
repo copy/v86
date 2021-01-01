@@ -1099,19 +1099,6 @@
     {
         // called on window.onload, in debug mode
 
-        //settings.filesystem = {
-        //    baseurl: "http://localhost/v86-images/arch/",
-        //    basefs: "http://localhost/v86-images/fs.json",
-        //};
-
-        //$("restore_state").onchange = function()
-        //{
-        //};
-
-        //$("start_test").onclick = function()
-        //{
-        //};
-
         var log_levels = $("log_levels");
 
         if(log_levels)
