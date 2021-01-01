@@ -1,19 +1,3 @@
-extern "C" {
-    #[no_mangle]
-    pub fn io_port_read8(port: i32) -> i32;
-    #[no_mangle]
-    pub fn io_port_read16(port: i32) -> i32;
-    #[no_mangle]
-    pub fn io_port_read32(port: i32) -> i32;
-
-    #[no_mangle]
-    pub fn io_port_write8(port: i32, value: i32);
-    #[no_mangle]
-    pub fn io_port_write16(port: i32, value: i32);
-    #[no_mangle]
-    pub fn io_port_write32(port: i32, value: i32);
-}
-
 // string operations
 //
 //       cmp  si  di
