@@ -3021,9 +3021,13 @@ pub fn instr_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.instruction_body.block_end();
 }
 pub fn instr_D9_4_reg_jit(ctx: &mut JitContext, r: u32) {
-    ctx.builder.instruction_body.const_i32(r as i32);
-    // XXX: May call trigger_ud
-    codegen::gen_call_fn1(ctx.builder, "instr_D9_4_reg");
+    match r {
+        0 | 1 | 4 | 5 => {
+            ctx.builder.instruction_body.const_i32(r as i32);
+            codegen::gen_call_fn1(ctx.builder, "instr_D9_4_reg");
+        },
+        _ => codegen::gen_trigger_ud(ctx),
+    }
 }
 
 pub fn instr_D9_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
@@ -3034,8 +3038,12 @@ pub fn instr_D9_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.instruction_body.store_aligned_u16(0);
 }
 pub fn instr_D9_5_reg_jit(ctx: &mut JitContext, r: u32) {
-    // XXX: May call trigger_ud
-    codegen::gen_fn1_const(ctx.builder, "instr_D9_5_reg", r);
+    if r == 7 {
+        codegen::gen_trigger_ud(ctx);
+    }
+    else {
+        codegen::gen_fn1_const(ctx.builder, "instr_D9_5_reg", r);
+    }
 }
 
 pub fn instr_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
