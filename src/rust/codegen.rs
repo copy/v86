@@ -344,18 +344,24 @@ pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg8[r_dest] = reg8[r_src]
-    gen_get_reg8(ctx, src);
-    gen_set_reg8(ctx, dest);
+    if src != dest {
+        gen_get_reg8(ctx, src);
+        gen_set_reg8(ctx, dest);
+    }
 }
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
-    gen_get_reg16(ctx, src);
-    gen_set_reg16(ctx, dest);
+    if src != dest {
+        gen_get_reg16(ctx, src);
+        gen_set_reg16(ctx, dest);
+    }
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg32[r_dest] = reg32[r_src]
-    gen_get_reg32(ctx, src);
-    gen_set_reg32(ctx, dest);
+    if src != dest {
+        gen_get_reg32(ctx, src);
+        gen_set_reg32(ctx, dest);
+    }
 }
 
 pub fn gen_modrm_resolve_safe_read8(ctx: &mut JitContext, modrm_byte: ModrmByte) {
