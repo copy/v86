@@ -213,7 +213,7 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
             if immediate_value != 0 {
                 ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
-                profiler::stat_increment(profiler::stat::MODRM_COMPLEX);
+                profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG_WITH_OFFSET);
             }
             else {
                 profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG);

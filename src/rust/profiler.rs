@@ -66,6 +66,7 @@ pub enum stat {
     TLB_GLOBAL_FULL,
 
     MODRM_SIMPLE_REG,
+    MODRM_SIMPLE_REG_WITH_OFFSET,
     MODRM_COMPLEX,
 }
 
