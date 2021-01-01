@@ -1,4 +1,4 @@
-use util::{SafeToU16, SafeToU8};
+use util::{SafeToU8, SafeToU16};
 use wasmgen::wasm_opcodes as op;
 use wasmgen::wasm_util::WasmBuf;
 

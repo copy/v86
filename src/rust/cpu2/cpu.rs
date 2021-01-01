@@ -19,10 +19,10 @@ extern "C" {
 
 use cpu2::fpu::fpu_set_tag_word;
 use cpu2::global_pointers::*;
-pub use cpu2::imports::{mem16, mem32s, mem8};
+pub use cpu2::imports::{mem8, mem16, mem32s};
 use cpu2::memory::{
-    in_mapped_range, read128, read16, read32s, read64s, read8, read_aligned16, read_aligned32,
-    write128, write16, write32, write64, write8, write_aligned32,
+    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned16, read_aligned32,
+    write8, write16, write32, write64, write128, write_aligned32,
 };
 use cpu2::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
@@ -335,12 +335,7 @@ impl SegmentDescriptor {
     pub fn dpl(&self) -> u8 { (self.access_byte() >> 5) & 3 }
     pub fn is_32(&self) -> bool { self.flags() & 4 == 4 }
     pub fn effective_limit(&self) -> u32 {
-        if self.flags() & 8 == 8 {
-            self.limit() << 12 | 0xFFF
-        }
-        else {
-            self.limit()
-        }
+        if self.flags() & 8 == 8 { self.limit() << 12 | 0xFFF } else { self.limit() }
     }
 }
 
@@ -822,12 +817,7 @@ pub unsafe fn call_interrupt_vector(
             let old_ss = *sreg.offset(SS as isize) as i32;
 
             let error_code_space = if error_code.is_some() { 1 } else { 0 };
-            let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM {
-                4
-            }
-            else {
-                0
-            };
+            let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM { 4 } else { 0 };
             let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
 
             let stack_space = bytes_per_arg * (5 + error_code_space + vm86_space);
@@ -1120,12 +1110,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
 
             let new_page_dir_entry = page_dir_entry
                 | PAGE_TABLE_ACCESSED_MASK
-                | if for_writing {
-                    PAGE_TABLE_DIRTY_MASK
-                }
-                else {
-                    0
-                };
+                | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
 
             if page_dir_entry != new_page_dir_entry {
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
@@ -1177,12 +1162,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
             }
             let new_page_table_entry = page_table_entry
                 | PAGE_TABLE_ACCESSED_MASK
-                | if for_writing {
-                    PAGE_TABLE_DIRTY_MASK
-                }
-                else {
-                    0
-                };
+                | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
             if page_table_entry != new_page_table_entry {
                 write_aligned32(page_table_addr as u32, new_page_table_entry);
             }
@@ -1224,18 +1204,8 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
     let info_bits = TLB_VALID
         | if can_write { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
-        | if is_in_mapped_range {
-            TLB_IN_MAPPED_RANGE
-        }
-        else {
-            0
-        }
-        | if global && 0 != *cr.offset(4) & CR4_PGE {
-            TLB_GLOBAL
-        }
-        else {
-            0
-        }
+        | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
+        | if global && 0 != *cr.offset(4) & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
     dbg_assert!((high ^ page << 12) & 0xFFF == 0);
     *tlb_data.offset(page as isize) = high ^ page << 12 | info_bits;
@@ -1420,12 +1390,8 @@ pub unsafe fn tlb_set_has_code(physical_page: Page, has_code: bool) {
         if 0 != entry {
             let tlb_physical_page = entry as u32 >> 12 ^ page as u32;
             if physical_page == tlb_physical_page {
-                *tlb_data.offset(page as isize) = if has_code {
-                    entry | TLB_HAS_CODE
-                }
-                else {
-                    entry & !TLB_HAS_CODE
-                }
+                *tlb_data.offset(page as isize) =
+                    if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
             }
         }
     }
@@ -1764,12 +1730,7 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
                     translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
                     false
                 );
-                let port_info = if mask & 0xFF00 != 0 {
-                    read16(addr)
-                }
-                else {
-                    read8(addr)
-                };
+                let port_info = if mask & 0xFF00 != 0 { read16(addr) } else { read8(addr) };
 
                 dbg_assert!(addr & 0xFFF < 0xFFF);
 
@@ -1841,12 +1802,7 @@ pub unsafe fn get_seg_prefix_ds(offset: i32) -> i32 { return get_seg_prefix(DS) 
 pub unsafe fn get_seg_prefix_ss(offset: i32) -> i32 { return get_seg_prefix(SS) + offset; }
 
 pub unsafe fn modrm_resolve(modrm_byte: i32) -> OrPageFault<i32> {
-    if is_asize_32() {
-        resolve_modrm32(modrm_byte)
-    }
-    else {
-        resolve_modrm16(modrm_byte)
-    }
+    if is_asize_32() { resolve_modrm32(modrm_byte) } else { resolve_modrm16(modrm_byte) }
 }
 
 pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u32) }
@@ -2789,12 +2745,7 @@ pub unsafe fn task_switch_test_mmx_jit() {
 
 pub unsafe fn read_moffs() -> OrPageFault<i32> {
     // read 2 or 4 byte from ip, depending on address size attribute
-    if is_asize_32() {
-        read_imm32s()
-    }
-    else {
-        read_imm16()
-    }
+    if is_asize_32() { read_imm32s() } else { read_imm16() }
 }
 
 #[no_mangle]

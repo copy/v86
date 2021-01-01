@@ -136,12 +136,7 @@ mod jit_cache_array {
 
     pub fn get_page_index(page: Page) -> Option<u32> {
         let index = unsafe { *page_first_entry.offset(page.to_u32() as isize) };
-        if index == NO_NEXT_ENTRY {
-            None
-        }
-        else {
-            Some(index)
-        }
+        if index == NO_NEXT_ENTRY { None } else { Some(index) }
     }
 
     pub fn set_page_index(page: Page, index: Option<u32>) {
@@ -154,7 +149,11 @@ mod jit_cache_array {
         unsafe { &mut *jit_cache_array.offset(i as isize) }
     }
 
-    fn set(i: u32, entry: Entry) { unsafe { *jit_cache_array.offset(i as isize) = entry }; }
+    fn set(i: u32, entry: Entry) {
+        unsafe {
+            *jit_cache_array.offset(i as isize) = entry
+        };
+    }
 
     pub fn insert(index: u32, mut entry: Entry) {
         let page = Page::page_of(entry.start_addr);
@@ -1264,8 +1263,14 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         }
 
         if was_block_boundary || is_near_end_of_page(end_addr) || end_addr > stop_addr {
-            dbg_log!("Overlapping basic blocks start={:x} expected_end={:x} end={:x} was_block_boundary={} near_end_of_page={}",
-                     start_addr, stop_addr, end_addr, was_block_boundary, is_near_end_of_page(end_addr));
+            dbg_log!(
+                "Overlapping basic blocks start={:x} expected_end={:x} end={:x} was_block_boundary={} near_end_of_page={}",
+                start_addr,
+                stop_addr,
+                end_addr,
+                was_block_boundary,
+                is_near_end_of_page(end_addr)
+            );
             dbg_assert!(false);
             break;
         }
@@ -1510,12 +1515,8 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
             let last_jump_type = unsafe { ::cpu2::cpu::debug_last_jump.name() };
             let last_jump_addr =
                 unsafe { ::cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
-            let last_jump_opcode = if last_jump_addr != 0 {
-                cpu::read32(last_jump_addr)
-            }
-            else {
-                0
-            };
+            let last_jump_opcode =
+                if last_jump_addr != 0 { cpu::read32(last_jump_addr) } else { 0 };
 
             let opcode = cpu::read32(phys_address);
             dbg_log!(

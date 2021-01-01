@@ -29,8 +29,8 @@ extern "C" {
 
 use cpu2::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
-    bts_reg, cmpxchg16, cmpxchg32, cmpxchg8, popcnt, shld16, shld32, shrd16, shrd32, xadd16,
-    xadd32, xadd8,
+    bts_reg, cmpxchg8, cmpxchg16, cmpxchg32, popcnt, shld16, shld32, shrd16, shrd32, xadd8, xadd16,
+    xadd32,
 };
 use cpu2::arith::{
     imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
@@ -1932,30 +1932,10 @@ pub unsafe fn instr_660F64_mem(addr: i32, r: i32) {
 pub unsafe fn instr_0F65(source: reg64, r: i32) {
     // pcmpgtw mm, mm/m64
     let destination = read_mmx64s(r);
-    let word0 = if destination.i16_0[0] as i32 > source.i16_0[0] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word1 = if destination.i16_0[1] as i32 > source.i16_0[1] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word2 = if destination.i16_0[2] as i32 > source.i16_0[2] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word3 = if destination.i16_0[3] as i32 > source.i16_0[3] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
+    let word0 = if destination.i16_0[0] as i32 > source.i16_0[0] as i32 { 0xFFFF } else { 0 };
+    let word1 = if destination.i16_0[1] as i32 > source.i16_0[1] as i32 { 0xFFFF } else { 0 };
+    let word2 = if destination.i16_0[2] as i32 > source.i16_0[2] as i32 { 0xFFFF } else { 0 };
+    let word3 = if destination.i16_0[3] as i32 > source.i16_0[3] as i32 { 0xFFFF } else { 0 };
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
     write_mmx64(r, low, high);
@@ -1996,18 +1976,8 @@ pub unsafe fn instr_660F65_mem(addr: i32, r: i32) {
 pub unsafe fn instr_0F66(source: reg64, r: i32) {
     // pcmpgtd mm, mm/m64
     let destination = read_mmx64s(r);
-    let low = if destination.i32_0[0] > source.i32_0[0] {
-        -1
-    }
-    else {
-        0
-    };
-    let high = if destination.i32_0[1] > source.i32_0[1] {
-        -1
-    }
-    else {
-        0
-    };
+    let low = if destination.i32_0[0] > source.i32_0[0] { -1 } else { 0 };
+    let high = if destination.i32_0[1] > source.i32_0[1] { -1 } else { 0 };
     write_mmx64(r, low, high);
     transition_fpu_to_mmx();
 }
@@ -2024,30 +1994,10 @@ pub unsafe fn instr_660F66(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     write_xmm128(
         r,
-        if destination.i32_0[0] > source.i32_0[0] {
-            -1
-        }
-        else {
-            0
-        },
-        if destination.i32_0[1] > source.i32_0[1] {
-            -1
-        }
-        else {
-            0
-        },
-        if destination.i32_0[2] > source.i32_0[2] {
-            -1
-        }
-        else {
-            0
-        },
-        if destination.i32_0[3] > source.i32_0[3] {
-            -1
-        }
-        else {
-            0
-        },
+        if destination.i32_0[0] > source.i32_0[0] { -1 } else { 0 },
+        if destination.i32_0[1] > source.i32_0[1] { -1 } else { 0 },
+        if destination.i32_0[2] > source.i32_0[2] { -1 } else { 0 },
+        if destination.i32_0[3] > source.i32_0[3] { -1 } else { 0 },
     );
 }
 #[no_mangle]
@@ -2663,30 +2613,10 @@ pub unsafe fn instr_660F74_mem(addr: i32, r: i32) {
 pub unsafe fn instr_0F75(source: reg64, r: i32) {
     // pcmpeqw mm, mm/m64
     let destination = read_mmx64s(r);
-    let word0 = if destination.u16_0[0] as i32 == source.u16_0[0] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word1 = if destination.u16_0[1] as i32 == source.u16_0[1] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word2 = if destination.u16_0[2] as i32 == source.u16_0[2] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
-    let word3 = if destination.u16_0[3] as i32 == source.u16_0[3] as i32 {
-        0xFFFF
-    }
-    else {
-        0
-    };
+    let word0 = if destination.u16_0[0] as i32 == source.u16_0[0] as i32 { 0xFFFF } else { 0 };
+    let word1 = if destination.u16_0[1] as i32 == source.u16_0[1] as i32 { 0xFFFF } else { 0 };
+    let word2 = if destination.u16_0[2] as i32 == source.u16_0[2] as i32 { 0xFFFF } else { 0 };
+    let word3 = if destination.u16_0[3] as i32 == source.u16_0[3] as i32 { 0xFFFF } else { 0 };
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
     write_mmx64(r, low, high);
@@ -2725,18 +2655,8 @@ pub unsafe fn instr_660F75_mem(addr: i32, r: i32) {
 pub unsafe fn instr_0F76(source: reg64, r: i32) {
     // pcmpeqd mm, mm/m64
     let destination = read_mmx64s(r);
-    let low = if destination.u32_0[0] == source.u32_0[0] {
-        -1
-    }
-    else {
-        0
-    };
-    let high = if destination.u32_0[1] == source.u32_0[1] {
-        -1
-    }
-    else {
-        0
-    };
+    let low = if destination.u32_0[0] == source.u32_0[0] { -1 } else { 0 };
+    let high = if destination.u32_0[1] == source.u32_0[1] { -1 } else { 0 };
     write_mmx64(r, low, high);
     transition_fpu_to_mmx();
 }
@@ -2753,30 +2673,10 @@ pub unsafe fn instr_660F76(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     write_xmm128(
         r,
-        if source.u32_0[0] == destination.u32_0[0] {
-            -1
-        }
-        else {
-            0
-        },
-        if source.u32_0[1] == destination.u32_0[1] {
-            -1
-        }
-        else {
-            0
-        },
-        if source.u32_0[2] == destination.u32_0[2] {
-            -1
-        }
-        else {
-            0
-        },
-        if source.u32_0[3] == destination.u32_0[3] {
-            -1
-        }
-        else {
-            0
-        },
+        if source.u32_0[0] == destination.u32_0[0] { -1 } else { 0 },
+        if source.u32_0[1] == destination.u32_0[1] { -1 } else { 0 },
+        if source.u32_0[2] == destination.u32_0[2] { -1 } else { 0 },
+        if source.u32_0[3] == destination.u32_0[3] { -1 } else { 0 },
     );
 }
 #[no_mangle]
@@ -6186,18 +6086,10 @@ pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         i64_0: [
-            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) {
-                -1
-            }
-            else {
-                0
-            }) as i64,
-            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) {
-                -1
-            }
-            else {
-                0
-            }) as i64,
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) { -1 } else { 0 })
+                as i64,
+            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) { -1 } else { 0 })
+                as i64,
         ],
     };
     write_xmm_reg128(r, result);
@@ -6216,12 +6108,8 @@ pub unsafe fn instr_F20FC2(source: reg64, r: i32, imm8: i32) {
     let destination = read_xmm64s(r);
     let result = reg64 {
         i64_0: [
-            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) {
-                -1
-            }
-            else {
-                0
-            }) as i64,
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) { -1 } else { 0 })
+                as i64,
         ],
     };
     write_xmm64(r, result);
@@ -6238,12 +6126,7 @@ pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
 pub unsafe fn instr_F30FC2(source: f32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
-    let result = if sse_comparison(imm8, destination as f64, source as f64) {
-        -1
-    }
-    else {
-        0
-    };
+    let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
     write_xmm32(r, result);
 }
 #[no_mangle]

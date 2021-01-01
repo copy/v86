@@ -2784,12 +2784,7 @@ pub unsafe fn instr_F9() {
 pub unsafe fn instr_FA_without_fault() -> bool {
     // cli
     if !*protected_mode
-        || if 0 != *flags & FLAG_VM {
-            getiopl() == 3
-        }
-        else {
-            getiopl() >= *cpl as i32
-        }
+        || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
         *flags &= !FLAG_INTERRUPT;
         return true;
@@ -2822,12 +2817,7 @@ pub unsafe fn instr_FB() {
     // sti
     let old_if = *flags & FLAG_INTERRUPT;
     if !*protected_mode
-        || if 0 != *flags & FLAG_VM {
-            getiopl() == 3
-        }
-        else {
-            getiopl() >= *cpl as i32
-        }
+        || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
         *flags |= FLAG_INTERRUPT;
         if old_if == 0 {

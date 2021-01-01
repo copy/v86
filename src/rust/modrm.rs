@@ -10,12 +10,7 @@ use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 use wasmgen::wasm_util::WasmBuf;
 
 pub fn skip(ctx: &mut CpuContext, modrm_byte: u8) {
-    if ctx.asize_32() {
-        skip32(ctx, modrm_byte)
-    }
-    else {
-        skip16(ctx, modrm_byte)
-    }
+    if ctx.asize_32() { skip32(ctx, modrm_byte) } else { skip16(ctx, modrm_byte) }
 }
 
 fn skip16(ctx: &mut CpuContext, modrm_byte: u8) {
@@ -70,12 +65,7 @@ fn skip32(ctx: &mut CpuContext, modrm_byte: u8) {
 }
 
 pub fn gen(ctx: &mut JitContext, modrm_byte: u8) {
-    if ctx.cpu.asize_32() {
-        gen32(ctx, modrm_byte)
-    }
-    else {
-        gen16(ctx, modrm_byte)
-    }
+    if ctx.cpu.asize_32() { gen32(ctx, modrm_byte) } else { gen16(ctx, modrm_byte) }
 }
 
 enum Imm16 {
@@ -348,12 +338,7 @@ fn can_optimize_get_seg(ctx: &mut JitContext, segment: u32) -> bool {
 
 pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
-    let seg = if prefix != 0 {
-        prefix - 1
-    }
-    else {
-        default_segment
-    };
+    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
 
     if can_optimize_get_seg(ctx, seg) || prefix == SEG_PREFIX_ZERO {
         return;

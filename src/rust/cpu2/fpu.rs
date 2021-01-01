@@ -519,12 +519,8 @@ pub unsafe fn fpu_fprem(ieee: bool) {
     let exp1 = st1.log2();
     let d = (exp0 - exp1).abs();
     if !intel_compatibility || d < 64.0 {
-        let fprem_quotient = convert_f64_to_i32(if ieee {
-            round(st0 / st1)
-        }
-        else {
-            trunc(st0 / st1)
-        });
+        let fprem_quotient =
+            convert_f64_to_i32(if ieee { round(st0 / st1) } else { trunc(st0 / st1) });
         fpu_write_st(*fpu_stack_ptr as i32, fmod(st0, st1));
         *fpu_status_word &= !(FPU_C0 | FPU_C1 | FPU_C3);
         if 0 != fprem_quotient & 1 {
@@ -541,12 +537,7 @@ pub unsafe fn fpu_fprem(ieee: bool) {
     else {
         let n = 32.0;
         let fprem_quotient = convert_f64_to_i32(
-            if ieee {
-                round(st0 / st1)
-            }
-            else {
-                trunc(st0 / st1)
-            } / pow(2.0, d - n),
+            if ieee { round(st0 / st1) } else { trunc(st0 / st1) } / pow(2.0, d - n),
         );
         fpu_write_st(
             *fpu_stack_ptr as i32,
