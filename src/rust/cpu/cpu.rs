@@ -242,7 +242,7 @@ pub const CHECK_TLB_INVARIANTS: bool = false;
 
 pub const DEBUG: bool = cfg!(debug_assertions);
 
-pub const LOOP_COUNTER: i32 = 20011;
+pub const LOOP_COUNTER: i32 = 100_003;
 pub const TSC_RATE: f64 = 1_000_000.0;
 
 pub static mut jit_block_boundary: bool = false;
