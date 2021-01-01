@@ -135,26 +135,27 @@ if(cluster.isMaster)
         },
         //{
         //    name: "Windows 98",
+        //    skip_if_disk_image_missing: true,
         //    hda: root_path + "/images/windows98.img",
         //    timeout: 60,
         //    expect_graphical_mode: true,
         //    expect_graphical_size: [800, 600],
         //    expect_mouse_registered: true,
-        //    skip_if_disk_image_missing: true,
         //    failure_allowed: true,
         //},
         {
             name: "Windows 95",
+            skip_if_disk_image_missing: true,
             hda: root_path + "/images/w95.img",
             timeout: 60,
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
-            skip_if_disk_image_missing: true,
             failure_allowed: true,
         },
         {
             name: "Oberon",
+            skip_if_disk_image_missing: true,
             hda: root_path + "/images/oberon.img",
             timeout: 30,
             expect_graphical_mode: true,
@@ -162,6 +163,7 @@ if(cluster.isMaster)
         },
         {
             name: "Linux 3",
+            skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/linux3.iso",
             timeout: 200,
             expected_texts: [
@@ -252,6 +254,7 @@ if(cluster.isMaster)
         },
         {
             name: "QNX",
+            skip_if_disk_image_missing: true,
             fda: root_path + "/images/qnx-demo-network-4.05.img",
             timeout: 300,
             expect_mouse_registered: true,
@@ -275,6 +278,7 @@ if(cluster.isMaster)
         },
         {
             name: "OpenBSD",
+            skip_if_disk_image_missing: true,
             hda: root_path + "/images/openbsd.img",
             timeout: 300,
             actions: [
@@ -470,6 +474,7 @@ if(cluster.isMaster)
         },
         {
             name: "9front",
+            skip_if_disk_image_missing: true,
             acpi: true,
             timeout: 5 * 60,
             hda: root_path + "/images/9front-7781.38dcaeaa222c.386.iso",
@@ -494,6 +499,7 @@ if(cluster.isMaster)
         },
         {
             name: "ReactOS",
+            skip_if_disk_image_missing: true,
             timeout: 10 * 60,
             hda: root_path + "/images/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
             expect_graphical_mode: true,
@@ -517,6 +523,7 @@ if(cluster.isMaster)
         },
         {
             name: "ReactOS CD",
+            skip_if_disk_image_missing: true,
             timeout: 10 * 60,
             cdrom: root_path + "/images/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
             expect_graphical_mode: true,
