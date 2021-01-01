@@ -677,6 +677,11 @@ pub unsafe fn instr_660F16_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
+pub unsafe fn instr_F30F16_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
+#[no_mangle]
+pub unsafe fn instr_F30F16_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
+
+#[no_mangle]
 pub unsafe fn instr_0F17_mem(addr: i32, r: i32) {
     // movhps m64, xmm
     movh_r128_m64(addr, r);
@@ -697,12 +702,24 @@ pub unsafe fn instr_0F18_mem(_addr: i32, _r: i32) {
     // prefetch
     // nop for us
 }
+
+pub unsafe fn instr_0F19_reg(_r1: i32, _r2: i32) {}
+pub unsafe fn instr_0F19_mem(_addr: i32, _r: i32) {}
+
 #[no_mangle]
 pub unsafe fn instr_0F1A() { undefined_instruction(); }
 #[no_mangle]
 pub unsafe fn instr_0F1B() { undefined_instruction(); }
+
+pub unsafe fn instr_0F1C_reg(_r1: i32, _r2: i32) {}
+pub unsafe fn instr_0F1C_mem(_addr: i32, _r: i32) {}
+pub unsafe fn instr_0F1D_reg(_r1: i32, _r2: i32) {}
+pub unsafe fn instr_0F1D_mem(_addr: i32, _r: i32) {}
+pub unsafe fn instr_0F1E_reg(_r1: i32, _r2: i32) {}
+pub unsafe fn instr_0F1E_mem(_addr: i32, _r: i32) {}
 pub unsafe fn instr_0F1F_reg(_r1: i32, _r2: i32) {}
 pub unsafe fn instr_0F1F_mem(_addr: i32, _r: i32) {}
+
 #[no_mangle]
 pub unsafe fn instr_0F20(r: i32, creg: i32) {
     if 0 != *cpl {
@@ -885,6 +902,63 @@ pub unsafe fn instr_660F29_reg(r1: i32, r2: i32) {
     // movapd xmm, xmm
     mov_r_r128(r1, r2);
 }
+
+pub unsafe fn instr_0F2A(source: u64, r: i32) {
+    // cvtpi2ps xmm, mm/m64
+    // Note: Casts here can fail
+    // XXX: Should round according to round control
+    let source: [i32; 2] = std::mem::transmute(source);
+    let result = [source[0] as f32, source[1] as f32];
+    write_xmm64(r, std::mem::transmute(result));
+    transition_fpu_to_mmx();
+}
+#[no_mangle]
+pub unsafe fn instr_0F2A_reg(r1: i32, r2: i32) { instr_0F2A(read_mmx64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F2A_mem(addr: i32, r: i32) {
+    instr_0F2A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_660F2A(source: u64, r: i32) {
+    // cvtpi2pd xmm, xmm/m64
+    // These casts can't fail
+    let source: [i32; 2] = std::mem::transmute(source);
+    let result = reg128 {
+        f64_0: [source[0] as f64, source[1] as f64],
+    };
+    write_xmm_reg128(r, result);
+    transition_fpu_to_mmx();
+}
+#[no_mangle]
+pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) { instr_660F2A(read_mmx64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F2A_mem(addr: i32, r: i32) {
+    instr_660F2A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F20F2A(source: i32, r: i32) {
+    // cvtsi2sd xmm, r32/m32
+    // This cast can't fail
+    write_xmm_f64(r, source as f64);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F2A_reg(r1: i32, r2: i32) { instr_F20F2A(read_reg32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F2A_mem(addr: i32, r: i32) {
+    instr_F20F2A(return_on_pagefault!(safe_read32s(addr)), r);
+}
+pub unsafe fn instr_F30F2A(source: i32, r: i32) {
+    // cvtsi2ss xmm, r/m32
+    // Note: This cast can fail
+    // XXX: Should round according to round control
+    let result = source as f32;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F2A_reg(r1: i32, r2: i32) { instr_F30F2A(read_reg32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F2A_mem(addr: i32, r: i32) {
+    instr_F30F2A(return_on_pagefault!(safe_read32s(addr)), r);
+}
+
 pub unsafe fn instr_0F2B_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 pub unsafe fn instr_0F2B_mem(addr: i32, r: i32) {
     // movntps m128, xmm
@@ -954,6 +1028,55 @@ pub unsafe fn instr_F30F2C_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F30F2C_reg(r1: i32, r2: i32) { instr_F30F2C(read_xmm_f32(r1), r2); }
+
+pub unsafe fn instr_0F2D(source: u64, r: i32) {
+    // cvtps2pi mm, xmm/m64
+    let source: [f32; 2] = std::mem::transmute(source);
+    let result = [
+        sse_convert_f32_to_i32(source[0]),
+        sse_convert_f32_to_i32(source[1]),
+    ];
+    write_mmx_reg64(r, std::mem::transmute(result));
+    transition_fpu_to_mmx();
+}
+#[no_mangle]
+pub unsafe fn instr_0F2D_reg(r1: i32, r2: i32) { instr_0F2D(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F2D_mem(addr: i32, r: i32) {
+    instr_0F2D(return_on_pagefault!(safe_read64s(addr)), r);
+}
+
+pub unsafe fn instr_660F2D(source: reg128, r: i32) {
+    // cvtpd2pi mm, xmm/m128
+    let result = [
+        sse_convert_f64_to_i32(source.f64_0[0]),
+        sse_convert_f64_to_i32(source.f64_0[1]),
+    ];
+    write_mmx_reg64(r, std::mem::transmute(result));
+    transition_fpu_to_mmx();
+}
+#[no_mangle]
+pub unsafe fn instr_660F2D_reg(r1: i32, r2: i32) { instr_660F2D(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F2D_mem(addr: i32, r: i32) {
+    instr_660F2D(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F2D(source: u64, r: i32) {
+    // cvtsd2si r32, xmm/m64
+    write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source)));
+}
+pub unsafe fn instr_F20F2D_reg(r1: i32, r2: i32) { instr_F20F2D(read_xmm64s(r1), r2); }
+pub unsafe fn instr_F20F2D_mem(addr: i32, r: i32) {
+    instr_F20F2D(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F2D(source: f32, r: i32) {
+    // cvtss2si r32, xmm1/m32
+    write_reg32(r, sse_convert_f32_to_i32(source));
+}
+pub unsafe fn instr_F30F2D_reg(r1: i32, r2: i32) { instr_F30F2D(read_xmm_f32(r1), r2); }
+pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
+    instr_F30F2D(return_on_pagefault!(safe_read_f32(addr)), r);
+}
 
 pub unsafe fn instr_0F2E(source: f32, r: i32) {
     // ucomiss xmm1, xmm2/m32
@@ -1456,6 +1579,121 @@ pub unsafe fn instr_660F50_reg(r1: i32, r2: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_660F50_mem(_addr: i32, _r1: i32) { trigger_ud(); }
+
+pub unsafe fn instr_0F51(source: reg128, r: i32) {
+    // sqrtps xmm, xmm/mem128
+    // XXX: Should round according to round control
+    let result = reg128 {
+        f32_0: [
+            source.f32_0[0].sqrt(),
+            source.f32_0[1].sqrt(),
+            source.f32_0[2].sqrt(),
+            source.f32_0[3].sqrt(),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F51_reg(r1: i32, r2: i32) { instr_0F51(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F51_mem(addr: i32, r: i32) {
+    instr_0F51(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F51(source: reg128, r: i32) {
+    // sqrtpd xmm, xmm/mem128
+    // XXX: Should round according to round control
+    let result = reg128 {
+        f64_0: [source.f64_0[0].sqrt(), source.f64_0[1].sqrt()],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F51_reg(r1: i32, r2: i32) { instr_660F51(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F51_mem(addr: i32, r: i32) {
+    instr_660F51(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F51(source: u64, r: i32) {
+    // sqrtsd xmm, xmm/mem64
+    // XXX: Should round according to round control
+    write_xmm_f64(r, f64::from_bits(source).sqrt());
+}
+#[no_mangle]
+pub unsafe fn instr_F20F51_reg(r1: i32, r2: i32) { instr_F20F51(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F51_mem(addr: i32, r: i32) {
+    instr_F20F51(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F51(source: f32, r: i32) {
+    // sqrtss xmm, xmm/mem32
+    // XXX: Should round according to round control
+    write_xmm_f32(r, source.sqrt());
+}
+#[no_mangle]
+pub unsafe fn instr_F30F51_reg(r1: i32, r2: i32) { instr_F30F51(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F51_mem(addr: i32, r: i32) {
+    instr_F30F51(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
+pub unsafe fn instr_0F52(source: reg128, r: i32) {
+    // rcpps xmm1, xmm2/m128
+    let result = reg128 {
+        f32_0: [
+            1.0 / source.f32_0[0].sqrt(),
+            1.0 / source.f32_0[1].sqrt(),
+            1.0 / source.f32_0[2].sqrt(),
+            1.0 / source.f32_0[3].sqrt(),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F52_reg(r1: i32, r2: i32) { instr_0F52(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F52_mem(addr: i32, r: i32) {
+    instr_0F52(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F30F52(source: f32, r: i32) {
+    // rsqrtss xmm1, xmm2/m32
+    write_xmm_f32(r, 1.0 / source.sqrt());
+}
+#[no_mangle]
+pub unsafe fn instr_F30F52_reg(r1: i32, r2: i32) { instr_F30F52(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F52_mem(addr: i32, r: i32) {
+    instr_F30F52(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
+pub unsafe fn instr_0F53(source: reg128, r: i32) {
+    // rcpps xmm, xmm/m128
+    let result = reg128 {
+        f32_0: [
+            1.0 / source.f32_0[0],
+            1.0 / source.f32_0[1],
+            1.0 / source.f32_0[2],
+            1.0 / source.f32_0[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F53_reg(r1: i32, r2: i32) { instr_0F53(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F53_mem(addr: i32, r: i32) {
+    instr_0F53(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F30F53(source: f32, r: i32) {
+    // rcpss xmm, xmm/m32
+    write_xmm_f32(r, 1.0 / source);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F53_reg(r1: i32, r2: i32) { instr_F30F53(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F53_mem(addr: i32, r: i32) {
+    instr_F30F53(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
 pub unsafe fn instr_0F54(source: reg128, r: i32) {
     // andps xmm, xmm/mem128
     // XXX: Aligned access or #gp
@@ -1544,6 +1782,478 @@ pub unsafe fn instr_660F57_reg(r1: i32, r2: i32) { instr_660F57(read_xmm128s(r1)
 pub unsafe fn instr_660F57_mem(addr: i32, r: i32) {
     instr_660F57(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
+pub unsafe fn instr_0F58(source: reg128, r: i32) {
+    // addps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            source.f32_0[0] + destination.f32_0[0],
+            source.f32_0[1] + destination.f32_0[1],
+            source.f32_0[2] + destination.f32_0[2],
+            source.f32_0[3] + destination.f32_0[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F58_reg(r1: i32, r2: i32) { instr_0F58(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F58_mem(addr: i32, r: i32) {
+    instr_0F58(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F58(source: reg128, r: i32) {
+    // addpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            source.f64_0[0] + destination.f64_0[0],
+            source.f64_0[1] + destination.f64_0[1],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F58_reg(r1: i32, r2: i32) { instr_660F58(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F58_mem(addr: i32, r: i32) {
+    instr_660F58(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F58(source: u64, r: i32) {
+    // addsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(r, f64::from_bits(source) + f64::from_bits(destination));
+}
+#[no_mangle]
+pub unsafe fn instr_F20F58_reg(r1: i32, r2: i32) { instr_F20F58(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F58_mem(addr: i32, r: i32) {
+    instr_F20F58(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F58(source: f32, r: i32) {
+    // addss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = source + destination;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F58_reg(r1: i32, r2: i32) { instr_F30F58(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F58_mem(addr: i32, r: i32) {
+    instr_F30F58(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
+pub unsafe fn instr_0F59(source: reg128, r: i32) {
+    // mulps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            source.f32_0[0] * destination.f32_0[0],
+            source.f32_0[1] * destination.f32_0[1],
+            source.f32_0[2] * destination.f32_0[2],
+            source.f32_0[3] * destination.f32_0[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F59_reg(r1: i32, r2: i32) { instr_0F59(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F59_mem(addr: i32, r: i32) {
+    instr_0F59(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F59(source: reg128, r: i32) {
+    // mulpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            source.f64_0[0] * destination.f64_0[0],
+            source.f64_0[1] * destination.f64_0[1],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F59_reg(r1: i32, r2: i32) { instr_660F59(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F59_mem(addr: i32, r: i32) {
+    instr_660F59(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F59(source: u64, r: i32) {
+    // mulsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(r, f64::from_bits(source) * f64::from_bits(destination));
+}
+#[no_mangle]
+pub unsafe fn instr_F20F59_reg(r1: i32, r2: i32) { instr_F20F59(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F59_mem(addr: i32, r: i32) {
+    instr_F20F59(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F59(source: f32, r: i32) {
+    // mulss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = source * destination;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F59_reg(r1: i32, r2: i32) { instr_F30F59(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
+    instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
+pub unsafe fn instr_0F5A(source: u64, r: i32) {
+    // cvtps2pd xmm1, xmm2/m64
+    let source: [f32; 2] = std::mem::transmute(source);
+    let result = reg128 {
+        f64_0: [source[0] as f64, source[1] as f64],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5A_reg(r1: i32, r2: i32) { instr_0F5A(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5A_mem(addr: i32, r: i32) {
+    instr_0F5A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_660F5A(source: reg128, r: i32) {
+    // cvtpd2ps xmm1, xmm2/m128
+    let result = reg128 {
+        // XXX: These conversions are lossy and should round according to the round control
+        f32_0: [source.f64_0[0] as f32, source.f64_0[1] as f32, 0., 0.],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5A_reg(r1: i32, r2: i32) { instr_660F5A(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5A_mem(addr: i32, r: i32) {
+    instr_660F5A(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F5A(source: u64, r: i32) {
+    // cvtsd2ss xmm1, xmm2/m64
+    // XXX: This conversions is lossy and should round according to the round control
+    write_xmm_f32(r, f64::from_bits(source) as f32);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5A_reg(r1: i32, r2: i32) { instr_F20F5A(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F5A_mem(addr: i32, r: i32) {
+    instr_F20F5A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F5A(source: f32, r: i32) {
+    // cvtss2sd xmm1, xmm2/m32
+    write_xmm_f64(r, source as f64);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5A_reg(r1: i32, r2: i32) { instr_F30F5A(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5A_mem(addr: i32, r: i32) {
+    instr_F30F5A(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
+pub unsafe fn instr_0F5B(source: reg128, r: i32) {
+    // cvtdq2ps xmm1, xmm2/m128
+    // XXX: Should round according to round control
+    let result = reg128 {
+        f32_0: [
+            // XXX: Precision exception
+            source.i32_0[0] as f32,
+            source.i32_0[1] as f32,
+            source.i32_0[2] as f32,
+            source.i32_0[3] as f32,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5B_reg(r1: i32, r2: i32) { instr_0F5B(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5B_mem(addr: i32, r: i32) {
+    instr_0F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F5B(source: reg128, r: i32) {
+    // cvtps2dq xmm1, xmm2/m128
+    let result = reg128 {
+        i32_0: [
+            // XXX: Precision exception
+            sse_convert_f32_to_i32(source.f32_0[0]),
+            sse_convert_f32_to_i32(source.f32_0[1]),
+            sse_convert_f32_to_i32(source.f32_0[2]),
+            sse_convert_f32_to_i32(source.f32_0[3]),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5B_reg(r1: i32, r2: i32) { instr_660F5B(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5B_mem(addr: i32, r: i32) {
+    instr_660F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F30F5B(source: reg128, r: i32) {
+    // cvttps2dq xmm1, xmm2/m128
+    let result = reg128 {
+        i32_0: [
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[0]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[1]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[2]),
+            sse_convert_with_truncation_f32_to_i32(source.f32_0[3]),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5B_reg(r1: i32, r2: i32) { instr_F30F5B(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5B_mem(addr: i32, r: i32) {
+    instr_F30F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+
+pub unsafe fn instr_0F5C(source: reg128, r: i32) {
+    // subps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            destination.f32_0[0] - source.f32_0[0],
+            destination.f32_0[1] - source.f32_0[1],
+            destination.f32_0[2] - source.f32_0[2],
+            destination.f32_0[3] - source.f32_0[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5C_reg(r1: i32, r2: i32) { instr_0F5C(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5C_mem(addr: i32, r: i32) {
+    instr_0F5C(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F5C(source: reg128, r: i32) {
+    // subpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            destination.f64_0[0] - source.f64_0[0],
+            destination.f64_0[1] - source.f64_0[1],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5C_reg(r1: i32, r2: i32) { instr_660F5C(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5C_mem(addr: i32, r: i32) {
+    instr_660F5C(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F5C(source: u64, r: i32) {
+    // subsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(r, f64::from_bits(destination) - f64::from_bits(source));
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5C_reg(r1: i32, r2: i32) { instr_F20F5C(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F5C_mem(addr: i32, r: i32) {
+    instr_F20F5C(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F5C(source: f32, r: i32) {
+    // subss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = destination - source;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5C_reg(r1: i32, r2: i32) { instr_F30F5C(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5C_mem(addr: i32, r: i32) {
+    instr_F30F5C(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+pub unsafe fn instr_0F5D(source: reg128, r: i32) {
+    // minps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            sse_min(destination.f32_0[0] as f64, source.f32_0[0] as f64) as f32,
+            sse_min(destination.f32_0[1] as f64, source.f32_0[1] as f64) as f32,
+            sse_min(destination.f32_0[2] as f64, source.f32_0[2] as f64) as f32,
+            sse_min(destination.f32_0[3] as f64, source.f32_0[3] as f64) as f32,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5D_reg(r1: i32, r2: i32) { instr_0F5D(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5D_mem(addr: i32, r: i32) {
+    instr_0F5D(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F5D(source: reg128, r: i32) {
+    // minpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            sse_min(destination.f64_0[0], source.f64_0[0]),
+            sse_min(destination.f64_0[1], source.f64_0[1]),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5D_reg(r1: i32, r2: i32) { instr_660F5D(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5D_mem(addr: i32, r: i32) {
+    instr_660F5D(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F5D(source: u64, r: i32) {
+    // minsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(
+        r,
+        sse_min(f64::from_bits(destination), f64::from_bits(source)),
+    );
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5D_reg(r1: i32, r2: i32) { instr_F20F5D(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F5D_mem(addr: i32, r: i32) {
+    instr_F20F5D(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F5D(source: f32, r: i32) {
+    // minss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = sse_min(destination as f64, source as f64) as f32;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5D_reg(r1: i32, r2: i32) { instr_F30F5D(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5D_mem(addr: i32, r: i32) {
+    instr_F30F5D(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+pub unsafe fn instr_0F5E(source: reg128, r: i32) {
+    // divps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            destination.f32_0[0] / source.f32_0[0],
+            destination.f32_0[1] / source.f32_0[1],
+            destination.f32_0[2] / source.f32_0[2],
+            destination.f32_0[3] / source.f32_0[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5E_reg(r1: i32, r2: i32) { instr_0F5E(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5E_mem(addr: i32, r: i32) {
+    instr_0F5E(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F5E(source: reg128, r: i32) {
+    // divpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            destination.f64_0[0] / source.f64_0[0],
+            destination.f64_0[1] / source.f64_0[1],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5E_reg(r1: i32, r2: i32) { instr_660F5E(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5E_mem(addr: i32, r: i32) {
+    instr_660F5E(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F5E(source: u64, r: i32) {
+    // divsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(r, f64::from_bits(destination) / f64::from_bits(source));
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5E_reg(r1: i32, r2: i32) { instr_F20F5E(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F5E_mem(addr: i32, r: i32) {
+    instr_F20F5E(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F5E(source: f32, r: i32) {
+    // divss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = destination / source;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5E_reg(r1: i32, r2: i32) { instr_F30F5E(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5E_mem(addr: i32, r: i32) {
+    instr_F30F5E(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+pub unsafe fn instr_0F5F(source: reg128, r: i32) {
+    // maxps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32_0: [
+            sse_max(destination.f32_0[0] as f64, source.f32_0[0] as f64) as f32,
+            sse_max(destination.f32_0[1] as f64, source.f32_0[1] as f64) as f32,
+            sse_max(destination.f32_0[2] as f64, source.f32_0[2] as f64) as f32,
+            sse_max(destination.f32_0[3] as f64, source.f32_0[3] as f64) as f32,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5F_reg(r1: i32, r2: i32) { instr_0F5F(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5F_mem(addr: i32, r: i32) {
+    instr_0F5F(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_660F5F(source: reg128, r: i32) {
+    // maxpd xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f64_0: [
+            sse_max(destination.f64_0[0], source.f64_0[0]),
+            sse_max(destination.f64_0[1], source.f64_0[1]),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5F_reg(r1: i32, r2: i32) { instr_660F5F(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_660F5F_mem(addr: i32, r: i32) {
+    instr_660F5F(return_on_pagefault!(safe_read128s(addr)), r);
+}
+pub unsafe fn instr_F20F5F(source: u64, r: i32) {
+    // maxsd xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    write_xmm_f64(
+        r,
+        sse_max(f64::from_bits(destination), f64::from_bits(source)),
+    );
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5F_reg(r1: i32, r2: i32) { instr_F20F5F(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F20F5F_mem(addr: i32, r: i32) {
+    instr_F20F5F(return_on_pagefault!(safe_read64s(addr)), r);
+}
+pub unsafe fn instr_F30F5F(source: f32, r: i32) {
+    // maxss xmm, xmm/mem32
+    let destination = read_xmm_f32(r);
+    let result = sse_max(destination as f64, source as f64) as f32;
+    write_xmm_f32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5F_reg(r1: i32, r2: i32) { instr_F30F5F(read_xmm_f32(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_F30F5F_mem(addr: i32, r: i32) {
+    instr_F30F5F(return_on_pagefault!(safe_read_f32(addr)), r);
+}
+
 #[no_mangle]
 pub unsafe fn instr_0F60(source: i32, r: i32) {
     // punpcklbw mm, mm/m32
@@ -2908,6 +3618,83 @@ pub unsafe fn instr32_0FC1_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE32!(___, addr, xadd32(___, r));
 }
 pub unsafe fn instr32_0FC1_reg(r1: i32, r: i32) { write_reg32(r1, xadd32(read_reg32(r1), r)); }
+
+#[no_mangle]
+pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
+    // cmpps xmm, xmm/m128
+    let destination = read_xmm128s(r);
+    let mut result = reg128 { i8_0: [0; 16] };
+    for i in 0..4 {
+        result.i32_0[i] =
+            if sse_comparison(imm8, destination.f32_0[i] as f64, source.f32_0[i] as f64) {
+                -1
+            }
+            else {
+                0
+            };
+    }
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_0FC2_reg(r1: i32, r2: i32, imm: i32) { instr_0FC2(read_xmm128s(r1), r2, imm); }
+pub unsafe fn instr_0FC2_mem(addr: i32, r: i32, imm: i32) {
+    instr_0FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
+}
+#[no_mangle]
+pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
+    // cmppd xmm, xmm/m128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        i64_0: [
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) { -1 } else { 0 })
+                as i64,
+            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) { -1 } else { 0 })
+                as i64,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_660FC2_reg(r1: i32, r2: i32, imm: i32) {
+    instr_660FC2(read_xmm128s(r1), r2, imm);
+}
+pub unsafe fn instr_660FC2_mem(addr: i32, r: i32, imm: i32) {
+    instr_660FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
+}
+pub unsafe fn instr_F20FC2(source: u64, r: i32, imm8: i32) {
+    // cmpsd xmm, xmm/m64
+    let destination = read_xmm64s(r);
+    write_xmm64(
+        r,
+        if sse_comparison(imm8, f64::from_bits(destination), f64::from_bits(source)) {
+            (-1i32) as u64
+        }
+        else {
+            0
+        },
+    );
+}
+#[no_mangle]
+pub unsafe fn instr_F20FC2_reg(r1: i32, r2: i32, imm: i32) {
+    instr_F20FC2(read_xmm64s(r1), r2, imm);
+}
+#[no_mangle]
+pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
+    instr_F20FC2(return_on_pagefault!(safe_read64s(addr)), r, imm);
+}
+pub unsafe fn instr_F30FC2(source: f32, r: i32, imm8: i32) {
+    // cmpss xmm, xmm/m32
+    let destination = read_xmm_f32(r);
+    let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
+    write_xmm32(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30FC2_reg(r1: i32, r2: i32, imm: i32) {
+    instr_F30FC2(read_xmm_f32(r1), r2, imm);
+}
+#[no_mangle]
+pub unsafe fn instr_F30FC2_mem(addr: i32, r: i32, imm: i32) {
+    instr_F30FC2(return_on_pagefault!(safe_read_f32(addr)), r, imm);
+}
+
 pub unsafe fn instr_0FC3_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 pub unsafe fn instr_0FC3_mem(addr: i32, r: i32) {
     // movnti
@@ -4347,781 +5134,4 @@ pub unsafe fn instr_0FFF() {
     // Windows 98
     dbg_log!("#ud: 0F FF");
     trigger_ud();
-}
-#[no_mangle]
-pub unsafe fn instr_F30F16_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
-#[no_mangle]
-pub unsafe fn instr_F30F16_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
-
-pub unsafe fn instr_0F19_reg(_r1: i32, _r2: i32) {}
-pub unsafe fn instr_0F19_mem(_addr: i32, _r: i32) {}
-pub unsafe fn instr_0F1C_reg(_r1: i32, _r2: i32) {}
-pub unsafe fn instr_0F1C_mem(_addr: i32, _r: i32) {}
-pub unsafe fn instr_0F1D_reg(_r1: i32, _r2: i32) {}
-pub unsafe fn instr_0F1D_mem(_addr: i32, _r: i32) {}
-pub unsafe fn instr_0F1E_reg(_r1: i32, _r2: i32) {}
-pub unsafe fn instr_0F1E_mem(_addr: i32, _r: i32) {}
-pub unsafe fn instr_0F2A(source: u64, r: i32) {
-    // cvtpi2ps xmm, mm/m64
-    // Note: Casts here can fail
-    // XXX: Should round according to round control
-    let source: [i32; 2] = std::mem::transmute(source);
-    let result = [source[0] as f32, source[1] as f32];
-    write_xmm64(r, std::mem::transmute(result));
-    transition_fpu_to_mmx();
-}
-#[no_mangle]
-pub unsafe fn instr_0F2A_reg(r1: i32, r2: i32) { instr_0F2A(read_mmx64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F2A_mem(addr: i32, r: i32) {
-    instr_0F2A(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_660F2A(source: u64, r: i32) {
-    // cvtpi2pd xmm, xmm/m64
-    // These casts can't fail
-    let source: [i32; 2] = std::mem::transmute(source);
-    let result = reg128 {
-        f64_0: [source[0] as f64, source[1] as f64],
-    };
-    write_xmm_reg128(r, result);
-    transition_fpu_to_mmx();
-}
-#[no_mangle]
-pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) { instr_660F2A(read_mmx64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F2A_mem(addr: i32, r: i32) {
-    instr_660F2A(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F20F2A(source: i32, r: i32) {
-    // cvtsi2sd xmm, r32/m32
-    // This cast can't fail
-    write_xmm_f64(r, source as f64);
-}
-#[no_mangle]
-pub unsafe fn instr_F20F2A_reg(r1: i32, r2: i32) { instr_F20F2A(read_reg32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F2A_mem(addr: i32, r: i32) {
-    instr_F20F2A(return_on_pagefault!(safe_read32s(addr)), r);
-}
-pub unsafe fn instr_F30F2A(source: i32, r: i32) {
-    // cvtsi2ss xmm, r/m32
-    // Note: This cast can fail
-    // XXX: Should round according to round control
-    let result = source as f32;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F2A_reg(r1: i32, r2: i32) { instr_F30F2A(read_reg32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F2A_mem(addr: i32, r: i32) {
-    instr_F30F2A(return_on_pagefault!(safe_read32s(addr)), r);
-}
-
-pub unsafe fn instr_0F2D(source: u64, r: i32) {
-    // cvtps2pi mm, xmm/m64
-    let source: [f32; 2] = std::mem::transmute(source);
-    let result = [
-        sse_convert_f32_to_i32(source[0]),
-        sse_convert_f32_to_i32(source[1]),
-    ];
-    write_mmx_reg64(r, std::mem::transmute(result));
-    transition_fpu_to_mmx();
-}
-#[no_mangle]
-pub unsafe fn instr_0F2D_reg(r1: i32, r2: i32) { instr_0F2D(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F2D_mem(addr: i32, r: i32) {
-    instr_0F2D(return_on_pagefault!(safe_read64s(addr)), r);
-}
-
-pub unsafe fn instr_660F2D(source: reg128, r: i32) {
-    // cvtpd2pi mm, xmm/m128
-    let result = [
-        sse_convert_f64_to_i32(source.f64_0[0]),
-        sse_convert_f64_to_i32(source.f64_0[1]),
-    ];
-    write_mmx_reg64(r, std::mem::transmute(result));
-    transition_fpu_to_mmx();
-}
-#[no_mangle]
-pub unsafe fn instr_660F2D_reg(r1: i32, r2: i32) { instr_660F2D(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F2D_mem(addr: i32, r: i32) {
-    instr_660F2D(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F2D(source: u64, r: i32) {
-    // cvtsd2si r32, xmm/m64
-    write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source)));
-}
-pub unsafe fn instr_F20F2D_reg(r1: i32, r2: i32) { instr_F20F2D(read_xmm64s(r1), r2); }
-pub unsafe fn instr_F20F2D_mem(addr: i32, r: i32) {
-    instr_F20F2D(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F2D(source: f32, r: i32) {
-    // cvtss2si r32, xmm1/m32
-    write_reg32(r, sse_convert_f32_to_i32(source));
-}
-pub unsafe fn instr_F30F2D_reg(r1: i32, r2: i32) { instr_F30F2D(read_xmm_f32(r1), r2); }
-pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
-    instr_F30F2D(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F51(source: reg128, r: i32) {
-    // sqrtps xmm, xmm/mem128
-    // XXX: Should round according to round control
-    let result = reg128 {
-        f32_0: [
-            source.f32_0[0].sqrt(),
-            source.f32_0[1].sqrt(),
-            source.f32_0[2].sqrt(),
-            source.f32_0[3].sqrt(),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F51_reg(r1: i32, r2: i32) { instr_0F51(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F51_mem(addr: i32, r: i32) {
-    instr_0F51(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F51(source: reg128, r: i32) {
-    // sqrtpd xmm, xmm/mem128
-    // XXX: Should round according to round control
-    let result = reg128 {
-        f64_0: [source.f64_0[0].sqrt(), source.f64_0[1].sqrt()],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F51_reg(r1: i32, r2: i32) { instr_660F51(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F51_mem(addr: i32, r: i32) {
-    instr_660F51(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F51(source: u64, r: i32) {
-    // sqrtsd xmm, xmm/mem64
-    // XXX: Should round according to round control
-    write_xmm_f64(r, f64::from_bits(source).sqrt());
-}
-#[no_mangle]
-pub unsafe fn instr_F20F51_reg(r1: i32, r2: i32) { instr_F20F51(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F51_mem(addr: i32, r: i32) {
-    instr_F20F51(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F51(source: f32, r: i32) {
-    // sqrtss xmm, xmm/mem32
-    // XXX: Should round according to round control
-    write_xmm_f32(r, source.sqrt());
-}
-#[no_mangle]
-pub unsafe fn instr_F30F51_reg(r1: i32, r2: i32) { instr_F30F51(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F51_mem(addr: i32, r: i32) {
-    instr_F30F51(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F52(source: reg128, r: i32) {
-    // rcpps xmm1, xmm2/m128
-    let result = reg128 {
-        f32_0: [
-            1.0 / source.f32_0[0].sqrt(),
-            1.0 / source.f32_0[1].sqrt(),
-            1.0 / source.f32_0[2].sqrt(),
-            1.0 / source.f32_0[3].sqrt(),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F52_reg(r1: i32, r2: i32) { instr_0F52(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F52_mem(addr: i32, r: i32) {
-    instr_0F52(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F30F52(source: f32, r: i32) {
-    // rsqrtss xmm1, xmm2/m32
-    write_xmm_f32(r, 1.0 / source.sqrt());
-}
-#[no_mangle]
-pub unsafe fn instr_F30F52_reg(r1: i32, r2: i32) { instr_F30F52(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F52_mem(addr: i32, r: i32) {
-    instr_F30F52(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F53(source: reg128, r: i32) {
-    // rcpps xmm, xmm/m128
-    let result = reg128 {
-        f32_0: [
-            1.0 / source.f32_0[0],
-            1.0 / source.f32_0[1],
-            1.0 / source.f32_0[2],
-            1.0 / source.f32_0[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F53_reg(r1: i32, r2: i32) { instr_0F53(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F53_mem(addr: i32, r: i32) {
-    instr_0F53(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F30F53(source: f32, r: i32) {
-    // rcpss xmm, xmm/m32
-    write_xmm_f32(r, 1.0 / source);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F53_reg(r1: i32, r2: i32) { instr_F30F53(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F53_mem(addr: i32, r: i32) {
-    instr_F30F53(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F58(source: reg128, r: i32) {
-    // addps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            source.f32_0[0] + destination.f32_0[0],
-            source.f32_0[1] + destination.f32_0[1],
-            source.f32_0[2] + destination.f32_0[2],
-            source.f32_0[3] + destination.f32_0[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F58_reg(r1: i32, r2: i32) { instr_0F58(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F58_mem(addr: i32, r: i32) {
-    instr_0F58(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F58(source: reg128, r: i32) {
-    // addpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            source.f64_0[0] + destination.f64_0[0],
-            source.f64_0[1] + destination.f64_0[1],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F58_reg(r1: i32, r2: i32) { instr_660F58(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F58_mem(addr: i32, r: i32) {
-    instr_660F58(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F58(source: u64, r: i32) {
-    // addsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(r, f64::from_bits(source) + f64::from_bits(destination));
-}
-#[no_mangle]
-pub unsafe fn instr_F20F58_reg(r1: i32, r2: i32) { instr_F20F58(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F58_mem(addr: i32, r: i32) {
-    instr_F20F58(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F58(source: f32, r: i32) {
-    // addss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = source + destination;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F58_reg(r1: i32, r2: i32) { instr_F30F58(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F58_mem(addr: i32, r: i32) {
-    instr_F30F58(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F59(source: reg128, r: i32) {
-    // mulps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            source.f32_0[0] * destination.f32_0[0],
-            source.f32_0[1] * destination.f32_0[1],
-            source.f32_0[2] * destination.f32_0[2],
-            source.f32_0[3] * destination.f32_0[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F59_reg(r1: i32, r2: i32) { instr_0F59(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F59_mem(addr: i32, r: i32) {
-    instr_0F59(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F59(source: reg128, r: i32) {
-    // mulpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            source.f64_0[0] * destination.f64_0[0],
-            source.f64_0[1] * destination.f64_0[1],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F59_reg(r1: i32, r2: i32) { instr_660F59(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F59_mem(addr: i32, r: i32) {
-    instr_660F59(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F59(source: u64, r: i32) {
-    // mulsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(r, f64::from_bits(source) * f64::from_bits(destination));
-}
-#[no_mangle]
-pub unsafe fn instr_F20F59_reg(r1: i32, r2: i32) { instr_F20F59(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F59_mem(addr: i32, r: i32) {
-    instr_F20F59(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F59(source: f32, r: i32) {
-    // mulss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = source * destination;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F59_reg(r1: i32, r2: i32) { instr_F30F59(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
-    instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F5A(source: u64, r: i32) {
-    // cvtps2pd xmm1, xmm2/m64
-    let source: [f32; 2] = std::mem::transmute(source);
-    let result = reg128 {
-        f64_0: [source[0] as f64, source[1] as f64],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5A_reg(r1: i32, r2: i32) { instr_0F5A(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5A_mem(addr: i32, r: i32) {
-    instr_0F5A(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_660F5A(source: reg128, r: i32) {
-    // cvtpd2ps xmm1, xmm2/m128
-    let result = reg128 {
-        // XXX: These conversions are lossy and should round according to the round control
-        f32_0: [source.f64_0[0] as f32, source.f64_0[1] as f32, 0., 0.],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5A_reg(r1: i32, r2: i32) { instr_660F5A(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5A_mem(addr: i32, r: i32) {
-    instr_660F5A(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F5A(source: u64, r: i32) {
-    // cvtsd2ss xmm1, xmm2/m64
-    // XXX: This conversions is lossy and should round according to the round control
-    write_xmm_f32(r, f64::from_bits(source) as f32);
-}
-#[no_mangle]
-pub unsafe fn instr_F20F5A_reg(r1: i32, r2: i32) { instr_F20F5A(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F5A_mem(addr: i32, r: i32) {
-    instr_F20F5A(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F5A(source: f32, r: i32) {
-    // cvtss2sd xmm1, xmm2/m32
-    write_xmm_f64(r, source as f64);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5A_reg(r1: i32, r2: i32) { instr_F30F5A(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5A_mem(addr: i32, r: i32) {
-    instr_F30F5A(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-
-pub unsafe fn instr_0F5B(source: reg128, r: i32) {
-    // cvtdq2ps xmm1, xmm2/m128
-    // XXX: Should round according to round control
-    let result = reg128 {
-        f32_0: [
-            // XXX: Precision exception
-            source.i32_0[0] as f32,
-            source.i32_0[1] as f32,
-            source.i32_0[2] as f32,
-            source.i32_0[3] as f32,
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5B_reg(r1: i32, r2: i32) { instr_0F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5B_mem(addr: i32, r: i32) {
-    instr_0F5B(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F5B(source: reg128, r: i32) {
-    // cvtps2dq xmm1, xmm2/m128
-    let result = reg128 {
-        i32_0: [
-            // XXX: Precision exception
-            sse_convert_f32_to_i32(source.f32_0[0]),
-            sse_convert_f32_to_i32(source.f32_0[1]),
-            sse_convert_f32_to_i32(source.f32_0[2]),
-            sse_convert_f32_to_i32(source.f32_0[3]),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5B_reg(r1: i32, r2: i32) { instr_660F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5B_mem(addr: i32, r: i32) {
-    instr_660F5B(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F30F5B(source: reg128, r: i32) {
-    // cvttps2dq xmm1, xmm2/m128
-    let result = reg128 {
-        i32_0: [
-            sse_convert_with_truncation_f32_to_i32(source.f32_0[0]),
-            sse_convert_with_truncation_f32_to_i32(source.f32_0[1]),
-            sse_convert_with_truncation_f32_to_i32(source.f32_0[2]),
-            sse_convert_with_truncation_f32_to_i32(source.f32_0[3]),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5B_reg(r1: i32, r2: i32) { instr_F30F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5B_mem(addr: i32, r: i32) {
-    instr_F30F5B(return_on_pagefault!(safe_read128s(addr)), r);
-}
-
-pub unsafe fn instr_0F5C(source: reg128, r: i32) {
-    // subps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            destination.f32_0[0] - source.f32_0[0],
-            destination.f32_0[1] - source.f32_0[1],
-            destination.f32_0[2] - source.f32_0[2],
-            destination.f32_0[3] - source.f32_0[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5C_reg(r1: i32, r2: i32) { instr_0F5C(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5C_mem(addr: i32, r: i32) {
-    instr_0F5C(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F5C(source: reg128, r: i32) {
-    // subpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            destination.f64_0[0] - source.f64_0[0],
-            destination.f64_0[1] - source.f64_0[1],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5C_reg(r1: i32, r2: i32) { instr_660F5C(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5C_mem(addr: i32, r: i32) {
-    instr_660F5C(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F5C(source: u64, r: i32) {
-    // subsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(r, f64::from_bits(destination) - f64::from_bits(source));
-}
-#[no_mangle]
-pub unsafe fn instr_F20F5C_reg(r1: i32, r2: i32) { instr_F20F5C(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F5C_mem(addr: i32, r: i32) {
-    instr_F20F5C(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F5C(source: f32, r: i32) {
-    // subss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = destination - source;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5C_reg(r1: i32, r2: i32) { instr_F30F5C(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5C_mem(addr: i32, r: i32) {
-    instr_F30F5C(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-pub unsafe fn instr_0F5D(source: reg128, r: i32) {
-    // minps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            sse_min(destination.f32_0[0] as f64, source.f32_0[0] as f64) as f32,
-            sse_min(destination.f32_0[1] as f64, source.f32_0[1] as f64) as f32,
-            sse_min(destination.f32_0[2] as f64, source.f32_0[2] as f64) as f32,
-            sse_min(destination.f32_0[3] as f64, source.f32_0[3] as f64) as f32,
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5D_reg(r1: i32, r2: i32) { instr_0F5D(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5D_mem(addr: i32, r: i32) {
-    instr_0F5D(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F5D(source: reg128, r: i32) {
-    // minpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            sse_min(destination.f64_0[0], source.f64_0[0]),
-            sse_min(destination.f64_0[1], source.f64_0[1]),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5D_reg(r1: i32, r2: i32) { instr_660F5D(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5D_mem(addr: i32, r: i32) {
-    instr_660F5D(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F5D(source: u64, r: i32) {
-    // minsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(
-        r,
-        sse_min(f64::from_bits(destination), f64::from_bits(source)),
-    );
-}
-#[no_mangle]
-pub unsafe fn instr_F20F5D_reg(r1: i32, r2: i32) { instr_F20F5D(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F5D_mem(addr: i32, r: i32) {
-    instr_F20F5D(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F5D(source: f32, r: i32) {
-    // minss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = sse_min(destination as f64, source as f64) as f32;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5D_reg(r1: i32, r2: i32) { instr_F30F5D(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5D_mem(addr: i32, r: i32) {
-    instr_F30F5D(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-pub unsafe fn instr_0F5E(source: reg128, r: i32) {
-    // divps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            destination.f32_0[0] / source.f32_0[0],
-            destination.f32_0[1] / source.f32_0[1],
-            destination.f32_0[2] / source.f32_0[2],
-            destination.f32_0[3] / source.f32_0[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5E_reg(r1: i32, r2: i32) { instr_0F5E(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5E_mem(addr: i32, r: i32) {
-    instr_0F5E(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F5E(source: reg128, r: i32) {
-    // divpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            destination.f64_0[0] / source.f64_0[0],
-            destination.f64_0[1] / source.f64_0[1],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5E_reg(r1: i32, r2: i32) { instr_660F5E(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5E_mem(addr: i32, r: i32) {
-    instr_660F5E(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F5E(source: u64, r: i32) {
-    // divsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(r, f64::from_bits(destination) / f64::from_bits(source));
-}
-#[no_mangle]
-pub unsafe fn instr_F20F5E_reg(r1: i32, r2: i32) { instr_F20F5E(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F5E_mem(addr: i32, r: i32) {
-    instr_F20F5E(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F5E(source: f32, r: i32) {
-    // divss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = destination / source;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5E_reg(r1: i32, r2: i32) { instr_F30F5E(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5E_mem(addr: i32, r: i32) {
-    instr_F30F5E(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-pub unsafe fn instr_0F5F(source: reg128, r: i32) {
-    // maxps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32_0: [
-            sse_max(destination.f32_0[0] as f64, source.f32_0[0] as f64) as f32,
-            sse_max(destination.f32_0[1] as f64, source.f32_0[1] as f64) as f32,
-            sse_max(destination.f32_0[2] as f64, source.f32_0[2] as f64) as f32,
-            sse_max(destination.f32_0[3] as f64, source.f32_0[3] as f64) as f32,
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_0F5F_reg(r1: i32, r2: i32) { instr_0F5F(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_0F5F_mem(addr: i32, r: i32) {
-    instr_0F5F(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_660F5F(source: reg128, r: i32) {
-    // maxpd xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f64_0: [
-            sse_max(destination.f64_0[0], source.f64_0[0]),
-            sse_max(destination.f64_0[1], source.f64_0[1]),
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_660F5F_reg(r1: i32, r2: i32) { instr_660F5F(read_xmm128s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_660F5F_mem(addr: i32, r: i32) {
-    instr_660F5F(return_on_pagefault!(safe_read128s(addr)), r);
-}
-pub unsafe fn instr_F20F5F(source: u64, r: i32) {
-    // maxsd xmm, xmm/mem64
-    let destination = read_xmm64s(r);
-    write_xmm_f64(
-        r,
-        sse_max(f64::from_bits(destination), f64::from_bits(source)),
-    );
-}
-#[no_mangle]
-pub unsafe fn instr_F20F5F_reg(r1: i32, r2: i32) { instr_F20F5F(read_xmm64s(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F20F5F_mem(addr: i32, r: i32) {
-    instr_F20F5F(return_on_pagefault!(safe_read64s(addr)), r);
-}
-pub unsafe fn instr_F30F5F(source: f32, r: i32) {
-    // maxss xmm, xmm/mem32
-    let destination = read_xmm_f32(r);
-    let result = sse_max(destination as f64, source as f64) as f32;
-    write_xmm_f32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30F5F_reg(r1: i32, r2: i32) { instr_F30F5F(read_xmm_f32(r1), r2); }
-#[no_mangle]
-pub unsafe fn instr_F30F5F_mem(addr: i32, r: i32) {
-    instr_F30F5F(return_on_pagefault!(safe_read_f32(addr)), r);
-}
-#[no_mangle]
-pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
-    // cmpps xmm, xmm/m128
-    let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
-    for i in 0..4 {
-        result.i32_0[i] =
-            if sse_comparison(imm8, destination.f32_0[i] as f64, source.f32_0[i] as f64) {
-                -1
-            }
-            else {
-                0
-            };
-    }
-    write_xmm_reg128(r, result);
-}
-pub unsafe fn instr_0FC2_reg(r1: i32, r2: i32, imm: i32) { instr_0FC2(read_xmm128s(r1), r2, imm); }
-pub unsafe fn instr_0FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_0FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
-}
-#[no_mangle]
-pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
-    // cmppd xmm, xmm/m128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        i64_0: [
-            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) { -1 } else { 0 })
-                as i64,
-            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) { -1 } else { 0 })
-                as i64,
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-pub unsafe fn instr_660FC2_reg(r1: i32, r2: i32, imm: i32) {
-    instr_660FC2(read_xmm128s(r1), r2, imm);
-}
-pub unsafe fn instr_660FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_660FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
-}
-pub unsafe fn instr_F20FC2(source: u64, r: i32, imm8: i32) {
-    // cmpsd xmm, xmm/m64
-    let destination = read_xmm64s(r);
-    write_xmm64(
-        r,
-        if sse_comparison(imm8, f64::from_bits(destination), f64::from_bits(source)) {
-            (-1i32) as u64
-        }
-        else {
-            0
-        },
-    );
-}
-#[no_mangle]
-pub unsafe fn instr_F20FC2_reg(r1: i32, r2: i32, imm: i32) {
-    instr_F20FC2(read_xmm64s(r1), r2, imm);
-}
-#[no_mangle]
-pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_F20FC2(return_on_pagefault!(safe_read64s(addr)), r, imm);
-}
-pub unsafe fn instr_F30FC2(source: f32, r: i32, imm8: i32) {
-    // cmpss xmm, xmm/m32
-    let destination = read_xmm_f32(r);
-    let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
-    write_xmm32(r, result);
-}
-#[no_mangle]
-pub unsafe fn instr_F30FC2_reg(r1: i32, r2: i32, imm: i32) {
-    instr_F30FC2(read_xmm_f32(r1), r2, imm);
-}
-#[no_mangle]
-pub unsafe fn instr_F30FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_F30FC2(return_on_pagefault!(safe_read_f32(addr)), r, imm);
 }
