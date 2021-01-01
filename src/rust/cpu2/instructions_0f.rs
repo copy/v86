@@ -47,9 +47,6 @@ use cpu2::misc_instr::{
 };
 use cpu2::sse_instr::*;
 
-pub static mut apic_enabled: bool = false;
-const ENABLE_ACPI: bool = false;
-
 #[no_mangle]
 pub unsafe fn instr_0F00_0_mem(addr: i32) {
     // sldt
@@ -1240,7 +1237,7 @@ pub unsafe fn instr_0F32() {
         }
         else if !(index == IA32_PLATFORM_ID) {
             if index == IA32_APIC_BASE_MSR {
-                if ENABLE_ACPI {
+                if ::config::ENABLE_ACPI {
                     low = APIC_ADDRESS;
                     if apic_enabled {
                         low |= IA32_APIC_BASE_EN

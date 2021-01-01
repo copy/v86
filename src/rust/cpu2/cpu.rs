@@ -253,6 +253,8 @@ pub static mut tsc_offset: u64 = 0;
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
+pub static mut apic_enabled: bool = false;
+
 pub enum LastJump {
     Interrupt {
         phys_addr: u32,
