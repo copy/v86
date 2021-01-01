@@ -2269,8 +2269,7 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
 }
 
 pub unsafe fn popa16() {
-    return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
-    return_on_pagefault!(translate_address_read(get_stack_pointer(15)));
+    return_on_pagefault!(readable_or_pagefault(get_stack_pointer(0), 16));
 
     write_reg16(DI, pop16().unwrap());
     write_reg16(SI, pop16().unwrap());
@@ -2283,8 +2282,7 @@ pub unsafe fn popa16() {
 }
 
 pub unsafe fn popa32() {
-    return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
-    return_on_pagefault!(translate_address_read(get_stack_pointer(31)));
+    return_on_pagefault!(readable_or_pagefault(get_stack_pointer(0), 32));
 
     write_reg32(EDI, pop32s().unwrap());
     write_reg32(ESI, pop32s().unwrap());
