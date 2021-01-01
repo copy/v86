@@ -2030,9 +2030,11 @@ pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
     return Ok(());
 }
 
+pub const DISABLE_EIP_TRANSLATION_OPTIMISATION: bool = false;
+
 pub unsafe fn read_imm8() -> OrPageFault<i32> {
     let eip = *instruction_pointer;
-    if 0 != eip & !0xFFF ^ *last_virt_eip {
+    if DISABLE_EIP_TRANSLATION_OPTIMISATION || 0 != eip & !0xFFF ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
         *last_virt_eip = eip & !0xFFF
     }
@@ -2048,7 +2050,9 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
     // Two checks in one comparison:
     // 1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
-    if (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFE {
+    if DISABLE_EIP_TRANSLATION_OPTIMISATION
+        || (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFE
+    {
         return Ok(read_imm8()? | read_imm8()? << 8);
     }
     else {
@@ -2060,7 +2064,9 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
 
 pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     // Analogue to the above comment
-    if (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFC {
+    if DISABLE_EIP_TRANSLATION_OPTIMISATION
+        || (*instruction_pointer ^ *last_virt_eip) as u32 > 0xFFC
+    {
         return Ok(read_imm16()? | read_imm16()? << 16);
     }
     else {
