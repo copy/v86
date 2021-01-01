@@ -2215,6 +2215,26 @@ define_instruction_read_write_mem32!("shl32", instr32_D3_6_mem_jit, instr32_D3_6
 define_instruction_read_write_mem16!("sar16", instr16_D3_7_mem_jit, instr16_D3_7_reg_jit, cl);
 define_instruction_read_write_mem32!("sar32", instr32_D3_7_mem_jit, instr32_D3_7_reg_jit, cl);
 
+pub fn instr_D7_jit(ctx: &mut JitContext) {
+    if ctx.cpu.asize_32() {
+        codegen::gen_get_reg32(ctx, regs::EBX);
+    }
+    else {
+        codegen::gen_get_reg16(ctx, regs::BX);
+    }
+    codegen::gen_get_reg8(ctx, regs::AL);
+    ctx.builder.instruction_body.add_i32();
+    if !ctx.cpu.asize_32() {
+        ctx.builder.instruction_body.const_i32(0xFFFF);
+        ctx.builder.instruction_body.and_i32();
+    }
+    jit_add_seg_offset(ctx, regs::DS);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+    codegen::gen_set_reg8(ctx, regs::AL);
+}
+
 fn instr_group_D8_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
     ctx.builder.instruction_body.const_i32(0);
     codegen::gen_fpu_load_m32(ctx, modrm_byte);

@@ -269,8 +269,7 @@ const encodings = [
     { opcode: 0xD5, imm8: 1, mask_flags: of | cf | af, },
     { opcode: 0xD6, },
 
-    // XXX: Temporary block boundary
-    { opcode: 0xD7, skip: 1, block_boundary: 1, },
+    { opcode: 0xD7, skip: 1, custom: 1, },
 
     { opcode: 0xD8, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD8, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, },
