@@ -254,18 +254,18 @@ unsafe fn string_instruction(
                     Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
                     Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
                 },
-                Instruction::Movs => match size {
-                    Size::B => {
-                        if direction == -1 {
-                            phys_src -= count_until_end_of_page - 1;
-                            phys_dst -= count_until_end_of_page - 1;
-                        }
-                        memcpy_no_mmap_or_dirty_check(phys_src, phys_dst, count_until_end_of_page);
-                        i = count_until_end_of_page;
-                        break;
-                    },
-                    Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
-                    Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
+                Instruction::Movs => {
+                    if direction == -1 {
+                        phys_src -= (count_until_end_of_page - 1) * size_bytes as u32;
+                        phys_dst -= (count_until_end_of_page - 1) * size_bytes as u32;
+                    }
+                    memcpy_no_mmap_or_dirty_check(
+                        phys_src,
+                        phys_dst,
+                        count_until_end_of_page * size_bytes as u32,
+                    );
+                    i = count_until_end_of_page;
+                    break;
                 },
                 Instruction::Stos => match size {
                     Size::B => {
