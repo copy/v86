@@ -459,3 +459,156 @@ pub unsafe fn xchg32r(r32: i32) {
 
 #[no_mangle]
 pub unsafe fn bswap(r: i32) { write_reg32(r, read_reg32(r).swap_bytes()) }
+
+pub unsafe fn lar(selector: i32, original: i32) -> i32 {
+    if false {
+        dbg_log!("lar sel={:x}", selector);
+    }
+
+    const LAR_INVALID_TYPE: u32 =
+        1 << 0 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 0xA | 1 << 0xD | 1 << 0xE | 1 << 0xF;
+
+    match lookup_segment_selector(selector) {
+        Err(()) => {
+            // pagefault
+            return original;
+        },
+        Ok(Err(_)) => {
+            *flags_changed &= !FLAG_ZERO;
+            *flags &= !FLAG_ZERO;
+            dbg_log!("lar: invalid selector={:x}: null or invalid", selector);
+            return original;
+        },
+        Ok(Ok((desc, sel))) => {
+            *flags_changed &= !FLAG_ZERO;
+            let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
+
+            if if desc.is_system() {
+                (LAR_INVALID_TYPE >> desc.system_type() & 1 == 1) || dpl_bad
+            }
+            else {
+                !desc.is_conforming_executable() && dpl_bad
+            } {
+                dbg_log!(
+                    "lar: invalid selector={:x} is_null={} is_system={}",
+                    selector,
+                    false,
+                    desc.is_system()
+                );
+                *flags &= !FLAG_ZERO;
+                return original;
+            }
+            else {
+                *flags |= FLAG_ZERO;
+                return (desc.raw >> 32) as i32 & 0x00FFFF00;
+            }
+        },
+    }
+}
+
+pub unsafe fn lsl(selector: i32, original: i32) -> i32 {
+    if false {
+        dbg_log!("lsl sel={:x}", selector);
+    }
+
+    const LSL_INVALID_TYPE: i32 = 1 << 0
+        | 1 << 4
+        | 1 << 5
+        | 1 << 6
+        | 1 << 7
+        | 1 << 8
+        | 1 << 0xA
+        | 1 << 0xC
+        | 1 << 0xD
+        | 1 << 0xE
+        | 1 << 0xF;
+
+    match lookup_segment_selector(selector) {
+        Err(()) => {
+            // pagefault
+            return original;
+        },
+        Ok(Err(_)) => {
+            *flags_changed &= !FLAG_ZERO;
+            *flags &= !FLAG_ZERO;
+            dbg_log!("lsl: invalid selector={:x}: null or invalid", selector);
+            return original;
+        },
+        Ok(Ok((desc, sel))) => {
+            *flags_changed &= !FLAG_ZERO;
+            let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
+
+            if if desc.is_system() {
+                (LSL_INVALID_TYPE >> desc.system_type() & 1 == 1) || dpl_bad
+            }
+            else {
+                !desc.is_conforming_executable() && dpl_bad
+            } {
+                dbg_log!(
+                    "lsl: invalid  selector={:x} is_null={} is_system={}",
+                    selector,
+                    false,
+                    desc.is_system(),
+                );
+                *flags &= !FLAG_ZERO;
+                return original;
+            }
+            else {
+                *flags |= FLAG_ZERO;
+                return desc.effective_limit() as i32;
+            }
+        },
+    }
+}
+
+pub unsafe fn verr(selector: i32) {
+    *flags_changed &= !FLAG_ZERO;
+    match return_on_pagefault!(lookup_segment_selector(selector)) {
+        Err(_) => {
+            *flags &= !FLAG_ZERO;
+            dbg_log!("verr -> invalid. selector={:x}", selector);
+        },
+        Ok((desc, sel)) => {
+            if desc.is_system()
+                || !desc.is_readable()
+                || (!desc.is_conforming_executable()
+                    && (desc.dpl() < *cpl || desc.dpl() < sel.rpl()))
+            {
+                dbg_log!("verr -> invalid. selector={:x}", selector);
+                *flags &= !FLAG_ZERO;
+            }
+            else {
+                dbg_log!("verr -> valid. selector={:x}", selector);
+                *flags |= FLAG_ZERO;
+            }
+        },
+    }
+}
+
+pub unsafe fn verw(selector: i32) {
+    *flags_changed &= !FLAG_ZERO;
+    match return_on_pagefault!(lookup_segment_selector(selector)) {
+        Err(_) => {
+            *flags &= !FLAG_ZERO;
+            dbg_log!("verw -> invalid. selector={:x}", selector);
+        },
+        Ok((desc, sel)) => {
+            if desc.is_system()
+                || !desc.is_writable()
+                || desc.dpl() < *cpl
+                || desc.dpl() < sel.rpl()
+            {
+                dbg_log!(
+                    "verw invalid selector={:x} is_system={} is_writable={}",
+                    selector,
+                    desc.is_system(),
+                    desc.is_writable(),
+                );
+                *flags &= !FLAG_ZERO;
+            }
+            else {
+                *flags |= FLAG_ZERO;
+            }
+        },
+    }
+}

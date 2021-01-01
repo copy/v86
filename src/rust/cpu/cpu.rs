@@ -316,7 +316,7 @@ pub enum SelectorNullOrInvalid {
 }
 
 pub struct SegmentDescriptor {
-    raw: u64,
+    pub raw: u64,
 }
 
 impl SegmentDescriptor {

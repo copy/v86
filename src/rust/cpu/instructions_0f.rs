@@ -3,10 +3,6 @@
 extern "C" {
     fn get_rand_int() -> i32;
     fn cpuid();
-    fn lsl(r: i32, v: i32) -> i32;
-    fn lar(r: i32, v: i32) -> i32;
-    fn verw(r: i32);
-    fn verr(r: i32);
     fn load_tr(v: i32);
     fn load_ldt(v: i32);
 }
@@ -37,6 +33,7 @@ use cpu::misc_instr::{
     jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
     test_p, test_s, test_z,
 };
+use cpu::misc_instr::{lar, lsl, verr, verw};
 use cpu::misc_instr::{lss16, lss32};
 use cpu::sse_instr::*;
 
