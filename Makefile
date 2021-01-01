@@ -195,8 +195,6 @@ clean:
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
-	-rm $(addsuffix .bak,$(INSTRUCTION_TABLES))
-	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))
 	-rm build/*.map
 	-rm build/*.wast
 	$(MAKE) -C $(NASM_TEST_DIR) clean
