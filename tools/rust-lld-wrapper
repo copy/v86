@@ -27,10 +27,11 @@ def main():
     lld = find_rust_lld()
 
     result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    result.check_returncode()
 
     print(result.stderr, file=sys.stderr)
     print(result.stdout)
+
+    result.check_returncode()
 
 def find_rust_lld():
     which = subprocess.run(["rustup", "which", "rustc"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
