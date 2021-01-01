@@ -13,9 +13,9 @@ extern "C" {
     #[no_mangle]
     fn arpl(seg: i32, r: i32) -> i32;
     #[no_mangle]
-    fn far_jump(eip: i32, selector: i32, is_call: bool);
+    fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool);
     #[no_mangle]
-    fn far_return(eip: i32, selector: i32, stack_adjust: i32);
+    fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32: bool);
 
     #[no_mangle]
     fn hlt_op();
@@ -1465,7 +1465,7 @@ pub unsafe fn instr32_99() { *reg32.offset(EDX as isize) = *reg32.offset(EAX as 
 #[no_mangle]
 pub unsafe fn instr16_9A(new_ip: i32, new_cs: i32) {
     // callf
-    far_jump(new_ip, new_cs, true);
+    far_jump(new_ip, new_cs, true, false);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -1475,7 +1475,7 @@ pub unsafe fn instr32_9A(new_ip: i32, new_cs: i32) {
             dbg_assert!(false);
         }
     }
-    far_jump(new_ip, new_cs, true);
+    far_jump(new_ip, new_cs, true, true);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -1949,14 +1949,14 @@ pub unsafe fn instr16_CA(imm16: i32) {
     // retf
     let ip = return_on_pagefault!(safe_read16(get_stack_pointer(0)));
     let cs = return_on_pagefault!(safe_read16(get_stack_pointer(2)));
-    far_return(ip, cs, imm16);
+    far_return(ip, cs, imm16, false);
 }
 #[no_mangle]
 pub unsafe fn instr32_CA(imm16: i32) {
     // retf
     let ip = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
     let cs = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 0xFFFF;
-    far_return(ip, cs, imm16);
+    far_return(ip, cs, imm16, true);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -1964,7 +1964,7 @@ pub unsafe fn instr16_CB() {
     // retf
     let ip = return_on_pagefault!(safe_read16(get_stack_pointer(0)));
     let cs = return_on_pagefault!(safe_read16(get_stack_pointer(2)));
-    far_return(ip, cs, 0);
+    far_return(ip, cs, 0, false);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -1972,7 +1972,7 @@ pub unsafe fn instr32_CB() {
     // retf
     let ip = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
     let cs = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 0xFFFF;
-    far_return(ip, cs, 0);
+    far_return(ip, cs, 0, true);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -2522,13 +2522,13 @@ pub unsafe fn instr32_E9(imm32s: i32) {
 #[no_mangle]
 pub unsafe fn instr16_EA(new_ip: i32, cs: i32) {
     // jmpf
-    far_jump(new_ip, cs, false);
+    far_jump(new_ip, cs, false, false);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_EA(new_ip: i32, cs: i32) {
     // jmpf
-    far_jump(new_ip, cs, false);
+    far_jump(new_ip, cs, false, true);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -2909,7 +2909,7 @@ pub unsafe fn instr16_FF_3_mem(addr: i32) {
     // callf
     let new_ip = return_on_pagefault!(safe_read16(addr));
     let new_cs = return_on_pagefault!(safe_read16(addr + 2));
-    far_jump(new_ip, new_cs, true);
+    far_jump(new_ip, new_cs, true, false);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -2934,7 +2934,7 @@ pub unsafe fn instr16_FF_5_mem(addr: i32) {
     // jmpf
     let new_ip = return_on_pagefault!(safe_read16(addr));
     let new_cs = return_on_pagefault!(safe_read16(addr + 2));
-    far_jump(new_ip, new_cs, false);
+    far_jump(new_ip, new_cs, false, false);
     dbg_assert!(*is_32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
@@ -2986,7 +2986,7 @@ pub unsafe fn instr32_FF_3_mem(addr: i32) {
             dbg_assert!(false);
         }
     }
-    far_jump(new_ip, new_cs, true);
+    far_jump(new_ip, new_cs, true, true);
     dbg_assert!(*is_32 || new_ip < 0x10000);
 }
 #[no_mangle]
@@ -3016,7 +3016,7 @@ pub unsafe fn instr32_FF_5_mem(addr: i32) {
             dbg_assert!(false);
         }
     }
-    far_jump(new_ip, new_cs, false);
+    far_jump(new_ip, new_cs, false, true);
     dbg_assert!(*is_32 || new_ip < 0x10000);
 }
 #[no_mangle]

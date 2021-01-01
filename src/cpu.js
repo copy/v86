@@ -1580,7 +1580,7 @@ CPU.prototype.jit_clear_cache = function()
     }
 };
 
-CPU.prototype.far_return = function(eip, selector, stack_adjust)
+CPU.prototype.far_return = function(eip, selector, stack_adjust, is_osize_32)
 {
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
 
@@ -1597,7 +1597,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     {
         this.switch_cs_real_mode(selector);
         this.instruction_pointer[0] = this.get_seg_cs() + eip | 0;
-        this.adjust_stack_reg(2 * (this.is_osize_32() ? 4 : 2) + stack_adjust);
+        this.adjust_stack_reg(2 * (is_osize_32 ? 4 : 2) + stack_adjust);
         return;
     }
 
@@ -1662,9 +1662,9 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
 
     if(info.rpl > this.cpl[0])
     {
-        dbg_log("far return privilege change cs: " + h(selector) + " from=" + this.cpl[0] + " to=" + info.rpl + " is_16=" + this.is_osize_32(), LOG_CPU);
+        dbg_log("far return privilege change cs: " + h(selector) + " from=" + this.cpl[0] + " to=" + info.rpl + " is_16=" + is_osize_32, LOG_CPU);
 
-        if(this.is_osize_32())
+        if(is_osize_32)
         {
             //dbg_log("esp read from " + h(this.translate_address_system_read(this.get_stack_pointer(stack_adjust + 8))))
             var temp_esp = this.safe_read32s(this.get_stack_pointer(stack_adjust + 8));
@@ -1686,7 +1686,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
         if(!this.switch_seg(reg_ss, temp_ss)) dbg_assert(false);
         this.set_stack_reg(temp_esp + stack_adjust);
 
-        //if(this.is_osize_32())
+        //if(is_osize_32)
         //{
         //    this.adjust_stack_reg(2 * 4);
         //}
@@ -1701,7 +1701,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     }
     else
     {
-        if(this.is_osize_32())
+        if(is_osize_32)
         {
             this.adjust_stack_reg(2 * 4 + stack_adjust);
         }
@@ -1729,7 +1729,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     CPU_LOG_VERBOSE && this.debug.dump_state("far ret end");
 };
 
-CPU.prototype.far_jump = function(eip, selector, is_call)
+CPU.prototype.far_jump = function(eip, selector, is_call, is_osize_32)
 {
     is_call = !!is_call;
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
@@ -1741,7 +1741,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
     {
         if(is_call)
         {
-            if(this.is_osize_32())
+            if(is_osize_32)
             {
                 if(!this.writable_or_pagefault(this.get_stack_pointer(-8), 8))
                 {
@@ -2065,7 +2065,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
         if(is_call)
         {
-            if(this.is_osize_32())
+            if(is_osize_32)
             {
                 if(!this.writable_or_pagefault(this.get_stack_pointer(-8), 8))
                 {
@@ -3015,11 +3015,6 @@ CPU.prototype.verw = function(selector)
     {
         this.flags[0] |= flag_zero;
     }
-};
-
-CPU.prototype.is_osize_32 = function()
-{
-    return Boolean(this.is_32[0]) !== ((this.prefixes[0] & PREFIX_MASK_OPSIZE) === PREFIX_MASK_OPSIZE);
 };
 
 CPU.prototype.is_asize_32 = function()
