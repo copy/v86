@@ -173,7 +173,6 @@ function V86Starter(options)
         },
 
         "__indirect_function_table": wasm_table,
-        "_ZN4core9panicking18panic_bounds_check17h6d2ba6bb9e0154e4E": function() {}
     };
 
     let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
