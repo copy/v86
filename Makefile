@@ -268,8 +268,7 @@ expect-tests: all-debug build/libwabt.js
 	./tests/expect/run.js
 
 devices-test: all-debug
-	./tests/devices/filestorage.js
-	#./tests/devices/virtio_9p.js # XXX: Hangs
+	./tests/devices/virtio_9p.js
 
 rust-test: $(RUST_FILES)
 	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 RUSTFLAGS="-D warnings" cargo +nightly test -- --nocapture

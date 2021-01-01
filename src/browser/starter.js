@@ -447,9 +447,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        let file_storage = typeof window === "undefined" || !window.indexedDB ?
-            new MemoryFileStorage() :
-            await IndexedDBFileStorage.try_create();
+        let file_storage = new MemoryFileStorage();
+
         if(base_url)
         {
             file_storage = new ServerFileStorageWrapper(file_storage, base_url);
@@ -1050,9 +1049,8 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
 {
-    let file_storage = typeof window === "undefined" || !window.indexedDB ?
-        new MemoryFileStorage() :
-        await IndexedDBFileStorage.try_create();
+    let file_storage = new MemoryFileStorage();
+
     if(baseurl)
     {
         file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
