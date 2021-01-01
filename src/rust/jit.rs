@@ -818,7 +818,8 @@ fn jit_generate_module(
                     }
                     ctx.builder.block_end();
                 },
-                _ => {},
+                BasicBlockType::Normal { .. } => {},
+                BasicBlockType::Exit => {},
             };
             codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
             codegen::gen_move_registers_from_locals_to_memory(ctx);
