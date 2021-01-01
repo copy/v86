@@ -1707,14 +1707,11 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 
 pub unsafe fn get_seg(segment: i32) -> i32 {
     dbg_assert!(segment >= 0 && segment < 8);
-    // TODO: Remove protected_mode check
-    if *protected_mode {
-        if *segment_is_null.offset(segment as isize) {
-            dbg_assert!(segment != CS && segment != SS);
-            dbg_log!("#gp: Access null segment");
-            assert!(false);
-            //trigger_gp(0); // TODO
-        }
+    if *segment_is_null.offset(segment as isize) {
+        dbg_assert!(segment != CS && segment != SS);
+        dbg_log!("#gp: Access null segment");
+        assert!(false);
+        //trigger_gp(0); // TODO
     }
     return *segment_offsets.offset(segment as isize);
 }
