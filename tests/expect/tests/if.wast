@@ -21,7 +21,7 @@
   (type $t19 (func (param i32 i64 i64 i32) (result i32)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
-  (import "e" "m" (memory $e.m 256))
+  (import "e" "m" (memory $e.m 128))
   (func $f (export "f") (type $t1) (param $p0 i32)
     (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32)
     (set_local $l0

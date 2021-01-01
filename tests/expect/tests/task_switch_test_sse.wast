@@ -23,7 +23,7 @@
   (import "e" "instr_660F54_reg" (func $e.instr_660F54_reg (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
-  (import "e" "m" (memory $e.m 256))
+  (import "e" "m" (memory $e.m 128))
   (func $f (export "f") (type $t1) (param $p0 i32)
     (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32)
     (set_local $l0
