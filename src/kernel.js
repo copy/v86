@@ -39,7 +39,7 @@ const LINUX_BOOT_HDR_LOADFLAGS_CAN_USE_HEAPS = 1 << 7;
 
 function load_kernel(mem8, bzimage, initrd, cmdline)
 {
-    dbg_log("Trying to load kernel of size " + bzimage.length);
+    dbg_log("Trying to load kernel of size " + bzimage.byteLength);
 
     const KERNEL_HIGH_ADDRESS = 0x100000;
 
