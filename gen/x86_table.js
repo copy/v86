@@ -288,7 +288,7 @@ const encodings = [
     { opcode: 0xD9, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 6, custom: 1, is_fpu: 1, task_switch_test: 1, skip: 1, }, // fstenv (mem), fprem (reg)
-    { opcode: 0xD9, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, only_mem: 1, }, // fprem
+    { opcode: 0xD9, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, only_mem: 1, }, // fprem, fyl2xp1
 
     { opcode: 0xDA, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDA, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -318,7 +318,7 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // unimplemented: fisttp (sse3)
     { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // frstor
