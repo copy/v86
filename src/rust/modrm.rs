@@ -3,6 +3,7 @@ use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
+use profiler;
 use regs::{BP, BX, DI, SI};
 use regs::{DS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
@@ -199,6 +200,8 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
             }
+
+            profiler::stat_increment(profiler::stat::MODRM_COMPLEX);
         },
         Offset::Reg(r) => {
             let immediate_value = match imm {
@@ -210,10 +213,15 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
             if immediate_value != 0 {
                 ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
+                profiler::stat_increment(profiler::stat::MODRM_COMPLEX);
+            }
+            else {
+                profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG);
             }
             jit_add_seg_offset(ctx, seg);
         },
         Offset::None => {
+            profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG);
             let immediate_value = match imm {
                 Imm32::None => 0,
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,

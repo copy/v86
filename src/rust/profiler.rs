@@ -64,6 +64,9 @@ pub enum stat {
     FULL_CLEAR_TLB,
     TLB_FULL,
     TLB_GLOBAL_FULL,
+
+    MODRM_SIMPLE_REG,
+    MODRM_COMPLEX,
 }
 
 #[no_mangle]
