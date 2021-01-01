@@ -1,5 +1,7 @@
 use cpu::BitSize;
-use cpu2::cpu::{TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID};
+use cpu2::cpu::{
+    FLAG_CARRY, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
+};
 use global_pointers;
 use jit::JitContext;
 use modrm;
@@ -1388,6 +1390,99 @@ pub fn gen_clear_flags_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
     builder.instruction_body.and_i32();
     builder.instruction_body.store_aligned_i32(0);
 }
+
+pub fn gen_getzf(builder: &mut WasmBuilder) {
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.instruction_body.const_i32(FLAG_ZERO);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.if_i32();
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_RESULT);
+    let last_result = builder.tee_new_local();
+    builder.instruction_body.const_i32(-1);
+    builder.instruction_body.xor_i32();
+    builder.instruction_body.get_local(&last_result);
+    builder.free_local(last_result);
+    builder.instruction_body.const_i32(1);
+    builder.instruction_body.sub_i32();
+    builder.instruction_body.and_i32();
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_OP_SIZE);
+    builder.instruction_body.shr_u_i32();
+    builder.instruction_body.const_i32(1);
+    builder.instruction_body.and_i32();
+
+    builder.instruction_body.else_();
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    builder.instruction_body.const_i32(FLAG_ZERO);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.block_end();
+}
+
+pub fn gen_getcf(builder: &mut WasmBuilder) {
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.instruction_body.const_i32(FLAG_CARRY);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.if_i32();
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_OP1);
+    let last_op1 = builder.tee_new_local();
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_OP2);
+    let last_op2 = builder.tee_new_local();
+
+    builder.instruction_body.xor_i32();
+
+    builder.instruction_body.get_local(&last_op2);
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_ADD_RESULT);
+    builder.instruction_body.xor_i32();
+
+    builder.instruction_body.and_i32();
+
+    builder.instruction_body.get_local(&last_op1);
+    builder.instruction_body.xor_i32();
+
+    builder.free_local(last_op1);
+    builder.free_local(last_op2);
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::LAST_OP_SIZE);
+    builder.instruction_body.shr_u_i32();
+    builder.instruction_body.const_i32(1);
+    builder.instruction_body.and_i32();
+
+    builder.instruction_body.else_();
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    builder.instruction_body.const_i32(FLAG_CARRY);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.block_end();
+}
+
+pub fn gen_test_be(builder: &mut WasmBuilder) {
+    // TODO: Could be made lazy
+    gen_getcf(builder);
+    gen_getzf(builder);
+    builder.instruction_body.or_i32();
+}
+
 pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     ctx.builder.instruction_body.const_i32(i as i32);
     gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");
@@ -1422,8 +1517,31 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
 
 pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
     dbg_assert!(condition < 16);
-    let condition_name = CONDITION_FUNCTIONS[condition as usize];
-    gen_fn0_const_ret(builder, condition_name);
+    if condition == 2 {
+        gen_getcf(builder);
+    }
+    else if condition == 3 {
+        gen_getcf(builder);
+        builder.instruction_body.eqz_i32();
+    }
+    else if condition == 4 {
+        gen_getzf(builder);
+    }
+    else if condition == 5 {
+        gen_getzf(builder);
+        builder.instruction_body.eqz_i32();
+    }
+    else if condition == 6 {
+        gen_test_be(builder);
+    }
+    else if condition == 7 {
+        gen_test_be(builder);
+        builder.instruction_body.eqz_i32();
+    }
+    else {
+        let condition_name = CONDITION_FUNCTIONS[condition as usize];
+        gen_fn0_const_ret(builder, condition_name);
+    }
 }
 
 pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
