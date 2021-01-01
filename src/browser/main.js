@@ -904,7 +904,7 @@
         var last_tick = 0;
         var running_time = 0;
         var last_instr_counter = 0;
-        var interval;
+        var interval = null;
         var os_uses_mouse = false;
         var total_instructions = 0;
 
@@ -942,7 +942,10 @@
         emulator.add_listener("emulator-stopped", function()
         {
             update_info();
-            clearInterval(interval);
+            if(interval === null)
+            {
+                clearInterval(interval);
+            }
         });
 
         var stats_9p = {
