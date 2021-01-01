@@ -2664,16 +2664,6 @@ pub unsafe fn read_reg32(index: i32) -> i32 { return *reg32.offset(index as isiz
 
 pub unsafe fn write_reg32(index: i32, value: i32) { *reg32.offset(index as isize) = value; }
 
-pub unsafe fn write_reg_osize(index: i32, value: i32) {
-    dbg_assert!(index >= 0 && index < 8);
-    if is_osize_32() {
-        write_reg32(index, value);
-    }
-    else {
-        write_reg16(index, value & 0xFFFF);
-    };
-}
-
 pub unsafe fn read_mmx32s(r: i32) -> i32 { return (*reg_mmx.offset(r as isize)).u32_0[0] as i32; }
 
 pub unsafe fn read_mmx64s(r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
