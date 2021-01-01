@@ -737,8 +737,7 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.bzimage)
     {
-        dbg_assert(settings.cmdline);
-        const { option_rom } = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline);
+        const { option_rom } = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline || "");
 
         if(option_rom)
         {
