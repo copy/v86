@@ -254,15 +254,15 @@ jitpagingtests: all-debug
 
 qemutests: all-debug
 	$(MAKE) -C tests/qemu test-i386
-	./tests/qemu/run.js > /tmp/v86-test-result
-	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
-	diff /tmp/v86-test-result /tmp/v86-test-reference
+	./tests/qemu/run.js > build/qemu-test-result
+	./tests/qemu/run-qemu.js > build/qemu-test-reference
+	diff build/qemu-test-result build/qemu-test-reference
 
 qemutests-release: all
 	$(MAKE) -C tests/qemu test-i386
-	time TEST_RELEASE_BUILD=1 ./tests/qemu/run.js > /tmp/v86-test-result
-	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
-	diff /tmp/v86-test-result /tmp/v86-test-reference
+	time TEST_RELEASE_BUILD=1 ./tests/qemu/run.js > build/qemu-test-result
+	./tests/qemu/run-qemu.js > build/qemu-test-reference
+	diff build/qemu-test-result build/qemu-test-reference
 
 kvm-unit-test: all-debug
 	(cd tests/kvm-unit-tests && ./configure && make)
