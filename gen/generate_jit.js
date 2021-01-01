@@ -199,7 +199,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [].concat(
-                        gen_call(`::codegen::gen_fn0_const`, ["ctx.builder", '"trigger_ud"']),
+                        gen_call(`::codegen::gen_trigger_ud`, ["ctx"]),
                         "*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;"
                     ),
                 }
