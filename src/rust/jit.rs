@@ -1106,9 +1106,9 @@ fn jit_generate_module(
                 jump_offset_is_32,
             } => {
                 // Conditional jump to next basic block
-                // - jnz, jc, etc.
+                // - jnz, jc, loop, jcxz, etc.
 
-                codegen::gen_condition_fn(ctx.builder, condition);
+                codegen::gen_condition_fn(ctx, condition);
                 ctx.builder.instruction_body.if_void();
 
                 // Branch taken

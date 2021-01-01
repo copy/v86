@@ -284,9 +284,13 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
                 if(encoding.conditional_jump)
                 {
-                    console.assert((encoding.opcode & ~0xF) === 0x70 || (encoding.opcode & ~0xF) === 0x0F80);
-                    const condition_index = encoding.opcode & 0xF;
-                    body.push(`analysis.ty = ::analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: Some(${condition_index}), is_32: cpu.osize_32() };`);
+                    console.assert(
+                        (encoding.opcode & ~0xF) === 0x70 ||
+                        (encoding.opcode & ~0xF) === 0x0F80 ||
+                        (encoding.opcode & ~0x3) === 0xE0
+                    );
+                    const condition_index = encoding.opcode & 0xFF;
+                    body.push(`analysis.ty = ::analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: Some(0x${hex(condition_index, 2)}), is_32: cpu.osize_32() };`);
                 }
                 else
                 {

@@ -1601,6 +1601,49 @@ pub fn gen_test_be(builder: &mut WasmBuilder) {
     builder.instruction_body.or_i32();
 }
 
+pub fn gen_test_loopnz(ctx: &mut JitContext, is_asize_32: bool) {
+    gen_test_loop(ctx, is_asize_32);
+    ctx.builder.instruction_body.eqz_i32();
+    gen_getzf(&mut ctx.builder);
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.eqz_i32();
+}
+pub fn gen_test_loopz(ctx: &mut JitContext, is_asize_32: bool) {
+    gen_test_loop(ctx, is_asize_32);
+    ctx.builder.instruction_body.eqz_i32();
+    gen_getzf(&mut ctx.builder);
+    ctx.builder.instruction_body.eqz_i32();
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.eqz_i32();
+}
+pub fn gen_test_loop(ctx: &mut JitContext, is_asize_32: bool) {
+    if is_asize_32 {
+        gen_get_reg32(ctx, regs::ECX);
+    }
+    else {
+        gen_get_reg16(ctx, regs::CX);
+    }
+    ctx.builder.instruction_body.const_i32(1);
+    ctx.builder.instruction_body.sub_i32();
+    if is_asize_32 {
+        gen_set_reg32(ctx, regs::ECX);
+        gen_get_reg32(ctx, regs::ECX);
+    }
+    else {
+        gen_set_reg16(ctx, regs::ECX);
+        gen_get_reg16(ctx, regs::CX);
+    }
+}
+pub fn gen_test_jcxz(ctx: &mut JitContext, is_asize_32: bool) {
+    if is_asize_32 {
+        gen_get_reg32(ctx, regs::ECX);
+    }
+    else {
+        gen_get_reg16(ctx, regs::CX);
+    }
+    ctx.builder.instruction_body.eqz_i32();
+}
+
 pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     ctx.builder.instruction_body.const_i32(i as i32);
     gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");
@@ -1641,32 +1684,50 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
     ctx.builder.instruction_body.return_();
 }
 
-pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
-    dbg_assert!(condition < 16);
-    if condition == 2 {
-        gen_getcf(builder);
-    }
-    else if condition == 3 {
-        gen_getcf(builder);
-        builder.instruction_body.eqz_i32();
-    }
-    else if condition == 4 {
-        gen_getzf(builder);
-    }
-    else if condition == 5 {
-        gen_getzf(builder);
-        builder.instruction_body.eqz_i32();
-    }
-    else if condition == 6 {
-        gen_test_be(builder);
-    }
-    else if condition == 7 {
-        gen_test_be(builder);
-        builder.instruction_body.eqz_i32();
+pub fn gen_condition_fn(ctx: &mut JitContext, mut condition: u8) {
+    if condition & 0xF0 == 0x00 || condition & 0xF0 == 0x70 || condition & 0xF0 == 0x80 {
+        condition &= 0xF;
+        if condition == 2 {
+            gen_getcf(ctx.builder);
+        }
+        else if condition == 3 {
+            gen_getcf(ctx.builder);
+            ctx.builder.instruction_body.eqz_i32();
+        }
+        else if condition == 4 {
+            gen_getzf(ctx.builder);
+        }
+        else if condition == 5 {
+            gen_getzf(ctx.builder);
+            ctx.builder.instruction_body.eqz_i32();
+        }
+        else if condition == 6 {
+            gen_test_be(ctx.builder);
+        }
+        else if condition == 7 {
+            gen_test_be(ctx.builder);
+            ctx.builder.instruction_body.eqz_i32();
+        }
+        else {
+            let condition_name = CONDITION_FUNCTIONS[condition as usize];
+            gen_fn0_const_ret(ctx.builder, condition_name);
+        }
     }
     else {
-        let condition_name = CONDITION_FUNCTIONS[condition as usize];
-        gen_fn0_const_ret(builder, condition_name);
+        // loop, loopnz, loopz, jcxz
+        dbg_assert!(condition & !0x3 == 0xE0);
+        if condition == 0xE0 {
+            gen_test_loopnz(ctx, ctx.cpu.asize_32());
+        }
+        else if condition == 0xE1 {
+            gen_test_loopz(ctx, ctx.cpu.asize_32());
+        }
+        else if condition == 0xE2 {
+            gen_test_loop(ctx, ctx.cpu.asize_32());
+        }
+        else if condition == 0xE3 {
+            gen_test_jcxz(ctx, ctx.cpu.asize_32());
+        }
     }
 }
 
