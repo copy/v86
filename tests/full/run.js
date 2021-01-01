@@ -128,7 +128,7 @@ if(cluster.isMaster)
             actions: [
                 {
                     on_text: "/root%",
-                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
                 },
             ],
         },
@@ -192,7 +192,7 @@ if(cluster.isMaster)
             actions: [
                 {
                     on_text: "/root%",
-                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
                 },
             ],
         },
@@ -251,6 +251,7 @@ if(cluster.isMaster)
         },
         {
             name: "Windows 3.0",
+            slow: 1,
             skip_if_disk_image_missing: true,
             timeout: 10 * 60,
             cdrom: root_path + "/../v86-images/os/Win30.iso",
