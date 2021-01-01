@@ -393,8 +393,6 @@ CPU.prototype.get_state = function()
     state[74] = this.fpu_dp_selector[0];
     state[75] = this.fpu_opcode[0];
 
-    state[76] = this.fxsave_store_fpu_mask;
-
     const { packed_memory, bitmap } = this.pack_memory();
     state[77] = packed_memory;
     state[78] = new Uint8Array(bitmap.get_buffer());
@@ -484,8 +482,6 @@ CPU.prototype.set_state = function(state)
     this.fpu_dp[0] = state[73];
     this.fpu_dp_selector[0] = state[74];
     this.fpu_opcode[0] = state[75];
-
-    this.fxsave_store_fpu_mask = state[76];
 
     const bitmap = new v86util.Bitmap(state[78].buffer);
     const packed_memory = state[77];
