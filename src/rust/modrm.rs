@@ -5,7 +5,7 @@ use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use profiler;
 use regs::{BP, BX, DI, SI};
-use regs::{DS, SS};
+use regs::{CS, DS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 use wasmgen::wasm_util::WasmBuf;
 
@@ -357,6 +357,11 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
 
     if can_optimize_get_seg(ctx, seg) || prefix == SEG_PREFIX_ZERO {
         return;
+    }
+
+    if cfg!(debug_assertions) && seg != CS && seg != SS {
+        ctx.builder.instruction_body.const_i32(seg as i32);
+        codegen::gen_call_fn1(ctx.builder, "assert_seg_non_null");
     }
 
     ctx.builder

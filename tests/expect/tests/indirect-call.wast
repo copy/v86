@@ -15,6 +15,7 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
+  (import "e" "assert_seg_non_null" (func $e.assert_seg_non_null (type $t1)))
   (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
@@ -106,11 +107,13 @@
                 (i32.load
                   (i32.const 556))
                 (i32.const 2)))
-            (set_local $l10
-              (i32.add
-                (get_local $l2)
-                (i32.load
-                  (i32.const 748))))
+            (get_local $l2)
+            (call $e.assert_seg_non_null
+              (i32.const 3))
+            (i32.load
+              (i32.const 748))
+            (i32.add)
+            (set_local $l10)
             (set_local $l10
               (i32.add
                 (if $I6 (result i32)

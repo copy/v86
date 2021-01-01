@@ -15,6 +15,7 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
+  (import "e" "assert_seg_non_null" (func $e.assert_seg_non_null (type $t1)))
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t2)))
   (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
@@ -95,13 +96,15 @@
               (i32.load
                 (i32.const 664))
               (i32.const 5)))
-          (set_local $l10
-            (i32.add
-              (i32.add
-                (get_local $l5)
-                (i32.const 32))
-              (i32.load
-                (i32.const 748))))
+          (i32.add
+            (get_local $l5)
+            (i32.const 32))
+          (call $e.assert_seg_non_null
+            (i32.const 3))
+          (i32.load
+            (i32.const 748))
+          (i32.add)
+          (set_local $l10)
           (set_local $l11
             (get_local $l2))
           (if $I5
@@ -147,13 +150,15 @@
                         (i32.const -4096))
                       (i32.const 0)))
                   (br $B3)))))
-          (set_local $l11
-            (i32.add
-              (i32.add
-                (get_local $l4)
-                (i32.const 28))
-              (i32.load
-                (i32.const 748))))
+          (i32.add
+            (get_local $l4)
+            (i32.const 28))
+          (call $e.assert_seg_non_null
+            (i32.const 3))
+          (i32.load
+            (i32.const 748))
+          (i32.add)
+          (set_local $l11)
           (set_local $l10
             (get_local $l3))
           (if $I7
@@ -199,13 +204,15 @@
                         (i32.const -4096))
                       (i32.const 6)))
                   (br $B3)))))
-          (set_local $l10
-            (i32.add
-              (i32.add
-                (get_local $l5)
-                (i32.const 28))
-              (i32.load
-                (i32.const 748))))
+          (i32.add
+            (get_local $l5)
+            (i32.const 28))
+          (call $e.assert_seg_non_null
+            (i32.const 3))
+          (i32.load
+            (i32.const 748))
+          (i32.add)
+          (set_local $l10)
           (set_local $l8
             (if $I9 (result i32)
               (i32.and
@@ -248,13 +255,15 @@
                           (i32.const -4096))
                         (i32.const 12)))
                     (br $B3))))))
-          (set_local $l10
-            (i32.add
-              (i32.add
-                (get_local $l4)
-                (i32.const 32))
-              (i32.load
-                (i32.const 748))))
+          (i32.add
+            (get_local $l4)
+            (i32.const 32))
+          (call $e.assert_seg_non_null
+            (i32.const 3))
+          (i32.load
+            (i32.const 748))
+          (i32.add)
+          (set_local $l10)
           (set_local $l9
             (if $I11 (result i32)
               (i32.and

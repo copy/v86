@@ -1705,6 +1705,16 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     true
 }
 
+#[no_mangle]
+pub unsafe fn assert_seg_non_null(segment: i32) {
+    dbg_assert!(segment >= 0 && segment < 8);
+    if *segment_is_null.offset(segment as isize) {
+        dbg_assert!(segment != CS && segment != SS);
+        dbg_log!("#gp: Access null segment");
+        assert!(false);
+    }
+}
+
 pub unsafe fn get_seg(segment: i32) -> i32 {
     dbg_assert!(segment >= 0 && segment < 8);
     if *segment_is_null.offset(segment as isize) {
