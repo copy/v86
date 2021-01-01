@@ -87,52 +87,6 @@ var dbg_log = (function()
     return dbg_log_;
 })();
 
-function dbg_log_wasm(memory, format_string_offset, stack)
-{
-    if(!DEBUG || !(LOG_LEVEL & LOG_CPU))
-    {
-        return;
-    }
-
-    let s = new Uint8Array(memory, format_string_offset);
-
-    const length = s.indexOf(0);
-    if(length !== -1)
-    {
-        s = new Uint8Array(memory, format_string_offset, length);
-    }
-
-    function pop_arg()
-    {
-        const arg = new Int32Array(memory, stack, 1)[0];
-        stack += 4;
-        return arg;
-    }
-
-    let format_string = String.fromCharCode.apply(String, s);
-    format_string = format_string.replace(/%([xd%])/g, function(full_match, identifier)
-        {
-            if(identifier === "x")
-            {
-                return (pop_arg() >>> 0).toString(16);
-            }
-            else if(identifier === "d")
-            {
-                return pop_arg().toString(10);
-            }
-            else if(identifier === "%")
-            {
-                return "%";
-            }
-            else
-            {
-                console.assert(false);
-            }
-        });
-
-    dbg_log(format_string, LOG_CPU);
-}
-
 /**
  * @param {number=} level
  */
