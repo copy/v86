@@ -282,7 +282,7 @@ api-tests: all-debug
 	./tests/api/state.js
 	./tests/api/reset.js
 
-all-tests: jshint kvm-unit-test expect-tests qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests
+all-tests: jshint kvm-unit-test qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
 	# - debiantests (requires network)
 	# - devices-test (hangs)
