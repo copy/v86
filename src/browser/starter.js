@@ -844,7 +844,7 @@ V86Starter.prototype.get_instruction_counter = function()
 {
     if(this.v86)
     {
-        return this.v86.cpu.timestamp_counter[0];
+        return this.v86.cpu.timestamp_counter[0] >>> 0;
     }
     else
     {

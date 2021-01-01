@@ -907,22 +907,30 @@
         var last_instr_counter = 0;
         var interval;
         var os_uses_mouse = false;
+        var total_instructions = 0;
 
         function update_info()
         {
             var now = Date.now();
 
             var instruction_counter = emulator.get_instruction_counter();
-            var last_ips = instruction_counter - last_instr_counter;
 
+            if(instruction_counter < last_instr_counter)
+            {
+                // 32-bit wrap-around
+                last_instr_counter -= 0x100000000;
+            }
+
+            var last_ips = instruction_counter - last_instr_counter;
             last_instr_counter = instruction_counter;
+            total_instructions += last_ips;
 
             var delta_time = now - last_tick;
             running_time += delta_time;
             last_tick = now;
 
             $("speed").textContent = last_ips / delta_time | 0;
-            $("avg_speed").textContent = instruction_counter / running_time | 0;
+            $("avg_speed").textContent = total_instructions / running_time | 0;
             $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
         }
 
