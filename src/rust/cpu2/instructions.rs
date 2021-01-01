@@ -4,9 +4,6 @@ extern "C" {
     #[no_mangle]
     fn arpl(seg: i32, r: i32) -> i32;
     #[no_mangle]
-    fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32: bool);
-
-    #[no_mangle]
     fn hlt_op();
 }
 

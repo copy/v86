@@ -870,7 +870,7 @@ pub unsafe fn call_interrupt_vector(
 
             //dbg_log!("Intra privilege interrupt gate=" + h(selector, 4) + ":" + h(offset >>> 0, 8) +
             //        " gate_type=" + gate_type + " 16bit=" + descriptor.is_32() +
-            //        " cpl=" + *cpl + " dpl=" + segment_descriptor.dpl() + " conforming=" + +segment_descriptor.dc_bit(), );
+            //        " cpl=" + *cpl + " dpl=" + segment_descriptor.dpl() + " conforming=" + +segment_descriptor.is_dc(), );
             //debug.dump_regs_short();
 
             if *flags & FLAG_VM != 0 {
@@ -1176,7 +1176,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 if is_call {
                     if is_16 {
                         for i in (0..parameter_count).rev() {
-                            //for(var i = parameter_count - 1; i >= 0; i--)
+                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read16(old_stack_pointer + 2 * i).unwrap();
                             push16(parameter).unwrap();
                         }
@@ -1187,7 +1187,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     }
                     else {
                         for i in (0..parameter_count).rev() {
-                            //for(var i = parameter_count - 1; i >= 0; i--)
+                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read32s(old_stack_pointer + 4 * i).unwrap();
                             push32(parameter).unwrap();
                         }
@@ -1250,7 +1250,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
         }
         else {
             dbg_assert!(false);
-            //var types = { 9: "Available 386 TSS", 0xb: "Busy 386 TSS", 4: "286 Call Gate", 0xc: "386 Call Gate" };
+            //let types = { 9: "Available 386 TSS", 0xb: "Busy 386 TSS", 4: "286 Call Gate", 0xc: "386 Call Gate" };
             //throw debug.unimpl("load system segment descriptor, type = " + (info.access & 15) + " (" + types[info.access & 15] + ")");
         }
     }
@@ -1318,7 +1318,148 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
     //CPU_LOG_VERBOSE && debug.dump_state("far " + ["jump", "call"][+is_call] + " end");
 }
 
-//pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
+pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32: bool) {
+    dbg_assert!(selector < 0x10000 && selector >= 0);
+
+    //dbg_log("far return eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4) + " stack_adjust=" + h(stack_adjust), LOG_CPU);
+    //CPU_LOG_VERBOSE && this.debug.dump_state("far ret start");
+
+    if !*protected_mode {
+        dbg_assert!(!*is_32);
+        //dbg_assert(!this.stack_size_32[0]);
+    }
+
+    if !*protected_mode || vm86_mode() {
+        switch_cs_real_mode(selector);
+        *instruction_pointer = get_seg_cs() + eip;
+        adjust_stack_reg(2 * (if is_osize_32 { 4 } else { 2 }) + stack_adjust);
+        return;
+    }
+
+    let (info, cs_selector) = match return_on_pagefault!(lookup_segment_selector(selector)) {
+        Ok((desc, sel)) => (desc, sel),
+        Err(selector_unusable) => match selector_unusable {
+            SelectorNullOrInvalid::IsNull => {
+                dbg_log!("far return: #gp null cs");
+                trigger_gp(0);
+                return;
+            },
+            SelectorNullOrInvalid::IsInvalid => {
+                dbg_log!("far return: #gp invalid cs: {:x}", selector);
+                trigger_gp(selector & !3);
+                return;
+            },
+        },
+    };
+
+    if info.is_system() {
+        dbg_assert!(false, "is system in far return");
+        trigger_gp(selector & !3);
+        return;
+    }
+
+    if !info.is_executable() {
+        dbg_log!("non-executable cs: {:x}", selector);
+        trigger_gp(selector & !3);
+        return;
+    }
+
+    if cs_selector.rpl() < *cpl {
+        dbg_log!("cs rpl < cpl: {:x}", selector);
+        trigger_gp(selector & !3);
+        return;
+    }
+
+    if info.is_dc() && info.dpl() > cs_selector.rpl() {
+        dbg_log!("cs conforming and dpl > rpl: {:x}", selector);
+        trigger_gp(selector & !3);
+        return;
+    }
+
+    if !info.is_dc() && info.dpl() != cs_selector.rpl() {
+        dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector);
+        trigger_gp(selector & !3);
+        return;
+    }
+
+    if !info.is_present() {
+        dbg_log!("#NP for loading not-present in cs sel={:x}", selector);
+        dbg_trace();
+        trigger_np(selector & !3);
+        return;
+    }
+
+    if cs_selector.rpl() > *cpl {
+        dbg_log!(
+            "far return privilege change cs: {:x} from={} to={} is_16={}",
+            selector,
+            *cpl,
+            cs_selector.rpl(),
+            is_osize_32
+        );
+
+        let temp_esp;
+        let temp_ss;
+        if is_osize_32 {
+            //dbg_log!("esp read from " + h(translate_address_system_read(get_stack_pointer(stack_adjust + 8))))
+            temp_esp = safe_read32s(get_stack_pointer(stack_adjust + 8)).unwrap();
+            //dbg_log!("esp=" + h(temp_esp));
+            temp_ss = safe_read16(get_stack_pointer(stack_adjust + 12)).unwrap();
+        }
+        else {
+            //dbg_log!("esp read from " + h(translate_address_system_read(get_stack_pointer(stack_adjust + 4))));
+            temp_esp = safe_read16(get_stack_pointer(stack_adjust + 4)).unwrap();
+            //dbg_log!("esp=" + h(temp_esp));
+            temp_ss = safe_read16(get_stack_pointer(stack_adjust + 6)).unwrap();
+        }
+
+        *cpl = cs_selector.rpl();
+        cpl_changed();
+
+        // XXX: This failure should be checked before side effects
+        if !switch_seg(SS, temp_ss) {
+            dbg_assert!(false);
+        }
+        set_stack_reg(temp_esp + stack_adjust);
+
+    //if(is_osize_32)
+    //{
+    //    adjust_stack_reg(2 * 4);
+    //}
+    //else
+    //{
+    //    adjust_stack_reg(2 * 2);
+    //}
+
+    //throw debug.unimpl("privilege change");
+
+    //adjust_stack_reg(stack_adjust);
+    }
+    else {
+        if is_osize_32 {
+            adjust_stack_reg(2 * 4 + stack_adjust);
+        }
+        else {
+            adjust_stack_reg(2 * 2 + stack_adjust);
+        }
+    }
+
+    //dbg_assert(*cpl === info.dpl);
+
+    update_cs_size(info.is_32());
+
+    *segment_is_null.offset(CS as isize) = false;
+    *segment_limits.offset(CS as isize) = info.effective_limit();
+
+    *segment_offsets.offset(CS as isize) = info.base();
+    *sreg.offset(CS as isize) = selector as u16;
+    dbg_assert!(selector & 3 == *cpl as i32);
+
+    *instruction_pointer = get_seg_cs() + eip;
+
+    //dbg_log("far return to:", LOG_CPU)
+    //CPU_LOG_VERBOSE && debug.dump_state("far ret end");
+}
 
 pub unsafe fn after_block_boundary() { jit_block_boundary = true; }
 
