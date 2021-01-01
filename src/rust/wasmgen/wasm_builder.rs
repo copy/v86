@@ -583,6 +583,8 @@ impl WasmBuilder {
     #[allow(dead_code)]
     pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
 
+    pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
+
     pub fn if_i32(&mut self) {
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_I32);

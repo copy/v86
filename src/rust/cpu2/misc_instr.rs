@@ -5,10 +5,15 @@ use paging::OrPageFault;
 
 pub unsafe fn getcf() -> bool {
     if 0 != *flags_changed & 1 {
-        return 0
-            != (*last_op1 ^ (*last_op1 ^ *last_op2) & (*last_op2 ^ *last_add_result))
-                >> *last_op_size
-                & 1;
+        let m = (2 << *last_op_size) - 1;
+        dbg_assert!((*last_op1 as u32) <= m);
+        dbg_assert!((*last_result as u32) <= m);
+
+        let sub_mask = *flags_changed >> 31;
+
+        // sub: last_op1 < last_result  (or last_op1 < last_op2) (or (result ^ ((result ^ b) & (b ^ a))))
+        // add: last_result < last_op1  (or last_result < last_op2) (or a ^ ((a ^ b) & (b ^ result)))
+        return ((*last_result as i32 ^ sub_mask) as u32) < (*last_op1 ^ sub_mask) as u32;
     }
     else {
         return 0 != *flags & 1;
@@ -26,7 +31,9 @@ pub unsafe fn getpf() -> bool {
 }
 pub unsafe fn getaf() -> bool {
     if 0 != *flags_changed & FLAG_ADJUST {
-        return 0 != (*last_op1 ^ *last_op2 ^ *last_add_result) & FLAG_ADJUST;
+        let is_sub = *flags_changed & FLAG_SUB != 0;
+        let last_op2 = (*last_result - *last_op1) * if is_sub { -1 } else { 1 };
+        return 0 != (*last_op1 ^ last_op2 ^ *last_result) & FLAG_ADJUST;
     }
     else {
         return 0 != *flags & FLAG_ADJUST;
@@ -50,9 +57,13 @@ pub unsafe fn getsf() -> bool {
 }
 pub unsafe fn getof() -> bool {
     if 0 != *flags_changed & FLAG_OVERFLOW {
+        let is_sub = (*flags_changed as u32) >> 31;
+
+        // add: (a ^ result) & (b ^ result)
+        // sub: (a ^ result) & (b ^ result ^ 1) (or (a ^ b) & (result ^ a))
+        let b_xor_1_if_sub = (*last_result - *last_op1) - is_sub as i32;
         return 0
-            != ((*last_op1 ^ *last_add_result) & (*last_op2 ^ *last_add_result)) >> *last_op_size
-                & 1;
+            != ((*last_op1 ^ *last_result) & (b_xor_1_if_sub ^ *last_result)) >> *last_op_size & 1;
     }
     else {
         return 0 != *flags & FLAG_OVERFLOW;

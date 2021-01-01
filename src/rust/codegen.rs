@@ -1313,18 +1313,6 @@ pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_set_last_op2(builder: &mut WasmBuilder, source: &LocalOrImmedate) {
-    builder.const_i32(global_pointers::LAST_OP2 as i32);
-    source.gen_get(builder);
-    builder.store_aligned_i32(0);
-}
-
-pub fn gen_set_last_add_result(builder: &mut WasmBuilder, source: &WasmLocal) {
-    builder.const_i32(global_pointers::LAST_ADD_RESULT as i32);
-    builder.get_local(&source);
-    builder.store_aligned_i32(0);
-}
-
 pub fn gen_set_last_result(builder: &mut WasmBuilder, source: &WasmLocal) {
     builder.const_i32(global_pointers::LAST_RESULT as i32);
     builder.get_local(&source);
@@ -1388,40 +1376,34 @@ pub fn gen_getzf(builder: &mut WasmBuilder) {
 
 pub fn gen_getcf(builder: &mut WasmBuilder) {
     builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    let flags_changed = builder.tee_new_local();
     builder.const_i32(FLAG_CARRY);
     builder.and_i32();
     builder.if_i32();
 
+    builder.get_local(&flags_changed);
+    builder.const_i32(31);
+    builder.shr_s_i32();
+    builder.free_local(flags_changed);
+    let sub_mask = builder.set_new_local();
+
+    builder.load_aligned_i32(global_pointers::LAST_RESULT);
+    builder.get_local(&sub_mask);
+    builder.xor_i32();
+
     builder.load_aligned_i32(global_pointers::LAST_OP1);
-    let last_op1 = builder.tee_new_local();
-
-    builder.load_aligned_i32(global_pointers::LAST_OP2);
-    let last_op2 = builder.tee_new_local();
-
+    builder.get_local(&sub_mask);
     builder.xor_i32();
 
-    builder.get_local(&last_op2);
-    builder.load_aligned_i32(global_pointers::LAST_ADD_RESULT);
-    builder.xor_i32();
-
-    builder.and_i32();
-
-    builder.get_local(&last_op1);
-    builder.xor_i32();
-
-    builder.free_local(last_op1);
-    builder.free_local(last_op2);
-
-    builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
-    builder.shr_u_i32();
-    builder.const_i32(1);
-    builder.and_i32();
+    builder.ltu_i32();
 
     builder.else_();
     builder.load_aligned_i32(global_pointers::FLAGS);
     builder.const_i32(FLAG_CARRY);
     builder.and_i32();
     builder.block_end();
+
+    builder.free_local(sub_mask);
 }
 
 pub fn gen_getsf(builder: &mut WasmBuilder) {
@@ -1447,22 +1429,37 @@ pub fn gen_getsf(builder: &mut WasmBuilder) {
 
 pub fn gen_getof(builder: &mut WasmBuilder) {
     builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    let flags_changed = builder.tee_new_local();
     builder.const_i32(FLAG_OVERFLOW);
     builder.and_i32();
     builder.if_i32();
     {
         builder.load_aligned_i32(global_pointers::LAST_OP1);
-        builder.load_aligned_i32(global_pointers::LAST_ADD_RESULT);
+        let last_op1 = builder.tee_new_local();
+        builder.load_aligned_i32(global_pointers::LAST_RESULT);
+        let last_result = builder.tee_new_local();
         builder.xor_i32();
-        builder.load_aligned_i32(global_pointers::LAST_OP2);
-        builder.load_aligned_i32(global_pointers::LAST_ADD_RESULT);
+
+        builder.get_local(&last_result);
+        builder.get_local(&last_op1);
+        builder.sub_i32();
+        builder.get_local(&flags_changed);
+        builder.const_i32(31);
+        builder.shr_u_i32();
+        builder.sub_i32();
+
+        builder.get_local(&last_result);
         builder.xor_i32();
+
         builder.and_i32();
 
         builder.load_aligned_i32(global_pointers::LAST_OP_SIZE);
         builder.shr_u_i32();
         builder.const_i32(1);
         builder.and_i32();
+
+        builder.free_local(last_op1);
+        builder.free_local(last_result);
     }
     builder.else_();
     {
@@ -1471,16 +1468,18 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
         builder.and_i32();
     }
     builder.block_end();
+    builder.free_local(flags_changed);
 }
 
 pub fn gen_test_be(builder: &mut WasmBuilder) {
-    // TODO: Could be made lazy
+    // TODO: A more efficient implementation is possible
     gen_getcf(builder);
     gen_getzf(builder);
     builder.or_i32();
 }
 
 pub fn gen_test_l(builder: &mut WasmBuilder) {
+    // TODO: A more efficient implementation is possible
     gen_getsf(builder);
     builder.eqz_i32();
     gen_getof(builder);
@@ -1489,7 +1488,7 @@ pub fn gen_test_l(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_test_le(builder: &mut WasmBuilder) {
-    // TODO: Could be made lazy
+    // TODO: A more efficient implementation is possible
     gen_test_l(builder);
     gen_getzf(builder);
     builder.or_i32();

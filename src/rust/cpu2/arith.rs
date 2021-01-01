@@ -7,11 +7,9 @@ pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
 #[no_mangle]
 pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
-    *last_op1 = dest_operand;
-    *last_op2 = source_operand;
     let res = dest_operand + source_operand;
-    *last_result = res;
-    *last_add_result = res;
+    *last_op1 = dest_operand;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL;
     return res;
@@ -19,36 +17,40 @@ pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
-    *last_op1 = dest_operand;
-    *last_op2 = source_operand;
     let res = dest_operand + source_operand + cf;
+    *last_op1 = dest_operand;
     *last_result = res;
-    *last_add_result = res;
     *last_op_size = op_size;
-    *flags_changed = FLAGS_ALL;
+    *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW;
+    *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
+        | (dest_operand ^ ((dest_operand ^ source_operand) & (source_operand ^ res))) >> op_size
+            & FLAG_CARRY
+        | (dest_operand ^ source_operand ^ res) & FLAG_ADJUST
+        | ((source_operand ^ res) & (dest_operand ^ res)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
 #[no_mangle]
 pub unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
-    *last_add_result = dest_operand;
-    *last_op2 = source_operand;
     let res = dest_operand - source_operand;
-    *last_result = res;
-    *last_op1 = res;
+    *last_op1 = dest_operand;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
-    *flags_changed = FLAGS_ALL;
+    *flags_changed = FLAGS_ALL | FLAG_SUB;
     return res;
 }
 #[no_mangle]
 pub unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
-    *last_add_result = dest_operand;
-    *last_op2 = source_operand;
     let res = dest_operand - source_operand - cf;
+    *last_op1 = dest_operand;
     *last_result = res;
-    *last_op1 = res;
     *last_op_size = op_size;
-    *flags_changed = FLAGS_ALL;
+    *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW | FLAG_SUB;
+    *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
+        | (res ^ ((res ^ source_operand) & (source_operand ^ dest_operand))) >> op_size
+            & FLAG_CARRY
+        | (dest_operand ^ source_operand ^ res) & FLAG_ADJUST
+        | ((source_operand ^ dest_operand) & (res ^ dest_operand)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
 #[no_mangle]
@@ -84,11 +86,9 @@ pub unsafe fn cmp32(x: i32, y: i32) { sub(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
-    *last_op1 = dest_operand;
-    *last_op2 = 1;
     let res = dest_operand + 1;
-    *last_result = res;
-    *last_add_result = res;
+    *last_op1 = dest_operand;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !1;
     return res;
@@ -96,13 +96,11 @@ pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
-    *last_add_result = dest_operand;
-    *last_op2 = 1;
     let res = dest_operand - 1;
-    *last_result = res;
-    *last_op1 = res;
+    *last_op1 = dest_operand;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
-    *flags_changed = FLAGS_ALL & !1;
+    *flags_changed = FLAGS_ALL & !1 | FLAG_SUB;
     return res;
 }
 #[no_mangle]
@@ -126,16 +124,7 @@ pub unsafe fn not16(x: i32) -> i32 { return !x; }
 pub unsafe fn not32(x: i32) -> i32 { return !x; }
 
 #[no_mangle]
-pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 {
-    let res = -dest_operand;
-    *last_result = res;
-    *last_op1 = res;
-    *flags_changed = FLAGS_ALL;
-    *last_add_result = 0;
-    *last_op2 = dest_operand;
-    *last_op_size = op_size;
-    return res;
-}
+pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 { sub(0, dest_operand, op_size) }
 #[no_mangle]
 pub unsafe fn neg8(x: i32) -> i32 { return neg(x, OPSIZE_8); }
 #[no_mangle]
@@ -340,8 +329,6 @@ pub unsafe fn bcd_daa() {
     }
     *last_result = *reg8.offset(AL as isize) as i32;
     *last_op_size = OPSIZE_8;
-    *last_op2 = 0;
-    *last_op1 = *last_op2;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
@@ -363,8 +350,6 @@ pub unsafe fn bcd_das() {
     }
     *last_result = *reg8.offset(AL as isize) as i32;
     *last_op_size = OPSIZE_8;
-    *last_op2 = 0;
-    *last_op1 = *last_op2;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
@@ -1107,7 +1092,8 @@ pub unsafe fn bts_mem(virt_addr: i32, mut bit_offset: i32) {
 }
 #[no_mangle]
 pub unsafe fn bsf16(old: i32, bit_base: i32) -> i32 {
-    *flags_changed = FLAGS_ALL & !FLAG_ZERO;
+    *flags_changed = FLAGS_ALL & !FLAG_ZERO & !FLAG_CARRY;
+    *flags &= !FLAG_CARRY;
     *last_op_size = OPSIZE_16;
     if bit_base == 0 {
         *flags |= FLAG_ZERO;
@@ -1123,7 +1109,8 @@ pub unsafe fn bsf16(old: i32, bit_base: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn bsf32(old: i32, bit_base: i32) -> i32 {
-    *flags_changed = FLAGS_ALL & !FLAG_ZERO;
+    *flags_changed = FLAGS_ALL & !FLAG_ZERO & !FLAG_CARRY;
+    *flags &= !FLAG_CARRY;
     *last_op_size = OPSIZE_32;
     if bit_base == 0 {
         *flags |= FLAG_ZERO;
@@ -1138,7 +1125,8 @@ pub unsafe fn bsf32(old: i32, bit_base: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn bsr16(old: i32, bit_base: i32) -> i32 {
-    *flags_changed = FLAGS_ALL & !FLAG_ZERO;
+    *flags_changed = FLAGS_ALL & !FLAG_ZERO & !FLAG_CARRY;
+    *flags &= !FLAG_CARRY;
     *last_op_size = OPSIZE_16;
     if bit_base == 0 {
         *flags |= FLAG_ZERO;
@@ -1153,7 +1141,8 @@ pub unsafe fn bsr16(old: i32, bit_base: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn bsr32(old: i32, bit_base: i32) -> i32 {
-    *flags_changed = FLAGS_ALL & !FLAG_ZERO;
+    *flags_changed = FLAGS_ALL & !FLAG_ZERO & !FLAG_CARRY;
+    *flags &= !FLAG_CARRY;
     *last_op_size = OPSIZE_32;
     if bit_base == 0 {
         *flags |= FLAG_ZERO;

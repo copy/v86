@@ -100,13 +100,10 @@ function CPU(bus, wm)
     this.flags_changed = v86util.view(Int32Array, memory, 116, 1);
 
     /**
-     * the last 2 operators and the result and size of the last arithmetic operation
+     * enough infos about the last arithmetic operation to compute eflags
      */
     this.last_op1 = v86util.view(Int32Array, memory, 96, 1);
-    this.last_op2 = v86util.view(Int32Array, memory, 100, 1);
     this.last_op_size = v86util.view(Int32Array, memory, 104, 1);
-
-    this.last_add_result = v86util.view(Int32Array, memory, 108, 1);
     this.last_result = v86util.view(Int32Array, memory, 112, 1);
 
     this.current_tsc = v86util.view(Uint32Array, memory, 960, 2); // 64 bit
@@ -392,9 +389,8 @@ CPU.prototype.get_state = function()
     state[26] = this.flags[0];
     state[27] = this.flags_changed[0];
     state[28] = this.last_op1[0];
-    state[29] = this.last_op2[0];
+
     state[30] = this.last_op_size[0];
-    state[31] = this.last_add_result[0];
 
     state[37] = this.instruction_pointer[0];
     state[38] = this.previous_ip[0];
@@ -488,9 +484,8 @@ CPU.prototype.set_state = function(state)
     this.flags[0] = state[26];
     this.flags_changed[0] = state[27];
     this.last_op1[0] = state[28];
-    this.last_op2[0] = state[29];
+
     this.last_op_size[0] = state[30];
-    this.last_add_result[0] = state[31];
 
     this.instruction_pointer[0] = state[37];
     this.previous_ip[0] = state[38];
@@ -713,11 +708,8 @@ CPU.prototype.reset = function()
 
     this.flags[0] = flags_default;
     this.flags_changed.fill(0);
-
     this.last_result.fill(0);
-    this.last_add_result.fill(0);
     this.last_op1.fill(0);
-    this.last_op2.fill(0);
     this.last_op_size.fill(0);
 
     this.set_tsc(0, 0);

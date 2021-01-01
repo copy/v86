@@ -4,7 +4,7 @@ use codegen;
 use cpu::BitSize;
 use cpu2::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_OVERFLOW,
-    OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use global_pointers;
 use jit::JitContext;
@@ -849,8 +849,6 @@ pub fn gen_add32(
     builder.add_i32();
     builder.set_local(dest_operand);
 
-    codegen::gen_set_last_op2(builder, &source_operand);
-    codegen::gen_set_last_add_result(builder, &dest_operand);
     codegen::gen_set_last_result(builder, &dest_operand);
     codegen::gen_set_last_op_size(builder, OPSIZE_32);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL);
@@ -861,18 +859,16 @@ pub fn gen_sub32(
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmedate,
 ) {
-    codegen::gen_set_last_add_result(builder, &dest_operand);
+    codegen::gen_set_last_op1(builder, &dest_operand);
 
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
     builder.sub_i32();
     builder.set_local(dest_operand);
 
-    codegen::gen_set_last_op1(builder, &dest_operand);
-    codegen::gen_set_last_op2(builder, &source_operand);
     codegen::gen_set_last_result(builder, &dest_operand);
     codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
 }
 
 pub fn gen_cmp(
@@ -881,19 +877,25 @@ pub fn gen_cmp(
     source_operand: &LocalOrImmedate,
     size: i32,
 ) {
+    builder.const_i32(global_pointers::LAST_RESULT as i32);
     builder.get_local(&dest_operand);
     source_operand.gen_get(builder);
     builder.sub_i32();
-    let result = builder.set_new_local();
+    if size == OPSIZE_8 || size == OPSIZE_16 {
+        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        builder.and_i32();
+    }
+    builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op1(builder, &result);
-    codegen::gen_set_last_op2(builder, &source_operand);
-    codegen::gen_set_last_add_result(builder, dest_operand);
-    codegen::gen_set_last_result(builder, &result);
+    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.get_local(&dest_operand);
+    if size == OPSIZE_8 || size == OPSIZE_16 {
+        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        builder.and_i32();
+    }
+    builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size(builder, size);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL);
-
-    builder.free_local(result);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
 }
 pub fn gen_cmp8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmedate) {
     gen_cmp(builder, dest, source, OPSIZE_8)
@@ -1302,9 +1304,12 @@ fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op1(builder, dest_operand);
-    builder.const_i32(global_pointers::LAST_OP2 as i32);
-    builder.const_i32(1);
+    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.get_local(&dest_operand);
+    if size == OPSIZE_8 || size == OPSIZE_16 {
+        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        builder.and_i32();
+    }
     builder.store_aligned_i32(0);
 
     builder.get_local(dest_operand);
@@ -1317,9 +1322,13 @@ fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
         builder.set_local(dest_operand);
     }
 
-    codegen::gen_set_last_add_result(builder, dest_operand);
-    codegen::gen_set_last_result(builder, dest_operand);
-
+    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.get_local(&dest_operand);
+    if size == OPSIZE_16 {
+        builder.const_i32(0xFFFF);
+        builder.and_i32();
+    }
+    builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
 }
@@ -1339,9 +1348,12 @@ fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     builder.or_i32();
     builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_add_result(builder, dest_operand);
-    builder.const_i32(global_pointers::LAST_OP2 as i32);
-    builder.const_i32(1);
+    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.get_local(&dest_operand);
+    if size == OPSIZE_8 || size == OPSIZE_16 {
+        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        builder.and_i32();
+    }
     builder.store_aligned_i32(0);
 
     builder.get_local(dest_operand);
@@ -1354,11 +1366,15 @@ fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
         builder.set_local(dest_operand);
     }
 
-    codegen::gen_set_last_op1(builder, dest_operand);
-    codegen::gen_set_last_result(builder, dest_operand);
-
+    builder.const_i32(global_pointers::LAST_RESULT as i32);
+    builder.get_local(&dest_operand);
+    if size == OPSIZE_16 {
+        builder.const_i32(0xFFFF);
+        builder.and_i32();
+    }
+    builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size(builder, size);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 | FLAG_SUB);
 }
 fn gen_dec16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     gen_dec(builder, dest_operand, OPSIZE_16)

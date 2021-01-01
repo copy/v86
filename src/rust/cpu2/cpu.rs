@@ -74,6 +74,7 @@ pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
 
 pub const INTERPRETER_ITERATION_LIMIT: u32 = 1000;
 
+pub const FLAG_SUB: i32 = -0x8000_0000;
 pub const FLAG_CARRY: i32 = 1;
 pub const FLAG_PARITY: i32 = 4;
 pub const FLAG_ADJUST: i32 = 16;
