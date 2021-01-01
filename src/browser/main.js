@@ -1094,7 +1094,8 @@
 
         $("memory_dump").onclick = function()
         {
-            dump_file(emulator.v86.cpu.mem8, "v86memory.bin");
+            const mem8 = emulator.v86.cpu.mem8;
+            dump_file(new Uint8Array(mem8.buffer, mem8.byteOffset, mem8.length), "v86memory.bin");
             $("memory_dump").blur();
         };
 
