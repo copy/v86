@@ -298,7 +298,8 @@ CPU.prototype.wasm_patch = function(wm)
     this.translate_address_system_read = get_import("translate_address_system_read_js");
     this.translate_address_system_write = get_import("translate_address_system_write_js");
 
-    this.get_seg = get_import("get_seg");
+    this.get_seg_cs = get_import("get_seg_cs");
+    this.get_seg_ss = get_import("get_seg_ss");
     this.adjust_stack_reg = get_import("adjust_stack_reg");
     this.get_real_eip = get_import("get_real_eip");
     this.get_stack_pointer = get_import("get_stack_pointer");
@@ -340,7 +341,7 @@ CPU.prototype.jit_force_generate = function(addr)
         return;
     }
 
-    const cs_offset = this.get_seg(reg_cs);
+    const cs_offset = this.get_seg_cs();
     const state_flags = this.pack_current_state_flags();
     this.jit_force_generate_unsafe(addr, cs_offset, state_flags);
 };
@@ -1105,7 +1106,7 @@ CPU.prototype.load_multiboot = function(buffer)
             let blob = new Uint8Array(buffer, file_start, length);
             this.write_blob(blob, load_addr);
 
-            this.instruction_pointer[0] = this.get_seg(reg_cs) + entry_addr | 0;
+            this.instruction_pointer[0] = this.get_seg_cs() + entry_addr | 0;
         }
         else if(buf32[0] === ELF_MAGIC)
         {
@@ -1113,7 +1114,7 @@ CPU.prototype.load_multiboot = function(buffer)
 
             let elf = read_elf(buffer);
 
-            this.instruction_pointer[0] = this.get_seg(reg_cs) + elf.header.entry | 0;
+            this.instruction_pointer[0] = this.get_seg_cs() + elf.header.entry | 0;
 
             for(let program of elf.program_headers)
             {
@@ -1596,7 +1597,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     if(!this.protected_mode[0] || this.vm86_mode())
     {
         this.switch_cs_real_mode(selector);
-        this.instruction_pointer[0] = this.get_seg(reg_cs) + eip | 0;
+        this.instruction_pointer[0] = this.get_seg_cs() + eip | 0;
         this.adjust_stack_reg(2 * (this.is_osize_32() ? 4 : 2) + stack_adjust);
         return;
     }
@@ -1723,7 +1724,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     this.sreg[reg_cs] = selector;
     dbg_assert((selector & 3) === this.cpl[0]);
 
-    this.instruction_pointer[0] = this.get_seg(reg_cs) + eip | 0;
+    this.instruction_pointer[0] = this.get_seg_cs() + eip | 0;
 
     //dbg_log("far return to:", LOG_CPU)
     CPU_LOG_VERBOSE && this.debug.dump_state("far ret end");
@@ -1763,7 +1764,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             }
         }
         this.switch_cs_real_mode(selector);
-        this.instruction_pointer[0] = this.get_seg(reg_cs) + eip | 0;
+        this.instruction_pointer[0] = this.get_seg_cs() + eip | 0;
         return;
     }
 
@@ -2016,7 +2017,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             this.sreg[reg_cs] = cs_selector & ~3 | this.cpl[0];
             dbg_assert((this.sreg[reg_cs] & 3) === this.cpl[0]);
 
-            this.instruction_pointer[0] = this.get_seg(reg_cs) + new_eip | 0;
+            this.instruction_pointer[0] = this.get_seg_cs() + new_eip | 0;
         }
         else
         {
@@ -2098,7 +2099,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
         this.segment_offsets[reg_cs] = info.base;
         this.sreg[reg_cs] = selector & ~3 | this.cpl[0];
 
-        this.instruction_pointer[0] = this.get_seg(reg_cs) + eip | 0;
+        this.instruction_pointer[0] = this.get_seg_cs() + eip | 0;
     }
 
     //dbg_log("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
@@ -2299,7 +2300,7 @@ CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
         dbg_assert(false);
     }
 
-    this.instruction_pointer[0] = this.get_seg(reg_cs) + new_eip | 0;
+    this.instruction_pointer[0] = this.get_seg_cs() + new_eip | 0;
 
     this.segment_offsets[reg_tr] = descriptor.base;
     this.segment_limits[reg_tr] = descriptor.effective_limit;
@@ -3054,7 +3055,7 @@ CPU.prototype.enter16 = function(size, nesting_level)
     if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
 
     var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
-    var ss = this.get_seg(reg_ss);
+    var ss = this.get_seg_ss();
     var frame_temp = this.reg32s[reg_esp] - 2;
 
     if(nesting_level > 0)
@@ -3086,7 +3087,7 @@ CPU.prototype.enter32 = function(size, nesting_level)
     if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
 
     var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
-    var ss = this.get_seg(reg_ss);
+    var ss = this.get_seg_ss();
     var frame_temp = this.reg32s[reg_esp] - 4;
 
     if(nesting_level > 0)

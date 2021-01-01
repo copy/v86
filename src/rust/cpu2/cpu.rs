@@ -1705,7 +1705,6 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     true
 }
 
-#[no_mangle]
 pub unsafe fn get_seg(segment: i32) -> i32 {
     dbg_assert!(segment >= 0 && segment < 8);
     // TODO: Remove protected_mode check
@@ -1828,8 +1827,10 @@ pub unsafe fn popa32() {
     *reg32s.offset(EAX as isize) = pop32s().unwrap();
 }
 
+#[no_mangle]
 pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
 
+#[no_mangle]
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 
 pub unsafe fn get_seg_prefix(default_segment: i32) -> i32 {
