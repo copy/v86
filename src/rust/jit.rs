@@ -331,15 +331,89 @@ fn jit_find_basic_blocks(
     entry_points: HashSet<i32>,
     cpu: CpuContext,
 ) -> Vec<BasicBlock> {
-    let mut to_visit_stack: Vec<i32> = entry_points.iter().map(|e| *e).collect();
-    let mut marked_as_entry: HashSet<i32> = entry_points.clone();
+    fn follow_jump(
+        virt_target: i32,
+        ctx: &mut JitState,
+        pages: &mut HashSet<Page>,
+        page_blacklist: &mut HashSet<Page>,
+        max_pages: usize,
+        marked_as_entry: &mut HashSet<i32>,
+        to_visit_stack: &mut Vec<i32>,
+    ) -> Option<u32> {
+        if is_near_end_of_page(virt_target as u32) {
+            return None;
+        }
+        let phys_target = match cpu::translate_address_read_no_side_effects(virt_target) {
+            None => {
+                dbg_log!("Not analysing {:x} (page not mapped)", virt_target);
+                return None;
+            },
+            Some(t) => t,
+        };
 
+        let phys_page = Page::page_of(phys_target);
+
+        if !pages.contains(&phys_page) && pages.len() == max_pages
+            || page_blacklist.contains(&phys_page)
+        {
+            return None;
+        }
+
+        if !pages.contains(&phys_page) {
+            // page seen for the first time, handle entry points
+            if let Some(entry_points) = ctx.entry_points.get(&phys_page) {
+                if entry_points.iter().all(|&entry_point| {
+                    ctx.cache
+                        .contains_key(&(phys_page.to_address() | u32::from(entry_point)))
+                }) {
+                    profiler::stat_increment(stat::COMPILE_PAGE_SKIPPED_NO_NEW_ENTRY_POINTS);
+                    page_blacklist.insert(phys_page);
+                    return None;
+                }
+
+                let address_hash = jit_hot_hash_page(phys_page) as usize;
+                ctx.hot_pages[address_hash] = 0;
+
+                for &addr_low in entry_points {
+                    let addr = virt_target & !0xFFF | addr_low as i32;
+                    to_visit_stack.push(addr);
+                    marked_as_entry.insert(addr);
+                }
+            }
+            else {
+                // no entry points: ignore this page?
+            }
+
+            pages.insert(phys_page);
+            dbg_assert!(pages.len() <= max_pages);
+        }
+
+        to_visit_stack.push(virt_target);
+        Some(phys_target)
+    }
+
+    let mut to_visit_stack: Vec<i32> = Vec::new();
+    let mut marked_as_entry: HashSet<i32> = HashSet::new();
     let mut basic_blocks: BTreeMap<u32, BasicBlock> = BTreeMap::new();
     let mut pages: HashSet<Page> = HashSet::new();
-    let mut did_insert_entry_points = HashSet::new();
+    let mut page_blacklist = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
     let max_pages = if cpu.state_flags.is_32() { MAX_PAGES } else { 1 };
+
+    for virt_addr in entry_points {
+        let ok = follow_jump(
+            virt_addr,
+            ctx,
+            &mut pages,
+            &mut page_blacklist,
+            max_pages,
+            &mut marked_as_entry,
+            &mut to_visit_stack,
+        );
+        dbg_assert!(ok.is_some());
+        dbg_assert!(marked_as_entry.contains(&virt_addr));
+    }
 
     while let Some(to_visit) = to_visit_stack.pop() {
         let phys_addr = match cpu::translate_address_read_no_side_effects(to_visit) {
@@ -352,37 +426,6 @@ fn jit_find_basic_blocks(
 
         if basic_blocks.contains_key(&phys_addr) {
             continue;
-        }
-
-        let phys_page = Page::page_of(phys_addr);
-
-        if !did_insert_entry_points.contains(&phys_page) {
-            did_insert_entry_points.insert(phys_page);
-            if let Some(entry_points) = ctx.entry_points.get(&phys_page) {
-                let address_hash = jit_hot_hash_page(phys_page) as usize;
-                ctx.hot_pages[address_hash] = 0;
-
-                for &addr_low in entry_points {
-                    let addr = to_visit & !0xFFF | addr_low as i32;
-                    to_visit_stack.push(addr);
-                    marked_as_entry.insert(addr);
-                }
-            }
-        }
-
-        dbg_assert!(include_page(phys_page, &mut pages, max_pages,));
-        dbg_assert!(pages.len() <= max_pages);
-
-        fn include_page(page: Page, pages: &mut HashSet<Page>, max_pages: usize) -> bool {
-            if pages.contains(&page) {
-                return true;
-            }
-            if pages.len() == max_pages {
-                return false;
-            }
-            pages.insert(page);
-            dbg_assert!(pages.len() <= max_pages);
-            return true;
         }
 
         if is_near_end_of_page(phys_addr) {
@@ -404,14 +447,14 @@ fn jit_find_basic_blocks(
         };
         loop {
             let addr_before_instruction = current_address;
-            let mut ctx = &mut CpuContext {
+            let mut cpu = &mut CpuContext {
                 eip: current_address,
                 ..cpu
             };
-            let analysis = ::analysis::analyze_step(&mut ctx);
+            let analysis = ::analysis::analyze_step(&mut cpu);
             current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
-            current_address = ctx.eip;
+            current_address = cpu.eip;
 
             dbg_assert!(Page::page_of(current_address) == Page::page_of(addr_before_instruction));
             let current_virt_addr = to_visit & !0xFFF | current_address as i32 & 0xFFF;
@@ -469,31 +512,12 @@ fn jit_find_basic_blocks(
                         current_virt_addr + offset
                     }
                     else {
-                        ctx.cs_offset as i32
-                            + (current_virt_addr - ctx.cs_offset as i32 + offset & 0xFFFF)
+                        cpu.cs_offset as i32
+                            + (current_virt_addr - cpu.cs_offset as i32 + offset & 0xFFFF)
                     };
 
                     dbg_assert!(has_next_instruction);
                     to_visit_stack.push(current_virt_addr);
-
-                    let next_block_branch_taken_addr;
-
-                    if let Some(phys_jump_target) =
-                        cpu::translate_address_read_no_side_effects(jump_target as i32)
-                    {
-                        if !is_near_end_of_page(jump_target as u32)
-                            && include_page(Page::page_of(phys_jump_target), &mut pages, max_pages)
-                        {
-                            to_visit_stack.push(jump_target);
-                            next_block_branch_taken_addr = Some(phys_jump_target);
-                        }
-                        else {
-                            next_block_branch_taken_addr = None;
-                        }
-                    }
-                    else {
-                        next_block_branch_taken_addr = None;
-                    }
 
                     let next_block_addr = if is_near_end_of_page(current_address) {
                         None
@@ -504,7 +528,15 @@ fn jit_find_basic_blocks(
 
                     current_block.ty = BasicBlockType::ConditionalJump {
                         next_block_addr,
-                        next_block_branch_taken_addr,
+                        next_block_branch_taken_addr: follow_jump(
+                            jump_target,
+                            ctx,
+                            &mut pages,
+                            &mut page_blacklist,
+                            max_pages,
+                            &mut marked_as_entry,
+                            &mut to_visit_stack,
+                        ),
                         condition,
                         jump_offset: offset,
                         jump_offset_is_32: is_32,
@@ -527,46 +559,30 @@ fn jit_find_basic_blocks(
                         current_virt_addr + offset
                     }
                     else {
-                        ctx.cs_offset as i32
-                            + (current_virt_addr - ctx.cs_offset as i32 + offset & 0xFFFF)
+                        cpu.cs_offset as i32
+                            + (current_virt_addr - cpu.cs_offset as i32 + offset & 0xFFFF)
                     };
 
                     if has_next_instruction {
                         // Execution will eventually come back to the next instruction (CALL)
                         marked_as_entry.insert(current_virt_addr);
                         to_visit_stack.push(current_virt_addr);
+
                     }
 
-                    if let Some(phys_jump_target) =
-                        cpu::translate_address_read_no_side_effects(jump_target as i32)
-                    {
-                        if !is_near_end_of_page(jump_target as u32)
-                            && include_page(Page::page_of(phys_jump_target), &mut pages, max_pages)
-                        {
-                            pages.insert(Page::page_of(phys_jump_target));
-                            to_visit_stack.push(jump_target);
-                            current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: Some(phys_jump_target),
-                                jump_offset: offset,
-                                jump_offset_is_32: is_32,
-                            };
-                        }
-                        else {
-                            current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: None,
-                                jump_offset: offset,
-                                jump_offset_is_32: is_32,
-                            };
-                        }
-                    }
-                    else {
-                        current_block.ty = BasicBlockType::Normal {
-                            next_block_addr: None,
-                            jump_offset: offset,
-                            jump_offset_is_32: is_32,
-                        };
-                    }
-
+                    current_block.ty = BasicBlockType::Normal {
+                        next_block_addr: follow_jump(
+                            jump_target,
+                            ctx,
+                            &mut pages,
+                            &mut page_blacklist,
+                            max_pages,
+                            &mut marked_as_entry,
+                            &mut to_visit_stack,
+                        ),
+                        jump_offset: offset,
+                        jump_offset_is_32: is_32,
+                    };
                     current_block.last_instruction_addr = addr_before_instruction;
                     current_block.end_addr = current_address;
 
@@ -687,6 +703,16 @@ fn jit_analyze_and_generate(
     }
 
     let entry_points = ctx.entry_points.get(&page);
+
+    if let Some(entry_points) = entry_points {
+        if entry_points.iter().all(|&entry_point| {
+            ctx.cache
+                .contains_key(&(page.to_address() | u32::from(entry_point)))
+        }) {
+            profiler::stat_increment(stat::COMPILE_SKIPPED_NO_NEW_ENTRY_POINTS);
+            return;
+        }
+    }
 
     if let Some(entry_points) = entry_points {
         profiler::stat_increment(stat::COMPILE);

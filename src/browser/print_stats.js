@@ -13,12 +13,14 @@ const print_stats = {
 
         const stat_names = [
             "COMPILE",
+            "COMPILE_SKIPPED_NO_NEW_ENTRY_POINTS",
             "COMPILE_SUCCESS",
             "COMPILE_WRONG_ADDRESS_SPACE",
             "COMPILE_CUT_OFF_AT_END_OF_PAGE",
             "COMPILE_WITH_LOOP_SAFETY",
             "COMPILE_PAGE",
             "COMPILE_PAGE/COMPILE_SUCCESS",
+            "COMPILE_PAGE_SKIPPED_NO_NEW_ENTRY_POINTS",
             "COMPILE_BASIC_BLOCK",
             "COMPILE_DUPLICATED_BASIC_BLOCK",
             "COMPILE_WASM_BLOCK",
