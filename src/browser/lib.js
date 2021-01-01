@@ -27,25 +27,6 @@ var ASYNC_SAFE = false;
         return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
     };
 
-    v86util.load_wasm = function load_wasm(filename, imports, cb)
-    {
-        function load_cb(bytes)
-        {
-            WebAssembly
-                .instantiate(bytes, imports)
-                .then(function({ instance }) {
-                    cb({
-                        memory: imports["env"]["memory"],
-                        exports: instance["exports"],
-                        instance,
-                        imports,
-                        filename,
-                    });
-                });
-        }
-        v86util.load_file(filename, { done: load_cb });
-    };
-
     /**
      * @param {string} filename
      * @param {Object} options

@@ -14,10 +14,10 @@ var CPU_LOG_VERBOSE = false;
 function CPU(bus, wm)
 {
     this.wm = wm;
-    this.wasm_patch(wm);
+    this.wasm_patch();
     this.create_jit_imports();
 
-    const memory = this.wm.instance.exports.memory;
+    const memory = this.wm.exports.memory;
 
     this.wasm_memory = memory;
 
@@ -183,34 +183,18 @@ CPU.prototype.create_jit_imports = function()
 {
     // Set this.jit_imports as generated WASM modules will expect
 
-    /** @constructor */
-    function JITImports()
+    const jit_imports = Object.create(null);
+
+    jit_imports["m"] = this.wm.exports["memory"];
+    for(let name of Object.keys(this.wm.exports))
     {
-        // put all imports that change here
+        jit_imports[name] = this.wm.exports[name];
     }
 
-    // put all imports that don't change on the prototype
-    JITImports.prototype["m"] = this.wm.memory;
-
-    const exports = this.wm.instance.exports;
-
-    JITImports.prototype["m"] = exports["memory"];
-
-    for(let name of Object.keys(exports))
-    {
-        //if(name[0] !== "_")
-        //{
-        //    continue;
-        //}
-
-        //JITImports.prototype[name.slice(1)] = exports[name];
-        JITImports.prototype[name] = exports[name];
-    }
-
-    this.jit_imports = new JITImports();
+    this.jit_imports = jit_imports;
 };
 
-CPU.prototype.wasm_patch = function(wm)
+CPU.prototype.wasm_patch = function()
 {
     const get_optional_import = (name) => {
         return this.wm.exports[name];
@@ -309,12 +293,12 @@ CPU.prototype.jit_force_generate = function(addr)
 CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
-    this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(index + WASM_TABLE_OFFSET, null);
+    this.wm.wasm_table.set(index + WASM_TABLE_OFFSET, null);
 };
 
 CPU.prototype.jit_clear_all_funcs = function()
 {
-    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
+    const table = this.wm.wasm_table;
 
     for(let i = 0; i < WASM_TABLE_SIZE; i++)
     {
@@ -708,8 +692,8 @@ CPU.prototype.create_memory = function(size)
 
     const memory_offset = this.allocate_memory(size);
 
-    this.mem8 = v86util.view(Uint8Array, this.wm.instance.exports.memory, memory_offset, size);
-    this.mem32s = v86util.view(Uint32Array, this.wm.instance.exports.memory, memory_offset, size >> 2);
+    this.mem8 = v86util.view(Uint8Array, this.wasm_memory, memory_offset, size);
+    this.mem32s = v86util.view(Uint32Array, this.wasm_memory, memory_offset, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
@@ -951,8 +935,6 @@ CPU.prototype.init = function(settings, device_bus)
     {
         this.debug.init();
     }
-
-    //this.wm.exports["_profiler_init"]();
 };
 
 CPU.prototype.load_multiboot = function(buffer)
@@ -1267,8 +1249,6 @@ CPU.prototype.load_bios = function()
 
 CPU.prototype.do_run = function()
 {
-    //this.wm.exports["_profiler_stat_increment_do_run"]();
-
     /** @type {number} */
     var start = v86.microtick();
 
@@ -1329,7 +1309,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
 
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
 
-    const code = new Uint8Array(this.wm.instance.exports.memory.buffer, ptr, len);
+    const code = new Uint8Array(this.wasm_memory.buffer, ptr, len);
 
     if(DEBUG)
     {
@@ -1370,21 +1350,17 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
         }
     }
 
-    // Make a copy of jit_imports, since some imports change and
-    // WebAssembly.instantiate looks them up asynchronously
-    const jit_imports = new this.jit_imports.constructor();
-
     const SYNC_COMPILATION = false;
 
     if(SYNC_COMPILATION)
     {
         const module = new WebAssembly.Module(code);
-        const result = new WebAssembly.Instance(module, { "e": jit_imports });
+        const result = new WebAssembly.Instance(module, { "e": this.jit_imports });
         const f = result.exports["f"];
 
         this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
-        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
+        this.wm.wasm_table.set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
         if(this.test_hook_did_finalize_wasm)
         {
@@ -1394,12 +1370,12 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
         return;
     }
 
-    const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
+    const result = WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => {
         const f = result.instance.exports["f"];
 
         this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
-        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
+        this.wm.wasm_table.set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
         if(this.test_hook_did_finalize_wasm)
         {
@@ -1461,7 +1437,7 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
 
     const SIZEOF_BASIC_BLOCK_IN_DWORDS = 7;
 
-    const mem32 = new Int32Array(this.wm.instance.exports.memory.buffer);
+    const mem32 = new Int32Array(this.wasm_memory.buffer);
 
     dbg_assert((block_ptr & 3) === 0);
 

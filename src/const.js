@@ -280,6 +280,3 @@ var WASM_TABLE_SIZE = 900;
 
 /** @const */
 var WASM_TABLE_OFFSET = 1024;
-
-/** @const */
-const WASM_EXPORT_TABLE_NAME = "__indirect_function_table";

@@ -178,17 +178,35 @@ function V86Starter(options)
         v86_bin = "build/" + v86_bin;
     }
 
-    v86util.load_wasm(
-        v86_bin,
-        { "env": wasm_shared_funcs },
-        v86_wasm => {
-            wasm_memory = v86_wasm.exports.memory;
-            v86_wasm.exports["rust_init"]();
+    v86util.load_file(v86_bin, {
+        done: bytes =>
+        {
+            WebAssembly
+                .instantiate(bytes, { "env": wasm_shared_funcs })
+                .then(({ instance }) => {
+                    const imports = wasm_shared_funcs;
+                    const exports = instance["exports"];
+                    wasm_memory = exports.memory;
+                    exports["rust_init"]();
 
-            const emulator = this.v86 = new v86(this.emulator_bus, v86_wasm);
-            cpu = emulator.cpu;
+                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+                    cpu = emulator.cpu;
 
-            this.continue_init(emulator, options);
+                    this.continue_init(emulator, options);
+                });
+        },
+        progress: e =>
+        {
+            this.emulator_bus.send("download-progress", {
+                file_index: 0,
+                file_count: 1,
+                file_name: v86_bin,
+
+                lengthComputable: e.lengthComputable,
+                total: e.total,
+                loaded: e.loaded,
+            });
+        }
     });
 }
 
