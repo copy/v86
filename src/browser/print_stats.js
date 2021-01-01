@@ -18,6 +18,7 @@ const print_stats = {
             "COMPILE_CUT_OFF_AT_END_OF_PAGE",
             "COMPILE_WITH_LOOP_SAFETY",
             "COMPILE_PAGE",
+            "COMPILE_PAGE/COMPILE_SUCCESS",
             "COMPILE_BASIC_BLOCK",
             "COMPILE_DUPLICATED_BASIC_BLOCK",
             "COMPILE_WASM_BLOCK",
@@ -25,6 +26,7 @@ const print_stats = {
             "COMPILE_DISPATCHER",
             "COMPILE_ENTRY_POINT",
             "COMPILE_WASM_TOTAL_BYTES",
+            "COMPILE_WASM_TOTAL_BYTES/COMPILE_PAGE",
             "JIT_CACHE_OVERRIDE",
             "JIT_CACHE_OVERRIDE_DIFFERENT_STATE_FLAGS",
             "RUN_INTERPRETED",
@@ -36,6 +38,8 @@ const print_stats = {
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",
             "RUN_FROM_CACHE_STEPS",
+            "RUN_FROM_CACHE_STEPS/RUN_FROM_CACHE",
+            "RUN_FROM_CACHE_STEPS/RUN_INTERPRETED_STEPS",
             "DIRECT_EXIT",
             "INDIRECT_JUMP",
             "INDIRECT_JUMP_NO_ENTRY",
@@ -101,11 +105,24 @@ const print_stats = {
             "SEG_OFFSET_NOT_OPTIMISED",
         ];
 
+        let j = 0;
+        const stat_values = {};
         for(let i = 0; i < stat_names.length; i++)
         {
-            let stat = cpu.wm.exports["profiler_stat_get"](i);
-            stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
-            text += stat_names[i] + "=" + stat + "\n";
+            const name = stat_names[i];
+            let value;
+            if(name.includes("/"))
+            {
+                j++; // skip profiler_stat_get
+                const [left, right] = name.split("/");
+                value = stat_values[left] / stat_values[right];
+            }
+            else
+            {
+                let stat = stat_values[name] = cpu.wm.exports["profiler_stat_get"](i - j);
+                value = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
+            }
+            text += name + "=" + value + "\n";
         }
 
         text += "\n";
