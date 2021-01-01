@@ -151,14 +151,13 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
             skip_if_disk_image_missing: true,
         },
-        //{
-        //    name: "Oberon",
-        //    hda: root_path + "/images/oberon.dsk",
-        //    fda: root_path + "/images/oberon-boot.dsk",
-        //    timeout: 30,
-        //    expect_graphical_mode: true,
-        //    expect_mouse_registered: true,
-        //},
+        {
+            name: "Oberon",
+            hda: root_path + "/images/oberon.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
         {
             name: "Linux 3",
             cdrom: root_path + "/images/linux3.iso",
@@ -250,10 +249,34 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
-            name: "OpenBSD",
-            fda: root_path + "/images/openbsd.img",
+            name: "OpenBSD Floppy",
+            fda: root_path + "/images/openbsd-floppy.img",
             timeout: 180,
             expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
+        },
+        {
+            name: "OpenBSD",
+            hda: root_path + "/images/openbsd.img",
+            timeout: 300,
+            actions: [
+                {
+                    on_text: "boot>",
+                    run: "boot -c\n",
+                },
+                {
+                    on_text: "UKC>",
+                    run: "disable mpbios\nexit\n",
+                },
+                {
+                    on_text: "login:",
+                    run: "root\n",
+                },
+                {
+                    on_text: "Password:",
+                    run: "root\n",
+                },
+            ],
+            expected_texts: ["nyu# "],
         },
         {
             name: "Windows 3.0",
@@ -358,6 +381,7 @@ if(cluster.isMaster)
                 "Running first login script /boot/system/boot/first-login/default_deskbar_items.sh",
             ],
             expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
             actions: [
                 { after: 1 * 60 * 1000, run: "\n" },
@@ -369,6 +393,38 @@ if(cluster.isMaster)
                 { after: 7 * 60 * 1000, run: "\n" },
                 { after: 8 * 60 * 1000, run: "\n" },
             ],
+        },
+        {
+            name: "ReactOS",
+            timeout: 15 * 60,
+            hda: root_path + "/images/experimental/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+            actions: [
+                { after: 1 * 60 * 1000, run: "\n" },
+                { after: 2 * 60 * 1000, run: "\n" },
+                { after: 3 * 60 * 1000, run: "\n" },
+                { after: 4 * 60 * 1000, run: "\n" },
+                { after: 5 * 60 * 1000, run: "\n" },
+                { after: 6 * 60 * 1000, run: "\n" },
+                { after: 7 * 60 * 1000, run: "\n" },
+                { after: 8 * 60 * 1000, run: "\n" },
+            ],
+            expected_serial_text: [
+                "DnsIntCacheInitialize()",
+                // when desktop is rendered:
+                "err: Attempted to close thread desktop",
+            ],
+        },
+        {
+            name: "ReactOS CD",
+            timeout: 15 * 60,
+            cdrom: root_path + "/images/experimental/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+            expected_serial_text: ["DnsIntCacheInitialize()"],
         },
         {
             name: "HelenOS",
@@ -478,8 +534,9 @@ if(cluster.isMaster)
             name: "Damn Small Linux",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
-            cdrom: root_path + "/images/experimental/os/dsl-4.11.rc2.iso",
+            cdrom: root_path + "/images/dsl-4.11.rc2.iso",
             expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
         },
     ];
