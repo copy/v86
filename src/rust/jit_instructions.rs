@@ -251,21 +251,6 @@ macro_rules! define_instruction_read16(
 );
 
 macro_rules! define_instruction_read32(
-    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-            codegen::gen_modrm_resolve(ctx, modrm_byte);
-            codegen::gen_safe_read32(ctx);
-            codegen::gen_get_reg32(ctx, r);
-            codegen::gen_call_fn2(ctx.builder, $fn)
-        }
-
-        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
-            codegen::gen_get_reg32(ctx, r1);
-            codegen::gen_get_reg32(ctx, r2);
-            codegen::gen_call_fn2(ctx.builder, $fn)
-        }
-    );
-
     ($fn:expr, $name_mem:ident, $name_reg:ident, xreg) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
@@ -308,21 +293,6 @@ macro_rules! define_instruction_read32(
             codegen::gen_get_reg32(ctx, r1);
             ctx.builder.instruction_body.const_i32(imm as i32);
             $fn(ctx.builder);
-        }
-    );
-
-    ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
-            codegen::gen_modrm_resolve(ctx, modrm_byte);
-            codegen::gen_safe_read32(ctx);
-            ctx.builder.instruction_body.const_i32(make_imm_read!(ctx, $imm) as i32);
-            codegen::gen_call_fn2(ctx.builder, $fn)
-        }
-
-        pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
-            codegen::gen_get_reg32(ctx, r1);
-            ctx.builder.instruction_body.const_i32(imm as i32);
-            codegen::gen_call_fn2(ctx.builder, $fn)
         }
     );
 );
