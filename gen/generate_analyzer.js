@@ -232,6 +232,10 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         instruction_postfix.push("analysis.no_next_instruction = true;");
     }
+    if(encoding.absolute_jump)
+    {
+        instruction_postfix.push("analysis.absolute_jump = true;");
+    }
 
     if(encoding.prefix)
     {

@@ -17,7 +17,7 @@ pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     ctx.builder.add_i32();
 }
 
-fn gen_get_eip(builder: &mut WasmBuilder) {
+pub fn gen_get_eip(builder: &mut WasmBuilder) {
     builder.load_fixed_i32(global_pointers::instruction_pointer as u32);
 }
 
@@ -89,34 +89,11 @@ pub fn gen_page_switch_check(
     ctx.builder.const_i32(next_block_addr as i32);
     ctx.builder.ne_i32();
     ctx.builder.if_void();
+    // TODO: br_if
     gen_profiler_stat_increment(ctx.builder, profiler::stat::FAILED_PAGE_CHANGE);
     gen_debug_track_jit_exit(ctx.builder, last_instruction_addr);
     ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
-}
-
-pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
-    ctx.builder
-        .const_i32(global_pointers::instruction_pointer as i32);
-    ctx.builder.get_local(&new_eip);
-    ctx.builder.store_aligned_i32(0);
-
-    gen_get_phys_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
-
-    ctx.builder
-        .const_i32(ctx.our_wasm_table_index.to_u16() as i32);
-    ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
-    ctx.builder.call_fn3_ret("jit_find_cache_entry_in_page");
-    let new_basic_block_index = ctx.builder.tee_new_local();
-    ctx.builder.const_i32(0);
-    ctx.builder.ge_i32();
-    ctx.builder.if_void();
-    ctx.builder.get_local(&new_basic_block_index);
-    ctx.builder.set_local(ctx.basic_block_index_local);
-    ctx.builder.br(ctx.main_loop_label);
-    ctx.builder.block_end();
-    ctx.builder.free_local(new_basic_block_index);
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {

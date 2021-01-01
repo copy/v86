@@ -19,9 +19,14 @@ const print_stats = {
             "COMPILE_WITH_LOOP_SAFETY",
             "COMPILE_PAGE",
             "COMPILE_BASIC_BLOCK",
+            "COMPILE_DUPLICATED_BASIC_BLOCK",
+            "COMPILE_WASM_BLOCK",
+            "COMPILE_WASM_LOOP",
+            "COMPILE_DISPATCHER",
             "COMPILE_ENTRY_POINT",
             "COMPILE_WASM_TOTAL_BYTES",
-            "CACHE_MISMATCH",
+            "JIT_CACHE_OVERRIDE",
+            "JIT_CACHE_OVERRIDE_DIFFERENT_STATE_FLAGS",
             "RUN_INTERPRETED",
             "RUN_INTERPRETED_PENDING",
             "RUN_INTERPRETED_NEAR_END_OF_PAGE",
@@ -31,6 +36,24 @@ const print_stats = {
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",
             "RUN_FROM_CACHE_STEPS",
+            "DIRECT_EXIT",
+            "INDIRECT_JUMP",
+            "INDIRECT_JUMP_NO_ENTRY",
+            "NORMAL_PAGE_CHANGE",
+            "NORMAL_FALLTHRU",
+            "NORMAL_FALLTHRU_WITH_TARGET_BLOCK",
+            "NORMAL_BRANCH",
+            "NORMAL_BRANCH_WITH_TARGET_BLOCK",
+            "CONDITIONAL_JUMP",
+            "CONDITIONAL_JUMP_PAGE_CHANGE",
+            "CONDITIONAL_JUMP_EXIT",
+            "CONDITIONAL_JUMP_FALLTHRU",
+            "CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK",
+            "CONDITIONAL_JUMP_BRANCH",
+            "CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK",
+            "DISPATCHER_SMALL",
+            "DISPATCHER_LARGE",
+            "LOOP",
             "FAILED_PAGE_CHANGE",
             "SAFE_READ_FAST",
             "SAFE_READ_SLOW_PAGE_CROSSED",
@@ -93,9 +116,10 @@ const print_stats = {
 
         text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
+        text += "JIT_CACHE_SIZE=" + cpu.wm.exports["jit_get_cache_size"]() + "\n";
         text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 
-        text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
+        text += "do_many_cycles avg: " + (do_many_cycles_total / do_many_cycles_count || 0) + "\n";
         text += "wasm memory size: " + (cpu.wasm_memory.buffer.byteLength >> 20) + "m\n";
 
         return text;

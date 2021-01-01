@@ -869,30 +869,31 @@ impl WasmBuilder {
     #[allow(dead_code)]
     pub fn drop_(&mut self) { self.instruction_body.push(op::OP_DROP); }
 
-    // Generate a br_table where an input of [i] will branch [i]th outer block,
-    // where [i] is passed on the wasm stack
-    pub fn brtable_and_cases(&mut self, cases_count: u32) {
+    pub fn brtable(
+        &mut self,
+        default_case: Label,
+        cases: &mut dyn std::iter::ExactSizeIterator<Item = &Label>,
+    ) {
         self.instruction_body.push(op::OP_BRTABLE);
-        write_leb_u32(&mut self.instruction_body, cases_count);
-
-        for i in 0..(cases_count + 1) {
-            write_leb_u32(&mut self.instruction_body, i);
+        write_leb_u32(&mut self.instruction_body, cases.len() as u32);
+        for case in cases {
+            self.write_label(*case);
         }
+        self.write_label(default_case);
     }
 
     pub fn br(&mut self, label: Label) {
-        let depth = *self.label_to_depth.get(&label).unwrap();
-        dbg_assert!(depth <= self.label_stack.len());
         self.instruction_body.push(op::OP_BR);
-        write_leb_u32(
-            &mut self.instruction_body,
-            (self.label_stack.len() - depth) as u32,
-        );
+        self.write_label(label);
     }
     pub fn br_if(&mut self, label: Label) {
+        self.instruction_body.push(op::OP_BRIF);
+        self.write_label(label);
+    }
+
+    fn write_label(&mut self, label: Label) {
         let depth = *self.label_to_depth.get(&label).unwrap();
         dbg_assert!(depth <= self.label_stack.len());
-        self.instruction_body.push(op::OP_BRIF);
         write_leb_u32(
             &mut self.instruction_body,
             (self.label_stack.len() - depth) as u32,

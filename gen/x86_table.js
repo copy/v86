@@ -244,8 +244,8 @@ const encodings = [
     { opcode: 0xF2AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF3AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xC2, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // ret
-    { opcode: 0xC3, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, },
+    { opcode: 0xC2, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, absolute_jump: 1, imm16: 1, skip: 1, }, // ret
+    { opcode: 0xC3, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, absolute_jump: 1, skip: 1, },
 
     { opcode: 0xC4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // les
     { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lds
@@ -401,9 +401,9 @@ const encodings = [
     { opcode: 0xFE, e: 1, fixed_g: 1, custom: 1 },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, custom: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, custom: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, custom: 1, block_boundary: 1, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, custom: 1, block_boundary: 1, absolute_jump: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, block_boundary: 1, skip: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, custom: 1, block_boundary: 1, no_next_instruction: 1, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, custom: 1, block_boundary: 1, absolute_jump: 1, no_next_instruction: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, block_boundary: 1, no_next_instruction: 1, skip: 1, },
     { opcode: 0xFF, custom: 1, os: 1, e: 1, fixed_g: 6, },
 

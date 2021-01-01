@@ -18,12 +18,14 @@ pub enum AnalysisType {
 
 pub struct Analysis {
     pub no_next_instruction: bool,
+    pub absolute_jump: bool,
     pub ty: AnalysisType,
 }
 
 pub fn analyze_step(mut cpu: &mut CpuContext) -> Analysis {
     let mut analysis = Analysis {
         no_next_instruction: false,
+        absolute_jump: false,
         ty: AnalysisType::Normal,
     };
     cpu.prefixes = 0;

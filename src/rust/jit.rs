@@ -1,10 +1,12 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::mem;
 use std::ptr::NonNull;
 
 use analysis::AnalysisType;
 use codegen;
+use control_flow;
+use control_flow::WasmStructure;
 use cpu::cpu;
 use cpu::global_pointers;
 use cpu::memory;
@@ -53,13 +55,16 @@ pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
+// less branches will generate if-else, more will generate brtable
+pub const BRTABLE_CUTOFF: usize = 10;
+
 pub const WASM_TABLE_SIZE: u32 = 900;
 
 pub const HASH_PRIME: u32 = 6151;
 
 pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
-pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 20011;
+pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 100003;
 
 pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
 
@@ -100,7 +105,7 @@ pub struct Entry {
 }
 
 enum PageState {
-    Compiling { basic_blocks: Vec<BasicBlock> },
+    Compiling { entries: Vec<(u32, Entry)> },
     CompilingWritten,
 }
 
@@ -155,7 +160,7 @@ impl JitState {
 }
 
 #[derive(PartialEq, Eq)]
-enum BasicBlockType {
+pub enum BasicBlockType {
     Normal {
         next_block_addr: u32,
     },
@@ -166,18 +171,20 @@ enum BasicBlockType {
         jump_offset: i32,
         jump_offset_is_32: bool,
     },
+    // Set eip to an absolute value (ret, jmp r/m, call r/m)
+    AbsoluteEip,
     Exit,
 }
 
-struct BasicBlock {
-    addr: u32,
-    virt_addr: i32,
-    last_instruction_addr: u32,
-    end_addr: u32,
-    is_entry_block: bool,
-    ty: BasicBlockType,
-    has_sti: bool,
-    number_of_instructions: u32,
+pub struct BasicBlock {
+    pub addr: u32,
+    pub virt_addr: i32,
+    pub last_instruction_addr: u32,
+    pub end_addr: u32,
+    pub is_entry_block: bool,
+    pub ty: BasicBlockType,
+    pub has_sti: bool,
+    pub number_of_instructions: u32,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -198,12 +205,8 @@ pub struct JitContext<'a> {
     pub builder: &'a mut WasmBuilder,
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
-    pub main_loop_label: Label,
     pub exit_with_fault_label: Label,
     pub exit_label: Label,
-    pub our_wasm_table_index: WasmTableIndex,
-    pub basic_block_index_local: &'a WasmLocal,
-    pub state_flags: CachedStateFlags,
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
@@ -245,6 +248,8 @@ pub fn jit_find_cache_entry_in_page(
     wasm_table_index: WasmTableIndex,
     state_flags: u32,
 ) -> i32 {
+    profiler::stat_increment(stat::INDIRECT_JUMP);
+
     let state_flags = CachedStateFlags::of_u32(state_flags);
     let ctx = get_jit_state();
 
@@ -256,6 +261,8 @@ pub fn jit_find_cache_entry_in_page(
         },
         None => {},
     }
+
+    profiler::stat_increment(stat::INDIRECT_JUMP_NO_ENTRY);
 
     return -1;
 }
@@ -366,6 +373,7 @@ fn jit_find_basic_blocks(
             match analysis.ty {
                 AnalysisType::Normal | AnalysisType::STI => {
                     dbg_assert!(has_next_instruction);
+                    dbg_assert!(!analysis.absolute_jump);
 
                     if current_block.has_sti {
                         // Convert next instruction after STI (i.e., the current instruction) into block boundary
@@ -406,6 +414,7 @@ fn jit_find_basic_blocks(
                     is_32,
                     condition: Some(condition),
                 } => {
+                    dbg_assert!(!analysis.absolute_jump);
                     // conditional jump: continue at next and continue at jump target
 
                     let jump_target = if is_32 {
@@ -464,6 +473,7 @@ fn jit_find_basic_blocks(
                     is_32,
                     condition: None,
                 } => {
+                    dbg_assert!(!analysis.absolute_jump);
                     // non-conditional jump: continue at jump target
 
                     let jump_target = if is_32 {
@@ -515,6 +525,10 @@ fn jit_find_basic_blocks(
                         // entry point
                         marked_as_entry.insert(current_virt_addr);
                         to_visit_stack.push(current_virt_addr);
+                    }
+
+                    if analysis.absolute_jump {
+                        current_block.ty = BasicBlockType::AbsoluteEip;
                     }
 
                     current_block.last_instruction_addr = addr_before_instruction;
@@ -618,7 +632,6 @@ fn jit_analyze_and_generate(
     let entry_points = ctx.entry_points.remove(&page);
 
     if let Some(entry_points) = entry_points {
-        dbg_log!("Compile code for page at {:x}", page.to_address());
         profiler::stat_increment(stat::COMPILE);
 
         let cpu = CpuContext {
@@ -647,8 +660,79 @@ fn jit_analyze_and_generate(
             pages.insert(Page::page_of(b.addr));
         }
 
+        let print = false;
+
+        for b in basic_blocks.iter() {
+            if !print {
+                break;
+            }
+            let last_instruction_opcode = memory::read32s(b.last_instruction_addr);
+            let op = ::opstats::decode(last_instruction_opcode as u32);
+            dbg_log!(
+                "BB: 0x{:x} {}{:02x} {} {}",
+                b.addr,
+                if op.is_0f { "0f" } else { "" },
+                op.opcode,
+                if b.is_entry_block { "entry" } else { "noentry" },
+                match &b.ty {
+                    BasicBlockType::ConditionalJump {
+                        next_block_addr: Some(next_block_addr),
+                        next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
+                        ..
+                    } => format!(
+                        "0x{:x} 0x{:x}",
+                        next_block_addr, next_block_branch_taken_addr
+                    ),
+                    BasicBlockType::ConditionalJump {
+                        next_block_addr: None,
+                        next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
+                        ..
+                    } => format!("0x{:x}", next_block_branch_taken_addr),
+                    BasicBlockType::ConditionalJump {
+                        next_block_addr: Some(next_block_addr),
+                        next_block_branch_taken_addr: None,
+                        ..
+                    } => format!("0x{:x}", next_block_addr),
+                    BasicBlockType::ConditionalJump {
+                        next_block_addr: None,
+                        next_block_branch_taken_addr: None,
+                        ..
+                    } => format!(""),
+                    BasicBlockType::Normal { next_block_addr } =>
+                        format!("0x{:x}", next_block_addr),
+                    BasicBlockType::Exit => format!(""),
+                    BasicBlockType::AbsoluteEip => format!(""),
+                }
+            );
+        }
+
+        let graph = control_flow::make_graph(&basic_blocks);
+        let mut structure = control_flow::loopify(&graph);
+
+        if print {
+            dbg_log!("before blockify:");
+            for group in &structure {
+                dbg_log!("=> Group");
+                group.print(0);
+            }
+        }
+
+        control_flow::blockify(&mut structure, &graph);
+
+        if cfg!(debug_assertions) {
+            control_flow::assert_invariants(&structure);
+        }
+
+        if print {
+            dbg_log!("after blockify:");
+            for group in &structure {
+                dbg_log!("=> Group");
+                group.print(0);
+            }
+        }
+
         if ctx.wasm_table_index_free_list.is_empty() {
-            dbg_log!("wasm_table_index_free_list empty, clearing cache",);
+            dbg_log!("wasm_table_index_free_list empty, clearing cache");
 
             // When no free slots are available, delete all cached modules. We could increase the
             // size of the table, but this way the initial size acts as an upper bound for the
@@ -681,13 +765,18 @@ fn jit_analyze_and_generate(
             .insert(wasm_table_index, pages.clone());
         ctx.all_pages.extend(pages.clone());
 
-        jit_generate_module(
-            &basic_blocks,
+        let basic_block_by_addr: HashMap<u32, BasicBlock> =
+            basic_blocks.into_iter().map(|b| (b.addr, b)).collect();
+
+        let entries = jit_generate_module(
+            structure,
+            &basic_block_by_addr,
             cpu.clone(),
             &mut ctx.wasm_builder,
             wasm_table_index,
             state_flags,
         );
+        dbg_assert!(!entries.is_empty());
 
         profiler::stat_increment_by(
             stat::COMPILE_WASM_TOTAL_BYTES,
@@ -700,7 +789,7 @@ fn jit_analyze_and_generate(
         }
 
         dbg_assert!(ctx.compiling.is_none());
-        ctx.compiling = Some((wasm_table_index, PageState::Compiling { basic_blocks }));
+        ctx.compiling = Some((wasm_table_index, PageState::Compiling { entries }));
 
         let phys_addr = page.to_address();
 
@@ -738,7 +827,7 @@ pub fn codegen_finalize_finished(
         Page::page_of(phys_addr).to_address()
     );
 
-    let basic_blocks = match mem::replace(&mut ctx.compiling, None) {
+    let entries = match mem::replace(&mut ctx.compiling, None) {
         None => {
             dbg_assert!(false);
             return;
@@ -750,55 +839,27 @@ pub fn codegen_finalize_finished(
             free_wasm_table_index(ctx, wasm_table_index);
             return;
         },
-        Some((in_progress_wasm_table_index, PageState::Compiling { basic_blocks })) => {
+        Some((in_progress_wasm_table_index, PageState::Compiling { entries })) => {
             dbg_assert!(wasm_table_index == in_progress_wasm_table_index);
-            basic_blocks
+            entries
         },
     };
 
-    // create entries for each basic block that is marked as an entry point
-    let mut entry_point_count = 0;
-
     let mut check_for_unused_wasm_table_index = HashSet::new();
 
-    for (i, block) in basic_blocks.iter().enumerate() {
-        profiler::stat_increment(stat::COMPILE_BASIC_BLOCK);
+    dbg_assert!(!entries.is_empty());
+    for (addr, entry) in entries {
+        let maybe_old_entry = ctx.cache.insert(addr, entry);
 
-        dbg_assert!(block.addr < block.end_addr);
-        if block.is_entry_block {
-            let initial_state = i.safe_to_u16();
+        if let Some(old_entry) = maybe_old_entry {
+            check_for_unused_wasm_table_index.insert(old_entry.wasm_table_index);
 
-            let entry = Entry {
-                wasm_table_index,
-                initial_state,
-                state_flags,
-
-                #[cfg(any(debug_assertions, feature = "profiler"))]
-                len: block.end_addr - block.addr,
-
-                #[cfg(debug_assertions)]
-                opcode: memory::read32s(block.addr) as u32,
-            };
-
-            let maybe_old_entry = ctx.cache.insert(block.addr, entry);
-
-            if let Some(old_entry) = maybe_old_entry {
-                check_for_unused_wasm_table_index.insert(old_entry.wasm_table_index);
-
-                if old_entry.state_flags == state_flags {
-                    // TODO: stat
-                }
-                else {
-                    // TODO: stat
-                }
+            profiler::stat_increment(stat::JIT_CACHE_OVERRIDE);
+            if old_entry.state_flags != state_flags {
+                profiler::stat_increment(stat::JIT_CACHE_OVERRIDE_DIFFERENT_STATE_FLAGS)
             }
-
-            entry_point_count += 1;
-            profiler::stat_increment(stat::COMPILE_ENTRY_POINT);
         }
     }
-
-    dbg_assert!(entry_point_count > 0);
 
     for index in check_for_unused_wasm_table_index {
         let pages = ctx.used_wasm_table_indices.get(&index).unwrap();
@@ -841,32 +902,14 @@ pub fn codegen_finalize_finished(
 }
 
 fn jit_generate_module(
-    basic_blocks: &Vec<BasicBlock>,
+    structure: Vec<WasmStructure>,
+    basic_blocks: &HashMap<u32, BasicBlock>,
     mut cpu: CpuContext,
     builder: &mut WasmBuilder,
     wasm_table_index: WasmTableIndex,
     state_flags: CachedStateFlags,
-) {
+) -> Vec<(u32, Entry)> {
     builder.reset();
-
-    let basic_block_indices: HashMap<u32, u32> = basic_blocks
-        .iter()
-        .enumerate()
-        .map(|(index, block)| (block.addr, index as u32))
-        .collect();
-
-    // set state local variable to the initial state passed as the first argument
-    builder.get_local(&builder.arg_local_initial_state.unsafe_clone());
-    let gen_local_state = builder.set_new_local();
-
-    // initialise max_iterations
-    let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY {
-        builder.const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
-        Some(builder.set_new_local())
-    }
-    else {
-        None
-    };
 
     let mut register_locals = (0..8)
         .map(|i| {
@@ -875,232 +918,596 @@ fn jit_generate_module(
         })
         .collect();
 
+    let loop_limit_local = if JIT_ALWAYS_USE_LOOP_SAFETY {
+        builder.const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
+        Some(builder.set_new_local())
+    }
+    else {
+        None
+    };
+
     let exit_label = builder.block_void();
-
-    // main state machine loop
+    let exit_with_fault_label = builder.block_void();
     let main_loop_label = builder.loop_void();
-
-    builder.block_void(); // for the default case
-    let exit_with_fault_label = builder.block_void(); // for the exit-with-fault case
+    if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+        builder.get_local(loop_limit_local);
+        builder.const_i32(-1);
+        builder.add_i32();
+        builder.tee_local(loop_limit_local);
+        builder.eqz_i32();
+        if cfg!(feature = "profiler") {
+            builder.if_void();
+            codegen::gen_debug_track_jit_exit(builder, 0);
+            builder.br(exit_label);
+            builder.block_end();
+        }
+        else {
+            builder.br_if(exit_label);
+        }
+    }
+    let brtable_default = builder.block_void();
 
     let ctx = &mut JitContext {
         cpu: &mut cpu,
         builder,
         register_locals: &mut register_locals,
         start_of_current_instruction: 0,
-        main_loop_label,
         exit_with_fault_label,
         exit_label,
-        our_wasm_table_index: wasm_table_index,
-        basic_block_index_local: &gen_local_state,
-        state_flags,
     };
 
-    if let Some(gen_local_iteration_counter) = gen_local_iteration_counter.as_ref() {
-        profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
-
-        // decrement max_iterations
-        ctx.builder.get_local(gen_local_iteration_counter);
-        ctx.builder.const_i32(-1);
-        ctx.builder.add_i32();
-        ctx.builder.set_local(gen_local_iteration_counter);
-
-        // if max_iterations == 0: return
-        ctx.builder.get_local(gen_local_iteration_counter);
-        ctx.builder.eqz_i32();
-        ctx.builder.if_void();
-        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-        ctx.builder.br(exit_label);
-        ctx.builder.block_end();
-    }
-
-    // generate the opening blocks for the cases
-
-    for _ in 0..basic_blocks.len() {
-        ctx.builder.block_void();
-    }
-
-    ctx.builder.get_local(&gen_local_state);
-    ctx.builder.brtable_and_cases(basic_blocks.len() as u32);
-
-    for (i, block) in basic_blocks.iter().enumerate() {
-        // Case [i] will jump after the [i]th block, so we first generate the
-        // block end opcode and then the code for that block
-        ctx.builder.block_end();
-
-        dbg_assert!(block.addr < block.end_addr);
-
-        jit_generate_basic_block(ctx, block);
-
-        let invalid_connection_to_next_block = block.end_addr != ctx.cpu.eip;
-        dbg_assert!(!invalid_connection_to_next_block);
-
-        if block.has_sti {
-            match block.ty {
-                BasicBlockType::ConditionalJump {
-                    condition,
-                    jump_offset,
-                    jump_offset_is_32,
-                    ..
-                } => {
-                    codegen::gen_condition_fn(ctx, condition);
-                    ctx.builder.if_void();
-                    if jump_offset_is_32 {
-                        codegen::gen_relative_jump(ctx.builder, jump_offset);
-                    }
-                    else {
-                        codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                    }
-                    ctx.builder.block_end();
+    let entry_blocks = {
+        let mut nodes = &structure;
+        let result;
+        loop {
+            match &nodes[0] {
+                WasmStructure::Dispatcher(e) => {
+                    result = e.clone();
+                    break;
                 },
-                BasicBlockType::Normal { .. } => {},
-                BasicBlockType::Exit => {},
-            };
-            codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-            codegen::gen_move_registers_from_locals_to_memory(ctx);
-            codegen::gen_fn0_const(ctx.builder, "handle_irqs");
-            ctx.builder.return_();
-            continue;
+                WasmStructure::Loop { .. } => dbg_assert!(false),
+                WasmStructure::BasicBlock(_) => dbg_assert!(false),
+                // Note: We could use these blocks as entry points, which will yield
+                // more entries for free, but it requires adding those to the dispatcher
+                // It's to be investigated if this yields a performance improvement
+                // See also the comment at the bottom of this function when creating entry
+                // points
+                WasmStructure::Block(children) => {
+                    nodes = children;
+                },
+            }
         }
+        result
+    };
 
-        match &block.ty {
-            BasicBlockType::Exit => {
-                // Exit this function
-                codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                ctx.builder.br(exit_label);
-            },
-            BasicBlockType::Normal { next_block_addr } => {
-                // Unconditional jump to next basic block
-                // - All instructions that don't change eip
-                // - Unconditional jump
+    let mut index_for_addr = HashMap::new();
+    for (i, &addr) in entry_blocks.iter().enumerate() {
+        index_for_addr.insert(addr, i as i32);
+    }
+    for b in basic_blocks.values() {
+        if !index_for_addr.contains_key(&b.addr) {
+            let i = index_for_addr.len();
+            index_for_addr.insert(b.addr, i as i32);
+        }
+    }
 
-                if Page::page_of(*next_block_addr) != Page::page_of(block.addr) {
-                    codegen::gen_page_switch_check(
-                        ctx,
-                        *next_block_addr,
-                        block.last_instruction_addr,
-                    );
+    let mut label_for_addr: HashMap<u32, (Label, Option<i32>)> = HashMap::new();
 
-                    #[cfg(debug_assertions)]
-                    codegen::gen_fn2_const(
-                        ctx.builder,
-                        "check_page_switch",
-                        block.addr,
-                        *next_block_addr,
-                    );
-                }
+    enum Work {
+        WasmStructure(WasmStructure),
+        BlockEnd {
+            label: Label,
+            targets: Vec<u32>,
+            olds: HashMap<u32, (Label, Option<i32>)>,
+        },
+        LoopEnd {
+            label: Label,
+            entries: Vec<u32>,
+            olds: HashMap<u32, (Label, Option<i32>)>,
+        },
+    }
+    let mut work: VecDeque<Work> = structure
+        .into_iter()
+        .map(|x| Work::WasmStructure(x))
+        .collect();
 
-                let next_basic_block_index = *basic_block_indices
-                    .get(&next_block_addr)
-                    .expect("basic_block_indices.get (Normal)");
+    while let Some(block) = work.pop_front() {
+        let next_addr: Option<Vec<u32>> = work.iter().find_map(|x| match x {
+            Work::WasmStructure(l) => Some(l.head().collect()),
+            _ => None,
+        });
+        let target_block = &ctx.builder.arg_local_initial_state.unsafe_clone();
 
-                if next_basic_block_index == (i as u32) + 1 {
-                    // fallthru
-                }
-                else {
-                    // set state variable to next basic block
-                    ctx.builder.const_i32(next_basic_block_index as i32);
-                    ctx.builder.set_local(&gen_local_state);
+        match block {
+            Work::WasmStructure(WasmStructure::BasicBlock(addr)) => {
+                let block = basic_blocks.get(&addr).unwrap();
+                jit_generate_basic_block(ctx, &block);
 
-                    ctx.builder.br(main_loop_label);
-                }
-            },
-            &BasicBlockType::ConditionalJump {
-                next_block_addr,
-                next_block_branch_taken_addr,
-                condition,
-                jump_offset,
-                jump_offset_is_32,
-            } => {
-                // Conditional jump to next basic block
-                // - jnz, jc, loop, jcxz, etc.
-
-                codegen::gen_condition_fn(ctx, condition);
-                ctx.builder.if_void();
-
-                // Branch taken
-
-                if jump_offset_is_32 {
-                    codegen::gen_relative_jump(ctx.builder, jump_offset);
-                }
-                else {
-                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                }
-
-                if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
-                    let next_basic_block_branch_taken_index = *basic_block_indices
-                        .get(&next_block_branch_taken_addr)
-                        .expect("basic_block_indices.get (branch taken)");
-
-                    dbg_assert!(
-                        (block.end_addr + jump_offset as u32) & 0xFFF
-                            == next_block_branch_taken_addr & 0xFFF
-                    );
-
-                    if Page::page_of(next_block_branch_taken_addr) != Page::page_of(block.addr) {
-                        codegen::gen_page_switch_check(
-                            ctx,
-                            next_block_branch_taken_addr,
-                            block.last_instruction_addr,
-                        );
-
-                        #[cfg(debug_assertions)]
-                        codegen::gen_fn2_const(
-                            ctx.builder,
-                            "check_page_switch",
-                            block.addr,
-                            next_block_branch_taken_addr,
-                        );
-                    }
-
-                    ctx.builder
-                        .const_i32(next_basic_block_branch_taken_index as i32);
-                    ctx.builder.set_local(&gen_local_state);
-
-                    ctx.builder.br(main_loop_label);
-                }
-                else {
-                    // Jump to different page
+                if block.has_sti {
+                    match block.ty {
+                        BasicBlockType::ConditionalJump {
+                            condition,
+                            jump_offset,
+                            jump_offset_is_32,
+                            ..
+                        } => {
+                            codegen::gen_condition_fn(ctx, condition);
+                            ctx.builder.if_void();
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+                            ctx.builder.block_end();
+                        },
+                        BasicBlockType::Normal { .. } => {},
+                        BasicBlockType::Exit => {},
+                        BasicBlockType::AbsoluteEip => {},
+                    };
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                    ctx.builder.br(exit_label);
+                    codegen::gen_move_registers_from_locals_to_memory(ctx);
+                    codegen::gen_fn0_const(ctx.builder, "handle_irqs");
+                    ctx.builder.return_();
+                    continue;
                 }
 
-                if let Some(next_block_addr) = next_block_addr {
-                    dbg_assert!(Page::page_of(next_block_addr) == Page::page_of(block.addr));
-                    // Branch not taken
+                match &block.ty {
+                    BasicBlockType::Exit => {
+                        // Exit this function
+                        codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                        codegen::gen_profiler_stat_increment(ctx.builder, stat::DIRECT_EXIT);
+                        ctx.builder.br(ctx.exit_label);
+                    },
+                    BasicBlockType::AbsoluteEip => {
+                        // Check if we can stay in this module, if not exit
+                        codegen::gen_get_eip(ctx.builder);
+                        let new_eip = ctx.builder.set_new_local();
+                        codegen::gen_get_phys_eip(ctx, &new_eip);
+                        ctx.builder.free_local(new_eip);
 
-                    let next_basic_block_index = *basic_block_indices
-                        .get(&next_block_addr)
-                        .expect("basic_block_indices.get (branch not taken)");
+                        ctx.builder.const_i32(wasm_table_index.to_u16() as i32);
+                        ctx.builder.const_i32(state_flags.to_u32() as i32);
+                        ctx.builder.call_fn3_ret("jit_find_cache_entry_in_page");
+                        ctx.builder.tee_local(target_block);
+                        ctx.builder.const_i32(0);
+                        ctx.builder.ge_i32();
+                        // TODO: Could make this unconditional by including exit_label in the main br_table
+                        ctx.builder.br_if(main_loop_label);
 
-                    if next_basic_block_index == (i as u32) + 1 {
-                        // fallthru
+                        codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                        ctx.builder.br(ctx.exit_label);
+                    },
+                    BasicBlockType::Normal { next_block_addr } => {
+                        // Unconditional jump to next basic block
+                        // - All instructions that don't change eip
+                        // - Unconditional jumps
+                        if Page::page_of(*next_block_addr) != Page::page_of(block.addr) {
+                            codegen::gen_profiler_stat_increment(
+                                ctx.builder,
+                                stat::NORMAL_PAGE_CHANGE,
+                            );
+
+                            codegen::gen_page_switch_check(
+                                ctx,
+                                *next_block_addr,
+                                block.last_instruction_addr,
+                            );
+
+                            #[cfg(debug_assertions)]
+                            codegen::gen_fn2_const(
+                                ctx.builder,
+                                "check_page_switch",
+                                block.addr,
+                                *next_block_addr,
+                            );
+                        }
+
+                        if next_addr
+                            .as_ref()
+                            .map_or(false, |n| n.contains(next_block_addr))
+                        {
+                            // Blocks are consecutive
+                            if next_addr.unwrap().len() > 1 {
+                                let target_index = *index_for_addr.get(next_block_addr).unwrap();
+                                if cfg!(feature = "profiler") {
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                }
+                                ctx.builder.const_i32(target_index);
+                                ctx.builder.set_local(target_block);
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::NORMAL_FALLTHRU_WITH_TARGET_BLOCK,
+                                );
+                            }
+                            else {
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::NORMAL_FALLTHRU,
+                                );
+                            }
+                        }
+                        else {
+                            let &(br, target_index) = label_for_addr.get(&next_block_addr).unwrap();
+                            if let Some(target_index) = target_index {
+                                if cfg!(feature = "profiler") {
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                }
+                                ctx.builder.const_i32(target_index);
+                                ctx.builder.set_local(target_block);
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::NORMAL_BRANCH_WITH_TARGET_BLOCK,
+                                );
+                            }
+                            else {
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::NORMAL_BRANCH,
+                                );
+                            }
+                            ctx.builder.br(br);
+                        }
+                    },
+                    &BasicBlockType::ConditionalJump {
+                        next_block_addr,
+                        next_block_branch_taken_addr,
+                        condition,
+                        jump_offset,
+                        jump_offset_is_32,
+                    } => {
+                        // Conditional jump to next basic block
+                        // - jnz, jc, loop, jcxz, etc.
+
+                        codegen::gen_profiler_stat_increment(ctx.builder, stat::CONDITIONAL_JUMP);
+                        codegen::gen_condition_fn(ctx, condition);
+                        ctx.builder.if_void();
+
+                        // Branch taken
+
+                        if jump_offset_is_32 {
+                            codegen::gen_relative_jump(ctx.builder, jump_offset);
+                        }
+                        else {
+                            codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                        }
+
+                        if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
+                            dbg_assert!(
+                                (block.end_addr + jump_offset as u32) & 0xFFF
+                                    == next_block_branch_taken_addr & 0xFFF
+                            );
+
+                            if Page::page_of(next_block_branch_taken_addr)
+                                != Page::page_of(block.addr)
+                            {
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::CONDITIONAL_JUMP_PAGE_CHANGE,
+                                );
+                                codegen::gen_page_switch_check(
+                                    ctx,
+                                    next_block_branch_taken_addr,
+                                    block.last_instruction_addr,
+                                );
+
+                                #[cfg(debug_assertions)]
+                                codegen::gen_fn2_const(
+                                    ctx.builder,
+                                    "check_page_switch",
+                                    block.addr,
+                                    next_block_branch_taken_addr,
+                                );
+                            }
+
+                            if next_addr
+                                .as_ref()
+                                .map_or(false, |n| n.contains(&next_block_branch_taken_addr))
+                            {
+                                // blocks are consecutive
+                                if next_addr.as_ref().unwrap().len() > 1 {
+                                    let target_index =
+                                        *index_for_addr.get(&next_block_branch_taken_addr).unwrap();
+                                    if cfg!(feature = "profiler") {
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                    }
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.set_local(target_block);
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK,
+                                    );
+                                }
+                                else {
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_FALLTHRU,
+                                    );
+                                }
+                            }
+                            else {
+                                let &(br, target_index) =
+                                    label_for_addr.get(&next_block_branch_taken_addr).unwrap();
+                                if let Some(target_index) = target_index {
+                                    if cfg!(feature = "profiler") {
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                    }
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.set_local(target_block);
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK,
+                                    );
+                                }
+                                else {
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_BRANCH,
+                                    );
+                                }
+                                ctx.builder.br(br);
+                            }
+                        }
+                        else {
+                            // Jump to different page
+                            // TODO: Could generate br_if
+                            codegen::gen_debug_track_jit_exit(
+                                ctx.builder,
+                                block.last_instruction_addr,
+                            );
+                            codegen::gen_profiler_stat_increment(
+                                ctx.builder,
+                                stat::CONDITIONAL_JUMP_EXIT,
+                            );
+                            ctx.builder.br(ctx.exit_label);
+                        }
+
+                        if let Some(next_block_addr) = next_block_addr {
+                            dbg_assert!(
+                                Page::page_of(next_block_addr) == Page::page_of(block.addr)
+                            );
+                            // Branch not taken
+
+                            if next_addr
+                                .as_ref()
+                                .map_or(false, |n| n.contains(&next_block_addr))
+                            {
+                                // nothing to do: blocks are consecutive
+                                ctx.builder.else_();
+                                if next_addr.unwrap().len() > 1 {
+                                    let target_index =
+                                        *index_for_addr.get(&next_block_addr).unwrap();
+                                    if cfg!(feature = "profiler") {
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                    }
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.set_local(target_block);
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_FALLTHRU_WITH_TARGET_BLOCK,
+                                    );
+                                }
+                                else {
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_FALLTHRU,
+                                    );
+                                }
+                                ctx.builder.block_end();
+                            }
+                            else {
+                                ctx.builder.else_();
+                                let &(br, target_index) =
+                                    label_for_addr.get(&next_block_addr).unwrap();
+                                if let Some(target_index) = target_index {
+                                    if cfg!(feature = "profiler") {
+                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.call_fn1("debug_set_dispatcher_target");
+                                    }
+                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.set_local(target_block);
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_BRANCH_WITH_TARGET_BLOCK,
+                                    );
+                                }
+                                else {
+                                    codegen::gen_profiler_stat_increment(
+                                        ctx.builder,
+                                        stat::CONDITIONAL_JUMP_BRANCH,
+                                    );
+                                }
+                                ctx.builder.br(br);
+                                ctx.builder.block_end();
+                            }
+                        }
+                        else {
+                            ctx.builder.else_();
+
+                            // End of this page
+                            codegen::gen_debug_track_jit_exit(
+                                ctx.builder,
+                                block.last_instruction_addr,
+                            );
+                            codegen::gen_profiler_stat_increment(
+                                ctx.builder,
+                                stat::CONDITIONAL_JUMP_EXIT,
+                            );
+                            ctx.builder.br(ctx.exit_label);
+
+                            ctx.builder.block_end();
+                        }
+                    },
+                }
+            },
+            Work::WasmStructure(WasmStructure::Dispatcher(entries)) => {
+                profiler::stat_increment(stat::COMPILE_DISPATCHER);
+
+                if cfg!(feature = "profiler") {
+                    ctx.builder.get_local(target_block);
+                    ctx.builder.const_i32(index_for_addr.len() as i32);
+                    ctx.builder.call_fn2("check_dispatcher_target");
+                }
+
+                if entries.len() > BRTABLE_CUTOFF {
+                    // generate a brtable
+                    codegen::gen_profiler_stat_increment(ctx.builder, stat::DISPATCHER_LARGE);
+                    let mut cases = Vec::new();
+                    for &addr in &entries {
+                        let &(label, target_index) = label_for_addr.get(&addr).unwrap();
+                        let &index = index_for_addr.get(&addr).unwrap();
+                        dbg_assert!(target_index.is_none() || target_index == Some(index));
+                        while index as usize >= cases.len() {
+                            cases.push(brtable_default);
+                        }
+                        cases[index as usize] = label;
+                    }
+                    ctx.builder.get_local(target_block);
+                    ctx.builder.brtable(brtable_default, &mut cases.iter());
+                }
+                else {
+                    // generate a if target == block.addr then br block.label ...
+                    codegen::gen_profiler_stat_increment(ctx.builder, stat::DISPATCHER_SMALL);
+                    let nexts: HashSet<u32> = next_addr
+                        .as_ref()
+                        .map_or(HashSet::new(), |nexts| nexts.iter().copied().collect());
+                    for &addr in &entries {
+                        if nexts.contains(&addr) {
+                            continue;
+                        }
+                        let index = *index_for_addr.get(&addr).unwrap();
+                        let &(label, _) = label_for_addr.get(&addr).unwrap();
+                        ctx.builder.get_local(target_block);
+                        ctx.builder.const_i32(index);
+                        ctx.builder.eq_i32();
+                        ctx.builder.br_if(label);
+                    }
+                }
+            },
+            Work::WasmStructure(WasmStructure::Loop(children)) => {
+                profiler::stat_increment(stat::COMPILE_WASM_LOOP);
+                codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP);
+
+                let entries: Vec<u32> = children[0].head().collect();
+                let label = ctx.builder.loop_void();
+
+                if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+                    ctx.builder.get_local(loop_limit_local);
+                    ctx.builder.const_i32(-1);
+                    ctx.builder.add_i32();
+                    ctx.builder.tee_local(loop_limit_local);
+                    ctx.builder.eqz_i32();
+                    if cfg!(feature = "profiler") {
+                        ctx.builder.if_void();
+                        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+                        ctx.builder.br(ctx.exit_label);
                         ctx.builder.block_end();
                     }
                     else {
-                        ctx.builder.else_();
-
-                        ctx.builder.const_i32(next_basic_block_index as i32);
-                        ctx.builder.set_local(&gen_local_state);
-
-                        ctx.builder.br(main_loop_label);
-
-                        ctx.builder.block_end();
+                        ctx.builder.br_if(ctx.exit_label);
                     }
                 }
-                else {
-                    ctx.builder.else_();
 
-                    // End of this page
-                    codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                    ctx.builder.br(exit_label);
-
-                    ctx.builder.block_end();
+                let mut olds = HashMap::new();
+                for &target in entries.iter() {
+                    let index = if entries.len() == 1 {
+                        None
+                    }
+                    else {
+                        Some(*index_for_addr.get(&target).unwrap())
+                    };
+                    let old = label_for_addr.insert(target, (label, index));
+                    if let Some(old) = old {
+                        olds.insert(target, old);
+                    }
                 }
+
+                work.push_front(Work::LoopEnd {
+                    label,
+                    entries,
+                    olds,
+                });
+                for c in children.into_iter().rev() {
+                    work.push_front(Work::WasmStructure(c));
+                }
+            },
+            Work::LoopEnd {
+                label,
+                entries,
+                olds,
+            } => {
+                for target in entries {
+                    let old = label_for_addr.remove(&target);
+                    dbg_assert!(old.map(|(l, _)| l) == Some(label));
+                }
+                for (target, old) in olds {
+                    let old = label_for_addr.insert(target, old);
+                    dbg_assert!(old.is_none());
+                }
+
+                ctx.builder.block_end();
+            },
+            Work::WasmStructure(WasmStructure::Block(children)) => {
+                profiler::stat_increment(stat::COMPILE_WASM_BLOCK);
+
+                let targets = next_addr.clone().unwrap();
+                let label = ctx.builder.block_void();
+                let mut olds = HashMap::new();
+                for &target in targets.iter() {
+                    let index = if targets.len() == 1 {
+                        None
+                    }
+                    else {
+                        Some(*index_for_addr.get(&target).unwrap())
+                    };
+                    let old = label_for_addr.insert(target, (label, index));
+                    if let Some(old) = old {
+                        olds.insert(target, old);
+                    }
+                }
+
+                work.push_front(Work::BlockEnd {
+                    label,
+                    targets,
+                    olds,
+                });
+                for c in children.into_iter().rev() {
+                    work.push_front(Work::WasmStructure(c));
+                }
+            },
+            Work::BlockEnd {
+                label,
+                targets,
+                olds,
+            } => {
+                for target in targets {
+                    let old = label_for_addr.remove(&target);
+                    dbg_assert!(old.map(|(l, _)| l) == Some(label));
+                }
+                for (target, old) in olds {
+                    let old = label_for_addr.insert(target, old);
+                    dbg_assert!(old.is_none());
+                }
+
+                ctx.builder.block_end();
             },
         }
     }
 
+    dbg_assert!(label_for_addr.is_empty());
+
+    {
+        ctx.builder.block_end(); // default case for the brtable
+        ctx.builder.unreachable();
+    }
+    {
+        ctx.builder.block_end(); // main loop
+    }
     {
         // exit-with-fault case
         ctx.builder.block_end();
@@ -1108,34 +1515,72 @@ fn jit_generate_module(
         codegen::gen_fn0_const(ctx.builder, "trigger_fault_end_jit");
         ctx.builder.return_();
     }
-
-    ctx.builder.block_end(); // default case
-    ctx.builder.unreachable();
-
-    ctx.builder.block_end(); // loop
-
-    ctx.builder.block_end(); // exit
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-
-    ctx.builder.free_local(gen_local_state.unsafe_clone());
-    if let Some(local) = gen_local_iteration_counter {
-        ctx.builder.free_local(local);
+    {
+        // exit
+        ctx.builder.block_end();
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
     }
 
+    if let Some(local) = loop_limit_local {
+        ctx.builder.free_local(local);
+    }
     for local in ctx.register_locals.drain(..) {
         ctx.builder.free_local(local);
     }
 
     ctx.builder.finish();
+
+    let mut entries = Vec::new();
+
+    for &addr in entry_blocks.iter() {
+        let block = basic_blocks.get(&addr).unwrap();
+        let index = *index_for_addr.get(&addr).unwrap();
+
+        profiler::stat_increment(stat::COMPILE_ENTRY_POINT);
+
+        dbg_assert!(block.addr < block.end_addr);
+        // Note: We also insert blocks that weren't originally marked as entries here
+        //       This doesn't have any downside, besides making the hash table slightly larger
+
+        let initial_state = index.safe_to_u16();
+
+        let entry = Entry {
+            wasm_table_index,
+            initial_state,
+            state_flags,
+
+            #[cfg(any(debug_assertions, feature = "profiler"))]
+            len: block.end_addr - block.addr,
+
+            #[cfg(debug_assertions)]
+            opcode: memory::read32s(block.addr) as u32,
+        };
+        entries.push((block.addr, entry));
+    }
+
+    for b in basic_blocks.values() {
+        if b.is_entry_block {
+            dbg_assert!(entries.iter().find(|(addr, _)| *addr == b.addr).is_some());
+        }
+    }
+
+    return entries;
 }
 
 fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
+    profiler::stat_increment(stat::COMPILE_BASIC_BLOCK);
+
     let start_addr = block.addr;
     let last_instruction_addr = block.last_instruction_addr;
     let stop_addr = block.end_addr;
 
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
+
+    if cfg!(feature = "profiler") {
+        ctx.builder.const_i32(start_addr as i32);
+        ctx.builder.call_fn1("enter_basic_block");
+    }
 
     codegen::gen_increment_timestamp_counter(ctx.builder, block.number_of_instructions as i32);
     ctx.cpu.eip = start_addr;
@@ -1429,6 +1874,10 @@ pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
         0
     }
 }
+#[no_mangle]
+pub fn jit_get_cache_size() -> u32 {
+    if cfg!(feature = "profiler") { get_jit_state().cache.len() as u32 } else { 0 }
+}
 
 #[cfg(feature = "profiler")]
 pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlags) {
@@ -1472,5 +1921,31 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
                 last_jump_opcode >> 16 & 0xFF,
             );
         }
+    }
+}
+
+#[no_mangle]
+pub fn debug_set_dispatcher_target(_target_index: i32) {
+    //dbg_log!("About to call dispatcher target_index={}", target_index);
+}
+
+#[no_mangle]
+pub fn check_dispatcher_target(target_index: i32, max: i32) {
+    //dbg_log!("Dispatcher called target={}", target_index);
+    dbg_assert!(target_index >= 0);
+    dbg_assert!(target_index < max);
+}
+
+#[no_mangle]
+pub fn enter_basic_block(phys_eip: u32) {
+    let eip =
+        unsafe { cpu::translate_address_read(*global_pointers::instruction_pointer).unwrap() };
+    if eip != phys_eip {
+        dbg_log!(
+            "enter basic block failed block=0x{:x} actual eip=0x{:x}",
+            phys_eip,
+            eip
+        );
+        panic!();
     }
 }

@@ -2,15 +2,15 @@ use cpu;
 use cpu::global_pointers;
 use wasmgen::wasm_builder::WasmBuilder;
 
-struct Instruction {
-    prefixes: Vec<u8>,
-    opcode: u8,
-    fixed_g: u8,
-    is_mem: bool,
-    is_0f: bool,
+pub struct Instruction {
+    pub prefixes: Vec<u8>,
+    pub opcode: u8,
+    pub fixed_g: u8,
+    pub is_mem: bool,
+    pub is_0f: bool,
 }
 
-fn decode(mut instruction: u32) -> Instruction {
+pub fn decode(mut instruction: u32) -> Instruction {
     let mut is_0f = false;
     let mut prefixes = vec![];
     let mut final_opcode = 0;
