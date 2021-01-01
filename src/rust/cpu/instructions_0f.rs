@@ -3285,19 +3285,21 @@ pub unsafe fn instr32_0FC7_1_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr16_0FC7_1_mem(addr: i32) {
     // cmpxchg8b
     return_on_pagefault!(writable_or_pagefault(addr, 8));
-    let m64_low = safe_read32s(addr).unwrap();
-    let m64_high = safe_read32s(addr + 4).unwrap();
+    let m64 = safe_read64s(addr).unwrap();
+    let m64_low = m64 as i32;
+    let m64_high = (m64 >> 32) as i32;
     if read_reg32(EAX) == m64_low && read_reg32(EDX) == m64_high {
         *flags |= FLAG_ZERO;
-        safe_write32(addr, read_reg32(EBX)).unwrap();
-        safe_write32(addr + 4, read_reg32(ECX)).unwrap();
+        safe_write64(
+            addr,
+            read_reg32(EBX) as u32 as u64 | (read_reg32(ECX) as u32 as u64) << 32,
+        )
+        .unwrap();
     }
     else {
         *flags &= !FLAG_ZERO;
         write_reg32(EAX, m64_low);
         write_reg32(EDX, m64_high);
-        safe_write32(addr, m64_low).unwrap();
-        safe_write32(addr + 4, m64_high).unwrap();
     }
     *flags_changed &= !FLAG_ZERO;
 }
