@@ -572,7 +572,7 @@ impl WasmBuilder {
 
     pub fn load_fixed_u8(&mut self, addr: u32) {
         self.const_i32(addr as i32);
-        self.load_u8_from_stack(0);
+        self.load_u8(0);
     }
     pub fn load_fixed_u16(&mut self, addr: u32) {
         // doesn't cause a failure in the generated code, but it will be much slower
@@ -588,46 +588,46 @@ impl WasmBuilder {
         dbg_assert!((addr & 3) == 0);
 
         self.const_i32(addr as i32);
-        self.load_aligned_i32_from_stack(0);
+        self.load_aligned_i32(0);
     }
 
-    pub fn load_u8_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_u8(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32LOAD8U);
         self.instruction_body.push(op::MEM_NO_ALIGN);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_unaligned_i64(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I64LOAD);
         self.instruction_body.push(op::MEM_NO_ALIGN);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_unaligned_i32(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32LOAD);
         self.instruction_body.push(op::MEM_NO_ALIGN);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_unaligned_u16(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32LOAD16U);
         self.instruction_body.push(op::MEM_NO_ALIGN);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_aligned_i64_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_aligned_i64(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I64LOAD);
         self.instruction_body.push(op::MEM_ALIGN64);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_aligned_i32_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_aligned_i32(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32LOAD);
         self.instruction_body.push(op::MEM_ALIGN32);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_aligned_u16_from_stack(&mut self, byte_offset: u32) {
+    pub fn load_aligned_u16(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32LOAD16U);
         self.instruction_body.push(op::MEM_ALIGN16);
         write_leb_u32(&mut self.instruction_body, byte_offset);

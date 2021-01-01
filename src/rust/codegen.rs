@@ -565,8 +565,7 @@ fn gen_safe_read(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder
-        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
+    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder.const_i32(
@@ -654,28 +653,28 @@ fn gen_safe_read(
 
     match bits {
         BitSize::BYTE => {
-            ctx.builder.load_u8_from_stack(0);
+            ctx.builder.load_u8(0);
         },
         BitSize::WORD => {
-            ctx.builder.load_unaligned_u16_from_stack(0);
+            ctx.builder.load_unaligned_u16(0);
         },
         BitSize::DWORD => {
-            ctx.builder.load_unaligned_i32_from_stack(0);
+            ctx.builder.load_unaligned_i32(0);
         },
         BitSize::QWORD => {
-            ctx.builder.load_unaligned_i64_from_stack(0);
+            ctx.builder.load_unaligned_i64(0);
         },
         BitSize::DQWORD => {
             let where_to_write = where_to_write.unwrap();
             let virt_address_local = ctx.builder.set_new_local();
             ctx.builder.const_i32(0);
             ctx.builder.get_local(&virt_address_local);
-            ctx.builder.load_unaligned_i64_from_stack(0);
+            ctx.builder.load_unaligned_i64(0);
             ctx.builder.store_unaligned_i64(where_to_write);
 
             ctx.builder.const_i32(0);
             ctx.builder.get_local(&virt_address_local);
-            ctx.builder.load_unaligned_i64_from_stack(8);
+            ctx.builder.load_unaligned_i64(8);
             ctx.builder.store_unaligned_i64(where_to_write + 8);
 
             ctx.builder.free_local(virt_address_local);
@@ -708,8 +707,7 @@ fn gen_safe_write(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder
-        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
+    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder
@@ -857,8 +855,7 @@ pub fn gen_safe_read_write(
     ctx.builder.const_i32(2);
     ctx.builder.shl_i32();
 
-    ctx.builder
-        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
+    ctx.builder.load_aligned_i32(global_pointers::TLB_DATA);
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder
@@ -939,13 +936,13 @@ pub fn gen_safe_read_write(
 
     match bits {
         BitSize::BYTE => {
-            ctx.builder.load_u8_from_stack(0);
+            ctx.builder.load_u8(0);
         },
         BitSize::WORD => {
-            ctx.builder.load_unaligned_u16_from_stack(0);
+            ctx.builder.load_unaligned_u16(0);
         },
         BitSize::DWORD => {
-            ctx.builder.load_unaligned_i32_from_stack(0);
+            ctx.builder.load_unaligned_i32(0);
         },
         BitSize::QWORD => assert!(false),  // not used
         BitSize::DQWORD => assert!(false), // not used
@@ -1761,7 +1758,7 @@ pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
     for i in 0..8 {
         ctx.builder
             .const_i32(global_pointers::get_reg32_offset(i as u32) as i32);
-        ctx.builder.load_aligned_i32_from_stack(0);
+        ctx.builder.load_aligned_i32(0);
         ctx.builder.set_local(&ctx.register_locals[i]);
     }
 }

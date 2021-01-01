@@ -125,7 +125,7 @@ pub fn mmx_read64_mm_mem(ctx: &mut JitContext, name: &str, modrm_byte: u8, r: u3
 pub fn mmx_read64_mm_mm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
     ctx.builder
         .const_i32(global_pointers::get_reg_mmx_offset(r1) as i32);
-    ctx.builder.load_aligned_i64_from_stack(0);
+    ctx.builder.load_aligned_i64(0);
     ctx.builder.const_i32(r2 as i32);
     codegen::gen_call_fn2_i64_i32(ctx.builder, name);
 }
@@ -2713,7 +2713,7 @@ pub fn instr16_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     let address_local = ctx.builder.set_new_local();
     ctx.builder
         .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
-    ctx.builder.load_aligned_u16_from_stack(0);
+    ctx.builder.load_aligned_u16(0);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write16(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
@@ -4270,11 +4270,11 @@ pub fn instr_0F29_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     let address_local = ctx.builder.set_new_local();
     ctx.builder
         .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
-    ctx.builder.load_aligned_i64_from_stack(0);
+    ctx.builder.load_aligned_i64(0);
     let value_local_low = ctx.builder.set_new_local_i64();
     ctx.builder
         .const_i32(global_pointers::get_reg_xmm_high_offset(r) as i32);
-    ctx.builder.load_aligned_i64_from_stack(0);
+    ctx.builder.load_aligned_i64(0);
     let value_local_high = ctx.builder.set_new_local_i64();
     codegen::gen_safe_write128(ctx, &address_local, &value_local_low, &value_local_high);
     ctx.builder.free_local(address_local);
@@ -4674,7 +4674,7 @@ pub fn instr_660FD6_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
 
     ctx.builder
         .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
-    ctx.builder.load_aligned_i64_from_stack(0);
+    ctx.builder.load_aligned_i64(0);
     let value_local = ctx.builder.set_new_local_i64();
 
     codegen::gen_safe_write64(ctx, &address_local, &value_local);
