@@ -1686,10 +1686,10 @@ uint8_t __attribute__((aligned (4096))) str_buffer[STR_BUFFER_SIZE];
     long esi, edi, eax, ecx, eflags, i;\
 \
     for(i = 0; i < (count + 1) * size_bytes; i++)\
-        str_buffer[offset1 + i] = i + 0x56;\
-        str_buffer[offset1 - i - 1] = i + 0x97;\
-        str_buffer[offset2 + i] = i + 0xa5;\
-        str_buffer[offset2 - i - 1] = i + 0x3e;\
+        str_buffer[sizeof(str_buffer)/2 + offset1 + i] = i + 0x56;\
+        str_buffer[sizeof(str_buffer)/2 + offset1 - i - 1] = i + 0x97;\
+        str_buffer[sizeof(str_buffer)/2 + offset2 + i] = i + 0xa5;\
+        str_buffer[sizeof(str_buffer)/2 + offset2 - i - 1] = i + 0x3e;\
 \
     esi = (long)(str_buffer + sizeof(str_buffer)/2 + offset1);\
     edi = (long)(str_buffer + sizeof(str_buffer)/2 + offset2);\
