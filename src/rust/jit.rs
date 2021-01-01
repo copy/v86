@@ -324,7 +324,7 @@ pub fn record_entry_point(phys_address: u32) {
 // - v8 poorly handles large br_table elements and OOMs on modules much smaller than the above limit
 //   See https://bugs.chromium.org/p/v8/issues/detail?id=9697 and https://bugs.chromium.org/p/v8/issues/detail?id=9141
 //   Will hopefully be fixed in the near future by generating direct control flow
-const MAX_PAGES: usize = 5;
+const MAX_PAGES: usize = 3;
 
 fn jit_find_basic_blocks(
     ctx: &mut JitState,
