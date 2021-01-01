@@ -95,7 +95,7 @@ else if(typeof require !== "undefined")
 
     v86util.get_rand_int = function()
     {
-        return new Int32Array(crypto.randomBytes(4));
+        return crypto.randomBytes(4)["readInt32LE"](0);
     };
 }
 else
