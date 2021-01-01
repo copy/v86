@@ -831,7 +831,7 @@ pub unsafe fn shl32(dest_operand: i32, count: i32) -> i32 {
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
         let b = dest_operand >> 32 - count & 1;
-        *flags = *flags & !1 & !FLAG_OVERFLOW | b | (b ^ result >> 31 & 1) << 11 & FLAG_OVERFLOW;
+        *flags = *flags & !1 & !FLAG_OVERFLOW | b | (b ^ result >> 31) << 11 & FLAG_OVERFLOW;
         return result;
     };
 }
