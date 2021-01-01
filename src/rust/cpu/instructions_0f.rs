@@ -784,6 +784,7 @@ pub unsafe fn instr_0F1F_mem(addr: i32, r: i32) {}
 pub unsafe fn instr_0F20(r: i32, creg: i32) {
     if 0 != *cpl {
         trigger_gp(0);
+        return;
     }
 
     match creg {
