@@ -121,7 +121,7 @@ function CPU(bus, wm)
         vga: null,
     };
 
-    this.timestamp_counter = v86util.view(Uint32Array, memory, 664, 1);
+    this.instruction_counter = v86util.view(Uint32Array, memory, 664, 1);
 
     // registers
     this.reg32 = v86util.view(Int32Array, memory, 64, 8);
@@ -649,7 +649,7 @@ CPU.prototype.reset = function()
 
     this.last_virt_eip[0] = -1;
 
-    this.timestamp_counter[0] = 0;
+    this.instruction_counter[0] = 0;
     this.previous_ip[0] = 0;
     this.in_hlt[0] = +false;
 

@@ -64,8 +64,6 @@ pub const HASH_PRIME: u32 = 6151;
 
 pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
-pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 100003;
-
 pub const JIT_USE_LOOP_SAFETY: bool = true;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
@@ -234,6 +232,7 @@ pub struct JitContext<'a> {
     pub exit_with_fault_label: Label,
     pub exit_label: Label,
     pub last_instruction: Instruction,
+    pub instruction_counter: WasmLocal,
 }
 impl<'a> JitContext<'a> {
     pub fn reg(&self, i: u32) -> WasmLocal { self.register_locals[i as usize].unsafe_clone() }
@@ -1006,23 +1005,16 @@ fn jit_generate_module(
         })
         .collect();
 
-    let loop_limit_local = if JIT_USE_LOOP_SAFETY {
-        builder.const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
-        Some(builder.set_new_local())
-    }
-    else {
-        None
-    };
+    builder.const_i32(0);
+    let instruction_counter = builder.set_new_local();
 
     let exit_label = builder.block_void();
     let exit_with_fault_label = builder.block_void();
     let main_loop_label = builder.loop_void();
-    if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-        builder.get_local(loop_limit_local);
-        builder.const_i32(-1);
-        builder.add_i32();
-        builder.tee_local(loop_limit_local);
-        builder.eqz_i32();
+    if JIT_USE_LOOP_SAFETY {
+        builder.get_local(&instruction_counter);
+        builder.const_i32(cpu::LOOP_COUNTER);
+        builder.geu_i32();
         if cfg!(feature = "profiler") {
             builder.if_void();
             codegen::gen_debug_track_jit_exit(builder, 0);
@@ -1043,6 +1035,7 @@ fn jit_generate_module(
         exit_with_fault_label,
         exit_label,
         last_instruction: Instruction::Other,
+        instruction_counter,
     };
 
     let entry_blocks = {
@@ -1160,6 +1153,7 @@ fn jit_generate_module(
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                     codegen::gen_move_registers_from_locals_to_memory(ctx);
                     codegen::gen_fn0_const(ctx.builder, "handle_irqs");
+                    codegen::gen_update_instruction_counter(ctx);
                     ctx.builder.return_();
                     continue;
                 }
@@ -1630,20 +1624,18 @@ fn jit_generate_module(
                     codegen::gen_set_eip_low_bits(ctx.builder, addr as i32 & 0xFFF);
                     profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
                     codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP_SAFETY);
-                    if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-                        ctx.builder.get_local(loop_limit_local);
-                        ctx.builder.const_i32(-1);
-                        ctx.builder.add_i32();
-                        ctx.builder.tee_local(loop_limit_local);
-                        ctx.builder.eqz_i32();
+                    if JIT_USE_LOOP_SAFETY {
+                        ctx.builder.get_local(&ctx.instruction_counter);
+                        ctx.builder.const_i32(cpu::LOOP_COUNTER);
+                        ctx.builder.geu_i32();
                         if cfg!(feature = "profiler") {
                             ctx.builder.if_void();
-                            codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-                            ctx.builder.br(ctx.exit_label);
+                            codegen::gen_debug_track_jit_exit(ctx.builder, addr);
+                            ctx.builder.br(exit_label);
                             ctx.builder.block_end();
                         }
                         else {
-                            ctx.builder.br_if(ctx.exit_label);
+                            ctx.builder.br_if(exit_label);
                         }
                     }
                 }
@@ -1748,20 +1740,21 @@ fn jit_generate_module(
         ctx.builder.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
         codegen::gen_fn0_const(ctx.builder, "trigger_fault_end_jit");
+        codegen::gen_update_instruction_counter(ctx);
         ctx.builder.return_();
     }
     {
         // exit
         ctx.builder.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
+        codegen::gen_update_instruction_counter(ctx);
     }
 
-    if let Some(local) = loop_limit_local {
-        ctx.builder.free_local(local);
-    }
     for local in ctx.register_locals.drain(..) {
         ctx.builder.free_local(local);
     }
+    ctx.builder
+        .free_local(ctx.instruction_counter.unsafe_clone());
 
     ctx.builder.finish();
 
@@ -1822,7 +1815,11 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         ctx.builder.call_fn1("enter_basic_block");
     }
 
-    codegen::gen_increment_timestamp_counter(ctx.builder, block.number_of_instructions as i32);
+    ctx.builder.get_local(&ctx.instruction_counter);
+    ctx.builder.const_i32(block.number_of_instructions as i32);
+    ctx.builder.add_i32();
+    ctx.builder.set_local(&ctx.instruction_counter);
+
     ctx.cpu.eip = start_addr;
     ctx.last_instruction = Instruction::Other;
 

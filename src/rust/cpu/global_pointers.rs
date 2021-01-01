@@ -36,7 +36,7 @@ pub const sysenter_cs: *mut i32 = 636 as *mut i32;
 pub const sysenter_esp: *mut i32 = 640 as *mut i32;
 pub const sysenter_eip: *mut i32 = 644 as *mut i32;
 pub const prefixes: *mut u8 = 648 as *mut u8;
-pub const timestamp_counter: *mut u32 = 664 as *mut u32;
+pub const instruction_counter: *mut u32 = 664 as *mut u32;
 pub const sreg: *mut u16 = 668 as *mut u16;
 pub const dreg: *mut i32 = 684 as *mut i32;
 

@@ -113,8 +113,14 @@ pub fn gen_page_switch_check(
     }
 }
 
-pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
-    builder.increment_fixed_i32(global_pointers::timestamp_counter as u32, n)
+pub fn gen_update_instruction_counter(ctx: &mut JitContext) {
+    ctx.builder
+        .const_i32(global_pointers::instruction_counter as i32);
+    ctx.builder
+        .load_fixed_i32(global_pointers::instruction_counter as u32);
+    ctx.builder.get_local(&ctx.instruction_counter);
+    ctx.builder.add_i32();
+    ctx.builder.store_aligned_i32(0);
 }
 
 pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {

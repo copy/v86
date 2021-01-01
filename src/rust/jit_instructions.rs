@@ -4017,6 +4017,8 @@ fn gen_popf(ctx: &mut JitContext, is_32: bool) {
         codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         codegen::gen_move_registers_from_locals_to_memory(ctx);
         codegen::gen_fn0_const(ctx.builder, "handle_irqs");
+
+        codegen::gen_update_instruction_counter(ctx);
         ctx.builder.return_();
     }
     ctx.builder.block_end();

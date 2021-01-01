@@ -2392,7 +2392,7 @@ pub unsafe fn cycle_internal() {
 
         if entry != jit::CachedCode::NONE {
             profiler::stat_increment(RUN_FROM_CACHE);
-            let initial_tsc = *timestamp_counter;
+            let initial_instruction_counter = *instruction_counter;
             let wasm_table_index = entry.wasm_table_index;
             let initial_state = entry.initial_state;
             #[cfg(debug_assertions)]
@@ -2410,9 +2410,12 @@ pub unsafe fn cycle_internal() {
             }
             profiler::stat_increment_by(
                 RUN_FROM_CACHE_STEPS,
-                (*timestamp_counter - initial_tsc) as u64,
+                (*instruction_counter - initial_instruction_counter) as u64,
             );
-            dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
+            dbg_assert!(
+                *instruction_counter != initial_instruction_counter,
+                "Instruction counter didn't change"
+            );
 
             if cfg!(feature = "profiler") {
                 dbg_assert!(match ::cpu::cpu::debug_last_jump {
@@ -2462,7 +2465,7 @@ pub unsafe fn cycle_internal() {
                 dbg_assert!(must_not_fault);
                 must_not_fault = false
             }
-            let initial_tsc = *timestamp_counter;
+            let initial_instruction_counter = *instruction_counter;
             jit_run_interpreted(phys_addr as i32);
 
             jit::jit_increase_hotness_and_maybe_compile(
@@ -2470,21 +2473,24 @@ pub unsafe fn cycle_internal() {
                 phys_addr,
                 get_seg_cs() as u32,
                 state_flags,
-                *timestamp_counter - initial_tsc,
+                *instruction_counter - initial_instruction_counter,
             );
 
             profiler::stat_increment_by(
                 RUN_INTERPRETED_STEPS,
-                (*timestamp_counter - initial_tsc) as u64,
+                (*instruction_counter - initial_instruction_counter) as u64,
             );
-            dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
+            dbg_assert!(
+                *instruction_counter != initial_instruction_counter,
+                "Instruction counter didn't change"
+            );
         };
     }
     else {
         *previous_ip = *instruction_pointer;
 
         let opcode = return_on_pagefault!(read_imm8());
-        *timestamp_counter += 1;
+        *instruction_counter += 1;
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
         dbg_assert!(*prefixes == 0);
@@ -2515,7 +2521,7 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     jit_block_boundary = false;
     let opcode = *mem8.offset(phys_addr as isize) as i32;
     *instruction_pointer += 1;
-    *timestamp_counter += 1;
+    *instruction_counter += 1;
     dbg_assert!(*prefixes == 0);
     run_instruction(opcode | (*is_32 as i32) << 8);
     dbg_assert!(*prefixes == 0);
@@ -2554,7 +2560,7 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
             };
         }
 
-        *timestamp_counter += 1;
+        *instruction_counter += 1;
 
         //if DEBUG {
         //    logop(*previous_ip, opcode_0);
@@ -2601,8 +2607,8 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 #[no_mangle]
 pub unsafe fn do_many_cycles_native() {
     profiler::stat_increment(DO_MANY_CYCLES);
-    let initial_timestamp_counter = *timestamp_counter;
-    while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
+    let initial_instruction_counter = *instruction_counter;
+    while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
         && !*in_hlt
     {
         cycle_internal();

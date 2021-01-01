@@ -318,7 +318,7 @@ else {
 
     emulator.cpu_exception_hook = function(n)
     {
-        emulator.v86.cpu.timestamp_counter[0] += 100000; // always make progress
+        emulator.v86.cpu.instruction_counter[0] += 100000; // always make progress
 
         if(waiting_to_receive_next_test)
         {

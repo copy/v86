@@ -2115,7 +2115,7 @@ pub unsafe fn instr_FB() {
     else {
         *prefixes = 0;
         *previous_ip = *instruction_pointer;
-        *timestamp_counter += 1;
+        *instruction_counter += 1;
         run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8);
 
         handle_irqs();
