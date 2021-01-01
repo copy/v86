@@ -809,7 +809,7 @@ const encodings = [
     { sse: 1, opcode: 0xF20FC2, e: 1, imm8: 1 },
     { sse: 1, opcode: 0xF30FC2, e: 1, imm8: 1 },
 
-    { opcode: 0x0FC3, e: 1, reg_ud: 1, }, // movnti: Uses normal registers, hence not marked as sse
+    { opcode: 0x0FC3, e: 1, custom: 1, reg_ud: 1, }, // movnti: Uses normal registers, hence not marked as sse
 
     { sse: 1, opcode: 0x0FC4, e: 1, imm8: 1 },
     { sse: 1, opcode: 0x660FC4, e: 1, imm8: 1 },

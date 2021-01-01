@@ -3221,9 +3221,7 @@ pub unsafe fn instr32_0FC1_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_0FC1_reg(r1: i32, r: i32) { write_reg32(r1, xadd32(read_reg32(r1), r)); }
-#[no_mangle]
 pub unsafe fn instr_0FC3_reg(r1: i32, r2: i32) { trigger_ud(); }
-#[no_mangle]
 pub unsafe fn instr_0FC3_mem(addr: i32, r: i32) {
     // movnti
     return_on_pagefault!(safe_write32(addr, read_reg32(r)));

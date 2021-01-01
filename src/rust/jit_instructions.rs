@@ -1887,15 +1887,13 @@ pub fn instr_88_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 
 pub fn instr16_89_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-
     let address_local = ctx.builder.set_new_local();
-
-    codegen::gen_get_reg16(ctx, r);
-    let value_local = ctx.builder.set_new_local();
-
-    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+    codegen::gen_safe_write16(
+        ctx,
+        &address_local,
+        &ctx.register_locals[r as usize].unsafe_clone(),
+    );
     ctx.builder.free_local(address_local);
-    ctx.builder.free_local(value_local);
 }
 pub fn instr16_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg16_r(ctx, r1, r2);
@@ -1904,13 +1902,12 @@ pub fn instr32_89_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32[r]);
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-
-    codegen::gen_get_reg32(ctx, r);
-    let value_local = ctx.builder.set_new_local();
-
-    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    codegen::gen_safe_write32(
+        ctx,
+        &address_local,
+        &ctx.register_locals[r as usize].unsafe_clone(),
+    );
     ctx.builder.free_local(address_local);
-    ctx.builder.free_local(value_local);
 }
 pub fn instr32_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32_r(ctx, r1, r2);
@@ -3508,31 +3505,34 @@ pub fn instr_A2_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_get_reg8(ctx, regs::AL);
-    let value_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write8(ctx, &address_local, &value_local);
+    codegen::gen_safe_write8(
+        ctx,
+        &address_local,
+        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
+    );
     ctx.builder.free_local(address_local);
-    ctx.builder.free_local(value_local);
 }
 pub fn instr16_A3_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_get_reg16(ctx, regs::AX);
-    let value_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+    codegen::gen_safe_write16(
+        ctx,
+        &address_local,
+        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
+    );
     ctx.builder.free_local(address_local);
-    ctx.builder.free_local(value_local);
 }
 pub fn instr32_A3_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_get_reg32(ctx, regs::EAX);
-    let value_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    codegen::gen_safe_write32(
+        ctx,
+        &address_local,
+        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
+    );
     ctx.builder.free_local(address_local);
-    ctx.builder.free_local(value_local);
 }
 
 pub fn instr_A8_jit(ctx: &mut JitContext, imm8: u32) {
@@ -3937,6 +3937,18 @@ pub fn instr32_0FC1_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32(ctx, r1);
     ctx.builder.free_local(dest_operand);
 }
+
+pub fn instr_0FC3_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write32(
+        ctx,
+        &address_local,
+        &ctx.register_locals[r as usize].unsafe_clone(),
+    );
+    ctx.builder.free_local(address_local);
+}
+pub fn instr_0FC3_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) { codegen::gen_trigger_ud(ctx) }
 
 pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg8[r] = imm;
