@@ -4854,6 +4854,64 @@ pub fn instr_660F2B_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
     codegen::gen_trigger_ud(ctx);
 }
 
+pub fn instr_F20F2C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.reinterpret_i64_as_f64();
+    ctx.builder
+        .call_fn1_f64_ret("sse_convert_with_truncation_f64_to_i32");
+    codegen::gen_set_reg32(ctx, r);
+}
+pub fn instr_F20F2C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_f64(0);
+    ctx.builder
+        .call_fn1_f64_ret("sse_convert_with_truncation_f64_to_i32");
+    codegen::gen_set_reg32(ctx, r2);
+}
+pub fn instr_F30F2C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.reinterpret_i32_as_f32();
+    ctx.builder
+        .call_fn1_f32_ret("sse_convert_with_truncation_f32_to_i32");
+    codegen::gen_set_reg32(ctx, r);
+}
+pub fn instr_F30F2C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_f32(0);
+    ctx.builder
+        .call_fn1_f32_ret("sse_convert_with_truncation_f32_to_i32");
+    codegen::gen_set_reg32(ctx, r2);
+}
+
+pub fn instr_F20F2D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.reinterpret_i64_as_f64();
+    ctx.builder.call_fn1_f64_ret("sse_convert_f64_to_i32");
+    codegen::gen_set_reg32(ctx, r);
+}
+pub fn instr_F20F2D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_f64(0);
+    ctx.builder.call_fn1_f64_ret("sse_convert_f64_to_i32");
+    codegen::gen_set_reg32(ctx, r2);
+}
+pub fn instr_F30F2D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.reinterpret_i32_as_f32();
+    ctx.builder.call_fn1_f32_ret("sse_convert_f32_to_i32");
+    codegen::gen_set_reg32(ctx, r);
+}
+pub fn instr_F30F2D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_f32(0);
+    ctx.builder.call_fn1_f32_ret("sse_convert_f32_to_i32");
+    codegen::gen_set_reg32(ctx, r2);
+}
+
 pub fn instr_0F60_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     mmx_read64_mm_mem32(ctx, "instr_0F60", modrm_byte, r);
 }

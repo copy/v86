@@ -21,6 +21,9 @@ enum FunctionType {
     FN2_RET_TYPE_INDEX,
 
     FN1_RET_I64_TYPE_INDEX,
+    FN1_F32_RET_TYPE_INDEX,
+    FN1_F64_RET_TYPE_INDEX,
+
     FN2_I32_I64_TYPE_INDEX,
     FN2_I64_I32_TYPE_INDEX,
     FN2_I64_I32_RET_TYPE_INDEX,
@@ -298,6 +301,20 @@ impl WasmBuilder {
                     self.output.push(op::TYPE_I32);
                     self.output.push(1);
                     self.output.push(op::TYPE_I64);
+                },
+                FunctionType::FN1_F32_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN1_F64_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F64);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
                 },
                 FunctionType::FN2_I32_I64_TYPE_INDEX => {
                     self.output.push(op::TYPE_FUNC);
@@ -663,9 +680,21 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
+    pub fn load_aligned_f64(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_F64LOAD);
+        self.instruction_body.push(op::MEM_ALIGN64);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
     pub fn load_aligned_i64(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I64LOAD);
         self.instruction_body.push(op::MEM_ALIGN64);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_aligned_f32(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_F32LOAD);
+        self.instruction_body.push(op::MEM_ALIGN32);
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
@@ -765,15 +794,15 @@ impl WasmBuilder {
 
     pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
 
-    //pub fn reinterpret_i32_as_f32(&mut self) {
-    //    self.instruction_body.push(op::OP_F32REINTERPRETI32);
-    //}
+    pub fn reinterpret_i32_as_f32(&mut self) {
+        self.instruction_body.push(op::OP_F32REINTERPRETI32);
+    }
     //pub fn reinterpret_f32_as_i32(&mut self) {
     //    self.instruction_body.push(op::OP_I32REINTERPRETF32);
     //}
-    //pub fn reinterpret_i64_as_f64(&mut self) {
-    //    self.instruction_body.push(op::OP_F64REINTERPRETI64);
-    //}
+    pub fn reinterpret_i64_as_f64(&mut self) {
+        self.instruction_body.push(op::OP_F64REINTERPRETI64);
+    }
     //pub fn reinterpret_f64_as_i64(&mut self) {
     //    self.instruction_body.push(op::OP_I64REINTERPRETF64);
     //}
@@ -889,6 +918,12 @@ impl WasmBuilder {
     }
     pub fn call_fn1_ret_i64(&mut self, name: &str) {
         self.call_fn(name, FunctionType::FN1_RET_I64_TYPE_INDEX)
+    }
+    pub fn call_fn1_f32_ret(&mut self, name: &str) {
+        self.call_fn(name, FunctionType::FN1_F32_RET_TYPE_INDEX)
+    }
+    pub fn call_fn1_f64_ret(&mut self, name: &str) {
+        self.call_fn(name, FunctionType::FN1_F64_RET_TYPE_INDEX)
     }
     pub fn call_fn2(&mut self, name: &str) { self.call_fn(name, FunctionType::FN2_TYPE_INDEX) }
     pub fn call_fn2_i32_i64(&mut self, name: &str) {

@@ -4463,9 +4463,7 @@ pub unsafe fn instr_F20F2D(source: u64, r: i32) {
     // cvtsd2si r32, xmm/m64
     write_reg32(r, sse_convert_f64_to_i32(f64::from_bits(source)));
 }
-#[no_mangle]
 pub unsafe fn instr_F20F2D_reg(r1: i32, r2: i32) { instr_F20F2D(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F20F2D_mem(addr: i32, r: i32) {
     instr_F20F2D(return_on_pagefault!(safe_read64s(addr)), r);
 }
@@ -4473,9 +4471,7 @@ pub unsafe fn instr_F30F2D(source: f32, r: i32) {
     // cvtss2si r32, xmm1/m32
     write_reg32(r, sse_convert_f32_to_i32(source));
 }
-#[no_mangle]
 pub unsafe fn instr_F30F2D_reg(r1: i32, r2: i32) { instr_F30F2D(read_xmm_f32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
     instr_F30F2D(return_on_pagefault!(safe_read_f32(addr)), r);
 }
