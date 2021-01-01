@@ -84,18 +84,27 @@ function MouseAdapter(bus, screen_container)
             return false;
         }
 
-        if(e.type === "mousemove" || e.type === "touchmove")
-        {
-            return true;
-        }
+        const MOVE_MOUSE_WHEN_OVER_SCREEN_ONLY = true;
 
-        if(e.type === "mousewheel" || e.type === "DOMMouseScroll")
+        if(MOVE_MOUSE_WHEN_OVER_SCREEN_ONLY)
         {
             var parent = screen_container || document.body;
-            return is_child(e.target, parent);
+            return document.pointerLockElement || is_child(e.target, parent);
         }
+        else
+        {
+            if(e.type === "mousemove" || e.type === "touchmove")
+            {
+                return true;
+            }
 
-        return !e.target || e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA";
+            if(e.type === "mousewheel" || e.type === "DOMMouseScroll")
+            {
+                return is_child(e.target, parent);
+            }
+
+            return !e.target || e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA";
+        }
     }
 
     function touch_start_handler(e)
