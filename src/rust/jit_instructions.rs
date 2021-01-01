@@ -2983,9 +2983,8 @@ pub fn instr_DF_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 pub fn instr_DF_4_reg_jit(ctx: &mut JitContext, r: u32) {
     if r == 0 {
-        codegen::gen_move_registers_from_locals_to_memory(ctx);
-        codegen::gen_fn0_const(ctx.builder, "fpu_fnstsw_reg");
-        codegen::gen_move_registers_from_memory_to_locals(ctx);
+        codegen::gen_fn0_const_ret(ctx.builder, "fpu_load_status_word");
+        codegen::gen_set_reg16(ctx, regs::AX);
     }
     else {
         codegen::gen_trigger_ud(ctx);
