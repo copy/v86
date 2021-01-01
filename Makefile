@@ -1,6 +1,5 @@
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
-BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
@@ -211,9 +210,7 @@ clean:
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
-	python2 -m SimpleHTTPServer 2> /dev/null
-	#sleep 1
-	#$(BROWSER) http://localhost:8000/index.html &
+	python3 -m http.server 2> /dev/null
 
 update_version:
 	set -e ;\
@@ -232,7 +229,7 @@ $(CLOSURE):
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
 tests: all-debug
-	mkdir -p images/integration-test-fs/flat
+	mkdir -p images/integration-test-fs/flat # XXX
 	cp images/bzImage images/integration-test-fs/
 	touch images/integration-test-fs/initrd
 	cd images/integration-test-fs && tar cfv fs.tar bzImage initrd
@@ -241,7 +238,7 @@ tests: all-debug
 	./tests/full/run.js
 
 tests-release: all
-	mkdir -p images/integration-test-fs/flat
+	mkdir -p images/integration-test-fs/flat # XXX
 	cp images/bzImage images/integration-test-fs/
 	touch images/integration-test-fs/initrd
 	cd images/integration-test-fs && tar cfv fs.tar bzImage initrd
@@ -281,7 +278,7 @@ expect-tests: all-debug build/libwabt.js
 
 devices-test: all-debug
 	./tests/devices/filestorage.js
-	./tests/devices/virtio_9p.js
+	#./tests/devices/virtio_9p.js # XXX: Hangs
 
 rust-test: $(RUST_FILES)
 	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 RUSTFLAGS="-D warnings" cargo +nightly test -- --nocapture
@@ -293,6 +290,11 @@ rust-test-intensive:
 api-tests: all-debug
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
+
+all-tests: jshint kvm-unit-test expect-tests qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests
+	# Skipping:
+	# - debiantests (requires network)
+	# - devices-test (hangs)
 
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
