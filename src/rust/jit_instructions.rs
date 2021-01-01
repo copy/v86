@@ -1713,6 +1713,53 @@ pub fn instr32_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32_r(ctx, r2, r1);
 }
 
+pub fn instr16_8C_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    if r >= 6 {
+        codegen::gen_trigger_ud(ctx);
+    }
+    else {
+        codegen::gen_get_sreg(ctx, r);
+        let value_local = ctx.builder.set_new_local();
+        codegen::gen_safe_write16(ctx, &address_local, &value_local);
+        ctx.builder.free_local(value_local);
+    }
+    ctx.builder.free_local(address_local);
+}
+pub fn instr32_8C_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    if r >= 6 {
+        codegen::gen_trigger_ud(ctx);
+    }
+    else {
+        codegen::gen_get_sreg(ctx, r);
+        let value_local = ctx.builder.set_new_local();
+        codegen::gen_safe_write32(ctx, &address_local, &value_local);
+        ctx.builder.free_local(value_local);
+    }
+    ctx.builder.free_local(address_local);
+}
+pub fn instr16_8C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    if r2 >= 6 {
+        codegen::gen_trigger_ud(ctx);
+    }
+    else {
+        codegen::gen_get_sreg(ctx, r2);
+        codegen::gen_set_reg16(ctx, r1);
+    }
+}
+pub fn instr32_8C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    if r2 >= 6 {
+        codegen::gen_trigger_ud(ctx);
+    }
+    else {
+        codegen::gen_get_sreg(ctx, r2);
+        codegen::gen_set_reg32(ctx, r1);
+    }
+}
+
 pub fn instr16_8D_mem_jit(ctx: &mut JitContext, modrm_byte: u8, reg: u32) {
     ctx.cpu.prefixes |= SEG_PREFIX_ZERO;
     codegen::gen_modrm_resolve(ctx, modrm_byte);

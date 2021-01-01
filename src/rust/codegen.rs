@@ -166,6 +166,12 @@ pub fn gen_set_reg32(ctx: &mut JitContext, r: u32) {
         .set_local(&ctx.register_locals[r as usize]);
 }
 
+pub fn gen_get_sreg(ctx: &mut JitContext, r: u32) {
+    ctx.builder
+        .instruction_body
+        .load_aligned_u16(global_pointers::get_sreg_offset(r));
+}
+
 /// sign-extend a byte value on the stack and leave it on the stack
 pub fn sign_extend_i8(builder: &mut WasmBuilder) {
     builder.instruction_body.const_i32(24);
