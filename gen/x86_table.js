@@ -610,13 +610,13 @@ const encodings = [
     // mmx, sse
     // - skipped or missing are sse3+
 
-    { sse: 1, opcode: 0x0F10, e: 1 },
+    { sse: 1, opcode: 0x0F10, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F10, e: 1 },
-    { sse: 1, opcode: 0x660F10, e: 1 },
+    { sse: 1, opcode: 0x660F10, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF20F10, e: 1 },
-    { sse: 1, opcode: 0x0F11, e: 1 },
+    { sse: 1, opcode: 0x0F11, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F11, e: 1 },
-    { sse: 1, opcode: 0x660F11, e: 1 },
+    { sse: 1, opcode: 0x660F11, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF20F11, e: 1 },
     { sse: 1, opcode: 0x0F12, e: 1 },
     { sse: 1, opcode: 0x660F12, reg_ud: 1, e: 1 },
@@ -634,16 +634,16 @@ const encodings = [
     { sse: 1, opcode: 0x0F17, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F17, reg_ud: 1, e: 1 },
 
-    { sse: 1, opcode: 0x0F28, e: 1 },
-    { sse: 1, opcode: 0x660F28, e: 1 },
+    { sse: 1, opcode: 0x0F28, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F28, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F29, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F29, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F2A, e: 1, },
     { sse: 1, opcode: 0x660F2A, e: 1, },
     { sse: 1, opcode: 0xF20F2A, e: 1, },
     { sse: 1, opcode: 0xF30F2A, e: 1, },
-    { sse: 1, opcode: 0x0F2B, reg_ud: 1, e: 1 },
-    { sse: 1, opcode: 0x660F2B, reg_ud: 1, e: 1 },
+    { sse: 1, opcode: 0x0F2B, reg_ud: 1, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F2B, reg_ud: 1, e: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0F2C, e: 1, },
     { sse: 1, opcode: 0x660F2C, e: 1, },
@@ -875,7 +875,7 @@ const encodings = [
     { sse: 1, opcode: 0xF30FE6, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0FE6, e: 1, block_boundary: 1, }, // ud
     { sse: 1, opcode: 0x0FE7, e: 1, reg_ud: 1 },
-    { sse: 1, opcode: 0x660FE7, e: 1, reg_ud: 1, },
+    { sse: 1, opcode: 0x660FE7, e: 1, reg_ud: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0FE8, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660FE8, e: 1, custom: 1 },

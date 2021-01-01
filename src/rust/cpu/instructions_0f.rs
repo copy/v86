@@ -2153,7 +2153,6 @@ pub unsafe fn instr_0F6F_mem(addr: i32, r: i32) {
 pub unsafe fn instr_660F6F(source: reg128, r: i32) {
     // movdqa xmm, xmm/mem128
     // XXX: Aligned access or #gp
-    // XXX: Aligned read or #gp
     mov_rm_r128(source, r);
 }
 #[no_mangle]
