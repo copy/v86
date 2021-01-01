@@ -2131,7 +2131,7 @@ pub fn instr32_8C_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     else {
         codegen::gen_get_sreg(ctx, r);
         let value_local = ctx.builder.set_new_local();
-        codegen::gen_safe_write32(ctx, &address_local, &value_local);
+        codegen::gen_safe_write16(ctx, &address_local, &value_local);
         ctx.builder.free_local(value_local);
     }
     ctx.builder.free_local(address_local);

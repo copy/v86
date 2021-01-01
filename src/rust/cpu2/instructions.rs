@@ -1530,7 +1530,7 @@ pub unsafe fn instr32_8C_reg(r: i32, seg: i32) {
 #[no_mangle]
 pub unsafe fn instr32_8C_mem(addr: i32, seg: i32) {
     if instr_8C_check_sreg(seg) {
-        return_on_pagefault!(safe_write32(addr, *sreg.offset(seg as isize) as i32));
+        return_on_pagefault!(safe_write16(addr, *sreg.offset(seg as isize) as i32));
     };
 }
 #[no_mangle]
