@@ -69,7 +69,9 @@ pub union reg128 {
     pub f64_0: [f64; 2],
 }
 
+/// Setting this to true will make execution extremely slow
 pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
+
 pub const INTERPRETER_ITERATION_LIMIT: u32 = 1000;
 
 pub const FLAG_CARRY: i32 = 1;
