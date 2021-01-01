@@ -1105,24 +1105,87 @@ fn gen_rcr32(
     builder.set_local(dest_operand);
 }
 
+enum ShiftCount {
+    Local(WasmLocal),
+    Immediate(i32),
+}
+impl ShiftCount {
+    pub fn gen_get(builder: &mut WasmBuilder, count: &ShiftCount) {
+        match &count {
+            ShiftCount::Local(l) => builder.get_local(l),
+            ShiftCount::Immediate(i) => builder.const_i32(*i),
+        }
+    }
+}
+
 fn gen_shl32(
     builder: &mut WasmBuilder,
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
 ) {
-    builder.get_local(dest_operand);
-    match source_operand {
+    let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
+            let exit = builder.block_void();
             builder.get_local(l);
-            builder.const_i32(31);
+            builder.const_i32(31); // Note: mask can probably be avoided since wasm has the same semantics on shl_i32
             builder.and_i32();
+            let count = builder.tee_new_local();
+            builder.eqz_i32();
+            builder.br_if(exit);
+            ShiftCount::Local(count)
         },
         LocalOrImmediate::Immediate(i) => {
-            builder.const_i32(*i & 31);
+            if *i & 31 == 0 {
+                return;
+            }
+            ShiftCount::Immediate(*i & 31)
         },
     };
-    builder.call_fn2_ret("shl32");
+
+    builder.get_local(&dest_operand);
+    builder.const_i32(32);
+    ShiftCount::gen_get(builder, &count);
+    builder.sub_i32();
+    builder.shr_u_i32();
+    builder.const_i32(1);
+    builder.and_i32();
+    let b = builder.set_new_local();
+
+    builder.get_local(dest_operand);
+    ShiftCount::gen_get(builder, &count);
+    builder.shl_i32();
     builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(builder, dest_operand);
+    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW);
+
+    builder.const_i32(global_pointers::flags as i32);
+    codegen::gen_get_flags(builder);
+    builder.const_i32(!(FLAG_CARRY | FLAG_OVERFLOW));
+    builder.and_i32();
+    builder.get_local(&b);
+    builder.or_i32();
+    {
+        builder.get_local(&b);
+        builder.get_local(&dest_operand);
+        builder.const_i32(31);
+        builder.shr_u_i32();
+        builder.xor_i32();
+        builder.const_i32(11);
+        builder.shl_i32();
+        builder.const_i32(FLAG_OVERFLOW);
+        builder.and_i32();
+        builder.or_i32();
+    }
+    builder.store_aligned_i32(0);
+
+    builder.free_local(b);
+
+    if let ShiftCount::Local(l) = count {
+        builder.block_end();
+        builder.free_local(l);
+    }
 }
 fn gen_shr32(
     builder: &mut WasmBuilder,
