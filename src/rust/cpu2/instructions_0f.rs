@@ -784,29 +784,26 @@ pub unsafe fn instr_0F1F_mem(addr: i32, r: i32) {}
 pub unsafe fn instr_0F20(r: i32, creg: i32) {
     if 0 != *cpl {
         trigger_gp(0);
-        return;
     }
-    else {
-        match creg {
-            0 => {
-                write_reg32(r, *cr);
-            },
-            2 => {
-                write_reg32(r, *cr.offset(2));
-            },
-            3 => {
-                write_reg32(r, *cr.offset(3));
-            },
-            4 => {
-                write_reg32(r, *cr.offset(4));
-            },
-            _ => {
-                dbg_log!("{}", creg);
-                undefined_instruction();
-            },
-        }
-        return;
-    };
+
+    match creg {
+        0 => {
+            write_reg32(r, *cr);
+        },
+        2 => {
+            write_reg32(r, *cr.offset(2));
+        },
+        3 => {
+            write_reg32(r, *cr.offset(3));
+        },
+        4 => {
+            write_reg32(r, *cr.offset(4));
+        },
+        _ => {
+            dbg_log!("{}", creg);
+            undefined_instruction();
+        },
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_0F21(r: i32, mut dreg_index: i32) {
@@ -814,28 +811,27 @@ pub unsafe fn instr_0F21(r: i32, mut dreg_index: i32) {
         trigger_gp(0);
         return;
     }
-    else {
-        if dreg_index == 4 || dreg_index == 5 {
-            if 0 != *cr.offset(4) & CR4_DE {
-                dbg_log!("#ud mov dreg 4/5 with cr4.DE set");
-                trigger_ud();
-                return;
-            }
-            else {
-                // DR4 and DR5 refer to DR6 and DR7 respectively
-                dreg_index += 2
-            }
+
+    if dreg_index == 4 || dreg_index == 5 {
+        if 0 != *cr.offset(4) & CR4_DE {
+            dbg_log!("#ud mov dreg 4/5 with cr4.DE set");
+            trigger_ud();
+            return;
         }
-        write_reg32(r, *dreg.offset(dreg_index as isize));
-        if false {
-            dbg_log!(
-                "read dr{}: {:x}",
-                dreg_index,
-                *dreg.offset(dreg_index as isize)
-            );
+        else {
+            // DR4 and DR5 refer to DR6 and DR7 respectively
+            dreg_index += 2
         }
-        return;
-    };
+    }
+    write_reg32(r, *dreg.offset(dreg_index as isize));
+
+    if false {
+        dbg_log!(
+            "read dr{}: {:x}",
+            dreg_index,
+            *dreg.offset(dreg_index as isize)
+        );
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_0F22(r: i32, creg: i32) {
@@ -843,55 +839,53 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
         trigger_gp(0);
         return;
     }
-    else {
-        let mut data: i32 = read_reg32(r);
-        // mov cr, addr
-        match creg {
-            0 => {
-                if false {
-                    dbg_log!("cr0 <- {:x}", data);
+
+    let mut data: i32 = read_reg32(r);
+    // mov cr, addr
+    match creg {
+        0 => {
+            if false {
+                dbg_log!("cr0 <- {:x}", data);
+            }
+            set_cr0(data);
+        },
+        2 => {
+            dbg_log!("cr2 <- {:x}", data);
+            *cr.offset(2) = data
+        },
+        3 => {
+            if false {
+                dbg_log!("cr3 <- {:x}", data);
+            }
+            data &= !0b111111100111;
+            dbg_assert!(data & 0xFFF == 0, "TODO");
+            *cr.offset(3) = data;
+            clear_tlb();
+        },
+        4 => {
+            dbg_log!("cr4 <- {:x}", *cr.offset(4));
+            if 0 != data as u32
+                & ((1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19) as u32 | 0xFFC00000)
+            {
+                dbg_log!("trigger_gp: Invalid cr4 bit");
+                trigger_gp(0);
+                return;
+            }
+            else {
+                if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE) {
+                    full_clear_tlb();
                 }
-                set_cr0(data);
-            },
-            2 => {
-                dbg_log!("cr2 <- {:x}", data);
-                *cr.offset(2) = data
-            },
-            3 => {
-                if false {
-                    dbg_log!("cr3 <- {:x}", data);
+                *cr.offset(4) = data;
+                if 0 != *cr.offset(4) & CR4_PAE {
+                    dbg_assert!(false);
                 }
-                data &= !0b111111100111;
-                dbg_assert!(data & 0xFFF == 0, "TODO");
-                *cr.offset(3) = data;
-                clear_tlb();
-            },
-            4 => {
-                dbg_log!("cr4 <- {:x}", *cr.offset(4));
-                if 0 != data as u32
-                    & ((1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19) as u32 | 0xFFC00000)
-                {
-                    dbg_log!("trigger_gp: Invalid cr4 bit");
-                    trigger_gp(0);
-                    return;
-                }
-                else {
-                    if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE) {
-                        full_clear_tlb();
-                    }
-                    *cr.offset(4) = data;
-                    if 0 != *cr.offset(4) & CR4_PAE {
-                        dbg_assert!(false);
-                    }
-                }
-            },
-            _ => {
-                dbg_log!("{}", creg);
-                undefined_instruction();
-            },
-        }
-        return;
-    };
+            }
+        },
+        _ => {
+            dbg_log!("{}", creg);
+            undefined_instruction();
+        },
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_0F23(r: i32, mut dreg_index: i32) {
@@ -899,28 +893,26 @@ pub unsafe fn instr_0F23(r: i32, mut dreg_index: i32) {
         trigger_gp(0);
         return;
     }
-    else {
-        if dreg_index == 4 || dreg_index == 5 {
-            if 0 != *cr.offset(4) & CR4_DE {
-                dbg_log!("#ud mov dreg 4/5 with cr4.DE set");
-                trigger_ud();
-                return;
-            }
-            else {
-                // DR4 and DR5 refer to DR6 and DR7 respectively
-                dreg_index += 2
-            }
+
+    if dreg_index == 4 || dreg_index == 5 {
+        if 0 != *cr.offset(4) & CR4_DE {
+            dbg_log!("#ud mov dreg 4/5 with cr4.DE set");
+            trigger_ud();
+            return;
         }
-        *dreg.offset(dreg_index as isize) = read_reg32(r);
-        if false {
-            dbg_log!(
-                "write dr{}: {:x}",
-                dreg_index,
-                *dreg.offset(dreg_index as isize)
-            );
+        else {
+            // DR4 and DR5 refer to DR6 and DR7 respectively
+            dreg_index += 2
         }
-        return;
-    };
+    }
+    *dreg.offset(dreg_index as isize) = read_reg32(r);
+    if false {
+        dbg_log!(
+            "write dr{}: {:x}",
+            dreg_index,
+            *dreg.offset(dreg_index as isize)
+        );
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_0F24() { undefined_instruction(); }
