@@ -218,7 +218,10 @@ function VGAScreen(cpu, bus, vga_memory_size)
     io.register_read(0x3CC, this, this.port3CC_read);
 
     io.register_write_consecutive(0x3D4, this, this.port3D4_write, this.port3D5_write);
-    io.register_read(0x3D5, this, this.port3D5_read);
+    io.register_read(0x3D5, this, this.port3D5_read, () => {
+        dbg_log("Warning: 16-bit read from 3D5", LOG_VGA);
+        return this.port3D5_read();
+    });
 
     io.register_read(0x3D4, this, function() { dbg_log("3D4 read", LOG_VGA); return 0; });
     io.register_read(0x3CA, this, function() { dbg_log("3CA read", LOG_VGA); return 0; });

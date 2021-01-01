@@ -217,8 +217,11 @@ function SerialRecordingAdapter(bus)
 function SerialAdapterXtermJS(element, bus)
 {
     const serial = this;
+
     var term = new window["Terminal"]();
     term.open(document.getElementById("terminal"));
+    term["setOption"]("logLevel", "off");
+
     element.style.display = "none";
     term["onData"](function(data) {
         bus.send("serial0-input", data.charCodeAt(0));
