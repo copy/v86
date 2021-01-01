@@ -93,7 +93,7 @@
               (get_local $l0)))
           (if $I5
             (i32.and
-              (i32.load
+              (i32.load8_u
                 (i32.const 580))
               (i32.const 12))
             (then

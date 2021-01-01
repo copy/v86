@@ -108,7 +108,7 @@
                 (i32.const 32)))
             (if $I6
               (i32.and
-                (i32.load
+                (i32.load8_u
                   (i32.const 580))
                 (i32.const 12))
               (then

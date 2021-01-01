@@ -1072,7 +1072,8 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
     let cr0_offset = global_pointers::get_creg_offset(0);
 
-    ctx.builder.instruction_body.load_aligned_i32(cr0_offset);
+    dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
+    ctx.builder.instruction_body.load_u8(cr0_offset);
     ctx.builder
         .instruction_body
         .const_i32((regs::CR0_EM | regs::CR0_TS) as i32);
@@ -1094,7 +1095,8 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_mmx_void(); return; }
     let cr0_offset = global_pointers::get_creg_offset(0);
 
-    ctx.builder.instruction_body.load_aligned_i32(cr0_offset);
+    dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
+    ctx.builder.instruction_body.load_u8(cr0_offset);
     ctx.builder
         .instruction_body
         .const_i32((regs::CR0_EM | regs::CR0_TS) as i32);
