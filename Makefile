@@ -43,13 +43,10 @@ CLOSURE_SOURCE_MAP=\
 		#--jscomp_error newCheckTypes\
 
 CLOSURE_FLAGS=\
-		--js lib/closure-base.js\
 		--generate_exports\
 		--externs src/externs.js\
 		--warning_level VERBOSE\
 		--jscomp_error accessControls\
-		--jscomp_error ambiguousFunctionDecl\
-		--jscomp_error checkEventfulObjectDisposal\
 		--jscomp_error checkRegExp\
 		--jscomp_error checkTypes\
 		--jscomp_error checkVars\
@@ -59,12 +56,9 @@ CLOSURE_FLAGS=\
 		--jscomp_error deprecated\
 		--jscomp_error deprecatedAnnotations\
 		--jscomp_error duplicateMessage\
-		--jscomp_error es3\
 		--jscomp_error es5Strict\
 		--jscomp_error externsValidation\
-		--jscomp_error fileoverviewTags\
 		--jscomp_error globalThis\
-		--jscomp_error internetExplorerChecks\
 		--jscomp_error invalidCasts\
 		--jscomp_error misplacedTypeAnnotation\
 		--jscomp_error missingGetCssName\

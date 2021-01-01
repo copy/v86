@@ -1,5 +1,9 @@
 "use strict";
 
+var goog = goog || {};
+goog.exportSymbol = function() {};
+goog.exportProperty = function() {};
+
 var v86util = v86util || {};
 
 // pad string with spaces on the right
