@@ -72,9 +72,6 @@ pub const opstats_unguarded_register_buffer: *mut u32 = 0x20000 as *mut u32;
 pub const opstats_wasm_size: *mut u32 = 0x28000 as *mut u32;
 pub const tlb_data: *mut i32 = 0x400000 as *mut i32;
 
-pub const jit_page_first_entry: *mut u32 = 0x800000 as *mut u32; // 2**20 32-bit words = 4MB
-pub const jit_cache_array: u32 = 0xC00000; // jit_cache_array::SIZE * sizeof(jit_cache_array::Entry) = 0x40000 * 24 = 6MB
-
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     (unsafe { reg32.offset(r as isize) }) as u32

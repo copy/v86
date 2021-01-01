@@ -429,7 +429,7 @@ impl WasmBuilder {
         self.output.push(op::EXT_MEMORY);
 
         self.output.push(0); // memory flag, 0 for no maximum memory limit present
-        write_leb_u32(&mut self.output, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
+        write_leb_u32(&mut self.output, 128); // initial memory length of 128 pages, takes 2 bytes in leb128
 
         let new_import_count = self.import_count + 1;
         self.set_import_count(new_import_count);

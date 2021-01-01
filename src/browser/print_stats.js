@@ -89,7 +89,6 @@ const print_stats = {
         const nonglobal_tlb_entries = tlb_entries - global_tlb_entries;
 
         text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
-        text += "CACHE_UNUSED=" + cpu.wm.exports["jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
         text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 

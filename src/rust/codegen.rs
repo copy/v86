@@ -969,6 +969,7 @@ pub fn gen_safe_read_write(
     ctx.builder.free_local(phys_addr_local);
 }
 
+#[cfg(debug_assertions)]
 #[no_mangle]
 pub fn bug_gen_safe_read_write_page_fault(bits: i32, addr: u32) {
     dbg_log!("bug: gen_safe_read_write_page_fault {} {:x}", bits, addr);
