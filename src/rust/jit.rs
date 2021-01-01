@@ -1203,6 +1203,35 @@ fn jit_generate_module(
                                 next_block_addr,
                             );
                         }
+                        else if next_block_addr == block.addr {
+                            // for qnx: Heuristic to terminated endless loops
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+                            if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+                                ctx.builder.get_local(loop_limit_local);
+                                ctx.builder.const_i32(-1);
+                                ctx.builder.add_i32();
+                                ctx.builder.tee_local(loop_limit_local);
+                                ctx.builder.eqz_i32();
+                                if cfg!(feature = "profiler") {
+                                    ctx.builder.if_void();
+                                    codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+                                    ctx.builder.br(ctx.exit_label);
+                                    ctx.builder.block_end();
+                                }
+                                else {
+                                    ctx.builder.br_if(ctx.exit_label);
+                                }
+                            }
+                        }
 
                         if next_addr
                             .as_ref()
@@ -1274,37 +1303,20 @@ fn jit_generate_module(
                                     == next_block_branch_taken_addr & 0xFFF
                             );
 
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
-                            if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
-                            }
-                            else {
-                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                            }
-
-                            if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-                                ctx.builder.get_local(loop_limit_local);
-                                ctx.builder.const_i32(-1);
-                                ctx.builder.add_i32();
-                                ctx.builder.tee_local(loop_limit_local);
-                                ctx.builder.eqz_i32();
-                                if cfg!(feature = "profiler") {
-                                    ctx.builder.if_void();
-                                    codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-                                    ctx.builder.br(ctx.exit_label);
-                                    ctx.builder.block_end();
-                                }
-                                else {
-                                    ctx.builder.br_if(ctx.exit_label);
-                                }
-                            }
-
                             if Page::page_of(next_block_branch_taken_addr)
                                 != Page::page_of(block.addr)
                             {
+                                codegen::gen_set_eip_low_bits(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                );
+                                if jump_offset_is_32 {
+                                    codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                }
+                                else {
+                                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                                }
+
                                 codegen::gen_profiler_stat_increment(
                                     ctx.builder,
                                     stat::CONDITIONAL_JUMP_PAGE_CHANGE,
@@ -1322,6 +1334,37 @@ fn jit_generate_module(
                                     block.addr,
                                     next_block_branch_taken_addr,
                                 );
+                            }
+                            else if next_block_branch_taken_addr <= block.addr {
+                                // heuristic to terminate "delay loops" etc
+                                // for Linux 2.x and 3.x, oberon, windows 95
+                                codegen::gen_set_eip_low_bits(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                );
+                                if jump_offset_is_32 {
+                                    codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                }
+                                else {
+                                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                                }
+
+                                if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+                                    ctx.builder.get_local(loop_limit_local);
+                                    ctx.builder.const_i32(-1);
+                                    ctx.builder.add_i32();
+                                    ctx.builder.tee_local(loop_limit_local);
+                                    ctx.builder.eqz_i32();
+                                    if cfg!(feature = "profiler") {
+                                        ctx.builder.if_void();
+                                        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+                                        ctx.builder.br(ctx.exit_label);
+                                        ctx.builder.block_end();
+                                    }
+                                    else {
+                                        ctx.builder.br_if(ctx.exit_label);
+                                    }
+                                }
                             }
 
                             if next_addr
