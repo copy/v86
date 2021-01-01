@@ -362,19 +362,23 @@ pub unsafe fn setcc_reg(condition: bool, r: i32) { write_reg8(r, condition as i3
 pub unsafe fn setcc_mem(condition: bool, addr: i32) {
     return_on_pagefault!(safe_write8(addr, condition as i32));
 }
+
 #[no_mangle]
 pub unsafe fn fxsave(addr: i32) {
-    return_on_pagefault!(writable_or_pagefault(addr as i32, 512));
-    safe_write16(addr.wrapping_add(0) as i32, (*fpu_control_word).into()).unwrap();
-    safe_write16(addr.wrapping_add(2) as i32, fpu_load_status_word().into()).unwrap();
-    safe_write8(addr.wrapping_add(4) as i32, !*fpu_stack_empty as i32 & 255).unwrap();
-    safe_write16(addr.wrapping_add(6) as i32, *fpu_opcode).unwrap();
-    safe_write32(addr.wrapping_add(8) as i32, *fpu_ip).unwrap();
-    safe_write16(addr.wrapping_add(12) as i32, *fpu_ip_selector).unwrap();
-    safe_write32(addr.wrapping_add(16) as i32, *fpu_dp).unwrap();
-    safe_write16(addr.wrapping_add(20) as i32, *fpu_dp_selector).unwrap();
-    safe_write32(addr.wrapping_add(24) as i32, *mxcsr).unwrap();
-    safe_write32(addr.wrapping_add(28) as i32, MXCSR_MASK).unwrap();
+    dbg_assert!(addr & 0xF == 0, "TODO: #gp");
+    return_on_pagefault!(writable_or_pagefault(addr, 288));
+
+    safe_write16(addr + 0, (*fpu_control_word).into()).unwrap();
+    safe_write16(addr + 2, fpu_load_status_word().into()).unwrap();
+    safe_write8(addr + 4, !*fpu_stack_empty as i32 & 0xFF).unwrap();
+    safe_write16(addr + 6, *fpu_opcode).unwrap();
+    safe_write32(addr + 8, *fpu_ip).unwrap();
+    safe_write16(addr + 12, *fpu_ip_selector).unwrap();
+    safe_write32(addr + 16, *fpu_dp).unwrap();
+    safe_write16(addr + 20, *fpu_dp_selector).unwrap();
+
+    safe_write32(addr + 24, *mxcsr).unwrap();
+    safe_write32(addr + 28, MXCSR_MASK).unwrap();
 
     for i in 0..8 {
         let reg_index = i + *fpu_stack_ptr as i32 & 7;
@@ -385,56 +389,41 @@ pub unsafe fn fxsave(addr: i32) {
     // instruction may not save these registers. This behavior is
     // implementation dependent.
     for i in 0..8 {
-        safe_write128(
-            addr.wrapping_add(160).wrapping_add(i << 4) as i32,
-            *reg_xmm.offset(i as isize),
-        )
-        .unwrap();
+        safe_write128(addr + 160 + (i << 4), *reg_xmm.offset(i as isize)).unwrap();
     }
 }
 #[no_mangle]
 pub unsafe fn fxrstor(addr: i32) {
-    return_on_pagefault!(readable_or_pagefault(addr, 512));
+    dbg_assert!(addr & 0xF == 0, "TODO: #gp");
+    return_on_pagefault!(readable_or_pagefault(addr, 288));
 
-    let new_mxcsr = safe_read32s(addr.wrapping_add(24) as i32).unwrap();
+    let new_mxcsr = safe_read32s(addr + 24).unwrap();
+
     if 0 != new_mxcsr & !MXCSR_MASK {
         dbg_log!("#gp Invalid mxcsr bits");
         trigger_gp(0);
         return;
     }
-    else {
-        set_control_word(safe_read16(addr.wrapping_add(0) as i32).unwrap() as u16);
-        fpu_set_status_word(safe_read16(addr.wrapping_add(2) as i32).unwrap() as u16);
-        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() as u8;
-        *fpu_opcode = safe_read16(addr.wrapping_add(6) as i32).unwrap();
-        *fpu_ip = safe_read32s(addr.wrapping_add(8) as i32).unwrap();
-        *fpu_ip = safe_read16(addr.wrapping_add(12) as i32).unwrap();
-        *fpu_dp = safe_read32s(addr.wrapping_add(16) as i32).unwrap();
-        *fpu_dp_selector = safe_read16(addr.wrapping_add(20) as i32).unwrap();
-        set_mxcsr(new_mxcsr);
 
-        for i in 0..8 {
-            let reg_index = *fpu_stack_ptr as i32 + i & 7;
-            *fpu_st.offset(reg_index as isize) =
-                fpu_load_m80(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
-        }
+    set_control_word(safe_read16(addr + 0).unwrap() as u16);
+    fpu_set_status_word(safe_read16(addr + 2).unwrap() as u16);
+    *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() as u8;
+    *fpu_opcode = safe_read16(addr + 6).unwrap();
+    *fpu_ip = safe_read32s(addr + 8).unwrap();
+    *fpu_ip_selector = safe_read16(addr + 12).unwrap();
+    *fpu_dp = safe_read32s(addr + 16).unwrap();
+    *fpu_dp_selector = safe_read16(addr + 20).unwrap();
 
-        for i in 0..8 {
-            (*reg_xmm.offset(i as isize)).u32_0[0] =
-                safe_read32s(addr.wrapping_add(160).wrapping_add(i << 4).wrapping_add(0)).unwrap()
-                    as u32;
-            (*reg_xmm.offset(i as isize)).u32_0[1] =
-                safe_read32s(addr.wrapping_add(160).wrapping_add(i << 4).wrapping_add(4) as i32)
-                    .unwrap() as u32;
-            (*reg_xmm.offset(i as isize)).u32_0[2] =
-                safe_read32s(addr.wrapping_add(160).wrapping_add(i << 4).wrapping_add(8) as i32)
-                    .unwrap() as u32;
-            (*reg_xmm.offset(i as isize)).u32_0[3] =
-                safe_read32s(addr.wrapping_add(160).wrapping_add(i << 4).wrapping_add(12) as i32)
-                    .unwrap() as u32;
-        }
-        return;
-    };
+    set_mxcsr(new_mxcsr);
+
+    for i in 0..8 {
+        let reg_index = *fpu_stack_ptr as i32 + i & 7;
+        *fpu_st.offset(reg_index as isize) = fpu_load_m80(addr + 32 + (i << 4)).unwrap();
+    }
+
+    for i in 0..8 {
+        *reg_xmm.offset(i as isize) = safe_read128s(addr + 160 + (i << 4)).unwrap();
+    }
 }
 
 #[no_mangle]
