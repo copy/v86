@@ -35,6 +35,7 @@ function SerialAdapter(element, bus)
     {
         this.destroy();
 
+        element.style.display = "block";
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
@@ -206,5 +207,25 @@ function SerialRecordingAdapter(bus)
     bus.register("serial0-output-char", function(chr)
     {
         this.text += chr;
+    }, this);
+}
+
+/**
+ * @constructor
+ * @param {BusConnector} bus
+ */
+function SerialAdapterXtermJS(element, bus)
+{
+    const serial = this;
+    var term = new window["Terminal"]();
+    term.open(document.getElementById("terminal"));
+    element.style.display = "none";
+    term["onData"](function(data) {
+        bus.send("serial0-input", data.charCodeAt(0));
+    });
+
+    bus.register("serial0-output-char", function(chr)
+    {
+        term.write(chr);
     }, this);
 }

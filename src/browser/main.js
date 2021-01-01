@@ -1291,8 +1291,6 @@
             $("take_screenshot").blur();
         };
 
-        $("serial").style.display = "block";
-
         window.addEventListener("keydown", ctrl_w_rescue, false);
         window.addEventListener("keyup", ctrl_w_rescue, false);
         window.addEventListener("blur", ctrl_w_rescue, false);

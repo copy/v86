@@ -272,7 +272,9 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
     if(options["serial_container"])
     {
-        this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
+        //this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
+        this.serial_adapter = new SerialAdapterXtermJS(options["serial_container"], this.bus);
+        //this.recording_adapter = new SerialRecordingAdapter(this.bus);
     }
 
     // ugly, but required for closure compiler compilation
