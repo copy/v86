@@ -35,9 +35,13 @@ use cpu2::memory::{
 };
 use page::Page;
 
-fn count_until_end_of_page(direction: i32, size: i32, addr: i32) -> u32 {
-    (if direction == 1 { (0x1000 - (addr & 0xFFF)) / size } else { (addr & 0xFFF) / size + 1 })
-        as u32
+fn count_until_end_of_page(direction: i32, size: i32, addr: u32) -> u32 {
+    (if direction == 1 {
+        (0x1000 - (addr & 0xFFF)) / size as u32
+    }
+    else {
+        (addr & 0xFFF) / size as u32 + 1
+    }) as u32
 }
 
 #[derive(Copy, Clone)]
@@ -140,7 +144,7 @@ unsafe fn string_instruction(
         _ => 0,
     };
 
-    let is_aligned = src & (size_bytes - 1) == 0 && dst & (size_bytes - 1) == 0;
+    let is_aligned = (ds + src) & (size_bytes - 1) == 0 && (es + dst) & (size_bytes - 1) == 0;
     let mut rep_fast = is_aligned
         && is_asize_32 // 16-bit address wraparound
         && match rep {
@@ -195,14 +199,14 @@ unsafe fn string_instruction(
             count,
             match instruction {
                 Instruction::Movs | Instruction::Cmps => u32::min(
-                    count_until_end_of_page(direction, size_bytes, src),
-                    count_until_end_of_page(direction, size_bytes, dst),
+                    count_until_end_of_page(direction, size_bytes, phys_src),
+                    count_until_end_of_page(direction, size_bytes, phys_dst),
                 ),
                 Instruction::Stos | Instruction::Ins | Instruction::Scas => {
-                    count_until_end_of_page(direction, size_bytes, dst)
+                    count_until_end_of_page(direction, size_bytes, phys_dst)
                 },
                 Instruction::Lods | Instruction::Outs => {
-                    count_until_end_of_page(direction, size_bytes, src)
+                    count_until_end_of_page(direction, size_bytes, phys_src)
                 },
             },
         );
