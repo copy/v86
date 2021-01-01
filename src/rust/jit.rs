@@ -337,18 +337,17 @@ pub struct JitState {
 
 impl JitState {
     pub fn create_and_initialise() -> JitState {
-        let mut wasm_builder = WasmBuilder::new();
         jit_cache_array::clear();
-        wasm_builder.init();
 
         // don't assign 0 (XXX: Check)
         let wasm_table_indices = 1..=(WASM_TABLE_SIZE - 1) as u16;
+
         JitState {
             hot_pages: [0; HASH_PRIME as usize],
             wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
             wasm_table_index_pending_free: vec![],
             entry_points: HashMap::new(),
-            wasm_builder,
+            wasm_builder: WasmBuilder::new(),
         }
     }
 }

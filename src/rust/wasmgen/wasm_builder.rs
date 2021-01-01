@@ -76,7 +76,7 @@ impl WasmLocalI64 {
 
 impl WasmBuilder {
     pub fn new() -> Self {
-        WasmBuilder {
+        let mut b = WasmBuilder {
             output: Vec::with_capacity(256),
             instruction_body: Vec::with_capacity(256),
 
@@ -93,10 +93,12 @@ impl WasmBuilder {
             free_locals_i64: Vec::with_capacity(8),
             local_count: 0,
             arg_local_initial_state: WasmLocal(0),
-        }
+        };
+        b.init();
+        b
     }
 
-    pub fn init(&mut self) {
+    fn init(&mut self) {
         self.output.extend("\0asm".as_bytes());
 
         // wasm version in leb128, 4 bytes
@@ -534,7 +536,7 @@ mod tests {
     #[test]
     fn import_table_management() {
         let mut w = WasmBuilder::new();
-        w.init();
+
         assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
         assert_eq!(1, w.get_fn_idx("bar", FN1_TYPE_INDEX));
         assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
@@ -544,7 +546,6 @@ mod tests {
     #[test]
     fn builder_test() {
         let mut m = WasmBuilder::new();
-        m.init();
 
         let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
         m.instruction_body.call_fn(foo_index);
