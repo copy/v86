@@ -1,21 +1,13 @@
 #![allow(non_snake_case, non_upper_case_globals, unused_variables)]
 
 extern "C" {
-    #[no_mangle]
     fn get_rand_int() -> i32;
-    #[no_mangle]
     fn cpuid();
-    #[no_mangle]
     fn lsl(r: i32, v: i32) -> i32;
-    #[no_mangle]
     fn lar(r: i32, v: i32) -> i32;
-    #[no_mangle]
     fn verw(r: i32);
-    #[no_mangle]
     fn verr(r: i32);
-    #[no_mangle]
     fn load_tr(v: i32);
-    #[no_mangle]
     fn load_ldt(v: i32);
 }
 

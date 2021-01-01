@@ -1,7 +1,6 @@
 #![allow(non_snake_case, unused_variables)]
 
 extern "C" {
-    #[no_mangle]
     fn hlt_op();
 }
 

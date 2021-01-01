@@ -1,20 +1,12 @@
 extern "C" {
-    #[no_mangle]
     fn mmap_read8(addr: u32) -> i32;
-    #[no_mangle]
     fn mmap_read16(addr: u32) -> i32;
-    #[no_mangle]
     fn mmap_read32(addr: u32) -> i32;
 
-    #[no_mangle]
     pub fn mmap_write8(addr: u32, value: i32);
-    #[no_mangle]
     pub fn mmap_write16(addr: u32, value: i32);
-    #[no_mangle]
     pub fn mmap_write32(addr: u32, value: i32);
-    #[no_mangle]
     pub fn mmap_write64(addr: u32, v0: i32, v1: i32);
-    #[no_mangle]
     pub fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
 }
 

@@ -1,31 +1,19 @@
 #![allow(non_upper_case_globals)]
 
 extern "C" {
-    #[no_mangle]
     fn cpu_exception_hook(interrupt: i32) -> bool;
-    #[no_mangle]
     fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
-    //#[no_mangle]
     //fn logop(addr: i32, op: i32);
-    #[no_mangle]
     fn microtick() -> f64;
-    #[no_mangle]
     fn call_indirect1(f: i32, x: u16);
-    #[no_mangle]
     fn pic_acknowledge();
 
-    #[no_mangle]
     pub fn io_port_read8(port: i32) -> i32;
-    #[no_mangle]
     pub fn io_port_read16(port: i32) -> i32;
-    #[no_mangle]
     pub fn io_port_read32(port: i32) -> i32;
 
-    #[no_mangle]
     pub fn io_port_write8(port: i32, value: i32);
-    #[no_mangle]
     pub fn io_port_write16(port: i32, value: i32);
-    #[no_mangle]
     pub fn io_port_write32(port: i32, value: i32);
 }
 
