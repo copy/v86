@@ -369,6 +369,7 @@ pub unsafe fn switch_cs_real_mode(selector: i32) {
     *sreg.offset(CS as isize) = selector as u16;
     *segment_is_null.offset(CS as isize) = false;
     *segment_offsets.offset(CS as isize) = selector << 4;
+    update_cs_size(false);
 }
 
 pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {
