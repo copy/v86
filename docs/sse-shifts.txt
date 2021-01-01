@@ -1,0 +1,39 @@
+   0F F1     PSLLW 	mm 	mm/m64 	       mmx 	       Shift Packed Data Left Logical
+66 0F F1     PSLLW 	xmm 	xmm/m128       sse2 	       Shift Packed Data Left Logical
+   0F F2     PSLLD 	mm 	mm/m64 	       mmx 	       Shift Packed Data Left Logical
+66 0F F2     PSLLD 	xmm 	xmm/m128       sse2 	       Shift Packed Data Left Logical
+   0F F3     PSLLQ 	mm 	mm/m64 	       mmx 	       Shift Packed Data Left Logical
+66 0F F3     PSLLQ 	xmm 	xmm/m128       sse2 	       Shift Packed Data Left Logical
+
+   0F E1     PSRAW 	mm 	mm/m64 	       mmx             Shift Packed Data Right Arithmetic
+66 0F E1     PSRAW 	xmm 	xmm/m128       sse2	       Shift Packed Data Right Arithmetic
+   0F E2     PSRAD 	mm 	mm/m64 	       mmx	       Shift Packed Data Right Arithmetic
+66 0F E2     PSRAD 	xmm 	xmm/m128       sse2	       Shift Packed Data Right Arithmetic
+
+   0F D1     PSRLW 	mm 	mm/m64 	       mmx 	       Shift Packed Data Right Logical
+66 0F D1     PSRLW 	xmm 	xmm/m128       sse2 	       Shift Packed Data Right Logical
+   0F D2     PSRLD 	mm 	mm/m64 	       mmx 	       Shift Packed Data Right Logical
+66 0F D2     PSRLD 	xmm 	xmm/m128       sse2 	       Shift Packed Data Right Logical
+   0F D3     PSRLQ 	mm 	mm/m64 	       mmx 	       Shift Packed Data Right Logical
+66 0F D3     PSRLQ 	xmm 	xmm/m128       sse2 	       Shift Packed Data Right Logical
+
+   0F 71     PSRLW 	mm 	imm8 	       mmx 	       Shift Packed Data Right Logical
+66 0F 71     PSRLW 	xmm 	imm8 	       sse2 	       Shift Packed Data Right Logical
+   0F 71     PSRAW 	mm 	imm8 	       mmx 	       Shift Packed Data Right Arithmetic
+66 0F 71     PSRAW 	xmm 	imm8 	       sse2 	       Shift Packed Data Right Arithmetic
+   0F 71     PSLLW 	mm 	imm8 	       mmx 	       Shift Packed Data Left Logical
+66 0F 71     PSLLW 	xmm 	imm8 	       sse2 	       Shift Packed Data Left Logical
+
+   0F 72     PSRLD 	mm 	imm8 	       mmx 	       Shift Double Quadword Right Logical
+66 0F 72     PSRLD 	xmm 	imm8 	       sse2 	       Shift Double Quadword Right Logical
+   0F 72     PSRAD 	mm 	imm8 	       mmx 	       Shift Packed Data Right Arithmetic
+66 0F 72     PSRAD 	xmm 	imm8 	       sse2 	       Shift Packed Data Right Arithmetic
+   0F 72     PSLLD 	mm 	imm8 	       mmx 	       Shift Packed Data Left Logical
+66 0F 72     PSLLD 	xmm 	imm8 	       sse2 	       Shift Packed Data Left Logical
+
+   0F 73     PSRLQ 	mm 	imm8 	       mmx 	       Shift Packed Data Right Logical
+66 0F 73     PSRLQ 	xmm 	imm8 	       sse2 	       Shift Packed Data Right Logical
+66 0F 73     PSRLDQ 	xmm 	imm8 	       sse2 	       Shift Double Quadword Right Logical
+   0F 73     PSLLQ 	mm 	imm8 	       mmx 	       Shift Packed Data Left Logical
+66 0F 73     PSLLQ 	xmm 	imm8 	       sse2 	       Shift Packed Data Left Logical
+66 0F 73     PSLLDQ 	xmm 	imm8 	       sse2 	       Shift Double Quadword Left Logical
