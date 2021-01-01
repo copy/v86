@@ -240,14 +240,10 @@
             },
             {
                 id: "oberon",
-                // https://lists.inf.ethz.ch/pipermail/oberon/2013/006844.html
-                fda: {
-                    "url": HOST + "images/oberon-boot.dsk",
-                    "size": 1440 * 1024,
-                },
                 hda: {
-                    "url": HOST + "images/oberon.dsk",
-                    "size": 41943040,
+                    "url": HOST + "images/oberon.img",
+                    "async": false,
+                    "size": 24 * 1024 * 1024,
                 },
                 name: "Oberon",
             },
