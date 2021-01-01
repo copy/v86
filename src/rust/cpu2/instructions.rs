@@ -2578,47 +2578,19 @@ pub unsafe fn instr16_F2A5() { movsw_rep(is_asize_32(), return_on_pagefault!(get
 pub unsafe fn instr16_F3A5() { movsw_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 pub unsafe fn instr32_F2A5() { movsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 pub unsafe fn instr32_F3A5() { movsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-pub unsafe fn instr_F2A6() {
-    cmpsb_rep(
-        PREFIX_F2,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
-}
-pub unsafe fn instr_F3A6() {
-    cmpsb_rep(
-        PREFIX_F3,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
-}
+pub unsafe fn instr_F2A6() { cmpsb_repnz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
+pub unsafe fn instr_F3A6() { cmpsb_repz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 pub unsafe fn instr16_F2A7() {
-    cmpsw_rep(
-        PREFIX_F2,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
+    cmpsw_repnz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
 pub unsafe fn instr16_F3A7() {
-    cmpsw_rep(
-        PREFIX_F3,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
+    cmpsw_repz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
 pub unsafe fn instr32_F2A7() {
-    cmpsd_rep(
-        PREFIX_F2,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
+    cmpsd_repnz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
 pub unsafe fn instr32_F3A7() {
-    cmpsd_rep(
-        PREFIX_F3,
-        is_asize_32(),
-        return_on_pagefault!(get_seg_prefix(DS)),
-    );
+    cmpsd_repz(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
 pub unsafe fn instr_F2AA() { stosb_rep(is_asize_32()); }
 pub unsafe fn instr_F3AA() { stosb_rep(is_asize_32()); }
@@ -2632,12 +2604,12 @@ pub unsafe fn instr16_F2AD() { lodsw_rep(is_asize_32(), return_on_pagefault!(get
 pub unsafe fn instr16_F3AD() { lodsw_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 pub unsafe fn instr32_F2AD() { lodsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 pub unsafe fn instr32_F3AD() { lodsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-pub unsafe fn instr_F2AE() { scasb_rep(PREFIX_F2, is_asize_32()); }
-pub unsafe fn instr_F3AE() { scasb_rep(PREFIX_F3, is_asize_32()); }
-pub unsafe fn instr16_F2AF() { scasw_rep(PREFIX_F2, is_asize_32()); }
-pub unsafe fn instr16_F3AF() { scasw_rep(PREFIX_F3, is_asize_32()); }
-pub unsafe fn instr32_F2AF() { scasd_rep(PREFIX_F2, is_asize_32()); }
-pub unsafe fn instr32_F3AF() { scasd_rep(PREFIX_F3, is_asize_32()); }
+pub unsafe fn instr_F2AE() { scasb_repnz(is_asize_32()); }
+pub unsafe fn instr_F3AE() { scasb_repz(is_asize_32()); }
+pub unsafe fn instr16_F2AF() { scasw_repnz(is_asize_32()); }
+pub unsafe fn instr16_F3AF() { scasw_repz(is_asize_32()); }
+pub unsafe fn instr32_F2AF() { scasd_repnz(is_asize_32()); }
+pub unsafe fn instr32_F3AF() { scasd_repz(is_asize_32()); }
 
 #[no_mangle]
 pub unsafe fn instr_D8_0_mem(addr: i32) { fpu_fadd(0, return_on_pagefault!(fpu_load_m32(addr))); }

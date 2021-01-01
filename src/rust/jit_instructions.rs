@@ -3574,17 +3574,6 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
     dbg_assert!(size == 8 || size == 16 || size == 32);
 
     let mut args = 0;
-    if ins == String::SCAS || ins == String::CMPS {
-        if prefix == 0xF2 {
-            args += 1;
-            ctx.builder.const_i32(::prefix::PREFIX_F2 as i32);
-        }
-        else if prefix == 0xF3 {
-            args += 1;
-            ctx.builder.const_i32(::prefix::PREFIX_F3 as i32)
-        }
-    }
-
     args += 1;
     ctx.builder.const_i32(ctx.cpu.asize_32() as i32);
 
@@ -3614,7 +3603,22 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
         else {
             "d"
         },
-        if prefix == 0xF2 || prefix == 0xF3 { "_rep" } else { "_no_rep" }
+        if prefix == 0xF2 || prefix == 0xF3 {
+            match ins {
+                String::CMPS | String::SCAS => {
+                    if prefix == 0xF2 {
+                        "_repnz"
+                    }
+                    else {
+                        "_repz"
+                    }
+                },
+                _ => "_rep",
+            }
+        }
+        else {
+            "_no_rep"
+        }
     );
 
     codegen::gen_move_registers_from_locals_to_memory(ctx);
@@ -3623,9 +3627,6 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
     }
     else if args == 2 {
         codegen::gen_call_fn2(ctx.builder, &name)
-    }
-    else if args == 3 {
-        codegen::gen_call_fn3(ctx.builder, &name)
     }
     else {
         dbg_assert!(false);
