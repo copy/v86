@@ -510,10 +510,15 @@ function run_test(test, done)
         var bios = root_path + "/bios/bochs-bios.bin";
         var vga_bios = root_path + "/bios/bochs-vgabios.bin";
     }
-    else
+    else if(TEST_RELEASE_BUILD)
     {
         var bios = root_path + "/bios/seabios.bin";
         var vga_bios = root_path + "/bios/vgabios.bin";
+    }
+    else
+    {
+        var bios = root_path + "/bios/seabios-debug.bin";
+        var vga_bios = root_path + "/bios/vgabios-debug.bin";
     }
 
     var settings = {
