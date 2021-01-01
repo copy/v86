@@ -216,13 +216,17 @@ function SerialRecordingAdapter(bus)
  */
 function SerialAdapterXtermJS(element, bus)
 {
-    const serial = this;
+    this.element = element;
 
-    var term = new window["Terminal"]();
-    term.open(document.getElementById("terminal"));
+    if(!window["Terminal"])
+    {
+        return;
+    }
+
+    var term = this.term = new window["Terminal"]();
     term["setOption"]("logLevel", "off");
+    term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
-    element.style.display = "none";
     term["onData"](function(data) {
         bus.send("serial0-input", data.charCodeAt(0));
     });
@@ -232,3 +236,8 @@ function SerialAdapterXtermJS(element, bus)
         term.write(chr);
     }, this);
 }
+
+SerialAdapterXtermJS.prototype.show = function()
+{
+    this.term && this.term.open(this.element);
+};

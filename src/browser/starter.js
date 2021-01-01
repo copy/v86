@@ -255,9 +255,13 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
     if(options["serial_container"])
     {
-        //this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
-        this.serial_adapter = new SerialAdapterXtermJS(options["serial_container"], this.bus);
+        this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
+    }
+
+    if(options["serial_container_xtermjs"])
+    {
+        this.serial_adapter = new SerialAdapterXtermJS(options["serial_container_xtermjs"], this.bus);
     }
 
     // ugly, but required for closure compiler compilation
@@ -569,6 +573,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
         function finish()
         {
+            this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
+
             this.bus.send("cpu-init", settings);
 
             if(settings.initial_state)

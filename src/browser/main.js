@@ -146,6 +146,11 @@
             return;
         }
 
+        const script = document.createElement("script");
+        script.src = "build/xterm.js";
+        script.async = true;
+        document.body.appendChild(script);
+
         var settings = {};
 
         $("start_emulation").onclick = function()
@@ -1247,7 +1252,7 @@
             "vga_memory_size": vga_memory_size,
 
             "screen_container": $("screen_container"),
-            "serial_container": $("serial"),
+            "serial_container_xtermjs": $("terminal"),
 
             "boot_order": settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
