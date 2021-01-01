@@ -960,21 +960,21 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 }
 
 pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
-    // esp = reg32s[ESP]
-    gen_get_reg32(ctx, regs::ESP);
-
-    // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
+        gen_get_reg32(ctx, regs::ESP);
         ctx.builder
             .instruction_body
             .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
         ctx.builder.instruction_body.add_i32();
+        let address_local = ctx.builder.set_new_local();
+        gen_safe_read32(ctx, &address_local);
+        ctx.builder.free_local(address_local);
     }
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read32(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+    else {
+        let reg = ctx.register_locals[regs::ESP as usize].unsafe_clone();
+        gen_safe_read32(ctx, &reg);
+    }
 
-    // reg32s[ESP] = esp + 4;
     gen_get_reg32(ctx, regs::ESP);
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.add_i32();
