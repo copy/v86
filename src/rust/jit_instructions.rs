@@ -3870,6 +3870,27 @@ pub fn instr32_0FB7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32(ctx, r2);
 }
 
+pub fn instr16_F30FB8_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
+    codegen::gen_call_fn1_ret(ctx.builder, "popcnt");
+    codegen::gen_set_reg16(ctx, r);
+}
+pub fn instr16_F30FB8_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg16(ctx, r1);
+    codegen::gen_call_fn1_ret(ctx.builder, "popcnt");
+    codegen::gen_set_reg16(ctx, r2);
+}
+pub fn instr32_F30FB8_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    codegen::gen_call_fn1_ret(ctx.builder, "popcnt");
+    codegen::gen_set_reg32(ctx, r);
+}
+pub fn instr32_F30FB8_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx, r1);
+    codegen::gen_call_fn1_ret(ctx.builder, "popcnt");
+    codegen::gen_set_reg32(ctx, r2);
+}
+
 pub fn instr16_0FBE_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg8(ctx, r1);
     codegen::sign_extend_i8(ctx.builder);
