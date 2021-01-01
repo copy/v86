@@ -411,9 +411,9 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
         }
 
         if !entry.pending && entry.start_addr == phys_address && entry.state_flags == state_flags {
-            #[cfg(debug_assertions)]
+            #[cfg(debug_assertions)] // entry.opcode is not defined otherwise
             {
-                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode)
+                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode);
             }
             return cached_code {
                 wasm_table_index: entry.wasm_table_index,
