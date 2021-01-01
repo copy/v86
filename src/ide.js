@@ -617,6 +617,11 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @type {number} */
     this.write_dest = 0;
 
+    // cancellation support
+    this.last_io_id = 0;
+    this.in_progress_io_ids = new Set();
+    this.cancelled_io_ids = new Set();
+
     Object.seal(this);
 }
 
@@ -642,6 +647,8 @@ IDEInterface.prototype.device_reset = function()
         this.cylinder_low = 0; // lba_mid
         this.cylinder_high = 0; // lba_high
     }
+
+    this.cancel_io_operations();
 };
 
 IDEInterface.prototype.push_irq = function()
@@ -1183,7 +1190,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
         this.status = 0x50 | 0x80;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
             dbg_log("cd read: data arrived", LOG_DISK);
@@ -1236,7 +1243,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
         this.status = 0x50 | 0x80;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             dbg_log("atapi_read_dma: Data arrived");
             this.report_read_end(byte_count);
@@ -1564,7 +1571,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
         this.status = 0x80 | 0x40;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
             dbg_log("ata_read: Data arrived", LOG_DISK);
@@ -1624,7 +1631,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
     var orig_prdt_start = this.device.prdt_addr;
 
-    this.buffer.get(start, byte_count, (data) =>
+    this.read_buffer(start, byte_count, (data) =>
     {
         //setTimeout(function() {
         dbg_log("do_ata_read_sectors_dma: Data arrived", LOG_DISK);
@@ -2001,6 +2008,35 @@ IDEInterface.prototype.report_write = function(byte_count)
     this.stats.bytes_written += byte_count;
 
     this.bus.send("ide-write-end", [this.nr, byte_count, sector_count]);
+};
+
+IDEInterface.prototype.read_buffer = function(start, length, callback)
+{
+    const id = this.last_io_id++;
+    this.in_progress_io_ids.add(id);
+
+    this.buffer.get(start, length, data =>
+    {
+        if(this.cancelled_io_ids.delete(id))
+        {
+            dbg_assert(!this.in_progress_io_ids.has(id));
+            return;
+        }
+
+        const removed = this.in_progress_io_ids.delete(id);
+        dbg_assert(removed);
+
+        callback(data);
+    });
+};
+
+IDEInterface.prototype.cancel_io_operations = function()
+{
+    for(const id of this.in_progress_io_ids)
+    {
+        this.cancelled_io_ids.add(id);
+    }
+    this.in_progress_io_ids.clear();
 };
 
 IDEInterface.prototype.get_state = function()
