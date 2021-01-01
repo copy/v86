@@ -287,8 +287,8 @@ CPU.prototype.debug_init = function()
 
         for(var i = 0; i < 4; i++)
         {
-            line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]], 8) + " ";
-            line2 += r32_names[i+4] + "="  + h(cpu.reg32[r32[r32_names[i+4]]], 8) + " ";
+            line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]] >>> 0, 8) + " ";
+            line2 += r32_names[i+4] + "="  + h(cpu.reg32[r32[r32_names[i+4]]] >>> 0, 8) + " ";
         }
 
         //line1 += " eip=" + h(cpu.get_real_eip() >>> 0, 8);
