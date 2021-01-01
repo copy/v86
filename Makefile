@@ -49,7 +49,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error globalThis\
 		--jscomp_error invalidCasts\
 		--jscomp_error misplacedTypeAnnotation\
-		--jscomp_error missingGetCssName\
 		--jscomp_error missingProperties\
 		--jscomp_error missingReturn\
 		--jscomp_error msgDescriptions\
@@ -221,10 +220,8 @@ update_version:
 
 
 $(CLOSURE):
-	wget -nv -P $(CLOSURE_DIR) http://dl.google.com/closure-compiler/compiler-latest.zip
-	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-latest.zip \*.jar
-	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
-	rm $(CLOSURE_DIR)/compiler-latest.zip
+	mkdir -p $(CLOSURE_DIR)
+	wget -nv -O $(CLOSURE) https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20201207/closure-compiler-v20201207.jar
 
 build/integration-test-fs/fs.json:
 	mkdir -p build/integration-test-fs/flat
