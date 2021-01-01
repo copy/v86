@@ -6,6 +6,7 @@ use std::ptr::NonNull;
 use analysis::AnalysisType;
 use codegen;
 use cpu2;
+use cpu2::cpu;
 use cpu2::memory;
 use cpu_context::CpuContext;
 use global_pointers;
@@ -898,9 +899,11 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
 
 #[no_mangle]
 #[cfg(debug_assertions)]
-pub fn jit_force_generate_unsafe(phys_addr: u32, cs_offset: u32, state_flags: CachedStateFlags) {
+pub fn jit_force_generate_unsafe(phys_addr: u32) {
     let ctx = get_jit_state();
     record_entry_point(phys_addr);
+    let cs_offset = cpu::get_seg_cs() as u32;
+    let state_flags = cpu::pack_current_state_flags();
     jit_analyze_and_generate(ctx, Page::page_of(phys_addr), cs_offset, state_flags);
 }
 

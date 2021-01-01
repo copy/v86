@@ -310,8 +310,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.set_tsc = get_import("set_tsc");
     this.store_current_tsc = get_import("store_current_tsc");
 
-    this.pack_current_state_flags = get_import("pack_current_state_flags");
-
     if(DEBUG)
     {
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
@@ -335,9 +333,7 @@ CPU.prototype.jit_force_generate = function(addr)
         return;
     }
 
-    const cs_offset = this.get_seg_cs();
-    const state_flags = this.pack_current_state_flags();
-    this.jit_force_generate_unsafe(addr, cs_offset, state_flags);
+    this.jit_force_generate_unsafe(addr);
 };
 
 CPU.prototype.jit_clear_func = function(index)

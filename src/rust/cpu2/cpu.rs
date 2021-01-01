@@ -2297,7 +2297,7 @@ pub unsafe fn popa32() {
 }
 
 #[no_mangle]
-pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
+pub fn get_seg_cs() -> i32 { unsafe { *segment_offsets.offset(CS as isize) } }
 
 #[no_mangle]
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
@@ -2512,14 +2512,15 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     }
 }
 
-#[no_mangle]
-pub unsafe fn pack_current_state_flags() -> CachedStateFlags {
-    return CachedStateFlags::of_u32(
-        (*is_32 as u32) << 0
-            | (*stack_size_32 as u32) << 1
-            | ((*cpl == 3) as u32) << 2
-            | (has_flat_segmentation() as u32) << 3,
-    );
+pub fn pack_current_state_flags() -> CachedStateFlags {
+    unsafe {
+        CachedStateFlags::of_u32(
+            (*is_32 as u32) << 0
+                | (*stack_size_32 as u32) << 1
+                | ((*cpl == 3) as u32) << 2
+                | (has_flat_segmentation() as u32) << 3,
+        )
+    }
 }
 
 #[no_mangle]
