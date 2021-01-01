@@ -201,15 +201,6 @@ CPU.prototype.clear_opstats = function()
     this.wm.exports["profiler_init"]();
 };
 
-CPU.prototype.wasmgen_get_module_code = function()
-{
-    const ptr = this.jit_get_op_ptr();
-    const len = this.jit_get_op_len();
-
-    const output_buffer_view = new Uint8Array(this.wm.instance.exports.memory.buffer, ptr, len);
-    return output_buffer_view;
-};
-
 CPU.prototype.create_jit_imports = function()
 {
     // Set this.jit_imports as generated WASM modules will expect
@@ -314,9 +305,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.jit_clear_cache = get_import("jit_clear_cache_js");
     this.jit_dirty_cache = get_import("jit_dirty_cache");
     this.codegen_finalize_finished = get_import("codegen_finalize_finished");
-
-    this.jit_get_op_ptr = get_import("jit_get_op_ptr");
-    this.jit_get_op_len = get_import("jit_get_op_len");
 
     this.allocate_memory = get_import("allocate_memory");
 };
@@ -1364,10 +1352,11 @@ CPU.prototype.cycle = function()
 var seen_code = {};
 var seen_code_uncompiled = {};
 
-CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_opcode, state_flags)
+CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
 {
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
-    const code = this.wasmgen_get_module_code();
+
+    const code = new Uint8Array(this.wm.instance.exports.memory.buffer, ptr, len);
 
     if(DEBUG)
     {
@@ -1379,6 +1368,8 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
 
             if(DUMP_ASSEMBLY)
             {
+                let end = 0;
+
                 if((start ^ end) & ~0xFFF)
                 {
                     dbg_log("truncated disassembly start=" + h(start >>> 0) + " end=" + h(end >>> 0));
@@ -1418,7 +1409,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
         const result = new WebAssembly.Instance(module, { "e": jit_imports });
         const f = result.exports["f"];
 
-        this.codegen_finalize_finished(wasm_table_index, start, end, first_opcode, state_flags);
+        this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
         this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
@@ -1433,7 +1424,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
         const f = result.instance.exports["f"];
 
-        this.codegen_finalize_finished(wasm_table_index, start, end, first_opcode, state_flags);
+        this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
         this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
 

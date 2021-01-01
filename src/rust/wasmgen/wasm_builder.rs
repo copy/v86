@@ -490,9 +490,9 @@ impl WasmBuilder {
         }
     }
 
-    pub fn get_op_ptr(&self) -> *const u8 { self.output.as_ptr() }
+    pub fn get_output_ptr(&self) -> *const u8 { self.output.as_ptr() }
 
-    pub fn get_op_len(&self) -> u32 { self.output.len() as u32 }
+    pub fn get_output_len(&self) -> u32 { self.output.len() as u32 }
 
     #[must_use = "local allocated but not used"]
     fn alloc_local(&mut self) -> WasmLocal {
@@ -938,8 +938,8 @@ mod tests {
 
         m.finish();
 
-        let op_ptr = m.get_op_ptr();
-        let op_len = m.get_op_len();
+        let op_ptr = m.get_output_ptr();
+        let op_len = m.get_output_len();
         dbg_log!("op_ptr: {:?}, op_len: {:?}", op_ptr, op_len);
 
         let mut f = File::create("build/dummy_output.wasm").expect("creating dummy_output.wasm");

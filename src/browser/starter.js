@@ -163,8 +163,8 @@ function V86Starter(options)
             dbg_trace();
         },
 
-        "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => {
-            cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags);
+        "codegen_finalize": (wasm_table_index, start, state_flags, ptr, len) => {
+            cpu.codegen_finalize(wasm_table_index, start, state_flags, ptr, len);
         },
         "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
         "jit_clear_all_funcs": () => cpu.jit_clear_all_funcs(),

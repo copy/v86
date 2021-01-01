@@ -1,4 +1,5 @@
 #[derive(Copy, Clone, PartialEq, Eq)]
+#[repr(transparent)]
 pub struct CachedStateFlags(u8);
 
 impl CachedStateFlags {
