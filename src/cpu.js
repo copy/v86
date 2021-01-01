@@ -186,8 +186,14 @@ CPU.prototype.create_jit_imports = function()
     const jit_imports = Object.create(null);
 
     jit_imports["m"] = this.wm.exports["memory"];
+
     for(let name of Object.keys(this.wm.exports))
     {
+        if(name.startsWith("_") || name.startsWith("ZSTD") || name.startsWith("zstd") || name.endsWith("_js"))
+        {
+            continue;
+        }
+
         jit_imports[name] = this.wm.exports[name];
     }
 
