@@ -546,6 +546,8 @@ CPU.prototype.set_state = function(state)
     this.full_clear_tlb();
 
     this.update_operand_size();
+
+    this.jit_clear_cache();
 };
 
 CPU.prototype.pack_memory = function()
