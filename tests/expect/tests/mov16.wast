@@ -97,6 +97,11 @@
               (i32.and
                 (get_local $l2)
                 (i32.const -65536))))
+          (set_local $l10
+            (i32.add
+              (i32.const 32)
+              (i32.load
+                (i32.const 748))))
           (set_local $l3
             (i32.or
               (i32.and
@@ -108,11 +113,7 @@
                           (i32.load offset=4194304
                             (i32.shl
                               (i32.shr_u
-                                (tee_local $l10
-                                  (i32.add
-                                    (i32.const 32)
-                                    (i32.load
-                                      (i32.const 748))))
+                                (get_local $l10)
                                 (i32.const 12))
                               (i32.const 2))))
                         (i32.const 4041))
@@ -149,6 +150,11 @@
               (i32.and
                 (get_local $l3)
                 (i32.const -65536))))
+          (set_local $l10
+            (i32.add
+              (i32.const 36)
+              (i32.load
+                (i32.const 748))))
           (set_local $l4
             (i32.or
               (i32.and
@@ -156,31 +162,27 @@
                   (i32.and
                     (i32.eq
                       (i32.and
-                        (tee_local $l10
+                        (tee_local $l11
                           (i32.load offset=4194304
                             (i32.shl
                               (i32.shr_u
-                                (tee_local $l11
-                                  (i32.add
-                                    (i32.const 36)
-                                    (i32.load
-                                      (i32.const 748))))
+                                (get_local $l10)
                                 (i32.const 12))
                               (i32.const 2))))
                         (i32.const 4041))
                       (i32.const 1))
                     (i32.le_s
                       (i32.and
-                        (get_local $l11)
+                        (get_local $l10)
                         (i32.const 4095))
                       (i32.const 4094)))
                   (then
                     (i32.load16_u offset={normalised output} align=1
                       (i32.xor
                         (i32.and
-                          (get_local $l10)
+                          (get_local $l11)
                           (i32.const -4096))
-                        (get_local $l11))))
+                        (get_local $l10))))
                   (else
                     (i32.store
                       (i32.const 560)
@@ -191,7 +193,7 @@
                           (i32.const -4096))
                         (i32.const 7)))
                     (call $e.safe_read16_slow_jit
-                      (get_local $l11))
+                      (get_local $l10))
                     (if $I8
                       (i32.load8_u
                         (i32.const 540))

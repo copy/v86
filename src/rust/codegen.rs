@@ -358,12 +358,43 @@ pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     gen_set_reg32(ctx, dest);
 }
 
-pub fn gen_safe_read8(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::BYTE, None) }
-pub fn gen_safe_read16(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::WORD, None) }
-pub fn gen_safe_read32(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::DWORD, None) }
-pub fn gen_safe_read64(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::QWORD, None) }
+pub fn gen_modrm_resolve_safe_read8(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+}
+pub fn gen_modrm_resolve_safe_read16(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read16(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+}
+pub fn gen_modrm_resolve_safe_read32(ctx: &mut JitContext, modrm_byte: u8) {
+    gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read32(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+}
+
+pub fn gen_safe_read8(ctx: &mut JitContext, address_local: &WasmLocal) {
+    gen_safe_read(ctx, BitSize::BYTE, address_local, None);
+}
+pub fn gen_safe_read16(ctx: &mut JitContext, address_local: &WasmLocal) {
+    gen_safe_read(ctx, BitSize::WORD, address_local, None);
+}
+pub fn gen_safe_read32(ctx: &mut JitContext, address_local: &WasmLocal) {
+    gen_safe_read(ctx, BitSize::DWORD, address_local, None);
+}
+pub fn gen_safe_read64(ctx: &mut JitContext) {
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read(ctx, BitSize::QWORD, &address_local, None);
+    ctx.builder.free_local(address_local);
+}
 pub fn gen_safe_read128(ctx: &mut JitContext, where_to_write: u32) {
-    gen_safe_read(ctx, BitSize::DQWORD, Some(where_to_write))
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read(ctx, BitSize::DQWORD, &address_local, Some(where_to_write));
+    ctx.builder.free_local(address_local);
 }
 
 // only used internally for gen_safe_write
@@ -424,11 +455,16 @@ pub fn gen_safe_write128(
     )
 }
 
-fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32>) {
+fn gen_safe_read(
+    ctx: &mut JitContext,
+    bits: BitSize,
+    address_local: &WasmLocal,
+    where_to_write: Option<u32>,
+) {
     // Assumes virtual address has been pushed to the stack, and generates safe_readXX's fast-path
     // inline, bailing to safe_readXX_slow if necessary
 
-    let address_local = ctx.builder.tee_new_local();
+    ctx.builder.instruction_body.get_local(&address_local);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
     ctx.builder.instruction_body.const_i32(12);
@@ -605,7 +641,6 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
 
     ctx.builder.instruction_body.block_end();
 
-    ctx.builder.free_local(address_local);
     ctx.builder.free_local(entry_local);
 }
 
@@ -852,7 +887,9 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     }
 
     // result = safe_read16(sp)
-    gen_safe_read16(ctx);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read16(ctx, &address_local);
+    ctx.builder.free_local(address_local);
 
     // reg16[SP] += 2;
     gen_get_reg16(ctx, regs::SP);
@@ -875,7 +912,9 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     }
 
     // result = safe_read16(esp)
-    gen_safe_read16(ctx);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read16(ctx, &address_local);
+    ctx.builder.free_local(address_local);
 
     // reg32s[ESP] += 2;
     gen_get_reg32(ctx, regs::ESP);
@@ -907,7 +946,9 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
         ctx.builder.instruction_body.add_i32();
     }
 
-    gen_safe_read32(ctx);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read32(ctx, &address_local);
+    ctx.builder.free_local(address_local);
 
     // reg16[SP] = sp + 4;
     gen_get_reg16(ctx, regs::SP);
@@ -929,7 +970,9 @@ pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
             .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
         ctx.builder.instruction_body.add_i32();
     }
-    gen_safe_read32(ctx);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read32(ctx, &address_local);
+    ctx.builder.free_local(address_local);
 
     // reg32s[ESP] = esp + 4;
     gen_get_reg32(ctx, regs::ESP);
@@ -983,11 +1026,15 @@ pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
         ctx.builder.instruction_body.add_i32();
     }
     if os32 {
-        gen_safe_read32(ctx);
+        let address_local = ctx.builder.set_new_local();
+        gen_safe_read32(ctx, &address_local);
+        ctx.builder.free_local(address_local);
         gen_set_reg32(ctx, regs::EBP);
     }
     else {
-        gen_safe_read16(ctx);
+        let address_local = ctx.builder.set_new_local();
+        gen_safe_read16(ctx, &address_local);
+        ctx.builder.free_local(address_local);
         gen_set_reg16(ctx, regs::BP);
     }
 
@@ -1484,7 +1531,9 @@ pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
 }
 
 pub fn gen_fpu_load_m32(ctx: &mut JitContext) {
-    gen_safe_read32(ctx);
+    let address_local = ctx.builder.set_new_local();
+    gen_safe_read32(ctx, &address_local);
+    ctx.builder.free_local(address_local);
     ctx.builder.instruction_body.reinterpret_i32_as_f32();
     ctx.builder.instruction_body.promote_f32_to_f64();
 }

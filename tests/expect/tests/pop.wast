@@ -88,6 +88,11 @@
           (block $B4
             (br_table $B4 $B3 $B2
               (get_local $l0)))
+          (set_local $l10
+            (i32.add
+              (get_local $l6)
+              (i32.load
+                (i32.const 744))))
           (if $I5 (result i32)
             (i32.and
               (i32.eq
@@ -96,11 +101,7 @@
                     (i32.load offset=4194304
                       (i32.shl
                         (i32.shr_u
-                          (tee_local $l10
-                            (i32.add
-                              (get_local $l6)
-                              (i32.load
-                                (i32.const 744))))
+                          (get_local $l10)
                           (i32.const 12))
                         (i32.const 2))))
                   (i32.const 4041))
