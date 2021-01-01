@@ -607,8 +607,6 @@ fn jit_analyze_and_generate(
 
         cpu::tlb_set_has_code(page, true);
 
-        cpu::check_tlb_invariants();
-
         let previous_state = ctx.page_has_pending_code.insert(
             page,
             (wasm_table_index, PageState::Compiling { basic_blocks }),

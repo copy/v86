@@ -29,6 +29,7 @@ extern "C" {
     pub fn io_port_write32(port: i32, value: i32);
 }
 
+use ::jit;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 pub use cpu::imports::mem8;
@@ -1696,7 +1697,7 @@ pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i
         dbg_assert!(found);
     }
     let is_in_mapped_range = in_mapped_range(high as u32);
-    let has_code = !is_in_mapped_range && ::jit::jit_page_has_code(Page::page_of(high as u32));
+    let has_code = !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high as u32));
     let info_bits = TLB_VALID
         | if can_write { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
@@ -1718,6 +1719,7 @@ pub unsafe fn full_clear_tlb() {
         *tlb_data.offset(page as isize) = 0;
     }
     valid_tlb_entries_count = 0;
+
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
             dbg_assert!(*tlb_data.offset(i) == 0);
@@ -1744,6 +1746,7 @@ pub unsafe fn clear_tlb() {
         }
     }
     valid_tlb_entries_count = global_page_offset;
+
     if CHECK_TLB_INVARIANTS {
         for i in 0..0x100000 {
             dbg_assert!(*tlb_data.offset(i) == 0 || 0 != *tlb_data.offset(i) & TLB_GLOBAL);
@@ -1899,6 +1902,7 @@ pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
             }
         }
     }
+
     check_tlb_invariants();
 }
 
@@ -1921,15 +1925,10 @@ pub fn check_tlb_invariants() {
         dbg_assert!(!in_mapped_range(target));
 
         let entry_has_code = entry & TLB_HAS_CODE != 0;
-        let has_code = ::jit::jit_page_has_code(Page::page_of(target));
+        let has_code = jit::jit_page_has_code(Page::page_of(target));
 
         // If some code has been created in a page, the corresponding tlb entries must be marked
         dbg_assert!(!has_code || entry_has_code);
-
-        // If a tlb entry is marked to have code, the physical page should
-        // contain code (the converse is not a bug, but indicates a cleanup
-        // problem when clearing code from a page)
-        dbg_assert!(!entry_has_code || has_code);
     }
 }
 
@@ -2333,9 +2332,9 @@ pub unsafe fn cycle_internal() {
         *previous_ip = *instruction_pointer;
         let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
         let state_flags = pack_current_state_flags();
-        let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
+        let entry = jit::jit_find_cache_entry(phys_addr, state_flags);
 
-        if entry != ::jit::CachedCode::NONE {
+        if entry != jit::CachedCode::NONE {
             profiler::stat_increment(RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = entry.wasm_table_index;
@@ -2382,12 +2381,12 @@ pub unsafe fn cycle_internal() {
             }
         }
         else {
-            ::jit::record_entry_point(phys_addr);
+            jit::record_entry_point(phys_addr);
 
             #[cfg(feature = "profiler")]
             {
                 if CHECK_MISSED_ENTRY_POINTS {
-                    ::jit::check_missed_entry_points(phys_addr, state_flags);
+                    jit::check_missed_entry_points(phys_addr, state_flags);
                 }
             }
 
@@ -2402,7 +2401,7 @@ pub unsafe fn cycle_internal() {
             let initial_tsc = *timestamp_counter;
             jit_run_interpreted(phys_addr as i32);
 
-            ::jit::jit_increase_hotness_and_maybe_compile(
+            jit::jit_increase_hotness_and_maybe_compile(
                 phys_addr,
                 get_seg_cs() as u32,
                 state_flags,
@@ -2471,9 +2470,9 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
         if CHECK_MISSED_ENTRY_POINTS {
             let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
             let state_flags = pack_current_state_flags();
-            let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
+            let entry = jit::jit_find_cache_entry(phys_addr, state_flags);
 
-            if entry != ::jit::CachedCode::NONE {
+            if entry != jit::CachedCode::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
                 //dbg_log!(
                 //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
@@ -2942,7 +2941,7 @@ pub unsafe fn safe_write_slow_jit(
         ((scratch as i32 - mem8 as i32) ^ addr) & !0xFFF
     }
     else {
-        ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(addr_low));
+        jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(addr_low));
         (addr_low as i32 ^ addr) & !0xFFF
     }
 }
@@ -2975,10 +2974,10 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
         }
         else {
-            dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
         }
         memory::write8_no_mmap_or_dirty_check(phys_addr, value);
     };
@@ -2995,10 +2994,10 @@ pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
         }
         else {
-            dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
         }
         memory::write16_no_mmap_or_dirty_check(phys_addr, value);
     };
@@ -3019,10 +3018,10 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
         }
         else {
-            dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
         }
         memory::write32_no_mmap_or_dirty_check(phys_addr, value);
     };
@@ -3042,10 +3041,10 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
             }
             else {
-                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+                dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
             }
             memory::write64_no_mmap_or_dirty_check(phys_addr, value);
         }
@@ -3072,10 +3071,10 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+                jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(phys_addr));
             }
             else {
-                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+                dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
             }
             memory::write128_no_mmap_or_dirty_check(phys_addr, value);
         }
