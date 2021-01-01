@@ -703,199 +703,195 @@ fn jit_analyze_and_generate(
 
     let entry_points = ctx.entry_points.get(&page);
 
-    if let Some(entry_points) = entry_points {
-        if entry_points.iter().all(|&entry_point| {
-            ctx.cache
-                .contains_key(&(page.to_address() | u32::from(entry_point)))
-        }) {
-            profiler::stat_increment(stat::COMPILE_SKIPPED_NO_NEW_ENTRY_POINTS);
-            return;
+    let entry_points = match entry_points {
+        None => return,
+        Some(entry_points) => entry_points,
+    };
+
+    if entry_points.iter().all(|&entry_point| {
+        ctx.cache
+            .contains_key(&(page.to_address() | u32::from(entry_point)))
+    }) {
+        profiler::stat_increment(stat::COMPILE_SKIPPED_NO_NEW_ENTRY_POINTS);
+        return;
+    }
+
+    profiler::stat_increment(stat::COMPILE);
+
+    let cpu = CpuContext {
+        eip: 0,
+        prefixes: 0,
+        cs_offset,
+        state_flags,
+    };
+
+    dbg_assert!(
+        cpu::translate_address_read_no_side_effects(virt_entry_point).unwrap() == phys_entry_point
+    );
+    let virt_page = Page::page_of(virt_entry_point as u32);
+    let entry_points: HashSet<i32> = entry_points
+        .iter()
+        .map(|e| virt_page.to_address() as i32 | *e as i32)
+        .collect();
+    let basic_blocks = jit_find_basic_blocks(ctx, entry_points, cpu.clone());
+
+    let mut pages = HashSet::new();
+
+    for b in basic_blocks.iter() {
+        // Remove this assertion once page-crossing jit is enabled
+        dbg_assert!(Page::page_of(b.addr) == Page::page_of(b.end_addr));
+        pages.insert(Page::page_of(b.addr));
+    }
+
+    let print = false;
+
+    for b in basic_blocks.iter() {
+        if !print {
+            break;
+        }
+        let last_instruction_opcode = memory::read32s(b.last_instruction_addr);
+        let op = opstats::decode(last_instruction_opcode as u32);
+        dbg_log!(
+            "BB: 0x{:x} {}{:02x} {} {}",
+            b.addr,
+            if op.is_0f { "0f" } else { "" },
+            op.opcode,
+            if b.is_entry_block { "entry" } else { "noentry" },
+            match &b.ty {
+                BasicBlockType::ConditionalJump {
+                    next_block_addr: Some(next_block_addr),
+                    next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
+                    ..
+                } => format!(
+                    "0x{:x} 0x{:x}",
+                    next_block_addr, next_block_branch_taken_addr
+                ),
+                BasicBlockType::ConditionalJump {
+                    next_block_addr: None,
+                    next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
+                    ..
+                } => format!("0x{:x}", next_block_branch_taken_addr),
+                BasicBlockType::ConditionalJump {
+                    next_block_addr: Some(next_block_addr),
+                    next_block_branch_taken_addr: None,
+                    ..
+                } => format!("0x{:x}", next_block_addr),
+                BasicBlockType::ConditionalJump {
+                    next_block_addr: None,
+                    next_block_branch_taken_addr: None,
+                    ..
+                } => format!(""),
+                BasicBlockType::Normal {
+                    next_block_addr: Some(next_block_addr),
+                    ..
+                } => format!("0x{:x}", next_block_addr),
+                BasicBlockType::Normal {
+                    next_block_addr: None,
+                    ..
+                } => format!(""),
+                BasicBlockType::Exit => format!(""),
+                BasicBlockType::AbsoluteEip => format!(""),
+            }
+        );
+    }
+
+    let graph = control_flow::make_graph(&basic_blocks);
+    let mut structure = control_flow::loopify(&graph);
+
+    if print {
+        dbg_log!("before blockify:");
+        for group in &structure {
+            dbg_log!("=> Group");
+            group.print(0);
         }
     }
 
-    if let Some(entry_points) = entry_points {
-        profiler::stat_increment(stat::COMPILE);
+    control_flow::blockify(&mut structure, &graph);
 
-        let cpu = CpuContext {
-            eip: 0,
-            prefixes: 0,
-            cs_offset,
-            state_flags,
-        };
-
-        dbg_assert!(
-            cpu::translate_address_read_no_side_effects(virt_entry_point).unwrap()
-                == phys_entry_point
-        );
-        let virt_page = Page::page_of(virt_entry_point as u32);
-        let entry_points: HashSet<i32> = entry_points
-            .iter()
-            .map(|e| virt_page.to_address() as i32 | *e as i32)
-            .collect();
-        let basic_blocks = jit_find_basic_blocks(ctx, entry_points, cpu.clone());
-
-        let mut pages = HashSet::new();
-
-        for b in basic_blocks.iter() {
-            // Remove this assertion once page-crossing jit is enabled
-            dbg_assert!(Page::page_of(b.addr) == Page::page_of(b.end_addr));
-            pages.insert(Page::page_of(b.addr));
-        }
-
-        let print = false;
-
-        for b in basic_blocks.iter() {
-            if !print {
-                break;
-            }
-            let last_instruction_opcode = memory::read32s(b.last_instruction_addr);
-            let op = opstats::decode(last_instruction_opcode as u32);
-            dbg_log!(
-                "BB: 0x{:x} {}{:02x} {} {}",
-                b.addr,
-                if op.is_0f { "0f" } else { "" },
-                op.opcode,
-                if b.is_entry_block { "entry" } else { "noentry" },
-                match &b.ty {
-                    BasicBlockType::ConditionalJump {
-                        next_block_addr: Some(next_block_addr),
-                        next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
-                        ..
-                    } => format!(
-                        "0x{:x} 0x{:x}",
-                        next_block_addr, next_block_branch_taken_addr
-                    ),
-                    BasicBlockType::ConditionalJump {
-                        next_block_addr: None,
-                        next_block_branch_taken_addr: Some(next_block_branch_taken_addr),
-                        ..
-                    } => format!("0x{:x}", next_block_branch_taken_addr),
-                    BasicBlockType::ConditionalJump {
-                        next_block_addr: Some(next_block_addr),
-                        next_block_branch_taken_addr: None,
-                        ..
-                    } => format!("0x{:x}", next_block_addr),
-                    BasicBlockType::ConditionalJump {
-                        next_block_addr: None,
-                        next_block_branch_taken_addr: None,
-                        ..
-                    } => format!(""),
-                    BasicBlockType::Normal {
-                        next_block_addr: Some(next_block_addr),
-                        ..
-                    } => format!("0x{:x}", next_block_addr),
-                    BasicBlockType::Normal {
-                        next_block_addr: None,
-                        ..
-                    } => format!(""),
-                    BasicBlockType::Exit => format!(""),
-                    BasicBlockType::AbsoluteEip => format!(""),
-                }
-            );
-        }
-
-        let graph = control_flow::make_graph(&basic_blocks);
-        let mut structure = control_flow::loopify(&graph);
-
-        if print {
-            dbg_log!("before blockify:");
-            for group in &structure {
-                dbg_log!("=> Group");
-                group.print(0);
-            }
-        }
-
-        control_flow::blockify(&mut structure, &graph);
-
-        if cfg!(debug_assertions) {
-            control_flow::assert_invariants(&structure);
-        }
-
-        if print {
-            dbg_log!("after blockify:");
-            for group in &structure {
-                dbg_log!("=> Group");
-                group.print(0);
-            }
-        }
-
-        if ctx.wasm_table_index_free_list.is_empty() {
-            dbg_log!("wasm_table_index_free_list empty, clearing cache");
-
-            // When no free slots are available, delete all cached modules. We could increase the
-            // size of the table, but this way the initial size acts as an upper bound for the
-            // number of wasm modules that we generate, which we want anyway to avoid getting our
-            // tab killed by browsers due to memory constraints.
-            jit_clear_cache(ctx);
-
-            profiler::stat_increment(stat::INVALIDATE_ALL_MODULES_NO_FREE_WASM_INDICES);
-
-            dbg_log!(
-                "after jit_clear_cache: {} free",
-                ctx.wasm_table_index_free_list.len(),
-            );
-
-            // This assertion can fail if all entries are pending (not possible unless
-            // WASM_TABLE_SIZE is set very low)
-            dbg_assert!(!ctx.wasm_table_index_free_list.is_empty());
-        }
-
-        // allocate an index in the wasm table
-        let wasm_table_index = ctx
-            .wasm_table_index_free_list
-            .pop()
-            .expect("allocate wasm table index");
-        dbg_assert!(wasm_table_index != WasmTableIndex(0));
-
-        dbg_assert!(!pages.is_empty());
-        dbg_assert!(pages.len() <= MAX_PAGES);
-        ctx.used_wasm_table_indices
-            .insert(wasm_table_index, pages.clone());
-        ctx.all_pages.extend(pages.clone());
-
-        let basic_block_by_addr: HashMap<u32, BasicBlock> =
-            basic_blocks.into_iter().map(|b| (b.addr, b)).collect();
-
-        let entries = jit_generate_module(
-            structure,
-            &basic_block_by_addr,
-            cpu.clone(),
-            &mut ctx.wasm_builder,
-            wasm_table_index,
-            state_flags,
-        );
-        dbg_assert!(!entries.is_empty());
-
-        profiler::stat_increment_by(
-            stat::COMPILE_WASM_TOTAL_BYTES,
-            ctx.wasm_builder.get_output_len() as u64,
-        );
-        profiler::stat_increment_by(stat::COMPILE_PAGE, pages.len() as u64);
-
-        for &p in &pages {
-            cpu::tlb_set_has_code(p, true);
-        }
-
-        dbg_assert!(ctx.compiling.is_none());
-        ctx.compiling = Some((wasm_table_index, PageState::Compiling { entries }));
-
-        let phys_addr = page.to_address();
-
-        // will call codegen_finalize_finished asynchronously when finished
-        codegen_finalize(
-            wasm_table_index,
-            phys_addr,
-            state_flags,
-            ctx.wasm_builder.get_output_ptr() as u32,
-            ctx.wasm_builder.get_output_len(),
-        );
-
-        profiler::stat_increment(stat::COMPILE_SUCCESS);
+    if cfg!(debug_assertions) {
+        control_flow::assert_invariants(&structure);
     }
-    else {
-        //dbg_log!("No basic blocks, not generating code");
-        // Nothing to do
+
+    if print {
+        dbg_log!("after blockify:");
+        for group in &structure {
+            dbg_log!("=> Group");
+            group.print(0);
+        }
     }
+
+    if ctx.wasm_table_index_free_list.is_empty() {
+        dbg_log!("wasm_table_index_free_list empty, clearing cache");
+
+        // When no free slots are available, delete all cached modules. We could increase the
+        // size of the table, but this way the initial size acts as an upper bound for the
+        // number of wasm modules that we generate, which we want anyway to avoid getting our
+        // tab killed by browsers due to memory constraints.
+        jit_clear_cache(ctx);
+
+        profiler::stat_increment(stat::INVALIDATE_ALL_MODULES_NO_FREE_WASM_INDICES);
+
+        dbg_log!(
+            "after jit_clear_cache: {} free",
+            ctx.wasm_table_index_free_list.len(),
+        );
+
+        // This assertion can fail if all entries are pending (not possible unless
+        // WASM_TABLE_SIZE is set very low)
+        dbg_assert!(!ctx.wasm_table_index_free_list.is_empty());
+    }
+
+    // allocate an index in the wasm table
+    let wasm_table_index = ctx
+        .wasm_table_index_free_list
+        .pop()
+        .expect("allocate wasm table index");
+    dbg_assert!(wasm_table_index != WasmTableIndex(0));
+
+    dbg_assert!(!pages.is_empty());
+    dbg_assert!(pages.len() <= MAX_PAGES);
+    ctx.used_wasm_table_indices
+        .insert(wasm_table_index, pages.clone());
+    ctx.all_pages.extend(pages.clone());
+
+    let basic_block_by_addr: HashMap<u32, BasicBlock> =
+        basic_blocks.into_iter().map(|b| (b.addr, b)).collect();
+
+    let entries = jit_generate_module(
+        structure,
+        &basic_block_by_addr,
+        cpu.clone(),
+        &mut ctx.wasm_builder,
+        wasm_table_index,
+        state_flags,
+    );
+    dbg_assert!(!entries.is_empty());
+
+    profiler::stat_increment_by(
+        stat::COMPILE_WASM_TOTAL_BYTES,
+        ctx.wasm_builder.get_output_len() as u64,
+    );
+    profiler::stat_increment_by(stat::COMPILE_PAGE, pages.len() as u64);
+
+    for &p in &pages {
+        cpu::tlb_set_has_code(p, true);
+    }
+
+    dbg_assert!(ctx.compiling.is_none());
+    ctx.compiling = Some((wasm_table_index, PageState::Compiling { entries }));
+
+    let phys_addr = page.to_address();
+
+    // will call codegen_finalize_finished asynchronously when finished
+    codegen_finalize(
+        wasm_table_index,
+        phys_addr,
+        state_flags,
+        ctx.wasm_builder.get_output_ptr() as u32,
+        ctx.wasm_builder.get_output_len(),
+    );
+
+    profiler::stat_increment(stat::COMPILE_SUCCESS);
 
     check_jit_state_invariants(ctx);
 }
