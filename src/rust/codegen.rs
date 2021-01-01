@@ -19,6 +19,13 @@ const CONDITION_FUNCTIONS: [&str; 16] = [
     "test_ns", "test_p", "test_np", "test_l", "test_nl", "test_le", "test_nle",
 ];
 
+pub fn gen_add_cs_offset(ctx: &mut JitContext) {
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_seg_offset(regs::CS));
+    ctx.builder.instruction_body.add_i32();
+}
+
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.instruction_body;
     cs.const_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
@@ -50,6 +57,14 @@ pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     instruction_body.const_i32(n);
     instruction_body.add_i32();
     instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_eip(ctx: &mut JitContext, from: &WasmLocal) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    ctx.builder.instruction_body.get_local(&from);
+    ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
 pub fn gen_increment_variable(builder: &mut WasmBuilder, variable_address: u32, n: i32) {

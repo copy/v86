@@ -3233,6 +3233,92 @@ define_instruction_read_write_mem32!(
     none
 );
 
+pub fn instr16_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+
+    codegen::gen_get_real_eip(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr16_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg16(ctx, r);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+
+    codegen::gen_get_real_eip(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr32_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+
+    codegen::gen_get_real_eip(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr32_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg32(ctx, r);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+
+    codegen::gen_get_real_eip(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+
+pub fn instr16_FF_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr16_FF_4_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg16(ctx, r);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr32_FF_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+pub fn instr32_FF_4_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg32(ctx, r);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_set_eip(ctx, &new_eip);
+    ctx.builder.free_local(new_eip);
+}
+
 pub fn instr16_FF_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     push16_mem_jit(ctx, modrm_byte)
 }
