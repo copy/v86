@@ -1,6 +1,6 @@
+use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
 use util::{SafeToU8, SafeToU16};
 use wasmgen::wasm_opcodes as op;
-use wasmgen::wasm_util::WasmBuf;
 
 #[allow(dead_code)]
 pub const FN0_TYPE_INDEX: u8 = 0;
@@ -43,8 +43,8 @@ pub const NR_FN_TYPE_INDEXES: u8 = 16;
 pub const WASM_MODULE_ARGUMENT_COUNT: u8 = 1;
 
 pub struct WasmBuilder {
-    pub output: Vec<u8>,
-    pub instruction_body: Vec<u8>,
+    output: Vec<u8>,
+    instruction_body: Vec<u8>,
 
     idx_import_table_size: usize, // for rewriting once finished
     idx_import_count: usize,      // for rewriting once finished
@@ -191,12 +191,10 @@ impl WasmBuilder {
         // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
         // value because the ptr itself points to four bytes
         let fn_body_size = (self.output.len() - idx_fn_body_size - 4) as u32;
-        self.output
-            .write_fixed_leb32_at_idx(idx_fn_body_size, fn_body_size);
+        write_fixed_leb32_at_idx(&mut self.output, idx_fn_body_size, fn_body_size);
 
         let code_section_size = (self.output.len() - idx_code_section_size - 4) as u32;
-        self.output
-            .write_fixed_leb32_at_idx(idx_code_section_size, code_section_size);
+        write_fixed_leb32_at_idx(&mut self.output, idx_code_section_size, code_section_size);
 
         self.output.len()
     }
@@ -352,16 +350,14 @@ impl WasmBuilder {
         dbg_assert!(count < 0x4000);
         self.import_count = count;
         let idx_import_count = self.idx_import_count;
-        self.output
-            .write_fixed_leb16_at_idx(idx_import_count, count);
+        write_fixed_leb16_at_idx(&mut self.output, idx_import_count, count);
     }
 
     pub fn set_import_table_size(&mut self, size: usize) {
         dbg_assert!(size < 0x4000);
         self.import_table_size = size;
         let idx_import_table_size = self.idx_import_table_size;
-        self.output
-            .write_fixed_leb16_at_idx(idx_import_table_size, size.safe_to_u16());
+        write_fixed_leb16_at_idx(&mut self.output, idx_import_table_size, size.safe_to_u16());
     }
 
     pub fn write_import_section_preamble(&mut self) {
@@ -388,7 +384,7 @@ impl WasmBuilder {
         self.output.push(op::EXT_MEMORY);
 
         self.output.push(0); // memory flag, 0 for no maximum memory limit present
-        self.output.write_leb_u32(256); // initial memory length of 256 pages, takes 2 bytes in leb128
+        write_leb_u32(&mut self.output, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
 
         let new_import_count = self.import_count + 1;
         self.set_import_count(new_import_count);
@@ -436,8 +432,7 @@ impl WasmBuilder {
         let next_op_idx = self.output.len();
         self.output.push(0);
         self.output.push(0); // add 2 bytes for writing 16 byte val
-        self.output
-            .write_fixed_leb16_at_idx(next_op_idx, self.import_count - 1);
+        write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
     }
 
     pub fn get_fn_idx(&mut self, fn_name: &str, type_index: u8) -> u16 {
@@ -525,6 +520,277 @@ impl WasmBuilder {
         self.instruction_body.push(local.idx());
         local
     }
+
+    //fn write_leb_i32(&mut self, v: i32) { write_leb_i32(self, v) }
+
+    //fn write_leb_u32(&mut self, v: u32) { write_leb_u32(self, v) }
+
+    //fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16) {
+    //    write_fixed_leb16_at_idx(self, idx, x)
+    //}
+
+    //fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32) {
+    //    write_fixed_leb32_at_idx(self, idx, x)
+    //}
+
+    pub fn const_i32(&mut self, v: i32) {
+        self.instruction_body.push(op::OP_I32CONST);
+        write_leb_i32(&mut self.instruction_body, v);
+    }
+
+    pub fn const_i64(&mut self, v: i64) {
+        self.instruction_body.push(op::OP_I64CONST);
+        write_leb_i32(&mut self.instruction_body, v as i32); // XXX
+    }
+
+    pub fn load_aligned_u16(&mut self, addr: u32) {
+        // doesn't cause a failure in the generated code, but it will be much slower
+        dbg_assert!((addr & 1) == 0);
+
+        self.instruction_body.push(op::OP_I32CONST);
+        write_leb_u32(&mut self.instruction_body, addr);
+        self.instruction_body.push(op::OP_I32LOAD16U);
+        self.instruction_body.push(op::MEM_ALIGN16);
+        self.instruction_body.push(0); // immediate offset
+    }
+
+    pub fn load_aligned_i32(&mut self, addr: u32) {
+        // doesn't cause a failure in the generated code, but it will be much slower
+        dbg_assert!((addr & 3) == 0);
+
+        self.const_i32(addr as i32);
+        self.load_aligned_i32_from_stack(0);
+    }
+
+    pub fn load_u8_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32LOAD8U);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_u8(&mut self, addr: u32) {
+        self.const_i32(addr as i32);
+        self.load_u8_from_stack(0);
+    }
+
+    pub fn add_i32(&mut self) { self.instruction_body.push(op::OP_I32ADD); }
+    pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
+    pub fn and_i32(&mut self) { self.instruction_body.push(op::OP_I32AND); }
+    pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }
+    pub fn shl_i32(&mut self) { self.instruction_body.push(op::OP_I32SHL); }
+    pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
+
+    pub fn call_fn(&mut self, fn_idx: u16) {
+        self.instruction_body.push(op::OP_CALL);
+        write_leb_u32(&mut self.instruction_body, fn_idx as u32);
+        //let buf_len = self.len();
+        //self.instruction_body.push(0);
+        //self.instruction_body.push(0);
+        //self.write_fixed_leb16_at_idx(buf_len, fn_idx);
+    }
+
+    pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
+    pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
+    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
+    //pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
+    //pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
+    //pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
+
+    pub fn if_i32(&mut self) {
+        self.instruction_body.push(op::OP_IF);
+        self.instruction_body.push(op::TYPE_I32);
+    }
+    pub fn if_i64(&mut self) {
+        self.instruction_body.push(op::OP_IF);
+        self.instruction_body.push(op::TYPE_I64);
+    }
+
+    //pub fn block_i32(&mut self) {
+    //    self.instruction_body.push(op::OP_BLOCK);
+    //    self.instruction_body.push(op::TYPE_I32);
+    //}
+
+    pub fn xor_i32(&mut self) { self.instruction_body.push(op::OP_I32XOR); }
+
+    pub fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I64LOAD);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32LOAD);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32LOAD16U);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_aligned_i64_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I64LOAD);
+        self.instruction_body.push(op::MEM_ALIGN64);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_aligned_i32_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32LOAD);
+        self.instruction_body.push(op::MEM_ALIGN32);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn load_aligned_u16_from_stack(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32LOAD16U);
+        self.instruction_body.push(op::MEM_ALIGN16);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_u8(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE8);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_aligned_u16(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE16);
+        self.instruction_body.push(op::MEM_ALIGN16);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_aligned_i32(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE);
+        self.instruction_body.push(op::MEM_ALIGN32);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_aligned_i64(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I64STORE);
+        self.instruction_body.push(op::MEM_ALIGN64);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_unaligned_u16(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE16);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_unaligned_i32(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn store_unaligned_i64(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I64STORE);
+        self.instruction_body.push(op::MEM_NO_ALIGN);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
+
+    pub fn reinterpret_i32_as_f32(&mut self) {
+        self.instruction_body.push(op::OP_F32REINTERPRETI32);
+    }
+    pub fn reinterpret_f32_as_i32(&mut self) {
+        self.instruction_body.push(op::OP_I32REINTERPRETF32);
+    }
+    pub fn reinterpret_i64_as_f64(&mut self) {
+        self.instruction_body.push(op::OP_F64REINTERPRETI64);
+    }
+    pub fn reinterpret_f64_as_i64(&mut self) {
+        self.instruction_body.push(op::OP_I64REINTERPRETF64);
+    }
+    pub fn promote_f32_to_f64(&mut self) { self.instruction_body.push(op::OP_F64PROMOTEF32); }
+    pub fn demote_f64_to_f32(&mut self) { self.instruction_body.push(op::OP_F32DEMOTEF64); }
+    pub fn convert_i32_to_f64(&mut self) { self.instruction_body.push(op::OP_F64CONVERTSI32); }
+    pub fn convert_i64_to_f64(&mut self) { self.instruction_body.push(op::OP_F64CONVERTSI64); }
+    pub fn extend_unsigned_i32_to_i64(&mut self) {
+        self.instruction_body.push(op::OP_I64EXTENDUI32);
+    }
+    pub fn wrap_i64_to_i32(&mut self) { self.instruction_body.push(op::OP_I32WRAPI64); }
+
+    pub fn shr_u_i32(&mut self) { self.instruction_body.push(op::OP_I32SHRU); }
+    pub fn shr_u_i64(&mut self) { self.instruction_body.push(op::OP_I64SHRU); }
+
+    pub fn shr_s_i32(&mut self) { self.instruction_body.push(op::OP_I32SHRS); }
+
+    pub fn eqz_i32(&mut self) { self.instruction_body.push(op::OP_I32EQZ); }
+
+    pub fn if_void(&mut self) {
+        self.instruction_body.push(op::OP_IF);
+        self.instruction_body.push(op::TYPE_VOID_BLOCK);
+    }
+
+    pub fn else_(&mut self) { self.instruction_body.push(op::OP_ELSE); }
+
+    pub fn loop_void(&mut self) {
+        self.instruction_body.push(op::OP_LOOP);
+        self.instruction_body.push(op::TYPE_VOID_BLOCK);
+    }
+
+    pub fn block_void(&mut self) {
+        self.instruction_body.push(op::OP_BLOCK);
+        self.instruction_body.push(op::TYPE_VOID_BLOCK);
+    }
+
+    pub fn block_end(&mut self) { self.instruction_body.push(op::OP_END); }
+
+    pub fn return_(&mut self) { self.instruction_body.push(op::OP_RETURN); }
+
+    //pub fn drop_(&mut self) { self.instruction_body.push(op::OP_DROP); }
+
+    // Generate a br_table where an input of [i] will branch [i]th outer block,
+    // where [i] is passed on the wasm stack
+    pub fn brtable_and_cases(&mut self, cases_count: u32) {
+        self.instruction_body.push(op::OP_BRTABLE);
+        write_leb_u32(&mut self.instruction_body, cases_count);
+
+        for i in 0..(cases_count + 1) {
+            write_leb_u32(&mut self.instruction_body, i);
+        }
+    }
+
+    pub fn br(&mut self, depth: u32) {
+        self.instruction_body.push(op::OP_BR);
+        write_leb_u32(&mut self.instruction_body, depth);
+    }
+
+    pub fn get_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_GETLOCAL);
+        self.instruction_body.push(local.idx());
+    }
+
+    pub fn get_local_i64(&mut self, local: &WasmLocalI64) {
+        self.instruction_body.push(op::OP_GETLOCAL);
+        self.instruction_body.push(local.idx());
+    }
+
+    pub fn set_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_SETLOCAL);
+        self.instruction_body.push(local.idx());
+    }
+
+    #[allow(dead_code)]
+    pub fn tee_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_TEELOCAL);
+        self.instruction_body.push(local.idx());
+    }
+
+    pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE); }
+
+    pub fn increment_mem32(&mut self, addr: u32) { self.increment_variable(addr, 1) }
+
+    pub fn increment_variable(&mut self, addr: u32, n: i32) {
+        self.const_i32(addr as i32);
+        self.load_aligned_i32(addr);
+        self.const_i32(n);
+        self.add_i32();
+        self.store_aligned_i32(0);
+    }
+
+    pub fn instruction_body_length(&self) -> u32 { self.instruction_body.len() as u32 }
 }
 
 #[cfg(test)]
@@ -548,10 +814,10 @@ mod tests {
         let mut m = WasmBuilder::new();
 
         let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
-        m.instruction_body.call_fn(foo_index);
+        m.call_fn(foo_index);
 
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
-        m.instruction_body.call_fn(bar_index);
+        m.call_fn(bar_index);
 
         let local0 = m.alloc_local(); // for ensuring that reset clears previous locals
         m.free_local(local0);
@@ -559,21 +825,21 @@ mod tests {
         m.finish();
         m.reset();
 
-        m.instruction_body.const_i32(2);
+        m.const_i32(2);
 
         let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
-        m.instruction_body.call_fn(baz_index);
+        m.call_fn(baz_index);
         foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
-        m.instruction_body.call_fn(foo_index);
+        m.call_fn(foo_index);
 
-        m.instruction_body.const_i32(10);
+        m.const_i32(10);
         let local1 = m.alloc_local();
-        m.instruction_body.tee_local(&local1); // local1 = 10
+        m.tee_local(&local1); // local1 = 10
 
-        m.instruction_body.const_i32(20);
-        m.instruction_body.add_i32();
+        m.const_i32(20);
+        m.add_i32();
         let local2 = m.alloc_local();
-        m.instruction_body.tee_local(&local2); // local2 = 30
+        m.tee_local(&local2); // local2 = 30
 
         m.free_local(local1);
 
@@ -583,11 +849,11 @@ mod tests {
         m.free_local(local2);
         m.free_local(local3);
 
-        m.instruction_body.const_i32(30);
-        m.instruction_body.ne_i32();
-        m.instruction_body.if_void();
-        m.instruction_body.unreachable();
-        m.instruction_body.block_end();
+        m.const_i32(30);
+        m.ne_i32();
+        m.if_void();
+        m.unreachable();
+        m.block_end();
 
         m.finish();
 

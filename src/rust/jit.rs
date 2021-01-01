@@ -15,7 +15,6 @@ use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
 use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
-use wasmgen::wasm_util::WasmBuf;
 
 pub const WASM_TABLE_SIZE: u32 = 900;
 
@@ -998,16 +997,12 @@ fn jit_generate_module(
         .collect();
 
     // set state local variable to the initial state passed as the first argument
-    builder
-        .instruction_body
-        .get_local(&builder.arg_local_initial_state);
+    builder.get_local(&builder.arg_local_initial_state.unsafe_clone());
     let gen_local_state = builder.set_new_local();
 
     // initialise max_iterations
     let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
-        builder
-            .instruction_body
-            .const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
+        builder.const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
         Some(builder.set_new_local())
     }
     else {
@@ -1016,10 +1011,8 @@ fn jit_generate_module(
 
     let mut register_locals = (0..8)
         .map(|i| {
-            builder
-                .instruction_body
-                .const_i32(global_pointers::get_reg32_offset(i) as i32);
-            builder.instruction_body.load_aligned_i32_from_stack(0);
+            builder.const_i32(global_pointers::get_reg32_offset(i) as i32);
+            builder.load_aligned_i32_from_stack(0);
             let local = builder.set_new_local();
             local
         })
@@ -1034,52 +1027,44 @@ fn jit_generate_module(
     };
 
     // main state machine loop
-    ctx.builder.instruction_body.loop_void();
+    ctx.builder.loop_void();
 
     if let Some(gen_local_iteration_counter) = gen_local_iteration_counter.as_ref() {
         profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
 
         // decrement max_iterations
-        ctx.builder
-            .instruction_body
-            .get_local(gen_local_iteration_counter);
-        ctx.builder.instruction_body.const_i32(-1);
-        ctx.builder.instruction_body.add_i32();
-        ctx.builder
-            .instruction_body
-            .set_local(gen_local_iteration_counter);
+        ctx.builder.get_local(gen_local_iteration_counter);
+        ctx.builder.const_i32(-1);
+        ctx.builder.add_i32();
+        ctx.builder.set_local(gen_local_iteration_counter);
 
         // if max_iterations == 0: return
-        ctx.builder
-            .instruction_body
-            .get_local(gen_local_iteration_counter);
-        ctx.builder.instruction_body.eqz_i32();
-        ctx.builder.instruction_body.if_void();
+        ctx.builder.get_local(gen_local_iteration_counter);
+        ctx.builder.eqz_i32();
+        ctx.builder.if_void();
         codegen::gen_debug_track_jit_exit(ctx.builder, 0);
         codegen::gen_move_registers_from_locals_to_memory(ctx);
-        ctx.builder.instruction_body.return_();
-        ctx.builder.instruction_body.block_end();
+        ctx.builder.return_();
+        ctx.builder.block_end();
     }
 
-    ctx.builder.instruction_body.block_void(); // for the default case
+    ctx.builder.block_void(); // for the default case
 
-    ctx.builder.instruction_body.block_void(); // for the exit-with-pagefault case
+    ctx.builder.block_void(); // for the exit-with-pagefault case
 
     // generate the opening blocks for the cases
 
     for _ in 0..basic_blocks.len() {
-        ctx.builder.instruction_body.block_void();
+        ctx.builder.block_void();
     }
 
-    ctx.builder.instruction_body.get_local(&gen_local_state);
-    ctx.builder
-        .instruction_body
-        .brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-pagefault case
+    ctx.builder.get_local(&gen_local_state);
+    ctx.builder.brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-pagefault case
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
-        ctx.builder.instruction_body.block_end();
+        ctx.builder.block_end();
 
         ctx.current_brtable_depth = basic_blocks.len() as u32 + 1 - i as u32;
 
@@ -1095,7 +1080,7 @@ fn jit_generate_module(
                 // Exit this function
                 codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                 codegen::gen_move_registers_from_locals_to_memory(ctx);
-                ctx.builder.instruction_body.return_();
+                ctx.builder.return_();
             },
             BasicBlockType::Normal { next_block_addr } => {
                 // Unconditional jump to next basic block
@@ -1111,12 +1096,10 @@ fn jit_generate_module(
                 }
                 else {
                     // set state variable to next basic block
-                    ctx.builder
-                        .instruction_body
-                        .const_i32(next_basic_block_index as i32);
-                    ctx.builder.instruction_body.set_local(&gen_local_state);
+                    ctx.builder.const_i32(next_basic_block_index as i32);
+                    ctx.builder.set_local(&gen_local_state);
 
-                    ctx.builder.instruction_body.br(ctx.current_brtable_depth); // to the loop
+                    ctx.builder.br(ctx.current_brtable_depth); // to the loop
                 }
             },
             &BasicBlockType::ConditionalJump {
@@ -1130,7 +1113,7 @@ fn jit_generate_module(
                 // - jnz, jc, loop, jcxz, etc.
 
                 codegen::gen_condition_fn(ctx, condition);
-                ctx.builder.instruction_body.if_void();
+                ctx.builder.if_void();
 
                 // Branch taken
 
@@ -1147,19 +1130,16 @@ fn jit_generate_module(
                         .expect("basic_block_indices.get (branch taken)");
 
                     ctx.builder
-                        .instruction_body
                         .const_i32(next_basic_block_branch_taken_index as i32);
-                    ctx.builder.instruction_body.set_local(&gen_local_state);
+                    ctx.builder.set_local(&gen_local_state);
 
-                    ctx.builder
-                        .instruction_body
-                        .br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
+                    ctx.builder.br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
                 }
                 else {
                     // Jump to different page
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                     codegen::gen_move_registers_from_locals_to_memory(ctx);
-                    ctx.builder.instruction_body.return_();
+                    ctx.builder.return_();
                 }
 
                 if let Some(next_block_addr) = next_block_addr {
@@ -1171,32 +1151,28 @@ fn jit_generate_module(
 
                     if next_basic_block_index == (i as u32) + 1 {
                         // fallthru
-                        ctx.builder.instruction_body.block_end();
+                        ctx.builder.block_end();
                     }
                     else {
-                        ctx.builder.instruction_body.else_();
+                        ctx.builder.else_();
 
-                        ctx.builder
-                            .instruction_body
-                            .const_i32(next_basic_block_index as i32);
-                        ctx.builder.instruction_body.set_local(&gen_local_state);
+                        ctx.builder.const_i32(next_basic_block_index as i32);
+                        ctx.builder.set_local(&gen_local_state);
 
-                        ctx.builder
-                            .instruction_body
-                            .br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
+                        ctx.builder.br(basic_blocks.len() as u32 + 2 - i as u32); // to the loop
 
-                        ctx.builder.instruction_body.block_end();
+                        ctx.builder.block_end();
                     }
                 }
                 else {
-                    ctx.builder.instruction_body.else_();
+                    ctx.builder.else_();
 
                     // End of this page
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                     codegen::gen_move_registers_from_locals_to_memory(ctx);
-                    ctx.builder.instruction_body.return_();
+                    ctx.builder.return_();
 
-                    ctx.builder.instruction_body.block_end();
+                    ctx.builder.block_end();
                 }
             },
         }
@@ -1204,16 +1180,16 @@ fn jit_generate_module(
 
     {
         // exit-with-pagefault case
-        ctx.builder.instruction_body.block_end();
+        ctx.builder.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
         codegen::gen_fn0_const(ctx.builder, "trigger_pagefault_end_jit");
-        ctx.builder.instruction_body.return_();
+        ctx.builder.return_();
     }
 
-    ctx.builder.instruction_body.block_end(); // default case
-    ctx.builder.instruction_body.unreachable();
+    ctx.builder.block_end(); // default case
+    ctx.builder.unreachable();
 
-    ctx.builder.instruction_body.block_end(); // loop
+    ctx.builder.block_end(); // loop
 
     ctx.builder.free_local(gen_local_state);
     if let Some(local) = gen_local_iteration_counter {
@@ -1257,7 +1233,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
         }
 
-        let wasm_length_before = ctx.builder.instruction_body.len();
+        let wasm_length_before = ctx.builder.instruction_body_length();
 
         ctx.start_of_current_instruction = ctx.cpu.eip;
         let start_eip = ctx.cpu.eip;
@@ -1268,7 +1244,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         let instruction_length = end_eip - start_eip;
         let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
 
-        let wasm_length = ctx.builder.instruction_body.len() - wasm_length_before;
+        let wasm_length = ctx.builder.instruction_body_length() - wasm_length_before;
         ::opstats::record_opstat_size_wasm(instruction, wasm_length as u32);
 
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
