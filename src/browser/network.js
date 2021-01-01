@@ -73,6 +73,11 @@ NetworkAdapter.prototype.destroy = function()
 
 NetworkAdapter.prototype.connect = function()
 {
+    if(typeof WebSocket === "undefined")
+    {
+        return;
+    }
+
     if(this.socket)
     {
         var state = this.socket.readyState;
@@ -93,16 +98,7 @@ NetworkAdapter.prototype.connect = function()
 
     this.last_connect_attempt = Date.now();
 
-    try
-    {
-        this.socket = new WebSocket(this.url);
-    }
-    catch(e)
-    {
-        this.handle_close(undefined);
-        return;
-    }
-
+    this.socket = new WebSocket(this.url);
     this.socket.binaryType = "arraybuffer";
 
     this.socket.onopen = this.handle_open.bind(this);
