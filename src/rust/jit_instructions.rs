@@ -3275,6 +3275,150 @@ pub fn instr32_A9_jit(ctx: &mut JitContext, imm32: u32) {
     );
 }
 
+#[derive(PartialEq)]
+enum String {
+    INS,
+    OUTS,
+    MOVS,
+    CMPS,
+    STOS,
+    LODS,
+    SCAS,
+}
+fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
+    dbg_assert!(prefix == 0 || prefix == 0xF2 || prefix == 0xF3);
+    dbg_assert!(size == 8 || size == 16 || size == 32);
+
+    let mut args = 0;
+    if ins == String::SCAS || ins == String::CMPS {
+        if prefix == 0xF2 {
+            args += 1;
+            ctx.builder
+                .instruction_body
+                .const_i32(::prefix::PREFIX_F2 as i32);
+        }
+        else if prefix == 0xF3 {
+            args += 1;
+            ctx.builder
+                .instruction_body
+                .const_i32(::prefix::PREFIX_F3 as i32)
+        }
+    }
+
+    args += 1;
+    ctx.builder
+        .instruction_body
+        .const_i32(ctx.cpu.asize_32() as i32);
+
+    if ins == String::OUTS || ins == String::CMPS || ins == String::LODS || ins == String::MOVS {
+        args += 1;
+        ctx.builder.instruction_body.const_i32(0);
+        jit_add_seg_offset(ctx, regs::DS);
+    }
+
+    let name = format!(
+        "{}{}{}",
+        match ins {
+            String::INS => "ins",
+            String::OUTS => "outs",
+            String::MOVS => "movs",
+            String::CMPS => "cmps",
+            String::STOS => "stos",
+            String::LODS => "lods",
+            String::SCAS => "scas",
+        },
+        if size == 8 {
+            "b"
+        }
+        else if size == 16 {
+            "w"
+        }
+        else {
+            "d"
+        },
+        if prefix == 0xF2 || prefix == 0xF3 { "_rep" } else { "_no_rep" }
+    );
+
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    if args == 1 {
+        codegen::gen_call_fn1(ctx.builder, &name)
+    }
+    else if args == 2 {
+        codegen::gen_call_fn2(ctx.builder, &name)
+    }
+    else if args == 3 {
+        codegen::gen_call_fn3(ctx.builder, &name)
+    }
+    else {
+        dbg_assert!(false);
+    }
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+}
+
+pub fn instr_6C_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 8, 0) }
+pub fn instr_F26C_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 8, 0xF2) }
+pub fn instr_F36C_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 8, 0xF3) }
+pub fn instr16_6D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 16, 0) }
+pub fn instr16_F26D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 16, 0xF2) }
+pub fn instr16_F36D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 16, 0xF3) }
+pub fn instr32_6D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 32, 0) }
+pub fn instr32_F26D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 32, 0xF2) }
+pub fn instr32_F36D_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::INS, 32, 0xF3) }
+pub fn instr_6E_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 8, 0) }
+pub fn instr_F26E_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 8, 0xF2) }
+pub fn instr_F36E_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 8, 0xF3) }
+pub fn instr16_6F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 16, 0) }
+pub fn instr16_F26F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 16, 0xF2) }
+pub fn instr16_F36F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 16, 0xF3) }
+pub fn instr32_6F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 32, 0) }
+pub fn instr32_F26F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 32, 0xF2) }
+pub fn instr32_F36F_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::OUTS, 32, 0xF3) }
+pub fn instr_A4_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 8, 0) }
+pub fn instr_F2A4_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 8, 0xF2) }
+pub fn instr_F3A4_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 8, 0xF3) }
+pub fn instr16_A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 16, 0) }
+pub fn instr16_F2A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 16, 0xF2) }
+pub fn instr16_F3A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 16, 0xF3) }
+pub fn instr32_A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 32, 0) }
+pub fn instr32_F2A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 32, 0xF2) }
+pub fn instr32_F3A5_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::MOVS, 32, 0xF3) }
+pub fn instr_A6_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 8, 0) }
+pub fn instr_F2A6_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 8, 0xF2) }
+pub fn instr_F3A6_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 8, 0xF3) }
+pub fn instr16_A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 16, 0) }
+pub fn instr16_F2A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 16, 0xF2) }
+pub fn instr16_F3A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 16, 0xF3) }
+pub fn instr32_A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 32, 0) }
+pub fn instr32_F2A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 32, 0xF2) }
+pub fn instr32_F3A7_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::CMPS, 32, 0xF3) }
+pub fn instr_AA_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 8, 0) }
+pub fn instr_F2AA_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 8, 0xF2) }
+pub fn instr_F3AA_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 8, 0xF3) }
+pub fn instr16_AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 16, 0) }
+pub fn instr16_F2AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 16, 0xF2) }
+pub fn instr16_F3AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 16, 0xF3) }
+pub fn instr32_AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 32, 0) }
+pub fn instr32_F2AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 32, 0xF2) }
+pub fn instr32_F3AB_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::STOS, 32, 0xF3) }
+pub fn instr_AC_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 8, 0) }
+pub fn instr_F2AC_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 8, 0xF2) }
+pub fn instr_F3AC_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 8, 0xF3) }
+pub fn instr16_AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 16, 0) }
+pub fn instr16_F2AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 16, 0xF2) }
+pub fn instr16_F3AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 16, 0xF3) }
+pub fn instr32_AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 32, 0) }
+pub fn instr32_F2AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 32, 0xF2) }
+pub fn instr32_F3AD_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::LODS, 32, 0xF3) }
+pub fn instr_AE_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 8, 0) }
+pub fn instr_F2AE_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 8, 0xF2) }
+pub fn instr_F3AE_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 8, 0xF3) }
+pub fn instr16_AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 16, 0) }
+pub fn instr16_F2AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 16, 0xF2) }
+pub fn instr16_F3AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 16, 0xF3) }
+pub fn instr32_AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0) }
+pub fn instr32_F2AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0xF2) }
+pub fn instr32_F3AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0xF3) }
+
 pub fn instr_0F18_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);
 }
