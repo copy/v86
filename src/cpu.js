@@ -201,6 +201,7 @@ function CPU(bus, wm)
 CPU.prototype.clear_opstats = function()
 {
     new Uint8Array(this.wasm_memory.buffer, 0x8000, 0x20000).fill(0);
+    this.wm.exports["profiler_init"]();
 };
 
 CPU.prototype.wasmgen_get_module_code = function()
@@ -263,7 +264,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.update_eflags = get_import("update_eflags");
 
     this.trigger_gp = get_import("trigger_gp");
-    this.trigger_ud = get_import("trigger_ud");
     this.trigger_np = get_import("trigger_np");
     this.trigger_ss = get_import("trigger_ss");
 

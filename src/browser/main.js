@@ -1231,12 +1231,7 @@
         {
             var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
             var vgabiosfile = DEBUG ? "vgabios-debug.bin" : "vgabios.bin";
-            //var biosfile = DEBUG ? "seabios-ultradebug.bin" : "seabios.bin";
-            //var vgabiosfile = DEBUG ? "vgabios-ultradebug.bin" : "vgabios.bin";
         }
-
-        //var biosfile = "seabios-qemu.bin";
-        //var vgabiosfile = "vgabios-qemu.bin";
 
         var bios;
         var vga_bios;
@@ -1308,7 +1303,7 @@
                             const text = print_stats.stats_to_string(emulator.v86.cpu);
                             panel.textContent = text;
 
-                            CLEAR_STATS && emulator.v86.cpu.wm.exports["_profiler_init"]();
+                            CLEAR_STATS && emulator.v86.cpu.clear_opstats();
                         }, CLEAR_STATS ? 5000 : 1000);
                 }
             }
