@@ -40,6 +40,17 @@ CPU.prototype.mmap_write32 = function(addr, value)
     this.memory_map_write32[aligned_addr](addr, value);
 };
 
+CPU.prototype.mmap_write64 = function(addr, value0, value1)
+{
+    var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+    // This should hold since writes across pages are split up
+    dbg_assert(aligned_addr === (addr + 7) >>> MMAP_BLOCK_BITS);
+
+    var write_func32 = this.memory_map_write32[aligned_addr];
+    write_func32(addr, value0);
+    write_func32(addr + 4, value1);
+};
+
 CPU.prototype.mmap_write128 = function(addr, value0, value1, value2, value3)
 {
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;

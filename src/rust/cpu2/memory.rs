@@ -7,13 +7,15 @@ extern "C" {
     fn mmap_read32(addr: u32) -> i32;
 
     #[no_mangle]
-    fn mmap_write8(addr: u32, value: i32);
+    pub fn mmap_write8(addr: u32, value: i32);
     #[no_mangle]
-    fn mmap_write16(addr: u32, value: i32);
+    pub fn mmap_write16(addr: u32, value: i32);
     #[no_mangle]
-    fn mmap_write32(addr: u32, value: i32);
+    pub fn mmap_write32(addr: u32, value: i32);
     #[no_mangle]
-    fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
+    pub fn mmap_write64(addr: u32, v0: i32, v1: i32);
+    #[no_mangle]
+    pub fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
 }
 
 use cpu2::cpu::*;
@@ -121,8 +123,11 @@ pub unsafe fn write16(addr: u32, value: i32) {
     }
     else {
         ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(2 as u32));
-        *(mem8.offset(addr as isize) as *mut u16) = value as u16
+        write16_no_mmap_or_dirty_check(addr, value);
     };
+}
+pub unsafe fn write16_no_mmap_or_dirty_check(addr: u32, value: i32) {
+    *(mem8.offset(addr as isize) as *mut u16) = value as u16
 }
 #[no_mangle]
 pub unsafe fn write_aligned16(addr: u32, value: u32) {
@@ -143,8 +148,12 @@ pub unsafe fn write32(addr: u32, value: i32) {
     }
     else {
         ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(4 as u32));
-        *(mem8.offset(addr as isize) as *mut i32) = value
+        write32_no_mmap_or_dirty_check(addr, value);
     };
+}
+
+pub unsafe fn write32_no_mmap_or_dirty_check(addr: u32, value: i32) {
+    *(mem8.offset(addr as isize) as *mut i32) = value
 }
 
 pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
@@ -163,20 +172,21 @@ pub unsafe fn write_aligned32(addr: u32, value: i32) {
         write_aligned32_no_mmap_or_dirty_check(addr, value);
     };
 }
+
 #[no_mangle]
 pub unsafe fn write64(addr: u32, value: u64) {
     if in_mapped_range(addr) {
-        mmap_write32(
-            addr.wrapping_add(0 as u32),
-            (value & 0xFFFFFFFF as u64) as i32,
-        );
-        mmap_write32(addr.wrapping_add(4 as u32), (value >> 32) as i32);
+        mmap_write64(addr, value as i32, (value >> 32) as i32);
     }
     else {
         ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(8 as u32));
-        *(mem8.offset(addr as isize) as *mut u64) = value
+        write64_no_mmap_or_dirty_check(addr, value);
     };
 }
+pub unsafe fn write64_no_mmap_or_dirty_check(addr: u32, value: u64) {
+    *(mem8.offset(addr as isize) as *mut u64) = value
+}
+
 #[no_mangle]
 pub unsafe fn write128(addr: u32, value: reg128) {
     if in_mapped_range(addr) {
@@ -190,7 +200,9 @@ pub unsafe fn write128(addr: u32, value: reg128) {
     }
     else {
         ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(16 as u32));
-        *(mem8.offset(addr as isize) as *mut u64) = value.u64_0[0];
-        *(mem8.offset(addr as isize).offset(8) as *mut u64) = value.u64_0[1]
+        write128_no_mmap_or_dirty_check(addr, value);
     };
+}
+pub unsafe fn write128_no_mmap_or_dirty_check(addr: u32, value: reg128) {
+    *(mem8.offset(addr as isize) as *mut reg128) = value
 }
