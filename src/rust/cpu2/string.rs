@@ -50,7 +50,8 @@ pub unsafe fn string_get_cycle_count2(size: i32, addr1: i32, addr2: i32) -> i32 
 #[no_mangle]
 pub unsafe fn movsb_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -108,7 +109,8 @@ pub unsafe fn movsb_rep(is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn movsb_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     return_on_pagefault!(safe_write8(dest, return_on_pagefault!(safe_read8(src))));
     add_reg_asize(is_asize_32, EDI, size);
@@ -118,7 +120,8 @@ pub unsafe fn movsb_no_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn movsw_rep(is_asize_32: bool, ds: i32) {
     let diff;
     let mut src: i32 = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -179,7 +182,8 @@ pub unsafe fn movsw_rep(is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn movsw_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     return_on_pagefault!(safe_write16(dest, return_on_pagefault!(safe_read16(src))));
     add_reg_asize(is_asize_32, EDI, size);
@@ -189,7 +193,8 @@ pub unsafe fn movsw_no_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn movsd_rep(is_asize_32: bool, ds: i32) {
     let diff;
     let mut src: i32 = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -271,7 +276,8 @@ pub unsafe fn movsd_rep(is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn movsd_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     return_on_pagefault!(safe_write32(dest, return_on_pagefault!(safe_read32s(src))));
     add_reg_asize(is_asize_32, EDI, size);
@@ -280,7 +286,8 @@ pub unsafe fn movsd_no_rep(is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn cmpsb_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let mut data_src;
     let mut data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
@@ -325,7 +332,8 @@ pub unsafe fn cmpsb_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn cmpsb_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let data_src;
     let data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
@@ -339,7 +347,8 @@ pub unsafe fn cmpsb_no_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn cmpsw_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
     let diff;
     let mut src: i32 = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let mut data_src;
     let mut data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
@@ -407,7 +416,8 @@ pub unsafe fn cmpsw_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn cmpsw_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let data_src;
     let data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
@@ -421,7 +431,8 @@ pub unsafe fn cmpsw_no_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn cmpsd_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
     let diff;
     let mut src: i32 = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let mut data_src;
     let mut data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
@@ -489,7 +500,8 @@ pub unsafe fn cmpsd_rep(prefix_flag: i32, is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn cmpsd_no_rep(is_asize_32: bool, ds: i32) {
     let src = ds + if is_asize_32 { read_reg32(ESI) } else { read_reg16(SI) };
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let data_src;
     let data_dest;
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
@@ -502,7 +514,8 @@ pub unsafe fn cmpsd_no_rep(is_asize_32: bool, ds: i32) {
 #[no_mangle]
 pub unsafe fn stosb_rep(is_asize_32: bool) {
     let data = *reg8.offset(AL as isize) as i32;
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -556,7 +569,8 @@ pub unsafe fn stosb_rep(is_asize_32: bool) {
 #[no_mangle]
 pub unsafe fn stosb_no_rep(is_asize_32: bool) {
     let data = *reg8.offset(AL as isize) as i32;
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     return_on_pagefault!(safe_write8(dest, data));
     add_reg_asize(is_asize_32, EDI, size);
@@ -565,7 +579,8 @@ pub unsafe fn stosb_no_rep(is_asize_32: bool) {
 pub unsafe fn stosw_rep(is_asize_32: bool) {
     let diff;
     let data = *reg16.offset(AX as isize) as i32;
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -621,7 +636,8 @@ pub unsafe fn stosw_rep(is_asize_32: bool) {
 #[no_mangle]
 pub unsafe fn stosw_no_rep(is_asize_32: bool) {
     let data = *reg16.offset(AX as isize) as i32;
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     return_on_pagefault!(safe_write16(dest, data));
     add_reg_asize(is_asize_32, EDI, size);
@@ -630,7 +646,8 @@ pub unsafe fn stosw_no_rep(is_asize_32: bool) {
 pub unsafe fn stosd_rep(is_asize_32: bool) {
     let diff;
     let data = *reg32.offset(EAX as isize);
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
     if count == 0 {
@@ -703,7 +720,8 @@ pub unsafe fn stosd_rep(is_asize_32: bool) {
 #[no_mangle]
 pub unsafe fn stosd_no_rep(is_asize_32: bool) {
     let data = *reg32.offset(EAX as isize);
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     return_on_pagefault!(safe_write32(dest, data));
     add_reg_asize(is_asize_32, EDI, size);
@@ -825,7 +843,8 @@ pub unsafe fn lodsd_no_rep(is_asize_32: bool, ds: i32) {
 }
 #[no_mangle]
 pub unsafe fn scasb_rep(prefix_flag: i32, is_asize_32: bool) {
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     let mut data_dest;
     let data_src = *reg8.offset(AL as isize) as i32;
@@ -865,7 +884,8 @@ pub unsafe fn scasb_rep(prefix_flag: i32, is_asize_32: bool) {
 }
 #[no_mangle]
 pub unsafe fn scasb_no_rep(is_asize_32: bool) {
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
     let data_dest;
     let data_src = *reg8.offset(AL as isize) as i32;
@@ -876,7 +896,8 @@ pub unsafe fn scasb_no_rep(is_asize_32: bool) {
 #[no_mangle]
 pub unsafe fn scasw_rep(prefix_flag: i32, is_asize_32: bool) {
     let diff;
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     let mut data_dest;
     let data_src = *reg16.offset(AL as isize) as i32;
@@ -936,7 +957,8 @@ pub unsafe fn scasw_rep(prefix_flag: i32, is_asize_32: bool) {
 }
 #[no_mangle]
 pub unsafe fn scasw_no_rep(is_asize_32: bool) {
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     let data_dest;
     let data_src = *reg16.offset(AL as isize) as i32;
@@ -947,7 +969,8 @@ pub unsafe fn scasw_no_rep(is_asize_32: bool) {
 #[no_mangle]
 pub unsafe fn scasd_rep(prefix_flag: i32, is_asize_32: bool) {
     let diff;
-    let mut dest: i32 = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let mut data_dest;
     let data_src = *reg32.offset(EAX as isize);
@@ -1007,7 +1030,8 @@ pub unsafe fn scasd_rep(prefix_flag: i32, is_asize_32: bool) {
 }
 #[no_mangle]
 pub unsafe fn scasd_no_rep(is_asize_32: bool) {
-    let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+    let dest = return_on_pagefault!(get_seg(ES))
+        + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
     let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
     let data_dest;
     let data_src = *reg32.offset(EAX as isize);
@@ -1022,7 +1046,8 @@ pub unsafe fn insb_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let dest = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
         let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
         if count == 0 {
@@ -1065,7 +1090,8 @@ pub unsafe fn insb_no_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let dest = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
         return_on_pagefault!(writable_or_pagefault(dest, 1));
         return_on_pagefault!(safe_write8(dest, io_port_read8(port)));
@@ -1081,8 +1107,8 @@ pub unsafe fn insw_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let mut dest: i32 =
-            get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
         let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
         if count == 0 {
@@ -1145,7 +1171,8 @@ pub unsafe fn insw_no_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let dest = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
         return_on_pagefault!(writable_or_pagefault(dest, 2));
         return_on_pagefault!(safe_write16(dest, io_port_read16(port)));
@@ -1161,8 +1188,8 @@ pub unsafe fn insd_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let mut dest: i32 =
-            get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let mut dest: i32 = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
         let mut count: i32 = if is_asize_32 { read_reg32(ECX) } else { read_reg16(CX) };
         if count == 0 {
@@ -1225,7 +1252,8 @@ pub unsafe fn insd_no_rep(is_asize_32: bool) {
         return;
     }
     else {
-        let dest = get_seg(ES) + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
+        let dest = return_on_pagefault!(get_seg(ES))
+            + if is_asize_32 { read_reg32(EDI) } else { read_reg16(DI) };
         let size = if 0 != *flags & FLAG_DIRECTION { -4 } else { 4 };
         return_on_pagefault!(writable_or_pagefault(dest, 4));
         return_on_pagefault!(safe_write32(dest, io_port_read32(port)));

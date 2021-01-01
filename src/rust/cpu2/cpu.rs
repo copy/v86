@@ -421,7 +421,7 @@ pub unsafe fn iret(is_16: bool) {
         }
 
         switch_cs_real_mode(new_cs);
-        *instruction_pointer = get_seg(CS) + new_eip;
+        *instruction_pointer = get_seg_cs() + new_eip;
 
         if is_16 {
             update_eflags(new_flags | *flags & !0xFFFF);
@@ -474,7 +474,7 @@ pub unsafe fn iret(is_16: bool) {
             *flags |= FLAG_VM;
 
             switch_cs_real_mode(new_cs);
-            *instruction_pointer = get_seg(CS) + (new_eip & 0xFFFF);
+            *instruction_pointer = get_seg_cs() + (new_eip & 0xFFFF);
 
             if !switch_seg(ES, new_es)
                 || !switch_seg(DS, new_ds)
@@ -654,7 +654,7 @@ pub unsafe fn iret(is_16: bool) {
     *segment_limits.offset(CS as isize) = cs_descriptor.effective_limit();
     *segment_offsets.offset(CS as isize) = cs_descriptor.base();
 
-    *instruction_pointer = new_eip + get_seg(CS);
+    *instruction_pointer = new_eip + get_seg_cs();
 
     // iret end
 
@@ -941,7 +941,7 @@ pub unsafe fn call_interrupt_vector(
         *segment_limits.offset(CS as isize) = cs_segment_descriptor.effective_limit();
         *segment_offsets.offset(CS as isize) = cs_segment_descriptor.base();
 
-        *instruction_pointer = get_seg(CS) + offset;
+        *instruction_pointer = get_seg_cs() + offset;
 
         *flags &= !FLAG_NT & !FLAG_VM & !FLAG_RF & !FLAG_TRAP;
 
@@ -977,7 +977,7 @@ pub unsafe fn call_interrupt_vector(
         *flags &= !FLAG_INTERRUPT & !FLAG_AC & !FLAG_TRAP;
 
         switch_cs_real_mode(new_cs);
-        *instruction_pointer = get_seg(CS) + new_ip;
+        *instruction_pointer = get_seg_cs() + new_ip;
     }
 }
 
@@ -1663,15 +1663,17 @@ pub unsafe fn assert_seg_non_null(segment: i32) {
     }
 }
 
-pub unsafe fn get_seg(segment: i32) -> i32 {
+pub unsafe fn get_seg(segment: i32) -> OrPageFault<i32> {
     dbg_assert!(segment >= 0 && segment < 8);
     if *segment_is_null.offset(segment as isize) {
         dbg_assert!(segment != CS && segment != SS);
         dbg_log!("#gp: Access null segment");
-        assert!(false);
-        //trigger_gp(0); // TODO
+        dbg_trace();
+        dbg_assert!(!in_jit, "TODO");
+        trigger_gp(0);
+        return Err(());
     }
-    return *segment_offsets.offset(segment as isize);
+    return Ok(*segment_offsets.offset(segment as isize));
 }
 
 pub unsafe fn set_cr0(cr0: i32) {
@@ -1783,12 +1785,12 @@ pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize);
 #[no_mangle]
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 
-pub unsafe fn get_seg_prefix(default_segment: i32) -> i32 {
+pub unsafe fn get_seg_prefix(default_segment: i32) -> OrPageFault<i32> {
     dbg_assert!(!in_jit);
     let prefix = *prefixes as i32 & PREFIX_MASK_SEGMENT;
     if 0 != prefix {
         if prefix == SEG_PREFIX_ZERO {
-            return 0;
+            return Ok(0);
         }
         else {
             return get_seg(prefix - 1);
@@ -1799,9 +1801,13 @@ pub unsafe fn get_seg_prefix(default_segment: i32) -> i32 {
     };
 }
 
-pub unsafe fn get_seg_prefix_ds(offset: i32) -> i32 { return get_seg_prefix(DS) + offset; }
+pub unsafe fn get_seg_prefix_ds(offset: i32) -> OrPageFault<i32> {
+    Ok(get_seg_prefix(DS)? + offset)
+}
 
-pub unsafe fn get_seg_prefix_ss(offset: i32) -> i32 { return get_seg_prefix(SS) + offset; }
+pub unsafe fn get_seg_prefix_ss(offset: i32) -> OrPageFault<i32> {
+    Ok(get_seg_prefix(SS)? + offset)
+}
 
 pub unsafe fn modrm_resolve(modrm_byte: i32) -> OrPageFault<i32> {
     if is_asize_32() { resolve_modrm32(modrm_byte) } else { resolve_modrm16(modrm_byte) }

@@ -4967,7 +4967,11 @@ pub unsafe fn maskmovq(r1: i32, r2: i32, addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
-    maskmovq(r1, r2, get_seg_prefix(DS) + get_reg_asize(EDI))
+    maskmovq(
+        r1,
+        r2,
+        return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI))),
+    )
 }
 
 #[no_mangle]
@@ -4996,7 +5000,11 @@ pub unsafe fn maskmovdqu(r1: i32, r2: i32, addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
-    maskmovdqu(r1, r2, get_seg_prefix(DS) + get_reg_asize(EDI))
+    maskmovdqu(
+        r1,
+        r2,
+        return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI))),
+    )
 }
 #[no_mangle]
 pub unsafe fn instr_0FF8(source: reg64, r: i32) {
