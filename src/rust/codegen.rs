@@ -1585,6 +1585,17 @@ pub fn gen_fpu_load_m64(ctx: &mut JitContext, modrm_byte: u8) {
     ctx.builder.reinterpret_i64_as_f64();
 }
 
+pub fn gen_trigger_de(ctx: &mut JitContext) {
+    gen_move_registers_from_locals_to_memory(ctx);
+    gen_set_previous_eip_offset_from_eip_with_low_bits(
+        ctx.builder,
+        ctx.start_of_current_instruction as i32 & 0xFFF,
+    );
+    gen_fn0_const(ctx.builder, "trigger_de");
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    ctx.builder.return_();
+}
+
 pub fn gen_trigger_ud(ctx: &mut JitContext) {
     gen_move_registers_from_locals_to_memory(ctx);
     gen_set_previous_eip_offset_from_eip_with_low_bits(

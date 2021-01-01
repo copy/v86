@@ -2053,6 +2053,7 @@ pub unsafe fn do_many_cycles_native() {
     }
 }
 
+#[no_mangle]
 pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;

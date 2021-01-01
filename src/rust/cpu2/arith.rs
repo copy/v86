@@ -694,97 +694,94 @@ pub unsafe fn idiv8(source_operand: i32) {
         return;
     };
 }
+
 #[no_mangle]
+pub unsafe fn div16_without_fault(source_operand: u32) -> bool {
+    if source_operand == 0 {
+        return false;
+    }
+    let target_operand =
+        (*reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16) as u32;
+    let result = target_operand.wrapping_div(source_operand);
+    if result >= 0x10000 {
+        return false;
+    }
+    *reg16.offset(AX as isize) = result as u16;
+    *reg16.offset(DX as isize) = target_operand.wrapping_rem(source_operand) as u16;
+    return true;
+}
 pub unsafe fn div16(source_operand: u32) {
-    if source_operand == 0 {
-        trigger_de();
-        return;
+    if !div16_without_fault(source_operand) {
+        trigger_de()
     }
-    else {
-        let target_operand =
-            (*reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16) as u32;
-        let result = target_operand.wrapping_div(source_operand);
-        if result >= 0x10000 {
-            trigger_de();
-        }
-        else {
-            *reg16.offset(AX as isize) = result as u16;
-            *reg16.offset(DX as isize) = target_operand.wrapping_rem(source_operand) as u16
-        }
-        return;
-    };
 }
 #[no_mangle]
+pub unsafe fn idiv16_without_fault(source_operand: i32) -> bool {
+    if source_operand == 0 {
+        return false;
+    }
+    let target_operand =
+        *reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16;
+    let result = target_operand / source_operand;
+    if result >= 32768 || result <= -32769 {
+        return false;
+    }
+    *reg16.offset(AX as isize) = result as u16;
+    *reg16.offset(DX as isize) = (target_operand % source_operand) as u16;
+    return true;
+}
 pub unsafe fn idiv16(source_operand: i32) {
-    if source_operand == 0 {
-        trigger_de();
-        return;
+    if !idiv16_without_fault(source_operand) {
+        trigger_de()
     }
-    else {
-        let target_operand =
-            *reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16;
-        let result = target_operand / source_operand;
-        if result >= 32768 || result <= -32769 {
-            trigger_de();
-        }
-        else {
-            *reg16.offset(AX as isize) = result as u16;
-            *reg16.offset(DX as isize) = (target_operand % source_operand) as u16
-        }
-        return;
-    };
 }
+
 #[no_mangle]
+pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
+    if source_operand == 0 {
+        return false;
+    }
+    let target_low = *reg32.offset(EAX as isize) as u32;
+    let target_high = *reg32.offset(EDX as isize) as u32;
+    let target_operand = (target_high as u64) << 32 | target_low as u64;
+    let result = target_operand.wrapping_div(source_operand as u64);
+    if result > 0xFFFFFFFF {
+        return false;
+    }
+    let mod_0 = target_operand.wrapping_rem(source_operand as u64) as i32;
+    *reg32.offset(EAX as isize) = result as i32;
+    *reg32.offset(EDX as isize) = mod_0;
+    return true;
+}
 pub unsafe fn div32(source_operand: u32) {
-    if source_operand == 0 {
-        trigger_de();
-        return;
+    if !div32_without_fault(source_operand) {
+        trigger_de()
     }
-    else {
-        let target_low = *reg32.offset(EAX as isize) as u32;
-        let target_high = *reg32.offset(EDX as isize) as u32;
-        let target_operand = (target_high as u64) << 32 | target_low as u64;
-        let result = target_operand.wrapping_div(source_operand as u64);
-        if result > 0xFFFFFFFF {
-            trigger_de();
-            return;
-        }
-        else {
-            let mod_0 = target_operand.wrapping_rem(source_operand as u64) as i32;
-            *reg32.offset(EAX as isize) = result as i32;
-            *reg32.offset(EDX as isize) = mod_0;
-            return;
-        }
-    };
 }
 #[no_mangle]
-pub unsafe fn idiv32(source_operand: i32) {
+pub unsafe fn idiv32_without_fault(source_operand: i32) -> bool {
     if source_operand == 0 {
-        trigger_de();
-        return;
+        return false;
     }
-    else {
-        let target_low = *reg32.offset(EAX as isize) as u32;
-        let target_high = *reg32.offset(EDX as isize) as u32;
-        let target_operand = ((target_high as u64) << 32 | target_low as u64) as i64;
-        if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
-            trigger_de();
-            return;
-        }
-        else {
-            let result = target_operand / source_operand as i64;
-            if result < -0x80000000 || result > 0x7FFFFFFF {
-                trigger_de();
-                return;
-            }
-            else {
-                let mod_0 = (target_operand % source_operand as i64) as i32;
-                *reg32.offset(EAX as isize) = result as i32;
-                *reg32.offset(EDX as isize) = mod_0;
-                return;
-            }
-        }
-    };
+    let target_low = *reg32.offset(EAX as isize) as u32;
+    let target_high = *reg32.offset(EDX as isize) as u32;
+    let target_operand = ((target_high as u64) << 32 | target_low as u64) as i64;
+    if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
+        return false;
+    }
+    let result = target_operand / source_operand as i64;
+    if result < -0x80000000 || result > 0x7FFFFFFF {
+        return false;
+    }
+    let mod_0 = (target_operand % source_operand as i64) as i32;
+    *reg32.offset(EAX as isize) = result as i32;
+    *reg32.offset(EDX as isize) = mod_0;
+    return true;
+}
+pub unsafe fn idiv32(source_operand: i32) {
+    if !idiv32_without_fault(source_operand) {
+        trigger_de()
+    }
 }
 
 #[no_mangle]
@@ -1056,6 +1053,7 @@ pub unsafe fn btr_reg(bit_base: i32, bit_offset: i32) -> i32 {
     *flags_changed &= !1;
     return bit_base & !(1 << bit_offset);
 }
+
 #[no_mangle]
 pub unsafe fn bt_mem(virt_addr: i32, mut bit_offset: i32) {
     let bit_base = return_on_pagefault!(safe_read8(virt_addr + (bit_offset >> 3)));
@@ -1090,6 +1088,7 @@ pub unsafe fn bts_mem(virt_addr: i32, mut bit_offset: i32) {
     *flags_changed &= !1;
     write8(phys_addr, bit_base | 1 << bit_offset);
 }
+
 #[no_mangle]
 pub unsafe fn bsf16(old: i32, bit_base: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !FLAG_ZERO & !FLAG_CARRY;
