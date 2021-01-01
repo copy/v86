@@ -302,6 +302,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
             if(imm_read)
             {
+                mem_args.push("imm");
                 reg_args.push("imm");
             }
 
@@ -312,10 +313,8 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                     if_blocks: [{
                         condition: "modrm_byte < 0xC0",
                         body: [].concat(
-                            // Note: Custom function is responsible for calling
-                            //       the proper read_imm function after calling
-                            //       gen_modrm_resolve
                             "let addr = ::modrm::decode(ctx.cpu, modrm_byte);",
+                            imm_read_bindings,
                             gen_call(`::jit_instructions::${instruction_name}_mem_jit`, mem_args),
                             mem_postfix
                         ),

@@ -221,10 +221,10 @@ macro_rules! define_instruction_read8(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm);
+            let imm = mask_imm!(imm, $imm);
             $fn(ctx.builder, &dest_operand, &LocalOrImmedate::Immediate(imm as i32));
             ctx.builder.free_local(dest_operand);
         }
@@ -260,10 +260,10 @@ macro_rules! define_instruction_read16(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm);
+            let imm = mask_imm!(imm, $imm);
             $fn(
                 ctx.builder,
                 &dest_operand,
@@ -305,10 +305,10 @@ macro_rules! define_instruction_read32(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm);
+            let imm = mask_imm!(imm, $imm);
             $fn(
                 ctx.builder,
                 &dest_operand,
@@ -394,14 +394,6 @@ macro_rules! mask_imm(
     ($imm:expr, imm32) => { $imm };
 );
 
-macro_rules! make_imm_read(
-    ($ctx:expr, imm8_5bits) => { $ctx.cpu.read_imm8() & 31 };
-    ($ctx:expr, imm8) => { $ctx.cpu.read_imm8() };
-    ($ctx:expr, imm8s) => { $ctx.cpu.read_imm8s() };
-    ($ctx:expr, imm16) => { $ctx.cpu.read_imm16() };
-    ($ctx:expr, imm32) => { $ctx.cpu.read_imm32() };
-);
-
 macro_rules! define_instruction_read_write_mem8(
     ($fn:expr, $name_mem:ident, $name_reg:ident, reg) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
@@ -465,10 +457,10 @@ macro_rules! define_instruction_read_write_mem8(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm) as i32;
+            let imm = mask_imm!(imm, $imm) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::BYTE, &address_local, &|ref mut ctx| {
                 ctx.builder.const_i32(imm as i32);
                 ctx.builder.call_fn2_ret($fn);
@@ -574,10 +566,10 @@ macro_rules! define_instruction_read_write_mem16(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, reg, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm) as i32;
+            let imm = mask_imm!(imm, $imm);
             codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
                 codegen::gen_get_reg16(ctx, r);
                 ctx.builder.const_i32(imm as i32);
@@ -615,10 +607,10 @@ macro_rules! define_instruction_read_write_mem16(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm) as i32;
+            let imm = mask_imm!(imm, $imm) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
                 ctx.builder.const_i32(imm as i32);
                 ctx.builder.call_fn2_ret($fn);
@@ -731,10 +723,10 @@ macro_rules! define_instruction_read_write_mem32(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, reg, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm) as i32;
+            let imm = mask_imm!(imm, $imm) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 codegen::gen_get_reg32(ctx, r);
                 ctx.builder.const_i32(imm as i32);
@@ -772,10 +764,10 @@ macro_rules! define_instruction_read_write_mem32(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, ximm32) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm32) as i32;
+            let imm = mask_imm!(imm, imm32) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
                 $fn(
@@ -800,10 +792,10 @@ macro_rules! define_instruction_read_write_mem32(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, ximm8s) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, imm8s) as i32;
+            let imm = mask_imm!(imm, imm8s) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
                 $fn(
@@ -828,10 +820,10 @@ macro_rules! define_instruction_read_write_mem32(
     );
 
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
-        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            let imm = make_imm_read!(ctx, $imm) as i32;
+            let imm = mask_imm!(imm, $imm) as i32;
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 ctx.builder.const_i32(imm as i32);
                 ctx.builder.call_fn2_ret($fn);
@@ -1704,9 +1696,8 @@ pub fn instr32_68_jit(ctx: &mut JitContext, imm32: u32) { push32_imm_jit(ctx, im
 pub fn instr16_6A_jit(ctx: &mut JitContext, imm16: u32) { push16_imm_jit(ctx, imm16) }
 pub fn instr32_6A_jit(ctx: &mut JitContext, imm32: u32) { push32_imm_jit(ctx, imm32) }
 
-pub fn instr16_69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr16_69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm16: u32) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-    let imm16 = ctx.cpu.read_imm16();
     ctx.builder.const_i32(imm16 as i32);
     ctx.builder.call_fn2_ret("imul_reg16");
     codegen::gen_set_reg16(ctx, r);
@@ -1718,10 +1709,9 @@ pub fn instr16_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm16: u32) {
     codegen::gen_set_reg16(ctx, r2);
 }
 
-pub fn instr32_69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr32_69_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm32: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
     let value_local = ctx.builder.set_new_local();
-    let imm32 = ctx.cpu.read_imm32();
     gen_imul3_reg32(
         ctx.builder,
         &ctx.register_locals[r as usize],
@@ -1739,9 +1729,8 @@ pub fn instr32_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm32: u32) {
     );
 }
 
-pub fn instr16_6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr16_6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8s: u32) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-    let imm8s = ctx.cpu.read_imm8s();
     ctx.builder.const_i32(imm8s as i32);
     ctx.builder.call_fn2_ret("imul_reg16");
     codegen::gen_set_reg16(ctx, r);
@@ -1753,10 +1742,9 @@ pub fn instr16_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
     codegen::gen_set_reg16(ctx, r2);
 }
 
-pub fn instr32_6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr32_6B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8s: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
     let value_local = ctx.builder.set_new_local();
-    let imm8s = ctx.cpu.read_imm8s();
     gen_imul3_reg32(
         ctx.builder,
         &ctx.register_locals[r as usize],
@@ -3179,20 +3167,20 @@ define_instruction_read32!(
     imm32
 );
 
-pub fn instr_F6_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    instr_F6_0_mem_jit(ctx, modrm_byte)
+pub fn instr_F6_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
+    instr_F6_0_mem_jit(ctx, modrm_byte, imm)
 }
 pub fn instr_F6_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     instr_F6_0_reg_jit(ctx, r, imm)
 }
-pub fn instr16_F7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    instr16_F7_0_mem_jit(ctx, modrm_byte)
+pub fn instr16_F7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
+    instr16_F7_0_mem_jit(ctx, modrm_byte, imm)
 }
 pub fn instr16_F7_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     instr16_F7_0_reg_jit(ctx, r, imm)
 }
-pub fn instr32_F7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    instr32_F7_0_mem_jit(ctx, modrm_byte)
+pub fn instr32_F7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
+    instr32_F7_0_mem_jit(ctx, modrm_byte, imm)
 }
 pub fn instr32_F7_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     instr32_F7_0_reg_jit(ctx, r, imm)
@@ -4193,10 +4181,9 @@ pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     codegen::gen_set_reg8(ctx, r);
 }
 
-pub fn instr_C6_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn instr_C6_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    let imm = ctx.cpu.read_imm8();
     ctx.builder.const_i32(imm as i32);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write8(ctx, &address_local, &value_local);
@@ -4210,10 +4197,9 @@ pub fn instr16_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     codegen::gen_set_reg16(ctx, r);
 }
 
-pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    let imm = ctx.cpu.read_imm16();
     ctx.builder.const_i32(imm as i32);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write16(ctx, &address_local, &value_local);
@@ -4227,10 +4213,9 @@ pub fn instr32_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     codegen::gen_set_reg32(ctx, r);
 }
 
-pub fn instr32_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn instr32_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    let imm = ctx.cpu.read_imm32();
     ctx.builder.const_i32(imm as i32);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
@@ -4478,10 +4463,9 @@ pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.call_fn2("instr_F30F6F_reg")
 }
 
-pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
     ctx.builder.const_i32(imm8 as i32);
@@ -4494,10 +4478,9 @@ pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder.const_i32(imm8 as i32);
     ctx.builder.call_fn3("instr_660F70");
 }
-pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
     ctx.builder.const_i32(imm8 as i32);
@@ -4510,10 +4493,9 @@ pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder.const_i32(imm8 as i32);
     ctx.builder.call_fn3("instr_F20F70");
 }
-pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
     let dest = global_pointers::SSE_SCRATCH_REGISTER;
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.const_i32(dest as i32);
     ctx.builder.const_i32(r as i32);
     ctx.builder.const_i32(imm8 as i32);
@@ -4527,8 +4509,7 @@ pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder.call_fn3("instr_F30F70");
 }
 
-pub fn instr_0F73_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte) {
-    let _ = ctx.cpu.read_imm8();
+pub fn instr_0F73_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
     codegen::gen_trigger_ud(ctx);
 }
 pub fn instr_0F73_2_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
@@ -4709,9 +4690,8 @@ pub fn instr16_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
         15,
     )
 }
-pub fn instr16_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn instr16_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm8: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.const_i32((imm8 as i32 & 15) >> 3);
     ctx.builder.add_i32();
     let address_local = ctx.builder.set_new_local();
@@ -4734,9 +4714,8 @@ pub fn instr32_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
         31,
     )
 }
-pub fn instr32_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn instr32_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm8: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let imm8 = ctx.cpu.read_imm8();
     ctx.builder.const_i32((imm8 as i32 & 31) >> 3);
     ctx.builder.add_i32();
     let address_local = ctx.builder.set_new_local();
