@@ -57,27 +57,6 @@ function run_all()
     }
 }
 
-let stdin_data = "";
-let stdin_buffer = Buffer.alloc(100);
-const stdin = fs.openSync("/dev/stdin", "r");
-
-function readline()
-{
-    const bytesRead = fs.readSync(stdin, stdin_buffer, 0, stdin_buffer.length, null);
-    stdin_data += stdin_buffer.slice(0, bytesRead).toString();
-
-    const nl = stdin_data.indexOf("\n");
-
-    if(nl === -1)
-    {
-        return readline();
-    }
-
-    const line = stdin_data.slice(0, nl);
-    stdin_data = stdin_data.slice(nl + 1);
-    return line;
-}
-
 // Remove parts that may not be stable between multiple runs
 function normalise_wast(wast)
 {
@@ -156,30 +135,7 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
                     console.log(result.stdout);
                     console.log(result.stderr);
 
-                    if(process.argv.includes("--interactive"))
-                    {
-                        while(true)
-                        {
-                            console.log("Pick: [y] Accept this change and overwrite, [n] Don't accept this change, [q] Quit");
-                            const choice = readline();
-
-                            if(choice === "y")
-                            {
-                                console.log(`Running: cp ${actual_file} ${expect_file}`);
-                                fs.copyFileSync(actual_file, expect_file);
-                                break;
-                            }
-                            else if(choice === "n")
-                            {
-                                break;
-                            }
-                            else if(choice === "q")
-                            {
-                                process.exit(1);
-                            }
-                        }
-                    }
-                    else if(process.argv.includes("--accept-all"))
+                    if(process.argv.includes("--accept-all"))
                     {
                         console.log(`Running: cp ${actual_file} ${expect_file}`);
                         fs.copyFileSync(actual_file, expect_file);
@@ -194,8 +150,7 @@ verify the diff above and run the following command to accept the change:
 
 When done, re-run this test to confirm that all expect-tests pass.
 
-Hint: Use tests/expect/run.js --interactive to interactively accept changes.
-      Or use tests/expect/run.js --accept-all to accept all changes (use git diff to verify).
+Hint: Use tests/expect/run.js --accept-all to accept all changes (use git diff to verify).
 `;
 
                         console.log(failure_message);
