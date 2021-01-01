@@ -489,7 +489,6 @@ impl WasmBuilder {
             },
         }
     }
-
     pub fn free_local(&mut self, local: WasmLocal) {
         dbg_assert!(
             (WASM_MODULE_ARGUMENT_COUNT..self.local_count + WASM_MODULE_ARGUMENT_COUNT)
@@ -505,13 +504,24 @@ impl WasmBuilder {
         self.instruction_body.push(local.idx());
         local
     }
-
     #[must_use = "local allocated but not used"]
     pub fn tee_new_local(&mut self) -> WasmLocal {
         let local = self.alloc_local();
         self.instruction_body.push(op::OP_TEELOCAL);
         self.instruction_body.push(local.idx());
         local
+    }
+    pub fn set_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_SETLOCAL);
+        self.instruction_body.push(local.idx());
+    }
+    pub fn tee_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_TEELOCAL);
+        self.instruction_body.push(local.idx());
+    }
+    pub fn get_local(&mut self, local: &WasmLocal) {
+        self.instruction_body.push(op::OP_GETLOCAL);
+        self.instruction_body.push(local.idx());
     }
 
     #[must_use = "local allocated but not used"]
@@ -525,7 +535,6 @@ impl WasmBuilder {
             },
         }
     }
-
     pub fn free_local_i64(&mut self, local: WasmLocalI64) {
         dbg_assert!(
             (WASM_MODULE_ARGUMENT_COUNT..self.local_count + WASM_MODULE_ARGUMENT_COUNT)
@@ -533,7 +542,6 @@ impl WasmBuilder {
         );
         self.free_locals_i64.push(local)
     }
-
     #[must_use = "local allocated but not used"]
     pub fn set_new_local_i64(&mut self) -> WasmLocalI64 {
         let local = self.alloc_local_i64();
@@ -541,7 +549,6 @@ impl WasmBuilder {
         self.instruction_body.push(local.idx());
         local
     }
-
     #[must_use = "local allocated but not used"]
     pub fn tee_new_local_i64(&mut self) -> WasmLocalI64 {
         let local = self.alloc_local_i64();
@@ -549,12 +556,15 @@ impl WasmBuilder {
         self.instruction_body.push(local.idx());
         local
     }
+    pub fn get_local_i64(&mut self, local: &WasmLocalI64) {
+        self.instruction_body.push(op::OP_GETLOCAL);
+        self.instruction_body.push(local.idx());
+    }
 
     pub fn const_i32(&mut self, v: i32) {
         self.instruction_body.push(op::OP_I32CONST);
         write_leb_i32(&mut self.instruction_body, v);
     }
-
     pub fn const_i64(&mut self, v: i64) {
         self.instruction_body.push(op::OP_I64CONST);
         write_leb_i64(&mut self.instruction_body, v);
@@ -589,52 +599,6 @@ impl WasmBuilder {
         self.const_i32(addr as i32);
         self.load_u8_from_stack(0);
     }
-
-    pub fn add_i32(&mut self) { self.instruction_body.push(op::OP_I32ADD); }
-    pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
-    pub fn and_i32(&mut self) { self.instruction_body.push(op::OP_I32AND); }
-    pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }
-    pub fn or_i64(&mut self) { self.instruction_body.push(op::OP_I64OR); }
-    pub fn shl_i32(&mut self) { self.instruction_body.push(op::OP_I32SHL); }
-    pub fn shl_i64(&mut self) { self.instruction_body.push(op::OP_I64SHL); }
-    pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
-    pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
-    pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
-
-    pub fn call_fn(&mut self, fn_idx: u16) {
-        self.instruction_body.push(op::OP_CALL);
-        write_leb_u32(&mut self.instruction_body, fn_idx as u32);
-    }
-
-    pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
-    pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
-    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
-    #[allow(dead_code)]
-    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
-    #[allow(dead_code)]
-    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
-    #[allow(dead_code)]
-    pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
-    pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
-
-    pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
-
-    pub fn if_i32(&mut self) {
-        self.instruction_body.push(op::OP_IF);
-        self.instruction_body.push(op::TYPE_I32);
-    }
-    #[allow(dead_code)]
-    pub fn if_i64(&mut self) {
-        self.instruction_body.push(op::OP_IF);
-        self.instruction_body.push(op::TYPE_I64);
-    }
-    #[allow(dead_code)]
-    pub fn block_i32(&mut self) {
-        self.instruction_body.push(op::OP_BLOCK);
-        self.instruction_body.push(op::TYPE_I32);
-    }
-
-    pub fn xor_i32(&mut self) { self.instruction_body.push(op::OP_I32XOR); }
 
     pub fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I64LOAD);
@@ -722,6 +686,31 @@ impl WasmBuilder {
         self.store_aligned_i32(0);
     }
 
+    pub fn add_i32(&mut self) { self.instruction_body.push(op::OP_I32ADD); }
+    pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
+    pub fn and_i32(&mut self) { self.instruction_body.push(op::OP_I32AND); }
+    pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }
+    pub fn or_i64(&mut self) { self.instruction_body.push(op::OP_I64OR); }
+    pub fn xor_i32(&mut self) { self.instruction_body.push(op::OP_I32XOR); }
+    pub fn shl_i32(&mut self) { self.instruction_body.push(op::OP_I32SHL); }
+    pub fn shl_i64(&mut self) { self.instruction_body.push(op::OP_I64SHL); }
+    pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
+    pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
+    pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
+
+    pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
+    pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
+    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
+    #[allow(dead_code)]
+    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
+    #[allow(dead_code)]
+    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
+    #[allow(dead_code)]
+    pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
+    pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
+
+    pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
+
     pub fn reinterpret_i32_as_f32(&mut self) {
         self.instruction_body.push(op::OP_F32REINTERPRETI32);
     }
@@ -749,6 +738,21 @@ impl WasmBuilder {
     pub fn shr_s_i32(&mut self) { self.instruction_body.push(op::OP_I32SHRS); }
 
     pub fn eqz_i32(&mut self) { self.instruction_body.push(op::OP_I32EQZ); }
+
+    pub fn if_i32(&mut self) {
+        self.instruction_body.push(op::OP_IF);
+        self.instruction_body.push(op::TYPE_I32);
+    }
+    #[allow(dead_code)]
+    pub fn if_i64(&mut self) {
+        self.instruction_body.push(op::OP_IF);
+        self.instruction_body.push(op::TYPE_I64);
+    }
+    #[allow(dead_code)]
+    pub fn block_i32(&mut self) {
+        self.instruction_body.push(op::OP_BLOCK);
+        self.instruction_body.push(op::TYPE_I32);
+    }
 
     pub fn if_void(&mut self) {
         self.instruction_body.push(op::OP_IF);
@@ -795,25 +799,9 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, depth);
     }
 
-    pub fn get_local(&mut self, local: &WasmLocal) {
-        self.instruction_body.push(op::OP_GETLOCAL);
-        self.instruction_body.push(local.idx());
-    }
-
-    pub fn get_local_i64(&mut self, local: &WasmLocalI64) {
-        self.instruction_body.push(op::OP_GETLOCAL);
-        self.instruction_body.push(local.idx());
-    }
-
-    pub fn set_local(&mut self, local: &WasmLocal) {
-        self.instruction_body.push(op::OP_SETLOCAL);
-        self.instruction_body.push(local.idx());
-    }
-
-    #[allow(dead_code)]
-    pub fn tee_local(&mut self, local: &WasmLocal) {
-        self.instruction_body.push(op::OP_TEELOCAL);
-        self.instruction_body.push(local.idx());
+    pub fn call_fn(&mut self, fn_idx: u16) {
+        self.instruction_body.push(op::OP_CALL);
+        write_leb_u32(&mut self.instruction_body, fn_idx as u32);
     }
 
     pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE); }
