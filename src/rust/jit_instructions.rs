@@ -3226,6 +3226,42 @@ pub fn instr32_0F8F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
 pub fn instr_90_jit(_ctx: &mut JitContext) {}
 
+fn gen_xchg_reg16(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg16(ctx, r);
+    let tmp = ctx.builder.set_new_local();
+    codegen::gen_get_reg16(ctx, regs::AX);
+    codegen::gen_set_reg16(ctx, r);
+    ctx.builder.instruction_body.get_local(&tmp);
+    codegen::gen_set_reg16(ctx, regs::AX);
+    ctx.builder.free_local(tmp);
+}
+
+fn gen_xchg_reg32(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg32(ctx, r);
+    let tmp = ctx.builder.set_new_local();
+    codegen::gen_get_reg32(ctx, regs::EAX);
+    codegen::gen_set_reg32(ctx, r);
+    ctx.builder.instruction_body.get_local(&tmp);
+    codegen::gen_set_reg32(ctx, regs::EAX);
+    ctx.builder.free_local(tmp);
+}
+
+pub fn instr16_91_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::CX); }
+pub fn instr16_92_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::DX); }
+pub fn instr16_93_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::BX); }
+pub fn instr16_94_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::SP); }
+pub fn instr16_95_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::BP); }
+pub fn instr16_96_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::SI); }
+pub fn instr16_97_jit(ctx: &mut JitContext) { gen_xchg_reg16(ctx, regs::DI); }
+
+pub fn instr32_91_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::CX); }
+pub fn instr32_92_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::DX); }
+pub fn instr32_93_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::BX); }
+pub fn instr32_94_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::SP); }
+pub fn instr32_95_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::BP); }
+pub fn instr32_96_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::SI); }
+pub fn instr32_97_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::DI); }
+
 pub fn instr_A0_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.instruction_body.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);

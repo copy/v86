@@ -182,13 +182,13 @@ const encodings = [
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1, }, // pop r/m
 
     { opcode: 0x90, custom: 1, },
-    { opcode: 0x91, os: 1, },
-    { opcode: 0x92, os: 1, },
-    { opcode: 0x93, os: 1, },
-    { opcode: 0x94, os: 1, },
-    { opcode: 0x95, os: 1, },
-    { opcode: 0x96, os: 1, },
-    { opcode: 0x97, os: 1, },
+    { opcode: 0x91, custom: 1, os: 1, },
+    { opcode: 0x92, custom: 1, os: 1, },
+    { opcode: 0x93, custom: 1, os: 1, },
+    { opcode: 0x94, custom: 1, os: 1, },
+    { opcode: 0x95, custom: 1, os: 1, },
+    { opcode: 0x96, custom: 1, os: 1, },
+    { opcode: 0x97, custom: 1, os: 1, },
 
     { opcode: 0x98, os: 1, },
     { opcode: 0x99, os: 1, },
