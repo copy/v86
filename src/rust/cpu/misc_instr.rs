@@ -91,43 +91,32 @@ pub unsafe fn test_nbe() -> bool { return !test_be(); }
 pub unsafe fn test_nl() -> bool { return !test_l(); }
 pub unsafe fn test_nle() -> bool { return !test_le(); }
 
-#[no_mangle]
 pub unsafe fn jmp_rel16(rel16: i32) {
     let cs_offset = get_seg_cs();
     // limit ip to 16 bit
     *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 0xFFFF);
 }
-#[no_mangle]
 pub unsafe fn jmpcc16(condition: bool, imm16: i32) {
     if condition {
         jmp_rel16(imm16);
     };
 }
-#[no_mangle]
 pub unsafe fn jmpcc32(condition: bool, imm32: i32) {
     if condition {
         *instruction_pointer += imm32
     };
 }
-#[no_mangle]
 pub unsafe fn loope16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(is_asize_32()) && getzf(), imm8s); }
-#[no_mangle]
 pub unsafe fn loopne16(imm8s: i32) {
     jmpcc16(0 != decr_ecx_asize(is_asize_32()) && !getzf(), imm8s);
 }
-#[no_mangle]
 pub unsafe fn loop16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(is_asize_32()), imm8s); }
-#[no_mangle]
 pub unsafe fn jcxz16(imm8s: i32) { jmpcc16(get_reg_asize(ECX) == 0, imm8s); }
-#[no_mangle]
 pub unsafe fn loope32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize(is_asize_32()) && getzf(), imm8s); }
-#[no_mangle]
 pub unsafe fn loopne32(imm8s: i32) {
     jmpcc32(0 != decr_ecx_asize(is_asize_32()) && !getzf(), imm8s);
 }
-#[no_mangle]
 pub unsafe fn loop32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize(is_asize_32()), imm8s); }
-#[no_mangle]
 pub unsafe fn jcxz32(imm8s: i32) { jmpcc32(get_reg_asize(ECX) == 0, imm8s); }
 
 pub unsafe fn cmovcc16(condition: bool, value: i32, r: i32) {
@@ -160,14 +149,12 @@ pub unsafe fn adjust_stack_reg(adjustment: i32) {
     };
 }
 
-#[no_mangle]
 pub unsafe fn push16_ss16(imm16: i32) -> OrPageFault<()> {
     let sp = get_seg_ss() + (read_reg16(SP) - 2 & 0xFFFF);
     safe_write16(sp, imm16)?;
     write_reg16(SP, read_reg16(SP) - 2);
     Ok(())
 }
-#[no_mangle]
 pub unsafe fn push16_ss32(imm16: i32) -> OrPageFault<()> {
     let sp = get_seg_ss() + read_reg32(ESP) - 2;
     safe_write16(sp, imm16)?;
@@ -175,24 +162,19 @@ pub unsafe fn push16_ss32(imm16: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-#[no_mangle]
 pub unsafe fn push16_ss16_mem(addr: i32) -> OrPageFault<()> { push16_ss16(safe_read16(addr)?) }
-#[no_mangle]
 pub unsafe fn push16_ss32_mem(addr: i32) -> OrPageFault<()> { push16_ss32(safe_read16(addr)?) }
 
-#[no_mangle]
 pub unsafe fn push16(imm16: i32) -> OrPageFault<()> {
     if *stack_size_32 { push16_ss32(imm16) } else { push16_ss16(imm16) }
 }
 
-#[no_mangle]
 pub unsafe fn push32_ss16(imm32: i32) -> OrPageFault<()> {
     let new_sp = read_reg16(SP) - 4 & 0xFFFF;
     safe_write32(get_seg_ss() + new_sp, imm32)?;
     write_reg16(SP, new_sp);
     Ok(())
 }
-#[no_mangle]
 pub unsafe fn push32_ss32(imm32: i32) -> OrPageFault<()> {
     let new_esp = read_reg32(ESP) - 4;
     safe_write32(get_seg_ss() + new_esp, imm32)?;
@@ -200,52 +182,42 @@ pub unsafe fn push32_ss32(imm32: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-#[no_mangle]
 pub unsafe fn push32_ss16_mem(addr: i32) -> OrPageFault<()> { push32_ss16(safe_read32s(addr)?) }
-#[no_mangle]
 pub unsafe fn push32_ss32_mem(addr: i32) -> OrPageFault<()> { push32_ss32(safe_read32s(addr)?) }
 
-#[no_mangle]
 pub unsafe fn push32(imm32: i32) -> OrPageFault<()> {
     if *stack_size_32 { push32_ss32(imm32) } else { push32_ss16(imm32) }
 }
-#[no_mangle]
 pub unsafe fn pop16() -> OrPageFault<i32> {
     if *stack_size_32 { pop16_ss32() } else { pop16_ss16() }
 }
-#[no_mangle]
 pub unsafe fn pop16_ss16() -> OrPageFault<i32> {
     let sp = get_seg_ss() + read_reg16(SP);
     let result = safe_read16(sp)?;
     write_reg16(SP, read_reg16(SP) + 2);
     Ok(result)
 }
-#[no_mangle]
 pub unsafe fn pop16_ss32() -> OrPageFault<i32> {
     let esp = get_seg_ss() + read_reg32(ESP);
     let result = safe_read16(esp)?;
     write_reg32(ESP, read_reg32(ESP) + 2);
     Ok(result)
 }
-#[no_mangle]
 pub unsafe fn pop32s() -> OrPageFault<i32> {
     if *stack_size_32 { pop32s_ss32() } else { pop32s_ss16() }
 }
-#[no_mangle]
 pub unsafe fn pop32s_ss16() -> OrPageFault<i32> {
     let sp = read_reg16(SP);
     let result = safe_read32s(get_seg_ss() + sp)?;
     write_reg16(SP, sp + 4);
     Ok(result)
 }
-#[no_mangle]
 pub unsafe fn pop32s_ss32() -> OrPageFault<i32> {
     let esp = read_reg32(ESP);
     let result = safe_read32s(get_seg_ss() + esp)?;
     write_reg32(ESP, read_reg32(ESP) + 4);
     Ok(result)
 }
-#[no_mangle]
 pub unsafe fn pusha16() {
     let temp = read_reg16(SP);
     // make sure we don't get a pagefault after having
@@ -260,7 +232,6 @@ pub unsafe fn pusha16() {
     push16(read_reg16(SI)).unwrap();
     push16(read_reg16(DI)).unwrap();
 }
-#[no_mangle]
 pub unsafe fn pusha32() {
     let temp = read_reg32(ESP);
     return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-32), 32));
@@ -356,9 +327,7 @@ pub unsafe fn enter32(size: i32, mut nesting_level: i32) {
     adjust_stack_reg(-size - 4);
 }
 
-#[no_mangle]
 pub unsafe fn setcc_reg(condition: bool, r: i32) { write_reg8(r, condition as i32); }
-#[no_mangle]
 pub unsafe fn setcc_mem(condition: bool, addr: i32) {
     return_on_pagefault!(safe_write8(addr, condition as i32));
 }
@@ -426,38 +395,32 @@ pub unsafe fn fxrstor(addr: i32) {
     }
 }
 
-#[no_mangle]
 pub unsafe fn xchg8(data: i32, r8: i32) -> i32 {
     let tmp = read_reg8(r8);
     write_reg8(r8, data);
     return tmp;
 }
-#[no_mangle]
 pub unsafe fn xchg16(data: i32, r16: i32) -> i32 {
     let tmp = read_reg16(r16);
     write_reg16(r16, data);
     return tmp;
 }
-#[no_mangle]
 pub unsafe fn xchg16r(r16: i32) {
     let tmp = read_reg16(AX);
     write_reg16(AX, read_reg16(r16));
     write_reg16(r16, tmp);
 }
-#[no_mangle]
 pub unsafe fn xchg32(data: i32, r32: i32) -> i32 {
     let tmp = read_reg32(r32);
     write_reg32(r32, data);
     return tmp;
 }
-#[no_mangle]
 pub unsafe fn xchg32r(r32: i32) {
     let tmp = read_reg32(EAX);
     write_reg32(EAX, read_reg32(r32));
     write_reg32(r32, tmp);
 }
 
-#[no_mangle]
 pub unsafe fn bswap(r: i32) { write_reg32(r, read_reg32(r).swap_bytes()) }
 
 pub unsafe fn lar(selector: i32, original: i32) -> i32 {

@@ -5,7 +5,6 @@ use cpu::misc_instr::{getaf, getcf, getzf};
 
 pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
-#[no_mangle]
 pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand + source_operand;
     *last_op1 = dest_operand;
@@ -14,7 +13,6 @@ pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL;
     return res;
 }
-#[no_mangle]
 pub unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand + source_operand + cf;
@@ -29,7 +27,6 @@ pub unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
         | ((source_operand ^ res) & (dest_operand ^ res)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
-#[no_mangle]
 pub unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand - source_operand;
     *last_op1 = dest_operand;
@@ -38,7 +35,6 @@ pub unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL | FLAG_SUB;
     return res;
 }
-#[no_mangle]
 pub unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand - source_operand - cf;
@@ -57,13 +53,11 @@ pub unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
 pub unsafe fn add8(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn add16(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn add32(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn sub8(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn sub16(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn sub32(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn adc8(x: i32, y: i32) -> i32 { return adc(x, y, OPSIZE_8); }
@@ -77,13 +71,9 @@ pub unsafe fn sbb8(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_8); }
 pub unsafe fn sbb16(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_16); }
 #[no_mangle]
 pub unsafe fn sbb32(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn cmp8(x: i32, y: i32) { sub(x, y, OPSIZE_8); }
-#[no_mangle]
 pub unsafe fn cmp16(x: i32, y: i32) { sub(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn cmp32(x: i32, y: i32) { sub(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand + 1;
@@ -93,7 +83,6 @@ pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1;
     return res;
 }
-#[no_mangle]
 pub unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand - 1;
@@ -105,31 +94,18 @@ pub unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn inc8(x: i32) -> i32 { return inc(x, OPSIZE_8); }
-#[no_mangle]
 pub unsafe fn inc16(x: i32) -> i32 { return inc(x, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn inc32(x: i32) -> i32 { return inc(x, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn dec8(x: i32) -> i32 { return dec(x, OPSIZE_8); }
-#[no_mangle]
 pub unsafe fn dec16(x: i32) -> i32 { return dec(x, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn dec32(x: i32) -> i32 { return dec(x, OPSIZE_32); }
 
-#[no_mangle]
-pub unsafe fn not8(x: i32) -> i32 { return !x; }
-#[no_mangle]
-pub unsafe fn not16(x: i32) -> i32 { return !x; }
-#[no_mangle]
-pub unsafe fn not32(x: i32) -> i32 { return !x; }
-
-#[no_mangle]
 pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 { sub(0, dest_operand, op_size) }
 #[no_mangle]
 pub unsafe fn neg8(x: i32) -> i32 { return neg(x, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn neg16(x: i32) -> i32 { return neg(x, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn neg32(x: i32) -> i32 { return neg(x, OPSIZE_32); }
 
 #[no_mangle]
@@ -225,7 +201,6 @@ pub unsafe fn mul32(source_operand: i32) {
     }
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
 }
-#[no_mangle]
 pub unsafe fn imul32(source_operand: i32) {
     let dest_operand = read_reg32(EAX);
     let result = dest_operand as i64 * source_operand as i64;
@@ -243,7 +218,6 @@ pub unsafe fn imul32(source_operand: i32) {
     }
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
 }
-#[no_mangle]
 pub unsafe fn imul_reg32(operand1: i32, operand2: i32) -> i32 {
     let result = operand1 as i64 * operand2 as i64;
     let result_low = result as i32;
@@ -272,7 +246,6 @@ pub unsafe fn xadd16(source_operand: i32, reg: i32) -> i32 {
     write_reg16(reg, source_operand);
     return add(source_operand, tmp, OPSIZE_16);
 }
-#[no_mangle]
 pub unsafe fn xadd32(source_operand: i32, reg: i32) -> i32 {
     let tmp = read_reg32(reg);
     write_reg32(reg, source_operand);
@@ -301,7 +274,6 @@ pub unsafe fn cmpxchg16(data: i32, r: i32) -> i32 {
         data
     }
 }
-#[no_mangle]
 pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
     cmp32(read_reg32(EAX), data);
     if getzf() {
@@ -405,7 +377,6 @@ pub unsafe fn bcd_aas() {
     write_reg8(AL, read_reg8(AL) & 15);
     *flags_changed &= !FLAG_ADJUST & !1;
 }
-#[no_mangle]
 pub unsafe fn and(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand & source_operand;
     *last_result = result;
@@ -414,7 +385,6 @@ pub unsafe fn and(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW & !FLAG_ADJUST;
     return result;
 }
-#[no_mangle]
 pub unsafe fn or(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand | source_operand;
     *last_result = result;
@@ -423,7 +393,6 @@ pub unsafe fn or(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW & !FLAG_ADJUST;
     return result;
 }
-#[no_mangle]
 pub unsafe fn xor(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand ^ source_operand;
     *last_result = result;
@@ -436,25 +405,19 @@ pub unsafe fn xor(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
 pub unsafe fn and8(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn and16(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn and32(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn test8(x: i32, y: i32) { and(x, y, OPSIZE_8); }
-#[no_mangle]
 pub unsafe fn test16(x: i32, y: i32) { and(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn test32(x: i32, y: i32) { and(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn or8(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn or16(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn or32(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn xor8(x: i32, y: i32) -> i32 { return xor(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn xor16(x: i32, y: i32) -> i32 { return xor(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn xor32(x: i32, y: i32) -> i32 { return xor(x, y, OPSIZE_32); }
 
 #[no_mangle]
@@ -819,7 +782,6 @@ pub unsafe fn shl16(dest_operand: i32, count: i32) -> i32 {
         return result;
     };
 }
-#[no_mangle]
 pub unsafe fn shl32(dest_operand: i32, count: i32) -> i32 {
     dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
@@ -869,7 +831,6 @@ pub unsafe fn shr16(dest_operand: i32, count: i32) -> i32 {
         return result;
     };
 }
-#[no_mangle]
 pub unsafe fn shr32(dest_operand: i32, count: i32) -> i32 {
     dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
@@ -931,7 +892,6 @@ pub unsafe fn sar16(dest_operand: i32, count: i32) -> i32 {
         return result;
     };
 }
-#[no_mangle]
 pub unsafe fn sar32(dest_operand: i32, count: i32) -> i32 {
     dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
@@ -1031,38 +991,32 @@ pub unsafe fn shld32(dest_operand: i32, source_operand: i32, count: i32) -> i32 
     };
 }
 
-#[no_mangle]
 pub unsafe fn bt_reg(bit_base: i32, bit_offset: i32) {
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
 }
-#[no_mangle]
 pub unsafe fn btc_reg(bit_base: i32, bit_offset: i32) -> i32 {
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
     return bit_base ^ 1 << bit_offset;
 }
-#[no_mangle]
 pub unsafe fn bts_reg(bit_base: i32, bit_offset: i32) -> i32 {
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
     return bit_base | 1 << bit_offset;
 }
-#[no_mangle]
 pub unsafe fn btr_reg(bit_base: i32, bit_offset: i32) -> i32 {
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
     return bit_base & !(1 << bit_offset);
 }
 
-#[no_mangle]
 pub unsafe fn bt_mem(virt_addr: i32, mut bit_offset: i32) {
     let bit_base = return_on_pagefault!(safe_read8(virt_addr + (bit_offset >> 3)));
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
 }
-#[no_mangle]
 pub unsafe fn btc_mem(virt_addr: i32, mut bit_offset: i32) {
     let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
     let bit_base = read8(phys_addr);
@@ -1071,7 +1025,6 @@ pub unsafe fn btc_mem(virt_addr: i32, mut bit_offset: i32) {
     *flags_changed &= !1;
     write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
-#[no_mangle]
 pub unsafe fn btr_mem(virt_addr: i32, mut bit_offset: i32) {
     let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
     let bit_base = read8(phys_addr);
@@ -1080,7 +1033,6 @@ pub unsafe fn btr_mem(virt_addr: i32, mut bit_offset: i32) {
     *flags_changed &= !1;
     write8(phys_addr, bit_base & !(1 << bit_offset));
 }
-#[no_mangle]
 pub unsafe fn bts_mem(virt_addr: i32, mut bit_offset: i32) {
     let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
     let bit_base = read8(phys_addr);
@@ -1168,7 +1120,6 @@ pub unsafe fn popcnt(v: i32) -> i32 {
     };
 }
 
-#[no_mangle]
 pub unsafe fn saturate_sw_to_ub(v: u16) -> u8 {
     let mut ret = v;
     if ret >= 32768 {
@@ -1179,7 +1130,6 @@ pub unsafe fn saturate_sw_to_ub(v: u16) -> u8 {
     }
     return ret as u8;
 }
-#[no_mangle]
 pub unsafe fn saturate_sw_to_sb(v: i32) -> u8 {
     dbg_assert!(v as u32 & 0xFFFF_0000 == 0);
     let mut ret: i32 = v;
@@ -1195,7 +1145,6 @@ pub unsafe fn saturate_sw_to_sb(v: i32) -> u8 {
     dbg_assert!(ret as u32 & 0xFFFF_FF00 == 0);
     return ret as u8;
 }
-#[no_mangle]
 pub unsafe fn saturate_sd_to_sw(v: u32) -> u16 {
     let mut ret: u32 = v;
     if ret > 4294934528 {
@@ -1210,7 +1159,6 @@ pub unsafe fn saturate_sd_to_sw(v: u32) -> u16 {
     dbg_assert!(ret & 0xFFFF_0000 == 0);
     return ret as u16;
 }
-#[no_mangle]
 pub unsafe fn saturate_sd_to_sb(v: u32) -> i8 {
     let mut ret: u32 = v;
     if ret > 0xFFFFFF80 {
@@ -1225,7 +1173,6 @@ pub unsafe fn saturate_sd_to_sb(v: u32) -> i8 {
     dbg_assert!(ret & 0xFFFF_FF00 == 0);
     return ret as i8;
 }
-#[no_mangle]
 pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
     let mut ret: i32 = v;
     if ret < 0 {
@@ -1234,7 +1181,6 @@ pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
     dbg_assert!(ret as u32 & 0xFFFF_FF00 == 0);
     return ret;
 }
-#[no_mangle]
 pub unsafe fn saturate_ud_to_ub(v: u32) -> u8 {
     let mut ret: u32 = v;
     if ret > 255 {
@@ -1243,7 +1189,6 @@ pub unsafe fn saturate_ud_to_ub(v: u32) -> u8 {
     dbg_assert!(ret & 0xFFFF_FF00 == 0);
     return ret as u8;
 }
-#[no_mangle]
 pub unsafe fn saturate_uw(v: u32) -> u16 {
     let mut ret: u32 = v;
     if ret > 0x7FFFFFFF {

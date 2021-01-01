@@ -75,7 +75,6 @@ pub fn read32_no_mmap_check(addr: u32) -> i32 {
     unsafe { *(mem8.offset(addr as isize) as *mut i32) }
 }
 
-#[no_mangle]
 pub unsafe fn read64s(addr: u32) -> i64 {
     if in_mapped_range(addr) {
         return mmap_read32(addr) as i64 | (mmap_read32(addr.wrapping_add(4 as u32)) as i64) << 32;
@@ -85,7 +84,6 @@ pub unsafe fn read64s(addr: u32) -> i64 {
     };
 }
 
-#[no_mangle]
 pub unsafe fn read_aligned32(addr: u32) -> i32 {
     dbg_assert!(addr < 0x40000000 as u32);
     if in_mapped_range(addr << 2) {
@@ -96,7 +94,6 @@ pub unsafe fn read_aligned32(addr: u32) -> i32 {
     };
 }
 
-#[no_mangle]
 pub unsafe fn read128(addr: u32) -> reg128 {
     let mut value: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -162,7 +159,6 @@ pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
     *(mem8 as *mut i32).offset(addr as isize) = value
 }
 
-#[no_mangle]
 pub unsafe fn write_aligned32(addr: u32, value: i32) {
     dbg_assert!(addr < 0x40000000 as u32);
     let phys_addr = addr << 2;
@@ -175,36 +171,10 @@ pub unsafe fn write_aligned32(addr: u32, value: i32) {
     };
 }
 
-#[no_mangle]
-pub unsafe fn write64(addr: u32, value: u64) {
-    if in_mapped_range(addr) {
-        mmap_write64(addr, value as i32, (value >> 32) as i32);
-    }
-    else {
-        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(8 as u32));
-        write64_no_mmap_or_dirty_check(addr, value);
-    };
-}
 pub unsafe fn write64_no_mmap_or_dirty_check(addr: u32, value: u64) {
     *(mem8.offset(addr as isize) as *mut u64) = value
 }
 
-#[no_mangle]
-pub unsafe fn write128(addr: u32, value: reg128) {
-    if in_mapped_range(addr) {
-        mmap_write128(
-            addr,
-            value.i32_0[0],
-            value.i32_0[1],
-            value.i32_0[2],
-            value.i32_0[3],
-        );
-    }
-    else {
-        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(16 as u32));
-        write128_no_mmap_or_dirty_check(addr, value);
-    };
-}
 pub unsafe fn write128_no_mmap_or_dirty_check(addr: u32, value: reg128) {
     *(mem8.offset(addr as isize) as *mut reg128) = value
 }

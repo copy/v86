@@ -2580,6 +2580,7 @@ pub unsafe fn instr_DC_6_reg(r: i32) { fpu_fdiv(r, fpu_get_sti(r)); }
 pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
+#[no_mangle]
 pub unsafe fn instr16_DD_1_mem(_addr: i32) {
     dbg_log!("fisttp");
     fpu_unimpl();
