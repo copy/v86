@@ -1487,7 +1487,9 @@ IDEInterface.prototype.write_end = function()
         }
         else
         {
-            dbg_assert(this.current_command === 0x30 || this.current_command === 0x34,
+            dbg_assert(this.current_command === 0x30 ||
+                this.current_command === 0x34 ||
+                this.current_command === 0xC5,
                 "Unexpected command: " + h(this.current_command));
 
             // XXX: Should advance here, but do_write does all the advancing
