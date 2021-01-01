@@ -4784,6 +4784,89 @@ pub fn instr_0F73_6_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
     ctx.builder.call_fn2("instr_0F73_6_reg");
 }
 
+pub fn instr_660F71_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F71_2_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F71_2_reg");
+}
+pub fn instr_660F71_4_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F71_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F71_4_reg");
+}
+pub fn instr_660F71_6_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F71_6_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F71_6_reg");
+}
+
+pub fn instr_660F72_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F72_2_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F72_2_reg");
+}
+pub fn instr_660F72_4_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F72_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F72_4_reg");
+}
+pub fn instr_660F72_6_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F72_6_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F72_6_reg");
+}
+
+pub fn instr_660F73_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F73_2_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F73_2_reg");
+}
+pub fn instr_660F73_3_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F73_3_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F73_3_reg");
+}
+pub fn instr_660F73_6_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F73_6_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F73_6_reg");
+}
+pub fn instr_660F73_7_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F73_7_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn2("instr_660F73_7_reg");
+}
+
 pub fn instr_660F74_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_660F74", modrm_byte, r);
 }
