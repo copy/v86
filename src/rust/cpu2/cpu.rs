@@ -2265,8 +2265,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
     } {
         Err(()) => {
             *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-            *page_fault = true;
-            return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+            return 1;
         },
         Ok(addr) => addr,
     };
@@ -2280,12 +2279,10 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         } {
             Err(()) => {
                 *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-                *page_fault = true;
-                return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+                return 1;
             },
             Ok(addr) => addr,
         };
-        *page_fault = false;
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
         // do read, write into scratch buffer
 
@@ -2298,20 +2295,21 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         for s in addr_high..(addr_high + (addr + bitsize / 8 & 0xFFF) as u32) {
             *(scratch as *mut u8).offset((0x1000 | s & 0xFFF) as isize) = read8(s) as u8
         }
-        ((scratch - mem8 as u32) as i32) ^ addr
+
+        (((scratch - mem8 as u32) as i32) ^ addr) & !0xFFF
     }
     else if in_mapped_range(addr_low) {
-        *page_fault = false;
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
         dbg_assert!(scratch & 0xFFF == 0);
+
         for s in addr_low..(addr_low + bitsize as u32 / 8) {
             *(scratch as *mut u8).offset((s & 0xFFF) as isize) = read8(s) as u8
         }
-        ((scratch - mem8 as u32) as i32) ^ addr
+
+        (((scratch - mem8 as u32) as i32) ^ addr) & !0xFFF
     }
     else {
-        *page_fault = false;
-        addr_low as i32 ^ addr
+        (addr_low as i32 ^ addr) & !0xFFF
     }
 }
 
@@ -2360,8 +2358,7 @@ pub unsafe fn safe_write_slow_jit(
     let addr_low = match translate_address_write_jit(addr) {
         Err(()) => {
             *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-            *page_fault = true;
-            return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+            return 1;
         },
         Ok(addr) => addr,
     };
@@ -2370,11 +2367,10 @@ pub unsafe fn safe_write_slow_jit(
             Err(()) => {
                 *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
                 *page_fault = true;
-                return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+                return 1;
             },
             Ok(addr) => addr,
         };
-        *page_fault = false;
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
 
         // do write, return dummy pointer for fast path to write into
@@ -2400,11 +2396,9 @@ pub unsafe fn safe_write_slow_jit(
 
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
         dbg_assert!(scratch & 0xFFF == 0);
-        (scratch as i32 - mem8 as i32) ^ addr
+        ((scratch as i32 - mem8 as i32) ^ addr) & !0xFFF
     }
     else if in_mapped_range(addr_low) {
-        *page_fault = false;
-
         match bitsize {
             128 => write128(
                 addr_low,
@@ -2421,12 +2415,11 @@ pub unsafe fn safe_write_slow_jit(
 
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
         dbg_assert!(scratch & 0xFFF == 0);
-        (scratch as i32 - mem8 as i32) ^ addr
+        ((scratch as i32 - mem8 as i32) ^ addr) & !0xFFF
     }
     else {
         ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(addr_low));
-        *page_fault = false;
-        addr_low as i32 ^ addr
+        (addr_low as i32 ^ addr) & !0xFFF
     }
 }
 

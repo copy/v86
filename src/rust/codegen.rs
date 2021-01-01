@@ -517,7 +517,7 @@ fn gen_safe_read(
 
     ctx.builder.get_local(&address_local);
     ctx.builder
-        .const_i32(ctx.start_of_current_instruction as i32);
+        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
     match bits {
         BitSize::BYTE => {
             gen_call_fn2_ret(ctx.builder, "safe_read8_slow_jit");
@@ -535,19 +535,22 @@ fn gen_safe_read(
             gen_call_fn2_ret(ctx.builder, "safe_read128s_slow_jit");
         },
     }
-    ctx.builder.set_local(&entry_local);
+    ctx.builder.tee_local(&entry_local);
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
-        ctx.builder.load_u8(global_pointers::PAGE_FAULT);
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
+
+        ctx.builder.get_local(&entry_local);
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
-    let br_offset = ctx.current_brtable_depth - 2 + 1;
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
-    ctx.builder.br_if(br_offset);
+    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
 
     ctx.builder.block_end();
 
@@ -660,7 +663,7 @@ fn gen_safe_write(
         },
     }
     ctx.builder
-        .const_i32(ctx.start_of_current_instruction as i32);
+        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
     match bits {
         BitSize::BYTE => {
             gen_call_fn3_ret(ctx.builder, "safe_write8_slow_jit");
@@ -678,19 +681,22 @@ fn gen_safe_write(
             gen_call_fn4_i32_i64_i64_i32_ret(ctx.builder, "safe_write128_slow_jit");
         },
     }
-    ctx.builder.set_local(&entry_local);
+    ctx.builder.tee_local(&entry_local);
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
-        ctx.builder.load_u8(global_pointers::PAGE_FAULT);
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
+
+        ctx.builder.get_local(&entry_local);
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     // -2 for the exit-with-pagefault block, +1 for leaving the nested if from this function
-    let br_offset = ctx.current_brtable_depth - 2 + 1;
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
-    ctx.builder.br_if(br_offset);
+    ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
 
     ctx.builder.block_end();
 
@@ -799,7 +805,7 @@ pub fn gen_safe_read_write(
 
     ctx.builder.get_local(&address_local);
     ctx.builder
-        .const_i32(ctx.start_of_current_instruction as i32);
+        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
 
     match bits {
         BitSize::BYTE => {
@@ -814,17 +820,21 @@ pub fn gen_safe_read_write(
         BitSize::QWORD => dbg_assert!(false),
         BitSize::DQWORD => dbg_assert!(false),
     }
-    ctx.builder.set_local(&entry_local);
+    ctx.builder.tee_local(&entry_local);
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
-        ctx.builder.load_u8(global_pointers::PAGE_FAULT);
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
+
+        ctx.builder.get_local(&entry_local);
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
-    // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
-    ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+    // -2 for the exit-with-pagefault block, +1 for leaving the two nested ifs from this function
     ctx.builder.br_if(ctx.current_brtable_depth - 2 + 1);
 
     ctx.builder.block_end();
@@ -887,8 +897,8 @@ pub fn gen_safe_read_write(
             BitSize::DQWORD => dbg_assert!(false),
         }
 
-        ctx.builder.drop_();
-        ctx.builder.load_u8(global_pointers::PAGE_FAULT);
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
 
         ctx.builder.if_void();
         {
