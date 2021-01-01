@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use codegen;
-use cpu::BitSize;
+use codegen::BitSize;
 use cpu2::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
     FLAG_OVERFLOW, FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,

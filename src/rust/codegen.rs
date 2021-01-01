@@ -1,4 +1,3 @@
-use cpu::BitSize;
 use cpu2::cpu::{
     FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER,
     TLB_READONLY, TLB_VALID,
@@ -380,6 +379,26 @@ enum GenSafeWriteValue<'a> {
     I32(&'a WasmLocal),
     I64(&'a WasmLocalI64),
     TwoI64s(&'a WasmLocalI64, &'a WasmLocalI64),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum BitSize {
+    BYTE,
+    WORD,
+    DWORD,
+    QWORD,
+    DQWORD,
+}
+impl BitSize {
+    pub fn bytes(&self) -> u32 {
+        match self {
+            BitSize::BYTE => 1,
+            BitSize::WORD => 2,
+            BitSize::DWORD => 4,
+            BitSize::QWORD => 8,
+            BitSize::DQWORD => 16,
+        }
+    }
 }
 
 pub fn gen_safe_write8(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {

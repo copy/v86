@@ -18,26 +18,6 @@ mod unsafe_cpu {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum BitSize {
-    BYTE,
-    WORD,
-    DWORD,
-    QWORD,
-    DQWORD,
-}
-impl BitSize {
-    pub fn bytes(&self) -> u32 {
-        match self {
-            BitSize::BYTE => 1,
-            BitSize::WORD => 2,
-            BitSize::DWORD => 4,
-            BitSize::QWORD => 8,
-            BitSize::DQWORD => 16,
-        }
-    }
-}
-
 pub fn read8(addr: u32) -> u8 { unsafe { cpu2::memory::read8(addr) as u8 } }
 pub fn read16(addr: u32) -> u16 { unsafe { cpu2::memory::read16(addr) as u16 } }
 pub fn read32(addr: u32) -> u32 { unsafe { cpu2::memory::read32s(addr) as u32 } }
