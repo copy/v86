@@ -336,6 +336,7 @@ fn jit_find_basic_blocks(
 
     let mut basic_blocks: BTreeMap<u32, BasicBlock> = BTreeMap::new();
     let mut pages: HashSet<Page> = HashSet::new();
+    let mut did_insert_entry_points = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
     let max_pages = if cpu.state_flags.is_32() { MAX_PAGES } else { 1 };
@@ -353,20 +354,35 @@ fn jit_find_basic_blocks(
             continue;
         }
 
-        pages.insert(Page::page_of(phys_addr));
+        let phys_page = Page::page_of(phys_addr);
+
+        if !did_insert_entry_points.contains(&phys_page) {
+            did_insert_entry_points.insert(phys_page);
+            if let Some(entry_points) = ctx.entry_points.get(&phys_page) {
+                let address_hash = jit_hot_hash_page(phys_page) as usize;
+                ctx.hot_pages[address_hash] = 0;
+
+                for &addr_low in entry_points {
+                    let addr = to_visit & !0xFFF | addr_low as i32;
+                    to_visit_stack.push(addr);
+                    marked_as_entry.insert(addr);
+                }
+            }
+        }
+
+        dbg_assert!(include_page(phys_page, &mut pages, max_pages,));
         dbg_assert!(pages.len() <= max_pages);
 
-        let may_include_page = |page| pages.contains(&page) || pages.len() < max_pages;
-
-        if let Some(entry_points) = ctx.entry_points.remove(&Page::page_of(phys_addr)) {
-            let address_hash = jit_hot_hash_page(Page::page_of(phys_addr)) as usize;
-            ctx.hot_pages[address_hash] = 0;
-
-            for addr_low in entry_points {
-                let addr = to_visit & !0xFFF | addr_low as i32;
-                to_visit_stack.push(addr);
-                marked_as_entry.insert(addr);
+        fn include_page(page: Page, pages: &mut HashSet<Page>, max_pages: usize) -> bool {
+            if pages.contains(&page) {
+                return true;
             }
+            if pages.len() == max_pages {
+                return false;
+            }
+            pages.insert(page);
+            dbg_assert!(pages.len() <= max_pages);
+            return true;
         }
 
         if is_near_end_of_page(phys_addr) {
@@ -466,9 +482,8 @@ fn jit_find_basic_blocks(
                         cpu::translate_address_read_no_side_effects(jump_target as i32)
                     {
                         if !is_near_end_of_page(jump_target as u32)
-                            && may_include_page(Page::page_of(phys_jump_target))
+                            && include_page(Page::page_of(phys_jump_target), &mut pages, max_pages)
                         {
-                            pages.insert(Page::page_of(phys_jump_target));
                             to_visit_stack.push(jump_target);
                             next_block_branch_taken_addr = Some(phys_jump_target);
                         }
@@ -526,7 +541,7 @@ fn jit_find_basic_blocks(
                         cpu::translate_address_read_no_side_effects(jump_target as i32)
                     {
                         if !is_near_end_of_page(jump_target as u32)
-                            && may_include_page(Page::page_of(phys_jump_target))
+                            && include_page(Page::page_of(phys_jump_target), &mut pages, max_pages)
                         {
                             pages.insert(Page::page_of(phys_jump_target));
                             to_visit_stack.push(jump_target);
@@ -671,7 +686,7 @@ fn jit_analyze_and_generate(
         return;
     }
 
-    let entry_points = ctx.entry_points.remove(&page);
+    let entry_points = ctx.entry_points.get(&page);
 
     if let Some(entry_points) = entry_points {
         profiler::stat_increment(stat::COMPILE);
