@@ -500,7 +500,7 @@ pub unsafe fn iret(is_16: bool) {
 
             adjust_stack_reg(9 * 4); // 9 dwords: eip, cs, flags, esp, ss, es, ds, fs, gs
 
-            *reg32.offset(ESP as isize) = temp_esp;
+            write_reg32(ESP, temp_esp);
             if !switch_seg(SS, temp_ss) {
                 // XXX
                 dbg_assert!(false);
@@ -827,7 +827,7 @@ pub unsafe fn call_interrupt_vector(
                 panic!("Unimplemented: #TS handler");
             }
 
-            let old_esp = *reg32.offset(ESP as isize);
+            let old_esp = read_reg32(ESP);
             let old_ss = *sreg.offset(SS as isize) as i32;
 
             let error_code_space = if error_code.is_some() { 1 } else { 0 };
@@ -1164,7 +1164,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     )); // , cs_info.dpl
                 }
 
-                let old_esp = *reg32.offset(ESP as isize);
+                let old_esp = read_reg32(ESP);
                 let old_ss = *sreg.offset(SS as isize);
                 let old_stack_pointer = get_stack_pointer(0);
 
@@ -2286,14 +2286,14 @@ pub unsafe fn popa32() {
     return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
     return_on_pagefault!(translate_address_read(get_stack_pointer(31)));
 
-    *reg32.offset(EDI as isize) = pop32s().unwrap();
-    *reg32.offset(ESI as isize) = pop32s().unwrap();
-    *reg32.offset(EBP as isize) = pop32s().unwrap();
+    write_reg32(EDI, pop32s().unwrap());
+    write_reg32(ESI, pop32s().unwrap());
+    write_reg32(EBP, pop32s().unwrap());
     adjust_stack_reg(4);
-    *reg32.offset(EBX as isize) = pop32s().unwrap();
-    *reg32.offset(EDX as isize) = pop32s().unwrap();
-    *reg32.offset(ECX as isize) = pop32s().unwrap();
-    *reg32.offset(EAX as isize) = pop32s().unwrap();
+    write_reg32(EBX, pop32s().unwrap());
+    write_reg32(EDX, pop32s().unwrap());
+    write_reg32(ECX, pop32s().unwrap());
+    write_reg32(EAX, pop32s().unwrap());
 }
 
 #[no_mangle]
@@ -3250,7 +3250,7 @@ pub unsafe fn get_real_eip() -> i32 {
 
 pub unsafe fn get_stack_reg() -> i32 {
     if *stack_size_32 {
-        return *reg32.offset(ESP as isize);
+        return read_reg32(ESP);
     }
     else {
         return read_reg16(SP);
@@ -3260,7 +3260,7 @@ pub unsafe fn get_stack_reg() -> i32 {
 #[no_mangle]
 pub unsafe fn set_stack_reg(value: i32) {
     if *stack_size_32 {
-        *reg32.offset(ESP as isize) = value
+        write_reg32(ESP, value)
     }
     else {
         write_reg16(SP, value)
@@ -3269,7 +3269,7 @@ pub unsafe fn set_stack_reg(value: i32) {
 
 pub unsafe fn get_reg_asize(reg: i32) -> i32 {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
-    let r = *reg32.offset(reg as isize);
+    let r = read_reg32(reg);
     if is_asize_32() {
         return r;
     }
@@ -3281,7 +3281,7 @@ pub unsafe fn get_reg_asize(reg: i32) -> i32 {
 pub unsafe fn set_reg_asize(is_asize_32: bool, reg: i32, value: i32) {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
     if is_asize_32 {
-        *reg32.offset(reg as isize) = value
+        write_reg32(reg, value)
     }
     else {
         write_reg16(reg, value)
@@ -3290,8 +3290,8 @@ pub unsafe fn set_reg_asize(is_asize_32: bool, reg: i32, value: i32) {
 
 pub unsafe fn decr_ecx_asize(is_asize_32: bool) -> i32 {
     return if is_asize_32 {
-        *reg32.offset(ECX as isize) -= 1;
-        *reg32.offset(ECX as isize)
+        write_reg32(ECX, read_reg32(ECX) - 1);
+        read_reg32(ECX)
     }
     else {
         write_reg16(CX, read_reg16(CX) - 1);

@@ -209,12 +209,12 @@ pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn mul32(source_operand: i32) {
-    let dest_operand = *reg32.offset(EAX as isize);
+    let dest_operand = read_reg32(EAX);
     let result = (dest_operand as u32 as u64).wrapping_mul(source_operand as u32 as u64);
     let result_low = result as i32;
     let result_high = (result >> 32) as i32;
-    *reg32.offset(EAX as isize) = result_low;
-    *reg32.offset(EDX as isize) = result_high;
+    write_reg32(EAX, result_low);
+    write_reg32(EDX, result_high);
     *last_result = result_low;
     *last_op_size = OPSIZE_32;
     if result_high == 0 {
@@ -227,12 +227,12 @@ pub unsafe fn mul32(source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn imul32(source_operand: i32) {
-    let dest_operand = *reg32.offset(EAX as isize);
+    let dest_operand = read_reg32(EAX);
     let result = dest_operand as i64 * source_operand as i64;
     let result_low = result as i32;
     let result_high = (result >> 32) as i32;
-    *reg32.offset(EAX as isize) = result_low;
-    *reg32.offset(EDX as isize) = result_high;
+    write_reg32(EAX, result_low);
+    write_reg32(EDX, result_high);
     *last_result = result_low;
     *last_op_size = OPSIZE_32;
     if result_high == result_low >> 31 {
@@ -274,8 +274,8 @@ pub unsafe fn xadd16(source_operand: i32, reg: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn xadd32(source_operand: i32, reg: i32) -> i32 {
-    let tmp = *reg32.offset(reg as isize);
-    *reg32.offset(reg as isize) = source_operand;
+    let tmp = read_reg32(reg);
+    write_reg32(reg, source_operand);
     return add(source_operand, tmp, OPSIZE_32);
 }
 
@@ -303,12 +303,12 @@ pub unsafe fn cmpxchg16(data: i32, r: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
-    cmp32(*reg32.offset(EAX as isize), data);
+    cmp32(read_reg32(EAX), data);
     if getzf() {
         read_reg32(r)
     }
     else {
-        *reg32.offset(EAX as isize) = data;
+        write_reg32(EAX, data);
         data
     }
 }
@@ -742,16 +742,16 @@ pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
     if source_operand == 0 {
         return false;
     }
-    let target_low = *reg32.offset(EAX as isize) as u32;
-    let target_high = *reg32.offset(EDX as isize) as u32;
+    let target_low = read_reg32(EAX) as u32;
+    let target_high = read_reg32(EDX) as u32;
     let target_operand = (target_high as u64) << 32 | target_low as u64;
     let result = target_operand.wrapping_div(source_operand as u64);
     if result > 0xFFFFFFFF {
         return false;
     }
     let mod_0 = target_operand.wrapping_rem(source_operand as u64) as i32;
-    *reg32.offset(EAX as isize) = result as i32;
-    *reg32.offset(EDX as isize) = mod_0;
+    write_reg32(EAX, result as i32);
+    write_reg32(EDX, mod_0);
     return true;
 }
 pub unsafe fn div32(source_operand: u32) {
@@ -764,8 +764,8 @@ pub unsafe fn idiv32_without_fault(source_operand: i32) -> bool {
     if source_operand == 0 {
         return false;
     }
-    let target_low = *reg32.offset(EAX as isize) as u32;
-    let target_high = *reg32.offset(EDX as isize) as u32;
+    let target_low = read_reg32(EAX) as u32;
+    let target_high = read_reg32(EDX) as u32;
     let target_operand = ((target_high as u64) << 32 | target_low as u64) as i64;
     if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
         return false;
@@ -775,8 +775,8 @@ pub unsafe fn idiv32_without_fault(source_operand: i32) -> bool {
         return false;
     }
     let mod_0 = (target_operand % source_operand as i64) as i32;
-    *reg32.offset(EAX as isize) = result as i32;
-    *reg32.offset(EDX as isize) = mod_0;
+    write_reg32(EAX, result as i32);
+    write_reg32(EDX, mod_0);
     return true;
 }
 pub unsafe fn idiv32(source_operand: i32) {

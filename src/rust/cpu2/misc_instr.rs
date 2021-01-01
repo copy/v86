@@ -142,7 +142,7 @@ pub unsafe fn cmovcc32(condition: bool, value: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
     if *stack_size_32 {
-        return get_seg_ss() + *reg32.offset(ESP as isize) + offset;
+        return get_seg_ss() + read_reg32(ESP) + offset;
     }
     else {
         return get_seg_ss() + (read_reg16(SP) + offset & 0xFFFF);
@@ -151,7 +151,7 @@ pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn adjust_stack_reg(adjustment: i32) {
     if *stack_size_32 {
-        *reg32.offset(ESP as isize) += adjustment;
+        write_reg32(ESP, read_reg32(ESP) + adjustment);
     }
     else {
         write_reg16(SP, read_reg16(SP) + adjustment);
@@ -167,9 +167,9 @@ pub unsafe fn push16_ss16(imm16: i32) -> OrPageFault<()> {
 }
 #[no_mangle]
 pub unsafe fn push16_ss32(imm16: i32) -> OrPageFault<()> {
-    let sp = get_seg_ss() + *reg32.offset(ESP as isize) - 2;
+    let sp = get_seg_ss() + read_reg32(ESP) - 2;
     safe_write16(sp, imm16)?;
-    *reg32.offset(ESP as isize) -= 2;
+    write_reg32(ESP, read_reg32(ESP) - 2);
     Ok(())
 }
 
@@ -192,9 +192,9 @@ pub unsafe fn push32_ss16(imm32: i32) -> OrPageFault<()> {
 }
 #[no_mangle]
 pub unsafe fn push32_ss32(imm32: i32) -> OrPageFault<()> {
-    let new_esp = *reg32.offset(ESP as isize) - 4;
+    let new_esp = read_reg32(ESP) - 4;
     safe_write32(get_seg_ss() + new_esp, imm32)?;
-    *reg32.offset(ESP as isize) = new_esp;
+    write_reg32(ESP, new_esp);
     Ok(())
 }
 
@@ -220,9 +220,9 @@ pub unsafe fn pop16_ss16() -> OrPageFault<i32> {
 }
 #[no_mangle]
 pub unsafe fn pop16_ss32() -> OrPageFault<i32> {
-    let esp = get_seg_ss() + *reg32.offset(ESP as isize);
+    let esp = get_seg_ss() + read_reg32(ESP);
     let result = safe_read16(esp)?;
-    *reg32.offset(ESP as isize) += 2;
+    write_reg32(ESP, read_reg32(ESP) + 2);
     Ok(result)
 }
 #[no_mangle]
@@ -238,9 +238,9 @@ pub unsafe fn pop32s_ss16() -> OrPageFault<i32> {
 }
 #[no_mangle]
 pub unsafe fn pop32s_ss32() -> OrPageFault<i32> {
-    let esp = *reg32.offset(ESP as isize);
+    let esp = read_reg32(ESP);
     let result = safe_read32s(get_seg_ss() + esp)?;
-    *reg32.offset(ESP as isize) = esp + 4;
+    write_reg32(ESP, read_reg32(ESP) + 4);
     Ok(result)
 }
 #[no_mangle]
@@ -260,16 +260,16 @@ pub unsafe fn pusha16() {
 }
 #[no_mangle]
 pub unsafe fn pusha32() {
-    let temp = *reg32.offset(ESP as isize);
+    let temp = read_reg32(ESP);
     return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-32), 32));
-    push32(*reg32.offset(EAX as isize)).unwrap();
-    push32(*reg32.offset(ECX as isize)).unwrap();
-    push32(*reg32.offset(EDX as isize)).unwrap();
-    push32(*reg32.offset(EBX as isize)).unwrap();
+    push32(read_reg32(EAX)).unwrap();
+    push32(read_reg32(ECX)).unwrap();
+    push32(read_reg32(EDX)).unwrap();
+    push32(read_reg32(EBX)).unwrap();
     push32(temp).unwrap();
-    push32(*reg32.offset(EBP as isize)).unwrap();
-    push32(*reg32.offset(ESI as isize)).unwrap();
-    push32(*reg32.offset(EDI as isize)).unwrap();
+    push32(read_reg32(EBP)).unwrap();
+    push32(read_reg32(ESI)).unwrap();
+    push32(read_reg32(EDI)).unwrap();
 }
 
 pub unsafe fn lss16(addr: i32, reg: i32, seg: i32) {
@@ -308,10 +308,10 @@ pub unsafe fn enter16(size: i32, mut nesting_level: i32) {
 
     let ss_mask = if *stack_size_32 { -1 } else { 0xFFFF };
     let ss = get_seg_ss();
-    let frame_temp = *reg32.offset(ESP as isize) - 2;
+    let frame_temp = read_reg32(ESP) - 2;
 
     if nesting_level > 0 {
-        let mut tmp_ebp = *reg32.offset(EBP as isize);
+        let mut tmp_ebp = read_reg32(EBP);
         for _ in 1..nesting_level {
             tmp_ebp -= 2;
             push16(safe_read16(ss + (tmp_ebp & ss_mask)).unwrap()).unwrap();
@@ -338,10 +338,10 @@ pub unsafe fn enter32(size: i32, mut nesting_level: i32) {
 
     let ss_mask = if *stack_size_32 { -1 } else { 0xFFFF };
     let ss = get_seg_ss();
-    let frame_temp = *reg32.offset(ESP as isize) - 4;
+    let frame_temp = read_reg32(ESP) - 4;
 
     if nesting_level > 0 {
-        let mut tmp_ebp = *reg32.offset(EBP as isize);
+        let mut tmp_ebp = read_reg32(EBP);
         for _ in 1..nesting_level {
             tmp_ebp -= 4;
             push32(safe_read32s(ss + (tmp_ebp & ss_mask)).unwrap()).unwrap();
@@ -349,11 +349,8 @@ pub unsafe fn enter32(size: i32, mut nesting_level: i32) {
         push32(frame_temp).unwrap();
     }
 
-    return_on_pagefault!(safe_write32(
-        ss + (frame_temp & ss_mask),
-        *reg32.offset(EBP as isize)
-    ));
-    *reg32.offset(EBP as isize) = frame_temp;
+    return_on_pagefault!(safe_write32(ss + (frame_temp & ss_mask), read_reg32(EBP)));
+    write_reg32(EBP, frame_temp);
     adjust_stack_reg(-size - 4);
 }
 
@@ -470,15 +467,15 @@ pub unsafe fn xchg16r(r16: i32) {
 }
 #[no_mangle]
 pub unsafe fn xchg32(data: i32, r32: i32) -> i32 {
-    let tmp = *reg32.offset(r32 as isize);
-    *reg32.offset(r32 as isize) = data;
+    let tmp = read_reg32(r32);
+    write_reg32(r32, data);
     return tmp;
 }
 #[no_mangle]
 pub unsafe fn xchg32r(r32: i32) {
-    let tmp = *reg32.offset(EAX as isize);
-    *reg32.offset(EAX as isize) = *reg32.offset(r32 as isize);
-    *reg32.offset(r32 as isize) = tmp;
+    let tmp = read_reg32(EAX);
+    write_reg32(EAX, read_reg32(r32));
+    write_reg32(r32, tmp);
 }
 
 #[no_mangle]

@@ -1162,9 +1162,9 @@ pub unsafe fn instr_0F30() {
         return;
     }
 
-    let index = *reg32.offset(ECX as isize);
-    let low = *reg32.offset(EAX as isize);
-    let high = *reg32.offset(EDX as isize);
+    let index = read_reg32(ECX);
+    let low = read_reg32(EAX);
+    let high = read_reg32(EDX);
 
     if index != IA32_SYSENTER_ESP {
         dbg_log!("wrmsr ecx={:x} data={:x}:{:x}", index, high, low);
@@ -1228,14 +1228,10 @@ pub unsafe fn instr_0F31() {
     // rdtsc - read timestamp counter
     if 0 == *cpl || 0 == *cr.offset(4) & CR4_TSD {
         let tsc = read_tsc();
-        *reg32.offset(EAX as isize) = tsc as i32;
-        *reg32.offset(EDX as isize) = (tsc >> 32) as i32;
+        write_reg32(EAX, tsc as i32);
+        write_reg32(EDX, (tsc >> 32) as i32);
         if false {
-            dbg_log!(
-                "rdtsc  edx:eax={:x}:{:x}",
-                *reg32.offset(EDX as isize),
-                *reg32.offset(EAX as isize)
-            );
+            dbg_log!("rdtsc  edx:eax={:x}:{:x}", read_reg32(EDX), read_reg32(EAX));
         }
     }
     else {
@@ -1251,7 +1247,7 @@ pub unsafe fn instr_0F32() {
         return;
     }
 
-    let index = *reg32.offset(ECX as isize);
+    let index = read_reg32(ECX);
     dbg_log!("rdmsr ecx={:x}", index);
 
     let mut low: i32 = 0;
@@ -1311,8 +1307,8 @@ pub unsafe fn instr_0F32() {
         dbg_assert!(false);
     }
 
-    *reg32.offset(EAX as isize) = low;
-    *reg32.offset(EDX as isize) = high;
+    write_reg32(EAX, low);
+    write_reg32(EDX, high);
 }
 #[no_mangle]
 pub unsafe fn instr_0F33() {
@@ -1330,7 +1326,7 @@ pub unsafe fn instr_0F34() {
     else {
         *flags &= !FLAG_VM & !FLAG_INTERRUPT;
         *instruction_pointer = *sysenter_eip;
-        *reg32.offset(ESP as isize) = *sysenter_esp;
+        write_reg32(ESP, *sysenter_esp);
         *sreg.offset(CS as isize) = seg as u16;
         *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
@@ -1355,8 +1351,8 @@ pub unsafe fn instr_0F35() {
         return;
     }
     else {
-        *instruction_pointer = *reg32.offset(EDX as isize);
-        *reg32.offset(ESP as isize) = *reg32.offset(ECX as isize);
+        *instruction_pointer = read_reg32(EDX);
+        write_reg32(ESP, read_reg32(ECX));
         *sreg.offset(CS as isize) = (seg + 16 | 3) as u16;
         *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
@@ -3294,15 +3290,15 @@ pub unsafe fn instr16_0FC7_1_mem(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 8));
     let m64_low = safe_read32s(addr).unwrap();
     let m64_high = safe_read32s(addr + 4).unwrap();
-    if *reg32.offset(EAX as isize) == m64_low && *reg32.offset(EDX as isize) == m64_high {
+    if read_reg32(EAX) == m64_low && read_reg32(EDX) == m64_high {
         *flags |= FLAG_ZERO;
-        safe_write32(addr, *reg32.offset(EBX as isize)).unwrap();
-        safe_write32(addr + 4, *reg32.offset(ECX as isize)).unwrap();
+        safe_write32(addr, read_reg32(EBX)).unwrap();
+        safe_write32(addr + 4, read_reg32(ECX)).unwrap();
     }
     else {
         *flags &= !FLAG_ZERO;
-        *reg32.offset(EAX as isize) = m64_low;
-        *reg32.offset(EDX as isize) = m64_high;
+        write_reg32(EAX, m64_low);
+        write_reg32(EDX, m64_high);
         safe_write32(addr, m64_low).unwrap();
         safe_write32(addr + 4, m64_high).unwrap();
     }
