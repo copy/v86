@@ -915,7 +915,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else
         {
-            dbg_assert(false, "Unimplemented fw index: " + h(value));
+            dbg_log("Warning: Unimplemented fw index: " + h(value));
             this.fw_value = i32(0);
         }
     });
