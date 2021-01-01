@@ -200,6 +200,7 @@ pub struct JitContext<'a> {
     pub start_of_current_instruction: u32,
     pub main_loop_label: Label,
     pub exit_with_pagefault_label: Label,
+    pub exit_label: Label,
     pub our_wasm_table_index: WasmTableIndex,
     pub basic_block_index_local: &'a WasmLocal,
     pub state_flags: CachedStateFlags,
@@ -874,6 +875,8 @@ fn jit_generate_module(
         })
         .collect();
 
+    let exit_label = builder.block_void();
+
     // main state machine loop
     let main_loop_label = builder.loop_void();
 
@@ -887,6 +890,7 @@ fn jit_generate_module(
         start_of_current_instruction: 0,
         main_loop_label,
         exit_with_pagefault_label,
+        exit_label,
         our_wasm_table_index: wasm_table_index,
         basic_block_index_local: &gen_local_state,
         state_flags,
@@ -906,8 +910,7 @@ fn jit_generate_module(
         ctx.builder.eqz_i32();
         ctx.builder.if_void();
         codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-        codegen::gen_move_registers_from_locals_to_memory(ctx);
-        ctx.builder.return_();
+        ctx.builder.br(exit_label);
         ctx.builder.block_end();
     }
 
@@ -964,8 +967,7 @@ fn jit_generate_module(
             BasicBlockType::Exit => {
                 // Exit this function
                 codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                codegen::gen_move_registers_from_locals_to_memory(ctx);
-                ctx.builder.return_();
+                ctx.builder.br(exit_label);
             },
             BasicBlockType::Normal { next_block_addr } => {
                 // Unconditional jump to next basic block
@@ -1060,8 +1062,7 @@ fn jit_generate_module(
                 else {
                     // Jump to different page
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                    codegen::gen_move_registers_from_locals_to_memory(ctx);
-                    ctx.builder.return_();
+                    ctx.builder.br(exit_label);
                 }
 
                 if let Some(next_block_addr) = next_block_addr {
@@ -1092,8 +1093,7 @@ fn jit_generate_module(
 
                     // End of this page
                     codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
-                    codegen::gen_move_registers_from_locals_to_memory(ctx);
-                    ctx.builder.return_();
+                    ctx.builder.br(exit_label);
 
                     ctx.builder.block_end();
                 }
@@ -1113,6 +1113,9 @@ fn jit_generate_module(
     ctx.builder.unreachable();
 
     ctx.builder.block_end(); // loop
+
+    ctx.builder.block_end(); // exit
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
 
     ctx.builder.free_local(gen_local_state.unsafe_clone());
     if let Some(local) = gen_local_iteration_counter {

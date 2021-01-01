@@ -91,8 +91,7 @@ pub fn gen_page_switch_check(
     ctx.builder.if_void();
     gen_profiler_stat_increment(ctx.builder, profiler::stat::FAILED_PAGE_CHANGE);
     gen_debug_track_jit_exit(ctx.builder, last_instruction_addr);
-    gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_label);
     ctx.builder.block_end();
 }
 
