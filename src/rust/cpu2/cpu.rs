@@ -2842,7 +2842,10 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_void() { task_switch_test(); }
+pub unsafe fn task_switch_test_jit() {
+    let did_fault = !task_switch_test();
+    dbg_assert!(did_fault);
+}
 
 pub unsafe fn task_switch_test_mmx() -> bool {
     if *cr.offset(4) & CR4_OSFXSR == 0 {
@@ -2862,7 +2865,10 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_mmx_void() { task_switch_test_mmx(); }
+pub unsafe fn task_switch_test_mmx_jit() {
+    let did_fault = !task_switch_test_mmx();
+    dbg_assert!(did_fault);
+}
 
 pub unsafe fn read_moffs() -> OrPageFault<i32> {
     // read 2 or 4 byte from ip, depending on address size attribute

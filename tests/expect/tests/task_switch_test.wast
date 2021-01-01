@@ -15,7 +15,7 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
-  (import "e" "task_switch_test_void" (func $e.task_switch_test_void (type $t0)))
+  (import "e" "task_switch_test_jit" (func $e.task_switch_test_jit (type $t0)))
   (import "e" "fpu_get_sti" (func $e.fpu_get_sti (type $t7)))
   (import "e" "fpu_fadd" (func $e.fpu_fadd (type $t8)))
   (import "e" "fpu_pop" (func $e.fpu_pop (type $t0)))
@@ -129,7 +129,7 @@
               (i32.store
                 (i32.const 92)
                 (get_local $l9))
-              (call $e.task_switch_test_void)
+              (call $e.task_switch_test_jit)
               (i32.store
                 (i32.const 648)
                 (i32.const 0))

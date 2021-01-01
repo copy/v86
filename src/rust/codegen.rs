@@ -1085,7 +1085,7 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     );
 
     gen_move_registers_from_locals_to_memory(ctx);
-    gen_fn0_const(ctx.builder, "task_switch_test_void");
+    gen_fn0_const(ctx.builder, "task_switch_test_jit");
 
     gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
@@ -1114,7 +1114,7 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     );
 
     gen_move_registers_from_locals_to_memory(ctx);
-    gen_fn0_const(ctx.builder, "task_switch_test_mmx_void");
+    gen_fn0_const(ctx.builder, "task_switch_test_mmx_jit");
 
     gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();

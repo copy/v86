@@ -15,7 +15,7 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
-  (import "e" "task_switch_test_mmx_void" (func $e.task_switch_test_mmx_void (type $t0)))
+  (import "e" "task_switch_test_mmx_jit" (func $e.task_switch_test_mmx_jit (type $t0)))
   (import "e" "instr_660F54_reg" (func $e.instr_660F54_reg (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
@@ -144,7 +144,7 @@
                 (i32.store
                   (i32.const 92)
                   (get_local $l9))
-                (call $e.task_switch_test_mmx_void)
+                (call $e.task_switch_test_mmx_jit)
                 (i32.store
                   (i32.const 648)
                   (i32.const 0))
