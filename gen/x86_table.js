@@ -539,12 +539,12 @@ const encodings = [
     { opcode: 0x0FA8, os: 1, custom: 1, },
     { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, }, // pop gs
 
-    { opcode: 0x0FA3, os: 1, e: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)
+    { opcode: 0x0FA3, os: 1, e: 1, custom: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)
     { opcode: 0x0FAB, os: 1, e: 1, only_reg: 1, },
     { opcode: 0x0FB3, os: 1, e: 1, only_reg: 1, },
     { opcode: 0x0FBB, os: 1, e: 1, only_reg: 1, },
 
-    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 4, imm8: 1 }, // bt
+    { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 4, imm8: 1, custom: 1 }, // bt
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 5, imm8: 1 },
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1 },
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1 },

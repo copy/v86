@@ -6,7 +6,6 @@ use cpu2::cpu::{
 use cpu2::imports::mem8;
 use global_pointers;
 use jit::JitContext;
-use jit_instructions::LocalOrImmedate;
 use modrm;
 use profiler;
 use regs;

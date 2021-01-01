@@ -1092,6 +1092,38 @@ pub fn gen_imul_reg32(
     builder.set_local(dest_operand);
 }
 
+pub fn gen_bt(
+    builder: &mut WasmBuilder,
+    bit_base: &WasmLocal,
+    bit_offset: &LocalOrImmedate,
+    offset_mask: u32,
+) {
+    builder.const_i32(global_pointers::FLAGS as i32);
+    builder.load_aligned_i32(global_pointers::FLAGS);
+    builder.const_i32(!1);
+    builder.and_i32();
+    builder.get_local(bit_base);
+    match bit_offset {
+        LocalOrImmedate::WasmLocal(l) => {
+            builder.get_local(l);
+            builder.const_i32(offset_mask as i32);
+            builder.and_i32();
+        },
+        LocalOrImmedate::Immediate(imm) => builder.const_i32(imm & offset_mask as i32),
+    }
+    builder.shr_u_i32();
+    builder.const_i32(1);
+    builder.and_i32();
+    builder.or_i32();
+    builder.store_aligned_i32(0);
+
+    builder.const_i32(global_pointers::FLAGS_CHANGED as i32);
+    builder.load_aligned_i32(global_pointers::FLAGS_CHANGED);
+    builder.const_i32(!1);
+    builder.and_i32();
+    builder.store_aligned_i32(0);
+}
+
 define_instruction_read_write_mem8!("add8", instr_00_mem_jit, instr_00_reg_jit, reg);
 define_instruction_read_write_mem16!("add16", instr16_01_mem_jit, instr16_01_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_add32, instr32_01_mem_jit, instr32_01_reg_jit, reg);
@@ -4144,6 +4176,111 @@ pub fn instr32_0FA8_jit(ctx: &mut JitContext) {
     let sreg = ctx.builder.set_new_local();
     codegen::gen_push32(ctx, &sreg);
     ctx.builder.free_local(sreg);
+}
+
+pub fn instr16_0FA3_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    gen_bt(
+        &mut ctx.builder,
+        &ctx.register_locals[r1 as usize],
+        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize]),
+        15,
+    )
+}
+pub fn instr16_0FA3_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_get_reg16(ctx, r);
+    codegen::sign_extend_i16(ctx.builder);
+    ctx.builder.const_i32(3);
+    ctx.builder.shr_s_i32();
+    ctx.builder.add_i32();
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+    let value = ctx.builder.set_new_local();
+    gen_bt(
+        &mut ctx.builder,
+        &value,
+        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+        7,
+    );
+    ctx.builder.free_local(value);
+}
+pub fn instr32_0FA3_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    gen_bt(
+        &mut ctx.builder,
+        &ctx.register_locals[r1 as usize],
+        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r2 as usize]),
+        31,
+    )
+}
+pub fn instr32_0FA3_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_get_reg32(ctx, r);
+    ctx.builder.const_i32(3);
+    ctx.builder.shr_s_i32();
+    ctx.builder.add_i32();
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+    let value = ctx.builder.set_new_local();
+    gen_bt(
+        &mut ctx.builder,
+        &value,
+        &LocalOrImmedate::WasmLocal(&ctx.register_locals[r as usize]),
+        7,
+    );
+    ctx.builder.free_local(value);
+}
+
+pub fn instr16_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    gen_bt(
+        &mut ctx.builder,
+        &ctx.register_locals[r as usize],
+        &LocalOrImmedate::Immediate(imm8 as i32),
+        15,
+    )
+}
+pub fn instr16_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let imm8 = ctx.cpu.read_imm8();
+    ctx.builder.const_i32((imm8 as i32 & 15) >> 3);
+    ctx.builder.add_i32();
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+    let value = ctx.builder.set_new_local();
+    gen_bt(
+        &mut ctx.builder,
+        &value,
+        &LocalOrImmedate::Immediate(imm8 as i32),
+        7,
+    );
+    ctx.builder.free_local(value);
+}
+pub fn instr32_0FBA_4_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
+    gen_bt(
+        &mut ctx.builder,
+        &ctx.register_locals[r as usize],
+        &LocalOrImmedate::Immediate(imm8 as i32),
+        31,
+    )
+}
+pub fn instr32_0FBA_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let imm8 = ctx.cpu.read_imm8();
+    ctx.builder.const_i32((imm8 as i32 & 31) >> 3);
+    ctx.builder.add_i32();
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read8(ctx, &address_local);
+    ctx.builder.free_local(address_local);
+    let value = ctx.builder.set_new_local();
+    gen_bt(
+        &mut ctx.builder,
+        &value,
+        &LocalOrImmedate::Immediate(imm8 as i32),
+        7,
+    );
+    ctx.builder.free_local(value);
 }
 
 pub fn instr_0FAE_5_mem_jit(ctx: &mut JitContext, _modrm_byte: u8) {
