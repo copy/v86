@@ -9,13 +9,13 @@
   (type $t7 (func (param i32) (result f64)))
   (type $t8 (func (param i32 f64)))
   (type $t9 (func (param f64)))
-  (type $t10 (func (param i32) (result i64)))
-  (type $t11 (func (param i32 i64)))
-  (type $t12 (func (param f64) (result i32)))
-  (type $t13 (func (param f64) (result i64)))
-  (type $t14 (func (param i32 i32 i32) (result i32)))
-  (type $t15 (func (param i32 i64 i64)))
-  (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
+  (type $t10 (func (param f64) (result i32)))
+  (type $t11 (func (param f64) (result i64)))
+  (type $t12 (func (param i32 i32 i32) (result i32)))
+  (type $t13 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t14 (func (param i32 i64 i32) (result i32)))
+  (type $t15 (func (param i32 i64 i64 i32) (result i32)))
+  (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t6)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 256))
@@ -99,47 +99,40 @@
               (get_local $l6)
               (i32.load
                 (i32.const 744))))
-          (if $I5 (result i32)
-            (i32.and
-              (i32.eq
-                (i32.and
-                  (tee_local $l11
-                    (i32.load offset=4194304
-                      (i32.shl
-                        (i32.shr_u
-                          (get_local $l10)
-                          (i32.const 12))
-                        (i32.const 2))))
-                  (i32.const 4041))
-                (i32.const 1))
-              (i32.le_s
-                (i32.and
-                  (get_local $l10)
-                  (i32.const 4095))
-                (i32.const 4092)))
-            (then
-              (i32.load offset={normalised output} align=1
-                (i32.xor
+          (block $B5
+            (br_if $B5
+              (i32.and
+                (i32.eq
                   (i32.and
-                    (get_local $l11)
-                    (i32.const -4096))
-                  (get_local $l10))))
-            (else
-              (call $e.safe_read32s_slow_jit
+                    (tee_local $l11
+                      (i32.load offset=4194304
+                        (i32.shl
+                          (i32.shr_u
+                            (get_local $l10)
+                            (i32.const 12))
+                          (i32.const 2))))
+                    (i32.const 4041))
+                  (i32.const 1))
+                (i32.le_s
+                  (i32.and
+                    (get_local $l10)
+                    (i32.const 4095))
+                  (i32.const 4092))))
+            (br_if $B3
+              (i32.and
+                (tee_local $l11
+                  (call $e.safe_read32s_slow_jit
+                    (get_local $l10)
+                    (i32.const 0)))
+                (i32.const 1))))
+          (i32.load align=1
+            (i32.add
+              (i32.xor
+                (i32.and
+                  (get_local $l11)
+                  (i32.const -4096))
                 (get_local $l10))
-              (if $I6
-                (i32.load8_u
-                  (i32.const 540))
-                (then
-                  (i32.store
-                    (i32.const 560)
-                    (i32.or
-                      (i32.and
-                        (i32.load
-                          (i32.const 556))
-                        (i32.const -4096))
-                      (i32.const 0)))
-                  (br $B3)))))
+              (i32.const 20082688)))
           (set_local $l6
             (i32.add
               (get_local $l6)

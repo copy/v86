@@ -9,15 +9,15 @@
   (type $t7 (func (param i32) (result f64)))
   (type $t8 (func (param i32 f64)))
   (type $t9 (func (param f64)))
-  (type $t10 (func (param i32) (result i64)))
-  (type $t11 (func (param i32 i64)))
-  (type $t12 (func (param f64) (result i32)))
-  (type $t13 (func (param f64) (result i64)))
-  (type $t14 (func (param i32 i32 i32) (result i32)))
-  (type $t15 (func (param i32 i64 i64)))
+  (type $t10 (func (param f64) (result i32)))
+  (type $t11 (func (param f64) (result i64)))
+  (type $t12 (func (param i32 i32 i32) (result i32)))
+  (type $t13 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t14 (func (param i32 i64 i32) (result i32)))
+  (type $t15 (func (param i32 i64 i64 i32) (result i32)))
   (import "e" "assert_seg_non_null" (func $e.assert_seg_non_null (type $t1)))
-  (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t2)))
-  (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
+  (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t12)))
+  (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t6)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 256))
@@ -107,49 +107,42 @@
           (set_local $l10)
           (set_local $l11
             (get_local $l2))
-          (if $I5
-            (i32.and
-              (i32.eq
-                (i32.and
-                  (tee_local $l12
-                    (i32.load offset=4194304
-                      (i32.shl
-                        (i32.shr_u
-                          (get_local $l10)
-                          (i32.const 12))
-                        (i32.const 2))))
-                  (i32.const 4075))
-                (i32.const 1))
-              (i32.le_s
-                (i32.and
-                  (get_local $l10)
-                  (i32.const 4095))
-                (i32.const 4092)))
-            (then
-              (i32.store offset={normalised output} align=1
-                (i32.xor
+          (block $B5
+            (br_if $B5
+              (i32.and
+                (i32.eq
                   (i32.and
-                    (get_local $l12)
-                    (i32.const -4096))
-                  (get_local $l10))
-                (get_local $l11)))
-            (else
-              (call $e.safe_write32_slow_jit
-                (get_local $l10)
-                (get_local $l11))
-              (if $I6
-                (i32.load8_u
-                  (i32.const 540))
-                (then
-                  (i32.store
-                    (i32.const 560)
-                    (i32.or
-                      (i32.and
-                        (i32.load
-                          (i32.const 556))
-                        (i32.const -4096))
-                      (i32.const 0)))
-                  (br $B3)))))
+                    (tee_local $l12
+                      (i32.load offset=4194304
+                        (i32.shl
+                          (i32.shr_u
+                            (get_local $l10)
+                            (i32.const 12))
+                          (i32.const 2))))
+                    (i32.const 4075))
+                  (i32.const 1))
+                (i32.le_s
+                  (i32.and
+                    (get_local $l10)
+                    (i32.const 4095))
+                  (i32.const 4092))))
+            (br_if $B3
+              (i32.and
+                (tee_local $l12
+                  (call $e.safe_write32_slow_jit
+                    (get_local $l10)
+                    (get_local $l11)
+                    (i32.const 0)))
+                (i32.const 1))))
+          (i32.store align=1
+            (i32.add
+              (i32.xor
+                (i32.and
+                  (get_local $l12)
+                  (i32.const -4096))
+                (get_local $l10))
+              (i32.const 20082688))
+            (get_local $l11))
           (i32.add
             (get_local $l4)
             (i32.const 28))
@@ -161,49 +154,42 @@
           (set_local $l11)
           (set_local $l10
             (get_local $l3))
-          (if $I7
-            (i32.and
-              (i32.eq
-                (i32.and
-                  (tee_local $l12
-                    (i32.load offset=4194304
-                      (i32.shl
-                        (i32.shr_u
-                          (get_local $l11)
-                          (i32.const 12))
-                        (i32.const 2))))
-                  (i32.const 4075))
-                (i32.const 1))
-              (i32.le_s
-                (i32.and
-                  (get_local $l11)
-                  (i32.const 4095))
-                (i32.const 4092)))
-            (then
-              (i32.store offset={normalised output} align=1
-                (i32.xor
+          (block $B6
+            (br_if $B6
+              (i32.and
+                (i32.eq
                   (i32.and
-                    (get_local $l12)
-                    (i32.const -4096))
-                  (get_local $l11))
-                (get_local $l10)))
-            (else
-              (call $e.safe_write32_slow_jit
-                (get_local $l11)
-                (get_local $l10))
-              (if $I8
-                (i32.load8_u
-                  (i32.const 540))
-                (then
-                  (i32.store
-                    (i32.const 560)
-                    (i32.or
-                      (i32.and
-                        (i32.load
-                          (i32.const 556))
-                        (i32.const -4096))
-                      (i32.const 6)))
-                  (br $B3)))))
+                    (tee_local $l12
+                      (i32.load offset=4194304
+                        (i32.shl
+                          (i32.shr_u
+                            (get_local $l11)
+                            (i32.const 12))
+                          (i32.const 2))))
+                    (i32.const 4075))
+                  (i32.const 1))
+                (i32.le_s
+                  (i32.and
+                    (get_local $l11)
+                    (i32.const 4095))
+                  (i32.const 4092))))
+            (br_if $B3
+              (i32.and
+                (tee_local $l12
+                  (call $e.safe_write32_slow_jit
+                    (get_local $l11)
+                    (get_local $l10)
+                    (i32.const 6)))
+                (i32.const 1))))
+          (i32.store align=1
+            (i32.add
+              (i32.xor
+                (i32.and
+                  (get_local $l12)
+                  (i32.const -4096))
+                (get_local $l11))
+              (i32.const 20082688))
+            (get_local $l10))
           (i32.add
             (get_local $l5)
             (i32.const 28))
@@ -213,8 +199,8 @@
             (i32.const 748))
           (i32.add)
           (set_local $l10)
-          (set_local $l8
-            (if $I9 (result i32)
+          (block $B7
+            (br_if $B7
               (i32.and
                 (i32.eq
                   (i32.and
@@ -231,30 +217,23 @@
                   (i32.and
                     (get_local $l10)
                     (i32.const 4095))
-                  (i32.const 4092)))
-              (then
-                (i32.load offset={normalised output} align=1
-                  (i32.xor
-                    (i32.and
-                      (get_local $l11)
-                      (i32.const -4096))
-                    (get_local $l10))))
-              (else
-                (call $e.safe_read32s_slow_jit
+                  (i32.const 4092))))
+            (br_if $B3
+              (i32.and
+                (tee_local $l11
+                  (call $e.safe_read32s_slow_jit
+                    (get_local $l10)
+                    (i32.const 12)))
+                (i32.const 1))))
+          (set_local $l8
+            (i32.load align=1
+              (i32.add
+                (i32.xor
+                  (i32.and
+                    (get_local $l11)
+                    (i32.const -4096))
                   (get_local $l10))
-                (if $I10
-                  (i32.load8_u
-                    (i32.const 540))
-                  (then
-                    (i32.store
-                      (i32.const 560)
-                      (i32.or
-                        (i32.and
-                          (i32.load
-                            (i32.const 556))
-                          (i32.const -4096))
-                        (i32.const 12)))
-                    (br $B3))))))
+                (i32.const 20082688))))
           (i32.add
             (get_local $l4)
             (i32.const 32))
@@ -264,8 +243,8 @@
             (i32.const 748))
           (i32.add)
           (set_local $l10)
-          (set_local $l9
-            (if $I11 (result i32)
+          (block $B8
+            (br_if $B8
               (i32.and
                 (i32.eq
                   (i32.and
@@ -282,30 +261,23 @@
                   (i32.and
                     (get_local $l10)
                     (i32.const 4095))
-                  (i32.const 4092)))
-              (then
-                (i32.load offset={normalised output} align=1
-                  (i32.xor
-                    (i32.and
-                      (get_local $l11)
-                      (i32.const -4096))
-                    (get_local $l10))))
-              (else
-                (call $e.safe_read32s_slow_jit
+                  (i32.const 4092))))
+            (br_if $B3
+              (i32.and
+                (tee_local $l11
+                  (call $e.safe_read32s_slow_jit
+                    (get_local $l10)
+                    (i32.const 18)))
+                (i32.const 1))))
+          (set_local $l9
+            (i32.load align=1
+              (i32.add
+                (i32.xor
+                  (i32.and
+                    (get_local $l11)
+                    (i32.const -4096))
                   (get_local $l10))
-                (if $I12
-                  (i32.load8_u
-                    (i32.const 540))
-                  (then
-                    (i32.store
-                      (i32.const 560)
-                      (i32.or
-                        (i32.and
-                          (i32.load
-                            (i32.const 556))
-                          (i32.const -4096))
-                        (i32.const 18)))
-                    (br $B3))))))
+                (i32.const 20082688))))
           (i32.store
             (i32.const 560)
             (i32.add
