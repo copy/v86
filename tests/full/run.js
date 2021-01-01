@@ -347,11 +347,27 @@ if(cluster.isMaster)
         {
             name: "Haiku",
             skip_if_disk_image_missing: true,
-            timeout: 60 * 15,
-            hda: root_path + "/images/experimental/os/haiku-nightly-anyboot.image",
-            expected_serial_text: ["cx23882: init_hardware()"],
+            timeout: 15 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/experimental/haiku-master-hrev53609-x86_gcc2h-anyboot.iso",
+            expected_serial_text: [
+                "cx23882: init_hardware()",
+                "Running post install script /boot/system/boot/post-install/sshd_keymaker.sh",
+                // After pressing enter in the boot dialog:
+                "Running first login script /boot/system/boot/first-login/default_deskbar_items.sh",
+            ],
             expect_graphical_mode: true,
             expect_mouse_registered: true,
+            actions: [
+                { after: 1 * 60 * 1000, run: "\n" },
+                { after: 2 * 60 * 1000, run: "\n" },
+                { after: 3 * 60 * 1000, run: "\n" },
+                { after: 4 * 60 * 1000, run: "\n" },
+                { after: 5 * 60 * 1000, run: "\n" },
+                { after: 6 * 60 * 1000, run: "\n" },
+                { after: 7 * 60 * 1000, run: "\n" },
+                { after: 8 * 60 * 1000, run: "\n" },
+            ],
         },
         {
             name: "HelenOS",
@@ -548,7 +564,7 @@ function run_test(test, done)
         bios: { url: bios },
         vga_bios: { url: vga_bios },
         autostart: true,
-        memory_size: 128 * 1024 * 1024,
+        memory_size: test.memory_size || 128 * 1024 * 1024,
         log_level: 0,
     };
 
@@ -619,6 +635,7 @@ function run_test(test, done)
 
     var timeout_seconds = test.timeout * TIMEOUT_EXTRA_FACTOR;
     var timeout = setTimeout(check_test_done, (timeout_seconds + 1) * 1000);
+    var timeouts = [timeout];
 
     var on_text = [];
     var stopped = false;
@@ -637,7 +654,7 @@ function run_test(test, done)
         {
             var end = Date.now();
 
-            clearTimeout(timeout);
+            for(let timeout of timeouts) clearTimeout(timeout);
             stopped = true;
 
             emulator.stop();
@@ -649,7 +666,7 @@ function run_test(test, done)
         }
         else if(Date.now() >= test_start + timeout_seconds * 1000)
         {
-            clearTimeout(timeout);
+            for(let timeout of timeouts) clearTimeout(timeout);
             stopped = true;
 
             emulator.stop();
@@ -732,10 +749,12 @@ function run_test(test, done)
             {
                 var action = on_text.shift();
 
-                setTimeout(() => {
-                    if(VERBOSE) console.error("Sending '%s'", action.run);
-                    emulator.keyboard_send_text(action.run);
-                }, action.after || 0);
+                timeouts.push(
+                    setTimeout(() => {
+                        if(VERBOSE) console.error("Sending '%s'", action.run);
+                        emulator.keyboard_send_text(action.run);
+                    }, action.after || 0)
+                );
             }
         }
     });
@@ -780,7 +799,16 @@ function run_test(test, done)
     {
         if(action.on_text)
         {
-            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after, });
+            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after });
+        }
+        else
+        {
+            timeouts.push(
+                setTimeout(() => {
+                    if(VERBOSE) console.error("Sending '%s'", action.run);
+                    emulator.keyboard_send_text(action.run);
+                }, action.after || 0)
+            );
         }
     });
 }

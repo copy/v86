@@ -621,7 +621,12 @@
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: "images/experimental/os/haiku-r1beta1-x86_gcc2_hybrid-anyboot.iso",
+                    // doesn't work (probably SSE):
+                    //url: HOST + "images/experimental/haiku-master-hrev54088-2020-04-28-x86_gcc2h-anyboot.iso",
+                    // works:
+                    url: HOST + "images/experimental/haiku-master-hrev53609-x86_gcc2h-anyboot.iso",
+                    // works:
+                    //url: HOST + "images/experimental/os/haiku-r1beta1-x86_gcc2_hybrid-anyboot.iso",
                     async: true,
                 },
                 name: "Haiku",
