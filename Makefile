@@ -263,6 +263,10 @@ kvm-unit-test: all-debug
 	(cd tests/kvm-unit-tests && ./configure && make)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
+kvm-unit-test-release: all
+	(cd tests/kvm-unit-tests && ./configure && make)
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+
 expect-tests: all-debug build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
