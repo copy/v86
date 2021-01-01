@@ -395,6 +395,9 @@ pub struct JitContext<'a> {
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
     pub current_brtable_depth: u32,
+    pub our_wasm_table_index: u16,
+    pub basic_block_index_local: &'a WasmLocal,
+    pub state_flags: CachedStateFlags,
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
@@ -444,6 +447,55 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
     }
 
     cached_code::NONE
+}
+
+#[no_mangle]
+pub fn jit_find_cache_entry_in_page(
+    virt_eip: i32,
+    phys_eip: u32,
+    wasm_table_index: u16,
+    state_flags: u32,
+) -> i32 {
+    let state_flags = CachedStateFlags::of_u32(state_flags);
+    let phys_address = virt_eip as u32 & 0xFFF | phys_eip & !0xFFF;
+
+    for i in 0..CODE_CACHE_SEARCH_SIZE {
+        let index = (phys_address + i) & jit_cache_array::MASK;
+        let entry = jit_cache_array::get(index);
+
+        if is_near_end_of_page(phys_address) {
+            dbg_assert!(entry.start_addr != phys_address);
+        }
+
+        if !entry.pending
+            && entry.start_addr == phys_address
+            && entry.state_flags == state_flags
+            && entry.wasm_table_index == wasm_table_index
+        {
+            #[cfg(debug_assertions)] // entry.opcode is not defined otherwise
+            {
+                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode);
+            }
+            if false {
+                dbg_log!(
+                    "jit_find_cache_entry_in_page hit {:x} {:x}",
+                    virt_eip as u32,
+                    phys_eip,
+                );
+            }
+            return entry.initial_state as i32;
+        }
+    }
+
+    if false {
+        dbg_log!(
+            "jit_find_cache_entry_in_page miss {:x} {:x}",
+            virt_eip as u32,
+            phys_eip,
+        );
+    }
+
+    return -1;
 }
 
 pub fn record_entry_point(phys_address: u32) {
@@ -860,6 +912,8 @@ fn jit_analyze_and_generate(
             requires_loop_limit,
             cpu.clone(),
             &mut ctx.wasm_builder,
+            wasm_table_index,
+            state_flags,
         );
 
         // create entries for each basic block that is marked as an entry point
@@ -987,6 +1041,8 @@ fn jit_generate_module(
     requires_loop_limit: bool,
     mut cpu: CpuContext,
     builder: &mut WasmBuilder,
+    wasm_table_index: u16,
+    state_flags: CachedStateFlags,
 ) {
     builder.reset();
 
@@ -1024,6 +1080,9 @@ fn jit_generate_module(
         register_locals: &mut register_locals,
         start_of_current_instruction: 0,
         current_brtable_depth: 0,
+        our_wasm_table_index: wasm_table_index,
+        basic_block_index_local: &gen_local_state,
+        state_flags,
     };
 
     // main state machine loop
@@ -1191,7 +1250,7 @@ fn jit_generate_module(
 
     ctx.builder.block_end(); // loop
 
-    ctx.builder.free_local(gen_local_state);
+    ctx.builder.free_local(gen_local_state.unsafe_clone());
     if let Some(local) = gen_local_iteration_counter {
         ctx.builder.free_local(local);
     }

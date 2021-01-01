@@ -60,11 +60,39 @@ pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_set_eip(ctx: &mut JitContext, from: &WasmLocal) {
+pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder
         .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    ctx.builder.get_local(&from);
+    ctx.builder.get_local(&new_eip);
     ctx.builder.store_aligned_i32(0);
+
+    ctx.builder.get_local(&new_eip);
+    ctx.builder.load_aligned_i32(global_pointers::PREVIOUS_IP);
+    ctx.builder.xor_i32();
+    ctx.builder.const_i32(!0xFFF);
+    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
+    ctx.builder.if_void();
+    {
+        // try staying in same page
+        ctx.builder.get_local(&new_eip);
+        ctx.builder.free_local(new_eip);
+        ctx.builder
+            .const_i32(ctx.start_of_current_instruction as i32);
+        ctx.builder.const_i32(ctx.our_wasm_table_index as i32);
+        ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
+        gen_call_fn4_ret(ctx.builder, "jit_find_cache_entry_in_page");
+        let new_basic_block_index = ctx.builder.tee_new_local();
+        ctx.builder.const_i32(0);
+        ctx.builder.ge_i32();
+        ctx.builder.if_void();
+        ctx.builder.get_local(&new_basic_block_index);
+        ctx.builder.set_local(ctx.basic_block_index_local);
+        ctx.builder.br(ctx.current_brtable_depth + 2); // to the loop
+        ctx.builder.block_end();
+        ctx.builder.free_local(new_basic_block_index);
+    }
+    ctx.builder.block_end();
 }
 
 pub fn gen_increment_variable(builder: &mut WasmBuilder, variable_address: u32, n: i32) {
@@ -307,6 +335,11 @@ pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
     builder.const_i32(arg2 as i32);
+    builder.call_fn(fn_idx);
+}
+
+pub fn gen_call_fn4_ret(builder: &mut WasmBuilder, name: &str) {
+    let fn_idx = builder.get_fn_idx(name, FunctionType::FN4_RET_TYPE_INDEX);
     builder.call_fn(fn_idx);
 }
 

@@ -2129,13 +2129,7 @@ pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
     let value_local = ctx.builder.set_new_local();
     codegen::gen_push32(ctx, &value_local);
     ctx.builder.free_local(value_local);
-    ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    ctx.builder
-        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    ctx.builder.const_i32(imm as i32);
-    ctx.builder.add_i32();
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
 
 pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) {
@@ -2146,57 +2140,33 @@ pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
 }
 
 pub fn instr16_C2_jit(ctx: &mut JitContext, imm16: u32) {
-    let cs_addr = global_pointers::get_seg_offset(CS);
-    ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    ctx.builder.load_aligned_i32(cs_addr);
     codegen::gen_pop16(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
     codegen::gen_adjust_stack_reg(ctx, imm16);
-    ctx.builder.add_i32();
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr32_C2_jit(ctx: &mut JitContext, imm16: u32) {
-    ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-    ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(CS));
     codegen::gen_pop32s(ctx);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
     codegen::gen_adjust_stack_reg(ctx, imm16);
-    ctx.builder.add_i32();
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr16_C3_jit(ctx: &mut JitContext) {
-    let cs_addr = global_pointers::get_seg_offset(CS);
-
-    ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-
-    ctx.builder.load_aligned_i32(cs_addr);
     codegen::gen_pop16(ctx);
-    ctx.builder.add_i32();
-
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr32_C3_jit(ctx: &mut JitContext) {
-    ctx.builder
-        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
-
-    // cs = segment_offsets[CS]
-    ctx.builder
-        .load_aligned_i32(global_pointers::get_seg_offset(CS));
-
-    // ip = pop32s()
     codegen::gen_pop32s(ctx);
-
-    // cs + ip
-    ctx.builder.add_i32();
-
-    // dbg_assert(is_asize_32() || ip < 0x10000);
-
-    ctx.builder.store_aligned_i32(0);
+    codegen::gen_add_cs_offset(ctx);
+    let new_eip = ctx.builder.set_new_local();
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr16_C9_jit(ctx: &mut JitContext) { codegen::gen_leave(ctx, false); }
@@ -3107,8 +3077,7 @@ pub fn instr16_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_push16(ctx, &value_local);
     ctx.builder.free_local(value_local);
 
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr16_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg16(ctx, r);
@@ -3120,8 +3089,7 @@ pub fn instr16_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_push16(ctx, &value_local);
     ctx.builder.free_local(value_local);
 
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr32_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
@@ -3133,8 +3101,7 @@ pub fn instr32_FF_2_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_push32(ctx, &value_local);
     ctx.builder.free_local(value_local);
 
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr32_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg32(ctx, r);
@@ -3146,37 +3113,32 @@ pub fn instr32_FF_2_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_push32(ctx, &value_local);
     ctx.builder.free_local(value_local);
 
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr16_FF_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
     codegen::gen_add_cs_offset(ctx);
     let new_eip = ctx.builder.set_new_local();
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr16_FF_4_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg16(ctx, r);
     codegen::gen_add_cs_offset(ctx);
     let new_eip = ctx.builder.set_new_local();
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr32_FF_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
     codegen::gen_add_cs_offset(ctx);
     let new_eip = ctx.builder.set_new_local();
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 pub fn instr32_FF_4_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg32(ctx, r);
     codegen::gen_add_cs_offset(ctx);
     let new_eip = ctx.builder.set_new_local();
-    codegen::gen_set_eip(ctx, &new_eip);
-    ctx.builder.free_local(new_eip);
+    codegen::gen_absolute_indirect_jump(ctx, new_eip);
 }
 
 pub fn instr16_FF_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
