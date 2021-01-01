@@ -1412,6 +1412,14 @@ pub fn gen_trigger_ud(ctx: &mut JitContext) {
     ctx.builder.instruction_body.return_();
 }
 
+pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
+    gen_move_registers_from_locals_to_memory(ctx);
+    gen_fn1_const(ctx.builder, "trigger_gp", error_code);
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_clear_prefixes(ctx);
+    ctx.builder.instruction_body.return_();
+}
+
 pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
     dbg_assert!(condition < 16);
     let condition_name = CONDITION_FUNCTIONS[condition as usize];

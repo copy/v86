@@ -3203,6 +3203,14 @@ pub fn instr32_F7_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 
+pub fn instr_FA_jit(ctx: &mut JitContext) {
+    codegen::gen_fn0_const_ret(ctx.builder, "instr_FA_without_fault");
+    ctx.builder.instruction_body.eqz_i32();
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.instruction_body.block_end();
+}
+
 define_instruction_read_write_mem16!(
     "inc16",
     "instr16_FF_0_mem",

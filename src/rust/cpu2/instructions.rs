@@ -3152,7 +3152,7 @@ pub unsafe fn instr_F9() {
     *flags_changed &= !1;
 }
 #[no_mangle]
-pub unsafe fn instr_FA() {
+pub unsafe fn instr_FA_without_fault() -> bool {
     // cli
     if !*protected_mode
         || 0 != if 0 != *flags & FLAG_VM {
@@ -3163,6 +3163,7 @@ pub unsafe fn instr_FA() {
         }
     {
         *flags &= !FLAG_INTERRUPT;
+        return true;
     }
     else if false
         && getiopl() < 3
@@ -3173,12 +3174,19 @@ pub unsafe fn instr_FA() {
             (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
         }
     {
-        *flags &= !FLAG_VIF
+        *flags &= !FLAG_VIF;
+        return true;
     }
     else {
         dbg_log!("cli #gp");
-        trigger_gp(0);
+        return false;
     };
+}
+#[no_mangle]
+pub unsafe fn instr_FA() {
+    if !instr_FA_without_fault() {
+        trigger_gp(0);
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_FB() {

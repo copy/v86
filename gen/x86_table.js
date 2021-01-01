@@ -397,8 +397,7 @@ const encodings = [
 
     { opcode: 0xF8, },
     { opcode: 0xF9, },
-    // cli: block_boundary since it uses non-raising cpu exceptions
-    { opcode: 0xFA, block_boundary: 1, skip: 1, },
+    { opcode: 0xFA, custom: 1, skip: 1 },
     // sti: not a jump, but can cause a change in eip
     { opcode: 0xFB, block_boundary: 1, skip: 1, },
     { opcode: 0xFC, no_register: 1, },
