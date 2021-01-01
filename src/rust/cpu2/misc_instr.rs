@@ -114,19 +114,23 @@ pub unsafe fn jmpcc32(condition: bool, imm32: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn loope16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && getzf(), imm8s); }
+pub unsafe fn loope16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(is_asize_32()) && getzf(), imm8s); }
 #[no_mangle]
-pub unsafe fn loopne16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && !getzf(), imm8s); }
+pub unsafe fn loopne16(imm8s: i32) {
+    jmpcc16(0 != decr_ecx_asize(is_asize_32()) && !getzf(), imm8s);
+}
 #[no_mangle]
-pub unsafe fn loop16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(), imm8s); }
+pub unsafe fn loop16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(is_asize_32()), imm8s); }
 #[no_mangle]
 pub unsafe fn jcxz16(imm8s: i32) { jmpcc16(get_reg_asize(ECX) == 0, imm8s); }
 #[no_mangle]
-pub unsafe fn loope32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && getzf(), imm8s); }
+pub unsafe fn loope32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize(is_asize_32()) && getzf(), imm8s); }
 #[no_mangle]
-pub unsafe fn loopne32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && !getzf(), imm8s); }
+pub unsafe fn loopne32(imm8s: i32) {
+    jmpcc32(0 != decr_ecx_asize(is_asize_32()) && !getzf(), imm8s);
+}
 #[no_mangle]
-pub unsafe fn loop32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize(), imm8s); }
+pub unsafe fn loop32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize(is_asize_32()), imm8s); }
 #[no_mangle]
 pub unsafe fn jcxz32(imm8s: i32) { jmpcc32(get_reg_asize(ECX) == 0, imm8s); }
 

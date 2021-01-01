@@ -2833,8 +2833,8 @@ pub unsafe fn get_reg_asize(reg: i32) -> i32 {
     };
 }
 
-pub unsafe fn set_ecx_asize(value: i32) {
-    if is_asize_32() {
+pub unsafe fn set_ecx_asize(is_asize_32: bool, value: i32) {
+    if is_asize_32 {
         *reg32.offset(ECX as isize) = value
     }
     else {
@@ -2842,9 +2842,9 @@ pub unsafe fn set_ecx_asize(value: i32) {
     };
 }
 
-pub unsafe fn add_reg_asize(reg: i32, value: i32) {
+pub unsafe fn add_reg_asize(is_asize_32: bool, reg: i32, value: i32) {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
-    if is_asize_32() {
+    if is_asize_32 {
         *reg32.offset(reg as isize) += value;
     }
     else {
@@ -2852,8 +2852,8 @@ pub unsafe fn add_reg_asize(reg: i32, value: i32) {
     };
 }
 
-pub unsafe fn decr_ecx_asize() -> i32 {
-    return if is_asize_32() {
+pub unsafe fn decr_ecx_asize(is_asize_32: bool) -> i32 {
+    return if is_asize_32 {
         *reg32.offset(ECX as isize) -= 1;
         *reg32.offset(ECX as isize)
     }

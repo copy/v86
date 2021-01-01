@@ -922,17 +922,17 @@ pub unsafe fn instr32_6B_reg(r1: i32, r: i32, imm: i32) {
     write_reg32(r, imul_reg32(read_reg32(r1), imm));
 }
 #[no_mangle]
-pub unsafe fn instr_6C() { insb_no_rep(); }
+pub unsafe fn instr_6C() { insb_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_6D() { insw_no_rep(); }
+pub unsafe fn instr16_6D() { insw_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_6D() { insd_no_rep(); }
+pub unsafe fn instr32_6D() { insd_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_6E() { outsb_no_rep(); }
+pub unsafe fn instr_6E() { outsb_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_6F() { outsw_no_rep(); }
+pub unsafe fn instr16_6F() { outsw_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_6F() { outsd_no_rep(); }
+pub unsafe fn instr32_6F() { outsd_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
 pub unsafe fn instr_80_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, add8(___, imm));
@@ -1613,17 +1613,17 @@ pub unsafe fn instr32_A3(moffs: i32) {
     ));
 }
 #[no_mangle]
-pub unsafe fn instr_A4() { movsb_no_rep(); }
+pub unsafe fn instr_A4() { movsb_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_A5() { movsw_no_rep(); }
+pub unsafe fn instr16_A5() { movsw_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_A5() { movsd_no_rep(); }
+pub unsafe fn instr32_A5() { movsd_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_A6() { cmpsb_no_rep(); }
+pub unsafe fn instr_A6() { cmpsb_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_A7() { cmpsw_no_rep(); }
+pub unsafe fn instr16_A7() { cmpsw_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_A7() { cmpsd_no_rep(); }
+pub unsafe fn instr32_A7() { cmpsd_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
 pub unsafe fn instr_A8(imm8: i32) { test8(*reg8.offset(AL as isize) as i32, imm8); }
 #[no_mangle]
@@ -1631,23 +1631,23 @@ pub unsafe fn instr16_A9(imm16: i32) { test16(*reg16.offset(AX as isize) as i32,
 #[no_mangle]
 pub unsafe fn instr32_A9(imm32: i32) { test32(*reg32.offset(EAX as isize), imm32); }
 #[no_mangle]
-pub unsafe fn instr_AA() { stosb_no_rep(); }
+pub unsafe fn instr_AA() { stosb_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_AB() { stosw_no_rep(); }
+pub unsafe fn instr16_AB() { stosw_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_AB() { stosd_no_rep(); }
+pub unsafe fn instr32_AB() { stosd_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_AC() { lodsb_no_rep(); }
+pub unsafe fn instr_AC() { lodsb_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_AD() { lodsw_no_rep(); }
+pub unsafe fn instr16_AD() { lodsw_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_AD() { lodsd_no_rep(); }
+pub unsafe fn instr32_AD() { lodsd_no_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_AE() { scasb_no_rep(); }
+pub unsafe fn instr_AE() { scasb_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_AF() { scasw_no_rep(); }
+pub unsafe fn instr16_AF() { scasw_no_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_AF() { scasd_no_rep(); }
+pub unsafe fn instr32_AF() { scasd_no_rep(is_asize_32()); }
 
 pub unsafe fn instr_B0(imm8: i32) { *reg8.offset(AL as isize) = imm8 as u8; }
 pub unsafe fn instr_B1(imm8: i32) { *reg8.offset(CL as isize) = imm8 as u8; }
@@ -3028,29 +3028,29 @@ pub unsafe fn instr32_FF_6_reg(r1: i32) {
     return_on_pagefault!(push32(read_reg32(r1)));
 }
 #[no_mangle]
-pub unsafe fn instr_F26C() { insb_rep(); }
+pub unsafe fn instr_F26C() { insb_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_F36C() { insb_rep(); }
+pub unsafe fn instr_F36C() { insb_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F26D() { insw_rep(); }
+pub unsafe fn instr16_F26D() { insw_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F36D() { insw_rep(); }
+pub unsafe fn instr16_F36D() { insw_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F26D() { insd_rep(); }
+pub unsafe fn instr32_F26D() { insd_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F36D() { insd_rep(); }
+pub unsafe fn instr32_F36D() { insd_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_F26E() { outsb_rep(); }
+pub unsafe fn instr_F26E() { outsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F36E() { outsb_rep(); }
+pub unsafe fn instr_F36E() { outsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F26F() { outsw_rep(); }
+pub unsafe fn instr16_F26F() { outsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F36F() { outsw_rep(); }
+pub unsafe fn instr16_F36F() { outsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F26F() { outsd_rep(); }
+pub unsafe fn instr32_F26F() { outsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F36F() { outsd_rep(); }
+pub unsafe fn instr32_F36F() { outsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
 pub unsafe fn instr16_70(imm8: i32) { jmpcc16(test_o(), imm8); }
 #[no_mangle]
@@ -3116,65 +3116,65 @@ pub unsafe fn instr32_7E(imm8: i32) { jmpcc32(test_le(), imm8); }
 #[no_mangle]
 pub unsafe fn instr32_7F(imm8: i32) { jmpcc32(!test_le(), imm8); }
 #[no_mangle]
-pub unsafe fn instr_F2A4() { movsb_rep(); }
+pub unsafe fn instr_F2A4() { movsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F3A4() { movsb_rep(); }
+pub unsafe fn instr_F3A4() { movsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F2A5() { movsw_rep(); }
+pub unsafe fn instr16_F2A5() { movsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F3A5() { movsw_rep(); }
+pub unsafe fn instr16_F3A5() { movsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F2A5() { movsd_rep(); }
+pub unsafe fn instr32_F2A5() { movsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F3A5() { movsd_rep(); }
+pub unsafe fn instr32_F3A5() { movsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F2A6() { cmpsb_rep(PREFIX_F2); }
+pub unsafe fn instr_F2A6() { cmpsb_rep(PREFIX_F2, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F3A6() { cmpsb_rep(PREFIX_F3); }
+pub unsafe fn instr_F3A6() { cmpsb_rep(PREFIX_F3, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F2A7() { cmpsw_rep(PREFIX_F2); }
+pub unsafe fn instr16_F2A7() { cmpsw_rep(PREFIX_F2, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F3A7() { cmpsw_rep(PREFIX_F3); }
+pub unsafe fn instr16_F3A7() { cmpsw_rep(PREFIX_F3, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F2A7() { cmpsd_rep(PREFIX_F2); }
+pub unsafe fn instr32_F2A7() { cmpsd_rep(PREFIX_F2, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F3A7() { cmpsd_rep(PREFIX_F3); }
+pub unsafe fn instr32_F3A7() { cmpsd_rep(PREFIX_F3, is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F2AA() { stosb_rep(); }
+pub unsafe fn instr_F2AA() { stosb_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_F3AA() { stosb_rep(); }
+pub unsafe fn instr_F3AA() { stosb_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F2AB() { stosw_rep(); }
+pub unsafe fn instr16_F2AB() { stosw_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F3AB() { stosw_rep(); }
+pub unsafe fn instr16_F3AB() { stosw_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F2AB() { stosd_rep(); }
+pub unsafe fn instr32_F2AB() { stosd_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F3AB() { stosd_rep(); }
+pub unsafe fn instr32_F3AB() { stosd_rep(is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_F2AC() { lodsb_rep(); }
+pub unsafe fn instr_F2AC() { lodsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F3AC() { lodsb_rep(); }
+pub unsafe fn instr_F3AC() { lodsb_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F2AD() { lodsw_rep(); }
+pub unsafe fn instr16_F2AD() { lodsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr16_F3AD() { lodsw_rep(); }
+pub unsafe fn instr16_F3AD() { lodsw_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F2AD() { lodsd_rep(); }
+pub unsafe fn instr32_F2AD() { lodsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr32_F3AD() { lodsd_rep(); }
+pub unsafe fn instr32_F3AD() { lodsd_rep(is_asize_32(), get_seg_prefix(DS)); }
 #[no_mangle]
-pub unsafe fn instr_F2AE() { scasb_rep(PREFIX_F2); }
+pub unsafe fn instr_F2AE() { scasb_rep(PREFIX_F2, is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr_F3AE() { scasb_rep(PREFIX_F3); }
+pub unsafe fn instr_F3AE() { scasb_rep(PREFIX_F3, is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F2AF() { scasw_rep(PREFIX_F2); }
+pub unsafe fn instr16_F2AF() { scasw_rep(PREFIX_F2, is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr16_F3AF() { scasw_rep(PREFIX_F3); }
+pub unsafe fn instr16_F3AF() { scasw_rep(PREFIX_F3, is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F2AF() { scasd_rep(PREFIX_F2); }
+pub unsafe fn instr32_F2AF() { scasd_rep(PREFIX_F2, is_asize_32()); }
 #[no_mangle]
-pub unsafe fn instr32_F3AF() { scasd_rep(PREFIX_F3); }
+pub unsafe fn instr32_F3AF() { scasd_rep(PREFIX_F3, is_asize_32()); }
 
 #[no_mangle]
 pub unsafe fn instr_D8_0_mem(addr: i32) { fpu_fadd(0, return_on_pagefault!(fpu_load_m32(addr))); }
