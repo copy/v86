@@ -3515,14 +3515,10 @@ pub unsafe fn instr_0FD7_mem(addr: i32, r: i32) { trigger_ud(); }
 pub unsafe fn instr_0FD7_reg(r1: i32, r2: i32) {
     // pmovmskb r, mm
     let x: [u8; 8] = std::mem::transmute(read_mmx64s(r1));
-    let result = x[0] as i32 >> 7 << 0
-        | x[1] as i32 >> 7 << 1
-        | x[2] as i32 >> 7 << 2
-        | x[3] as i32 >> 7 << 3
-        | x[4] as i32 >> 7 << 4
-        | x[5] as i32 >> 7 << 5
-        | x[6] as i32 >> 7 << 6
-        | x[7] as i32 >> 7 << 7;
+    let mut result = 0;
+    for i in 0..8 {
+        result |= x[i] as i32 >> 7 << i
+    }
     write_reg32(r2, result);
     transition_fpu_to_mmx();
 }
@@ -3532,22 +3528,10 @@ pub unsafe fn instr_660FD7_mem(addr: i32, r: i32) { trigger_ud(); }
 pub unsafe fn instr_660FD7_reg(r1: i32, r2: i32) {
     // pmovmskb reg, xmm
     let x = read_xmm128s(r1);
-    let result = x.u8_0[0] as i32 >> 7 << 0
-        | x.u8_0[1] as i32 >> 7 << 1
-        | x.u8_0[2] as i32 >> 7 << 2
-        | x.u8_0[3] as i32 >> 7 << 3
-        | x.u8_0[4] as i32 >> 7 << 4
-        | x.u8_0[5] as i32 >> 7 << 5
-        | x.u8_0[6] as i32 >> 7 << 6
-        | x.u8_0[7] as i32 >> 7 << 7
-        | x.u8_0[8] as i32 >> 7 << 8
-        | x.u8_0[9] as i32 >> 7 << 9
-        | x.u8_0[10] as i32 >> 7 << 10
-        | x.u8_0[11] as i32 >> 7 << 11
-        | x.u8_0[12] as i32 >> 7 << 12
-        | x.u8_0[13] as i32 >> 7 << 13
-        | x.u8_0[14] as i32 >> 7 << 14
-        | x.u8_0[15] as i32 >> 7 << 15;
+    let mut result = 0;
+    for i in 0..16 {
+        result |= x.u8_0[i] as i32 >> 7 << i
+    }
     write_reg32(r2, result);
 }
 #[no_mangle]
