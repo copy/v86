@@ -921,7 +921,7 @@ fn jit_generate_module(
     }
 
     ctx.builder.get_local(&gen_local_state);
-    ctx.builder.brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-fault case
+    ctx.builder.brtable_and_cases(basic_blocks.len() as u32);
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
