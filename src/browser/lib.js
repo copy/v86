@@ -442,21 +442,23 @@ var ASYNC_SAFE = false;
     AsyncXHRBuffer.prototype.get_state = function()
     {
         const state = [];
-
         const loaded_blocks = [];
-        for(let [index, block] of Object.values(this.loaded_blocks))
+
+        for(let [index, block] of Object.entries(this.loaded_blocks))
         {
             dbg_assert(isFinite(+index));
             loaded_blocks.push([+index, block]);
         }
-        state[0] = loaded_blocks;
 
+        state[0] = loaded_blocks;
         return state;
     };
+
     AsyncXHRBuffer.prototype.set_state = function(state)
     {
         const loaded_blocks = state[0];
         this.loaded_blocks = Object.create(null);
+
         for(let [index, block] of Object.values(loaded_blocks))
         {
             this.loaded_blocks[index] = block;
@@ -555,6 +557,20 @@ var ASYNC_SAFE = false;
     SyncFileBuffer.prototype.get_buffer = function(fn)
     {
         fn(this.buffer);
+    };
+
+    SyncFileBuffer.prototype.get_state = function()
+    {
+        const state = [];
+        state[0] = this.byteLength;
+        state[1] = new Uint8Array(this.buffer);
+        return state;
+    };
+
+    SyncFileBuffer.prototype.set_state = function(state)
+    {
+        this.byteLength = state[0];
+        this.buffer = state[1].slice().buffer;
     };
 
     /**

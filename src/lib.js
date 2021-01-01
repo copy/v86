@@ -155,7 +155,19 @@ SyncBuffer.prototype.get_buffer = function(fn)
     fn(this.buffer);
 };
 
+SyncBuffer.prototype.get_state = function()
+{
+    const state = [];
+    state[0] = this.byteLength;
+    state[1] = new Uint8Array(this.buffer);
+    return state;
+};
 
+SyncBuffer.prototype.set_state = function(state)
+{
+    this.byteLength = state[0];
+    this.buffer = state[1].slice().buffer;
+};
 
 (function()
 {
