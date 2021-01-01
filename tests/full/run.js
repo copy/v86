@@ -107,7 +107,7 @@ if(cluster.isMaster)
         },
         {
             name: "Sol OS",
-            fda: root_path + "/images/os8.dsk",
+            fda: root_path + "/images/os8.img",
             timeout: 20,
             expect_graphical_mode: true,
             expect_mouse_registered: true,
@@ -141,6 +141,7 @@ if(cluster.isMaster)
         //    expect_graphical_size: [800, 600],
         //    expect_mouse_registered: true,
         //    skip_if_disk_image_missing: true,
+        //    failure_allowed: true,
         //},
         {
             name: "Windows 95",
@@ -150,6 +151,7 @@ if(cluster.isMaster)
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
             skip_if_disk_image_missing: true,
+            failure_allowed: true,
         },
         {
             name: "Oberon",
@@ -249,6 +251,20 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "QNX",
+            fda: root_path + "/images/qnx-demo-network-4.05.img",
+            timeout: 120,
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+            expect_graphical_size: [640, 480],
+            actions: [
+                { run: " ", after: 10 * 1000 },
+                { run: " ", after: 10 * 1000 },
+                { run: " ", after: 10 * 1000 },
+                { run: " ", after: 10 * 1000 },
+            ],
+        },
+        {
             name: "OpenBSD Floppy",
             fda: root_path + "/images/openbsd-floppy.img",
             timeout: 180,
@@ -311,7 +327,7 @@ if(cluster.isMaster)
         {
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
-            timeout: 10 * 60,
+            timeout: 15 * 60,
             hda: root_path + "/images/internal/freebsd/freebsd.img",
             expected_texts: [
                 "FreeBSD/i386 (nyu) (ttyv0)",
@@ -355,6 +371,61 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Arch Linux",
+            skip_if_disk_image_missing: true,
+            timeout: 20 * 60,
+            bzimage_initrd_from_filesystem: true,
+            cmdline: [
+                "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8",
+                "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off",
+                "audit=0 init=/usr/bin/init-openrc net.ifnames=0 biosdevname=0",
+            ].join(" "),
+            filesystem: {
+                basefs: "images/fs.json",
+                baseurl: "images/arch/",
+            },
+            expected_texts: [
+                "root@localhost",
+                "aaaaaaaaaaaaaaaaaaaa",
+                "Hello, world",
+                "Hello from JS",
+                "Hello from OCaml",
+                "Compress okay",
+            ],
+            actions: [
+                {
+                    on_text: "root@localhost",
+                    run: `python -c 'print(100 * "a")'\n`,
+                },
+                {
+                    on_text: "aaaaaaaaaaaaaaaaaaaa",
+                    run: `gcc hello.c && ./a.out\n`,
+                },
+                {
+                    on_text: "Hello, world",
+                    run: `echo 'console.log("Hello from JS")' | node\n`,
+                },
+                {
+                    on_text: "Hello from JS",
+                    run: `echo 'print_endline "Hello from OCaml"' > hello.ml && ocamlopt hello.ml && ./a.out\n`,
+                },
+                {
+                    on_text: "Hello from OCaml",
+                    run:
+                        "zstd hello.c && gzip -k hello.c && bzip2 -k hello.c && xz -k hello.c && lzma -k hello.c && " +
+                        "zstdcat hello.c.zst && zcat hello.c.gz && bzcat hello.c.bz2 && xzcat hello.c.xz && lzmadec hello.c.lzma && " +
+                        "echo Compress okay\n",
+                },
+                {
+                    on_text: "Compress okay",
+                    run: "./startx.sh\n",
+                },
+            ],
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+        },
+        {
             name: "FreeGEM",
             skip_if_disk_image_missing: true,
             timeout: 60,
@@ -373,9 +444,9 @@ if(cluster.isMaster)
             skip_if_disk_image_missing: true,
             timeout: 15 * 60,
             memory_size: 512 * 1024 * 1024,
-            hda: root_path + "/images/experimental/haiku-master-hrev53609-x86_gcc2h-anyboot.iso",
+            hda: root_path + "/images/haiku-r1beta2-hrev54154_111-x86_gcc2h-anyboot.iso",
             expected_serial_text: [
-                "cx23882: init_hardware()",
+                "init_hardware()",
                 "Running post install script /boot/system/boot/post-install/sshd_keymaker.sh",
                 // After pressing enter in the boot dialog:
                 "Running first login script /boot/system/boot/first-login/default_deskbar_items.sh",
@@ -414,8 +485,8 @@ if(cluster.isMaster)
         },
         {
             name: "ReactOS",
-            timeout: 15 * 60,
-            hda: root_path + "/images/experimental/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
+            timeout: 10 * 60,
+            hda: root_path + "/images/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
@@ -437,8 +508,8 @@ if(cluster.isMaster)
         },
         {
             name: "ReactOS CD",
-            timeout: 15 * 60,
-            cdrom: root_path + "/images/experimental/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
+            timeout: 10 * 60,
+            cdrom: root_path + "/images/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
@@ -470,6 +541,19 @@ if(cluster.isMaster)
             expected_texts: ["noname login:", "# "],
         },
         {
+            name: "Minix CD",
+            skip_if_disk_image_missing: true,
+            timeout: 3 * 60,
+            cdrom: root_path + "/images/minix-3.3.0.iso",
+            actions: [
+                {
+                    on_text: "login:",
+                    run: "root\n",
+                },
+            ],
+            expected_texts: ["login:", "We'd like your feedback", "# "],
+        },
+        {
             name: "Mobius",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
@@ -489,7 +573,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
-            actions: [{ on_text: "boot:", run: "\n" }],
+            actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],
         },
         {
             name: "Tiny Core 11 HD",
@@ -498,7 +582,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/experimental/TinyCore-11.0.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
-            actions: [{ on_text: "boot:", run: "\n" }],
+            actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],
         },
         {
             name: "Core 9",
@@ -673,6 +757,7 @@ function run_test(test, done)
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
         log_level: 0,
+        cmdline: test.cmdline,
     };
 
     if(test.cdrom)
@@ -780,8 +865,15 @@ function run_test(test, done)
             emulator.stop();
             emulator.destroy();
 
-            console.warn(screen_to_text(screen));
-            console.warn("Test failed: %s\n", test.name);
+            if(test.failure_allowed)
+            {
+                console.warn("Test failed: %s (failure allowed)\n", test.name);
+            }
+            else
+            {
+                console.warn(screen_to_text(screen));
+                console.warn("Test failed: %s\n", test.name);
+            }
 
             if(!check_text_test_done())
             {
@@ -798,12 +890,24 @@ function run_test(test, done)
                 console.warn("Expected mouse activation after %d seconds.", timeout_seconds);
             }
 
+            if(!check_serial_test_done())
+            {
+                console.warn('Expected serial text "%s" after %d seconds.', test.expected_serial_text, timeout_seconds);
+            }
+
             if(on_text.length)
             {
                 console.warn(`Note: Expected text "${bytearray_to_string(on_text[0].text)}" to run "${on_text[0].run}"`);
             }
 
-            process.exit(1);
+            if(!test.failure_allowed)
+            {
+                process.exit(1);
+            }
+            else
+            {
+                done();
+            }
         }
     }
 
