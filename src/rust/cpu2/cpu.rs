@@ -1876,7 +1876,7 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(o
 #[no_mangle]
 pub unsafe fn cycle_internal() {
     profiler::stat_increment(CYCLE_INTERNAL);
-    if true {
+    if !::config::FORCE_DISABLE_JIT {
         *previous_ip = *instruction_pointer;
         let phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
         let state_flags = pack_current_state_flags();
