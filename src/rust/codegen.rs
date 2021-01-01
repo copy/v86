@@ -28,6 +28,18 @@ pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     builder.store_aligned_i32(0);
 }
 
+pub fn gen_set_eip_to_after_current_instruction(ctx: &mut JitContext) {
+    ctx.builder
+        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    ctx.builder
+        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    ctx.builder.const_i32(!0xFFF);
+    ctx.builder.and_i32();
+    ctx.builder.const_i32(ctx.cpu.eip as i32 & 0xFFF);
+    ctx.builder.or_i32();
+    ctx.builder.store_aligned_i32(0);
+}
+
 pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
     builder: &mut WasmBuilder,
     low_bits: i32,

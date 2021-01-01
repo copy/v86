@@ -3,8 +3,8 @@
 use codegen;
 use cpu::BitSize;
 use cpu2::cpu::{
-    FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_OVERFLOW,
-    FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
+    FLAG_OVERFLOW, FLAG_SUB, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use global_pointers;
 use jit::JitContext;
@@ -3407,6 +3407,57 @@ pub fn instr32_9C_jit(ctx: &mut JitContext) {
     ctx.builder.block_end();
     ctx.builder.free_local(value);
 }
+
+fn gen_popf(ctx: &mut JitContext, is_32: bool) {
+    codegen::gen_fn0_const_ret(ctx.builder, "instr_9C_check");
+    ctx.builder.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.else_();
+
+    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    let old_eflags = ctx.builder.set_new_local();
+
+    if is_32 {
+        codegen::gen_pop32s(ctx);
+    }
+    else {
+        ctx.builder.get_local(&old_eflags);
+        ctx.builder.const_i32(!0xFFFF);
+        ctx.builder.and_i32();
+        codegen::gen_pop16(ctx);
+        ctx.builder.or_i32();
+    }
+
+    codegen::gen_call_fn1(ctx.builder, "update_eflags");
+
+    ctx.builder.get_local(&old_eflags);
+    ctx.builder.free_local(old_eflags);
+    ctx.builder.const_i32(FLAG_INTERRUPT);
+    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
+
+    ctx.builder.load_aligned_i32(global_pointers::FLAGS);
+    ctx.builder.const_i32(FLAG_INTERRUPT);
+    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
+    ctx.builder.eqz_i32();
+
+    ctx.builder.and_i32();
+    ctx.builder.if_void();
+    {
+        codegen::gen_set_eip_to_after_current_instruction(ctx);
+        codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
+        codegen::gen_fn0_const(ctx.builder, "handle_irqs");
+        ctx.builder.return_();
+    }
+    ctx.builder.block_end();
+
+    ctx.builder.block_end();
+}
+
+pub fn instr16_9D_jit(ctx: &mut JitContext) { gen_popf(ctx, false) }
+pub fn instr32_9D_jit(ctx: &mut JitContext) { gen_popf(ctx, true) }
 
 pub fn instr_9E_jit(ctx: &mut JitContext) {
     ctx.builder.const_i32(global_pointers::FLAGS as i32);

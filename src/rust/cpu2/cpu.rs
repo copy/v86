@@ -2865,6 +2865,11 @@ pub unsafe fn update_eflags(new_flags: i32) {
     }
     *flags = (new_flags ^ (*flags ^ new_flags) & dont_update) & clear | FLAGS_DEFAULT;
     *flags_changed = 0;
+
+    if *flags & FLAG_TRAP != 0 {
+        dbg_log!("Not supported: trap flag");
+    }
+    *flags &= !FLAG_TRAP;
 }
 
 #[no_mangle]

@@ -1164,7 +1164,7 @@ pub unsafe fn instr32_9C() {
         return_on_pagefault!(push32(get_eflags() & 0xFCFFFF));
     };
 }
-#[no_mangle]
+
 pub unsafe fn instr16_9D() {
     // popf
     if 0 != *flags & FLAG_VM && getiopl() < 3 {
@@ -1172,20 +1172,12 @@ pub unsafe fn instr16_9D() {
         trigger_gp(0);
         return;
     }
-    else {
-        let old_eflags = *flags;
-        update_eflags(*flags & !0xFFFF | return_on_pagefault!(pop16()));
-        if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
-            handle_irqs();
-        }
-        if *flags & FLAG_TRAP != 0 {
-            dbg_log!("Not supported: trap flag");
-        }
-        *flags &= !FLAG_TRAP;
-        return;
-    };
+    let old_eflags = *flags;
+    update_eflags(*flags & !0xFFFF | return_on_pagefault!(pop16()));
+    if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
+        handle_irqs();
+    }
 }
-#[no_mangle]
 pub unsafe fn instr32_9D() {
     // popf
     if 0 != *flags & FLAG_VM && getiopl() < 3 {
@@ -1193,18 +1185,11 @@ pub unsafe fn instr32_9D() {
         trigger_gp(0);
         return;
     }
-    else {
-        let old_eflags = *flags;
-        update_eflags(return_on_pagefault!(pop32s()));
-        if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
-            handle_irqs();
-        }
-        if *flags & FLAG_TRAP != 0 {
-            dbg_log!("Not supported: trap flag");
-        }
-        *flags &= !FLAG_TRAP;
-        return;
-    };
+    let old_eflags = *flags;
+    update_eflags(return_on_pagefault!(pop32s()));
+    if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
+        handle_irqs();
+    }
 }
 
 pub unsafe fn instr_9E() {
