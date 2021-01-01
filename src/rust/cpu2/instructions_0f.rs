@@ -1412,198 +1412,136 @@ pub unsafe fn instr_0F3D() { unimplemented_sse(); }
 pub unsafe fn instr_0F3E() { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_0F3F() { unimplemented_sse(); }
-#[no_mangle]
+
 pub unsafe fn instr16_0F40_mem(addr: i32, r: i32) {
     cmovcc16(test_o(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F40_reg(r1: i32, r: i32) { cmovcc16(test_o(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F40_mem(addr: i32, r: i32) {
     cmovcc32(test_o(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F40_reg(r1: i32, r: i32) { cmovcc32(test_o(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F41_mem(addr: i32, r: i32) {
     cmovcc16(!test_o(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F41_reg(r1: i32, r: i32) { cmovcc16(!test_o(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F41_mem(addr: i32, r: i32) {
     cmovcc32(!test_o(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F41_reg(r1: i32, r: i32) { cmovcc32(!test_o(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F42_mem(addr: i32, r: i32) {
     cmovcc16(test_b(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F42_reg(r1: i32, r: i32) { cmovcc16(test_b(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F42_mem(addr: i32, r: i32) {
     cmovcc32(test_b(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F42_reg(r1: i32, r: i32) { cmovcc32(test_b(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F43_mem(addr: i32, r: i32) {
     cmovcc16(!test_b(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F43_reg(r1: i32, r: i32) { cmovcc16(!test_b(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F43_mem(addr: i32, r: i32) {
     cmovcc32(!test_b(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F43_reg(r1: i32, r: i32) { cmovcc32(!test_b(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F44_mem(addr: i32, r: i32) {
     cmovcc16(test_z(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F44_reg(r1: i32, r: i32) { cmovcc16(test_z(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F44_mem(addr: i32, r: i32) {
     cmovcc32(test_z(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F44_reg(r1: i32, r: i32) { cmovcc32(test_z(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F45_mem(addr: i32, r: i32) {
     cmovcc16(!test_z(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F45_reg(r1: i32, r: i32) { cmovcc16(!test_z(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F45_mem(addr: i32, r: i32) {
     cmovcc32(!test_z(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F45_reg(r1: i32, r: i32) { cmovcc32(!test_z(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F46_mem(addr: i32, r: i32) {
     cmovcc16(test_be(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F46_reg(r1: i32, r: i32) { cmovcc16(test_be(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F46_mem(addr: i32, r: i32) {
     cmovcc32(test_be(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F46_reg(r1: i32, r: i32) { cmovcc32(test_be(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F47_mem(addr: i32, r: i32) {
     cmovcc16(!test_be(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F47_reg(r1: i32, r: i32) { cmovcc16(!test_be(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F47_mem(addr: i32, r: i32) {
     cmovcc32(!test_be(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F47_reg(r1: i32, r: i32) { cmovcc32(!test_be(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F48_mem(addr: i32, r: i32) {
     cmovcc16(test_s(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F48_reg(r1: i32, r: i32) { cmovcc16(test_s(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F48_mem(addr: i32, r: i32) {
     cmovcc32(test_s(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F48_reg(r1: i32, r: i32) { cmovcc32(test_s(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F49_mem(addr: i32, r: i32) {
     cmovcc16(!test_s(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F49_reg(r1: i32, r: i32) { cmovcc16(!test_s(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F49_mem(addr: i32, r: i32) {
     cmovcc32(!test_s(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F49_reg(r1: i32, r: i32) { cmovcc32(!test_s(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4A_mem(addr: i32, r: i32) {
     cmovcc16(test_p(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4A_reg(r1: i32, r: i32) { cmovcc16(test_p(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4A_mem(addr: i32, r: i32) {
     cmovcc32(test_p(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4A_reg(r1: i32, r: i32) { cmovcc32(test_p(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4B_mem(addr: i32, r: i32) {
     cmovcc16(!test_p(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4B_reg(r1: i32, r: i32) { cmovcc16(!test_p(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4B_mem(addr: i32, r: i32) {
     cmovcc32(!test_p(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4B_reg(r1: i32, r: i32) { cmovcc32(!test_p(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4C_mem(addr: i32, r: i32) {
     cmovcc16(test_l(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4C_reg(r1: i32, r: i32) { cmovcc16(test_l(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4C_mem(addr: i32, r: i32) {
     cmovcc32(test_l(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4C_reg(r1: i32, r: i32) { cmovcc32(test_l(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4D_mem(addr: i32, r: i32) {
     cmovcc16(!test_l(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4D_reg(r1: i32, r: i32) { cmovcc16(!test_l(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4D_mem(addr: i32, r: i32) {
     cmovcc32(!test_l(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4D_reg(r1: i32, r: i32) { cmovcc32(!test_l(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4E_mem(addr: i32, r: i32) {
     cmovcc16(test_le(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4E_reg(r1: i32, r: i32) { cmovcc16(test_le(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4E_mem(addr: i32, r: i32) {
     cmovcc32(test_le(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4E_reg(r1: i32, r: i32) { cmovcc32(test_le(), read_reg32(r1), r); }
-#[no_mangle]
 pub unsafe fn instr16_0F4F_mem(addr: i32, r: i32) {
     cmovcc16(!test_le(), return_on_pagefault!(safe_read16(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr16_0F4F_reg(r1: i32, r: i32) { cmovcc16(!test_le(), read_reg16(r1), r); }
-#[no_mangle]
 pub unsafe fn instr32_0F4F_mem(addr: i32, r: i32) {
     cmovcc32(!test_le(), return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr32_0F4F_reg(r1: i32, r: i32) { cmovcc32(!test_le(), read_reg32(r1), r); }
+
 #[no_mangle]
 pub unsafe fn instr_0F50_reg(r1: i32, r2: i32) {
     // movmskps r, xmm
@@ -2790,134 +2728,73 @@ pub unsafe fn instr_F30F7F_reg(r1: i32, r2: i32) {
     // movdqu xmm/m128, xmm
     mov_r_r128(r1, r2);
 }
-#[no_mangle]
+
 pub unsafe fn instr16_0F80(imm: i32) { jmpcc16(test_o(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F80(imm: i32) { jmpcc32(test_o(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F81(imm: i32) { jmpcc16(!test_o(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F81(imm: i32) { jmpcc32(!test_o(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F82(imm: i32) { jmpcc16(test_b(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F82(imm: i32) { jmpcc32(test_b(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F83(imm: i32) { jmpcc16(!test_b(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F83(imm: i32) { jmpcc32(!test_b(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F84(imm: i32) { jmpcc16(test_z(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F84(imm: i32) { jmpcc32(test_z(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F85(imm: i32) { jmpcc16(!test_z(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F85(imm: i32) { jmpcc32(!test_z(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F86(imm: i32) { jmpcc16(test_be(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F86(imm: i32) { jmpcc32(test_be(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F87(imm: i32) { jmpcc16(!test_be(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F87(imm: i32) { jmpcc32(!test_be(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F88(imm: i32) { jmpcc16(test_s(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F88(imm: i32) { jmpcc32(test_s(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F89(imm: i32) { jmpcc16(!test_s(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F89(imm: i32) { jmpcc32(!test_s(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8A(imm: i32) { jmpcc16(test_p(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8A(imm: i32) { jmpcc32(test_p(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8B(imm: i32) { jmpcc16(!test_p(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8B(imm: i32) { jmpcc32(!test_p(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8C(imm: i32) { jmpcc16(test_l(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8C(imm: i32) { jmpcc32(test_l(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8D(imm: i32) { jmpcc16(!test_l(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8D(imm: i32) { jmpcc32(!test_l(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8E(imm: i32) { jmpcc16(test_le(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8E(imm: i32) { jmpcc32(test_le(), imm); }
-#[no_mangle]
 pub unsafe fn instr16_0F8F(imm: i32) { jmpcc16(!test_le(), imm); }
-#[no_mangle]
 pub unsafe fn instr32_0F8F(imm: i32) { jmpcc32(!test_le(), imm); }
-#[no_mangle]
+
 pub unsafe fn instr_0F90_reg(r: i32, unused: i32) { setcc_reg(test_o(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F91_reg(r: i32, unused: i32) { setcc_reg(!test_o(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F92_reg(r: i32, unused: i32) { setcc_reg(test_b(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F93_reg(r: i32, unused: i32) { setcc_reg(!test_b(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F94_reg(r: i32, unused: i32) { setcc_reg(test_z(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F95_reg(r: i32, unused: i32) { setcc_reg(!test_z(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F96_reg(r: i32, unused: i32) { setcc_reg(test_be(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F97_reg(r: i32, unused: i32) { setcc_reg(!test_be(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F98_reg(r: i32, unused: i32) { setcc_reg(test_s(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F99_reg(r: i32, unused: i32) { setcc_reg(!test_s(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9A_reg(r: i32, unused: i32) { setcc_reg(test_p(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9B_reg(r: i32, unused: i32) { setcc_reg(!test_p(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9C_reg(r: i32, unused: i32) { setcc_reg(test_l(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9D_reg(r: i32, unused: i32) { setcc_reg(!test_l(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9E_reg(r: i32, unused: i32) { setcc_reg(test_le(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F9F_reg(r: i32, unused: i32) { setcc_reg(!test_le(), r); }
-#[no_mangle]
 pub unsafe fn instr_0F90_mem(addr: i32, unused: i32) { setcc_mem(test_o(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F91_mem(addr: i32, unused: i32) { setcc_mem(!test_o(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F92_mem(addr: i32, unused: i32) { setcc_mem(test_b(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F93_mem(addr: i32, unused: i32) { setcc_mem(!test_b(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F94_mem(addr: i32, unused: i32) { setcc_mem(test_z(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F95_mem(addr: i32, unused: i32) { setcc_mem(!test_z(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F96_mem(addr: i32, unused: i32) { setcc_mem(test_be(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F97_mem(addr: i32, unused: i32) { setcc_mem(!test_be(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F98_mem(addr: i32, unused: i32) { setcc_mem(test_s(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F99_mem(addr: i32, unused: i32) { setcc_mem(!test_s(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9A_mem(addr: i32, unused: i32) { setcc_mem(test_p(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9B_mem(addr: i32, unused: i32) { setcc_mem(!test_p(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9C_mem(addr: i32, unused: i32) { setcc_mem(test_l(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9D_mem(addr: i32, unused: i32) { setcc_mem(!test_l(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9E_mem(addr: i32, unused: i32) { setcc_mem(test_le(), addr); }
-#[no_mangle]
 pub unsafe fn instr_0F9F_mem(addr: i32, unused: i32) { setcc_mem(!test_le(), addr); }
+
 #[no_mangle]
 pub unsafe fn instr16_0FA0() {
     return_on_pagefault!(push16(*sreg.offset(FS as isize) as i32));

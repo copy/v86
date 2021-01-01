@@ -1682,6 +1682,14 @@ define_instruction_read_write_mem8!("and8", instr_80_4_mem_jit, instr_80_4_reg_j
 define_instruction_read_write_mem8!("sub8", instr_80_5_mem_jit, instr_80_5_reg_jit, imm8);
 define_instruction_read_write_mem8!("xor8", instr_80_6_mem_jit, instr_80_6_reg_jit, imm8);
 
+define_instruction_read_write_mem8!("add8", instr_82_0_mem_jit, instr_82_0_reg_jit, imm8);
+define_instruction_read_write_mem8!("or8", instr_82_1_mem_jit, instr_82_1_reg_jit, imm8);
+define_instruction_read_write_mem8!("adc8", instr_82_2_mem_jit, instr_82_2_reg_jit, imm8);
+define_instruction_read_write_mem8!("sbb8", instr_82_3_mem_jit, instr_82_3_reg_jit, imm8);
+define_instruction_read_write_mem8!("and8", instr_82_4_mem_jit, instr_82_4_reg_jit, imm8);
+define_instruction_read_write_mem8!("sub8", instr_82_5_mem_jit, instr_82_5_reg_jit, imm8);
+define_instruction_read_write_mem8!("xor8", instr_82_6_mem_jit, instr_82_6_reg_jit, imm8);
+
 define_instruction_read_write_mem16!("add16", instr16_81_0_mem_jit, instr16_81_0_reg_jit, imm16);
 define_instruction_read_write_mem32!(
     gen_add32,
@@ -1787,6 +1795,8 @@ define_instruction_read_write_mem32!(
 define_instruction_read8!(gen_cmp8, instr_80_7_mem_jit, instr_80_7_reg_jit, imm8);
 define_instruction_read16!(gen_cmp16, instr16_81_7_mem_jit, instr16_81_7_reg_jit, imm16);
 define_instruction_read32!(gen_cmp32, instr32_81_7_mem_jit, instr32_81_7_reg_jit, imm32);
+
+define_instruction_read8!(gen_cmp8, instr_82_7_mem_jit, instr_82_7_reg_jit, imm8);
 
 define_instruction_read16!(gen_cmp16, instr16_83_7_mem_jit, instr16_83_7_reg_jit, imm8s);
 define_instruction_read32!(gen_cmp32, instr32_83_7_mem_jit, instr32_83_7_reg_jit, imm8s);
