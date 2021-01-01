@@ -2335,7 +2335,7 @@ pub unsafe fn cycle_internal() {
         let state_flags = pack_current_state_flags();
         let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
 
-        if entry != ::jit::cached_code::NONE {
+        if entry != ::jit::CachedCode::NONE {
             profiler::stat_increment(RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = entry.wasm_table_index;
@@ -2473,7 +2473,7 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
             let state_flags = pack_current_state_flags();
             let entry = ::jit::jit_find_cache_entry(phys_addr, state_flags);
 
-            if entry != ::jit::cached_code::NONE {
+            if entry != ::jit::CachedCode::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
                 //dbg_log!(
                 //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",

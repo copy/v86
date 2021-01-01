@@ -156,15 +156,14 @@ struct BasicBlock {
     number_of_instructions: u32,
 }
 
-#[repr(C)]
 #[derive(Copy, Clone, PartialEq)]
-pub struct cached_code {
+pub struct CachedCode {
     pub wasm_table_index: u16,
     pub initial_state: u16,
 }
 
-impl cached_code {
-    pub const NONE: cached_code = cached_code {
+impl CachedCode {
+    pub const NONE: CachedCode = CachedCode {
         wasm_table_index: 0,
         initial_state: 0,
     };
@@ -187,7 +186,7 @@ fn jit_hot_hash_page(page: Page) -> u32 { page.to_u32() % HASH_PRIME }
 
 fn is_near_end_of_page(address: u32) -> bool { address & 0xFFF >= 0x1000 - MAX_INSTRUCTION_LENGTH }
 
-pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> cached_code {
+pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> CachedCode {
     if is_near_end_of_page(phys_address) {
         profiler::stat_increment(stat::RUN_INTERPRETED_NEAR_END_OF_PAGE);
     }
@@ -197,7 +196,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
     match ctx.cache.get(&phys_address) {
         Some(entry) => {
             if entry.state_flags == state_flags && !entry.pending {
-                return cached_code {
+                return CachedCode {
                     wasm_table_index: entry.wasm_table_index,
                     initial_state: entry.initial_state,
                 };
@@ -214,7 +213,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
         None => {},
     }
 
-    return cached_code::NONE;
+    return CachedCode::NONE;
 }
 
 #[no_mangle]
