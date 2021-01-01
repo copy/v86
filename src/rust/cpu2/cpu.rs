@@ -1338,13 +1338,8 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
         }
     }
     profiler::stat_increment(PAGE_FAULT);
-    //if *page_fault {
-    //    dbg_log!(("double fault"));
-    //    dbg_trace();
-    //    dbg_assert!(false);
-    //}
-    // invalidate tlb entry
     *cr.offset(2) = addr;
+    // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *prefixes = 0;
@@ -1354,7 +1349,6 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
         }
     }
     *page_fault_error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
-    //*page_fault = true;
 }
 
 #[no_mangle]
@@ -1388,18 +1382,12 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
         }
     }
     profiler::stat_increment(PAGE_FAULT);
-    //if *page_fault {
-    //    dbg_log!(("double fault"));
-    //    dbg_trace();
-    //    dbg_assert!(false);
-    //}
-    // invalidate tlb entry
     *cr.offset(2) = addr;
+    // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    //*page_fault = true;
     call_interrupt_vector(
         CPU_EXCEPTION_PF,
         false,
