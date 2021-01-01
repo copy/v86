@@ -77,6 +77,7 @@ enum Size {
     W,
     D,
 }
+#[derive(Copy, Clone)]
 enum Rep {
     None,
     Z,
@@ -95,35 +96,16 @@ unsafe fn string_instruction(
 ) {
     let asize_mask = if is_asize_32 { -1 } else { 0xFFFF };
 
-    let count = match rep {
-        Rep::Z | Rep::NZ => {
-            let c = read_reg32(ECX) & asize_mask;
-            if c == 0 {
-                return;
-            };
-            c
-        },
-        Rep::None => 0,
-    };
+    let direction = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
 
-    let src = match instruction {
-        Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
-            read_reg32(ESI) & asize_mask
-        },
-        _ => 0,
-    };
-    let (es, dst) = match instruction {
+    let es = match instruction {
         Instruction::Movs
         | Instruction::Cmps
         | Instruction::Stos
         | Instruction::Scas
-        | Instruction::Ins => (
-            return_on_pagefault!(get_seg(ES)),
-            read_reg32(EDI) & asize_mask,
-        ),
-        _ => (0, 0),
+        | Instruction::Ins => return_on_pagefault!(get_seg(ES)),
+        _ => 0,
     };
-    let direction = if 0 != *flags & FLAG_DIRECTION { -1 } else { 1 };
 
     let size_bytes = match size {
         Size::B => 1,
@@ -152,80 +134,112 @@ unsafe fn string_instruction(
         _ => 0,
     };
 
-    match instruction {
-        Instruction::Ins => {
-            // check fault *before* reading from port
-            return_on_pagefault!(writable_or_pagefault(es + dst, size_bytes));
-        },
-        _ => {},
-    };
-    let src_val = match instruction {
-        Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
-            return_on_pagefault!(match size {
-                Size::B => safe_read8(ds + src),
-                Size::W => safe_read16(ds + src),
-                Size::D => safe_read32s(ds + src),
-            })
-        },
-        Instruction::Scas | Instruction::Stos => data & size_mask,
-        Instruction::Ins => match size {
-            Size::B => io_port_read8(port),
-            Size::W => io_port_read16(port),
-            Size::D => io_port_read32(port),
-        },
-    };
+    loop {
+        let count = match rep {
+            Rep::Z | Rep::NZ => {
+                let c = read_reg32(ECX) & asize_mask;
+                if c == 0 {
+                    return;
+                };
+                c
+            },
+            Rep::None => 0,
+        };
+        let src = match instruction {
+            Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
+                read_reg32(ESI) & asize_mask
+            },
+            _ => 0,
+        };
+        let dst = match instruction {
+            Instruction::Movs
+            | Instruction::Cmps
+            | Instruction::Stos
+            | Instruction::Scas
+            | Instruction::Ins => read_reg32(EDI) & asize_mask,
+            _ => 0,
+        };
 
-    match instruction {
-        Instruction::Cmps | Instruction::Scas => match size {
-            Size::B => cmp8(src_val, return_on_pagefault!(safe_read8(es + dst))),
-            Size::W => cmp16(src_val, return_on_pagefault!(safe_read16(es + dst))),
-            Size::D => cmp32(src_val, return_on_pagefault!(safe_read32s(es + dst))),
-        },
-        Instruction::Outs => match size {
-            Size::B => io_port_write8(port, src_val),
-            Size::W => io_port_write16(port, src_val),
-            Size::D => io_port_write32(port, src_val),
-        },
-        Instruction::Lods => match size {
-            Size::B => *reg8.offset(AL as isize) = src_val as u8,
-            Size::W => *reg16.offset(AX as isize) = src_val as u16,
-            Size::D => *reg32.offset(EAX as isize) = src_val,
-        },
-        Instruction::Movs | Instruction::Stos | Instruction::Ins => match size {
-            Size::B => return_on_pagefault!(safe_write8(es + dst, src_val)),
-            Size::W => return_on_pagefault!(safe_write16(es + dst, src_val)),
-            Size::D => return_on_pagefault!(safe_write32(es + dst, src_val)),
-        },
-    };
+        match instruction {
+            Instruction::Ins => {
+                // check fault *before* reading from port
+                return_on_pagefault!(writable_or_pagefault(es + dst, size_bytes));
+            },
+            _ => {},
+        };
+        let src_val = match instruction {
+            Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
+                return_on_pagefault!(match size {
+                    Size::B => safe_read8(ds + src),
+                    Size::W => safe_read16(ds + src),
+                    Size::D => safe_read32s(ds + src),
+                })
+            },
+            Instruction::Scas | Instruction::Stos => data & size_mask,
+            Instruction::Ins => match size {
+                Size::B => io_port_read8(port),
+                Size::W => io_port_read16(port),
+                Size::D => io_port_read32(port),
+            },
+        };
 
-    match instruction {
-        Instruction::Movs
-        | Instruction::Cmps
-        | Instruction::Stos
-        | Instruction::Scas
-        | Instruction::Ins => add_reg_asize(is_asize_32, EDI, direction * size_bytes),
-        _ => {},
-    }
-    match instruction {
-        Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
-            add_reg_asize(is_asize_32, ESI, direction * size_bytes)
-        },
-        _ => {},
-    };
+        match instruction {
+            Instruction::Cmps | Instruction::Scas => match size {
+                Size::B => cmp8(src_val, return_on_pagefault!(safe_read8(es + dst))),
+                Size::W => cmp16(src_val, return_on_pagefault!(safe_read16(es + dst))),
+                Size::D => cmp32(src_val, return_on_pagefault!(safe_read32s(es + dst))),
+            },
+            Instruction::Outs => match size {
+                Size::B => io_port_write8(port, src_val),
+                Size::W => io_port_write16(port, src_val),
+                Size::D => io_port_write32(port, src_val),
+            },
+            Instruction::Lods => match size {
+                Size::B => *reg8.offset(AL as isize) = src_val as u8,
+                Size::W => *reg16.offset(AX as isize) = src_val as u16,
+                Size::D => *reg32.offset(EAX as isize) = src_val,
+            },
+            Instruction::Movs | Instruction::Stos | Instruction::Ins => match size {
+                Size::B => return_on_pagefault!(safe_write8(es + dst, src_val)),
+                Size::W => return_on_pagefault!(safe_write16(es + dst, src_val)),
+                Size::D => return_on_pagefault!(safe_write32(es + dst, src_val)),
+            },
+        };
 
-    match rep {
-        Rep::Z | Rep::NZ => {
-            let rep_cmp = match (rep, instruction) {
-                (Rep::Z, Instruction::Scas | Instruction::Cmps) => getzf(),
-                (Rep::NZ, Instruction::Scas | Instruction::Cmps) => !getzf(),
-                _ => true,
-            };
-            add_reg_asize(is_asize_32, ECX, -1);
-            if count != 1 && rep_cmp {
-                *instruction_pointer = *previous_ip
-            }
-        },
-        Rep::None => {},
+        match instruction {
+            Instruction::Movs
+            | Instruction::Cmps
+            | Instruction::Stos
+            | Instruction::Scas
+            | Instruction::Ins => add_reg_asize(is_asize_32, EDI, direction * size_bytes),
+            _ => {},
+        }
+        match instruction {
+            Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
+                add_reg_asize(is_asize_32, ESI, direction * size_bytes)
+            },
+            _ => {},
+        };
+
+        match rep {
+            Rep::Z | Rep::NZ => {
+                let rep_cmp = match (rep, instruction) {
+                    (Rep::Z, Instruction::Scas | Instruction::Cmps) => getzf(),
+                    (Rep::NZ, Instruction::Scas | Instruction::Cmps) => !getzf(),
+                    _ => true,
+                };
+                add_reg_asize(is_asize_32, ECX, -1);
+                if count != 1 && rep_cmp {
+                    //*instruction_pointer = *previous_ip
+                }
+                else {
+                    break;
+                }
+            },
+            Rep::None => {
+                break;
+            },
+        }
     }
 }
 
