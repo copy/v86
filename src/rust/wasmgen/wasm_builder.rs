@@ -1,44 +1,41 @@
 use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
+use std::mem::transmute;
 use util::{SafeToU8, SafeToU16};
 use wasmgen::wasm_opcodes as op;
 
-#[allow(dead_code)]
-pub const FN0_TYPE_INDEX: u8 = 0;
-#[allow(dead_code)]
-pub const FN1_TYPE_INDEX: u8 = 1;
-#[allow(dead_code)]
-pub const FN2_TYPE_INDEX: u8 = 2;
-#[allow(dead_code)]
-pub const FN3_TYPE_INDEX: u8 = 3;
+#[derive(PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum FunctionType {
+    FN0_TYPE_INDEX,
+    FN1_TYPE_INDEX,
+    FN2_TYPE_INDEX,
+    FN3_TYPE_INDEX,
 
-#[allow(dead_code)]
-pub const FN0_RET_TYPE_INDEX: u8 = 4;
-#[allow(dead_code)]
-pub const FN1_RET_TYPE_INDEX: u8 = 5;
-#[allow(dead_code)]
-pub const FN2_RET_TYPE_INDEX: u8 = 6;
+    FN0_RET_TYPE_INDEX,
+    FN1_RET_TYPE_INDEX,
+    FN2_RET_TYPE_INDEX,
 
-#[allow(dead_code)]
-pub const FN1_RET_F64_TYPE_INDEX: u8 = 7;
-#[allow(dead_code)]
-pub const FN2_I32_F64_TYPE_INDEX: u8 = 8;
-#[allow(dead_code)]
-pub const FN1_F64_TYPE_INDEX: u8 = 9;
-#[allow(dead_code)]
-pub const FN1_RET_I64_TYPE_INDEX: u8 = 10;
-#[allow(dead_code)]
-pub const FN2_I32_I64_TYPE_INDEX: u8 = 11;
-#[allow(dead_code)]
-pub const FN1_F64_RET_I32_TYPE_INDEX: u8 = 12;
-#[allow(dead_code)]
-pub const FN1_F64_RET_I64_TYPE_INDEX: u8 = 13;
+    FN1_RET_F64_TYPE_INDEX,
+    FN2_I32_F64_TYPE_INDEX,
+    FN1_F64_TYPE_INDEX,
+    FN1_F64_RET_I32_TYPE_INDEX,
+    FN1_F64_RET_I64_TYPE_INDEX,
 
-#[allow(dead_code)]
-pub const FN3_RET_TYPE_INDEX: u8 = 14;
-#[allow(dead_code)]
-pub const FN3_I32_I64_I64_TYPE_INDEX: u8 = 15;
+    FN3_RET_TYPE_INDEX,
 
-pub const NR_FN_TYPE_INDEXES: u8 = 16;
+    FN3_I32_I64_I32_RET_TYPE_INDEX,
+    FN4_I32_I64_I64_I32_RET_TYPE_INDEX,
+    // When adding at the end, update LAST below
+}
+
+impl FunctionType {
+    pub fn of_u8(x: u8) -> FunctionType {
+        dbg_assert!(x <= FunctionType::LAST as u8);
+        unsafe { transmute(x) }
+    }
+    pub fn to_u8(self: FunctionType) -> u8 { self as u8 }
+    pub const LAST: FunctionType = FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX;
+}
 
 pub const WASM_MODULE_ARGUMENT_COUNT: u8 = 1;
 
@@ -205,119 +202,122 @@ impl WasmBuilder {
         let idx_section_size = self.output.len();
         self.output.push(0);
 
-        self.output.push(NR_FN_TYPE_INDEXES); // number of type descriptors
+        let nr_of_function_types = FunctionType::to_u8(FunctionType::LAST) + 1;
+        self.output.push(nr_of_function_types);
 
-        // FN0
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(0); // no args
-        self.output.push(0); // no return val
-
-        // FN1
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-        self.output.push(0);
-
-        // FN2
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(2);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(0);
-
-        // FN3
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(3);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(0);
-
-        // FN0_RET
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(0);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-
-        // FN1_RET
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-
-        // FN2_RET
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(2);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-
-        // FN1_RET_F64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-        self.output.push(1);
-        self.output.push(op::TYPE_F64);
-
-        // FN2_I32_F64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(2);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_F64);
-        self.output.push(0);
-
-        // FN1_F64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_F64);
-        self.output.push(0);
-
-        // FN1_RET_I64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-        self.output.push(1);
-        self.output.push(op::TYPE_I64);
-
-        // FN2_I32_I64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(2);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I64);
-        self.output.push(0);
-
-        // FN1_F64_RET_I32
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_F64);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-
-        // FN1_F64_RET_I64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(1);
-        self.output.push(op::TYPE_F64);
-        self.output.push(1);
-        self.output.push(op::TYPE_I64);
-
-        // FN3_RET
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(3);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I32);
-        self.output.push(1);
-        self.output.push(op::TYPE_I32);
-
-        // FN3_I32_I64_I64
-        self.output.push(op::TYPE_FUNC);
-        self.output.push(3);
-        self.output.push(op::TYPE_I32);
-        self.output.push(op::TYPE_I64);
-        self.output.push(op::TYPE_I64);
-        self.output.push(0);
+        for i in 0..(nr_of_function_types) {
+            match FunctionType::of_u8(i) {
+                FunctionType::FN0_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(0); // no args
+                    self.output.push(0); // no return val
+                },
+                FunctionType::FN1_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(0);
+                },
+                FunctionType::FN2_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(2);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(0);
+                },
+                FunctionType::FN3_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(3);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(0);
+                },
+                FunctionType::FN0_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(0);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN1_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN2_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(2);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN1_RET_F64_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F64);
+                },
+                FunctionType::FN2_I32_F64_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(2);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_F64);
+                    self.output.push(0);
+                },
+                FunctionType::FN1_F64_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F64);
+                    self.output.push(0);
+                },
+                FunctionType::FN1_F64_RET_I32_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F64);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN1_F64_RET_I64_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_F64);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I64);
+                },
+                FunctionType::FN3_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(3);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(3);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I64);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(4);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(op::TYPE_I64);
+                    self.output.push(op::TYPE_I64);
+                    self.output.push(op::TYPE_I32);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I32);
+                },
+            }
+        }
 
         let new_len = self.output.len();
         let size = (new_len - 1) - idx_section_size;
@@ -393,13 +393,13 @@ impl WasmBuilder {
         self.set_import_table_size(new_table_size);
     }
 
-    pub fn write_import_entry(&mut self, fn_name: &str, type_index: u8) -> u16 {
+    fn write_import_entry(&mut self, fn_name: &str, type_index: FunctionType) -> u16 {
         self.output.push(1); // length of module name
         self.output.push('e' as u8); // module name
         self.output.push(fn_name.len().safe_to_u8());
         self.output.extend(fn_name.as_bytes());
         self.output.push(op::EXT_FUNCTION);
-        self.output.push(type_index);
+        self.output.push(type_index.to_u8());
 
         let new_import_count = self.import_count + 1;
         self.set_import_count(new_import_count);
@@ -414,7 +414,7 @@ impl WasmBuilder {
         self.output.push(op::SC_FUNCTION);
         self.output.push(2); // length of this section
         self.output.push(1); // count of signature indices
-        self.output.push(FN1_TYPE_INDEX);
+        self.output.push(FunctionType::FN1_TYPE_INDEX.to_u8());
     }
 
     pub fn write_export_section(&mut self) {
@@ -435,7 +435,7 @@ impl WasmBuilder {
         write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
     }
 
-    pub fn get_fn_idx(&mut self, fn_name: &str, type_index: u8) -> u16 {
+    pub fn get_fn_idx(&mut self, fn_name: &str, type_index: FunctionType) -> u16 {
         match self.get_import_index(fn_name) {
             Some(idx) => idx,
             None => {
@@ -521,18 +521,6 @@ impl WasmBuilder {
         local
     }
 
-    //fn write_leb_i32(&mut self, v: i32) { write_leb_i32(self, v) }
-
-    //fn write_leb_u32(&mut self, v: u32) { write_leb_u32(self, v) }
-
-    //fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16) {
-    //    write_fixed_leb16_at_idx(self, idx, x)
-    //}
-
-    //fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32) {
-    //    write_fixed_leb32_at_idx(self, idx, x)
-    //}
-
     pub fn const_i32(&mut self, v: i32) {
         self.instruction_body.push(op::OP_I32CONST);
         write_leb_i32(&mut self.instruction_body, v);
@@ -583,32 +571,32 @@ impl WasmBuilder {
     pub fn call_fn(&mut self, fn_idx: u16) {
         self.instruction_body.push(op::OP_CALL);
         write_leb_u32(&mut self.instruction_body, fn_idx as u32);
-        //let buf_len = self.len();
-        //self.instruction_body.push(0);
-        //self.instruction_body.push(0);
-        //self.write_fixed_leb16_at_idx(buf_len, fn_idx);
     }
 
     pub fn eq_i32(&mut self) { self.instruction_body.push(op::OP_I32EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
     pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
-    //pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
-    //pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
-    //pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
+    #[allow(dead_code)]
+    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
+    #[allow(dead_code)]
+    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
+    #[allow(dead_code)]
+    pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
 
     pub fn if_i32(&mut self) {
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_I32);
     }
+    #[allow(dead_code)]
     pub fn if_i64(&mut self) {
         self.instruction_body.push(op::OP_IF);
         self.instruction_body.push(op::TYPE_I64);
     }
-
-    //pub fn block_i32(&mut self) {
-    //    self.instruction_body.push(op::OP_BLOCK);
-    //    self.instruction_body.push(op::TYPE_I32);
-    //}
+    #[allow(dead_code)]
+    pub fn block_i32(&mut self) {
+        self.instruction_body.push(op::OP_BLOCK);
+        self.instruction_body.push(op::TYPE_I32);
+    }
 
     pub fn xor_i32(&mut self) { self.instruction_body.push(op::OP_I32XOR); }
 
@@ -739,7 +727,7 @@ impl WasmBuilder {
 
     pub fn return_(&mut self) { self.instruction_body.push(op::OP_RETURN); }
 
-    //pub fn drop_(&mut self) { self.instruction_body.push(op::OP_DROP); }
+    pub fn drop_(&mut self) { self.instruction_body.push(op::OP_DROP); }
 
     // Generate a br_table where an input of [i] will branch [i]th outer block,
     // where [i] is passed on the wasm stack
@@ -754,6 +742,11 @@ impl WasmBuilder {
 
     pub fn br(&mut self, depth: u32) {
         self.instruction_body.push(op::OP_BR);
+        write_leb_u32(&mut self.instruction_body, depth);
+    }
+
+    pub fn br_if(&mut self, depth: u32) {
+        self.instruction_body.push(op::OP_BRIF);
         write_leb_u32(&mut self.instruction_body, depth);
     }
 
@@ -803,20 +796,20 @@ mod tests {
     fn import_table_management() {
         let mut w = WasmBuilder::new();
 
-        assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
-        assert_eq!(1, w.get_fn_idx("bar", FN1_TYPE_INDEX));
-        assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
-        assert_eq!(2, w.get_fn_idx("baz", FN2_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx("foo", FunctionType::FN0_TYPE_INDEX));
+        assert_eq!(1, w.get_fn_idx("bar", FunctionType::FN1_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx("foo", FunctionType::FN0_TYPE_INDEX));
+        assert_eq!(2, w.get_fn_idx("baz", FunctionType::FN2_TYPE_INDEX));
     }
 
     #[test]
     fn builder_test() {
         let mut m = WasmBuilder::new();
 
-        let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
+        let mut foo_index = m.get_fn_idx("foo", FunctionType::FN0_TYPE_INDEX);
         m.call_fn(foo_index);
 
-        let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
+        let bar_index = m.get_fn_idx("bar", FunctionType::FN0_TYPE_INDEX);
         m.call_fn(bar_index);
 
         let local0 = m.alloc_local(); // for ensuring that reset clears previous locals
@@ -827,9 +820,9 @@ mod tests {
 
         m.const_i32(2);
 
-        let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
+        let baz_index = m.get_fn_idx("baz", FunctionType::FN1_RET_TYPE_INDEX);
         m.call_fn(baz_index);
-        foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
+        foo_index = m.get_fn_idx("foo", FunctionType::FN1_TYPE_INDEX);
         m.call_fn(foo_index);
 
         m.const_i32(10);

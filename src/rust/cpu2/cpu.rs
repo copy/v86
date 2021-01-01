@@ -2142,9 +2142,7 @@ pub unsafe fn virt_boundary_write32(low: u32, high: u32, value: i32) {
 
 pub unsafe fn safe_read8(addr: i32) -> OrPageFault<i32> { Ok(read8(translate_address_read(addr)?)) }
 
-pub unsafe fn safe_read16(address: i32) -> OrPageFault<i32> { Ok(safe_read16_slow(address)?) }
-
-pub unsafe fn safe_read16_slow(addr: i32) -> OrPageFault<i32> {
+pub unsafe fn safe_read16(addr: i32) -> OrPageFault<i32> {
     if addr & 0xFFF == 0xFFF {
         Ok(safe_read8(addr)? | safe_read8(addr + 1)? << 8)
     }
@@ -2235,134 +2233,214 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
     }
 }
 
-#[no_mangle]
-pub unsafe fn safe_read8_slow_jit(addr: i32) -> i32 {
-    match safe_read8_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
-    }
-}
+#[repr(align(0x1000))]
+struct ScratchBuffer([u8; 0x1000 * 2]);
+static mut jit_paging_scratch_buffer: ScratchBuffer = ScratchBuffer([0; 2 * 0x1000]);
 
-#[no_mangle]
-pub unsafe fn safe_read_write8_slow_jit(addr: i32) -> i32 {
-    match safe_read_write8_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
-    }
-}
-
-unsafe fn safe_read8_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    Ok(read8(translate_address_read_jit(addr)?))
-}
-
-unsafe fn safe_read_write8_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    Ok(read8(translate_address_write_jit(addr)?))
-}
-
-unsafe fn safe_read16_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    if addr & 0xFFF == 0xFFF {
-        return Ok(safe_read8_slow_jit2(addr)? | safe_read8_slow_jit2(addr + 1)? << 8);
+pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_write: bool) -> i32 {
+    let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
+    let addr_low = match if is_write {
+        translate_address_write_jit(addr)
     }
     else {
-        return Ok(read16(translate_address_read_jit(addr)?));
+        translate_address_read_jit(addr)
+    } {
+        Err(()) => {
+            *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *page_fault = true;
+            return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+        },
+        Ok(addr) => addr,
     };
-}
+    if crosses_page {
+        let boundary_addr = (addr | 0xFFF) + 1;
+        let addr_high = match if is_write {
+            translate_address_write_jit(boundary_addr)
+        }
+        else {
+            translate_address_read_jit(boundary_addr)
+        } {
+            Err(()) => {
+                *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                *page_fault = true;
+                return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+            },
+            Ok(addr) => addr,
+        };
+        *page_fault = false;
+        // TODO: Could check if virtual pages point to consecutive physical and go to fast path
+        // do read, write into scratch buffer
 
-unsafe fn safe_read_write16_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    if addr & 0xFFF == 0xFFF {
-        return Ok(safe_read_write8_slow_jit2(addr)? | safe_read_write8_slow_jit2(addr + 1)? << 8);
+        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        dbg_assert!(scratch & 0xFFF == 0);
+
+        for s in addr_low..((addr_low | 0xFFF) + 1) {
+            *(scratch as *mut u8).offset((s & 0xFFF) as isize) = read8(s) as u8
+        }
+        for s in addr_high..(addr_high + (addr + bitsize / 8 & 0xFFF) as u32) {
+            *(scratch as *mut u8).offset((0x1000 | s & 0xFFF) as isize) = read8(s) as u8
+        }
+        ((scratch - mem8 as u32) as i32) ^ addr
+    }
+    else if in_mapped_range(addr_low) {
+        *page_fault = false;
+        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        dbg_assert!(scratch & 0xFFF == 0);
+        for s in addr_low..(addr_low + bitsize as u32 / 8) {
+            *(scratch as *mut u8).offset((s & 0xFFF) as isize) = read8(s) as u8
+        }
+        ((scratch - mem8 as u32) as i32) ^ addr
     }
     else {
-        return Ok(read16(translate_address_write_jit(addr)?));
-    };
+        *page_fault = false;
+        addr_low as i32 ^ addr
+    }
 }
 
-unsafe fn safe_read32s_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    if addr & 0xFFF >= 0xFFD {
-        return Ok(safe_read16_slow_jit2(addr)? | safe_read16_slow_jit2(addr + 2)? << 16);
+#[no_mangle]
+pub unsafe fn safe_read8_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 8, eip, false)
+}
+#[no_mangle]
+pub unsafe fn safe_read16_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 16, eip, false)
+}
+#[no_mangle]
+pub unsafe fn safe_read32s_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 32, eip, false)
+}
+#[no_mangle]
+pub unsafe fn safe_read64s_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 64, eip, false)
+}
+#[no_mangle]
+pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 128, eip, false)
+}
+
+#[no_mangle]
+pub unsafe fn safe_read_write8_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 8, eip, true)
+}
+#[no_mangle]
+pub unsafe fn safe_read_write16_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 16, eip, true)
+}
+#[no_mangle]
+pub unsafe fn safe_read_write32s_slow_jit(addr: i32, eip: i32) -> i32 {
+    safe_read_slow_jit(addr, 32, eip, true)
+}
+
+pub unsafe fn safe_write_slow_jit(
+    addr: i32,
+    bitsize: i32,
+    value_low: u64,
+    value_high: u64,
+    start_eip: i32,
+) -> i32 {
+    let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
+    let addr_low = match translate_address_write_jit(addr) {
+        Err(()) => {
+            *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *page_fault = true;
+            return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+        },
+        Ok(addr) => addr,
+    };
+    if crosses_page {
+        let addr_high = match translate_address_write_jit((addr | 0xFFF) + 1) {
+            Err(()) => {
+                *previous_ip = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                *page_fault = true;
+                return 0; // TODO: Return value so that jit code fails when accidentally accessing this
+            },
+            Ok(addr) => addr,
+        };
+        *page_fault = false;
+        // TODO: Could check if virtual pages point to consecutive physical and go to fast path
+
+        match bitsize {
+            128 => safe_write128(
+                addr,
+                reg128 {
+                    u64_0: [value_low, value_high],
+                },
+            )
+            .unwrap(),
+            64 => safe_write64(addr, value_low as i64).unwrap(),
+            32 => safe_write32(addr, value_low as i32).unwrap(),
+            16 => safe_write16(addr, value_low as i32).unwrap(),
+            8 => safe_write8(addr, value_low as i32).unwrap(),
+            _ => dbg_assert!(false),
+        }
+
+        // do write, return dummy pointer for fast path to write into
+
+        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        dbg_assert!(scratch & 0xFFF == 0);
+        (scratch as i32 - mem8 as i32) ^ addr
+    }
+    else if in_mapped_range(addr_low) {
+        *page_fault = false;
+
+        match bitsize {
+            128 => safe_write128(
+                addr,
+                reg128 {
+                    u64_0: [value_low, value_high],
+                },
+            )
+            .unwrap(),
+            64 => safe_write64(addr, value_low as i64).unwrap(),
+            32 => safe_write32(addr, value_low as i32).unwrap(),
+            16 => safe_write16(addr, value_low as i32).unwrap(),
+            8 => safe_write8(addr, value_low as i32).unwrap(),
+            _ => dbg_assert!(false),
+        }
+
+        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        dbg_assert!(scratch & 0xFFF == 0);
+        (scratch as i32 - mem8 as i32) ^ addr
     }
     else {
-        return Ok(read32s(translate_address_read_jit(addr)?));
-    };
-}
-
-unsafe fn safe_read_write32s_slow_jit2(addr: i32) -> OrPageFault<i32> {
-    if addr & 0xFFF >= 0xFFD {
-        return Ok(
-            safe_read_write16_slow_jit2(addr)? | safe_read_write16_slow_jit2(addr + 2)? << 16
-        );
-    }
-    else {
-        return Ok(read32s(translate_address_write_jit(addr)?));
-    };
-}
-
-#[no_mangle]
-pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
-    match safe_read16_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
+        match bitsize {
+            128 => safe_write128(
+                addr,
+                reg128 {
+                    u64_0: [value_low, value_high],
+                },
+            )
+            .unwrap(),
+            64 => safe_write64(addr, value_low as i64).unwrap(),
+            32 => safe_write32(addr, value_low as i32).unwrap(),
+            16 => safe_write16(addr, value_low as i32).unwrap(),
+            8 => safe_write8(addr, value_low as i32).unwrap(),
+            _ => dbg_assert!(false),
+        }
+        *page_fault = false;
+        addr_low as i32 ^ addr
     }
 }
 
 #[no_mangle]
-pub unsafe fn safe_read_write16_slow_jit(addr: i32) -> i32 {
-    match safe_read_write16_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
-    }
+pub unsafe fn safe_write8_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
+    safe_write_slow_jit(addr, 8, value as u64, 0, start_eip)
 }
-
 #[no_mangle]
-pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
-    match safe_read32s_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
-    }
+pub unsafe fn safe_write16_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
+    safe_write_slow_jit(addr, 16, value as u64, 0, start_eip)
 }
-
 #[no_mangle]
-pub unsafe fn safe_read_write32s_slow_jit(addr: i32) -> i32 {
-    match safe_read_write32s_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v
-        },
-        Err(()) => {
-            *page_fault = true;
-            -1
-        },
-    }
+pub unsafe fn safe_write32_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
+    safe_write_slow_jit(addr, 32, value as u64, 0, start_eip)
+}
+#[no_mangle]
+pub unsafe fn safe_write64_slow_jit(addr: i32, value: u64, start_eip: i32) -> i32 {
+    safe_write_slow_jit(addr, 64, value, 0, start_eip)
+}
+#[no_mangle]
+pub unsafe fn safe_write128_slow_jit(addr: i32, low: u64, high: u64, start_eip: i32) -> i32 {
+    safe_write_slow_jit(addr, 128, low, high, start_eip)
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<reg64> {
@@ -2378,33 +2456,6 @@ pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<reg64> {
     Ok(x)
 }
 
-pub unsafe fn safe_read64s_slow_jit2(addr: i32) -> OrPageFault<reg64> {
-    let mut x: reg64 = reg64 { i8_0: [0; 8] };
-    if addr & 0xFFF > 0x1000 - 8 {
-        x.u32_0[0] = safe_read32s_slow_jit2(addr)? as u32;
-        x.u32_0[1] = safe_read32s_slow_jit2(addr + 4)? as u32
-    }
-    else {
-        let addr_phys = translate_address_read_jit(addr)?;
-        x.u64_0[0] = read64s(addr_phys) as u64
-    }
-    Ok(x)
-}
-
-#[no_mangle]
-pub unsafe fn safe_read64s_slow_jit(addr: i32) -> i64 {
-    match safe_read64s_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            v.i64_0[0]
-        },
-        Err(()) => {
-            *page_fault = true;
-            0
-        },
-    }
-}
-
 pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
     if addr & 0xFFF > 0x1000 - 16 {
@@ -2416,32 +2467,6 @@ pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
         x = read128(addr_phys)
     }
     Ok(x)
-}
-
-pub unsafe fn safe_read128s_slow_jit2(addr: i32) -> OrPageFault<reg128> {
-    let mut x: reg128 = reg128 { i8_0: [0; 16] };
-    if addr & 0xFFF > 0x1000 - 16 {
-        x.u64_0[0] = safe_read64s_slow_jit2(addr)?.u64_0[0];
-        x.u64_0[1] = safe_read64s_slow_jit2(addr + 8)?.u64_0[0]
-    }
-    else {
-        let addr_phys = translate_address_read_jit(addr)?;
-        x = read128(addr_phys)
-    }
-    Ok(x)
-}
-
-#[no_mangle]
-pub unsafe fn safe_read128s_slow_jit(addr: i32, where_to_write: u32) {
-    match safe_read128s_slow_jit2(addr) {
-        Ok(v) => {
-            *page_fault = false;
-            *(where_to_write as *mut reg128) = v;
-        },
-        Err(()) => {
-            *page_fault = true;
-        },
-    }
 }
 
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
@@ -2475,61 +2500,6 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn safe_write8_slow_jit2(addr: i32, value: i32) -> OrPageFault<()> {
-    write8(translate_address_write_jit(addr)?, value);
-    Ok(())
-}
-
-#[no_mangle]
-pub unsafe fn safe_write8_slow_jit(addr: i32, value: i32) {
-    match safe_write8_slow_jit2(addr, value) {
-        Ok(()) => *page_fault = false,
-        Err(()) => *page_fault = true,
-    }
-}
-
-pub unsafe fn safe_write16_slow_jit2(addr: i32, value: i32) -> OrPageFault<()> {
-    let phys_low = translate_address_write_jit(addr)?;
-    if addr & 0xFFF == 0xFFF {
-        virt_boundary_write16(phys_low, translate_address_write_jit(addr + 1)?, value);
-    }
-    else {
-        write16(phys_low as u32, value);
-    };
-    Ok(())
-}
-
-#[no_mangle]
-pub unsafe fn safe_write16_slow_jit(addr: i32, value: i32) {
-    match safe_write16_slow_jit2(addr, value) {
-        Ok(()) => *page_fault = false,
-        Err(()) => *page_fault = true,
-    }
-}
-
-pub unsafe fn safe_write32_slow_jit2(addr: i32, value: i32) -> OrPageFault<()> {
-    let phys_low = translate_address_write_jit(addr)?;
-    if addr & 0xFFF > 0x1000 - 4 {
-        virt_boundary_write32(
-            phys_low,
-            translate_address_write_jit(addr + 3 & !3)? | (addr as u32 + 3 & 3),
-            value,
-        );
-    }
-    else {
-        write32(phys_low as u32, value);
-    };
-    Ok(())
-}
-
-#[no_mangle]
-pub unsafe fn safe_write32_slow_jit(addr: i32, value: i32) {
-    match safe_write32_slow_jit2(addr, value) {
-        Ok(()) => *page_fault = false,
-        Err(()) => *page_fault = true,
-    }
-}
-
 pub unsafe fn safe_write64(addr: i32, value: i64) -> OrPageFault<()> {
     if addr & 0xFFF > 0x1000 - 8 {
         writable_or_pagefault(addr, 8)?;
@@ -2543,27 +2513,6 @@ pub unsafe fn safe_write64(addr: i32, value: i64) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn safe_write64_slow_jit2(addr: i32, value: i64) -> OrPageFault<()> {
-    if addr & 0xFFF > 0x1000 - 8 {
-        writable_or_pagefault_jit(addr, 8)?;
-        safe_write32_slow_jit2(addr, value as i32).unwrap();
-        safe_write32_slow_jit2(addr + 4, (value >> 32) as i32).unwrap();
-    }
-    else {
-        let phys = translate_address_write_jit(addr)?;
-        write64(phys, value);
-    };
-    Ok(())
-}
-
-#[no_mangle]
-pub unsafe fn safe_write64_slow_jit(addr: i32, value: i64) {
-    match safe_write64_slow_jit2(addr, value) {
-        Ok(()) => *page_fault = false,
-        Err(()) => *page_fault = true,
-    }
-}
-
 pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     if addr & 0xFFF > 0x1000 - 16 {
         writable_or_pagefault(addr, 16)?;
@@ -2575,32 +2524,6 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         write128(phys, value);
     };
     Ok(())
-}
-
-pub unsafe fn safe_write128_slow_jit2(addr: i32, value: reg128) -> OrPageFault<()> {
-    if addr & 0xFFF > 0x1000 - 16 {
-        writable_or_pagefault_jit(addr, 16)?;
-        safe_write64_slow_jit2(addr, value.u64_0[0] as i64).unwrap();
-        safe_write64_slow_jit2(addr + 8, value.u64_0[1] as i64).unwrap();
-    }
-    else {
-        let phys = translate_address_write_jit(addr)?;
-        write128(phys, value);
-    };
-    Ok(())
-}
-
-#[no_mangle]
-pub unsafe fn safe_write128_slow_jit(addr: i32, value_low: i64, value_high: i64) {
-    match safe_write128_slow_jit2(
-        addr,
-        reg128 {
-            i64_0: [value_low, value_high],
-        },
-    ) {
-        Ok(()) => *page_fault = false,
-        Err(()) => *page_fault = true,
-    }
 }
 
 pub fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }
