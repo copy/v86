@@ -1849,8 +1849,6 @@ pub unsafe fn get_seg_prefix_ds(offset: i32) -> i32 { return get_seg_prefix(DS) 
 
 pub unsafe fn get_seg_prefix_ss(offset: i32) -> i32 { return get_seg_prefix(SS) + offset; }
 
-pub unsafe fn get_seg_prefix_cs(offset: i32) -> i32 { return get_seg_prefix(CS) + offset; }
-
 pub unsafe fn modrm_resolve(modrm_byte: i32) -> OrPageFault<i32> {
     if is_asize_32() {
         resolve_modrm32(modrm_byte)
