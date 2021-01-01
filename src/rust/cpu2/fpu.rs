@@ -409,7 +409,9 @@ pub unsafe fn fpu_fistm16(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm16p(addr: i32) {
-    fpu_fistm16(addr);
+    return_on_pagefault!(writable_or_pagefault(addr, 2));
+    let v = fpu_convert_to_i16(fpu_get_st0());
+    return_on_pagefault!(safe_write16(addr, v as i32));
     fpu_pop();
 }
 
@@ -433,7 +435,9 @@ pub unsafe fn fpu_fistm32(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm32p(addr: i32) {
-    fpu_fistm32(addr);
+    return_on_pagefault!(writable_or_pagefault(addr, 4));
+    let v = fpu_convert_to_i32(fpu_get_st0());
+    return_on_pagefault!(safe_write32(addr, v));
     fpu_pop();
 }
 
@@ -719,10 +723,12 @@ pub unsafe fn fpu_fst80p(addr: i32) {
     fpu_store_m80(addr, fpu_get_st0());
     fpu_pop();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fstcw(addr: i32) {
     return_on_pagefault!(safe_write16(addr, *fpu_control_word));
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fstm32(addr: i32) {
     return_on_pagefault!(fpu_store_m32(addr, fpu_get_st0()));
@@ -734,7 +740,7 @@ pub unsafe fn fpu_store_m32(addr: i32, x: f64) -> OrPageFault<()> {
 }
 #[no_mangle]
 pub unsafe fn fpu_fstm32p(addr: i32) {
-    fpu_fstm32(addr);
+    return_on_pagefault!(fpu_store_m32(addr, fpu_get_st0()));
     fpu_pop();
 }
 #[no_mangle]
@@ -748,7 +754,7 @@ pub unsafe fn fpu_store_m64(addr: i32, x: f64) -> OrPageFault<()> {
 }
 #[no_mangle]
 pub unsafe fn fpu_fstm64p(addr: i32) {
-    fpu_fstm64(addr);
+    return_on_pagefault!(fpu_store_m64(addr, fpu_get_st0()));
     fpu_pop();
 }
 #[no_mangle]
@@ -756,6 +762,7 @@ pub unsafe fn fpu_fstp(r: i32) {
     fpu_fst(r);
     fpu_pop();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fsub(target_index: i32, val: f64) {
     let st0 = fpu_get_st0();
@@ -863,6 +870,7 @@ pub unsafe fn fpu_fyl2x() {
     );
     fpu_pop();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fxtract() {
     let st0 = fpu_get_st0();
@@ -881,6 +889,7 @@ pub unsafe fn fpu_fxtract() {
         fpu_push(f.to_f64());
     }
 }
+
 #[no_mangle]
 pub unsafe fn fwait() {
     // NOP unless FPU instructions run in parallel with CPU instructions
