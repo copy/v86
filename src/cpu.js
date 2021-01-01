@@ -923,7 +923,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.enable_ne2k)
         {
-            this.devices.net = new Ne2k(this, device_bus);
+            this.devices.net = new Ne2k(this, device_bus, settings.preserve_mac_from_state_image);
         }
 
         if(settings.fs9p)

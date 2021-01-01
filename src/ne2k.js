@@ -59,14 +59,17 @@ const NE2K_LOG_VERBOSE = false;
  * @constructor
  * @param {CPU} cpu
  * @param {BusConnector} bus
+ * @param {Boolean} preserve_mac_from_state_image
  */
-function Ne2k(cpu, bus)
+function Ne2k(cpu, bus, preserve_mac_from_state_image)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
 
     /** @const @type {PCI} */
     this.pci = cpu.devices.pci;
+
+    this.preserve_mac_from_state_image = preserve_mac_from_state_image;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -798,6 +801,12 @@ Ne2k.prototype.set_state = function(state)
     this.rxcr = state[12];
     this.txcr = state[13];
     this.tsr = state[14];
+
+    if(this.preserve_mac_from_state_image)
+    {
+        this.mac = state[15];
+        this.memory = state[16];
+    }
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)

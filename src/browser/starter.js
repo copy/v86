@@ -241,12 +241,16 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     settings.fda = undefined;
     settings.fdb = undefined;
     settings.cmdline = options["cmdline"];
+    settings.preserve_mac_from_state_image = options["preserve_mac_from_state_image"];
 
     if(options["network_relay_url"])
     {
         this.network_adapter = new NetworkAdapter(options["network_relay_url"], this.bus);
-        settings.enable_ne2k = true;
     }
+
+    // Enable unconditionally, so that state images don't miss hardware
+    // TODO: Should be properly fixed in restore_state
+    settings.enable_ne2k = true;
 
     if(!options["disable_keyboard"])
     {

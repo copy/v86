@@ -1068,6 +1068,7 @@
             settings.initrd = infos.initrd;
             settings.cmdline = infos.cmdline;
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
+            settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
             settings.acpi = infos.acpi;
             settings.memory_size = infos.memory_size;
@@ -1275,6 +1276,7 @@
             "acpi": settings.acpi,
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
+            "preserve_mac_from_state_image": settings.preserve_mac_from_state_image,
 
             "autostart": true,
         });
