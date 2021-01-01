@@ -236,7 +236,7 @@ $(CLOSURE):
 
 build/integration-test-fs/fs.json:
 	mkdir -p build/integration-test-fs/flat
-	cp images/bzImage build/integration-test-fs/
+	cp images/buildroot-bzimage.bin build/integration-test-fs/bzImage
 	touch build/integration-test-fs/initrd
 	cd build/integration-test-fs && tar cfv fs.tar bzImage initrd
 	./tools/fs2json.py build/integration-test-fs/fs.tar --out build/integration-test-fs/fs.json

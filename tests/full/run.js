@@ -223,8 +223,8 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
-            name: "Linux 4 bzImage",
-            bzimage: root_path + "/images/bzImage",
+            name: "Linux bzImage",
+            bzimage: root_path + "/images/buildroot-bzimage.bin",
             cmdline: "auto",
             timeout: 200,
             expected_texts: [
@@ -236,7 +236,7 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
-            name: "Linux 4 with bzImage from filesystem",
+            name: "Linux with bzImage from filesystem",
             bzimage_initrd_from_filesystem: true,
             filesystem: {
                 basefs: root_path + "/build/integration-test-fs/fs.json",
