@@ -460,7 +460,7 @@ const encodings = [
     { opcode: 0x0F27, skip: 1, block_boundary: 1, },
 
     { opcode: 0x0F30, skip: 1, block_boundary: 1, }, // wrmsr
-    { opcode: 0x0F31, skip: 1, block_boundary: 1, }, // rdtsc
+    { opcode: 0x0F31, skip: 1, custom: 1, }, // rdtsc
     { opcode: 0x0F32, skip: 1, block_boundary: 1, }, // rdmsr
     { opcode: 0x0F33, skip: 1, block_boundary: 1, }, // rdpmc
     { opcode: 0x0F34, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysenter

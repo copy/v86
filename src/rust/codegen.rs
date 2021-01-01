@@ -310,6 +310,12 @@ pub fn gen_call_fn1_f64_ret_i32(builder: &mut WasmBuilder, name: &str) {
     builder.call_fn(fn_idx);
 }
 
+pub fn gen_call_fn0_ret_i64(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
+    let fn_idx = builder.get_fn_idx(name, FunctionType::FN0_RET_I64_TYPE_INDEX);
+    builder.call_fn(fn_idx);
+}
+
 pub fn gen_call_fn1_ret_i64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
     let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_RET_I64_TYPE_INDEX);

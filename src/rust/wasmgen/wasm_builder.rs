@@ -14,6 +14,7 @@ pub enum FunctionType {
     FN3_TYPE_INDEX,
 
     FN0_RET_TYPE_INDEX,
+    FN0_RET_I64_TYPE_INDEX,
     FN1_RET_TYPE_INDEX,
     FN2_RET_TYPE_INDEX,
 
@@ -243,6 +244,12 @@ impl WasmBuilder {
                     self.output.push(0);
                     self.output.push(1);
                     self.output.push(op::TYPE_I32);
+                },
+                FunctionType::FN0_RET_I64_TYPE_INDEX => {
+                    self.output.push(op::TYPE_FUNC);
+                    self.output.push(0);
+                    self.output.push(1);
+                    self.output.push(op::TYPE_I64);
                 },
                 FunctionType::FN1_RET_TYPE_INDEX => {
                     self.output.push(op::TYPE_FUNC);

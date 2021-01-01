@@ -3870,6 +3870,37 @@ pub fn instr32_AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 
 pub fn instr32_F2AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0xF2) }
 pub fn instr32_F3AF_jit(ctx: &mut JitContext) { gen_string_ins(ctx, String::SCAS, 32, 0xF3) }
 
+pub fn instr_0F31_jit(ctx: &mut JitContext) {
+    ctx.builder.load_fixed_u8(global_pointers::CPL);
+    ctx.builder.eqz_i32();
+
+    dbg_assert!(regs::CR4_TSD < 0x100);
+    ctx.builder
+        .load_fixed_u8(global_pointers::get_creg_offset(4));
+    ctx.builder.const_i32(regs::CR4_TSD as i32);
+    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
+
+    ctx.builder.or_i32();
+    ctx.builder.if_void();
+    codegen::gen_call_fn0_ret_i64(ctx.builder, "read_tsc");
+
+    let tsc = ctx.builder.tee_new_local_i64();
+    ctx.builder.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EAX);
+
+    ctx.builder.get_local_i64(&tsc);
+    ctx.builder.const_i64(32);
+    ctx.builder.shr_u_i64();
+    ctx.builder.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EDX);
+
+    ctx.builder.free_local_i64(tsc);
+    ctx.builder.else_();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.block_end();
+}
+
 pub fn instr_0F18_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);
 }

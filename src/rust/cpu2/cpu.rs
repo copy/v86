@@ -3275,6 +3275,7 @@ pub unsafe fn set_tsc(low: u32, high: u32) {
     tsc_offset = current_value.wrapping_sub(new_value);
 }
 
+#[no_mangle]
 pub unsafe fn read_tsc() -> u64 {
     let n = microtick() * TSC_RATE;
     let value = (n as u64).wrapping_sub(tsc_offset);
