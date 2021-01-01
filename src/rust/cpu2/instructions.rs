@@ -705,19 +705,13 @@ pub unsafe fn instr32_6B_reg(r1: i32, r: i32, imm: i32) {
     write_reg32(r, imul_reg32(read_reg32(r1), imm));
 }
 
-#[no_mangle]
 pub unsafe fn instr_6C() { insb_no_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr16_6D() { insw_no_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr32_6D() { insd_no_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr_6E() { outsb_no_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr16_6F() {
     outsw_no_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
-#[no_mangle]
 pub unsafe fn instr32_6F() {
     outsd_no_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS)));
 }
@@ -2508,29 +2502,18 @@ pub unsafe fn instr32_FF_6_mem(addr: i32) {
 pub unsafe fn instr32_FF_6_reg(r1: i32) {
     return_on_pagefault!(push32(read_reg32(r1)));
 }
-#[no_mangle]
+
 pub unsafe fn instr_F26C() { insb_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr_F36C() { insb_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr16_F26D() { insw_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr16_F36D() { insw_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr32_F26D() { insd_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr32_F36D() { insd_rep(is_asize_32()); }
-#[no_mangle]
 pub unsafe fn instr_F26E() { outsb_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr_F36E() { outsb_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr16_F26F() { outsw_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr16_F36F() { outsw_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr32_F26F() { outsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
-#[no_mangle]
 pub unsafe fn instr32_F36F() { outsd_rep(is_asize_32(), return_on_pagefault!(get_seg_prefix(DS))); }
 
 pub unsafe fn instr16_70(imm8: i32) { jmpcc16(test_o(), imm8); }
