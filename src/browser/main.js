@@ -11,9 +11,6 @@
     /** @const */
     var OTHER_HOST = ON_LOCALHOST ? "" : "//j.copy.sh:8880/";
 
-    /** @const */
-    var ON_HTTPS = location.protocol === "https:";
-
     function dump_file(ab, name)
     {
         if(!(ab instanceof Array))
@@ -327,7 +324,7 @@
             {
                 id: "kolibrios",
                 fda: {
-                    "url": (ON_LOCALHOST || ON_HTTPS) ?
+                    "url": ON_LOCALHOST ?
                             "images/kolibri.img" :
                             "//builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
