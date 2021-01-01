@@ -18,6 +18,7 @@ ifeq ($(STRIP_DEBUG),true)
 STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
+default: build/v86oxide-debug.wasm
 all: build/v86_all.js build/libv86.js build/v86oxide.wasm
 all-debug: build/libv86-debug.js build/v86oxide-debug.wasm
 browser: build/v86_all.js
