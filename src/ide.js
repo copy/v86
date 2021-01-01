@@ -1281,8 +1281,7 @@ IDEInterface.prototype.do_atapi_dma = function()
         }
 
         dbg_log("dma read dest=" + h(addr) + " count=" + h(count) + " datalen=" + h(this.data_length), LOG_DISK);
-        this.cpu.write_blob(data.subarray(offset,
-            Math.min(offset + count, this.data_length)), addr);
+        this.cpu.write_blob(data.subarray(offset, Math.min(offset + count, this.data_length)), addr);
 
         offset += count;
         prdt_start += 8;
@@ -1738,11 +1737,11 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
     var start = lba * this.sector_size;
 
     var prdt_start = this.device.prdt_addr;
-    var prdt_count = 0;
-    var prdt_write_count = 0;
     var offset = 0;
 
     dbg_log("prdt addr: " + h(prdt_start, 8), LOG_DISK);
+
+    const buffer = new Uint8Array(byte_count);
 
     do {
         var prd_addr = this.cpu.read32s(prdt_start);
@@ -1760,39 +1759,29 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
         var slice = this.cpu.mem8.subarray(prd_addr, prd_addr + prd_count);
         dbg_assert(slice.length === prd_count);
 
+        buffer.set(slice, offset);
+
         //if(DEBUG)
         //{
         //    dbg_log(hex_dump(slice), LOG_DISK);
         //}
 
-        this.buffer.set(start + offset, slice, function()
-        {
-            prdt_write_count++;
-        });
-
         offset += prd_count;
         prdt_start += 8;
-        prdt_count++;
     }
     while(!end);
 
-    if(prdt_write_count === prdt_count)
+    dbg_assert(offset === buffer.length);
+
+    this.buffer.set(start, buffer, () =>
     {
-        //setTimeout(function() {
         dbg_log("dma write completed", LOG_DISK);
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
         this.push_irq();
         this.device.dma_status &= ~1;
         this.current_command = -1;
-        //}, 10);
-    }
-    else
-    {
-        // fails when writes don't happen synchronously, which isn't currently
-        // the case, but might be in the future
-        dbg_assert(false, "dma write not completed", LOG_DISK);
-    }
+    });
 
     this.report_write(byte_count);
 };
