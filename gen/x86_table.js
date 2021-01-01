@@ -813,8 +813,8 @@ const encodings = [
     { sse: 1, opcode: 0x660F7F, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F7F, e: 1, custom: 1 },
 
-    { sse: 1, opcode: 0x0FC2, e: 1, imm8: 1 },
-    { sse: 1, opcode: 0x660FC2, e: 1, imm8: 1 },
+    { sse: 1, opcode: 0x0FC2, e: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0x660FC2, e: 1, imm8: 1, custom: 1 },
     { sse: 1, opcode: 0xF20FC2, e: 1, imm8: 1 },
     { sse: 1, opcode: 0xF30FC2, e: 1, imm8: 1 },
 

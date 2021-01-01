@@ -5050,6 +5050,7 @@ pub unsafe fn instr_F30F5F_reg(r1: i32, r2: i32) { instr_F30F5F(read_xmm_f32(r1)
 pub unsafe fn instr_F30F5F_mem(addr: i32, r: i32) {
     instr_F30F5F(return_on_pagefault!(safe_read_f32(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
     // cmpps xmm, xmm/m128
     let destination = read_xmm128s(r);
@@ -5065,12 +5066,11 @@ pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
     }
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_0FC2_reg(r1: i32, r2: i32, imm: i32) { instr_0FC2(read_xmm128s(r1), r2, imm); }
-#[no_mangle]
 pub unsafe fn instr_0FC2_mem(addr: i32, r: i32, imm: i32) {
     instr_0FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
 }
+#[no_mangle]
 pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
     // cmppd xmm, xmm/m128
     let destination = read_xmm128s(r);
@@ -5084,11 +5084,9 @@ pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660FC2_reg(r1: i32, r2: i32, imm: i32) {
     instr_660FC2(read_xmm128s(r1), r2, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_660FC2_mem(addr: i32, r: i32, imm: i32) {
     instr_660FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
 }
