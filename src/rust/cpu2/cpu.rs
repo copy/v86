@@ -229,9 +229,11 @@ pub const CPU_EXCEPTION_MC: i32 = 18;
 pub const CPU_EXCEPTION_XM: i32 = 19;
 pub const CPU_EXCEPTION_VE: i32 = 20;
 pub const CHECK_TLB_INVARIANTS: bool = false;
+
 pub const DEBUG: bool = cfg!(debug_assertions);
+
 pub const LOOP_COUNTER: i32 = 20011;
-pub const TSC_RATE: f64 = (50 * 1000) as f64;
+pub const TSC_RATE: f64 = 1_000_000.0;
 
 pub static mut jit_block_boundary: bool = false;
 

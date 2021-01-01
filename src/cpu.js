@@ -1986,6 +1986,7 @@ CPU.prototype.cpuid = function()
             eax = 1; // denominator
             ebx = 1; // numerator
             ecx = TSC_RATE * 1000; // core crystal clock frequency in Hz
+            dbg_assert((ecx >>> 0) === ecx);
             //  (TSC frequency = core crystal clock frequency * EBX/EAX)
             break;
 
@@ -1993,10 +1994,15 @@ CPU.prototype.cpuid = function()
             eax = Math.floor(TSC_RATE / 1000); // core base frequency in MHz
             ebx = Math.floor(TSC_RATE / 1000); // core maximum frequency in MHz
             ecx = 10; // bus (reference) frequency in MHz
+
+            // 16-bit values
+            dbg_assert(eax < 0x10000);
+            dbg_assert(ebx < 0x10000);
+            dbg_assert(ecx < 0x10000);
             break;
 
         default:
-            dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
+            dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax] >>> 0), LOG_CPU);
     }
 
     if(level === 4)
