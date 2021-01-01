@@ -397,8 +397,8 @@ const encodings = [
     { opcode: 0xFC, custom: 1, },
     { opcode: 0xFD, custom: 1, },
 
-    { opcode: 0xFE, e: 1, fixed_g: 0, },
-    { opcode: 0xFE, e: 1, fixed_g: 1, },
+    { opcode: 0xFE, e: 1, fixed_g: 0, custom: 1 },
+    { opcode: 0xFE, e: 1, fixed_g: 1, custom: 1 },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, custom: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, custom: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, custom: 1, block_boundary: 1, skip: 1, },

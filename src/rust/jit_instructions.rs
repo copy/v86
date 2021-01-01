@@ -486,6 +486,23 @@ macro_rules! define_instruction_read_write_mem8(
         }
     );
 
+    ($fn:expr, $name_mem:ident, $name_reg:ident, none) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            let address_local = ctx.builder.set_new_local();
+            codegen::gen_safe_read_write(ctx, BitSize::BYTE, &address_local, &|ref mut ctx| {
+                ctx.builder.call_fn1_ret($fn);
+            });
+            ctx.builder.free_local(address_local);
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
+            codegen::gen_get_reg8(ctx, r1);
+            ctx.builder.call_fn1_ret($fn);
+            codegen::gen_set_reg8(ctx, r1);
+        }
+    );
+
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
@@ -3399,6 +3416,9 @@ pub fn instr_FD_jit(ctx: &mut JitContext) {
     ctx.builder.or_i32();
     ctx.builder.store_aligned_i32(0);
 }
+
+define_instruction_read_write_mem8!("inc8", instr_FE_0_mem_jit, instr_FE_0_reg_jit, none);
+define_instruction_read_write_mem8!("dec8", instr_FE_1_mem_jit, instr_FE_1_reg_jit, none);
 
 define_instruction_read_write_mem16!(gen_inc16, instr16_FF_0_mem_jit, instr16_FF_0_reg_jit, none);
 define_instruction_read_write_mem32!(gen_inc32, instr32_FF_0_mem_jit, instr32_FF_0_reg_jit, none);
