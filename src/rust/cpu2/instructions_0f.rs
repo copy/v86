@@ -53,7 +53,7 @@ const ENABLE_ACPI: bool = false;
 #[no_mangle]
 pub unsafe fn instr_0F00_0_mem(addr: i32) {
     // sldt
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -64,7 +64,7 @@ pub unsafe fn instr_0F00_0_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_0_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -76,7 +76,7 @@ pub unsafe fn instr_0F00_0_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F00_1_mem(addr: i32) {
     // str
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -87,7 +87,7 @@ pub unsafe fn instr_0F00_1_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_1_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -99,7 +99,7 @@ pub unsafe fn instr_0F00_1_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F00_2_mem(addr: i32) {
     // lldt
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -114,7 +114,7 @@ pub unsafe fn instr_0F00_2_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_2_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -130,7 +130,7 @@ pub unsafe fn instr_0F00_2_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F00_3_mem(addr: i32) {
     // ltr
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -145,7 +145,7 @@ pub unsafe fn instr_0F00_3_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_3_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         trigger_ud();
         return;
     }
@@ -160,7 +160,7 @@ pub unsafe fn instr_0F00_3_reg(r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_4_mem(addr: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("verr #ud");
         trigger_ud();
         return;
@@ -169,7 +169,7 @@ pub unsafe fn instr_0F00_4_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_4_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("verr #ud");
         trigger_ud();
         return;
@@ -178,7 +178,7 @@ pub unsafe fn instr_0F00_4_reg(r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_mem(addr: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("verw #ud");
         trigger_ud();
         return;
@@ -187,7 +187,7 @@ pub unsafe fn instr_0F00_5_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_reg(r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("verw #ud");
         trigger_ud();
         return;
@@ -200,12 +200,7 @@ pub unsafe fn instr_0F01_0_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr_0F01_0_mem(addr: i32) {
     // sgdt
     return_on_pagefault!(writable_or_pagefault(addr, 6));
-    let mask = if 0 != is_osize_32() as i32 {
-        -1
-    }
-    else {
-        0xFFFFFF
-    };
+    let mask = if is_osize_32() { -1 } else { 0xFFFFFF };
     safe_write16(addr, *gdtr_size).unwrap();
     safe_write32(addr + 2, *gdtr_offset & mask).unwrap();
 }
@@ -215,12 +210,7 @@ pub unsafe fn instr_0F01_1_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr_0F01_1_mem(addr: i32) {
     // sidt
     return_on_pagefault!(writable_or_pagefault(addr, 6));
-    let mask = if 0 != is_osize_32() as i32 {
-        -1
-    }
-    else {
-        0xFFFFFF
-    };
+    let mask = if is_osize_32() { -1 } else { 0xFFFFFF };
     safe_write16(addr, *idtr_size).unwrap();
     safe_write32(addr + 2, *idtr_offset & mask).unwrap();
 }
@@ -236,12 +226,7 @@ pub unsafe fn instr_0F01_2_mem(addr: i32) {
     else {
         let size = return_on_pagefault!(safe_read16(addr));
         let offset = return_on_pagefault!(safe_read32s(addr + 2));
-        let mask = if 0 != is_osize_32() as i32 {
-            -1
-        }
-        else {
-            0xFFFFFF
-        };
+        let mask = if is_osize_32() { -1 } else { 0xFFFFFF };
         *gdtr_size = size;
         *gdtr_offset = offset & mask;
         return;
@@ -259,12 +244,7 @@ pub unsafe fn instr_0F01_3_mem(addr: i32) {
     else {
         let size = return_on_pagefault!(safe_read16(addr));
         let offset = return_on_pagefault!(safe_read32s(addr + 2));
-        let mask = if 0 != is_osize_32() as i32 {
-            -1
-        }
-        else {
-            0xFFFFFF
-        };
+        let mask = if is_osize_32() { -1 } else { 0xFFFFFF };
         *idtr_size = size;
         *idtr_offset = offset & mask;
         return;
@@ -326,7 +306,7 @@ pub unsafe fn instr_0F01_7_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0F02_mem(addr: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lar #ud");
         trigger_ud();
         return;
@@ -336,7 +316,7 @@ pub unsafe fn instr16_0F02_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0F02_reg(r1: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lar #ud");
         trigger_ud();
         return;
@@ -346,7 +326,7 @@ pub unsafe fn instr16_0F02_reg(r1: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_0F02_mem(addr: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lar #ud");
         trigger_ud();
         return;
@@ -356,7 +336,7 @@ pub unsafe fn instr32_0F02_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_0F02_reg(r1: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lar #ud");
         trigger_ud();
         return;
@@ -366,7 +346,7 @@ pub unsafe fn instr32_0F02_reg(r1: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0F03_mem(addr: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lsl #ud");
         trigger_ud();
         return;
@@ -376,7 +356,7 @@ pub unsafe fn instr16_0F03_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr16_0F03_reg(r1: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lsl #ud");
         trigger_ud();
         return;
@@ -386,7 +366,7 @@ pub unsafe fn instr16_0F03_reg(r1: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_0F03_mem(addr: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lsl #ud");
         trigger_ud();
         return;
@@ -396,7 +376,7 @@ pub unsafe fn instr32_0F03_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr32_0F03_reg(r1: i32, r: i32) {
-    if !*protected_mode || 0 != vm86_mode() as i32 {
+    if !*protected_mode || vm86_mode() {
         dbg_log!("lsl #ud");
         trigger_ud();
         return;
@@ -6246,29 +6226,25 @@ pub unsafe fn instr_0FC2(source: reg128, r: i32, imm8: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         i32_0: [
-            if 0 != sse_comparison(imm8, destination.f32_0[0] as f64, source.f32_0[0] as f64) as i32
-            {
+            if sse_comparison(imm8, destination.f32_0[0] as f64, source.f32_0[0] as f64) {
                 -1
             }
             else {
                 0
             },
-            if 0 != sse_comparison(imm8, destination.f32_0[1] as f64, source.f32_0[1] as f64) as i32
-            {
+            if sse_comparison(imm8, destination.f32_0[1] as f64, source.f32_0[1] as f64) {
                 -1
             }
             else {
                 0
             },
-            if 0 != sse_comparison(imm8, destination.f32_0[2] as f64, source.f32_0[2] as f64) as i32
-            {
+            if sse_comparison(imm8, destination.f32_0[2] as f64, source.f32_0[2] as f64) {
                 -1
             }
             else {
                 0
             },
-            if 0 != sse_comparison(imm8, destination.f32_0[3] as f64, source.f32_0[3] as f64) as i32
-            {
+            if sse_comparison(imm8, destination.f32_0[3] as f64, source.f32_0[3] as f64) {
                 -1
             }
             else {
@@ -6290,13 +6266,13 @@ pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         i64_0: [
-            (if 0 != sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) as i32 {
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) {
                 -1
             }
             else {
                 0
             }) as i64,
-            (if 0 != sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) as i32 {
+            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) {
                 -1
             }
             else {
@@ -6320,7 +6296,7 @@ pub unsafe fn instr_F20FC2(source: reg64, r: i32, imm8: i32) {
     let destination = read_xmm64s(r);
     let result = reg64 {
         i64_0: [
-            (if 0 != sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) as i32 {
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) {
                 -1
             }
             else {
@@ -6342,7 +6318,7 @@ pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
 pub unsafe fn instr_F30FC2(source: f32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
-    let result = if 0 != sse_comparison(imm8, destination as f64, source as f64) as i32 {
+    let result = if sse_comparison(imm8, destination as f64, source as f64) {
         -1
     }
     else {

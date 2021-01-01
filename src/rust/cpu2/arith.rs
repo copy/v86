@@ -327,14 +327,14 @@ pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn bcd_daa() {
     let old_al = *reg8.offset(AL as isize) as i32;
-    let old_cf = getcf() as i32;
-    let old_af = getaf() as i32;
+    let old_cf = getcf();
+    let old_af = getaf();
     *flags &= !1 & !FLAG_ADJUST;
-    if old_al & 15 > 9 || 0 != old_af {
+    if old_al & 15 > 9 || old_af {
         *reg8.offset(AL as isize) += 6;
         *flags |= FLAG_ADJUST
     }
-    if old_al > 153 || 0 != old_cf {
+    if old_al > 153 || old_cf {
         *reg8.offset(AL as isize) += 96;
         *flags |= 1
     }
@@ -347,17 +347,17 @@ pub unsafe fn bcd_daa() {
 #[no_mangle]
 pub unsafe fn bcd_das() {
     let old_al = *reg8.offset(AL as isize) as i32;
-    let old_cf = getcf() as i32;
+    let old_cf = getcf();
     *flags &= !1;
-    if old_al & 15 > 9 || 0 != getaf() as i32 {
+    if old_al & 15 > 9 || getaf() {
         *reg8.offset(AL as isize) -= 6;
         *flags |= FLAG_ADJUST;
-        *flags = *flags & !1 | old_cf | (old_al < 6) as i32
+        *flags = *flags & !1 | old_cf as i32 | (old_al < 6) as i32
     }
     else {
         *flags &= !FLAG_ADJUST
     }
-    if old_al > 153 || 0 != old_cf {
+    if old_al > 153 || old_cf {
         *reg8.offset(AL as isize) -= 96;
         *flags |= 1
     }
@@ -396,7 +396,7 @@ pub unsafe fn bcd_aam(imm8: i32) {
 }
 #[no_mangle]
 pub unsafe fn bcd_aaa() {
-    if *reg8.offset(AL as isize) as i32 & 15 > 9 || 0 != getaf() as i32 {
+    if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
         *reg16.offset(AX as isize) += 6;
         *reg8.offset(AH as isize) += 1;
         *flags |= FLAG_ADJUST | 1
@@ -409,7 +409,7 @@ pub unsafe fn bcd_aaa() {
 }
 #[no_mangle]
 pub unsafe fn bcd_aas() {
-    if *reg8.offset(AL as isize) as i32 & 15 > 9 || 0 != getaf() as i32 {
+    if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
         *reg16.offset(AX as isize) -= 6;
         *reg8.offset(AH as isize) -= 1;
         *flags |= FLAG_ADJUST | 1

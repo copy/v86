@@ -74,11 +74,11 @@ pub unsafe fn test_s() -> bool { return getsf(); }
 #[no_mangle]
 pub unsafe fn test_p() -> bool { return getpf(); }
 #[no_mangle]
-pub unsafe fn test_be() -> bool { return 0 != getcf() as i32 || 0 != getzf() as i32; }
+pub unsafe fn test_be() -> bool { return getcf() || getzf(); }
 #[no_mangle]
-pub unsafe fn test_l() -> bool { return getsf() as i32 != getof() as i32; }
+pub unsafe fn test_l() -> bool { return getsf() != getof(); }
 #[no_mangle]
-pub unsafe fn test_le() -> bool { return 0 != getzf() as i32 || getsf() as i32 != getof() as i32; }
+pub unsafe fn test_le() -> bool { return getzf() || getsf() != getof(); }
 #[no_mangle]
 pub unsafe fn test_no() -> bool { return !test_o(); }
 #[no_mangle]
@@ -114,7 +114,7 @@ pub unsafe fn jmpcc32(condition: bool, imm32: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn loope16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && 0 != getzf() as i32, imm8s); }
+pub unsafe fn loope16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && getzf(), imm8s); }
 #[no_mangle]
 pub unsafe fn loopne16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && !getzf(), imm8s); }
 #[no_mangle]
@@ -122,7 +122,7 @@ pub unsafe fn loop16(imm8s: i32) { jmpcc16(0 != decr_ecx_asize(), imm8s); }
 #[no_mangle]
 pub unsafe fn jcxz16(imm8s: i32) { jmpcc16(get_reg_asize(ECX) == 0, imm8s); }
 #[no_mangle]
-pub unsafe fn loope32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && 0 != getzf() as i32, imm8s); }
+pub unsafe fn loope32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && getzf(), imm8s); }
 #[no_mangle]
 pub unsafe fn loopne32(imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && !getzf(), imm8s); }
 #[no_mangle]
@@ -294,12 +294,10 @@ pub unsafe fn pusha32() {
     push32(*reg32.offset(EDI as isize)).unwrap();
 }
 #[no_mangle]
-pub unsafe fn setcc_reg(condition: bool, r: i32) {
-    write_reg8(r, if 0 != condition as i32 { 1 } else { 0 });
-}
+pub unsafe fn setcc_reg(condition: bool, r: i32) { write_reg8(r, condition as i32); }
 #[no_mangle]
 pub unsafe fn setcc_mem(condition: bool, addr: i32) {
-    return_on_pagefault!(safe_write8(addr, if 0 != condition as i32 { 1 } else { 0 }));
+    return_on_pagefault!(safe_write8(addr, condition as i32));
 }
 #[no_mangle]
 pub unsafe fn fxsave(addr: i32) {
