@@ -1530,9 +1530,18 @@ fn gen_neg16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     codegen::gen_set_reg16_local(builder, dest_operand);
 }
 fn gen_neg32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    builder.get_local(dest_operand);
-    codegen::gen_call_fn1_ret(builder, "neg32");
+    builder.const_i32(global_pointers::LAST_OP1 as i32);
+    builder.const_i32(0);
+    builder.store_aligned_i32(0);
+
+    builder.const_i32(0);
+    builder.get_local(&dest_operand);
+    builder.sub_i32();
     builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(builder, &dest_operand);
+    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
 }
 
 pub fn instr16_06_jit(ctx: &mut JitContext) {
