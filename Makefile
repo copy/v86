@@ -72,6 +72,7 @@ CARGO_FLAGS=\
 		-C linker=tools/rust-lld-wrapper \
 		-C link-args="--import-table --global-base=262144 $(STRIP_DEBUG_FLAG)" \
 		-C link-args="build/softfloat.o" \
+		-C link-args="build/zstddeclib.o" \
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \
@@ -155,14 +156,14 @@ src/rust/gen/analyzer.rs: $(ANALYZER_DEPENDENCIES)
 src/rust/gen/analyzer0f.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f
 
-build/v86.wasm: $(RUST_FILES) build/softfloat.o Cargo.toml
+build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86.wasm
 	cargo +nightly rustc --release $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o Cargo.toml
+build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86-debug.wasm
 	cargo +nightly rustc $(CARGO_FLAGS)
@@ -170,10 +171,18 @@ build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o Cargo.toml
 	ls -lh build/v86-debug.wasm
 
 build/softfloat.o: lib/softfloat/softfloat.c
-	clang -c \
+	clang -c -Wall \
 	    --target=wasm32 -Os -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
 	    -DSOFTFLOAT_FAST_INT64 -DINLINE_LEVEL=5 -DSOFTFLOAT_FAST_DIV32TO16 -DSOFTFLOAT_FAST_DIV64TO32 \
-	    -O2 -o build/softfloat.o lib/softfloat/softfloat.c
+	    -o build/softfloat.o \
+	    lib/softfloat/softfloat.c
+
+build/zstddeclib.o: lib/zstd/zstddeclib.c
+	clang -c -Wall \
+	    --target=wasm32 -Os -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
+	    -I /usr/include \
+	    -o build/zstddeclib.o \
+	    lib/zstd/zstddeclib.c
 
 clean:
 	-rm build/libv86.js

@@ -287,6 +287,12 @@ CPU.prototype.wasm_patch = function(wm)
     this.codegen_finalize_finished = get_import("codegen_finalize_finished");
 
     this.allocate_memory = get_import("allocate_memory");
+
+    this.zstd_create_ctx = get_import("zstd_create_ctx");
+    this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
+    this.zstd_free_ctx = get_import("zstd_free_ctx");
+    this.zstd_read = get_import("zstd_read");
+    this.zstd_read_free = get_import("zstd_read_free");
 };
 
 CPU.prototype.jit_force_generate = function(addr)
