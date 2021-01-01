@@ -269,7 +269,6 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.switch_cs_real_mode = get_import("switch_cs_real_mode");
     this.pic_call_irq = get_import("pic_call_irq");
-    this.get_tss_stack_addr = get_import("get_tss_stack_addr_js");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
     this.cycle_internal = get_import("cycle_internal");

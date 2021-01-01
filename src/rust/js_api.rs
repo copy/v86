@@ -1,7 +1,6 @@
 use cpu2::cpu::{
-    get_tss_stack_addr, safe_read16, safe_read32s, safe_write16, safe_write32,
-    translate_address_read, translate_address_system_read, translate_address_system_write,
-    writable_or_pagefault,
+    safe_read16, safe_read32s, safe_write16, safe_write32, translate_address_read,
+    translate_address_system_read, translate_address_system_write, writable_or_pagefault,
 };
 use cpu2::misc_instr::{push16, push32};
 
@@ -36,6 +35,3 @@ pub unsafe fn push16_js(value: i32) { push16(value).unwrap() }
 
 #[no_mangle]
 pub unsafe fn push32_js(value: i32) { push32(value).unwrap() }
-
-#[no_mangle]
-pub unsafe fn get_tss_stack_addr_js(dpl: u8) -> u32 { get_tss_stack_addr(dpl).unwrap() }
