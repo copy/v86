@@ -49,6 +49,8 @@ pub enum stat {
     DISPATCHER_LARGE,
     LOOP,
 
+    LOOP_SAFETY,
+
     CONDITION_OPTIMISED,
     CONDITION_UNOPTIMISED,
 

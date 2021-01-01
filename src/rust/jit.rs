@@ -66,7 +66,7 @@ pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
 pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 100003;
 
-pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
+pub const JIT_USE_LOOP_SAFETY: bool = true;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
@@ -1007,7 +1007,7 @@ fn jit_generate_module(
         })
         .collect();
 
-    let loop_limit_local = if JIT_ALWAYS_USE_LOOP_SAFETY {
+    let loop_limit_local = if JIT_USE_LOOP_SAFETY {
         builder.const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
         Some(builder.set_new_local())
     }
@@ -1244,35 +1244,6 @@ fn jit_generate_module(
                                 next_block_addr,
                             );
                         }
-                        else if next_block_addr == block.addr {
-                            // for qnx: Heuristic to terminated endless loops
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
-                            if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
-                            }
-                            else {
-                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                            }
-                            if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-                                ctx.builder.get_local(loop_limit_local);
-                                ctx.builder.const_i32(-1);
-                                ctx.builder.add_i32();
-                                ctx.builder.tee_local(loop_limit_local);
-                                ctx.builder.eqz_i32();
-                                if cfg!(feature = "profiler") {
-                                    ctx.builder.if_void();
-                                    codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-                                    ctx.builder.br(ctx.exit_label);
-                                    ctx.builder.block_end();
-                                }
-                                else {
-                                    ctx.builder.br_if(ctx.exit_label);
-                                }
-                            }
-                        }
 
                         if next_addr
                             .as_ref()
@@ -1375,37 +1346,6 @@ fn jit_generate_module(
                                     block.addr,
                                     next_block_branch_taken_addr,
                                 );
-                            }
-                            else if next_block_branch_taken_addr <= block.addr {
-                                // heuristic to terminate "delay loops" etc
-                                // for Linux 2.x and 3.x, oberon, windows 95
-                                codegen::gen_set_eip_low_bits(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                );
-                                if jump_offset_is_32 {
-                                    codegen::gen_relative_jump(ctx.builder, jump_offset);
-                                }
-                                else {
-                                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                                }
-
-                                if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-                                    ctx.builder.get_local(loop_limit_local);
-                                    ctx.builder.const_i32(-1);
-                                    ctx.builder.add_i32();
-                                    ctx.builder.tee_local(loop_limit_local);
-                                    ctx.builder.eqz_i32();
-                                    if cfg!(feature = "profiler") {
-                                        ctx.builder.if_void();
-                                        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-                                        ctx.builder.br(ctx.exit_label);
-                                        ctx.builder.block_end();
-                                    }
-                                    else {
-                                        ctx.builder.br_if(ctx.exit_label);
-                                    }
-                                }
                             }
 
                             if next_addr
@@ -1612,10 +1552,33 @@ fn jit_generate_module(
             },
             Work::WasmStructure(WasmStructure::Loop(children)) => {
                 profiler::stat_increment(stat::COMPILE_WASM_LOOP);
-                codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP);
 
                 let entries: Vec<u32> = children[0].head().collect();
                 let label = ctx.builder.loop_void();
+                codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP);
+
+                if entries.len() == 1 {
+                    let addr = entries[0];
+                    codegen::gen_set_eip_low_bits(ctx.builder, addr as i32 & 0xFFF);
+                    profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
+                    codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP_SAFETY);
+                    if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+                        ctx.builder.get_local(loop_limit_local);
+                        ctx.builder.const_i32(-1);
+                        ctx.builder.add_i32();
+                        ctx.builder.tee_local(loop_limit_local);
+                        ctx.builder.eqz_i32();
+                        if cfg!(feature = "profiler") {
+                            ctx.builder.if_void();
+                            codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+                            ctx.builder.br(ctx.exit_label);
+                            ctx.builder.block_end();
+                        }
+                        else {
+                            ctx.builder.br_if(ctx.exit_label);
+                        }
+                    }
+                }
 
                 let mut olds = HashMap::new();
                 for &target in entries.iter() {
@@ -1772,10 +1735,6 @@ fn jit_generate_module(
 }
 
 fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
-    let needs_previous_ip_updated = match block.ty {
-        BasicBlockType::Exit => true,
-        _ => false,
-    };
     let needs_eip_updated = match block.ty {
         BasicBlockType::Exit => true,
         _ => false,
@@ -1811,20 +1770,13 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             // Before the last instruction:
             // - Set eip to *after* the instruction
             // - Set previous_eip to *before* the instruction
-            if needs_previous_ip_updated {
-                //codegen::gen_set_previous_eip_offset_from_eip(
-                //    ctx.builder,
-                //    last_instruction_addr - start_addr,
-                //);
+            if needs_eip_updated {
                 codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
                     ctx.builder,
                     last_instruction_addr as i32 & 0xFFF,
                 );
-            }
-            if needs_eip_updated {
                 codegen::gen_set_eip_low_bits(ctx.builder, stop_addr as i32 & 0xFFF);
             }
-        //codegen::gen_relative_jump(ctx.builder, (stop_addr - start_addr) as i32);
         }
         else {
             ctx.last_instruction = Instruction::Other;
@@ -2181,7 +2133,7 @@ pub fn enter_basic_block(phys_eip: u32) {
 pub fn get_config(index: u32) -> u32 {
     match index {
         0 => MAX_PAGES as u32,
-        1 => JIT_ALWAYS_USE_LOOP_SAFETY as u32,
+        1 => JIT_USE_LOOP_SAFETY as u32,
         2 => MAX_EXTRA_BASIC_BLOCKS as u32,
         _ => 0,
     }

@@ -60,6 +60,7 @@ const print_stats = {
             "DISPATCHER_SMALL",
             "DISPATCHER_LARGE",
             "LOOP",
+            "LOOP_SAFETY",
             "CONDITION_OPTIMISED",
             "CONDITION_UNOPTIMISED",
             "FAILED_PAGE_CHANGE",
@@ -145,7 +146,7 @@ const print_stats = {
 
         text += "Config:\n";
         text += "MAX_PAGES=" + cpu.wm.exports["get_config"](0) + "\n";
-        text += "JIT_ALWAYS_USE_LOOP_SAFETY=" + cpu.wm.exports["get_config"](1) + "\n";
+        text += "JIT_USE_LOOP_SAFETY=" + cpu.wm.exports["get_config"](1) + "\n";
         text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_config"](2) + "\n";
 
         return text;
