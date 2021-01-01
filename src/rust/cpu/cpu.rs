@@ -254,7 +254,6 @@ pub static mut tlb_data: [i32; 0x400000] = [0; 0x400000];
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
-pub static mut apic_enabled: bool = false;
 pub static mut in_jit: bool = false;
 
 pub enum LastJump {

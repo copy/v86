@@ -101,7 +101,10 @@ function CPU(bus, wm)
     this.instruction_pointer = v86util.view(Int32Array, memory, 556, 1);
     this.previous_ip = v86util.view(Int32Array, memory, 560, 1);
 
-    this.apic_enabled = true;
+    // configured by guest
+    this.apic_enabled = v86util.view(Uint8Array, memory, 548, 1);
+    // configured when the emulator starts (changes bios initialisation)
+    this.acpi_enabled = v86util.view(Uint8Array, memory, 552, 1);
 
     // managed in io.js
     /** @const */ this.memory_map_read8 = [];
@@ -714,6 +717,8 @@ CPU.prototype.init = function(settings, device_bus)
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
 
+    this.acpi_enabled[0] = +settings.acpi;
+
     this.reset();
 
     var io = new IO(this);
@@ -881,7 +886,7 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.pic = new PIC(this);
         this.devices.pci = new PCI(this);
 
-        if(ENABLE_ACPI)
+        if(this.acpi_enabled[0])
         {
             this.devices.ioapic = new IOAPIC(this);
             this.devices.apic = new APIC(this);
@@ -1519,7 +1524,7 @@ CPU.prototype.run_hardware_timers = function(now)
         var rtc_time = this.devices.rtc.timer(now, false);
     }
 
-    if(ENABLE_ACPI)
+    if(this.acpi_enabled[0])
     {
         this.devices.acpi.timer(now);
         this.devices.apic.timer(now);
@@ -1872,7 +1877,7 @@ CPU.prototype.cpuid = function()
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
                     1 << 23 | 1 << 24 | 1 << 25 | 1 << 26;   // mmx, fxsr, sse1, sse2
 
-            if(ENABLE_ACPI && this.apic_enabled)
+            if(this.acpi_enabled[0]) //&& this.apic_enabled[0])
             {
                 edx |= 1 << 9; // apic
             }

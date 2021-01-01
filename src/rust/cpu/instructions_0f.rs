@@ -1153,7 +1153,7 @@ pub unsafe fn instr_0F30() {
             ("Changing APIC address not supported")
         );
         dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
-        apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
+        *apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
     }
     else if index == IA32_TIME_STAMP_COUNTER {
         set_tsc(low as u32, high as u32);
@@ -1232,9 +1232,9 @@ pub unsafe fn instr_0F32() {
     else if index == IA32_PLATFORM_ID {
     }
     else if index == IA32_APIC_BASE_MSR {
-        if ::config::ENABLE_ACPI {
+        if *acpi_enabled {
             low = APIC_ADDRESS;
-            if apic_enabled {
+            if *apic_enabled {
                 low |= IA32_APIC_BASE_EN
             }
         }

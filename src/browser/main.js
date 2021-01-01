@@ -515,6 +515,7 @@
                     url: "images/experimental/9front-7408.1d345066125a.386.iso",
                     async: true
                 },
+                acpi: true,
                 name: "9front",
             },
             {
@@ -1064,6 +1065,7 @@
             settings.cmdline = infos.cmdline;
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
 
+            settings.acpi = infos.acpi;
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
 
@@ -1151,12 +1153,6 @@
 
                 target.blur();
             };
-        }
-
-        var debug_infos = $("debug_infos");
-        if(debug_infos)
-        {
-            debug_infos.textContent = "ACPI: " + (ENABLE_ACPI ? "enabled" : "disabled");
         }
     }
 
@@ -1272,6 +1268,7 @@
             "cmdline": settings.cmdline,
             "bzimage_initrd_from_filesystem": settings.bzimage_initrd_from_filesystem,
 
+            "acpi": settings.acpi,
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
 
@@ -1861,16 +1858,6 @@
 
         // called as soon as soon as emulation is started, in debug mode
         var debug = emulator.v86.cpu.debug;
-
-        var debug_infos = $("debug_infos");
-        if(!debug_infos)
-        {
-            dbg_log("Element debug_infos not found, disabling debug UI");
-            return;
-        }
-
-        debug_infos.textContent += " | logging ops: " +
-            (debug.step_mode || debug.trace_all ? "yes" : "no");
 
         $("step").onclick = debug.step.bind(debug);
         $("run_until").onclick = debug.run_until.bind(debug);

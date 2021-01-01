@@ -395,6 +395,24 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "9front",
+            acpi: true,
+            timeout: 5 * 60,
+            hda: root_path + "/images/9front-7781.38dcaeaa222c.386.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+            actions: [
+                { after: 60 * 1000, run: "\n" },
+                { after: 65 * 1000, run: "\n" },
+                { after: 70 * 1000, run: "\n" },
+                { after: 75 * 1000, run: "\n" },
+                { after: 80 * 1000, run: "\n" },
+                { after: 85 * 1000, run: "\n" },
+                { after: 90 * 1000, run: "\n" },
+            ],
+        },
+        {
             name: "ReactOS",
             timeout: 15 * 60,
             hda: root_path + "/images/experimental/reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
@@ -679,6 +697,7 @@ function run_test(test, done)
     }
     settings.cmdline = test.cmdline;
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
+    settings.acpi = test.acpi;
 
     if(test.expected_texts)
     {

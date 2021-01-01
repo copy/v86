@@ -219,6 +219,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         "cdrom": undefined,
     };
 
+    settings.acpi = options.acpi;
     settings.load_devices = true;
     settings.log_level = options["log_level"];
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
