@@ -503,7 +503,12 @@ if(cluster.isMaster)
 
         worker.on("exit", function(code, signal)
         {
-            if(code !== 0)
+            if(signal)
+            {
+                console.warn("Worker killed by signal " + signal);
+                process.exit(1);
+            }
+            else if(code !== 0)
             {
                 process.exit(code);
             }
