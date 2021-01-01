@@ -2007,11 +2007,11 @@ CPU.prototype.cpuid = function()
 
     if(level === 4)
     {
-        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
+        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
     }
     else if(level !== 0 && level !== 2 && level !== (0x80000000 | 0))
     {
-        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8), LOG_CPU);
+        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8), LOG_CPU);
     }
 
     this.reg32[reg_eax] = eax;
