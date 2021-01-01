@@ -34,6 +34,9 @@ pub fn allocate_memory(size: u32) -> u32 {
 }
 
 #[no_mangle]
+pub unsafe fn zero_memory(size: u32) { ptr::write_bytes(mem8, 0, size as usize); }
+
+#[no_mangle]
 pub fn in_mapped_range(addr: u32) -> bool {
     return addr >= 0xA0000 && addr < 0xC0000 || addr >= unsafe { *memory_size };
 }

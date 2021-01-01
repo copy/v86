@@ -277,6 +277,7 @@ CPU.prototype.wasm_patch = function()
     this.codegen_finalize_finished = get_import("codegen_finalize_finished");
 
     this.allocate_memory = get_import("allocate_memory");
+    this.zero_memory = get_import("zero_memory");
 
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
@@ -534,8 +535,7 @@ CPU.prototype.pack_memory = function()
 
 CPU.prototype.unpack_memory = function(bitmap, packed_memory)
 {
-    // TODO: Skip zeroing memory if the memory has just been allocated
-    this.mem8.fill(0);
+    this.zero_memory(this.memory_size[0]);
 
     const page_count = this.memory_size[0] >> 12;
     let packed_page = 0;
