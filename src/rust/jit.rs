@@ -778,17 +778,23 @@ fn jit_analyze_and_generate(
     cs_offset: u32,
     state_flags: CachedStateFlags,
 ) {
+    dbg_log!("Compile code for page at {:x}", page.to_address());
     profiler::stat_increment(stat::COMPILE);
 
     let entry_points = ctx.entry_points.remove(&page);
-    let cpu = CpuContext {
-        eip: 0,
-        prefixes: 0,
-        cs_offset,
-        state_flags,
-    };
 
     if let Some(entry_points) = entry_points {
+        if jit_page_has_pending_code(ctx, page) {
+            return;
+        }
+
+        let cpu = CpuContext {
+            eip: 0,
+            prefixes: 0,
+            cs_offset,
+            state_flags,
+        };
+
         let (basic_blocks, requires_loop_limit) =
             jit_find_basic_blocks(page, &entry_points, cpu.clone());
 
@@ -1467,7 +1473,33 @@ pub fn jit_empty_cache(ctx: &mut JitState) {
 }
 
 pub fn jit_page_has_code(ctx: &JitState, page: Page) -> bool {
-    jit_cache_array::get_page_index(page) != None || ctx.entry_points.contains_key(&page)
+    // Does the page have compiled code
+    jit_cache_array::get_page_index(page) != None ||
+        // Or are there any entry points that need to be removed on write to the page
+        // (this function is used to mark the has_code bit in the tlb to optimise away calls jit_dirty_page)
+        ctx.entry_points.contains_key(&page)
+}
+
+pub fn jit_page_has_pending_code(_ctx: &JitState, page: Page) -> bool {
+    if let Some(mut cache_array_index) = jit_cache_array::get_page_index(page) {
+        loop {
+            let entry = jit_cache_array::get(cache_array_index);
+            dbg_assert!(page == Page::page_of(entry.start_addr));
+
+            if entry.pending {
+                return true;
+            }
+
+            if let Some(i) = entry.next_index_same_page() {
+                cache_array_index = i;
+            }
+            else {
+                break;
+            }
+        }
+    }
+
+    return false;
 }
 
 #[cfg(debug_assertions)]
