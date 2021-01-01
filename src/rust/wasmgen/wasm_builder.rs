@@ -742,6 +742,8 @@ impl WasmBuilder {
     pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
     pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
 
+    pub fn rotl_i32(&mut self) { self.instruction_body.push(op::OP_I32ROTL); }
+
     pub fn shl_i32(&mut self) { self.instruction_body.push(op::OP_I32SHL); }
     pub fn shl_i64(&mut self) { self.instruction_body.push(op::OP_I64SHL); }
     pub fn shr_u_i32(&mut self) { self.instruction_body.push(op::OP_I32SHRU); }

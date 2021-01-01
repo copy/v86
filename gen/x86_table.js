@@ -597,14 +597,14 @@ const encodings = [
     { opcode: 0x0FC0, e: 1, }, // xadd
     { opcode: 0x0FC1, os: 1, e: 1, custom: 1 },
 
-    { opcode: 0x0FC8, }, // bswap
-    { opcode: 0x0FC9, },
-    { opcode: 0x0FCA, },
-    { opcode: 0x0FCB, },
-    { opcode: 0x0FCC, },
-    { opcode: 0x0FCD, },
-    { opcode: 0x0FCE, },
-    { opcode: 0x0FCF, },
+    { opcode: 0x0FC8, custom: 1 }, // bswap
+    { opcode: 0x0FC9, custom: 1 },
+    { opcode: 0x0FCA, custom: 1 },
+    { opcode: 0x0FCB, custom: 1 },
+    { opcode: 0x0FCC, custom: 1 },
+    { opcode: 0x0FCD, custom: 1 },
+    { opcode: 0x0FCE, custom: 1 },
+    { opcode: 0x0FCF, custom: 1 },
 
 
     // mmx, sse

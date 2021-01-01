@@ -1623,6 +1623,26 @@ fn gen_bsr32(
     builder.set_local(dest_operand);
 }
 
+fn gen_bswap(ctx: &mut JitContext, reg: i32) {
+    let l = &ctx.register_locals[reg as usize];
+
+    ctx.builder.get_local(l);
+    ctx.builder.const_i32(8);
+    ctx.builder.rotl_i32();
+    ctx.builder.const_i32(0xFF00FF);
+    ctx.builder.and_i32();
+
+    ctx.builder.get_local(l);
+    ctx.builder.const_i32(24);
+    ctx.builder.rotl_i32();
+    ctx.builder.const_i32(0xFF00FF00u32 as i32);
+    ctx.builder.and_i32();
+
+    ctx.builder.or_i32();
+
+    ctx.builder.set_local(l);
+}
+
 define_instruction_read_write_mem8!("add8", instr_00_mem_jit, instr_00_reg_jit, reg);
 define_instruction_read_write_mem16!("add16", instr16_01_mem_jit, instr16_01_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_add32, instr32_01_mem_jit, instr32_01_reg_jit, reg);
@@ -4596,6 +4616,15 @@ pub fn instr32_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u3
     ctx.builder.free_local(address_local);
     ctx.builder.free_local(value_local);
 }
+
+pub fn instr_0FC8_jit(ctx: &mut JitContext) { gen_bswap(ctx, 0) }
+pub fn instr_0FC9_jit(ctx: &mut JitContext) { gen_bswap(ctx, 1) }
+pub fn instr_0FCA_jit(ctx: &mut JitContext) { gen_bswap(ctx, 2) }
+pub fn instr_0FCB_jit(ctx: &mut JitContext) { gen_bswap(ctx, 3) }
+pub fn instr_0FCC_jit(ctx: &mut JitContext) { gen_bswap(ctx, 4) }
+pub fn instr_0FCD_jit(ctx: &mut JitContext) { gen_bswap(ctx, 5) }
+pub fn instr_0FCE_jit(ctx: &mut JitContext) { gen_bswap(ctx, 6) }
+pub fn instr_0FCF_jit(ctx: &mut JitContext) { gen_bswap(ctx, 7) }
 
 define_instruction_write_reg16!("imul_reg16", instr16_0FAF_mem_jit, instr16_0FAF_reg_jit);
 define_instruction_write_reg32!(gen_imul_reg32, instr32_0FAF_mem_jit, instr32_0FAF_reg_jit);
