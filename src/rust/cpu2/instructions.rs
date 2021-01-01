@@ -3183,7 +3183,7 @@ pub unsafe fn instr_FA_without_fault() -> bool {
             *cr.offset(4) & CR4_VME
         }
         else {
-            (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+            (*cpl == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
         }
     {
         *flags &= !FLAG_VIF;
@@ -3224,7 +3224,7 @@ pub unsafe fn instr_FB() {
             *cr.offset(4) & CR4_VME
         }
         else {
-            (*cpl as i32 == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
+            (*cpl == 3 && 0 != *cr.offset(4) & CR4_PVI) as i32
         }
     {
         *flags |= FLAG_VIF

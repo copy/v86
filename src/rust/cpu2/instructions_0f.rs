@@ -1309,7 +1309,7 @@ pub unsafe fn instr_0F34() {
 pub unsafe fn instr_0F35() {
     // sysexit
     let seg = *sysenter_cs & 0xFFFC;
-    if !*protected_mode || 0 != *cpl as i32 || seg == 0 {
+    if !*protected_mode || 0 != *cpl || seg == 0 {
         trigger_gp(0);
         return;
     }

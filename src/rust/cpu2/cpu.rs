@@ -1016,7 +1016,7 @@ pub unsafe fn get_eflags_no_arith() -> i32 { return *flags; }
 pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
     let base = (address as u32 >> 12) as i32;
     let entry = *tlb_data.offset(base as isize);
-    let user = *cpl as i32 == 3;
+    let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
     }
@@ -1028,7 +1028,7 @@ pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
 pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
     let base = (address as u32 >> 12) as i32;
     let entry = *tlb_data.offset(base as isize);
-    let user = *cpl as i32 == 3;
+    let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 }) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
     }
@@ -1382,7 +1382,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
     let base = (address as u32 >> 12) as i32;
     let entry = *tlb_data.offset(base as isize);
-    let user = *cpl as i32 == 3;
+    let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
@@ -1394,7 +1394,7 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
 pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
     let base = (address as u32 >> 12) as i32;
     let entry = *tlb_data.offset(base as isize);
-    let user = *cpl as i32 == 3;
+    let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
         Ok((entry & !0xFFF ^ address) as u32)
     }
@@ -1454,7 +1454,7 @@ pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
         return Ok(());
     }
     else {
-        let user = *cpl as i32 == 3;
+        let user = *cpl == 3;
         let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
         let expect = TLB_VALID;
         let page = (addr as u32 >> 12) as i32;
@@ -1480,7 +1480,7 @@ pub unsafe fn writable_or_pagefault_jit(addr: i32, size: i32) -> OrPageFault<()>
         return Ok(());
     }
     else {
-        let user = *cpl as i32 == 3;
+        let user = *cpl == 3;
         let mask = TLB_READONLY | TLB_VALID | if user { TLB_NO_USER } else { 0 };
         let expect = TLB_VALID;
         let page = (addr as u32 >> 12) as i32;
@@ -2028,7 +2028,7 @@ pub unsafe fn pack_current_state_flags() -> CachedStateFlags {
     return CachedStateFlags::of_u32(
         (*is_32 as u32) << 0
             | (*stack_size_32 as u32) << 1
-            | ((*cpl as i32 == 3) as u32) << 2
+            | ((*cpl == 3) as u32) << 2
             | (has_flat_segmentation() as u32) << 3,
     );
 }
@@ -2974,7 +2974,7 @@ pub unsafe fn update_eflags(new_flags: i32) {
     }
     else {
         if !*protected_mode {
-            dbg_assert!(*cpl as i32 == 0);
+            dbg_assert!(*cpl == 0);
         }
         if 0 != *cpl {
             // cpl > 0
