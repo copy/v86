@@ -4,6 +4,7 @@ use cpu2::cpu::{
 };
 use global_pointers;
 use jit::JitContext;
+use jit_instructions::LocalOrImmedate;
 use modrm;
 use profiler;
 use regs;
@@ -1321,11 +1322,11 @@ pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {
     builder.instruction_body.store_aligned_i32(0);
 }
 
-pub fn gen_set_last_op2(builder: &mut WasmBuilder, source: &WasmLocal) {
+pub fn gen_set_last_op2(builder: &mut WasmBuilder, source: &LocalOrImmedate) {
     builder
         .instruction_body
         .const_i32(global_pointers::LAST_OP2 as i32);
-    builder.instruction_body.get_local(&source);
+    source.gen_get(builder);
     builder.instruction_body.store_aligned_i32(0);
 }
 
