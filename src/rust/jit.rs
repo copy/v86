@@ -1568,6 +1568,11 @@ fn jit_generate_module(
 }
 
 fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
+    let needs_previous_ip_updated = match block.ty {
+        BasicBlockType::Exit => true,
+        _ => false,
+    };
+
     profiler::stat_increment(stat::COMPILE_BASIC_BLOCK);
 
     let start_addr = block.addr;
@@ -1597,10 +1602,12 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             // Before the last instruction:
             // - Set eip to *after* the instruction
             // - Set previous_eip to *before* the instruction
-            codegen::gen_set_previous_eip_offset_from_eip(
-                ctx.builder,
-                last_instruction_addr - start_addr,
-            );
+            if needs_previous_ip_updated {
+                codegen::gen_set_previous_eip_offset_from_eip(
+                    ctx.builder,
+                    last_instruction_addr - start_addr,
+                );
+            }
             codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
         }
 
