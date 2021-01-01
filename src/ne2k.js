@@ -771,8 +771,12 @@ Ne2k.prototype.get_state = function()
     state[8] = this.pstart;
     state[9] = this.curpg;
     state[10] = this.boundary;
-    state[11] = this.mac;
-    state[12] = this.pstop;
+    state[11] = this.pstop;
+    state[12] = this.rxcr;
+    state[13] = this.txcr;
+    state[14] = this.tsr;
+    state[15] = this.mac;
+    state[16] = this.memory;
 
     return state;
 };
@@ -790,8 +794,10 @@ Ne2k.prototype.set_state = function(state)
     this.pstart = state[8];
     this.curpg = state[9];
     this.boundary = state[10];
-    // state[11];
-    this.pstop = state[12];
+    this.pstop = state[11];
+    this.rxcr = state[12];
+    this.txcr = state[13];
+    this.tsr = state[14];
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
