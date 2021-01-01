@@ -13,18 +13,13 @@ pub fn convert_f64_to_i32(x: f64) -> i32 { x as i32 }
 pub fn trunc(x: f64) -> f64 { x.trunc() }
 pub fn fmod(x: f64, y: f64) -> f64 { x % y }
 
-pub const M_LOG2E: f64 = 1.4426950408889634f64;
-pub const M_LN2: f64 = 0.6931471805599453f64;
-pub const M_LN10: f64 = 2.302585092994046f64;
-pub const M_PI: f64 = 3.141592653589793f64;
-
 const FPU_C0: i32 = 0x100;
-pub const FPU_C1: i32 = 0x200;
-pub const FPU_C2: i32 = 0x400;
+const FPU_C1: i32 = 0x200;
+const FPU_C2: i32 = 0x400;
 const FPU_C3: i32 = 0x4000;
 const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
 
-const INDEFINITE_NAN: f64 = ::std::f64::NAN;
+const INDEFINITE_NAN: f64 = std::f64::NAN;
 
 const FPU_EX_I: i32 = 1 << 0; // invalid operation
 #[allow(dead_code)]
@@ -32,7 +27,6 @@ const FPU_EX_D: i32 = 1 << 1; // denormal operand
 const FPU_EX_Z: i32 = 1 << 2; // zero divide
 #[allow(dead_code)]
 const FPU_EX_O: i32 = 1 << 3; // overflow
-#[allow(dead_code)]
 const FPU_EX_U: i32 = 1 << 4; // underflow
 #[allow(dead_code)]
 const FPU_EX_P: i32 = 1 << 5; // precision
@@ -88,6 +82,7 @@ pub fn fpu_write_st(index: i32, value: f64) {
 
 #[no_mangle]
 pub unsafe fn fpu_get_st0() -> f64 {
+    dbg_assert!(*fpu_stack_ptr < 8);
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1 {
         *fpu_status_word &= !FPU_C1;
         fpu_stack_fault();
@@ -118,14 +113,14 @@ pub unsafe fn fpu_underflow_fault() {
 #[no_mangle]
 pub unsafe fn fpu_sti_empty(mut i: i32) -> bool {
     dbg_assert!(i >= 0 && i < 8);
-    i = ((i as u32).wrapping_add(*fpu_stack_ptr) & 7) as i32;
+    i = i + *fpu_stack_ptr as i32 & 7;
     return 0 != *fpu_stack_empty >> i & 1;
 }
 
 #[no_mangle]
 pub unsafe fn fpu_get_sti(mut i: i32) -> f64 {
     dbg_assert!(i >= 0 && i < 8);
-    i = ((i as u32).wrapping_add(*fpu_stack_ptr) & 7) as i32;
+    i = i + *fpu_stack_ptr as i32 & 7;
     if 0 != *fpu_stack_empty >> i & 1 {
         *fpu_status_word &= !FPU_C1;
         fpu_stack_fault();
@@ -170,8 +165,8 @@ pub unsafe fn fpu_load_m64(addr: i32) -> OrPageFault<f64> {
 }
 #[no_mangle]
 pub unsafe fn fpu_load_m80(addr: i32) -> OrPageFault<f64> {
-    let value = safe_read64s(addr as i32)?;
-    let exponent = safe_read16(addr.wrapping_add(8) as i32)?;
+    let value = safe_read64s(addr)?;
+    let exponent = safe_read16(addr + 8)?;
     let f = fpu_f80_to_f64((value, exponent as u16));
     Ok(f)
 }
@@ -255,6 +250,7 @@ mod tests {
 
 #[no_mangle]
 pub unsafe fn fpu_load_status_word() -> i32 {
+    dbg_assert!(*fpu_stack_ptr < 8);
     return ((*fpu_status_word & !(7 << 11)) as u32 | *fpu_stack_ptr << 11) as i32;
 }
 #[no_mangle]
@@ -284,36 +280,36 @@ pub unsafe fn fpu_fcmovcc(condition: bool, r: i32) {
 pub unsafe fn fpu_fcom(y: f64) {
     let x = fpu_get_st0();
     *fpu_status_word &= !FPU_RESULT_FLAGS;
-    if !(x > y) {
-        if y > x {
-            *fpu_status_word |= FPU_C0
-        }
-        else if x == y {
-            *fpu_status_word |= FPU_C3
-        }
-        else {
-            *fpu_status_word |= FPU_C0 | FPU_C2 | FPU_C3
-        }
-    };
+    if x > y {
+    }
+    else if y > x {
+        *fpu_status_word |= FPU_C0
+    }
+    else if x == y {
+        *fpu_status_word |= FPU_C3
+    }
+    else {
+        *fpu_status_word |= FPU_C0 | FPU_C2 | FPU_C3;
+    }
 }
 
 #[no_mangle]
 pub unsafe fn fpu_fcomi(r: i32) {
+    let x = fpu_get_st0();
     let y = fpu_get_sti(r);
-    let x = *fpu_st.offset(*fpu_stack_ptr as isize);
-    *flags_changed &= !(1 | FLAG_PARITY | FLAG_ZERO | FLAG_ADJUST | FLAG_SIGN | FLAG_OVERFLOW);
-    *flags &= !(1 | FLAG_PARITY | FLAG_ZERO | FLAG_ADJUST | FLAG_SIGN | FLAG_OVERFLOW);
-    if !(x > y) {
-        if y > x {
-            *flags |= 1
-        }
-        else if x == y {
-            *flags |= FLAG_ZERO
-        }
-        else {
-            *flags |= 1 | FLAG_PARITY | FLAG_ZERO
-        }
-    };
+    *flags_changed = 0;
+    *flags &= !FLAGS_ALL;
+    if x > y {
+    }
+    else if y > x {
+        *flags |= 1
+    }
+    else if x == y {
+        *flags |= FLAG_ZERO
+    }
+    else {
+        *flags |= 1 | FLAG_PARITY | FLAG_ZERO
+    }
 }
 
 #[no_mangle]
@@ -324,8 +320,9 @@ pub unsafe fn fpu_fcomip(r: i32) {
 
 #[no_mangle]
 pub unsafe fn fpu_pop() {
+    dbg_assert!(*fpu_stack_ptr < 8);
     *fpu_stack_empty |= 1 << *fpu_stack_ptr;
-    *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1) & 7;
+    *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
 }
 
 #[no_mangle]
@@ -338,7 +335,12 @@ pub unsafe fn fpu_fcomp(val: f64) {
 pub unsafe fn fpu_fdiv(target_index: i32, val: f64) {
     let st0 = fpu_get_st0();
     if val == 0.0 {
-        fpu_zero_fault();
+        if st0 == 0.0 {
+            fpu_invalid_arithmetic()
+        }
+        else {
+            fpu_zero_fault();
+        }
     }
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, st0 / val);
 }
@@ -346,14 +348,17 @@ pub unsafe fn fpu_fdiv(target_index: i32, val: f64) {
 pub unsafe fn fpu_fdivr(target_index: i32, val: f64) {
     let st0 = fpu_get_st0();
     if st0 == 0.0 {
-        fpu_zero_fault();
+        if val == 0.0 {
+            fpu_invalid_arithmetic()
+        }
+        else {
+            fpu_zero_fault();
+        }
     }
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, val / st0);
 }
 #[no_mangle]
-pub unsafe fn fpu_ffree(r: i32) {
-    *fpu_stack_empty |= 1 << (*fpu_stack_ptr + r as u32 & 7);
-}
+pub unsafe fn fpu_ffree(r: i32) { *fpu_stack_empty |= 1 << (*fpu_stack_ptr + r as u32 & 7); }
 
 #[no_mangle]
 pub unsafe fn fpu_fildm16(addr: i32) {
@@ -370,7 +375,7 @@ pub unsafe fn fpu_fildm64(addr: i32) {
 
 #[no_mangle]
 pub unsafe fn fpu_push(x: f64) {
-    *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1) & 7;
+    *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1 {
         *fpu_status_word &= !FPU_C1;
         *fpu_stack_empty &= !(1 << *fpu_stack_ptr);
@@ -384,12 +389,12 @@ pub unsafe fn fpu_push(x: f64) {
 }
 #[no_mangle]
 pub unsafe fn fpu_finit() {
-    *fpu_control_word = 895;
+    *fpu_control_word = 0x37F;
     *fpu_status_word = 0;
     *fpu_ip = 0;
     *fpu_dp = 0;
     *fpu_opcode = 0;
-    *fpu_stack_empty = 255;
+    *fpu_stack_empty = 0xFF;
     *fpu_stack_ptr = 0;
 }
 
@@ -608,7 +613,7 @@ pub unsafe fn fpu_frstor32(mut addr: i32) {
         *reg_mmx.offset(reg_index as isize) = safe_read64s(addr).unwrap();
         addr += 10;
     }
-    *fxsave_store_fpu_mask = 0xff;
+    *fxsave_store_fpu_mask = 0xFF;
 }
 
 #[no_mangle]
@@ -628,6 +633,7 @@ pub unsafe fn fpu_fsave32(mut addr: i32) {
         }
         else {
             safe_write64(addr, *reg_mmx.offset(reg_index as isize)).unwrap();
+            safe_write16(addr + 8, 0).unwrap();
         }
         addr += 10;
     }
@@ -779,7 +785,8 @@ pub unsafe fn fpu_fsubr(target_index: i32, val: f64) {
 }
 
 #[no_mangle]
-pub unsafe fn fpu_ftst(x: f64) {
+pub unsafe fn fpu_ftst() {
+    let x = fpu_get_st0();
     *fpu_status_word &= !FPU_RESULT_FLAGS;
     if x.is_nan() {
         *fpu_status_word |= FPU_C3 | FPU_C2 | FPU_C0
@@ -825,7 +832,8 @@ pub unsafe fn fpu_fucompp() {
 }
 
 #[no_mangle]
-pub unsafe fn fpu_fxam(x: f64) {
+pub unsafe fn fpu_fxam() {
+    let x = fpu_get_st0();
     *fpu_status_word &= !FPU_RESULT_FLAGS;
     *fpu_status_word |= fpu_sign(0) << 9;
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1 {
@@ -837,7 +845,7 @@ pub unsafe fn fpu_fxam(x: f64) {
     else if x == 0.0 {
         *fpu_status_word |= FPU_C3
     }
-    else if x == ::std::f32::INFINITY as f64 || x == -::std::f32::INFINITY as f64 {
+    else if x == std::f32::INFINITY as f64 || x == -std::f32::INFINITY as f64 {
         *fpu_status_word |= FPU_C2 | FPU_C0
     }
     else {
@@ -850,9 +858,7 @@ pub unsafe fn fpu_fxam(x: f64) {
 #[no_mangle]
 pub unsafe fn fpu_sign(i: i32) -> i32 {
     // sign of a number on the stack
-    return *fpu_st8.offset((((*fpu_stack_ptr).wrapping_add(i as u32) & 7) << 3 | 7) as isize)
-        as i32
-        >> 7;
+    return *fpu_st8.offset(((*fpu_stack_ptr + i as u32 & 7) << 3 | 7) as isize) as i32 >> 7;
 }
 #[no_mangle]
 pub unsafe fn fpu_fxch(i: i32) {
@@ -870,7 +876,7 @@ pub unsafe fn fpu_fyl2x() {
     }
     fpu_write_st(
         *fpu_stack_ptr as i32 + 1 & 7,
-        fpu_get_sti(1) * st0.ln() / M_LN2,
+        fpu_get_sti(1) * st0.ln() / f64::consts::LN_2,
     );
     fpu_pop();
 }
@@ -885,10 +891,8 @@ pub unsafe fn fpu_fxtract() {
     }
     else {
         let mut f = FloatParts::of_f64(st0);
-        fpu_write_st(
-            *fpu_stack_ptr as i32,
-            f.exponent as f64 - F64_EXPONENT_BIAS as f64,
-        );
+        let exp = f.exponent as f64 - F64_EXPONENT_BIAS as f64;
+        fpu_write_st(*fpu_stack_ptr as i32, exp);
         f.exponent = 0x3FF;
         fpu_push(f.to_f64());
     }
@@ -897,4 +901,116 @@ pub unsafe fn fpu_fxtract() {
 #[no_mangle]
 pub unsafe fn fwait() {
     // NOP unless FPU instructions run in parallel with CPU instructions
+}
+
+pub unsafe fn fpu_fchs() {
+    let st0 = fpu_get_st0();
+    fpu_write_st(*fpu_stack_ptr as i32, -st0);
+}
+
+pub unsafe fn fpu_fabs() {
+    let st0 = fpu_get_st0();
+    fpu_write_st(*fpu_stack_ptr as i32, st0.abs());
+}
+
+pub unsafe fn fpu_f2xm1() {
+    let st0 = fpu_get_st0();
+    let mut r = pow(2.0, st0) - 1.0;
+    if r == -1.0 {
+        // Intel ...
+        r = -3.475818901301751e+184
+    }
+    fpu_write_st(*fpu_stack_ptr as i32, r)
+}
+
+pub unsafe fn fpu_fptan() {
+    let st0 = fpu_get_st0();
+    if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+        fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
+        // no bug: push constant 1
+        fpu_push(1.0);
+        *fpu_status_word &= !FPU_C2;
+    }
+    else {
+        *fpu_status_word |= FPU_C2;
+    }
+}
+
+pub unsafe fn fpu_fpatan() {
+    let st0 = fpu_get_st0();
+    let st1 = fpu_get_sti(1);
+    fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, st1.atan2(st0));
+    fpu_pop();
+}
+
+pub unsafe fn fpu_fyl2xp1() {
+    // fyl2xp1: y * log2(x+1) and pop
+    let st0 = fpu_get_st0();
+    let st1 = fpu_get_sti(1);
+    let y = st1 * (st0 + 1.0).ln() / std::f64::consts::LN_2;
+    fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, y);
+    fpu_pop();
+}
+
+pub unsafe fn fpu_fsqrt() {
+    let st0 = fpu_get_st0();
+    if st0 < 0.0 {
+        fpu_invalid_arithmetic();
+    }
+    fpu_write_st(*fpu_stack_ptr as i32, st0.sqrt())
+}
+
+pub unsafe fn fpu_fsincos() {
+    let st0 = fpu_get_st0();
+    if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+        fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
+        fpu_push(st0.cos());
+        *fpu_status_word &= !FPU_C2;
+    }
+    else {
+        *fpu_status_word |= FPU_C2;
+    }
+}
+
+pub unsafe fn fpu_frndint() {
+    let st0 = fpu_get_st0();
+    fpu_write_st(*fpu_stack_ptr as i32, fpu_integer_round(st0));
+}
+
+pub unsafe fn fpu_fscale() {
+    let st0 = fpu_get_st0();
+    let y = st0 * pow(2.0, trunc(fpu_get_sti(1)));
+    fpu_write_st(*fpu_stack_ptr as i32, y);
+}
+
+pub unsafe fn fpu_fsin() {
+    let st0 = fpu_get_st0();
+    if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+        fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
+        *fpu_status_word &= !FPU_C2;
+    }
+    else {
+        *fpu_status_word |= FPU_C2;
+    }
+}
+
+pub unsafe fn fpu_fcos() {
+    let st0 = fpu_get_st0();
+    if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+        fpu_write_st(*fpu_stack_ptr as i32, st0.cos());
+        *fpu_status_word &= !FPU_C2;
+    }
+    else {
+        *fpu_status_word |= FPU_C2;
+    }
+}
+
+pub unsafe fn fpu_fdecstp() {
+    *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
+    *fpu_status_word &= !FPU_C1
+}
+
+pub unsafe fn fpu_fincstp() {
+    *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
+    *fpu_status_word &= !FPU_C1
 }

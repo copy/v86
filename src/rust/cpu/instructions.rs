@@ -8,7 +8,6 @@ extern "C" {
 use cpu::arith::*;
 use cpu::cpu::*;
 use cpu::fpu::*;
-use cpu::fpu::{fpu_load_m32, fpu_load_m64, fpu_write_st};
 use cpu::global_pointers::*;
 use cpu::misc_instr::*;
 use cpu::misc_instr::{pop16, pop32s, push16, push32};
@@ -2491,22 +2490,11 @@ pub unsafe fn instr16_D9_4_mem(addr: i32) { fpu_fldenv16(addr); }
 pub unsafe fn instr32_D9_4_mem(addr: i32) { fpu_fldenv32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_4_reg(r: i32) {
-    let st0 = fpu_get_st0();
     match r {
-        0 => {
-            // fchs
-            fpu_write_st(*fpu_stack_ptr as i32, -st0);
-        },
-        1 => {
-            // fabs
-            fpu_write_st(*fpu_stack_ptr as i32, st0.abs());
-        },
-        4 => {
-            fpu_ftst(st0);
-        },
-        5 => {
-            fpu_fxam(st0);
-        },
+        0 => fpu_fchs(),
+        1 => fpu_fabs(),
+        4 => fpu_ftst(),
+        5 => fpu_fxam(),
         _ => {
             dbg_log!("{:x}", r);
             trigger_ud();
@@ -2519,27 +2507,13 @@ pub unsafe fn instr16_D9_5_mem(addr: i32) { fpu_fldcw(addr); }
 pub unsafe fn instr16_D9_5_reg(r: i32) {
     // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
     match r {
-        0 => {
-            fpu_push(1.0);
-        },
-        1 => {
-            fpu_push(M_LN10 / M_LN2);
-        },
-        2 => {
-            fpu_push(M_LOG2E);
-        },
-        3 => {
-            fpu_push(M_PI);
-        },
-        4 => {
-            fpu_push(M_LN2 / M_LN10);
-        },
-        5 => {
-            fpu_push(M_LN2);
-        },
-        6 => {
-            fpu_push(0.0);
-        },
+        0 => fpu_push(1.0),
+        1 => fpu_push(std::f64::consts::LN_10 / std::f64::consts::LN_2),
+        2 => fpu_push(std::f64::consts::LOG2_E),
+        3 => fpu_push(std::f64::consts::PI),
+        4 => fpu_push(std::f64::consts::LN_2 / std::f64::consts::LN_10),
+        5 => fpu_push(std::f64::consts::LN_2),
+        6 => fpu_push(0.0),
         7 => {
             dbg_log!("d9/5/7");
             trigger_ud();
@@ -2554,56 +2528,14 @@ pub unsafe fn instr32_D9_6_mem(addr: i32) { fpu_fstenv32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_6_reg(r: i32) {
     match r {
-        0 => {
-            // f2xm1
-            let st0 = fpu_get_st0();
-            let mut r = pow(2.0, st0) - 1.0;
-            if r == -1.0 {
-                // Intel ...
-                r = -3.475818901301751e+184
-            }
-            fpu_write_st(*fpu_stack_ptr as i32, r)
-        },
-        1 => {
-            // fyl2x
-            fpu_fyl2x();
-        },
-        2 => {
-            // fptan
-            let st0 = fpu_get_st0();
-            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
-                fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
-                // no bug: push constant 1
-                fpu_push(1.0);
-                *fpu_status_word &= !FPU_C2;
-            }
-            else {
-                *fpu_status_word |= FPU_C2;
-            }
-        },
-        3 => {
-            // fpatan
-            let st0 = fpu_get_st0();
-            fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, fpu_get_sti(1).atan2(st0));
-            fpu_pop();
-        },
-        4 => {
-            fpu_fxtract();
-        },
-        5 => {
-            // fprem1
-            fpu_fprem(true);
-        },
-        6 => {
-            // fdecstp
-            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1) & 7;
-            *fpu_status_word &= !FPU_C1
-        },
-        7 => {
-            // fincstp
-            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1) & 7;
-            *fpu_status_word &= !FPU_C1
-        },
+        0 => fpu_f2xm1(),
+        1 => fpu_fyl2x(),
+        2 => fpu_fptan(),
+        3 => fpu_fpatan(),
+        4 => fpu_fxtract(),
+        5 => fpu_fprem(true), // fprem1
+        6 => fpu_fdecstp(),
+        7 => fpu_fincstp(),
         _ => {
             dbg_assert!(false);
         },
@@ -2613,62 +2545,15 @@ pub unsafe fn instr16_D9_6_reg(r: i32) {
 pub unsafe fn instr16_D9_7_mem(addr: i32) { fpu_fstcw(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_7_reg(r: i32) {
-    let st0 = fpu_get_st0();
     match r {
-        0 => {
-            // fprem
-            fpu_fprem(false);
-        },
-        1 => {
-            // fyl2xp1: y * log2(x+1) and pop
-            let y = fpu_get_sti(1) * (st0 + 1.0).ln() / M_LN2;
-            fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, y);
-            fpu_pop();
-        },
-        2 => {
-            if st0 < 0.0 {
-                fpu_invalid_arithmetic();
-            }
-            fpu_write_st(*fpu_stack_ptr as i32, st0.sqrt())
-        },
-        3 => {
-            // fsincos
-            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
-                fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
-                fpu_push(st0.cos());
-                *fpu_status_word &= !FPU_C2;
-            }
-            else {
-                *fpu_status_word |= FPU_C2;
-            }
-        },
-        4 => {
-            // frndint
-            fpu_write_st(*fpu_stack_ptr as i32, fpu_integer_round(st0));
-        },
-        5 => {
-            // fscale
-            let y = st0 * pow(2.0, trunc(fpu_get_sti(1)));
-            fpu_write_st(*fpu_stack_ptr as i32, y);
-        },
-        6 => {
-            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
-                fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
-                *fpu_status_word &= !FPU_C2;
-            }
-            else {
-                *fpu_status_word |= FPU_C2;
-            }
-        },
-        7 => {
-            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
-                fpu_write_st(*fpu_stack_ptr as i32, st0.cos());
-                *fpu_status_word &= !FPU_C2;
-            }
-            else {
-                *fpu_status_word |= FPU_C2;
-            }
-        },
+        0 => fpu_fprem(false),
+        1 => fpu_fyl2xp1(),
+        2 => fpu_fsqrt(),
+        3 => fpu_fsincos(),
+        4 => fpu_frndint(),
+        5 => fpu_fscale(),
+        6 => fpu_fsin(),
+        7 => fpu_fcos(),
         _ => {
             dbg_assert!(false);
         },
@@ -3015,8 +2900,8 @@ pub unsafe fn instr_DF_6_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DF_7_mem(addr: i32) { fpu_fistm64p(addr); }
-#[no_mangle]
 
+#[no_mangle]
 pub unsafe fn instr_DF_0_reg(r: i32) {
     fpu_ffree(r);
     fpu_pop();
