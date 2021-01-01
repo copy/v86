@@ -108,9 +108,6 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
 		--js src/browser/main.js
-
-	echo '//# sourceMappingURL=v86_all.js.map' >> build/v86_all.js
-
 	ls -lh build/v86_all.js
 
 build/v86_all_debug.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
