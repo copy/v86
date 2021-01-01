@@ -188,7 +188,9 @@ enum Offset {
 fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
     match offset {
         Offset::Sib => {
-            gen_sib(ctx, imm != Imm32::None);
+            let sib_byte = ctx.cpu.read_imm8();
+
+            gen_sib(ctx, sib_byte, imm == Imm32::None);
 
             let immediate_value = match imm {
                 Imm32::None => 0,
@@ -201,7 +203,24 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 ctx.builder.instruction_body.add_i32();
             }
 
-            profiler::stat_increment(profiler::stat::MODRM_COMPLEX);
+            {
+                let m = sib_byte >> 3 & 7;
+
+                codegen::gen_profiler_stat_increment(
+                    ctx.builder,
+                    if m == 4 {
+                        if immediate_value == 0 {
+                            profiler::stat::MODRM_SIMPLE_REG
+                        }
+                        else {
+                            profiler::stat::MODRM_SIMPLE_REG_WITH_OFFSET
+                        }
+                    }
+                    else {
+                        profiler::stat::MODRM_COMPLEX
+                    },
+                );
+            }
         },
         Offset::Reg(r) => {
             let immediate_value = match imm {
@@ -213,15 +232,23 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
             if immediate_value != 0 {
                 ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
-                profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG_WITH_OFFSET);
             }
-            else {
-                profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG);
-            }
+            codegen::gen_profiler_stat_increment(
+                ctx.builder,
+                if immediate_value == 0 {
+                    profiler::stat::MODRM_SIMPLE_REG
+                }
+                else {
+                    profiler::stat::MODRM_SIMPLE_REG_WITH_OFFSET
+                },
+            );
             jit_add_seg_offset(ctx, seg);
         },
         Offset::None => {
-            profiler::stat_increment(profiler::stat::MODRM_SIMPLE_REG);
+            codegen::gen_profiler_stat_increment(
+                ctx.builder,
+                profiler::stat::MODRM_SIMPLE_CONST_OFFSET,
+            );
             let immediate_value = match imm {
                 Imm32::None => 0,
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
@@ -266,8 +293,7 @@ fn gen32(ctx: &mut JitContext, modrm_byte: u8) {
     }
 }
 
-fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
-    let sib_byte = ctx.cpu.read_imm8();
+fn gen_sib(ctx: &mut JitContext, sib_byte: u8, mod_is_zero: bool) {
     let r = sib_byte & 7;
     let m = sib_byte >> 3 & 7;
 
@@ -281,14 +307,14 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
         codegen::gen_get_reg32(ctx, ESP);
     }
     else if r == 5 {
-        if mod_is_nonzero {
-            seg = SS;
-            codegen::gen_get_reg32(ctx, EBP);
-        }
-        else {
+        if mod_is_zero {
             seg = DS;
             let base = ctx.cpu.read_imm32();
             ctx.builder.instruction_body.const_i32(base as i32);
+        }
+        else {
+            seg = SS;
+            codegen::gen_get_reg32(ctx, EBP);
         }
     }
     else {
