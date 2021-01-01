@@ -17,25 +17,30 @@ use state_flags::CachedStateFlags;
 use util::SafeToU16;
 use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
 
-type WasmTableIndex = u16;
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+#[repr(transparent)]
+pub struct WasmTableIndex(u16);
+impl WasmTableIndex {
+    pub fn to_u16(self) -> u16 { self.0 }
+}
 
 mod unsafe_jit {
-    use jit::CachedStateFlags;
+    use jit::{CachedStateFlags, WasmTableIndex};
 
     extern "C" {
         pub fn codegen_finalize(
-            wasm_table_index: u16,
+            wasm_table_index: WasmTableIndex,
             phys_addr: u32,
             state_flags: CachedStateFlags,
             ptr: u32,
             len: u32,
         );
-        pub fn jit_clear_func(wasm_table_index: u16);
+        pub fn jit_clear_func(wasm_table_index: WasmTableIndex);
     }
 }
 
 fn codegen_finalize(
-    wasm_table_index: u16,
+    wasm_table_index: WasmTableIndex,
     phys_addr: u32,
     state_flags: CachedStateFlags,
     ptr: u32,
@@ -44,7 +49,7 @@ fn codegen_finalize(
     unsafe { unsafe_jit::codegen_finalize(wasm_table_index, phys_addr, state_flags, ptr, len) }
 }
 
-pub fn jit_clear_func(wasm_table_index: u16) {
+pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
@@ -90,7 +95,7 @@ pub struct Entry {
     pub opcode: u32,
 
     pub initial_state: u16,
-    pub wasm_table_index: u16,
+    pub wasm_table_index: WasmTableIndex,
     pub state_flags: CachedStateFlags,
 }
 
@@ -132,7 +137,7 @@ pub fn check_jit_state_invariants(ctx: &mut JitState) {
 impl JitState {
     pub fn create_and_initialise() -> JitState {
         // don't assign 0 (XXX: Check)
-        let wasm_table_indices = 1..=(WASM_TABLE_SIZE - 1) as u16;
+        let wasm_table_indices = (1..=(WASM_TABLE_SIZE - 1) as u16).map(|x| WasmTableIndex(x));
 
         JitState {
             wasm_builder: WasmBuilder::new(),
@@ -177,13 +182,13 @@ struct BasicBlock {
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct CachedCode {
-    pub wasm_table_index: u16,
+    pub wasm_table_index: WasmTableIndex,
     pub initial_state: u16,
 }
 
 impl CachedCode {
     pub const NONE: CachedCode = CachedCode {
-        wasm_table_index: 0,
+        wasm_table_index: WasmTableIndex(0),
         initial_state: 0,
     };
 }
@@ -194,7 +199,7 @@ pub struct JitContext<'a> {
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
     pub current_brtable_depth: u32,
-    pub our_wasm_table_index: u16,
+    pub our_wasm_table_index: WasmTableIndex,
     pub basic_block_index_local: &'a WasmLocal,
     pub state_flags: CachedStateFlags,
 }
@@ -235,7 +240,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
 #[no_mangle]
 pub fn jit_find_cache_entry_in_page(
     phys_address: u32,
-    wasm_table_index: u16,
+    wasm_table_index: WasmTableIndex,
     state_flags: u32,
 ) -> i32 {
     let state_flags = CachedStateFlags::of_u32(state_flags);
@@ -666,7 +671,7 @@ fn jit_analyze_and_generate(
             .wasm_table_index_free_list
             .pop()
             .expect("allocate wasm table index");
-        dbg_assert!(wasm_table_index != 0);
+        dbg_assert!(wasm_table_index != WasmTableIndex(0));
 
         dbg_assert!(!pages.is_empty());
         dbg_assert!(pages.len() <= MAX_PAGES);
@@ -718,13 +723,13 @@ fn jit_analyze_and_generate(
 
 #[no_mangle]
 pub fn codegen_finalize_finished(
-    wasm_table_index: u16,
+    wasm_table_index: WasmTableIndex,
     phys_addr: u32,
     state_flags: CachedStateFlags,
 ) {
     let ctx = get_jit_state();
 
-    dbg_assert!(wasm_table_index != 0);
+    dbg_assert!(wasm_table_index != WasmTableIndex(0));
 
     dbg_log!(
         "Finished compiling for page at {:x}",
@@ -837,7 +842,7 @@ fn jit_generate_module(
     basic_blocks: &Vec<BasicBlock>,
     mut cpu: CpuContext,
     builder: &mut WasmBuilder,
-    wasm_table_index: u16,
+    wasm_table_index: WasmTableIndex,
     state_flags: CachedStateFlags,
 ) {
     builder.reset();
@@ -1222,7 +1227,7 @@ pub fn jit_increase_hotness_and_maybe_compile(
     };
 }
 
-fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: u16) {
+fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
     if CHECK_JIT_STATE_INVARIANTS {
         dbg_assert!(!ctx.wasm_table_index_free_list.contains(&wasm_table_index));
 

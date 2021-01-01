@@ -2357,7 +2357,7 @@ pub unsafe fn cycle_internal() {
             }
             let initial_eip = *instruction_pointer;
             call_indirect1(
-                wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
+                wasm_table_index.to_u16() as i32 + WASM_TABLE_OFFSET as i32,
                 initial_state,
             );
             #[cfg(debug_assertions)]

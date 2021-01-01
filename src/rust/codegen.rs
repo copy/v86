@@ -105,7 +105,8 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     gen_get_phys_eip(ctx, &new_eip);
     ctx.builder.free_local(new_eip);
 
-    ctx.builder.const_i32(ctx.our_wasm_table_index as i32);
+    ctx.builder
+        .const_i32(ctx.our_wasm_table_index.to_u16() as i32);
     ctx.builder.const_i32(ctx.state_flags.to_u32() as i32);
     ctx.builder.call_fn3_ret("jit_find_cache_entry_in_page");
     let new_basic_block_index = ctx.builder.tee_new_local();
