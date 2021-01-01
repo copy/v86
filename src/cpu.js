@@ -98,25 +98,25 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     this.prefixes = v86util.view(Int32Array, memory, 648, 1);
 
-    this.flags = v86util.view(Int32Array, memory, 536, 1);
+    this.flags = v86util.view(Int32Array, memory, 120, 1);
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    this.flags_changed = v86util.view(Int32Array, memory, 532, 1);
+    this.flags_changed = v86util.view(Int32Array, memory, 116, 1);
 
     /**
      * the last 2 operators and the result and size of the last arithmetic operation
      */
-    this.last_op1 = v86util.view(Int32Array, memory, 512, 1);
-    this.last_op2 = v86util.view(Int32Array, memory, 516, 1);
-    this.last_op_size = v86util.view(Int32Array, memory, 520, 1);
+    this.last_op1 = v86util.view(Int32Array, memory, 96, 1);
+    this.last_op2 = v86util.view(Int32Array, memory, 100, 1);
+    this.last_op_size = v86util.view(Int32Array, memory, 104, 1);
 
-    this.last_add_result = v86util.view(Int32Array, memory, 524, 1);
-    this.last_result = v86util.view(Int32Array, memory, 528, 1);
+    this.last_add_result = v86util.view(Int32Array, memory, 108, 1);
+    this.last_result = v86util.view(Int32Array, memory, 112, 1);
 
-    this.current_tsc = v86util.view(Uint32Array, memory, 956, 2); // 64 bit
+    this.current_tsc = v86util.view(Uint32Array, memory, 960, 2); // 64 bit
 
     /** @type {!Object} */
     this.devices = {};
@@ -144,12 +144,12 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.timestamp_counter = v86util.view(Uint32Array, memory, 664, 1);
 
     // registers
-    this.reg32s = v86util.view(Int32Array, memory, 4, 8);
-    this.reg32 = v86util.view(Uint32Array, memory, 4, 8);
-    this.reg16s = v86util.view(Int16Array, memory, 4, 16);
-    this.reg16 = v86util.view(Uint16Array, memory, 4, 16);
-    this.reg8s = v86util.view(Int8Array, memory, 4, 32);
-    this.reg8 = v86util.view(Uint8Array, memory, 4, 32);
+    this.reg32s = v86util.view(Int32Array, memory, 64, 8);
+    this.reg32 = v86util.view(Uint32Array, memory, 64, 8);
+    this.reg16s = v86util.view(Int16Array, memory, 64, 16);
+    this.reg16 = v86util.view(Uint16Array, memory, 64, 16);
+    this.reg8s = v86util.view(Int8Array, memory, 64, 32);
+    this.reg8 = v86util.view(Uint8Array, memory, 64, 32);
 
     // Why no Float80Array :-(
     this.fpu_st = v86util.view(Float64Array, memory, 968, 8);
@@ -182,7 +182,7 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     this.fxsave_store_fpu_mask = v86util.view(Uint8Array, memory, 1132, 1);
 
-    this.reg_xmm32s = v86util.view(Int32Array, memory, 828, 8 * 4);
+    this.reg_xmm32s = v86util.view(Int32Array, memory, 832, 8 * 4);
 
     this.mxcsr = v86util.view(Int32Array, memory, 824, 1);
 

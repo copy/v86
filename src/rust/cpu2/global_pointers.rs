@@ -2,18 +2,19 @@
 
 use cpu2::cpu::{reg128, reg64};
 
-pub const reg8: *mut u8 = 4 as *mut u8;
-pub const reg16: *mut u16 = 4 as *mut u16;
-pub const reg8s: *mut i8 = 4 as *mut i8;
-pub const reg16s: *mut i16 = 4 as *mut i16;
-pub const reg32s: *mut i32 = 4 as *mut i32;
-pub const last_op1: *mut i32 = 512 as *mut i32;
-pub const last_op2: *mut i32 = 516 as *mut i32;
-pub const last_op_size: *mut i32 = 520 as *mut i32;
-pub const last_add_result: *mut i32 = 524 as *mut i32;
-pub const last_result: *mut i32 = 528 as *mut i32;
-pub const flags_changed: *mut i32 = 532 as *mut i32;
-pub const flags: *mut i32 = 536 as *mut i32;
+pub const reg8: *mut u8 = 64 as *mut u8;
+pub const reg16: *mut u16 = 64 as *mut u16;
+pub const reg8s: *mut i8 = 64 as *mut i8;
+pub const reg16s: *mut i16 = 64 as *mut i16;
+pub const reg32s: *mut i32 = 64 as *mut i32;
+pub const last_op1: *mut i32 = 96 as *mut i32;
+pub const last_op2: *mut i32 = 100 as *mut i32;
+pub const last_op_size: *mut i32 = 104 as *mut i32;
+pub const last_add_result: *mut i32 = 108 as *mut i32;
+pub const last_result: *mut i32 = 112 as *mut i32;
+pub const flags_changed: *mut i32 = 116 as *mut i32;
+pub const flags: *mut i32 = 120 as *mut i32;
+
 pub const page_fault: *mut bool = 540 as *mut bool;
 pub const page_fault_error_code: *mut i32 = 544 as *mut i32;
 pub const a20_enabled: *mut bool = 552 as *mut bool;
@@ -47,8 +48,9 @@ pub const stack_size_32: *mut bool = 808 as *mut bool;
 pub const memory_size: *mut u32 = 812 as *mut u32;
 pub const fpu_stack_empty: *mut i32 = 816 as *mut i32;
 pub const mxcsr: *mut i32 = 824 as *mut i32;
-pub const reg_xmm: *mut reg128 = 828 as *mut reg128;
-pub const current_tsc: *mut u64 = 956 as *mut u64;
+// gap
+pub const reg_xmm: *mut reg128 = 832 as *mut reg128;
+pub const current_tsc: *mut u64 = 960 as *mut u64;
 pub const fpu_st: *mut f64 = 968 as *mut f64;
 pub const fpu_st8: *mut u8 = 968 as *mut u8;
 pub const fpu_st32: *mut i32 = 968 as *mut i32;
