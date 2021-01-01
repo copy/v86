@@ -12,12 +12,12 @@
 use cpu2::arith::{cmp8, cmp16, cmp32};
 use cpu2::cpu::{
     get_seg, io_port_read8, io_port_read16, io_port_read32, io_port_write8, io_port_write16,
-    io_port_write32, read_reg32, safe_read8, safe_read16, safe_read32s, safe_write8, safe_write16,
-    safe_write32, set_reg_asize, test_privileges_for_io, translate_address_read,
-    translate_address_write_and_can_skip_dirty, writable_or_pagefault, AL, AX, DX, EAX, ECX, EDI,
-    ES, ESI, FLAG_DIRECTION,
+    io_port_write32, read_reg16, read_reg32, safe_read8, safe_read16, safe_read32s, safe_write8,
+    safe_write16, safe_write32, set_reg_asize, test_privileges_for_io, translate_address_read,
+    translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg16, AL, AX, DX,
+    EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
 };
-use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg8, reg16, reg32};
+use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg8, reg32};
 use cpu2::memory::{
     in_mapped_range, memcpy_no_mmap_or_dirty_check, memset_no_mmap_or_dirty_check,
     read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check, write8_no_mmap_or_dirty_check,
@@ -125,7 +125,7 @@ unsafe fn string_instruction(
 
     let port = match instruction {
         Instruction::Ins | Instruction::Outs => {
-            let port = *reg16.offset(DX as isize) as i32;
+            let port = read_reg16(DX);
             if !test_privileges_for_io(port, size_bytes) {
                 return;
             }
@@ -243,7 +243,7 @@ unsafe fn string_instruction(
                 },
                 Instruction::Lods => match size {
                     Size::B => *reg8.offset(AL as isize) = src_val as u8,
-                    Size::W => *reg16.offset(AX as isize) = src_val as u16,
+                    Size::W => write_reg16(AX, src_val),
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
                 Instruction::Ins => match size {
@@ -375,7 +375,7 @@ unsafe fn string_instruction(
                 },
                 Instruction::Lods => match size {
                     Size::B => *reg8.offset(AL as isize) = src_val as u8,
-                    Size::W => *reg16.offset(AX as isize) = src_val as u16,
+                    Size::W => write_reg16(AX, src_val),
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
                 Instruction::Movs | Instruction::Stos | Instruction::Ins => match size {

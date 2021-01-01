@@ -135,7 +135,7 @@ pub unsafe fn neg32(x: i32) -> i32 { return neg(x, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn mul8(source_operand: i32) {
     let result = source_operand * *reg8.offset(AL as isize) as i32;
-    *reg16.offset(AX as isize) = result as u16;
+    write_reg16(AX, result);
     *last_result = result & 255;
     *last_op_size = OPSIZE_8;
     if result < 256 {
@@ -149,7 +149,7 @@ pub unsafe fn mul8(source_operand: i32) {
 #[no_mangle]
 pub unsafe fn imul8(source_operand: i32) {
     let result = source_operand * *reg8s.offset(AL as isize) as i32;
-    *reg16.offset(AX as isize) = result as u16;
+    write_reg16(AX, result);
     *last_result = result & 255;
     *last_op_size = OPSIZE_8;
     if result > 127 || result < -128 {
@@ -162,10 +162,10 @@ pub unsafe fn imul8(source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn mul16(source_operand: u32) {
-    let result = source_operand.wrapping_mul(*reg16.offset(AX as isize) as u32);
+    let result = source_operand.wrapping_mul(read_reg16(AX) as u32);
     let high_result = result >> 16;
-    *reg16.offset(AX as isize) = result as u16;
-    *reg16.offset(DX as isize) = high_result as u16;
+    write_reg16(AX, result as i32);
+    write_reg16(DX, high_result as i32);
     *last_result = (result & 0xFFFF) as i32;
     *last_op_size = OPSIZE_16;
     if high_result == 0 {
@@ -178,9 +178,9 @@ pub unsafe fn mul16(source_operand: u32) {
 }
 #[no_mangle]
 pub unsafe fn imul16(source_operand: i32) {
-    let result = source_operand * *reg16s.offset(AX as isize) as i32;
-    *reg16.offset(AX as isize) = result as u16;
-    *reg16.offset(DX as isize) = (result >> 16) as u16;
+    let result = source_operand * (read_reg16(AX) << 16 >> 16);
+    write_reg16(AX, result);
+    write_reg16(DX, result >> 16);
     *last_result = result & 0xFFFF;
     *last_op_size = OPSIZE_16;
     if result > 32767 || result < -32768 {
@@ -292,12 +292,12 @@ pub unsafe fn cmpxchg8(data: i32, r: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn cmpxchg16(data: i32, r: i32) -> i32 {
-    cmp16(*reg16.offset(AX as isize) as i32, data);
+    cmp16(read_reg16(AX), data);
     if getzf() {
         read_reg16(r)
     }
     else {
-        *reg16.offset(AX as isize) = data as u16;
+        write_reg16(AX, data);
         data
     }
 }
@@ -356,7 +356,7 @@ pub unsafe fn bcd_das() {
 pub unsafe fn bcd_aad(imm8: i32) {
     let result = *reg8.offset(AL as isize) as i32 + *reg8.offset(AH as isize) as i32 * imm8;
     *last_result = result & 255;
-    *reg16.offset(AX as isize) = *last_result as u16;
+    write_reg16(AX, *last_result);
     *last_op_size = OPSIZE_8;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
     *flags &= !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
@@ -382,7 +382,7 @@ pub unsafe fn bcd_aam(imm8: i32) {
 #[no_mangle]
 pub unsafe fn bcd_aaa() {
     if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
-        *reg16.offset(AX as isize) += 6;
+        write_reg16(AX, read_reg16(AX) + 6);
         *reg8.offset(AH as isize) += 1;
         *flags |= FLAG_ADJUST | 1
     }
@@ -395,7 +395,7 @@ pub unsafe fn bcd_aaa() {
 #[no_mangle]
 pub unsafe fn bcd_aas() {
     if *reg8.offset(AL as isize) as i32 & 15 > 9 || getaf() {
-        *reg16.offset(AX as isize) -= 6;
+        write_reg16(AX, read_reg16(AX) - 6);
         *reg8.offset(AH as isize) -= 1;
         *flags |= FLAG_ADJUST | 1
     }
@@ -662,7 +662,7 @@ pub unsafe fn div8(source_operand: u32) {
         return;
     }
     else {
-        let target_operand = *reg16.offset(AX as isize);
+        let target_operand = read_reg16(AX);
         let result = (target_operand as u32).wrapping_div(source_operand) as u16;
         if result as i32 >= 256 {
             trigger_de();
@@ -682,7 +682,7 @@ pub unsafe fn idiv8(source_operand: i32) {
         return;
     }
     else {
-        let target_operand = *reg16s.offset(AX as isize) as i32;
+        let target_operand = read_reg16(AX) << 16 >> 16;
         let result = target_operand / source_operand;
         if result >= 128 || result <= -129 {
             trigger_de();
@@ -700,14 +700,13 @@ pub unsafe fn div16_without_fault(source_operand: u32) -> bool {
     if source_operand == 0 {
         return false;
     }
-    let target_operand =
-        (*reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16) as u32;
+    let target_operand = (read_reg16(AX) | read_reg16(DX) << 16) as u32;
     let result = target_operand.wrapping_div(source_operand);
     if result >= 0x10000 {
         return false;
     }
-    *reg16.offset(AX as isize) = result as u16;
-    *reg16.offset(DX as isize) = target_operand.wrapping_rem(source_operand) as u16;
+    write_reg16(AX, result as i32);
+    write_reg16(DX, target_operand.wrapping_rem(source_operand) as i32);
     return true;
 }
 pub unsafe fn div16(source_operand: u32) {
@@ -720,14 +719,13 @@ pub unsafe fn idiv16_without_fault(source_operand: i32) -> bool {
     if source_operand == 0 {
         return false;
     }
-    let target_operand =
-        *reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16;
+    let target_operand = read_reg16(AX) | read_reg16(DX) << 16;
     let result = target_operand / source_operand;
     if result >= 32768 || result <= -32769 {
         return false;
     }
-    *reg16.offset(AX as isize) = result as u16;
-    *reg16.offset(DX as isize) = (target_operand % source_operand) as u16;
+    write_reg16(AX, result);
+    write_reg16(DX, (target_operand % source_operand) as i32);
     return true;
 }
 pub unsafe fn idiv16(source_operand: i32) {

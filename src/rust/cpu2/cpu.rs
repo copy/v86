@@ -114,6 +114,7 @@ pub const FLAGS_ALL: i32 =
 pub const OPSIZE_8: i32 = 7;
 pub const OPSIZE_16: i32 = 15;
 pub const OPSIZE_32: i32 = 31;
+
 pub const EAX: i32 = 0;
 pub const ECX: i32 = 1;
 pub const EDX: i32 = 2;
@@ -122,14 +123,16 @@ pub const ESP: i32 = 4;
 pub const EBP: i32 = 5;
 pub const ESI: i32 = 6;
 pub const EDI: i32 = 7;
+
 pub const AX: i32 = 0;
-pub const CX: i32 = 2;
-pub const DX: i32 = 4;
-pub const BX: i32 = 6;
-pub const SP: i32 = 8;
-pub const BP: i32 = 10;
-pub const SI: i32 = 12;
-pub const DI: i32 = 14;
+pub const CX: i32 = 1;
+pub const DX: i32 = 2;
+pub const BX: i32 = 3;
+pub const SP: i32 = 4;
+pub const BP: i32 = 5;
+pub const SI: i32 = 6;
+pub const DI: i32 = 7;
+
 pub const AL: i32 = 0;
 pub const CL: i32 = 4;
 pub const DL: i32 = 8;
@@ -138,6 +141,7 @@ pub const AH: i32 = 1;
 pub const CH: i32 = 5;
 pub const DH: i32 = 9;
 pub const BH: i32 = 13;
+
 pub const ES: i32 = 0;
 pub const CS: i32 = 1;
 pub const SS: i32 = 2;
@@ -145,6 +149,7 @@ pub const DS: i32 = 3;
 pub const FS: i32 = 4;
 pub const GS: i32 = 5;
 pub const TR: i32 = 6;
+
 pub const LDTR: i32 = 7;
 pub const PAGE_TABLE_PRESENT_MASK: i32 = 1 << 0;
 pub const PAGE_TABLE_RW_MASK: i32 = 1 << 1;
@@ -2267,14 +2272,14 @@ pub unsafe fn popa16() {
     return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
     return_on_pagefault!(translate_address_read(get_stack_pointer(15)));
 
-    *reg16.offset(DI as isize) = pop16().unwrap() as u16;
-    *reg16.offset(SI as isize) = pop16().unwrap() as u16;
-    *reg16.offset(BP as isize) = pop16().unwrap() as u16;
+    write_reg16(DI, pop16().unwrap());
+    write_reg16(SI, pop16().unwrap());
+    write_reg16(BP, pop16().unwrap());
     adjust_stack_reg(2);
-    *reg16.offset(BX as isize) = pop16().unwrap() as u16;
-    *reg16.offset(DX as isize) = pop16().unwrap() as u16;
-    *reg16.offset(CX as isize) = pop16().unwrap() as u16;
-    *reg16.offset(AX as isize) = pop16().unwrap() as u16;
+    write_reg16(BX, pop16().unwrap());
+    write_reg16(DX, pop16().unwrap());
+    write_reg16(CX, pop16().unwrap());
+    write_reg16(AX, pop16().unwrap());
 }
 
 pub unsafe fn popa32() {
@@ -3088,26 +3093,36 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
 pub fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }
 
 pub unsafe fn read_reg8(index: i32) -> i32 {
+    dbg_assert!(index >= 0 && index < 8);
     return *reg8.offset(get_reg8_index(index) as isize) as i32;
 }
 
 pub unsafe fn write_reg8(index: i32, value: i32) {
+    dbg_assert!(index >= 0 && index < 8);
     *reg8.offset(get_reg8_index(index) as isize) = value as u8;
 }
 
 pub fn get_reg16_index(index: i32) -> i32 { return index << 1; }
 
 pub unsafe fn read_reg16(index: i32) -> i32 {
+    dbg_assert!(index >= 0 && index < 8);
     return *reg16.offset(get_reg16_index(index) as isize) as i32;
 }
 
 pub unsafe fn write_reg16(index: i32, value: i32) {
+    dbg_assert!(index >= 0 && index < 8);
     *reg16.offset(get_reg16_index(index) as isize) = value as u16;
 }
 
-pub unsafe fn read_reg32(index: i32) -> i32 { *reg32.offset(index as isize) }
+pub unsafe fn read_reg32(index: i32) -> i32 {
+    dbg_assert!(index >= 0 && index < 8);
+    *reg32.offset(index as isize)
+}
 
-pub unsafe fn write_reg32(index: i32, value: i32) { *reg32.offset(index as isize) = value; }
+pub unsafe fn write_reg32(index: i32, value: i32) {
+    dbg_assert!(index >= 0 && index < 8);
+    *reg32.offset(index as isize) = value;
+}
 
 pub unsafe fn read_mmx32s(r: i32) -> i32 { *reg_mmx.offset(r as isize) as i32 }
 
@@ -3238,7 +3253,7 @@ pub unsafe fn get_stack_reg() -> i32 {
         return *reg32.offset(ESP as isize);
     }
     else {
-        return *reg16.offset(SP as isize) as i32;
+        return read_reg16(SP);
     };
 }
 
@@ -3248,7 +3263,7 @@ pub unsafe fn set_stack_reg(value: i32) {
         *reg32.offset(ESP as isize) = value
     }
     else {
-        *reg16.offset(SP as isize) = value as u16
+        write_reg16(SP, value)
     };
 }
 
@@ -3269,7 +3284,7 @@ pub unsafe fn set_reg_asize(is_asize_32: bool, reg: i32, value: i32) {
         *reg32.offset(reg as isize) = value
     }
     else {
-        *reg16.offset((reg << 1) as isize) = value as u16
+        write_reg16(reg, value)
     };
 }
 
@@ -3279,8 +3294,8 @@ pub unsafe fn decr_ecx_asize(is_asize_32: bool) -> i32 {
         *reg32.offset(ECX as isize)
     }
     else {
-        *reg16.offset(CX as isize) -= 1;
-        *reg16.offset(CX as isize) as i32
+        write_reg16(CX, read_reg16(CX) - 1);
+        read_reg16(CX)
     };
 }
 

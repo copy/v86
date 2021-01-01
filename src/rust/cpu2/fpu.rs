@@ -533,7 +533,7 @@ pub unsafe fn fpu_fnstsw_mem(addr: i32) {
     return_on_pagefault!(safe_write16(addr, fpu_load_status_word()));
 }
 #[no_mangle]
-pub unsafe fn fpu_fnstsw_reg() { *reg16.offset(AX as isize) = fpu_load_status_word() as u16; }
+pub unsafe fn fpu_fnstsw_reg() { write_reg16(AX, fpu_load_status_word()); }
 #[no_mangle]
 pub unsafe fn fpu_fprem(ieee: bool) {
     // false: Faster, passes qemutests

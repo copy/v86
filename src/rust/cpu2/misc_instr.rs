@@ -145,7 +145,7 @@ pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
         return get_seg_ss() + *reg32.offset(ESP as isize) + offset;
     }
     else {
-        return get_seg_ss() + (*reg16.offset(SP as isize) as i32 + offset & 0xFFFF);
+        return get_seg_ss() + (read_reg16(SP) + offset & 0xFFFF);
     };
 }
 #[no_mangle]
@@ -154,15 +154,15 @@ pub unsafe fn adjust_stack_reg(adjustment: i32) {
         *reg32.offset(ESP as isize) += adjustment;
     }
     else {
-        *reg16.offset(SP as isize) += adjustment as u16;
+        write_reg16(SP, read_reg16(SP) + adjustment);
     };
 }
 
 #[no_mangle]
 pub unsafe fn push16_ss16(imm16: i32) -> OrPageFault<()> {
-    let sp = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2 & 0xFFFF);
+    let sp = get_seg_ss() + (read_reg16(SP) - 2 & 0xFFFF);
     safe_write16(sp, imm16)?;
-    *reg16.offset(SP as isize) -= 2;
+    write_reg16(SP, read_reg16(SP) - 2);
     Ok(())
 }
 #[no_mangle]
@@ -185,9 +185,9 @@ pub unsafe fn push16(imm16: i32) -> OrPageFault<()> {
 
 #[no_mangle]
 pub unsafe fn push32_ss16(imm32: i32) -> OrPageFault<()> {
-    let new_sp = *reg16.offset(SP as isize) as i32 - 4 & 0xFFFF;
+    let new_sp = read_reg16(SP) - 4 & 0xFFFF;
     safe_write32(get_seg_ss() + new_sp, imm32)?;
-    *reg16.offset(SP as isize) = new_sp as u16;
+    write_reg16(SP, new_sp);
     Ok(())
 }
 #[no_mangle]
@@ -213,9 +213,9 @@ pub unsafe fn pop16() -> OrPageFault<i32> {
 }
 #[no_mangle]
 pub unsafe fn pop16_ss16() -> OrPageFault<i32> {
-    let sp = get_seg_ss() + *reg16.offset(SP as isize) as i32;
+    let sp = get_seg_ss() + read_reg16(SP);
     let result = safe_read16(sp)?;
-    *reg16.offset(SP as isize) += 2;
+    write_reg16(SP, read_reg16(SP) + 2);
     Ok(result)
 }
 #[no_mangle]
@@ -231,9 +231,9 @@ pub unsafe fn pop32s() -> OrPageFault<i32> {
 }
 #[no_mangle]
 pub unsafe fn pop32s_ss16() -> OrPageFault<i32> {
-    let sp = *reg16.offset(SP as isize) as i32;
+    let sp = read_reg16(SP);
     let result = safe_read32s(get_seg_ss() + sp)?;
-    *reg16.offset(SP as isize) = (sp + 4) as u16;
+    write_reg16(SP, sp + 4);
     Ok(result)
 }
 #[no_mangle]
@@ -245,18 +245,18 @@ pub unsafe fn pop32s_ss32() -> OrPageFault<i32> {
 }
 #[no_mangle]
 pub unsafe fn pusha16() {
-    let temp = *reg16.offset(SP as isize);
+    let temp = read_reg16(SP);
     // make sure we don't get a pagefault after having
     // pushed several registers already
     return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-16), 16));
-    push16(*reg16.offset(AX as isize) as i32).unwrap();
-    push16(*reg16.offset(CX as isize) as i32).unwrap();
-    push16(*reg16.offset(DX as isize) as i32).unwrap();
-    push16(*reg16.offset(BX as isize) as i32).unwrap();
+    push16(read_reg16(AX)).unwrap();
+    push16(read_reg16(CX)).unwrap();
+    push16(read_reg16(DX)).unwrap();
+    push16(read_reg16(BX)).unwrap();
     push16(temp as i32).unwrap();
-    push16(*reg16.offset(BP as isize) as i32).unwrap();
-    push16(*reg16.offset(SI as isize) as i32).unwrap();
-    push16(*reg16.offset(DI as isize) as i32).unwrap();
+    push16(read_reg16(BP)).unwrap();
+    push16(read_reg16(SI)).unwrap();
+    push16(read_reg16(DI)).unwrap();
 }
 #[no_mangle]
 pub unsafe fn pusha32() {
@@ -319,11 +319,8 @@ pub unsafe fn enter16(size: i32, mut nesting_level: i32) {
         push16(frame_temp).unwrap();
     }
 
-    return_on_pagefault!(safe_write16(
-        ss + (frame_temp & ss_mask),
-        *reg16.offset(BP as isize) as i32,
-    ));
-    *reg16.offset(BP as isize) = frame_temp as u16;
+    return_on_pagefault!(safe_write16(ss + (frame_temp & ss_mask), read_reg16(BP)));
+    write_reg16(BP, frame_temp);
     adjust_stack_reg(-size - 2);
 }
 
@@ -452,6 +449,7 @@ pub unsafe fn fxrstor(addr: i32) {
         return;
     };
 }
+
 #[no_mangle]
 pub unsafe fn xchg8(data: i32, r8: i32) -> i32 {
     let tmp = *reg8.offset(r8 as isize) as i32;
@@ -466,9 +464,9 @@ pub unsafe fn xchg16(data: i32, r16: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn xchg16r(r16: i32) {
-    let tmp = *reg16.offset(AX as isize) as i32;
-    *reg16.offset(AX as isize) = *reg16.offset(r16 as isize);
-    *reg16.offset(r16 as isize) = tmp as u16;
+    let tmp = read_reg16(AX);
+    write_reg16(AX, read_reg16(r16));
+    write_reg16(r16, tmp);
 }
 #[no_mangle]
 pub unsafe fn xchg32(data: i32, r32: i32) -> i32 {

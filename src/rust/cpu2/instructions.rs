@@ -60,9 +60,7 @@ pub unsafe fn instr32_03_reg(r1: i32, r: i32) {
 pub unsafe fn instr_04(imm8: i32) {
     *reg8.offset(AL as isize) = add8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_05(imm16: i32) {
-    *reg16.offset(AX as isize) = add16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_05(imm16: i32) { write_reg16(AX, add16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_05(imm32: i32) {
     *reg32.offset(EAX as isize) = add32(*reg32.offset(EAX as isize), imm32);
 }
@@ -132,9 +130,7 @@ pub unsafe fn instr32_0B_reg(r1: i32, r: i32) {
 pub unsafe fn instr_0C(imm8: i32) {
     *reg8.offset(AL as isize) = or8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_0D(imm16: i32) {
-    *reg16.offset(AX as isize) = or16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_0D(imm16: i32) { write_reg16(AX, or16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_0D(imm32: i32) {
     *reg32.offset(EAX as isize) = or32(*reg32.offset(EAX as isize), imm32);
 }
@@ -193,9 +189,7 @@ pub unsafe fn instr32_13_reg(r1: i32, r: i32) {
 pub unsafe fn instr_14(imm8: i32) {
     *reg8.offset(AL as isize) = adc8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_15(imm16: i32) {
-    *reg16.offset(AX as isize) = adc16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_15(imm16: i32) { write_reg16(AX, adc16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_15(imm32: i32) {
     *reg32.offset(EAX as isize) = adc32(*reg32.offset(EAX as isize), imm32);
 }
@@ -269,9 +263,7 @@ pub unsafe fn instr32_1B_reg(r1: i32, r: i32) {
 pub unsafe fn instr_1C(imm8: i32) {
     *reg8.offset(AL as isize) = sbb8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_1D(imm16: i32) {
-    *reg16.offset(AX as isize) = sbb16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_1D(imm16: i32) { write_reg16(AX, sbb16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_1D(imm32: i32) {
     *reg32.offset(EAX as isize) = sbb32(*reg32.offset(EAX as isize), imm32);
 }
@@ -345,9 +337,7 @@ pub unsafe fn instr32_23_reg(r1: i32, r: i32) {
 pub unsafe fn instr_24(imm8: i32) {
     *reg8.offset(AL as isize) = and8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_25(imm16: i32) {
-    *reg16.offset(AX as isize) = and16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_25(imm16: i32) { write_reg16(AX, and16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_25(imm32: i32) {
     *reg32.offset(EAX as isize) = and32(*reg32.offset(EAX as isize), imm32);
 }
@@ -401,9 +391,7 @@ pub unsafe fn instr32_2B_reg(r1: i32, r: i32) {
 pub unsafe fn instr_2C(imm8: i32) {
     *reg8.offset(AL as isize) = sub8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_2D(imm16: i32) {
-    *reg16.offset(AX as isize) = sub16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_2D(imm16: i32) { write_reg16(AX, sub16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_2D(imm32: i32) {
     *reg32.offset(EAX as isize) = sub32(*reg32.offset(EAX as isize), imm32);
 }
@@ -457,9 +445,7 @@ pub unsafe fn instr32_33_reg(r1: i32, r: i32) {
 pub unsafe fn instr_34(imm8: i32) {
     *reg8.offset(AL as isize) = xor8(*reg8.offset(AL as isize) as i32, imm8) as u8;
 }
-pub unsafe fn instr16_35(imm16: i32) {
-    *reg16.offset(AX as isize) = xor16(*reg16.offset(AX as isize) as i32, imm16) as u16;
-}
+pub unsafe fn instr16_35(imm16: i32) { write_reg16(AX, xor16(read_reg16(AX), imm16)); }
 pub unsafe fn instr32_35(imm32: i32) {
     *reg32.offset(EAX as isize) = xor32(*reg32.offset(EAX as isize), imm32);
 }
@@ -494,7 +480,7 @@ pub unsafe fn instr32_3B_mem(addr: i32, r: i32) {
 }
 pub unsafe fn instr32_3B_reg(r1: i32, r: i32) { cmp32(read_reg32(r), read_reg32(r1)); }
 pub unsafe fn instr_3C(imm8: i32) { cmp8(*reg8.offset(AL as isize) as i32, imm8); }
-pub unsafe fn instr16_3D(imm16: i32) { cmp16(*reg16.offset(AX as isize) as i32, imm16); }
+pub unsafe fn instr16_3D(imm16: i32) { cmp16(read_reg16(AX), imm16); }
 pub unsafe fn instr32_3D(imm32: i32) { cmp32(*reg32.offset(EAX as isize), imm32); }
 
 pub unsafe fn instr_3E() { segment_prefix_op(DS); }
@@ -502,73 +488,41 @@ pub unsafe fn instr_3E() { segment_prefix_op(DS); }
 #[no_mangle]
 pub unsafe fn instr_3F() { bcd_aas(); }
 
-pub unsafe fn instr16_40() {
-    *reg16.offset(AX as isize) = inc16(*reg16.offset(AX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_40() { write_reg16(AX, inc16(read_reg16(AX))); }
 pub unsafe fn instr32_40() { *reg32.offset(EAX as isize) = inc32(*reg32.offset(EAX as isize)); }
-pub unsafe fn instr16_41() {
-    *reg16.offset(CX as isize) = inc16(*reg16.offset(CX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_41() { write_reg16(CX, inc16(read_reg16(CX))); }
 pub unsafe fn instr32_41() { *reg32.offset(ECX as isize) = inc32(*reg32.offset(ECX as isize)); }
-pub unsafe fn instr16_42() {
-    *reg16.offset(DX as isize) = inc16(*reg16.offset(DX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_42() { write_reg16(DX, inc16(read_reg16(DX))); }
 pub unsafe fn instr32_42() { *reg32.offset(EDX as isize) = inc32(*reg32.offset(EDX as isize)); }
-pub unsafe fn instr16_43() {
-    *reg16.offset(BX as isize) = inc16(*reg16.offset(BX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_43() { write_reg16(BX, inc16(read_reg16(BX))); }
 pub unsafe fn instr32_43() { *reg32.offset(EBX as isize) = inc32(*reg32.offset(EBX as isize)); }
-pub unsafe fn instr16_44() {
-    *reg16.offset(SP as isize) = inc16(*reg16.offset(SP as isize) as i32) as u16;
-}
+pub unsafe fn instr16_44() { write_reg16(SP, inc16(read_reg16(SP))); }
 pub unsafe fn instr32_44() { *reg32.offset(ESP as isize) = inc32(*reg32.offset(ESP as isize)); }
-pub unsafe fn instr16_45() {
-    *reg16.offset(BP as isize) = inc16(*reg16.offset(BP as isize) as i32) as u16;
-}
+pub unsafe fn instr16_45() { write_reg16(BP, inc16(read_reg16(BP))); }
 pub unsafe fn instr32_45() { *reg32.offset(EBP as isize) = inc32(*reg32.offset(EBP as isize)); }
-pub unsafe fn instr16_46() {
-    *reg16.offset(SI as isize) = inc16(*reg16.offset(SI as isize) as i32) as u16;
-}
+pub unsafe fn instr16_46() { write_reg16(SI, inc16(read_reg16(SI))); }
 pub unsafe fn instr32_46() { *reg32.offset(ESI as isize) = inc32(*reg32.offset(ESI as isize)); }
-pub unsafe fn instr16_47() {
-    *reg16.offset(DI as isize) = inc16(*reg16.offset(DI as isize) as i32) as u16;
-}
+pub unsafe fn instr16_47() { write_reg16(DI, inc16(read_reg16(DI))); }
 pub unsafe fn instr32_47() { *reg32.offset(EDI as isize) = inc32(*reg32.offset(EDI as isize)); }
-pub unsafe fn instr16_48() {
-    *reg16.offset(AX as isize) = dec16(*reg16.offset(AX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_48() { write_reg16(AX, dec16(read_reg16(AX))); }
 pub unsafe fn instr32_48() { *reg32.offset(EAX as isize) = dec32(*reg32.offset(EAX as isize)); }
-pub unsafe fn instr16_49() {
-    *reg16.offset(CX as isize) = dec16(*reg16.offset(CX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_49() { write_reg16(CX, dec16(read_reg16(CX))); }
 pub unsafe fn instr32_49() { *reg32.offset(ECX as isize) = dec32(*reg32.offset(ECX as isize)); }
-pub unsafe fn instr16_4A() {
-    *reg16.offset(DX as isize) = dec16(*reg16.offset(DX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4A() { write_reg16(DX, dec16(read_reg16(DX))); }
 pub unsafe fn instr32_4A() { *reg32.offset(EDX as isize) = dec32(*reg32.offset(EDX as isize)); }
-pub unsafe fn instr16_4B() {
-    *reg16.offset(BX as isize) = dec16(*reg16.offset(BX as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4B() { write_reg16(BX, dec16(read_reg16(BX))); }
 pub unsafe fn instr32_4B() { *reg32.offset(EBX as isize) = dec32(*reg32.offset(EBX as isize)); }
-pub unsafe fn instr16_4C() {
-    *reg16.offset(SP as isize) = dec16(*reg16.offset(SP as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4C() { write_reg16(SP, dec16(read_reg16(SP))); }
 pub unsafe fn instr32_4C() { *reg32.offset(ESP as isize) = dec32(*reg32.offset(ESP as isize)); }
-pub unsafe fn instr16_4D() {
-    *reg16.offset(BP as isize) = dec16(*reg16.offset(BP as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4D() { write_reg16(BP, dec16(read_reg16(BP))); }
 pub unsafe fn instr32_4D() { *reg32.offset(EBP as isize) = dec32(*reg32.offset(EBP as isize)); }
-pub unsafe fn instr16_4E() {
-    *reg16.offset(SI as isize) = dec16(*reg16.offset(SI as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4E() { write_reg16(SI, dec16(read_reg16(SI))); }
 pub unsafe fn instr32_4E() { *reg32.offset(ESI as isize) = dec32(*reg32.offset(ESI as isize)); }
-pub unsafe fn instr16_4F() {
-    *reg16.offset(DI as isize) = dec16(*reg16.offset(DI as isize) as i32) as u16;
-}
+pub unsafe fn instr16_4F() { write_reg16(DI, dec16(read_reg16(DI))); }
 pub unsafe fn instr32_4F() { *reg32.offset(EDI as isize) = dec32(*reg32.offset(EDI as isize)); }
 
 pub unsafe fn push16_reg(r: i32) {
-    return_on_pagefault!(push16(*reg16.offset(r as isize) as i32));
+    return_on_pagefault!(push16(read_reg16(r)));
 }
 pub unsafe fn push32_reg(r: i32) {
     return_on_pagefault!(push32(*reg32.offset(r as isize) as i32));
@@ -590,25 +544,25 @@ pub unsafe fn instr16_56() { push16_reg(SI) }
 pub unsafe fn instr32_56() { push32_reg(ESI) }
 pub unsafe fn instr16_57() { push16_reg(DI) }
 pub unsafe fn instr32_57() { push32_reg(EDI) }
-pub unsafe fn instr16_58() { *reg16.offset(AX as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_58() { write_reg16(AX, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_58() { *reg32.offset(EAX as isize) = return_on_pagefault!(pop32s()); }
-pub unsafe fn instr16_59() { *reg16.offset(CX as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_59() { write_reg16(CX, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_59() { *reg32.offset(ECX as isize) = return_on_pagefault!(pop32s()); }
-pub unsafe fn instr16_5A() { *reg16.offset(DX as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_5A() { write_reg16(DX, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_5A() { *reg32.offset(EDX as isize) = return_on_pagefault!(pop32s()); }
-pub unsafe fn instr16_5B() { *reg16.offset(BX as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_5B() { write_reg16(BX, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_5B() { *reg32.offset(EBX as isize) = return_on_pagefault!(pop32s()); }
 pub unsafe fn instr16_5C() {
-    *reg16.offset(SP as isize) = return_on_pagefault!(safe_read16(get_stack_pointer(0))) as u16;
+    write_reg16(SP, return_on_pagefault!(safe_read16(get_stack_pointer(0))));
 }
 pub unsafe fn instr32_5C() {
     *reg32.offset(ESP as isize) = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
 }
-pub unsafe fn instr16_5D() { *reg16.offset(BP as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_5D() { write_reg16(BP, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_5D() { *reg32.offset(EBP as isize) = return_on_pagefault!(pop32s()); }
-pub unsafe fn instr16_5E() { *reg16.offset(SI as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_5E() { write_reg16(SI, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_5E() { *reg32.offset(ESI as isize) = return_on_pagefault!(pop32s()); }
-pub unsafe fn instr16_5F() { *reg16.offset(DI as isize) = return_on_pagefault!(pop16()) as u16; }
+pub unsafe fn instr16_5F() { write_reg16(DI, return_on_pagefault!(pop16())); }
 pub unsafe fn instr32_5F() { *reg32.offset(EDI as isize) = return_on_pagefault!(pop32s()); }
 
 #[no_mangle]
@@ -1090,11 +1044,9 @@ pub unsafe fn instr32_96() { xchg32r(ESI); }
 pub unsafe fn instr16_97() { xchg16r(DI); }
 pub unsafe fn instr32_97() { xchg32r(EDI); }
 
-pub unsafe fn instr16_98() { *reg16.offset(AX as isize) = *reg8s.offset(AL as isize) as u16; }
-pub unsafe fn instr32_98() { *reg32.offset(EAX as isize) = *reg16s.offset(AX as isize) as i32; }
-pub unsafe fn instr16_99() {
-    *reg16.offset(DX as isize) = (*reg16s.offset(AX as isize) as i32 >> 15) as u16;
-}
+pub unsafe fn instr16_98() { write_reg16(AX, *reg8s.offset(AL as isize) as i32); }
+pub unsafe fn instr32_98() { *reg32.offset(EAX as isize) = read_reg16(AX) as i16 as i32; }
+pub unsafe fn instr16_99() { write_reg16(DX, read_reg16(AX) as i16 as i32 >> 15); }
 pub unsafe fn instr32_99() { *reg32.offset(EDX as isize) = *reg32.offset(EAX as isize) >> 31; }
 
 #[no_mangle]
@@ -1200,7 +1152,7 @@ pub unsafe fn instr_A0(moffs: i32) {
 pub unsafe fn instr16_A1(moffs: i32) {
     // mov
     let data = return_on_pagefault!(safe_read16(return_on_pagefault!(get_seg_prefix_ds(moffs))));
-    *reg16.offset(AX as isize) = data as u16;
+    write_reg16(AX, data);
 }
 pub unsafe fn instr32_A1(moffs: i32) {
     let data = return_on_pagefault!(safe_read32s(return_on_pagefault!(get_seg_prefix_ds(moffs))));
@@ -1217,7 +1169,7 @@ pub unsafe fn instr16_A3(moffs: i32) {
     // mov
     return_on_pagefault!(safe_write16(
         return_on_pagefault!(get_seg_prefix_ds(moffs)),
-        *reg16.offset(AX as isize) as i32
+        read_reg16(AX)
     ));
 }
 pub unsafe fn instr32_A3(moffs: i32) {
@@ -1243,7 +1195,7 @@ pub unsafe fn instr32_A7() {
 }
 
 pub unsafe fn instr_A8(imm8: i32) { test8(*reg8.offset(AL as isize) as i32, imm8); }
-pub unsafe fn instr16_A9(imm16: i32) { test16(*reg16.offset(AX as isize) as i32, imm16); }
+pub unsafe fn instr16_A9(imm16: i32) { test16(read_reg16(AX), imm16); }
 pub unsafe fn instr32_A9(imm32: i32) { test32(*reg32.offset(EAX as isize), imm32); }
 
 pub unsafe fn instr_AA() { stosb_no_rep(is_asize_32()); }
@@ -1270,21 +1222,21 @@ pub unsafe fn instr_B4(imm8: i32) { *reg8.offset(AH as isize) = imm8 as u8; }
 pub unsafe fn instr_B5(imm8: i32) { *reg8.offset(CH as isize) = imm8 as u8; }
 pub unsafe fn instr_B6(imm8: i32) { *reg8.offset(DH as isize) = imm8 as u8; }
 pub unsafe fn instr_B7(imm8: i32) { *reg8.offset(BH as isize) = imm8 as u8; }
-pub unsafe fn instr16_B8(imm: i32) { *reg16.offset(AX as isize) = imm as u16; }
+pub unsafe fn instr16_B8(imm: i32) { write_reg16(AX, imm); }
 pub unsafe fn instr32_B8(imm: i32) { *reg32.offset(EAX as isize) = imm; }
-pub unsafe fn instr16_B9(imm: i32) { *reg16.offset(CX as isize) = imm as u16; }
+pub unsafe fn instr16_B9(imm: i32) { write_reg16(CX, imm); }
 pub unsafe fn instr32_B9(imm: i32) { *reg32.offset(ECX as isize) = imm; }
-pub unsafe fn instr16_BA(imm: i32) { *reg16.offset(DX as isize) = imm as u16; }
+pub unsafe fn instr16_BA(imm: i32) { write_reg16(DX, imm); }
 pub unsafe fn instr32_BA(imm: i32) { *reg32.offset(EDX as isize) = imm; }
-pub unsafe fn instr16_BB(imm: i32) { *reg16.offset(BX as isize) = imm as u16; }
+pub unsafe fn instr16_BB(imm: i32) { write_reg16(BX, imm); }
 pub unsafe fn instr32_BB(imm: i32) { *reg32.offset(EBX as isize) = imm; }
-pub unsafe fn instr16_BC(imm: i32) { *reg16.offset(SP as isize) = imm as u16; }
+pub unsafe fn instr16_BC(imm: i32) { write_reg16(SP, imm); }
 pub unsafe fn instr32_BC(imm: i32) { *reg32.offset(ESP as isize) = imm; }
-pub unsafe fn instr16_BD(imm: i32) { *reg16.offset(BP as isize) = imm as u16; }
+pub unsafe fn instr16_BD(imm: i32) { write_reg16(BP, imm); }
 pub unsafe fn instr32_BD(imm: i32) { *reg32.offset(EBP as isize) = imm; }
-pub unsafe fn instr16_BE(imm: i32) { *reg16.offset(SI as isize) = imm as u16; }
+pub unsafe fn instr16_BE(imm: i32) { write_reg16(SI, imm); }
 pub unsafe fn instr32_BE(imm: i32) { *reg32.offset(ESI as isize) = imm; }
-pub unsafe fn instr16_BF(imm: i32) { *reg16.offset(DI as isize) = imm as u16; }
+pub unsafe fn instr16_BF(imm: i32) { write_reg16(DI, imm); }
 pub unsafe fn instr32_BF(imm: i32) { *reg32.offset(EDI as isize) = imm; }
 
 pub unsafe fn instr_C0_0_mem(addr: i32, imm: i32) {
@@ -1486,24 +1438,14 @@ pub unsafe fn instr32_C8(size: i32, nesting: i32) { enter32(size, nesting); }
 #[no_mangle]
 pub unsafe fn instr16_C9() {
     // leave
-    let old_vbp = if *stack_size_32 {
-        *reg32.offset(EBP as isize)
-    }
-    else {
-        *reg16.offset(BP as isize) as i32
-    };
+    let old_vbp = if *stack_size_32 { *reg32.offset(EBP as isize) } else { read_reg16(BP) };
     let new_bp = return_on_pagefault!(safe_read16(get_seg_ss() + old_vbp));
     set_stack_reg(old_vbp + 2);
-    *reg16.offset(BP as isize) = new_bp as u16;
+    write_reg16(BP, new_bp);
 }
 #[no_mangle]
 pub unsafe fn instr32_C9() {
-    let old_vbp = if *stack_size_32 {
-        *reg32.offset(EBP as isize)
-    }
-    else {
-        *reg16.offset(BP as isize) as i32
-    };
+    let old_vbp = if *stack_size_32 { *reg32.offset(EBP as isize) } else { read_reg16(BP) };
     let new_ebp = return_on_pagefault!(safe_read32s(get_seg_ss() + old_vbp));
     set_stack_reg(old_vbp + 4);
     *reg32.offset(EBP as isize) = new_ebp;
@@ -1904,7 +1846,7 @@ pub unsafe fn instr_D7() {
     else {
         *reg8.offset(AL as isize) = return_on_pagefault!(safe_read8(
             return_on_pagefault!(get_seg_prefix(DS))
-                + (*reg16.offset(BX as isize) as i32 + *reg8.offset(AL as isize) as i32 & 0xFFFF),
+                + (read_reg16(BX) + *reg8.offset(AL as isize) as i32 & 0xFFFF),
         )) as u8
     };
 }
@@ -1924,7 +1866,7 @@ pub unsafe fn instr16_E5(port: i32) {
         return;
     }
     else {
-        *reg16.offset(AX as isize) = io_port_read16(port) as u16;
+        write_reg16(AX, io_port_read16(port));
         return;
     };
 }
@@ -1954,7 +1896,7 @@ pub unsafe fn instr16_E7(port: i32) {
         return;
     }
     else {
-        io_port_write16(port, *reg16.offset(AX as isize) as i32);
+        io_port_write16(port, read_reg16(AX));
         return;
     };
 }
@@ -2004,7 +1946,7 @@ pub unsafe fn instr32_EA(new_ip: i32, cs: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_EC() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 1) {
         return;
     }
@@ -2015,18 +1957,18 @@ pub unsafe fn instr_EC() {
 }
 #[no_mangle]
 pub unsafe fn instr16_ED() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 2) {
         return;
     }
     else {
-        *reg16.offset(AX as isize) = io_port_read16(port) as u16;
+        write_reg16(AX, io_port_read16(port));
         return;
     };
 }
 #[no_mangle]
 pub unsafe fn instr32_ED() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 4) {
         return;
     }
@@ -2037,7 +1979,7 @@ pub unsafe fn instr32_ED() {
 }
 #[no_mangle]
 pub unsafe fn instr_EE() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 1) {
         return;
     }
@@ -2048,18 +1990,18 @@ pub unsafe fn instr_EE() {
 }
 #[no_mangle]
 pub unsafe fn instr16_EF() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 2) {
         return;
     }
     else {
-        io_port_write16(port, *reg16.offset(AX as isize) as i32);
+        io_port_write16(port, read_reg16(AX));
         return;
     };
 }
 #[no_mangle]
 pub unsafe fn instr32_EF() {
-    let port = *reg16.offset(DX as isize) as i32;
+    let port = read_reg16(DX);
     if !test_privileges_for_io(port, 4) {
         return;
     }
