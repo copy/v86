@@ -30,21 +30,28 @@ pub fn make_graph(basic_blocks: &Vec<BasicBlock>) -> Graph {
         let mut edges = HashSet::new();
 
         match &b.ty {
-            BasicBlockType::ConditionalJump {
+            &BasicBlockType::ConditionalJump {
                 next_block_addr,
                 next_block_branch_taken_addr,
                 ..
             } => {
                 if let Some(next_block_addr) = next_block_addr {
-                    edges.insert(*next_block_addr);
+                    edges.insert(next_block_addr);
                 }
                 if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
-                    edges.insert(*next_block_branch_taken_addr);
+                    edges.insert(next_block_branch_taken_addr);
                 }
             },
-            BasicBlockType::Normal { next_block_addr } => {
-                edges.insert(*next_block_addr);
+            &BasicBlockType::Normal {
+                next_block_addr: Some(next_block_addr),
+                ..
+            } => {
+                edges.insert(next_block_addr);
             },
+            &BasicBlockType::Normal {
+                next_block_addr: None,
+                ..
+            } => {},
             BasicBlockType::Exit => {},
             BasicBlockType::AbsoluteEip => {
                 // Not necessary: We generate a loop around the outer brtable unconditionally

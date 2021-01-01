@@ -164,7 +164,9 @@ impl JitState {
 #[derive(PartialEq, Eq)]
 pub enum BasicBlockType {
     Normal {
-        next_block_addr: u32,
+        next_block_addr: Option<u32>,
+        jump_offset: i32,
+        jump_offset_is_32: bool,
     },
     ConditionalJump {
         next_block_addr: Option<u32>,
@@ -431,7 +433,9 @@ fn jit_find_basic_blocks(
                             current_block.end_addr = current_address;
                             dbg_assert!(!is_near_end_of_page(current_address));
                             current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: current_address,
+                                next_block_addr: Some(current_address),
+                                jump_offset: 0,
+                                jump_offset_is_32: true,
                             };
                             break;
                         }
@@ -527,15 +531,25 @@ fn jit_find_basic_blocks(
                             pages.insert(Page::page_of(phys_jump_target));
                             to_visit_stack.push(jump_target);
                             current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: phys_jump_target,
+                                next_block_addr: Some(phys_jump_target),
+                                jump_offset: offset,
+                                jump_offset_is_32: is_32,
                             };
                         }
                         else {
-                            current_block.ty = BasicBlockType::Exit;
+                            current_block.ty = BasicBlockType::Normal {
+                                next_block_addr: None,
+                                jump_offset: offset,
+                                jump_offset_is_32: is_32,
+                            };
                         }
                     }
                     else {
-                        current_block.ty = BasicBlockType::Exit;
+                        current_block.ty = BasicBlockType::Normal {
+                            next_block_addr: None,
+                            jump_offset: offset,
+                            jump_offset_is_32: is_32,
+                        };
                     }
 
                     current_block.last_instruction_addr = addr_before_instruction;
@@ -726,8 +740,14 @@ fn jit_analyze_and_generate(
                         next_block_branch_taken_addr: None,
                         ..
                     } => format!(""),
-                    BasicBlockType::Normal { next_block_addr } =>
-                        format!("0x{:x}", next_block_addr),
+                    BasicBlockType::Normal {
+                        next_block_addr: Some(next_block_addr),
+                        ..
+                    } => format!("0x{:x}", next_block_addr),
+                    BasicBlockType::Normal {
+                        next_block_addr: None,
+                        ..
+                    } => format!(""),
                     BasicBlockType::Exit => format!(""),
                     BasicBlockType::AbsoluteEip => format!(""),
                 }
@@ -1050,7 +1070,7 @@ fn jit_generate_module(
         match block {
             Work::WasmStructure(WasmStructure::BasicBlock(addr)) => {
                 let block = basic_blocks.get(&addr).unwrap();
-                jit_generate_basic_block(ctx, &block);
+                jit_generate_basic_block(ctx, block);
 
                 if block.has_sti {
                     match block.ty {
@@ -1060,6 +1080,10 @@ fn jit_generate_module(
                             jump_offset_is_32,
                             ..
                         } => {
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
                             codegen::gen_condition_fn(ctx, condition);
                             ctx.builder.if_void();
                             if jump_offset_is_32 {
@@ -1070,7 +1094,22 @@ fn jit_generate_module(
                             }
                             ctx.builder.block_end();
                         },
-                        BasicBlockType::Normal { .. } => {},
+                        BasicBlockType::Normal {
+                            jump_offset,
+                            jump_offset_is_32,
+                            ..
+                        } => {
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+                        },
                         BasicBlockType::Exit => {},
                         BasicBlockType::AbsoluteEip => {},
                     };
@@ -1107,11 +1146,44 @@ fn jit_generate_module(
                         codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
                         ctx.builder.br(ctx.exit_label);
                     },
-                    BasicBlockType::Normal { next_block_addr } => {
+                    &BasicBlockType::Normal {
+                        next_block_addr: None,
+                        jump_offset,
+                        jump_offset_is_32,
+                    } => {
+                        codegen::gen_set_eip_low_bits(ctx.builder, block.end_addr as i32 & 0xFFF);
+                        if jump_offset_is_32 {
+                            codegen::gen_relative_jump(ctx.builder, jump_offset);
+                        }
+                        else {
+                            codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                        }
+
+                        codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                        codegen::gen_profiler_stat_increment(ctx.builder, stat::DIRECT_EXIT);
+                        ctx.builder.br(ctx.exit_label);
+                    },
+                    &BasicBlockType::Normal {
+                        next_block_addr: Some(next_block_addr),
+                        jump_offset,
+                        jump_offset_is_32,
+                    } => {
                         // Unconditional jump to next basic block
                         // - All instructions that don't change eip
                         // - Unconditional jumps
-                        if Page::page_of(*next_block_addr) != Page::page_of(block.addr) {
+
+                        if Page::page_of(next_block_addr) != Page::page_of(block.addr) {
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+
                             codegen::gen_profiler_stat_increment(
                                 ctx.builder,
                                 stat::NORMAL_PAGE_CHANGE,
@@ -1119,7 +1191,7 @@ fn jit_generate_module(
 
                             codegen::gen_page_switch_check(
                                 ctx,
-                                *next_block_addr,
+                                next_block_addr,
                                 block.last_instruction_addr,
                             );
 
@@ -1128,17 +1200,17 @@ fn jit_generate_module(
                                 ctx.builder,
                                 "check_page_switch",
                                 block.addr,
-                                *next_block_addr,
+                                next_block_addr,
                             );
                         }
 
                         if next_addr
                             .as_ref()
-                            .map_or(false, |n| n.contains(next_block_addr))
+                            .map_or(false, |n| n.contains(&next_block_addr))
                         {
                             // Blocks are consecutive
                             if next_addr.unwrap().len() > 1 {
-                                let target_index = *index_for_addr.get(next_block_addr).unwrap();
+                                let target_index = *index_for_addr.get(&next_block_addr).unwrap();
                                 if cfg!(feature = "profiler") {
                                     ctx.builder.const_i32(target_index);
                                     ctx.builder.call_fn1("debug_set_dispatcher_target");
@@ -1196,18 +1268,39 @@ fn jit_generate_module(
 
                         // Branch taken
 
-                        if jump_offset_is_32 {
-                            codegen::gen_relative_jump(ctx.builder, jump_offset);
-                        }
-                        else {
-                            codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
-                        }
-
                         if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
                             dbg_assert!(
                                 (block.end_addr + jump_offset as u32) & 0xFFF
                                     == next_block_branch_taken_addr & 0xFFF
                             );
+
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+
+                            if let Some(loop_limit_local) = loop_limit_local.as_ref() {
+                                ctx.builder.get_local(loop_limit_local);
+                                ctx.builder.const_i32(-1);
+                                ctx.builder.add_i32();
+                                ctx.builder.tee_local(loop_limit_local);
+                                ctx.builder.eqz_i32();
+                                if cfg!(feature = "profiler") {
+                                    ctx.builder.if_void();
+                                    codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+                                    ctx.builder.br(ctx.exit_label);
+                                    ctx.builder.block_end();
+                                }
+                                else {
+                                    ctx.builder.br_if(ctx.exit_label);
+                                }
+                            }
 
                             if Page::page_of(next_block_branch_taken_addr)
                                 != Page::page_of(block.addr)
@@ -1284,6 +1377,17 @@ fn jit_generate_module(
                         else {
                             // Jump to different page
                             // TODO: Could generate br_if
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
+                            if jump_offset_is_32 {
+                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            }
+                            else {
+                                codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                            }
+
                             codegen::gen_debug_track_jit_exit(
                                 ctx.builder,
                                 block.last_instruction_addr,
@@ -1357,6 +1461,10 @@ fn jit_generate_module(
                         }
                         else {
                             ctx.builder.else_();
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
 
                             // End of this page
                             codegen::gen_debug_track_jit_exit(
@@ -1424,23 +1532,6 @@ fn jit_generate_module(
 
                 let entries: Vec<u32> = children[0].head().collect();
                 let label = ctx.builder.loop_void();
-
-                if let Some(loop_limit_local) = loop_limit_local.as_ref() {
-                    ctx.builder.get_local(loop_limit_local);
-                    ctx.builder.const_i32(-1);
-                    ctx.builder.add_i32();
-                    ctx.builder.tee_local(loop_limit_local);
-                    ctx.builder.eqz_i32();
-                    if cfg!(feature = "profiler") {
-                        ctx.builder.if_void();
-                        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
-                        ctx.builder.br(ctx.exit_label);
-                        ctx.builder.block_end();
-                    }
-                    else {
-                        ctx.builder.br_if(ctx.exit_label);
-                    }
-                }
 
                 let mut olds = HashMap::new();
                 for &target in entries.iter() {
@@ -1601,6 +1692,10 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         BasicBlockType::Exit => true,
         _ => false,
     };
+    let needs_eip_updated = match block.ty {
+        BasicBlockType::Exit => true,
+        _ => false,
+    };
 
     profiler::stat_increment(stat::COMPILE_BASIC_BLOCK);
 
@@ -1633,12 +1728,19 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             // - Set eip to *after* the instruction
             // - Set previous_eip to *before* the instruction
             if needs_previous_ip_updated {
-                codegen::gen_set_previous_eip_offset_from_eip(
+                //codegen::gen_set_previous_eip_offset_from_eip(
+                //    ctx.builder,
+                //    last_instruction_addr - start_addr,
+                //);
+                codegen::gen_set_previous_eip_offset_from_eip_with_low_bits(
                     ctx.builder,
-                    last_instruction_addr - start_addr,
+                    last_instruction_addr as i32 & 0xFFF,
                 );
             }
-            codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
+            if needs_eip_updated {
+                codegen::gen_set_eip_low_bits(ctx.builder, stop_addr as i32 & 0xFFF);
+            }
+        //codegen::gen_relative_jump(ctx.builder, (stop_addr - start_addr) as i32);
         }
         else {
             ctx.last_instruction = Instruction::Other;
@@ -1980,7 +2082,7 @@ pub fn check_dispatcher_target(target_index: i32, max: i32) {
 pub fn enter_basic_block(phys_eip: u32) {
     let eip =
         unsafe { cpu::translate_address_read(*global_pointers::instruction_pointer).unwrap() };
-    if eip != phys_eip {
+    if Page::page_of(eip) != Page::page_of(phys_eip) {
         dbg_log!(
             "enter basic block failed block=0x{:x} actual eip=0x{:x}",
             phys_eip,

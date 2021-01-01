@@ -48,6 +48,7 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
     low_bits: i32,
 ) {
     // previous_ip = instruction_pointer & ~0xFFF | low_bits;
+    dbg_assert!(low_bits & !0xFFF == 0);
     builder.const_i32(global_pointers::previous_ip as i32);
     gen_get_eip(builder);
     builder.const_i32(!0xFFF);
@@ -57,21 +58,27 @@ pub fn gen_set_previous_eip_offset_from_eip_with_low_bits(
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
+pub fn gen_set_eip_low_bits(builder: &mut WasmBuilder, low_bits: i32) {
+    // instruction_pointer = instruction_pointer & ~0xFFF | low_bits;
+    dbg_assert!(low_bits & !0xFFF == 0);
     builder.const_i32(global_pointers::instruction_pointer as i32);
     gen_get_eip(builder);
-    builder.const_i32(n as i32);
-    builder.add_i32();
+    builder.const_i32(!0xFFF);
+    builder.and_i32();
+    builder.const_i32(low_bits);
+    builder.or_i32();
     builder.store_aligned_i32(0);
 }
 
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     // add n to instruction_pointer (without setting the offset as above)
-    builder.const_i32(global_pointers::instruction_pointer as i32);
-    gen_get_eip(builder);
-    builder.const_i32(n);
-    builder.add_i32();
-    builder.store_aligned_i32(0);
+    if n != 0 {
+        builder.const_i32(global_pointers::instruction_pointer as i32);
+        gen_get_eip(builder);
+        builder.const_i32(n);
+        builder.add_i32();
+        builder.store_aligned_i32(0);
+    }
 }
 
 pub fn gen_page_switch_check(
@@ -1408,6 +1415,10 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
 
 pub fn gen_get_real_eip(ctx: &mut JitContext) {
     gen_get_eip(ctx.builder);
+    ctx.builder.const_i32(!0xFFF);
+    ctx.builder.and_i32();
+    ctx.builder.const_i32(ctx.cpu.eip as i32 & 0xFFF);
+    ctx.builder.or_i32();
     ctx.builder
         .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
     ctx.builder.sub_i32();
