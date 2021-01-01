@@ -129,7 +129,7 @@ function PIC(cpu, master)
             {
                 PIC_LOG_VERBOSE && dbg_log("master> spurious requested=" + this.requested_irq, LOG_PIC);
                 this.requested_irq = -1;
-                this.cpu.pic_call_irq(this.irq_map | 7);
+                //this.cpu.pic_call_irq(this.irq_map | 7);
                 return;
             }
             dbg_assert(this.irr); // spurious
