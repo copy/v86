@@ -255,8 +255,14 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
 
     if cfg!(debug_assertions) && seg != CS && seg != SS {
         ctx.builder.const_i32(seg as i32);
-        ctx.builder.call_fn1("assert_seg_non_null");
+        ctx.builder.call_fn1("log_segment_null");
     }
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::SEGMENT_IS_NULL + seg);
+    ctx.builder.if_void();
+    codegen::gen_trigger_gp(ctx, 0);
+    ctx.builder.block_end();
 
     ctx.builder
         .load_fixed_i32(global_pointers::get_seg_offset(seg));

@@ -13,6 +13,7 @@ pub const CPL: u32 = 612;
 
 pub const TIMESTAMP_COUNTER: u32 = 664;
 pub const SREG: u32 = 668;
+pub const SEGMENT_IS_NULL: u32 = 724;
 pub const SEGMENT_OFFSETS: u32 = 736;
 pub const REG_XMM: u32 = 832;
 pub const FPU_CONTROL_WORD: u32 = 1036;

@@ -18,7 +18,8 @@
   (type $t16 (func (param i32 i32 i32 i32) (result i32)))
   (type $t17 (func (param i32 i64 i32) (result i32)))
   (type $t18 (func (param i32 i64 i64 i32) (result i32)))
-  (import "e" "assert_seg_non_null" (func $e.assert_seg_non_null (type $t1)))
+  (import "e" "log_segment_null" (func $e.log_segment_null (type $t1)))
+  (import "e" "trigger_gp" (func $e.trigger_gp (type $t1)))
   (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t7)))
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t15)))
   (import "e" "jit_find_cache_entry_in_page" (func $e.jit_find_cache_entry_in_page (type $t16)))
@@ -112,14 +113,53 @@
                   (i32.const 556))
                 (i32.const 2)))
             (get_local $l2)
-            (call $e.assert_seg_non_null
+            (call $e.log_segment_null
               (i32.const 3))
+            (if $I6
+              (i32.load8_u
+                (i32.const 727))
+              (then
+                (i32.store
+                  (i32.const 64)
+                  (get_local $l2))
+                (i32.store
+                  (i32.const 68)
+                  (get_local $l3))
+                (i32.store
+                  (i32.const 72)
+                  (get_local $l4))
+                (i32.store
+                  (i32.const 76)
+                  (get_local $l5))
+                (i32.store
+                  (i32.const 80)
+                  (get_local $l6))
+                (i32.store
+                  (i32.const 84)
+                  (get_local $l7))
+                (i32.store
+                  (i32.const 88)
+                  (get_local $l8))
+                (i32.store
+                  (i32.const 92)
+                  (get_local $l9))
+                (i32.store
+                  (i32.const 560)
+                  (i32.or
+                    (i32.and
+                      (i32.load
+                        (i32.const 556))
+                      (i32.const -4096))
+                    (i32.const 0)))
+                (call $e.trigger_gp
+                  (i32.const 0))
+                (return)))
             (i32.load
               (i32.const 748))
             (i32.add)
             (set_local $l10)
-            (block $B6
-              (br_if $B6
+            (block $B7
+              (br_if $B7
                 (i32.and
                   (i32.eq
                     (i32.and
@@ -170,8 +210,8 @@
                     (i32.const 4)))
                 (i32.load
                   (i32.const 744))))
-            (block $B7
-              (br_if $B7
+            (block $B8
+              (br_if $B8
                 (i32.and
                   (i32.eq
                     (i32.and
@@ -211,7 +251,7 @@
             (i32.store
               (i32.const 556)
               (get_local $l10))
-            (if $I8
+            (if $I9
               (i32.eqz
                 (i32.and
                   (i32.xor
@@ -220,7 +260,7 @@
                       (i32.const 560)))
                   (i32.const -4096)))
               (then
-                (if $I9
+                (if $I10
                   (i32.ge_s
                     (tee_local $l10
                       (call $e.jit_find_cache_entry_in_page
