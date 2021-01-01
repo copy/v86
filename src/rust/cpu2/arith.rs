@@ -562,9 +562,8 @@ pub unsafe fn rcl32(dest_operand: i32, count: i32) -> i32 {
             result = (result as u32 | dest_operand as u32 >> 33 - count) as i32
         }
         *flags_changed &= !1 & !FLAG_OVERFLOW;
-        *flags =
-            ((*flags & !1 & !FLAG_OVERFLOW) as u32 | dest_operand as u32 >> 32 - count & 1) as i32;
-        *flags |= (*flags << 11 ^ result >> 20) & FLAG_OVERFLOW;
+        let b = (dest_operand as u32 >> 32 - count & 1) as i32;
+        *flags = (*flags & !1 & !FLAG_OVERFLOW | b) | (b << 11 ^ result >> 20) & FLAG_OVERFLOW;
         return result;
     };
 }
@@ -842,9 +841,9 @@ pub unsafe fn shl32(dest_operand: i32, count: i32) -> i32 {
         *last_result = dest_operand << count;
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
-        // test this
-        *flags = *flags & !1 & !FLAG_OVERFLOW | dest_operand >> 32 - count & 1;
-        *flags |= (*flags & 1 ^ *last_result >> 31 & 1) << 11 & FLAG_OVERFLOW;
+        let b = dest_operand >> 32 - count & 1;
+        *flags =
+            *flags & !1 & !FLAG_OVERFLOW | b | (b ^ *last_result >> 31 & 1) << 11 & FLAG_OVERFLOW;
         return *last_result;
     };
 }
