@@ -851,17 +851,13 @@ pub unsafe fn instr32_85_mem(addr: i32, r: i32) {
 }
 pub unsafe fn instr32_85_reg(r1: i32, r: i32) { test32(read_reg32(r1), read_reg32(r)); }
 pub unsafe fn instr_86_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE8!(___, addr, xchg8(___, get_reg8_index(r)));
+    SAFE_READ_WRITE8!(___, addr, xchg8(___, r));
 }
-pub unsafe fn instr_86_reg(r1: i32, r: i32) {
-    write_reg8(r1, xchg8(read_reg8(r1), get_reg8_index(r)));
-}
+pub unsafe fn instr_86_reg(r1: i32, r: i32) { write_reg8(r1, xchg8(read_reg8(r1), r)); }
 pub unsafe fn instr16_87_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE16!(___, addr, xchg16(___, get_reg16_index(r)));
+    SAFE_READ_WRITE16!(___, addr, xchg16(___, r));
 }
-pub unsafe fn instr16_87_reg(r1: i32, r: i32) {
-    write_reg16(r1, xchg16(read_reg16(r1), get_reg16_index(r)));
-}
+pub unsafe fn instr16_87_reg(r1: i32, r: i32) { write_reg16(r1, xchg16(read_reg16(r1), r)); }
 pub unsafe fn instr32_87_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE32!(___, addr, xchg32(___, r));
 }

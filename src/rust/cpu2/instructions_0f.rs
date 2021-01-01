@@ -3164,20 +3164,16 @@ pub unsafe fn instr32_0FBF_mem(addr: i32, r: i32) {
 pub unsafe fn instr32_0FBF_reg(r1: i32, r: i32) { write_reg32(r, read_reg16(r1) << 16 >> 16); }
 #[no_mangle]
 pub unsafe fn instr_0FC0_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE8!(___, addr, xadd8(___, get_reg8_index(r)));
+    SAFE_READ_WRITE8!(___, addr, xadd8(___, r));
 }
 #[no_mangle]
-pub unsafe fn instr_0FC0_reg(r1: i32, r: i32) {
-    write_reg8(r1, xadd8(read_reg8(r1), get_reg8_index(r)));
-}
+pub unsafe fn instr_0FC0_reg(r1: i32, r: i32) { write_reg8(r1, xadd8(read_reg8(r1), r)); }
 #[no_mangle]
 pub unsafe fn instr16_0FC1_mem(addr: i32, r: i32) {
-    SAFE_READ_WRITE16!(___, addr, xadd16(___, get_reg16_index(r)));
+    SAFE_READ_WRITE16!(___, addr, xadd16(___, r));
 }
 #[no_mangle]
-pub unsafe fn instr16_0FC1_reg(r1: i32, r: i32) {
-    write_reg16(r1, xadd16(read_reg16(r1), get_reg16_index(r)));
-}
+pub unsafe fn instr16_0FC1_reg(r1: i32, r: i32) { write_reg16(r1, xadd16(read_reg16(r1), r)); }
 #[no_mangle]
 pub unsafe fn instr32_0FC1_mem(addr: i32, r: i32) {
     SAFE_READ_WRITE32!(___, addr, xadd32(___, r));

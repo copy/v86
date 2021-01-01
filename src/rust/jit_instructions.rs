@@ -4129,8 +4129,7 @@ pub fn instr16_0FC1_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
-        ctx.builder
-            .const_i32(::cpu2::cpu::get_reg16_index(r as i32));
+        ctx.builder.const_i32(r as i32);
         codegen::gen_move_registers_from_locals_to_memory(ctx);
         ctx.builder.call_fn2_ret("xadd16");
         codegen::gen_move_registers_from_memory_to_locals(ctx);
@@ -4139,8 +4138,7 @@ pub fn instr16_0FC1_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
 }
 pub fn instr16_0FC1_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg16(ctx, r1);
-    ctx.builder
-        .const_i32(::cpu2::cpu::get_reg16_index(r2 as i32));
+    ctx.builder.const_i32(r2 as i32);
     codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.call_fn2_ret("xadd16");
     codegen::gen_move_registers_from_memory_to_locals(ctx);

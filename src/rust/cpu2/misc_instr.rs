@@ -449,14 +449,14 @@ pub unsafe fn fxrstor(addr: i32) {
 
 #[no_mangle]
 pub unsafe fn xchg8(data: i32, r8: i32) -> i32 {
-    let tmp = *reg8.offset(r8 as isize) as i32;
-    *reg8.offset(r8 as isize) = data as u8;
+    let tmp = read_reg8(r8);
+    write_reg8(r8, data);
     return tmp;
 }
 #[no_mangle]
 pub unsafe fn xchg16(data: i32, r16: i32) -> i32 {
-    let tmp = *reg16.offset(r16 as isize) as i32;
-    *reg16.offset(r16 as isize) = data as u16;
+    let tmp = read_reg16(r16);
+    write_reg16(r16, data);
     return tmp;
 }
 #[no_mangle]

@@ -262,14 +262,14 @@ pub unsafe fn imul_reg32(operand1: i32, operand2: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe fn xadd8(source_operand: i32, reg: i32) -> i32 {
-    let tmp = *reg8.offset(reg as isize) as i32;
-    *reg8.offset(reg as isize) = source_operand as u8;
+    let tmp = read_reg8(reg);
+    write_reg8(reg, source_operand);
     return add(source_operand, tmp, OPSIZE_8);
 }
 #[no_mangle]
 pub unsafe fn xadd16(source_operand: i32, reg: i32) -> i32 {
-    let tmp = *reg16.offset(reg as isize) as i32;
-    *reg16.offset(reg as isize) = source_operand as u16;
+    let tmp = read_reg16(reg);
+    write_reg16(reg, source_operand);
     return add(source_operand, tmp, OPSIZE_16);
 }
 #[no_mangle]
