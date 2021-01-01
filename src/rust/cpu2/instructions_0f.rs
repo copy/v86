@@ -2460,7 +2460,7 @@ pub unsafe fn instr_0F70_mem(addr: i32, r: i32, imm: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_660F70(source: reg128, r: i32, imm8: i32) {
-    // pshufd xmm, xmm/mem128
+    // pshufd xmm, xmm/mem128, imm8
     // XXX: Aligned access or #gp
     write_xmm128(
         r,

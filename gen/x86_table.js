@@ -724,9 +724,9 @@ const encodings = [
     { sse: 1, opcode: 0xF20F5F, e: 1, },
     { sse: 1, opcode: 0xF30F5F, e: 1, },
 
-    { sse: 1, opcode: 0x660F60, e: 1 },
+    { sse: 1, opcode: 0x660F60, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F60, e: 1 },
-    { sse: 1, opcode: 0x660F61, e: 1 },
+    { sse: 1, opcode: 0x660F61, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F61, e: 1 },
     { sse: 1, opcode: 0x660F62, e: 1 },
     { sse: 1, opcode: 0x0F62, e: 1 },
@@ -738,10 +738,10 @@ const encodings = [
     { sse: 1, opcode: 0x0F65, e: 1 },
     { sse: 1, opcode: 0x660F66, e: 1 },
     { sse: 1, opcode: 0x0F66, e: 1 },
-    { sse: 1, opcode: 0x660F67, e: 1 },
+    { sse: 1, opcode: 0x660F67, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F67, e: 1 },
 
-    { sse: 1, opcode: 0x660F68, e: 1 },
+    { sse: 1, opcode: 0x660F68, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F68, e: 1 },
     { sse: 1, opcode: 0x660F69, e: 1 },
     { sse: 1, opcode: 0x0F69, e: 1 },
@@ -753,16 +753,16 @@ const encodings = [
     { sse: 1, opcode: 0x0F6C, e: 1, block_boundary: 1, }, // ud
     { sse: 1, opcode: 0x660F6D, e: 1 },
     { sse: 1, opcode: 0x0F6D, e: 1, block_boundary: 1, }, // ud
-    { sse: 1, opcode: 0x660F6E, e: 1 },
+    { sse: 1, opcode: 0x660F6E, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F6E, e: 1 },
     { sse: 1, opcode: 0xF30F6F, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F6F, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F6F, e: 1 },
 
     { sse: 1, opcode: 0x0F70, e: 1, imm8: 1, },
-    { sse: 1, opcode: 0x660F70, e: 1, imm8: 1, },
-    { sse: 1, opcode: 0xF20F70, e: 1, imm8: 1, },
-    { sse: 1, opcode: 0xF30F70, e: 1, imm8: 1, },
+    { sse: 1, opcode: 0x660F70, e: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0xF20F70, e: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0xF30F70, e: 1, imm8: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0F71, e: 1, fixed_g: 2, imm8: 1, mem_ud: 1, },
     { sse: 1, opcode: 0x660F71, e: 1, fixed_g: 2, imm8: 1, mem_ud: 1 },
@@ -786,7 +786,7 @@ const encodings = [
     { sse: 1, opcode: 0x660F73, e: 1, fixed_g: 7, imm8: 1, mem_ud: 1 },
 
     { sse: 1, opcode: 0x0F74, e: 1, },
-    { sse: 1, opcode: 0x660F74, e: 1, },
+    { sse: 1, opcode: 0x660F74, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F75, e: 1, },
     { sse: 1, opcode: 0x660F75, e: 1, },
     { sse: 1, opcode: 0x0F76, e: 1, },
@@ -803,8 +803,8 @@ const encodings = [
     { sse: 1, opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // sse3
 
     { sse: 1, opcode: 0x0F7E, e: 1 },
-    { sse: 1, opcode: 0x660F7E, e: 1 },
-    { sse: 1, opcode: 0xF30F7E, e: 1 },
+    { sse: 1, opcode: 0x660F7E, e: 1, custom: 1 },
+    { sse: 1, opcode: 0xF30F7E, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F7F, e: 1 },
     { sse: 1, opcode: 0x660F7F, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F7F, e: 1, custom: 1 },
@@ -835,9 +835,9 @@ const encodings = [
     { sse: 1, opcode: 0x0FD4, e: 1 },
     { sse: 1, opcode: 0x660FD4, e: 1 },
     { sse: 1, opcode: 0x0FD5, e: 1 },
-    { sse: 1, opcode: 0x660FD5, e: 1 },
+    { sse: 1, opcode: 0x660FD5, e: 1, custom: 1 },
 
-    { sse: 1, opcode: 0x660FD6, e: 1 },
+    { sse: 1, opcode: 0x660FD6, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF20FD6, mem_ud: 1, e: 1 },
     { sse: 1, opcode: 0xF30FD6, mem_ud: 1, e: 1 },
     { sse: 1, opcode: 0x0FD6, e: 1, block_boundary: 1, }, // ud
@@ -854,9 +854,9 @@ const encodings = [
     { sse: 1, opcode: 0x0FDB, e: 1 },
     { sse: 1, opcode: 0x660FDB, e: 1 },
     { sse: 1, opcode: 0x0FDC, e: 1 },
-    { sse: 1, opcode: 0x660FDC, e: 1 },
+    { sse: 1, opcode: 0x660FDC, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0FDD, e: 1 },
-    { sse: 1, opcode: 0x660FDD, e: 1 },
+    { sse: 1, opcode: 0x660FDD, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0FDE, e: 1 },
     { sse: 1, opcode: 0x660FDE, e: 1 },
     { sse: 1, opcode: 0x0FDF, e: 1 },
@@ -871,7 +871,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FE3, e: 1 },
     { sse: 1, opcode: 0x660FE3, e: 1 },
     { sse: 1, opcode: 0x0FE4, e: 1 },
-    { sse: 1, opcode: 0x660FE4, e: 1 },
+    { sse: 1, opcode: 0x660FE4, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0FE5, e: 1 },
     { sse: 1, opcode: 0x660FE5, e: 1 },
 
@@ -889,7 +889,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FEA, e: 1 },
     { sse: 1, opcode: 0x660FEA, e: 1 },
     { sse: 1, opcode: 0x0FEB, e: 1 },
-    { sse: 1, opcode: 0x660FEB, e: 1 },
+    { sse: 1, opcode: 0x660FEB, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0FEC, e: 1 },
     { sse: 1, opcode: 0x660FEC, e: 1 },
     { sse: 1, opcode: 0x0FED, e: 1 },
@@ -897,7 +897,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FEE, e: 1 },
     { sse: 1, opcode: 0x660FEE, e: 1 },
     { sse: 1, opcode: 0x0FEF, e: 1 },
-    { sse: 1, opcode: 0x660FEF, e: 1 },
+    { sse: 1, opcode: 0x660FEF, e: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0FF0, skip: 1, block_boundary: 1, }, // sse3
 

@@ -101,6 +101,21 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     jit_handle_prefix(ctx, instr_flags)
 }
 
+pub fn sse_read128_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    codegen::gen_safe_read128(ctx, dest);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r as i32);
+    codegen::gen_call_fn2(ctx.builder, name);
+}
+pub fn sse_read128_xmm_xmm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
+    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, name);
+}
+
 fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg16(ctx, r);
     let value_local = ctx.builder.set_new_local();
@@ -4373,6 +4388,48 @@ pub fn instr_660F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     instr_0F29_reg_jit(ctx, r1, r2)
 }
 
+pub fn instr_660F60_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    // Note: Only requires 64-bit read, but is allowed to do 128-bit read. Interpreted mode does
+    // 64-bit read.
+    sse_read128_xmm_mem(ctx, "instr_660F60", modrm_byte, r);
+}
+pub fn instr_660F60_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F60", r1, r2);
+}
+pub fn instr_660F61_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    // Note: Only requires 64-bit read, but is allowed to do 128-bit read. Interpreted mode does
+    // 64-bit read.
+    sse_read128_xmm_mem(ctx, "instr_660F61", modrm_byte, r);
+}
+pub fn instr_660F61_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F61", r1, r2);
+}
+
+pub fn instr_660F67_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F67", modrm_byte, r);
+}
+pub fn instr_660F67_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F67", r1, r2);
+}
+pub fn instr_660F68_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F68", modrm_byte, r);
+}
+pub fn instr_660F68_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F68", r1, r2);
+}
+
+pub fn instr_660F6E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    ctx.builder.instruction_body.const_i32(r as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_660F6E")
+}
+pub fn instr_660F6E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx, r1);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_660F6E")
+}
+
 pub fn instr_660F6F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // XXX: Aligned read or #gp
     codegen::gen_modrm_resolve(ctx, modrm_byte);
@@ -4393,6 +4450,103 @@ pub fn instr_F30F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.instruction_body.const_i32(r1 as i32);
     ctx.builder.instruction_body.const_i32(r2 as i32);
     codegen::gen_call_fn2(ctx.builder, "instr_F30F6F_reg")
+}
+
+pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let imm8 = ctx.cpu.read_imm8();
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    codegen::gen_safe_read128(ctx, dest);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_660F70");
+}
+pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_660F70");
+}
+pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let imm8 = ctx.cpu.read_imm8();
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    codegen::gen_safe_read128(ctx, dest);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_F20F70");
+}
+pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_F20F70");
+}
+pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let imm8 = ctx.cpu.read_imm8();
+    let dest = global_pointers::SSE_SCRATCH_REGISTER;
+    codegen::gen_safe_read128(ctx, dest);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_F30F70");
+}
+pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    let dest = global_pointers::get_reg_xmm_low_offset(r1);
+    ctx.builder.instruction_body.const_i32(dest as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    ctx.builder.instruction_body.const_i32(imm8 as i32);
+    codegen::gen_call_fn3(ctx.builder, "instr_F30F70");
+}
+
+pub fn instr_660F74_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F74", modrm_byte, r);
+}
+pub fn instr_660F74_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F74", r1, r2);
+}
+
+pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg_xmm_low_offset(r));
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
+pub fn instr_660F7E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg_xmm_low_offset(r2));
+    codegen::gen_set_reg32(ctx, r1);
+}
+
+pub fn instr_F30F7E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read64(ctx);
+    ctx.builder.instruction_body.store_aligned_i64(0);
+
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg_xmm_high_offset(r) as i32);
+    ctx.builder.instruction_body.const_i64(0);
+    ctx.builder.instruction_body.store_aligned_i64(0);
+}
+pub fn instr_F30F7E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_F30F7E_reg");
 }
 
 pub fn instr_660F7F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
@@ -4439,4 +4593,62 @@ pub fn instr_0FAE_5_mem_jit(ctx: &mut JitContext, _modrm_byte: u8) {
 }
 pub fn instr_0FAE_5_reg_jit(_ctx: &mut JitContext, r: u32) {
     dbg_assert!(r == 0, "Unexpected lfence encoding");
+}
+
+pub fn instr_660FD6_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+    ctx.builder.instruction_body.load_aligned_i64_from_stack(0);
+    let value_local = ctx.builder.set_new_local_i64();
+
+    codegen::gen_safe_write64(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local_i64(value_local);
+}
+pub fn instr_660FD6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_660FD6_reg");
+}
+
+pub fn instr_660FDC_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FDC", modrm_byte, r);
+}
+pub fn instr_660FDC_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FDC", r1, r2);
+}
+pub fn instr_660FDD_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FDD", modrm_byte, r);
+}
+pub fn instr_660FDD_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FDD", r1, r2);
+}
+pub fn instr_660FD5_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FD5", modrm_byte, r);
+}
+pub fn instr_660FD5_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FD5", r1, r2);
+}
+
+pub fn instr_660FE4_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FE4", modrm_byte, r);
+}
+pub fn instr_660FE4_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FE4", r1, r2);
+}
+pub fn instr_660FEB_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FEB", modrm_byte, r);
+}
+pub fn instr_660FEB_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FEB", r1, r2);
+}
+pub fn instr_660FEF_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660FEF", modrm_byte, r);
+}
+pub fn instr_660FEF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660FEF", r1, r2);
 }

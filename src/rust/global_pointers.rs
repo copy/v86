@@ -17,6 +17,7 @@ pub const SREG: u32 = 668;
 pub const SEGMENT_OFFSETS: u32 = 736;
 pub const REG_XMM: u32 = 832;
 pub const FPU_CONTROL_WORD: u32 = 1036;
+pub const SSE_SCRATCH_REGISTER: u32 = 1040;
 pub const OPSTATS_BUFFER: u32 = 0x08000;
 pub const OPSTATS_UNGUARDED_REGISTER_BUFFER: u32 = 0x20000;
 pub const TLB_DATA: u32 = 0x400000;

@@ -41,6 +41,7 @@ pub trait WasmBuf {
     fn store_u8(&mut self, byte_offset: u32);
     fn store_aligned_u16(&mut self, byte_offset: u32);
     fn store_aligned_i32(&mut self, byte_offset: u32);
+    fn store_aligned_i64(&mut self, byte_offset: u32);
     fn store_unaligned_u16(&mut self, byte_offset: u32);
     fn store_unaligned_i32(&mut self, byte_offset: u32);
     fn store_unaligned_i64(&mut self, byte_offset: u32);
@@ -223,6 +224,12 @@ impl WasmBuf for Vec<u8> {
     fn store_aligned_i32(&mut self, byte_offset: u32) {
         self.push(op::OP_I32STORE);
         self.push(op::MEM_ALIGN32);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn store_aligned_i64(&mut self, byte_offset: u32) {
+        self.push(op::OP_I64STORE);
+        self.push(op::MEM_ALIGN64);
         self.write_leb_u32(byte_offset);
     }
 
