@@ -260,8 +260,7 @@ qemutests: all-debug
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
 kvm-unit-test: all-debug
-	(cd tests/kvm-unit-tests && ./configure)
-	$(MAKE) -C tests/kvm-unit-tests
+	(cd tests/kvm-unit-tests && ./configure && make)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
 expect-tests: all-debug build/libwabt.js
