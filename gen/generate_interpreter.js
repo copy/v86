@@ -252,8 +252,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         // instruction with modrm byte
 
-        const instruction_name = make_instruction_name(encoding, size);
-
         const imm_read = gen_read_imm_call(encoding, size);
 
         if(encoding.ignore_mod)
