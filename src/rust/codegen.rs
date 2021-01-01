@@ -9,7 +9,7 @@ use jit::JitContext;
 use modrm;
 use profiler;
 use regs;
-use wasmgen::wasm_builder::{FunctionType, WasmBuilder, WasmLocal, WasmLocalI64};
+use wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalI64};
 
 pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     ctx.builder
@@ -276,153 +276,118 @@ pub fn sign_extend_i16(builder: &mut WasmBuilder) {
     builder.shr_s_i32();
 }
 
-pub fn gen_fn0_const(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN0_TYPE_INDEX);
-    builder.call_fn(fn_idx);
-}
+pub fn gen_fn0_const(builder: &mut WasmBuilder, name: &str) { builder.call_fn0(name) }
 
-pub fn gen_fn0_const_ret(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN0_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
-}
+pub fn gen_fn0_const_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn0_ret(name); }
 
 pub fn gen_fn1_const(builder: &mut WasmBuilder, name: &str, arg0: u32) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_TYPE_INDEX);
     builder.const_i32(arg0 as i32);
-    builder.call_fn(fn_idx);
+    builder.call_fn1(name);
 }
 
 pub fn gen_call_fn1_ret(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_ret(name);
 }
 
 pub fn gen_call_fn1_ret_f64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_RET_F64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_ret_f64(name);
 }
 
 pub fn gen_call_fn1_f64_ret_i32(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_F64_RET_I32_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_f64_ret(name);
 }
 
 pub fn gen_call_fn0_ret_i64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN0_RET_I64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn0_ret_i64(name);
 }
 
 pub fn gen_call_fn1_ret_i64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_RET_I64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_ret_i64(name);
 }
 
 pub fn gen_call_fn1_f64_ret_i64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_F64_RET_I64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_f64_ret_i64(name);
 }
 
 pub fn gen_fn2_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_TYPE_INDEX);
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
-    builder.call_fn(fn_idx);
+    builder.call_fn2(name);
 }
 
 pub fn gen_call_fn1(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1(name);
 }
 
 pub fn gen_call_fn2(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn2(name);
 }
 
 pub fn gen_call_fn2_i32_f64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_I32_F64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn2_i32_f64(name);
 }
 
 pub fn gen_call_fn2_i64_i32(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_I64_I32_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn2_i64_i32(name);
 }
 
 pub fn gen_call_fn3_i32_i64_i32_ret(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn3_i32_i64_i32_ret(name);
 }
 
 pub fn gen_call_fn1_f64(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_F64_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn1_f64(name);
 }
 
 pub fn gen_call_fn2_ret(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this, and fn returns a value
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn2_ret(name);
 }
 
-pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN3_TYPE_INDEX);
-    builder.call_fn(fn_idx);
-}
+pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) { builder.call_fn3(name); }
 
 pub fn gen_call_fn4_i32_i64_i64_i32_ret(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    builder.call_fn4_i32_i64_i64_i32_ret(name);
 }
 
-pub fn gen_call_fn3_ret(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN3_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
-}
+pub fn gen_call_fn3_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn3_ret(name); }
 
 pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32, arg2: u32) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN3_TYPE_INDEX);
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
     builder.const_i32(arg2 as i32);
-    builder.call_fn(fn_idx);
+    builder.call_fn3(name);
 }
 
-pub fn gen_call_fn4_ret(builder: &mut WasmBuilder, name: &str) {
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN4_RET_TYPE_INDEX);
-    builder.call_fn(fn_idx);
-}
+pub fn gen_call_fn4_ret(builder: &mut WasmBuilder, name: &str) { builder.call_fn4_ret(name); }
 
 pub fn gen_modrm_fn0(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ )
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN1_TYPE_INDEX);
-    builder.call_fn(fn_idx);
+    gen_call_fn1(builder, name);
 }
 
 pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     // generates: fn( _, arg0 )
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN2_TYPE_INDEX);
     builder.const_i32(arg0 as i32);
-    builder.call_fn(fn_idx);
+    gen_call_fn2(builder, name);
 }
 
 pub fn gen_modrm_fn2(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     // generates: fn( _, arg0, arg1 )
-    let fn_idx = builder.get_fn_idx(name, FunctionType::FN3_TYPE_INDEX);
     builder.const_i32(arg0 as i32);
     builder.const_i32(arg1 as i32);
-    builder.call_fn(fn_idx);
+    gen_call_fn3(builder, name);
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx, modrm_byte) }

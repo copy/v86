@@ -7,7 +7,7 @@ use wasmgen::wasm_opcodes as op;
 
 #[derive(PartialEq)]
 #[allow(non_camel_case_types)]
-pub enum FunctionType {
+enum FunctionType {
     FN0_TYPE_INDEX,
     FN1_TYPE_INDEX,
     FN2_TYPE_INDEX,
@@ -471,7 +471,7 @@ impl WasmBuilder {
         write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
     }
 
-    pub fn get_fn_idx(&mut self, fn_name: &str, type_index: FunctionType) -> u16 {
+    fn get_fn_idx(&mut self, fn_name: &str, type_index: FunctionType) -> u16 {
         match self.get_import_index(fn_name) {
             Some(idx) => idx,
             None => {
@@ -805,9 +805,86 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, depth);
     }
 
-    pub fn call_fn(&mut self, fn_idx: u16) {
+    fn call_fn(&mut self, fn_idx: u16) {
         self.instruction_body.push(op::OP_CALL);
         write_leb_u32(&mut self.instruction_body, fn_idx as u32);
+    }
+
+    pub fn call_fn0(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN0_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn0_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN0_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn0_ret_i64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN0_RET_I64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_ret_i64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_RET_I64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_ret_f64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_RET_F64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_f64_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_F64_RET_I32_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_f64_ret_i64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_F64_RET_I64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn1_f64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN1_F64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn2(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN2_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn2_i32_f64(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN2_I32_F64_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn2_i64_i32(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN2_I64_I32_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn2_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN2_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn3(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN3_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn3_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN3_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn3_i32_i64_i32_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN3_I32_I64_I32_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn4_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN4_RET_TYPE_INDEX);
+        self.call_fn(i);
+    }
+    pub fn call_fn4_i32_i64_i64_i32_ret(&mut self, name: &str) {
+        let i = self.get_fn_idx(name, FunctionType::FN4_I32_I64_I64_I32_RET_TYPE_INDEX);
+        self.call_fn(i);
     }
 
     pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE); }
