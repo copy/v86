@@ -2,10 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    fn lss16(x: i32, y: i32, z: i32);
-    #[no_mangle]
-    fn lss32(x: i32, y: i32, z: i32);
-    #[no_mangle]
     fn get_rand_int() -> i32;
     #[no_mangle]
     fn cpuid();
@@ -50,6 +46,7 @@ use cpu2::misc_instr::{
     jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
     test_p, test_s, test_z,
 };
+use cpu2::misc_instr::{lss16, lss32};
 use cpu2::sse_instr::*;
 
 #[no_mangle]
@@ -3220,7 +3217,7 @@ pub unsafe fn instr32_0FB1_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr16_0FB2_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_0FB2_mem(addr: i32, r: i32) { lss16(addr, get_reg16_index(r), SS); }
+pub unsafe fn instr16_0FB2_mem(addr: i32, r: i32) { lss16(addr, r, SS); }
 #[no_mangle]
 pub unsafe fn instr32_0FB2_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
@@ -3240,7 +3237,7 @@ pub unsafe fn instr32_0FB3_mem(addr: i32, r: i32) { btr_mem(addr, read_reg32(r))
 #[no_mangle]
 pub unsafe fn instr16_0FB4_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_0FB4_mem(addr: i32, r: i32) { lss16(addr, get_reg16_index(r), FS); }
+pub unsafe fn instr16_0FB4_mem(addr: i32, r: i32) { lss16(addr, r, FS); }
 #[no_mangle]
 pub unsafe fn instr32_0FB4_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
@@ -3248,7 +3245,7 @@ pub unsafe fn instr32_0FB4_mem(addr: i32, r: i32) { lss32(addr, r, FS); }
 #[no_mangle]
 pub unsafe fn instr16_0FB5_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_0FB5_mem(addr: i32, r: i32) { lss16(addr, get_reg16_index(r), GS); }
+pub unsafe fn instr16_0FB5_mem(addr: i32, r: i32) { lss16(addr, r, GS); }
 #[no_mangle]
 pub unsafe fn instr32_0FB5_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]

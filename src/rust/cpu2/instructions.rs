@@ -2,15 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    fn lss16(x: i32, y: i32, z: i32);
-    #[no_mangle]
-    fn lss32(x: i32, y: i32, z: i32);
-    #[no_mangle]
-    fn enter16(size: i32, nesting_level: i32);
-    #[no_mangle]
-    fn enter32(size: i32, nesting_level: i32);
-
-    #[no_mangle]
     fn arpl(seg: i32, r: i32) -> i32;
     #[no_mangle]
     fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool);
@@ -1900,7 +1891,7 @@ pub unsafe fn instr32_C3() {
 #[no_mangle]
 pub unsafe fn instr16_C4_reg(_unused1: i32, _unused2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_C4_mem(addr: i32, r: i32) { lss16(addr, get_reg16_index(r), ES); }
+pub unsafe fn instr16_C4_mem(addr: i32, r: i32) { lss16(addr, r, ES); }
 #[no_mangle]
 pub unsafe fn instr32_C4_reg(_unused1: i32, _unused2: i32) { trigger_ud(); }
 #[no_mangle]
@@ -1908,7 +1899,7 @@ pub unsafe fn instr32_C4_mem(addr: i32, r: i32) { lss32(addr, r, ES); }
 #[no_mangle]
 pub unsafe fn instr16_C5_reg(_unused1: i32, _unused2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr16_C5_mem(addr: i32, r: i32) { lss16(addr, get_reg16_index(r), DS); }
+pub unsafe fn instr16_C5_mem(addr: i32, r: i32) { lss16(addr, r, DS); }
 #[no_mangle]
 pub unsafe fn instr32_C5_reg(_unused1: i32, _unused2: i32) { trigger_ud(); }
 #[no_mangle]

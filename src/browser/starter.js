@@ -113,8 +113,7 @@ function V86Starter(options)
         "logop": function(eip, op) { return cpu.debug.logop(eip, op); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
-        "dbg_trace": function()
-        {
+        "dbg_trace": function() {
             dbg_trace();
         },
 
@@ -150,11 +149,6 @@ function V86Starter(options)
 
         "load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
         "load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
-
-        "lss16": function() { return cpu.lss16.apply(cpu, arguments); },
-        "lss32": function() { return cpu.lss32.apply(cpu, arguments); },
-        "enter16": function() { return cpu.enter16.apply(cpu, arguments); },
-        "enter32": function() { return cpu.enter32.apply(cpu, arguments); },
 
         "Math_atan2": Math.atan2,
         "Math_tan": Math.tan,

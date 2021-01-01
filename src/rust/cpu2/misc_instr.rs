@@ -277,6 +277,95 @@ pub unsafe fn pusha32() {
     push32(*reg32.offset(ESI as isize)).unwrap();
     push32(*reg32.offset(EDI as isize)).unwrap();
 }
+
+pub unsafe fn lss16(addr: i32, reg: i32, seg: i32) {
+    let new_reg = return_on_pagefault!(safe_read16(addr));
+    let new_seg = return_on_pagefault!(safe_read16(addr + 2));
+
+    if !switch_seg(seg, new_seg) {
+        return;
+    }
+
+    write_reg16(reg, new_reg);
+}
+
+pub unsafe fn lss32(addr: i32, reg: i32, seg: i32) {
+    let new_reg = return_on_pagefault!(safe_read32s(addr));
+    let new_seg = return_on_pagefault!(safe_read16(addr + 4));
+
+    if !switch_seg(seg, new_seg) {
+        return;
+    }
+
+    write_reg32(reg, new_reg);
+}
+
+pub unsafe fn enter16(size: i32, mut nesting_level: i32) {
+    nesting_level &= 31;
+
+    if nesting_level > 0 {
+        dbg_log!(
+            "enter16 stack={} size={} nest={}",
+            (if *stack_size_32 { 16 } else { 32 }),
+            size,
+            nesting_level,
+        );
+    }
+
+    let ss_mask = if *stack_size_32 { -1 } else { 0xFFFF };
+    let ss = get_seg_ss();
+    let frame_temp = *reg32.offset(ESP as isize) - 2;
+
+    if nesting_level > 0 {
+        let mut tmp_ebp = *reg32.offset(EBP as isize);
+        for _ in 1..nesting_level {
+            tmp_ebp -= 2;
+            push16(safe_read16(ss + (tmp_ebp & ss_mask)).unwrap()).unwrap();
+        }
+        push16(frame_temp).unwrap();
+    }
+
+    return_on_pagefault!(safe_write16(
+        ss + (frame_temp & ss_mask),
+        *reg16.offset(BP as isize) as i32,
+    ));
+    *reg16.offset(BP as isize) = frame_temp as u16;
+    adjust_stack_reg(-size - 2);
+}
+
+pub unsafe fn enter32(size: i32, mut nesting_level: i32) {
+    nesting_level &= 31;
+
+    if nesting_level > 0 {
+        dbg_log!(
+            "enter32 stack={} size={} nest={}",
+            (if *stack_size_32 { 16 } else { 32 }),
+            size,
+            nesting_level,
+        );
+    }
+
+    let ss_mask = if *stack_size_32 { -1 } else { 0xFFFF };
+    let ss = get_seg_ss();
+    let frame_temp = *reg32.offset(ESP as isize) - 4;
+
+    if nesting_level > 0 {
+        let mut tmp_ebp = *reg32.offset(EBP as isize);
+        for _ in 1..nesting_level {
+            tmp_ebp -= 4;
+            push32(safe_read32s(ss + (tmp_ebp & ss_mask)).unwrap()).unwrap();
+        }
+        push32(frame_temp).unwrap();
+    }
+
+    return_on_pagefault!(safe_write32(
+        ss + (frame_temp & ss_mask),
+        *reg32.offset(EBP as isize)
+    ));
+    *reg32.offset(EBP as isize) = frame_temp;
+    adjust_stack_reg(-size - 4);
+}
+
 #[no_mangle]
 pub unsafe fn setcc_reg(condition: bool, r: i32) { write_reg8(r, condition as i32); }
 #[no_mangle]

@@ -298,7 +298,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.translate_address_system_write = get_import("translate_address_system_write_js");
 
     this.get_seg_cs = get_import("get_seg_cs");
-    this.get_seg_ss = get_import("get_seg_ss");
     this.adjust_stack_reg = get_import("adjust_stack_reg");
     this.get_real_eip = get_import("get_real_eip");
     this.get_stack_pointer = get_import("get_stack_pointer");
@@ -3001,97 +3000,6 @@ CPU.prototype.verw = function(selector)
     {
         this.flags[0] |= flag_zero;
     }
-};
-
-CPU.prototype.lss16 = function(addr, reg, seg)
-{
-    var new_reg = this.safe_read16(addr),
-        new_seg = this.safe_read16(addr + 2 | 0);
-
-    if(!this.switch_seg(seg, new_seg)) return;
-
-    this.reg16[reg] = new_reg;
-};
-
-CPU.prototype.lss32 = function(addr, reg, seg)
-{
-    var new_reg = this.safe_read32s(addr),
-        new_seg = this.safe_read16(addr + 4 | 0);
-
-    if(!this.switch_seg(seg, new_seg)) return;
-
-    this.reg32[reg] = new_reg;
-};
-
-CPU.prototype.enter16 = function(size, nesting_level)
-{
-    nesting_level &= 31;
-
-    if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
-
-    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
-    var ss = this.get_seg_ss();
-    var frame_temp = this.reg32[reg_esp] - 2;
-
-    if(nesting_level > 0)
-    {
-        var tmp_ebp = this.reg32[reg_ebp];
-        for(var i = 1; i < nesting_level; i++)
-        {
-            tmp_ebp -= 2;
-            this.push16(this.safe_read16(ss + (tmp_ebp & ss_mask) | 0));
-        }
-        this.push16(frame_temp);
-    }
-
-    // check if write to final stack pointer would case a page fault
-    if(!this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 2))
-    {
-        return;
-    }
-
-    this.safe_write16(ss + (frame_temp & ss_mask) | 0, this.reg16[reg_bp]);
-    this.reg16[reg_bp] = frame_temp;
-    this.adjust_stack_reg(-size - 2);
-};
-
-CPU.prototype.enter32 = function(size, nesting_level)
-{
-    nesting_level &= 31;
-
-    if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
-
-    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
-    var ss = this.get_seg_ss();
-    var frame_temp = this.reg32[reg_esp] - 4;
-
-    if(nesting_level > 0)
-    {
-        var tmp_ebp = this.reg32[reg_ebp];
-        for(var i = 1; i < nesting_level; i++)
-        {
-            tmp_ebp -= 4;
-            this.push32(this.safe_read32s(ss + (tmp_ebp & ss_mask) | 0));
-        }
-        this.push32(frame_temp);
-    }
-
-    // check if write to final stack pointer would case a page fault
-    if(!this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 4))
-    {
-        return;
-    }
-
-    this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32[reg_ebp]);
-    this.reg32[reg_ebp] = frame_temp;
-    this.adjust_stack_reg(-size - 4);
-};
-
-CPU.prototype.bswap = function(reg)
-{
-    var temp = this.reg32[reg];
-
-    this.reg32[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
 };
 
 // Closure Compiler's way of exporting
