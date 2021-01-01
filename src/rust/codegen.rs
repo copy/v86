@@ -3,7 +3,6 @@ use cpu::cpu::{
     TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use cpu::global_pointers;
-use cpu::imports::mem8;
 use cpu::memory;
 use jit::JitContext;
 use modrm;
@@ -591,7 +590,7 @@ fn gen_safe_read(
     // where_to_write is only used by dqword
     dbg_assert!((where_to_write != None) == (bits == BitSize::DQWORD));
 
-    ctx.builder.const_i32(unsafe { mem8 } as i32);
+    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
     ctx.builder.add_i32();
 
     match bits {
@@ -736,7 +735,7 @@ fn gen_safe_write(
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
 
-    ctx.builder.const_i32(unsafe { mem8 } as i32);
+    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
     ctx.builder.add_i32();
 
     match value_local {
@@ -877,7 +876,7 @@ pub fn gen_safe_read_write(
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
 
-    ctx.builder.const_i32(unsafe { mem8 } as i32);
+    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
     ctx.builder.add_i32();
 
     ctx.builder.free_local(entry_local);

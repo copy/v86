@@ -32,8 +32,8 @@ extern "C" {
 use ::jit;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
-pub use cpu::imports::mem8;
 use cpu::memory;
+use cpu::memory::mem8;
 use cpu::memory::{
     in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32, write8,
     write_aligned32,
