@@ -306,7 +306,7 @@ pub struct JitState {
     // as an alternative to HashSet, we could use a bitmap of 4096 bits here
     // (faster, but uses much more memory)
     // or a compressed bitmap (likely faster)
-    hot_code_addresses: [u32; HASH_PRIME as usize],
+    hot_pages: [u32; HASH_PRIME as usize],
     wasm_table_index_free_list: Vec<u16>,
     wasm_table_index_pending_free: Vec<u16>,
     entry_points: HashMap<Page, HashSet<u16>>,
@@ -322,7 +322,7 @@ impl JitState {
         // don't assign 0 (XXX: Check)
         let wasm_table_indices = 1..=(WASM_TABLE_SIZE - 1) as u16;
         let mut c = JitState {
-            hot_code_addresses: [0; HASH_PRIME as usize],
+            hot_pages: [0; HASH_PRIME as usize],
             wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
             wasm_table_index_pending_free: vec![],
             entry_points: HashMap::new(),
@@ -1285,9 +1285,9 @@ pub fn jit_increase_hotness_and_maybe_compile(
 ) {
     let page = Page::page_of(phys_address);
     let address_hash = jit_hot_hash_page(page) as usize;
-    ctx.hot_code_addresses[address_hash] += hotness;
-    if ctx.hot_code_addresses[address_hash] >= JIT_THRESHOLD {
-        ctx.hot_code_addresses[address_hash] = 0;
+    ctx.hot_pages[address_hash] += hotness;
+    if ctx.hot_pages[address_hash] >= JIT_THRESHOLD {
+        ctx.hot_pages[address_hash] = 0;
         jit_analyze_and_generate(ctx, page, cs_offset, state_flags)
     };
 }
@@ -1422,7 +1422,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
             did_have_code = true;
 
             // don't try to compile code in this page anymore until it's hot again
-            ctx.hot_code_addresses[jit_hot_hash_page(page) as usize] = 0;
+            ctx.hot_pages[jit_hot_hash_page(page) as usize] = 0;
         },
     }
 
