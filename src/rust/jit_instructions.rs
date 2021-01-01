@@ -7,7 +7,7 @@ use cpu::cpu::{
     FLAG_OVERFLOW, FLAG_SUB, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use cpu::global_pointers;
-use jit::JitContext;
+use jit::{Instruction, InstructionOperand, JitContext};
 use modrm::{jit_add_seg_offset, ModrmByte};
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
@@ -178,7 +178,7 @@ fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
     ctx.builder.free_local(value_local);
 }
 fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
-    let reg = ctx.register_locals[r as usize].unsafe_clone();
+    let reg = ctx.reg(r);
     codegen::gen_push32(ctx, &reg);
 }
 fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
@@ -232,12 +232,12 @@ fn group_arith_ax_imm16(ctx: &mut JitContext, op: &str, imm16: u32) {
 
 fn group_arith_eax_imm32(
     ctx: &mut JitContext,
-    op: &dyn Fn(&mut WasmBuilder, &WasmLocal, &LocalOrImmediate),
+    op: &dyn Fn(&mut JitContext, &WasmLocal, &LocalOrImmediate),
     imm32: u32,
 ) {
     op(
-        ctx.builder,
-        &ctx.register_locals[regs::EAX as usize],
+        ctx,
+        &ctx.reg(regs::EAX),
         &LocalOrImmediate::Immediate(imm32 as i32),
     );
 }
@@ -248,7 +248,7 @@ macro_rules! define_instruction_read8(
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+            $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
             ctx.builder.free_local(dest_operand);
             codegen::gen_free_reg8_or_alias(ctx, r, source_operand);
         }
@@ -256,7 +256,7 @@ macro_rules! define_instruction_read8(
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
             let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r2);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+            $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
             codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
             codegen::gen_free_reg8_or_alias(ctx, r2, source_operand);
         }
@@ -267,13 +267,13 @@ macro_rules! define_instruction_read8(
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             let imm = mask_imm!(imm, $imm);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
+            $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
             ctx.builder.free_local(dest_operand);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
             let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
-            $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
+            $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
             codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
         }
     );
@@ -285,18 +285,18 @@ macro_rules! define_instruction_read16(
             codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             $fn(
-                ctx.builder,
+                ctx,
                 &dest_operand,
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
             );
             ctx.builder.free_local(dest_operand);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r1 as usize],
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize])
+                ctx,
+                &ctx.reg(r1),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r2))
             );
         }
     );
@@ -307,7 +307,7 @@ macro_rules! define_instruction_read16(
             let dest_operand = ctx.builder.set_new_local();
             let imm = mask_imm!(imm, $imm);
             $fn(
-                ctx.builder,
+                ctx,
                 &dest_operand,
                 &LocalOrImmediate::Immediate(imm as i32),
             );
@@ -316,8 +316,8 @@ macro_rules! define_instruction_read16(
 
         pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r as usize],
+                ctx,
+                &ctx.reg(r),
                 &LocalOrImmediate::Immediate(imm as i32),
             );
         }
@@ -330,18 +330,18 @@ macro_rules! define_instruction_read32(
             codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
             let dest_operand = ctx.builder.set_new_local();
             $fn(
-                ctx.builder,
+                ctx,
                 &dest_operand,
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
             );
             ctx.builder.free_local(dest_operand);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r1 as usize],
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize])
+                ctx,
+                &ctx.reg(r1),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r2))
             );
         }
     );
@@ -352,7 +352,7 @@ macro_rules! define_instruction_read32(
             let dest_operand = ctx.builder.set_new_local();
             let imm = mask_imm!(imm, $imm);
             $fn(
-                ctx.builder,
+                ctx,
                 &dest_operand,
                 &LocalOrImmediate::Immediate(imm as i32),
             );
@@ -361,8 +361,8 @@ macro_rules! define_instruction_read32(
 
         pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r as usize],
+                ctx,
+                &ctx.reg(r),
                 &LocalOrImmediate::Immediate(imm as i32),
             );
         }
@@ -411,8 +411,8 @@ macro_rules! define_instruction_write_reg32(
             codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
             let source_operand = ctx.builder.set_new_local();
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r as usize],
+                ctx,
+                &ctx.reg(r),
                 &LocalOrImmediate::WasmLocal(&source_operand),
             );
             ctx.builder.free_local(source_operand);
@@ -420,9 +420,9 @@ macro_rules! define_instruction_write_reg32(
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r2 as usize],
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
+                ctx,
+                &ctx.reg(r2),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r1)),
             );
         }
     );
@@ -653,7 +653,7 @@ macro_rules! define_instruction_read_write_mem16(
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::WORD, &address_local, &|ref mut ctx| {
                 let mut dest_operand = ctx.builder.set_new_local();
-                $fn(ctx.builder, &mut dest_operand);
+                $fn(ctx, &mut dest_operand);
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
             });
@@ -661,7 +661,7 @@ macro_rules! define_instruction_read_write_mem16(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
-            $fn(ctx.builder, &mut ctx.register_locals[r1 as usize]);
+            $fn(ctx, &mut ctx.reg(r1));
         }
     );
 
@@ -695,9 +695,9 @@ macro_rules! define_instruction_read_write_mem32(
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
                 $fn(
-                    ctx.builder,
+                    ctx,
                     &dest_operand,
-                    &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize]),
+                    &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
                 );
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
@@ -707,9 +707,9 @@ macro_rules! define_instruction_read_write_mem32(
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r1 as usize],
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[r2 as usize]),
+                ctx,
+                &ctx.reg(r1),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(r2)),
             );
         }
     );
@@ -720,7 +720,7 @@ macro_rules! define_instruction_read_write_mem32(
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
-                $fn(ctx.builder, &dest_operand, &LocalOrImmediate::Immediate(1));
+                $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(1));
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
             });
@@ -728,7 +728,7 @@ macro_rules! define_instruction_read_write_mem32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
-            $fn(ctx.builder, &ctx.register_locals[r1 as usize], &LocalOrImmediate::Immediate(1));
+            $fn(ctx, &ctx.reg(r1), &LocalOrImmediate::Immediate(1));
         }
     );
 
@@ -739,9 +739,9 @@ macro_rules! define_instruction_read_write_mem32(
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
                 $fn(
-                    ctx.builder,
+                    ctx,
                     &dest_operand,
-                    &LocalOrImmediate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
+                    &LocalOrImmediate::WasmLocal(&ctx.reg(regs::ECX)),
                 );
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
@@ -751,9 +751,9 @@ macro_rules! define_instruction_read_write_mem32(
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r1 as usize],
-                &LocalOrImmediate::WasmLocal(&ctx.register_locals[regs::ECX as usize]),
+                ctx,
+                &ctx.reg(r1),
+                &LocalOrImmediate::WasmLocal(&ctx.reg(regs::ECX)),
             );
         }
     );
@@ -812,7 +812,7 @@ macro_rules! define_instruction_read_write_mem32(
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let mut dest_operand = ctx.builder.set_new_local();
-                $fn(ctx.builder, &mut dest_operand);
+                $fn(ctx, &mut dest_operand);
                 ctx.builder.get_local(&dest_operand);
                 ctx.builder.free_local(dest_operand);
             });
@@ -820,7 +820,7 @@ macro_rules! define_instruction_read_write_mem32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32) {
-            $fn(ctx.builder, &mut ctx.register_locals[r1 as usize]);
+            $fn(ctx, &mut ctx.reg(r1));
         }
     );
 
@@ -832,7 +832,7 @@ macro_rules! define_instruction_read_write_mem32(
             codegen::gen_safe_read_write(ctx, BitSize::DWORD, &address_local, &|ref mut ctx| {
                 let dest_operand = ctx.builder.set_new_local();
                 $fn(
-                    ctx.builder,
+                    ctx,
                     &dest_operand,
                     &LocalOrImmediate::Immediate(imm),
                 );
@@ -845,216 +845,220 @@ macro_rules! define_instruction_read_write_mem32(
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
             let imm = mask_imm!(imm, $imm);
             $fn(
-                ctx.builder,
-                &ctx.register_locals[r1 as usize],
+                ctx,
+                &ctx.reg(r1),
                 &LocalOrImmediate::Immediate(imm as i32),
             );
         }
     );
 );
 
-fn gen_add32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    codegen::gen_set_last_op1(builder, &dest_operand);
+fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.add_i32();
-    builder.set_local(dest_operand);
+    codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
-    codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL);
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.add_i32();
+    ctx.builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(ctx.builder, &dest_operand);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL);
 }
 
-fn gen_sub32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    codegen::gen_set_last_op1(builder, &dest_operand);
+fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Sub { opsize: OPSIZE_32 };
 
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.sub_i32();
-    builder.set_local(dest_operand);
+    codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
-    codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.sub_i32();
+    ctx.builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(ctx.builder, &dest_operand);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
 }
 
 fn gen_cmp(
-    builder: &mut WasmBuilder,
+    ctx: &mut JitContext,
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    builder.const_i32(global_pointers::last_result as i32);
+    ctx.last_instruction = Instruction::Cmp {
+        dest: if ctx.register_locals.iter().any(|l| l == dest_operand) {
+            InstructionOperand::WasmLocal(dest_operand.unsafe_clone())
+        }
+        else {
+            InstructionOperand::Other
+        },
+        source: match source_operand {
+            &LocalOrImmediate::WasmLocal(source) => {
+                if ctx.register_locals.iter().any(|l| l == source) {
+                    InstructionOperand::WasmLocal(source.unsafe_clone())
+                }
+                else {
+                    InstructionOperand::Other
+                }
+            },
+            &LocalOrImmediate::Immediate(i) => InstructionOperand::Immediate(i),
+        },
+        opsize: size,
+    };
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
     if source_operand.is_zero() {
-        builder.get_local(&dest_operand);
+        ctx.builder.get_local(&dest_operand);
     }
     else {
-        builder.get_local(&dest_operand);
-        source_operand.gen_get(builder);
-        builder.sub_i32();
+        ctx.builder.get_local(&dest_operand);
+        source_operand.gen_get(ctx.builder);
+        ctx.builder.sub_i32();
     }
     if size == OPSIZE_8 || size == OPSIZE_16 {
-        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
-        builder.and_i32();
+        ctx.builder
+            .const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
+    ctx.builder.store_aligned_i32(0);
 
-    builder.const_i32(global_pointers::last_op1 as i32);
-    builder.get_local(&dest_operand);
+    ctx.builder.const_i32(global_pointers::last_op1 as i32);
+    ctx.builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
-        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
-        builder.and_i32();
+        ctx.builder
+            .const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(builder, size);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
+    ctx.builder.store_aligned_i32(0);
+    codegen::gen_set_last_op_size(ctx.builder, size);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
 }
-fn gen_cmp8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_cmp(builder, dest, source, OPSIZE_8)
+fn gen_cmp8(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_cmp(ctx, dest, source, OPSIZE_8)
 }
-fn gen_cmp16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_cmp(builder, dest, source, OPSIZE_16)
+fn gen_cmp16(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_cmp(ctx, dest, source, OPSIZE_16)
 }
-fn gen_cmp32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_cmp(builder, dest, source, OPSIZE_32)
-}
-
-fn gen_adc32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.call_fn2_ret("adc32");
-    builder.set_local(dest_operand);
+fn gen_cmp32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_cmp(ctx, dest, source, OPSIZE_32)
 }
 
-fn gen_sbb32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.call_fn2_ret("sbb32");
-    builder.set_local(dest_operand);
+fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.call_fn2_ret("adc32");
+    ctx.builder.set_local(dest_operand);
 }
 
-fn gen_and32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.and_i32();
-    builder.set_local(dest_operand);
+fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.call_fn2_ret("sbb32");
+    ctx.builder.set_local(dest_operand);
+}
 
-    codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+fn gen_and32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.and_i32();
+    ctx.builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(ctx.builder, &dest_operand);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
     codegen::gen_set_flags_changed(
-        builder,
+        ctx.builder,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
-    codegen::gen_clear_flags_bits(builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
 
 fn gen_test(
-    builder: &mut WasmBuilder,
+    ctx: &mut JitContext,
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    builder.const_i32(global_pointers::last_result as i32);
+    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
     if source_operand.eq_local(dest_operand) {
-        builder.get_local(&dest_operand);
+        ctx.builder.get_local(&dest_operand);
     }
     else {
-        builder.get_local(&dest_operand);
-        source_operand.gen_get(builder);
-        builder.and_i32();
+        ctx.builder.get_local(&dest_operand);
+        source_operand.gen_get(ctx.builder);
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
+    ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(builder, size);
+    codegen::gen_set_last_op_size(ctx.builder, size);
     codegen::gen_set_flags_changed(
-        builder,
+        ctx.builder,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
-    codegen::gen_clear_flags_bits(builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
-fn gen_test8(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_test(builder, dest, source, OPSIZE_8)
+fn gen_test8(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_test(ctx, dest, source, OPSIZE_8)
 }
-fn gen_test16(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_test(builder, dest, source, OPSIZE_16)
+fn gen_test16(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_test(ctx, dest, source, OPSIZE_16)
 }
-fn gen_test32(builder: &mut WasmBuilder, dest: &WasmLocal, source: &LocalOrImmediate) {
-    gen_test(builder, dest, source, OPSIZE_32)
+fn gen_test32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
+    gen_test(ctx, dest, source, OPSIZE_32)
 }
 
-fn gen_or32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.or_i32();
-    builder.set_local(dest_operand);
+fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
-    codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.or_i32();
+    ctx.builder.set_local(dest_operand);
+
+    codegen::gen_set_last_result(ctx.builder, &dest_operand);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
     codegen::gen_set_flags_changed(
-        builder,
+        ctx.builder,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
-    codegen::gen_clear_flags_bits(builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
 
-fn gen_xor32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_xor32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+
     if source_operand.eq_local(dest_operand) {
-        builder.const_i32(0);
-        builder.set_local(dest_operand);
+        ctx.builder.const_i32(0);
+        ctx.builder.set_local(dest_operand);
     // TODO:
     // - Set last_result to zero rather than reading from local
     // - Skip setting opsize (not relevant for SF, ZF, and PF on zero)
     }
     else {
-        builder.get_local(&dest_operand);
-        source_operand.gen_get(builder);
-        builder.xor_i32();
-        builder.set_local(dest_operand);
+        ctx.builder.get_local(&dest_operand);
+        source_operand.gen_get(ctx.builder);
+        ctx.builder.xor_i32();
+        ctx.builder.set_local(dest_operand);
     }
 
-    codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_last_result(ctx.builder, &dest_operand);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
     codegen::gen_set_flags_changed(
-        builder,
+        ctx.builder,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
-    codegen::gen_clear_flags_bits(builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
 
-fn gen_rol32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_rol32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1071,11 +1075,8 @@ fn gen_rol32(
     builder.call_fn2_ret("rol32");
     builder.set_local(dest_operand);
 }
-fn gen_ror32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_ror32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1093,11 +1094,8 @@ fn gen_ror32(
     builder.set_local(dest_operand);
 }
 
-fn gen_rcl32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_rcl32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1114,11 +1112,8 @@ fn gen_rcl32(
     builder.call_fn2_ret("rcl32");
     builder.set_local(dest_operand);
 }
-fn gen_rcr32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_rcr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1169,11 +1164,8 @@ impl ShiftCount {
     }
 }
 
-fn gen_shl32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_shl32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
             let exit = builder.block_void();
@@ -1236,11 +1228,8 @@ fn gen_shl32(
         builder.free_local(l);
     }
 }
-fn gen_shr32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_shr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
             let exit = builder.block_void();
@@ -1296,11 +1285,8 @@ fn gen_shr32(
         builder.free_local(l);
     }
 }
-fn gen_sar32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
+fn gen_sar32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
             let exit = builder.block_void();
@@ -1356,22 +1342,14 @@ fn gen_xadd32(ctx: &mut JitContext, dest_operand: &WasmLocal, r: u32) {
     ctx.builder.get_local(&dest_operand);
     codegen::gen_set_reg32(ctx, r);
 
-    gen_add32(
-        ctx.builder,
-        &dest_operand,
-        &LocalOrImmediate::WasmLocal(&tmp),
-    );
+    gen_add32(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&tmp));
 
     ctx.builder.free_local(tmp);
 }
 
 fn gen_cmpxchg32(ctx: &mut JitContext, r: u32) {
     let source = ctx.builder.set_new_local();
-    gen_cmp32(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::WasmLocal(&source),
-    );
+    gen_cmp32(ctx, &ctx.reg(0), &LocalOrImmediate::WasmLocal(&source));
 
     ctx.builder.get_local(&ctx.register_locals[0]);
     ctx.builder.get_local(&source);
@@ -1452,11 +1430,11 @@ fn gen_imul32(ctx: &mut JitContext) {
 }
 
 fn gen_imul_reg32(
-    builder: &mut WasmBuilder,
+    ctx: &mut JitContext,
     dest_operand: &WasmLocal,
     source_operand: &LocalOrImmediate,
 ) {
-    gen_imul3_reg32(builder, dest_operand, dest_operand, source_operand);
+    gen_imul3_reg32(ctx.builder, dest_operand, dest_operand, source_operand);
 }
 
 fn gen_imul3_reg32(
@@ -1674,26 +1652,18 @@ fn gen_bit_rmw(
     ctx.builder.free_local(address_local);
 }
 
-fn gen_bsf32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.call_fn2_ret("bsf32");
-    builder.set_local(dest_operand);
+fn gen_bsf32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.call_fn2_ret("bsf32");
+    ctx.builder.set_local(dest_operand);
 }
 
-fn gen_bsr32(
-    builder: &mut WasmBuilder,
-    dest_operand: &WasmLocal,
-    source_operand: &LocalOrImmediate,
-) {
-    builder.get_local(&dest_operand);
-    source_operand.gen_get(builder);
-    builder.call_fn2_ret("bsr32");
-    builder.set_local(dest_operand);
+fn gen_bsr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.call_fn2_ret("bsr32");
+    ctx.builder.set_local(dest_operand);
 }
 
 fn gen_bswap(ctx: &mut JitContext, reg: i32) {
@@ -1837,7 +1807,7 @@ pub fn instr_3A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
     let source_operand = ctx.builder.set_new_local();
     gen_cmp8(
-        ctx.builder,
+        ctx,
         &dest_operand,
         &LocalOrImmediate::WasmLocal(&source_operand),
     );
@@ -1849,7 +1819,7 @@ pub fn instr_3A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r2);
     let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
     gen_cmp8(
-        ctx.builder,
+        ctx,
         &dest_operand,
         &LocalOrImmediate::WasmLocal(&source_operand),
     );
@@ -1861,8 +1831,8 @@ pub fn instr16_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
     let source_operand = ctx.builder.set_new_local();
     gen_cmp16(
-        ctx.builder,
-        &ctx.register_locals[r as usize],
+        ctx,
+        &ctx.reg(r),
         &LocalOrImmediate::WasmLocal(&source_operand),
     );
     ctx.builder.free_local(source_operand);
@@ -1870,9 +1840,9 @@ pub fn instr16_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
 
 pub fn instr16_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_cmp16(
-        ctx.builder,
-        &ctx.register_locals[r2 as usize],
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
+        ctx,
+        &ctx.reg(r2),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r1)),
     );
 }
 
@@ -1880,8 +1850,8 @@ pub fn instr32_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
     let source_operand = ctx.builder.set_new_local();
     gen_cmp32(
-        ctx.builder,
-        &ctx.register_locals[r as usize],
+        ctx,
+        &ctx.reg(r),
         &LocalOrImmediate::WasmLocal(&source_operand),
     );
     ctx.builder.free_local(source_operand);
@@ -1889,42 +1859,33 @@ pub fn instr32_3B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
 
 pub fn instr32_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_cmp32(
-        ctx.builder,
-        &ctx.register_locals[r2 as usize],
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r1 as usize]),
+        ctx,
+        &ctx.reg(r2),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r1)),
     );
 }
 
 pub fn instr_3C_jit(ctx: &mut JitContext, imm8: u32) {
-    gen_cmp8(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm8 as i32),
-    );
+    gen_cmp8(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm8 as i32));
 }
 
 pub fn instr16_3D_jit(ctx: &mut JitContext, imm16: u32) {
-    gen_cmp16(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm16 as i32),
-    );
+    gen_cmp16(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm16 as i32));
 }
 
 pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
-    gen_cmp32(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm32 as i32),
-    );
+    gen_cmp32(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm32 as i32));
 }
 
-fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
+fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+
+    let builder = &mut ctx.builder;
     builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
-    codegen::gen_getcf(builder);
+    codegen::gen_getcf_unoptimised(builder);
     builder.or_i32();
     builder.store_aligned_i32(0);
 
@@ -1956,19 +1917,22 @@ fn gen_inc(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
 }
-fn gen_inc16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    gen_inc(builder, dest_operand, OPSIZE_16);
+fn gen_inc16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    gen_inc(ctx, dest_operand, OPSIZE_16);
 }
-fn gen_inc32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    gen_inc(builder, dest_operand, OPSIZE_32);
+fn gen_inc32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    gen_inc(ctx, dest_operand, OPSIZE_32);
 }
 
-fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
+fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+
+    let builder = &mut ctx.builder;
     builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
     builder.const_i32(!1);
     builder.and_i32();
-    codegen::gen_getcf(builder);
+    codegen::gen_getcf_unoptimised(builder);
     builder.or_i32();
     builder.store_aligned_i32(0);
 
@@ -2000,45 +1964,41 @@ fn gen_dec(builder: &mut WasmBuilder, dest_operand: &WasmLocal, size: i32) {
     codegen::gen_set_last_op_size(builder, size);
     codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 | FLAG_SUB);
 }
-fn gen_dec16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    gen_dec(builder, dest_operand, OPSIZE_16)
+fn gen_dec16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    gen_dec(ctx, dest_operand, OPSIZE_16)
 }
-fn gen_dec32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
-    gen_dec(builder, dest_operand, OPSIZE_32)
-}
-
-fn gen_inc16_r(ctx: &mut JitContext, r: u32) {
-    gen_inc16(ctx.builder, &mut ctx.register_locals[r as usize])
-}
-fn gen_inc32_r(ctx: &mut JitContext, r: u32) {
-    gen_inc32(ctx.builder, &mut ctx.register_locals[r as usize])
-}
-fn gen_dec16_r(ctx: &mut JitContext, r: u32) {
-    gen_dec16(ctx.builder, &mut ctx.register_locals[r as usize])
-}
-fn gen_dec32_r(ctx: &mut JitContext, r: u32) {
-    gen_dec32(ctx.builder, &mut ctx.register_locals[r as usize])
+fn gen_dec32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    gen_dec(ctx, dest_operand, OPSIZE_32)
 }
 
-fn gen_not16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_inc16_r(ctx: &mut JitContext, r: u32) { gen_inc16(ctx, &mut ctx.reg(r)) }
+fn gen_inc32_r(ctx: &mut JitContext, r: u32) { gen_inc32(ctx, &mut ctx.reg(r)) }
+fn gen_dec16_r(ctx: &mut JitContext, r: u32) { gen_dec16(ctx, &mut ctx.reg(r)) }
+fn gen_dec32_r(ctx: &mut JitContext, r: u32) { gen_dec32(ctx, &mut ctx.reg(r)) }
+
+fn gen_not16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     builder.const_i32(-1);
     builder.xor_i32();
     codegen::gen_set_reg16_local(builder, dest_operand);
 }
-fn gen_not32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_not32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     builder.const_i32(-1);
     builder.xor_i32();
     builder.set_local(dest_operand);
 }
 
-fn gen_neg16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_neg16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    let builder = &mut ctx.builder;
     builder.get_local(dest_operand);
     builder.call_fn1_ret("neg16");
     codegen::gen_set_reg16_local(builder, dest_operand);
 }
-fn gen_neg32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
+fn gen_neg32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
+    let builder = &mut ctx.builder;
     builder.const_i32(global_pointers::last_op1 as i32);
     builder.const_i32(0);
     builder.store_aligned_i32(0);
@@ -2442,11 +2402,7 @@ pub fn instr_88_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 pub fn instr16_89_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write16(
-        ctx,
-        &address_local,
-        &ctx.register_locals[r as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write16(ctx, &address_local, &ctx.reg(r));
     ctx.builder.free_local(address_local);
 }
 pub fn instr16_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -2456,11 +2412,7 @@ pub fn instr32_89_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32[r]);
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write32(
-        ctx,
-        &address_local,
-        &ctx.register_locals[r as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write32(ctx, &address_local, &ctx.reg(r));
     ctx.builder.free_local(address_local);
 }
 pub fn instr32_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -3711,7 +3663,7 @@ pub fn instr32_F7_6_reg_jit(ctx: &mut JitContext, r: u32) {
         ctx.builder.block_end();
     }
     else {
-        gen_div32(ctx, &ctx.register_locals[r as usize].unsafe_clone());
+        gen_div32(ctx, &ctx.reg(r));
     }
 }
 
@@ -4128,58 +4080,34 @@ pub fn instr_A2_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write8(
-        ctx,
-        &address_local,
-        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write8(ctx, &address_local, &ctx.reg(regs::EAX));
     ctx.builder.free_local(address_local);
 }
 pub fn instr16_A3_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write16(
-        ctx,
-        &address_local,
-        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write16(ctx, &address_local, &ctx.reg(regs::EAX));
     ctx.builder.free_local(address_local);
 }
 pub fn instr32_A3_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.const_i32(immaddr as i32);
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write32(
-        ctx,
-        &address_local,
-        &ctx.register_locals[regs::EAX as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write32(ctx, &address_local, &ctx.reg(regs::EAX));
     ctx.builder.free_local(address_local);
 }
 
 pub fn instr_A8_jit(ctx: &mut JitContext, imm8: u32) {
-    gen_test8(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm8 as i32),
-    );
+    gen_test8(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm8 as i32));
 }
 
 pub fn instr16_A9_jit(ctx: &mut JitContext, imm16: u32) {
-    gen_test16(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm16 as i32),
-    );
+    gen_test16(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm16 as i32));
 }
 
 pub fn instr32_A9_jit(ctx: &mut JitContext, imm32: u32) {
-    gen_test32(
-        ctx.builder,
-        &ctx.register_locals[0],
-        &LocalOrImmediate::Immediate(imm32 as i32),
-    );
+    gen_test32(ctx, &ctx.reg(0), &LocalOrImmediate::Immediate(imm32 as i32));
 }
 
 #[derive(PartialEq)]
@@ -4607,11 +4535,7 @@ pub fn instr32_0FC1_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 pub fn instr_0FC3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
-    codegen::gen_safe_write32(
-        ctx,
-        &address_local,
-        &ctx.register_locals[r as usize].unsafe_clone(),
-    );
+    codegen::gen_safe_write32(ctx, &address_local, &ctx.reg(r));
     ctx.builder.free_local(address_local);
 }
 pub fn instr_0FC3_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) { codegen::gen_trigger_ud(ctx) }
@@ -5584,7 +5508,7 @@ pub fn instr16_0FAB_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_bts,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         16,
     );
 }
@@ -5601,7 +5525,7 @@ pub fn instr32_0FAB_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_bts,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         32,
     );
 }
@@ -5619,7 +5543,7 @@ pub fn instr16_0FB3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_btr,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         16,
     );
 }
@@ -5636,7 +5560,7 @@ pub fn instr32_0FB3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_btr,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         32,
     );
 }
@@ -5654,7 +5578,7 @@ pub fn instr16_0FBB_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_btc,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         16,
     );
 }
@@ -5671,7 +5595,7 @@ pub fn instr32_0FBB_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
         ctx,
         modrm_byte,
         &gen_btc,
-        &LocalOrImmediate::WasmLocal(&ctx.register_locals[r as usize].unsafe_clone()),
+        &LocalOrImmediate::WasmLocal(&ctx.reg(r)),
         32,
     );
 }

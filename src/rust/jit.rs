@@ -202,6 +202,28 @@ impl CachedCode {
     };
 }
 
+#[derive(PartialEq)]
+pub enum InstructionOperand {
+    WasmLocal(WasmLocal),
+    Immediate(i32),
+    Other,
+}
+pub enum Instruction {
+    Cmp {
+        dest: InstructionOperand,
+        source: InstructionOperand,
+        opsize: i32,
+    },
+    Sub {
+        opsize: i32,
+    },
+    // Any instruction that sets last_result
+    Arithmetic {
+        opsize: i32,
+    },
+    Other,
+}
+
 pub struct JitContext<'a> {
     pub cpu: &'a mut CpuContext,
     pub builder: &'a mut WasmBuilder,
@@ -209,6 +231,10 @@ pub struct JitContext<'a> {
     pub start_of_current_instruction: u32,
     pub exit_with_fault_label: Label,
     pub exit_label: Label,
+    pub last_instruction: Instruction,
+}
+impl<'a> JitContext<'a> {
+    pub fn reg(&self, i: u32) -> WasmLocal { self.register_locals[i as usize].unsafe_clone() }
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
@@ -956,6 +982,7 @@ fn jit_generate_module(
         start_of_current_instruction: 0,
         exit_with_fault_label,
         exit_label,
+        last_instruction: Instruction::Other,
     };
 
     let entry_blocks = {
@@ -1591,6 +1618,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
 
     codegen::gen_increment_timestamp_counter(ctx.builder, block.number_of_instructions as i32);
     ctx.cpu.eip = start_addr;
+    ctx.last_instruction = Instruction::Other;
 
     loop {
         let mut instruction = 0;
@@ -1611,6 +1639,9 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
                 );
             }
             codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
+        }
+        else {
+            ctx.last_instruction = Instruction::Other;
         }
 
         let wasm_length_before = ctx.builder.instruction_body_length();

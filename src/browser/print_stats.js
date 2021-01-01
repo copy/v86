@@ -58,6 +58,8 @@ const print_stats = {
             "DISPATCHER_SMALL",
             "DISPATCHER_LARGE",
             "LOOP",
+            "CONDITION_OPTIMISED",
+            "CONDITION_UNOPTIMISED",
             "FAILED_PAGE_CHANGE",
             "SAFE_READ_FAST",
             "SAFE_READ_SLOW_PAGE_CROSSED",

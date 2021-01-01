@@ -794,6 +794,7 @@ impl WasmBuilder {
     pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
 
     pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
+    pub fn leu_i32(&mut self) { self.instruction_body.push(op::OP_I32LEU); }
 
     pub fn reinterpret_i32_as_f32(&mut self) {
         self.instruction_body.push(op::OP_F32REINTERPRETI32);

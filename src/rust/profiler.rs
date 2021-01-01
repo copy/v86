@@ -47,6 +47,9 @@ pub enum stat {
     DISPATCHER_LARGE,
     LOOP,
 
+    CONDITION_OPTIMISED,
+    CONDITION_UNOPTIMISED,
+
     FAILED_PAGE_CHANGE,
 
     SAFE_READ_FAST,
@@ -106,7 +109,7 @@ pub enum stat {
 }
 
 #[no_mangle]
-pub static mut stat_array: [u64; 100] = [0; 100];
+pub static mut stat_array: [u64; 500] = [0; 500];
 
 pub fn stat_increment(stat: stat) { stat_increment_by(stat, 1); }
 
