@@ -1513,12 +1513,14 @@ fn gen_dec32_r(ctx: &mut JitContext, r: u32) {
 
 fn gen_not16(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
-    codegen::gen_call_fn1_ret(builder, "not16");
+    builder.const_i32(-1);
+    builder.xor_i32();
     codegen::gen_set_reg16_local(builder, dest_operand);
 }
 fn gen_not32(builder: &mut WasmBuilder, dest_operand: &WasmLocal) {
     builder.get_local(dest_operand);
-    codegen::gen_call_fn1_ret(builder, "not32");
+    builder.const_i32(-1);
+    builder.xor_i32();
     builder.set_local(dest_operand);
 }
 
