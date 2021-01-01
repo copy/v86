@@ -389,13 +389,14 @@ pub unsafe fn fpu_fistm16p(addr: i32) {
 #[no_mangle]
 pub unsafe fn fpu_convert_to_i32(f: f64) -> i32 {
     let st0 = fpu_integer_round(f);
-    let i = convert_f64_to_i32(st0);
-    if i == -0x80000000 {
-        // XXX: Probably not correct if st0 == 0x80000000
-        // (input fits, but same value as error value)
-        fpu_invalid_arithmetic();
+
+    if st0 < 0x8000_0000i64 as f64 && st0 >= -0x8000_0000 as f64 {
+        st0 as i32
     }
-    i
+    else {
+        fpu_invalid_arithmetic();
+        -0x8000_0000
+    }
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm32(addr: i32) {
