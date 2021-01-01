@@ -1052,7 +1052,9 @@ fn gen_cmpxchg32(ctx: &mut JitContext, r: u32) {
         &LocalOrImmedate::WasmLocal(&source),
     );
 
-    codegen::gen_getzf(ctx.builder);
+    ctx.builder.get_local(&ctx.register_locals[0]);
+    ctx.builder.get_local(&source);
+    ctx.builder.eq_i32();
     ctx.builder.if_i32();
     codegen::gen_get_reg32(ctx, r);
     ctx.builder.else_();
