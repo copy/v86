@@ -3513,28 +3513,30 @@ pub unsafe fn instr_F30FD6_reg(r1: i32, r2: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FD7_mem(addr: i32, r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_0FD7_reg(r1: i32, r2: i32) {
+pub unsafe fn instr_0FD7(r1: i32) -> i32 {
     // pmovmskb r, mm
     let x: [u8; 8] = std::mem::transmute(read_mmx64s(r1));
     let mut result = 0;
     for i in 0..8 {
         result |= x[i] as i32 >> 7 << i
     }
-    write_reg32(r2, result);
     transition_fpu_to_mmx();
+    result
 }
+pub unsafe fn instr_0FD7_reg(r1: i32, r2: i32) { write_reg32(r2, instr_0FD7(r1)); }
 #[no_mangle]
 pub unsafe fn instr_660FD7_mem(addr: i32, r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_660FD7_reg(r1: i32, r2: i32) {
+pub unsafe fn instr_660FD7(r1: i32) -> i32 {
     // pmovmskb reg, xmm
     let x = read_xmm128s(r1);
     let mut result = 0;
     for i in 0..16 {
         result |= x.u8_0[i] as i32 >> 7 << i
     }
-    write_reg32(r2, result);
+    result
 }
+pub unsafe fn instr_660FD7_reg(r1: i32, r2: i32) { write_reg32(r2, instr_660FD7(r1)) }
 #[no_mangle]
 pub unsafe fn instr_0FD8(source: u64, r: i32) {
     // psubusb mm, mm/m64
