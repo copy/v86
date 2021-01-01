@@ -23,11 +23,6 @@ function CPU(bus, wm)
 
     this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
 
-    // Note: Currently unused (degrades performance and not required by any OS
-    //       that we support)
-    this.a20_enabled = v86util.view(Int32Array, memory, 552, 1);
-    this.a20_enabled[0] = +true;
-
     this.mem8 = new Uint8Array(0);
     this.mem16 = new Uint16Array(this.mem8.buffer);
     this.mem32s = new Int32Array(this.mem8.buffer);
@@ -418,7 +413,6 @@ CPU.prototype.get_state = function()
     state[59] = this.devices.net;
     state[60] = this.devices.pic;
 
-    state[61] = this.a20_enabled[0];
     state[62] = this.fw_value;
 
     state[63] = this.devices.ioapic;
@@ -514,7 +508,6 @@ CPU.prototype.set_state = function(state)
     this.devices.net = state[59];
     this.devices.pic = state[60];
 
-    this.a20_enabled[0] = state[61];
     this.fw_value = state[62];
 
     this.devices.ioapic = state[63];
@@ -644,8 +637,6 @@ CPU.prototype.reboot_internal = function()
 
 CPU.prototype.reset = function()
 {
-    this.a20_enabled[0] = +true;
-
     this.segment_is_null.fill(0);
     this.segment_limits.fill(0);
     //this.segment_infos = new Uint32Array(8);
@@ -800,14 +791,14 @@ CPU.prototype.init = function(settings, device_bus)
         }
     }
 
-    var a20_byte = 0;
-
     io.register_read(0xB3, this, function()
     {
         // seabios smm_relocate_and_restore
         dbg_log("port 0xB3 read");
         return 0;
     });
+
+    var a20_byte = 0;
 
     io.register_read(0x92, this, function()
     {

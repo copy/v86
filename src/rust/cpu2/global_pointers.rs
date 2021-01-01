@@ -17,7 +17,7 @@ pub const flags: *mut i32 = 120 as *mut i32;
 
 pub const page_fault: *mut bool = 540 as *mut bool;
 pub const page_fault_error_code: *mut i32 = 544 as *mut i32;
-pub const a20_enabled: *mut bool = 552 as *mut bool;
+
 pub const instruction_pointer: *mut i32 = 556 as *mut i32;
 pub const previous_ip: *mut i32 = 560 as *mut i32;
 pub const idtr_size: *mut i32 = 564 as *mut i32;
