@@ -7,22 +7,21 @@
   (type $t5 (func (result i64)))
   (type $t6 (func (param i32) (result i32)))
   (type $t7 (func (param i32 i32) (result i32)))
-  (type $t8 (func (param i32) (result f64)))
-  (type $t9 (func (param i32) (result i64)))
-  (type $t10 (func (param i32 f64)))
-  (type $t11 (func (param i64 i32)))
-  (type $t12 (func (param f64)))
-  (type $t13 (func (param f64) (result i32)))
-  (type $t14 (func (param f64) (result i64)))
-  (type $t15 (func (param i32 i32 i32) (result i32)))
-  (type $t16 (func (param i32 i32 i32 i32) (result i32)))
-  (type $t17 (func (param i64 i32 i32)))
-  (type $t18 (func (param i32 i64 i32) (result i32)))
-  (type $t19 (func (param i32 i64 i64 i32) (result i32)))
+  (type $t8 (func (param i32) (result i64)))
+  (type $t9 (func (param i32 i64)))
+  (type $t10 (func (param i64 i32)))
+  (type $t11 (func (param i64 i32) (result i32)))
+  (type $t12 (func (param i64 i32) (result i64)))
+  (type $t13 (func (param i32 i32 i32) (result i32)))
+  (type $t14 (func (param i32 i32 i32 i32) (result i32)))
+  (type $t15 (func (param i64 i32 i32)))
+  (type $t16 (func (param i32 i64 i32)))
+  (type $t17 (func (param i32 i64 i32) (result i32)))
+  (type $t18 (func (param i32 i64 i64 i32) (result i32)))
   (import "e" "log_segment_null" (func $e.log_segment_null (type $t1)))
   (import "e" "trigger_gp" (func $e.trigger_gp (type $t1)))
   (import "e" "safe_read_write32s_slow_jit" (func $e.safe_read_write32s_slow_jit (type $t7)))
-  (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t15)))
+  (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t13)))
   (import "e" "bug_gen_safe_read_write_page_fault" (func $e.bug_gen_safe_read_write_page_fault (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
@@ -157,7 +156,7 @@
                   (i32.eq
                     (i32.and
                       (tee_local $l11
-                        (i32.load offset=316208
+                        (i32.load offset=312104
                           (i32.shl
                             (i32.shr_u
                               (get_local $l10)
