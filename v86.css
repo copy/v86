@@ -88,8 +88,7 @@ h4 {
     float: left;
     margin-right: 10px;
     margin-bottom: 10px;
-    border: 1px solid #555;
-    border-width: 2px 1px;
+    outline: 1px solid #555;
 }
 a img {
     margin: 10px;
