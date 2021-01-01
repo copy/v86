@@ -199,7 +199,7 @@ pub struct JitContext<'a> {
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
     pub main_loop_label: Label,
-    pub exit_with_pagefault_label: Label,
+    pub exit_with_fault_label: Label,
     pub exit_label: Label,
     pub our_wasm_table_index: WasmTableIndex,
     pub basic_block_index_local: &'a WasmLocal,
@@ -881,7 +881,7 @@ fn jit_generate_module(
     let main_loop_label = builder.loop_void();
 
     builder.block_void(); // for the default case
-    let exit_with_pagefault_label = builder.block_void(); // for the exit-with-pagefault case
+    let exit_with_fault_label = builder.block_void(); // for the exit-with-fault case
 
     let ctx = &mut JitContext {
         cpu: &mut cpu,
@@ -889,7 +889,7 @@ fn jit_generate_module(
         register_locals: &mut register_locals,
         start_of_current_instruction: 0,
         main_loop_label,
-        exit_with_pagefault_label,
+        exit_with_fault_label,
         exit_label,
         our_wasm_table_index: wasm_table_index,
         basic_block_index_local: &gen_local_state,
@@ -921,7 +921,7 @@ fn jit_generate_module(
     }
 
     ctx.builder.get_local(&gen_local_state);
-    ctx.builder.brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-pagefault case
+    ctx.builder.brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-fault case
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
@@ -1102,10 +1102,10 @@ fn jit_generate_module(
     }
 
     {
-        // exit-with-pagefault case
+        // exit-with-fault case
         ctx.builder.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
-        codegen::gen_fn0_const(ctx.builder, "trigger_pagefault_end_jit");
+        codegen::gen_fn0_const(ctx.builder, "trigger_fault_end_jit");
         ctx.builder.return_();
     }
 

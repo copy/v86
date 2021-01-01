@@ -583,7 +583,7 @@ fn gen_safe_read(
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(ctx.exit_with_pagefault_label);
+    ctx.builder.br_if(ctx.exit_with_fault_label);
 
     ctx.builder.block_end();
 
@@ -688,7 +688,7 @@ pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(ctx.exit_with_pagefault_label);
+    ctx.builder.br_if(ctx.exit_with_fault_label);
 
     ctx.builder.block_end();
 
@@ -799,7 +799,7 @@ fn gen_safe_write(
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(ctx.exit_with_pagefault_label);
+    ctx.builder.br_if(ctx.exit_with_fault_label);
 
     ctx.builder.block_end();
 
@@ -939,7 +939,7 @@ pub fn gen_safe_read_write(
         ctx.builder.and_i32();
     }
 
-    ctx.builder.br_if(ctx.exit_with_pagefault_label);
+    ctx.builder.br_if(ctx.exit_with_fault_label);
 
     ctx.builder.block_end();
 
@@ -1282,7 +1282,7 @@ pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
 }
 
 pub fn gen_task_switch_test(ctx: &mut JitContext) {
-    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
+    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_jit(); goto exit_with_fault; }
     let cr0_offset = global_pointers::get_creg_offset(0);
 
     dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
@@ -1291,24 +1291,20 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     ctx.builder.and_i32();
 
     ctx.builder.if_void();
-
-    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
-        ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
-    );
-
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_fn0_const(ctx.builder, "task_switch_test_jit");
-
-    ctx.builder.return_();
-
+    {
+        gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+        gen_fn1_const(
+            ctx.builder,
+            "task_switch_test_jit",
+            ctx.start_of_current_instruction,
+        );
+        ctx.builder.br(ctx.exit_with_fault_label);
+    }
     ctx.builder.block_end();
 }
 
 pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
-    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_mmx_void(); return; }
+    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_mmx_jit(); goto exit_with_fault; }
     let cr0_offset = global_pointers::get_creg_offset(0);
 
     dbg_assert!(regs::CR0_EM | regs::CR0_TS <= 0xFF);
@@ -1317,19 +1313,15 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     ctx.builder.and_i32();
 
     ctx.builder.if_void();
-
-    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
-        ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
-    );
-
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_fn0_const(ctx.builder, "task_switch_test_mmx_jit");
-
-    ctx.builder.return_();
-
+    {
+        gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+        gen_fn1_const(
+            ctx.builder,
+            "task_switch_test_mmx_jit",
+            ctx.start_of_current_instruction,
+        );
+        ctx.builder.br(ctx.exit_with_fault_label);
+    }
     ctx.builder.block_end();
 }
 
@@ -1726,36 +1718,34 @@ pub fn gen_fpu_load_i64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 
 pub fn gen_trigger_de(ctx: &mut JitContext) {
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
+    gen_fn1_const(
         ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
+        "trigger_de_jit",
+        ctx.start_of_current_instruction,
     );
-    gen_fn0_const(ctx.builder, "trigger_de");
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_with_fault_label);
 }
 
 pub fn gen_trigger_ud(ctx: &mut JitContext) {
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
+    gen_fn1_const(
         ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
+        "trigger_ud_jit",
+        ctx.start_of_current_instruction,
     );
-    gen_fn0_const(ctx.builder, "trigger_ud");
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_with_fault_label);
 }
 
 pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
+    gen_fn2_const(
         ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
+        "trigger_gp_jit",
+        error_code,
+        ctx.start_of_current_instruction,
     );
-    gen_fn1_const(ctx.builder, "trigger_gp", error_code);
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    ctx.builder.return_();
+    ctx.builder.br(ctx.exit_with_fault_label);
 }
 
 pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {

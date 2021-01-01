@@ -16,7 +16,6 @@ pub const flags_changed: *mut i32 = 116 as *mut i32;
 pub const flags: *mut i32 = 120 as *mut i32;
 
 pub const page_fault: *mut bool = 540 as *mut bool;
-pub const page_fault_error_code: *mut i32 = 544 as *mut i32;
 
 pub const apic_enabled: *mut bool = 548 as *mut bool;
 pub const acpi_enabled: *mut bool = 552 as *mut bool;

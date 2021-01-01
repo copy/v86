@@ -258,6 +258,8 @@ pub static mut valid_tlb_entries_count: i32 = 0;
 
 pub static mut in_jit: bool = false;
 
+pub static mut jit_fault: Option<(i32, Option<i32>)> = None;
+
 pub enum LastJump {
     Interrupt {
         phys_addr: u32,
@@ -1773,11 +1775,11 @@ pub unsafe fn clear_tlb() {
 /// - safe_{read,write}*_jit call translate_address_{read,write}_jit
 /// - translate_address_{read,write}_jit do the normal page walk and call this method instead of
 ///   trigger_pagefault when a page fault happens
-/// - this method prepares a page fault by setting cr2, eip, prefixes and writes the error code
-///   into page_fault_error_code. This method *doesn't* trigger the interrupt, as registers are
+/// - this method prepares a page fault by setting cr2, and writes the error code
+///   into jit_fault. This method *doesn't* trigger the interrupt, as registers are
 ///   still stored in the wasm module
 /// - back in the wasm module, the generated code detects the page fault, restores the registers
-///   and finally calls trigger_pagefault_end_jit, which does the interrupt
+///   and finally calls trigger_fault_end_jit, which does the interrupt
 pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     let write = fault.for_writing;
     let addr = fault.addr;
@@ -1812,12 +1814,48 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
             return;
         }
     }
-    *page_fault_error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
+    let error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
+    jit_fault = Some((CPU_EXCEPTION_PF, Some(error_code)));
 }
 
 #[no_mangle]
-pub unsafe fn trigger_pagefault_end_jit() {
-    call_interrupt_vector(CPU_EXCEPTION_PF, false, Some(*page_fault_error_code));
+pub unsafe fn trigger_de_jit(start_eip: i32) {
+    dbg_log!("#de in jit mode");
+    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    jit_fault = Some((CPU_EXCEPTION_DE, None))
+}
+
+#[no_mangle]
+pub unsafe fn trigger_ud_jit(start_eip: i32) {
+    dbg_log!("#ud in jit mode");
+    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    jit_fault = Some((CPU_EXCEPTION_UD, None))
+}
+
+#[no_mangle]
+pub unsafe fn trigger_nm_jit(start_eip: i32) {
+    dbg_log!("#nm in jit mode");
+    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    jit_fault = Some((CPU_EXCEPTION_NM, None))
+}
+
+#[no_mangle]
+pub unsafe fn trigger_gp_jit(code: i32, start_eip: i32) {
+    dbg_log!("#gp in jit mode");
+    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    jit_fault = Some((CPU_EXCEPTION_GP, Some(code)))
+}
+
+#[no_mangle]
+pub unsafe fn trigger_fault_end_jit() {
+    let (code, error_code) = jit_fault.unwrap();
+    jit_fault = None;
+    if DEBUG {
+        if cpu_exception_hook(code) {
+            return;
+        }
+    }
+    call_interrupt_vector(code, false, error_code);
 }
 
 pub unsafe fn trigger_pagefault(fault: PageFault) {
@@ -3246,9 +3284,9 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_jit() {
-    let did_fault = !task_switch_test();
-    dbg_assert!(did_fault);
+pub unsafe fn task_switch_test_jit(start_eip: i32) {
+    dbg_assert!(0 != *cr & (CR0_EM | CR0_TS));
+    trigger_nm_jit(start_eip);
 }
 
 pub unsafe fn task_switch_test_mmx() -> bool {
@@ -3269,9 +3307,19 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_mmx_jit() {
-    let did_fault = !task_switch_test_mmx();
-    dbg_assert!(did_fault);
+pub unsafe fn task_switch_test_mmx_jit(start_eip: i32) {
+    if *cr.offset(4) & CR4_OSFXSR == 0 {
+        dbg_log!("Warning: Unimplemented task switch test with cr4.osfxsr=0");
+    }
+    if 0 != *cr & CR0_EM {
+        trigger_ud_jit(start_eip);
+    }
+    else if 0 != *cr & CR0_TS {
+        trigger_nm_jit(start_eip);
+    }
+    else {
+        dbg_assert!(false);
+    }
 }
 
 pub unsafe fn read_moffs() -> OrPageFault<i32> {
