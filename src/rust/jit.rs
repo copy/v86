@@ -1140,14 +1140,18 @@ fn jit_generate_module(
                             jump_offset_is_32,
                             ..
                         } => {
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
                             if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                    jump_offset,
+                                );
                             }
                             else {
+                                codegen::gen_set_eip_low_bits(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                );
                                 codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                             }
                         },
@@ -1192,11 +1196,18 @@ fn jit_generate_module(
                         jump_offset,
                         jump_offset_is_32,
                     } => {
-                        codegen::gen_set_eip_low_bits(ctx.builder, block.end_addr as i32 & 0xFFF);
                         if jump_offset_is_32 {
-                            codegen::gen_relative_jump(ctx.builder, jump_offset);
+                            codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                                jump_offset,
+                            );
                         }
                         else {
+                            codegen::gen_set_eip_low_bits(
+                                ctx.builder,
+                                block.end_addr as i32 & 0xFFF,
+                            );
                             codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                         }
 
@@ -1214,14 +1225,18 @@ fn jit_generate_module(
                         // - Unconditional jumps
 
                         if Page::page_of(next_block_addr) != Page::page_of(block.addr) {
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
                             if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                    jump_offset,
+                                );
                             }
                             else {
+                                codegen::gen_set_eip_low_bits(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                );
                                 codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                             }
 
@@ -1318,14 +1333,18 @@ fn jit_generate_module(
                             if Page::page_of(next_block_branch_taken_addr)
                                 != Page::page_of(block.addr)
                             {
-                                codegen::gen_set_eip_low_bits(
-                                    ctx.builder,
-                                    block.end_addr as i32 & 0xFFF,
-                                );
                                 if jump_offset_is_32 {
-                                    codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                    codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                        ctx.builder,
+                                        block.end_addr as i32 & 0xFFF,
+                                        jump_offset,
+                                    );
                                 }
                                 else {
+                                    codegen::gen_set_eip_low_bits(
+                                        ctx.builder,
+                                        block.end_addr as i32 & 0xFFF,
+                                    );
                                     codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                                 }
 
@@ -1401,14 +1420,18 @@ fn jit_generate_module(
                         else {
                             // Jump to different page
                             // TODO: Could generate br_if
-                            codegen::gen_set_eip_low_bits(
-                                ctx.builder,
-                                block.end_addr as i32 & 0xFFF,
-                            );
                             if jump_offset_is_32 {
-                                codegen::gen_relative_jump(ctx.builder, jump_offset);
+                                codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                    jump_offset,
+                                );
                             }
                             else {
+                                codegen::gen_set_eip_low_bits(
+                                    ctx.builder,
+                                    block.end_addr as i32 & 0xFFF,
+                                );
                                 codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                             }
 
