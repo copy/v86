@@ -1,5 +1,6 @@
-pub fn write_leb_i32(buf: &mut Vec<u8>, mut v: i32) {
-    // Super complex stuff. See the following:
+pub fn write_leb_i32(buf: &mut Vec<u8>, v: i32) { write_leb_i64(buf, v as i64); }
+
+pub fn write_leb_i64(buf: &mut Vec<u8>, mut v: i64) {
     // https://en.wikipedia.org/wiki/LEB128#Encode_signed_integer
     // http://llvm.org/doxygen/LEB128_8h_source.html#l00048
 
@@ -10,7 +11,7 @@ pub fn write_leb_i32(buf: &mut Vec<u8>, mut v: i32) {
         let mut byte = (v & 0b1111111) as u8; // get last 7 bits
         v >>= 7; // shift them away from the value
         if negative {
-            v |= (!0 as i32) << (size - 7); // extend sign
+            v |= (!0 as i64) << (size - 7); // extend sign
         }
         let sign_bit = byte & (1 << 6);
         if (v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0) {

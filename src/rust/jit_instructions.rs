@@ -1105,6 +1105,50 @@ pub fn gen_imul_reg32(
     builder.set_local(dest_operand);
 }
 
+pub fn gen_div32(ctx: &mut JitContext, source: &WasmLocal) {
+    ctx.builder.get_local(source);
+    ctx.builder.eqz_i32();
+    ctx.builder.if_void();
+    codegen::gen_trigger_de(ctx);
+    ctx.builder.else_();
+    {
+        codegen::gen_get_reg32(ctx, regs::EDX);
+        ctx.builder.extend_unsigned_i32_to_i64();
+        ctx.builder.const_i64(32);
+        ctx.builder.shl_i64();
+        codegen::gen_get_reg32(ctx, regs::EAX);
+        ctx.builder.extend_unsigned_i32_to_i64();
+        ctx.builder.or_i64();
+        let dest_operand = ctx.builder.tee_new_local_i64();
+
+        ctx.builder.get_local(source);
+        ctx.builder.extend_unsigned_i32_to_i64();
+        ctx.builder.div_i64();
+        let result = ctx.builder.tee_new_local_i64();
+        ctx.builder.const_i64(0xFFFF_FFFF);
+        ctx.builder.gtu_i64();
+        ctx.builder.if_void();
+        codegen::gen_trigger_de(ctx);
+        ctx.builder.else_();
+        {
+            ctx.builder.get_local_i64(&dest_operand);
+            ctx.builder.get_local(source);
+            ctx.builder.extend_unsigned_i32_to_i64();
+            ctx.builder.rem_i64();
+            ctx.builder.wrap_i64_to_i32();
+            codegen::gen_set_reg32(ctx, regs::EDX);
+
+            ctx.builder.get_local_i64(&result);
+            ctx.builder.wrap_i64_to_i32();
+            codegen::gen_set_reg32(ctx, regs::EAX);
+        }
+        ctx.builder.block_end();
+        ctx.builder.free_local_i64(dest_operand);
+        ctx.builder.free_local_i64(result);
+    }
+    ctx.builder.block_end();
+}
+
 pub fn gen_bt(
     builder: &mut WasmBuilder,
     bit_base: &WasmLocal,
@@ -3140,25 +3184,39 @@ pub fn instr16_F7_6_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_trigger_de(ctx);
     ctx.builder.block_end();
 }
+
 pub fn instr32_F7_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_call_fn1_ret(ctx.builder, "div32_without_fault");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
-    ctx.builder.eqz_i32();
-    ctx.builder.if_void();
-    codegen::gen_trigger_de(ctx);
-    ctx.builder.block_end();
+    if false {
+        codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
+        codegen::gen_call_fn1_ret(ctx.builder, "div32_without_fault");
+        codegen::gen_move_registers_from_memory_to_locals(ctx);
+        ctx.builder.eqz_i32();
+        ctx.builder.if_void();
+        codegen::gen_trigger_de(ctx);
+        ctx.builder.block_end();
+    }
+    else {
+        codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+        let source_operand = ctx.builder.set_new_local();
+        gen_div32(ctx, &source_operand);
+        ctx.builder.free_local(source_operand);
+    }
 }
 pub fn instr32_F7_6_reg_jit(ctx: &mut JitContext, r: u32) {
-    codegen::gen_get_reg32(ctx, r);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_call_fn1_ret(ctx.builder, "div32_without_fault");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
-    ctx.builder.eqz_i32();
-    ctx.builder.if_void();
-    codegen::gen_trigger_de(ctx);
-    ctx.builder.block_end();
+    if false {
+        codegen::gen_get_reg32(ctx, r);
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
+        codegen::gen_call_fn1_ret(ctx.builder, "div32_without_fault");
+        codegen::gen_move_registers_from_memory_to_locals(ctx);
+        ctx.builder.eqz_i32();
+        ctx.builder.if_void();
+        codegen::gen_trigger_de(ctx);
+        ctx.builder.block_end();
+    }
+    else {
+        gen_div32(ctx, &ctx.register_locals[r as usize].unsafe_clone());
+    }
 }
 
 pub fn instr16_F7_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {

@@ -1,4 +1,6 @@
-use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
+use leb::{
+    write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_i64, write_leb_u32,
+};
 use std::mem::transmute;
 use util::{SafeToU8, SafeToU16};
 use wasmgen::wasm_opcodes as op;
@@ -555,7 +557,7 @@ impl WasmBuilder {
 
     pub fn const_i64(&mut self, v: i64) {
         self.instruction_body.push(op::OP_I64CONST);
-        write_leb_i32(&mut self.instruction_body, v as i32); // XXX
+        write_leb_i64(&mut self.instruction_body, v);
     }
 
     pub fn load_aligned_u16(&mut self, addr: u32) {
@@ -592,8 +594,12 @@ impl WasmBuilder {
     pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
     pub fn and_i32(&mut self) { self.instruction_body.push(op::OP_I32AND); }
     pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }
+    pub fn or_i64(&mut self) { self.instruction_body.push(op::OP_I64OR); }
     pub fn shl_i32(&mut self) { self.instruction_body.push(op::OP_I32SHL); }
+    pub fn shl_i64(&mut self) { self.instruction_body.push(op::OP_I64SHL); }
     pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
+    pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
+    pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
 
     pub fn call_fn(&mut self, fn_idx: u16) {
         self.instruction_body.push(op::OP_CALL);
@@ -609,6 +615,7 @@ impl WasmBuilder {
     pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
     #[allow(dead_code)]
     pub fn gt_i32(&mut self) { self.instruction_body.push(op::OP_I32GTS); }
+    pub fn gtu_i64(&mut self) { self.instruction_body.push(op::OP_I64GTU); }
 
     pub fn ltu_i32(&mut self) { self.instruction_body.push(op::OP_I32LTU); }
 
