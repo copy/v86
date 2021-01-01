@@ -4589,6 +4589,21 @@ pub fn instr32_0FC7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 pub fn instr32_0FC7_1_reg_jit(ctx: &mut JitContext, _r: u32) { codegen::gen_trigger_ud(ctx); }
 
+pub fn instr_0FC6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    let dest = global_pointers::get_reg_xmm_offset(r1);
+    ctx.builder.const_i32(dest as i32);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_0FC6");
+}
+pub fn instr_0FC6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    let dest = global_pointers::sse_scratch_register as u32;
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
+    ctx.builder.const_i32(dest as i32);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_0FC6");
+}
 pub fn instr_660FC6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     let dest = global_pointers::get_reg_xmm_offset(r1);
     ctx.builder.const_i32(dest as i32);

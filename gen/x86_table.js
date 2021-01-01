@@ -825,7 +825,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FC5, e: 1, mem_ud: 1, imm8: 1 },
     { sse: 1, opcode: 0x660FC5, e: 1, mem_ud: 1, imm8: 1, },
 
-    { sse: 1, opcode: 0x0FC6, e: 1, imm8: 1 },
+    { sse: 1, opcode: 0x0FC6, e: 1, imm8: 1, custom: 1 },
     { sse: 1, opcode: 0x660FC6, e: 1, imm8: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0FD0, skip: 1, block_boundary: 1, }, // sse3

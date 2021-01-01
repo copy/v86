@@ -2961,6 +2961,7 @@ pub unsafe fn instr_660FC5_reg(r1: i32, r2: i32, imm8: i32) {
     write_reg32(r2, result as i32);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0FC6(source: reg128, r: i32, imm8: i32) {
     // shufps xmm, xmm/mem128
     // XXX: Aligned access or #gp
@@ -2973,9 +2974,7 @@ pub unsafe fn instr_0FC6(source: reg128, r: i32, imm8: i32) {
         source.u32_0[(imm8 >> 6 & 3) as usize] as i32,
     );
 }
-#[no_mangle]
 pub unsafe fn instr_0FC6_reg(r1: i32, r2: i32, imm: i32) { instr_0FC6(read_xmm128s(r1), r2, imm); }
-#[no_mangle]
 pub unsafe fn instr_0FC6_mem(addr: i32, r: i32, imm: i32) {
     instr_0FC6(return_on_pagefault!(safe_read128s(addr)), r, imm);
 }
