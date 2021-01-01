@@ -144,13 +144,6 @@ function V86Starter(options)
         "load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
         "load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
 
-        "Math_atan2": Math.atan2,
-        "Math_tan": Math.tan,
-        // https://github.com/rust-lang/rust/blob/56e46255b39058725d25e74200e03c0c70a0d0d3/src/etc/wasm32-shim.js#L105-L117
-        "ldexp": function(x, exp) {
-            return x * Math.pow(2, exp);
-        },
-
         "log_from_wasm": function(offset, len) {
             const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);
