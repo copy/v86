@@ -280,6 +280,7 @@ rust-test-intensive:
 api-tests: all-debug
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
+	./tests/api/reset.js
 
 all-tests: jshint kvm-unit-test expect-tests qemutests jitpagingtests api-tests rust-test nasmtests nasmtests-force-jit tests
 	# Skipping:
