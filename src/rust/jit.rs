@@ -29,7 +29,6 @@ mod unsafe_jit {
             len: u32,
         );
         pub fn jit_clear_func(wasm_table_index: u16);
-        pub fn jit_clear_all_funcs();
     }
 }
 
@@ -46,8 +45,6 @@ fn codegen_finalize(
 pub fn jit_clear_func(wasm_table_index: u16) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
-
-pub fn jit_clear_all_funcs() { unsafe { unsafe_jit::jit_clear_all_funcs() } }
 
 pub const WASM_TABLE_SIZE: u32 = 900;
 
@@ -1140,13 +1137,21 @@ pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
 pub fn jit_clear_cache_js() { jit_clear_cache(get_jit_state()) }
 
 pub fn jit_clear_cache(ctx: &mut JitState) {
-    ctx.entry_points.clear();
+    let mut pages_with_code = HashSet::new();
 
-    for page_index in 0..0x100000 {
-        jit_dirty_page(ctx, Page::page_of(page_index << 12))
+    for page in ctx.entry_points.keys() {
+        pages_with_code.insert(*page);
+    }
+    for addr in ctx.cache.keys() {
+        pages_with_code.insert(Page::page_of(*addr));
+    }
+    for page in ctx.page_has_pending_code.keys() {
+        pages_with_code.insert(*page);
     }
 
-    jit_clear_all_funcs();
+    for page in pages_with_code {
+        jit_dirty_page(ctx, page);
+    }
 }
 
 pub fn jit_page_has_code(page: Page) -> bool {
