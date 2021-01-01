@@ -17,9 +17,9 @@ ifeq ($(STRIP_DEBUG),true)
 STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
-default: build/v86oxide-debug.wasm
-all: build/v86_all.js build/libv86.js build/v86oxide.wasm
-all-debug: build/libv86-debug.js build/v86oxide-debug.wasm
+default: build/v86-debug.wasm
+all: build/v86_all.js build/libv86.js build/v86.wasm
+all-debug: build/libv86-debug.js build/v86-debug.wasm
 browser: build/v86_all.js
 
 # Used for nodejs builds and in order to profile code.
@@ -174,26 +174,26 @@ src/rust/gen/analyzer0f_16.rs: $(ANALYZER_DEPENDENCIES)
 src/rust/gen/analyzer0f_32.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_32
 
-build/v86oxide.wasm: $(RUST_FILES) Cargo.toml
+build/v86.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
-	-ls -lh build/v86oxide.wasm
+	-ls -lh build/v86.wasm
 	cargo +nightly rustc --release $(CARGO_FLAGS)
-	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/release/v86oxide.wasm > build/v86oxide.wasm
-	ls -lh build/v86oxide.wasm
+	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/release/v86.wasm > build/v86.wasm
+	ls -lh build/v86.wasm
 
-build/v86oxide-debug.wasm: $(RUST_FILES) Cargo.toml
+build/v86-debug.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
-	-ls -lh build/v86oxide-debug.wasm
+	-ls -lh build/v86-debug.wasm
 	cargo +nightly rustc $(CARGO_FLAGS)
-	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/debug/v86oxide.wasm > build/v86oxide-debug.wasm
-	ls -lh build/v86oxide-debug.wasm
+	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/debug/v86.wasm > build/v86-debug.wasm
+	ls -lh build/v86-debug.wasm
 
 clean:
 	-rm build/libv86.js
 	-rm build/libv86-debug.js
 	-rm build/v86_all.js
-	-rm build/v86oxide.wasm
-	-rm build/v86oxide-debug.wasm
+	-rm build/v86.wasm
+	-rm build/v86-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
 	-rm $(addsuffix .bak,$(INSTRUCTION_TABLES))
 	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))

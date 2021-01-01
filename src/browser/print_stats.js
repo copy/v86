@@ -74,21 +74,21 @@ const print_stats = {
 
         for(let i = 0; i < stat_names.length; i++)
         {
-            let stat = cpu.v86oxide.exports["profiler_stat_get"](i);
+            let stat = cpu.wm.exports["profiler_stat_get"](i);
             stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             text += stat_names[i] + "=" + stat + "\n";
         }
 
         text += "\n";
 
-        const tlb_entries = cpu.v86oxide.exports["get_valid_tlb_entries_count"]();
-        const global_tlb_entries = cpu.v86oxide.exports["get_valid_global_tlb_entries_count"]();
+        const tlb_entries = cpu.wm.exports["get_valid_tlb_entries_count"]();
+        const global_tlb_entries = cpu.wm.exports["get_valid_global_tlb_entries_count"]();
         const nonglobal_tlb_entries = tlb_entries - global_tlb_entries;
 
         text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
-        text += "CACHE_UNUSED=" + cpu.v86oxide.exports["jit_unused_cache_stat"]() + "\n";
-        text += "WASM_TABLE_FREE=" + cpu.v86oxide.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
-        text += "FLAT_SEGMENTS=" + cpu.v86oxide.exports["has_flat_segmentation"]() + "\n";
+        text += "CACHE_UNUSED=" + cpu.wm.exports["jit_unused_cache_stat"]() + "\n";
+        text += "WASM_TABLE_FREE=" + cpu.wm.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
+        text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 
         text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
 
@@ -105,7 +105,7 @@ const print_stats = {
 
         for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
         {
-            const address = cpu.v86oxide.exports["jit_get_entry_address"](i);
+            const address = cpu.wm.exports["jit_get_entry_address"](i);
 
             if(address !== 0)
             {
@@ -138,8 +138,8 @@ const print_stats = {
 
         for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
         {
-            const length = cpu.v86oxide.exports["jit_get_entry_length"](i);
-            pending_count += cpu.v86oxide.exports["jit_get_entry_pending"](i);
+            const length = cpu.wm.exports["jit_get_entry_length"](i);
+            pending_count += cpu.wm.exports["jit_get_entry_pending"](i);
             histogram[length] = (histogram[length] || 0) + 1;
         }
 
@@ -196,10 +196,10 @@ const print_stats = {
             {
                 for(let is_mem of [false, true])
                 {
-                    const count = cpu.v86oxide.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, false, is_mem, fixed_g);
+                    const count = cpu.wm.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, false, is_mem, fixed_g);
                     counts.push({ opcode, count, is_mem, fixed_g });
 
-                    const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, true, is_mem, fixed_g);
+                    const count_0f = cpu.wm.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, true, is_mem, fixed_g);
                     counts.push({ opcode: 0x0f00 | opcode, count: count_0f, is_mem, fixed_g });
                 }
             }

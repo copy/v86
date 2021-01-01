@@ -186,29 +186,29 @@ function V86Starter(options)
         "__indirect_function_table": wasm_table,
     };
 
-    let v86oxide_bin = DEBUG ? "v86oxide-debug.wasm" : "v86oxide.wasm";
+    let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
 
-    if(options["oxide_path"])
+    if(options["wasm_path"])
     {
-        v86oxide_bin = options["oxide_path"];
+        v86_bin = options["wasm_path"];
     }
     else if(typeof window === "undefined" && typeof __dirname === "string")
     {
-        v86oxide_bin = __dirname + "/" + v86oxide_bin;
+        v86_bin = __dirname + "/" + v86_bin;
     }
     else
     {
-        v86oxide_bin = "build/" + v86oxide_bin;
+        v86_bin = "build/" + v86_bin;
     }
 
     v86util.load_wasm(
-        v86oxide_bin,
+        v86_bin,
         { "env": wasm_shared_funcs },
-        v86oxide => {
-            wasm_memory = v86oxide.exports.memory;
-            v86oxide.exports["rust_setup"]();
+        v86_wasm => {
+            wasm_memory = v86_wasm.exports.memory;
+            v86_wasm.exports["rust_setup"]();
 
-            const emulator = this.v86 = new v86(this.emulator_bus, v86oxide, v86oxide);
+            const emulator = this.v86 = new v86(this.emulator_bus, v86_wasm);
             cpu = emulator.cpu;
 
             this.continue_init(emulator, options);

@@ -11,14 +11,13 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm, v86oxide)
+function CPU(bus, wm)
 {
     this.wm = wm;
-    this.v86oxide = v86oxide;
     this.wasm_patch(wm);
     this.create_jit_imports();
 
-    const memory = v86oxide.instance.exports.memory;
+    const memory = this.wm.instance.exports.memory;
 
     this.wasm_memory = memory;
 
@@ -218,7 +217,7 @@ CPU.prototype.wasmgen_get_module_code = function()
     const ptr = this.jit_get_op_ptr();
     const len = this.jit_get_op_len();
 
-    const output_buffer_view = new Uint8Array(this.v86oxide.instance.exports.memory.buffer, ptr, len);
+    const output_buffer_view = new Uint8Array(this.wm.instance.exports.memory.buffer, ptr, len);
     return output_buffer_view;
 };
 
@@ -233,9 +232,9 @@ CPU.prototype.create_jit_imports = function()
     }
 
     // put all imports that don't change on the prototype
-    JITImports.prototype["m"] = this.v86oxide.memory;
+    JITImports.prototype["m"] = this.wm.memory;
 
-    const exports = this.v86oxide.instance.exports;
+    const exports = this.wm.instance.exports;
 
     JITImports.prototype["m"] = exports["memory"];
 
@@ -256,7 +255,7 @@ CPU.prototype.create_jit_imports = function()
 CPU.prototype.wasm_patch = function(wm)
 {
     const get_optional_import = (name) => {
-        return this.v86oxide.exports[name];
+        return this.wm.exports[name];
     };
 
     const get_import = (name) =>
@@ -764,9 +763,9 @@ CPU.prototype.create_memory = function(size)
 
     const memory_offset = this.allocate_memory(size);
 
-    this.mem8 = v86util.view(Uint8Array, this.v86oxide.instance.exports.memory, memory_offset, size);
-    this.mem16 = v86util.view(Uint16Array, this.v86oxide.instance.exports.memory, memory_offset, size >> 1);
-    this.mem32s = v86util.view(Uint32Array, this.v86oxide.instance.exports.memory, memory_offset, size >> 2);
+    this.mem8 = v86util.view(Uint8Array, this.wm.instance.exports.memory, memory_offset, size);
+    this.mem16 = v86util.view(Uint16Array, this.wm.instance.exports.memory, memory_offset, size >> 1);
+    this.mem32s = v86util.view(Uint32Array, this.wm.instance.exports.memory, memory_offset, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
@@ -1499,7 +1498,7 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
 
     const SIZEOF_BASIC_BLOCK_IN_DWORDS = 7;
 
-    const mem32 = new Int32Array(this.v86oxide.instance.exports.memory.buffer);
+    const mem32 = new Int32Array(this.wm.instance.exports.memory.buffer);
 
     dbg_assert((block_ptr & 3) === 0);
 
