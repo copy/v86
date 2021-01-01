@@ -21,6 +21,7 @@ extern "C" {
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use page::Page;
+use std::ptr;
 
 #[no_mangle]
 pub unsafe fn in_mapped_range(addr: u32) -> bool {
@@ -216,4 +217,8 @@ pub unsafe fn write128(addr: u32, value: reg128) {
 }
 pub unsafe fn write128_no_mmap_or_dirty_check(addr: u32, value: reg128) {
     *(mem8.offset(addr as isize) as *mut reg128) = value
+}
+
+pub unsafe fn memset_no_mmap_or_dirty_check(addr: u32, value: u8, count: u32) {
+    ptr::write_bytes(mem8.offset(addr as isize), value, count as usize);
 }

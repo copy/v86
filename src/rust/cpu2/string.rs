@@ -29,8 +29,9 @@ use cpu2::arith::{cmp8, cmp16, cmp32};
 use cpu2::cpu::*;
 use cpu2::global_pointers::{flags, instruction_pointer, previous_ip, reg8, reg16, reg32};
 use cpu2::memory::{
-    in_mapped_range, read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check,
-    write8_no_mmap_or_dirty_check, write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check,
+    in_mapped_range, memset_no_mmap_or_dirty_check, read8_no_mmap_check, read16_no_mmap_check,
+    read32_no_mmap_check, write8_no_mmap_or_dirty_check, write16_no_mmap_or_dirty_check,
+    write32_no_mmap_or_dirty_check,
 };
 use page::Page;
 
@@ -141,6 +142,7 @@ unsafe fn string_instruction(
 
     let is_aligned = src & (size_bytes - 1) == 0 && dst & (size_bytes - 1) == 0;
     let mut rep_fast = is_aligned
+        && direction == 1
         && is_asize_32 // 16-bit address wraparound
         && match rep {
             Rep::NZ | Rep::Z => true,
@@ -241,8 +243,21 @@ unsafe fn string_instruction(
                     Size::W => *reg16.offset(AX as isize) = src_val as u16,
                     Size::D => *reg32.offset(EAX as isize) = src_val,
                 },
-                Instruction::Movs | Instruction::Stos | Instruction::Ins => match size {
+                Instruction::Movs | Instruction::Ins => match size {
                     Size::B => write8_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
+                },
+                Instruction::Stos => match size {
+                    Size::B => {
+                        memset_no_mmap_or_dirty_check(
+                            phys_dst,
+                            src_val as u8,
+                            count_until_end_of_page,
+                        );
+                        i = count_until_end_of_page;
+                        break;
+                    },
                     Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
                     Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
                 },
