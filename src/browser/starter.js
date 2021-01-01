@@ -164,6 +164,7 @@ function V86Starter(options)
     };
 
     let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
+    let v86_bin_fallback = "v86-fallback.wasm";
 
     if(options["wasm_path"])
     {
@@ -172,10 +173,12 @@ function V86Starter(options)
     else if(typeof window === "undefined" && typeof __dirname === "string")
     {
         v86_bin = __dirname + "/" + v86_bin;
+        v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
     }
     else
     {
         v86_bin = "build/" + v86_bin;
+        v86_bin_fallback = "build/" + v86_bin_fallback;
     }
 
     v86util.load_file(v86_bin, {
@@ -193,6 +196,24 @@ function V86Starter(options)
                     cpu = emulator.cpu;
 
                     this.continue_init(emulator, options);
+                }, err => {
+                    v86util.load_file(v86_bin_fallback, {
+                        done: bytes => {
+                            WebAssembly
+                                .instantiate(bytes, { "env": wasm_shared_funcs })
+                                .then(({ instance }) => {
+                                    const imports = wasm_shared_funcs;
+                                    const exports = instance["exports"];
+                                    wasm_memory = exports.memory;
+                                    exports["rust_init"]();
+
+                                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+                                    cpu = emulator.cpu;
+
+                                    this.continue_init(emulator, options);
+                                });
+                        },
+                    });
                 });
         },
         progress: e =>

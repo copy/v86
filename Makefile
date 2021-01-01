@@ -65,15 +65,16 @@ CLOSURE_FLAGS=\
 		--language_in ECMASCRIPT_2017\
 		--language_out ECMASCRIPT_2017
 
-CARGO_FLAGS=\
+CARGO_FLAGS_SAFE=\
 		--target wasm32-unknown-unknown \
 		-- \
-		-C target-feature=+bulk-memory \
 		-C linker=tools/rust-lld-wrapper \
 		-C link-args="--import-table --global-base=262144 $(STRIP_DEBUG_FLAG)" \
 		-C link-args="build/softfloat.o" \
 		-C link-args="build/zstddeclib.o" \
 		--verbose
+
+CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory
 
 CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js \
@@ -178,6 +179,11 @@ build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.t
 	cargo +nightly rustc $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
+
+build/v86-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	cargo +nightly rustc --release $(CARGO_FLAGS_SAFE)
+	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86-fallback.wasm || true
 
 debug-with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
