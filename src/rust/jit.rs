@@ -852,6 +852,7 @@ fn jit_analyze_and_generate(
 
                 let initial_state = i.safe_to_u16();
 
+                #[allow(unused_mut)]
                 let mut entry = jit_cache_array::Entry::create(
                     block.addr,
                     None, // to be filled in by create_cache_entry
