@@ -714,6 +714,14 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
+    pub fn increment_mem32(&mut self, byte_offset: u32, n: i32) {
+        self.const_i32(byte_offset as i32);
+        self.load_aligned_i32(byte_offset);
+        self.const_i32(n);
+        self.add_i32();
+        self.store_aligned_i32(0);
+    }
+
     pub fn reinterpret_i32_as_f32(&mut self) {
         self.instruction_body.push(op::OP_F32REINTERPRETI32);
     }
@@ -809,16 +817,6 @@ impl WasmBuilder {
     }
 
     pub fn unreachable(&mut self) { self.instruction_body.push(op::OP_UNREACHABLE); }
-
-    pub fn increment_mem32(&mut self, addr: u32) { self.increment_variable(addr, 1) }
-
-    pub fn increment_variable(&mut self, addr: u32, n: i32) {
-        self.const_i32(addr as i32);
-        self.load_aligned_i32(addr);
-        self.const_i32(n);
-        self.add_i32();
-        self.store_aligned_i32(0);
-    }
 
     pub fn instruction_body_length(&self) -> u32 { self.instruction_body.len() as u32 }
 }

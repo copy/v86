@@ -1,4 +1,3 @@
-use codegen::gen_increment_mem32;
 use cpu2;
 use global_pointers;
 use wasmgen::wasm_builder::WasmBuilder;
@@ -135,7 +134,7 @@ pub fn gen_opstats(builder: &mut WasmBuilder, opcode: u32) {
 
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
-        gen_increment_mem32(builder, global_pointers::OPSTATS_BUFFER + 4 * index);
+        builder.increment_mem32(global_pointers::OPSTATS_BUFFER + 4 * index, 1);
     }
 
     let index = (instruction.is_0f as u32) << 12
@@ -143,7 +142,7 @@ pub fn gen_opstats(builder: &mut WasmBuilder, opcode: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    gen_increment_mem32(builder, global_pointers::OPSTATS_BUFFER + 4 * index);
+    builder.increment_mem32(global_pointers::OPSTATS_BUFFER + 4 * index, 1);
 }
 
 pub fn record_opstat_compiled(opcode: u32) {
@@ -217,9 +216,9 @@ pub fn gen_opstat_unguarded_register(builder: &mut WasmBuilder, opcode: u32) {
 
     for prefix in instruction.prefixes {
         let index = (prefix as u32) << 4;
-        gen_increment_mem32(
-            builder,
+        builder.increment_mem32(
             global_pointers::OPSTATS_UNGUARDED_REGISTER_BUFFER + 4 * index,
+            1,
         );
     }
 
@@ -228,9 +227,9 @@ pub fn gen_opstat_unguarded_register(builder: &mut WasmBuilder, opcode: u32) {
         | (instruction.is_mem as u32) << 3
         | instruction.fixed_g as u32;
 
-    gen_increment_mem32(
-        builder,
+    builder.increment_mem32(
         global_pointers::OPSTATS_UNGUARDED_REGISTER_BUFFER + 4 * index,
+        1,
     );
 }
 

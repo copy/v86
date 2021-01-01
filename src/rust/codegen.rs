@@ -106,15 +106,9 @@ pub fn gen_absolute_indirect_jump(ctx: &mut JitContext, new_eip: WasmLocal) {
     ctx.builder.block_end();
 }
 
-pub fn gen_increment_variable(builder: &mut WasmBuilder, variable_address: u32, n: i32) {
-    builder.increment_variable(variable_address, n);
-}
-
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
-    gen_increment_variable(builder, global_pointers::TIMESTAMP_COUNTER, n);
+    builder.increment_mem32(global_pointers::TIMESTAMP_COUNTER, n)
 }
-
-pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) { builder.increment_mem32(addr) }
 
 pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
     match r {
@@ -1759,7 +1753,7 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
         return;
     }
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
-    gen_increment_variable(builder, addr, 1)
+    builder.increment_mem32(addr, 1)
 }
 
 pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {
