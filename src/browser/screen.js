@@ -20,7 +20,7 @@ function ScreenAdapter(screen_container, bus)
 
     var
         graphic_screen = screen_container.getElementsByTagName("canvas")[0],
-        graphic_context = graphic_screen.getContext("2d"),
+        graphic_context = graphic_screen.getContext("2d", { alpha: false }),
 
         text_screen = screen_container.getElementsByTagName("div")[0],
         cursor_element = document.createElement("div");
