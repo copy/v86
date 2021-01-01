@@ -431,32 +431,32 @@ pub unsafe fn fpu_fldcw(addr: i32) {
     let word = return_on_pagefault!(safe_read16(addr));
     *fpu_control_word = word;
 }
+
 #[no_mangle]
-pub unsafe fn fpu_fldenv(addr: i32) {
-    if is_osize_32() {
-        // TODO: Add readable_or_pagefault
-        if let Err(()) = translate_address_read(addr) {
-            *page_fault = true;
-            return;
-        }
-        if let Err(()) = translate_address_read(addr + 28) {
-            *page_fault = true;
-            return;
-        }
-        *page_fault = false;
-        *fpu_control_word = safe_read16(addr).unwrap();
-        fpu_set_status_word(safe_read16(addr + 4).unwrap());
-        fpu_set_tag_word(safe_read16(addr + 8).unwrap());
-        *fpu_ip = safe_read32s(addr + 12).unwrap();
-        *fpu_ip_selector = safe_read16(addr + 16).unwrap();
-        *fpu_opcode = safe_read16(addr + 18).unwrap();
-        *fpu_dp = safe_read32s(addr + 20).unwrap();
-        *fpu_dp_selector = safe_read16(addr + 24).unwrap()
+pub unsafe fn fpu_fldenv16(_addr: i32) {
+    dbg_log!("fldenv16");
+    fpu_unimpl();
+}
+#[no_mangle]
+pub unsafe fn fpu_fldenv32(addr: i32) {
+    // TODO: Add readable_or_pagefault
+    if let Err(()) = translate_address_read(addr) {
+        *page_fault = true;
+        return;
     }
-    else {
-        dbg_log!("fldenv16");
-        fpu_unimpl();
-    };
+    if let Err(()) = translate_address_read(addr + 28) {
+        *page_fault = true;
+        return;
+    }
+    *page_fault = false;
+    *fpu_control_word = safe_read16(addr).unwrap();
+    fpu_set_status_word(safe_read16(addr + 4).unwrap());
+    fpu_set_tag_word(safe_read16(addr + 8).unwrap());
+    *fpu_ip = safe_read32s(addr + 12).unwrap();
+    *fpu_ip_selector = safe_read16(addr + 16).unwrap();
+    *fpu_opcode = safe_read16(addr + 18).unwrap();
+    *fpu_dp = safe_read32s(addr + 20).unwrap();
+    *fpu_dp_selector = safe_read16(addr + 24).unwrap()
 }
 #[no_mangle]
 pub unsafe fn fpu_unimpl() {
@@ -555,12 +555,18 @@ pub unsafe fn fpu_fprem(ieee: bool) {
         *fpu_status_word |= FPU_C2;
     }
 }
+
 #[no_mangle]
-pub unsafe fn fpu_frstor(mut addr: i32) {
+pub unsafe fn fpu_frstor16(_addr: i32) {
+    dbg_log!("frstor16");
+    fpu_unimpl();
+}
+#[no_mangle]
+pub unsafe fn fpu_frstor32(mut addr: i32) {
     // TODO: Add readable_or_pagefault
     return_on_pagefault!(translate_address_read(addr));
     return_on_pagefault!(translate_address_read(addr + 28 + 8 * 10));
-    fpu_fldenv(addr);
+    fpu_fldenv32(addr);
     addr += 28;
     for i in 0..8 {
         let reg_index = *fpu_stack_ptr as i32 + i & 7;
@@ -568,13 +574,18 @@ pub unsafe fn fpu_frstor(mut addr: i32) {
         *reg_mmx.offset(reg_index as isize) = safe_read64s(addr).unwrap();
         addr += 10;
     }
-
     *fxsave_store_fpu_mask = 0xff;
 }
+
 #[no_mangle]
-pub unsafe fn fpu_fsave(mut addr: i32) {
+pub unsafe fn fpu_fsave16(_addr: i32) {
+    dbg_log!("fsave16");
+    fpu_unimpl();
+}
+#[no_mangle]
+pub unsafe fn fpu_fsave32(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 108));
-    fpu_fstenv(addr);
+    fpu_fstenv32(addr);
     addr += 28;
     for i in 0..8 {
         let reg_index = i + *fpu_stack_ptr as i32 & 7;
@@ -629,28 +640,28 @@ pub unsafe fn fpu_f64_to_f80(f: f64) -> (u64, u16) {
 }
 
 #[no_mangle]
-pub unsafe fn fpu_fstenv(addr: i32) {
-    if is_osize_32() {
-        match writable_or_pagefault(addr, 26) {
-            Ok(()) => *page_fault = false,
-            Err(()) => {
-                *page_fault = true;
-                return;
-            },
-        }
-        safe_write16(addr, *fpu_control_word).unwrap();
-        safe_write16(addr + 4, fpu_load_status_word()).unwrap();
-        safe_write16(addr + 8, fpu_load_tag_word()).unwrap();
-        safe_write32(addr + 12, *fpu_ip).unwrap();
-        safe_write16(addr + 16, *fpu_ip_selector).unwrap();
-        safe_write16(addr + 18, *fpu_opcode).unwrap();
-        safe_write32(addr + 20, *fpu_dp).unwrap();
-        safe_write16(addr + 24, *fpu_dp_selector).unwrap();
+pub unsafe fn fpu_fstenv16(_addr: i32) {
+    dbg_log!("fstenv16");
+    fpu_unimpl();
+}
+
+#[no_mangle]
+pub unsafe fn fpu_fstenv32(addr: i32) {
+    match writable_or_pagefault(addr, 26) {
+        Ok(()) => *page_fault = false,
+        Err(()) => {
+            *page_fault = true;
+            return;
+        },
     }
-    else {
-        dbg_log!("fstenv16");
-        fpu_unimpl();
-    };
+    safe_write16(addr, *fpu_control_word).unwrap();
+    safe_write16(addr + 4, fpu_load_status_word()).unwrap();
+    safe_write16(addr + 8, fpu_load_tag_word()).unwrap();
+    safe_write32(addr + 12, *fpu_ip).unwrap();
+    safe_write16(addr + 16, *fpu_ip_selector).unwrap();
+    safe_write16(addr + 18, *fpu_opcode).unwrap();
+    safe_write32(addr + 20, *fpu_dp).unwrap();
+    safe_write16(addr + 24, *fpu_dp_selector).unwrap();
 }
 #[no_mangle]
 pub unsafe fn fpu_load_tag_word() -> i32 {

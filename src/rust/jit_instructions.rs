@@ -2349,7 +2349,7 @@ pub fn instr16_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     );
 
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_call_fn1(ctx.builder, "fpu_fldenv");
+    codegen::gen_call_fn1(ctx.builder, "fpu_fldenv32");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
     ctx.builder
@@ -2401,7 +2401,7 @@ pub fn instr16_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     );
 
     codegen::gen_move_registers_from_locals_to_memory(ctx);
-    codegen::gen_call_fn1(ctx.builder, "fpu_fstenv");
+    codegen::gen_call_fn1(ctx.builder, "fpu_fstenv32");
     codegen::gen_move_registers_from_memory_to_locals(ctx);
 
     ctx.builder

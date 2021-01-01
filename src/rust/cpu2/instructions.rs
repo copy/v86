@@ -3232,7 +3232,9 @@ pub unsafe fn instr16_D9_3_mem(addr: i32) { fpu_fstm32p(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_3_reg(r: i32) { fpu_fstp(r) }
 #[no_mangle]
-pub unsafe fn instr16_D9_4_mem(addr: i32) { fpu_fldenv(addr); }
+pub unsafe fn instr16_D9_4_mem(addr: i32) { fpu_fldenv16(addr); }
+#[no_mangle]
+pub unsafe fn instr32_D9_4_mem(addr: i32) { fpu_fldenv32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_4_reg(r: i32) {
     let st0 = fpu_get_st0();
@@ -3292,7 +3294,9 @@ pub unsafe fn instr16_D9_5_reg(r: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn instr16_D9_6_mem(addr: i32) { fpu_fstenv(addr); }
+pub unsafe fn instr16_D9_6_mem(addr: i32) { fpu_fstenv16(addr); }
+#[no_mangle]
+pub unsafe fn instr32_D9_6_mem(addr: i32) { fpu_fstenv32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_D9_6_reg(r: i32) {
     let st0 = fpu_get_st0();
@@ -3441,11 +3445,7 @@ pub unsafe fn instr32_D9_2_mem(r: i32) { instr16_D9_2_mem(r) }
 #[no_mangle]
 pub unsafe fn instr32_D9_3_mem(r: i32) { instr16_D9_3_mem(r) }
 #[no_mangle]
-pub unsafe fn instr32_D9_4_mem(r: i32) { instr16_D9_4_mem(r) }
-#[no_mangle]
 pub unsafe fn instr32_D9_5_mem(r: i32) { instr16_D9_5_mem(r) }
-#[no_mangle]
-pub unsafe fn instr32_D9_6_mem(r: i32) { instr16_D9_6_mem(r) }
 #[no_mangle]
 pub unsafe fn instr32_D9_7_mem(r: i32) { instr16_D9_7_mem(r) }
 
@@ -3596,14 +3596,18 @@ pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 #[no_mangle]
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 #[no_mangle]
-pub unsafe fn instr16_DD_4_mem(addr: i32) { fpu_frstor(addr); }
+pub unsafe fn instr16_DD_4_mem(addr: i32) { fpu_frstor16(addr); }
+#[no_mangle]
+pub unsafe fn instr32_DD_4_mem(addr: i32) { fpu_frstor32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_DD_5_mem(addr: i32) {
     dbg_log!("dd/5");
     trigger_ud();
 }
 #[no_mangle]
-pub unsafe fn instr16_DD_6_mem(addr: i32) { fpu_fsave(addr); }
+pub unsafe fn instr16_DD_6_mem(addr: i32) { fpu_fsave16(addr); }
+#[no_mangle]
+pub unsafe fn instr32_DD_6_mem(addr: i32) { fpu_fsave32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_DD_7_mem(addr: i32) { fpu_fnstsw_mem(addr); }
 #[no_mangle]
@@ -3649,11 +3653,7 @@ pub unsafe fn instr32_DD_2_mem(r: i32) { instr16_DD_2_mem(r) }
 #[no_mangle]
 pub unsafe fn instr32_DD_3_mem(r: i32) { instr16_DD_3_mem(r) }
 #[no_mangle]
-pub unsafe fn instr32_DD_4_mem(r: i32) { instr16_DD_4_mem(r) }
-#[no_mangle]
 pub unsafe fn instr32_DD_5_mem(r: i32) { instr16_DD_5_mem(r) }
-#[no_mangle]
-pub unsafe fn instr32_DD_6_mem(r: i32) { instr16_DD_6_mem(r) }
 #[no_mangle]
 pub unsafe fn instr32_DD_7_mem(r: i32) { instr16_DD_7_mem(r) }
 
