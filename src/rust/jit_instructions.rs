@@ -1137,6 +1137,28 @@ pub fn gen_bt(
     builder.store_aligned_i32(0);
 }
 
+pub fn gen_bsf32(
+    builder: &mut WasmBuilder,
+    dest_operand: &WasmLocal,
+    source_operand: &LocalOrImmedate,
+) {
+    builder.get_local(&dest_operand);
+    source_operand.gen_get(builder);
+    codegen::gen_call_fn2_ret(builder, "bsf32");
+    builder.set_local(dest_operand);
+}
+
+pub fn gen_bsr32(
+    builder: &mut WasmBuilder,
+    dest_operand: &WasmLocal,
+    source_operand: &LocalOrImmedate,
+) {
+    builder.get_local(&dest_operand);
+    source_operand.gen_get(builder);
+    codegen::gen_call_fn2_ret(builder, "bsr32");
+    builder.set_local(dest_operand);
+}
+
 define_instruction_read_write_mem8!("add8", instr_00_mem_jit, instr_00_reg_jit, reg);
 define_instruction_read_write_mem16!("add16", instr16_01_mem_jit, instr16_01_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_add32, instr32_01_mem_jit, instr32_01_reg_jit, reg);
@@ -3890,6 +3912,11 @@ pub fn instr32_F30FB8_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_call_fn1_ret(ctx.builder, "popcnt");
     codegen::gen_set_reg32(ctx, r2);
 }
+
+define_instruction_write_reg16!("bsf16", instr16_0FBC_mem_jit, instr16_0FBC_reg_jit);
+define_instruction_write_reg32!(gen_bsf32, instr32_0FBC_mem_jit, instr32_0FBC_reg_jit);
+define_instruction_write_reg16!("bsr16", instr16_0FBD_mem_jit, instr16_0FBD_reg_jit);
+define_instruction_write_reg32!(gen_bsr32, instr32_0FBD_mem_jit, instr32_0FBD_reg_jit);
 
 pub fn instr16_0FBE_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg8(ctx, r1);
