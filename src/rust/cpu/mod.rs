@@ -1,10 +1,8 @@
 #[macro_use]
-pub mod imports;
-
-#[macro_use]
 mod instruction_helpers;
 
 pub mod arith;
+pub mod call_indirect;
 pub mod cpu;
 pub mod fpu;
 pub mod global_pointers;
