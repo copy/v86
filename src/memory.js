@@ -60,16 +60,23 @@ CPU.prototype.mmap_write128 = function(addr, value0, value1, value2, value3)
 CPU.prototype.write_blob = function(blob, offset)
 {
     dbg_assert(blob && blob.length >= 0);
-    dbg_assert(!this.in_mapped_range(offset));
-    dbg_assert(!this.in_mapped_range(offset + blob.length));
 
-    this.jit_dirty_cache(offset, offset + blob.length);
-    this.mem8.set(blob, offset);
+    if(blob.length)
+    {
+        dbg_assert(!this.in_mapped_range(offset));
+        dbg_assert(!this.in_mapped_range(offset + blob.length - 1));
+
+        this.jit_dirty_cache(offset, offset + blob.length);
+        this.mem8.set(blob, offset);
+    }
 };
 
 CPU.prototype.read_blob = function(offset, length)
 {
-    dbg_assert(!this.in_mapped_range(offset));
-    dbg_assert(!this.in_mapped_range(offset + length));
+    if(length)
+    {
+        dbg_assert(!this.in_mapped_range(offset));
+        dbg_assert(!this.in_mapped_range(offset + length - 1));
+    }
     return this.mem8.subarray(offset, offset + length);
 };
