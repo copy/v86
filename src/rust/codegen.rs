@@ -1231,7 +1231,6 @@ pub fn gen_safe_read_write(
     bits: BitSize,
     address_local: &WasmLocal,
     f: &dyn Fn(&mut JitContext),
-    fallback_fn: &dyn Fn(&mut JitContext),
 ) {
     ctx.builder.instruction_body.get_local(address_local);
 
@@ -1270,9 +1269,9 @@ pub fn gen_safe_read_write(
         ctx.builder.instruction_body.and_i32();
     }
 
-    // Pseudo:
-    // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
-    ctx.builder.instruction_body.if_void();
+    let can_use_fast_path_local = ctx.builder.tee_new_local();
+
+    ctx.builder.instruction_body.if_i32();
 
     gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_READ_WRITE_FAST);
 
@@ -1283,8 +1282,6 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.xor_i32();
 
     let phys_addr_local = ctx.builder.tee_new_local();
-    // now store the value on stack to phys_addr
-    ctx.builder.instruction_body.get_local(&phys_addr_local);
 
     match bits {
         BitSize::BYTE => {
@@ -1306,66 +1303,138 @@ pub fn gen_safe_read_write(
         BitSize::DQWORD => assert!(false), // not used
     }
 
-    f(ctx);
-
-    match bits {
-        BitSize::BYTE => {
-            ctx.builder
-                .instruction_body
-                .store_u8(unsafe { mem8 } as u32);
-        },
-        BitSize::WORD => {
-            ctx.builder
-                .instruction_body
-                .store_unaligned_u16(unsafe { mem8 } as u32);
-        },
-        BitSize::DWORD => {
-            ctx.builder
-                .instruction_body
-                .store_unaligned_i32(unsafe { mem8 } as u32);
-        },
-        BitSize::QWORD => assert!(false),  // not used
-        BitSize::DQWORD => assert!(false), // not used
-    };
-    ctx.builder.free_local(phys_addr_local);
-
-    // Pseudo:
-    // else {
-    //     *previous_ip = *instruction_pointer & ~0xFFF | start_of_instruction;
-    //     fallback_fn();
-    //     if(page_fault) return;
-    // }
     ctx.builder.instruction_body.else_();
+    {
+        if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+            ctx.builder.instruction_body.get_local(&address_local);
+            ctx.builder.instruction_body.get_local(&entry_local);
+            gen_call_fn2(ctx.builder, "report_safe_read_write_jit_slow");
+        }
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
         ctx.builder.instruction_body.get_local(&address_local);
-        ctx.builder.instruction_body.get_local(&entry_local);
-        gen_call_fn2(ctx.builder, "report_safe_read_write_jit_slow");
+
+        match bits {
+            BitSize::BYTE => {
+                gen_call_fn1_ret(ctx.builder, "safe_read_write8_slow_jit");
+            },
+            BitSize::WORD => {
+                gen_call_fn1_ret(ctx.builder, "safe_read_write16_slow_jit");
+            },
+            BitSize::DWORD => {
+                gen_call_fn1_ret(ctx.builder, "safe_read_write32s_slow_jit");
+            },
+            BitSize::QWORD => dbg_assert!(false),
+            BitSize::DQWORD => dbg_assert!(false),
+        }
+
+        ctx.builder
+            .instruction_body
+            .load_u8(global_pointers::PAGE_FAULT);
+
+        ctx.builder.instruction_body.if_void();
+        {
+            gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+
+            gen_set_previous_eip_offset_from_eip_with_low_bits(
+                ctx.builder,
+                ctx.start_of_current_instruction as i32 & 0xFFF,
+            );
+
+            // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
+            let br_offset = ctx.current_brtable_depth - 2 + 2;
+            ctx.builder.instruction_body.br(br_offset);
+        }
+        ctx.builder.instruction_body.block_end();
     }
+    ctx.builder.instruction_body.block_end();
 
-    gen_set_previous_eip_offset_from_eip_with_low_bits(
-        ctx.builder,
-        ctx.start_of_current_instruction as i32 & 0xFFF,
-    );
+    // value is now on stack
 
-    ctx.builder.instruction_body.get_local(&address_local);
-
-    fallback_fn(ctx);
+    f(ctx);
+    let value_local = ctx.builder.set_new_local();
 
     ctx.builder
         .instruction_body
-        .load_u8(global_pointers::PAGE_FAULT);
+        .get_local(&can_use_fast_path_local);
 
     ctx.builder.instruction_body.if_void();
-    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    gen_move_registers_from_locals_to_memory(ctx);
-    gen_clear_prefixes(ctx);
-    ctx.builder.instruction_body.return_();
+    {
+        ctx.builder.instruction_body.get_local(&phys_addr_local);
+        ctx.builder.instruction_body.get_local(&value_local);
+
+        match bits {
+            BitSize::BYTE => {
+                ctx.builder
+                    .instruction_body
+                    .store_u8(unsafe { mem8 } as u32);
+            },
+            BitSize::WORD => {
+                ctx.builder
+                    .instruction_body
+                    .store_unaligned_u16(unsafe { mem8 } as u32);
+            },
+            BitSize::DWORD => {
+                ctx.builder
+                    .instruction_body
+                    .store_unaligned_i32(unsafe { mem8 } as u32);
+            },
+            BitSize::QWORD => dbg_assert!(false),
+            BitSize::DQWORD => dbg_assert!(false),
+        }
+    }
+    ctx.builder.instruction_body.else_();
+    {
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.get_local(&value_local);
+
+        match bits {
+            BitSize::BYTE => {
+                gen_call_fn2(ctx.builder, "safe_write8_slow_jit");
+            },
+            BitSize::WORD => {
+                gen_call_fn2(ctx.builder, "safe_write16_slow_jit");
+            },
+            BitSize::DWORD => {
+                gen_call_fn2(ctx.builder, "safe_write32_slow_jit");
+            },
+            BitSize::QWORD => dbg_assert!(false),
+            BitSize::DQWORD => dbg_assert!(false),
+        }
+
+        ctx.builder
+            .instruction_body
+            .load_u8(global_pointers::PAGE_FAULT);
+
+        ctx.builder.instruction_body.if_void();
+        {
+            // handled above
+            //ctx.builder.instruction_body.unreachable();
+            ctx.builder.instruction_body.const_i32(match bits {
+                BitSize::BYTE => 8,
+                BitSize::WORD => 16,
+                BitSize::DWORD => 32,
+                _ => {
+                    dbg_assert!(false);
+                    0
+                },
+            });
+            ctx.builder.instruction_body.get_local(&address_local);
+            gen_call_fn2(ctx.builder, "bug_gen_safe_read_write_page_fault");
+        }
+        ctx.builder.instruction_body.block_end();
+    }
     ctx.builder.instruction_body.block_end();
 
-    ctx.builder.instruction_body.block_end();
-
+    ctx.builder.free_local(value_local);
+    ctx.builder.free_local(can_use_fast_path_local);
+    ctx.builder.free_local(phys_addr_local);
     ctx.builder.free_local(entry_local);
+}
+
+#[no_mangle]
+pub fn bug_gen_safe_read_write_page_fault(bits: i32, addr: u32) {
+    dbg_log!("bug: gen_safe_read_write_page_fault {} {:x}", bits, addr);
+    dbg_assert!(false);
 }
 
 pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {

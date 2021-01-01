@@ -2365,8 +2365,26 @@ pub unsafe fn safe_read8_slow_jit(addr: i32) -> i32 {
     }
 }
 
+#[no_mangle]
+pub unsafe fn safe_read_write8_slow_jit(addr: i32) -> i32 {
+    match safe_read_write8_slow_jit2(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            v
+        },
+        Err(()) => {
+            *page_fault = true;
+            -1
+        },
+    }
+}
+
 unsafe fn safe_read8_slow_jit2(addr: i32) -> OrPageFault<i32> {
     Ok(read8(translate_address_read_jit(addr)?))
+}
+
+unsafe fn safe_read_write8_slow_jit2(addr: i32) -> OrPageFault<i32> {
+    Ok(read8(translate_address_write_jit(addr)?))
 }
 
 unsafe fn safe_read16_slow_jit2(addr: i32) -> OrPageFault<i32> {
@@ -2378,12 +2396,32 @@ unsafe fn safe_read16_slow_jit2(addr: i32) -> OrPageFault<i32> {
     };
 }
 
+unsafe fn safe_read_write16_slow_jit2(addr: i32) -> OrPageFault<i32> {
+    if addr & 0xFFF == 0xFFF {
+        return Ok(safe_read_write8_slow_jit2(addr)? | safe_read_write8_slow_jit2(addr + 1)? << 8);
+    }
+    else {
+        return Ok(read16(translate_address_write_jit(addr)?));
+    };
+}
+
 unsafe fn safe_read32s_slow_jit2(addr: i32) -> OrPageFault<i32> {
     if addr & 0xFFF >= 0xFFD {
         return Ok(safe_read16_slow_jit2(addr)? | safe_read16_slow_jit2(addr + 2)? << 16);
     }
     else {
         return Ok(read32s(translate_address_read_jit(addr)?));
+    };
+}
+
+unsafe fn safe_read_write32s_slow_jit2(addr: i32) -> OrPageFault<i32> {
+    if addr & 0xFFF >= 0xFFD {
+        return Ok(
+            safe_read_write16_slow_jit2(addr)? | safe_read_write16_slow_jit2(addr + 2)? << 16
+        );
+    }
+    else {
+        return Ok(read32s(translate_address_write_jit(addr)?));
     };
 }
 
@@ -2402,8 +2440,36 @@ pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
 }
 
 #[no_mangle]
+pub unsafe fn safe_read_write16_slow_jit(addr: i32) -> i32 {
+    match safe_read16_slow_jit2(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            v
+        },
+        Err(()) => {
+            *page_fault = true;
+            -1
+        },
+    }
+}
+
+#[no_mangle]
 pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
     match safe_read32s_slow_jit2(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            v
+        },
+        Err(()) => {
+            *page_fault = true;
+            -1
+        },
+    }
+}
+
+#[no_mangle]
+pub unsafe fn safe_read_write32s_slow_jit(addr: i32) -> i32 {
+    match safe_read_write32s_slow_jit2(addr) {
         Ok(v) => {
             *page_fault = false;
             v
