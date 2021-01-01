@@ -433,8 +433,8 @@ IDEDevice.prototype.get_state = function()
 
 IDEDevice.prototype.set_state = function(state)
 {
-    this.master = state[0];
-    this.slave = state[1];
+    this.master.set_state(state[0]);
+    this.slave.set_state(state[1]);
     this.ata_port = state[2];
     this.irq = state[3];
     this.pci_id = state[4];
@@ -2079,5 +2079,5 @@ IDEInterface.prototype.set_state = function(state)
     this.data16 = new Uint16Array(this.data.buffer);
     this.data32 = new Int32Array(this.data.buffer);
 
-    this.buffer = state[28];
+    this.buffer && this.buffer.set_state(state[28]);
 };

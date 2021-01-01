@@ -90,82 +90,42 @@ function save_object(obj, saved_buffers)
     return result;
 }
 
-const NO_BASE = Object.freeze({});
-
-function restore_object(base, obj, buffers)
+function restore_buffers(obj, buffers)
 {
-    // recursively restore obj into base
-
     if(typeof obj !== "object" || obj === null)
     {
         dbg_assert(typeof obj !== "function");
         return obj;
     }
 
-    if((base instanceof Array || base === NO_BASE) && obj instanceof Array)
+    if(obj instanceof Array)
     {
-        return obj.map(x => restore_object(NO_BASE, x, buffers));
+        for(let i = 0; i < obj.length; i++)
+        {
+            obj[i] = restore_buffers(obj[i], buffers);
+        }
+
+        return obj;
     }
 
-    var type = obj["__state_type__"];
+    const type = obj["__state_type__"];
+    dbg_assert(type !== undefined);
 
-    if(type === undefined)
+    const constructor = CONSTRUCTOR_TABLE[type];
+    dbg_assert(constructor, "Unkown type: " + type);
+
+    const info = buffers.infos[obj["buffer_id"]];
+
+    // restore large buffers by just returning a view on the state blob
+    // get_state is responsible for copying the data
+    if(info.length >= 1024 * 1024 && constructor === Uint8Array)
     {
-        if(DEBUG && base === undefined)
-        {
-            console.log("Cannot restore (base doesn't exist)", obj);
-            dbg_assert(false);
-        }
-
-        if(DEBUG && !base.get_state)
-        {
-            console.log("No get_state:", base);
-        }
-
-        var current = base.get_state();
-
-        dbg_assert(current.length === obj.length, "Cannot restore: Different number of properties");
-
-        for(var i = 0; i < obj.length; i++)
-        {
-            obj[i] = restore_object(current[i], obj[i], buffers);
-        }
-
-        base.set_state(obj);
-
-        return base;
+        return new Uint8Array(buffers.full, info.offset, info.length);
     }
     else
     {
-        var constructor = CONSTRUCTOR_TABLE[type];
-        dbg_assert(constructor, "Unkown type: " + type);
-
-        var info = buffers.infos[obj["buffer_id"]];
-
-        // restore large buffers by just returning a view on the state blob
-        if(info.length >= 1024 * 1024 && constructor === Uint8Array)
-        {
-            return new Uint8Array(buffers.full, info.offset, info.length);
-        }
-        // XXX: Disabled, unpredictable since it updates in-place, breaks pci
-        //      and possibly also breaks restore -> save -> restore again
-        // avoid a new allocation if possible
-        //else if(base &&
-        //        base.constructor === constructor &&
-        //        base.byteOffset === 0 &&
-        //        base.byteLength === info.length)
-        //{
-        //    new Uint8Array(base.buffer).set(
-        //        new Uint8Array(buffers.full, info.offset, info.length),
-        //        base.byteOffset
-        //    );
-        //    return base;
-        //}
-        else
-        {
-            var buf = buffers.full.slice(info.offset, info.offset + info.length);
-            return new constructor(buf);
-        }
+        var buf = buffers.full.slice(info.offset, info.offset + info.length);
+        return new constructor(buf);
     }
 }
 
@@ -315,5 +275,6 @@ CPU.prototype.restore_state = function(state)
         infos: buffer_infos,
     };
 
-    restore_object(this, state_object, buffers);
+    state_object = restore_buffers(state_object, buffers);
+    this.set_state(state_object);
 };

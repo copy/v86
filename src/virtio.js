@@ -923,7 +923,12 @@ VirtIO.prototype.set_state = function(state)
     this.config_generation = state[7];
     this.isr_status = state[8];
     this.queue_select = state[9];
-    this.queues = state.slice(10);
+    let i = 0;
+    for(let queue of state.slice(10))
+    {
+        this.queues[i].set_state(queue);
+        i++;
+    }
     this.queue_selected = this.queues[this.queue_select] || null;
 };
 

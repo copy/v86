@@ -413,7 +413,7 @@ PIC.prototype.set_state = function(state)
     this.isr = state[2];
     this.irr = state[3];
     this.is_master = state[4];
-    this.slave = state[5];
+    this.slave && this.slave.set_state(state[5]);
     this.expect_icw4 = state[6];
     this.state = state[7];
     this.read_isr = state[8];

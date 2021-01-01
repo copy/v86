@@ -450,26 +450,26 @@ CPU.prototype.set_state = function(state)
 
     this.set_tsc(state[43][0], state[43][1]);
 
-    this.devices.virtio_9p = state[45];
-    this.devices.apic = state[46];
-    this.devices.rtc = state[47];
-    this.devices.pci = state[48];
-    this.devices.dma = state[49];
-    this.devices.acpi = state[50];
-    this.devices.hpet = state[51];
-    this.devices.vga = state[52];
-    this.devices.ps2 = state[53];
-    this.devices.uart = state[54];
-    this.devices.fdc = state[55];
-    this.devices.cdrom = state[56];
-    this.devices.hda = state[57];
-    this.devices.pit = state[58];
-    this.devices.net = state[59];
-    this.devices.pic = state[60];
+    this.devices.virtio_9p && this.devices.virtio_9p.set_state(state[45]);
+    this.devices.apic && this.devices.apic.set_state(state[46]);
+    this.devices.rtc && this.devices.rtc.set_state(state[47]);
+    this.devices.pci && this.devices.pci.set_state(state[48]);
+    this.devices.dma && this.devices.dma.set_state(state[49]);
+    this.devices.acpi && this.devices.acpi.set_state(state[50]);
+    this.devices.hpet && this.devices.hpet.set_state(state[51]);
+    this.devices.vga && this.devices.vga.set_state(state[52]);
+    this.devices.ps2 && this.devices.ps2.set_state(state[53]);
+    this.devices.uart && this.devices.uart.set_state(state[54]);
+    this.devices.fdc && this.devices.fdc.set_state(state[55]);
+    this.devices.cdrom && this.devices.cdrom.set_state(state[56]);
+    this.devices.hda && this.devices.hda.set_state(state[57]);
+    this.devices.pit && this.devices.pit.set_state(state[58]);
+    this.devices.net && this.devices.net.set_state(state[59]);
+    this.devices.pic && this.devices.pic.set_state(state[60]);
 
     this.fw_value = state[62];
 
-    this.devices.ioapic = state[63];
+    this.devices.ioapic && this.devices.ioapic.set_state(state[63]);
 
     this.tss_size_32[0] = state[64];
 
