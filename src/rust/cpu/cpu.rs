@@ -1737,8 +1737,8 @@ pub unsafe fn full_clear_tlb() {
     valid_tlb_entries_count = 0;
 
     if CHECK_TLB_INVARIANTS {
-        for i in 0..0x100000 {
-            dbg_assert!(tlb_data[i] == 0);
+        for &entry in tlb_data.iter() {
+            dbg_assert!(entry == 0);
         }
     };
 }
@@ -1764,8 +1764,8 @@ pub unsafe fn clear_tlb() {
     valid_tlb_entries_count = global_page_offset;
 
     if CHECK_TLB_INVARIANTS {
-        for i in 0..0x100000 {
-            dbg_assert!(tlb_data[i] == 0 || 0 != tlb_data[i] & TLB_GLOBAL);
+        for &entry in tlb_data.iter() {
+            dbg_assert!(entry == 0 || 0 != entry & TLB_GLOBAL);
         }
     };
 }
