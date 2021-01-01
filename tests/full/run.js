@@ -212,7 +212,6 @@ if(cluster.isMaster)
             timeout: 200,
             expected_texts: [
                 "~%",
-                "Files send via emulator appear in",
             ],
             expected_serial_text: [
                 "Files send via emulator appear in",
@@ -226,7 +225,6 @@ if(cluster.isMaster)
             timeout: 200,
             expected_texts: [
                 "~%",
-                "Files send via emulator appear in",
             ],
             expected_serial_text: [
                 "Files send via emulator appear in",
@@ -244,7 +242,6 @@ if(cluster.isMaster)
             timeout: 200,
             expected_texts: [
                 "~%",
-                "Files send via emulator appear in",
             ],
             expected_serial_text: [
                 "Files send via emulator appear in",
