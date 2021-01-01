@@ -1904,6 +1904,7 @@ pub unsafe fn cycle_internal() {
                 RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
             );
+            dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
 
             if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
                 dbg_assert!(match ::cpu2::cpu::debug_last_jump {
@@ -1960,6 +1961,7 @@ pub unsafe fn cycle_internal() {
                 RUN_INTERPRETED_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
             );
+            dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
         };
     }
     else {
