@@ -42,7 +42,7 @@ emulator.add_listener("serial0-output-char", function(chr)
         console.error("Serial: %s", line);
         line = "";
     }
-    else
+    else if(chr >= " " && chr <= "~")
     {
         line += chr;
     }

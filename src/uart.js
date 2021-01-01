@@ -323,7 +323,8 @@ UART.prototype.write_data = function(out_byte)
 
     if(char === "\n")
     {
-        dbg_log("SERIAL: " + String.fromCharCode.apply("", this.current_line).trimRight());
+        const line = String.fromCharCode.apply("", this.current_line).trimRight().replace(/[\x00-\x08\x0b-\x1f\x7f\x80-\xff]/g, "");
+        dbg_log("SERIAL: " + line);
         this.bus.send("serial0-output-line", String.fromCharCode.apply("", this.current_line));
         this.current_line = [];
     }
