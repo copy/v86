@@ -4817,6 +4817,16 @@ pub fn instr_F20F11_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.call_fn2("instr_F20F11_reg");
 }
+pub fn instr_F30F11_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    instr_660F7E_mem_jit(ctx, modrm_byte, r)
+}
+pub fn instr_F30F11_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.const_i32(0);
+    ctx.builder
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r2));
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r1));
+}
 
 pub fn instr_0F28_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     let dest = global_pointers::get_reg_xmm_offset(r);

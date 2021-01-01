@@ -514,13 +514,11 @@ pub unsafe fn instr_0F11_mem(addr: i32, r: i32) {
     // movups xmm/m128, xmm
     mov_r_m128(addr, r);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F11_reg(rm_dest: i32, reg_src: i32) {
     // movss xmm/m32, xmm
     let data = read_xmm128s(reg_src);
     write_xmm32(rm_dest, data.u32_0[0] as i32);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F11_mem(addr: i32, r: i32) {
     // movss xmm/m32, xmm
     let data = read_xmm128s(r);
@@ -540,7 +538,6 @@ pub unsafe fn instr_F20F11_reg(r1: i32, r2: i32) {
     let data = read_xmm128s(r2);
     write_xmm64(r1, data.u64_0[0]);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F11_mem(addr: i32, r: i32) {
     // movsd xmm/m64, xmm
     let data = read_xmm64s(r);
