@@ -193,6 +193,7 @@ ACPI.prototype.get_state = function()
     state[0] = this.status;
     state[1] = this.pm1_status;
     state[2] = this.pm1_enable;
+    state[3] = this.gpe;
     return state;
 };
 
@@ -201,4 +202,5 @@ ACPI.prototype.set_state = function(state)
     this.status = state[0];
     this.pm1_status = state[1];
     this.pm1_enable = state[2];
+    this.gpe = state[3];
 };
