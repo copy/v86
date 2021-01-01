@@ -1324,6 +1324,9 @@ var seen_code_uncompiled = {};
 
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
 {
+    ptr >>>= 0;
+    len >>>= 0;
+
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
 
     const code = new Uint8Array(this.wm.instance.exports.memory.buffer, ptr, len);
