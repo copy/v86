@@ -2358,7 +2358,7 @@ pub unsafe fn cycle_internal() {
             );
             dbg_assert!(*timestamp_counter != initial_tsc, "TSC didn't change");
 
-            if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+            if cfg!(feature = "profiler") {
                 dbg_assert!(match ::cpu::cpu::debug_last_jump {
                     LastJump::Compiled { .. } => true,
                     _ => false,

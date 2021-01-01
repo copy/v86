@@ -535,7 +535,7 @@ fn gen_safe_read(
 
     ctx.builder.br_if(0);
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
         ctx.builder.call_fn2("report_safe_read_jit_slow");
@@ -565,7 +565,7 @@ fn gen_safe_read(
     ctx.builder.const_i32(1);
     ctx.builder.and_i32();
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
@@ -673,7 +673,7 @@ fn gen_safe_write(
 
     ctx.builder.br_if(0);
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
         ctx.builder.call_fn2("report_safe_write_jit_slow");
@@ -713,7 +713,7 @@ fn gen_safe_write(
     ctx.builder.const_i32(1);
     ctx.builder.and_i32();
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
@@ -825,7 +825,7 @@ pub fn gen_safe_read_write(
 
     ctx.builder.br_if(0);
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.get_local(&address_local);
         ctx.builder.get_local(&entry_local);
         ctx.builder.call_fn2("report_safe_read_write_jit_slow");
@@ -854,7 +854,7 @@ pub fn gen_safe_read_write(
     ctx.builder.const_i32(1);
     ctx.builder.and_i32();
 
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         ctx.builder.if_void();
         gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
         ctx.builder.block_end();
@@ -1795,7 +1795,7 @@ pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
 }
 
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
-    if !cfg!(feature = "profiler") || !cfg!(feature = "profiler_instrument") {
+    if !cfg!(feature = "profiler") {
         return;
     }
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
@@ -1803,7 +1803,7 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
 }
 
 pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {
-    if cfg!(feature = "profiler") && cfg!(feature = "profiler_instrument") {
+    if cfg!(feature = "profiler") {
         gen_fn1_const(builder, "track_jit_exit", address);
     }
 }

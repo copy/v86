@@ -126,7 +126,7 @@ fn decode(mut instruction: u32) -> Instruction {
 }
 
 pub fn gen_opstats(builder: &mut WasmBuilder, opcode: u32) {
-    if !cfg!(feature = "profiler") || !cfg!(feature = "profiler_instrument") {
+    if !cfg!(feature = "profiler") {
         return;
     }
 
@@ -208,7 +208,7 @@ pub fn record_opstat_unguarded_register(opcode: u32) {
 }
 
 pub fn gen_opstat_unguarded_register(builder: &mut WasmBuilder, opcode: u32) {
-    if !cfg!(feature = "profiler") || !cfg!(feature = "profiler_instrument") {
+    if !cfg!(feature = "profiler") {
         return;
     }
 
