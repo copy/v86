@@ -44,7 +44,16 @@ const sf = 1 << 7;
 //              |                         | (foo is in a different page than the instruction)
 
 
+// e: a modrm byte follows the operand
 // os: the instruction behaves differently depending on the operand size
+// fixed_g: the reg field of the modrm byte selects an instruction
+// skip: skip automatically generated tests (nasmtests)
+// mask_flags: flags bits to mask in generated tests
+// prefix: is a prefix instruction
+// imm8, imm8s, imm16, imm1632, immaddr, extra_imm8, extra_imm16: one or two immediate bytes follows the instruction
+// custom: will callback jit to generate custom code
+// block_boundary: may change eip in a way not handled by the jit
+// no_next_instruction: jit will stop analysing after instruction (e.g., unconditional jump, ret)
 const encodings = [
     { opcode: 0x00, custom: 1, e: 1, },
     { opcode: 0x01, custom: 1, os: 1, e: 1, },
