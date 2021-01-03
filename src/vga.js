@@ -1467,7 +1467,7 @@ VGAScreen.prototype.port3C1_read = function()
     {
         dbg_log("3C1 / internal palette read: " + h(this.attribute_controller_index) +
             " -> " + h(this.dac_map[this.attribute_controller_index]), LOG_VGA);
-        return this.dac_map[this.attribute_controller_index];
+        return this.dac_map[this.attribute_controller_index] & 0xFF;
     }
 
     switch(this.attribute_controller_index)
@@ -1487,7 +1487,7 @@ VGAScreen.prototype.port3C1_read = function()
         default:
             dbg_log("3C1 / attribute controller read " + h(this.attribute_controller_index), LOG_VGA);
     }
-    return -1;
+    return 0xFF;
 
 };
 
