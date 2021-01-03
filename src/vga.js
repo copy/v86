@@ -2372,21 +2372,26 @@ VGAScreen.prototype.screen_fill_buffer = function()
         switch(bpp)
         {
             case 32:
-                var start_pixel = start >> 2;
-                var end_pixel = (end >> 2) + 1;
+                var start_pixel = (start - this.svga_offset) >> 2;
+                var end_pixel = ((end - this.svga_offset) >> 2) + 1;
+                var addr = start >> 2;
 
                 for(var i = start_pixel; i < end_pixel; i++)
                 {
-                    var dword = this.svga_memory32[i];
+                    var dword = this.svga_memory32[addr++];
 
                     buffer[i] = dword << 16 | dword >> 16 & 0xFF | dword & 0xFF00 | 0xFF000000;
                 }
                 break;
 
             case 24:
-                var start_pixel = start / 3 | 0;
-                var end_pixel = (end / 3 | 0) + 1;
-                var addr = start_pixel * 3;
+                start -= start % 3;
+                end += 3 - end % 3;
+                dbg_assert(this.svga_offset % 3 === 0);
+
+                var start_pixel = (start - this.svga_offset) / 3 | 0;
+                var end_pixel = ((end - this.svga_offset) / 3 | 0) + 1;
+                var addr = start;
 
                 for(var i = start_pixel; addr < end; i++)
                 {
@@ -2399,12 +2404,13 @@ VGAScreen.prototype.screen_fill_buffer = function()
                 break;
 
             case 16:
-                var start_pixel = start >> 1;
-                var end_pixel = (end >> 1) + 1;
+                var start_pixel = (start - this.svga_offset) >> 1;
+                var end_pixel = ((end - this.svga_offset) >> 1) + 1;
+                var addr = start >> 1;
 
                 for(var i = start_pixel; i < end_pixel; i++)
                 {
-                    var word = this.svga_memory16[i];
+                    var word = this.svga_memory16[addr++];
 
                     var blue = (word >> 11) * 0xFF / 0x1F | 0;
                     var green = (word >> 5 & 0x3F) * 0xFF / 0x3F | 0;
@@ -2415,12 +2421,13 @@ VGAScreen.prototype.screen_fill_buffer = function()
                 break;
 
             case 8:
-                var start_pixel = start;
-                var end_pixel = end + 1;
+                var start_pixel = start - this.svga_offset;
+                var end_pixel = end - this.svga_offset + 1;
+                var addr = start;
 
                 for(var i = start; i <= end; i++)
                 {
-                    var color = this.vga256_palette[this.svga_memory[i]];
+                    var color = this.vga256_palette[this.svga_memory[addr++]];
                     buffer[i] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
                 }
                 break;
