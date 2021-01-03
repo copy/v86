@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var STATE_VERSION = 5;
+var STATE_VERSION = 6;
 
 /** @const */
 var STATE_MAGIC = 0x86768676|0;
@@ -21,6 +21,7 @@ var STATE_INDEX_INFO_LEN = 3;
 /** @const */
 var STATE_INFO_BLOCK_START = 16;
 
+const ZSTD_MAGIC = 0xFD2FB528;
 
 /** @constructor */
 function StateLoadError(msg)
@@ -29,23 +30,47 @@ function StateLoadError(msg)
 }
 StateLoadError.prototype = new Error;
 
+const CONSTRUCTOR_TABLE = {
+    "Uint8Array": Uint8Array,
+    "Int8Array": Int8Array,
+    "Uint16Array": Uint16Array,
+    "Int16Array": Int16Array,
+    "Uint32Array": Uint32Array,
+    "Int32Array": Int32Array,
+    "Float32Array": Float32Array,
+    "Float64Array": Float64Array,
+};
 
 function save_object(obj, saved_buffers)
 {
-    if(typeof obj !== "object" || obj === null || obj instanceof Array)
+    if(typeof obj !== "object" || obj === null)
     {
+        dbg_assert(typeof obj !== "function");
         return obj;
     }
 
-    dbg_assert(obj.constructor !== Object);
+    if(obj instanceof Array)
+    {
+        return obj.map(x => save_object(x, saved_buffers));
+    }
+
+    if(obj.constructor === Object)
+    {
+        console.log(obj);
+        dbg_assert(obj.constructor !== Object, "Expected non-object");
+    }
 
     if(obj.BYTES_PER_ELEMENT)
     {
         // Uint8Array, etc.
         var buffer = new Uint8Array(obj.buffer, obj.byteOffset, obj.length * obj.BYTES_PER_ELEMENT);
 
+        const constructor = obj.constructor.name.replace("bound ", "");
+
+        dbg_assert(CONSTRUCTOR_TABLE[constructor]);
+
         return {
-            "__state_type__": obj.constructor.name,
+            "__state_type__": constructor,
             "buffer_id": saved_buffers.push(buffer) - 1,
         };
     }
@@ -70,94 +95,32 @@ function save_object(obj, saved_buffers)
     return result;
 }
 
-function restore_object(base, obj, buffers)
+function restore_buffers(obj, buffers)
 {
-    // recursively restore obj into base
-
     if(typeof obj !== "object" || obj === null)
     {
+        dbg_assert(typeof obj !== "function");
         return obj;
     }
 
-    if(base instanceof Array)
+    if(obj instanceof Array)
     {
+        for(let i = 0; i < obj.length; i++)
+        {
+            obj[i] = restore_buffers(obj[i], buffers);
+        }
+
         return obj;
     }
 
-    var type = obj["__state_type__"];
+    const type = obj["__state_type__"];
+    dbg_assert(type !== undefined);
 
-    if(type === undefined)
-    {
-        if(DEBUG && base === undefined)
-        {
-            console.log("Cannot restore (base doesn't exist)", obj);
-            dbg_assert(false);
-        }
+    const constructor = CONSTRUCTOR_TABLE[type];
+    dbg_assert(constructor, "Unkown type: " + type);
 
-        if(DEBUG && !base.get_state)
-        {
-            console.log("No get_state:", base);
-        }
-
-        var current = base.get_state();
-
-        dbg_assert(current.length === obj.length, "Cannot restore: Different number of properties");
-
-        for(var i = 0; i < obj.length; i++)
-        {
-            obj[i] = restore_object(current[i], obj[i], buffers);
-        }
-
-        base.set_state(obj);
-
-        return base;
-    }
-    else
-    {
-        var table = {
-            "Uint8Array": Uint8Array,
-            "Int8Array": Int8Array,
-            "Uint16Array": Uint16Array,
-            "Int16Array": Int16Array,
-            "Uint32Array": Uint32Array,
-            "Int32Array": Int32Array,
-            "Float32Array": Float32Array,
-            "Float64Array": Float64Array,
-        };
-
-        var constructor = table[type];
-        dbg_assert(constructor, "Unkown type: " + type);
-
-        var info = buffers.infos[obj["buffer_id"]];
-
-        dbg_assert(base);
-        dbg_assert(base.constructor === constructor);
-
-        // restore large buffers by just returning a view on the state blob
-        if(info.length >= 1024 * 1024 && constructor === Uint8Array)
-        {
-            return new Uint8Array(buffers.full, info.offset, info.length);
-        }
-        // XXX: Disabled, unpredictable since it updates in-place, breaks pci
-        //      and possibly also breaks restore -> save -> restore again
-        // avoid a new allocation if possible
-        //else if(base &&
-        //        base.constructor === constructor &&
-        //        base.byteOffset === 0 &&
-        //        base.byteLength === info.length)
-        //{
-        //    new Uint8Array(base.buffer).set(
-        //        new Uint8Array(buffers.full, info.offset, info.length),
-        //        base.byteOffset
-        //    );
-        //    return base;
-        //}
-        else
-        {
-            var buf = buffers.full.slice(info.offset, info.offset + info.length);
-            return new constructor(buf);
-        }
-    }
+    const buffer = buffers[obj["buffer_id"]];
+    return new constructor(buffer);
 }
 
 CPU.prototype.save_state = function()
@@ -187,8 +150,9 @@ CPU.prototype.save_state = function()
         "buffer_infos": buffer_infos,
         "state": state,
     });
+    var info_block = new TextEncoder().encode(info_object);
 
-    var buffer_block_start = STATE_INFO_BLOCK_START + 2 * info_object.length;
+    var buffer_block_start = STATE_INFO_BLOCK_START + info_block.length;
     buffer_block_start = buffer_block_start + 3 & ~3;
     var total_size = buffer_block_start + total_buffer_size;
 
@@ -202,11 +166,7 @@ CPU.prototype.save_state = function()
         0,
         STATE_INFO_BLOCK_START / 4
     );
-    var info_block = new Uint16Array(
-        result,
-        STATE_INFO_BLOCK_START,
-        info_object.length
-    );
+    new Uint8Array(result, STATE_INFO_BLOCK_START, info_block.length).set(info_block);
     var buffer_block = new Uint8Array(
         result,
         buffer_block_start
@@ -215,12 +175,7 @@ CPU.prototype.save_state = function()
     header_block[STATE_INDEX_MAGIC] = STATE_MAGIC;
     header_block[STATE_INDEX_VERSION] = STATE_VERSION;
     header_block[STATE_INDEX_TOTAL_LEN] = total_size;
-    header_block[STATE_INDEX_INFO_LEN] = info_object.length * 2;
-
-    for(var i = 0; i < info_object.length; i++)
-    {
-        info_block[i] = info_object.charCodeAt(i);
-    }
+    header_block[STATE_INDEX_INFO_LEN] = info_block.length;
 
     for(var i = 0; i < saved_buffers.length; i++)
     {
@@ -229,82 +184,142 @@ CPU.prototype.save_state = function()
         buffer_block.set(buffer, buffer_infos[i].offset);
     }
 
+    dbg_log("State: json size " + (info_block.byteLength >> 10) + "k");
+    dbg_log("State: Total buffers size " + (buffer_block.byteLength >> 10) + "k");
+
     return result;
 };
 
 CPU.prototype.restore_state = function(state)
 {
-    var len = state.byteLength;
+    state = new Uint8Array(state);
 
-    if(len < STATE_INFO_BLOCK_START)
+    function read_state_header(state, check_length)
     {
-        throw new StateLoadError("Invalid length: " + len);
+        const len = state.length;
+
+        if(len < STATE_INFO_BLOCK_START)
+        {
+            throw new StateLoadError("Invalid length: " + len);
+        }
+
+        const header_block = new Int32Array(state.buffer, state.byteOffset, 4);
+
+        if(header_block[STATE_INDEX_MAGIC] !== STATE_MAGIC)
+        {
+            throw new StateLoadError("Invalid header: " + h(header_block[STATE_INDEX_MAGIC] >>> 0));
+        }
+
+        if(header_block[STATE_INDEX_VERSION] !== STATE_VERSION)
+        {
+            throw new StateLoadError(
+                    "Version mismatch: dump=" + header_block[STATE_INDEX_VERSION] +
+                    " we=" + STATE_VERSION);
+        }
+
+        if(check_length && header_block[STATE_INDEX_TOTAL_LEN] !== len)
+        {
+            throw new StateLoadError(
+                    "Length doesn't match header: " +
+                    "real=" + len + " header=" + header_block[STATE_INDEX_TOTAL_LEN]);
+        }
+
+        return header_block[STATE_INDEX_INFO_LEN];
     }
 
-    var header_block = new Int32Array(state, 0, 4);
-
-    if(header_block[STATE_INDEX_MAGIC] !== STATE_MAGIC)
+    function read_info_block(info_block_buffer)
     {
-        throw new StateLoadError("Invalid header: " + h(header_block[STATE_INDEX_MAGIC] >>> 0));
+        const info_block = new TextDecoder().decode(info_block_buffer);
+        return JSON.parse(info_block);
     }
 
-    if(header_block[STATE_INDEX_VERSION] !== STATE_VERSION)
+    if(new Uint32Array(state.buffer, 0, 1)[0] === ZSTD_MAGIC)
     {
-        throw new StateLoadError(
-                "Version mismatch: dump=" + header_block[STATE_INDEX_VERSION] +
-                " we=" + STATE_VERSION);
-    }
+        const ctx = this.zstd_create_ctx(state.length);
 
-    if(header_block[STATE_INDEX_TOTAL_LEN] !== len)
+        new Uint8Array(this.wasm_memory.buffer, this.zstd_get_src_ptr(ctx), state.length).set(state);
+
+        let ptr = this.zstd_read(ctx, 16);
+        const header_block = new Uint8Array(this.wasm_memory.buffer, ptr, 16);
+        const info_block_len = read_state_header(header_block, false);
+        this.zstd_read_free(ptr, 16);
+
+        ptr = this.zstd_read(ctx, info_block_len);
+        const info_block_buffer = new Uint8Array(this.wasm_memory.buffer, ptr, info_block_len);
+        const info_block_obj = read_info_block(info_block_buffer);
+        this.zstd_read_free(ptr, info_block_len);
+
+        let state_object = info_block_obj["state"];
+        const buffer_infos = info_block_obj["buffer_infos"];
+        const buffers = [];
+
+        let position = STATE_INFO_BLOCK_START + info_block_len;
+
+        for(const buffer_info of buffer_infos)
+        {
+            const front_padding = (position + 3 & ~3) - position;
+            const CHUNK_SIZE = 1 * 1024 * 1024;
+
+            if(buffer_info.length > CHUNK_SIZE)
+            {
+                const ptr = this.zstd_read(ctx, front_padding);
+                this.zstd_read_free(ptr, front_padding);
+
+                const buffer = new Uint8Array(buffer_info.length);
+                buffers.push(buffer.buffer);
+
+                let have = 0;
+                while(have < buffer_info.length)
+                {
+                    const remaining = buffer_info.length - have;
+                    dbg_assert(remaining >= 0);
+                    const to_read = Math.min(remaining, CHUNK_SIZE);
+
+                    const ptr = this.zstd_read(ctx, to_read);
+                    buffer.set(new Uint8Array(this.wasm_memory.buffer, ptr, to_read), have);
+                    this.zstd_read_free(ptr, to_read);
+
+                    have += to_read;
+                }
+            }
+            else
+            {
+                const ptr = this.zstd_read(ctx, front_padding + buffer_info.length);
+                const offset = ptr + front_padding;
+                buffers.push(this.wasm_memory.buffer.slice(offset, offset + buffer_info.length));
+                this.zstd_read_free(ptr, front_padding + buffer_info.length);
+            }
+
+            position += front_padding + buffer_info.length;
+        }
+
+        state_object = restore_buffers(state_object, buffers);
+        this.set_state(state_object);
+
+        this.zstd_free_ctx(ctx);
+    }
+    else
     {
-        throw new StateLoadError(
-                "Length doesn't match header: " +
-                "real=" + len + " header=" + header_block[STATE_INDEX_TOTAL_LEN]);
+        const info_block_len = read_state_header(state, true);
+
+        if(info_block_len < 0 || info_block_len + 12 >= state.length)
+        {
+            throw new StateLoadError("Invalid info block length: " + info_block_len);
+        }
+
+        const info_block_buffer = state.subarray(STATE_INFO_BLOCK_START, STATE_INFO_BLOCK_START + info_block_len);
+        const info_block_obj = read_info_block(info_block_buffer);
+        let state_object = info_block_obj["state"];
+        const buffer_infos = info_block_obj["buffer_infos"];
+        let buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
+        buffer_block_start = buffer_block_start + 3 & ~3;
+
+        const buffers = buffer_infos.map(buffer_info => {
+            const offset = buffer_block_start + buffer_info.offset;
+            return state.buffer.slice(offset, offset + buffer_info.length);
+        });
+
+        state_object = restore_buffers(state_object, buffers);
+        this.set_state(state_object);
     }
-
-    var info_block_len = header_block[STATE_INDEX_INFO_LEN];
-
-    if(info_block_len < 0 ||
-       info_block_len + 12 >= len ||
-       info_block_len % 2)
-    {
-        throw new StateLoadError("Invalid info block length: " + info_block_len);
-    }
-
-    var info_block_str_len = info_block_len / 2;
-    var info_block_buffer = new Uint16Array(state, STATE_INFO_BLOCK_START, info_block_str_len);
-    var info_block = "";
-
-    for(var i = 0; i < info_block_str_len - 8; )
-    {
-        info_block += String.fromCharCode(
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++],
-            info_block_buffer[i++], info_block_buffer[i++]
-        );
-    }
-
-    for(; i < info_block_str_len; )
-    {
-        info_block += String.fromCharCode(info_block_buffer[i++]);
-    }
-
-    var info_block_obj = JSON.parse(info_block);
-    var state_object = info_block_obj["state"];
-    var buffer_infos = info_block_obj["buffer_infos"];
-    var buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
-    buffer_block_start = buffer_block_start + 3 & ~3;
-
-    for(var i = 0; i < buffer_infos.length; i++)
-    {
-        buffer_infos[i].offset += buffer_block_start;
-    }
-
-    var buffers = {
-        full: state,
-        infos: buffer_infos,
-    };
-
-    restore_object(this, state_object, buffers);
 };

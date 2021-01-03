@@ -12,7 +12,7 @@ function readfile(path)
 console.log("Use F2 to save the state and F3 to restore.");
 
 var bios = readfile(__dirname + "/../bios/seabios.bin");
-var linux = readfile(__dirname + "/../images/linux.iso");
+var linux = readfile(__dirname + "/../images/linux4.iso");
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
@@ -28,7 +28,10 @@ var emulator = new V86Starter({
 
 emulator.add_listener("serial0-output-char", function(chr)
 {
-    process.stdout.write(chr);
+    if(chr <= "~")
+    {
+        process.stdout.write(chr);
+    }
 });
 
 var state;

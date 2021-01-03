@@ -8,6 +8,7 @@
 window.onload = function()
 {
     var emulator = new V86Starter({
+        wasm_path: "../build/v86.wasm",
         memory_size: 32 * 1024 * 1024,
         vga_memory_size: 2 * 1024 * 1024,
 
@@ -20,8 +21,8 @@ window.onload = function()
         vga_bios: {
             url: "../bios/vgabios.bin",
         },
-        cdrom: {
-            url: "../images/linux.iso",
+        bzimage: {
+            url: "../images/buildroot-bzimage.bin",
         },
         autostart: true,
         disable_keyboard: true,
@@ -36,12 +37,7 @@ window.onload = function()
             data += char;
         }
 
-        if(data.endsWith("login: "))
-        {
-            console.log("Do login");
-            emulator.serial0_send("root\n");
-        }
-        else if(data.endsWith("/root% "))
+        if(data.endsWith("~% "))
         {
             console.log("Now ready");
             document.getElementById("status").textContent = "Ready.\n";

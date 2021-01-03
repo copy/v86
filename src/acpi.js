@@ -3,7 +3,7 @@
 // http://www.uefi.org/sites/default/files/resources/ACPI_6_1.pdf
 
 /** @const */
-var PMTIMER_FREQ = 3579545;
+var PMTIMER_FREQ_SECONDS = 3579545;
 
 /**
  * @constructor
@@ -30,6 +30,9 @@ function ACPI(cpu)
 
     // 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
     cpu.devices.pci.register_device(acpi);
+
+    this.timer_last_value = 0;
+    this.timer_imprecision_offset = 0;
 
     this.status = 1;
     this.pm1_status = 0;
@@ -145,7 +148,43 @@ ACPI.prototype.timer = function(now)
 
 ACPI.prototype.get_timer = function(now)
 {
-    return now * (PMTIMER_FREQ / 1000) | 0;
+    const t = Math.round(now * (PMTIMER_FREQ_SECONDS / 1000));
+
+    // Due to the low precision of JavaScript's time functions we increment the
+    // returned timer value every time it is read
+
+    if(t === this.timer_last_value)
+    {
+        // don't go past 1ms
+
+        if(this.timer_imprecision_offset < PMTIMER_FREQ_SECONDS / 1000)
+        {
+            this.timer_imprecision_offset++;
+        }
+    }
+    else
+    {
+        dbg_assert(t > this.timer_last_value);
+
+        const previous_timer = this.timer_last_value + this.timer_imprecision_offset;
+
+        // don't go back in time
+
+        if(previous_timer <= t)
+        {
+            this.timer_imprecision_offset = 0;
+            this.timer_last_value = t;
+        }
+        else
+        {
+            dbg_log("Warning: Overshot pmtimer, waiting;" +
+                    " current=" + t +
+                    " last=" + this.timer_last_value +
+                    " offset=" + this.timer_imprecision_offset, LOG_ACPI);
+        }
+    }
+
+    return this.timer_last_value + this.timer_imprecision_offset;
 };
 
 ACPI.prototype.get_state = function()
@@ -154,6 +193,7 @@ ACPI.prototype.get_state = function()
     state[0] = this.status;
     state[1] = this.pm1_status;
     state[2] = this.pm1_enable;
+    state[3] = this.gpe;
     return state;
 };
 
@@ -162,4 +202,5 @@ ACPI.prototype.set_state = function(state)
     this.status = state[0];
     this.pm1_status = state[1];
     this.pm1_enable = state[2];
+    this.gpe = state[3];
 };

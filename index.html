@@ -3,88 +3,106 @@
 
 <title>Virtual x86</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="description" content="Run KolibriOS, Linux or Windows 98 in your browser">
 
 <script src="build/v86_all.js"></script>
 <link rel="stylesheet" href="v86.css">
 
 <div>
     <div id="boot_options">
-        <h4>Quickstart</h4>
-        <input type="button" value="ReactOS (32 MB)" id="start_reactos">
-        - Restored from snapshot<br>
-        <input type="button" value="Windows 95 (6.7 MB)" id="start_windows95">
-        - Restored from snapshot<br>
-        <input type="button" value="FreeBSD 10.2 (13.0 MB)" id="start_freebsd">
-        - Restored from snapshot<br>
-        <input type="button" value="Oberon (16.0 MB)" id="start_oberon">
-        - Native Oberon 2.3.6 (<a href="https://lists.inf.ethz.ch/pipermail/oberon/2013/006844.html">via</a>)<br>
-        <input type="button" value="Windows 98 (12.0 MB)" id="start_windows98">
-        - Including Minesweeper and audio, additional sectors are loaded as needed<br>
-        <input type="button" value="Arch Linux (10.1 MB)" id="start_archlinux">
-        - A complete Arch Linux restored from a snapshot, additional files are loaded as needed<br>
-        <input type="button" value="KolibriOS (1.4 MB)" id="start_kolibrios">
-        - Graphical OS, takes about 60 seconds to boot<br>
-        <input type="button" value="Linux 2.6 (5.4 MB)" id="start_linux26">
-        - With busybox, Lua interpreter and test cases, takes about 20 seconds to boot<br>
-        <input type="button" value="Linux 3.18 (8.3 MB)" id="start_linux3">
-        - With internet access, telnet, ping, wget and links. Takes about 60 seconds to boot. Run <code>udhcpc</code> for networking. Exchange files through <code>/mnt/</code>.<br>
-        <input type="button" value="Windows 1.01 (1.4 MB)" id="start_windows1">
-        - Takes 1 second to boot<br>
-        <input type="button" value="MS-DOS 6.22 (3.4 MB)" id="start_msdos">
-        - Takes 10 seconds to boot. With Enhanced Tools, QBasic and everything from the FreeDOS image<br>
-        <input type="button" value="FreeDOS (0.7 MB)" id="start_freedos">
-        - With nasm, vim, debug.com, some games and demos, takes 1 second to boot<br>
-        <input type="button" value="OpenBSD (1.4 MB)" id="start_openbsd">
-        - Random boot floppy, takes about 60 seconds<br>
-        <input type="button" value="Solar OS (1.4 MB)" id="start_solos">
-        - Simple graphical OS<br>
-        <input type="button" value="Bootchess (0.2 MB)" id="start_bootchess">
-        - A tiny chess program written in the boot sector
+        <h4>Select profile</h4>
+        <table id="oses">
+            <tr id="start_archlinux"><td><a href="?profile=archlinux">Arch Linux</a> <small>12 MB</small></td><td>
+            A complete Arch Linux restored from a snapshot, additional files are loaded as needed</td></tr>
+            <tr id="start_dsl"><td><a href="?profile=dsl">Damn Small Linux</a> <small>50 MB</small></td><td>
+            Graphical Linux with 2.4 kernel, Firefox 2.0 and more. Takes 1 minute to boot.</td></tr>
+            <tr id="start_buildroot"><td><a href="?profile=buildroot">Buildroot Linux</a> <small>5.0 MB</small></td><td>
+            Minimal Linux with busybox, Lua, tests, internet access, ping, telnet and curl. Exchange files through <code>/mnt/</code>.</td></tr>
 
-        <br>
+            <tr id="start_reactos"><td><a href="?profile=reactos">ReactOS</a> <small>18 MB</small></td><td>
+            Windows-compatible OS. Restored from snapshot</td></tr>
+            <tr id="start_windows98"><td><a href="?profile=windows98">Windows 98</a> <small>9.7 MB</small></td><td>
+            Including Minesweeper and Internet Explorer with internet access. Additional sectors are loaded as needed.</td></tr>
+            <tr id="start_windows95"><td><a href="?profile=windows95">Windows 95</a> <small>4.6 MB</small></td><td>
+            Restored from snapshot</td></tr>
+            <tr id="start_windows1"><td><a href="?profile=windows1">Windows 1.01</a> <small>0.6 MB</small></td><td>
+            Takes 1 second to boot</td></tr>
+            <tr id="start_msdos"><td><a href="?profile=msdos">MS-DOS 6.22</a> <small>4.4 MB</small></td><td>
+            With Enhanced Tools, QBasic, vim, games and demos.</td></tr>
+            <tr id="start_freedos"><td><a href="?profile=freedos">FreeDOS</a> <small>0.5 MB</small></td><td>
+            With nasm, vim, debug.com, Rogue, some games and demos.</td></tr>
+
+            <tr id="start_freebsd"><td><a href="?profile=freebsd">FreeBSD</a> <small>17 MB</small></td><td>
+            FreeBSD 12.0 base install. Restored from snapshot.</td></tr>
+            <tr id="start_openbsd"><td><a href="?profile=openbsd">OpenBSD</a> <small>12 MB</small></td><td>
+            OpenBSD 6.6 base install. Restored from snapshot.</td></tr>
+            <tr id="start_9front"><td><a href="?profile=9front">9front</a> <small>4.4 MB</small></td><td>
+            A Plan 9 fork.</td></tr>
+            <tr id="start_haiku"><td><a href="?profile=haiku">Haiku</a> <small>46 MB</small></td><td>
+            Restored from snapshot. Includes network support.</td></tr>
+
+            <tr id="start_oberon"><td><a href="?profile=oberon">Oberon</a> <small>1.2 MB</small></td><td>
+            Native Oberon 2.3.6</td></tr>
+            <tr id="start_kolibrios"><td><a href="?profile=kolibrios">KolibriOS</a> <small>1.4 MB</small></td><td>
+            Fast graphical OS written in Assembly</td></tr>
+            <tr id="start_qnx"><td><a href="?profile=qnx">QNX</a> <small>1.3 MB</small></td><td>
+            QNX 4.05 Demo disk (no networking)</td></tr>
+            <tr id="start_solos"><td><a href="?profile=solos">Solar OS</a> <small>0.3 MB</small></td><td>
+            Simple graphical OS</td></tr>
+            <tr id="start_bootchess"><td><a href="?profile=bootchess">Bootchess</a> <small>0.1 MB</small></td><td>
+            A tiny chess program written in the boot sector</td></tr>
+        </table>
+
         <hr>
         <h4>Setup</h4>
         <table>
             <tr>
-                <td width="350">CD image</td>
+                <td width="350"><label for="cd_image">CD image</label></td>
                 <td>
                     <input type="file" id="cd_image">
                 </td>
             </tr>
 
             <tr>
-                <td>Floppy disk image</td>
+                <td><label for="floppy_image">Floppy disk image</label></td>
                 <td> <input type="file" id="floppy_image"><br></td>
             </tr>
 
             <tr>
-                <td>Hard drive disk image</td>
+                <td><label for="hda_image">Hard drive disk image</label></td>
                 <td><input type="file" id="hda_image"><br></td>
             </tr>
 
             <!--
             <tr>
-                <td>Multiboot kernel image (experimental)</td>
+                <td><label for="multiboot_image">Multiboot kernel image (experimental)</td>
                 <td><input type="file" id="multiboot_image"><br></td>
             </tr>
             -->
 
 
             <tr>
-                <td colspan="2"><small><small>Disk images are not uploaded to the server</small></small><hr></td>
+                <td colspan="2"><small>Disk images are not uploaded to the server</small><hr></td>
             </tr>
 
             <tr>
-                <td>Memory size</td>
+                <td><label for="memory_size">Memory size</label></td>
                 <td>
                     <input id="memory_size" type="number" value="128" min="16" max="2048" step="16"> MB<br>
                 </td>
             </tr>
 
             <tr>
-                <td>Video Memory size</td>
+                <td><label for="video_memory_size">Video Memory size</label></td>
                 <td>
                     <input id="video_memory_size" type="number" value="8" min="1" max="128" step="1"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="networking_proxy">Networking proxy (leave blank to disable)</label></td>
+                <td>
+                    <input id="networking_proxy" type="text" value="wss://relay.widgetry.org/">
                 </td>
             </tr>
 
@@ -93,7 +111,25 @@
             </tr>
 
             <tr>
-                <td>Boot order</td>
+                <td><label for="disable_audio">Disable audio</label></td>
+                <td>
+                    <input id="disable_audio" type="checkbox"><br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="enable_acpi">Enable ACPI (experimental)</label></td>
+                <td>
+                    <input id="enable_acpi" type="checkbox"><br>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="boot_order">Boot order</label></td>
                 <td>
                     <select id="boot_order">
                         <option value="213">CD / Floppy / Hard Disk</option>
@@ -152,7 +188,6 @@
     <pre style="display: none" id="loading"></pre>
 </div>
 
-
 <div id="screen_container" style="display: none">
     <div id="screen"></div>
     <canvas id="vga"></canvas>
@@ -164,8 +199,8 @@
 
 <div id="runtime_infos" style="display: none">
     Running: <span id="running_time">0s</span> <br>
-    Speed: <span id="speed">0</span>kIPS<br>
-    Avg speed: <span id="avg_speed">0</span>kIPS<br>
+    Speed: <span id="speed">0</span> mIPS<br>
+    Avg speed: <span id="avg_speed">0</span> mIPS<br>
     <br>
     <div id="info_storage" style="display: none">
         <b>IDE device (HDA or CDROM)</b><br>
@@ -180,7 +215,7 @@
         <b>9p Filesystem</b><br>
         Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
         Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
-        Last file: <span id="info_filesystem_last_file" style="word-wrap: break-word"></span><br>
+        <div style="white-space: nowrap; overflow-x: hidden">Last file: <span id="info_filesystem_last_file"></span></div>
         Status: <span id="info_filesystem_status"></span><br>
         <br>
     </div>
@@ -196,13 +231,12 @@
     BPP: <span id="info_bpp">-</span><br>
     <br>
     Mouse: <span id="info_mouse_enabled">No</span><br>
-    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
 
-    <div id="description" style="display: none"></div>
+    <div id="description" style="display: none"><br></div>
 </div>
 
 <div id="filesystem_panel" style="display: none">
-    <label title="Files will appear in / of the 9p filesystem">
+    <label>
         Send files to emulator<br>
         <input type="file" id="filesystem_send_file" multiple>
     </label>
@@ -213,15 +247,12 @@
     </label>
 </div>
 
-<br style="clear:both"><br>
+<br style="clear: both"><br>
 
-<textarea cols="40" rows="12" id="serial" style="display: none">This is the serial console. Whatever you type or paste here will be sent to COM1.
+<div id="terminal"></div>
 
-In Linux it can be accessed with `cat /dev/ttyS0`
-</textarea>
-
-<br style="clear:both">
-<code>Version: <a href="https://github.com/copy/v86/commits/53caefc">53caefc</a> (Jan 22, 2016 23:01)</a></code>
+<br style="clear: both">
+<code>Version: <a href="https://github.com/copy/v86/commits/b40c8ad2">b40c8ad2</a> (Apr 23, 2020 01:04)</code>
 
 <hr>
 <a href="debug.html">Enable debug</a>
@@ -231,7 +262,3 @@ In Linux it can be accessed with `cat /dev/ttyS0`
 <a href="https://github.com/copy/v86">Project on Github</a>
 &mdash;
 <a href="https://github.com/copy/v86#compatibility">Compatibility</a>
-&mdash;
-<a href="./screenshots/">Screenshots</a>
-
-

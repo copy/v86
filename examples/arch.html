@@ -8,7 +8,8 @@
 window.onload = function()
 {
     var emulator = new V86Starter({
-        memory_size: 128 * 1024 * 1024,
+        wasm_path: "../build/v86.wasm",
+        memory_size: 512 * 1024 * 1024,
         vga_memory_size: 8 * 1024 * 1024,
         screen_container: document.getElementById("screen_container"),
         bios: {
@@ -17,16 +18,17 @@ window.onload = function()
         vga_bios: {
             url: "../bios/vgabios.bin",
         },
-        hda: {
-            url: "http://localhost/v86-images/arch3.img",
-            async: true,
-            size: 8 * 1024 * 1024 * 1024,
-        },
         filesystem: {
-            baseurl: "http://localhost/v86-images/arch/",
-            basefs: "http://localhost/v86-images/fs.json",
+            baseurl: "../images/arch/",
+            basefs: "../images/fs.json",
         },
         autostart: true,
+        bzimage_initrd_from_filesystem: true,
+        cmdline: [
+            "rw",
+            "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose",
+            "init=/usr/bin/init-openrc",
+        ].join(" "),
     });
 
     document.getElementById("save_file").onclick = function()

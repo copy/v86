@@ -15,8 +15,17 @@ var ASYNC_SAFE = false;
     }
 
     v86util.AsyncXHRBuffer = AsyncXHRBuffer;
+    v86util.AsyncXHRPartfileBuffer = AsyncXHRPartfileBuffer;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
+
+    // Reads len characters at offset from Memory object mem as a JS string
+    v86util.read_sized_string_from_mem = function read_sized_string_from_mem(mem, offset, len)
+    {
+        offset >>>= 0;
+        len >>>= 0;
+        return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
+    };
 
     /**
      * @param {string} filename
@@ -28,7 +37,11 @@ var ASYNC_SAFE = false;
 
         http.open(options.method || "get", filename, true);
 
-        if(!options.as_text)
+        if(options.as_json)
+        {
+            http.responseType = "json";
+        }
+        else
         {
             http.responseType = "arraybuffer";
         }
@@ -49,6 +62,16 @@ var ASYNC_SAFE = false;
             let start = options.range.start;
             let end = start + options.range.length - 1;
             http.setRequestHeader("Range", "bytes=" + start + "-" + end);
+
+            // Abort if server responds with complete file in response to range
+            // request, to prevent downloading large files from broken http servers
+            http.onreadystatechange = function()
+            {
+                if(http.status === 200)
+                {
+                    http.abort();
+                }
+            };
         }
 
         http.onload = function(e)
@@ -83,14 +106,14 @@ var ASYNC_SAFE = false;
 
         if(options.range)
         {
-            dbg_assert(!options.as_text);
+            dbg_assert(!options.as_json);
 
             fs["open"](filename, "r", (err, fd) =>
             {
                 if(err) throw err;
 
                 let length = options.range.length;
-                var buffer = new global["Buffer"](length);
+                var buffer = Buffer.allocUnsafe(length);
 
                 fs["read"](fd, buffer, 0, length, options.range.start, (err, bytes_read) =>
                 {
@@ -108,7 +131,7 @@ var ASYNC_SAFE = false;
         else
         {
             var o = {
-                encoding: options.as_text ? "utf-8" : null,
+                encoding: options.as_json ? "utf-8" : null,
             };
 
             fs["readFile"](filename, o, function(err, data)
@@ -121,7 +144,11 @@ var ASYNC_SAFE = false;
                 {
                     var result = data;
 
-                    if(!options.as_text)
+                    if(options.as_json)
+                    {
+                        result = JSON.parse(result);
+                    }
+                    else
                     {
                         result = new Uint8Array(result).buffer;
                     }
@@ -165,18 +192,12 @@ var ASYNC_SAFE = false;
                     }
                     else
                     {
-                        cb({ header });
+                        const error = "`Range: bytes=...` header not supported (Got `" + header + "`)";
+                        cb(error);
                     }
                 },
                 headers: {
                     Range: "bytes=0-0",
-
-                    //"Accept-Encoding": "",
-
-                    // Added by Chromium, but can cause the whole file to be sent
-                    // Settings this to empty also causes problems and Chromium
-                    // doesn't seem to create this header any more
-                    //"If-Range": "",
                 }
             });
         };
@@ -198,7 +219,7 @@ var ASYNC_SAFE = false;
         this.block_size = 256;
         this.byteLength = size;
 
-        this.loaded_blocks = {};
+        this.loaded_blocks = Object.create(null);
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -208,7 +229,7 @@ var ASYNC_SAFE = false;
     {
         if(this.byteLength !== undefined)
         {
-            this.onload && this.onload({});
+            this.onload && this.onload(Object.create(null));
             return;
         }
 
@@ -218,15 +239,13 @@ var ASYNC_SAFE = false;
         {
             if(error)
             {
-                console.assert(false,
-                    "Cannot use: " + this.filename + ". " +
-                    "`Range: bytes=...` header not supported (Got `" + error.header + "`)");
+                console.assert(false, "Cannot use: " + this.filename + ". " + error);
             }
             else
             {
                 dbg_assert(size >= 0);
                 this.byteLength = size;
-                this.onload && this.onload({});
+                this.onload && this.onload(Object.create(null));
             }
         });
     };
@@ -306,7 +325,7 @@ var ASYNC_SAFE = false;
     /**
      * Relies on this.byteLength, this.loaded_blocks and this.block_size
      *
-     * @this {AsyncFileBuffer|AsyncXHRBuffer}
+     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
      *
      * @param {number} start
      * @param {!Uint8Array} data
@@ -344,7 +363,7 @@ var ASYNC_SAFE = false;
     };
 
     /**
-     * @this {AsyncFileBuffer|AsyncXHRBuffer}
+     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
      * @param {number} offset
      * @param {number} len
      * @param {!Uint8Array} block
@@ -381,17 +400,13 @@ var ASYNC_SAFE = false;
 
     AsyncXHRBuffer.prototype.get_written_blocks = function()
     {
-        var count = 0;
-        for(var _ in this.loaded_blocks)
-        {
-            count++;
-        }
+        var count = Object.keys(this.loaded_blocks).length;
 
         var buffer = new Uint8Array(count * this.block_size);
         var indices = [];
 
         var i = 0;
-        for(var index in this.loaded_blocks)
+        for(var index of Object.keys(this.loaded_blocks))
         {
             var block = this.loaded_blocks[index];
             dbg_assert(block.length === this.block_size);
@@ -410,6 +425,122 @@ var ASYNC_SAFE = false;
             block_size: this.block_size,
         };
     };
+
+    AsyncXHRBuffer.prototype.get_state = function()
+    {
+        const state = [];
+        const loaded_blocks = [];
+
+        for(let [index, block] of Object.entries(this.loaded_blocks))
+        {
+            dbg_assert(isFinite(+index));
+            loaded_blocks.push([+index, block]);
+        }
+
+        state[0] = loaded_blocks;
+        return state;
+    };
+
+    AsyncXHRBuffer.prototype.set_state = function(state)
+    {
+        const loaded_blocks = state[0];
+        this.loaded_blocks = Object.create(null);
+
+        for(let [index, block] of Object.values(loaded_blocks))
+        {
+            this.loaded_blocks[index] = block;
+        }
+    };
+
+    /**
+     * Asynchronous access to ArrayBuffer, loading blocks lazily as needed,
+     * downloading files named filename-\d-\d.ext.
+     *
+     * @constructor
+     * @param {string} filename Name of the file to download
+     * @param {number|undefined} size
+     */
+    function AsyncXHRPartfileBuffer(filename, size)
+    {
+        const parts = filename.match(/(.*)(\..*)/);
+
+        if(parts)
+        {
+            this.basename = parts[1];
+            this.extension = parts[2];
+        }
+        else
+        {
+            this.basename = filename;
+            this.extension = "";
+        }
+
+        /** @const */
+        this.block_size = 256;
+        this.byteLength = size;
+
+        this.loaded_blocks = Object.create(null);
+
+        this.onload = undefined;
+        this.onprogress = undefined;
+    }
+
+    AsyncXHRPartfileBuffer.prototype.load = function()
+    {
+        if(this.byteLength !== undefined)
+        {
+            this.onload && this.onload(Object.create(null));
+            return;
+        }
+        dbg_assert(false);
+        this.onload && this.onload(Object.create(null));
+    };
+    AsyncXHRPartfileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
+
+    /**
+     * @param {number} offset
+     * @param {number} len
+     * @param {function(!Uint8Array)} fn
+     */
+    AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn)
+    {
+        console.assert(offset + len <= this.byteLength);
+        console.assert(offset % this.block_size === 0);
+        console.assert(len % this.block_size === 0);
+        console.assert(len);
+
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            if(ASYNC_SAFE)
+            {
+                setTimeout(fn.bind(this, block), 0);
+            }
+            else
+            {
+                fn(block);
+            }
+            return;
+        }
+
+        const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
+
+        v86util.load_file(part_filename, {
+            done: function done(buffer)
+            {
+                dbg_assert(buffer.byteLength === len);
+                var block = new Uint8Array(buffer);
+                this.handle_read(offset, len, block);
+                fn(block);
+            }.bind(this),
+        });
+    };
+
+    AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
+    AsyncXHRPartfileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
+    AsyncXHRPartfileBuffer.prototype.get_written_blocks = AsyncXHRBuffer.prototype.get_written_blocks;
+    AsyncXHRPartfileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
+    AsyncXHRPartfileBuffer.prototype.set_state = AsyncXHRBuffer.prototype.set_state;
 
     /**
      * Synchronous access to File, loading blocks from the input type=file
@@ -505,6 +636,20 @@ var ASYNC_SAFE = false;
         fn(this.buffer);
     };
 
+    SyncFileBuffer.prototype.get_state = function()
+    {
+        const state = [];
+        state[0] = this.byteLength;
+        state[1] = new Uint8Array(this.buffer);
+        return state;
+    };
+
+    SyncFileBuffer.prototype.set_state = function(state)
+    {
+        this.byteLength = state[0];
+        this.buffer = state[1].slice().buffer;
+    };
+
     /**
      * Asynchronous access to File, loading blocks from the input type=file
      *
@@ -517,7 +662,7 @@ var ASYNC_SAFE = false;
 
         /** @const */
         this.block_size = 256;
-        this.loaded_blocks = {};
+        this.loaded_blocks = Object.create(null);
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -525,7 +670,7 @@ var ASYNC_SAFE = false;
 
     AsyncFileBuffer.prototype.load = function()
     {
-        this.onload && this.onload({});
+        this.onload && this.onload(Object.create(null));
     };
 
     /**

@@ -19,7 +19,7 @@ static inline u64 scale_delta(u64 delta, u64 mul_frac)
 	u64 product, unused;
 
 	__asm__ (
-		"mul %3"
+		"mulq %3"
 		: "=d" (product), "=a" (unused) : "1" (delta), "rm" ((u64)mul_frac) );
 
 	return product;
@@ -55,7 +55,6 @@ uint64_t hv_clock_read(void)
 	return hvclock_tsc_to_ticks(&shadow, rdtsc());
 }
 
-atomic_t cpus_left;
 bool ok[MAX_CPU];
 uint64_t loops[MAX_CPU];
 
@@ -99,7 +98,6 @@ static void hv_clock_test(void *data)
 	if (!got_drift)
 		printf("delta on CPU %d was %d...%d\n", smp_id(), min_delta, max_delta);
 	barrier();
-	atomic_dec(&cpus_left);
 }
 
 static void check_test(int ncpus)
@@ -107,13 +105,7 @@ static void check_test(int ncpus)
 	int i;
 	bool pass;
 
-	atomic_set(&cpus_left, ncpus);
-	for (i = ncpus - 1; i >= 0; i--)
-		on_cpu_async(i, hv_clock_test, NULL);
-
-	/* Wait for the end of other vcpu */
-	while(atomic_read(&cpus_left))
-		;
+	on_cpus(hv_clock_test, NULL);
 
 	pass = true;
 	for (i = ncpus - 1; i >= 0; i--)
@@ -134,7 +126,6 @@ static void hv_perf_test(void *data)
 	} while(t < end);
 
 	loops[smp_id()] = local_loops;
-	atomic_dec(&cpus_left);
 }
 
 static void perf_test(int ncpus)
@@ -142,13 +133,7 @@ static void perf_test(int ncpus)
 	int i;
 	uint64_t total_loops;
 
-	atomic_set(&cpus_left, ncpus);
-	for (i = ncpus - 1; i >= 0; i--)
-		on_cpu_async(i, hv_perf_test, NULL);
-
-	/* Wait for the end of other vcpu */
-	while(atomic_read(&cpus_left))
-		;
+	on_cpus(hv_perf_test, NULL);
 
 	total_loops = 0;
 	for (i = ncpus - 1; i >= 0; i--)
@@ -166,6 +151,10 @@ int main(int ac, char **av)
 
 	setup_vm();
 	smp_init();
+
+	ncpus = cpu_count();
+	if (ncpus > MAX_CPU)
+		report_abort("number cpus exceeds %d", MAX_CPU);
 
 	hv_clock = alloc_page();
 	wrmsr(HV_X64_MSR_REFERENCE_TSC, (u64)(uintptr_t)hv_clock | 1);
@@ -194,10 +183,6 @@ int main(int ac, char **av)
 	printf("refcnt %" PRId64" (delta %" PRId64"), TSC %" PRIx64", "
 	       "TSC reference %" PRId64" (delta %" PRId64")\n",
 	       ref2, ref2 - ref1, tsc2, t2, t2 - t1);
-
-	ncpus = cpu_count();
-	if (ncpus > MAX_CPU)
-		ncpus = MAX_CPU;
 
 	check_test(ncpus);
 	perf_test(ncpus);

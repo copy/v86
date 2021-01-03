@@ -870,9 +870,7 @@ register_dsp_command([0x40], 1, function()
 {
     // Note: bTimeConstant = 256 * time constant
     this.sampling_rate_change(
-        1000000
-        / (256 - this.write_buffer.shift())
-        / this.get_channel_count()
+        1000000 / (256 - this.write_buffer.shift()) / this.get_channel_count()
     );
 });
 

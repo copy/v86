@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+# A wrapper for rust-lld that removes certain arguments inserted by rustc that
+# we'd like to override
+
+import sys
+import subprocess
+from os import path
+
+def main():
+    args = sys.argv[1:]
+
+    strip_debug = "--v86-strip-debug" in args
+
+    # filter out args inserted by rustc
+    TO_REMOVE = {
+        "--export-table",
+        "--stack-first",
+        "--strip-debug",
+        "--v86-strip-debug",
+    }
+    args = list(filter(lambda arg: arg not in TO_REMOVE, args))
+
+    if strip_debug:
+        args += ["--strip-debug"]
+
+    lld = find_rust_lld()
+
+    result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print(result.stderr, file=sys.stderr)
+    print(result.stdout)
+
+    result.check_returncode()
+
+def find_rust_lld():
+    which = subprocess.run(["rustup", "which", "rustc"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    which.check_returncode()
+
+    rustc_path = which.stdout.decode("utf8").strip()
+    assert path.basename(rustc_path) == "rustc"
+
+    bin_path = path.dirname(rustc_path)
+    rust_lld_path = path.join(bin_path, "../lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld")
+
+    assert path.isfile(rust_lld_path)
+    return rust_lld_path
+
+main()

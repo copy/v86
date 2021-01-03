@@ -10,14 +10,11 @@ function readfile(path)
 }
 
 var bios = readfile(__dirname + "/../bios/seabios.bin");
-var linux = readfile(__dirname + "/../images/linux.iso");
+var linux = readfile(__dirname + "/../images/linux4.iso");
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding("utf8");
-
-var boot_start = Date.now();
-var booted = false;
 
 console.log("Now booting, please stand by ...");
 
@@ -29,14 +26,10 @@ var emulator = new V86Starter({
 
 emulator.add_listener("serial0-output-char", function(chr)
 {
-    if(!booted)
+    if(chr <= "~")
     {
-        var now = Date.now();
-        console.log("Took %dms to boot", now - boot_start);
-        booted = true;
+        process.stdout.write(chr);
     }
-
-    process.stdout.write(chr);
 });
 
 process.stdin.on("data", function(c)

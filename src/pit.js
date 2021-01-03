@@ -113,6 +113,11 @@ PIT.prototype.timer = function(now, no_irq)
 
             dbg_log("pit interrupt. new value: " + this.counter_start_value[0], LOG_PIT);
 
+            // This isn't strictly correct, but it's necessary since browsers
+            // may sleep longer than necessary to trigger the else branch below
+            // and clear the irq
+            this.cpu.device_lower_irq(0);
+
             this.cpu.device_raise_irq(0);
             var mode = this.counter_mode[0];
 
@@ -277,7 +282,7 @@ PIT.prototype.port43_write = function(reg_byte)
         this.counter_latch[i] = 2;
         var value = this.get_counter_value(i, v86.microtick());
         dbg_log("latch: " + value, LOG_PIT);
-        this.counter_latch_value[i] = value ? value - 1 : 0
+        this.counter_latch_value[i] = value ? value - 1 : 0;
 
         return;
     }
@@ -328,4 +333,11 @@ PIT.prototype.port43_write = function(reg_byte)
     this.counter_read_mode[i] = read_mode;
 
     this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+};
+
+PIT.prototype.dump = function()
+{
+    const reload = this.counter_reload[0];
+    const time = (reload || 0x10000) / OSCILLATOR_FREQ;
+    dbg_log("counter0 ticks every " + time + "ms (reload=" + reload + ")");
 };

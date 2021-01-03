@@ -42,9 +42,26 @@ u32 vpid_cnt;
 void *guest_stack, *guest_syscall_stack;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
 struct regs regs;
+
 struct vmx_test *current;
+
+#define MAX_TEST_TEARDOWN_STEPS 10
+
+struct test_teardown_step {
+	test_teardown_func func;
+	void *data;
+};
+
+static int teardown_count;
+static struct test_teardown_step teardown_steps[MAX_TEST_TEARDOWN_STEPS];
+
+static test_guest_func v2_guest_main;
+
 u64 hypercall_field;
 bool launched;
+static int matched;
+static int guest_finished;
+static int in_guest;
 
 union vmx_basic basic;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -61,6 +78,308 @@ extern void *entry_sysenter;
 extern void *guest_entry;
 
 static volatile u32 stage;
+
+static jmp_buf abort_target;
+
+struct vmcs_field {
+	u64 mask;
+	u64 encoding;
+};
+
+#define MASK(_bits) GENMASK_ULL((_bits) - 1, 0)
+#define MASK_NATURAL MASK(sizeof(unsigned long) * 8)
+
+static struct vmcs_field vmcs_fields[] = {
+	{ MASK(16), VPID },
+	{ MASK(16), PINV },
+	{ MASK(16), EPTP_IDX },
+
+	{ MASK(16), GUEST_SEL_ES },
+	{ MASK(16), GUEST_SEL_CS },
+	{ MASK(16), GUEST_SEL_SS },
+	{ MASK(16), GUEST_SEL_DS },
+	{ MASK(16), GUEST_SEL_FS },
+	{ MASK(16), GUEST_SEL_GS },
+	{ MASK(16), GUEST_SEL_LDTR },
+	{ MASK(16), GUEST_SEL_TR },
+	{ MASK(16), GUEST_INT_STATUS },
+
+	{ MASK(16), HOST_SEL_ES },
+	{ MASK(16), HOST_SEL_CS },
+	{ MASK(16), HOST_SEL_SS },
+	{ MASK(16), HOST_SEL_DS },
+	{ MASK(16), HOST_SEL_FS },
+	{ MASK(16), HOST_SEL_GS },
+	{ MASK(16), HOST_SEL_TR },
+
+	{ MASK(64), IO_BITMAP_A },
+	{ MASK(64), IO_BITMAP_B },
+	{ MASK(64), MSR_BITMAP },
+	{ MASK(64), EXIT_MSR_ST_ADDR },
+	{ MASK(64), EXIT_MSR_LD_ADDR },
+	{ MASK(64), ENTER_MSR_LD_ADDR },
+	{ MASK(64), VMCS_EXEC_PTR },
+	{ MASK(64), TSC_OFFSET },
+	{ MASK(64), APIC_VIRT_ADDR },
+	{ MASK(64), APIC_ACCS_ADDR },
+	{ MASK(64), EPTP },
+
+	{ 0 /* read-only */, INFO_PHYS_ADDR },
+
+	{ MASK(64), VMCS_LINK_PTR },
+	{ MASK(64), GUEST_DEBUGCTL },
+	{ MASK(64), GUEST_EFER },
+	{ MASK(64), GUEST_PAT },
+	{ MASK(64), GUEST_PERF_GLOBAL_CTRL },
+	{ MASK(64), GUEST_PDPTE },
+
+	{ MASK(64), HOST_PAT },
+	{ MASK(64), HOST_EFER },
+	{ MASK(64), HOST_PERF_GLOBAL_CTRL },
+
+	{ MASK(32), PIN_CONTROLS },
+	{ MASK(32), CPU_EXEC_CTRL0 },
+	{ MASK(32), EXC_BITMAP },
+	{ MASK(32), PF_ERROR_MASK },
+	{ MASK(32), PF_ERROR_MATCH },
+	{ MASK(32), CR3_TARGET_COUNT },
+	{ MASK(32), EXI_CONTROLS },
+	{ MASK(32), EXI_MSR_ST_CNT },
+	{ MASK(32), EXI_MSR_LD_CNT },
+	{ MASK(32), ENT_CONTROLS },
+	{ MASK(32), ENT_MSR_LD_CNT },
+	{ MASK(32), ENT_INTR_INFO },
+	{ MASK(32), ENT_INTR_ERROR },
+	{ MASK(32), ENT_INST_LEN },
+	{ MASK(32), TPR_THRESHOLD },
+	{ MASK(32), CPU_EXEC_CTRL1 },
+
+	{ 0 /* read-only */, VMX_INST_ERROR },
+	{ 0 /* read-only */, EXI_REASON },
+	{ 0 /* read-only */, EXI_INTR_INFO },
+	{ 0 /* read-only */, EXI_INTR_ERROR },
+	{ 0 /* read-only */, IDT_VECT_INFO },
+	{ 0 /* read-only */, IDT_VECT_ERROR },
+	{ 0 /* read-only */, EXI_INST_LEN },
+	{ 0 /* read-only */, EXI_INST_INFO },
+
+	{ MASK(32), GUEST_LIMIT_ES },
+	{ MASK(32), GUEST_LIMIT_CS },
+	{ MASK(32), GUEST_LIMIT_SS },
+	{ MASK(32), GUEST_LIMIT_DS },
+	{ MASK(32), GUEST_LIMIT_FS },
+	{ MASK(32), GUEST_LIMIT_GS },
+	{ MASK(32), GUEST_LIMIT_LDTR },
+	{ MASK(32), GUEST_LIMIT_TR },
+	{ MASK(32), GUEST_LIMIT_GDTR },
+	{ MASK(32), GUEST_LIMIT_IDTR },
+	{ 0x1d0ff, GUEST_AR_ES },
+	{ 0x1f0ff, GUEST_AR_CS },
+	{ 0x1d0ff, GUEST_AR_SS },
+	{ 0x1d0ff, GUEST_AR_DS },
+	{ 0x1d0ff, GUEST_AR_FS },
+	{ 0x1d0ff, GUEST_AR_GS },
+	{ 0x1d0ff, GUEST_AR_LDTR },
+	{ 0x1d0ff, GUEST_AR_TR },
+	{ MASK(32), GUEST_INTR_STATE },
+	{ MASK(32), GUEST_ACTV_STATE },
+	{ MASK(32), GUEST_SMBASE },
+	{ MASK(32), GUEST_SYSENTER_CS },
+	{ MASK(32), PREEMPT_TIMER_VALUE },
+
+	{ MASK(32), HOST_SYSENTER_CS },
+
+	{ MASK_NATURAL, CR0_MASK },
+	{ MASK_NATURAL, CR4_MASK },
+	{ MASK_NATURAL, CR0_READ_SHADOW },
+	{ MASK_NATURAL, CR4_READ_SHADOW },
+	{ MASK_NATURAL, CR3_TARGET_0 },
+	{ MASK_NATURAL, CR3_TARGET_1 },
+	{ MASK_NATURAL, CR3_TARGET_2 },
+	{ MASK_NATURAL, CR3_TARGET_3 },
+
+	{ 0 /* read-only */, EXI_QUALIFICATION },
+	{ 0 /* read-only */, IO_RCX },
+	{ 0 /* read-only */, IO_RSI },
+	{ 0 /* read-only */, IO_RDI },
+	{ 0 /* read-only */, IO_RIP },
+	{ 0 /* read-only */, GUEST_LINEAR_ADDRESS },
+
+	{ MASK_NATURAL, GUEST_CR0 },
+	{ MASK_NATURAL, GUEST_CR3 },
+	{ MASK_NATURAL, GUEST_CR4 },
+	{ MASK_NATURAL, GUEST_BASE_ES },
+	{ MASK_NATURAL, GUEST_BASE_CS },
+	{ MASK_NATURAL, GUEST_BASE_SS },
+	{ MASK_NATURAL, GUEST_BASE_DS },
+	{ MASK_NATURAL, GUEST_BASE_FS },
+	{ MASK_NATURAL, GUEST_BASE_GS },
+	{ MASK_NATURAL, GUEST_BASE_LDTR },
+	{ MASK_NATURAL, GUEST_BASE_TR },
+	{ MASK_NATURAL, GUEST_BASE_GDTR },
+	{ MASK_NATURAL, GUEST_BASE_IDTR },
+	{ MASK_NATURAL, GUEST_DR7 },
+	{ MASK_NATURAL, GUEST_RSP },
+	{ MASK_NATURAL, GUEST_RIP },
+	{ MASK_NATURAL, GUEST_RFLAGS },
+	{ MASK_NATURAL, GUEST_PENDING_DEBUG },
+	{ MASK_NATURAL, GUEST_SYSENTER_ESP },
+	{ MASK_NATURAL, GUEST_SYSENTER_EIP },
+
+	{ MASK_NATURAL, HOST_CR0 },
+	{ MASK_NATURAL, HOST_CR3 },
+	{ MASK_NATURAL, HOST_CR4 },
+	{ MASK_NATURAL, HOST_BASE_FS },
+	{ MASK_NATURAL, HOST_BASE_GS },
+	{ MASK_NATURAL, HOST_BASE_TR },
+	{ MASK_NATURAL, HOST_BASE_GDTR },
+	{ MASK_NATURAL, HOST_BASE_IDTR },
+	{ MASK_NATURAL, HOST_SYSENTER_ESP },
+	{ MASK_NATURAL, HOST_SYSENTER_EIP },
+	{ MASK_NATURAL, HOST_RSP },
+	{ MASK_NATURAL, HOST_RIP },
+};
+
+static inline u64 vmcs_field_value(struct vmcs_field *f, u8 cookie)
+{
+	u64 value;
+
+	/* Incorporate the cookie and the field encoding into the value. */
+	value = cookie;
+	value |= (f->encoding << 8);
+	value |= 0xdeadbeefull << 32;
+
+	return value & f->mask;
+}
+
+static void set_vmcs_field(struct vmcs_field *f, u8 cookie)
+{
+	vmcs_write(f->encoding, vmcs_field_value(f, cookie));
+}
+
+static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
+{
+	u64 expected;
+	u64 actual;
+	int ret;
+
+	ret = vmcs_read_checking(f->encoding, &actual);
+	assert(!(ret & X86_EFLAGS_CF));
+	/* Skip VMCS fields that aren't recognized by the CPU */
+	if (ret & X86_EFLAGS_ZF)
+		return true;
+
+	expected = vmcs_field_value(f, cookie);
+	actual &= f->mask;
+
+	if (expected == actual)
+		return true;
+
+	printf("FAIL: VMWRITE/VMREAD %lx (expected: %lx, actual: %lx)\n",
+	       f->encoding, (unsigned long) expected, (unsigned long) actual);
+
+	return false;
+}
+
+static void set_all_vmcs_fields(u8 cookie)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++)
+		set_vmcs_field(&vmcs_fields[i], cookie);
+}
+
+static bool check_all_vmcs_fields(u8 cookie)
+{
+	bool pass = true;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++) {
+		if (!check_vmcs_field(&vmcs_fields[i], cookie))
+			pass = false;
+	}
+
+	return pass;
+}
+
+void test_vmwrite_vmread(void)
+{
+	struct vmcs *vmcs = alloc_page();
+
+	memset(vmcs, 0, PAGE_SIZE);
+	vmcs->revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs));
+	assert(!make_vmcs_current(vmcs));
+
+	set_all_vmcs_fields(0x42);
+	report("VMWRITE/VMREAD", check_all_vmcs_fields(0x42));
+
+	assert(!vmcs_clear(vmcs));
+	free_page(vmcs);
+}
+
+void test_vmcs_lifecycle(void)
+{
+	struct vmcs *vmcs[2] = {};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		vmcs[i] = alloc_page();
+		memset(vmcs[i], 0, PAGE_SIZE);
+		vmcs[i]->revision_id = basic.revision;
+	}
+
+#define VMPTRLD(_i) do { \
+	assert(_i < ARRAY_SIZE(vmcs)); \
+	assert(!make_vmcs_current(vmcs[_i])); \
+	printf("VMPTRLD VMCS%d\n", (_i)); \
+} while (0)
+
+#define VMCLEAR(_i) do { \
+	assert(_i < ARRAY_SIZE(vmcs)); \
+	assert(!vmcs_clear(vmcs[_i])); \
+	printf("VMCLEAR VMCS%d\n", (_i)); \
+} while (0)
+
+	VMCLEAR(0);
+	VMPTRLD(0);
+	set_all_vmcs_fields(0);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMCLEAR(0);
+	VMPTRLD(0);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMCLEAR(1);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMPTRLD(1);
+	set_all_vmcs_fields(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+
+	VMPTRLD(0);
+	report("current:VMCS0 active:[VMCS0,VCMS1]", check_all_vmcs_fields(0));
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+
+	VMCLEAR(0);
+	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(1));
+
+	/* VMPTRLD should not erase VMWRITEs to the current VMCS */
+	set_all_vmcs_fields(2);
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(2));
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		VMCLEAR(i);
+		free_page(vmcs[i]);
+	}
+
+#undef VMPTRLD
+#undef VMCLEAR
+}
 
 void vmx_set_test_stage(u32 s)
 {
@@ -86,16 +405,6 @@ void vmx_inc_test_stage(void)
 	barrier();
 }
 
-static int make_vmcs_current(struct vmcs *vmcs)
-{
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-
-	asm volatile ("push %1; popf; vmptrld %2; setbe %0"
-		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
-	return ret;
-}
-
 /* entry_sysenter */
 asm(
 	".align	4, 0x90\n\t"
@@ -115,23 +424,73 @@ static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
 		current->syscall_handler(syscall_no);
 }
 
-static inline int vmx_on()
-{
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
-		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
-	return ret;
-}
+static const char * const exit_reason_descriptions[] = {
+	[VMX_EXC_NMI]		= "VMX_EXC_NMI",
+	[VMX_EXTINT]		= "VMX_EXTINT",
+	[VMX_TRIPLE_FAULT]	= "VMX_TRIPLE_FAULT",
+	[VMX_INIT]		= "VMX_INIT",
+	[VMX_SIPI]		= "VMX_SIPI",
+	[VMX_SMI_IO]		= "VMX_SMI_IO",
+	[VMX_SMI_OTHER]		= "VMX_SMI_OTHER",
+	[VMX_INTR_WINDOW]	= "VMX_INTR_WINDOW",
+	[VMX_NMI_WINDOW]	= "VMX_NMI_WINDOW",
+	[VMX_TASK_SWITCH]	= "VMX_TASK_SWITCH",
+	[VMX_CPUID]		= "VMX_CPUID",
+	[VMX_GETSEC]		= "VMX_GETSEC",
+	[VMX_HLT]		= "VMX_HLT",
+	[VMX_INVD]		= "VMX_INVD",
+	[VMX_INVLPG]		= "VMX_INVLPG",
+	[VMX_RDPMC]		= "VMX_RDPMC",
+	[VMX_RDTSC]		= "VMX_RDTSC",
+	[VMX_RSM]		= "VMX_RSM",
+	[VMX_VMCALL]		= "VMX_VMCALL",
+	[VMX_VMCLEAR]		= "VMX_VMCLEAR",
+	[VMX_VMLAUNCH]		= "VMX_VMLAUNCH",
+	[VMX_VMPTRLD]		= "VMX_VMPTRLD",
+	[VMX_VMPTRST]		= "VMX_VMPTRST",
+	[VMX_VMREAD]		= "VMX_VMREAD",
+	[VMX_VMRESUME]		= "VMX_VMRESUME",
+	[VMX_VMWRITE]		= "VMX_VMWRITE",
+	[VMX_VMXOFF]		= "VMX_VMXOFF",
+	[VMX_VMXON]		= "VMX_VMXON",
+	[VMX_CR]		= "VMX_CR",
+	[VMX_DR]		= "VMX_DR",
+	[VMX_IO]		= "VMX_IO",
+	[VMX_RDMSR]		= "VMX_RDMSR",
+	[VMX_WRMSR]		= "VMX_WRMSR",
+	[VMX_FAIL_STATE]	= "VMX_FAIL_STATE",
+	[VMX_FAIL_MSR]		= "VMX_FAIL_MSR",
+	[VMX_MWAIT]		= "VMX_MWAIT",
+	[VMX_MTF]		= "VMX_MTF",
+	[VMX_MONITOR]		= "VMX_MONITOR",
+	[VMX_PAUSE]		= "VMX_PAUSE",
+	[VMX_FAIL_MCHECK]	= "VMX_FAIL_MCHECK",
+	[VMX_TPR_THRESHOLD]	= "VMX_TPR_THRESHOLD",
+	[VMX_APIC_ACCESS]	= "VMX_APIC_ACCESS",
+	[VMX_GDTR_IDTR]		= "VMX_GDTR_IDTR",
+	[VMX_LDTR_TR]		= "VMX_LDTR_TR",
+	[VMX_EPT_VIOLATION]	= "VMX_EPT_VIOLATION",
+	[VMX_EPT_MISCONFIG]	= "VMX_EPT_MISCONFIG",
+	[VMX_INVEPT]		= "VMX_INVEPT",
+	[VMX_PREEMPT]		= "VMX_PREEMPT",
+	[VMX_INVVPID]		= "VMX_INVVPID",
+	[VMX_WBINVD]		= "VMX_WBINVD",
+	[VMX_XSETBV]		= "VMX_XSETBV",
+	[VMX_APIC_WRITE]	= "VMX_APIC_WRITE",
+	[VMX_RDRAND]		= "VMX_RDRAND",
+	[VMX_INVPCID]		= "VMX_INVPCID",
+	[VMX_VMFUNC]		= "VMX_VMFUNC",
+	[VMX_RDSEED]		= "VMX_RDSEED",
+	[VMX_PML_FULL]		= "VMX_PML_FULL",
+	[VMX_XSAVES]		= "VMX_XSAVES",
+	[VMX_XRSTORS]		= "VMX_XRSTORS",
+};
 
-static inline int vmx_off()
+const char *exit_reason_description(u64 reason)
 {
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-
-	asm volatile("push %1; popf; vmxoff; setbe %0\n\t"
-		     : "=q"(ret) : "q" (rflags) : "cc");
-	return ret;
+	if (reason >= ARRAY_SIZE(exit_reason_descriptions))
+		return "(unknown)";
+	return exit_reason_descriptions[reason] ? : "(unused)";
 }
 
 void print_vmexit_info()
@@ -143,16 +502,16 @@ void print_vmexit_info()
 	guest_rsp = vmcs_read(GUEST_RSP);
 	printf("VMEXIT info:\n");
 	printf("\tvmexit reason = %ld\n", reason);
-	printf("\texit qualification = 0x%lx\n", exit_qual);
+	printf("\texit qualification = %#lx\n", exit_qual);
 	printf("\tBit 31 of reason = %lx\n", (vmcs_read(EXI_REASON) >> 31) & 1);
-	printf("\tguest_rip = 0x%lx\n", guest_rip);
-	printf("\tRAX=0x%lx    RBX=0x%lx    RCX=0x%lx    RDX=0x%lx\n",
+	printf("\tguest_rip = %#lx\n", guest_rip);
+	printf("\tRAX=%#lx    RBX=%#lx    RCX=%#lx    RDX=%#lx\n",
 		regs.rax, regs.rbx, regs.rcx, regs.rdx);
-	printf("\tRSP=0x%lx    RBP=0x%lx    RSI=0x%lx    RDI=0x%lx\n",
+	printf("\tRSP=%#lx    RBP=%#lx    RSI=%#lx    RDI=%#lx\n",
 		guest_rsp, regs.rbp, regs.rsi, regs.rdi);
-	printf("\tR8 =0x%lx    R9 =0x%lx    R10=0x%lx    R11=0x%lx\n",
+	printf("\tR8 =%#lx    R9 =%#lx    R10=%#lx    R11=%#lx\n",
 		regs.r8, regs.r9, regs.r10, regs.r11);
-	printf("\tR12=0x%lx    R13=0x%lx    R14=0x%lx    R15=0x%lx\n",
+	printf("\tR12=%#lx    R13=%#lx    R14=%#lx    R15=%#lx\n",
 		regs.r12, regs.r13, regs.r14, regs.r15);
 }
 
@@ -175,7 +534,7 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 		u64 reason = vmcs_read(EXI_REASON);
 		u64 qual = vmcs_read(EXI_QUALIFICATION);
 
-		printf("Non-early %s failure (reason=0x%lx, qual=0x%lx): ",
+		printf("Non-early %s failure (reason=%#lx, qual=%#lx): ",
 			failure->instr, reason, qual);
 
 		switch (reason & 0xff) {
@@ -201,6 +560,42 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 	}
 }
 
+/*
+ * VMCLEAR should ensures all VMCS state is flushed to the VMCS
+ * region in memory.
+ */
+static void test_vmclear_flushing(void)
+{
+	struct vmcs *vmcs[3] = {};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		vmcs[i] = alloc_page();
+		memset(vmcs[i], 0, PAGE_SIZE);
+	}
+
+	vmcs[0]->revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs[0]));
+	assert(!make_vmcs_current(vmcs[0]));
+	set_all_vmcs_fields(0x86);
+
+	assert(!vmcs_clear(vmcs[0]));
+	memcpy(vmcs[1], vmcs[0], basic.size);
+	assert(!make_vmcs_current(vmcs[1]));
+	report("test vmclear flush (current VMCS)", check_all_vmcs_fields(0x86));
+
+	set_all_vmcs_fields(0x87);
+	assert(!make_vmcs_current(vmcs[0]));
+	assert(!vmcs_clear(vmcs[1]));
+	memcpy(vmcs[2], vmcs[1], basic.size);
+	assert(!make_vmcs_current(vmcs[2]));
+	report("test vmclear flush (!current VMCS)", check_all_vmcs_fields(0x87));
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		assert(!vmcs_clear(vmcs[i]));
+		free_page(vmcs[i]);
+	}
+}
 
 static void test_vmclear(void)
 {
@@ -233,19 +628,15 @@ static void test_vmclear(void)
 	/* Valid VMCS */
 	report("test vmclear with valid vmcs region", vmcs_clear(vmcs_root) == 0);
 
-}
-
-static void test_vmxoff(void)
-{
-	int ret;
-
-	ret = vmx_off();
-	report("test vmxoff", !ret);
+	test_vmclear_flushing();
 }
 
 static void __attribute__((__used__)) guest_main(void)
 {
-	current->guest_main();
+	if (current->v2)
+		v2_guest_main();
+	else
+		current->guest_main();
 }
 
 /* guest_entry */
@@ -313,6 +704,9 @@ void install_ept_entry(unsigned long *pml4,
 	int level;
 	unsigned long *pt = pml4;
 	unsigned offset;
+
+	/* EPT only uses 48 bits of GPA. */
+	assert(guest_addr < (1ul << 48));
 
 	for (level = EPT_PAGE_LEVEL; level > pte_level; --level) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(level))
@@ -396,30 +790,134 @@ void setup_ept_range(unsigned long *pml4, unsigned long start,
 
 /* get_ept_pte : Get the PTE of a given level in EPT,
     @level == 1 means get the latest level*/
-unsigned long get_ept_pte(unsigned long *pml4,
-		unsigned long guest_addr, int level)
+bool get_ept_pte(unsigned long *pml4, unsigned long guest_addr, int level,
+		unsigned long *pte)
 {
 	int l;
-	unsigned long *pt = pml4, pte;
+	unsigned long *pt = pml4, iter_pte;
 	unsigned offset;
 
-	if (level < 1 || level > 3)
-		return -1;
+	assert(level >= 1 && level <= 4);
+
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
-		pte = pt[offset];
-		if (!(pte & (EPT_PRESENT)))
-			return 0;
+		iter_pte = pt[offset];
 		if (l == level)
 			break;
-		if (l < 4 && (pte & EPT_LARGE_PAGE))
-			return pte;
-		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
+		if (l < 4 && (iter_pte & EPT_LARGE_PAGE))
+			return false;
+		if (!(iter_pte & (EPT_PRESENT)))
+			return false;
+		pt = (unsigned long *)(iter_pte & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
-	pte = pt[offset];
-	return pte;
+	if (pte)
+		*pte = pt[offset];
+	return true;
 }
+
+static void clear_ept_ad_pte(unsigned long *pml4, unsigned long guest_addr)
+{
+	int l;
+	unsigned long *pt = pml4;
+	u64 pte;
+	unsigned offset;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+		pt[offset] &= ~(EPT_ACCESS_FLAG|EPT_DIRTY_FLAG);
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & EPT_LARGE_PAGE)))
+			break;
+		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
+	}
+}
+
+/* clear_ept_ad : Clear EPT A/D bits for the page table walk and the
+   final GPA of a guest address.  */
+void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr)
+{
+	int l;
+	unsigned long *pt = (unsigned long *)guest_cr3, gpa;
+	u64 pte, offset_in_page;
+	unsigned offset;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+
+		clear_ept_ad_pte(pml4, (u64) &pt[offset]);
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & PT_PAGE_SIZE_MASK)))
+			break;
+		if (!(pte & PT_PRESENT_MASK))
+			return;
+		pt = (unsigned long *)(pte & PT_ADDR_MASK);
+	}
+
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);
+	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
+	clear_ept_ad_pte(pml4, gpa);
+}
+
+/* check_ept_ad : Check the content of EPT A/D bits for the page table
+   walk and the final GPA of a guest address.  */
+void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr, int expected_gpa_ad,
+		  int expected_pt_ad)
+{
+	int l;
+	unsigned long *pt = (unsigned long *)guest_cr3, gpa;
+	u64 ept_pte, pte, offset_in_page;
+	unsigned offset;
+	bool bad_pt_ad = false;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+
+		if (!get_ept_pte(pml4, (u64) &pt[offset], 1, &ept_pte)) {
+			printf("EPT - guest level %d page table is not mapped.\n", l);
+			return;
+		}
+
+		if (!bad_pt_ad) {
+			bad_pt_ad |= (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) != expected_pt_ad;
+			if (bad_pt_ad)
+				report("EPT - guest level %d page table A=%d/D=%d",
+				       false, l,
+				       !!(expected_pt_ad & EPT_ACCESS_FLAG),
+				       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+		}
+
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & PT_PAGE_SIZE_MASK)))
+			break;
+		if (!(pte & PT_PRESENT_MASK))
+			return;
+		pt = (unsigned long *)(pte & PT_ADDR_MASK);
+	}
+
+	if (!bad_pt_ad)
+		report("EPT - guest page table structures A=%d/D=%d",
+		       true,
+		       !!(expected_pt_ad & EPT_ACCESS_FLAG),
+		       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);
+	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
+
+	if (!get_ept_pte(pml4, gpa, 1, &ept_pte)) {
+		report("EPT - guest physical address is not mapped", false);
+		return;
+	}
+	report("EPT - guest physical address A=%d/D=%d",
+	       (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) == expected_gpa_ad,
+	       !!(expected_gpa_ad & EPT_ACCESS_FLAG),
+	       !!(expected_gpa_ad & EPT_DIRTY_FLAG));
+}
+
 
 void ept_sync(int type, u64 eptp)
 {
@@ -441,34 +939,62 @@ void ept_sync(int type, u64 eptp)
 	}
 }
 
-int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
-		int level, u64 pte_val)
+void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+		 int level, u64 pte_val)
 {
 	int l;
 	unsigned long *pt = pml4;
 	unsigned offset;
 
-	if (level < 1 || level > 3)
-		return -1;
+	assert(level >= 1 && level <= 4);
+
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		if (l == level)
 			break;
-		if (!(pt[offset] & (EPT_PRESENT)))
-			return -1;
+		assert(pt[offset] & EPT_PRESENT);
 		pt = (unsigned long *)(pt[offset] & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 	pt[offset] = pte_val;
-	return 0;
+}
+
+bool ept_2m_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_2M_PAGE;
+}
+
+bool ept_1g_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_1G_PAGE;
+}
+
+bool ept_huge_pages_supported(int level)
+{
+	if (level == 2)
+		return ept_2m_supported();
+	else if (level == 3)
+		return ept_1g_supported();
+	else
+		return false;
+}
+
+bool ept_execute_only_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_WT;
+}
+
+bool ept_ad_bits_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_AD_FLAG;
 }
 
 void vpid_sync(int type, u16 vpid)
 {
 	switch(type) {
-	case INVVPID_SINGLE:
-		if (ept_vpid.val & VPID_CAP_INVVPID_SINGLE) {
-			invvpid(INVVPID_SINGLE, vpid, 0);
+	case INVVPID_CONTEXT_GLOBAL:
+		if (ept_vpid.val & VPID_CAP_INVVPID_CXTGLB) {
+			invvpid(INVVPID_CONTEXT_GLOBAL, vpid, 0);
 			break;
 		}
 	case INVVPID_ALL:
@@ -799,9 +1325,12 @@ static void test_vmptrld(void)
 	       make_vmcs_current(tmp_root) == 1);
 
 	/* Pass VMXON region */
+	make_vmcs_current(vmcs);
 	tmp_root = (struct vmcs *)vmxon_region;
 	report("test vmptrld with vmxon region",
 	       make_vmcs_current(tmp_root) == 1);
+	report("test vmptrld with vmxon region vm-instruction error",
+	       vmcs_read(VMX_INST_ERROR) == VMXERR_VMPTRLD_VMXON_POINTER);
 
 	report("test vmptrld with valid vmcs region", make_vmcs_current(vmcs) == 0);
 }
@@ -866,7 +1395,7 @@ static void test_vmx_caps(void)
 			ok = ctrl.clr == true_ctrl.clr;
 			ok = ok && ctrl.set == (true_ctrl.set | default1);
 		}
-		report(vmx_ctl_msr[n].name, ok);
+		report("%s", ok, vmx_ctl_msr[n].name);
 	}
 
 	fixed0 = rdmsr(MSR_IA32_VMX_CR0_FIXED0);
@@ -886,7 +1415,7 @@ static void test_vmx_caps(void)
 
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
 	report("MSR_IA32_VMX_EPT_VPID_CAP",
-	       (val & 0xfffff07ef9eebebeUll) == 0);
+	       (val & 0xfffff07ef98cbebeUll) == 0);
 }
 
 /* This function can only be called in guest */
@@ -918,10 +1447,49 @@ static int handle_hypercall()
 	switch (hypercall_no) {
 	case HYPERCALL_VMEXIT:
 		return VMX_TEST_VMEXIT;
+	case HYPERCALL_VMABORT:
+		return VMX_TEST_VMABORT;
+	case HYPERCALL_VMSKIP:
+		return VMX_TEST_VMSKIP;
 	default:
 		printf("ERROR : Invalid hypercall number : %ld\n", hypercall_no);
 	}
 	return VMX_TEST_EXIT;
+}
+
+static void continue_abort(void)
+{
+	assert(!in_guest);
+	printf("Host was here when guest aborted:\n");
+	dump_stack();
+	longjmp(abort_target, 1);
+	abort();
+}
+
+void __abort_test(void)
+{
+	if (in_guest)
+		hypercall(HYPERCALL_VMABORT);
+	else
+		longjmp(abort_target, 1);
+	abort();
+}
+
+static void continue_skip(void)
+{
+	assert(!in_guest);
+	longjmp(abort_target, 1);
+	abort();
+}
+
+void test_skip(const char *msg)
+{
+	printf("%s skipping test: %s\n", in_guest ? "Guest" : "Host", msg);
+	if (in_guest)
+		hypercall(HYPERCALL_VMABORT);
+	else
+		longjmp(abort_target, 1);
+	abort();
 }
 
 static int exit_handler()
@@ -954,43 +1522,56 @@ entry_failure_handler(struct vmentry_failure *failure)
 		return VMX_TEST_EXIT;
 }
 
+/*
+ * Tries to enter the guest. Returns true iff entry succeeded. Otherwise,
+ * populates @failure.
+ */
+static bool vmx_enter_guest(struct vmentry_failure *failure)
+{
+	failure->early = 0;
+
+	in_guest = 1;
+	asm volatile (
+		"mov %[HOST_RSP], %%rdi\n\t"
+		"vmwrite %%rsp, %%rdi\n\t"
+		LOAD_GPR_C
+		"cmpb $0, %[launched]\n\t"
+		"jne 1f\n\t"
+		"vmlaunch\n\t"
+		"jmp 2f\n\t"
+		"1: "
+		"vmresume\n\t"
+		"2: "
+		SAVE_GPR_C
+		"pushf\n\t"
+		"pop %%rdi\n\t"
+		"mov %%rdi, %[failure_flags]\n\t"
+		"movl $1, %[failure_flags]\n\t"
+		"jmp 3f\n\t"
+		"vmx_return:\n\t"
+		SAVE_GPR_C
+		"3: \n\t"
+		: [failure_early]"+m"(failure->early),
+		  [failure_flags]"=m"(failure->flags)
+		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
+		: "rdi", "memory", "cc"
+	);
+	in_guest = 0;
+
+	failure->vmlaunch = !launched;
+	failure->instr = launched ? "vmresume" : "vmlaunch";
+
+	return !failure->early && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
+}
+
 static int vmx_run()
 {
-	unsigned long host_rflags;
-
 	while (1) {
 		u32 ret;
-		u32 fail = 0;
 		bool entered;
 		struct vmentry_failure failure;
 
-		asm volatile (
-			"mov %[HOST_RSP], %%rdi\n\t"
-			"vmwrite %%rsp, %%rdi\n\t"
-			LOAD_GPR_C
-			"cmpb $0, %[launched]\n\t"
-			"jne 1f\n\t"
-			"vmlaunch\n\t"
-			"jmp 2f\n\t"
-			"1: "
-			"vmresume\n\t"
-			"2: "
-			SAVE_GPR_C
-			"pushf\n\t"
-			"pop %%rdi\n\t"
-			"mov %%rdi, %[host_rflags]\n\t"
-			"movl $1, %[fail]\n\t"
-			"jmp 3f\n\t"
-			"vmx_return:\n\t"
-			SAVE_GPR_C
-			"3: \n\t"
-			: [fail]"+m"(fail), [host_rflags]"=m"(host_rflags)
-			: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
-			: "rdi", "memory", "cc"
-
-		);
-
-		entered = !fail && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
+		entered = vmx_enter_guest(&failure);
 
 		if (entered) {
 			/*
@@ -1000,10 +1581,6 @@ static int vmx_run()
 			launched = 1;
 			ret = exit_handler();
 		} else {
-			failure.flags = host_rflags;
-			failure.vmlaunch = !launched;
-			failure.instr = launched ? "vmresume" : "vmlaunch";
-			failure.early = fail;
 			ret = entry_failure_handler(&failure);
 		}
 
@@ -1011,6 +1588,7 @@ static int vmx_run()
 		case VMX_TEST_RESUME:
 			continue;
 		case VMX_TEST_VMEXIT:
+			guest_finished = 1;
 			return 0;
 		case VMX_TEST_EXIT:
 			break;
@@ -1029,26 +1607,67 @@ static int vmx_run()
 	}
 }
 
+static void run_teardown_step(struct test_teardown_step *step)
+{
+	step->func(step->data);
+}
+
 static int test_run(struct vmx_test *test)
 {
+	int r;
+
+	/* Validate V2 interface. */
+	if (test->v2) {
+		int ret = 0;
+		if (test->init || test->guest_main || test->exit_handler ||
+		    test->syscall_handler) {
+			report("V2 test cannot specify V1 callbacks.", 0);
+			ret = 1;
+		}
+		if (ret)
+			return ret;
+	}
+
 	if (test->name == NULL)
 		test->name = "(no name)";
 	if (vmx_on()) {
 		printf("%s : vmxon failed.\n", __func__);
 		return 1;
 	}
+
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
 	if (test->init && test->init(test->vmcs) != VMX_TEST_START)
 		goto out;
+	teardown_count = 0;
+	v2_guest_main = NULL;
 	test->exits = 0;
 	current = test;
 	regs = test->guest_regs;
 	vmcs_write(GUEST_RFLAGS, regs.rflags | 0x2);
 	launched = 0;
+	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);
-	vmx_run();
+
+	r = setjmp(abort_target);
+	if (r) {
+		assert(!in_guest);
+		goto out;
+	}
+
+
+	if (test->v2)
+		test->v2();
+	else
+		vmx_run();
+
+	while (teardown_count > 0)
+		run_teardown_step(&teardown_steps[--teardown_count]);
+
+	if (launched && !guest_finished)
+		report("Guest didn't run to completion.", 0);
+
 out:
 	if (vmx_off()) {
 		printf("%s : vmxoff failed.\n", __func__);
@@ -1057,9 +1676,116 @@ out:
 	return 0;
 }
 
+/*
+ * Add a teardown step. Executed after the test's main function returns.
+ * Teardown steps executed in reverse order.
+ */
+void test_add_teardown(test_teardown_func func, void *data)
+{
+	struct test_teardown_step *step;
+
+	TEST_ASSERT_MSG(teardown_count < MAX_TEST_TEARDOWN_STEPS,
+			"There are already %d teardown steps.",
+			teardown_count);
+	step = &teardown_steps[teardown_count++];
+	step->func = func;
+	step->data = data;
+}
+
+/*
+ * Set the target of the first enter_guest call. Can only be called once per
+ * test. Must be called before first enter_guest call.
+ */
+void test_set_guest(test_guest_func func)
+{
+	assert(current->v2);
+	TEST_ASSERT_MSG(!v2_guest_main, "Already set guest func.");
+	v2_guest_main = func;
+}
+
+/*
+ * Enters the guest (or launches it for the first time). Error to call once the
+ * guest has returned (i.e., run past the end of its guest() function). Also
+ * aborts if guest entry fails.
+ */
+void enter_guest(void)
+{
+	struct vmentry_failure failure;
+
+	TEST_ASSERT_MSG(v2_guest_main,
+			"Never called test_set_guest_func!");
+
+	TEST_ASSERT_MSG(!guest_finished,
+			"Called enter_guest() after guest returned.");
+
+	if (!vmx_enter_guest(&failure)) {
+		print_vmentry_failure_info(&failure);
+		abort();
+	}
+
+	launched = 1;
+
+	if (is_hypercall()) {
+		int ret;
+
+		ret = handle_hypercall();
+		switch (ret) {
+		case VMX_TEST_VMEXIT:
+			guest_finished = 1;
+			break;
+		case VMX_TEST_VMABORT:
+			continue_abort();
+			break;
+		case VMX_TEST_VMSKIP:
+			continue_skip();
+			break;
+		default:
+			printf("ERROR : Invalid handle_hypercall return %d.\n",
+			       ret);
+			abort();
+		}
+	}
+}
+
 extern struct vmx_test vmx_tests[];
 
-int main(void)
+static bool
+test_wanted(const char *name, const char *filters[], int filter_count)
+{
+	int i;
+	bool positive = false;
+	bool match = false;
+	char clean_name[strlen(name) + 1];
+	char *c;
+	const char *n;
+
+	/* Replace spaces with underscores. */
+	n = name;
+	c = &clean_name[0];
+	do *c++ = (*n == ' ') ? '_' : *n;
+	while (*n++);
+
+	for (i = 0; i < filter_count; i++) {
+		const char *filter = filters[i];
+
+		if (filter[0] == '-') {
+			if (simple_glob(clean_name, filter + 1))
+				return false;
+		} else {
+			positive = true;
+			match |= simple_glob(clean_name, filter);
+		}
+	}
+
+	if (!positive || match) {
+		matched++;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+int main(int argc, const char *argv[])
 {
 	int i = 0;
 
@@ -1067,31 +1793,59 @@ int main(void)
 	setup_idt();
 	hypercall_field = 0;
 
+	argv++;
+	argc--;
+
 	if (!(cpuid(1).c & (1 << 5))) {
 		printf("WARNING: vmx not supported, add '-cpu host'\n");
 		goto exit;
 	}
 	init_vmx();
-	if (test_vmx_feature_control() != 0)
-		goto exit;
-	/* Set basic test ctxt the same as "null" */
-	current = &vmx_tests[0];
-	if (test_vmxon() != 0)
-		goto exit;
-	test_vmptrld();
-	test_vmclear();
-	test_vmptrst();
-	init_vmcs(&vmcs_root);
-	if (vmx_run()) {
-		report("test vmlaunch", 0);
-		goto exit;
+	if (test_wanted("test_vmx_feature_control", argv, argc)) {
+		/* Sets MSR_IA32_FEATURE_CONTROL to 0x5 */
+		if (test_vmx_feature_control() != 0)
+			goto exit;
+	} else {
+		if ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) != 0x5)
+			wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
 	}
-	test_vmxoff();
-	test_vmx_caps();
 
-	while (vmx_tests[++i].name != NULL)
+	if (test_wanted("test_vmxon", argv, argc)) {
+		/* Enables VMX */
+		if (test_vmxon() != 0)
+			goto exit;
+	} else {
+		if (vmx_on()) {
+			report("vmxon", 0);
+			goto exit;
+		}
+	}
+
+	if (test_wanted("test_vmptrld", argv, argc))
+		test_vmptrld();
+	if (test_wanted("test_vmclear", argv, argc))
+		test_vmclear();
+	if (test_wanted("test_vmptrst", argv, argc))
+		test_vmptrst();
+	if (test_wanted("test_vmwrite_vmread", argv, argc))
+		test_vmwrite_vmread();
+	if (test_wanted("test_vmcs_lifecycle", argv, argc))
+		test_vmcs_lifecycle();
+	if (test_wanted("test_vmx_caps", argv, argc))
+		test_vmx_caps();
+
+	/* Balance vmxon from test_vmxon. */
+	vmx_off();
+
+	for (; vmx_tests[i].name != NULL; i++) {
+		if (!test_wanted(vmx_tests[i].name, argv, argc))
+			continue;
 		if (test_run(&vmx_tests[i]))
 			goto exit;
+	}
+
+	if (!matched)
+		report("command line didn't match any tests!", matched);
 
 exit:
 	return report_summary();

@@ -130,7 +130,7 @@ CPU.prototype.debug_init = function()
 
         cpu.running = false;
         var a = parseInt(prompt("input hex", ""), 16);
-        if(a) while(cpu.instruction_pointer != a) step();
+        if(a) while(cpu.instruction_pointer[0] != a) step();
     }
 
     // http://ref.x86asm.net/x86reference.xml
@@ -177,6 +177,8 @@ CPU.prototype.debug_init = function()
             return;
         }
 
+        _ip = _ip >>> 0;
+
         if(debug.trace_all && debug.all_ops)
         {
             debug.all_ops.push(_ip, op);
@@ -215,15 +217,17 @@ CPU.prototype.debug_init = function()
 
     function get_state(where)
     {
-        var vm = (cpu.flags & flag_vm) ? 1 : 0;
-        var mode = cpu.protected_mode ? vm ? "vm86" : "prot" : "real";
+        if(!DEBUG) return;
+
+        var mode = cpu.protected_mode[0] ? "prot" : "real";
+        var vm = (cpu.flags[0] & flag_vm) ? 1 : 0;
         var flags = cpu.get_eflags();
         var iopl = cpu.getiopl();
-        var cpl = cpu.cpl;
+        var cpl = cpu.cpl[0];
         var cs_eip = h(cpu.sreg[reg_cs], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
-        var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.get_stack_reg() >>> 0, 8);
-        var op_size = cpu.is_32 ? "32" : "16";
-        var if_ = (cpu.flags & flag_interrupt) ? 1 : 0;
+        var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.reg32[reg_es] >>> 0, 8);
+        var op_size = cpu.is_32[0] ? "32" : "16";
+        var if_ = (cpu.flags[0] & flag_interrupt) ? 1 : 0;
 
         var flag_names = {
             [flag_carry]: "c",
@@ -253,12 +257,12 @@ CPU.prototype.debug_init = function()
             }
         }
 
-        return ("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging) +
+        return ("mode=" + mode + "/" + op_size + " paging=" + (+((cpu.cr[0] & CR0_PG) !== 0)) +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
-                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) +
+                " cs_off=" + h(cpu.get_seg_cs() >>> 0, 8) +
                 " flgs=" + h(cpu.get_eflags() >>> 0, 6) + " (" + flag_string + ")" +
                 " ss:esp=" + ss_esp +
-                " ssize=" + (+cpu.stack_size_32) +
+                " ssize=" + (+cpu.stack_size_32[0]) +
                 (where ? " in " + where : ""));
     }
 
@@ -283,8 +287,8 @@ CPU.prototype.debug_init = function()
 
         for(var i = 0; i < 4; i++)
         {
-            line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]], 8) + " ";
-            line2 += r32_names[i+4] + "="  + h(cpu.reg32[r32[r32_names[i+4]]], 8) + " ";
+            line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]] >>> 0, 8) + " ";
+            line2 += r32_names[i+4] + "="  + h(cpu.reg32[r32[r32_names[i+4]]] >>> 0, 8) + " ";
         }
 
         //line1 += " eip=" + h(cpu.get_real_eip() >>> 0, 8);
@@ -357,8 +361,8 @@ CPU.prototype.debug_init = function()
     {
         if(!DEBUG) return;
 
-        dbg_log("gdt: (len = " + h(cpu.gdtr_size) + ")");
-        dump_table(cpu.translate_address_system_read(cpu.gdtr_offset), cpu.gdtr_size);
+        dbg_log("gdt: (len = " + h(cpu.gdtr_size[0]) + ")");
+        dump_table(cpu.translate_address_system_read(cpu.gdtr_offset[0]), cpu.gdtr_size[0]);
 
         dbg_log("\nldt: (len = " + h(cpu.segment_limits[reg_ldtr]) + ")");
         dump_table(cpu.translate_address_system_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
@@ -439,9 +443,9 @@ CPU.prototype.debug_init = function()
     {
         if(!DEBUG) return;
 
-        for(var i = 0; i < cpu.idtr_size; i += 8)
+        for(var i = 0; i < cpu.idtr_size[0]; i += 8)
         {
-            var addr = cpu.translate_address_system_read(cpu.idtr_offset + i),
+            var addr = cpu.translate_address_system_read(cpu.idtr_offset[0] + i),
                 base = cpu.read16(addr) | cpu.read16(addr + 6) << 16,
                 selector = cpu.read16(addr + 2),
                 type = cpu.read8(addr + 5),
@@ -529,6 +533,7 @@ CPU.prototype.debug_init = function()
 
             if(!entry)
             {
+                dbg_log("Not present: " + h((i << 22) >>> 0, 8));
                 continue;
             }
 
@@ -583,7 +588,7 @@ CPU.prototype.debug_init = function()
         if(start === undefined)
         {
             start = 0;
-            count = cpu.memory_size;
+            count = cpu.memory_size[0];
         }
         else if(count === undefined)
         {
@@ -630,7 +635,7 @@ CPU.prototype.debug_init = function()
 
         var width = 0x80,
             height = 0x10,
-            block_size = cpu.memory_size / width / height | 0,
+            block_size = cpu.memory_size[0] / width / height | 0,
             row;
 
         for(var i = 0; i < height; i++)
@@ -706,5 +711,114 @@ CPU.prototype.debug_init = function()
         //    dbg_log("kolibri syscall");
         //    this.debug.dump_regs_short();
         //}
+    };
+
+    let cs;
+    let capstone_decoder;
+
+    debug.dump_code = function(is_32, buffer, start)
+    {
+        if(!capstone_decoder)
+        {
+            if(cs === undefined)
+            {
+                if(typeof require === "function")
+                {
+                    cs = require("./capstone-x86.min.js");
+                }
+                else
+                {
+                    cs = window.cs;
+                }
+
+                if(cs === undefined)
+                {
+                    dbg_log("Warning: Missing capstone library, disassembly not available");
+                    return;
+                }
+            }
+
+            capstone_decoder = [
+                new cs.Capstone(cs.ARCH_X86, cs.MODE_16),
+                new cs.Capstone(cs.ARCH_X86, cs.MODE_32),
+            ];
+        }
+
+        try
+        {
+            const instructions = capstone_decoder[is_32].disasm(buffer, start);
+
+            instructions.forEach(function (instr) {
+                dbg_log(h(instr.address >>> 0) + ": " +
+                    v86util.pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
+                    instr.mnemonic + " " + instr.op_str);
+            });
+            dbg_log("");
+        }
+        catch(e)
+        {
+            dbg_log("Could not disassemble: " + Array.from(buffer).map(x => h(x, 2)).join(" "));
+        }
+    };
+
+    function dump_file(ab, name)
+    {
+        var blob = new Blob([ab]);
+
+        var a = document.createElement("a");
+        a["download"] = name;
+        a.href = window.URL.createObjectURL(blob);
+        a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
+
+        a.click();
+        window.URL.revokeObjectURL(a.src);
+    }
+
+    let wabt;
+
+    debug.dump_wasm = function(buffer)
+    {
+        if(wabt === undefined)
+        {
+            if(typeof require === "function")
+            {
+                wabt = require("./libwabt.js");
+            }
+            else
+            {
+                wabt = new window.WabtModule;
+            }
+
+            if(wabt === undefined)
+            {
+                dbg_log("Warning: Missing libwabt, wasm dump not available");
+                return;
+            }
+        }
+
+        // Need to make a small copy otherwise libwabt goes nuts trying to copy
+        // the whole underlying buffer
+        buffer = buffer.slice();
+
+        try
+        {
+            var module = wabt.readWasm(buffer, { readDebugNames: false });
+            module.generateNames();
+            module.applyNames();
+            const result = module.toText({ foldExprs: true, inlineExport: true });
+            dbg_log(result);
+        }
+        catch(e)
+        {
+            dump_file(buffer, "failed.wasm");
+            console.log(e.toString());
+        }
+        finally
+        {
+            if(module)
+            {
+                module.destroy();
+            }
+        }
     };
 };

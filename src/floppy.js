@@ -189,7 +189,7 @@ FloppyController.prototype.port3F7_read = function()
 {
     dbg_log("3F7 read", LOG_FLOPPY);
     return 0x00;
-}
+};
 
 FloppyController.prototype.port3F5_read = function()
 {
@@ -294,7 +294,7 @@ FloppyController.prototype.port3F2_read = function()
 {
     dbg_log("read 3F2: DOR", LOG_FLOPPY);
     return this.dor;
-}
+};
 
 FloppyController.prototype.port3F2_write = function(value)
 {
@@ -311,7 +311,7 @@ FloppyController.prototype.port3F2_write = function(value)
     dbg_log("DOR = " + h(value), LOG_FLOPPY);
 
     this.dor = value;
-}
+};
 
 FloppyController.prototype.check_drive_status = function(args)
 {
@@ -320,7 +320,7 @@ FloppyController.prototype.check_drive_status = function(args)
     this.response_index = 0;
     this.response_length = 1;
     this.response_data[0] = 1 << 5;
-}
+};
 
 FloppyController.prototype.seek = function(args)
 {
@@ -331,14 +331,14 @@ FloppyController.prototype.seek = function(args)
     this.last_head = args[0] >> 2 & 1;
 
     this.raise_irq();
-}
+};
 
 FloppyController.prototype.calibrate = function(args)
 {
     dbg_log("floppy calibrate", LOG_FLOPPY);
 
     this.raise_irq();
-}
+};
 
 FloppyController.prototype.check_interrupt_status = function()
 {
@@ -350,7 +350,7 @@ FloppyController.prototype.check_interrupt_status = function()
 
     this.response_data[0] = 1 << 5;
     this.response_data[1] = this.last_cylinder;
-}
+};
 
 FloppyController.prototype.do_sector = function(is_write, args)
 {
@@ -424,12 +424,12 @@ FloppyController.prototype.done = function(args, cylinder, head, sector, error)
     this.response_data[6] = args[4];
 
     this.raise_irq();
-}
+};
 
 FloppyController.prototype.fix_drive_data = function(args)
 {
     dbg_log("floppy fix drive data " + args, LOG_FLOPPY);
-}
+};
 
 FloppyController.prototype.read_sector_id = function(args)
 {
@@ -447,7 +447,7 @@ FloppyController.prototype.read_sector_id = function(args)
     this.response_data[6] = 0;
 
     this.raise_irq();
-}
+};
 
 FloppyController.prototype.raise_irq = function()
 {

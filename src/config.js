@@ -20,13 +20,22 @@ var LOG_ALL_IO = false;
 
 /**
  * @const
- * Enables logging of page faults, quite verbose
  */
-var LOG_PAGE_FAULTS = false;
+var DUMP_GENERATED_WASM = false;
 
+/**
+ * @const
+ */
+var DUMP_UNCOMPILED_ASSEMBLY = false;
+
+/**
+ * @const
+ * More accurate filenames in 9p debug messages at the cost of performance.
+ */
+var TRACK_FILENAMES = false;
 
 var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC &
-                          ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK;
+                          ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK & ~LOG_VGA;
 
 /**
  * @const
@@ -39,19 +48,6 @@ var DEBUG_SCREEN_LAYERS = DEBUG && false;
 var ENABLE_HPET = DEBUG && false;
 
 /**
- * @define {boolean}
- * Overridden by closure compiler
- */
-var ENABLE_ACPI = false;
-
-
-/**
- * @const
- * How many cycles the CPU does at a time before running hardware timers
- */
-var LOOP_COUNTER = 11001;
-
-/**
  * @const
  * How often, in milliseconds, to yield to the browser for rendering and
  * running events
@@ -62,7 +58,7 @@ var TIME_PER_FRAME = 1;
  * @const
  * How many ticks the TSC does per millisecond
  */
-var TSC_RATE = 8 * 1024;
+var TSC_RATE = 1 * 1000 * 1000;
 
 
 /** @const */

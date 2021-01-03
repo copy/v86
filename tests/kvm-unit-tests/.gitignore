@@ -17,3 +17,6 @@ cscope.*
 /build-head
 /logs/
 /logs.old/
+/api/api-sample
+/api/dirty-log
+/api/dirty-log-perf

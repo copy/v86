@@ -62,13 +62,6 @@ var LOG_NAMES = [
 ];
 
 var
-/** @const */ TLB_SYSTEM_READ = 1,
-/** @const */ TLB_SYSTEM_WRITE = 2,
-/** @const */ TLB_USER_READ = 4,
-/** @const */ TLB_USER_WRITE = 8;
-
-
-var
 
 // flags register bitflags
 /** @const */ flag_carry = 1,
@@ -95,36 +88,6 @@ var
  */
 flags_default = 1 << 1,
 
-/**
- * bitmask to select non-reserved flags bits
- * @const
- */
-flags_mask =
-    flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_trap | flag_interrupt |
-    flag_direction | flag_overflow | flag_iopl | flag_nt | flag_rf | flag_vm | flag_ac |
-    flag_vif | flag_vip | flag_id,
-
-
-/**
- * all arithmetic flags
- * @const
- */
-flags_all = flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_overflow,
-
-
-/**
- * opsizes used by get flag functions
- *
- * @const
- */
-OPSIZE_8 = 7,
-/** @const */
-OPSIZE_16 = 15,
-/** @const */
-OPSIZE_32 = 31,
-
-/** @const */
-PSE_ENABLED = 128,
 
 /** @const */ reg_eax = 0,
 /** @const */ reg_ecx = 1,
@@ -134,25 +97,6 @@ PSE_ENABLED = 128,
 /** @const */ reg_ebp = 5,
 /** @const */ reg_esi = 6,
 /** @const */ reg_edi = 7,
-
-/** @const */ reg_ax = 0,
-/** @const */ reg_cx = 2,
-/** @const */ reg_dx = 4,
-/** @const */ reg_bx = 6,
-/** @const */ reg_sp = 8,
-/** @const */ reg_bp = 10,
-/** @const */ reg_si = 12,
-/** @const */ reg_di = 14,
-
-/** @const */ reg_al = 0,
-/** @const */ reg_cl = 4,
-/** @const */ reg_dl = 8,
-/** @const */ reg_bl = 12,
-/** @const */ reg_ah = 1,
-/** @const */ reg_ch = 5,
-/** @const */ reg_dh = 9,
-/** @const */ reg_bh = 13,
-
 
 /** @const */ reg_es = 0,
 /** @const */ reg_cs = 1,
@@ -176,15 +120,6 @@ var
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
-
-/** @const */
-var MEM_PAGE_WRITTEN = 1;
-
-
-/** @const */
-var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
-
-
 var
     /** @const */
     REPEAT_STRING_PREFIX_NONE = 0,
@@ -206,6 +141,8 @@ var
     CR0_ET = 1 << 4,
     /** @const */
     CR0_WP = 1 << 16,
+    /** @const */
+    CR0_AM = 1 << 18,
     /** @const */
     CR0_NW = 1 << 29,
     /** @const */
@@ -320,35 +257,31 @@ var IA32_APIC_BASE_EN = 1 << 11;
 /** @const */ var TSR_LDT = 0x60;
 
 
+// https://github.com/qemu/seabios/blob/14221cd86eadba82255fdc55ed174d401c7a0a04/src/fw/paravirt.c#L205-L219
+
 /** @const */ var FW_CFG_SIGNATURE = 0x00;
+/** @const */ var FW_CFG_ID = 0x01;
 /** @const */ var FW_CFG_RAM_SIZE = 0x03;
 /** @const */ var FW_CFG_NB_CPUS = 0x05;
+/** @const */ var FW_CFG_MAX_CPUS = 0x0F;
+/** @const */ var FW_CFG_NUMA = 0x0D;
+/** @const */ var FW_CFG_FILE_DIR = 0x19;
 
+/** @const */ var FW_CFG_CUSTOM_START = 0x8000;
+// This value is specific to v86, choosen to hopefully not collide with other indexes
+/** @const */ var FW_CFG_FILE_START = 0xC000;
 
-/** @const */
-var PREFIX_MASK_REP = 0b11000;
-/** @const */
-var PREFIX_REPZ = 0b01000;
-/** @const */
-var PREFIX_REPNZ = 0b10000;
-
-/** @const */
-var PREFIX_MASK_SEGMENT = 0b111;
-
-/** @const */
-var PREFIX_MASK_OPSIZE = 0b100000;
-/** @const */
-var PREFIX_MASK_ADDRSIZE = 0b1000000;
-
-/** @const */
-var PREFIX_F2 = PREFIX_REPNZ; // alias
-/** @const */
-var PREFIX_F3 = PREFIX_REPZ; // alias
-/** @const */
-var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
+/** @const */ var FW_CFG_SIGNATURE_QEMU = 0x554D4551;
 
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
+
+// See same constant in jit.rs
+/** @const */
+var WASM_TABLE_SIZE = 900;
+
+/** @const */
+var WASM_TABLE_OFFSET = 1024;
 
 
 /** @const */

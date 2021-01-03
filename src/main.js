@@ -1,7 +1,10 @@
 "use strict";
 
-/** @constructor */
-function v86(bus)
+/**
+ * @constructor
+ * @param {Object=} wasm
+ */
+function v86(bus, wasm)
 {
     /** @type {boolean} */
     this.running = false;
@@ -10,7 +13,7 @@ function v86(bus)
     this.stopped = false;
 
     /** @type {CPU} */
-    this.cpu = new CPU(bus);
+    this.cpu = new CPU(bus, wasm);
 
     this.bus = bus;
     bus.register("cpu-init", this.init, this);
@@ -23,6 +26,8 @@ function v86(bus)
 
 v86.prototype.run = function()
 {
+    this.stopped = false;
+
     if(!this.running)
     {
         this.bus.send("emulator-started");
@@ -193,19 +198,21 @@ v86.prototype.restore_state = function(state)
 
 if(typeof performance === "object" && performance.now)
 {
+    v86.microtick = performance.now.bind(performance);
+}
+else if(typeof require === "function")
+{
+    const { performance } = require("perf_hooks");
+    v86.microtick = performance.now.bind(performance);
+}
+else if(typeof process === "object" && process.hrtime)
+{
     v86.microtick = function()
     {
-        return performance.now();
+        var t = process.hrtime();
+        return t[0] * 1000 + t[1] / 1e6;
     };
 }
-//else if(typeof process === "object" && process.hrtime)
-//{
-//    v86.microtick = function()
-//    {
-//        var t = process.hrtime();
-//        return t[0] * 1000 + t[1] / 1e6;
-//    };
-//}
 else
 {
     v86.microtick = Date.now;

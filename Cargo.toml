@@ -1,0 +1,27 @@
+[package]
+name = "v86"
+version = "0.1.0"
+publish = false
+
+[dev-dependencies]
+quickcheck = "0.6.2"
+
+[features]
+default = []
+profiler = []
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/rust/lib.rs"
+
+[profile.dev]
+lto = false
+opt-level = 2
+panic = "abort"
+overflow-checks = false
+
+[profile.release]
+lto = true
+opt-level = 3
+incremental = false
+panic = "abort"

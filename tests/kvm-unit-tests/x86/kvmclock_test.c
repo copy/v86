@@ -17,7 +17,6 @@ struct test_info {
         u64 stalls;               /* stall count */
         long long worst;          /* worst warp */
         volatile cycle_t last;    /* last cycle seen by test */
-        atomic_t ncpus;           /* number of cpu in the test*/
         int check;                /* check cycle ? */
 };
 
@@ -78,29 +77,20 @@ static void kvm_clock_test(void *data)
                 if (!((unsigned long)i & 31))
                         asm volatile("rep; nop");
         }
-
-        atomic_dec(&hv_test_info->ncpus);
 }
 
-static int cycle_test(int ncpus, int check, struct test_info *ti)
+static int cycle_test(int check, struct test_info *ti)
 {
-        int i;
         unsigned long long begin, end;
 
         begin = rdtsc();
 
-        atomic_set(&ti->ncpus, ncpus);
         ti->check = check;
-        for (i = ncpus - 1; i >= 0; i--)
-                on_cpu_async(i, kvm_clock_test, (void *)ti);
-
-        /* Wait for the end of other vcpu */
-        while(atomic_read(&ti->ncpus))
-                ;
+        on_cpus(kvm_clock_test, ti);
 
         end = rdtsc();
 
-        printf("Total vcpus: %d\n", ncpus);
+        printf("Total vcpus: %d\n", cpu_count());
         printf("Test  loops: %ld\n", loops);
         if (check == 1) {
                 printf("Total warps:  %" PRId64 "\n", ti->warps);
@@ -129,9 +119,9 @@ int main(int ac, char **av)
 
         ncpus = cpu_count();
         if (ncpus > MAX_CPU)
-                ncpus = MAX_CPU;
-        for (i = 0; i < ncpus; ++i)
-                on_cpu(i, kvm_clock_init, (void *)0);
+                report_abort("number cpus exceeds %d", MAX_CPU);
+
+        on_cpus(kvm_clock_init, NULL);
 
         if (ac > 2) {
                 printf("Wallclock test, threshold %ld\n", threshold);
@@ -143,26 +133,25 @@ int main(int ac, char **av)
         printf("Check the stability of raw cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT
                           | PVCLOCK_RAW_CYCLE_BIT);
-        if (cycle_test(ncpus, 1, &ti[0]))
+        if (cycle_test(1, &ti[0]))
                 printf("Raw cycle is not stable\n");
         else
                 printf("Raw cycle is stable\n");
 
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT);
         printf("Monotonic cycle test:\n");
-        nerr += cycle_test(ncpus, 1, &ti[1]);
+        nerr += cycle_test(1, &ti[1]);
 
         printf("Measure the performance of raw cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT
                           | PVCLOCK_RAW_CYCLE_BIT);
-        cycle_test(ncpus, 0, &ti[2]);
+        cycle_test(0, &ti[2]);
 
         printf("Measure the performance of adjusted cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT);
-        cycle_test(ncpus, 0, &ti[3]);
+        cycle_test(0, &ti[3]);
 
-        for (i = 0; i < ncpus; ++i)
-                on_cpu(i, kvm_clock_clear, (void *)0);
+        on_cpus(kvm_clock_clear, NULL);
 
         return nerr > 0 ? 1 : 0;
 }

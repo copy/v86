@@ -76,12 +76,24 @@ function IOAPIC(cpu)
     cpu.io.mmap_register(IOAPIC_ADDRESS, MMAP_BLOCK_SIZE,
         (addr) =>
         {
-            dbg_assert(false, "unsupported read8 from ioapic: " + h(addr));
-            return 0;
+            addr = addr - IOAPIC_ADDRESS | 0;
+
+            if(addr >= IOWIN && addr < IOWIN + 4)
+            {
+                const byte = addr - IOWIN;
+                dbg_log("ioapic read8 byte " + byte + " " + h(this.ioregsel), LOG_APIC);
+                return this.read(this.ioregsel) >> (8 * byte) & 0xFF;
+            }
+            else
+            {
+                dbg_log("Unexpected IOAPIC register read: " + h(addr >>> 0), LOG_APIC);
+                dbg_assert(false);
+                return 0;
+            }
         },
         (addr, value) =>
         {
-            dbg_assert(false, "unsupported write8 from ioapic: " + h(addr));
+            dbg_assert(false, "unsupported write8 from ioapic: " + h(addr >>> 0));
         },
         (addr) =>
         {
@@ -97,7 +109,7 @@ function IOAPIC(cpu)
             }
             else
             {
-                dbg_log("Unexpected IOAPIC register read: " + h(addr), LOG_APIC);
+                dbg_log("Unexpected IOAPIC register read: " + h(addr >>> 0), LOG_APIC);
                 dbg_assert(false);
                 return 0;
             }
@@ -116,7 +128,7 @@ function IOAPIC(cpu)
             }
             else
             {
-                dbg_log("Unexpected IOAPIC register write: " + h(addr) + " <- " + h(value >>> 0, 8), LOG_APIC);
+                dbg_log("Unexpected IOAPIC register write: " + h(addr >>> 0) + " <- " + h(value >>> 0, 8), LOG_APIC);
                 dbg_assert(false);
             }
         });

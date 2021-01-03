@@ -69,7 +69,7 @@ static void unhandled_exception(struct ex_regs *regs, bool cpu)
 	       cpu ? "cpu " : "", regs->vector,
 	       exception_mnemonic(regs->vector), regs->rip);
 	if (regs->vector == 14)
-		printf("PF at 0x%lx addr 0x%lx\n", regs->rip, read_cr2());
+		printf("PF at %#lx addr %#lx\n", regs->rip, read_cr2());
 
 	printf("error_code=%04lx      rflags=%08lx      cs=%08lx\n"
 	       "rax=%016lx rcx=%016lx rdx=%016lx rbx=%016lx\n"
@@ -117,13 +117,16 @@ static void check_exception_table(struct ex_regs *regs)
     unhandled_exception(regs, false);
 }
 
-static void (*exception_handlers[32])(struct ex_regs *regs);
+static handler exception_handlers[32];
 
-
-void handle_exception(u8 v, void (*func)(struct ex_regs *regs))
+handler handle_exception(u8 v, handler fn)
 {
+	handler old;
+
+	old = exception_handlers[v];
 	if (v < 32)
-		exception_handlers[v] = func;
+		exception_handlers[v] = fn;
+	return old;
 }
 
 #ifndef __x86_64__
@@ -262,19 +265,6 @@ bool exception_rflags_rf(void)
 static char intr_alt_stack[4096];
 
 #ifndef __x86_64__
-/*
- * GDT, with 6 entries:
- * 0x00 - NULL descriptor
- * 0x08 - Code segment (ring 0)
- * 0x10 - Data segment (ring 0)
- * 0x18 - Not present code segment (ring 0)
- * 0x20 - Code segment (ring 3)
- * 0x28 - Data segment (ring 3)
- * 0x30 - Interrupt task
- * 0x38 to 0x78 - Free to use for test cases
- * 0x80 - Primary task (CPU 0)
- */
-
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
 {
 	int num = sel >> 3;
@@ -385,19 +375,21 @@ static void exception_handler(struct ex_regs *regs)
 	/* longjmp must happen after iret, so do not do it now.  */
 	exception = true;
 	regs->rip = (unsigned long)&exception_handler_longjmp;
+	regs->cs = read_cs();
 }
 
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data)
 {
+	handler old;
 	jmp_buf jmpbuf;
 	int ret;
 
-	handle_exception(ex, exception_handler);
+	old = handle_exception(ex, exception_handler);
 	ret = set_exception_jmpbuf(jmpbuf);
 	if (ret == 0)
 		trigger_func(data);
-	handle_exception(ex, NULL);
+	handle_exception(ex, old);
 	return ret;
 }
 

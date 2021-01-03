@@ -129,7 +129,7 @@ function PIC(cpu, master)
             {
                 PIC_LOG_VERBOSE && dbg_log("master> spurious requested=" + this.requested_irq, LOG_PIC);
                 this.requested_irq = -1;
-                this.cpu.pic_call_irq(this.irq_map | 7);
+                //this.cpu.pic_call_irq(this.irq_map | 7);
                 return;
             }
             dbg_assert(this.irr); // spurious
@@ -292,17 +292,24 @@ function PIC(cpu, master)
                 return;
             }
 
-            if(PIC_LOG_VERBOSE)
-            {
-                dbg_log("master> set irq " + irq_number, LOG_PIC);
-            }
-
             var irq_mask = 1 << irq_number;
             if((this.irq_value & irq_mask) === 0)
             {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("master> set irq " + irq_number, LOG_PIC);
+                }
+
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
                 this.check_irqs();
+            }
+            else
+            {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("master> set irq " + irq_number + ": already set!", LOG_PIC);
+                }
             }
         };
 
@@ -334,17 +341,25 @@ function PIC(cpu, master)
         this.set_irq = function(irq_number)
         {
             dbg_assert(irq_number >= 0 && irq_number < 8);
-            if(PIC_LOG_VERBOSE)
-            {
-                dbg_log("slave > set irq " + irq_number, LOG_PIC);
-            }
 
             var irq_mask = 1 << irq_number;
             if((this.irq_value & irq_mask) === 0)
             {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("slave > set irq " + irq_number, LOG_PIC);
+                }
+
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
                 this.check_irqs();
+            }
+            else
+            {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("slave > set irq " + irq_number + ": already set!", LOG_PIC);
+                }
             }
         };
 
@@ -398,7 +413,7 @@ PIC.prototype.set_state = function(state)
     this.isr = state[2];
     this.irr = state[3];
     this.is_master = state[4];
-    this.slave = state[5];
+    this.slave && this.slave.set_state(state[5]);
     this.expect_icw4 = state[6];
     this.state = state[7];
     this.read_isr = state[8];

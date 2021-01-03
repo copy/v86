@@ -216,11 +216,11 @@ function VGAScreen(cpu, bus, vga_memory_size)
     // Experimental, could probably need some changes
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
     this.pci_space = [
-        0xde, 0x10, 0x20, 0x0a, 0x07, 0x00, 0x00, 0x00,  0xa2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00,
+        0x34, 0x12, 0x11, 0x11, 0x03, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00,
         0x08, VGA_LFB_ADDRESS >>> 8, VGA_LFB_ADDRESS >>> 16, VGA_LFB_ADDRESS >>> 24,
-                                0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xbf, 0xfe, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
+        0x00, 0x00, 0xbe, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     this.pci_id = 0x12 << 3;
     this.pci_bars = [
@@ -318,7 +318,10 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     io.register_write_consecutive(0x3D4, this, this.port3D4_write, this.port3D5_write);
     io.register_read(0x3D4, this, this.port3D4_read);
-    io.register_read(0x3D5, this, this.port3D5_read);
+    io.register_read(0x3D5, this, this.port3D5_read, () => {
+        dbg_log("Warning: 16-bit read from 3D5", LOG_VGA);
+        return this.port3D5_read();
+    });
 
     io.register_read(0x3CA, this, function() { dbg_log("3CA read", LOG_VGA); return 0; });
 
@@ -407,7 +410,14 @@ VGAScreen.prototype.get_state = function()
     state[3] = this.cursor_scanline_end;
     state[4] = this.max_cols;
     state[5] = this.max_rows;
-    state[6] = this.layers;
+    state[6] = this.layers.map(layer => [
+        layer.screen_x,
+        layer.screen_y,
+        layer.buffer_x,
+        layer.buffer_y,
+        layer.buffer_width,
+        layer.buffer_height,
+    ]);
     state[7] = this.dac_state;
     state[8] = this.start_address;
     state[9] = this.graphical_mode;
@@ -474,7 +484,14 @@ VGAScreen.prototype.set_state = function(state)
     this.cursor_scanline_end = state[3];
     this.max_cols = state[4];
     this.max_rows = state[5];
-    this.layers = state[6];
+    this.layers = state[6].map(layer => ({
+        screen_x: layer[0],
+        screen_y: layer[1],
+        buffer_x: layer[2],
+        buffer_y: layer[3],
+        buffer_width: layer[4],
+        buffer_height: layer[5],
+    }));
     this.dac_state = state[7];
     this.start_address = state[8];
     this.graphical_mode = state[9];
@@ -2150,7 +2167,7 @@ VGAScreen.prototype.vga_replot = function()
     var addr_shift = this.vga_addr_shift_count();
     var addr_substitution = ~this.crtc_mode & 0x3;
 
-    var shift_mode = this.planar_mode & 0x60
+    var shift_mode = this.planar_mode & 0x60;
     var pel_width = this.attribute_mode & 0x40;
 
     for(var pixel_addr = start; pixel_addr <= end;)

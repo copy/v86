@@ -104,11 +104,11 @@ function read_elf(buffer)
 
     if(DEBUG)
     {
-        for(let key in header)
+        for(let key of Object.keys(header))
         {
-            console.log(key + ": 0x" + header[key].toString(16));
+            dbg_log(key + ": 0x" + header[key].toString(16));
         }
-        console.log(header);
+        dbg_log(header);
     }
 
     console.assert(header.magic === ELF_MAGIC, "Bad magic");
@@ -137,7 +137,7 @@ function read_elf(buffer)
         SectionHeader,
         header.shnum);
 
-    if(DEBUG)
+    if(DEBUG && LOG_LEVEL)
     {
         console.log("%d program headers:", program_headers.length);
         for(let program of program_headers)

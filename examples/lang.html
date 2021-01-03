@@ -15,7 +15,8 @@ window.onload = function()
     }, 999);
 
     var emulator = new V86Starter({
-        memory_size: 128 * 1024 * 1024,
+        wasm_path: "../build/v86.wasm",
+        memory_size: 512 * 1024 * 1024,
         vga_memory_size: 8 * 1024 * 1024,
         screen_container: document.getElementById("screen_container"),
         bios: {
@@ -24,17 +25,11 @@ window.onload = function()
         vga_bios: {
             url: "../bios/vgabios.bin",
         },
-        hda: {
-            url: "http://localhost/v86-images/arch3.img",
-            size: 8 * 1024 * 1024 * 1024,
-            async: true,
-        },
         initial_state: {
-            url: "http://localhost/v86-images/v86state.bin",
+            url: "../images/arch_state.bin.zst",
         },
         filesystem: {
-            baseurl: "http://localhost/v86-images/arch/",
-            basefs: "http://localhost/v86-images/fs.json",
+            baseurl: "../images/arch/",
         },
         autostart: true,
     });

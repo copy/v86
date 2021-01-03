@@ -47,7 +47,7 @@ var HD_SECTOR_SIZE = 512;
 function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 {
     this.master = new IDEInterface(this, cpu, master_buffer, is_cd, nr, 0, bus);
-    this.slave = new IDEInterface(this, cpu, slave_buffer, is_cd, nr, 1, bus);
+    this.slave = new IDEInterface(this, cpu, slave_buffer, false, nr, 1, bus);
 
     this.current_interface = this.master;
 
@@ -83,8 +83,8 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     this.pci_space = [
         0x86, 0x80, 0x10, 0x70, 0x05, 0x00, 0xA0, 0x02,
         0x00, 0x80, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
-        this.ata_port & 0xFF | 1,      this.ata_port >> 8, 0x00, 0x00,
-        this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00,
+        0 | 1, 0, 0x00, 0x00,
+        0 | 1, 0, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, // second device
         0x00, 0x00, 0x00, 0x00, // second device
         this.master_port & 0xFF | 1,   this.master_port >> 8, 0x00, 0x00,
@@ -151,7 +151,7 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     {
         dbg_log("Read error: " + h(this.current_interface.error & 0xFF) +
                 " slave=" + (this.current_interface === this.slave), LOG_DISK);
-        return this.current_interface.error;
+        return this.current_interface.error & 0xFF;
     });
     cpu.io.register_read(this.ata_port | 2, this, function()
     {
@@ -177,7 +177,7 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     cpu.io.register_read(this.ata_port | 6, this, function()
     {
         dbg_log("Read 1F6", LOG_DISK);
-        return this.current_interface.drive_head;
+        return this.current_interface.drive_head & 0xFF;
     });
 
     cpu.io.register_write(this.ata_port | 0, this, function(data)
@@ -433,8 +433,8 @@ IDEDevice.prototype.get_state = function()
 
 IDEDevice.prototype.set_state = function(state)
 {
-    this.master = state[0];
-    this.slave = state[1];
+    this.master.set_state(state[0]);
+    this.slave.set_state(state[1]);
     this.ata_port = state[2];
     this.irq = state[3];
     this.pci_id = state[4];
@@ -617,6 +617,11 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @type {number} */
     this.write_dest = 0;
 
+    // cancellation support
+    this.last_io_id = 0;
+    this.in_progress_io_ids = new Set();
+    this.cancelled_io_ids = new Set();
+
     Object.seal(this);
 }
 
@@ -642,6 +647,8 @@ IDEInterface.prototype.device_reset = function()
         this.cylinder_low = 0; // lba_mid
         this.cylinder_high = 0; // lba_high
     }
+
+    this.cancel_io_operations();
 };
 
 IDEInterface.prototype.push_irq = function()
@@ -1183,7 +1190,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
         this.status = 0x50 | 0x80;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
             dbg_log("cd read: data arrived", LOG_DISK);
@@ -1236,7 +1243,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
         this.status = 0x50 | 0x80;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             dbg_log("atapi_read_dma: Data arrived");
             this.report_read_end(byte_count);
@@ -1281,8 +1288,7 @@ IDEInterface.prototype.do_atapi_dma = function()
         }
 
         dbg_log("dma read dest=" + h(addr) + " count=" + h(count) + " datalen=" + h(this.data_length), LOG_DISK);
-        this.cpu.write_blob(data.subarray(offset,
-            Math.min(offset + count, this.data_length)), addr);
+        this.cpu.write_blob(data.subarray(offset, Math.min(offset + count, this.data_length)), addr);
 
         offset += count;
         prdt_start += 8;
@@ -1487,7 +1493,11 @@ IDEInterface.prototype.write_end = function()
         }
         else
         {
-            dbg_assert(this.current_command === 0x30 || this.current_command === 0x34);
+            dbg_assert(this.current_command === 0x30 ||
+                this.current_command === 0x34 ||
+                this.current_command === 0xC5,
+                "Unexpected command: " + h(this.current_command));
+
             // XXX: Should advance here, but do_write does all the advancing
             //this.ata_advance(this.current_command, 1);
             this.status = 0x58;
@@ -1561,7 +1571,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
         this.status = 0x80 | 0x40;
         this.report_read_start();
 
-        this.buffer.get(start, byte_count, (data) =>
+        this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
             dbg_log("ata_read: Data arrived", LOG_DISK);
@@ -1621,7 +1631,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
     var orig_prdt_start = this.device.prdt_addr;
 
-    this.buffer.get(start, byte_count, (data) =>
+    this.read_buffer(start, byte_count, (data) =>
     {
         //setTimeout(function() {
         dbg_log("do_ata_read_sectors_dma: Data arrived", LOG_DISK);
@@ -1734,11 +1744,11 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
     var start = lba * this.sector_size;
 
     var prdt_start = this.device.prdt_addr;
-    var prdt_count = 0;
-    var prdt_write_count = 0;
     var offset = 0;
 
     dbg_log("prdt addr: " + h(prdt_start, 8), LOG_DISK);
+
+    const buffer = new Uint8Array(byte_count);
 
     do {
         var prd_addr = this.cpu.read32s(prdt_start);
@@ -1756,39 +1766,29 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
         var slice = this.cpu.mem8.subarray(prd_addr, prd_addr + prd_count);
         dbg_assert(slice.length === prd_count);
 
+        buffer.set(slice, offset);
+
         //if(DEBUG)
         //{
         //    dbg_log(hex_dump(slice), LOG_DISK);
         //}
 
-        this.buffer.set(start + offset, slice, function()
-        {
-            prdt_write_count++;
-        });
-
         offset += prd_count;
         prdt_start += 8;
-        prdt_count++;
     }
     while(!end);
 
-    if(prdt_write_count === prdt_count)
+    dbg_assert(offset === buffer.length);
+
+    this.buffer.set(start, buffer, () =>
     {
-        //setTimeout(function() {
         dbg_log("dma write completed", LOG_DISK);
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
         this.push_irq();
         this.device.dma_status &= ~1;
         this.current_command = -1;
-        //}, 10);
-    }
-    else
-    {
-        // fails when writes don't happen synchronously, which isn't currently
-        // the case, but might be in the future
-        dbg_assert(false, "dma write not completed", LOG_DISK);
-    }
+    });
 
     this.report_write(byte_count);
 };
@@ -2010,6 +2010,35 @@ IDEInterface.prototype.report_write = function(byte_count)
     this.bus.send("ide-write-end", [this.nr, byte_count, sector_count]);
 };
 
+IDEInterface.prototype.read_buffer = function(start, length, callback)
+{
+    const id = this.last_io_id++;
+    this.in_progress_io_ids.add(id);
+
+    this.buffer.get(start, length, data =>
+    {
+        if(this.cancelled_io_ids.delete(id))
+        {
+            dbg_assert(!this.in_progress_io_ids.has(id));
+            return;
+        }
+
+        const removed = this.in_progress_io_ids.delete(id);
+        dbg_assert(removed);
+
+        callback(data);
+    });
+};
+
+IDEInterface.prototype.cancel_io_operations = function()
+{
+    for(const id of this.in_progress_io_ids)
+    {
+        this.cancelled_io_ids.add(id);
+    }
+    this.in_progress_io_ids.clear();
+};
+
 IDEInterface.prototype.get_state = function()
 {
     var state = [];
@@ -2041,6 +2070,7 @@ IDEInterface.prototype.get_state = function()
     state[25] = this.current_command;
     state[26] = this.data_end;
     state[27] = this.current_atapi_command;
+    state[28] = this.buffer;
     return state;
 };
 
@@ -2075,4 +2105,6 @@ IDEInterface.prototype.set_state = function(state)
 
     this.data16 = new Uint16Array(this.data.buffer);
     this.data32 = new Int32Array(this.data.buffer);
+
+    this.buffer && this.buffer.set_state(state[28]);
 };

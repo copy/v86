@@ -117,6 +117,13 @@ function PCI(cpu)
         },
         function(out_byte)
         {
+            if((this.pci_addr[1] & 0x06) === 0x02 && (out_byte & 0x06) === 0x06)
+            {
+                dbg_log("CPU reboot via PCI");
+                cpu.reboot_internal();
+                return;
+            }
+
             this.pci_addr[1] = out_byte;
         },
         function(out_byte)
@@ -145,14 +152,22 @@ function PCI(cpu)
     //    pci_bars: [],
     //};
 
+    // This needs to be set in order for seabios to not execute code outside of
+    // mapped memory. While we map the BIOS into high memory, we don't allow
+    // executing code there, which enables optimisations in read_imm8.
+    // See [make_bios_writable_intel] in src/fw/shadow.c in seabios for details
+    const PAM0 = 0x10;
+
     var host_bridge = {
         pci_id: 0,
         pci_space: [
             // 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
-            0x86, 0x80, 0x37, 0x12, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x86, 0x80, 0x37, 0x12, 0x00, 0x00, 0x00, 0x00,  0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, PAM0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
         pci_bars: [],
         name: "82441FX PMC",
@@ -316,7 +331,7 @@ PCI.prototype.pci_write8 = function(address, written)
     }
 
     dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
-               "PCI: Expected 32-bit write");
+               "PCI: Expected 32-bit write, got 8-bit (addr: " + h(addr) + ")");
 
     dbg_log("PCI write8 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
             " value=" + h(written, 2), LOG_PCI);
@@ -339,8 +354,15 @@ PCI.prototype.pci_write16 = function(address, written)
         return;
     }
 
-    dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
-               "PCI: Expected 32-bit write");
+    if(addr >= 0x10 && addr < 0x2C)
+    {
+        // Bochs bios
+        dbg_log("Warning: PCI: Expected 32-bit write, got 16-bit (addr: " + h(addr) + ")");
+        return;
+    }
+
+    dbg_assert(!(addr >= 0x30 && addr < 0x34),
+        "PCI: Expected 32-bit write, got 16-bit (addr: " + h(addr) + ")");
 
     dbg_log("PCI writ16 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
             " value=" + h(written, 4), LOG_PCI);
@@ -446,6 +468,11 @@ PCI.prototype.pci_write32 = function(address, written)
             space[addr >> 2] = 0;
         }
     }
+    else if(addr === 0x04)
+    {
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+                " value=" + h(written >>> 0, 8), LOG_PCI);
+    }
     else
     {
         dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
@@ -529,7 +556,7 @@ PCI.prototype.set_io_bars = function(bar, from, to)
            old_entry.write16 === this.io.empty_port_write &&
            old_entry.write32 === this.io.empty_port_write)
         {
-            dbg_log("Move IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
+            dbg_log("Warning: Bad IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
         }
 
         var entry = bar.entries[i];
@@ -538,13 +565,17 @@ PCI.prototype.set_io_bars = function(bar, from, to)
 
         ports[to + i] = entry;
 
-        // these can fail if the os maps an io port in multiple bars (indicating a bug)
-        dbg_assert(empty_entry.read8 === this.io.empty_port_read8, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.read16 === this.io.empty_port_read16, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.read32 === this.io.empty_port_read32, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write8 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write16 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write32 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
+        if(empty_entry.read8 === this.io.empty_port_read8 ||
+            empty_entry.read16 === this.io.empty_port_read16 ||
+            empty_entry.read32 === this.io.empty_port_read32 ||
+            empty_entry.write8 === this.io.empty_port_write ||
+            empty_entry.write16 === this.io.empty_port_write ||
+            empty_entry.write32 === this.io.empty_port_write)
+        {
+            // These can fail if the os maps an io port in multiple bars (indicating a bug)
+            // XXX: Fails during restore_state
+            dbg_log("Warning: Bad IO bar: Target already mapped, port=" + h(to + i, 4), LOG_PCI);
+        }
     }
 };
 
