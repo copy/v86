@@ -33,15 +33,11 @@ window.onload = function()
 
     var stages = [
         {
-            test: "login:",
-            send: "root\n",
-        },
-        {
-            test: "/root% ",
+            test: "~% ",
             send: "ls -1 --color=never /\n",
         },
         {
-            test: "/root% ",
+            test: "~% ",
             send: "lua -e 'print(3+4)'\n",
         },
     ];
