@@ -78,13 +78,13 @@ function h(n, len)
 }
 
 
-if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues)
+if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
     let rand_data = new Int32Array(1);
 
     v86util.get_rand_int = function()
     {
-        window.crypto.getRandomValues(rand_data);
+        crypto.getRandomValues(rand_data);
         return rand_data[0];
     };
 }
