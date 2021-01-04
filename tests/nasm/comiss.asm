@@ -16,14 +16,12 @@ dwSNaN:
 	dd	__SNaN__
 dwQNaN:
 	dd	__QNaN__
-maskEFLAGS:
-	dd	0x45
 
 ; Moves EFLAGS into specified register
 %macro moveflags 1
 	pushf
+	and			dword [esp], 0x45
 	pop			eax
-	and			eax, [maskEFLAGS]
 	movd		%1, eax
 %endmacro
 

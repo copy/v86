@@ -3,7 +3,7 @@
 
 static struct spinlock lock;
 
-uint64_t fwcfg_get_u(uint16_t index, int bytes)
+static uint64_t fwcfg_get_u(uint16_t index, int bytes)
 {
     uint64_t r = 0;
     uint8_t b;

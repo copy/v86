@@ -1,31 +1,60 @@
 "use strict";
 
+var goog = goog || {};
+goog.exportSymbol = function() {};
+goog.exportProperty = function() {};
+
 var v86util = v86util || {};
 
 // pad string with spaces on the right
 v86util.pads = function(str, len)
 {
-    str = str ? str + "" : "";
-
-    while(str.length < len)
-    {
-        str = str + " ";
-    }
-
-    return str;
+    str = (str || str === 0) ? str + "" : "";
+    return str.padEnd(len, " ");
 };
 
 // pad string with zeros on the left
 v86util.pad0 = function(str, len)
 {
-    str = str ? str + "" : "";
+    str = (str || str === 0) ? str + "" : "";
+    return str.padStart(len, "0");
+};
 
-    while(str.length < len)
-    {
-        str = "0" + str;
-    }
+// generates array given size with zeros
+v86util.zeros = function(size)
+{
+    return Array(size).fill(0);
+};
 
-    return str;
+// generates [0, 1, 2, ..., size-1]
+v86util.range = function(size)
+{
+    return Array.from(Array(size).keys());
+};
+
+v86util.view = function(constructor, memory, offset, length)
+{
+    return new Proxy({},
+        {
+            get: function(target, property, receiver)
+            {
+                const b = new constructor(memory.buffer, offset, length);
+                const x = b[property];
+                if(typeof x === "function")
+                {
+                    return x.bind(b);
+                }
+                dbg_assert(/^\d+$/.test(property) || property === "buffer" || property === "length" ||
+                    property === "BYTES_PER_ELEMENT" || property === "byteOffset");
+                return x;
+            },
+            set: function(target, property, value, receiver)
+            {
+                dbg_assert(/^\d+$/.test(property));
+                new constructor(memory.buffer, offset, length)[property] = value;
+                return true;
+            },
+        });
 };
 
 /**
@@ -49,32 +78,29 @@ function h(n, len)
 }
 
 
-if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues)
+if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
     let rand_data = new Int32Array(1);
 
-    v86util.has_rand_int = function()
+    v86util.get_rand_int = function()
     {
-        return true;
+        crypto.getRandomValues(rand_data);
+        return rand_data[0];
     };
+}
+else if(typeof require !== "undefined")
+{
+    /** @type {{ randomBytes: Function }} */
+    const crypto = require("crypto");
 
     v86util.get_rand_int = function()
     {
-        window.crypto.getRandomValues(rand_data);
-        return rand_data[0];
+        return crypto.randomBytes(4)["readInt32LE"](0);
     };
 }
 else
 {
-    v86util.has_rand_int = function()
-    {
-        return false;
-    };
-
-    v86util.get_rand_int = function()
-    {
-        console.assert(false);
-    };
+    dbg_assert(false, "Unsupported platform: No cryptographic random values");
 }
 
 
@@ -84,6 +110,8 @@ else
  */
 function SyncBuffer(buffer)
 {
+    dbg_assert(buffer instanceof ArrayBuffer);
+
     this.buffer = buffer;
     this.byteLength = buffer.byteLength;
     this.onload = undefined;
@@ -127,7 +155,19 @@ SyncBuffer.prototype.get_buffer = function(fn)
     fn(this.buffer);
 };
 
+SyncBuffer.prototype.get_state = function()
+{
+    const state = [];
+    state[0] = this.byteLength;
+    state[1] = new Uint8Array(this.buffer);
+    return state;
+};
 
+SyncBuffer.prototype.set_state = function(state)
+{
+    this.byteLength = state[0];
+    this.buffer = state[1].slice().buffer;
+};
 
 (function()
 {
@@ -192,6 +232,7 @@ SyncBuffer.prototype.get_buffer = function(fn)
      */
     v86util.int_log2 = function(x)
     {
+        x >>>= 0;
         dbg_assert(x > 0);
 
         // http://jsperf.com/integer-log2/6
@@ -224,22 +265,6 @@ SyncBuffer.prototype.get_buffer = function(fn)
     };
 })();
 
-
-v86util.mul_low = v86util.imul_low =
-    typeof Math.imul === "function" &&
-    Math.imul(0x01234567, 0x89abcdef) === -0x36b1b9d7 ? Math.imul : function(a, b) {
-        b |= 0;
-        return (a & 0x003fffff) * b + ((a & 0xffc00000) * b | 0) | 0;
-    };
-
-
-v86util.imul_high = function(a, b) {
-    return Math.floor(a * b / 0x100000000) | 0;
-};
-
-v86util.mul_high = function(a, b) {
-    return Math.floor((a >>> 0) * (b >>> 0) / 0x100000000) | 0;
-};
 
 /**
  * @constructor
@@ -478,3 +503,46 @@ function download(file_or_blob, name)
 
     window.URL.revokeObjectURL(a.href);
 }
+
+/**
+ * A simple 1d bitmap
+ * @constructor
+ */
+v86util.Bitmap = function(length_or_buffer)
+{
+    if(typeof length_or_buffer === "number")
+    {
+        this.view = new Uint8Array(length_or_buffer + 7 >> 3);
+    }
+    else if(length_or_buffer instanceof ArrayBuffer)
+    {
+        this.view = new Uint8Array(length_or_buffer);
+    }
+    else
+    {
+        console.assert(false);
+    }
+};
+
+v86util.Bitmap.prototype.set = function(index, value)
+{
+    const bit_index = index & 7;
+    const byte_index = index >> 3;
+    const bit_mask = 1 << bit_index;
+
+    this.view[byte_index] =
+        value ? this.view[byte_index] | bit_mask : this.view[byte_index] & ~bit_mask;
+};
+
+v86util.Bitmap.prototype.get = function(index)
+{
+    const bit_index = index & 7;
+    const byte_index = index >> 3;
+
+    return this.view[byte_index] >> bit_index & 1;
+};
+
+v86util.Bitmap.prototype.get_buffer = function()
+{
+    return this.view.buffer;
+};

@@ -1,16 +1,126 @@
 [![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86)
 
+v86 emulates an x86-compatible CPU and hardware. Machine code is translated to
+WebAssembly modules at runtime in order to achieve decent performance. Here's a
+list of emulated hardware:
+
+- An x86-compatible CPU. The instruction set is around Pentium III level,
+ including full SSE2 support. Some features are missing, in particular:
+  - Task gates, far calls in protected mode
+  - Some 16 bit protected mode features
+  - Single stepping (trap flag, debug registers)
+  - Some exceptions, especially floating point and SSE
+  - Multicore
+  - PAE
+  - 64-bit extensions
+- A floating point unit (FPU). Calculations are done using the Berkeley
+  SoftFloat library and therefore should be precise (but slow). Trigonometric
+  and log functions are emulated using 64-bit floats and may be less precise.
+  Not all FPU excpetions are supported.
+- A floppy disk controller (8272A).
+- An 8042 Keyboard Controller, PS2. With mouse support.
+- An 8254 Programmable Interval Timer (PIT).
+- An 8259 Programmable Interrupt Controller (PIC).
+- Partial APIC support.
+- A CMOS Real Time Clock (RTC).
+- A generic VGA card with SVGA support and Bochs VBE Extensions.
+- A PCI bus. This one is partly incomplete and not used by every device.
+- An IDE disk controller.
+- An NE2000 (8390) PCI network card.
+- A virtio filesystem.
+- A SoundBlaster 16 sound card.
 
 Demos
 -
 
-- [Windows 98](https://copy.sh/v86/?profile=windows98)
-- [Linux](https://copy.sh/v86/?profile=linux26)
-- [Linux 3](https://copy.sh/v86/?profile=linux3)
-- [KolibriOS](https://copy.sh/v86/?profile=kolibrios)
-- [FreeDOS](https://copy.sh/v86/?profile=freedos)
-- [Windows 1.01](https://copy.sh/v86/?profile=windows1)
-- [Archlinux](https://copy.sh/v86/?profile=archlinux)
+[Arch Linux](https://copy.sh/v86/?profile=archlinux) —
+[Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
+[Buildroot Linux](https://copy.sh/v86/?profile=buildroot) —
+[ReactOS](https://copy.sh/v86/?profile=reactos) —
+[Windows 98](https://copy.sh/v86/?profile=windows98) —
+[Windows 95](https://copy.sh/v86/?profile=windows95) —
+[Windows 1.01](https://copy.sh/v86/?profile=windows1) —
+[MS-DOS](https://copy.sh/v86/?profile=msdos) —
+[FreeDOS](https://copy.sh/v86/?profile=freedos) —
+[FreeBSD](https://copy.sh/v86/?profile=freebsd) —
+[OpenBSD](https://copy.sh/v86/?profile=openbsd) —
+[9front](https://copy.sh/v86/?profile=9front) —
+[Haiku](https://copy.sh/v86/?profile=haiku) —
+[Oberon](https://copy.sh/v86/?profile=oberon) —
+[KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
+[QNX](https://copy.sh/v86/?profile=qnx)
+
+
+Compatibility
+-
+
+Here's an overview of the operating systems supported in v86:
+
+- Linux works pretty well. Neither 64-bit nor PAE kernels are supported.
+  - Damn Small Linux (2.4 Kernel) works.
+  - All tested versions of TinyCore work.
+  - [BuildRoot](https://buildroot.uclibc.org) can be used to build a minimal
+    image. [humphd/browser-vm](https://github.com/humphd/browser-vm) has some
+    useful scripts for building one.
+  - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
+  - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
+  - Alpine Linux works.
+- ReactOS works.
+- FreeDOS, Windows 1.01 and MS-DOS run very well.
+- KolibriOS works.
+- Haiku works.
+- Android x86 1.6-r2 works if one selects VESA mode at the boot prompt. Newer
+  versions haven't been tested.
+- Windows 1, 3.0, 95, 98 and ME work. Other versions currently don't (see #86, #208).
+- Many hobby operating systems work.
+- 9front works.
+- Plan 9 doesn't work.
+- QNX works.
+- OS/2 doesn't work.
+- FreeBSD works.
+- OpenBSD works with a specific boot configuration. At the `boot>` prompt type
+  `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
+- NetBSD works only with a custom kernel, see #350.
+- SerenityOS doesn't work due to missing PAE support.
+
+You can get some infos on the disk images here: https://github.com/copy/images.
+
+How to build, run and embed?
+-
+
+You need:
+
+- java (for Closure Compiler, not necessary when using `debug.html`)
+- make
+- gcc and libc-i386 for building some of the test binaries
+- nasm, gdb and qemu-system (for running tests)
+- rust-nightly with the wasm32-unknown-unknown target
+- A version of clang compatible with rust-nightly
+- nodejs (a recent version is required, 10.11.0 is known to be working)
+
+See `tools/docker/test-image/Dockerfile` for a full setup on Debian.
+
+
+- Run `make` to build the debug build (at `debug.html`).
+- Run `make all` to build the optimized build (at `index.html`).
+- ROM and disk images are loaded via XHR, so if you want to try out `index.html`
+  locally, make sure to serve it from a local webserver. You can use `make run`
+  to serve the files using Python's http module.
+- If you only want to embed v86 in a webpage you can use libv86.js. For
+  usage, check out the [examples](examples/).
+
+
+Testing
+-
+
+The disk images for testing are not included in this repository. You can
+download them directly from the website using:
+
+`wget -P images/ https://k.copy.sh/{linux.iso,linux4.iso,buildroot-bzimage.bin,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img}`
+
+Run all tests: `make jshint rustfmt kvm-unit-test nasmtests nasmtests-force-jit expect-tests jitpagingtests qemutests rust-test tests`
+
+See [tests/Readme.md](tests/Readme.md) for more infos.
 
 
 API examples
@@ -40,131 +150,29 @@ var emulator = new V86Starter({
 });
 ```
 
-See [API](docs/api.md).
+See [starter.js](src/browser/starter.js).
 
-
-How does it work?
--
-
-v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardware:
-
-- An x86 compatible CPU. The instruction set is around Pentium 1 level. Some
-  features are missing, more specifically:
-  - Task gates, far calls in protected mode
-  - 16 bit protected mode features
-  - Single stepping
-  - MMX, SSE
-  - A bunch of FPU instructions
-  - Some exceptions
-- A floating point unit (FPU). Calculations are done with JavaScript's double
-  precision numbers (64 bit), so they are not as precise as calculations on a
-  real FPU (80 bit).
-- A floppy disk controller (8272A).
-- An 8042 Keyboard Controller, PS2. With mouse support.
-- An 8254 Programmable Interval Timer (PIT).
-- An 8259 Programmable Interrupt Controller (PIC).
-- A CMOS Real Time Clock (RTC).
-- A generic VGA card with SVGA support and Bochs VBE Extensions.
-- A PCI bus. This one is partly incomplete and not used by every device.
-- An IDE disk controller.
-- An NE2000 (8390) PCI network card.
-- A virtio filesystem.
-- A SoundBlaster 16 sound card.
-
-
-Testing
--
-
-The disk images are not included in this repository. You can download them
-directly from the website using:
-
-`wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
-
-A testsuite is available in `tests/full/`. Run it using `node tests/full/run.js`.
-
-
-How to build, run and embed?
--
-
-- Building is only necessary for releases, open debug.html and everything should load out of the box
-- If you want a compressed and fast (i.e. with debug code removed) version, you
-  need Closure Compiler. Download it as shown below and run `make build/v86_all.js`.
-- ROM and disk images are loaded via XHR, so if you want to try out `index.html`
-  locally, make sure to serve it from a local webserver. You can use `make run`
-  to serve the files using Python's SimpleHTTPServer.
-- If you only want to embed v86 in a webpage you can use libv86.js. For
-  usage, check out the [API](docs/api.md) and [examples](examples/).
-- A couple of disk images are provided for testing. You can check them out
-  using `wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
-
-
-**Short summary:**
-
-```bash
-# grab the main repo
-git clone https://github.com/copy/v86.git && cd v86
-
-# grab the disk images
-wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
-
-# grab closure compiler
-wget -P closure-compiler https://dl.google.com/closure-compiler/compiler-latest.zip
-unzip -d closure-compiler closure-compiler/compiler-latest.zip *.jar
-
-# build the library
-make build/libv86.js
-
-# run the tests
-./tests/full/run.js
-```
-
-Compatibility
--
-
-Here's an overview of the operating systems supported in v86:
-
-- Linux works pretty well.
-  - Tinycore (3.16, 4.8 kernel): Works.
-  - Nanolinux works.
-  - Archlinux works with some caveats. See [archlinux.md](docs/archlinux.md).
-  - Damn Small Linux (2.4 Kernel): Doesn't work.
-- ReactOS works.
-- FreeDOS, Windows 1.01 and MS-DOS run very well.
-- KolibriOS works. A few applications need SSE.
-- Haiku boots, but takes very long (around 30 minutes).
-- No Android version seems to work, you still get a shell.
-- Windows 1, 3, 95 and 98 work. Windows XP is unstable, but can work with some
-  tweaks ([see this issue](https://github.com/copy/v86/issues/86)). Other
-  versions might work but haven't been tested.
-- Many hobby operating systems work.
-- FreeBSD works.
-- OS/2 doesn't work.
-
-You can get some infos on the disk images here: https://github.com/copy/images.
-The Windows images are from [WinWorld](https://winworldpc.com/).
-
-
-How can I contribute?
--
-
-- Add new features (hardware devices, fill holes in the CPU), fix bugs. Check
-  out the issues section and contact me if you need help.
-- Report bugs.
-- If you want to donate, let me know.
 
 License
 -
 
-- Source code and most tests: Simplified BSD License, see [LICENSE](LICENSE).
-- QEMU test suite: See [tests/qemu/LICENSE](LICENSE).
+v86 is distributed under the terms of the Simplified BSD License, see
+[LICENSE](LICENSE). The following third-party dependencies are included in the
+repository under their own licenses:
+
+- [`lib/softfloat/softfloat.c`](lib/softfloat/softfloat.c)
+- [`lib/zstd/zstddeclib.c`](lib/zstd/zstddeclib.c)
+- [`tests/kvm-unit-tests/`](tests/kvm-unit-tests)
+- [`tests/qemutests/`](tests/qemutests)
 
 
 Credits
 -
 
-- CPU test cases via QEMU, http://wiki.qemu.org/Main_Page
+- CPU test cases via [QEMU](https://wiki.qemu.org/Main_Page)
 - More tests via [kvm-unit-tests](https://www.linux-kvm.org/page/KVM-unit-tests)
-- [Disk Images](https://github.com/copy/images)
+- [zstd](https://github.com/facebook/zstd) support is included for better compression of state images
+- [Berkeley SoftFloat](http://www.jhauser.us/arithmetic/SoftFloat.html) is included to precisely emulate 80-bit floating point numbers
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
 - [WinWorld](https://winworldpc.com/) sources of some old operating systems
 
@@ -172,11 +180,10 @@ Credits
 More questions?
 -
 
-Shoot me an email to `copy@copy.sh`. Please don't tell about bugs via mail,
-create a bug report on GitHub instead.
+Shoot me an email to `copy@copy.sh`. Please report bugs on GitHub.
 
 
 Author
 -
 
-Fabian Hemmer (http://copy.sh/, `copy@copy.sh`)
+Fabian Hemmer (https://copy.sh/, `copy@copy.sh`)

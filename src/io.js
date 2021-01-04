@@ -20,7 +20,7 @@ function IO(cpu)
         this.ports[i] = this.create_empty_entry();
     }
 
-    var memory_size = cpu.memory_size;
+    var memory_size = cpu.memory_size[0];
 
     for(var i = 0; (i << MMAP_BLOCK_BITS) < memory_size; i++)
     {
@@ -246,34 +246,6 @@ IO.prototype.register_write_consecutive = function(port_addr, device, w8_1, w8_2
     }
 };
 
-IO.prototype.in_mmap_range = function(start, count)
-{
-    start >>>= 0;
-    count >>>= 0;
-
-    var end = start + count;
-
-    if(end >= this.cpu.memory_size)
-    {
-        return true;
-    }
-
-    //dbg_log("in_mmap_range start=" + start + " count=" + count);
-    start &= ~(MMAP_BLOCK_SIZE - 1);
-
-    while(start < end)
-    {
-        if(this.cpu.in_mapped_range(start))
-        {
-            return true;
-        }
-
-        start += MMAP_BLOCK_SIZE;
-    }
-
-    return false;
-};
-
 IO.prototype.mmap_read32_shim = function(addr)
 {
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
@@ -487,5 +459,3 @@ IO.prototype.get_port_description = function(addr)
         return "";
     }
 };
-
-

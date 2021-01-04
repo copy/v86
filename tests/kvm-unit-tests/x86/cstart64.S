@@ -53,14 +53,14 @@ gdt64_desc:
 gdt64:
 	.quad 0
 	.quad 0x00af9b000000ffff // 64-bit code segment
-	.quad 0x00cf93000000ffff // 64-bit data segment
+	.quad 0x00cf93000000ffff // 32/64-bit data segment
 	.quad 0x00af1b000000ffff // 64-bit code segment, not present
-	.quad 0x00affb000000ffff // 64-bit code segment (user)
-	.quad 0x00cff3000000ffff // 64-bit data segment (user)
 	.quad 0x00cf9b000000ffff // 32-bit code segment
-	.quad 0x00cf92000000ffff // 32-bit data segment
-	.quad 0x008F9A000000FFFF // 16-bit code segment
-	.quad 0x008F92000000FFFF // 16-bit data segment
+	.quad 0x008f9b000000FFFF // 16-bit code segment
+	.quad 0x008f93000000FFFF // 16-bit data segment
+	.quad 0x00cffb000000ffff // 32-bit code segment (user)
+	.quad 0x00cff3000000ffff // 32/64-bit data segment (user)
+	.quad 0x00affb000000ffff // 64-bit code segment (user)
 
 	.quad 0			 // 6 spare selectors
 	.quad 0

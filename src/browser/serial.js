@@ -35,6 +35,7 @@ function SerialAdapter(element, bus)
     {
         this.destroy();
 
+        element.style.display = "block";
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
@@ -79,7 +80,7 @@ function SerialAdapter(element, bus)
                 this.update_timer = setTimeout(() => {
                     this.update_timer = undefined;
                     var now = Date.now();
-                    dbg_assert(now - this.last_update >= 16);
+                    dbg_assert(now - this.last_update >= 15);
                     this.last_update = now;
                     this.render();
                 }, 16 - delta);
@@ -107,7 +108,7 @@ function SerialAdapter(element, bus)
             this.text_new_line = false;
             element.scrollTop = 1e9;
         }
-    }
+    };
 
     /**
      * @param {number} chr_code
@@ -192,3 +193,51 @@ function SerialAdapter(element, bus)
         }
     }
 }
+
+/**
+ * @constructor
+ *
+ * @param {BusConnector} bus
+ */
+function SerialRecordingAdapter(bus)
+{
+    var serial = this;
+    this.text = "";
+
+    bus.register("serial0-output-char", function(chr)
+    {
+        this.text += chr;
+    }, this);
+}
+
+/**
+ * @constructor
+ * @param {BusConnector} bus
+ */
+function SerialAdapterXtermJS(element, bus)
+{
+    this.element = element;
+
+    if(!window["Terminal"])
+    {
+        return;
+    }
+
+    var term = this.term = new window["Terminal"]();
+    term["setOption"]("logLevel", "off");
+    term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
+
+    term["onData"](function(data) {
+        bus.send("serial0-input", data.charCodeAt(0));
+    });
+
+    bus.register("serial0-output-char", function(chr)
+    {
+        term.write(chr);
+    }, this);
+}
+
+SerialAdapterXtermJS.prototype.show = function()
+{
+    this.term && this.term.open(this.element);
+};

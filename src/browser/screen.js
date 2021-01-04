@@ -1,13 +1,5 @@
 "use strict";
 
-if(typeof window !== "undefined" && !window.requestAnimationFrame)
-{
-    window.requestAnimationFrame =
-        window.mozRequestAnimationFrame ||
-        window.webkitRequestAnimationFrame;
-}
-
-
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
@@ -20,7 +12,7 @@ function ScreenAdapter(screen_container, bus)
 
     var
         graphic_screen = screen_container.getElementsByTagName("canvas")[0],
-        graphic_context = graphic_screen.getContext("2d"),
+        graphic_context = graphic_screen.getContext("2d", { alpha: false }),
 
         text_screen = screen_container.getElementsByTagName("div")[0],
         cursor_element = document.createElement("div");
@@ -41,6 +33,8 @@ function ScreenAdapter(screen_container, bus)
 
         /** @type {number} */
         scale_y = 1,
+
+        base_scale = 1,
 
         graphical_mode_width,
         graphical_mode_height,
@@ -193,7 +187,10 @@ function ScreenAdapter(screen_container, bus)
     this.make_screenshot = function()
     {
         try {
-            window.open(graphic_screen.toDataURL());
+            const image = new Image();
+            image.src = graphic_screen.toDataURL("image/png");
+            const w = window.open("");
+            w.document.write(image.outerHTML);
         }
         catch(e) {}
     };
@@ -331,6 +328,16 @@ function ScreenAdapter(screen_container, bus)
         graphical_mode_width = width;
         graphical_mode_height = height;
 
+        // add some scaling to tiny resolutions
+        if(graphical_mode_width <= 640)
+        {
+            base_scale = 2;
+        }
+        else
+        {
+            base_scale = 1;
+        }
+
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
         update_scale_graphic();
     };
@@ -352,7 +359,7 @@ function ScreenAdapter(screen_container, bus)
 
     function update_scale_graphic()
     {
-        elem_set_scale(graphic_screen, scale_x, scale_y, false);
+        elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
     }
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)
@@ -362,7 +369,7 @@ function ScreenAdapter(screen_container, bus)
 
         if(use_scale)
         {
-            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = "";
+            elem.style.transform = "";
         }
 
         var rectangle = elem.getBoundingClientRect();
@@ -374,18 +381,15 @@ function ScreenAdapter(screen_container, bus)
             scale_str += scale_x === 1 ? "" : " scaleX(" + scale_x + ")";
             scale_str += scale_y === 1 ? "" : " scaleY(" + scale_y + ")";
 
-            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = scale_str;
+            elem.style.transform = scale_str;
         }
         else
         {
             // unblur non-fractional scales
             if(scale_x % 1 === 0 && scale_y % 1 === 0)
             {
-                graphic_screen.style.imageRendering = "-moz-crisp-edges";
-                graphic_screen.style.imageRendering = "moz-crisp-edges";
-                graphic_screen.style.imageRendering = "webkit-optimize-contrast";
-                graphic_screen.style.imageRendering = "o-crisp-edges";
-                graphic_screen.style.imageRendering = "pixelated";
+                graphic_screen.style["imageRendering"] = "crisp-edges"; // firefox
+                graphic_screen.style["imageRendering"] = "pixelated";
                 graphic_screen.style["-ms-interpolation-mode"] = "nearest-neighbor";
             }
             else
@@ -547,5 +551,3 @@ function ScreenAdapter(screen_container, bus)
 
     this.init();
 }
-
-

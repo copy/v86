@@ -19,8 +19,6 @@
 #define SINT2_NUM 3
 #define ONE_MS_IN_100NS 10000
 
-static atomic_t g_cpus_comp_count;
-static int g_cpus_count;
 static struct spinlock g_synic_alloc_lock;
 
 struct stimer {
@@ -216,20 +214,13 @@ static void synic_disable(void)
     synic_free_page(svcpu->msg_page);
 }
 
-static void cpu_comp(void)
-{
-    atomic_inc(&g_cpus_comp_count);
-}
 
 static void stimer_test_prepare(void *ctx)
 {
-    int vcpu = smp_id();
-
     write_cr3((ulong)ctx);
     synic_enable();
-    synic_sint_create(vcpu, SINT1_NUM, SINT1_VEC, false);
-    synic_sint_create(vcpu, SINT2_NUM, SINT2_VEC, true);
-    cpu_comp();
+    synic_sint_create(SINT1_NUM, SINT1_VEC, false);
+    synic_sint_create(SINT2_NUM, SINT2_VEC, true);
 }
 
 static void stimer_test_periodic(int vcpu, struct stimer *timer1,
@@ -280,6 +271,35 @@ static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
     stimer_shutdown(timer);
 }
 
+static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
+{
+    struct hv_message_page *msg_page = g_synic_vcpu[vcpu].msg_page;
+    struct hv_message *msg = &msg_page->sint_message[timer->sint];
+
+    msg->header.message_type = HVMSG_TIMER_EXPIRED;
+    wmb();
+
+    stimer_start(timer, false, false, ONE_MS_IN_100NS, SINT1_NUM);
+
+    do
+        rmb();
+    while (!msg->header.message_flags.msg_pending);
+
+    report("no timer fired while msg slot busy: vcpu %d",
+           !atomic_read(&timer->fire_count), vcpu);
+
+    msg->header.message_type = HVMSG_NONE;
+    wmb();
+    wrmsr(HV_X64_MSR_EOM, 0);
+
+    while (atomic_read(&timer->fire_count) < 1) {
+        pause();
+    }
+    report("timer resumed when msg slot released: vcpu %d", true, vcpu);
+
+    stimer_shutdown(timer);
+}
+
 static void stimer_test(void *ctx)
 {
     int vcpu = smp_id();
@@ -295,33 +315,17 @@ static void stimer_test(void *ctx)
     stimer_test_one_shot(vcpu, timer1);
     stimer_test_auto_enable_one_shot(vcpu, timer2);
     stimer_test_auto_enable_periodic(vcpu, timer1);
+    stimer_test_one_shot_busy(vcpu, timer1);
 
     irq_disable();
-    cpu_comp();
 }
 
 static void stimer_test_cleanup(void *ctx)
 {
-    int vcpu = smp_id();
-
     stimers_shutdown();
-    synic_sint_destroy(vcpu, SINT1_NUM);
-    synic_sint_destroy(vcpu, SINT2_NUM);
+    synic_sint_destroy(SINT1_NUM);
+    synic_sint_destroy(SINT2_NUM);
     synic_disable();
-    cpu_comp();
-}
-
-static void on_each_cpu_async_wait(void (*func)(void *ctx), void *ctx)
-{
-    int i;
-
-    atomic_set(&g_cpus_comp_count, 0);
-    for (i = 0; i < g_cpus_count; i++) {
-        on_cpu_async(i, func, ctx);
-    }
-    while (atomic_read(&g_cpus_comp_count) != g_cpus_count) {
-        pause();
-    }
 }
 
 static void stimer_test_all(void)
@@ -332,20 +336,17 @@ static void stimer_test_all(void)
     smp_init();
     enable_apic();
 
+    ncpus = cpu_count();
+    if (ncpus > MAX_CPUS)
+        report_abort("number cpus exceeds %d", MAX_CPUS);
+    printf("cpus = %d\n", ncpus);
+
     handle_irq(SINT1_VEC, stimer_isr);
     handle_irq(SINT2_VEC, stimer_isr_auto_eoi);
 
-    ncpus = cpu_count();
-    if (ncpus > MAX_CPUS) {
-        ncpus = MAX_CPUS;
-    }
-
-    printf("cpus = %d\n", ncpus);
-    g_cpus_count = ncpus;
-
-    on_each_cpu_async_wait(stimer_test_prepare, (void *)read_cr3());
-    on_each_cpu_async_wait(stimer_test, NULL);
-    on_each_cpu_async_wait(stimer_test_cleanup, NULL);
+    on_cpus(stimer_test_prepare, (void *)read_cr3());
+    on_cpus(stimer_test, NULL);
+    on_cpus(stimer_test_cleanup, NULL);
 }
 
 int main(int ac, char **av)

@@ -30,4 +30,4 @@ tests += $(TEST_DIR)/tscdeadline_latency.flat
 #tests += $(TEST_DIR)/intel-iommu.flat
 
 
-include $(TEST_DIR)/Makefile.common
+include $(SRCDIR)/$(TEST_DIR)/Makefile.common

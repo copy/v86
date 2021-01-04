@@ -28,7 +28,7 @@ function SpeakerAdapter(bus)
     this.bus = bus;
 
     /** @const */
-    this.audio_context = new (window.AudioContext || window["webkitAudioContext"])();
+    this.audio_context = new AudioContext();
 
     /** @const */
     this.mixer = new SpeakerMixer(bus, this.audio_context);
@@ -765,9 +765,11 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
         this.node_processor = new AudioWorkletNode(this.audio_context, "dac-processor",
         {
-            "numberOfInputs": 0,
-            "numberOfOutputs": 1,
-            "outputChannelCount": [2],
+            numberOfInputs: 0,
+            numberOfOutputs: 1,
+            outputChannelCount: [2],
+            parameterData: {},
+            processorOptions: {},
         });
 
         this.node_processor.port.postMessage(

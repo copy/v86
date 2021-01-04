@@ -23,7 +23,7 @@ void test_rdtscp(u64 aux)
 
        wrmsr(MSR_TSC_AUX, aux);
        rdtscp(&ecx);
-       report("Test RDTSCP %d", ecx == aux, aux);
+       report("Test RDTSCP %" PRIu64, ecx == aux, aux);
 }
 
 int main()

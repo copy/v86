@@ -1,0 +1,9 @@
+use_field_init_shorthand = true
+match_block_trailing_comma = true
+fn_single_line = true
+imports_indent = "Block"
+control_brace_style = "ClosingNextLine"
+single_line_if_else_max_width = 92
+ignore = [
+    "src/rust/gen"
+]

@@ -1,44 +1,5 @@
 "use strict";
 
-/** @const */
-var A20_MASK = ~(1 << 20);
-/** @const */
-var A20_MASK16 = ~(1 << 20 - 1);
-/** @const */
-var A20_MASK32 = ~(1 << 20 - 2);
-
-/** @const */
-var USE_A20 = false;
-
-
-// called by all memory writes
-CPU.prototype.debug_write = function(addr, size, value)
-{
-    if(!DEBUG)
-    {
-        return;
-    }
-
-    dbg_assert(typeof value === "number" && !isNaN(value));
-    dbg_assert(value >= -0x80000000 && addr < 0x80000000);
-
-    this.debug_read(addr, size, true);
-}
-
-/**
- * @param {boolean=} is_write
- */
-CPU.prototype.debug_read = function(addr, size, is_write)
-{
-    if(!DEBUG)
-    {
-        return;
-    }
-
-    dbg_assert(typeof addr === "number");
-    dbg_assert(!isNaN(addr));
-};
-
 
 CPU.prototype.mmap_read8 = function(addr)
 {
@@ -70,208 +31,37 @@ CPU.prototype.mmap_read32 = function(addr)
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
     return this.memory_map_read32[aligned_addr](addr);
-}
+};
 
 CPU.prototype.mmap_write32 = function(addr, value)
 {
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
     this.memory_map_write32[aligned_addr](addr, value);
-}
-
-CPU.prototype.in_mapped_range = function(addr)
-{
-    return (addr | 0) >= 0xA0000 && (addr | 0) < 0xC0000 || (addr >>> 0) >= (this.memory_size >>> 0);
 };
 
-/**
- * @param {number} addr
- */
-CPU.prototype.read8 = function(addr)
+CPU.prototype.mmap_write64 = function(addr, value0, value1)
 {
-    this.debug_read(addr, 1);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+    // This should hold since writes across pages are split up
+    dbg_assert(aligned_addr === (addr + 7) >>> MMAP_BLOCK_BITS);
 
-    if(this.in_mapped_range(addr))
-    {
-        return this.mmap_read8(addr);
-    }
-    else
-    {
-        return this.mem8[addr];
-    }
+    var write_func32 = this.memory_map_write32[aligned_addr];
+    write_func32(addr, value0);
+    write_func32(addr + 4, value1);
 };
 
-/**
- * @param {number} addr
- */
-CPU.prototype.read16 = function(addr)
+CPU.prototype.mmap_write128 = function(addr, value0, value1, value2, value3)
 {
-    this.debug_read(addr, 2);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+    // This should hold since writes across pages are split up
+    dbg_assert(aligned_addr === (addr + 12) >>> MMAP_BLOCK_BITS);
 
-    if(this.in_mapped_range(addr))
-    {
-        return this.mmap_read16(addr);
-    }
-    else
-    {
-        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8;
-    }
-};
-
-/**
- * @param {number} addr
- */
-CPU.prototype.read_aligned16 = function(addr)
-{
-    dbg_assert(addr >= 0 && addr < 0x80000000);
-    this.debug_read(addr << 1, 2);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
-
-    if(this.in_mapped_range(addr << 1))
-    {
-        return this.mmap_read16(addr << 1);
-    }
-    else
-    {
-        return this.mem16[addr];
-    }
-};
-
-/**
- * @param {number} addr
- */
-CPU.prototype.read32s = function(addr)
-{
-    this.debug_read(addr, 4);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
-
-    if(this.in_mapped_range(addr))
-    {
-        return this.mmap_read32(addr);
-    }
-    else
-    {
-        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8 |
-            this.mem8[addr + 2 | 0] << 16 | this.mem8[addr + 3 | 0] << 24;
-    }
-};
-
-/**
- * @param {number} addr
- */
-CPU.prototype.read_aligned32 = function(addr)
-{
-    dbg_assert(addr >= 0 && addr < 0x40000000);
-    this.debug_read(addr << 2, 4);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
-
-    if(this.in_mapped_range(addr << 2))
-    {
-        return this.mmap_read32(addr << 2);
-    }
-    else
-    {
-        return this.mem32s[addr];
-    }
-};
-
-/**
- * @param {number} addr
- * @param {number} value
- */
-CPU.prototype.write8 = function(addr, value)
-{
-    this.debug_write(addr, 1, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
-
-    if(this.in_mapped_range(addr))
-    {
-        this.mmap_write8(addr, value);
-    }
-    else
-    {
-        this.mem8[addr] = value;
-    }
-};
-
-/**
- * @param {number} addr
- * @param {number} value
- */
-CPU.prototype.write16 = function(addr, value)
-{
-    this.debug_write(addr, 2, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
-
-    if(this.in_mapped_range(addr))
-    {
-        this.mmap_write16(addr, value);
-    }
-    else
-    {
-        this.mem8[addr] = value;
-        this.mem8[addr + 1 | 0] = value >> 8;
-    }
-};
-
-/**
- * @param {number} addr
- * @param {number} value
- */
-CPU.prototype.write_aligned16 = function(addr, value)
-{
-    dbg_assert(addr >= 0 && addr < 0x80000000);
-    this.debug_write(addr << 1, 2, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
-
-    if(this.in_mapped_range(addr << 1))
-    {
-        this.mmap_write16(addr << 1, value);
-    }
-    else
-    {
-        this.mem16[addr] = value;
-    }
-};
-
-/**
- * @param {number} addr
- * @param {number} value
- */
-CPU.prototype.write32 = function(addr, value)
-{
-    this.debug_write(addr, 4, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
-
-    if(this.in_mapped_range(addr))
-    {
-        this.mmap_write32(addr, value);
-    }
-    else
-    {
-        this.mem8[addr] = value;
-        this.mem8[addr + 1 | 0] = value >> 8;
-        this.mem8[addr + 2 | 0] = value >> 16;
-        this.mem8[addr + 3 | 0] = value >> 24;
-    }
-};
-
-CPU.prototype.write_aligned32 = function(addr, value)
-{
-    dbg_assert(addr >= 0 && addr < 0x40000000);
-    this.debug_write(addr << 2, 4, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
-
-    if(this.in_mapped_range(addr << 2))
-    {
-        this.mmap_write32(addr << 2, value);
-    }
-    else
-    {
-        this.mem32s[addr] = value;
-    }
+    var write_func32 = this.memory_map_write32[aligned_addr];
+    write_func32(addr, value0);
+    write_func32(addr + 4, value1);
+    write_func32(addr + 8, value2);
+    write_func32(addr + 12, value3);
 };
 
 /**
@@ -280,19 +70,24 @@ CPU.prototype.write_aligned32 = function(addr, value)
  */
 CPU.prototype.write_blob = function(blob, offset)
 {
-    this.debug_write(offset, blob.length, 0)
     dbg_assert(blob && blob.length >= 0);
 
-    this.mem8.set(blob, offset);
+    if(blob.length)
+    {
+        dbg_assert(!this.in_mapped_range(offset));
+        dbg_assert(!this.in_mapped_range(offset + blob.length - 1));
+
+        this.jit_dirty_cache(offset, offset + blob.length);
+        this.mem8.set(blob, offset);
+    }
 };
 
-/**
- * @param {Array.<number>|Int32Array} blob
- * @param {number} offset
- */
-CPU.prototype.write_blob32 = function(blob, offset)
+CPU.prototype.read_blob = function(offset, length)
 {
-    dbg_assert(blob && blob.length);
-    this.debug_write(offset, blob.length << 2, 0);
-    this.mem32s.set(blob, offset);
+    if(length)
+    {
+        dbg_assert(!this.in_mapped_range(offset));
+        dbg_assert(!this.in_mapped_range(offset + length - 1));
+    }
+    return this.mem8.subarray(offset, offset + length);
 };

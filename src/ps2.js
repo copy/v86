@@ -1,5 +1,8 @@
 "use strict";
 
+/** @const */
+let PS2_LOG_VERBOSE = false;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -322,7 +325,10 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
 
-    dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
+    if(PS2_LOG_VERBOSE)
+    {
+        dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
+    }
 
     this.raise_irq();
 };

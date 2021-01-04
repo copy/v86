@@ -1,4 +1,10 @@
 Copyright (C) 2006 Qumranet.
+Copyright (C) 2007-2017 by various contributors (see source files for details)
 
-The files in this directory and its subdirectories are licensed under the
-GNU LGPL, version 2.
+The kvm-unit-tests are free software; the whole package can be redistributed
+and/or modified under the terms of the GNU General Public License version 2
+as published by the Free Software Foundation.
+
+Many files in this directory and its subdirectories are also licensed under
+the less restrictive GNU LGPL, version 2, or other compatible licenses. See
+the individual files for details.

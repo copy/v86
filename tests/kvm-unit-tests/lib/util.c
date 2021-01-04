@@ -4,6 +4,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include "util.h"
 
 int parse_keyval(char *s, long *val)
 {

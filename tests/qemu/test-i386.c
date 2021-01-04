@@ -18,6 +18,7 @@
  */
 #define _GNU_SOURCE
 #include "compiler.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,9 +29,10 @@
 #include <errno.h>
 #include <sys/ucontext.h>
 #include <sys/mman.h>
+#include <sys/user.h>
 
 #if !defined(__x86_64__)
-//#define TEST_VM86
+#define TEST_VM86
 #define TEST_SEGS
 #endif
 //#define LINUX_VM86_IOPL_FIX
@@ -65,6 +67,7 @@
 #define glue(x, y) xglue(x, y)
 #define stringify(s)	tostring(s)
 #define tostring(s)	#s
+#define UNUSED(s)	(void)(s)
 
 #define CC_C   	0x0001
 #define CC_P 	0x0004
@@ -211,7 +214,7 @@ static inline long i2l(long v)
 #define TEST_LEA16(STR)\
 {\
     asm(".code16 ; .byte 0x67 ; leal " STR ", %0 ; .code32"\
-        : "=wq" (res)\
+        : "=r" (res)\
         : "a" (eax), "b" (ebx), "c" (ecx), "d" (edx), "S" (esi), "D" (edi));\
     printf("lea %s = %08lx\n", STR, res);\
 }
@@ -338,21 +341,21 @@ void test_lea(void)
     TEST_LEAQ("0x4000(%%rsi, %%rcx, 8)");
 #else
     /* limited 16 bit addressing test */
-    //TEST_LEA16("0x4000");
-    //TEST_LEA16("(%%bx)");
-    //TEST_LEA16("(%%si)");
-    //TEST_LEA16("(%%di)");
-    //TEST_LEA16("0x40(%%bx)");
-    //TEST_LEA16("0x40(%%si)");
-    //TEST_LEA16("0x40(%%di)");
-    //TEST_LEA16("0x4000(%%bx)");
-    //TEST_LEA16("0x4000(%%si)");
-    //TEST_LEA16("(%%bx,%%si)");
-    //TEST_LEA16("(%%bx,%%di)");
-    //TEST_LEA16("0x40(%%bx,%%si)");
-    //TEST_LEA16("0x40(%%bx,%%di)");
-    //TEST_LEA16("0x4000(%%bx,%%si)");
-    //TEST_LEA16("0x4000(%%bx,%%di)");
+    TEST_LEA16("0x4000");
+    TEST_LEA16("(%%bx)");
+    TEST_LEA16("(%%si)");
+    TEST_LEA16("(%%di)");
+    TEST_LEA16("0x40(%%bx)");
+    TEST_LEA16("0x40(%%si)");
+    TEST_LEA16("0x40(%%di)");
+    TEST_LEA16("0x4000(%%bx)");
+    TEST_LEA16("0x4000(%%si)");
+    TEST_LEA16("(%%bx,%%si)");
+    TEST_LEA16("(%%bx,%%di)");
+    TEST_LEA16("0x40(%%bx,%%si)");
+    TEST_LEA16("0x40(%%bx,%%di)");
+    TEST_LEA16("0x4000(%%bx,%%si)");
+    TEST_LEA16("0x4000(%%bx,%%di)");
 #endif
 }
 
@@ -876,46 +879,46 @@ union float64u s_nan = { .l = 0xFFF0000000000000LL };
 
 void test_fops(double a, double b)
 {
-    //int ib = (int)b;
-    //int dest = 0;
-
-    // XXX: Tests below are disabled since libc (which is statically linked)
-    //      contains sse instructions, some of which aren't supported.
+    int ib = (int)b;
+    int dest = 0;
 
     printf("a=%f b=%f a+b=%f\n", a, b, a + b);
     printf("a=%f b=%f a-b=%f\n", a, b, a - b);
     printf("a=%f b=%f a*b=%f\n", a, b, a * b);
     printf("a=%f b=%f a/b=%f\n", a, b, a / b);
     printf("a=%f b=%f =%f\n", a, b, a + a + a + 3 * b / a * (a * a * a / b / b / (a + 1.0) - 3.5 + a * b / (3.7 * a / (a - b * b) + 6.5 * a / (b * b * a / -b - a * b) + 5.5 * (b - a))));
-    printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b));
-    //printf("a=%f fma(a,b,a)=%f\n", a, fma(a, b, a));
-    //printf("a=%f fdim(a,b)=%f\n", a, fdim(a, b));
+    //printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b)); // difference in sign bit on zero and nan
+    printf("a=%f fma(a,b,a)=%f\n", a, fma(a, b, a));
+    printf("a=%f fdim(a,b)=%f\n", a, fdim(a, b));
     printf("a=%f copysign(a,b)=%f\n", a, copysign(a, b));
     printf("a=%f sqrt(a)=%f\n", a, sqrt(a));
-    //printf("a=%f sin(a)=%f\n", a, sin(a));
-    //printf("a=%f cos(a)=%f\n", a, cos(a));
-    //printf("a=%f tan(a)=%f\n", a, tan(a));
-    //printf("a=%f log(a)=%f\n", a, log(a));
-    //printf("a=%f log10(a)=%f\n", a, log10(a));
-    //printf("a=%f log1p(a)=%f\n", a, log1p(a));
-    //printf("a=%f log2(a)=%f\n", a, log2(a));
-    //printf("a=%f logb(a)=%f\n", a, logb(a));
-    //printf("a=%f ilogb(a)=%d\n", a, ilogb(a));
+    printf("a=%f sin(a)=%f\n", a, sin(a));
+    printf("a=%f cos(a)=%f\n", a, cos(a));
+    printf("a=%f tan(a)=%f\n", a, tan(a));
+    if(a >= 0)
+    {
+        printf("a=%f log(a)=%f\n", a, log(a));
+        printf("a=%f log10(a)=%f\n", a, log10(a));
+        printf("a=%f log1p(a)=%f\n", a, log1p(a));
+        printf("a=%f log2(a)=%f\n", a, log2(a));
+    }
+    printf("a=%f logb(a)=%f\n", a, logb(a));
+    printf("a=%f ilogb(a)=%d\n", a, ilogb(a));
     printf("a=%f exp(a)=%f\n", a, exp(a));
-    //printf("a=%f exp2(a)=%f\n", a, exp2(a));
-    //printf("a=%f frexp(a)=%f, %d\n", a, frexp(a, &dest), dest);
-    //printf("a=%f ldexp(a,b)=%f\n", a, ldexp(a, ib));
-    //printf("a=%f scalbn(a,b)=%f\n", a, scalbn(a, ib));
-    //printf("a=%f sihh(a)=%f\n", a, sinh(a));
-    //printf("a=%f cosh(a)=%f\n", a, cosh(a));
-    //printf("a=%f tanh(a)=%f\n", a, tanh(a));
-    //printf("a=%f fabs(a)=%f\n", a, fabs(a));
-    //printf("a=%f pow(a,b)=%f\n", a, pow(a,b));
-    //printf("a=%f b=%f atan2(a, b)=%f\n", a, b, atan2(a, b));
-    ///* just to test some op combining */
-    //printf("a=%f asin(sin(a))=%f\n", a, asin(sin(a)));
-    //printf("a=%f acos(cos(a))=%f\n", a, acos(cos(a)));
-    //printf("a=%f atan(tan(a))=%f\n", a, atan(tan(a)));
+    printf("a=%f exp2(a)=%f\n", a, exp2(a));
+    printf("a=%f frexp(a)=%f, %d\n", a, frexp(a, &dest), dest);
+    printf("a=%f ldexp(a,b)=%f\n", a, ldexp(a, ib));
+    printf("a=%f scalbn(a,b)=%f\n", a, scalbn(a, ib));
+    printf("a=%f sinh(a)=%f\n", a, sinh(a));
+    printf("a=%f cosh(a)=%f\n", a, cosh(a));
+    printf("a=%f tanh(a)=%f\n", a, tanh(a));
+    printf("a=%f fabs(a)=%f\n", a, fabs(a));
+    printf("a=%f pow(a,b)=%f\n", a, pow(a,b));
+    printf("a=%f b=%f atan2(a, b)=%f\n", a, b, atan2(a, b));
+    /* just to test some op combining */
+    printf("a=%f asin(sin(a))=%f\n", a, asin(sin(a)));
+    printf("a=%f acos(cos(a))=%f\n", a, acos(cos(a)));
+    printf("a=%f atan(tan(a))=%f\n", a, atan(tan(a)));
 
 }
 
@@ -938,8 +941,7 @@ void fpu_clear_exceptions(void)
 }
 
 /* XXX: display exception bits when supported */
-#define FPUS_EMASK 0x0000
-//#define FPUS_EMASK 0x007f
+#define FPUS_EMASK 0x007f
 
 void test_fcmp(double a, double b)
 {
@@ -951,7 +953,7 @@ void test_fcmp(double a, double b)
         : "=a" (fpus)
         : "t" (a), "u" (b));
     printf("fcom(%f %f)=%04lx\n",
-           a, b, fpus & (0x4500 | FPUS_EMASK));
+           a, b, fpus & (0x4500 | FPUS_EMASK & ~1));
     fpu_clear_exceptions();
     asm("fucom %2\n"
         "fstsw %%ax\n"
@@ -969,7 +971,7 @@ void test_fcmp(double a, double b)
             : "=r" (eflags), "=a" (fpus)
             : "t" (a), "u" (b));
         printf("fcomi(%f %f)=%04lx %02lx\n",
-               a, b, fpus & FPUS_EMASK, eflags & (CC_Z | CC_P | CC_C));
+               a, b, fpus & FPUS_EMASK & ~1, eflags & (CC_Z | CC_P | CC_C));
         fpu_clear_exceptions();
         asm("fucomi %3, %2\n"
             "fstsw %%ax\n"
@@ -1072,7 +1074,7 @@ void test_fbcd(double a)
 
 void test_fenv(void)
 {
-    struct QEMU_PACKED {
+    struct __attribute__((__packed__)) {
         uint16_t fpuc;
         uint16_t dummy1;
         uint16_t fpus;
@@ -1082,7 +1084,7 @@ void test_fenv(void)
         uint32_t ignored[4];
         long double fpregs[8];
     } float_env32;
-    struct QEMU_PACKED {
+    struct __attribute__((__packed__)) {
         uint16_t fpuc;
         uint16_t fpus;
         uint16_t fptag;
@@ -1096,6 +1098,7 @@ void test_fenv(void)
     for(i=0;i<8;i++)
         dtab[i] = i + 1;
 
+    asm volatile ("fninit");
     //TEST_ENV(&float_env16, "data16 fnstenv", "data16 fldenv");
     //TEST_ENV(&float_env16, "data16 fnsave", "data16 frstor");
     TEST_ENV(&float_env32, "fnstenv", "fldenv");
@@ -1167,6 +1170,11 @@ void test_floats(void)
     test_fcvt(1.0/7.0);
     test_fcvt(-1.0/9.0);
     test_fcvt(32768);
+    // largest and smallest, odd and even numbers that have one bit left for the fractional part (2**52-1)
+    test_fcvt(4503599627370494.5);
+    test_fcvt(4503599627370495.5);
+    test_fcvt(-4503599627370494.5);
+    test_fcvt(-4503599627370495.5);
     test_fcvt(-1e20);
     test_fcvt(-1.0/0.0);
     test_fcvt(1.0/0.0);
@@ -1267,17 +1275,14 @@ void test_bcd(void)
 #define TEST_CMPXCHG(op, size, opconst, eax)\
 {\
     long op0, op1, op2;\
-    long eflags;\
     op0 = i2l(0x12345678);\
     op1 = i2l(0xfbca7654);\
     op2 = i2l(eax);\
-    asm(#op " %" size "0, %" size "1\n" \
-        "pushf\n" \
-        "pop %2\n" \
-        : "=q" (op0), opconst (op1), "=g" (eflags) \
+    asm(#op " %" size "0, %" size "1" \
+        : "=q" (op0), opconst (op1) \
         : "0" (op0), "a" (op2));\
-    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX " CC=%02lx\n",\
-           #op, op2, op0, op1, eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A));\
+    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX "\n",\
+           #op, op2, op0, op1);\
 }
 
 void test_xchg(void)
@@ -1381,7 +1386,13 @@ void test_xchg(void)
 
 static inline int modify_ldt(int func, void * ptr, unsigned long bytecount)
 {
-    return syscall(__NR_modify_ldt, func, ptr, bytecount);
+    int result = syscall(__NR_modify_ldt, func, ptr, bytecount);
+    if(result == -1)
+    {
+        fprintf(stderr, "Error: modify_ldt not available on this kernel. Check MODIFY_LDT_SYSCALL in /proc/config.gz.\n");
+        exit(1);
+    }
+    return result;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 66)
@@ -1432,7 +1443,7 @@ void test_segs(void)
     struct {
         uint32_t offset;
         uint16_t seg;
-    } QEMU_PACKED segoff;
+    } __attribute__((__packed__)) segoff;
 
     ldt.entry_number = 1;
     ldt.base_addr = (unsigned long)&seg_data1;
@@ -1541,6 +1552,8 @@ void test_code16(void)
     modify_ldt(1, &ldt, sizeof(ldt)); /* write ldt entry */
 
     /* call the first function */
+    // XXX: Temporarily disabled: Fails to compile on newer gcc, wait for upstream fix
+#if 0
     asm volatile ("lcall %1, %2"
                   : "=a" (res)
                   : "i" (MK_SEL(1)), "i" (&code16_func1): "memory", "cc");
@@ -1553,6 +1566,7 @@ void test_code16(void)
                   : "=a" (res)
                   : "i" (MK_SEL(1)), "i" (&code16_func3): "memory", "cc");
     printf("func3() = 0x%08x\n", res);
+#endif
 }
 #endif
 
@@ -1628,6 +1642,9 @@ void test_misc(void)
     }
 #endif
 #else
+
+    // XXX: Temporarily disabled: Fails to compile on newer gcc, wait for upstream fix
+#if 0
     asm volatile ("push %%cs ; call %1"
                   : "=a" (res)
                   : "m" (func_lret): "memory", "cc");
@@ -1637,6 +1654,7 @@ void test_misc(void)
                   : "=a" (res)
                   : "m" (func_iret): "memory", "cc");
     printf("func_iret=" FMTLX "\n", res);
+#endif
 #endif
 
 #if defined(__x86_64__)
@@ -1657,16 +1675,26 @@ void test_misc(void)
 #endif
 }
 
-uint8_t str_buffer[4096];
+void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes);
 
-#define TEST_STRING1(OP, size, DF, REP)\
+// 8 pages in every direction
+#define STR_BUFFER_SIZE (4096 * 16)
+uint8_t __attribute__((aligned (4096))) str_buffer[STR_BUFFER_SIZE];
+
+#define TEST_STRING1(OP, size_bytes, size, DF, REP, count, offset1, offset2)\
 {\
-    long esi, edi, eax, ecx, eflags;\
+    long esi, edi, eax, ecx, eflags, i;\
 \
-    esi = (long)(str_buffer + sizeof(str_buffer) / 2);\
-    edi = (long)(str_buffer + sizeof(str_buffer) / 2) + 16;\
+    for(i = 0; i < (count + 1) * size_bytes; i++)\
+        str_buffer[sizeof(str_buffer)/2 + offset1 + i] = i + 0x56;\
+        str_buffer[sizeof(str_buffer)/2 + offset1 - i - 1] = i + 0x97;\
+        str_buffer[sizeof(str_buffer)/2 + offset2 + i] = i + 0xa5;\
+        str_buffer[sizeof(str_buffer)/2 + offset2 - i - 1] = i + 0x3e;\
+\
+    esi = (long)(str_buffer + sizeof(str_buffer)/2 + offset1);\
+    edi = (long)(str_buffer + sizeof(str_buffer)/2 + offset2);\
     eax = i2l(0x12345678);\
-    ecx = 17;\
+    ecx = count;\
 \
     asm volatile ("push $0\n\t"\
                   "popf\n\t"\
@@ -1680,38 +1708,57 @@ uint8_t str_buffer[4096];
     printf("%-10s ESI=" FMTLX " EDI=" FMTLX " EAX=" FMTLX " ECX=" FMTLX " EFL=%04x\n",\
            REP #OP size, esi, edi, eax, ecx,\
            (int)(eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A)));\
+    byte_read(str_buffer, offset1, 16); \
+    if(count > 16) byte_read(str_buffer, offset1 + count * size_bytes - 16, 16);\
+    if(count > 16) byte_read(str_buffer, offset1 - count * size_bytes, 16);\
+    byte_read(str_buffer, offset2, 16); \
+    if(count > 16) byte_read(str_buffer, offset2 + count * size_bytes - 16, 16);\
+    if(count > 16) byte_read(str_buffer, offset2 - count * size_bytes, 16);\
 }
 
-#define TEST_STRING(OP, REP)\
-    TEST_STRING1(OP, "b", "", REP);\
-    TEST_STRING1(OP, "w", "", REP);\
-    TEST_STRING1(OP, "l", "", REP);\
-    X86_64_ONLY(TEST_STRING1(OP, "q", "", REP));\
-    TEST_STRING1(OP, "b", "std", REP);\
-    TEST_STRING1(OP, "w", "std", REP);\
-    TEST_STRING1(OP, "l", "std", REP);\
-    X86_64_ONLY(TEST_STRING1(OP, "q", "std", REP))
+#define TEST_STRING(OP, REP, count, offset1, offset2)\
+    TEST_STRING1(OP, 1, "b", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 2, "w", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 4, "l", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 1, "b", "std", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 2, "w", "std", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 4, "l", "std", REP, count, offset1, offset2);
 
 void test_string(void)
 {
-    int i;
-    for(i = 0;i < sizeof(str_buffer); i++)
-        str_buffer[i] = i + 0x56;
-   TEST_STRING(stos, "");
-   TEST_STRING(stos, "rep ");
-   TEST_STRING(lods, ""); /* to verify stos */
-   TEST_STRING(lods, "rep ");
-   TEST_STRING(movs, "");
-   TEST_STRING(movs, "rep ");
-   TEST_STRING(lods, ""); /* to verify stos */
+   TEST_STRING(stos, "", 17, 4096, 4096 + 64);
+   TEST_STRING(stos, "rep ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(lods, "", 17, 4096, 4096 + 64);
+   TEST_STRING(lods, "rep ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(movs, "", 17, 4096, 4096 + 64);
+   TEST_STRING(movs, "rep ", 17, 4096, 4096 + 64);
 
    /* XXX: better tests */
-   TEST_STRING(scas, "");
-   TEST_STRING(scas, "repz ");
-   TEST_STRING(scas, "repnz ");
-   TEST_STRING(cmps, "");
-   TEST_STRING(cmps, "repz ");
-   TEST_STRING(cmps, "repnz ");
+   TEST_STRING(scas, "", 17, 4096, 4096 + 64);
+   TEST_STRING(scas, "repz ", 17, 4096, 4096 + 64);
+   TEST_STRING(scas, "repnz ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(cmps, "", 17, 4096, 4096 + 64);
+   TEST_STRING(cmps, "repz ", 17, 4096, 4096 + 64);
+   TEST_STRING(cmps, "repnz ", 17, 4096, 4096 + 64);
+
+   int counts[] = { 0, 1, 2, 3, 4095, 4096, 4097, 2047, 2048, 2049, 1023, 1024, 1025 };
+   int offsets[] = { 0, 1, 2, 3, 4095, 4096, 4097, 2047, 2048, 2049, 1023, 1024, 1025 };
+
+   for(int count = 0; count < sizeof(counts) / sizeof(int); count++)
+   {
+       for(int offset1 = 0; offset1 < sizeof(offsets) / sizeof(int); offset1++)
+       {
+           TEST_STRING(stos, "rep ", counts[count], offsets[offset1], offsets[offset1]);
+
+           for(int offset2 = 0; offset2 < sizeof(offsets) / sizeof(int); offset2++)
+           {
+               TEST_STRING(movs, "rep ", counts[count], offsets[offset1], offsets[offset2]);
+           }
+       }
+   }
 }
 
 #ifdef TEST_VM86
@@ -1870,7 +1917,7 @@ int tab[2];
 
 void sig_handler(int sig, siginfo_t *info, void *puc)
 {
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
 
     printf("si_signo=%d si_errno=%d si_code=%d",
            info->si_signo, info->si_errno, info->si_code);
@@ -1981,7 +2028,7 @@ void test_exceptions(void)
     printf("lock nop exception:\n");
     if (setjmp(jmp_env) == 0) {
         /* now execute an invalid instruction */
-        asm volatile(".byte 0xf0, 0x90"); /* lock nop */
+        asm volatile(".byte 0xf0, 0x90");
     }
 #endif
 
@@ -2064,12 +2111,11 @@ void test_exceptions(void)
 #endif
 }
 
-
 #if !defined(__x86_64__)
 /* specific precise single step test */
 void sig_trap_handler(int sig, siginfo_t *info, void *puc)
 {
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
     printf("EIP=" FMTLX "\n", (long)uc->uc_mcontext.gregs[REG_EIP]);
 }
 
@@ -2264,8 +2310,8 @@ static void test_enter(void)
 
 #ifdef TEST_SSE
 
-typedef int __m64 __attribute__ ((__mode__ (__V2SI__)));
-typedef float __m128 __attribute__ ((__mode__(__V4SF__)));
+typedef int __m64 __attribute__ ((vector_size(8)));
+typedef float __m128 __attribute__ ((vector_size(16)));
 
 typedef union {
     double d[2];
@@ -2282,8 +2328,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     { 0x0f76255a085427f8, 0xc233e9e8c4c9439a },
 };
 
-#define SSE_OP(op) {}
-/*                                              \
+#define SSE_OP(op)\
 {\
     asm volatile (#op " %2, %0" : "=x" (r.dq) : "0" (a.dq), "x" (b.dq));\
     printf("%-9s: a=" FMT64X "" FMT64X " b=" FMT64X "" FMT64X " r=" FMT64X "" FMT64X "\n",\
@@ -2292,13 +2337,11 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            b.q[1], b.q[0],\
            r.q[1], r.q[0]);\
 }
-*/
 
-#define SSE_OP2(op) {}
-/*                                              \
+#define SSE_OP2(op)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     b.q[0] = test_values[2*i+1][0];\
@@ -2306,12 +2349,11 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     SSE_OP(op);\
     }\
 }
-*/
 
 #define MMX_OP2(op)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = test_values[2*i+1][0];\
     asm volatile (#op " %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0]));\
@@ -2325,10 +2367,10 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 }
 
 
-#define SHUF_OP(op, ib)\
+#define SHUF_OP_MMX(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = test_values[2*i+1][0];\
     asm volatile (#op " $" #ib ", %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0])); \
@@ -2341,7 +2383,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-/*
 #define SHUF_OP(op, ib)\
 {\
     a.q[0] = test_values[0][0];\
@@ -2356,12 +2397,11 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            ib,\
            r.q[1], r.q[0]);\
 }
-*/
 
 #define PSHUF_OP(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " $" #ib ", %1, %0" : "=x" (r.dq) : "x" (a.dq));\
@@ -2374,10 +2414,10 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 }
 
 // To use mm0-7 registers instead of xmm registers
-#define SHIFT_IM(op, ib)                        \
+#define SHIFT_IM_MMX(op, ib)                        \
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     asm volatile (#op " $" #ib ", %0" : "=y" (r.q[0]) : "0" (a.q[0]));\
     printf("%-9s: a=" FMT64X " ib=%02x r=" FMT64X "\n",\
@@ -2388,11 +2428,10 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-/*
 #define SHIFT_IM(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " $" #ib ", %0" : "=x" (r.dq) : "0" (a.dq));\
@@ -2403,32 +2442,34 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
-*/
 
-// To use mm0-7 registers instead of xmm registers
-#define SHIFT_OP(op, ib)\
+#define SHIFT_REG_MMX(op, ib)\
 {\
     int i;\
-    SHIFT_IM(op, ib);\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = ib;\
     asm volatile (#op " %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0]));\
-    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02x r=" FMT64X "\n",\
+    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02llx r=" FMT64X "\n",\
            #op,\
            a.q[0],\
            b.q[0],\
-           ib,\
+           (uint64_t)ib,\
            r.q[0]);\
     }\
 }
 
-/*
-#define SHIFT_OP(op, ib)\
+// To use mm0-7 registers instead of xmm registers
+#define SHIFT_OP_MMX(op, ib)\
+{\
+    SHIFT_IM_MMX(op, ib);\
+    SHIFT_REG_MMX(op, ib);\
+}
+
+#define SHIFT_REG(op, ib)\
 {\
     int i;\
-    SHIFT_IM(op, ib);\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     b.q[0] = ib;\
@@ -2441,12 +2482,19 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
-*/
+
+
+#define SHIFT_OP(op, ib)\
+{\
+    SHIFT_OP_MMX(op, ib)\
+    SHIFT_IM(op, ib);\
+    SHIFT_REG(op, ib);\
+}
 
 #define MOVMSK(op)\
 {\
     int i, reg;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " %1, %0" : "=r" (reg) : "x" (a.dq));\
@@ -2467,28 +2515,26 @@ SSE_OP(a ## sd);
 
 #define SSE_COMI(op, field)\
 {\
-    unsigned int eflags;\
+    unsigned long eflags;\
     XMMReg a, b;\
     a.field[0] = a1;\
     b.field[0] = b1;\
     asm volatile (#op " %2, %1\n"\
         "pushf\n"\
         "pop %0\n"\
-        : "=m" (eflags)\
+        : "=rm" (eflags)\
         : "x" (a.dq), "x" (b.dq));\
-    printf("%-9s: a=%f b=%f cc=%04x\n",\
+    printf("%-9s: a=%f b=%f cc=%04lx\n",\
            #op, a1, b1,\
            eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A));\
 }
 
 void test_sse_comi(double a1, double b1)
 {
-    /*
     SSE_COMI(ucomiss, s);
     SSE_COMI(ucomisd, d);
     SSE_COMI(comiss, s);
     SSE_COMI(comisd, d);
-    */
 }
 
 #define CVT_OP_XMM(op)\
@@ -2578,6 +2624,7 @@ void test_fxsave(void)
 #if defined(__x86_64__)
         "movdqa %2, %%xmm15\n"
 #endif
+        " fninit\n"
         " fld1\n"
         " fld1\n"
         " fldz\n"
@@ -2631,41 +2678,40 @@ void test_sse(void)
     MMX_OP2(pcmpeqw);
     MMX_OP2(pcmpeqd);
 
-    // MMX_OP2(paddq);
+    MMX_OP2(paddq);
     MMX_OP2(pmullw);
     MMX_OP2(psubusb);
     MMX_OP2(psubusw);
-    // MMX_OP2(pminub);
+    MMX_OP2(pminub);
     MMX_OP2(pand);
     MMX_OP2(paddusb);
     MMX_OP2(paddusw);
-    // MMX_OP2(pmaxub);
+    MMX_OP2(pmaxub);
     MMX_OP2(pandn);
 
-    // MMX_OP2(pmulhuw);
+    MMX_OP2(pmulhuw);
     MMX_OP2(pmulhw);
 
     MMX_OP2(psubsb);
     MMX_OP2(psubsw);
-    // MMX_OP2(pminsw);
+    MMX_OP2(pminsw);
     MMX_OP2(por);
     MMX_OP2(paddsb);
     MMX_OP2(paddsw);
-    // MMX_OP2(pmaxsw);
+    MMX_OP2(pmaxsw);
     MMX_OP2(pxor);
-    // MMX_OP2(pmuludq);
+    MMX_OP2(pmuludq);
     MMX_OP2(pmaddwd);
-    // MMX_OP2(psadbw);
+    MMX_OP2(psadbw);
     MMX_OP2(psubb);
     MMX_OP2(psubw);
     MMX_OP2(psubd);
-    // MMX_OP2(psubq);
+    MMX_OP2(psubq);
     MMX_OP2(paddb);
     MMX_OP2(paddw);
     MMX_OP2(psrlw);
     MMX_OP2(paddd);
 
-    /*
     MMX_OP2(pavgb);
     MMX_OP2(pavgw);
 
@@ -2735,53 +2781,100 @@ void test_sse(void)
 
     SHUF_OP(shufps, 0x78);
     SHUF_OP(shufpd, 0x02);
-    */
-    SHUF_OP(pshufw, 0x78);
-    SHUF_OP(pshufw, 0x02);
-    /*
+    SHUF_OP_MMX(pshufw, 0x78);
+    SHUF_OP_MMX(pshufw, 0x02);
 
     PSHUF_OP(pshufd, 0x78);
     PSHUF_OP(pshuflw, 0x78);
     PSHUF_OP(pshufhw, 0x78);
-    */
 
+    SHIFT_OP(psrlw, 0);
     SHIFT_OP(psrlw, 7);
+    SHIFT_OP(psrlw, 15);
     SHIFT_OP(psrlw, 16);
+    SHIFT_REG(psrlw, 0x100000000);
+    SHIFT_REG_MMX(psrlw, 0x100000000);
+
+    SHIFT_OP(psraw, 0);
     SHIFT_OP(psraw, 7);
+    SHIFT_OP(psraw, 15);
     SHIFT_OP(psraw, 16);
+    SHIFT_REG(psraw, 0x100000000);
+    SHIFT_REG_MMX(psraw, 0x100000000);
+
+    SHIFT_OP(psllw, 0);
     SHIFT_OP(psllw, 7);
+    SHIFT_OP(psllw, 15);
     SHIFT_OP(psllw, 16);
+    SHIFT_REG(psllw, 0x100000000);
+    SHIFT_REG_MMX(psllw, 0x100000000);
 
+    SHIFT_OP(psrld, 0);
     SHIFT_OP(psrld, 7);
+    SHIFT_OP(psrld, 31);
     SHIFT_OP(psrld, 32);
-    SHIFT_OP(psrad, 7);
-    SHIFT_OP(psrad, 32);
-    SHIFT_OP(pslld, 7);
-    SHIFT_OP(pslld, 32);
+    SHIFT_REG(psrld, 0x100000000);
+    SHIFT_REG_MMX(psrld, 0x100000000);
 
+    SHIFT_OP(psrad, 0);
+    SHIFT_OP(psrad, 7);
+    SHIFT_OP(psrad, 31);
+    SHIFT_OP(psrad, 32);
+    SHIFT_REG(psrad, 0x100000000);
+    SHIFT_REG_MMX(psrad, 0x100000000);
+
+    SHIFT_OP(pslld, 0);
+    SHIFT_OP(pslld, 7);
+    SHIFT_OP(pslld, 31);
+    SHIFT_OP(pslld, 32);
+    SHIFT_REG(pslld, 0x100000000);
+    SHIFT_REG_MMX(pslld, 0x100000000);
+
+    SHIFT_OP(psrlq, 0);
     SHIFT_OP(psrlq, 7);
     SHIFT_OP(psrlq, 32);
+    SHIFT_OP(psrlq, 63);
+    SHIFT_OP(psrlq, 64);
+    SHIFT_REG(psrlq, 0x100000000);
+    SHIFT_REG_MMX(psrlq, 0x100000000);
+
+    SHIFT_OP(psllq, 0);
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
+    SHIFT_OP(psllq, 63);
+    SHIFT_OP(psllq, 64);
+    SHIFT_REG(psllq, 0x100000000);
+    SHIFT_REG_MMX(psllq, 0x100000000);
 
-    /*
-    SHIFT_IM(psrldq, 16);
+    // byte-wise shifts
+    SHIFT_IM(psrldq, 0);
+    SHIFT_IM(psrldq, 1);
     SHIFT_IM(psrldq, 7);
-    SHIFT_IM(pslldq, 16);
+    SHIFT_IM(psrldq, 8);
+    SHIFT_IM(psrldq, 11);
+    SHIFT_IM(psrldq, 15);
+    SHIFT_IM(psrldq, 16);
+
+    SHIFT_IM(pslldq, 0);
+    SHIFT_IM(pslldq, 1);
     SHIFT_IM(pslldq, 7);
+    SHIFT_IM(pslldq, 8);
+    SHIFT_IM(pslldq, 11);
+    SHIFT_IM(pslldq, 15);
+    SHIFT_IM(pslldq, 16);
 
     MOVMSK(movmskps);
     MOVMSK(movmskpd);
-    */
 
     /* FPU specific ops */
-    /*
     {
         uint32_t mxcsr;
         asm volatile("stmxcsr %0" : "=m" (mxcsr));
         printf("mxcsr=%08x\n", mxcsr & 0x1f80);
         asm volatile("ldmxcsr %0" : : "m" (mxcsr));
     }
+
+    asm volatile ("emms");
 
     test_sse_comi(2, -1);
     test_sse_comi(2, 2);
@@ -2844,10 +2937,16 @@ void test_sse(void)
         SSE_OPD(cmpnle);
         SSE_OPD(cmpord);
     }
-    */
+
+    // approximating instructions: Pick some nice round values
+    a.s[0] = 1024.0;
+    a.s[1] = 1.0 / 256.0;
+    b.s[0] = 1024.0;
+    b.s[1] = 1.0 / 256.0;
+    SSE_OPS(rsqrt);
+    SSE_OPS(rcp);
 
     /* float to float/int */
-    /*
     a.s[0] = 2.7;
     a.s[1] = 3.4;
     a.s[2] = 4;
@@ -2871,16 +2970,12 @@ void test_sse(void)
     CVT_OP_XMM2REG(cvttsd2si);
     CVT_OP_XMM(cvtpd2dq);
     CVT_OP_XMM(cvttpd2dq);
-    */
 
     /* sse/mmx moves */
-    /*
     CVT_OP_XMM2MMX(movdq2q);
     CVT_OP_MMX2XMM(movq2dq);
-    */
 
     /* int to float */
-    /*
     a.l[0] = -6;
     a.l[1] = 2;
     a.l[2] = 100;
@@ -2891,10 +2986,9 @@ void test_sse(void)
     CVT_OP_REG2XMM(cvtsi2sd);
     CVT_OP_XMM(cvtdq2ps);
     CVT_OP_XMM(cvtdq2pd);
-    */
     /* XXX: test PNI insns */
 #if 0
-    // SSE_OP2(movshdup);
+    SSE_OP2(movshdup);
 #endif
     asm volatile ("emms");
 }
@@ -2951,12 +3045,378 @@ void test_conv(void)
 #endif
 }
 
+
+void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes)
+{
+    uint64_t v1 = 0;
+    for(size_t i = 0; i < num_bytes && i < 8; i++)
+    {
+        if(setjmp(jmp_env) == 0)
+        {
+            v1 |= (uint64_t)buffer[offset + i] << (i * 8);
+        }
+    }
+
+    uint64_t v2 = 0;
+    for(size_t i = 8; i < num_bytes; i++)
+    {
+        if(setjmp(jmp_env) == 0)
+        {
+            v2 |= (uint64_t)buffer[offset + i] << ((i - 8) * 8);
+        }
+
+    }
+
+    if(num_bytes > 8)
+    {
+        printf("%-12s: offset=%x value=%08llx%08llx\n", "byte_r", offset, v2, v1);
+    }
+    else
+    {
+        printf("%-12s: offset=%x value=%llx\n", "byte_r", offset, v1);
+    }
+}
+
+uint64_t seq_counter = 0x8070605040302010;
+uint64_t get_seq64()
+{
+    seq_counter += 0x0101010101010101;
+    return seq_counter;
+}
+
+void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
+{
+    uint64_t v = get_seq64();
+    if(num_bytes < 8) v &= (1LL << (num_bytes * 8)) - 1;
+
+    for(size_t i = 0; i < num_bytes; i++)
+    {
+        if(setjmp(jmp_env) == 0)
+        {
+            target[offset + i] = (v >> (i * 8 % 64)) & 0xFF;
+        }
+    }
+
+    if(num_bytes > 8)
+    {
+        printf("%-12s: offset=%x value=%08llx%08llx\n", "byte_w", offset, v, v);
+    }
+    else
+    {
+        printf("%-12s: offset=%x value=%llx\n", "byte_w", offset, v);
+    }
+}
+
+#define GENERATE_CHUNK_READ(INSTR, BITS, CONSTR)                    \
+    void chunk_read ## BITS(uint8_t* addr, uint16_t offset)         \
+    {                                                               \
+        uint ## BITS ## _t chunk = 0;                               \
+        if(setjmp(jmp_env) == 0) {                                  \
+            asm volatile(INSTR " %1, %0" :                          \
+                         "=" CONSTR (chunk) :                       \
+                         "m" (*(addr + offset)), "0" (chunk));      \
+        }                                                           \
+        printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
+               "chunk" #BITS "_r",                                  \
+               offset,                                              \
+               chunk);                                              \
+    }
+
+#define GENERATE_CHUNK_WRITE(INSTR, BITS, CONSTR)                   \
+    void chunk_write ## BITS(uint8_t* addr, uint16_t offset)        \
+    {                                                               \
+        uint ## BITS ## _t chunk = get_seq64();                     \
+        if(setjmp(jmp_env) == 0) {                                  \
+            asm volatile(INSTR " %0, %1" :                          \
+                         "=" CONSTR (chunk) :                       \
+                         "m" (*(addr + offset)), "0" (chunk));      \
+        }                                                           \
+        printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
+               "chunk" #BITS "_w",                                  \
+               offset,                                              \
+               chunk);                                              \
+    }
+
+#define GENERATE_CHUNK_FNS(INSTR, BITS, CONSTR)                   \
+    GENERATE_CHUNK_READ(INSTR, BITS, CONSTR)                      \
+    GENERATE_CHUNK_WRITE(INSTR, BITS, CONSTR)
+
+#define TEST_CHUNK_READ(BITS, ADDR, OFFSET)         \
+    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);      \
+    chunk_read ## BITS(ADDR, OFFSET);
+
+#define TEST_CHUNK_WRITE(BITS, ADDR, OFFSET)        \
+    if(!skip_write_test) {                          \
+        byte_write_seq(ADDR, OFFSET, (BITS) >> 3);  \
+        mask_pf_address = 1;                        \
+        chunk_write ## BITS(ADDR, OFFSET);          \
+        mask_pf_address = 0;                        \
+        byte_read(ADDR, OFFSET, (BITS) >> 3);       \
+    }
+
+#define TEST_CHUNK_READ_WRITE(BITS, ADDR, OFFSET)         \
+    if(BITS <= 32) {                                      \
+        byte_write_seq(ADDR, OFFSET, (BITS) >> 3);        \
+        mask_pf_error = 1;                                \
+        mask_pf_address = 1;                              \
+        chunk_read_write ## BITS(ADDR, OFFSET);           \
+        mask_pf_address = 0;                              \
+        mask_pf_error = 0;                                \
+        byte_read(ADDR, OFFSET, (BITS) >> 3);             \
+    }
+
+// Based on BITS, we calculate the offset where cross-page reads/writes would begin
+#define TEST_CROSS_PAGE(BITS, ADDR)                     \
+    for(size_t offset = (PAGE_SIZE + 1 - (BITS >> 3));  \
+        offset < PAGE_SIZE; offset++)                   \
+    {                                                   \
+        TEST_CHUNK_READ(BITS, ADDR, offset);            \
+        TEST_CHUNK_WRITE(BITS, ADDR, offset);           \
+        TEST_CHUNK_READ_WRITE(BITS, ADDR, offset);      \
+    }
+
+GENERATE_CHUNK_FNS("movw", 16, "r");
+GENERATE_CHUNK_FNS("mov", 32, "r");
+
+#ifdef TEST_SSE
+GENERATE_CHUNK_FNS("movq", 64, "y");
+
+void chunk_read_write16(uint8_t* addr, uint16_t offset)
+{
+    uint16_t chunk = get_seq64();
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("addw %0, %1" :
+                     "=r" (chunk) :
+                     "m" (*(addr + offset)), "0" (chunk));
+    }
+    printf("%-12s: offset=%x value=%" PRIx16 "\n",
+           "chunk16_rw",
+           offset,
+           chunk);
+}
+
+void chunk_read_write32(uint8_t* addr, uint16_t offset)
+{
+    uint32_t chunk = get_seq64();
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("add %0, %1" :
+                     "=r" (chunk) :
+                     "m" (*(addr + offset)), "0" (chunk));
+    }
+    printf("%-12s: offset=%x value=%" PRIx32 "\n",
+           "chunk32_rw",
+           offset,
+           chunk);
+}
+
+// No 64 or 128-bit read-write x86 instructions support a memory address as the destination
+void chunk_read_write64(uint8_t* addr, uint16_t offset)
+{
+    UNUSED(addr);
+    UNUSED(offset);
+}
+
+void chunk_read_write128(uint8_t* addr, uint16_t offset)
+{
+    UNUSED(addr);
+    UNUSED(offset);
+}
+
+
+void chunk_read128(uint8_t* addr, uint16_t offset)
+{
+    XMMReg chunk;
+    chunk.q[0] = chunk.q[1] = 0.0;
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("movdqu %1, %0" :
+                     "=x" (chunk.dq) :
+                     "m" (*(addr + offset)), "0" (chunk.dq)
+            );
+    }
+    printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
+           "chunk128_r",
+           offset,
+           chunk.q[1],
+           chunk.q[0]);
+}
+
+void chunk_write128(uint8_t* addr, uint16_t offset)
+{
+    XMMReg chunk;
+    chunk.q[0] = get_seq64();
+    chunk.q[1] = get_seq64();
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("movdqu %0, %1" :
+                     "=x" (chunk.dq) :
+                     "m" (*(addr + offset)), "0" (chunk.dq)
+            );
+    }
+    printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
+           "chunk128_w",
+           offset,
+           chunk.q[1],
+           chunk.q[0]);
+}
+#endif
+
+void* const TEST_ADDRESS = (void *)0x70000000;
+uint8_t* first_page = NULL;
+uint8_t* second_page = NULL;
+uint8_t* throwaway_page = NULL;
+
+void setup_pages(int first_page_type, int second_page_type)
+{
+    const int prot = PROT_READ | PROT_WRITE;
+
+    if(first_page_type)
+    {
+        // mmap 2 consecutive pages
+        first_page = mmap(TEST_ADDRESS, 2 * PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        assert(first_page == TEST_ADDRESS);
+    }
+    else
+    {
+        first_page = NULL;
+    }
+
+    // throwaway mmap to reduce likelhood of first_page and second_page mapping to consecutive physical frames
+    throwaway_page = mmap(NULL, PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(throwaway_page != MAP_FAILED && throwaway_page != TEST_ADDRESS && throwaway_page != TEST_ADDRESS + PAGE_SIZE);
+
+    if(second_page_type)
+    {
+        second_page = mmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        assert(second_page == TEST_ADDRESS + PAGE_SIZE);
+    }
+    else
+    {
+        munmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE);
+        second_page = NULL;
+    }
+
+    // Trigger page-faults causing virtual pages to be allocated to physical frames
+    if(first_page != NULL) memset(first_page, 0x42, PAGE_SIZE);
+    memset(throwaway_page, 0x42, PAGE_SIZE);
+    if(second_page != NULL) memset(second_page, 0x42, PAGE_SIZE);
+
+    if(first_page_type == PROT_READ)
+    {
+        mprotect(first_page, PAGE_SIZE, PROT_READ);
+    }
+
+    if(second_page_type == PROT_READ)
+    {
+        mprotect(second_page, PAGE_SIZE, PROT_READ);
+    }
+}
+
+void free_pages()
+{
+    munmap(TEST_ADDRESS, PAGE_SIZE);
+    munmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE);
+    munmap(throwaway_page, PAGE_SIZE);
+}
+
+// XXX: Workarounds for qemu bugs: Can be removed when running tests in kvm mode
+int mask_pf_error = 0;
+int mask_pf_address = 0;
+int skip_write_test = 0;
+
+void pagefault_handler(int sig, siginfo_t *info, void *puc)
+{
+    ucontext_t *uc = puc;
+
+    printf("page fault: addr=0x%08lx err=0x%lx eip=0x%08lx\n",
+            (unsigned long)info->si_addr & (mask_pf_address ? ~0xfff : ~0),
+            (long)uc->uc_mcontext.gregs[REG_ERR] & (mask_pf_error ? ~2 : ~0),
+            (long)uc->uc_mcontext.gregs[REG_EIP]);
+
+    assert(info->si_addr >= TEST_ADDRESS && info->si_addr < TEST_ADDRESS + 2 * PAGE_SIZE);
+
+    longjmp(jmp_env, 1);
+}
+
+void test_page_boundaries()
+{
+    const int prot_rw = PROT_READ | PROT_WRITE;
+    const int prot_ronly = PROT_READ;
+
+    setup_pages(prot_rw, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    struct sigaction act;
+    act.sa_sigaction = pagefault_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO | SA_NODEFER;
+    sigaction(SIGSEGV, &act, NULL);
+
+    free_pages();
+    printf("With non-present page faults in first page:\n");
+    setup_pages(0, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    free_pages();
+    printf("With read-only page faults in first page:\n");
+    setup_pages(prot_ronly, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    free_pages();
+    printf("With non-present page faults in second page:\n");
+    setup_pages(prot_rw, 0);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    skip_write_test = 1;
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+    skip_write_test = 0;
+#endif
+
+    free_pages();
+    printf("With read-only page faults in second page:\n");
+    setup_pages(prot_rw, prot_ronly);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    skip_write_test = 1;
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+    skip_write_test = 0;
+#endif
+}
+
 extern void *__start_initcall;
 extern void *__stop_initcall;
 
-
 int main(int argc, char **argv)
 {
+    // Uncomment to disable buffering, useful for debugging segfaults
+    //setvbuf(stdout, NULL, _IONBF, 0);
+
     void **ptr;
     void (*func)(void);
 
@@ -2986,7 +3446,9 @@ int main(int argc, char **argv)
     test_vm86();
 #endif
 #if !defined(__x86_64__)
+    test_exceptions();
     test_self_modifying_code();
+    //test_single_step();
 #endif
     test_enter();
     test_conv();
@@ -2994,7 +3456,6 @@ int main(int argc, char **argv)
     test_sse();
     test_fxsave();
 #endif
-    test_exceptions();
-    //test_single_step();
+    test_page_boundaries();
     return 0;
 }

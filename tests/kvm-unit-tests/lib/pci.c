@@ -49,7 +49,7 @@ bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 	assert(dev);
 
 	if (!dev->msi_offset) {
-		printf("MSI: dev 0x%x does not support MSI.\n", dev->bdf);
+		printf("MSI: dev %#x does not support MSI.\n", dev->bdf);
 		return false;
 	}
 
@@ -112,6 +112,8 @@ uint32_t pci_bar_mask(uint32_t bar)
 
 uint32_t pci_bar_get(struct pci_dev *dev, int bar_num)
 {
+	ASSERT_BAR_NUM(bar_num);
+
 	return pci_config_readl(dev->bdf, PCI_BASE_ADDRESS_0 +
 				bar_num * 4);
 }
@@ -134,6 +136,8 @@ static phys_addr_t __pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 
 phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 {
+	ASSERT_BAR_NUM(bar_num);
+
 	return dev->resource[bar_num];
 }
 
@@ -141,11 +145,19 @@ void pci_bar_set_addr(struct pci_dev *dev, int bar_num, phys_addr_t addr)
 {
 	int off = PCI_BASE_ADDRESS_0 + bar_num * 4;
 
+	assert(addr != INVALID_PHYS_ADDR);
+	assert(dev->resource[bar_num] != INVALID_PHYS_ADDR);
+
+	ASSERT_BAR_NUM(bar_num);
+	if (pci_bar_is64(dev, bar_num))
+		ASSERT_BAR_NUM(bar_num + 1);
+	else
+		assert((addr >> 32) == 0);
+
 	pci_config_writel(dev->bdf, off, (uint32_t)addr);
 	dev->resource[bar_num] = addr;
 
 	if (pci_bar_is64(dev, bar_num)) {
-		assert(bar_num + 1 < PCI_BAR_NUM);
 		pci_config_writel(dev->bdf, off + 4, (uint32_t)(addr >> 32));
 		dev->resource[bar_num + 1] = dev->resource[bar_num];
 	}
@@ -283,10 +295,10 @@ static void pci_cap_print(struct pci_dev *dev, int cap_offset, int cap_id)
 		break;
 	}
 	default:
-		printf("\tcapability 0x%02x ", cap_id);
+		printf("\tcapability %#04x ", cap_id);
 		break;
 	}
-	printf("at offset 0x%02x\n", cap_offset);
+	printf("at offset %#04x\n", cap_offset);
 }
 
 void pci_dev_print(struct pci_dev *dev)

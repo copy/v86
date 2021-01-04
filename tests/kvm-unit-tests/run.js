@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-var V86 = require("../../build/libv86.js").V86;
+process.on("unhandledRejection", exn => { throw exn; });
+
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+
+var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 var fs = require("fs");
 
 function readfile(path)
@@ -29,11 +33,12 @@ var emulator = new V86({
     multiboot: new Loader(process.argv[2]),
     autostart: true,
     memory_size: 64 * 1024 * 1024,
+    log_level: 0,
 });
 
 emulator.bus.register("emulator-started", function()
 {
-    emulator.v86.cpu.io.register_write_consecutive(0xF4, this,
+    emulator.v86.cpu.io.register_write_consecutive(0xF4, {},
         function(value)
         {
             console.log("Test exited with code " + value);

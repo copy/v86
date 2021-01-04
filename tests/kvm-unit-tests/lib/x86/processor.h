@@ -30,13 +30,18 @@
 #define X86_CR4_SMAP   0x00200000
 #define X86_CR4_PKE    0x00400000
 
-#define X86_EFLAGS_CF  0x00000001
-#define X86_EFLAGS_PF  0x00000004
-#define X86_EFLAGS_AF  0x00000010
-#define X86_EFLAGS_ZF  0x00000040
-#define X86_EFLAGS_SF  0x00000080
-#define X86_EFLAGS_OF  0x00000800
-#define X86_EFLAGS_AC  0x00040000
+#define X86_EFLAGS_CF    0x00000001
+#define X86_EFLAGS_FIXED 0x00000002
+#define X86_EFLAGS_PF    0x00000004
+#define X86_EFLAGS_AF    0x00000010
+#define X86_EFLAGS_ZF    0x00000040
+#define X86_EFLAGS_SF    0x00000080
+#define X86_EFLAGS_TF    0x00000100
+#define X86_EFLAGS_IF    0x00000200
+#define X86_EFLAGS_DF    0x00000400
+#define X86_EFLAGS_OF    0x00000800
+#define X86_EFLAGS_NT    0x00004000
+#define X86_EFLAGS_AC    0x00040000
 
 #define X86_IA32_EFER          0xc0000080
 #define X86_EFER_LMA           (1UL << 8)
@@ -428,6 +433,11 @@ static inline void write_pkru(u32 pkru)
 
     asm volatile(".byte 0x0f,0x01,0xef\n\t"
         : : "a" (eax), "c" (ecx), "d" (edx));
+}
+
+static inline bool is_canonical(u64 addr)
+{
+	return (s64)(addr << 16) >> 16 == addr;
 }
 
 #endif

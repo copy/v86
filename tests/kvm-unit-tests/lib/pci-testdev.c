@@ -131,8 +131,8 @@ static bool pci_testdev_one(struct pci_test_dev_hdr *test,
 	return (int)count == nr_writes;
 }
 
-void pci_testdev_print(struct pci_test_dev_hdr *test,
-		       struct pci_testdev_ops *ops)
+static void pci_testdev_print(struct pci_test_dev_hdr *test,
+			      struct pci_testdev_ops *ops)
 {
 	bool io = (ops == &pci_testdev_io_ops);
 	int i;

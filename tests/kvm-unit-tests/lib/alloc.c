@@ -25,7 +25,7 @@ void phys_alloc_show(void)
 	int i;
 
 	spin_lock(&lock);
-	printf("phys_alloc minimum alignment: 0x%" PRIx64 "\n",
+	printf("phys_alloc minimum alignment: %#" PRIx64 "\n",
 		(u64)align_min);
 	for (i = 0; i < nr_regions; ++i)
 		printf("%016" PRIx64 "-%016" PRIx64 " [%s]\n",
@@ -75,10 +75,10 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 	size += addr - base;
 
 	if ((top_safe - base) < size) {
-		printf("phys_alloc: requested=0x%" PRIx64
-		       " (align=0x%" PRIx64 "), "
-		       "need=0x%" PRIx64 ", but free=0x%" PRIx64 ". "
-		       "top=0x%" PRIx64 ", top_safe=0x%" PRIx64 "\n",
+		printf("phys_alloc: requested=%#" PRIx64
+		       " (align=%#" PRIx64 "), "
+		       "need=%#" PRIx64 ", but free=%#" PRIx64 ". "
+		       "top=%#" PRIx64 ", top_safe=%#" PRIx64 "\n",
 		       (u64)size_orig, (u64)align, (u64)size, top_safe - base,
 		       (u64)top, top_safe);
 		spin_unlock(&lock);

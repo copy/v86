@@ -9,7 +9,29 @@ align 4
     dd FLAGS
     dd CHECKSUM
 
+section .bss
+    resb 128*1024   ; 0x20000
+
+stack_top:
+
 section .text
 
 _start:
 main:
+        xor eax, eax
+        xor ecx, ecx
+        xor edx, edx
+        xor ebx, ebx
+        ; xor esp, esp
+        mov esp, stack_top
+        xor ebp, ebp
+        xor esi, esi
+        xor edi, edi
+
+        ; make space for memory operations
+        %rep 8
+        push 0
+        %endrep
+
+        push 0
+        popf

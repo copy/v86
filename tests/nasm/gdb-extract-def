@@ -1,0 +1,157 @@
+# Invocation: gdb -x gdb-extract-def
+
+# extract-state /path/to/foo.bin /path/to/foo.fixture
+define extract-state
+  file $arg0
+
+  set $STACK_TOP=0x120000
+
+  # Disables logging to stdout - only log to file
+  set logging redirect on
+
+  set logging file $arg1
+  set logging overwrite on
+  set logging on
+
+  run
+
+  printf "---BEGIN JSON---\n"
+  printf "[\n"
+  printf "    %d,\n", $eax
+  printf "    %d,\n", $ecx
+  printf "    %d,\n", $edx
+  printf "    %d,\n", $ebx
+  printf "    %d,\n", $esp
+  printf "    %d,\n", $ebp
+  printf "    %d,\n", $esi
+  printf "    %d,\n", $edi
+  printf "    \n"
+
+  printf "    %d,\n", $eip
+  printf "    \n"
+
+  # For fpu registers, check the tag register first. If the tag index is
+  # invalid and you try to access to corresponding register, gdb exits with an
+  # error.
+  if ($ftag & (3 << 0)) != (2 << 0)
+    printf "    %.100e,\n", $st0
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 2)) != (2 << 2)
+    printf "    %.100e,\n", $st1
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 4)) != (2 << 4)
+    printf "    %.100e,\n", $st2
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 6)) != (2 << 6)
+    printf "    %.100e,\n", $st3
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 8)) != (2 << 8)
+    printf "    %.100e,\n", $st4
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 10)) != (2 << 10)
+    printf "    %.100e,\n", $st5
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 12)) != (2 << 12)
+    printf "    %.100e,\n", $st6
+  else
+    printf "    \"invalid\",\n"
+  end
+  if ($ftag & (3 << 14)) != (2 << 14)
+    printf "    %.100e,\n", $st7
+  else
+    printf "    \"invalid\",\n"
+  end
+  printf "    \n"
+
+  printf "    %d,\n", $mm0.v2_int32[0]
+  printf "    %d,\n", $mm0.v2_int32[1]
+  printf "    %d,\n", $mm1.v2_int32[0]
+  printf "    %d,\n", $mm1.v2_int32[1]
+  printf "    %d,\n", $mm2.v2_int32[0]
+  printf "    %d,\n", $mm2.v2_int32[1]
+  printf "    %d,\n", $mm3.v2_int32[0]
+  printf "    %d,\n", $mm3.v2_int32[1]
+  printf "    %d,\n", $mm4.v2_int32[0]
+  printf "    %d,\n", $mm4.v2_int32[1]
+  printf "    %d,\n", $mm5.v2_int32[0]
+  printf "    %d,\n", $mm5.v2_int32[1]
+  printf "    %d,\n", $mm6.v2_int32[0]
+  printf "    %d,\n", $mm6.v2_int32[1]
+  printf "    %d,\n", $mm7.v2_int32[0]
+  printf "    %d,\n", $mm7.v2_int32[1]
+  printf "    \n"
+
+  printf "    %d,\n", $xmm0.v4_int32[0]
+  printf "    %d,\n", $xmm0.v4_int32[1]
+  printf "    %d,\n", $xmm0.v4_int32[2]
+  printf "    %d,\n", $xmm0.v4_int32[3]
+  printf "    %d,\n", $xmm1.v4_int32[0]
+  printf "    %d,\n", $xmm1.v4_int32[1]
+  printf "    %d,\n", $xmm1.v4_int32[2]
+  printf "    %d,\n", $xmm1.v4_int32[3]
+  printf "    %d,\n", $xmm2.v4_int32[0]
+  printf "    %d,\n", $xmm2.v4_int32[1]
+  printf "    %d,\n", $xmm2.v4_int32[2]
+  printf "    %d,\n", $xmm2.v4_int32[3]
+  printf "    %d,\n", $xmm3.v4_int32[0]
+  printf "    %d,\n", $xmm3.v4_int32[1]
+  printf "    %d,\n", $xmm3.v4_int32[2]
+  printf "    %d,\n", $xmm3.v4_int32[3]
+  printf "    %d,\n", $xmm4.v4_int32[0]
+  printf "    %d,\n", $xmm4.v4_int32[1]
+  printf "    %d,\n", $xmm4.v4_int32[2]
+  printf "    %d,\n", $xmm4.v4_int32[3]
+  printf "    %d,\n", $xmm5.v4_int32[0]
+  printf "    %d,\n", $xmm5.v4_int32[1]
+  printf "    %d,\n", $xmm5.v4_int32[2]
+  printf "    %d,\n", $xmm5.v4_int32[3]
+  printf "    %d,\n", $xmm6.v4_int32[0]
+  printf "    %d,\n", $xmm6.v4_int32[1]
+  printf "    %d,\n", $xmm6.v4_int32[2]
+  printf "    %d,\n", $xmm6.v4_int32[3]
+  printf "    %d,\n", $xmm7.v4_int32[0]
+  printf "    %d,\n", $xmm7.v4_int32[1]
+  printf "    %d,\n", $xmm7.v4_int32[2]
+  printf "    %d,\n", $xmm7.v4_int32[3]
+  printf "    \n"
+
+  printf "    %d,\n", *(int*)($STACK_TOP-64)
+  printf "    %d,\n", *(int*)($STACK_TOP-60)
+  printf "    %d,\n", *(int*)($STACK_TOP-56)
+  printf "    %d,\n", *(int*)($STACK_TOP-52)
+  printf "    %d,\n", *(int*)($STACK_TOP-48)
+  printf "    %d,\n", *(int*)($STACK_TOP-44)
+  printf "    %d,\n", *(int*)($STACK_TOP-40)
+  printf "    %d,\n", *(int*)($STACK_TOP-36)
+  printf "    %d,\n", *(int*)($STACK_TOP-32)
+  printf "    %d,\n", *(int*)($STACK_TOP-28)
+  printf "    %d,\n", *(int*)($STACK_TOP-24)
+  printf "    %d,\n", *(int*)($STACK_TOP-20)
+  printf "    %d,\n", *(int*)($STACK_TOP-16)
+  printf "    %d,\n", *(int*)($STACK_TOP-12)
+  printf "    %d,\n", *(int*)($STACK_TOP-8)
+  printf "    %d,\n", *(int*)($STACK_TOP-4)
+  printf "    \n"
+
+  printf "    %d,\n", $eflags
+  printf "    %d,\n", $ftag
+  printf "    %d\n", $fstat
+
+  printf "]\n"
+  printf "---END JSON---\n"
+
+  set logging off
+
+end

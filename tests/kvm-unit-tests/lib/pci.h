@@ -18,6 +18,9 @@ enum {
 #define PCI_BAR_NUM                     6
 #define PCI_DEVFN_MAX                   256
 
+#define ASSERT_BAR_NUM(bar_num)	\
+	do { assert(bar_num >= 0 && bar_num < PCI_BAR_NUM); } while (0)
+
 #define PCI_BDF_GET_DEVFN(x)            ((x) & 0xff)
 #define PCI_BDF_GET_BUS(x)              (((x) >> 8) & 0xff)
 

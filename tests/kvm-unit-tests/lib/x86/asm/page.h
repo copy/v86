@@ -31,6 +31,8 @@
 #define PT64_NX_MASK		(1ull << 63)
 #define PT_ADDR_MASK		GENMASK_ULL(51, 12)
 
+#define PT_AD_MASK              (PT_ACCESSED_MASK | PT_DIRTY_MASK)
+
 #ifdef __x86_64__
 #define	PAGE_LEVEL	4
 #define	PGDIR_WIDTH	9

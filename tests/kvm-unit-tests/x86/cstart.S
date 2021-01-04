@@ -34,14 +34,14 @@ gdt32:
 	.quad 0x00cf9b000000ffff // flat 32-bit code segment
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
 	.quad 0x00cf1b000000ffff // flat 32-bit code segment, not present
-	.quad 0x00cffb000000ffff // 64-bit code segment (user)
-	.quad 0x00cff3000000ffff // 64-bit data segment (user)
+	.quad 0                  // TSS for task gates
+	.quad 0x008f9b000000FFFF // 16-bit code segment
+	.quad 0x008f93000000FFFF // 16-bit data segment
+	.quad 0x00cffb000000ffff // 32-bit code segment (user)
+	.quad 0x00cff3000000ffff // 32-bit data segment (user)
+	.quad 0                  // unused
 
-	.quad 0			 // 10 spare selectors
-	.quad 0
-	.quad 0
-	.quad 0
-	.quad 0
+	.quad 0			 // 6 spare selectors
 	.quad 0
 	.quad 0
 	.quad 0

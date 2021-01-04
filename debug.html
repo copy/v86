@@ -1,7 +1,7 @@
 <!doctype html>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
-<title>Virtual x86</title>
+<title>Virtual x86 (debug)</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 
 <script src="loader.js"></script>
@@ -11,22 +11,63 @@
     <div id="boot_options">
         <h4>Debugger</h4>
         <input type="button" value="ReactOS" id="start_reactos">
-        <input type="button" value="Windows ME" id="start_windowsme">
+        <input type="button" value="ReactOS (boot)" id="start_reactos-boot">
+        <input type="button" value="Hiren's Boot CD" id="start_hirens">
+        <br>
+
+        <input type="button" value="MS-DOS" id="start_msdos">
+        <input type="button" value="FreeDOS" id="start_freedos">
+        <input type="button" value="FreeDOS with FreeGEM" id="start_freegem">
+        <input type="button" value="FreeDOS CD with games" id="start_fdgame">
+        <input type="button" value="FreeDOS with QBasic" id="start_qbasic">
+        <br>
+
+        <input type="button" value="Windows 1.01" id="start_windows1">
+        <input type="button" value="Windows 3.0" id="start_windows30">
+        <input type="button" value="Windows 3.1" id="start_windows31">
         <input type="button" value="Windows 95" id="start_windows95">
-        <input type="button" value="FreeBSD" id="start_freebsd">
+        <input type="button" value="Windows 95 (boot)" id="start_windows95-boot">
+        <br>
         <input type="button" value="Windows 98" id="start_windows98">
+        <input type="button" value="Windows 98 (boot)" id="start_windows98-boot">
+        <input type="button" value="Windows 2000" id="start_windows2000">
+        <input type="button" value="Windows Me" id="start_windowsme">
+        <input type="button" value="Windows Me (2)" id="start_windowsme2">
+        <br>
+
+        <input type="button" value="Linux 2.6 (Buildroot)" id="start_linux26">
+        <input type="button" value="Linux 3.18 (Buildroot)" id="start_linux3">
+        <input type="button" value="Linux 4.16 (Buildroot)" id="start_linux4">
+        <input type="button" value="Linux 5.6 (Buildroot)" id="start_buildroot">
+        <input type="button" value="Tiny Core" id="start_tinycore">
+        <input type="button" value="OpenWRT" id="start_openwrt">
+        <br>
         <input type="button" value="Arch Linux" id="start_archlinux">
+        <input type="button" value="Arch Linux (boot)" id="start_archlinux-9p-cool">
+        <input type="button" value="Damn Small Linux" id="start_dsl">
+        <br>
+
+        <input type="button" value="FreeBSD" id="start_freebsd">
+        <input type="button" value="FreeBSD (boot)" id="start_freebsd-boot">
+        <input type="button" value="OpenBSD" id="start_openbsd">
+        <input type="button" value="NetBSD" id="start_netbsd">
+        <br>
+
+        <input type="button" value="Haiku" id="start_haiku">
+        <input type="button" value="Haiku (boot)" id="start_haiku-boot">
+        <input type="button" value="Minix" id="start_minix">
+        <input type="button" value="SerenityOS" id="start_serenity">
+        <input type="button" value="QNX" id="start_qnx">
+        <input type="button" value="9front" id="start_9front">
+        <input type="button" value="Plan 9" id="start_plan9">
+        <br>
+
         <input type="button" value="Oberon" id="start_oberon">
         <input type="button" value="KolibriOS" id="start_kolibrios">
-        <input type="button" value="Linux 2.6" id="start_linux26">
-        <input type="button" value="Linux 3.18" id="start_linux3">
-        <input type="button" value="Windows 1.01" id="start_windows1">
-        <input type="button" value="FreeDOS" id="start_freedos">
-        <input type="button" value="MS-DOS" id="start_msdos">
-        <input type="button" value="OpenBSD" id="start_openbsd">
         <input type="button" value="Solar OS" id="start_solos">
         <input type="button" value="Bootchess" id="start_bootchess">
-        <input type="button" value="Test" id="start_test">
+        <input type="button" value="HelenOS" id="start_helenos">
+        <input type="button" value="MikeOS" id="start_mikeos">
         <br>
 
         <!--
@@ -39,25 +80,19 @@
 
         <table>
             <tr>
-                <td width="250">CD image</td>
+                <td width="350"><label for="cd_image">CD image</label></td>
                 <td>
-                    <!--
-                    <select>
-                        <option>None</option>
-                        <option>Local file</option>
-                        <option>External Server</option>
-                    </select>-->
                     <input type="file" id="cd_image">
                 </td>
             </tr>
 
             <tr>
-                <td>Floppy disk image</td>
+                <td><label for="floppy_image">Floppy disk image</label></td>
                 <td> <input type="file" id="floppy_image"><br></td>
             </tr>
 
             <tr>
-                <td>Master Hard drive disk image</td>
+                <td><label for="hda_image">Hard drive disk image</label></td>
                 <td><input type="file" id="hda_image"><br></td>
             </tr>
 
@@ -67,25 +102,32 @@
             </tr>
 
             <tr>
-                <td>Multiboot kernel image</td>
+                <td><label for="multiboot_image">Multiboot kernel image (experimental)</label></td>
                 <td><input type="file" id="multiboot_image"><br></td>
             </tr>
 
             <tr>
-                <td colspan="2"><hr></td>
+                <td colspan="2"><small>Disk images are not uploaded to the server</small><hr></td>
             </tr>
 
             <tr>
-                <td>Memory size</td>
+                <td><label for="memory_size">Memory size</label></td>
                 <td>
                     <input id="memory_size" type="number" value="128" min="16" max="2048" step="16"> MB<br>
                 </td>
             </tr>
 
             <tr>
-                <td>Video Memory size</td>
+                <td><label for="video_memory_size">Video Memory size</label></td>
                 <td>
                     <input id="video_memory_size" type="number" value="8" min="1" max="128" step="1"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="networking_proxy">Networking proxy (leave blank to disable)</label></td>
+                <td>
+                    <input id="networking_proxy" type="text" value="wss://relay.widgetry.org/">
                 </td>
             </tr>
 
@@ -93,15 +135,26 @@
                 <td colspan="2"><hr></td>
             </tr>
 
-            <!--
             <tr>
-                <td>Execution Cap </td>
-                <td> <input type="number" value="100" min="5" max="100" step="5"> %<br> </td>
+                <td><label for="disable_audio">Disable audio</label></td>
+                <td>
+                    <input id="disable_audio" type="checkbox"><br>
+                </td>
             </tr>
-            -->
 
             <tr>
-                <td>Boot order</td>
+                <td><label for="enable_acpi">Enable ACPI (experimental)</label></td>
+                <td>
+                    <input id="enable_acpi" type="checkbox"><br>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="boot_order">Boot order</label></td>
                 <td>
                     <select id="boot_order">
                         <option value="213">CD / Floppy / Hard Disk</option>
@@ -117,25 +170,11 @@
 
         <br>
         <button id="start_emulation">Start Emulation</button>
-        <!--
-        <br>
-        <div id="setup_error">Error: Video size must be at least over 9000</div>
-        -->
-        <!--
-        <br>
-        <br>
-        Link to this configuration: <a href="" id="config_link">http://copy.sh/v86/?a=b&amp;c=d</a>
-        -->
         <br>
         <br>
     </div>
 
     <div id="runtime_options" style="display: none">
-        <input type="button" value="Step" id="step">
-        <input type="button" value="Run until" id="run_until">
-        <input type="button" value="Debugger" id="debugger">
-        <input type="button" value="Dump Instructions" id="dump_instructions">
-        <input type="button" value="Dump Instructions to file" id="dump_instructions_file">
         <input type="button" value="Dump Registers" id="dump_regs">
         <input type="button" value="Dump GDT/LDT" id="dump_gdt">
         <input type="button" value="Dump IDT" id="dump_idt">
@@ -155,7 +194,7 @@
         <input type="button" value="Get cdrom image" id="get_cdrom_image">
         <input type="button" value="Save State" id="save_state">
         <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
-        <input type="button" value="Memory Dump (raw)" id="memory_dump">
+        <input type="button" value="Memory Dump" id="memory_dump">
         <input type="button" value="Disable mouse" id="toggle_mouse">
         <input type="button" value="Lock mouse" id="lock_mouse">
         <input type="button" value="Go fullscreen" id="fullscreen">
@@ -180,10 +219,7 @@
     </div>
 
     <pre style="margin: 0" id="log_levels"></pre>
-    <pre style="margin: 3px 0px 0px 0px" id="debug_infos"></pre>
-
     <pre style="display: none" id="loading"></pre>
-
     <br>
 </div>
 
@@ -196,10 +232,11 @@
     </div>
 </div>
 
+
 <div id="runtime_infos" style="display: none">
     Running: <span id="running_time">0s</span> <br>
-    Speed: <span id="speed">0</span>kIPS<br>
-    Avg speed: <span id="avg_speed">0</span>kIPS<br>
+    Speed: <span id="speed">0</span> mIPS<br>
+    Avg speed: <span id="avg_speed">0</span> mIPS<br>
     <br>
     <div id="info_storage" style="display: none">
         <b>IDE device (HDA or CDROM)</b><br>
@@ -214,7 +251,7 @@
         <b>9p Filesystem</b><br>
         Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
         Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
-        Last file: <span id="info_filesystem_last_file" style="word-wrap: break-word"></span><br>
+        <div style="white-space: nowrap; overflow-x: hidden">Last file: <span id="info_filesystem_last_file"></span></div>
         Status: <span id="info_filesystem_status"></span><br>
         <br>
     </div>
@@ -230,7 +267,6 @@
     BPP: <span id="info_bpp">-</span><br>
     <br>
     Mouse: <span id="info_mouse_enabled">No</span><br>
-    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
 </div>
 
 <div id="filesystem_panel" style="display: none">
@@ -248,9 +284,11 @@
 <div id="debug_panel" style="display: none">
 </div>
 
-<br style="clear:both"><br>
+<br style="clear: both"><br>
 
-<textarea readonly id="log" style="display:none"></textarea>
+<textarea readonly id="log" style="display: none"></textarea>
 
-<textarea spellcheck="false" cols="40" rows="12" id="serial" style="display:none">
+<textarea spellcheck="false" cols="40" rows="12" id="serial" style="display: none">
 </textarea>
+
+<div id="terminal"></div>

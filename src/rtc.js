@@ -61,6 +61,9 @@ function RTC(cpu)
     // used for periodic interrupt
     this.next_interrupt = 0;
 
+    // next alarm interrupt
+    this.next_interrupt_alarm = 0;
+
     this.periodic_interrupt = false;
 
     // corresponds to default value for cmos_a
@@ -91,7 +94,7 @@ RTC.prototype.get_state = function()
     state[2] = this.rtc_time;
     state[3] = this.last_update;
     state[4] = this.next_interrupt;
-
+    state[5] = this.next_interrupt_alarm;
     state[6] = this.periodic_interrupt;
     state[7] = this.periodic_interrupt_time;
     state[8] = this.cmos_a;
@@ -109,7 +112,7 @@ RTC.prototype.set_state = function(state)
     this.rtc_time = state[2];
     this.last_update = state[3];
     this.next_interrupt = state[4];
-
+    this.next_interrupt_alarm = state[5];
     this.periodic_interrupt = state[6];
     this.periodic_interrupt_time = state[7];
     this.cmos_a = state[8];
@@ -134,6 +137,13 @@ RTC.prototype.timer = function(time, legacy_mode)
 
         return Math.max(0, time - this.next_interrupt);
     }
+    else if(this.next_interrupt_alarm && this.next_interrupt_alarm < time)
+    {
+        this.cpu.device_raise_irq(8);
+        this.cmos_c |= 1 << 5 | 1 << 7;
+
+        this.next_interrupt_alarm = 0;
+    }
 
     return 100;
 };
@@ -156,6 +166,18 @@ RTC.prototype.bcd_pack = function(n)
     return result;
 };
 
+RTC.prototype.bcd_unpack = function(n)
+{
+    const low = n & 0xF;
+    const high = n >> 4 & 0xF;
+
+    dbg_assert(n < 0x100);
+    dbg_assert(low < 10);
+    dbg_assert(high < 10);
+
+    return low + 10 * high;
+};
+
 RTC.prototype.encode_time = function(t)
 {
     if(this.cmos_b & 4)
@@ -166,6 +188,19 @@ RTC.prototype.encode_time = function(t)
     else
     {
         return this.bcd_pack(t);
+    }
+};
+
+RTC.prototype.decode_time = function(t)
+{
+    if(this.cmos_b & 4)
+    {
+        // binary mode
+        return t;
+    }
+    else
+    {
+        return this.bcd_unpack(t);
     }
 };
 
@@ -248,11 +283,38 @@ RTC.prototype.cmos_port_write = function(data_byte)
                 this.next_interrupt = Date.now();
             }
 
-            if(this.cmos_b & 0x20) dbg_log("Unimplemented: alarm interrupt", LOG_RTC);
+            if(this.cmos_b & 0x20)
+            {
+                const now = new Date();
+
+                const seconds = this.decode_time(this.cmos_data[CMOS_RTC_SECONDS_ALARM]);
+                const minutes = this.decode_time(this.cmos_data[CMOS_RTC_MINUTES_ALARM]);
+                const hours = this.decode_time(this.cmos_data[CMOS_RTC_HOURS_ALARM]);
+
+                const alarm_date = new Date(Date.UTC(
+                    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+                    hours, minutes, seconds
+                ));
+
+                const ms_from_now = alarm_date - now;
+                dbg_log("RTC alarm scheduled for " + alarm_date +
+                        " hh:mm:ss=" + hours + ":" + minutes + ":" + seconds +
+                        " ms_from_now=" + ms_from_now, LOG_RTC);
+
+                this.next_interrupt_alarm = +alarm_date;
+            }
+
             if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt", LOG_RTC);
 
             dbg_log("cmos b=" + h(this.cmos_b, 2), LOG_RTC);
             break;
+
+        case CMOS_RTC_SECONDS_ALARM:
+        case CMOS_RTC_MINUTES_ALARM:
+        case CMOS_RTC_HOURS_ALARM:
+            this.cmos_write(this.cmos_index, data_byte);
+            break;
+
         default:
             dbg_log("cmos write index " + h(this.cmos_index) + ": " + h(data_byte), LOG_RTC);
     }

@@ -1,1 +1,1 @@
-include $(TEST_DIR)/Makefile.$(ARCH)
+include $(SRCDIR)/$(TEST_DIR)/Makefile.$(ARCH)

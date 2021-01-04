@@ -5,12 +5,18 @@
 #include "processor.h"
 #include "bitops.h"
 #include "asm/page.h"
+#include "asm/io.h"
 
 struct vmcs {
 	u32 revision_id; /* vmcs revision identifier */
 	u32 abort; /* VMX-abort indicator */
 	/* VMCS data */
 	char data[0];
+};
+
+struct invvpid_operand {
+	u64 vpid;
+	u64 gla;
 };
 
 struct regs {
@@ -54,6 +60,8 @@ struct vmx_test {
 	int (*entry_failure_handler)(struct vmentry_failure *failure);
 	struct vmcs *vmcs;
 	int exits;
+	/* Alternative test interface. */
+	void (*v2)(void);
 };
 
 union vmx_basic {
@@ -108,6 +116,7 @@ enum Encoding {
 	GUEST_SEL_LDTR		= 0x080cul,
 	GUEST_SEL_TR		= 0x080eul,
 	GUEST_INT_STATUS	= 0x0810ul,
+	GUEST_PML_INDEX         = 0x0812ul,
 
 	/* 16-Bit Host State Fields */
 	HOST_SEL_ES		= 0x0c00ul,
@@ -132,6 +141,9 @@ enum Encoding {
 	APIC_ACCS_ADDR		= 0x2014ul,
 	EPTP			= 0x201aul,
 	EPTP_HI			= 0x201bul,
+	PMLADDR                 = 0x200eul,
+	PMLADDR_HI              = 0x200ful,
+
 
 	/* 64-Bit Readonly Data Field */
 	INFO_PHYS_ADDR		= 0x2400ul,
@@ -317,7 +329,15 @@ enum Reason {
 	VMX_PREEMPT		= 52,
 	VMX_INVVPID		= 53,
 	VMX_WBINVD		= 54,
-	VMX_XSETBV		= 55
+	VMX_XSETBV		= 55,
+	VMX_APIC_WRITE		= 56,
+	VMX_RDRAND		= 57,
+	VMX_INVPCID		= 58,
+	VMX_VMFUNC		= 59,
+	VMX_RDSEED		= 61,
+	VMX_PML_FULL		= 62,
+	VMX_XSAVES		= 63,
+	VMX_XRSTORS		= 64,
 };
 
 enum Ctrl_exi {
@@ -375,6 +395,7 @@ enum Ctrl1 {
 	CPU_URG			= 1ul << 7,
 	CPU_WBINVD		= 1ul << 6,
 	CPU_RDRAND		= 1ul << 11,
+	CPU_PML                 = 1ul << 17,
 };
 
 enum Intr_type {
@@ -395,6 +416,37 @@ enum Intr_type {
 #define INTR_INFO_VALID_MASK            0x80000000      /* 31 */
 
 #define INTR_INFO_INTR_TYPE_SHIFT       8
+
+/*
+ * VM-instruction error numbers
+ */
+enum vm_instruction_error_number {
+	VMXERR_VMCALL_IN_VMX_ROOT_OPERATION = 1,
+	VMXERR_VMCLEAR_INVALID_ADDRESS = 2,
+	VMXERR_VMCLEAR_VMXON_POINTER = 3,
+	VMXERR_VMLAUNCH_NONCLEAR_VMCS = 4,
+	VMXERR_VMRESUME_NONLAUNCHED_VMCS = 5,
+	VMXERR_VMRESUME_AFTER_VMXOFF = 6,
+	VMXERR_ENTRY_INVALID_CONTROL_FIELD = 7,
+	VMXERR_ENTRY_INVALID_HOST_STATE_FIELD = 8,
+	VMXERR_VMPTRLD_INVALID_ADDRESS = 9,
+	VMXERR_VMPTRLD_VMXON_POINTER = 10,
+	VMXERR_VMPTRLD_INCORRECT_VMCS_REVISION_ID = 11,
+	VMXERR_UNSUPPORTED_VMCS_COMPONENT = 12,
+	VMXERR_VMWRITE_READ_ONLY_VMCS_COMPONENT = 13,
+	VMXERR_VMXON_IN_VMX_ROOT_OPERATION = 15,
+	VMXERR_ENTRY_INVALID_EXECUTIVE_VMCS_POINTER = 16,
+	VMXERR_ENTRY_NONLAUNCHED_EXECUTIVE_VMCS = 17,
+	VMXERR_ENTRY_EXECUTIVE_VMCS_POINTER_NOT_VMXON_POINTER = 18,
+	VMXERR_VMCALL_NONCLEAR_VMCS = 19,
+	VMXERR_VMCALL_INVALID_VM_EXIT_CONTROL_FIELDS = 20,
+	VMXERR_VMCALL_INCORRECT_MSEG_REVISION_ID = 22,
+	VMXERR_VMXOFF_UNDER_DUAL_MONITOR_TREATMENT_OF_SMIS_AND_SMM = 23,
+	VMXERR_VMCALL_INVALID_SMM_MONITOR_FEATURES = 24,
+	VMXERR_ENTRY_INVALID_VM_EXECUTION_CONTROL_FIELDS_IN_EXECUTIVE_VMCS = 25,
+	VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS = 26,
+	VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID = 28,
+};
 
 #define SAVE_GPR				\
 	"xchg %rax, regs\n\t"			\
@@ -451,10 +503,14 @@ enum Intr_type {
 #define VMX_TEST_VMEXIT		1
 #define VMX_TEST_EXIT		2
 #define VMX_TEST_RESUME		3
+#define VMX_TEST_VMABORT	4
+#define VMX_TEST_VMSKIP		5
 
 #define HYPERCALL_BIT		(1ul << 12)
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
+#define HYPERCALL_VMABORT	0x2
+#define HYPERCALL_VMSKIP	0x3
 
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
 #define EPTP_AD_FLAG		(1ul << 6)
@@ -487,8 +543,10 @@ enum Intr_type {
 #define EPT_CAP_INVEPT_ALL	(1ull << 26)
 #define EPT_CAP_AD_FLAG		(1ull << 21)
 #define VPID_CAP_INVVPID	(1ull << 32)
-#define VPID_CAP_INVVPID_SINGLE	(1ull << 41)
-#define VPID_CAP_INVVPID_ALL	(1ull << 42)
+#define VPID_CAP_INVVPID_ADDR   (1ull << 40)
+#define VPID_CAP_INVVPID_CXTGLB (1ull << 41)
+#define VPID_CAP_INVVPID_ALL    (1ull << 42)
+#define VPID_CAP_INVVPID_CXTLOC	(1ull << 43)
 
 #define PAGE_SIZE_2M		(512 * PAGE_SIZE)
 #define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
@@ -506,19 +564,23 @@ enum Intr_type {
 #define EPT_VLT_PERM_RD		(1 << 3)
 #define EPT_VLT_PERM_WR		(1 << 4)
 #define EPT_VLT_PERM_EX		(1 << 5)
+#define EPT_VLT_PERMS		(EPT_VLT_PERM_RD | EPT_VLT_PERM_WR | \
+				 EPT_VLT_PERM_EX)
 #define EPT_VLT_LADDR_VLD	(1 << 7)
 #define EPT_VLT_PADDR		(1 << 8)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul
 #define MAGIC_VAL_3		0xfffffffful
+#define MAGIC_VAL_4		0xdeadbeeful
 
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
 
-#define INVVPID_SINGLE_ADDRESS	0
-#define INVVPID_SINGLE		1
+#define INVVPID_ADDR            0
+#define INVVPID_CONTEXT_GLOBAL	1
 #define INVVPID_ALL		2
+#define INVVPID_CONTEXT_LOCAL	3
 
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
@@ -532,9 +594,40 @@ extern union vmx_ctrl_msr ctrl_exit_rev;
 extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
+extern u64 *vmxon_region;
+
 void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
 void vmx_inc_test_stage(void);
+
+static int vmx_on(void)
+{
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
+		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
+	return ret;
+}
+
+static int vmx_off(void)
+{
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	asm volatile("push %1; popf; vmxoff; setbe %0\n\t"
+		     : "=q"(ret) : "q" (rflags) : "cc");
+	return ret;
+}
+
+static inline int make_vmcs_current(struct vmcs *vmcs)
+{
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	asm volatile ("push %1; popf; vmptrld %2; setbe %0"
+		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
+	return ret;
+}
 
 static inline int vmcs_clear(struct vmcs *vmcs)
 {
@@ -553,6 +646,25 @@ static inline u64 vmcs_read(enum Encoding enc)
 	return val;
 }
 
+static inline int vmcs_read_checking(enum Encoding enc, u64 *value)
+{
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+	u64 encoding = enc;
+	u64 val;
+
+	asm volatile ("shl $8, %%rax;"
+		      "sahf;"
+		      "vmread %[encoding], %[val];"
+		      "lahf;"
+		      "shr $8, %%rax"
+		      : /* output */ [val]"=rm"(val), "+a"(rflags)
+		      : /* input */ [encoding]"r"(encoding)
+		      : /* clobber */ "cc");
+
+	*value = val;
+	return rflags & (X86_EFLAGS_CF | X86_EFLAGS_ZF);
+}
+
 static inline int vmcs_write(enum Encoding enc, u64 val)
 {
 	bool ret;
@@ -564,10 +676,12 @@ static inline int vmcs_write(enum Encoding enc, u64 val)
 static inline int vmcs_save(struct vmcs **vmcs)
 {
 	bool ret;
+	unsigned long pa;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	asm volatile ("push %1; popf; vmptrst %2; setbe %0"
-		      : "=q" (ret) : "q" (rflags), "m" (*vmcs) : "cc");
+	asm volatile ("push %2; popf; vmptrst %1; setbe %0"
+		      : "=q" (ret), "=m" (pa) : "r" (rflags) : "cc");
+	*vmcs = (pa == -1ull) ? NULL : phys_to_virt(pa);
 	return ret;
 }
 
@@ -584,21 +698,18 @@ static inline bool invept(unsigned long type, u64 eptp)
 	return ret;
 }
 
-static inline bool invvpid(unsigned long type, u16 vpid, u64 gva)
+static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 {
 	bool ret;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	struct {
-		u64 vpid : 16;
-		u64 rsvd : 48;
-		u64 gva;
-	} operand = {vpid, 0, gva};
+	struct invvpid_operand operand = {vpid, gla};
 	asm volatile("push %1; popf; invvpid %2, %3; setbe %0"
 		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
 	return ret;
 }
 
+const char *exit_reason_description(u64 reason);
 void print_vmexit_info();
 void print_vmentry_failure_info(struct vmentry_failure *failure);
 void ept_sync(int type, u64 eptp);
@@ -614,9 +725,83 @@ void install_ept(unsigned long *pml4, unsigned long phys,
 		unsigned long guest_addr, u64 perm);
 void setup_ept_range(unsigned long *pml4, unsigned long start,
 		     unsigned long len, int map_1g, int map_2m, u64 perm);
-unsigned long get_ept_pte(unsigned long *pml4,
-		unsigned long guest_addr, int level);
-int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+bool get_ept_pte(unsigned long *pml4, unsigned long guest_addr, int level,
+		unsigned long *pte);
+void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 		int level, u64 pte_val);
+void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr, int expected_gpa_ad,
+		  int expected_pt_ad);
+void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr);
+
+bool ept_2m_supported(void);
+bool ept_1g_supported(void);
+bool ept_huge_pages_supported(int level);
+bool ept_execute_only_supported(void);
+bool ept_ad_bits_supported(void);
+
+void enter_guest(void);
+
+typedef void (*test_guest_func)(void);
+typedef void (*test_teardown_func)(void *data);
+void test_set_guest(test_guest_func func);
+void test_add_teardown(test_teardown_func func, void *data);
+void test_skip(const char *msg);
+
+void __abort_test(void);
+
+#define TEST_ASSERT(cond) \
+do { \
+	if (!(cond)) { \
+		report("%s:%d: Assertion failed: %s", 0, \
+		       __FILE__, __LINE__, #cond); \
+		dump_stack(); \
+		__abort_test(); \
+	} \
+	report_pass(); \
+} while (0)
+
+#define TEST_ASSERT_MSG(cond, fmt, args...) \
+do { \
+	if (!(cond)) { \
+		report("%s:%d: Assertion failed: %s\n" fmt, 0, \
+		       __FILE__, __LINE__, #cond, ##args); \
+		dump_stack(); \
+		__abort_test(); \
+	} \
+	report_pass(); \
+} while (0)
+
+#define __TEST_EQ(a, b, a_str, b_str, assertion, fmt, args...) \
+do { \
+	typeof(a) _a = a; \
+	typeof(b) _b = b; \
+	if (_a != _b) { \
+		char _bin_a[BINSTR_SZ]; \
+		char _bin_b[BINSTR_SZ]; \
+		binstr(_a, _bin_a); \
+		binstr(_b, _bin_b); \
+		report("%s:%d: %s failed: (%s) == (%s)\n" \
+		       "\tLHS: %#018lx - %s - %lu\n" \
+		       "\tRHS: %#018lx - %s - %lu%s" fmt, 0, \
+		       __FILE__, __LINE__, \
+		       assertion ? "Assertion" : "Expectation", a_str, b_str, \
+		       (unsigned long) _a, _bin_a, (unsigned long) _a, \
+		       (unsigned long) _b, _bin_b, (unsigned long) _b, \
+		       fmt[0] == '\0' ? "" : "\n", ## args); \
+		dump_stack(); \
+		if (assertion) \
+			__abort_test(); \
+	} \
+	report_pass(); \
+} while (0)
+
+#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, "")
+#define TEST_ASSERT_EQ_MSG(a, b, fmt, args...) \
+	__TEST_EQ(a, b, #a, #b, 1, fmt, ## args)
+#define TEST_EXPECT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 0, "")
+#define TEST_EXPECT_EQ_MSG(a, b, fmt, args...) \
+	__TEST_EQ(a, b, #a, #b, 0, fmt, ## args)
 
 #endif
