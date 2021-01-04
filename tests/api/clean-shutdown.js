@@ -14,7 +14,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 const config = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux3.iso", async: true },
+    cdrom: { url: __dirname + "/../../images/linux4.iso", async: true },
     network_relay_url: "<UNUSED>",
     autostart: true,
     memory_size: 32 * 1024 * 1024,

@@ -12,7 +12,7 @@ var fs = require("fs");
 const config_async_cdrom = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux3.iso", async: true },
+    cdrom: { url: __dirname + "/../../images/linux4.iso", async: true },
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
@@ -22,7 +22,7 @@ const config_async_cdrom = {
 const config_sync_cdrom = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux3.iso", async: false },
+    cdrom: { url: __dirname + "/../../images/linux4.iso", async: false },
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
