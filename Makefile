@@ -296,12 +296,8 @@ devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
 rust-test: $(RUST_FILES)
-	# RUSTFLAGS="-D warnings"
-	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo +nightly test -- --nocapture
+	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo +nightly test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
-
-rust-no-warnings:
-	RUSTFLAGS="-D warnings" make all all-debug
 
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test

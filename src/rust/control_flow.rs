@@ -116,7 +116,7 @@ impl WasmStructure {
                     }
                 },
             }
-        };
+        }
 
         let mut result = HashSet::new();
         handle(self, edges, &mut result);
