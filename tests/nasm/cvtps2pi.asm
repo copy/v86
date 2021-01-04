@@ -17,7 +17,7 @@ mxcsr:
 %macro  setRoundingBits 1
 	stmxcsr		[mxcsr]
 	mov			eax, [mxcsr]
-	and 		ah, 0x9F
+	and 		ax, 0x9F80
 	or			ah, %1
 	mov			[mxcsr], eax
 	ldmxcsr		[mxcsr]

@@ -16,7 +16,7 @@ myaddress:
 
 	cvtpi2ps	xmm0, [quad0low]
 	; fill xmm1 in order to ensure that the high quadword remain inchanged
-	pshufd		xmm1, xmm0, 0    
+	pshufd		xmm1, xmm0, 0
 	cvtpi2ps	xmm1, [quad1low]
 
 %include "footer.inc"
