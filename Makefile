@@ -207,7 +207,6 @@ build/zstddeclib.o: lib/zstd/zstddeclib.c
 	mkdir -p build
 	clang -c -Wall \
 	    --target=wasm32 -O3 -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
-	    -I /usr/include \
 	    -o build/zstddeclib.o \
 	    lib/zstd/zstddeclib.c
 

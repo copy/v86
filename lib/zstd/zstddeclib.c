@@ -1,5 +1,12 @@
 #define malloc v86_malloc
 #define free v86_free
+#include <stddef.h>
+void *calloc(size_t nmemb, size_t size);
+void *memset(void *s, int c, size_t n);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+void *malloc(size_t size);
+void free(void *ptr);
 /**
  * \file zstddeclib.c
  * Single-file Zstandard decompressor.
@@ -225,14 +232,12 @@ extern "C" {
 *  Dependencies
 ******************************************/
 #include <stddef.h>     /* size_t, ptrdiff_t */
-#include <string.h>     /* memcpy */
 
 
 /*-****************************************
 *  Compiler specifics
 ******************************************/
 #if defined(_MSC_VER)   /* Visual Studio */
-#   include <stdlib.h>  /* _byteswap_ulong */
 #   include <intrin.h>  /* _byteswap_* */
 #endif
 #if defined(__GNUC__)
@@ -2781,8 +2786,6 @@ const char* ERR_getErrorString(ERR_enum code)
 /* **************************************************************
 *  Includes
 ****************************************************************/
-#include <stdlib.h>     /* malloc, free, qsort */
-#include <string.h>     /* memcpy, memset */
 /**** skipping file: bitstream.h ****/
 /**** skipping file: compiler.h ****/
 #define FSE_STATIC_LINKING_ONLY
@@ -3066,8 +3069,6 @@ size_t FSE_decompress(void* dst, size_t dstCapacity, const void* cSrc, size_t cS
 /*-*************************************
 *  Dependencies
 ***************************************/
-#include <stdlib.h>      /* malloc, calloc, free */
-#include <string.h>      /* memset */
 /**** skipping file: error_private.h ****/
 /**** start inlining zstd_internal.h ****/
 /*
@@ -5556,12 +5557,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 ***************************************/
 /* Modify the local functions below should you wish to use some other memory routines */
 /* for malloc(), free() */
-#include <stdlib.h>
 #include <stddef.h>     /* size_t */
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void  XXH_free  (void* p)  { free(p); }
 /* for memcpy() */
-#include <string.h>
 static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcpy(dest,src,size); }
 
 #ifndef XXH_STATIC_LINKING_ONLY
@@ -6844,7 +6843,6 @@ void ZSTD_free(void* ptr, ZSTD_customMem customMem)
 /* **************************************************************
 *  Dependencies
 ****************************************************************/
-#include <string.h>     /* memcpy, memset */
 /**** skipping file: ../common/compiler.h ****/
 /**** skipping file: ../common/bitstream.h ****/
 /**** skipping file: ../common/fse.h ****/
@@ -8093,7 +8091,6 @@ size_t HUF_decompress4X_hufOnly_wksp_bmi2(HUF_DTable* dctx, void* dst, size_t ds
 /*-*******************************************************
 *  Dependencies
 *********************************************************/
-#include <string.h>      /* memcpy, memmove, memset */
 /**** start inlining ../common/cpu.h ****/
 /*
  * Copyright (c) 2018-2020, Facebook, Inc.
@@ -8113,7 +8110,6 @@ size_t HUF_decompress4X_hufOnly_wksp_bmi2(HUF_DTable* dctx, void* dst, size_t ds
  * https://github.com/facebook/folly/blob/master/folly/CpuId.h
  */
 
-#include <string.h>
 
 /**** skipping file: mem.h ****/
 
@@ -10197,7 +10193,6 @@ unsigned ZSTD_getDictID_fromDDict(const ZSTD_DDict* ddict)
 /*-*******************************************************
 *  Dependencies
 *********************************************************/
-#include <string.h>      /* memcpy, memmove, memset */
 /**** skipping file: ../common/cpu.h ****/
 /**** skipping file: ../common/mem.h ****/
 #define FSE_STATIC_LINKING_ONLY
@@ -12103,7 +12098,6 @@ size_t ZSTD_decompressStream_simpleArgs (
 /*-*******************************************************
 *  Dependencies
 *********************************************************/
-#include <string.h>      /* memcpy, memmove, memset */
 /**** skipping file: ../common/compiler.h ****/
 /**** skipping file: ../common/cpu.h ****/
 /**** skipping file: ../common/mem.h ****/
