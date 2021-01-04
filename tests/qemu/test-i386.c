@@ -895,10 +895,13 @@ void test_fops(double a, double b)
     printf("a=%f sin(a)=%f\n", a, sin(a));
     printf("a=%f cos(a)=%f\n", a, cos(a));
     printf("a=%f tan(a)=%f\n", a, tan(a));
-    printf("a=%f log(a)=%f\n", a, log(a));
-    printf("a=%f log10(a)=%f\n", a, log10(a));
-    printf("a=%f log1p(a)=%f\n", a, log1p(a));
-    printf("a=%f log2(a)=%f\n", a, log2(a));
+    if(a >= 0)
+    {
+        printf("a=%f log(a)=%f\n", a, log(a));
+        printf("a=%f log10(a)=%f\n", a, log10(a));
+        printf("a=%f log1p(a)=%f\n", a, log1p(a));
+        printf("a=%f log2(a)=%f\n", a, log2(a));
+    }
     printf("a=%f logb(a)=%f\n", a, logb(a));
     printf("a=%f ilogb(a)=%d\n", a, ilogb(a));
     printf("a=%f exp(a)=%f\n", a, exp(a));
@@ -950,7 +953,7 @@ void test_fcmp(double a, double b)
         : "=a" (fpus)
         : "t" (a), "u" (b));
     printf("fcom(%f %f)=%04lx\n",
-           a, b, fpus & (0x4500 | FPUS_EMASK));
+           a, b, fpus & (0x4500 | FPUS_EMASK & ~1));
     fpu_clear_exceptions();
     asm("fucom %2\n"
         "fstsw %%ax\n"
@@ -968,7 +971,7 @@ void test_fcmp(double a, double b)
             : "=r" (eflags), "=a" (fpus)
             : "t" (a), "u" (b));
         printf("fcomi(%f %f)=%04lx %02lx\n",
-               a, b, fpus & FPUS_EMASK, eflags & (CC_Z | CC_P | CC_C));
+               a, b, fpus & FPUS_EMASK & ~1, eflags & (CC_Z | CC_P | CC_C));
         fpu_clear_exceptions();
         asm("fucomi %3, %2\n"
             "fstsw %%ax\n"
