@@ -3,10 +3,6 @@
 #![feature(or_patterns)]
 #![allow(const_item_mutation)]
 
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
-
 #[macro_use]
 mod dbg;
 

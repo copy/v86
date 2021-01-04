@@ -3,9 +3,6 @@ name = "v86"
 version = "0.1.0"
 publish = false
 
-[dev-dependencies]
-quickcheck = "0.6.2"
-
 [features]
 default = []
 profiler = []
