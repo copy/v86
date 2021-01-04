@@ -239,7 +239,7 @@ var ASYNC_SAFE = false;
         {
             if(error)
             {
-                console.assert(false, "Cannot use: " + this.filename + ". " + error);
+                throw new Error("Cannot use: " + this.filename + ". " + error);
             }
             else
             {
