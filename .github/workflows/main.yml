@@ -65,10 +65,10 @@ jobs:
       id: cache-images
       with:
         path: images/
-        key: ${{ runner.os }}-images
+        key: ${{ runner.os }}-images-v2
     - name: get images
       if: steps.cache-images.outputs.cache-hit != 'true'
-      run: wget -nv -P images/ https://k.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,qnx-demo-network-4.05.img,mobius-fd-release5.img}
+      run: wget -nv -P images/ https://k.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img}
 
     - name: api-tests
       run: make api-tests
