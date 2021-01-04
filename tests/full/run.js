@@ -306,7 +306,7 @@ if(cluster.isMaster)
             slow: 1,
             skip_if_disk_image_missing: true,
             timeout: 10 * 60,
-            cdrom: root_path + "/images/experimental/os/Win30.iso",
+            cdrom: root_path + "/images/Win30.iso",
             expected_texts: [
                 "Press any key to continue",
                 "              **************************************************",
