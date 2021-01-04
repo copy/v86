@@ -276,7 +276,7 @@ qemutests: all-debug
 
 qemutests-release: all
 	$(MAKE) -C tests/qemu test-i386
-	time TEST_RELEASE_BUILD=1 ./tests/qemu/run.js > build/qemu-test-result
+	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js > build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
