@@ -328,6 +328,6 @@ build/libwabt.js:
 	rm build/1.0.6.zip
 
 build/xterm.js:
-	curl https://cdn.jsdelivr.net/npm/xterm@4.2.0-vscode1/lib/xterm.js > build/xterm.js
-	curl https://cdn.jsdelivr.net/npm/xterm@4.2.0-vscode1/lib/xterm.js.map > build/xterm.js.map
-	curl https://cdn.jsdelivr.net/npm/xterm@4.2.0-vscode1/css/xterm.css > build/xterm.css
+	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/lib/xterm.js > build/xterm.js
+	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/lib/xterm.js.map > build/xterm.js.map
+	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/css/xterm.css > build/xterm.css
