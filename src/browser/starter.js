@@ -268,7 +268,11 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     settings.cmdline = options["cmdline"];
     settings.preserve_mac_from_state_image = options["preserve_mac_from_state_image"];
 
-    if(options["network_relay_url"])
+    if(options["network_adapter"])
+    {
+        this.network_adapter = options["network_adapter"](this.bus);
+    }
+    else if(options["network_relay_url"])
     {
         this.network_adapter = new NetworkAdapter(options["network_relay_url"], this.bus);
     }
