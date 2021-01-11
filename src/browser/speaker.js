@@ -28,7 +28,7 @@ function SpeakerAdapter(bus)
     this.bus = bus;
 
     /** @const */
-    this.audio_context = new AudioContext();
+    this.audio_context = window.AudioContext ? new AudioContext() : new webkitAudioContext();
 
     /** @const */
     this.mixer = new SpeakerMixer(bus, this.audio_context);
