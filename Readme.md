@@ -37,6 +37,7 @@ Demos
 [Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
 [Buildroot Linux](https://copy.sh/v86/?profile=buildroot) —
 [ReactOS](https://copy.sh/v86/?profile=reactos) —
+[Windows 2000](https://copy.sh/v86/?profile=windows2000) —
 [Windows 98](https://copy.sh/v86/?profile=windows98) —
 [Windows 95](https://copy.sh/v86/?profile=windows95) —
 [Windows 1.01](https://copy.sh/v86/?profile=windows1) —
@@ -71,7 +72,8 @@ Here's an overview of the operating systems supported in v86:
 - Haiku works.
 - Android x86 1.6-r2 works if one selects VESA mode at the boot prompt. Newer
   versions haven't been tested.
-- Windows 1, 3.0, 95, 98 and ME work. Other versions currently don't (see #86, #208).
+- Windows 1, 3.0, 95, 98, ME and 2000 work. Other versions currently don't (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208)).
+  - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
 - Many hobby operating systems work.
 - 9front works.
 - Plan 9 doesn't work.
@@ -80,7 +82,7 @@ Here's an overview of the operating systems supported in v86:
 - FreeBSD works.
 - OpenBSD works with a specific boot configuration. At the `boot>` prompt type
   `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
-- NetBSD works only with a custom kernel, see #350.
+- NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
 - SerenityOS doesn't work due to missing PAE support.
 
 You can get some infos on the disk images here: https://github.com/copy/images.
