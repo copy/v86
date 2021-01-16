@@ -858,6 +858,12 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
+        case 0xDE:
+            // obsolete
+            this.status = 0x50;
+            this.push_irq();
+            break;
+
         case 0xF5:
             dbg_log("security freeze lock", LOG_DISK);
             this.status = 0x50;
