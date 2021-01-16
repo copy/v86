@@ -12,6 +12,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+    - uses: actions/cache@v2
+      id: cache-rustup
+      with:
+        path: ~/.cache/rustup/
+        key: ${{ runner.os }}-rustup
+    - name: rustup
+      run: |
+        rustup toolchain install nightly
+        rustup default nightly
+        rustup target add wasm32-unknown-unknown --toolchain nightly
+        rustup component add rustfmt-preview --toolchain nightly
+
       - name: Build v86
         run: make build/libv86.js build/v86.wasm
 
