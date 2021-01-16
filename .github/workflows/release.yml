@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build v86
-        run: make build/libv86.js
+        run: make build/libv86.js build/v86.wasm
 
       - name: Release to GitHub
         uses: marvinpinto/action-automatic-releases@latest
@@ -24,3 +24,4 @@ jobs:
           files: |
             build/*.js
             build/*.js.map
+            build/*.wasm
