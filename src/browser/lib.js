@@ -707,6 +707,7 @@ var ASYNC_SAFE = false;
     AsyncFileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
     AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
     AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
+    AsyncFileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
 
     AsyncFileBuffer.prototype.get_buffer = function(fn)
     {
