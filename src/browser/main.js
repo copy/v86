@@ -383,6 +383,29 @@
                 homepage: "http://www.pouet.net/prod.php?which=64962",
             },
             {
+                id: "windows2000",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    "url": "images/windows2k.img",
+                    "async": true,
+                },
+                name: "Windows 2000",
+                state: {
+                    "url": HOST + "windows2k_state.bin.zst",
+                },
+                preserve_mac_from_state_image: true,
+            },
+            {
+                id: "windows2000-boot",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    "url": "images/windows2k.img",
+                    "async": true,
+                },
+                boot_order: 0x132,
+                name: "Windows 2000",
+            },
+            {
                 id: "windows98",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
