@@ -464,8 +464,6 @@ pub unsafe fn iret(is_16: bool) {
             // vm86 cannot be set in 16 bit flag
             dbg_assert!(!is_16);
 
-            dbg_assert!((new_eip & !0xFFFF) == 0);
-
             let temp_esp = return_on_pagefault!(safe_read32s(get_stack_pointer(12)));
             let temp_ss = return_on_pagefault!(safe_read16(get_stack_pointer(16)));
 
