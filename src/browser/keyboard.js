@@ -387,7 +387,7 @@ function KeyboardAdapter(bus)
             return;
         }
 
-        handle_code(code, keydown);
+        handle_code(code, keydown, e.repeat);
 
         e.preventDefault && e.preventDefault();
 
@@ -397,12 +397,13 @@ function KeyboardAdapter(bus)
     /**
      * @param {number} code
      * @param {boolean} keydown
+     * @param {boolean=} is_repeat
      */
-    function handle_code(code, keydown)
+    function handle_code(code, keydown, is_repeat)
     {
         if(keydown)
         {
-            if(keys_pressed[code])
+            if(keys_pressed[code] && !is_repeat)
             {
                 handle_code(code, false);
             }
