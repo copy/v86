@@ -16,7 +16,7 @@ list of emulated hardware:
 - A floating point unit (FPU). Calculations are done using the Berkeley
   SoftFloat library and therefore should be precise (but slow). Trigonometric
   and log functions are emulated using 64-bit floats and may be less precise.
-  Not all FPU excpetions are supported.
+  Not all FPU exceptions are supported.
 - A floppy disk controller (8272A).
 - An 8042 Keyboard Controller, PS2. With mouse support.
 - An 8254 Programmable Interval Timer (PIT).
