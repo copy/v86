@@ -733,7 +733,7 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
-    let image = test.fda || test.hda || test.cdrom || test.bzimage || test.filesystem.basefs;
+    let image = test.fda || test.hda || test.cdrom || test.bzimage || test.filesystem && test.filesystem.basefs;
     assert(image, "Bootable drive expected");
 
     if(!fs.existsSync(image))
