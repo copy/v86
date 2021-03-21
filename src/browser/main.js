@@ -723,7 +723,7 @@
                 settings.fda = {
                     "size": parseInt(query_args["fda.size"], 10) || undefined,
                     "url": query_args["fda.url"],
-                    "async": true,
+                    "async": false,
                 };
             }
 
