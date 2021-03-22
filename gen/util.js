@@ -18,7 +18,12 @@ function hex(n, pad)
 
 function mkdirpSync(dir)
 {
-    fs.mkdirSync(dir, { recursive: true });
+    let stat = fs.statSync(dir, { throwIfNoEntry: false });
+    if (stat === undefined) {
+        fs.mkdirSync(dir, { recursive: true });
+    } else if (!stat.isDirectory()) {
+        throw 'path exists but is not dir';
+    }
 }
 
 function get_switch_value(arg_switch)
