@@ -1,3 +1,5 @@
+.PHONY: default all all-debug browser
+
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
 NASM_TEST_DIR=./tests/nasm
@@ -18,9 +20,9 @@ STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
 default: build/v86-debug.wasm
-all: build/v86_all.js build/libv86.js build/v86.wasm
+all: build/v86_all.js build/libv86.js build/v86.wasm build/xterm.js
 all-debug: build/libv86-debug.js build/v86-debug.wasm
-browser: build/v86_all.js
+browser: build/v86_all.js build/xterm.js
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
