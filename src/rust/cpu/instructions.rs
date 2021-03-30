@@ -2419,7 +2419,15 @@ pub unsafe fn instr_F3() {
 }
 
 #[no_mangle]
-pub unsafe fn instr_F4() { hlt_op(); }
+pub unsafe fn instr_F4() {
+    if 0 != *cpl {
+        dbg_log!("#gp hlt with cpl != 0");
+        trigger_gp(0);
+        return;
+    }
+
+    hlt_op();
+}
 #[no_mangle]
 pub unsafe fn instr_F5() {
     // cmc

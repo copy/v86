@@ -1547,13 +1547,6 @@ CPU.prototype.run_hardware_timers = function(now)
 
 CPU.prototype.hlt_op = function()
 {
-    if(this.cpl[0])
-    {
-        dbg_log("#gp hlt with cpl != 0", LOG_CPU);
-        this.trigger_gp(0);
-        return;
-    }
-
     if((this.get_eflags_no_arith() & flag_interrupt) === 0)
     {
         // execution can never resume (until NMIs are supported)
