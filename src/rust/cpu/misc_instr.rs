@@ -431,7 +431,8 @@ pub unsafe fn lar(selector: i32, original: i32) -> i32 {
     const LAR_INVALID_TYPE: u32 =
         1 << 0 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 0xA | 1 << 0xD | 1 << 0xE | 1 << 0xF;
 
-    match lookup_segment_selector(selector) {
+    let sel = SegmentSelector::of_u16(selector as u16);
+    match lookup_segment_selector(sel) {
         Err(()) => {
             // pagefault
             return original;
@@ -442,7 +443,7 @@ pub unsafe fn lar(selector: i32, original: i32) -> i32 {
             dbg_log!("lar: invalid selector={:x}: null or invalid", selector);
             return original;
         },
-        Ok(Ok((desc, sel, _))) => {
+        Ok(Ok((desc, _))) => {
             *flags_changed &= !FLAG_ZERO;
             let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
 
@@ -486,7 +487,8 @@ pub unsafe fn lsl(selector: i32, original: i32) -> i32 {
         | 1 << 0xE
         | 1 << 0xF;
 
-    match lookup_segment_selector(selector) {
+    let sel = SegmentSelector::of_u16(selector as u16);
+    match lookup_segment_selector(sel) {
         Err(()) => {
             // pagefault
             return original;
@@ -497,7 +499,7 @@ pub unsafe fn lsl(selector: i32, original: i32) -> i32 {
             dbg_log!("lsl: invalid selector={:x}: null or invalid", selector);
             return original;
         },
-        Ok(Ok((desc, sel, _))) => {
+        Ok(Ok((desc, _))) => {
             *flags_changed &= !FLAG_ZERO;
             let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
 
@@ -526,12 +528,13 @@ pub unsafe fn lsl(selector: i32, original: i32) -> i32 {
 
 pub unsafe fn verr(selector: i32) {
     *flags_changed &= !FLAG_ZERO;
-    match return_on_pagefault!(lookup_segment_selector(selector)) {
+    let sel = SegmentSelector::of_u16(selector as u16);
+    match return_on_pagefault!(lookup_segment_selector(sel)) {
         Err(_) => {
             *flags &= !FLAG_ZERO;
             dbg_log!("verr -> invalid. selector={:x}", selector);
         },
-        Ok((desc, sel, _)) => {
+        Ok((desc, _)) => {
             if desc.is_system()
                 || !desc.is_readable()
                 || (!desc.is_conforming_executable()
@@ -550,12 +553,13 @@ pub unsafe fn verr(selector: i32) {
 
 pub unsafe fn verw(selector: i32) {
     *flags_changed &= !FLAG_ZERO;
-    match return_on_pagefault!(lookup_segment_selector(selector)) {
+    let sel = SegmentSelector::of_u16(selector as u16);
+    match return_on_pagefault!(lookup_segment_selector(sel)) {
         Err(_) => {
             *flags &= !FLAG_ZERO;
             dbg_log!("verw -> invalid. selector={:x}", selector);
         },
-        Ok((desc, sel, _)) => {
+        Ok((desc, _)) => {
             if desc.is_system()
                 || !desc.is_writable()
                 || desc.dpl() < *cpl

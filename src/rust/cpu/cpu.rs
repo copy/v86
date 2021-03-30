@@ -295,6 +295,7 @@ impl LastJump {
 }
 pub static mut debug_last_jump: LastJump = LastJump::None;
 
+#[derive(Copy, Clone)]
 pub struct SegmentSelector {
     raw: u16,
 }
@@ -518,8 +519,9 @@ pub unsafe fn iret(is_16: bool) {
 
     // protected mode return
 
-    let (cs_descriptor, cs_selector) = match return_on_pagefault!(lookup_segment_selector(new_cs)) {
-        Ok((desc, sel, _)) => (desc, sel),
+    let cs_selector = SegmentSelector::of_u16(new_cs as u16);
+    let cs_descriptor = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
+        Ok((desc, _)) => desc,
         Err(selector_unusable) => match selector_unusable {
             SelectorNullOrInvalid::IsNull => {
                 panic!("Unimplemented: CS selector is null");
@@ -570,23 +572,23 @@ pub unsafe fn iret(is_16: bool) {
             )
         };
 
-        let (ss_descriptor, ss_selector) =
-            match return_on_pagefault!(lookup_segment_selector(temp_ss)) {
-                Ok((desc, sel, _)) => (desc, sel),
-                Err(selector_unusable) => match selector_unusable {
-                    SelectorNullOrInvalid::IsNull => {
-                        dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
-                        dbg_trace();
-                        trigger_gp(0);
-                        return;
-                    },
-                    SelectorNullOrInvalid::OutsideOfTableLimit => {
-                        dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
-                        trigger_gp(temp_ss & !3);
-                        return;
-                    },
+        let ss_selector = SegmentSelector::of_u16(temp_ss as u16);
+        let ss_descriptor = match return_on_pagefault!(lookup_segment_selector(ss_selector)) {
+            Ok((desc, _)) => desc,
+            Err(selector_unusable) => match selector_unusable {
+                SelectorNullOrInvalid::IsNull => {
+                    dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
+                    dbg_trace();
+                    trigger_gp(0);
+                    return;
                 },
-            };
+                SelectorNullOrInvalid::OutsideOfTableLimit => {
+                    dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
+                    trigger_gp(temp_ss & !3);
+                    return;
+                },
+            },
+        };
         let new_cpl = cs_selector.rpl();
 
         if ss_descriptor.is_system()
@@ -754,8 +756,10 @@ pub unsafe fn call_interrupt_vector(
             panic!("Unimplemented: #GP handler");
         }
 
-        let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(selector)) {
-            Ok((desc, _, _)) => desc,
+        let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(
+            SegmentSelector::of_u16(selector as u16)
+        )) {
+            Ok((desc, _)) => desc,
             Err(selector_unusable) => match selector_unusable {
                 SelectorNullOrInvalid::IsNull => {
                     dbg_log!("is null");
@@ -796,9 +800,10 @@ pub unsafe fn call_interrupt_vector(
 
             let new_esp = read32s(tss_stack_addr);
             let new_ss = read16(tss_stack_addr + if *tss_size_32 { 4 } else { 2 });
-            let (ss_segment_descriptor, ss_segment_selector) =
-                match return_on_pagefault!(lookup_segment_selector(new_ss)) {
-                    Ok((desc, sel, _)) => (desc, sel),
+            let ss_segment_selector = SegmentSelector::of_u16(new_ss as u16);
+            let ss_segment_descriptor =
+                match return_on_pagefault!(lookup_segment_selector(ss_segment_selector)) {
+                    Ok((desc, _)) => desc,
                     Err(_) => {
                         panic!("Unimplemented: #TS handler");
                     },
@@ -1016,8 +1021,9 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
         return;
     }
 
-    let (info, cs_selector) = match return_on_pagefault!(lookup_segment_selector(selector)) {
-        Ok((desc, sel, _)) => (desc, sel),
+    let cs_selector = SegmentSelector::of_u16(selector as u16);
+    let info = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
+        Ok((desc, _)) => desc,
         Err(selector_unusable) => match selector_unusable {
             SelectorNullOrInvalid::IsNull => {
                 dbg_log!("#gp null cs");
@@ -1055,8 +1061,10 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
             let cs_selector = (info.raw >> 16) as i32;
 
-            let (cs_info, _) = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
-                Ok((desc, sel, _)) => (desc, sel),
+            let cs_info = match return_on_pagefault!(lookup_segment_selector(
+                SegmentSelector::of_u16(cs_selector as u16)
+            )) {
+                Ok((desc, _)) => desc,
                 Err(selector_unusable) => match selector_unusable {
                     SelectorNullOrInvalid::IsNull => {
                         dbg_log!("#gp null cs");
@@ -1109,18 +1117,18 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     new_ss = read16(tss_stack_addr + 2);
                 }
 
-                let (ss_info, ss_selector) =
-                    match return_on_pagefault!(lookup_segment_selector(new_ss)) {
-                        Ok((desc, sel, _)) => (desc, sel),
-                        Err(selector_unusable) => match selector_unusable {
-                            SelectorNullOrInvalid::IsNull => {
-                                panic!("null ss: {}", new_ss);
-                            },
-                            SelectorNullOrInvalid::OutsideOfTableLimit => {
-                                panic!("invalid ss: {}", new_ss);
-                            },
+                let ss_selector = SegmentSelector::of_u16(new_ss as u16);
+                let ss_info = match return_on_pagefault!(lookup_segment_selector(ss_selector)) {
+                    Ok((desc, _)) => desc,
+                    Err(selector_unusable) => match selector_unusable {
+                        SelectorNullOrInvalid::IsNull => {
+                            panic!("null ss: {}", new_ss);
                         },
-                    };
+                        SelectorNullOrInvalid::OutsideOfTableLimit => {
+                            panic!("invalid ss: {}", new_ss);
+                        },
+                    },
+                };
 
                 // Disabled: Incorrect handling of direction bit
                 // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
@@ -1352,8 +1360,9 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
         return;
     }
 
-    let (info, cs_selector) = match return_on_pagefault!(lookup_segment_selector(selector)) {
-        Ok((desc, sel, _)) => (desc, sel),
+    let cs_selector = SegmentSelector::of_u16(selector as u16);
+    let info = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
+        Ok((desc, _)) => desc,
         Err(selector_unusable) => match selector_unusable {
             SelectorNullOrInvalid::IsNull => {
                 dbg_log!("far return: #gp null cs");
@@ -2090,10 +2099,8 @@ pub unsafe fn is_asize_32() -> bool {
 }
 
 pub unsafe fn lookup_segment_selector(
-    selector: i32,
-) -> OrPageFault<Result<(SegmentDescriptor, SegmentSelector, i32), SelectorNullOrInvalid>> {
-    let selector = SegmentSelector::of_u16(selector as u16);
-
+    selector: SegmentSelector,
+) -> OrPageFault<Result<(SegmentDescriptor, i32), SelectorNullOrInvalid>> {
     if selector.is_null() {
         return Ok(Err(SelectorNullOrInvalid::IsNull));
     }
@@ -2118,7 +2125,7 @@ pub unsafe fn lookup_segment_selector(
         descriptor_address,
     )?) as u64);
 
-    Ok(Ok((descriptor, selector, descriptor_address)))
+    Ok(Ok((descriptor, descriptor_address)))
 }
 
 pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
@@ -2136,39 +2143,39 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         return true;
     }
 
-    let (descriptor, selector) =
-        match return_on_pagefault!(lookup_segment_selector(selector_raw), false) {
-            Ok((desc, sel, _)) => (desc, sel),
-            Err(selector_unusable) => {
-                // The selector couldn't be used to fetch a descriptor, so we handle all of those
-                // cases
-                if selector_unusable == SelectorNullOrInvalid::IsNull {
-                    if reg == SS {
-                        dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
-                        trigger_gp(0);
-                        return false;
-                    }
-                    else if reg != CS {
-                        // es, ds, fs, gs
-                        *sreg.offset(reg as isize) = selector_raw as u16;
-                        *segment_is_null.offset(reg as isize) = true;
-                        return true;
-                    }
-                }
-                else if selector_unusable == SelectorNullOrInvalid::OutsideOfTableLimit {
-                    dbg_log!(
-                        "#GP for loading invalid in seg={} sel={:x}",
-                        reg,
-                        selector_raw
-                    );
-                    trigger_gp(selector_raw & !3);
+    let selector = SegmentSelector::of_u16(selector_raw as u16);
+    let descriptor = match return_on_pagefault!(lookup_segment_selector(selector), false) {
+        Ok((desc, _)) => desc,
+        Err(selector_unusable) => {
+            // The selector couldn't be used to fetch a descriptor, so we handle all of those
+            // cases
+            if selector_unusable == SelectorNullOrInvalid::IsNull {
+                if reg == SS {
+                    dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
+                    trigger_gp(0);
                     return false;
                 }
-
-                dbg_assert!(false);
+                else if reg != CS {
+                    // es, ds, fs, gs
+                    *sreg.offset(reg as isize) = selector_raw as u16;
+                    *segment_is_null.offset(reg as isize) = true;
+                    return true;
+                }
+            }
+            else if selector_unusable == SelectorNullOrInvalid::OutsideOfTableLimit {
+                dbg_log!(
+                    "#GP for loading invalid in seg={} sel={:x}",
+                    reg,
+                    selector_raw
+                );
+                trigger_gp(selector_raw & !3);
                 return false;
-            },
-        };
+            }
+
+            dbg_assert!(false);
+            return false;
+        },
+    };
 
     if reg == SS {
         if descriptor.is_system()
@@ -2228,9 +2235,12 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 }
 
 pub unsafe fn load_tr(selector: i32) {
-    let (descriptor, selector, descriptor_address) =
+    let selector = SegmentSelector::of_u16(selector as u16);
+    dbg_assert!(selector.is_gdt(), "TODO: TR can only be loaded from GDT");
+
+    let (descriptor, descriptor_address) =
         match return_on_pagefault!(lookup_segment_selector(selector)) {
-            Ok((desc, sel, addr)) => (desc, sel, addr),
+            Ok((desc, addr)) => (desc, addr),
             Err(SelectorNullOrInvalid::IsNull) => {
                 panic!("TODO: null TR");
             },
@@ -2239,15 +2249,13 @@ pub unsafe fn load_tr(selector: i32) {
             },
         };
 
-    dbg_log!(
-        "load tr: {:x} offset={:x} limit={:x} is32={}",
-        selector.raw,
-        descriptor.base(),
-        descriptor.effective_limit(),
-        descriptor.system_type() == 9,
-    );
-
-    dbg_assert!(selector.is_gdt(), "TODO: TR can only be loaded from GDT");
+    //dbg_log!(
+    //    "load tr: {:x} offset={:x} limit={:x} is32={}",
+    //    selector.raw,
+    //    descriptor.base(),
+    //    descriptor.effective_limit(),
+    //    descriptor.system_type() == 9,
+    //);
 
     if !descriptor.is_system() {
         panic!("#GP | ltr: not a system entry (happens when running kvm-unit-test without ACPI)");
