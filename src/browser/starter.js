@@ -137,7 +137,6 @@ function V86Starter(options)
         "cpuid": function() { return cpu.cpuid(); },
 
         "load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
-        "load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
 
         "log_from_wasm": function(offset, len) {
             const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);

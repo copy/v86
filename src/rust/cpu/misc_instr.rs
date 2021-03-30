@@ -442,7 +442,7 @@ pub unsafe fn lar(selector: i32, original: i32) -> i32 {
             dbg_log!("lar: invalid selector={:x}: null or invalid", selector);
             return original;
         },
-        Ok(Ok((desc, sel))) => {
+        Ok(Ok((desc, sel, _))) => {
             *flags_changed &= !FLAG_ZERO;
             let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
 
@@ -497,7 +497,7 @@ pub unsafe fn lsl(selector: i32, original: i32) -> i32 {
             dbg_log!("lsl: invalid selector={:x}: null or invalid", selector);
             return original;
         },
-        Ok(Ok((desc, sel))) => {
+        Ok(Ok((desc, sel, _))) => {
             *flags_changed &= !FLAG_ZERO;
             let dpl_bad = desc.dpl() < *cpl || desc.dpl() < sel.rpl();
 
@@ -531,7 +531,7 @@ pub unsafe fn verr(selector: i32) {
             *flags &= !FLAG_ZERO;
             dbg_log!("verr -> invalid. selector={:x}", selector);
         },
-        Ok((desc, sel)) => {
+        Ok((desc, sel, _)) => {
             if desc.is_system()
                 || !desc.is_readable()
                 || (!desc.is_conforming_executable()
@@ -555,7 +555,7 @@ pub unsafe fn verw(selector: i32) {
             *flags &= !FLAG_ZERO;
             dbg_log!("verw -> invalid. selector={:x}", selector);
         },
-        Ok((desc, sel)) => {
+        Ok((desc, sel, _)) => {
             if desc.is_system()
                 || !desc.is_writable()
                 || desc.dpl() < *cpl

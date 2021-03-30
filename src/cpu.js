@@ -2237,57 +2237,6 @@ CPU.prototype.switch_seg = function(reg, selector)
     return true;
 };
 
-CPU.prototype.load_tr = function(selector)
-{
-    var info = this.lookup_segment_selector(selector);
-
-    dbg_assert(info.is_valid);
-    //dbg_log("load tr: " + h(selector, 4) + " offset=" + h(info.base >>> 0, 8) + " limit=" + h(info.effective_limit >>> 0, 8), LOG_CPU);
-
-    if(!info.from_gdt)
-    {
-        throw this.debug.unimpl("TR can only be loaded from GDT");
-    }
-
-    if(info.is_null)
-    {
-        dbg_log("#GP(0) | tried to load null selector (ltr)");
-        throw this.debug.unimpl("#GP handler");
-    }
-
-    if(!info.is_system)
-    {
-        dbg_log("#GP | ltr: not a system entry");
-        throw this.debug.unimpl("#GP handler (happens when running kvm-unit-test without ACPI)");
-    }
-
-    if(info.type !== 9 && info.type !== 1)
-    {
-        // 0xB: busy 386 TSS (GP)
-        // 0x9: 386 TSS
-        // 0x3: busy 286 TSS (GP)
-        // 0x1: 286 TSS (??)
-        dbg_log("#GP | ltr: invalid type (type = " + h(info.type) + ")");
-        throw this.debug.unimpl("#GP handler");
-    }
-
-    if(!info.is_present)
-    {
-        dbg_log("#NT | present bit not set (ltr)");
-        throw this.debug.unimpl("#NT handler");
-    }
-
-    this.tss_size_32[0] = info.type === 9;
-    this.segment_offsets[reg_tr] = info.base;
-    this.segment_limits[reg_tr] = info.effective_limit;
-    this.sreg[reg_tr] = selector;
-
-    // Mark task as busy
-    this.write8(info.table_offset + 5 | 0, this.read8(info.table_offset + 5 | 0) | 2);
-
-    //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
-};
-
 CPU.prototype.load_ldt = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
