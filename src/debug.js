@@ -86,28 +86,6 @@ CPU.prototype.debug_init = function()
     debug.step = step;
     debug.run_until = run_until;
 
-    /**
-     * @param {string=} msg
-     */
-    debug.unimpl = function(msg)
-    {
-        var s = "Unimplemented" + (msg ? ": " + msg : "");
-
-        debug.show(s);
-
-        if(DEBUG)
-        {
-            console.trace();
-            return s;
-        }
-        else
-        {
-            debug.show("Execution stopped");
-            return s;
-        }
-        //this.name = "Unimplemented";
-    };
-
     function step()
     {
         if(!DEBUG) return;

@@ -136,8 +136,6 @@ function V86Starter(options)
 
         "cpuid": function() { return cpu.cpuid(); },
 
-        "load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
-
         "log_from_wasm": function(offset, len) {
             const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);
@@ -155,9 +153,6 @@ function V86Starter(options)
         },
         "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
         "jit_clear_all_funcs": () => cpu.jit_clear_all_funcs(),
-        "do_task_switch": (selector, has_error_code, error_code) => {
-            cpu.do_task_switch(selector, has_error_code, error_code);
-        },
 
         "__indirect_function_table": wasm_table,
     };

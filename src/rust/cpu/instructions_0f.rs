@@ -101,7 +101,7 @@ pub unsafe fn instr16_0F00_2_mem(addr: i32) {
         trigger_gp(0);
     }
     else {
-        load_ldt(return_on_pagefault!(safe_read16(addr)));
+        return_on_pagefault!(load_ldt(return_on_pagefault!(safe_read16(addr))));
     };
 }
 #[no_mangle]
@@ -115,7 +115,7 @@ pub unsafe fn instr16_0F00_2_reg(r: i32) {
         trigger_gp(0);
     }
     else {
-        load_ldt(read_reg16(r));
+        return_on_pagefault!(load_ldt(read_reg16(r)));
     };
 }
 #[no_mangle]

@@ -2,7 +2,6 @@
 
 extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
-    fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
     //fn logop(addr: i32, op: i32);
     fn microtick() -> f64;
     fn call_indirect1(f: i32, x: u16);
@@ -169,6 +168,28 @@ pub const CR4_PAE: i32 = 1 << 5;
 pub const CR4_PGE: i32 = 1 << 7;
 pub const CR4_OSFXSR: i32 = 1 << 9;
 pub const CR4_OSXMMEXCPT: i32 = 1 << 10;
+
+pub const TSR_BACKLINK: i32 = 0x00;
+pub const TSR_CR3: i32 = 0x1C;
+pub const TSR_EIP: i32 = 0x20;
+pub const TSR_EFLAGS: i32 = 0x24;
+
+pub const TSR_EAX: i32 = 0x28;
+pub const TSR_ECX: i32 = 0x2c;
+pub const TSR_EDX: i32 = 0x30;
+pub const TSR_EBX: i32 = 0x34;
+pub const TSR_ESP: i32 = 0x38;
+pub const TSR_EBP: i32 = 0x3c;
+pub const TSR_ESI: i32 = 0x40;
+pub const TSR_EDI: i32 = 0x44;
+
+pub const TSR_ES: i32 = 0x48;
+pub const TSR_CS: i32 = 0x4c;
+pub const TSR_SS: i32 = 0x50;
+pub const TSR_DS: i32 = 0x54;
+pub const TSR_FS: i32 = 0x58;
+pub const TSR_GS: i32 = 0x5c;
+pub const TSR_LDT: i32 = 0x60;
 
 pub const IA32_SYSENTER_CS: i32 = 372;
 pub const IA32_SYSENTER_ESP: i32 = 373;
@@ -732,7 +753,7 @@ pub unsafe fn call_interrupt_vector(
             );
             dbg_trace();
 
-            do_task_switch(selector, error_code.is_some(), error_code.unwrap_or(0));
+            do_task_switch(selector, error_code);
             return;
         }
 
@@ -1469,7 +1490,7 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
         }
     }
 
-    //dbg_assert(*cpl === info.dpl);
+    //dbg_assert(*cpl == info.dpl);
 
     update_cs_size(info.is_32());
 
@@ -1484,6 +1505,220 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
 
     //dbg_log("far return to:", LOG_CPU)
     //CPU_LOG_VERBOSE && debug.dump_state("far ret end");
+}
+
+pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
+    dbg_log!("do_task_switch sel={:x}", selector);
+
+    dbg_assert!(*tss_size_32, "TODO: 16-bit TSS in task switch");
+
+    let selector = SegmentSelector::of_u16(selector as u16);
+    let (descriptor, descriptor_address) =
+        match lookup_segment_selector(selector).expect("TODO: handle pagefault") {
+            Ok(desc) => desc,
+            Err(_) => {
+                panic!("#GP handler");
+            },
+        };
+
+    dbg_assert!(selector.is_gdt());
+    dbg_assert!((descriptor.system_type() & !2) == 1 || (descriptor.system_type() & !2) == 9);
+    let tss_is_16 = descriptor.system_type() <= 3;
+    let tss_is_busy = (descriptor.system_type() & 2) == 2;
+
+    if (descriptor.system_type() & 2) == 2 {
+        // is busy
+        panic!("#GP handler");
+    }
+
+    if !descriptor.is_present() {
+        panic!("#NP handler");
+    }
+
+    if descriptor.effective_limit() < 103 {
+        panic!("#NP handler");
+    }
+
+    let _tsr_size = *segment_limits.offset(TR as isize);
+    let tsr_offset = *segment_offsets.offset(TR as isize);
+
+    let mut old_eflags = get_eflags();
+
+    if tss_is_busy {
+        old_eflags &= !FLAG_NT;
+    }
+
+    writable_or_pagefault(tsr_offset, 0x66).unwrap();
+
+    //safe_write32(tsr_offset + TSR_CR3, *cr.offset(3));
+
+    // TODO: Write 16 bit values if old tss is 16 bit
+    safe_write32(tsr_offset + TSR_EIP, get_real_eip()).unwrap();
+    safe_write32(tsr_offset + TSR_EFLAGS, old_eflags).unwrap();
+
+    safe_write32(tsr_offset + TSR_EAX, read_reg32(EAX)).unwrap();
+    safe_write32(tsr_offset + TSR_ECX, read_reg32(ECX)).unwrap();
+    safe_write32(tsr_offset + TSR_EDX, read_reg32(EDX)).unwrap();
+    safe_write32(tsr_offset + TSR_EBX, read_reg32(EBX)).unwrap();
+
+    safe_write32(tsr_offset + TSR_ESP, read_reg32(ESP)).unwrap();
+    safe_write32(tsr_offset + TSR_EBP, read_reg32(EBP)).unwrap();
+    safe_write32(tsr_offset + TSR_ESI, read_reg32(ESI)).unwrap();
+    safe_write32(tsr_offset + TSR_EDI, read_reg32(EDI)).unwrap();
+
+    safe_write32(tsr_offset + TSR_ES, *sreg.offset(ES as isize) as i32).unwrap();
+    safe_write32(tsr_offset + TSR_CS, *sreg.offset(CS as isize) as i32).unwrap();
+    safe_write32(tsr_offset + TSR_SS, *sreg.offset(SS as isize) as i32).unwrap();
+    safe_write32(tsr_offset + TSR_DS, *sreg.offset(DS as isize) as i32).unwrap();
+    safe_write32(tsr_offset + TSR_FS, *sreg.offset(FS as isize) as i32).unwrap();
+    safe_write32(tsr_offset + TSR_GS, *sreg.offset(GS as isize) as i32).unwrap();
+
+    //safe_write32(tsr_offset + TSR_LDT, *sreg.offset(reg_ldtr));
+
+    if true
+    /* is jump or call or int */
+    {
+        safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
+    }
+
+    //let new_tsr_size = descriptor.effective_limit;
+    let new_tsr_offset = descriptor.base();
+
+    dbg_assert!(!tss_is_16, "unimplemented");
+
+    if true
+    /* is call or int */
+    {
+        safe_write16(
+            new_tsr_offset + TSR_BACKLINK,
+            *sreg.offset(TR as isize) as i32,
+        )
+        .unwrap();
+    }
+
+    let new_cr3 = safe_read32s(new_tsr_offset + TSR_CR3).unwrap();
+
+    *flags &= !FLAG_VM;
+
+    let new_eip = safe_read32s(new_tsr_offset + TSR_EIP).unwrap();
+    let new_cs = safe_read16(new_tsr_offset + TSR_CS).unwrap();
+    let new_cs_selector = SegmentSelector::of_u16(new_cs as u16);
+    let new_cs_descriptor =
+        match lookup_segment_selector(new_cs_selector).expect("TODO: handle pagefault") {
+            Ok((desc, _)) => desc,
+            Err(SelectorNullOrInvalid::IsNull) => {
+                dbg_log!("null cs");
+                panic!("#TS handler");
+            },
+            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                dbg_log!("invalid cs: {:x}", new_cs);
+                panic!("#TS handler");
+            },
+        };
+
+    if new_cs_descriptor.is_system() {
+        panic!("#TS handler");
+    }
+
+    if !new_cs_descriptor.is_executable() {
+        panic!("#TS handler");
+    }
+
+    if new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() > new_cs_selector.rpl() {
+        dbg_log!("cs conforming and dpl > rpl: {:x}", selector.raw);
+        panic!("#TS handler");
+    }
+
+    if !new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() != new_cs_selector.rpl() {
+        dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector.raw);
+        panic!("#TS handler");
+    }
+
+    if !new_cs_descriptor.is_present() {
+        dbg_log!("#NP for loading not-present in cs sel={:x}", selector.raw);
+        panic!("#TS handler");
+    }
+
+    *segment_is_null.offset(CS as isize) = false;
+    *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
+    *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
+    *sreg.offset(CS as isize) = new_cs as u16;
+
+    *cpl = new_cs_descriptor.dpl();
+    cpl_changed();
+
+    dbg_assert!((*sreg.offset(CS as isize) & 3) as u8 == *cpl);
+
+    dbg_assert!(
+        new_eip as u32 <= new_cs_descriptor.effective_limit(),
+        "todo: #gp"
+    );
+    update_cs_size(new_cs_descriptor.is_32());
+
+    let mut new_eflags = safe_read32s(new_tsr_offset + TSR_EFLAGS).unwrap();
+
+    if true
+    /* is call or int */
+    {
+        safe_write32(tsr_offset + TSR_BACKLINK, selector.raw as i32).unwrap();
+        new_eflags |= FLAG_NT;
+    }
+
+    if new_eflags & FLAG_VM != 0 {
+        panic!("task switch to VM mode");
+    }
+
+    update_eflags(new_eflags);
+
+    if true
+    /* call or int */
+    {
+        *flags |= FLAG_NT;
+    }
+
+    let new_ldt = safe_read16(new_tsr_offset + TSR_LDT).unwrap();
+    load_ldt(new_ldt).unwrap();
+
+    write_reg32(EAX, safe_read32s(new_tsr_offset + TSR_EAX).unwrap());
+    write_reg32(ECX, safe_read32s(new_tsr_offset + TSR_ECX).unwrap());
+    write_reg32(EDX, safe_read32s(new_tsr_offset + TSR_EDX).unwrap());
+    write_reg32(EBX, safe_read32s(new_tsr_offset + TSR_EBX).unwrap());
+
+    write_reg32(ESP, safe_read32s(new_tsr_offset + TSR_ESP).unwrap());
+    write_reg32(EBP, safe_read32s(new_tsr_offset + TSR_EBP).unwrap());
+    write_reg32(ESI, safe_read32s(new_tsr_offset + TSR_ESI).unwrap());
+    write_reg32(EDI, safe_read32s(new_tsr_offset + TSR_EDI).unwrap());
+
+    if !switch_seg(ES, safe_read16(new_tsr_offset + TSR_ES).unwrap())
+        || !switch_seg(SS, safe_read16(new_tsr_offset + TSR_SS).unwrap())
+        || !switch_seg(DS, safe_read16(new_tsr_offset + TSR_DS).unwrap())
+        || !switch_seg(FS, safe_read16(new_tsr_offset + TSR_FS).unwrap())
+        || !switch_seg(GS, safe_read16(new_tsr_offset + TSR_GS).unwrap())
+    {
+        // XXX: Should be checked before side effects
+        dbg_assert!(false);
+    }
+
+    *instruction_pointer = get_seg_cs() + new_eip;
+
+    *segment_offsets.offset(TR as isize) = descriptor.base();
+    *segment_limits.offset(TR as isize) = descriptor.effective_limit();
+    *sreg.offset(TR as isize) = selector.raw;
+
+    *cr.offset(3) = new_cr3;
+    dbg_assert!((*cr.offset(3) & 0xFFF) == 0);
+    clear_tlb();
+
+    *cr.offset(0) |= CR0_TS;
+
+    if let Some(error_code) = error_code {
+        if tss_is_16 {
+            push16(error_code & 0xFFFF).unwrap();
+        }
+        else {
+            push32(error_code).unwrap();
+        }
+    }
 }
 
 pub unsafe fn after_block_boundary() { jit_block_boundary = true; }
@@ -2285,19 +2520,19 @@ pub unsafe fn load_tr(selector: i32) {
     safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
 }
 
-pub unsafe fn load_ldt(selector: i32) {
+pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
     let selector = SegmentSelector::of_u16(selector as u16);
 
     if selector.is_null() {
         *segment_limits.offset(LDTR as isize) = 0;
         *segment_offsets.offset(LDTR as isize) = 0;
         *sreg.offset(LDTR as isize) = selector.raw;
-        return;
+        return Ok(());
     }
 
     dbg_assert!(selector.is_gdt(), "TODO: LDT can only be loaded from GDT");
 
-    let (descriptor, _) = match return_on_pagefault!(lookup_segment_selector(selector)) {
+    let (descriptor, _) = match lookup_segment_selector(selector)? {
         Ok((desc, addr)) => (desc, addr),
         Err(SelectorNullOrInvalid::IsNull) => {
             panic!("TODO: null TR");
@@ -2325,6 +2560,8 @@ pub unsafe fn load_ldt(selector: i32) {
     *segment_limits.offset(LDTR as isize) = descriptor.effective_limit();
     *segment_offsets.offset(LDTR as isize) = descriptor.base();
     *sreg.offset(LDTR as isize) = selector.raw;
+
+    Ok(())
 }
 
 #[no_mangle]
