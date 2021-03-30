@@ -119,6 +119,19 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Snowdrop",
+            fda: root_path + "/images/snowdrop.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [
+                {
+                    on_text: "[Snowdrop OS snowshell]:",
+                    run: "desktop\n"
+                },
+            ],
+        },
+        {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
             timeout: 90,
@@ -339,6 +352,18 @@ if(cluster.isMaster)
                     after: 1000,
                     run: "win\n",
                 },
+            ],
+        },
+        {
+            name: "Windows 3.1",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            hda: root_path + "/images/win31.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+            expected_texts: [
+                "MODE prepare code page function completed",
             ],
         },
         {

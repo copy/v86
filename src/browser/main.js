@@ -379,15 +379,27 @@
                     "async": false,
                     "size": 1474560,
                 },
-                name: "Bootchess",
+                name: "BootChess",
                 homepage: "http://www.pouet.net/prod.php?which=64962",
+            },
+            {
+                id: "bootbasic",
+                fda: {
+                    "url": HOST + "bootbasic.img",
+                    "async": false,
+                    "size": 1474560,
+                },
+                name: "bootBASIC",
+                homepage: "https://github.com/nanochess/bootBASIC",
             },
             {
                 id: "windows2000",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": "images/windows2k.img",
+                    "url": HOST + "windows2k.img",
+                    "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
+                    use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 2000",
                 state: {
@@ -399,8 +411,10 @@
                 id: "windows2000-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": "images/windows2k.img",
+                    "url": HOST + "windows2k.img",
+                    "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
+                    use_parts: !ON_LOCALHOST,
                 },
                 boot_order: 0x132,
                 name: "Windows 2000",
@@ -464,6 +478,16 @@
                     "async": false,
                 },
                 name: "Windows 3.0",
+            },
+            {
+                id: "windows31",
+                memory_size: 64 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "win31.img",
+                    "async": false,
+                    "size": 34463744,
+                },
+                name: "Windows 3.1",
             },
             {
                 id: "freebsd",
@@ -540,6 +564,17 @@
                 },
                 name: "Skift",
                 homepage: "https://skiftos.org/",
+            },
+            {
+                id: "snowdrop",
+                memory_size: 128 * 1024 * 1024,
+                fda: {
+                    "url": HOST + "snowdrop.img",
+                    "size": 1440 * 1024,
+                    "async": false,
+                },
+                name: "Snowdrop",
+                homepage: "http://www.sebastianmihai.com/snowdrop/",
             },
             {
                 id: "openwrt",
