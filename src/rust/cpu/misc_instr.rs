@@ -130,7 +130,6 @@ pub unsafe fn cmovcc32(condition: bool, value: i32, r: i32) {
     };
 }
 
-#[no_mangle]
 pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
     if *stack_size_32 {
         return get_seg_ss() + read_reg32(ESP) + offset;
@@ -139,7 +138,6 @@ pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
         return get_seg_ss() + (read_reg16(SP) + offset & 0xFFFF);
     };
 }
-#[no_mangle]
 pub unsafe fn adjust_stack_reg(adjustment: i32) {
     if *stack_size_32 {
         write_reg32(ESP, read_reg32(ESP) + adjustment);
@@ -332,7 +330,6 @@ pub unsafe fn setcc_mem(condition: bool, addr: i32) {
     return_on_pagefault!(safe_write8(addr, condition as i32));
 }
 
-#[no_mangle]
 pub unsafe fn fxsave(addr: i32) {
     dbg_assert!(addr & 0xF == 0, "TODO: #gp");
     return_on_pagefault!(writable_or_pagefault(addr, 288));
@@ -361,7 +358,6 @@ pub unsafe fn fxsave(addr: i32) {
         safe_write128(addr + 160 + (i << 4), *reg_xmm.offset(i as isize)).unwrap();
     }
 }
-#[no_mangle]
 pub unsafe fn fxrstor(addr: i32) {
     dbg_assert!(addr & 0xF == 0, "TODO: #gp");
     return_on_pagefault!(readable_or_pagefault(addr, 288));

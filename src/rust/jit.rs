@@ -1884,7 +1884,6 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
     }
 }
 
-#[no_mangle]
 pub fn jit_increase_hotness_and_maybe_compile(
     virt_address: i32,
     phys_address: u32,

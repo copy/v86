@@ -216,14 +216,8 @@ CPU.prototype.wasm_patch = function()
     this.reset_cpu = get_import("reset_cpu");
 
     this.getiopl = get_import("getiopl");
-    this.vm86_mode = get_import("vm86_mode");
     this.get_eflags = get_import("get_eflags");
     this.get_eflags_no_arith = get_import("get_eflags_no_arith");
-    this.update_eflags = get_import("update_eflags");
-
-    this.trigger_gp = get_import("trigger_gp");
-    this.trigger_np = get_import("trigger_np");
-    this.trigger_ss = get_import("trigger_ss");
 
     this.pic_call_irq = get_import("pic_call_irq");
 
@@ -233,40 +227,25 @@ CPU.prototype.wasm_patch = function()
     this.read8 = get_import("read8");
     this.read16 = get_import("read16");
     this.read32s = get_import("read32s");
-    this.write8 = get_import("write8");
     this.write16 = get_import("write16");
     this.write32 = get_import("write32");
     this.in_mapped_range = get_import("in_mapped_range");
 
-    this.push16 = get_import("push16_js");
-    this.push32 = get_import("push32_js");
-
-    this.set_stack_reg = get_import("set_stack_reg");
-
+    // used by nasmtests
     this.fpu_load_tag_word = get_import("fpu_load_tag_word");
     this.fpu_load_status_word = get_import("fpu_load_status_word");
+    this.fpu_get_sti_f64 = get_import("fpu_get_sti_f64");
 
     this.translate_address_system_read = get_import("translate_address_system_read_js");
-    this.translate_address_system_write = get_import("translate_address_system_write_js");
 
     this.get_seg_cs = get_import("get_seg_cs");
-    this.adjust_stack_reg = get_import("adjust_stack_reg");
     this.get_real_eip = get_import("get_real_eip");
-    this.get_stack_pointer = get_import("get_stack_pointer");
-
-    this.writable_or_pagefault = get_import("writable_or_pagefault_js");
-    this.safe_write32 = get_import("safe_write32_js");
-    this.safe_read32s = get_import("safe_read32s_js");
-    this.safe_write16 = get_import("safe_write16_js");
-    this.safe_read16 = get_import("safe_read16_js");
 
     this.clear_tlb = get_import("clear_tlb");
     this.full_clear_tlb = get_import("full_clear_tlb");
 
     this.set_tsc = get_import("set_tsc");
     this.store_current_tsc = get_import("store_current_tsc");
-
-    this.fpu_get_sti_f64 = get_import("fpu_get_sti_f64");
 
     if(DEBUG)
     {

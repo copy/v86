@@ -114,7 +114,6 @@ pub unsafe fn read128(addr: u32) -> reg128 {
     return value;
 }
 
-#[no_mangle]
 pub unsafe fn write8(addr: u32, value: i32) {
     if in_mapped_range(addr) {
         mmap_write8(addr, value);

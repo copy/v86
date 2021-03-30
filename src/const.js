@@ -105,8 +105,6 @@ flags_default = 1 << 1,
 /** @const */ reg_fs = 4,
 /** @const */ reg_gs = 5,
 
-
-/** @const */ reg_tr = 6, // task register
 /** @const */ reg_ldtr = 7; // local descriptor table register
 
 var
@@ -120,141 +118,8 @@ var
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
-var
-    /** @const */
-    REPEAT_STRING_PREFIX_NONE = 0,
-    /** @const */
-    REPEAT_STRING_PREFIX_NZ = 1,
-    /** @const */
-    REPEAT_STRING_PREFIX_Z = 2;
-
-var
-    /** @const */
-    CR0_PE = 1,
-    /** @const */
-    CR0_MP = 1 << 1,
-    /** @const */
-    CR0_EM = 1 << 2,
-    /** @const */
-    CR0_TS = 1 << 3,
-    /** @const */
-    CR0_ET = 1 << 4,
-    /** @const */
-    CR0_WP = 1 << 16,
-    /** @const */
-    CR0_AM = 1 << 18,
-    /** @const */
-    CR0_NW = 1 << 29,
-    /** @const */
-    CR0_CD = 1 << 30,
-    /** @const */
-    CR0_PG = 1 << 31;
-
-var
-    /** @const */
-    CR4_VME = 1,
-    /** @const */
-    CR4_PVI = 1 << 1,
-    /** @const */
-    CR4_TSD = 1 << 2,
-    /** @const */
-    CR4_PSE = 1 << 4,
-    /** @const */
-    CR4_DE = 1 << 3,
-    /** @const */
-    CR4_PAE = 1 << 5,
-    /** @const */
-    CR4_PGE = 1 << 7,
-    /** @const */
-    CR4_OSFXSR = 1 << 9,
-    /** @const */
-    CR4_OSXMMEXCPT = 1 << 10;
-
-
-// Segment prefixes must not collide with reg_*s variables
-// _ZERO is a special zero offset segment
-var
-    /** @const */
-    SEG_PREFIX_NONE = -1,
-
-    /** @const */
-    SEG_PREFIX_ZERO = 7;
-
-
-var
-    /** @const */
-    IA32_SYSENTER_CS = 0x174,
-
-    // Note: These are wrong in Intel's manuals. Fuck Intel
-    /** @const */
-    IA32_SYSENTER_ESP = 0x175,
-
-    /** @const */
-    IA32_SYSENTER_EIP = 0x176;
-
 /** @const */
-var IA32_TIME_STAMP_COUNTER = 0x10;
-
-/** @const */
-var IA32_PLATFORM_ID = 0x17;
-
-/** @const */
-var MSR_EBC_FREQUENCY_ID = 0x2C;
-
-/** @const */
-var IA32_APIC_BASE_MSR = 0x1B;
-
-/** @const */
-var IA32_BIOS_SIGN_ID = 0x8B;
-
-/** @const */
-var IA32_MISC_ENABLE = 0x1A0;
-
-/** @const */
-var IA32_RTIT_CTL = 0x570;
-
-/** @const */
-var MSR_SMI_COUNT = 0x34;
-
-/** @const */
-var IA32_MCG_CAP = 0x179;
-
-/** @const */
-var IA32_KERNEL_GS_BASE = 0xC0000101 | 0;
-
-/** @const */
-var MSR_PKG_C2_RESIDENCY = 0x60D;
-
-
-/** @const */
-var IA32_APIC_BASE_BSP = 1 << 8;
-/** @const */
-var IA32_APIC_BASE_EXTD = 1 << 10;
-/** @const */
-var IA32_APIC_BASE_EN = 1 << 11;
-
-
-/** @const */ var TSR_BACKLINK = 0x00;
-/** @const */ var TSR_CR3 = 0x1C;
-/** @const */ var TSR_EIP = 0x20;
-/** @const */ var TSR_EFLAGS = 0x24;
-
-/** @const */ var TSR_EAX = 0x28;
-/** @const */ var TSR_ECX = 0x2c;
-/** @const */ var TSR_EDX = 0x30;
-/** @const */ var TSR_EBX = 0x34;
-/** @const */ var TSR_ESP = 0x38;
-/** @const */ var TSR_EBP = 0x3c;
-/** @const */ var TSR_ESI = 0x40;
-/** @const */ var TSR_EDI = 0x44;
-
-/** @const */ var TSR_ES = 0x48;
-/** @const */ var TSR_CS = 0x4c;
-/** @const */ var TSR_SS = 0x50;
-/** @const */ var TSR_DS = 0x54;
-/** @const */ var TSR_FS = 0x58;
-/** @const */ var TSR_GS = 0x5c;
-/** @const */ var TSR_LDT = 0x60;
+var CR0_PG = 1 << 31;
 
 
 // https://github.com/qemu/seabios/blob/14221cd86eadba82255fdc55ed174d401c7a0a04/src/fw/paravirt.c#L205-L219
@@ -273,8 +138,6 @@ var IA32_APIC_BASE_EN = 1 << 11;
 
 /** @const */ var FW_CFG_SIGNATURE_QEMU = 0x554D4551;
 
-/** @const */
-var MXCSR_MASK = (0xFFFF & ~(1 << 6));
 
 // See same constant in jit.rs
 /** @const */

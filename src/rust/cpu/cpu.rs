@@ -393,7 +393,6 @@ impl InterruptDescriptor {
     const TRAP_GATE: u8 = 0b111;
 }
 
-#[no_mangle]
 pub unsafe fn switch_cs_real_mode(selector: i32) {
     dbg_assert!(!*protected_mode || vm86_mode());
 
@@ -2184,7 +2183,6 @@ pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
     }
 }
 
-#[no_mangle]
 pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
     let physical_page = physical_page.to_u32();
     for i in 0..unsafe { valid_tlb_entries_count } {
@@ -2687,7 +2685,6 @@ pub unsafe fn popa32() {
 #[no_mangle]
 pub fn get_seg_cs() -> i32 { unsafe { *segment_offsets.offset(CS as isize) } }
 
-#[no_mangle]
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 
 pub unsafe fn get_seg_prefix(default_segment: i32) -> OrPageFault<i32> {
@@ -2956,7 +2953,6 @@ pub unsafe fn do_many_cycles_native() {
     }
 }
 
-#[no_mangle]
 pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;
@@ -2968,7 +2964,6 @@ pub unsafe fn trigger_de() {
     call_interrupt_vector(CPU_EXCEPTION_DE, false, None);
 }
 
-#[no_mangle]
 pub unsafe fn trigger_ud() {
     dbg_log!("#ud");
     dbg_trace();
@@ -2993,7 +2988,6 @@ pub unsafe fn trigger_nm() {
     call_interrupt_vector(CPU_EXCEPTION_NM, false, None);
 }
 
-#[no_mangle]
 pub unsafe fn trigger_gp(code: i32) {
     dbg_log!("#gp");
     *instruction_pointer = *previous_ip;
@@ -3695,7 +3689,6 @@ pub unsafe fn get_stack_reg() -> i32 {
     };
 }
 
-#[no_mangle]
 pub unsafe fn set_stack_reg(value: i32) {
     if *stack_size_32 {
         write_reg32(ESP, value)
@@ -3782,7 +3775,6 @@ pub unsafe fn read_tsc() -> u64 {
     };
 }
 
-#[no_mangle]
 pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
 
 #[no_mangle]
@@ -3914,7 +3906,6 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
     };
 }
 
-#[no_mangle]
 pub unsafe fn trigger_np(code: i32) {
     dbg_log!("#np");
     *instruction_pointer = *previous_ip;
@@ -3926,7 +3917,6 @@ pub unsafe fn trigger_np(code: i32) {
     call_interrupt_vector(CPU_EXCEPTION_NP, false, Some(code));
 }
 
-#[no_mangle]
 pub unsafe fn trigger_ss(code: i32) {
     dbg_log!("#ss");
     *instruction_pointer = *previous_ip;
