@@ -3,7 +3,6 @@
 extern "C" {
     fn get_rand_int() -> i32;
     fn cpuid();
-    fn load_ldt(v: i32);
 }
 
 unsafe fn undefined_instruction() {

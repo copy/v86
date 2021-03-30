@@ -2285,6 +2285,48 @@ pub unsafe fn load_tr(selector: i32) {
     safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
 }
 
+pub unsafe fn load_ldt(selector: i32) {
+    let selector = SegmentSelector::of_u16(selector as u16);
+
+    if selector.is_null() {
+        *segment_limits.offset(LDTR as isize) = 0;
+        *segment_offsets.offset(LDTR as isize) = 0;
+        *sreg.offset(LDTR as isize) = selector.raw;
+        return;
+    }
+
+    dbg_assert!(selector.is_gdt(), "TODO: LDT can only be loaded from GDT");
+
+    let (descriptor, _) = match return_on_pagefault!(lookup_segment_selector(selector)) {
+        Ok((desc, addr)) => (desc, addr),
+        Err(SelectorNullOrInvalid::IsNull) => {
+            panic!("TODO: null TR");
+        },
+        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+            panic!("TODO: TR selector outside of table limit");
+        },
+    };
+
+    if !descriptor.is_present() {
+        panic!("#NT | present bit not set (lldt)");
+    }
+
+    if !descriptor.is_system() {
+        panic!("#GP | lldt: not a system entry");
+    }
+
+    if descriptor.system_type() != 2 {
+        panic!(
+            "#GP | lldt: invalid type (type = 0x{:x})",
+            descriptor.system_type()
+        );
+    }
+
+    *segment_limits.offset(LDTR as isize) = descriptor.effective_limit();
+    *segment_offsets.offset(LDTR as isize) = descriptor.base();
+    *sreg.offset(LDTR as isize) = selector.raw;
+}
+
 #[no_mangle]
 pub unsafe fn log_segment_null(segment: i32) {
     dbg_assert!(segment >= 0 && segment < 8);
