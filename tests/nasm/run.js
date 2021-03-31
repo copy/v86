@@ -264,7 +264,7 @@ else {
 
         assert(!emulator.running);
 
-        cpu.reset();
+        cpu.reboot_internal();
         cpu.reset_memory();
         cpu.load_multiboot(fs.readFileSync(TEST_DIR + current_test.img_name).buffer);
 

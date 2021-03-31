@@ -201,6 +201,22 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Linux 3 reboot",
+            cdrom: root_path + "/images/linux3.iso",
+            timeout: 90,
+            expected_texts: [
+                "~%",
+                "SeaBIOS ",
+                "~%",
+            ],
+            actions: [
+                {
+                    on_text: "~%",
+                    run: "reboot\n",
+                },
+            ],
+        },
+        {
             name: "KolibriOS",
             fda: root_path + "/images/kolibri.img",
             timeout: 120,

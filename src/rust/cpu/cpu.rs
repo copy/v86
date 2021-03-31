@@ -3971,3 +3971,83 @@ pub unsafe fn check_page_switch(block_addr: u32, next_block_addr: u32) {
     dbg_assert!(x.is_ok());
     dbg_assert!(x == Ok(next_block_addr));
 }
+
+#[no_mangle]
+pub unsafe fn reset_cpu() {
+    for i in 0..8 {
+        *segment_is_null.offset(i) = false;
+        *segment_limits.offset(i) = 0;
+        *segment_offsets.offset(i) = 0;
+
+        *reg32.offset(i) = 0;
+
+        *sreg.offset(i) = 0;
+        *dreg.offset(i) = 0;
+
+        write_xmm128_2(i as i32, 0, 0);
+
+        *fpu_st.offset(i) = ::softfloat::F80::ZERO;
+    }
+
+    *fpu_stack_empty = 0xFF;
+    *fpu_stack_ptr = 0;
+    *fpu_control_word = 0x37F;
+    *fpu_status_word = 0;
+    *fpu_ip = 0;
+    *fpu_ip_selector = 0;
+    *fpu_opcode = 0;
+    *fpu_dp = 0;
+    *fpu_dp_selector = 0;
+
+    *mxcsr = 0x1F80;
+
+    full_clear_tlb();
+
+    *protected_mode = false;
+
+    // http://www.sandpile.org/x86/initial.htm
+    *idtr_size = 0;
+    *idtr_offset = 0;
+
+    *gdtr_size = 0;
+    *gdtr_offset = 0;
+
+    *page_fault = false;
+    *cr = 1 << 30 | 1 << 29 | 1 << 4;
+    *cr.offset(2) = 0;
+    *cr.offset(3) = 0;
+    *cr.offset(4) = 0;
+    *dreg.offset(6) = 0xFFFF0FF0u32 as i32;
+    *dreg.offset(7) = 0x400;
+    *cpl = 0;
+
+    *is_32 = false;
+    *stack_size_32 = false;
+    *prefixes = 0;
+
+    *last_virt_eip = -1;
+
+    *instruction_counter = 0;
+    *previous_ip = 0;
+    *in_hlt = false;
+
+    *sysenter_cs = 0;
+    *sysenter_esp = 0;
+    *sysenter_eip = 0;
+
+    *flags = FLAGS_DEFAULT;
+    *flags_changed = 0;
+    *last_result = 0;
+    *last_op1 = 0;
+    *last_op_size = 0;
+
+    set_tsc(0, 0);
+
+    *instruction_pointer = 0xFFFF0;
+    switch_cs_real_mode(0xF000);
+
+    switch_seg(SS, 0x30);
+    write_reg32(ESP, 0x100);
+
+    jit::jit_clear_cache(jit::get_jit_state());
+}

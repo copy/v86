@@ -213,6 +213,8 @@ CPU.prototype.wasm_patch = function()
         return f;
     };
 
+    this.reset_cpu = get_import("reset_cpu");
+
     this.getiopl = get_import("getiopl");
     this.vm86_mode = get_import("vm86_mode");
     this.get_eflags = get_import("get_eflags");
@@ -223,7 +225,6 @@ CPU.prototype.wasm_patch = function()
     this.trigger_np = get_import("trigger_np");
     this.trigger_ss = get_import("trigger_ss");
 
-    this.switch_cs_real_mode = get_import("switch_cs_real_mode");
     this.pic_call_irq = get_import("pic_call_irq");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
@@ -592,96 +593,16 @@ CPU.prototype.main_run = function()
 
 CPU.prototype.reboot_internal = function()
 {
-    this.reset();
-    this.load_bios();
-};
+    this.reset_cpu();
 
-CPU.prototype.reset = function()
-{
-    this.segment_is_null.fill(0);
-    this.segment_limits.fill(0);
-    //this.segment_infos = new Uint32Array(8);
-    this.segment_offsets.fill(0);
-
-    this.reg32.fill(0);
-
-    this.sreg.fill(0);
-    this.dreg.fill(0);
-
-    this.fpu_st.fill(0);
-    this.fpu_stack_empty[0] = 0xFF;
-    this.fpu_stack_ptr[0] = 0;
-    this.fpu_control_word[0] = 0x37F;
-    this.fpu_status_word[0] = 0;
-    this.fpu_ip[0] = 0;
-    this.fpu_ip_selector[0] = 0;
-    this.fpu_opcode[0] = 0;
-    this.fpu_dp[0] = 0;
-    this.fpu_dp_selector[0] = 0;
-
-    this.reg_xmm32s.fill(0);
-
-    this.mxcsr[0] = 0x1F80;
-
-    this.full_clear_tlb();
-
-    this.protected_mode[0] = +false;
-
-    // http://www.sandpile.org/x86/initial.htm
-    this.idtr_size[0] = 0;
-    this.idtr_offset[0] = 0;
-
-    this.gdtr_size[0] = 0;
-    this.gdtr_offset[0] = 0;
-
-    this.page_fault[0] = 0;
-    this.cr[0] = 1 << 30 | 1 << 29 | 1 << 4;
-    this.cr[2] = 0;
-    this.cr[3] = 0;
-    this.cr[4] = 0;
-    this.dreg[6] = 0xFFFF0FF0|0;
-    this.dreg[7] = 0x400;
-    this.cpl[0] = 0;
-
-    this.is_32[0] = +false;
-    this.stack_size_32[0] = +false;
-    this.prefixes[0] = 0;
-
-    this.last_virt_eip[0] = -1;
-
-    this.instruction_counter[0] = 0;
-    this.previous_ip[0] = 0;
-    this.in_hlt[0] = +false;
-
-    this.sysenter_cs[0] = 0;
-    this.sysenter_esp[0] = 0;
-    this.sysenter_eip[0] = 0;
-
-    this.flags[0] = flags_default;
-    this.flags_changed.fill(0);
-    this.last_result.fill(0);
-    this.last_op1.fill(0);
-    this.last_op_size.fill(0);
-
-    this.set_tsc(0, 0);
-
-    this.instruction_pointer[0] = 0xFFFF0;
-    this.switch_cs_real_mode(0xF000);
-
-    this.sreg[reg_ss] = 0x30;
-    this.segment_is_null[reg_ss] = 0;
-    this.segment_offsets[reg_ss] = 0x30 << 4;
-    this.stack_size_32[0] = +false;
-    this.reg32[reg_esp] = 0x100;
+    this.fw_value = [];
 
     if(this.devices.virtio)
     {
         this.devices.virtio.reset();
     }
 
-    this.fw_value = [];
-
-    this.jit_clear_cache();
+    this.load_bios();
 };
 
 CPU.prototype.reset_memory = function()
@@ -728,7 +649,7 @@ CPU.prototype.init = function(settings, device_bus)
 
     this.acpi_enabled[0] = +settings.acpi;
 
-    this.reset();
+    this.reset_cpu();
 
     var io = new IO(this);
     this.io = io;
