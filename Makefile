@@ -312,7 +312,7 @@ all-tests: jshint kvm-unit-test qemutests qemutests-release jitpagingtests api-t
 	# - devices-test (hangs)
 
 jshint:
-	jshint --config=./.jshint.json src tests gen lib --exclude lib/closure-base.js
+	jshint --config=./.jshint.json src tests gen lib
 
 rustfmt: $(RUST_FILES)
 	cargo +nightly fmt --all -- --check
