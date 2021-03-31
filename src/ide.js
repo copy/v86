@@ -1107,6 +1107,14 @@ IDEInterface.prototype.atapi_handle = function()
             dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             break;
 
+        case 0xBE:
+            // Hiren's boot CD
+            dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+            this.data_allocate(0);
+            this.data_end = this.data_length;
+            this.status = 0x50;
+            break;
+
         default:
             this.status = 0x51;
             this.data_length = 0;
