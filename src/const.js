@@ -64,48 +64,48 @@ var LOG_NAMES = [
 var
 
 // flags register bitflags
-/** @const */ flag_carry = 1,
-/** @const */ flag_parity = 4,
-/** @const */ flag_adjust = 16,
-/** @const */ flag_zero = 64,
-/** @const */ flag_sign = 128,
-/** @const */ flag_trap = 256,
-/** @const */ flag_interrupt = 512,
-/** @const */ flag_direction = 1024,
-/** @const */ flag_overflow = 2048,
-/** @const */ flag_iopl = 1 << 12 | 1 << 13,
-/** @const */ flag_nt = 1 << 14,
-/** @const */ flag_rf = 1 << 16,
-/** @const */ flag_vm = 1 << 17,
-/** @const */ flag_ac = 1 << 18,
-/** @const */ flag_vif = 1 << 19,
-/** @const */ flag_vip = 1 << 20,
-/** @const */ flag_id = 1 << 21,
+/** @const */ FLAG_CARRY = 1,
+/** @const */ FLAG_PARITY = 4,
+/** @const */ FLAG_ADJUST = 16,
+/** @const */ FLAG_ZERO = 64,
+/** @const */ FLAG_SIGN = 128,
+/** @const */ FLAG_TRAP = 256,
+/** @const */ FLAG_INTERRUPT = 512,
+/** @const */ FLAG_DIRECTION = 1024,
+/** @const */ FLAG_OVERFLOW = 2048,
+/** @const */ FLAG_IOPL = 1 << 12 | 1 << 13,
+/** @const */ FLAG_NT = 1 << 14,
+/** @const */ FLAG_RF = 1 << 16,
+/** @const */ FLAG_VM = 1 << 17,
+/** @const */ FLAG_AC = 1 << 18,
+/** @const */ FLAG_VIF = 1 << 19,
+/** @const */ FLAG_VIP = 1 << 20,
+/** @const */ FLAG_ID = 1 << 21,
 
 /**
  * default values of reserved flags bits
  * @const
  */
-flags_default = 1 << 1,
+FLAGS_DEFAULT = 1 << 1,
 
 
-/** @const */ reg_eax = 0,
-/** @const */ reg_ecx = 1,
-/** @const */ reg_edx = 2,
-/** @const */ reg_ebx = 3,
-/** @const */ reg_esp = 4,
-/** @const */ reg_ebp = 5,
-/** @const */ reg_esi = 6,
-/** @const */ reg_edi = 7,
+/** @const */ REG_EAX = 0,
+/** @const */ REG_ECX = 1,
+/** @const */ REG_EDX = 2,
+/** @const */ REG_EBX = 3,
+/** @const */ REG_ESP = 4,
+/** @const */ REG_EBP = 5,
+/** @const */ REG_ESI = 6,
+/** @const */ REG_EDI = 7,
 
-/** @const */ reg_es = 0,
-/** @const */ reg_cs = 1,
-/** @const */ reg_ss = 2,
-/** @const */ reg_ds = 3,
-/** @const */ reg_fs = 4,
-/** @const */ reg_gs = 5,
+/** @const */ REG_ES = 0,
+/** @const */ REG_CS = 1,
+/** @const */ REG_SS = 2,
+/** @const */ REG_DS = 3,
+/** @const */ REG_FS = 4,
+/** @const */ REG_GS = 5,
 
-/** @const */ reg_ldtr = 7; // local descriptor table register
+/** @const */ REG_LDTR = 7; // local descriptor table register
 
 var
     /**

@@ -172,7 +172,7 @@ CPU.prototype.debug_init = function()
     {
         if(!DEBUG) return;
 
-        var esp = cpu.reg32[reg_esp];
+        var esp = cpu.reg32[REG_ESP];
         dbg_log("========= STACK ==========");
 
         if(end >= start || end === undefined)
@@ -198,25 +198,25 @@ CPU.prototype.debug_init = function()
         if(!DEBUG) return;
 
         var mode = cpu.protected_mode[0] ? "prot" : "real";
-        var vm = (cpu.flags[0] & flag_vm) ? 1 : 0;
+        var vm = (cpu.flags[0] & FLAG_VM) ? 1 : 0;
         var flags = cpu.get_eflags();
         var iopl = cpu.getiopl();
         var cpl = cpu.cpl[0];
-        var cs_eip = h(cpu.sreg[reg_cs], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
-        var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.reg32[reg_es] >>> 0, 8);
+        var cs_eip = h(cpu.sreg[REG_CS], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
+        var ss_esp = h(cpu.sreg[REG_SS], 4) + ":" + h(cpu.reg32[REG_ES] >>> 0, 8);
         var op_size = cpu.is_32[0] ? "32" : "16";
-        var if_ = (cpu.flags[0] & flag_interrupt) ? 1 : 0;
+        var if_ = (cpu.flags[0] & FLAG_INTERRUPT) ? 1 : 0;
 
         var flag_names = {
-            [flag_carry]: "c",
-            [flag_parity]: "p",
-            [flag_adjust]: "a",
-            [flag_zero]: "z",
-            [flag_sign]: "s",
-            [flag_trap]: "t",
-            [flag_interrupt]: "i",
-            [flag_direction]: "d",
-            [flag_overflow]: "o",
+            [FLAG_CARRY]: "c",
+            [FLAG_PARITY]: "p",
+            [FLAG_ADJUST]: "a",
+            [FLAG_ZERO]: "z",
+            [FLAG_SIGN]: "s",
+            [FLAG_TRAP]: "t",
+            [FLAG_INTERRUPT]: "i",
+            [FLAG_DIRECTION]: "d",
+            [FLAG_OVERFLOW]: "o",
         };
         var flag_string = "";
 
@@ -254,10 +254,10 @@ CPU.prototype.debug_init = function()
     function get_regs_short()
     {
         var
-            r32 = { "eax": reg_eax, "ecx": reg_ecx, "edx": reg_edx, "ebx": reg_ebx,
-                    "esp": reg_esp, "ebp": reg_ebp, "esi": reg_esi, "edi": reg_edi },
+            r32 = { "eax": REG_EAX, "ecx": REG_ECX, "edx": REG_EDX, "ebx": REG_EBX,
+                    "esp": REG_ESP, "ebp": REG_EBP, "esi": REG_ESI, "edi": REG_EDI },
             r32_names = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"],
-            s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es, "fs": reg_fs, "gs": reg_gs, "ss": reg_ss },
+            s = { "cs": REG_CS, "ds": REG_DS, "es": REG_ES, "fs": REG_FS, "gs": REG_GS, "ss": REG_SS },
             line1 = "",
             line2 = "";
 
@@ -272,8 +272,8 @@ CPU.prototype.debug_init = function()
         //line1 += " eip=" + h(cpu.get_real_eip() >>> 0, 8);
         //line2 += " flg=" + h(cpu.get_eflags(), 8);
 
-        line1 += "  ds=" + h(cpu.sreg[reg_ds], 4) + " es=" + h(cpu.sreg[reg_es], 4) + " fs=" + h(cpu.sreg[reg_fs], 4);
-        line2 += "  gs=" + h(cpu.sreg[reg_gs], 4) + " cs=" + h(cpu.sreg[reg_cs], 4) + " ss=" + h(cpu.sreg[reg_ss], 4);
+        line1 += "  ds=" + h(cpu.sreg[REG_DS], 4) + " es=" + h(cpu.sreg[REG_ES], 4) + " fs=" + h(cpu.sreg[REG_FS], 4);
+        line2 += "  gs=" + h(cpu.sreg[REG_GS], 4) + " cs=" + h(cpu.sreg[REG_CS], 4) + " ss=" + h(cpu.sreg[REG_SS], 4);
 
         return [line1, line2];
     }
@@ -342,8 +342,8 @@ CPU.prototype.debug_init = function()
         dbg_log("gdt: (len = " + h(cpu.gdtr_size[0]) + ")");
         dump_table(cpu.translate_address_system_read(cpu.gdtr_offset[0]), cpu.gdtr_size[0]);
 
-        dbg_log("\nldt: (len = " + h(cpu.segment_limits[reg_ldtr]) + ")");
-        dump_table(cpu.translate_address_system_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
+        dbg_log("\nldt: (len = " + h(cpu.segment_limits[REG_LDTR]) + ")");
+        dump_table(cpu.translate_address_system_read(cpu.segment_offsets[REG_LDTR]), cpu.segment_limits[REG_LDTR]);
 
         function dump_table(addr, size)
         {

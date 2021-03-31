@@ -912,15 +912,15 @@ CPU.prototype.load_multiboot = function(buffer)
         dbg_log("Multiboot magic found, flags: " + h(flags >>> 0, 8), LOG_CPU);
         dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS) === 0, "TODO");
 
-        this.reg32[reg_eax] = 0x2BADB002;
+        this.reg32[REG_EAX] = 0x2BADB002;
 
         let multiboot_info_addr = 0x7C00;
-        this.reg32[reg_ebx] = multiboot_info_addr;
+        this.reg32[REG_EBX] = multiboot_info_addr;
         this.write32(multiboot_info_addr, 0);
 
         this.cr[0] = 1;
         this.protected_mode[0] = +true;
-        this.flags[0] = flags_default;
+        this.flags[0] = FLAGS_DEFAULT;
         this.is_32[0] = +true;
         this.stack_size_32[0] = +true;
 
@@ -1409,7 +1409,7 @@ CPU.prototype.dbg_assert = function(x)
 
 CPU.prototype.hlt_loop = function()
 {
-    if(this.get_eflags_no_arith() & flag_interrupt)
+    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
     {
         //dbg_log("In HLT loop", LOG_CPU);
 
@@ -1447,7 +1447,7 @@ CPU.prototype.run_hardware_timers = function(now)
 
 CPU.prototype.hlt_op = function()
 {
-    if((this.get_eflags_no_arith() & flag_interrupt) === 0)
+    if((this.get_eflags_no_arith() & FLAG_INTERRUPT) === 0)
     {
         // execution can never resume (until NMIs are supported)
         this.bus.send("cpu-event-halt");
@@ -1466,7 +1466,7 @@ CPU.prototype.handle_irqs = function()
 {
     //dbg_assert(this.prefixes[0] === 0);
 
-    if(this.get_eflags_no_arith() & flag_interrupt)
+    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
     {
         this.pic_acknowledge();
     }
@@ -1474,7 +1474,7 @@ CPU.prototype.handle_irqs = function()
 
 CPU.prototype.pic_acknowledge = function()
 {
-    dbg_assert(this.get_eflags_no_arith() & flag_interrupt);
+    dbg_assert(this.get_eflags_no_arith() & FLAG_INTERRUPT);
 
     if(this.devices.pic)
     {
@@ -1528,7 +1528,7 @@ CPU.prototype.cpuid = function()
     var ebx = 0;
 
     const winnt_fix = false;
-    const level = this.reg32[reg_eax];
+    const level = this.reg32[REG_EAX];
 
     switch(level)
     {
@@ -1576,7 +1576,7 @@ CPU.prototype.cpuid = function()
 
         case 4:
             // from my local machine
-            switch(this.reg32[reg_ecx])
+            switch(this.reg32[REG_ECX])
             {
                 case 0:
                     eax = 0x00000121;
@@ -1650,22 +1650,22 @@ CPU.prototype.cpuid = function()
             break;
 
         default:
-            dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax] >>> 0), LOG_CPU);
+            dbg_log("cpuid: unimplemented eax: " + h(this.reg32[REG_EAX] >>> 0), LOG_CPU);
     }
 
     if(level === 4)
     {
-        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8) + " cl=" + h(this.reg32[reg_ecx] & 0xFF, 2), LOG_CPU);
+        dbg_log("cpuid: eax=" + h(this.reg32[REG_EAX] >>> 0, 8) + " cl=" + h(this.reg32[REG_ECX] & 0xFF, 2), LOG_CPU);
     }
     else if(level !== 0 && level !== 2 && level !== (0x80000000 | 0))
     {
-        dbg_log("cpuid: eax=" + h(this.reg32[reg_eax] >>> 0, 8), LOG_CPU);
+        dbg_log("cpuid: eax=" + h(this.reg32[REG_EAX] >>> 0, 8), LOG_CPU);
     }
 
-    this.reg32[reg_eax] = eax;
-    this.reg32[reg_ecx] = ecx;
-    this.reg32[reg_edx] = edx;
-    this.reg32[reg_ebx] = ebx;
+    this.reg32[REG_EAX] = eax;
+    this.reg32[REG_ECX] = ecx;
+    this.reg32[REG_EDX] = edx;
+    this.reg32[REG_EBX] = ebx;
 };
 
 // Closure Compiler's way of exporting
