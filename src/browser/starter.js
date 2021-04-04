@@ -134,8 +134,6 @@ function V86Starter(options)
             cpu.mmap_write128(addr, value0, value1, value2, value3);
         },
 
-        "cpuid": function() { return cpu.cpuid(); },
-
         "log_from_wasm": function(offset, len) {
             const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);

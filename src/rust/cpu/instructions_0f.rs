@@ -2,7 +2,6 @@
 
 extern "C" {
     fn get_rand_int() -> i32;
-    fn cpuid();
 }
 
 unsafe fn undefined_instruction() {
@@ -3210,7 +3209,158 @@ pub unsafe fn instr32_0FA1() {
     };
 }
 #[no_mangle]
-pub unsafe fn instr_0FA2() { cpuid(); }
+pub unsafe fn instr_0FA2() {
+    // cpuid
+    // TODO: Fill in with less bogus values
+
+    // http://lxr.linux.no/linux+%2a/arch/x86/include/asm/cpufeature.h
+    // http://www.sandpile.org/x86/cpuid.htm
+    let mut eax = 0;
+    let mut ecx = 0;
+    let mut edx = 0;
+    let mut ebx = 0;
+
+    let winnt_fix = false;
+    let level = read_reg32(EAX) as u32;
+
+    match level {
+        0 => {
+            // maximum supported level
+            if winnt_fix {
+                eax = 2;
+            }
+            else {
+                eax = 0x16;
+            }
+
+            ebx = 0x756E6547 | 0; // Genu
+            edx = 0x49656E69 | 0; // ineI
+            ecx = 0x6C65746E | 0; // ntel
+        },
+
+        1 => {
+            // pentium
+            eax = 3 | 6 << 4 | 15 << 8;
+            ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
+            ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
+            let vme = 0 << 1;
+            if ::config::VMWARE_HYPERVISOR_PORT {
+                ecx |= 1 << 31
+            }; // hypervisor
+            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
+                    vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
+                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
+                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
+
+            if *acpi_enabled
+            //&& this.apic_enabled[0])
+            {
+                edx |= 1 << 9; // apic
+            }
+        },
+
+        2 => {
+            // Taken from http://siyobik.info.gf/main/reference/instruction/CPUID
+            eax = 0x665B5001;
+            ebx = 0;
+            ecx = 0;
+            edx = 0x007A7000;
+        },
+
+        4 => {
+            // from my local machine
+            match read_reg32(ECX) {
+                0 => {
+                    eax = 0x00000121;
+                    ebx = 0x01c0003f;
+                    ecx = 0x0000003f;
+                    edx = 0x00000001;
+                },
+                1 => {
+                    eax = 0x00000122;
+                    ebx = 0x01c0003f;
+                    ecx = 0x0000003f;
+                    edx = 0x00000001;
+                },
+                2 => {
+                    eax = 0x00000143;
+                    ebx = 0x05c0003f;
+                    ecx = 0x00000fff;
+                    edx = 0x00000001;
+                },
+                _ => {},
+            }
+        },
+
+        5 => {
+            // from my local machine
+            eax = 0x40;
+            ebx = 0x40;
+            ecx = 3;
+            edx = 0x00142120;
+        },
+
+        7 => {
+            eax = 0; // maximum supported sub-level
+            ebx = 1 << 9; // enhanced REP MOVSB/STOSB
+            ecx = 0;
+            edx = 0;
+        },
+
+        0x80000000 => {
+            // maximum supported extended level
+            eax = 5;
+            // other registers are reserved
+        },
+
+        0x40000000 => {
+            // hypervisor
+            if ::config::VMWARE_HYPERVISOR_PORT {
+                // h("Ware".split("").reduce((a, c, i) => a | c.charCodeAt(0) << i * 8, 0))
+                ebx = 0x61774D56 | 0; // VMwa
+                ecx = 0x4D566572 | 0; // reVM
+                edx = 0x65726177 | 0; // ware
+            }
+        },
+
+        0x15 => {
+            eax = 1; // denominator
+            ebx = 1; // numerator
+            ecx = (TSC_RATE * 1000.0) as u32 as i32; // core crystal clock frequency in Hz
+            dbg_assert!(ecx > 0);
+            //  (TSC frequency = core crystal clock frequency * EBX/EAX)
+        },
+
+        0x16 => {
+            eax = (TSC_RATE / 1000.0).floor() as u32 as i32; // core base frequency in MHz
+            ebx = (TSC_RATE / 1000.0).floor() as u32 as i32; // core maximum frequency in MHz
+            ecx = 10; // bus (reference) frequency in MHz
+
+            // 16-bit values
+            dbg_assert!(eax < 0x10000);
+            dbg_assert!(ebx < 0x10000);
+            dbg_assert!(ecx < 0x10000);
+        },
+
+        x => dbg_log!("cpuid: unimplemented eax: {:x}", x),
+    }
+
+    if level == 4 {
+        dbg_log!(
+            "cpuid: eax={:08x} cl={:02x}",
+            read_reg32(EAX),
+            read_reg8(CL),
+        );
+    }
+    else if level != 0 && level != 2 && level != 0x80000000 {
+        dbg_log!("cpuid: eax={:08x}", read_reg32(EAX));
+    }
+
+    write_reg32(EAX, eax);
+    write_reg32(ECX, ecx);
+    write_reg32(EDX, edx);
+    write_reg32(EBX, ebx);
+}
 pub unsafe fn instr16_0FA3_reg(r1: i32, r2: i32) { bt_reg(read_reg16(r1), read_reg16(r2) & 15); }
 pub unsafe fn instr16_0FA3_mem(addr: i32, r: i32) { bt_mem(addr, read_reg16(r) << 16 >> 16); }
 pub unsafe fn instr32_0FA3_reg(r1: i32, r2: i32) { bt_reg(read_reg32(r1), read_reg32(r2) & 31); }

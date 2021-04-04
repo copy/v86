@@ -60,10 +60,5 @@ var TIME_PER_FRAME = 1;
  */
 var TSC_RATE = 1 * 1000 * 1000;
 
-
 /** @const */
 var APIC_TIMER_FREQ = TSC_RATE;
-
-
-/** @const */
-var VMWARE_HYPERVISOR_PORT = true;
