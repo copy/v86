@@ -1397,16 +1397,6 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
     }
 };
 
-CPU.prototype.dbg_log = function()
-{
-    dbg_log("from wasm: " + [].join.call(arguments));
-};
-
-CPU.prototype.dbg_assert = function(x)
-{
-    dbg_assert(x);
-};
-
 CPU.prototype.hlt_loop = function()
 {
     if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
