@@ -1683,91 +1683,83 @@ pub unsafe fn instr_F30F53_mem(addr: i32, r: i32) {
     instr_F30F53(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F54(source: reg128, r: i32) {
     // andps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pand_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F54_reg(r1: i32, r2: i32) { instr_0F54(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F54_mem(addr: i32, r: i32) {
     instr_0F54(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F54(source: reg128, r: i32) {
     // andpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pand_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F54_reg(r1: i32, r2: i32) { instr_660F54(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F54_mem(addr: i32, r: i32) {
     instr_660F54(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F55(source: reg128, r: i32) {
     // andnps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pandn_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F55_reg(r1: i32, r2: i32) { instr_0F55(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F55_mem(addr: i32, r: i32) {
     instr_0F55(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F55(source: reg128, r: i32) {
     // andnpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pandn_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F55_reg(r1: i32, r2: i32) { instr_660F55(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F55_mem(addr: i32, r: i32) {
     instr_660F55(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F56(source: reg128, r: i32) {
     // orps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     por_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F56_reg(r1: i32, r2: i32) { instr_0F56(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F56_mem(addr: i32, r: i32) {
     instr_0F56(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F56(source: reg128, r: i32) {
     // orpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     por_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F56_reg(r1: i32, r2: i32) { instr_660F56(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F56_mem(addr: i32, r: i32) {
     instr_660F56(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F57(source: reg128, r: i32) {
     // xorps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pxor_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F57_reg(r1: i32, r2: i32) { instr_0F57(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F57_mem(addr: i32, r: i32) {
     instr_0F57(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F57(source: reg128, r: i32) {
     // xorpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pxor_r128(source, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F57_reg(r1: i32, r2: i32) { instr_660F57(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F57_mem(addr: i32, r: i32) {
     instr_660F57(return_on_pagefault!(safe_read128s(addr)), r);
 }
