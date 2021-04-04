@@ -141,7 +141,7 @@ const print_stats = {
         text += "JIT_CACHE_SIZE=" + cpu.wm.exports["jit_get_cache_size"]() + "\n";
         text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 
-        text += "do_many_cycles avg: " + (do_many_cycles_total / do_many_cycles_count || 0) + "\n";
+        text += "do_many_cycles avg: " + (cpu.do_many_cycles_total / cpu.do_many_cycles_count || 0) + "\n";
         text += "wasm memory size: " + (cpu.wasm_memory.buffer.byteLength >> 20) + "m\n";
 
         text += "Config:\n";

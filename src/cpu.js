@@ -170,6 +170,12 @@ function CPU(bus, wm)
 
     this.debug_init();
 
+    if(DEBUG)
+    {
+        this.do_many_cycles_count = 0;
+        this.do_many_cycles_total = 0;
+    }
+
     //Object.seal(this);
 }
 
@@ -1208,9 +1214,6 @@ CPU.prototype.do_run = function()
     }
 };
 
-let do_many_cycles_count = 0;
-let do_many_cycles_total = 0;
-
 CPU.prototype.do_many_cycles = function()
 {
     if(DEBUG)
@@ -1222,8 +1225,8 @@ CPU.prototype.do_many_cycles = function()
 
     if(DEBUG)
     {
-        do_many_cycles_total += v86.microtick() - start_time;
-        do_many_cycles_count++;
+        this.do_many_cycles_total += v86.microtick() - start_time;
+        this.do_many_cycles_count++;
     }
 };
 
