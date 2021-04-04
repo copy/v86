@@ -114,6 +114,20 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     jit_handle_prefix(ctx, instr_flags)
 }
 
+fn sse_read_f32_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.reinterpret_i32_as_f32();
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.call_fn2_f32_i32(name);
+}
+fn sse_read_f32_xmm_xmm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_f32(0);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.call_fn2_f32_i32(name);
+}
+
 fn sse_read64_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
     ctx.builder.const_i32(r as i32);
@@ -5129,6 +5143,31 @@ pub fn instr_F30F2D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.load_aligned_f32(0);
     ctx.builder.call_fn1_f32_ret("sse_convert_f32_to_i32");
     codegen::gen_set_reg32(ctx, r2);
+}
+
+pub fn instr_0F51_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_0F51", modrm_byte, r);
+}
+pub fn instr_0F51_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_0F51", r1, r2);
+}
+pub fn instr_660F51_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F51", modrm_byte, r);
+}
+pub fn instr_660F51_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F51", r1, r2);
+}
+pub fn instr_F20F51_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_F20F51", modrm_byte, r);
+}
+pub fn instr_F20F51_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read64_xmm_xmm(ctx, "instr_F20F51", r1, r2);
+}
+pub fn instr_F30F51_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read_f32_xmm_mem(ctx, "instr_F30F51", modrm_byte, r);
+}
+pub fn instr_F30F51_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read_f32_xmm_xmm(ctx, "instr_F30F51", r1, r2);
 }
 
 pub fn instr_0F60_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {

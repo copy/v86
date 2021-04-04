@@ -1577,6 +1577,7 @@ pub unsafe fn instr_660F50_reg(r1: i32, r2: i32) {
 #[no_mangle]
 pub unsafe fn instr_660F50_mem(_addr: i32, _r1: i32) { trigger_ud(); }
 
+#[no_mangle]
 pub unsafe fn instr_0F51(source: reg128, r: i32) {
     // sqrtps xmm, xmm/mem128
     // XXX: Should round according to round control
@@ -1590,12 +1591,11 @@ pub unsafe fn instr_0F51(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_0F51_reg(r1: i32, r2: i32) { instr_0F51(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F51_mem(addr: i32, r: i32) {
     instr_0F51(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F51(source: reg128, r: i32) {
     // sqrtpd xmm, xmm/mem128
     // XXX: Should round according to round control
@@ -1604,31 +1604,27 @@ pub unsafe fn instr_660F51(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660F51_reg(r1: i32, r2: i32) { instr_660F51(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F51_mem(addr: i32, r: i32) {
     instr_660F51(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F20F51(source: u64, r: i32) {
     // sqrtsd xmm, xmm/mem64
     // XXX: Should round according to round control
     write_xmm_f64(r, f64::from_bits(source).sqrt());
 }
-#[no_mangle]
 pub unsafe fn instr_F20F51_reg(r1: i32, r2: i32) { instr_F20F51(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F20F51_mem(addr: i32, r: i32) {
     instr_F20F51(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F30F51(source: f32, r: i32) {
     // sqrtss xmm, xmm/mem32
     // XXX: Should round according to round control
     write_xmm_f32(r, source.sqrt());
 }
-#[no_mangle]
 pub unsafe fn instr_F30F51_reg(r1: i32, r2: i32) { instr_F30F51(read_xmm_f32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F51_mem(addr: i32, r: i32) {
     instr_F30F51(return_on_pagefault!(safe_read_f32(addr)), r);
 }

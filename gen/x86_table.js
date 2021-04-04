@@ -670,10 +670,10 @@ const encodings = [
 
     { sse: 1, opcode: 0x0F50, mem_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F50, mem_ud: 1, e: 1 },
-    { sse: 1, opcode: 0x0F51, e: 1 },
-    { sse: 1, opcode: 0x660F51, e: 1 },
-    { sse: 1, opcode: 0xF20F51, e: 1 },
-    { sse: 1, opcode: 0xF30F51, e: 1 },
+    { sse: 1, opcode: 0x0F51, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F51, e: 1, custom: 1 },
+    { sse: 1, opcode: 0xF20F51, e: 1, custom: 1 },
+    { sse: 1, opcode: 0xF30F51, e: 1, custom: 1 },
 
     // approximation of 1/sqrt(x). Skipped because our approximation doesn't match intel's
     { sse: 1, opcode: 0x0F52, e: 1, skip: 1, },
