@@ -676,8 +676,8 @@ const encodings = [
     { sse: 1, opcode: 0xF30F51, e: 1, custom: 1 },
 
     // approximation of 1/sqrt(x). Skipped because our approximation doesn't match intel's
-    { sse: 1, opcode: 0x0F52, e: 1, skip: 1, },
-    { sse: 1, opcode: 0xF30F52, e: 1, skip: 1, },
+    { sse: 1, opcode: 0x0F52, e: 1, skip: 1, custom: 1 },
+    { sse: 1, opcode: 0xF30F52, e: 1, skip: 1, custom: 1 },
 
     // reciprocal: approximation of 1/x. Skipped because our approximation doesn't match intel's
     { sse: 1, opcode: 0x0F53, e: 1, skip: 1, },

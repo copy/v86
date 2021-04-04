@@ -1629,6 +1629,7 @@ pub unsafe fn instr_F30F51_mem(addr: i32, r: i32) {
     instr_F30F51(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F52(source: reg128, r: i32) {
     // rcpps xmm1, xmm2/m128
     let result = reg128 {
@@ -1641,19 +1642,16 @@ pub unsafe fn instr_0F52(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_0F52_reg(r1: i32, r2: i32) { instr_0F52(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F52_mem(addr: i32, r: i32) {
     instr_0F52(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F30F52(source: f32, r: i32) {
     // rsqrtss xmm1, xmm2/m32
     write_xmm_f32(r, 1.0 / source.sqrt());
 }
-#[no_mangle]
 pub unsafe fn instr_F30F52_reg(r1: i32, r2: i32) { instr_F30F52(read_xmm_f32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F52_mem(addr: i32, r: i32) {
     instr_F30F52(return_on_pagefault!(safe_read_f32(addr)), r);
 }
