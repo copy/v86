@@ -174,6 +174,9 @@ function CPU(bus, wm)
     {
         this.do_many_cycles_count = 0;
         this.do_many_cycles_total = 0;
+
+        this.seen_code = {};
+        this.seen_code_uncompiled = {};
     }
 
     //Object.seal(this);
@@ -1237,9 +1240,6 @@ CPU.prototype.cycle = function()
     this.cycle_internal();
 };
 
-var seen_code = {};
-var seen_code_uncompiled = {};
-
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
 {
     ptr >>>= 0;
@@ -1251,7 +1251,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
 
     if(DEBUG)
     {
-        if(DUMP_GENERATED_WASM && !seen_code[start])
+        if(DUMP_GENERATED_WASM && !this.seen_code[start])
         {
             this.debug.dump_wasm(code);
 
@@ -1280,7 +1280,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
             }
         }
 
-        seen_code[start] = (seen_code[start] || 0) + 1;
+        this.seen_code[start] = (this.seen_code[start] || 0) + 1;
 
         if(this.test_hook_did_generate_wasm)
         {
@@ -1338,9 +1338,9 @@ CPU.prototype.log_uncompiled_code = function(start, end)
         return;
     }
 
-    if((seen_code_uncompiled[start] || 0) < 100)
+    if((this.seen_code_uncompiled[start] || 0) < 100)
     {
-        seen_code_uncompiled[start] = (seen_code_uncompiled[start] || 0) + 1;
+        this.seen_code_uncompiled[start] = (this.seen_code_uncompiled[start] || 0) + 1;
 
         end += 8; // final jump is not included
 
