@@ -63,7 +63,6 @@ pub unsafe fn sub32(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_32); }
 pub unsafe fn adc8(x: i32, y: i32) -> i32 { return adc(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn adc16(x: i32, y: i32) -> i32 { return adc(x, y, OPSIZE_16); }
-#[no_mangle]
 pub unsafe fn adc32(x: i32, y: i32) -> i32 { return adc(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn sbb8(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_8); }

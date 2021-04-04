@@ -950,8 +950,69 @@ fn gen_cmp32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) 
 fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
-    ctx.builder.call_fn2_ret("adc32");
+    ctx.builder.add_i32();
+    codegen::gen_getcf_unoptimised(ctx.builder);
+    ctx.builder.add_i32();
+    let res = ctx.builder.set_new_local();
+
+    codegen::gen_set_last_result(ctx.builder, &res);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(
+        ctx.builder,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
+    );
+
+    ctx.builder.const_i32(global_pointers::flags as i32);
+    codegen::gen_get_flags(ctx.builder);
+    ctx.builder
+        .const_i32(!FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW);
+    ctx.builder.and_i32();
+
+    // cf: (dest_operand ^ ((dest_operand ^ source_operand) & (source_operand ^ res))) >> op_size & FLAG_CARRY
+    ctx.builder.get_local(&dest_operand);
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.xor_i32();
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.get_local(&res);
+    ctx.builder.xor_i32();
+    ctx.builder.and_i32();
+    ctx.builder.xor_i32();
+    ctx.builder.const_i32(31);
+    ctx.builder.shr_u_i32();
+    ctx.builder.const_i32(FLAG_CARRY);
+    ctx.builder.and_i32();
+    ctx.builder.or_i32();
+
+    // af: (dest_operand ^ source_operand ^ res) & FLAG_ADJUST
+    ctx.builder.get_local(&dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.get_local(&res);
+    ctx.builder.xor_i32();
+    ctx.builder.xor_i32();
+    ctx.builder.const_i32(FLAG_ADJUST);
+    ctx.builder.and_i32();
+    ctx.builder.or_i32();
+
+    // of: ((source_operand ^ res) & (dest_operand ^ res)) >> op_size << 11 & FLAG_OVERFLOW
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.get_local(&res);
+    ctx.builder.xor_i32();
+    ctx.builder.get_local(&dest_operand);
+    ctx.builder.get_local(&res);
+    ctx.builder.xor_i32();
+    ctx.builder.and_i32();
+    ctx.builder.const_i32(31 - 11);
+    ctx.builder.shr_u_i32();
+    ctx.builder.const_i32(FLAG_OVERFLOW);
+    ctx.builder.and_i32();
+    ctx.builder.or_i32();
+
+    ctx.builder.store_aligned_i32(0);
+
+    ctx.builder.get_local(&res);
     ctx.builder.set_local(dest_operand);
+    ctx.builder.free_local(res);
 }
 
 fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
