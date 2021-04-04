@@ -5844,6 +5844,25 @@ pub fn instr_660F73_7_reg_jit(ctx: &mut JitContext, r: u32, imm8: u32) {
     ctx.builder.call_fn2("instr_660F73_7_reg");
 }
 
+pub fn instr_0F74_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    mmx_read64_mm_mem(ctx, "instr_0F74", modrm_byte, r);
+}
+pub fn instr_0F74_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    mmx_read64_mm_mm(ctx, "instr_0F74", r1, r2);
+}
+pub fn instr_0F75_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    mmx_read64_mm_mem(ctx, "instr_0F75", modrm_byte, r);
+}
+pub fn instr_0F75_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    mmx_read64_mm_mm(ctx, "instr_0F75", r1, r2);
+}
+pub fn instr_0F76_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    mmx_read64_mm_mem(ctx, "instr_0F76", modrm_byte, r);
+}
+pub fn instr_0F76_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    mmx_read64_mm_mm(ctx, "instr_0F76", r1, r2);
+}
+
 pub fn instr_660F74_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_660F74", modrm_byte, r);
 }

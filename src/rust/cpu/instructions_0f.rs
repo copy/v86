@@ -2891,6 +2891,8 @@ pub unsafe fn instr_660F73_7_reg(r: i32, imm8: i32) {
     }
     write_xmm_reg128(r, result);
 }
+
+#[no_mangle]
 pub unsafe fn instr_0F74(source: u64, r: i32) {
     // pcmpeqb mm, mm/m64
     let destination: [u8; 8] = std::mem::transmute(read_mmx64s(r));
@@ -2902,9 +2904,7 @@ pub unsafe fn instr_0F74(source: u64, r: i32) {
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_0F74_reg(r1: i32, r2: i32) { instr_0F74(read_mmx64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F74_mem(addr: i32, r: i32) {
     instr_0F74(return_on_pagefault!(safe_read64s(addr)), r);
 }
@@ -2923,6 +2923,7 @@ pub unsafe fn instr_660F74_reg(r1: i32, r2: i32) { instr_660F74(read_xmm128s(r1)
 pub unsafe fn instr_660F74_mem(addr: i32, r: i32) {
     instr_660F74(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F75(source: u64, r: i32) {
     // pcmpeqw mm, mm/m64
     let destination: [i16; 4] = std::mem::transmute(read_mmx64s(r));
@@ -2934,9 +2935,7 @@ pub unsafe fn instr_0F75(source: u64, r: i32) {
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_0F75_reg(r1: i32, r2: i32) { instr_0F75(read_mmx64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F75_mem(addr: i32, r: i32) {
     instr_0F75(return_on_pagefault!(safe_read64s(addr)), r);
 }
@@ -2956,6 +2955,7 @@ pub unsafe fn instr_660F75_reg(r1: i32, r2: i32) { instr_660F75(read_xmm128s(r1)
 pub unsafe fn instr_660F75_mem(addr: i32, r: i32) {
     instr_660F75(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F76(source: u64, r: i32) {
     // pcmpeqd mm, mm/m64
     let destination: [i32; 2] = std::mem::transmute(read_mmx64s(r));
@@ -2967,9 +2967,7 @@ pub unsafe fn instr_0F76(source: u64, r: i32) {
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_0F76_reg(r1: i32, r2: i32) { instr_0F76(read_mmx64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F76_mem(addr: i32, r: i32) {
     instr_0F76(return_on_pagefault!(safe_read64s(addr)), r);
 }
