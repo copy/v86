@@ -792,9 +792,9 @@ const encodings = [
     { sse: 1, opcode: 0x0F74, e: 1, },
     { sse: 1, opcode: 0x660F74, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F75, e: 1, },
-    { sse: 1, opcode: 0x660F75, e: 1, },
+    { sse: 1, opcode: 0x660F75, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F76, e: 1, },
-    { sse: 1, opcode: 0x660F76, e: 1, },
+    { sse: 1, opcode: 0x660F76, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F77, skip: 1 }, // emms (skip as it breaks gdb printing of float registers)
 
     // vmx instructions

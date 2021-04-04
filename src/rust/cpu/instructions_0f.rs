@@ -2940,6 +2940,7 @@ pub unsafe fn instr_0F75_reg(r1: i32, r2: i32) { instr_0F75(read_mmx64s(r1), r2)
 pub unsafe fn instr_0F75_mem(addr: i32, r: i32) {
     instr_0F75(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F75(source: reg128, r: i32) {
     // pcmpeqw xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -2951,9 +2952,7 @@ pub unsafe fn instr_660F75(source: reg128, r: i32) {
     }
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660F75_reg(r1: i32, r2: i32) { instr_660F75(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F75_mem(addr: i32, r: i32) {
     instr_660F75(return_on_pagefault!(safe_read128s(addr)), r);
 }
@@ -2974,6 +2973,7 @@ pub unsafe fn instr_0F76_reg(r1: i32, r2: i32) { instr_0F76(read_mmx64s(r1), r2)
 pub unsafe fn instr_0F76_mem(addr: i32, r: i32) {
     instr_0F76(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F76(source: reg128, r: i32) {
     // pcmpeqd xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -2984,9 +2984,7 @@ pub unsafe fn instr_660F76(source: reg128, r: i32) {
     }
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660F76_reg(r1: i32, r2: i32) { instr_660F76(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F76_mem(addr: i32, r: i32) {
     instr_660F76(return_on_pagefault!(safe_read128s(addr)), r);
 }
