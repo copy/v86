@@ -187,7 +187,7 @@ const encodings = [
 
     { opcode: 0x8C, os: 1, e: 1, custom: 1 }, // mov reg, sreg
     { opcode: 0x8D, reg_ud: 1, os: 1, e: 1, custom_modrm_resolve: 1, custom: 1, }, // lea
-    { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, }, // mov sreg
+    { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, custom: 1 }, // mov sreg
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1, }, // pop r/m
 
     { opcode: 0x90, custom: 1, },

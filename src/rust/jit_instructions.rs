@@ -2665,6 +2665,32 @@ pub fn instr32_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
     codegen::gen_trigger_ud(ctx);
 }
 
+pub fn instr_8E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    if r2 == ES || r2 == SS || r2 == DS || r2 == FS || r2 == GS {
+        ctx.builder.const_i32(r2 as i32);
+        codegen::gen_get_reg16(ctx, r1);
+        ctx.builder.call_fn2_ret("switch_seg");
+        ctx.builder.drop_();
+    }
+    else {
+        codegen::gen_trigger_ud(ctx);
+    }
+}
+pub fn instr_8E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
+    let seg = ctx.builder.set_new_local();
+    if r == ES || r == SS || r == DS || r == FS || r == GS {
+        ctx.builder.const_i32(r as i32);
+        ctx.builder.get_local(&seg);
+        ctx.builder.call_fn2_ret("switch_seg");
+        ctx.builder.drop_();
+    }
+    else {
+        codegen::gen_trigger_ud(ctx);
+    }
+    ctx.builder.free_local(seg);
+}
+
 pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     // before gen_modrm_resolve, update esp to the new value
     codegen::gen_adjust_stack_reg(ctx, 2);
