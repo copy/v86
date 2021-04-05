@@ -14,14 +14,15 @@
   (type $t12 (func (param i64 i32)))
   (type $t13 (func (param i64 i32) (result i32)))
   (type $t14 (func (param i64 i32) (result i64)))
-  (type $t15 (func (param i32 i32 i32) (result i32)))
-  (type $t16 (func (param i64 i32 i32)))
-  (type $t17 (func (param i32 i64 i32)))
-  (type $t18 (func (param i32 i64 i32) (result i32)))
-  (type $t19 (func (param i32 i64 i64 i32) (result i32)))
-  (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
+  (type $t15 (func (param f32 i32)))
+  (type $t16 (func (param i32 i32 i32) (result i32)))
+  (type $t17 (func (param i64 i32 i32)))
+  (type $t18 (func (param i32 i64 i32)))
+  (type $t19 (func (param i32 i64 i32) (result i32)))
+  (type $t20 (func (param i32 i64 i64 i32) (result i32)))
   (import "e" "task_switch_test_mmx_jit" (func $e.task_switch_test_mmx_jit (type $t1)))
-  (import "e" "instr_660F54_reg" (func $e.instr_660F54_reg (type $t2)))
+  (import "e" "instr_660F54" (func $e.instr_660F54 (type $t2)))
+  (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_fault_end_jit" (func $e.trigger_fault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 128))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -61,102 +62,12 @@
               (i32.const 100003)))
           (block $B3
             (block $B4
-              (block $B5
-                (br_if $B4
-                  (i32.eq
-                    (get_local $p0)
-                    (i32.const 0))))
-              (set_local $l8
-                (i32.add
-                  (get_local $l8)
-                  (i32.const 1)))
-              (i32.store
-                (i32.const 560)
-                (i32.or
-                  (i32.and
-                    (i32.load
-                      (i32.const 556))
-                    (i32.const -4096))
-                  (i32.const 4)))
-              (i32.store
-                (i32.const 556)
-                (i32.or
-                  (i32.and
-                    (i32.load
-                      (i32.const 556))
-                    (i32.const -4096))
-                  (i32.const 5)))
-              (i32.store
-                (i32.const 64)
-                (get_local $l0))
-              (i32.store
-                (i32.const 68)
-                (get_local $l1))
-              (i32.store
-                (i32.const 72)
-                (get_local $l2))
-              (i32.store
-                (i32.const 76)
-                (get_local $l3))
-              (i32.store
-                (i32.const 80)
-                (get_local $l4))
-              (i32.store
-                (i32.const 84)
-                (get_local $l5))
-              (i32.store
-                (i32.const 88)
-                (get_local $l6))
-              (i32.store
-                (i32.const 92)
-                (get_local $l7))
-              (call $e.instr_F4)
-              (set_local $l0
-                (i32.load
-                  (i32.const 64)))
-              (set_local $l1
-                (i32.load
-                  (i32.const 68)))
-              (set_local $l2
-                (i32.load
-                  (i32.const 72)))
-              (set_local $l3
-                (i32.load
-                  (i32.const 76)))
-              (set_local $l4
-                (i32.load
-                  (i32.const 80)))
-              (set_local $l5
-                (i32.load
-                  (i32.const 84)))
-              (set_local $l6
-                (i32.load
-                  (i32.const 88)))
-              (set_local $l7
-                (i32.load
-                  (i32.const 92)))
-              (br $B0))
+            )
             (set_local $l8
               (i32.add
                 (get_local $l8)
-                (i32.const 1)))
-            (i32.store
-              (i32.const 560)
-              (i32.or
-                (i32.and
-                  (i32.load
-                    (i32.const 556))
-                  (i32.const -4096))
-                (i32.const 0)))
-            (i32.store
-              (i32.const 556)
-              (i32.or
-                (i32.and
-                  (i32.load
-                    (i32.const 556))
-                  (i32.const -4096))
-                (i32.const 4)))
-            (if $I6
+                (i32.const 2)))
+            (if $I5
               (i32.and
                 (i32.load8_u
                   (i32.const 580))
@@ -165,6 +76,33 @@
                 (call $e.task_switch_test_mmx_jit
                   (i32.const 4096))
                 (br $B1)))
+            (i64.store
+              (i32.const 1136)
+              (i64.load
+                (i32.const 848)))
+            (i64.store
+              (i32.const 1144)
+              (i64.load
+                (i32.const 856)))
+            (call $e.instr_660F54
+              (i32.const 1136)
+              (i32.const 0))
+            (i32.store
+              (i32.const 560)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 4)))
+            (i32.store
+              (i32.const 556)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 5)))
             (i32.store
               (i32.const 64)
               (get_local $l0))
@@ -189,9 +127,7 @@
             (i32.store
               (i32.const 92)
               (get_local $l7))
-            (call $e.instr_660F54_reg
-              (i32.const 1)
-              (i32.const 0))
+            (call $e.instr_F4)
             (set_local $l0
               (i32.load
                 (i32.const 64)))
