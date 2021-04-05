@@ -1021,7 +1021,8 @@ CPU.prototype.load_multiboot = function(buffer)
                     program.type === 4 ||
                     program.type === 6 ||
                     program.type === 0x6474e550 ||
-                    program.type === 0x6474e551)
+                    program.type === 0x6474e551 ||
+                    program.type === 0x6474e553)
                 {
                     // ignore for now
                 }
