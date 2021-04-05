@@ -4794,6 +4794,34 @@ pub fn instr_660FC2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
     ctx.builder.const_i32(imm8 as i32);
     ctx.builder.call_fn3("instr_660FC2");
 }
+pub fn instr_F20FC2_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_i64(0);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3_i64_i32_i32("instr_F20FC2");
+}
+pub fn instr_F20FC2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3_i64_i32_i32("instr_F20FC2");
+}
+pub fn instr_F30FC2_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32);
+    ctx.builder.load_aligned_i32(0);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_F30FC2");
+}
+pub fn instr_F30FC2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_F30FC2");
+}
 
 pub fn instr_0FC6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     let dest = global_pointers::get_reg_xmm_offset(r1);

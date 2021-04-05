@@ -3748,6 +3748,7 @@ pub unsafe fn instr_660FC2_reg(r1: i32, r2: i32, imm: i32) {
 pub unsafe fn instr_660FC2_mem(addr: i32, r: i32, imm: i32) {
     instr_660FC2(return_on_pagefault!(safe_read128s(addr)), r, imm);
 }
+#[no_mangle]
 pub unsafe fn instr_F20FC2(source: u64, r: i32, imm8: i32) {
     // cmpsd xmm, xmm/m64
     let destination = read_xmm64s(r);
@@ -3761,27 +3762,25 @@ pub unsafe fn instr_F20FC2(source: u64, r: i32, imm8: i32) {
         },
     );
 }
-#[no_mangle]
 pub unsafe fn instr_F20FC2_reg(r1: i32, r2: i32, imm: i32) {
     instr_F20FC2(read_xmm64s(r1), r2, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
     instr_F20FC2(return_on_pagefault!(safe_read64s(addr)), r, imm);
 }
-pub unsafe fn instr_F30FC2(source: f32, r: i32, imm8: i32) {
+#[no_mangle]
+pub unsafe fn instr_F30FC2(source: i32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
+    let source: f32 = std::mem::transmute(source);
     let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
     write_xmm32(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_F30FC2_reg(r1: i32, r2: i32, imm: i32) {
-    instr_F30FC2(read_xmm_f32(r1), r2, imm);
+    instr_F30FC2(read_xmm64s(r1) as i32, r2, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_F30FC2_mem(addr: i32, r: i32, imm: i32) {
-    instr_F30FC2(return_on_pagefault!(safe_read_f32(addr)), r, imm);
+    instr_F30FC2(return_on_pagefault!(safe_read32s(addr)), r, imm);
 }
 
 pub unsafe fn instr_0FC3_reg(_r1: i32, _r2: i32) { trigger_ud(); }
