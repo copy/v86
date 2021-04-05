@@ -663,10 +663,10 @@ const encodings = [
     { sse: 1, opcode: 0xF20F2D, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F2D, e: 1, custom: 1 },
 
-    { sse: 1, opcode: 0x0F2E, e: 1 },
-    { sse: 1, opcode: 0x660F2E, e: 1 },
-    { sse: 1, opcode: 0x0F2F, e: 1 },
-    { sse: 1, opcode: 0x660F2F, e: 1 },
+    { sse: 1, opcode: 0x0F2E, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F2E, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x0F2F, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F2F, e: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0F50, mem_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F50, mem_ud: 1, e: 1 },

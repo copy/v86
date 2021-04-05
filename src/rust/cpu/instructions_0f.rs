@@ -1075,6 +1075,7 @@ pub unsafe fn instr_F30F2D_mem(addr: i32, r: i32) {
     instr_F30F2D(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F2E(source: f32, r: i32) {
     // ucomiss xmm1, xmm2/m32
     let destination = read_xmm_f32(r);
@@ -1094,13 +1095,12 @@ pub unsafe fn instr_0F2E(source: f32, r: i32) {
         *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
     }
 }
-#[no_mangle]
 pub unsafe fn instr_0F2E_reg(r1: i32, r2: i32) { instr_0F2E(read_xmm_f32(r1), r2) }
-#[no_mangle]
 pub unsafe fn instr_0F2E_mem(addr: i32, r: i32) {
     instr_0F2E(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_660F2E(source: u64, r: i32) {
     // ucomisd xmm1, xmm2/m64
     let destination = f64::from_bits(read_xmm64s(r));
@@ -1121,13 +1121,12 @@ pub unsafe fn instr_660F2E(source: u64, r: i32) {
         *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
     }
 }
-#[no_mangle]
 pub unsafe fn instr_660F2E_reg(r1: i32, r: i32) { instr_660F2E(read_xmm64s(r1), r); }
-#[no_mangle]
 pub unsafe fn instr_660F2E_mem(addr: i32, r: i32) {
     instr_660F2E(return_on_pagefault!(safe_read64s(addr)), r)
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F2F(source: f32, r: i32) {
     // comiss xmm1, xmm2/m32
     let destination = read_xmm_f32(r);
@@ -1147,13 +1146,12 @@ pub unsafe fn instr_0F2F(source: f32, r: i32) {
         *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
     }
 }
-#[no_mangle]
 pub unsafe fn instr_0F2F_reg(r1: i32, r2: i32) { instr_0F2F(read_xmm_f32(r1), r2) }
-#[no_mangle]
 pub unsafe fn instr_0F2F_mem(addr: i32, r: i32) {
     instr_0F2F(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_660F2F(source: u64, r: i32) {
     // comisd xmm1, xmm2/m64
     let destination = f64::from_bits(read_xmm64s(r));
@@ -1174,9 +1172,7 @@ pub unsafe fn instr_660F2F(source: u64, r: i32) {
         *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
     }
 }
-#[no_mangle]
 pub unsafe fn instr_660F2F_reg(r1: i32, r: i32) { instr_660F2F(read_xmm64s(r1), r); }
-#[no_mangle]
 pub unsafe fn instr_660F2F_mem(addr: i32, r: i32) {
     instr_660F2F(return_on_pagefault!(safe_read64s(addr)), r)
 }
