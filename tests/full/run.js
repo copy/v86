@@ -120,6 +120,7 @@ if(cluster.isMaster)
         },
         {
             name: "Snowdrop",
+            skip_if_disk_image_missing: true,
             fda: root_path + "/images/snowdrop.img",
             timeout: 30,
             expect_graphical_mode: true,
