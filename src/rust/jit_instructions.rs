@@ -5093,6 +5093,43 @@ pub fn instr_F30F11_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
         .store_aligned_i32(global_pointers::get_reg_xmm_offset(r1));
 }
 
+pub fn instr_0F12_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32);
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.store_aligned_i64(0);
+}
+pub fn instr_0F12_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r2) as i32);
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r1) as i32 + 8);
+    ctx.builder.load_aligned_i64(0);
+    ctx.builder.store_aligned_i64(0);
+}
+pub fn instr_660F12_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    ctx.builder
+        .const_i32(global_pointers::get_reg_xmm_offset(r) as i32);
+    codegen::gen_modrm_resolve_safe_read64(ctx, modrm_byte);
+    ctx.builder.store_aligned_i64(0);
+}
+pub fn instr_660F12_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+
+pub fn instr_0F13_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    instr_660FD6_mem_jit(ctx, modrm_byte, r)
+}
+pub fn instr_0F13_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+pub fn instr_660F13_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    instr_660FD6_mem_jit(ctx, modrm_byte, r)
+}
+pub fn instr_660F13_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+
 pub fn instr_0F28_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     let dest = global_pointers::get_reg_xmm_offset(r);
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
