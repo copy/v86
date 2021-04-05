@@ -5324,6 +5324,50 @@ pub fn instr_F30F59_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read_f32_xmm_xmm(ctx, "instr_F30F59", r1, r2);
 }
 
+pub fn instr_0F5A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_0F5A", modrm_byte, r);
+}
+pub fn instr_0F5A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read64_xmm_xmm(ctx, "instr_0F5A", r1, r2);
+}
+pub fn instr_660F5A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F5A", modrm_byte, r);
+}
+pub fn instr_660F5A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F5A", r1, r2);
+}
+pub fn instr_F20F5A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_F20F5A", modrm_byte, r);
+}
+pub fn instr_F20F5A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read64_xmm_xmm(ctx, "instr_F20F5A", r1, r2);
+}
+pub fn instr_F30F5A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read_f32_xmm_mem(ctx, "instr_F30F5A", modrm_byte, r);
+}
+pub fn instr_F30F5A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read_f32_xmm_xmm(ctx, "instr_F30F5A", r1, r2);
+}
+
+pub fn instr_0F5B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_0F5B", modrm_byte, r);
+}
+pub fn instr_0F5B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_0F5B", r1, r2);
+}
+pub fn instr_660F5B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F5B", modrm_byte, r);
+}
+pub fn instr_660F5B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F5B", r1, r2);
+}
+pub fn instr_F30F5B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_F30F5B", modrm_byte, r);
+}
+pub fn instr_F30F5B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_F30F5B", r1, r2);
+}
+
 pub fn instr_0F5C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_0F5C", modrm_byte, r);
 }

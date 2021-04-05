@@ -701,14 +701,14 @@ const encodings = [
     { sse: 1, opcode: 0xF20F59, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F59, e: 1, custom: 1 },
 
-    { sse: 1, opcode: 0x0F5A, e: 1, },
-    { sse: 1, opcode: 0x660F5A, e: 1, },
-    { sse: 1, opcode: 0xF20F5A, e: 1, },
-    { sse: 1, opcode: 0xF30F5A, e: 1, },
-    { sse: 1, opcode: 0x0F5B, e: 1, },
-    { sse: 1, opcode: 0x660F5B, e: 1, },
+    { sse: 1, opcode: 0x0F5A, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F5A, e: 1, custom: 1 },
+    { sse: 1, opcode: 0xF20F5A, e: 1, custom: 1 },
+    { sse: 1, opcode: 0xF30F5A, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x0F5B, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F5B, e: 1, custom: 1 },
     // no F2 variant
-    { sse: 1, opcode: 0xF30F5B, e: 1, },
+    { sse: 1, opcode: 0xF30F5B, e: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0F5C, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F5C, e: 1, custom: 1 },

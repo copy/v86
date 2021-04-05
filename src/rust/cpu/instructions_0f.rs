@@ -1876,6 +1876,7 @@ pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
     instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F5A(source: u64, r: i32) {
     // cvtps2pd xmm1, xmm2/m64
     let source: [f32; 2] = std::mem::transmute(source);
@@ -1884,12 +1885,11 @@ pub unsafe fn instr_0F5A(source: u64, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_0F5A_reg(r1: i32, r2: i32) { instr_0F5A(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F5A_mem(addr: i32, r: i32) {
     instr_0F5A(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F5A(source: reg128, r: i32) {
     // cvtpd2ps xmm1, xmm2/m128
     let result = reg128 {
@@ -1898,34 +1898,31 @@ pub unsafe fn instr_660F5A(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660F5A_reg(r1: i32, r2: i32) { instr_660F5A(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F5A_mem(addr: i32, r: i32) {
     instr_660F5A(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F20F5A(source: u64, r: i32) {
     // cvtsd2ss xmm1, xmm2/m64
     // XXX: This conversions is lossy and should round according to the round control
     write_xmm_f32(r, f64::from_bits(source) as f32);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F5A_reg(r1: i32, r2: i32) { instr_F20F5A(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F20F5A_mem(addr: i32, r: i32) {
     instr_F20F5A(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F30F5A(source: f32, r: i32) {
     // cvtss2sd xmm1, xmm2/m32
     write_xmm_f64(r, source as f64);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F5A_reg(r1: i32, r2: i32) { instr_F30F5A(read_xmm_f32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F5A_mem(addr: i32, r: i32) {
     instr_F30F5A(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F5B(source: reg128, r: i32) {
     // cvtdq2ps xmm1, xmm2/m128
     // XXX: Should round according to round control
@@ -1940,12 +1937,11 @@ pub unsafe fn instr_0F5B(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_0F5B_reg(r1: i32, r2: i32) { instr_0F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F5B_mem(addr: i32, r: i32) {
     instr_0F5B(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F5B(source: reg128, r: i32) {
     // cvtps2dq xmm1, xmm2/m128
     let result = reg128 {
@@ -1959,12 +1955,11 @@ pub unsafe fn instr_660F5B(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_660F5B_reg(r1: i32, r2: i32) { instr_660F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F5B_mem(addr: i32, r: i32) {
     instr_660F5B(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F30F5B(source: reg128, r: i32) {
     // cvttps2dq xmm1, xmm2/m128
     let result = reg128 {
@@ -1977,9 +1972,7 @@ pub unsafe fn instr_F30F5B(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F5B_reg(r1: i32, r2: i32) { instr_F30F5B(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F5B_mem(addr: i32, r: i32) {
     instr_F30F5B(return_on_pagefault!(safe_read128s(addr)), r);
 }
