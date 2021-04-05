@@ -900,6 +900,7 @@ pub unsafe fn instr_660F29_reg(r1: i32, r2: i32) {
     mov_r_r128(r1, r2);
 }
 
+#[no_mangle]
 pub unsafe fn instr_0F2A(source: u64, r: i32) {
     // cvtpi2ps xmm, mm/m64
     // Note: Casts here can fail
@@ -909,12 +910,11 @@ pub unsafe fn instr_0F2A(source: u64, r: i32) {
     write_xmm64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_0F2A_reg(r1: i32, r2: i32) { instr_0F2A(read_mmx64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F2A_mem(addr: i32, r: i32) {
     instr_0F2A(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F2A(source: u64, r: i32) {
     // cvtpi2pd xmm, xmm/m64
     // These casts can't fail
@@ -925,9 +925,7 @@ pub unsafe fn instr_660F2A(source: u64, r: i32) {
     write_xmm_reg128(r, result);
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) { instr_660F2A(read_mmx64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F2A_mem(addr: i32, r: i32) {
     instr_660F2A(return_on_pagefault!(safe_read64s(addr)), r);
 }

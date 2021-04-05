@@ -5100,6 +5100,19 @@ pub fn instr_660F29_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_660F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) { sse_mov_xmm_xmm(ctx, r2, r1) }
 
+pub fn instr_0F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    mmx_read64_mm_mem(ctx, "instr_0F2A", modrm_byte, r);
+}
+pub fn instr_0F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    mmx_read64_mm_mm(ctx, "instr_0F2A", r1, r2);
+}
+pub fn instr_660F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    mmx_read64_mm_mem(ctx, "instr_660F2A", modrm_byte, r);
+}
+pub fn instr_660F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    mmx_read64_mm_mm(ctx, "instr_660F2A", r1, r2);
+}
+
 pub fn instr_0F2B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     instr_0F29_mem_jit(ctx, modrm_byte, r)
 }
