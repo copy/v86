@@ -1027,7 +1027,7 @@ CPU.prototype.load_multiboot = function(buffer)
                 }
                 else
                 {
-                    dbg_assert(false, "unimplemented elf section type");
+                    dbg_assert(false, "unimplemented elf section type: " + h(program.type));
                 }
             }
         }
