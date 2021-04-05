@@ -169,30 +169,30 @@ src/rust/gen/analyzer0f.rs: $(ANALYZER_DEPENDENCIES)
 build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86.wasm
-	cargo +nightly rustc --release $(CARGO_FLAGS)
+	cargo rustc --release $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86-debug.wasm
-	cargo +nightly rustc $(CARGO_FLAGS)
+	cargo rustc $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
 build/v86-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
-	cargo +nightly rustc --release $(CARGO_FLAGS_SAFE)
+	cargo rustc --release $(CARGO_FLAGS_SAFE)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86-fallback.wasm || true
 
 debug-with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
-	cargo +nightly rustc --features profiler $(CARGO_FLAGS)
+	cargo rustc --features profiler $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm || true
 
 with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
-	cargo +nightly rustc --release --features profiler $(CARGO_FLAGS)
+	cargo rustc --release --features profiler $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm || true
 
 build/softfloat.o: lib/softfloat/softfloat.c
@@ -296,7 +296,7 @@ devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
 rust-test: $(RUST_FILES)
-	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo +nightly test -- --nocapture
+	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
 rust-test-intensive:
@@ -315,7 +315,7 @@ jshint:
 	jshint --config=./.jshint.json src tests gen lib
 
 rustfmt: $(RUST_FILES)
-	cargo +nightly fmt --all -- --check
+	cargo fmt --all -- --check
 
 build/capstone-x86.min.js:
 	mkdir -p build

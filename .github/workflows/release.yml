@@ -19,10 +19,9 @@ jobs:
           key: ${{ runner.os }}-rustup
       - name: rustup
         run: |
-          rustup toolchain install nightly
-          rustup default nightly
-          rustup target add wasm32-unknown-unknown --toolchain nightly
-          rustup component add rustfmt-preview --toolchain nightly
+          rustup toolchain install stable
+          rustup target add wasm32-unknown-unknown
+          rustup component add rustfmt
 
       - name: Build v86
         run: make build/libv86.js build/v86.wasm build/v86-fallback.wasm

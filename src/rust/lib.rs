@@ -1,6 +1,3 @@
-#![feature(const_fn)]
-#![feature(extern_types)]
-#![feature(or_patterns)]
 #![allow(const_item_mutation)]
 
 #[macro_use]

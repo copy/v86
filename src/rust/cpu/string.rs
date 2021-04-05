@@ -403,8 +403,10 @@ unsafe fn string_instruction(
             let finished = match rep {
                 Rep::Z | Rep::NZ => {
                     let rep_cmp = match (rep, instruction) {
-                        (Rep::Z, Instruction::Scas | Instruction::Cmps) => src_val == dst_val,
-                        (Rep::NZ, Instruction::Scas | Instruction::Cmps) => src_val != dst_val,
+                        (Rep::Z, Instruction::Cmps) => src_val == dst_val,
+                        (Rep::Z, Instruction::Scas) => src_val == dst_val,
+                        (Rep::NZ, Instruction::Cmps) => src_val != dst_val,
+                        (Rep::NZ, Instruction::Scas) => src_val != dst_val,
                         _ => true,
                     };
                     count -= 1;
