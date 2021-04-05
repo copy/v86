@@ -574,6 +574,7 @@ pub unsafe fn instr_660F13_mem(addr: i32, r: i32) {
     // movlpd xmm/m64, xmm
     movl_r128_m64(addr, r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F14(source: u64, r: i32) {
     // unpcklps xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -586,12 +587,11 @@ pub unsafe fn instr_0F14(source: u64, r: i32) {
         (source >> 32) as i32,
     );
 }
-#[no_mangle]
 pub unsafe fn instr_0F14_reg(r1: i32, r2: i32) { instr_0F14(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F14_mem(addr: i32, r: i32) {
     instr_0F14(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F14(source: u64, r: i32) {
     // unpcklpd xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -604,12 +604,11 @@ pub unsafe fn instr_660F14(source: u64, r: i32) {
         (source >> 32) as i32,
     );
 }
-#[no_mangle]
 pub unsafe fn instr_660F14_reg(r1: i32, r2: i32) { instr_660F14(read_xmm64s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F14_mem(addr: i32, r: i32) {
     instr_660F14(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_0F15(source: reg128, r: i32) {
     // unpckhps xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -622,12 +621,11 @@ pub unsafe fn instr_0F15(source: reg128, r: i32) {
         source.u32_0[3] as i32,
     );
 }
-#[no_mangle]
 pub unsafe fn instr_0F15_reg(r1: i32, r2: i32) { instr_0F15(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_0F15_mem(addr: i32, r: i32) {
     instr_0F15(return_on_pagefault!(safe_read128s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_660F15(source: reg128, r: i32) {
     // unpckhpd xmm, xmm/m128
     // XXX: Aligned access or #gp
@@ -640,9 +638,7 @@ pub unsafe fn instr_660F15(source: reg128, r: i32) {
         source.u32_0[3] as i32,
     );
 }
-#[no_mangle]
 pub unsafe fn instr_660F15_reg(r1: i32, r2: i32) { instr_660F15(read_xmm128s(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_660F15_mem(addr: i32, r: i32) {
     instr_660F15(return_on_pagefault!(safe_read128s(addr)), r);
 }

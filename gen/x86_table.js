@@ -633,10 +633,10 @@ const encodings = [
     { sse: 1, opcode: 0xF30F12, e: 1, skip: 1, block_boundary: 1, }, // sse3
     { sse: 1, opcode: 0x0F13, reg_ud: 1, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F13, reg_ud: 1, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x0F14, e: 1 },
-    { sse: 1, opcode: 0x660F14, e: 1 },
-    { sse: 1, opcode: 0x0F15, e: 1 },
-    { sse: 1, opcode: 0x660F15, e: 1 },
+    { sse: 1, opcode: 0x0F14, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F14, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x0F15, e: 1, custom: 1 },
+    { sse: 1, opcode: 0x660F15, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F16, e: 1 },
     { sse: 1, opcode: 0x660F16, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0xF30F16, skip: 1, e: 1, block_boundary: 1, }, // sse3
