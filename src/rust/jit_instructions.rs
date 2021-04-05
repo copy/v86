@@ -5112,6 +5112,26 @@ pub fn instr_660F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 pub fn instr_660F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     mmx_read64_mm_mm(ctx, "instr_660F2A", r1, r2);
 }
+pub fn instr_F20F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.call_fn2("instr_F20F2A")
+}
+pub fn instr_F20F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx, r1);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.call_fn2("instr_F20F2A")
+}
+pub fn instr_F30F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.call_fn2("instr_F30F2A")
+}
+pub fn instr_F30F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx, r1);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.call_fn2("instr_F30F2A")
+}
 
 pub fn instr_0F2B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     instr_0F29_mem_jit(ctx, modrm_byte, r)

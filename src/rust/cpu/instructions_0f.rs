@@ -929,17 +929,17 @@ pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) { instr_660F2A(read_mmx64s(r1),
 pub unsafe fn instr_660F2A_mem(addr: i32, r: i32) {
     instr_660F2A(return_on_pagefault!(safe_read64s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F20F2A(source: i32, r: i32) {
     // cvtsi2sd xmm, r32/m32
     // This cast can't fail
     write_xmm_f64(r, source as f64);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F2A_reg(r1: i32, r2: i32) { instr_F20F2A(read_reg32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F20F2A_mem(addr: i32, r: i32) {
     instr_F20F2A(return_on_pagefault!(safe_read32s(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_F30F2A(source: i32, r: i32) {
     // cvtsi2ss xmm, r/m32
     // Note: This cast can fail
@@ -947,9 +947,7 @@ pub unsafe fn instr_F30F2A(source: i32, r: i32) {
     let result = source as f32;
     write_xmm_f32(r, result);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F2A_reg(r1: i32, r2: i32) { instr_F30F2A(read_reg32(r1), r2); }
-#[no_mangle]
 pub unsafe fn instr_F30F2A_mem(addr: i32, r: i32) {
     instr_F30F2A(return_on_pagefault!(safe_read32s(addr)), r);
 }
