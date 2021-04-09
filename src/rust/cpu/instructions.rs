@@ -1013,9 +1013,11 @@ unsafe fn instr_8E_helper(data: i32, mod_0: i32) {
         trigger_ud();
     };
 }
+#[no_mangle]
 pub unsafe fn instr_8E_mem(addr: i32, r: i32) {
     instr_8E_helper(return_on_pagefault!(safe_read16(addr)), r);
 }
+#[no_mangle]
 pub unsafe fn instr_8E_reg(r1: i32, r: i32) { instr_8E_helper(read_reg16(r1), r); }
 
 pub unsafe fn instr16_8F_0_mem(modrm_byte: i32) {
