@@ -4,7 +4,7 @@ use codegen;
 use codegen::BitSize;
 use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
-    FLAG_OVERFLOW, FLAG_SUB, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use cpu::global_pointers;
 use jit::{Instruction, InstructionOperand, JitContext};
@@ -4267,8 +4267,23 @@ pub fn instr32_99_jit(ctx: &mut JitContext) {
     codegen::gen_set_reg32(ctx, regs::EDX);
 }
 
+fn gen_pushf_popf_check(ctx: &mut JitContext) {
+    // 0 != *flags & FLAG_VM && getiopl() < 3
+    codegen::gen_get_flags(ctx.builder);
+    ctx.builder.const_i32(FLAG_VM);
+    ctx.builder.and_i32();
+    ctx.builder.const_i32(FLAG_VM);
+    ctx.builder.eq_i32();
+    codegen::gen_get_flags(ctx.builder);
+    ctx.builder.const_i32(FLAG_IOPL);
+    ctx.builder.and_i32();
+    ctx.builder.const_i32(FLAG_IOPL);
+    ctx.builder.ne_i32();
+    ctx.builder.and_i32();
+}
+
 pub fn instr16_9C_jit(ctx: &mut JitContext) {
-    ctx.builder.call_fn0_ret("instr_9C_check");
+    gen_pushf_popf_check(ctx);
     ctx.builder.if_void();
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.else_();
@@ -4279,7 +4294,7 @@ pub fn instr16_9C_jit(ctx: &mut JitContext) {
     ctx.builder.free_local(value);
 }
 pub fn instr32_9C_jit(ctx: &mut JitContext) {
-    ctx.builder.call_fn0_ret("instr_9C_check");
+    gen_pushf_popf_check(ctx);
     ctx.builder.if_void();
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.else_();
@@ -4293,7 +4308,7 @@ pub fn instr32_9C_jit(ctx: &mut JitContext) {
 }
 
 fn gen_popf(ctx: &mut JitContext, is_32: bool) {
-    ctx.builder.call_fn0_ret("instr_9C_check");
+    gen_pushf_popf_check(ctx);
     ctx.builder.if_void();
     codegen::gen_trigger_gp(ctx, 0);
     ctx.builder.else_();
