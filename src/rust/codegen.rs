@@ -211,6 +211,49 @@ pub fn gen_set_reg8(ctx: &mut JitContext, r: u32) {
     }
 }
 
+pub fn gen_set_reg8_unmasked(ctx: &mut JitContext, r: u32) {
+    if cfg!(debug_assertions) {
+        let val = ctx.builder.set_new_local();
+        ctx.builder.get_local(&val);
+        ctx.builder.const_i32(!0xFF);
+        ctx.builder.and_i32();
+        ctx.builder.if_void();
+        ctx.builder.unreachable();
+        ctx.builder.block_end();
+        ctx.builder.get_local(&val);
+        ctx.builder.free_local(val);
+    }
+
+    match r {
+        regs::AL | regs::CL | regs::DL | regs::BL => {
+            // reg32[r] = stack_value | reg32[r] & ~0xFF
+            ctx.builder.get_local(&ctx.register_locals[r as usize]);
+            ctx.builder.const_i32(!0xFF);
+            ctx.builder.and_i32();
+
+            ctx.builder.or_i32();
+            ctx.builder.set_local(&ctx.register_locals[r as usize]);
+        },
+        regs::AH | regs::CH | regs::DH | regs::BH => {
+            // reg32[r] = stack_value << 8 | reg32[r] & ~0xFF00
+            ctx.builder.const_i32(8);
+            ctx.builder.shl_i32();
+            ctx.builder.const_i32(0xFF00);
+            ctx.builder.and_i32();
+
+            ctx.builder
+                .get_local(&ctx.register_locals[(r - 4) as usize]);
+            ctx.builder.const_i32(!0xFF00);
+            ctx.builder.and_i32();
+
+            ctx.builder.or_i32();
+            ctx.builder
+                .set_local(&ctx.register_locals[(r - 4) as usize]);
+        },
+        _ => assert!(false),
+    }
+}
+
 pub fn gen_set_reg16(ctx: &mut JitContext, r: u32) {
     gen_set_reg16_local(ctx.builder, &ctx.register_locals[r as usize]);
 }
@@ -346,7 +389,7 @@ pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg8[r_dest] = reg8[r_src]
     if src != dest {
         gen_get_reg8(ctx, src);
-        gen_set_reg8(ctx, dest);
+        gen_set_reg8_unmasked(ctx, dest);
     }
 }
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {

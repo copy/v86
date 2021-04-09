@@ -29,6 +29,16 @@ impl<'a> LocalOrImmediate<'a> {
             LocalOrImmediate::Immediate(i) => builder.const_i32(*i),
         }
     }
+    pub fn gen_get_mask255(&self, builder: &mut WasmBuilder) {
+        match self {
+            LocalOrImmediate::WasmLocal(l) => {
+                builder.get_local(l);
+                builder.const_i32(0xFF);
+                builder.and_i32()
+            },
+            LocalOrImmediate::Immediate(i) => builder.const_i32(*i & 0xFF),
+        }
+    }
     pub fn eq_local(&self, other_local: &WasmLocal) -> bool {
         match self {
             &LocalOrImmediate::WasmLocal(local) => local == other_local,
@@ -243,11 +253,17 @@ fn pop32_reg_jit(ctx: &mut JitContext, reg: u32) {
     codegen::gen_set_reg32(ctx, reg);
 }
 
-fn group_arith_al_imm8(ctx: &mut JitContext, op: &str, imm8: u32) {
-    codegen::gen_get_reg8(ctx, regs::AL);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn2_ret(op);
-    codegen::gen_set_reg8(ctx, regs::AL);
+fn group_arith_al_imm8(
+    ctx: &mut JitContext,
+    op: &dyn Fn(&mut JitContext, &WasmLocal, &LocalOrImmediate),
+    imm8: u32,
+) {
+    op(
+        ctx,
+        &ctx.reg(regs::EAX),
+        &LocalOrImmediate::Immediate(imm8 as i32),
+    );
+    codegen::gen_set_reg8_unmasked(ctx, regs::EAX);
 }
 
 fn group_arith_ax_imm16(ctx: &mut JitContext, op: &str, imm16: u32) {
@@ -399,17 +415,22 @@ macro_rules! define_instruction_read32(
 macro_rules! define_instruction_write_reg8(
     ($fn:expr, $name_mem:ident, $name_reg:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-            codegen::gen_get_reg8(ctx, r);
             codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
-            ctx.builder.call_fn2_ret($fn);
-            codegen::gen_set_reg8(ctx, r);
+            let source_operand = ctx.builder.set_new_local();
+            let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r);
+            $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+            codegen::gen_set_reg8_unmasked(ctx, r);
+            ctx.builder.free_local(source_operand);
+            codegen::gen_free_reg8_or_alias(ctx, r, dest_operand);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
-            codegen::gen_get_reg8(ctx, r2);
-            codegen::gen_get_reg8(ctx, r1);
-            ctx.builder.call_fn2_ret($fn);
-            codegen::gen_set_reg8(ctx, r2);
+            let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
+            let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r2);
+            $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+            codegen::gen_set_reg8_unmasked(ctx, r2);
+            codegen::gen_free_reg8_or_alias(ctx, r1, source_operand);
+            codegen::gen_free_reg8_or_alias(ctx, r2, dest_operand);
         }
     )
 );
@@ -469,17 +490,22 @@ macro_rules! define_instruction_read_write_mem8(
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
             codegen::gen_safe_read_write(ctx, BitSize::BYTE, &address_local, &|ref mut ctx| {
-                codegen::gen_get_reg8(ctx, r);
-                ctx.builder.call_fn2_ret($fn);
+                let dest_operand = ctx.builder.set_new_local();
+                let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r);
+                $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+                codegen::gen_free_reg8_or_alias(ctx, r, source_operand);
+                ctx.builder.free_local(dest_operand);
             });
             ctx.builder.free_local(address_local);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
-            codegen::gen_get_reg8(ctx, r1);
-            codegen::gen_get_reg8(ctx, r2);
-            ctx.builder.call_fn2_ret($fn);
-            codegen::gen_set_reg8(ctx, r1);
+            let source_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r2);
+            let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
+            $fn(ctx, &dest_operand, &LocalOrImmediate::WasmLocal(&source_operand));
+            codegen::gen_set_reg8_unmasked(ctx, r1);
+            codegen::gen_free_reg8_or_alias(ctx, r2, source_operand);
+            codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
         }
     );
 
@@ -539,6 +565,26 @@ macro_rules! define_instruction_read_write_mem8(
             codegen::gen_get_reg8(ctx, r1);
             ctx.builder.call_fn1_ret($fn);
             codegen::gen_set_reg8(ctx, r1);
+        }
+    );
+
+    ($fn:expr, $name_mem:ident, $name_reg:ident, ximm8) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            let address_local = ctx.builder.set_new_local();
+            codegen::gen_safe_read_write(ctx, BitSize::BYTE, &address_local, &|ref mut ctx| {
+                let dest_operand = ctx.builder.set_new_local();
+                $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
+                ctx.builder.free_local(dest_operand);
+            });
+            ctx.builder.free_local(address_local);
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
+            let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
+            $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
+            codegen::gen_set_reg8_unmasked(ctx, r1);
+            codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
         }
     );
 
@@ -880,6 +926,29 @@ macro_rules! define_instruction_read_write_mem32(
     );
 );
 
+fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+
+    ctx.builder.const_i32(global_pointers::last_op1 as i32);
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.add_i32();
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL);
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::last_result as u32);
+}
 fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
@@ -895,6 +964,29 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL);
 }
 
+fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+
+    ctx.builder.const_i32(global_pointers::last_op1 as i32);
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.sub_i32();
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::last_result as u32);
+}
 fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.last_instruction = Instruction::Sub { opsize: OPSIZE_32 };
 
@@ -974,6 +1066,15 @@ fn gen_cmp32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) 
     gen_cmp(ctx, dest, source, OPSIZE_32)
 }
 
+fn gen_adc8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    source_operand.gen_get_mask255(ctx.builder);
+    ctx.builder.call_fn2_ret("adc8");
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+}
 fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1042,6 +1143,15 @@ fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.free_local(res);
 }
 
+fn gen_sbb8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+    source_operand.gen_get_mask255(ctx.builder);
+    ctx.builder.call_fn2_ret("sbb8");
+    ctx.builder.const_i32(0xFF);
+    ctx.builder.and_i32();
+}
 fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1110,6 +1220,25 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.free_local(res);
 }
 
+fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.and_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
+    codegen::gen_set_flags_changed(
+        ctx.builder,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
+    );
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::last_result as u32);
+}
 fn gen_and32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
@@ -1163,6 +1292,25 @@ fn gen_test32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate)
     gen_test(ctx, dest, source, OPSIZE_32)
 }
 
+fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.or_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
+    codegen::gen_set_flags_changed(
+        ctx.builder,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
+    );
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::last_result as u32);
+}
 fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
@@ -1180,6 +1328,25 @@ fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
 }
 
+fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(dest_operand);
+    source_operand.gen_get(ctx.builder);
+    ctx.builder.xor_i32();
+    ctx.builder.store_aligned_i32(0);
+
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
+    codegen::gen_set_flags_changed(
+        ctx.builder,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
+    );
+    codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
+
+    ctx.builder
+        .load_fixed_u8(global_pointers::last_result as u32);
+}
 fn gen_xor32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
@@ -1835,15 +2002,15 @@ fn gen_bswap(ctx: &mut JitContext, reg: i32) {
     ctx.builder.set_local(l);
 }
 
-define_instruction_read_write_mem8!("add8", instr_00_mem_jit, instr_00_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_add8, instr_00_mem_jit, instr_00_reg_jit, reg);
 define_instruction_read_write_mem16!("add16", instr16_01_mem_jit, instr16_01_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_add32, instr32_01_mem_jit, instr32_01_reg_jit, reg);
 
-define_instruction_write_reg8!("add8", instr_02_mem_jit, instr_02_reg_jit);
+define_instruction_write_reg8!(gen_add8, instr_02_mem_jit, instr_02_reg_jit);
 define_instruction_write_reg16!("add16", instr16_03_mem_jit, instr16_03_reg_jit);
 define_instruction_write_reg32!(gen_add32, instr32_03_mem_jit, instr32_03_reg_jit);
 
-pub fn instr_04_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "add8", imm8); }
+pub fn instr_04_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_add8, imm8); }
 pub fn instr16_05_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "add16", imm16);
 }
@@ -1851,15 +2018,15 @@ pub fn instr32_05_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_add32, imm32);
 }
 
-define_instruction_read_write_mem8!("or8", instr_08_mem_jit, instr_08_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_or8, instr_08_mem_jit, instr_08_reg_jit, reg);
 define_instruction_read_write_mem16!("or16", instr16_09_mem_jit, instr16_09_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_or32, instr32_09_mem_jit, instr32_09_reg_jit, reg);
 
-define_instruction_write_reg8!("or8", instr_0A_mem_jit, instr_0A_reg_jit);
+define_instruction_write_reg8!(gen_or8, instr_0A_mem_jit, instr_0A_reg_jit);
 define_instruction_write_reg16!("or16", instr16_0B_mem_jit, instr16_0B_reg_jit);
 define_instruction_write_reg32!(gen_or32, instr32_0B_mem_jit, instr32_0B_reg_jit);
 
-pub fn instr_0C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "or8", imm8); }
+pub fn instr_0C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_or8, imm8); }
 pub fn instr16_0D_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "or16", imm16);
 }
@@ -1867,15 +2034,15 @@ pub fn instr32_0D_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_or32, imm32);
 }
 
-define_instruction_read_write_mem8!("adc8", instr_10_mem_jit, instr_10_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_adc8, instr_10_mem_jit, instr_10_reg_jit, reg);
 define_instruction_read_write_mem16!("adc16", instr16_11_mem_jit, instr16_11_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_adc32, instr32_11_mem_jit, instr32_11_reg_jit, reg);
 
-define_instruction_write_reg8!("adc8", instr_12_mem_jit, instr_12_reg_jit);
+define_instruction_write_reg8!(gen_adc8, instr_12_mem_jit, instr_12_reg_jit);
 define_instruction_write_reg16!("adc16", instr16_13_mem_jit, instr16_13_reg_jit);
 define_instruction_write_reg32!(gen_adc32, instr32_13_mem_jit, instr32_13_reg_jit);
 
-pub fn instr_14_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "adc8", imm8); }
+pub fn instr_14_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_adc8, imm8); }
 pub fn instr16_15_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "adc16", imm16);
 }
@@ -1883,15 +2050,15 @@ pub fn instr32_15_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_adc32, imm32);
 }
 
-define_instruction_read_write_mem8!("sbb8", instr_18_mem_jit, instr_18_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_sbb8, instr_18_mem_jit, instr_18_reg_jit, reg);
 define_instruction_read_write_mem16!("sbb16", instr16_19_mem_jit, instr16_19_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_sbb32, instr32_19_mem_jit, instr32_19_reg_jit, reg);
 
-define_instruction_write_reg8!("sbb8", instr_1A_mem_jit, instr_1A_reg_jit);
+define_instruction_write_reg8!(gen_sbb8, instr_1A_mem_jit, instr_1A_reg_jit);
 define_instruction_write_reg16!("sbb16", instr16_1B_mem_jit, instr16_1B_reg_jit);
 define_instruction_write_reg32!(gen_sbb32, instr32_1B_mem_jit, instr32_1B_reg_jit);
 
-pub fn instr_1C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "sbb8", imm8); }
+pub fn instr_1C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_sbb8, imm8); }
 pub fn instr16_1D_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "sbb16", imm16);
 }
@@ -1899,15 +2066,15 @@ pub fn instr32_1D_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_sbb32, imm32);
 }
 
-define_instruction_read_write_mem8!("and8", instr_20_mem_jit, instr_20_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_and8, instr_20_mem_jit, instr_20_reg_jit, reg);
 define_instruction_read_write_mem16!("and16", instr16_21_mem_jit, instr16_21_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_and32, instr32_21_mem_jit, instr32_21_reg_jit, reg);
 
-define_instruction_write_reg8!("and8", instr_22_mem_jit, instr_22_reg_jit);
+define_instruction_write_reg8!(gen_and8, instr_22_mem_jit, instr_22_reg_jit);
 define_instruction_write_reg16!("and16", instr16_23_mem_jit, instr16_23_reg_jit);
 define_instruction_write_reg32!(gen_and32, instr32_23_mem_jit, instr32_23_reg_jit);
 
-pub fn instr_24_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "and8", imm8); }
+pub fn instr_24_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_and8, imm8); }
 pub fn instr16_25_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "and16", imm16);
 }
@@ -1915,15 +2082,15 @@ pub fn instr32_25_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_and32, imm32);
 }
 
-define_instruction_read_write_mem8!("sub8", instr_28_mem_jit, instr_28_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_sub8, instr_28_mem_jit, instr_28_reg_jit, reg);
 define_instruction_read_write_mem16!("sub16", instr16_29_mem_jit, instr16_29_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_sub32, instr32_29_mem_jit, instr32_29_reg_jit, reg);
 
-define_instruction_write_reg8!("sub8", instr_2A_mem_jit, instr_2A_reg_jit);
+define_instruction_write_reg8!(gen_sub8, instr_2A_mem_jit, instr_2A_reg_jit);
 define_instruction_write_reg16!("sub16", instr16_2B_mem_jit, instr16_2B_reg_jit);
 define_instruction_write_reg32!(gen_sub32, instr32_2B_mem_jit, instr32_2B_reg_jit);
 
-pub fn instr_2C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "sub8", imm8); }
+pub fn instr_2C_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_sub8, imm8); }
 pub fn instr16_2D_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "sub16", imm16);
 }
@@ -1931,15 +2098,15 @@ pub fn instr32_2D_jit(ctx: &mut JitContext, imm32: u32) {
     group_arith_eax_imm32(ctx, &gen_sub32, imm32);
 }
 
-define_instruction_read_write_mem8!("xor8", instr_30_mem_jit, instr_30_reg_jit, reg);
+define_instruction_read_write_mem8!(gen_xor8, instr_30_mem_jit, instr_30_reg_jit, reg);
 define_instruction_read_write_mem16!("xor16", instr16_31_mem_jit, instr16_31_reg_jit, reg);
 define_instruction_read_write_mem32!(gen_xor32, instr32_31_mem_jit, instr32_31_reg_jit, reg);
 
-define_instruction_write_reg8!("xor8", instr_32_mem_jit, instr_32_reg_jit);
+define_instruction_write_reg8!(gen_xor8, instr_32_mem_jit, instr_32_reg_jit);
 define_instruction_write_reg16!("xor16", instr16_33_mem_jit, instr16_33_reg_jit);
 define_instruction_write_reg32!(gen_xor32, instr32_33_mem_jit, instr32_33_reg_jit);
 
-pub fn instr_34_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, "xor8", imm8); }
+pub fn instr_34_jit(ctx: &mut JitContext, imm8: u32) { group_arith_al_imm8(ctx, &gen_xor8, imm8); }
 pub fn instr16_35_jit(ctx: &mut JitContext, imm16: u32) {
     group_arith_ax_imm16(ctx, "xor16", imm16);
 }
@@ -2397,21 +2564,21 @@ pub fn instr32_E2_jit(ctx: &mut JitContext, _imm: u32) { codegen::decr_exc_asize
 pub fn instr16_E3_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_E3_jit(_ctx: &mut JitContext, _imm: u32) {}
 
-define_instruction_read_write_mem8!("add8", instr_80_0_mem_jit, instr_80_0_reg_jit, imm8);
-define_instruction_read_write_mem8!("or8", instr_80_1_mem_jit, instr_80_1_reg_jit, imm8);
-define_instruction_read_write_mem8!("adc8", instr_80_2_mem_jit, instr_80_2_reg_jit, imm8);
-define_instruction_read_write_mem8!("sbb8", instr_80_3_mem_jit, instr_80_3_reg_jit, imm8);
-define_instruction_read_write_mem8!("and8", instr_80_4_mem_jit, instr_80_4_reg_jit, imm8);
-define_instruction_read_write_mem8!("sub8", instr_80_5_mem_jit, instr_80_5_reg_jit, imm8);
-define_instruction_read_write_mem8!("xor8", instr_80_6_mem_jit, instr_80_6_reg_jit, imm8);
+define_instruction_read_write_mem8!(gen_add8, instr_80_0_mem_jit, instr_80_0_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_or8, instr_80_1_mem_jit, instr_80_1_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_adc8, instr_80_2_mem_jit, instr_80_2_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_sbb8, instr_80_3_mem_jit, instr_80_3_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_and8, instr_80_4_mem_jit, instr_80_4_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_sub8, instr_80_5_mem_jit, instr_80_5_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_xor8, instr_80_6_mem_jit, instr_80_6_reg_jit, ximm8);
 
-define_instruction_read_write_mem8!("add8", instr_82_0_mem_jit, instr_82_0_reg_jit, imm8);
-define_instruction_read_write_mem8!("or8", instr_82_1_mem_jit, instr_82_1_reg_jit, imm8);
-define_instruction_read_write_mem8!("adc8", instr_82_2_mem_jit, instr_82_2_reg_jit, imm8);
-define_instruction_read_write_mem8!("sbb8", instr_82_3_mem_jit, instr_82_3_reg_jit, imm8);
-define_instruction_read_write_mem8!("and8", instr_82_4_mem_jit, instr_82_4_reg_jit, imm8);
-define_instruction_read_write_mem8!("sub8", instr_82_5_mem_jit, instr_82_5_reg_jit, imm8);
-define_instruction_read_write_mem8!("xor8", instr_82_6_mem_jit, instr_82_6_reg_jit, imm8);
+define_instruction_read_write_mem8!(gen_add8, instr_82_0_mem_jit, instr_82_0_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_or8, instr_82_1_mem_jit, instr_82_1_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_adc8, instr_82_2_mem_jit, instr_82_2_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_sbb8, instr_82_3_mem_jit, instr_82_3_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_and8, instr_82_4_mem_jit, instr_82_4_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_sub8, instr_82_5_mem_jit, instr_82_5_reg_jit, ximm8);
+define_instruction_read_write_mem8!(gen_xor8, instr_82_6_mem_jit, instr_82_6_reg_jit, ximm8);
 
 define_instruction_read_write_mem16!("add16", instr16_81_0_mem_jit, instr16_81_0_reg_jit, imm16);
 define_instruction_read_write_mem32!(gen_add32, instr32_81_0_mem_jit, instr32_81_0_reg_jit, imm32);
@@ -2572,7 +2739,7 @@ pub fn instr_8A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     // Pseudo: reg8[r] = safe_read8(modrm_resolve(modrm_byte));
     codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
 
-    codegen::gen_set_reg8(ctx, r);
+    codegen::gen_set_reg8_unmasked(ctx, r);
 }
 pub fn instr_8A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg8_r(ctx, r2, r1);
@@ -2874,7 +3041,7 @@ pub fn instr32_C9_jit(ctx: &mut JitContext) { codegen::gen_leave(ctx, true); }
 
 pub fn gen_mov_reg8_imm(ctx: &mut JitContext, r: u32, imm: u32) {
     ctx.builder.const_i32(imm as i32);
-    codegen::gen_set_reg8(ctx, r);
+    codegen::gen_set_reg8_unmasked(ctx, r);
 }
 
 pub fn instr_B0_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 0, imm) }
@@ -4831,7 +4998,7 @@ pub fn instr_660FC6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32,
 pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg8[r] = imm;
     ctx.builder.const_i32(imm as i32);
-    codegen::gen_set_reg8(ctx, r);
+    codegen::gen_set_reg8_unmasked(ctx, r);
 }
 
 pub fn instr_C6_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
@@ -4988,7 +5155,7 @@ macro_rules! define_setcc(
             codegen::gen_condition_fn(ctx, $cond);
             ctx.builder.const_i32(0);
             ctx.builder.ne_i32();
-            codegen::gen_set_reg8(ctx, r1);
+            codegen::gen_set_reg8_unmasked(ctx, r1);
         }
     );
 );

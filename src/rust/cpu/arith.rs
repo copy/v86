@@ -49,12 +49,10 @@ pub unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
         | ((source_operand ^ dest_operand) & (res ^ dest_operand)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
-#[no_mangle]
 pub unsafe fn add8(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn add16(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_16); }
 pub unsafe fn add32(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn sub8(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn sub16(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_16); }
@@ -399,7 +397,6 @@ pub unsafe fn xor(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW & !FLAG_ADJUST;
     return result;
 }
-#[no_mangle]
 pub unsafe fn and8(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn and16(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_16); }
@@ -407,12 +404,10 @@ pub unsafe fn and32(x: i32, y: i32) -> i32 { return and(x, y, OPSIZE_32); }
 pub unsafe fn test8(x: i32, y: i32) { and(x, y, OPSIZE_8); }
 pub unsafe fn test16(x: i32, y: i32) { and(x, y, OPSIZE_16); }
 pub unsafe fn test32(x: i32, y: i32) { and(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn or8(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn or16(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_16); }
 pub unsafe fn or32(x: i32, y: i32) -> i32 { return or(x, y, OPSIZE_32); }
-#[no_mangle]
 pub unsafe fn xor8(x: i32, y: i32) -> i32 { return xor(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn xor16(x: i32, y: i32) -> i32 { return xor(x, y, OPSIZE_16); }
