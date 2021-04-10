@@ -495,7 +495,6 @@ pub unsafe fn lodsw_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn lodsd_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Lods, Size::D, Rep::Z)
 }
-#[no_mangle]
 pub unsafe fn lodsb_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Lods, Size::B, Rep::None)
 }

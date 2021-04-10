@@ -829,6 +829,8 @@ impl WasmBuilder {
 
     pub fn eqz_i32(&mut self) { self.instruction_body.push(op::OP_I32EQZ); }
 
+    pub fn select(&mut self) { self.instruction_body.push(op::OP_SELECT); }
+
     pub fn if_i32(&mut self) {
         self.open_block();
         self.instruction_body.push(op::OP_IF);

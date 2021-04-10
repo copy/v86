@@ -4454,6 +4454,45 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
     dbg_assert!(prefix == 0 || prefix == 0xF2 || prefix == 0xF3);
     dbg_assert!(size == 8 || size == 16 || size == 32);
 
+    if prefix == 0 {
+        fn get_direction(ctx: &mut JitContext) {
+            ctx.builder.const_i32(-1);
+            ctx.builder.const_i32(1);
+            codegen::gen_get_flags(ctx.builder);
+            ctx.builder.const_i32(FLAG_DIRECTION);
+            ctx.builder.and_i32();
+            ctx.builder.select();
+        }
+
+        match (&ins, size) {
+            (String::LODS, 8) => {
+                if ctx.cpu.asize_32() {
+                    codegen::gen_get_reg32(ctx, regs::ESI);
+                }
+                else {
+                    codegen::gen_get_reg16(ctx, regs::ESI);
+                }
+                jit_add_seg_offset(ctx, regs::DS);
+                let address_local = ctx.builder.set_new_local();
+                codegen::gen_safe_read8(ctx, &address_local);
+                ctx.builder.free_local(address_local);
+                codegen::gen_set_reg8_unmasked(ctx, regs::AL);
+
+                codegen::gen_get_reg32(ctx, regs::ESI);
+                get_direction(ctx);
+                ctx.builder.add_i32();
+                if ctx.cpu.asize_32() {
+                    codegen::gen_set_reg32(ctx, regs::ESI);
+                }
+                else {
+                    codegen::gen_set_reg16(ctx, regs::ESI);
+                }
+                return;
+            },
+            _ => {},
+        }
+    }
+
     let mut args = 0;
     args += 1;
     ctx.builder.const_i32(ctx.cpu.asize_32() as i32);
