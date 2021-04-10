@@ -246,7 +246,7 @@ const encodings = [
     { opcode: 0xF2AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF3AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xAE, block_boundary: 1, custom: 1, is_string: 1, },
+    { opcode: 0xAE, block_boundary: 0, custom: 1, is_string: 1, },
     { opcode: 0xF2AE, block_boundary: 1, custom: 1, is_string: 1, },
     { opcode: 0xF3AE, block_boundary: 1, custom: 1, is_string: 1, },
     { opcode: 0xAF, block_boundary: 1, custom: 1, is_string: 1, os: 1, },

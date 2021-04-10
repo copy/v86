@@ -254,9 +254,17 @@ fn can_optimize_get_seg(ctx: &mut JitContext, segment: u32) -> bool {
 
 pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
-    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
 
-    if can_optimize_get_seg(ctx, seg) || prefix == SEG_PREFIX_ZERO {
+    if prefix == SEG_PREFIX_ZERO {
+        return;
+    }
+
+    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
+    jit_add_seg_offset_no_override(ctx, seg);
+}
+
+pub fn jit_add_seg_offset_no_override(ctx: &mut JitContext, seg: u32) {
+    if can_optimize_get_seg(ctx, seg) {
         codegen::gen_profiler_stat_increment(ctx.builder, profiler::stat::SEG_OFFSET_OPTIMISED);
         return;
     }

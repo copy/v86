@@ -593,7 +593,6 @@ pub unsafe fn scasw_repnz(is_asize_32: bool) {
 pub unsafe fn scasd_repnz(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Scas, Size::D, Rep::NZ)
 }
-#[no_mangle]
 pub unsafe fn scasb_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Scas, Size::B, Rep::None)
 }

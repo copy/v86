@@ -8,7 +8,7 @@ use cpu::cpu::{
 };
 use cpu::global_pointers;
 use jit::{Instruction, InstructionOperand, JitContext};
-use modrm::{jit_add_seg_offset, ModrmByte};
+use modrm::{jit_add_seg_offset, jit_add_seg_offset_no_override, ModrmByte};
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
 use regs;
@@ -4486,6 +4486,36 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
                 }
                 else {
                     codegen::gen_set_reg16(ctx, regs::ESI);
+                }
+                return;
+            },
+            (String::SCAS, 8) => {
+                if ctx.cpu.asize_32() {
+                    codegen::gen_get_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_get_reg16(ctx, regs::EDI);
+                }
+                jit_add_seg_offset_no_override(ctx, regs::ES);
+                let address_local = ctx.builder.set_new_local();
+                codegen::gen_safe_read8(ctx, &address_local);
+                ctx.builder.free_local(address_local);
+                let value = ctx.builder.set_new_local();
+                gen_cmp8(
+                    ctx,
+                    &ctx.reg(regs::EAX),
+                    &LocalOrImmediate::WasmLocal(&value),
+                );
+                ctx.builder.free_local(value);
+
+                codegen::gen_get_reg32(ctx, regs::EDI);
+                get_direction(ctx);
+                ctx.builder.add_i32();
+                if ctx.cpu.asize_32() {
+                    codegen::gen_set_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_set_reg16(ctx, regs::EDI);
                 }
                 return;
             },
