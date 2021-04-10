@@ -363,6 +363,17 @@
                 //acpi: true, // doesn't seem to work
             },
             {
+                id: "netbsd",
+                hda: {
+                    "url": HOST + "netbsd.img",
+                    async: true,
+                    use_parts: !ON_LOCALHOST,
+                    size: 511000064,
+                },
+                memory_size: 256 * 1024 * 1024,
+                name: "NetBSD",
+            },
+            {
                 id: "solos",
                 fda: {
                     "url": HOST + "os8.img",
@@ -391,6 +402,16 @@
                 },
                 name: "bootBASIC",
                 homepage: "https://github.com/nanochess/bootBASIC",
+            },
+            {
+                id: "floppybird",
+                fda: {
+                    "url": HOST + "floppybird.img",
+                    "async": false,
+                    "size": 1474560,
+                },
+                name: "Floppy Bird",
+                homepage: "http://mihail.co/floppybird",
             },
             {
                 id: "windows2000",
