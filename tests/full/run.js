@@ -10,6 +10,7 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const VERBOSE = false;
 const RUN_SLOW_TESTS = false;
+const LOG_SCREEN = false;
 
 try
 {
@@ -901,6 +902,8 @@ function run_test(test, done)
     var on_text = [];
     var stopped = false;
 
+    var screen_interval = null;
+
     function check_test_done()
     {
         if(stopped)
@@ -920,6 +923,11 @@ function run_test(test, done)
 
             emulator.stop();
 
+            if(screen_interval !== null)
+            {
+                clearInterval(screen_interval);
+            }
+
             console.warn("Passed test: %s (took %ds)", test.name, (end - test_start) / 1000);
             console.warn();
 
@@ -929,6 +937,11 @@ function run_test(test, done)
         {
             for(let timeout of timeouts) clearTimeout(timeout);
             stopped = true;
+
+            if(screen_interval !== null)
+            {
+                clearInterval(screen_interval);
+            }
 
             emulator.stop();
             emulator.destroy();
@@ -1039,12 +1052,12 @@ function run_test(test, done)
         }
     });
 
-    //if(VERBOSE)
-    //{
-    //    setInterval(() => {
-    //        console.warn(screen_to_text(screen));
-    //    }, 10000);
-    //}
+    if(LOG_SCREEN)
+    {
+        screen_interval = setInterval(() => {
+            console.warn(screen_to_text(screen));
+        }, 10000);
+    }
 
     let serial_line = "";
     emulator.add_listener("serial0-output-char", function(c)
