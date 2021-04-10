@@ -268,7 +268,6 @@ pub const TSC_RATE: f64 = 1_000_000.0;
 
 pub static mut jit_block_boundary: bool = false;
 
-pub static mut must_not_fault: bool = false;
 pub static mut rdtsc_imprecision_offset: u64 = 0;
 pub static mut rdtsc_last_value: u64 = 0;
 pub static mut tsc_offset: u64 = 0;
@@ -2043,13 +2042,6 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
         );
         dbg_trace();
     }
-    if DEBUG {
-        if must_not_fault {
-            dbg_log!("Unexpected page fault");
-            dbg_trace();
-            dbg_assert!(false);
-        }
-    }
     profiler::stat_increment(PAGE_FAULT);
     *cr.offset(2) = addr;
     // invalidate tlb entry
@@ -2120,13 +2112,6 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
             addr
         );
         dbg_trace();
-    }
-    if DEBUG {
-        if must_not_fault {
-            dbg_log!("Unexpected page fault");
-            dbg_trace();
-            dbg_assert!(false);
-        }
     }
     profiler::stat_increment(PAGE_FAULT);
     *cr.offset(2) = addr;
@@ -2795,14 +2780,6 @@ pub unsafe fn cycle_internal() {
                 }
             }
 
-            if DEBUG {
-                dbg_assert!(!must_not_fault);
-                must_not_fault = true
-            }
-            if DEBUG {
-                dbg_assert!(must_not_fault);
-                must_not_fault = false
-            }
             let initial_instruction_counter = *instruction_counter;
             jit_run_interpreted(phys_addr as i32);
 
