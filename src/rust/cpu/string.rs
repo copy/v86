@@ -498,11 +498,9 @@ pub unsafe fn lodsd_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn lodsb_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Lods, Size::B, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn lodsw_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Lods, Size::W, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn lodsd_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Lods, Size::D, Rep::None)
 }
@@ -596,11 +594,9 @@ pub unsafe fn scasd_repnz(is_asize_32: bool) {
 pub unsafe fn scasb_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Scas, Size::B, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn scasw_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Scas, Size::W, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn scasd_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Scas, Size::D, Rep::None)
 }
