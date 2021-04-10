@@ -4557,6 +4557,39 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
                 }
                 return;
             },
+            String::STOS => {
+                if ctx.cpu.asize_32() {
+                    codegen::gen_get_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_get_reg16(ctx, regs::EDI);
+                }
+                jit_add_seg_offset_no_override(ctx, regs::ES);
+                let address_local = ctx.builder.set_new_local();
+                if size == 8 {
+                    codegen::gen_safe_write8(ctx, &address_local, &ctx.reg(regs::AL));
+                    ctx.builder.free_local(address_local);
+                }
+                else if size == 16 {
+                    codegen::gen_safe_write16(ctx, &address_local, &ctx.reg(regs::AX));
+                    ctx.builder.free_local(address_local);
+                }
+                else {
+                    codegen::gen_safe_write32(ctx, &address_local, &ctx.reg(regs::EAX));
+                    ctx.builder.free_local(address_local);
+                }
+
+                codegen::gen_get_reg32(ctx, regs::EDI);
+                get_direction(ctx, size);
+                ctx.builder.add_i32();
+                if ctx.cpu.asize_32() {
+                    codegen::gen_set_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_set_reg16(ctx, regs::EDI);
+                }
+                return;
+            },
             _ => {},
         }
     }

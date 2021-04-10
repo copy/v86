@@ -232,10 +232,10 @@ const encodings = [
     { opcode: 0xA8, custom: 1, imm8: 1, },
     { opcode: 0xA9, custom: 1, os: 1, imm1632: 1, },
 
-    { opcode: 0xAA, block_boundary: 1, custom: 1, is_string: 1, },
+    { opcode: 0xAA, block_boundary: 0, custom: 1, is_string: 1, },
     { opcode: 0xF2AA, block_boundary: 1, custom: 1, is_string: 1, },
     { opcode: 0xF3AA, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xAB, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xAB, block_boundary: 0, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF2AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF3AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
 

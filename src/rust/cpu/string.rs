@@ -517,15 +517,12 @@ pub unsafe fn stosw_rep(is_asize_32: bool) {
 pub unsafe fn stosd_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Stos, Size::D, Rep::Z)
 }
-#[no_mangle]
 pub unsafe fn stosb_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Stos, Size::B, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn stosw_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Stos, Size::W, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn stosd_no_rep(is_asize_32: bool) {
     string_instruction(is_asize_32, 0, Instruction::Stos, Size::D, Rep::None)
 }
