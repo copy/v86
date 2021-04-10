@@ -4590,6 +4590,70 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
                 }
                 return;
             },
+            String::MOVS => {
+                if ctx.cpu.asize_32() {
+                    codegen::gen_get_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_get_reg16(ctx, regs::EDI);
+                }
+                jit_add_seg_offset_no_override(ctx, regs::ES);
+                let dest_address = ctx.builder.set_new_local();
+
+                if ctx.cpu.asize_32() {
+                    codegen::gen_get_reg32(ctx, regs::ESI);
+                }
+                else {
+                    codegen::gen_get_reg16(ctx, regs::ESI);
+                }
+                jit_add_seg_offset_no_override(ctx, regs::DS);
+                let source_address = ctx.builder.set_new_local();
+
+                if size == 8 {
+                    codegen::gen_safe_read8(ctx, &source_address);
+                    ctx.builder.free_local(source_address);
+                    let value = ctx.builder.set_new_local();
+                    codegen::gen_safe_write8(ctx, &dest_address, &value);
+                    ctx.builder.free_local(value);
+                }
+                else if size == 16 {
+                    codegen::gen_safe_read32(ctx, &source_address);
+                    ctx.builder.free_local(source_address);
+                    let value = ctx.builder.set_new_local();
+                    codegen::gen_safe_write16(ctx, &dest_address, &value);
+                    ctx.builder.free_local(value);
+                }
+                else {
+                    codegen::gen_safe_read32(ctx, &source_address);
+                    ctx.builder.free_local(source_address);
+                    let value = ctx.builder.set_new_local();
+                    codegen::gen_safe_write32(ctx, &dest_address, &value);
+                    ctx.builder.free_local(value);
+                }
+
+                ctx.builder.free_local(dest_address);
+
+                codegen::gen_get_reg32(ctx, regs::EDI);
+                get_direction(ctx, size);
+                ctx.builder.add_i32();
+                if ctx.cpu.asize_32() {
+                    codegen::gen_set_reg32(ctx, regs::EDI);
+                }
+                else {
+                    codegen::gen_set_reg16(ctx, regs::EDI);
+                }
+
+                codegen::gen_get_reg32(ctx, regs::ESI);
+                get_direction(ctx, size);
+                ctx.builder.add_i32();
+                if ctx.cpu.asize_32() {
+                    codegen::gen_set_reg32(ctx, regs::ESI);
+                }
+                else {
+                    codegen::gen_set_reg16(ctx, regs::ESI);
+                }
+                return;
+            },
             _ => {},
         }
     }

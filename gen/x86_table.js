@@ -214,11 +214,10 @@ const encodings = [
     { opcode: 0xA3, custom: 1, os: 1, immaddr: 1 },
 
     // string instructions aren't jumps, but they modify eip due to how they're implemented
-    // TODO: The block_boundary on the non-rep instructions can be removed once they're custom
-    { opcode: 0xA4, block_boundary: 1, custom: 1, is_string: 1, },
+    { opcode: 0xA4, block_boundary: 0, custom: 1, is_string: 1, },
     { opcode: 0xF2A4, block_boundary: 1, custom: 1, is_string: 1, },
     { opcode: 0xF3A4, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xA5, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xA5, block_boundary: 0, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF2A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
     { opcode: 0xF3A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
 

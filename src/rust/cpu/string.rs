@@ -470,15 +470,12 @@ pub unsafe fn movsw_rep(is_asize_32: bool, ds: i32) {
 pub unsafe fn movsd_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Movs, Size::D, Rep::Z)
 }
-#[no_mangle]
 pub unsafe fn movsb_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Movs, Size::B, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn movsw_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Movs, Size::W, Rep::None)
 }
-#[no_mangle]
 pub unsafe fn movsd_no_rep(is_asize_32: bool, ds: i32) {
     string_instruction(is_asize_32, ds, Instruction::Movs, Size::D, Rep::None)
 }
