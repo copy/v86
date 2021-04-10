@@ -2781,7 +2781,7 @@ pub unsafe fn cycle_internal() {
             }
 
             let initial_instruction_counter = *instruction_counter;
-            jit_run_interpreted(phys_addr as i32);
+            jit_run_interpreted(phys_addr);
 
             jit::jit_increase_hotness_and_maybe_compile(
                 initial_eip,
@@ -2823,14 +2823,12 @@ pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
     return Ok(phys_addr);
 }
 
-unsafe fn jit_run_interpreted(phys_addr: i32) {
+unsafe fn jit_run_interpreted(phys_addr: u32) {
     profiler::stat_increment(RUN_INTERPRETED);
-    dbg_assert!(!in_mapped_range(phys_addr as u32));
+    dbg_assert!(!in_mapped_range(phys_addr));
 
     if cfg!(debug_assertions) {
-        debug_last_jump = LastJump::Interpreted {
-            phys_addr: phys_addr as u32,
-        };
+        debug_last_jump = LastJump::Interpreted { phys_addr };
     }
 
     jit_block_boundary = false;
