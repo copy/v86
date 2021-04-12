@@ -4617,7 +4617,7 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
                     ctx.builder.free_local(value);
                 }
                 else if size == 16 {
-                    codegen::gen_safe_read32(ctx, &source_address);
+                    codegen::gen_safe_read16(ctx, &source_address);
                     ctx.builder.free_local(source_address);
                     let value = ctx.builder.set_new_local();
                     codegen::gen_safe_write16(ctx, &dest_address, &value);
