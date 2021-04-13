@@ -43,7 +43,11 @@ def find_rust_lld():
     bin_path = path.dirname(rustc_path)
     rust_lld_path = path.join(bin_path, "../lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld")
 
-    assert path.isfile(rust_lld_path)
+    if (path.isfile(rust_lld_path)):
+        return rust_lld_path
+    else:
+        rust_lld_path = path.join(bin_path, "../lib/rustlib/i686-unknown-linux-gnu/bin/rust-lld")
+        assert path.isfile(rust_lld_path)      
     return rust_lld_path
 
 main()
