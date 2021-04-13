@@ -1,6 +1,6 @@
 "use strict";
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 
 function repeat(s, n)
 {

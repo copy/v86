@@ -15,7 +15,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 
 // A #UD might indicate a bug in the test generation
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const path = require("path");
 const os = require("os");

@@ -3,7 +3,7 @@
 
 const QEMU = "qemu-system-x86_64";
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const { spawn, spawnSync } = require("child_process");
 const path = require("path");

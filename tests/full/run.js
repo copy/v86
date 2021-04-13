@@ -22,7 +22,7 @@ catch(e)
     process.exit(1);
 }
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 var cluster = require("cluster");
 var os = require("os");
 var fs = require("fs");

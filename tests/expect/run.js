@@ -3,7 +3,7 @@
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");

@@ -1,5 +1,5 @@
 "use strict";
-const assert = require("assert");
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 
 /**
  * Creates a pseudo-random value generator. The seed must be an integer.

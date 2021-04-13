@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const path = require("path");
 const x86_table = require("./x86_table");

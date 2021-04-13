@@ -4,7 +4,7 @@
 // number of tests per instruction
 const NO_TESTS = 1;
 
-const assert = require("assert").strict;
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const encodings = require("../../gen/x86_table.js");
 const Prand = require("./prand.js");
