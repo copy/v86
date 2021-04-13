@@ -1,6 +1,6 @@
 "use strict";
 
-const assert = require("assert");
+const assert = require("assert").strict || require("assert"); // Strict mode added in: V8.13.0
 const fs = require("fs");
 const path = require("path");
 const process = require("process");
@@ -16,9 +16,17 @@ function hex(n, pad)
     return s;
 }
 
-function mkdirpSync(dir)
-{
-    fs.mkdirSync(dir, { recursive: true });
+function mkdirpSync(dir) {
+    dir = dir.split('\\').join('/'); // replace to standard delimiter
+    let dirParts = dir.split('/'); // split by folders delimiter
+    let dirTmp = '';
+    while (dirParts.length > 0) {
+        dirTmp += dirParts.shift() + '/';
+        if (!fs.existsSync(dirTmp)) {
+            fs.mkdirSync(dirTmp);
+        }
+    }
+    ///fs.mkdirSync(dir, { recursive: true });
 }
 
 function get_switch_value(arg_switch)
