@@ -4606,7 +4606,7 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
                 else {
                     codegen::gen_get_reg16(ctx, regs::ESI);
                 }
-                jit_add_seg_offset_no_override(ctx, regs::DS);
+                jit_add_seg_offset(ctx, regs::DS);
                 let source_address = ctx.builder.set_new_local();
 
                 if size == 8 {
