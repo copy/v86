@@ -1945,7 +1945,7 @@ pub unsafe fn do_page_walk(
     // XXX: There will probably be duplicates due to invlpg deleting
     // entries from tlb_data but not from valid_tlb_entries
     }
-    else if CHECK_TLB_INVARIANTS {
+    else if side_effects && CHECK_TLB_INVARIANTS {
         let mut found: bool = false;
         for i in 0..valid_tlb_entries_count {
             if valid_tlb_entries[i as usize] == page {
