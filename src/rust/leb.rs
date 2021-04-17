@@ -2,34 +2,27 @@ pub fn write_leb_i32(buf: &mut Vec<u8>, v: i32) { write_leb_i64(buf, v as i64); 
 
 pub fn write_leb_i64(buf: &mut Vec<u8>, mut v: i64) {
     // https://en.wikipedia.org/wiki/LEB128#Encode_signed_integer
-    // http://llvm.org/doxygen/LEB128_8h_source.html#l00048
-
-    let mut more = true;
-    let negative = v < 0;
-    let size = 32;
-    while more {
-        let mut byte = (v & 0b1111111) as u8; // get last 7 bits
-        v >>= 7; // shift them away from the value
-        if negative {
-            v |= (!0 as i64) << (size - 7); // extend sign
-        }
-        let sign_bit = byte & (1 << 6);
-        if (v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0) {
-            more = false;
-        }
-        else {
-            byte |= 0b10000000; // turn on MSB
+    loop {
+        let mut byte = v as u8 & 0b0111_1111;
+        v >>= 7;
+        let sign = byte & (1 << 6);
+        let done = v == 0 && sign == 0 || v == -1 && sign != 0;
+        if !done {
+            byte |= 0b1000_0000;
         }
         buf.push(byte);
+        if done {
+            break;
+        }
     }
 }
 
 pub fn write_leb_u32(buf: &mut Vec<u8>, mut v: u32) {
     loop {
-        let mut byte = v as u8 & 0b01111111; // get last 7 bits
-        v >>= 7; // shift them away from the value
+        let mut byte = v as u8 & 0b0111_1111;
+        v >>= 7;
         if v != 0 {
-            byte |= 0b10000000; // turn on MSB
+            byte |= 0b1000_0000;
         }
         buf.push(byte);
         if v == 0 {
