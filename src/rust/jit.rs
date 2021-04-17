@@ -873,9 +873,7 @@ fn jit_analyze_and_generate(
     );
     profiler::stat_increment_by(stat::COMPILE_PAGE, pages.len() as u64);
 
-    for &p in &pages {
-        cpu::tlb_set_has_code(p, true);
-    }
+    cpu::tlb_set_has_code_multiple(&pages, true);
 
     dbg_assert!(ctx.compiling.is_none());
     ctx.compiling = Some((wasm_table_index, PageState::Compiling { entries }));

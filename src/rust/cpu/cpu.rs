@@ -36,6 +36,7 @@ use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
 use state_flags::CachedStateFlags;
+use std::collections::HashSet;
 pub use util::dbg_trace;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
@@ -2174,14 +2175,34 @@ pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
 }
 
 pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
-    let physical_page = physical_page.to_u32();
     for i in 0..unsafe { valid_tlb_entries_count } {
         let page = unsafe { valid_tlb_entries[i as usize] };
         let entry = unsafe { tlb_data[page as usize] };
         if 0 != entry {
-            let tlb_physical_page =
-                (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12);
+            let tlb_physical_page = Page::of_u32(
+                (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12),
+            );
             if physical_page == tlb_physical_page {
+                unsafe {
+                    tlb_data[page as usize] =
+                        if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
+                }
+            }
+        }
+    }
+
+    check_tlb_invariants();
+}
+pub fn tlb_set_has_code_multiple(physical_pages: &HashSet<Page>, has_code: bool) {
+    let physical_pages: Vec<Page> = physical_pages.into_iter().copied().collect();
+    for i in 0..unsafe { valid_tlb_entries_count } {
+        let page = unsafe { valid_tlb_entries[i as usize] };
+        let entry = unsafe { tlb_data[page as usize] };
+        if 0 != entry {
+            let tlb_physical_page = Page::of_u32(
+                (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12),
+            );
+            if physical_pages.contains(&tlb_physical_page) {
                 unsafe {
                     tlb_data[page as usize] =
                         if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
