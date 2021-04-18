@@ -2176,6 +2176,7 @@ pub fn check_dispatcher_target(target_index: i32, max: i32) {
 }
 
 #[no_mangle]
+#[cfg(feature = "profiler")]
 pub fn enter_basic_block(phys_eip: u32) {
     let eip =
         unsafe { cpu::translate_address_read(*global_pointers::instruction_pointer).unwrap() };
