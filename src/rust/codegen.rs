@@ -405,6 +405,21 @@ pub fn gen_modrm_fn2(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     modrm::gen(ctx, modrm_byte)
 }
+pub fn gen_modrm_resolve_with_local(
+    ctx: &mut JitContext,
+    modrm_byte: ModrmByte,
+    gen: &dyn Fn(&mut JitContext, &WasmLocal),
+) {
+    if let Some(r) = modrm::get_as_reg_index_if_possible(ctx, &modrm_byte) {
+        gen(ctx, &ctx.reg(r));
+    }
+    else {
+        gen_modrm_resolve(ctx, modrm_byte);
+        let address = ctx.builder.set_new_local();
+        gen(ctx, &address);
+        ctx.builder.free_local(address);
+    }
+}
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg8[r_dest] = reg8[r_src]
@@ -429,38 +444,25 @@ pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
 }
 
 pub fn gen_modrm_resolve_safe_read8(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    gen_modrm_resolve(ctx, modrm_byte);
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read8(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+    gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| gen_safe_read8(ctx, addr));
 }
 pub fn gen_modrm_resolve_safe_read16(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    gen_modrm_resolve(ctx, modrm_byte);
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read16(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+    gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| gen_safe_read16(ctx, addr));
 }
 pub fn gen_modrm_resolve_safe_read32(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    gen_modrm_resolve(ctx, modrm_byte);
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read32(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+    gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| gen_safe_read32(ctx, addr));
 }
 pub fn gen_modrm_resolve_safe_read64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    gen_modrm_resolve(ctx, modrm_byte);
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read64(ctx, &address_local);
-    ctx.builder.free_local(address_local);
+    gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| gen_safe_read64(ctx, addr));
 }
 pub fn gen_modrm_resolve_safe_read128(
     ctx: &mut JitContext,
     modrm_byte: ModrmByte,
     where_to_write: u32,
 ) {
-    gen_modrm_resolve(ctx, modrm_byte);
-    let address_local = ctx.builder.set_new_local();
-    gen_safe_read128(ctx, &address_local, where_to_write);
-    ctx.builder.free_local(address_local);
+    gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| {
+        gen_safe_read128(ctx, addr, where_to_write)
+    });
 }
 
 pub fn gen_safe_read8(ctx: &mut JitContext, address_local: &WasmLocal) {

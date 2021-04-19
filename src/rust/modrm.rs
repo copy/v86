@@ -239,6 +239,22 @@ pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     jit_add_seg_offset(ctx, modrm_byte.segment);
 }
 
+pub fn get_as_reg_index_if_possible(ctx: &mut JitContext, modrm_byte: &ModrmByte) -> Option<u32> {
+    let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
+    let seg = if prefix != 0 { prefix - 1 } else { modrm_byte.segment };
+    if can_optimize_get_seg(ctx, seg)
+        && modrm_byte.second_reg.is_none()
+        && modrm_byte.immediate == 0
+        && !modrm_byte.is_16
+        && modrm_byte.shift == 0
+    {
+        modrm_byte.first_reg
+    }
+    else {
+        None
+    }
+}
+
 pub fn skip(ctx: &mut CpuContext, modrm_byte: u8) { let _ = decode(ctx, modrm_byte); }
 
 #[derive(PartialEq)]
