@@ -1294,6 +1294,27 @@ V86Starter.prototype.automatically = function(steps)
 };
 
 /**
+ * Reads data from memory at specified offset.
+ * 
+ * @param {number} offset 
+ * @param {number} length 
+ * @returns 
+ */
+V86Starter.prototype.read_memory = function(offset, length) {
+    return this.v86.cpu.read_blob(offset, length);
+};
+
+/**
+ * Writes data to memory at specified offset.
+ * 
+ * @param {Array.<number>|Uint8Array} blob
+ * @param {number} offset
+ */
+V86Starter.prototype.write_memory = function(blob, offset) {
+    this.v86.cpu.write_blob(blob, offset);
+};
+
+/**
  * @ignore
  * @constructor
  *
