@@ -290,7 +290,6 @@
                 },
                 name: "Buildroot Linux",
                 filesystem: {},
-                memory_size: 128 * 1024 * 1024,
                 cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
             },
             {
@@ -577,7 +576,6 @@
             },
             {
                 id: "skift",
-                memory_size: 128 * 1024 * 1024,
                 cdrom: {
                     "url": HOST + "skift-20200910.iso",
                     "size": 64452608,
@@ -588,7 +586,6 @@
             },
             {
                 id: "snowdrop",
-                memory_size: 128 * 1024 * 1024,
                 fda: {
                     "url": HOST + "snowdrop.img",
                     "size": 1440 * 1024,
@@ -599,7 +596,6 @@
             },
             {
                 id: "openwrt",
-                memory_size: 128 * 1024 * 1024,
                 hda: {
                     "url": HOST + "openwrt-18.06.1-x86-legacy-combined-squashfs.img",
                     "size": 19846474,
@@ -609,7 +605,6 @@
             },
             {
                 id: "qnx",
-                memory_size: 128 * 1024 * 1024,
                 fda: {
                     url: HOST + "qnx-demo-network-4.05.img",
                     size: 1474560,
@@ -646,7 +641,6 @@
             },
             {
                 id: "mobius",
-                memory_size: 64 * 1024 * 1024,
                 fda: {
                     "url": HOST + "mobius-fd-release5.img",
                     "size": 1474560,
