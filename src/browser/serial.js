@@ -228,7 +228,10 @@ function SerialAdapterXtermJS(element, bus)
     term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
     term["onData"](function(data) {
-        bus.send("serial0-input", data.charCodeAt(0));
+        for(let i = 0; i < data.length; i++)
+        {
+            bus.send("serial0-input", data.charCodeAt(i));
+        }
     });
 
     bus.register("serial0-output-char", function(chr)
