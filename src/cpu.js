@@ -459,8 +459,8 @@ CPU.prototype.set_state = function(state)
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
-    this.devices.uart2 && this.devices.uart1.set_state(state[80]);
-    this.devices.uart3 && this.devices.uart1.set_state(state[81]);
+    this.devices.uart2 && this.devices.uart2.set_state(state[80]);
+    this.devices.uart3 && this.devices.uart3.set_state(state[81]);
 
     this.fw_value = state[62];
 
