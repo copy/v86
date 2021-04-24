@@ -4241,12 +4241,12 @@ pub fn instr32_96_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::SI); }
 pub fn instr32_97_jit(ctx: &mut JitContext) { gen_xchg_reg32(ctx, regs::DI); }
 
 pub fn instr16_98_jit(ctx: &mut JitContext) {
-    codegen::gen_get_reg8(ctx, regs::AL);
+    codegen::gen_get_reg32(ctx, regs::EAX);
     codegen::sign_extend_i8(ctx.builder);
     codegen::gen_set_reg16(ctx, regs::AX);
 }
 pub fn instr32_98_jit(ctx: &mut JitContext) {
-    codegen::gen_get_reg16(ctx, regs::AX);
+    codegen::gen_get_reg32(ctx, regs::EAX);
     codegen::sign_extend_i16(ctx.builder);
     codegen::gen_set_reg32(ctx, regs::EAX);
 }
@@ -4987,40 +4987,52 @@ pub fn instr16_0FBE_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg16(ctx, r2);
 }
 pub fn instr16_0FBE_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte); // TODO: Could use sign-extended read
     codegen::sign_extend_i8(ctx.builder);
     codegen::gen_set_reg16(ctx, r);
 }
 
 pub fn instr32_0FBE_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg8(ctx, r1);
-    codegen::sign_extend_i8(ctx.builder);
+    match r1 {
+        regs::AL | regs::CL | regs::DL | regs::BL => {
+            ctx.builder.get_local(&ctx.register_locals[r1 as usize]);
+            ctx.builder.const_i32(24);
+            ctx.builder.shl_i32();
+        },
+        regs::AH | regs::CH | regs::DH | regs::BH => {
+            ctx.builder
+                .get_local(&ctx.register_locals[(r1 - 4) as usize]);
+            ctx.builder.const_i32(16);
+            ctx.builder.shl_i32();
+        },
+        _ => assert!(false),
+    }
+    ctx.builder.const_i32(24);
+    ctx.builder.shr_s_i32();
     codegen::gen_set_reg32(ctx, r2);
 }
 pub fn instr32_0FBE_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte); // TODO: Could use sign-extended read
     codegen::sign_extend_i8(ctx.builder);
     codegen::gen_set_reg32(ctx, r);
 }
 
 pub fn instr16_0FBF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg16(ctx, r1);
-    codegen::sign_extend_i16(ctx.builder);
-    codegen::gen_set_reg16(ctx, r2);
+    codegen::gen_set_reg16_unmasked(ctx, r2);
 }
 pub fn instr16_0FBF_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-    codegen::sign_extend_i16(ctx.builder);
-    codegen::gen_set_reg16(ctx, r);
+    codegen::gen_set_reg16_unmasked(ctx, r);
 }
 
 pub fn instr32_0FBF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg16(ctx, r1);
+    codegen::gen_get_reg32(ctx, r1);
     codegen::sign_extend_i16(ctx.builder);
     codegen::gen_set_reg32(ctx, r2);
 }
 pub fn instr32_0FBF_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte); // TODO: Could use sign-extended read
     codegen::sign_extend_i16(ctx.builder);
     codegen::gen_set_reg32(ctx, r);
 }
