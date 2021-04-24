@@ -245,7 +245,7 @@ fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
 fn pop16_reg_jit(ctx: &mut JitContext, reg: u32) {
     codegen::gen_pop16(ctx);
-    codegen::gen_set_reg16(ctx, reg);
+    codegen::gen_set_reg16_unmasked(ctx, reg);
 }
 
 fn pop32_reg_jit(ctx: &mut JitContext, reg: u32) {
@@ -2749,18 +2749,14 @@ pub fn instr_8A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 
 pub fn instr16_8B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    // Pseudo: reg16[r] = safe_read16(modrm_resolve(modrm_byte));
     codegen::gen_modrm_resolve_safe_read16(ctx, modrm_byte);
-
-    codegen::gen_set_reg16(ctx, r);
+    codegen::gen_set_reg16_unmasked(ctx, r);
 }
 pub fn instr16_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg16_r(ctx, r2, r1);
 }
 pub fn instr32_8B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    // Pseudo: reg32[r] = safe_read32s(modrm_resolve(modrm_byte));
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-
     codegen::gen_set_reg32(ctx, r);
 }
 pub fn instr32_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -3058,7 +3054,7 @@ pub fn instr_B7_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 7, i
 
 pub fn gen_mov_reg16_imm(ctx: &mut JitContext, r: u32, imm: u32) {
     ctx.builder.const_i32(imm as i32);
-    codegen::gen_set_reg16(ctx, r);
+    codegen::gen_set_reg16_unmasked(ctx, r);
 }
 
 pub fn instr16_B8_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 0, imm) }
@@ -4926,11 +4922,11 @@ pub fn instr32_0FB1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 
 pub fn instr16_0FB6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg8(ctx, r1);
-    codegen::gen_set_reg16(ctx, r2);
+    codegen::gen_set_reg16_unmasked(ctx, r2);
 }
 pub fn instr16_0FB6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read8(ctx, modrm_byte);
-    codegen::gen_set_reg16(ctx, r);
+    codegen::gen_set_reg16_unmasked(ctx, r);
 }
 
 pub fn instr32_0FB6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {

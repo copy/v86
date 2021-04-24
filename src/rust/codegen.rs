@@ -259,6 +259,26 @@ pub fn gen_set_reg16(ctx: &mut JitContext, r: u32) {
     gen_set_reg16_local(ctx.builder, &ctx.register_locals[r as usize]);
 }
 
+pub fn gen_set_reg16_unmasked(ctx: &mut JitContext, r: u32) {
+    if cfg!(debug_assertions) {
+        let val = ctx.builder.set_new_local();
+        ctx.builder.get_local(&val);
+        ctx.builder.const_i32(!0xFFFF);
+        ctx.builder.and_i32();
+        ctx.builder.if_void();
+        ctx.builder.unreachable();
+        ctx.builder.block_end();
+        ctx.builder.get_local(&val);
+        ctx.builder.free_local(val);
+    }
+
+    ctx.builder.get_local(&ctx.reg(r));
+    ctx.builder.const_i32(!0xFFFF);
+    ctx.builder.and_i32();
+    ctx.builder.or_i32();
+    ctx.builder.set_local(&ctx.reg(r));
+}
+
 pub fn gen_set_reg16_local(builder: &mut WasmBuilder, local: &WasmLocal) {
     // reg32[r] = v & 0xFFFF | reg32[r] & ~0xFFFF
     builder.const_i32(0xFFFF);
@@ -397,7 +417,7 @@ pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
     if src != dest {
         gen_get_reg16(ctx, src);
-        gen_set_reg16(ctx, dest);
+        gen_set_reg16_unmasked(ctx, dest);
     }
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
