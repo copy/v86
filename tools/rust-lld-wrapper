@@ -5,6 +5,7 @@
 
 import sys
 import subprocess
+import re
 from os import path
 
 def main():
@@ -33,6 +34,16 @@ def main():
 
     result.check_returncode()
 
+def find_host_triplet():
+    rustc = subprocess.run(["rustc", "--version", "--verbose"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    rustc.check_returncode()
+
+    rustc_details = rustc.stdout.decode("utf8")
+    host = re.search(r"host: (.*)", rustc_details)
+    if host is None:
+        raise ValueError("unexpected rustc output")
+    return host.group(1)
+
 def find_rust_lld():
     which = subprocess.run(["rustup", "which", "rustc"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     which.check_returncode()
@@ -41,12 +52,9 @@ def find_rust_lld():
     assert path.basename(rustc_path) == "rustc"
 
     bin_path = path.dirname(rustc_path)
-    rust_lld_path = path.join(bin_path, "../lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld")
+    triplet = find_host_triplet()
 
-    if path.isfile(rust_lld_path):
-        return rust_lld_path
-
-    rust_lld_path = path.join(bin_path, "../lib/rustlib/i686-unknown-linux-gnu/bin/rust-lld")
+    rust_lld_path = path.join(bin_path, "../lib/rustlib", triplet, "bin/rust-lld")
     assert path.isfile(rust_lld_path)
 
     return rust_lld_path
