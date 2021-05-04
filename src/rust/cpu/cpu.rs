@@ -2846,7 +2846,7 @@ unsafe fn jit_run_interpreted(phys_addr: u32) {
 
     while !jit_block_boundary
         && Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32)
-        && i < INTERPRETER_ITERATION_LIMIT
+        && (i < INTERPRETER_ITERATION_LIMIT || (*previous_ip as u32) <  (*instruction_pointer as u32))
     {
         *previous_ip = *instruction_pointer;
         let opcode = return_on_pagefault!(read_imm8());
