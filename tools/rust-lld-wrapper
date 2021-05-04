@@ -35,13 +35,13 @@ def main():
     result.check_returncode()
 
 def find_host_triplet():
-    rustc = subprocess.run(['rustc', '--version', '--verbose'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    rustc = subprocess.run(["rustc", "--version", "--verbose"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     rustc.check_returncode()
 
-    rustc_details = rustc.stdout.decode('utf8')
-    host = re.search(r'host: (.*)', rustc_details)
+    rustc_details = rustc.stdout.decode("utf8")
+    host = re.search(r"host: (.*)", rustc_details)
     if host is None:
-        raise ValueError('unexpected rustc output')
+        raise ValueError("unexpected rustc output")
     return host.group(1)
 
 def find_rust_lld():
@@ -54,9 +54,6 @@ def find_rust_lld():
     bin_path = path.dirname(rustc_path)
     triplet = find_host_triplet()
     rust_lld_path = path.join(bin_path, "../lib/rustlib", triplet, "bin/rust-lld")
-
-    if path.isfile(rust_lld_path):
-        return rust_lld_path
 
     rust_lld_path = path.join(bin_path, "../lib/rustlib", triplet, "bin/rust-lld")
     assert path.isfile(rust_lld_path)
