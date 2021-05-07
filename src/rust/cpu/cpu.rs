@@ -272,7 +272,7 @@ pub static mut rdtsc_imprecision_offset: u64 = 0;
 pub static mut rdtsc_last_value: u64 = 0;
 pub static mut tsc_offset: u64 = 0;
 
-pub static mut tlb_data: [i32; 0x400000] = [0; 0x400000];
+pub static mut tlb_data: [i32; 0x100000] = [0; 0x100000];
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
