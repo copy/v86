@@ -76,6 +76,8 @@ pub const MAX_EXTRA_BASIC_BLOCKS: usize = 250;
 
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
+const MAX_COMP_FLAGS_LEN: usize = 0x100;
+
 #[allow(non_upper_case_globals)]
 static mut jit_state: NonNull<JitState> =
     unsafe { NonNull::new_unchecked(mem::align_of::<JitState>() as *mut _) };
@@ -191,7 +193,8 @@ pub struct BasicBlock {
     pub ty: BasicBlockType,
     pub has_sti: bool,
     pub number_of_instructions: u32,
-    pub vec_compute_flags: Vec::<bool>,
+    pub vec_compute_flags: [bool; MAX_COMP_FLAGS_LEN],
+    pub comp_flags_len: usize,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -449,12 +452,14 @@ fn jit_find_basic_blocks(
             is_entry_block: false,
             has_sti: false,
             number_of_instructions: 0,
-            vec_compute_flags: Vec::new(),
+            vec_compute_flags: [true; MAX_COMP_FLAGS_LEN],
+            comp_flags_len: 0,
         };
 
-        let mut modified_flags: Vec<i32> = Vec::new();
-        let mut tested_flags: Vec<i32> = Vec::new();
-        let mut more_flags=true;
+        let mut modified_flags: [i32; MAX_COMP_FLAGS_LEN] = [0; MAX_COMP_FLAGS_LEN];
+        let mut tested_flags: [i32; MAX_COMP_FLAGS_LEN] = [0; MAX_COMP_FLAGS_LEN];
+        let mut comp_flags_len = 0;
+        let mut more_flags = true;
 
         loop {
             let addr_before_instruction = current_address;
@@ -467,9 +472,10 @@ fn jit_find_basic_blocks(
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;
 
-            if more_flags && analysis.has_flags_info {
-                    modified_flags.push(analysis.modified_flags);
-                    tested_flags.push(analysis.tested_flags);
+            if more_flags && analysis.has_flags_info && comp_flags_len<=MAX_COMP_FLAGS_LEN {
+                    modified_flags[comp_flags_len] = analysis.modified_flags;
+                    tested_flags[comp_flags_len] = analysis.tested_flags;                    
+                    comp_flags_len = comp_flags_len + 1;
             }
             else {
                 more_flags = false;
@@ -636,10 +642,12 @@ fn jit_find_basic_blocks(
             }
         }
 
-        let mut next_tested = FLAGS_ALL; // flags needed/tested by the next instrs, assume end of BB needs all flags        
-        current_block.vec_compute_flags.resize(tested_flags.len(),false);
+        let mut next_tested = FLAGS_ALL; // flags needed/tested by the next instrs, assume end of BB needs all flags                
 
-        for i in (0..tested_flags.len()).rev() {
+        let mut i = comp_flags_len;
+        current_block.comp_flags_len = comp_flags_len;
+        while i>0 {
+            i = i - 1;            
             let modified=modified_flags[i];
             let tested=tested_flags[i];
             current_block.vec_compute_flags[i] = (next_tested & modified) != 0;
@@ -1881,7 +1889,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         let start_eip = ctx.cpu.eip;
         let mut instruction_flags = 0;
         
-        ctx.comp_lazy_flags = if icnt>=block.vec_compute_flags.len() { true } else { block.vec_compute_flags[icnt] };        
+        ctx.comp_lazy_flags = if icnt>=block.comp_flags_len { true } else { block.vec_compute_flags[icnt] };        
         //dbg_log!(format!("FLAGS: {}", if ctx.comp_lazy_flags {"SKIPPING"} else {"COMPUTING"}));
         jit_instructions::jit_instruction(ctx, &mut instruction_flags);
         ctx.comp_lazy_flags = true;
