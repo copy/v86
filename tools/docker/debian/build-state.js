@@ -9,9 +9,9 @@ const path = require("path");
 console.log("Don't forget to run `make all` before running this script");
 
 var fs = require("fs");
-var V86 = require("./../../build/libv86.js").V86;
+var V86 = require("./../../../build/libv86.js").V86;
 
-const V86_ROOT = path.join(__dirname, "../..");
+const V86_ROOT = path.join(__dirname, "../../..");
 
 var OUTPUT_FILE = path.join(V86_ROOT, "images/debian-state-base.bin");
 
@@ -56,7 +56,7 @@ emulator.add_listener("serial0-output-char", function(c)
         booted = true;
 
         // sync and drop caches: Makes it safer to change the filesystem as fewer files are rendered
-        emulator.serial0_send("sync;echo 3 >/proc/sys/vm/drop_caches\n");
+        // emulator.serial0_send("sync;echo 3 >/proc/sys/vm/drop_caches\n");
 
         setTimeout(function ()
             {
@@ -71,7 +71,7 @@ emulator.add_listener("serial0-output-char", function(c)
                             {
                                 if(e) throw e;
                                 console.error("Saved as " + OUTPUT_FILE);
-                                stop();
+                                //stop();
                             });
                     });
             }, 10 * 1000);

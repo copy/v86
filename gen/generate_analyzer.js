@@ -217,6 +217,23 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     const imm_read = gen_read_imm_call(encoding, size);
     const instruction_postfix = [];
 
+    if (encoding.modified_flags==undefined  && encoding.tested_flags==undefined) {
+        instruction_postfix.push("analysis.has_flags_info = false;");
+        instruction_postfix.push("analysis.tested_flags = 0;");
+        instruction_postfix.push("analysis.modified_flags = 0;");
+    }
+    else {
+        instruction_postfix.push("analysis.has_flags_info = true;");       
+        if (encoding.tested_flags)
+            instruction_postfix.push("analysis.tested_flags = " + encoding.tested_flags + ";");                    
+        else
+            instruction_postfix.push("analysis.tested_flags = 0;");
+        if (encoding.modified_flags)
+            instruction_postfix.push("analysis.modified_flags = " + encoding.modified_flags + ";");
+        else
+            instruction_postfix.push("analysis.modified_flags = 0;");
+    }
+
     if(encoding.custom_sti) {
         instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::STI;");
     }

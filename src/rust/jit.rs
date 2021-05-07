@@ -2,6 +2,9 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 use std::mem;
 use std::ptr::NonNull;
+use cpu::cpu::{
+    FLAGS_ALL
+};
 
 use analysis::AnalysisType;
 use codegen;
@@ -188,6 +191,7 @@ pub struct BasicBlock {
     pub ty: BasicBlockType,
     pub has_sti: bool,
     pub number_of_instructions: u32,
+    pub vec_compute_flags: Vec::<bool>,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -234,6 +238,7 @@ pub struct JitContext<'a> {
     pub exit_label: Label,
     pub last_instruction: Instruction,
     pub instruction_counter: WasmLocal,
+    pub comp_lazy_flags: bool,
 }
 impl<'a> JitContext<'a> {
     pub fn reg(&self, i: u32) -> WasmLocal { self.register_locals[i as usize].unsafe_clone() }
@@ -444,7 +449,13 @@ fn jit_find_basic_blocks(
             is_entry_block: false,
             has_sti: false,
             number_of_instructions: 0,
+            vec_compute_flags: Vec::new(),
         };
+
+        let mut modified_flags: Vec<i32> = Vec::new();
+        let mut tested_flags: Vec<i32> = Vec::new();
+        let mut more_flags=true;
+
         loop {
             let addr_before_instruction = current_address;
             let mut cpu = &mut CpuContext {
@@ -455,6 +466,14 @@ fn jit_find_basic_blocks(
             current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;
+
+            if more_flags && analysis.has_flags_info {
+                    modified_flags.push(analysis.modified_flags);
+                    tested_flags.push(analysis.tested_flags);
+            }
+            else {
+                more_flags = false;
+            }            
 
             dbg_assert!(Page::page_of(current_address) == Page::page_of(addr_before_instruction));
             let current_virt_addr = to_visit & !0xFFF | current_address as i32 & 0xFFF;
@@ -616,6 +635,16 @@ fn jit_find_basic_blocks(
                 break;
             }
         }
+
+        let mut next_tested = FLAGS_ALL; // flags needed/tested by the next instrs, assume end of BB needs all flags        
+        current_block.vec_compute_flags.resize(tested_flags.len(),false);
+
+        for i in (0..tested_flags.len()).rev() {
+            let modified=modified_flags[i];
+            let tested=tested_flags[i];
+            current_block.vec_compute_flags[i] = (next_tested & modified) != 0;
+            next_tested = (next_tested & !modified) | tested;
+        }        
 
         let previous_block = basic_blocks
             .range(..current_block.addr)
@@ -1033,6 +1062,7 @@ fn jit_generate_module(
         exit_label,
         last_instruction: Instruction::Other,
         instruction_counter,
+        comp_lazy_flags: true,
     };
 
     let entry_blocks = {
@@ -1820,6 +1850,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
     ctx.cpu.eip = start_addr;
     ctx.last_instruction = Instruction::Other;
 
+    let mut icnt=0;
     loop {
         let mut instruction = 0;
         if cfg!(feature = "profiler") {
@@ -1849,7 +1880,12 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         ctx.start_of_current_instruction = ctx.cpu.eip;
         let start_eip = ctx.cpu.eip;
         let mut instruction_flags = 0;
+        
+        ctx.comp_lazy_flags = if icnt>=block.vec_compute_flags.len() { true } else { block.vec_compute_flags[icnt] };        
+        //dbg_log!(format!("FLAGS: {}", if ctx.comp_lazy_flags {"SKIPPING"} else {"COMPUTING"}));
         jit_instructions::jit_instruction(ctx, &mut instruction_flags);
+        ctx.comp_lazy_flags = true;
+        
         let end_eip = ctx.cpu.eip;
 
         let instruction_length = end_eip - start_eip;
@@ -1881,6 +1917,8 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             dbg_assert!(false);
             break;
         }
+
+        icnt = icnt + 1;
     }
 }
 

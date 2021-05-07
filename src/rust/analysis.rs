@@ -20,6 +20,9 @@ pub struct Analysis {
     pub no_next_instruction: bool,
     pub absolute_jump: bool,
     pub ty: AnalysisType,
+    pub has_flags_info: bool,
+    pub tested_flags: i32,
+    pub modified_flags: i32,
 }
 
 pub fn analyze_step(mut cpu: &mut CpuContext) -> Analysis {
@@ -27,6 +30,9 @@ pub fn analyze_step(mut cpu: &mut CpuContext) -> Analysis {
         no_next_instruction: false,
         absolute_jump: false,
         ty: AnalysisType::Normal,
+        has_flags_info : false,
+        modified_flags : 0,
+        tested_flags : 0,
     };
     cpu.prefixes = 0;
     let opcode = cpu.read_imm8() as u32 | (cpu.osize_32() as u32) << 8;
