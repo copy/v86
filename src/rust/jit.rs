@@ -472,7 +472,7 @@ fn jit_find_basic_blocks(
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;
 
-            if more_flags && analysis.has_flags_info && comp_flags_len<=MAX_COMP_FLAGS_LEN {
+            if more_flags && analysis.has_flags_info && comp_flags_len<MAX_COMP_FLAGS_LEN {
                     modified_flags[comp_flags_len] = analysis.modified_flags;
                     tested_flags[comp_flags_len] = analysis.tested_flags;                    
                     comp_flags_len = comp_flags_len + 1;
