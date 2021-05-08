@@ -1204,7 +1204,9 @@ fn jit_generate_module(
                         // Check if we can stay in this module, if not exit
                         codegen::gen_get_eip(ctx.builder);
                         let new_eip = ctx.builder.set_new_local();
-                        codegen::gen_get_phys_eip(ctx, &new_eip);
+                        codegen::gen_get_phys_eip_plus_mem(ctx, &new_eip);
+                        ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
+                        ctx.builder.sub_i32();
                         ctx.builder.free_local(new_eip);
 
                         ctx.builder.const_i32(wasm_table_index.to_u16() as i32);
