@@ -108,13 +108,11 @@
                   (i32.const 1))))
             (set_local $l0
               (i32.load align=1
-                (i32.add
-                  (i32.xor
-                    (i32.and
-                      (get_local $l10)
-                      (i32.const -4096))
-                    (get_local $l9))
-                  (i32.const 18247680))))
+                (i32.xor
+                  (i32.and
+                    (get_local $l10)
+                    (i32.const -4096))
+                  (get_local $l9))))
             (i32.store
               (i32.const 560)
               (i32.or
