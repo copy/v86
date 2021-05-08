@@ -26,7 +26,7 @@
   (import "e" "jit_find_cache_entry_in_page" (func $e.jit_find_cache_entry_in_page (type $t16)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "trigger_fault_end_jit" (func $e.trigger_fault_end_jit (type $t0)))
-  (import "e" "m" (memory $e.m 128))
+  (import "e" "m" (memory {normalised output}))
   (func $f (export "f") (type $t1) (param $p0 i32)
     (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32)
     (set_local $l0
@@ -125,7 +125,7 @@
                       (get_local $l12)
                       (i32.const -4096))
                     (get_local $l11))
-                  (i32.const 18247680))
+                  (i32.const 5664768))
                 (get_local $l9))
               (set_local $l4
                 (get_local $l10))
@@ -220,7 +220,7 @@
                       (get_local $l10)
                       (i32.const -4096))
                     (get_local $l9))
-                  (i32.const 18247680)))
+                  (i32.const 5664768)))
               (set_local $l4
                 (i32.add
                   (get_local $l4)
