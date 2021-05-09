@@ -23,7 +23,7 @@ catch(e) {
 const TEST_NAME = process.env.TEST_NAME;
 
 const LOG_LEVEL = 0;
-const V86OXIDE_GLOBAL_BASE = 8388608;
+const MIN_MEMORY_OFFSET = 4 * 1024 * 1024;
 
 const GIT_DIFF_FLAGS = ["--no-index", "--patience", "--color=always"];
 
@@ -60,11 +60,11 @@ function run_all()
 // Remove parts that may not be stable between multiple runs
 function normalise_wast(wast)
 {
-    wast = wast.replace(/offset=(\d+)/g, function(match, offset)
+    return wast.replace(/offset=(\d+)/g, function(match, offset)
         {
             offset = Number(offset);
 
-            if(offset >= V86OXIDE_GLOBAL_BASE)
+            if(offset >= MIN_MEMORY_OFFSET)
             {
                 return "offset={normalised output}";
             }
@@ -72,8 +72,7 @@ function normalise_wast(wast)
             {
                 return match;
             }
-        });
-    return wast;
+        }).replace(/memory \$[\w\.]+ \d+/g, "memory {normalised output}");
 }
 
 function run_test({ name, executable_file, expect_file, actual_file, actual_wasm, asm_file }, onfinished)
