@@ -687,10 +687,9 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     // In functions that need to use this value we need to fix it by substracting memory::mem
     // this is done in order to remove one instruction from the fast path of memory accesses (no need to add
     // memory::mem anymore ). 
-    // We need to account for this in gen_page_switch_check and we get this for free by backing in the offset in
-    // the next_block_addr value used for comparison.
+    // We need to account for this in gen_page_switch_check and we compare with next_block_addr + memory::mem8
     // We cannot the same while processing an AbsoluteEip flow control change so there we need to fix the value
-    // by subscracting memory::mem. Overall, since AbsoluteEip is encountered less often than memory accesses,
+    // by subscracting memory::mem. Overall, since AbsoluteEip is encountered less often than memory accesses so
     // this ends up improving perf.
     // Does not (need to) handle mapped memory
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
