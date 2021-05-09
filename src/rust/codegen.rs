@@ -693,8 +693,7 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     // this ends up improving perf.
     // Does not (need to) handle mapped memory
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
-    //      already correct (pointing at the current instruction)
-    // trigger pipeline, test succeed locally
+    //      already correct (pointing at the current instruction)    
 
     let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
