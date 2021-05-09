@@ -103,14 +103,14 @@ const encodings = [
     { opcode: 0x3A, custom: 1, e: 1,  modified_flags :of | sf | zf | af | pf | cf , },
     { opcode: 0x3B, custom: 1, os: 1, e: 1,  modified_flags :of | sf | zf | af | pf | cf , },
 
-    { opcode: 0x06, os: 1, custom: 1 , tested_flags: 0 , },
-    { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, tested_flags: 0 , }, // pop es: block_boundary since it uses non-raising cpu exceptions
-    { opcode: 0x0E, os: 1, custom: 1 , tested_flags: 0 , },
+    { opcode: 0x06, os: 1, custom: 1 , tested_flags: of | sf | zf | af | pf | cf , }, // push es
+    { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, tested_flags: of | sf | zf | af | pf | cf  , }, // pop es: block_boundary since it uses non-raising cpu exceptions
+    { opcode: 0x0E, os: 1, custom: 1 , tested_flags: of | sf | zf | af | pf | cf  , }, // push cs
     { opcode: 0x0F, os: 1, prefix: 1, },
-    { opcode: 0x16, os: 1, custom: 1 , tested_flags: 0 , },
-    { opcode: 0x17, block_boundary: 1, os: 1, skip: 1, tested_flags: 0 , }, // pop ss
-    { opcode: 0x1E, os: 1, custom: 1 , tested_flags: 0 , },
-    { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1, tested_flags: 0 , }, // pop ds
+    { opcode: 0x16, os: 1, custom: 1 , tested_flags: of | sf | zf | af | pf | cf , }, // push ss
+    { opcode: 0x17, block_boundary: 1, os: 1, skip: 1, tested_flags: of | sf | zf | af | pf | cf , }, // pop ss
+    { opcode: 0x1E, os: 1, custom: 1 , tested_flags: of | sf | zf | af | pf | cf  , }, // push ds
+    { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1, tested_flags: of | sf | zf | af | pf | cf  , }, // pop ds
     { opcode: 0x26, prefix: 1, },
     { opcode: 0x27, mask_flags: of, tested_flags : af | cf,  modified_flags :of | sf | zf | af | pf | cf , },
     { opcode: 0x2E, prefix: 1, },
@@ -138,36 +138,36 @@ const encodings = [
     { opcode: 0x4E, os: 1, custom: 1 ,  modified_flags :of | sf | zf | af | pf , },
     { opcode: 0x4F, os: 1, custom: 1 ,  modified_flags :of | sf | zf | af | pf , },
 
-    { opcode: 0x50, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x51, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x52, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x53, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x54, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x55, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x56, custom: 1, os: 1 , tested_flags: 0 , },
-    { opcode: 0x57, custom: 1, os: 1 , tested_flags: 0 , },
+    { opcode: 0x50, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x51, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x52, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x53, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x54, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x55, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x56, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x57, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
 
-    { opcode: 0x58, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x59, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x5A, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x5B, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x5C, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x5D, custom: 1, os: 1, tested_flags: 0 , },
-    { opcode: 0x5E, custom: 1, os: 1, },
-    { opcode: 0x5F, custom: 1, os: 1, tested_flags: 0 , },
+    { opcode: 0x58, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x59, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5A, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5B, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5C, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5D, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5E, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
+    { opcode: 0x5F, custom: 1, os: 1 , tested_flags: of | sf | zf | af | pf | cf , },
 
-    { opcode: 0x60, os: 1, },
-    { opcode: 0x61, os: 1, },
-    { opcode: 0x62, e: 1, skip: 1, },
+    { opcode: 0x60, os: 1, tested_flags: of | sf | zf | af | pf | cf }, // pusha 
+    { opcode: 0x61, os: 1, tested_flags: of | sf | zf | af | pf | cf }, // popa
+    { opcode: 0x62, e: 1, skip: 1, tested_flags: of | sf | zf | af | pf | cf }, // bound
     { opcode: 0x63, e: 1, block_boundary: 1, tested_flags: 0 , }, // arpl
     { opcode: 0x64, prefix: 1, },
     { opcode: 0x65, prefix: 1, },
     { opcode: 0x66, prefix: 1, },
     { opcode: 0x67, prefix: 1, },
 
-    { opcode: 0x68, custom: 1, os: 1, imm1632: 1 , tested_flags: 0 , },
+    { opcode: 0x68, custom: 1, os: 1, imm1632: 1 , tested_flags: of | sf | zf | af | pf | cf , }, // push
     { opcode: 0x69, os: 1, e: 1, custom: 1, imm1632: 1, mask_flags: af,  modified_flags :of | sf | zf | af | pf | cf , }, // zf?
-    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 , tested_flags: 0 , },
+    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 , tested_flags: of | sf | zf | af | pf | cf , }, // pop
     { opcode: 0x6B, os: 1, e: 1, custom: 1, imm8s: 1, mask_flags: af,  modified_flags :of | sf | zf | af | pf | cf , }, // zf?
 
     { opcode: 0x6C, block_boundary: 1, custom: 1, is_string: 1, skip: 1, },          // ins
@@ -196,7 +196,7 @@ const encodings = [
     { opcode: 0x8C, os: 1, e: 1, custom: 1 , tested_flags: 0 , }, // mov reg, sreg
     { opcode: 0x8D, reg_ud: 1, os: 1, e: 1, custom_modrm_resolve: 1, custom: 1, tested_flags: 0 , }, // lea
     { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, tested_flags: 0 , }, // mov sreg
-    { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1, tested_flags: 0 , }, // pop r/m
+    { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1, tested_flags: of | sf | zf | af | pf | cf , }, // pop r/m
 
     { opcode: 0x90, custom: 1, tested_flags: 0 , },
     { opcode: 0x91, custom: 1, os: 1, tested_flags: 0 , },
@@ -211,8 +211,8 @@ const encodings = [
     { opcode: 0x99, os: 1, custom: 1 , tested_flags: 0 , },
     { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, block_boundary: 1, }, // callf
     { opcode: 0x9B, block_boundary: 1, skip: 1, }, // fwait: block_boundary since it uses non-raising cpu exceptions
-    { opcode: 0x9C, os: 1, custom: 1 },
-    { opcode: 0x9D, os: 1, skip: 1, custom: 1, },
+    { opcode: 0x9C, os: 1, custom: 1 , tested_flags : of | sf | zf | af | pf | cf }, // pushf
+    { opcode: 0x9D, os: 1, skip: 1, custom: 1, tested_flags : of | sf | zf | af | pf | cf , modified_flags : of | sf | zf | af | pf | cf , }, // popf
     { opcode: 0x9E, custom: 1 ,  modified_flags :sf | zf | af | pf | cf , },
     { opcode: 0x9F, custom: 1 , tested_flags : sf | zf | af | pf | cf , },
 
@@ -222,43 +222,43 @@ const encodings = [
     { opcode: 0xA3, custom: 1, os: 1, immaddr: 1 , tested_flags: 0 , },
 
     // string instructions aren't jumps, but they modify eip due to how they're implemented
-    { opcode: 0xA4, block_boundary: 0, custom: 1, is_string: 1, },
-    { opcode: 0xF2A4, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xF3A4, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xA5, block_boundary: 0, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF2A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF3A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xA4, block_boundary: 0, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf }, // movsb
+    { opcode: 0xF2A4, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3A4, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xA5, block_boundary: 0, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf }, // movsw
+    { opcode: 0xF2A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3A5, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
 
-    { opcode: 0xA6, block_boundary: 1, custom: 1, is_string: 1,  modified_flags :of | sf | zf | af | pf | cf , },
-    { opcode: 0xF2A6, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xF3A6, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xA7, block_boundary: 1, custom: 1, is_string: 1, os: 1,  modified_flags :of | sf | zf | af | pf | cf , },
-    { opcode: 0xF2A7, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF3A7, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xA6, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , }, // cmpsb
+    { opcode: 0xF2A6, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf ,},
+    { opcode: 0xF3A6, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf ,},
+    { opcode: 0xA7, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , }, // cmpsw
+    { opcode: 0xF2A7, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf ,},
+    { opcode: 0xF3A7, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf ,},
 
     { opcode: 0xA8, custom: 1, imm8: 1,  modified_flags :of | sf | zf | af | pf | cf , },
     { opcode: 0xA9, custom: 1, os: 1, imm1632: 1,  modified_flags :of | sf | zf | af | pf | cf , },
 
-    { opcode: 0xAA, block_boundary: 0, custom: 1, is_string: 1, },
-    { opcode: 0xF2AA, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xF3AA, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xAB, block_boundary: 0, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF2AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF3AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xAA, block_boundary: 0, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF2AA, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3AA, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xAB, block_boundary: 0, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF2AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3AB, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
 
-    { opcode: 0xAC, block_boundary: 0, custom: 1, is_string: 1, },
-    { opcode: 0xF2AC, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xF3AC, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xAD, block_boundary: 0, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF2AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF3AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xAC, block_boundary: 0, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF2AC, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3AC, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xAD, block_boundary: 0, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF2AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
+    { opcode: 0xF3AD, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf },
 
-    { opcode: 0xAE, block_boundary: 0, custom: 1, is_string: 1,  modified_flags :of | sf | zf | af | pf | cf , },
-    { opcode: 0xF2AE, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xF3AE, block_boundary: 1, custom: 1, is_string: 1, },
-    { opcode: 0xAF, block_boundary: 0, custom: 1, is_string: 1, os: 1,  modified_flags :of | sf | zf | af | pf | cf , },
-    { opcode: 0xF2AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
-    { opcode: 0xF3AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, },
+    { opcode: 0xAE, block_boundary: 0, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
+    { opcode: 0xF2AE, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
+    { opcode: 0xF3AE, block_boundary: 1, custom: 1, is_string: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
+    { opcode: 0xAF, block_boundary: 0, custom: 1, is_string: 1, os: 1,  tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
+    { opcode: 0xF2AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
+    { opcode: 0xF3AF, block_boundary: 1, custom: 1, is_string: 1, os: 1, tested_flags :of | sf | zf | af | pf | cf , modified_flags :of | sf | zf | af | pf | cf , },
 
     { opcode: 0xC2, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, absolute_jump: 1, imm16: 1, skip: 1, }, // ret
     { opcode: 0xC3, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, absolute_jump: 1, skip: 1, },
@@ -421,7 +421,7 @@ const encodings = [
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, block_boundary: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, custom: 1, block_boundary: 1, absolute_jump: 1, no_next_instruction: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, block_boundary: 1, no_next_instruction: 1, skip: 1, },
-    { opcode: 0xFF, custom: 1, os: 1, e: 1, fixed_g: 6, modified_flags: 0},
+    { opcode: 0xFF, custom: 1, os: 1, e: 1, fixed_g: 6, tested_flags: of | sf | zf | af | pf | cf ,}, // push
 
     { opcode: 0x0F00, fixed_g: 0, e: 1, skip: 1, block_boundary: 1, os: 1, }, // sldt, ...
     { opcode: 0x0F00, fixed_g: 1, e: 1, skip: 1, block_boundary: 1, os: 1, },
@@ -546,13 +546,13 @@ const encodings = [
     { opcode: 0x0F9E, e: 1, custom: 1, tested_flags : of | sf | zf , },
     { opcode: 0x0F9F, e: 1, custom: 1, tested_flags : of | sf | zf , },
 
-    { opcode: 0x0FA0, os: 1, custom: 1, tested_flags: 0 , },
-    { opcode: 0x0FA1, os: 1, block_boundary: 1, skip: 1, tested_flags: 0 , }, // pop fs: block_boundary since it uses non-raising cpu exceptions
+    { opcode: 0x0FA0, os: 1, custom: 1, tested_flags: of | sf | zf | af | pf | cf , }, // push fs
+    { opcode: 0x0FA1, os: 1, block_boundary: 1, skip: 1, tested_flags: of | sf | zf | af | pf | cf , }, // pop fs: block_boundary since it uses non-raising cpu exceptions
 
     { opcode: 0x0FA2, skip: 1, },
 
-    { opcode: 0x0FA8, os: 1, custom: 1, tested_flags: 0 , },
-    { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, tested_flags: 0 , }, // pop gs
+    { opcode: 0x0FA8, os: 1, custom: 1, tested_flags: of | sf | zf | af | pf | cf , }, // push gs
+    { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, tested_flags: of | sf | zf | af | pf | cf , }, // pop gs
 
     { opcode: 0x0FA3, os: 1, e: 1, custom: 1, skip_mem: 1 ,  modified_flags :of | sf | zf | af | pf | cf , }, // bt (can also index memory, but not supported by test right now)
     { opcode: 0x0FAB, os: 1, e: 1, custom: 1, skip_mem: 1 ,  modified_flags :of | sf | zf | af | pf | cf , },
