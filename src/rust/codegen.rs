@@ -695,8 +695,6 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
     //      already correct (pointing at the current instruction)
 
-    // test, force pipeline rerun
-
     let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
 
