@@ -69,7 +69,7 @@ CARGO_FLAGS_SAFE=\
 		--target wasm32-unknown-unknown \
 		-- \
 		-C linker=tools/rust-lld-wrapper \
-		-C link-args="--import-table --global-base=262144 $(STRIP_DEBUG_FLAG)" \
+		-C link-args="--import-table --global-base=4096 $(STRIP_DEBUG_FLAG)" \
 		-C link-args="build/softfloat.o" \
 		-C link-args="build/zstddeclib.o" \
 		--verbose

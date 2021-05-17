@@ -112,7 +112,7 @@ pub enum stat {
     SEG_OFFSET_NOT_OPTIMISED,
 }
 
-#[no_mangle]
+#[allow(non_upper_case_globals)]
 pub static mut stat_array: [u64; 500] = [0; 500];
 
 pub fn stat_increment(stat: stat) { stat_increment_by(stat, 1); }

@@ -67,12 +67,6 @@ pub const sse_scratch_register: *mut reg128 = 1136 as *mut reg128;
 
 pub const fpu_st: *mut F80 = 1152 as *mut F80;
 
-pub const opstats_buffer: *mut u32 = 0x08000 as *mut u32;
-pub const opstats_compiled_buffer: *mut u32 = 0x10000 as *mut u32;
-pub const opstats_jit_exit_buffer: *mut u32 = 0x18000 as *mut u32;
-pub const opstats_unguarded_register_buffer: *mut u32 = 0x20000 as *mut u32;
-pub const opstats_wasm_size: *mut u32 = 0x28000 as *mut u32;
-
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     (unsafe { reg32.offset(r as isize) }) as u32

@@ -761,15 +761,16 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn increment_fixed_i32(&mut self, byte_offset: u32, n: i32) {
+    pub fn increment_fixed_i64(&mut self, byte_offset: u32, n: i64) {
         self.const_i32(byte_offset as i32);
-        self.load_fixed_i32(byte_offset);
-        self.const_i32(n);
-        self.add_i32();
-        self.store_aligned_i32(0);
+        self.load_fixed_i64(byte_offset);
+        self.const_i64(n);
+        self.add_i64();
+        self.store_aligned_i64(0);
     }
 
     pub fn add_i32(&mut self) { self.instruction_body.push(op::OP_I32ADD); }
+    pub fn add_i64(&mut self) { self.instruction_body.push(op::OP_I64ADD); }
     pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
     pub fn and_i32(&mut self) { self.instruction_body.push(op::OP_I32AND); }
     pub fn or_i32(&mut self) { self.instruction_body.push(op::OP_I32OR); }

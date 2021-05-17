@@ -2252,7 +2252,7 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
         return;
     }
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
-    builder.increment_fixed_i32(addr, 1)
+    builder.increment_fixed_i64(addr, 1)
 }
 
 pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {

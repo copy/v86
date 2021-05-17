@@ -1856,7 +1856,7 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
         let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
 
         let wasm_length = ctx.builder.instruction_body_length() - wasm_length_before;
-        opstats::record_opstat_size_wasm(instruction, wasm_length as u32);
+        opstats::record_opstat_size_wasm(instruction, wasm_length as u64);
 
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);

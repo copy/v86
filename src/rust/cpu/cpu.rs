@@ -3784,6 +3784,7 @@ pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
 pub unsafe fn getiopl() -> i32 { return *flags >> 12 & 3; }
 
 #[no_mangle]
+#[cfg(feature = "profiler")]
 pub unsafe fn get_opstats_buffer(
     compiled: bool,
     jit_exit: bool,
@@ -3793,24 +3794,33 @@ pub unsafe fn get_opstats_buffer(
     is_0f: bool,
     is_mem: bool,
     fixed_g: u8,
-) -> u32 {
-    let index = (is_0f as u32) << 12 | (opcode as u32) << 4 | (is_mem as u32) << 3 | fixed_g as u32;
-    if compiled {
-        *opstats_compiled_buffer.offset(index as isize)
-    }
-    else if jit_exit {
-        *opstats_jit_exit_buffer.offset(index as isize)
-    }
-    else if unguarded_register {
-        *opstats_unguarded_register_buffer.offset(index as isize)
-    }
-    else if wasm_size {
-        *opstats_wasm_size.offset(index as isize)
-    }
-    else {
-        *opstats_buffer.offset(index as isize)
+) -> f64 {
+    {
+        let index = (is_0f as usize) << 12
+            | (opcode as usize) << 4
+            | (is_mem as usize) << 3
+            | fixed_g as usize;
+        (if compiled {
+            ::opstats::opstats_compiled_buffer[index]
+        }
+        else if jit_exit {
+            ::opstats::opstats_jit_exit_buffer[index]
+        }
+        else if unguarded_register {
+            ::opstats::opstats_unguarded_register_buffer[index]
+        }
+        else if wasm_size {
+            ::opstats::opstats_wasm_size[index]
+        }
+        else {
+            ::opstats::opstats_buffer[index]
+        }) as f64
     }
 }
+
+#[no_mangle]
+#[cfg(not(feature = "profiler"))]
+pub unsafe fn get_opstats_buffer() -> f64 { 0.0 }
 
 pub unsafe fn invlpg(addr: i32) {
     let page = (addr as u32 >> 12) as i32;
