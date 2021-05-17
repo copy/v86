@@ -2984,21 +2984,19 @@ pub fn instr16_E8_jit(ctx: &mut JitContext, _imm: u32) {
     let value_local = ctx.builder.set_new_local();
     codegen::gen_push16(ctx, &value_local);
     ctx.builder.free_local(value_local);
-    //codegen::gen_jmp_rel16(ctx.builder, imm as u16);
 }
 pub fn instr32_E8_jit(ctx: &mut JitContext, _imm: u32) {
     codegen::gen_get_real_eip(ctx);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_push32(ctx, &value_local);
     ctx.builder.free_local(value_local);
-    //codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
 
 pub fn instr16_E9_jit(_ctx: &mut JitContext, _imm: u32) {
-    //codegen::gen_jmp_rel16(ctx.builder, imm as u16);
+    //
 }
 pub fn instr32_E9_jit(_ctx: &mut JitContext, _imm: u32) {
-    //codegen::gen_relative_jump(ctx.builder, imm as i32);
+    //
 }
 
 pub fn instr16_C2_jit(ctx: &mut JitContext, imm16: u32) {
@@ -3832,14 +3830,11 @@ pub fn instr_DF_7_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 
 pub fn instr16_EB_jit(_ctx: &mut JitContext, _imm8: u32) {
-    //codegen::gen_jmp_rel16(ctx.builder, imm8 as u16);
-    // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    //
 }
 
 pub fn instr32_EB_jit(_ctx: &mut JitContext, _imm8: u32) {
     // jmp near
-    //codegen::gen_relative_jump(ctx.builder, imm8 as i32);
-    // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
 define_instruction_read8!(gen_test8, instr_F6_0_mem_jit, instr_F6_0_reg_jit, imm8);
