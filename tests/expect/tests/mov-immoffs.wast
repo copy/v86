@@ -86,7 +86,7 @@
                   (i32.eq
                     (i32.and
                       (tee_local $l10
-                        (i32.load offset=323504
+                        (i32.load offset=61456
                           (i32.shl
                             (i32.shr_u
                               (get_local $l9)
