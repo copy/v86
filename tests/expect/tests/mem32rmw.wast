@@ -105,12 +105,11 @@
                         (i32.const 4095))
                       (i32.const 4092)))))
               (br_if $B1
-                (i32.and
+                (i32.eqz
                   (tee_local $l10
                     (call $e.safe_read_write32s_slow_jit
                       (get_local $l9)
-                      (i32.const 0)))
-                  (i32.const 1))))
+                      (i32.const 0))))))
             (set_local $l12
               (i32.load align=1
                 (tee_local $l10
@@ -174,12 +173,11 @@
                 (get_local $l11))
               (then
                 (if $I9
-                  (i32.and
+                  (i32.eqz
                     (call $e.safe_write32_slow_jit
                       (get_local $l9)
                       (get_local $l12)
-                      (i32.const 4096))
-                    (i32.const 1))
+                      (i32.const 4096)))
                   (then
                     (call $e.bug_gen_safe_read_write_page_fault
                       (i32.const 32)

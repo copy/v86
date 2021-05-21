@@ -1,5 +1,5 @@
 use cpu::cpu::{
-    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
     TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use cpu::global_pointers;
@@ -98,7 +98,8 @@ pub fn gen_page_switch_check(
     gen_get_phys_eip_plus_mem(ctx, &address_local);
     ctx.builder.free_local(address_local);
 
-    ctx.builder.const_i32(next_block_addr as i32 + unsafe {memory::mem8} as i32);
+    ctx.builder
+        .const_i32(next_block_addr as i32 + unsafe { memory::mem8 } as i32);
     ctx.builder.ne_i32();
 
     if cfg!(debug_assertions) {
@@ -618,9 +619,8 @@ fn gen_safe_read(
             ctx.builder.call_fn2_ret("safe_read128s_slow_jit");
         },
     }
-    ctx.builder.tee_local(&entry_local);
-    ctx.builder.const_i32(1);
-    ctx.builder.and_i32();
+    ctx.builder.tee_local(&entry_local);    
+    ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -628,8 +628,7 @@ fn gen_safe_read(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.const_i32(1);
-        ctx.builder.and_i32();
+        ctx.builder.eqz_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -646,7 +645,6 @@ fn gen_safe_read(
 
     // where_to_write is only used by dqword
     dbg_assert!((where_to_write != None) == (bits == BitSize::DQWORD));
-
 
     match bits {
         BitSize::BYTE => {
@@ -682,18 +680,17 @@ fn gen_safe_read(
 }
 
 pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal) {
-
     // Similar to gen_safe_read, but return the physical eip + memory::mem rather than reading from memory
     // In functions that need to use this value we need to fix it by substracting memory::mem
     // this is done in order to remove one instruction from the fast path of memory accesses (no need to add
-    // memory::mem anymore ). 
+    // memory::mem anymore ).
     // We need to account for this in gen_page_switch_check and we compare with next_block_addr + memory::mem8
     // We cannot the same while processing an AbsoluteEip flow control change so there we need to fix the value
     // by subscracting memory::mem. Overall, since AbsoluteEip is encountered less often than memory accesses so
     // this ends up improving perf.
     // Does not (need to) handle mapped memory
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
-    //      already correct (pointing at the current instruction)    
+    //      already correct (pointing at the current instruction)
 
     let cont = ctx.builder.block_void();
     ctx.builder.get_local(&address_local);
@@ -730,16 +727,8 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1_ret("get_phys_eip_slow_jit");
 
-    ctx.builder.get_local(&address_local);
-    ctx.builder.xor_i32();
-    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
-    ctx.builder.add_i32();
-    ctx.builder.get_local(&address_local);
-    ctx.builder.xor_i32();
-    
-    ctx.builder.tee_local(&entry_local);
-    ctx.builder.const_i32(1);
-    ctx.builder.and_i32();
+    ctx.builder.tee_local(&entry_local);    
+    ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -747,8 +736,7 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.const_i32(1);
-        ctx.builder.and_i32();
+        ctx.builder.eqz_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -849,8 +837,7 @@ fn gen_safe_write(
         },
     }
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.const_i32(1);
-    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -858,8 +845,7 @@ fn gen_safe_write(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.const_i32(1);
-        ctx.builder.and_i32();
+        ctx.builder.eqz_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -873,7 +859,6 @@ fn gen_safe_write(
     ctx.builder.and_i32();
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
-
 
     match value_local {
         GenSafeWriteValue::I32(local) => ctx.builder.get_local(local),
@@ -987,8 +972,7 @@ pub fn gen_safe_read_write(
         BitSize::DQWORD => dbg_assert!(false),
     }
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.const_i32(1);
-    ctx.builder.and_i32();
+    ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -996,8 +980,7 @@ pub fn gen_safe_read_write(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.const_i32(1);
-        ctx.builder.and_i32();
+        ctx.builder.eqz_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -1011,7 +994,6 @@ pub fn gen_safe_read_write(
     ctx.builder.and_i32();
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
-
 
     ctx.builder.free_local(entry_local);
     let phys_addr_local = ctx.builder.tee_new_local();
@@ -1076,9 +1058,8 @@ pub fn gen_safe_read_write(
             BitSize::DQWORD => dbg_assert!(false),
         }
 
-        if cfg!(debug_assertions) {
-            ctx.builder.const_i32(1);
-            ctx.builder.and_i32();
+        if cfg!(debug_assertions) {            
+            ctx.builder.eqz_i32();
 
             ctx.builder.if_void();
             {

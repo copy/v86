@@ -4,7 +4,7 @@ use codegen;
 use codegen::BitSize;
 use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
-    FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
 };
 use cpu::global_pointers;
 use jit::{Instruction, InstructionOperand, JitContext};

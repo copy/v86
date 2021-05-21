@@ -82,9 +82,7 @@ pub fn get_jit_state() -> &'static mut JitState { unsafe { jit_state.as_mut() } 
 #[no_mangle]
 pub fn rust_init() {
     let x = Box::new(JitState::create_and_initialise());
-    unsafe {
-        jit_state = NonNull::new(Box::into_raw(x)).unwrap()
-    }
+    unsafe { jit_state = NonNull::new(Box::into_raw(x)).unwrap() }
 
     use std::panic;
 
@@ -399,7 +397,12 @@ fn jit_find_basic_blocks(
     let mut page_blacklist = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
-    let max_pages = if cpu.state_flags.is_32() { MAX_PAGES } else { 1 };
+    let max_pages = if cpu.state_flags.is_32() {
+        MAX_PAGES
+    }
+    else {
+        1
+    };
 
     for virt_addr in entry_points {
         let ok = follow_jump(
@@ -2117,7 +2120,12 @@ pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
 }
 #[no_mangle]
 pub fn jit_get_cache_size() -> u32 {
-    if cfg!(feature = "profiler") { get_jit_state().cache.len() as u32 } else { 0 }
+    if cfg!(feature = "profiler") {
+        get_jit_state().cache.len() as u32
+    }
+    else {
+        0
+    }
 }
 
 #[cfg(feature = "profiler")]
@@ -2139,8 +2147,12 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
 
             let last_jump_type = unsafe { cpu::debug_last_jump.name() };
             let last_jump_addr = unsafe { cpu::debug_last_jump.phys_address() }.unwrap_or(0);
-            let last_jump_opcode =
-                if last_jump_addr != 0 { memory::read32s(last_jump_addr) } else { 0 };
+            let last_jump_opcode = if last_jump_addr != 0 {
+                memory::read32s(last_jump_addr)
+            }
+            else {
+                0
+            };
 
             let opcode = memory::read32s(phys_address);
             dbg_log!(

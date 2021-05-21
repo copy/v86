@@ -27,7 +27,12 @@ impl ModrmByte {
 }
 
 pub fn decode(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
-    if ctx.asize_32() { decode32(ctx, modrm_byte) } else { decode16(ctx, modrm_byte) }
+    if ctx.asize_32() {
+        decode32(ctx, modrm_byte)
+    }
+    else {
+        decode16(ctx, modrm_byte)
+    }
 }
 
 fn decode16(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
@@ -259,7 +264,12 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
+    let seg = if prefix != 0 {
+        prefix - 1
+    }
+    else {
+        default_segment
+    };
     jit_add_seg_offset_no_override(ctx, seg);
 }
 

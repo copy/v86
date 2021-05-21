@@ -15,8 +15,8 @@ unsafe fn unimplemented_sse() {
 
 use cpu::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
-    bts_reg, cmpxchg8, cmpxchg16, cmpxchg32, popcnt, shld16, shld32, shrd16, shrd32, xadd8, xadd16,
-    xadd32,
+    bts_reg, cmpxchg16, cmpxchg32, cmpxchg8, popcnt, shld16, shld32, shrd16, shrd32, xadd16,
+    xadd32, xadd8,
 };
 use cpu::arith::{
     imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
@@ -2337,7 +2337,12 @@ pub unsafe fn instr_660F64(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let mut result = reg128 { i8_0: [0; 16] };
     for i in 0..16 {
-        result.u8_0[i] = if destination.i8_0[i] as i32 > source.i8_0[i] as i32 { 255 } else { 0 };
+        result.u8_0[i] = if destination.i8_0[i] as i32 > source.i8_0[i] as i32 {
+            255
+        }
+        else {
+            0
+        };
     }
     write_xmm_reg128(r, result);
 }
@@ -2352,7 +2357,12 @@ pub unsafe fn instr_0F65(source: u64, r: i32) {
     let source: [i16; 4] = std::mem::transmute(source);
     let mut result: [u16; 4] = [0; 4];
     for i in 0..4 {
-        result[i] = if destination[i] > source[i] { 0xFFFF } else { 0 }
+        result[i] = if destination[i] > source[i] {
+            0xFFFF
+        }
+        else {
+            0
+        }
     }
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
@@ -2368,7 +2378,12 @@ pub unsafe fn instr_660F65(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let mut result = reg128 { i8_0: [0; 16] };
     for i in 0..8 {
-        result.u16_0[i] = if destination.i16_0[i] > source.i16_0[i] { 0xFFFF } else { 0 };
+        result.u16_0[i] = if destination.i16_0[i] > source.i16_0[i] {
+            0xFFFF
+        }
+        else {
+            0
+        };
     }
     write_xmm_reg128(r, result);
 }
@@ -2399,10 +2414,30 @@ pub unsafe fn instr_660F66(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     write_xmm128(
         r,
-        if destination.i32_0[0] > source.i32_0[0] { -1 } else { 0 },
-        if destination.i32_0[1] > source.i32_0[1] { -1 } else { 0 },
-        if destination.i32_0[2] > source.i32_0[2] { -1 } else { 0 },
-        if destination.i32_0[3] > source.i32_0[3] { -1 } else { 0 },
+        if destination.i32_0[0] > source.i32_0[0] {
+            -1
+        }
+        else {
+            0
+        },
+        if destination.i32_0[1] > source.i32_0[1] {
+            -1
+        }
+        else {
+            0
+        },
+        if destination.i32_0[2] > source.i32_0[2] {
+            -1
+        }
+        else {
+            0
+        },
+        if destination.i32_0[3] > source.i32_0[3] {
+            -1
+        }
+        else {
+            0
+        },
     );
 }
 pub unsafe fn instr_660F66_reg(r1: i32, r2: i32) { instr_660F66(read_xmm128s(r1), r2); }
@@ -2888,7 +2923,12 @@ pub unsafe fn instr_660F74(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let mut result = reg128 { i8_0: [0; 16] };
     for i in 0..16 {
-        result.u8_0[i] = if source.u8_0[i] == destination.u8_0[i] { 255 } else { 0 }
+        result.u8_0[i] = if source.u8_0[i] == destination.u8_0[i] {
+            255
+        }
+        else {
+            0
+        }
     }
     write_xmm_reg128(r, result);
 }
@@ -2903,7 +2943,12 @@ pub unsafe fn instr_0F75(source: u64, r: i32) {
     let source: [i16; 4] = std::mem::transmute(source);
     let mut result: [u16; 4] = [0; 4];
     for i in 0..4 {
-        result[i] = if destination[i] == source[i] { 0xFFFF } else { 0 };
+        result[i] = if destination[i] == source[i] {
+            0xFFFF
+        }
+        else {
+            0
+        };
     }
     write_mmx_reg64(r, std::mem::transmute(result));
     transition_fpu_to_mmx();
@@ -2919,8 +2964,12 @@ pub unsafe fn instr_660F75(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let mut result = reg128 { i8_0: [0; 16] };
     for i in 0..8 {
-        result.u16_0[i] =
-            (if source.u16_0[i] as i32 == destination.u16_0[i] as i32 { 0xFFFF } else { 0 }) as u16;
+        result.u16_0[i] = (if source.u16_0[i] as i32 == destination.u16_0[i] as i32 {
+            0xFFFF
+        }
+        else {
+            0
+        }) as u16;
     }
     write_xmm_reg128(r, result);
 }
@@ -2951,7 +3000,12 @@ pub unsafe fn instr_660F76(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let mut result = reg128 { i8_0: [0; 16] };
     for i in 0..4 {
-        result.i32_0[i] = if source.u32_0[i] == destination.u32_0[i] { -1 } else { 0 }
+        result.i32_0[i] = if source.u32_0[i] == destination.u32_0[i] {
+            -1
+        }
+        else {
+            0
+        }
     }
     write_xmm_reg128(r, result);
 }
@@ -3722,10 +3776,18 @@ pub unsafe fn instr_660FC2(source: reg128, r: i32, imm8: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         i64_0: [
-            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) { -1 } else { 0 })
-                as i64,
-            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) { -1 } else { 0 })
-                as i64,
+            (if sse_comparison(imm8, destination.f64_0[0], source.f64_0[0]) {
+                -1
+            }
+            else {
+                0
+            }) as i64,
+            (if sse_comparison(imm8, destination.f64_0[1], source.f64_0[1]) {
+                -1
+            }
+            else {
+                0
+            }) as i64,
         ],
     };
     write_xmm_reg128(r, result);
@@ -3761,7 +3823,12 @@ pub unsafe fn instr_F30FC2(source: i32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
     let source: f32 = std::mem::transmute(source);
-    let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
+    let result = if sse_comparison(imm8, destination as f64, source as f64) {
+        -1
+    }
+    else {
+        0
+    };
     write_xmm32(r, result);
 }
 pub unsafe fn instr_F30FC2_reg(r1: i32, r2: i32, imm: i32) {

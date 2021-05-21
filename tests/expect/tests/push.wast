@@ -94,13 +94,12 @@
                       (i32.const 4095))
                     (i32.const 4092))))
               (br_if $B1
-                (i32.and
+                (i32.eqz
                   (tee_local $l11
                     (call $e.safe_write32_slow_jit
                       (get_local $l10)
                       (get_local $l0)
-                      (i32.const 0)))
-                  (i32.const 1))))
+                      (i32.const 0))))))
             (i32.store align=1
               (i32.xor
                 (i32.and
