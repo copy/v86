@@ -1,5 +1,5 @@
 use cpu::cpu::{
-    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
+    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
     TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use cpu::global_pointers;
@@ -619,7 +619,7 @@ fn gen_safe_read(
             ctx.builder.call_fn2_ret("safe_read128s_slow_jit");
         },
     }
-    ctx.builder.tee_local(&entry_local);    
+    ctx.builder.tee_local(&entry_local);
     ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
@@ -727,7 +727,7 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1_ret("get_phys_eip_slow_jit");
 
-    ctx.builder.tee_local(&entry_local);    
+    ctx.builder.tee_local(&entry_local);
     ctx.builder.eqz_i32();
 
     if cfg!(feature = "profiler") {
@@ -1058,7 +1058,7 @@ pub fn gen_safe_read_write(
             BitSize::DQWORD => dbg_assert!(false),
         }
 
-        if cfg!(debug_assertions) {            
+        if cfg!(debug_assertions) {
             ctx.builder.eqz_i32();
 
             ctx.builder.if_void();

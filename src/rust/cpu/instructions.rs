@@ -1501,23 +1501,13 @@ pub unsafe fn instr32_C8(size: i32, nesting: i32) { enter32(size, nesting); }
 
 pub unsafe fn instr16_C9() {
     // leave
-    let old_vbp = if *stack_size_32 {
-        read_reg32(EBP)
-    }
-    else {
-        read_reg16(BP)
-    };
+    let old_vbp = if *stack_size_32 { read_reg32(EBP) } else { read_reg16(BP) };
     let new_bp = return_on_pagefault!(safe_read16(get_seg_ss() + old_vbp));
     set_stack_reg(old_vbp + 2);
     write_reg16(BP, new_bp);
 }
 pub unsafe fn instr32_C9() {
-    let old_vbp = if *stack_size_32 {
-        read_reg32(EBP)
-    }
-    else {
-        read_reg16(BP)
-    };
+    let old_vbp = if *stack_size_32 { read_reg32(EBP) } else { read_reg16(BP) };
     let new_ebp = return_on_pagefault!(safe_read32s(get_seg_ss() + old_vbp));
     set_stack_reg(old_vbp + 4);
     write_reg32(EBP, new_ebp);
@@ -2556,12 +2546,7 @@ pub unsafe fn instr_F9() {
 pub unsafe fn instr_FA_without_fault() -> bool {
     // cli
     if !*protected_mode
-        || if 0 != *flags & FLAG_VM {
-            getiopl() == 3
-        }
-        else {
-            getiopl() >= *cpl as i32
-        }
+        || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
         *flags &= !FLAG_INTERRUPT;
         return true;
@@ -2593,12 +2578,7 @@ pub unsafe fn instr_FA() {
 pub unsafe fn instr_FB_without_fault() -> bool {
     // sti
     if !*protected_mode
-        || if 0 != *flags & FLAG_VM {
-            getiopl() == 3
-        }
-        else {
-            getiopl() >= *cpl as i32
-        }
+        || if 0 != *flags & FLAG_VM { getiopl() == 3 } else { getiopl() >= *cpl as i32 }
     {
         *flags |= FLAG_INTERRUPT;
         return true;
