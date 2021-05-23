@@ -186,13 +186,11 @@
             (set_local $l9
               (i32.add
                 (i32.load align=1
-                  (i32.add
-                    (i32.xor
-                      (i32.and
-                        (get_local $l10)
-                        (i32.const -4096))
-                      (get_local $l9))
-                    (i32.const 5664768)))
+                  (i32.xor
+                    (i32.and
+                      (get_local $l10)
+                      (i32.const -4096))
+                    (get_local $l9)))
                 (i32.load
                   (i32.const 740))))
             (set_local $l10
@@ -241,13 +239,11 @@
                       (i32.const 0)))
                   (i32.const 1))))
             (i32.store align=1
-              (i32.add
-                (i32.xor
-                  (i32.and
-                    (get_local $l13)
-                    (i32.const -4096))
-                  (get_local $l12))
-                (i32.const 5664768))
+              (i32.xor
+                (i32.and
+                  (get_local $l13)
+                  (i32.const -4096))
+                (get_local $l12))
               (get_local $l10))
             (set_local $l4
               (get_local $l11))
@@ -280,11 +276,13 @@
               (i32.ge_s
                 (tee_local $p0
                   (call $e.jit_find_cache_entry_in_page
-                    (i32.xor
-                      (i32.and
-                        (get_local $l10)
-                        (i32.const -4096))
-                      (get_local $l9))
+                    (i32.sub
+                      (i32.xor
+                        (i32.and
+                          (get_local $l10)
+                          (i32.const -4096))
+                        (get_local $l9))
+                      (i32.const 5664768))
                     (i32.const 899)
                     (i32.const 3)))
                 (i32.const 0)))

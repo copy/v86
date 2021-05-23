@@ -95,10 +95,11 @@ pub fn gen_page_switch_check(
 
     gen_get_eip(ctx.builder);
     let address_local = ctx.builder.set_new_local();
-    gen_get_phys_eip(ctx, &address_local);
+    gen_get_phys_eip_plus_mem(ctx, &address_local);
     ctx.builder.free_local(address_local);
 
-    ctx.builder.const_i32(next_block_addr as i32);
+    ctx.builder
+        .const_i32(next_block_addr as i32 + unsafe { memory::mem8 } as i32);
     ctx.builder.ne_i32();
 
     if cfg!(debug_assertions) {
@@ -647,9 +648,6 @@ fn gen_safe_read(
     // where_to_write is only used by dqword
     dbg_assert!((where_to_write != None) == (bits == BitSize::DQWORD));
 
-    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
-    ctx.builder.add_i32();
-
     match bits {
         BitSize::BYTE => {
             ctx.builder.load_u8(0);
@@ -683,8 +681,15 @@ fn gen_safe_read(
     ctx.builder.free_local(entry_local);
 }
 
-pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
-    // Similar to gen_safe_read, but return the physical eip rather than reading from memory
+pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal) {
+    // Similar to gen_safe_read, but return the physical eip + memory::mem rather than reading from memory
+    // In functions that need to use this value we need to fix it by substracting memory::mem
+    // this is done in order to remove one instruction from the fast path of memory accesses (no need to add
+    // memory::mem anymore ).
+    // We need to account for this in gen_page_switch_check and we compare with next_block_addr + memory::mem8
+    // We cannot the same while processing an AbsoluteEip flow control change so there we need to fix the value
+    // by subscracting memory::mem. Overall, since AbsoluteEip is encountered less often than memory accesses so
+    // this ends up improving perf.
     // Does not (need to) handle mapped memory
     // XXX: Currently does not use ctx.start_of_current_instruction, but rather assumes that eip is
     //      already correct (pointing at the current instruction)
@@ -723,6 +728,7 @@ pub fn gen_get_phys_eip(ctx: &mut JitContext, address_local: &WasmLocal) {
 
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1_ret("get_phys_eip_slow_jit");
+
     ctx.builder.tee_local(&entry_local);
     ctx.builder.const_i32(1);
     ctx.builder.and_i32();
@@ -860,9 +866,6 @@ fn gen_safe_write(
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
 
-    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
-    ctx.builder.add_i32();
-
     match value_local {
         GenSafeWriteValue::I32(local) => ctx.builder.get_local(local),
         GenSafeWriteValue::I64(local) => ctx.builder.get_local_i64(local),
@@ -999,9 +1002,6 @@ pub fn gen_safe_read_write(
     ctx.builder.and_i32();
     ctx.builder.get_local(&address_local);
     ctx.builder.xor_i32();
-
-    ctx.builder.const_i32(unsafe { memory::mem8 } as i32);
-    ctx.builder.add_i32();
 
     ctx.builder.free_local(entry_local);
     let phys_addr_local = ctx.builder.tee_new_local();
