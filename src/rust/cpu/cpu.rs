@@ -2089,8 +2089,7 @@ pub unsafe fn trigger_gp_jit(code: i32, start_eip: i32) {
 
 #[no_mangle]
 pub unsafe fn trigger_fault_end_jit() {
-    let (code, error_code) = jit_fault.unwrap();
-    jit_fault = None;
+    let (code, error_code) = jit_fault.take().unwrap();
     if DEBUG {
         if cpu_exception_hook(code) {
             return;
