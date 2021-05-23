@@ -3179,7 +3179,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
     } {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-            return 0;
+            return 1;
         },
         Ok(addr) => addr,
     };
@@ -3193,7 +3193,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         } {
             Err(()) => {
                 *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-                return 0;
+                return 1;
             },
             Ok(addr) => addr,
         };
@@ -3251,7 +3251,7 @@ pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn get_phys_eip_slow_jit(addr: i32) -> i32 {
     match translate_address_read_jit(addr) {
-        Err(()) => 0,
+        Err(()) => 1,
         Ok(addr_low) => {
             dbg_assert!(!in_mapped_range(addr_low as u32)); // same assumption as in read_imm8
             ((addr_low as i32 + memory::mem8 as i32) ^ addr) & !0xFFF
@@ -3296,7 +3296,7 @@ pub unsafe fn safe_write_slow_jit(
     let addr_low = match translate_address_write_jit(addr) {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-            return 0;
+            return 1;
         },
         Ok(addr) => addr,
     };
@@ -3304,7 +3304,7 @@ pub unsafe fn safe_write_slow_jit(
         let addr_high = match translate_address_write_jit((addr | 0xFFF) + 1) {
             Err(()) => {
                 *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-                return 0;
+                return 1;
             },
             Ok(addr) => addr,
         };

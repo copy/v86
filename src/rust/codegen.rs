@@ -620,7 +620,8 @@ fn gen_safe_read(
         },
     }
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.eqz_i32();
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -628,7 +629,8 @@ fn gen_safe_read(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.eqz_i32();
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -728,7 +730,8 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
     ctx.builder.call_fn1_ret("get_phys_eip_slow_jit");
 
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.eqz_i32();
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -736,7 +739,8 @@ pub fn gen_get_phys_eip_plus_mem(ctx: &mut JitContext, address_local: &WasmLocal
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.eqz_i32();
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -837,7 +841,8 @@ fn gen_safe_write(
         },
     }
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.eqz_i32();
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -845,7 +850,8 @@ fn gen_safe_write(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.eqz_i32();
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -972,7 +978,8 @@ pub fn gen_safe_read_write(
         BitSize::DQWORD => dbg_assert!(false),
     }
     ctx.builder.tee_local(&entry_local);
-    ctx.builder.eqz_i32();
+    ctx.builder.const_i32(1);
+    ctx.builder.and_i32();
 
     if cfg!(feature = "profiler") {
         ctx.builder.if_void();
@@ -980,7 +987,8 @@ pub fn gen_safe_read_write(
         ctx.builder.block_end();
 
         ctx.builder.get_local(&entry_local);
-        ctx.builder.eqz_i32();
+        ctx.builder.const_i32(1);
+        ctx.builder.and_i32();
     }
 
     ctx.builder.br_if(ctx.exit_with_fault_label);
@@ -1059,7 +1067,8 @@ pub fn gen_safe_read_write(
         }
 
         if cfg!(debug_assertions) {
-            ctx.builder.eqz_i32();
+            ctx.builder.const_i32(1);
+            ctx.builder.and_i32();
 
             ctx.builder.if_void();
             {
