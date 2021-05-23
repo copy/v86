@@ -8,6 +8,7 @@ CPU.prototype.mmap_read8 = function(addr)
 
 CPU.prototype.mmap_write8 = function(addr, value)
 {
+    dbg_assert(value >= 0 && value <= 0xFF);
     this.memory_map_write8[addr >>> MMAP_BLOCK_BITS](addr, value);
 };
 
@@ -22,8 +23,9 @@ CPU.prototype.mmap_write16 = function(addr, value)
 {
     var fn = this.memory_map_write8[addr >>> MMAP_BLOCK_BITS];
 
+    dbg_assert(value >= 0 && value <= 0xFFFF);
     fn(addr, value & 0xFF);
-    fn(addr + 1 | 0, value >> 8 & 0xFF);
+    fn(addr + 1 | 0, value >> 8);
 };
 
 CPU.prototype.mmap_read32 = function(addr)

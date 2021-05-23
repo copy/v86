@@ -3366,8 +3366,8 @@ pub unsafe fn safe_write_slow_jit(
             ),
             64 => memory::mmap_write64(addr_low, value_low as i32, (value_low >> 32) as i32),
             32 => memory::mmap_write32(addr_low, value_low as i32),
-            16 => memory::mmap_write16(addr_low, value_low as i32),
-            8 => memory::mmap_write8(addr_low, value_low as i32),
+            16 => memory::mmap_write16(addr_low, (value_low & 0xFFFF) as i32),
+            8 => memory::mmap_write8(addr_low, (value_low & 0xFF) as i32),
             _ => dbg_assert!(false),
         }
 
