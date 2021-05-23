@@ -116,7 +116,7 @@ pub unsafe fn read128(addr: u32) -> reg128 {
 
 pub unsafe fn write8(addr: u32, value: i32) {
     if in_mapped_range(addr) {
-        mmap_write8(addr, value);
+        mmap_write8(addr, value & 0xFF);
     }
     else {
         ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(addr));
@@ -131,7 +131,7 @@ pub unsafe fn write8_no_mmap_or_dirty_check(addr: u32, value: i32) {
 #[no_mangle]
 pub unsafe fn write16(addr: u32, value: i32) {
     if in_mapped_range(addr) {
-        mmap_write16(addr, value);
+        mmap_write16(addr, value & 0xFFFF);
     }
     else {
         ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(2 as u32));
