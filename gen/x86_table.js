@@ -381,8 +381,8 @@ const encodings = [
 
     { opcode: 0xF6, e: 1, fixed_g: 0, imm8: 1, custom: 1 },
     { opcode: 0xF6, e: 1, fixed_g: 1, imm8: 1, custom: 1 },
-    { opcode: 0xF6, e: 1, fixed_g: 2, },
-    { opcode: 0xF6, e: 1, fixed_g: 3, },
+    { opcode: 0xF6, e: 1, fixed_g: 2, custom: 1 },
+    { opcode: 0xF6, e: 1, fixed_g: 3, custom: 1 },
     { opcode: 0xF6, e: 1, fixed_g: 4, mask_flags: af | zf, },
     { opcode: 0xF6, e: 1, fixed_g: 5, mask_flags: af | zf, },
     { opcode: 0xF6, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions

@@ -3839,6 +3839,9 @@ pub fn instr32_F7_1_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     instr32_F7_0_reg_jit(ctx, r, imm)
 }
 
+define_instruction_read_write_mem8!("not8", instr_F6_2_mem_jit, instr_F6_2_reg_jit, none);
+define_instruction_read_write_mem8!("neg8", instr_F6_3_mem_jit, instr_F6_3_reg_jit, none);
+
 define_instruction_read_write_mem16!(gen_not16, instr16_F7_2_mem_jit, instr16_F7_2_reg_jit, none);
 define_instruction_read_write_mem32!(gen_not32, instr32_F7_2_mem_jit, instr32_F7_2_reg_jit, none);
 define_instruction_read_write_mem16!(gen_neg16, instr16_F7_3_mem_jit, instr16_F7_3_reg_jit, none);

@@ -99,6 +99,8 @@ pub unsafe fn dec32(x: i32) -> i32 { return dec(x, OPSIZE_32); }
 
 pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 { sub(0, dest_operand, op_size) }
 #[no_mangle]
+pub unsafe fn not8(x: i32) -> i32 { return !x; }
+#[no_mangle]
 pub unsafe fn neg8(x: i32) -> i32 { return neg(x, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn neg16(x: i32) -> i32 { return neg(x, OPSIZE_16); }
