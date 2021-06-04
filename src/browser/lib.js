@@ -460,7 +460,7 @@ var ASYNC_SAFE = false;
      * @param {string} filename Name of the file to download
      * @param {number|undefined} size
      */
-    function AsyncXHRPartfileBuffer(filename, size)
+    function AsyncXHRPartfileBuffer(filename, size, step)
     {
         const parts = filename.match(/(.*)(\..*)/);
 
@@ -478,6 +478,8 @@ var ASYNC_SAFE = false;
         /** @const */
         this.block_size = 256;
         this.byteLength = size;
+        this.use_step = typeof step === "number";
+        this.step = step;
 
         this.loaded_blocks = Object.create(null);
 
@@ -522,18 +524,48 @@ var ASYNC_SAFE = false;
             }
             return;
         }
-
-        const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
-
-        v86util.load_file(part_filename, {
-            done: function done(buffer)
+		
+		if(this.use_step)
+        {
+			const fake_offset = parseInt(offset / this.step, undefined) * this.step;
+			const m_offset = offset - fake_offset;
+			const total_count = parseInt(len / this.step, undefined) + 2;
+			var blocks = new Uint8Array(m_offset + (total_count * this.step));
+			var finished = 0;
+			
+			for(var i = 0; i < total_count; i++)
             {
-                dbg_assert(buffer.byteLength === len);
-                var block = new Uint8Array(buffer);
-                this.handle_read(offset, len, block);
-                fn(block);
-            }.bind(this),
-        });
+				const cur = i * this.step;
+				const part_filename = this.basename + "-" + (cur + fake_offset) + this.extension;
+				
+				v86util.load_file(part_filename, {
+					done: function done(buffer) {
+						const block = new Uint8Array(buffer);
+						blocks.set(block, cur);
+						const tmp_blocks = blocks.slice(m_offset, m_offset + len);
+						finished++;
+						if(finished === total_count)
+                        {
+							fn(tmp_blocks);
+						}
+					}.bind(this),
+				});
+			}		
+		}
+		else
+        {
+			const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
+
+			v86util.load_file(part_filename, {
+				done: function done(buffer)
+				{
+					dbg_assert(buffer.byteLength === len);
+					var block = new Uint8Array(buffer);
+					this.handle_read(offset, len, block);
+					fn(block);
+				}.bind(this),
+			});
+		}
     };
 
     AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
