@@ -380,6 +380,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             async: file["async"],
             url: file["url"],
             size: file["size"],
+            step: file["step"],
             use_parts: file.use_parts,
         };
 
@@ -439,7 +440,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
                 if(file.use_parts)
                 {
-                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size);
+                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size, file.step);
                 }
                 else
                 {
