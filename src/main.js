@@ -83,17 +83,21 @@ v86.prototype.init = function(settings)
 };
 
 
-if(typeof importScripts === 'function' && typeof queueMicrotask === 'function') {
-    var tickCounter = 0;
+if(typeof importScripts === "function" && typeof queueMicrotask === "function")
+{
+    let tick_counter = 0;
 
     /** @this {v86} */
     var fast_next_tick = function()
     {
-        if(tickCounter == 256) {
-            tickCounter = 0;
+        if(tick_counter === 256)
+        {
+            tick_counter = 0;
             setTimeout(() => { this.do_tick(); }, 0);
-        } else {
-            tickCounter += 1;
+        }
+        else
+        {
+            tick_counter++;
             queueMicrotask(() => { this.do_tick(); });
         }
     };
