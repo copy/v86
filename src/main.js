@@ -82,12 +82,24 @@ v86.prototype.init = function(settings)
     this.bus.send("emulator-ready");
 };
 
-if(typeof setImmediate !== "undefined")
+
+if(typeof importScripts === "function" && typeof queueMicrotask === "function")
 {
+    let tick_counter = 0;
+
     /** @this {v86} */
     var fast_next_tick = function()
     {
-        setImmediate(() => { this.do_tick(); });
+        if(tick_counter === 256)
+        {
+            tick_counter = 0;
+            setTimeout(() => { this.do_tick(); }, 0);
+        }
+        else
+        {
+            tick_counter++;
+            queueMicrotask(() => { this.do_tick(); });
+        }
     };
 
     /** @this {v86} */
@@ -95,6 +107,20 @@ if(typeof setImmediate !== "undefined")
 
     /** @this {v86} */
     var unregister_tick = function() {};
+}
+else if(typeof setImmediate !== "undefined")
+{
+    /** @this {v86} */
+    fast_next_tick = function()
+    {
+        setImmediate(() => { this.do_tick(); });
+    };
+
+    /** @this {v86} */
+    register_tick = function() {};
+
+    /** @this {v86} */
+    unregister_tick = function() {};
 }
 else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
 {
