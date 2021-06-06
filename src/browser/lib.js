@@ -526,9 +526,9 @@ var ASYNC_SAFE = false;
         }
 		
 		if(this.use_step_) {
-			const fake_offset = parseInt(offset / this.step_) * this.step_;
+			const fake_offset = parseInt(offset / this.step_, undefined) * this.step_;
 			const m_offset = offset - fake_offset;
-			const total_count = parseInt(len / this.step_) + 2;
+			const total_count = parseInt(len / this.step_, undefined) + 2;
 			var blocks_ = new Uint8Array(m_offset + (total_count * this.step_));
 			var finished = 0;
 			
