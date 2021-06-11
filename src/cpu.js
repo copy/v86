@@ -832,7 +832,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         if(settings.uart3)
         {
-            this.devices.uart3 = new UART(this, 0x3E8, device_bus);
+            this.devices.uart3 = new UART(this, 0x2E8, device_bus);
         }
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
