@@ -81,16 +81,16 @@ function UART(cpu, port, bus)
             break;
         case 0x3E8:
             this.com = 2;
-            this.irq = 4;
+            this.irq = 2;
             break;
         case 0x2E8:
             this.com = 3;
-            this.irq = 3;
+            this.irq = 1;
             break;
         default:
             dbg_log("Invalid serial port: " + h(port), LOG_SERIAL);
-            this.com = 0;
-            this.irq = 4;
+            this.com = 4;
+            this.irq = 0;
     }
 
     this.bus.register("serial" + this.com + "-input", function(data)
