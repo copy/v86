@@ -533,7 +533,8 @@ var ASYNC_SAFE = false;
 			var blocks = new Uint8Array(m_offset + (total_count * this.step));
 			var finished = 0;
 			
-			for (var i = 0; i < total_count; i++) {
+			for (var i = 0; i < total_count; i++)
+            {
 				const cur = i * this.step;
 				const part_filename = this.basename + "-" + (cur + fake_offset) + this.extension;
 				
