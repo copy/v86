@@ -543,7 +543,7 @@ var ASYNC_SAFE = false;
 						blocks.set(block, cur);
 						const tmp_blocks = blocks.slice(m_offset, m_offset + len);
 						finished++;
-						if (finished == total_count)
+						if (finished === total_count)
                         {
 							fn(tmp_blocks);
 						}
