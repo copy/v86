@@ -478,8 +478,8 @@ var ASYNC_SAFE = false;
         /** @const */
         this.block_size = 256;
         this.byteLength = size;
-        this.use_step_ = typeof step == 'number'
-        this.step_ = step
+        this.use_step = typeof step === "number";
+        this.step = step;
 
         this.loaded_blocks = Object.create(null);
 
@@ -525,22 +525,23 @@ var ASYNC_SAFE = false;
             return;
         }
 		
-		if(this.use_step_) {
-			const fake_offset = parseInt(offset / this.step_, undefined) * this.step_;
+		if(this.use_step)
+        {
+			const fake_offset = parseInt(offset / this.step, undefined) * this.step;
 			const m_offset = offset - fake_offset;
-			const total_count = parseInt(len / this.step_, undefined) + 2;
-			var blocks_ = new Uint8Array(m_offset + (total_count * this.step_));
+			const total_count = parseInt(len / this.step, undefined) + 2;
+			var blocks = new Uint8Array(m_offset + (total_count * this.step));
 			var finished = 0;
 			
 			for (var i = 0; i < total_count; i++) {
-				const cur = i * this.step_;
+				const cur = i * this.step;
 				const part_filename = this.basename + "-" + (cur + fake_offset) + this.extension;
 				
 				v86util.load_file(part_filename, {
 					done: function done(buffer) {
 						const block = new Uint8Array(buffer);
-						blocks_.set(block, cur);
-						const tmp_blocks = blocks_.slice(m_offset, m_offset + len);
+						blocks.set(block, cur);
+						const tmp_blocks = blocks.slice(m_offset, m_offset + len);
 						finished++;
 						if (finished == total_count) {
 							fn(tmp_blocks);
@@ -549,7 +550,8 @@ var ASYNC_SAFE = false;
 				});
 			}		
 		}
-		else {
+		else
+        {
 			const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
 
 			v86util.load_file(part_filename, {
