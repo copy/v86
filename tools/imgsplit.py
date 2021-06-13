@@ -80,7 +80,8 @@ while i < file_length - step:
     temp_file.write(readf[i:i + step])
     temp_file.close()
     if zstd_path:
-        os.system(f'{zstd_path} --format=zstd -o "{file_path}.zst" {file_path}')
+        cmd = f'{zstd_path} --format=zstd -o "{file_path}.zst" {file_path}'
+        os.system(cmd)
         os.remove(file_path)
     i += step
 
@@ -89,3 +90,6 @@ file_path = os.path.join(out_dir, f'{no_ext}-{i}.{ext}')
 temp_file = open(file_path, 'wb')
 temp_file.write(readf[i:file_length])
 temp_file.close()
+if zstd_path:
+    os.system(f'{zstd_path} --format=zstd -o "{file_path}.zst" {file_path}')
+    os.remove(file_path)
