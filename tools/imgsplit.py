@@ -34,11 +34,25 @@ for i in range(argc):
         else:
             filename = args[i + 1]
     elif lowered == '--zstd_path' or lowered == '-z':
-        if is_last:
-            print('Argument required!')
-            exit_(1)
+        if os.name == 'posix':
+            zstd_path = 'zstd'
+            if os.system(zstd_path + ' --version'):
+                while True:
+                    input_result = input('Install ' + zstd_path + ' [Y/n]? ').lower().strip()
+                    if input_result == 'n':
+                        exit_(1)
+                    elif input_result == 'y':
+                        os.system('sudo apt-get install zstd')
+                        if os.system(zstd_path + ' --version'):
+                            print(zstd_path + ' installation failed!')
+                            exit_(1)
+                        break
         else:
-            zstd_path = args[i + 1]
+            if is_last:
+                print('Argument required!')
+                exit_(1)
+            else:
+                zstd_path = args[i + 1]
 
 if argc <= 1 or not filename:
     print('Use --help for more information')
