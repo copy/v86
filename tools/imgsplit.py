@@ -89,7 +89,7 @@ file_length = len(readf)
 i = 0
 
 while i < file_length - step:
-    file_path = os.path.join(out_dir, f'{no_ext}-{i}.{ext}')
+    file_path = os.path.join(out_dir, f'{no_ext}.{ext}-{i}')
     temp_file = open(file_path, 'wb')
     temp_file.write(readf[i:i + step])
     temp_file.close()
@@ -100,7 +100,7 @@ while i < file_length - step:
     i += step
 
 
-file_path = os.path.join(out_dir, f'{no_ext}-{i}.{ext}')
+file_path = os.path.join(out_dir, f'{no_ext}.{ext}-{i}.{ext}')
 temp_file = open(file_path, 'wb')
 temp_file.write(readf[i:file_length])
 temp_file.close()
