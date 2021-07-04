@@ -5,7 +5,7 @@ WebAssembly modules at runtime in order to achieve decent performance. Here's a
 list of emulated hardware:
 
 - An x86-compatible CPU. The instruction set is around Pentium III level,
- including full SSE2 support. Some features are missing, in particular:
+  including full SSE2 support. Some features are missing, in particular:
   - Task gates, far calls in protected mode
   - Some 16 bit protected mode features
   - Single stepping (trap flag, debug registers)
@@ -30,8 +30,7 @@ list of emulated hardware:
 - A virtio filesystem.
 - A SoundBlaster 16 sound card.
 
-Demos
--
+## Demos
 
 [Arch Linux](https://copy.sh/v86/?profile=archlinux) —
 [Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
@@ -51,9 +50,7 @@ Demos
 [KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
 [QNX](https://copy.sh/v86/?profile=qnx)
 
-
-Compatibility
--
+## Compatibility
 
 Here's an overview of the operating systems supported in v86:
 
@@ -87,8 +84,7 @@ Here's an overview of the operating systems supported in v86:
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 
-How to build, run and embed?
--
+## How to build, run and embed?
 
 You need:
 
@@ -102,7 +98,6 @@ You need:
 
 See `tools/docker/test-image/Dockerfile` for a full setup on Debian.
 
-
 - Run `make` to build the debug build (at `debug.html`).
 - Run `make all` to build the optimized build (at `index.html`).
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
@@ -111,9 +106,15 @@ See `tools/docker/test-image/Dockerfile` for a full setup on Debian.
 - If you only want to embed v86 in a webpage you can use libv86.js. For
   usage, check out the [examples](examples/).
 
+### Alternatively, to build using docker
 
-Testing
--
+- If you have docker installed, you can run the whole system inside a container.
+- See `tools/docker/exec` to find Dockerfile required for this.
+- You can run `docker build -f tools/docker/exec/Dockerfile -t v86:alpine-3.14 .` from the root directory to generate docker image.
+- Then you can simply run `docker run -it v86:alpine-3.14 -p 8000:800` to start the server.
+- Check `localhost:8000` for hosted server.
+
+## Testing
 
 The disk images for testing are not included in this repository. You can
 download them directly from the website using:
@@ -124,9 +125,7 @@ Run all tests: `make jshint rustfmt kvm-unit-test nasmtests nasmtests-force-jit 
 
 See [tests/Readme.md](tests/Readme.md) for more infos.
 
-
-API examples
--
+## API examples
 
 - [Basic](examples/basic.html)
 - [Programatically using the serial terminal](examples/serial.html)
@@ -138,25 +137,23 @@ Using v86 for your own purposes is as easy as:
 
 ```javascript
 var emulator = new V86Starter({
-    screen_container: document.getElementById("screen_container"),
-    bios: {
-        url: "../../bios/seabios.bin",
-    },
-    vga_bios: {
-        url: "../../bios/vgabios.bin",
-    },
-    cdrom: {
-        url: "../../images/linux.iso",
-    },
-    autostart: true,
+  screen_container: document.getElementById("screen_container"),
+  bios: {
+    url: "../../bios/seabios.bin",
+  },
+  vga_bios: {
+    url: "../../bios/vgabios.bin",
+  },
+  cdrom: {
+    url: "../../images/linux.iso",
+  },
+  autostart: true,
 });
 ```
 
 See [starter.js](src/browser/starter.js).
 
-
-License
--
+## License
 
 v86 is distributed under the terms of the Simplified BSD License, see
 [LICENSE](LICENSE). The following third-party dependencies are included in the
@@ -167,9 +164,7 @@ repository under their own licenses:
 - [`tests/kvm-unit-tests/`](tests/kvm-unit-tests)
 - [`tests/qemutests/`](tests/qemutests)
 
-
-Credits
--
+## Credits
 
 - CPU test cases via [QEMU](https://wiki.qemu.org/Main_Page)
 - More tests via [kvm-unit-tests](https://www.linux-kvm.org/page/KVM-unit-tests)
@@ -178,14 +173,10 @@ Credits
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
 - [WinWorld](https://winworldpc.com/) sources of some old operating systems
 
-
-More questions?
--
+## More questions?
 
 Shoot me an email to `copy@copy.sh`. Please report bugs on GitHub.
 
-
-Author
--
+## Author
 
 Fabian Hemmer (https://copy.sh/, `copy@copy.sh`)
