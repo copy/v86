@@ -1,0 +1,11 @@
+.git
+.github
+docker
+docs
+examples
+tests
+.editorconfig
+.gitattributes
+.gitignore
+.jshint.json
+Readme.md
