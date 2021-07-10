@@ -1,9 +1,9 @@
 .git
 .github
-docker
 docs
 examples
 tests
+tools/docker/exec
 .editorconfig
 .gitattributes
 .gitignore
