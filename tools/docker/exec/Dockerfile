@@ -7,7 +7,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && P
 
 COPY . .
 
-RUN PATH="${HOME}/.cargo/bin:${PATH}" make all && rm -rf closure-compiler gen lib src tools
+RUN PATH="${HOME}/.cargo/bin:${PATH}" make all && rm -rf closure-compiler gen lib src tools .cargo cargo.toml Makefile
 
 FROM python:3.9.6-alpine3.14
 WORKDIR /v86
