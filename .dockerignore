@@ -1,0 +1,13 @@
+.editorconfig
+.git
+.gitattributes
+.github
+.gitignore
+.jshint.json
+docs
+examples
+tests
+tools/docker
+debug.html
+loader.js
+Readme.md
