@@ -111,7 +111,7 @@ See `tools/docker/test-image/Dockerfile` for a full setup on Debian.
 - If you have docker installed, you can run the whole system inside a container.
 - See `tools/docker/exec` to find Dockerfile required for this.
 - You can run `docker build -f tools/docker/exec/Dockerfile -t v86:alpine-3.14 .` from the root directory to generate docker image.
-- Then you can simply run `docker run -it v86:alpine-3.14 -p 8000:800` to start the server.
+- Then you can simply run `docker run -it -p 8000:8000 v86:alpine-3.14` to start the server.
 - Check `localhost:8000` for hosted server.
 
 ## Testing
