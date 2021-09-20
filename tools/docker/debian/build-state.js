@@ -9,9 +9,9 @@ const path = require("path");
 console.log("Don't forget to run `make all` before running this script");
 
 var fs = require("fs");
-var V86 = require("./../../build/libv86.js").V86;
+var V86 = require("./../../../build/libv86.js").V86;
 
-const V86_ROOT = path.join(__dirname, "../..");
+const V86_ROOT = path.join(__dirname, "../../..");
 
 var OUTPUT_FILE = path.join(V86_ROOT, "images/debian-state-base.bin");
 
