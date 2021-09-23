@@ -163,7 +163,7 @@
                   (i32.eq
                     (i32.and
                       (tee_local $l10
-                        (i32.load offset=61456
+                        (i32.load offset={normalised output}
                           (i32.shl
                             (i32.shr_u
                               (get_local $l9)
@@ -217,7 +217,7 @@
                   (i32.eq
                     (i32.and
                       (tee_local $l13
-                        (i32.load offset=61456
+                        (i32.load offset={normalised output}
                           (i32.shl
                             (i32.shr_u
                               (get_local $l12)
@@ -258,7 +258,7 @@
                 (i32.eq
                   (i32.and
                     (tee_local $l10
-                      (i32.load offset=61456
+                      (i32.load offset={normalised output}
                         (i32.shl
                           (i32.shr_u
                             (get_local $l9)
