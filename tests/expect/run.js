@@ -23,7 +23,7 @@ catch(e) {
 const TEST_NAME = process.env.TEST_NAME;
 
 const LOG_LEVEL = 0;
-const MIN_MEMORY_OFFSET = 4 * 1024 * 1024;
+const MIN_MEMORY_OFFSET = 4096;
 
 const GIT_DIFF_FLAGS = ["--no-index", "--patience", "--color=always"];
 
