@@ -113,6 +113,7 @@ function PS2(cpu, bus)
     this.command_register = 1 | 4;
     this.read_output_register = false;
     this.read_command_register = false;
+    this.disable_a20 = 0;
 
     cpu.io.register_read(0x60, this, this.port60_read);
     cpu.io.register_read(0x64, this, this.port64_read);
@@ -589,6 +590,11 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.mouse_irq();
     }
+    else if (this.disable_a20 == 1)
+    {
+        this.disable_a20 = 0;
+        this.cpu.disable_a20 = 1;
+    }
     else
     {
         dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2);
@@ -658,6 +664,9 @@ PS2.prototype.port64_write = function(write_byte)
         break;
     case 0x60:
         this.read_command_register = true;
+        break;
+    case 0xD1:
+        this.disable_a20 = 1;
         break;
     case 0xD3:
         this.read_output_register = true;
