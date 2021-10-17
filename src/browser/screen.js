@@ -201,6 +201,7 @@ function ScreenAdapter(screen_container, bus)
         {
             var p = 3 * (row * text_mode_width + col);
 
+            dbg_assert(chr >= 0 && chr < 0x100);
             text_mode_data[p] = chr;
             text_mode_data[p + 1] = bg_color;
             text_mode_data[p + 2] = fg_color;
@@ -478,6 +479,7 @@ function ScreenAdapter(screen_container, bus)
                 var ascii = text_mode_data[offset];
 
                 text += charmap[ascii];
+                dbg_assert(charmap[ascii]);
 
                 i++;
                 offset += 3;
