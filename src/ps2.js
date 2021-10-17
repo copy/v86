@@ -111,9 +111,11 @@ function PS2(cpu, bus)
     }, this);
 
     this.command_register = 1 | 4;
+    // TODO: What should be the initial value?
+    this.controller_output_port = 0;
     this.read_output_register = false;
     this.read_command_register = false;
-    this.disable_a20 = 0;
+    this.read_controller_output_port = false;
 
     cpu.io.register_read(0x60, this, this.port60_read);
     cpu.io.register_read(0x64, this, this.port64_read);
@@ -149,6 +151,8 @@ PS2.prototype.get_state = function()
     state[20] = this.command_register;
     state[21] = this.read_output_register;
     state[22] = this.read_command_register;
+    state[23] = this.controller_output_port;
+    state[24] = this.read_controller_output_port;
 
     return state;
 };
@@ -178,6 +182,8 @@ PS2.prototype.set_state = function(state)
     this.command_register = state[20];
     this.read_output_register = state[21];
     this.read_command_register = state[22];
+    this.controller_output_port = state[23];
+    this.read_controller_output_port = state[24];
 
     this.next_byte_is_ready = false;
     this.next_byte_is_aux = false;
@@ -590,10 +596,12 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.mouse_irq();
     }
-    else if (this.disable_a20 == 1)
+    else if (this.read_controller_output_port)
     {
-        this.disable_a20 = 0;
-        this.cpu.disable_a20 = 1;
+        this.read_controller_output_port = false;
+        this.controller_output_port = write_byte;
+        // If we ever want to implement A20 masking, here is where 
+        // we should turn the masking off if the second bit is on
     }
     else
     {
@@ -666,7 +674,7 @@ PS2.prototype.port64_write = function(write_byte)
         this.read_command_register = true;
         break;
     case 0xD1:
-        this.disable_a20 = 1;
+        this.read_controller_output_port = true;
         break;
     case 0xD3:
         this.read_output_register = true;
