@@ -459,8 +459,9 @@ var ASYNC_SAFE = false;
      * @constructor
      * @param {string} filename Name of the file to download
      * @param {number|undefined} size
+     * @param {number|undefined} fixed_chunk_size
      */
-    function AsyncXHRPartfileBuffer(filename, size, step)
+    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size)
     {
         const parts = filename.match(/(.*)(\..*)/);
 
@@ -478,8 +479,8 @@ var ASYNC_SAFE = false;
         /** @const */
         this.block_size = 256;
         this.byteLength = size;
-        this.use_step = typeof step === "number";
-        this.step = step;
+        this.use_fixed_chunk_size = typeof fixed_chunk_size === "number";
+        this.fixed_chunk_size = fixed_chunk_size;
 
         this.loaded_blocks = Object.create(null);
 
@@ -524,48 +525,53 @@ var ASYNC_SAFE = false;
             }
             return;
         }
-		
-		if(this.use_step)
-        {
-			const fake_offset = parseInt(offset / this.step, undefined) * this.step;
-			const m_offset = offset - fake_offset;
-			const total_count = parseInt(len / this.step, undefined) + 2;
-			var blocks = new Uint8Array(m_offset + (total_count * this.step));
-			var finished = 0;
-			
-			for(var i = 0; i < total_count; i++)
-            {
-				const cur = i * this.step;
-				const part_filename = this.basename + "-" + (cur + fake_offset) + this.extension;
-				
-				v86util.load_file(part_filename, {
-					done: function done(buffer) {
-						const block = new Uint8Array(buffer);
-						blocks.set(block, cur);
-						const tmp_blocks = blocks.slice(m_offset, m_offset + len);
-						finished++;
-						if(finished === total_count)
-                        {
-							fn(tmp_blocks);
-						}
-					}.bind(this),
-				});
-			}		
-		}
-		else
-        {
-			const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
 
-			v86util.load_file(part_filename, {
-				done: function done(buffer)
-				{
-					dbg_assert(buffer.byteLength === len);
-					var block = new Uint8Array(buffer);
-					this.handle_read(offset, len, block);
-					fn(block);
-				}.bind(this),
-			});
-		}
+        if(this.use_fixed_chunk_size)
+        {
+            const start_index = Math.floor(offset / this.fixed_chunk_size);
+            const m_offset = offset - start_index * this.fixed_chunk_size;
+            dbg_assert(m_offset >= 0);
+            const total_count = Math.floor(len / this.fixed_chunk_size) + (m_offset === 0 ? 1 : 2);
+            const blocks = new Uint8Array(m_offset + (total_count * this.fixed_chunk_size));
+            let finished = 0;
+
+            for(let i = 0; i < total_count; i++)
+            {
+                // matches output of gnu split:
+                //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
+                const part_filename = this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension;
+
+                v86util.load_file(part_filename, {
+                    done: function done(buffer)
+                    {
+                        const cur = i * this.fixed_chunk_size;
+                        const block = new Uint8Array(buffer);
+                        blocks.set(block, cur);
+                        finished++;
+                        if(finished === total_count)
+                        {
+                            const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
+                            this.handle_read(offset, len, tmp_blocks);
+                            fn(tmp_blocks);
+                        }
+                    }.bind(this),
+                });
+            }
+        }
+        else
+        {
+            const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
+
+            v86util.load_file(part_filename, {
+                done: function done(buffer)
+                {
+                    dbg_assert(buffer.byteLength === len);
+                    var block = new Uint8Array(buffer);
+                    this.handle_read(offset, len, block);
+                    fn(block);
+                }.bind(this),
+            });
+        }
     };
 
     AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
