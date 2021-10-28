@@ -1201,7 +1201,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
                 // XXX: Should be checked before side effects
                 if !switch_seg(SS, new_ss) {
-                    dbg_assert!(false)
+                    dbg_assert!(false);
                 };
                 set_stack_reg(new_esp);
 
@@ -3347,8 +3347,12 @@ pub unsafe fn safe_write_slow_jit(
                 value_low as i32,
             ),
             16 => virt_boundary_write16(addr_low, addr_high, value_low as i32),
-            8 => dbg_assert!(false),
-            _ => dbg_assert!(false),
+            8 => {
+                dbg_assert!(false);
+            },
+            _ => {
+                dbg_assert!(false);
+            },
         }
 
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
@@ -3368,7 +3372,9 @@ pub unsafe fn safe_write_slow_jit(
             32 => memory::mmap_write32(addr_low, value_low as i32),
             16 => memory::mmap_write16(addr_low, (value_low & 0xFFFF) as i32),
             8 => memory::mmap_write8(addr_low, (value_low & 0xFF) as i32),
-            _ => dbg_assert!(false),
+            _ => {
+                dbg_assert!(false);
+            },
         }
 
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
@@ -3607,10 +3613,10 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
     dbg_assert!(new_mxcsr & !MXCSR_MASK == 0); // checked by caller
 
     if *mxcsr & MXCSR_DAZ == 0 && new_mxcsr & MXCSR_DAZ != 0 {
-        dbg_log!("Warning: Unimplemented MXCSR bit: Denormals Are Zero")
+        dbg_log!("Warning: Unimplemented MXCSR bit: Denormals Are Zero");
     }
     if *mxcsr & MXCSR_FZ == 0 && new_mxcsr & MXCSR_FZ != 0 {
-        dbg_log!("Warning: Unimplemented MXCSR bit: Flush To Zero")
+        dbg_log!("Warning: Unimplemented MXCSR bit: Flush To Zero");
     }
 
     let rounding_mode = new_mxcsr >> MXCSR_RC_SHIFT & 3;
@@ -3618,7 +3624,7 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
         dbg_log!(
             "Warning: Unimplemented MXCSR rounding mode: {}",
             rounding_mode
-        )
+        );
     }
 
     let exception_mask = new_mxcsr >> 7 & 0b111111;
@@ -3626,7 +3632,7 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
         dbg_log!(
             "Warning: Unimplemented MXCSR exception mask: 0b{:b}",
             exception_mask
-        )
+        );
     }
 
     *mxcsr = new_mxcsr;

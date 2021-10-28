@@ -995,7 +995,9 @@ pub fn gen_safe_read_write(
         BitSize::QWORD => {
             ctx.builder.call_fn2_ret("safe_read_write64_slow_jit");
         },
-        BitSize::DQWORD => dbg_assert!(false),
+        BitSize::DQWORD => {
+            dbg_assert!(false);
+        },
     }
     ctx.builder.tee_local(&entry_local);
     ctx.builder.const_i32(1);
@@ -1083,7 +1085,9 @@ pub fn gen_safe_read_write(
                 ctx.builder
                     .call_fn3_i32_i64_i32_ret("safe_write64_slow_jit");
             },
-            BitSize::DQWORD => dbg_assert!(false),
+            BitSize::DQWORD => {
+                dbg_assert!(false);
+            },
         }
 
         if cfg!(debug_assertions) {
@@ -1133,7 +1137,9 @@ pub fn gen_safe_read_write(
         BitSize::QWORD => {
             ctx.builder.store_unaligned_i64(0);
         },
-        BitSize::DQWORD => dbg_assert!(false),
+        BitSize::DQWORD => {
+            dbg_assert!(false);
+        },
     }
 
     match value_local {
@@ -2203,7 +2209,9 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
             0xF => {
                 gen_test_le(ctx, ConditionNegate::True);
             },
-            _ => dbg_assert!(false),
+            _ => {
+                dbg_assert!(false);
+            },
         }
     }
     else {

@@ -81,7 +81,9 @@ pub enum WasmStructure {
 impl WasmStructure {
     pub fn print(&self, depth: usize) {
         match self {
-            Self::BasicBlock(addr) => dbg_log!("{} 0x{:x}", " ".repeat(depth), addr),
+            Self::BasicBlock(addr) => {
+                dbg_log!("{} 0x{:x}", " ".repeat(depth), addr);
+            },
             Self::Dispatcher(entries) => {
                 dbg_log!("{} Dispatcher entries:", " ".repeat(depth));
                 for e in entries {
@@ -160,7 +162,9 @@ pub fn assert_invariants(blocks: &Vec<WasmStructure>) {
                     check(c, in_tail_block && is_last, is_first, is_first);
                 }
             },
-            &WasmStructure::BasicBlock(addr) => dbg_assert!(addr != ENTRY_NODE_ID),
+            &WasmStructure::BasicBlock(addr) => {
+                dbg_assert!(addr != ENTRY_NODE_ID);
+            },
             WasmStructure::Dispatcher(_) => {
                 dbg_assert!(is_first);
                 //dbg_assert!(in_head_loop); // fails for module dispatcher
@@ -383,7 +387,9 @@ pub fn blockify(blocks: &mut Vec<WasmStructure>, edges: &Graph) {
             blocks.splice(source..i, iter::once(replacement)).collect();
         match &mut blocks[source] {
             WasmStructure::Block(c) => c.extend(children),
-            _ => dbg_assert!(false),
+            _ => {
+                dbg_assert!(false);
+            },
         }
         match &blocks[source + 1] {
             WasmStructure::BasicBlock(_) =>

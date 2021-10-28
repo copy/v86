@@ -1042,8 +1042,12 @@ fn jit_generate_module(
                     result = e.clone();
                     break;
                 },
-                WasmStructure::Loop { .. } => dbg_assert!(false),
-                WasmStructure::BasicBlock(_) => dbg_assert!(false),
+                WasmStructure::Loop { .. } => {
+                    dbg_assert!(false);
+                },
+                WasmStructure::BasicBlock(_) => {
+                    dbg_assert!(false);
+                },
                 // Note: We could use these blocks as entry points, which will yield
                 // more entries for free, but it requires adding those to the dispatcher
                 // It's to be investigated if this yields a performance improvement
@@ -1926,7 +1930,9 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
     }
 
     match ctx.used_wasm_table_indices.remove(&wasm_table_index) {
-        None => dbg_assert!(false),
+        None => {
+            dbg_assert!(false);
+        },
         Some(_pages) => {
             //dbg_assert!(!pages.is_empty()); // only if CompilingWritten
         },
@@ -1994,7 +2000,9 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
 
         for index in &index_to_free {
             match ctx.used_wasm_table_indices.get(&index) {
-                None => dbg_assert!(false),
+                None => {
+                    dbg_assert!(false);
+                },
                 Some(pages) => {
                     for &p in pages {
                         for addr in p.address_range() {
