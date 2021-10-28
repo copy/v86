@@ -3271,7 +3271,9 @@ pub unsafe fn instr_0FA2() {
             dbg_assert!(ecx < 0x10000);
         },
 
-        x => dbg_log!("cpuid: unimplemented eax: {:x}", x),
+        x => {
+            dbg_log!("cpuid: unimplemented eax: {:x}", x);
+        },
     }
 
     if level == 4 {
