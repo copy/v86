@@ -258,6 +258,7 @@ function MouseAdapter(bus, screen_container)
             dbg_log("Unknown event.which: " + e.which);
         }
         mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
+        e.preventDefault();
     }
 
     function mousewheel_handler(e)
