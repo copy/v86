@@ -30,8 +30,9 @@ var ASYNC_SAFE = false;
     /**
      * @param {string} filename
      * @param {Object} options
+     * @param {number=} n_tries
      */
-    function load_file(filename, options)
+    function load_file(filename, options, n_tries)
     {
         var http = new XMLHttpRequest();
 
@@ -80,13 +81,23 @@ var ASYNC_SAFE = false;
             {
                 if(http.status !== 200 && http.status !== 206)
                 {
-                    console.error("Loading the image `" + filename + "` failed (status %d)", http.status);
+                    console.error("Loading the image " + filename + " failed (status %d)", http.status);
+                    if(http.status >= 500 && http.status < 600)
+                    {
+                        retry();
+                    }
                 }
                 else if(http.response)
                 {
                     options.done && options.done(http.response, http);
                 }
             }
+        };
+
+        http.onerror = function(e)
+        {
+            console.error("Loading the image " + filename + " failed", e);
+            retry();
         };
 
         if(options.progress)
@@ -98,6 +109,15 @@ var ASYNC_SAFE = false;
         }
 
         http.send(null);
+
+        function retry()
+        {
+            const number_of_tries = n_tries || 0;
+            const timeout = [1, 1, 2, 3, 5, 8, 13, 21][number_of_tries] || 34;
+            setTimeout(() => {
+                load_file(filename, options, number_of_tries + 1);
+            }, 1000 * timeout);
+        }
     }
 
     function load_file_nodejs(filename, options)
