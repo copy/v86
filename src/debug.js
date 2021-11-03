@@ -6,43 +6,9 @@ CPU.prototype.debug_init = function()
     var debug = {};
     this.debug = debug;
 
-    /**
-     * wheter or not in step mode
-     * used for debugging
-     * @type {boolean}
-     */
-    debug.step_mode = false;
-    debug.ops = undefined;
-    debug.all_ops = [];
-
-    debug.trace_all = false;
-
-    // "log" some information visually to the user.
-    // Also in non-DEBUG modes
-    debug.show = function(x)
-    {
-        if(typeof document !== "undefined")
-        {
-            var el = document.getElementById("log");
-
-            if(el)
-            {
-                el.textContent += x + "\n";
-                el.style.display = "block";
-                el.scrollTop = 1e9;
-                return;
-            }
-        }
-
-        console.log(x);
-    };
-
     debug.init = function()
     {
         if(!DEBUG) return;
-
-        // used for debugging
-        debug.ops = new CircularQueue(200000);
 
         if(cpu.io)
         {
@@ -69,8 +35,6 @@ CPU.prototype.debug_init = function()
 
     debug.get_regs_short = get_regs_short;
     debug.dump_regs = dump_regs_short;
-    debug.dump_instructions = dump_instructions;
-    debug.get_instructions = get_instructions;
     debug.get_state = get_state;
     debug.dump_state = dump_state;
     debug.dump_stack = dump_stack;
@@ -82,91 +46,6 @@ CPU.prototype.debug_init = function()
     debug.get_memory_dump = get_memory_dump;
     debug.memory_hex_dump = memory_hex_dump;
     debug.used_memory_dump = used_memory_dump;
-
-    debug.step = step;
-    debug.run_until = run_until;
-
-    function step()
-    {
-        if(!DEBUG) return;
-
-        if(!cpu.running)
-        {
-            cpu.cycle();
-        }
-
-        dump_regs_short();
-        var now = Date.now();
-
-        cpu.running = false;
-        dump_instructions();
-    }
-
-    function run_until()
-    {
-        if(!DEBUG) return;
-
-        cpu.running = false;
-        var a = parseInt(prompt("input hex", ""), 16);
-        if(a) while(cpu.instruction_pointer[0] != a) step();
-    }
-
-    // http://ref.x86asm.net/x86reference.xml
-    // for debugging purposes
-    var opcode_map = [
-        "ADD", "ADD", "ADD", "ADD", "ADD", "ADD", "PUSH", "POP",
-        "OR", "OR", "OR", "OR", "OR", "OR", "PUSH", "0F:",
-        "ADC", "ADC", "ADC", "ADC", "ADC", "ADC", "PUSH", "POP",
-        "SBB", "SBB", "SBB", "SBB", "SBB", "SBB", "PUSH", "POP",
-        "AND", "AND", "AND", "AND", "AND", "AND", "ES", "DAA",
-        "SUB", "SUB", "SUB", "SUB", "SUB", "SUB", "CS", "DAS",
-        "XOR", "XOR", "XOR", "XOR", "XOR", "XOR", "SS", "AAA",
-        "CMP", "CMP", "CMP", "CMP", "CMP", "CMP", "DS", "AAS",
-        "INC", "INC", "INC", "INC", "INC", "INC", "INC", "INC",
-        "DEC", "DEC", "DEC", "DEC", "DEC", "DEC", "DEC", "DEC",
-        "PUSH", "PUSH", "PUSH", "PUSH", "PUSH", "PUSH", "PUSH", "PUSH",
-        "POP", "POP", "POP", "POP", "POP", "POP", "POP", "POP",
-        "PUSHA", "POPA", "BOUND", "ARPL", "FS", "GS", "none", "none",
-        "PUSH", "IMUL", "PUSH", "IMUL", "INS", "INS", "OUTS", "OUTS",
-        "JO", "JNO", "JB", "JNB", "JZ", "JNZ", "JBE", "JNBE",
-        "JS", "JNS", "JP", "JNP", "JL", "JNL", "JLE", "JNLE",
-        "ADD", "ADD", "ADD", "ADD", "TEST", "TEST", "XCHG", "XCHG",
-        "MOV", "MOV", "MOV", "MOV", "MOV", "LEA", "MOV", "POP",
-        "NOP", "XCHG", "XCHG", "XCHG", "XCHG", "XCHG", "XCHG", "XCHG",
-        "CBW", "CWD", "CALLF", "FWAIT", "PUSHF", "POPF", "SAHF", "LAHF",
-        "MOV", "MOV", "MOV", "MOV", "MOVS", "MOVS", "CMPS", "CMPS",
-        "TEST", "TEST", "STOS", "STOS", "LODS", "LODS", "SCAS", "SCAS",
-        "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV",
-        "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV", "MOV",
-        "ROL", "ROL", "RETN", "RETN", "LES", "LDS", "MOV", "MOV",
-        "ENTER", "LEAVE", "RETF", "RETF", "INT", "INT", "INTO", "IRET",
-        "ROL", "ROL", "ROL", "ROL", "AAM", "AAD", "none", "XLAT",
-        "FADD", "FLD", "FIADD", "FILD", "FADD", "FLD", "FIADD", "FILD",
-        "LOOPNZ", "LOOPZ", "LOOP", "JCXZ", "IN", "IN", "OUT", "OUT",
-        "CALL", "JMP", "JMPF", "JMP", "IN", "IN", "OUT", "OUT",
-        "LOCK", "none", "REPNZ", "REPZ", "HLT", "CMC", "TEST", "TEST",
-        "CLC", "STC", "CLI", "STI", "CLD", "STD", "INC", "INC"
-    ];
-
-    debug.logop = function(_ip, op)
-    {
-        if(!DEBUG || !debug.step_mode)
-        {
-            return;
-        }
-
-        _ip = _ip >>> 0;
-
-        if(debug.trace_all && debug.all_ops)
-        {
-            debug.all_ops.push(_ip, op);
-        }
-        else if(debug.ops)
-        {
-            debug.ops.add(_ip);
-            debug.ops.add(op);
-        }
-    };
 
     function dump_stack(start, end)
     {
@@ -286,53 +165,6 @@ CPU.prototype.debug_init = function()
 
         dbg_log(lines[0], LOG_CPU);
         dbg_log(lines[1], LOG_CPU);
-    }
-
-    function get_instructions()
-    {
-        if(!DEBUG) return;
-
-        debug.step_mode = true;
-
-        function add(ip, op)
-        {
-            out += h(ip, 8)  + ":        " +
-                v86util.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
-        }
-
-        var opcodes;
-        var out = "";
-
-        if(debug.trace_all && debug.all_ops)
-        {
-            opcodes = debug.all_ops;
-        }
-        else if(debug.ops)
-        {
-            opcodes = debug.ops.toArray();
-        }
-
-        if(!opcodes)
-        {
-            return "";
-        }
-
-        for(var i = 0; i < opcodes.length; i += 2)
-        {
-            add(opcodes[i], opcodes[i + 1]);
-        }
-
-        debug.ops.clear();
-        debug.all_ops = [];
-
-        return out;
-    }
-
-    function dump_instructions()
-    {
-        if(!DEBUG) return;
-
-        debug.show(get_instructions());
     }
 
     function dump_gdt_ldt()

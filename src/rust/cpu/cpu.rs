@@ -2,7 +2,6 @@
 
 extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
-    //fn logop(addr: i32, op: i32);
     fn microtick() -> f64;
     fn call_indirect1(f: i32, x: u16);
     fn pic_acknowledge();
@@ -2901,10 +2900,6 @@ unsafe fn jit_run_interpreted(phys_addr: u32) {
         }
 
         *instruction_counter += 1;
-
-        //if DEBUG {
-        //    logop(*previous_ip, opcode_0);
-        //}
 
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);

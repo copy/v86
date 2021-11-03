@@ -110,7 +110,6 @@ function V86Starter(options)
         },
         "hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
-        "logop": function(eip, op) { return cpu.debug.logop(eip, op); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
 
