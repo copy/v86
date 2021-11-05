@@ -5,9 +5,6 @@
     /** @const */
     var ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
 
-    /** @const */
-    var HOST = ON_LOCALHOST ? "images/" : "//k.copy.sh/";
-
     /**
      * @return {Object.<string, string>}
      */
@@ -188,6 +185,9 @@
             debug_onload(settings);
         }
 
+        const query_args = get_query_arguments();
+        const host = query_args["cdn"] || (ON_LOCALHOST ? "images/" : "//k.copy.sh/");
+
         // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
             {
@@ -196,30 +196,30 @@
                 memory_size: 512 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
                 state: {
-                    "url": HOST + "arch_state.bin.zst",
+                    "url": host + "arch_state.bin.zst",
                 },
                 filesystem: {
-                    "baseurl": HOST + "arch/",
+                    "baseurl": host + "arch/",
                 },
             },
             {
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: HOST + "haiku.img",
+                    url: host + "haiku.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 1 * 1024 * 1024 * 1024,
                 },
                 state: {
-                    url: HOST + "haiku_state.bin.zst",
+                    url: host + "haiku_state.bin.zst",
                 },
                 name: "Haiku",
             },
             {
                 id: "msdos",
                 hda: {
-                    "url": HOST + "msdos.img",
+                    "url": host + "msdos.img",
                     "size": 8 * 1024 * 1024,
                     "async": false,
                 },
@@ -229,7 +229,7 @@
             {
                 id: "freedos",
                 fda: {
-                    "url": HOST + "freedos722.img",
+                    "url": host + "freedos722.img",
                     "size": 737280,
                     "async": false,
                 },
@@ -238,7 +238,7 @@
             {
                 id: "oberon",
                 hda: {
-                    "url": HOST + "oberon.img",
+                    "url": host + "oberon.img",
                     "size": 24 * 1024 * 1024,
                     "async": false,
                 },
@@ -247,7 +247,7 @@
             {
                 id: "windows1",
                 fda: {
-                    "url": HOST + "windows101.img",
+                    "url": host + "windows101.img",
                     "size": 1474560,
                     "async": false,
                 },
@@ -256,7 +256,7 @@
             {
                 id: "linux26",
                 cdrom: {
-                    "url": HOST + "linux.iso",
+                    "url": host + "linux.iso",
                     "size": 6547456,
                     "async": false,
                 },
@@ -265,7 +265,7 @@
             {
                 id: "linux3",
                 cdrom: {
-                    "url": HOST + "linux3.iso",
+                    "url": host + "linux3.iso",
                     "size": 8624128,
                     "async": false,
                 },
@@ -274,7 +274,7 @@
             {
                 id: "linux4",
                 cdrom: {
-                    "url": HOST + "linux4.iso",
+                    "url": host + "linux4.iso",
                     "size": 7731200,
                     "async": false,
                 },
@@ -284,7 +284,7 @@
             {
                 id: "buildroot",
                 bzimage: {
-                    url: HOST + "buildroot-bzimage.bin",
+                    url: host + "buildroot-bzimage.bin",
                     size: 5166352,
                     async: false,
                 },
@@ -296,7 +296,7 @@
                 id: "dsl",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
-                    url: HOST + "dsl-4.11.rc2.iso",
+                    url: host + "dsl-4.11.rc2.iso",
                     size: 52824064,
                     async: false,
                 },
@@ -308,7 +308,7 @@
                 name: "Minix",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
-                    url: HOST + "minix-3.3.0.iso",
+                    url: host + "minix-3.3.0.iso",
                     size: 605581312,
                     async: true,
                     use_parts: !ON_LOCALHOST,
@@ -318,7 +318,7 @@
                 id: "kolibrios",
                 fda: {
                     "url": ON_LOCALHOST ?
-                            HOST + "kolibri.img" :
+                            host + "kolibri.img" :
                             "//builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
                     "async": false,
@@ -329,7 +329,7 @@
             {
                 id: "kolibrios-fallback",
                 fda: {
-                    "url": HOST + "kolibri.img",
+                    "url": host + "kolibri.img",
                     "size": 1474560,
                     "async": false,
                 },
@@ -338,13 +338,13 @@
             {
                 id: "openbsd",
                 hda: {
-                    "url": HOST + "openbsd.img",
+                    "url": host + "openbsd.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 1073741824,
                 },
                 state: {
-                    url: HOST + "openbsd_state.bin.zst",
+                    url: host + "openbsd_state.bin.zst",
                 },
                 memory_size: 256 * 1024 * 1024,
                 name: "OpenBSD",
@@ -352,7 +352,7 @@
             {
                 id: "openbsd-boot",
                 hda: {
-                    url: HOST + "openbsd.img",
+                    url: host + "openbsd.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 1073741824,
@@ -364,7 +364,7 @@
             {
                 id: "netbsd",
                 hda: {
-                    "url": HOST + "netbsd.img",
+                    "url": host + "netbsd.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 511000064,
@@ -375,7 +375,7 @@
             {
                 id: "solos",
                 fda: {
-                    "url": HOST + "os8.img",
+                    "url": host + "os8.img",
                     "async": false,
                     "size": 1474560,
                 },
@@ -385,7 +385,7 @@
             {
                 id: "bootchess",
                 fda: {
-                    "url": HOST + "bootchess.img",
+                    "url": host + "bootchess.img",
                     "async": false,
                     "size": 1474560,
                 },
@@ -395,7 +395,7 @@
             {
                 id: "bootbasic",
                 fda: {
-                    "url": HOST + "bootbasic.img",
+                    "url": host + "bootbasic.img",
                     "async": false,
                     "size": 1474560,
                 },
@@ -405,7 +405,7 @@
             {
                 id: "sectorlisp",
                 fda: {
-                    "url": HOST + "sectorlisp.img",
+                    "url": host + "sectorlisp.img",
                     "async": false,
                     "size": 512,
                 },
@@ -415,7 +415,7 @@
             {
                 id: "sectorforth",
                 fda: {
-                    "url": HOST + "sectorforth.img",
+                    "url": host + "sectorforth.img",
                     "async": false,
                     "size": 512,
                 },
@@ -425,7 +425,7 @@
             {
                 id: "floppybird",
                 fda: {
-                    "url": HOST + "floppybird.img",
+                    "url": host + "floppybird.img",
                     "async": false,
                     "size": 1474560,
                 },
@@ -436,14 +436,14 @@
                 id: "windows2000",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "windows2k.img",
+                    "url": host + "windows2k.img",
                     "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 2000",
                 state: {
-                    "url": HOST + "windows2k_state.bin.zst",
+                    "url": host + "windows2k_state.bin.zst",
                 },
                 preserve_mac_from_state_image: true,
             },
@@ -451,7 +451,7 @@
                 id: "windows2000-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "windows2k.img",
+                    "url": host + "windows2k.img",
                     "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -463,14 +463,14 @@
                 id: "windows98",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "windows98.img",
+                    "url": host + "windows98.img",
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                     "size": 300 * 1024 * 1024,
                 },
                 name: "Windows 98",
                 state: {
-                    "url": HOST + "windows98_state.bin.zst",
+                    "url": host + "windows98_state.bin.zst",
                 },
                 preserve_mac_from_state_image: true,
             },
@@ -478,7 +478,7 @@
                 id: "windows98-boot",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "windows98.img",
+                    "url": host + "windows98.img",
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                     "size": 300 * 1024 * 1024,
@@ -489,21 +489,21 @@
                 id: "windows95",
                 memory_size: 32 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "w95.img",
+                    "url": host + "w95.img",
                     "size": 242049024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 95",
                 state: {
-                    "url": HOST + "windows95_state.bin.zst",
+                    "url": host + "windows95_state.bin.zst",
                 },
             },
             {
                 id: "windows95-boot",
                 memory_size: 32 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "w95.img",
+                    "url": host + "w95.img",
                     "size": 242049024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -514,7 +514,7 @@
                 id: "windows30",
                 memory_size: 64 * 1024 * 1024,
                 cdrom: {
-                    "url": HOST + "Win30.iso",
+                    "url": host + "Win30.iso",
                     "async": false,
                 },
                 name: "Windows 3.0",
@@ -523,7 +523,7 @@
                 id: "windows31",
                 memory_size: 64 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "win31.img",
+                    "url": host + "win31.img",
                     "async": false,
                     "size": 34463744,
                 },
@@ -533,13 +533,13 @@
                 id: "freebsd",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "freebsd.img",
+                    "url": host + "freebsd.img",
                     "size": 2147483648,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
-                    "url": HOST + "freebsd_state.bin.zst",
+                    "url": host + "freebsd_state.bin.zst",
                 },
                 name: "FreeBSD",
             },
@@ -547,7 +547,7 @@
                 id: "freebsd-boot",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "freebsd.img",
+                    "url": host + "freebsd.img",
                     "size": 2147483648,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -558,7 +558,7 @@
                 id: "reactos-livecd",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
+                    "url": host + "reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
                     "size": 250609664,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -570,13 +570,13 @@
                 id: "reactos",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "reactos.img",
+                    "url": host + "reactos.img",
                     "size": 500 * 1024 * 1024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
-                    "url": HOST + "reactos_state.bin.zst",
+                    "url": host + "reactos_state.bin.zst",
                 },
                 preserve_mac_from_state_image: true,
                 name: "ReactOS",
@@ -586,7 +586,7 @@
                 id: "reactos-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "reactos.img",
+                    "url": host + "reactos.img",
                     "size": 500 * 1024 * 1024,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -597,7 +597,7 @@
             {
                 id: "skift",
                 cdrom: {
-                    "url": HOST + "skift-20200910.iso",
+                    "url": host + "skift-20200910.iso",
                     "size": 64452608,
                     "async": false,
                 },
@@ -607,7 +607,7 @@
             {
                 id: "snowdrop",
                 fda: {
-                    "url": HOST + "snowdrop.img",
+                    "url": host + "snowdrop.img",
                     "size": 1440 * 1024,
                     "async": false,
                 },
@@ -617,7 +617,7 @@
             {
                 id: "openwrt",
                 hda: {
-                    "url": HOST + "openwrt-18.06.1-x86-legacy-combined-squashfs.img",
+                    "url": host + "openwrt-18.06.1-x86-legacy-combined-squashfs.img",
                     "size": 19846474,
                     "async": false,
                 },
@@ -626,7 +626,7 @@
             {
                 id: "qnx",
                 fda: {
-                    url: HOST + "qnx-demo-network-4.05.img",
+                    url: host + "qnx-demo-network-4.05.img",
                     size: 1474560,
                     async: false
                 },
@@ -636,13 +636,13 @@
                 id: "9front",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: HOST + "9front-7781.38dcaeaa222c.386.iso",
+                    url: host + "9front-7781.38dcaeaa222c.386.iso",
                     size: 496388096,
                     async: true,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
-                    "url": HOST + "9front_state.bin.zst",
+                    "url": host + "9front_state.bin.zst",
                 },
                 acpi: true,
                 name: "9front",
@@ -651,7 +651,7 @@
                 id: "9front-boot",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: HOST + "9front-7781.38dcaeaa222c.386.iso",
+                    url: host + "9front-7781.38dcaeaa222c.386.iso",
                     size: 496388096,
                     async: true,
                     use_parts: !ON_LOCALHOST,
@@ -662,7 +662,7 @@
             {
                 id: "mobius",
                 fda: {
-                    "url": HOST + "mobius-fd-release5.img",
+                    "url": host + "mobius-fd-release5.img",
                     "size": 1474560,
                     "async": false,
                 },
@@ -672,7 +672,7 @@
                 id: "android",
                 memory_size: 512 * 1024 * 1024,
                 cdrom: {
-                    "url": HOST + "android-x86-1.6-r2.iso",
+                    "url": host + "android-x86-1.6-r2.iso",
                     "size": 54661120,
                     "async": true,
                     use_parts: !ON_LOCALHOST,
@@ -683,7 +683,7 @@
                 id: "tinycore",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    "url": HOST + "TinyCore-11.0.iso",
+                    "url": host + "TinyCore-11.0.iso",
                     "async": false,
                 },
                 name: "Tinycore",
@@ -727,7 +727,6 @@
             }
         }
 
-        var query_args = get_query_arguments();
         var profile = query_args["profile"];
 
         if(!profile && !DEBUG)
