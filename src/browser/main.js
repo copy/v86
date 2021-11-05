@@ -203,6 +203,27 @@
                 },
             },
             {
+                id: "archlinux-boot",
+                name: "Arch Linux",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                filesystem: {
+                    "baseurl": host + "arch/",
+                    "basefs": { url: host + "fs.json", },
+                },
+                cmdline: [
+                    "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8",
+                    "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose",
+                    "mitigations=off audit=0",
+                    "page_poison=on",
+                    "tsc=reliable",
+                    "random.trust_cpu=on",
+                    "nowatchdog",
+                    "init=/usr/bin/init-openrc net.ifnames=0 biosdevname=0",
+                ].join(" "),
+                bzimage_initrd_from_filesystem: true,
+            },
+            {
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
@@ -213,6 +234,17 @@
                 },
                 state: {
                     url: host + "haiku_state.bin.zst",
+                },
+                name: "Haiku",
+            },
+            {
+                id: "haiku-boot",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: host + "haiku.img",
+                    async: true,
+                    use_parts: !ON_LOCALHOST,
+                    size: 1 * 1024 * 1024 * 1024,
                 },
                 name: "Haiku",
             },
@@ -234,6 +266,16 @@
                     "async": false,
                 },
                 name: "FreeDOS",
+            },
+            {
+                id: "psychdos",
+                hda: {
+                    "url": host + "psychdos.img",
+                    "size": 549453824,
+                    "async": true,
+                    use_parts: !ON_LOCALHOST,
+                },
+                name: "PsychDOS",
             },
             {
                 id: "oberon",
