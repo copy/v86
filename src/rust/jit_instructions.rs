@@ -5210,7 +5210,7 @@ pub fn instr_C6_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32)
 pub fn instr16_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg16[r] = imm;
     ctx.builder.const_i32(imm as i32);
-    codegen::gen_set_reg16(ctx, r);
+    codegen::gen_set_reg16_unmasked(ctx, r);
 }
 
 pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
