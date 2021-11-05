@@ -11,6 +11,11 @@ profiler = []
 crate-type = ["cdylib"]
 path = "src/rust/lib.rs"
 
+[profile.test]
+lto = false
+opt-level = 2
+overflow-checks = false
+
 [profile.dev]
 lto = false
 opt-level = 2
