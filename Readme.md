@@ -95,7 +95,9 @@ You need:
 - nodejs (a recent version is required, v16.11.1 is known to be working)
 - To run tests: nasm, gdb, qemu-system, gcc, libc-i386 and rustfmt
 
-See [tools/docker/test-image/dockerfile](tools/docker/test-image/dockerfile) for a full setup on Debian.
+See [tools/docker/test-image/Dockerfile](tools/docker/test-image/Dockerfile)
+for a full setup on Debian or
+[WSL](https://docs.microsoft.com/en-us/windows/wsl/install).
 
 - Run `make` to build the debug build (at `debug.html`).
 - Run `make all` to build the optimized build (at `index.html`).
