@@ -403,6 +403,26 @@
                 homepage: "https://github.com/nanochess/bootBASIC",
             },
             {
+                id: "sectorlisp",
+                fda: {
+                    "url": HOST + "sectorlisp.img",
+                    "async": false,
+                    "size": 512,
+                },
+                name: "SectorLISP",
+                homepage: "https://justine.lol/sectorlisp/",
+            },
+            {
+                id: "sectorforth",
+                fda: {
+                    "url": HOST + "sectorforth.img",
+                    "async": false,
+                    "size": 512,
+                },
+                name: "sectorforth",
+                homepage: "https://github.com/cesarblum/sectorforth",
+            },
+            {
                 id: "floppybird",
                 fda: {
                     "url": HOST + "floppybird.img",

@@ -73,6 +73,9 @@ function FloppyController(cpu, fda_image, fdb_image)
             1440 : { type: 4, tracks: 80, sectors: 18, heads: 2 },
             1722 : { type: 5, tracks: 82, sectors: 21, heads: 2 },
             2880 : { type: 5, tracks: 80, sectors: 36, heads: 2 },
+
+            // not a real floppy type, used to support sectorlisp and friends
+            0    : { type: 1, tracks: 1, sectors: 1, heads: 1 },
         };
 
         var number_of_cylinders,
@@ -80,7 +83,7 @@ function FloppyController(cpu, fda_image, fdb_image)
             number_of_heads,
             floppy_type = floppy_types[this.floppy_size >> 10];
 
-        if(floppy_type && (this.floppy_size & 0x3FF) === 0)
+        if(floppy_type && ((this.floppy_size & 0x3FF) === 0 || this.floppy_size === 512))
         {
             cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
 
