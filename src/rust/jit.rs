@@ -1529,16 +1529,56 @@ fn jit_generate_module(
                             });
 
                         if branch_not_taken_is_fallthrough && branch_taken_is_fallthrough {
+                            let next_block_addr = next_block_addr.unwrap();
+                            let next_block_branch_taken_addr =
+                                next_block_branch_taken_addr.unwrap();
+
                             dbg_assert!(
-                                Page::page_of(next_block_branch_taken_addr.unwrap())
-                                    == Page::page_of(block.addr)
-                            );
+                                Page::page_of(next_block_addr) == Page::page_of(block.addr)
+                            ); // currently not possible
+
+                            if Page::page_of(next_block_branch_taken_addr)
+                                != Page::page_of(block.addr)
+                            {
+                                if jump_offset_is_32 {
+                                    codegen::gen_set_eip_low_bits_and_jump_rel32(
+                                        ctx.builder,
+                                        block.end_addr as i32 & 0xFFF,
+                                        jump_offset,
+                                    );
+                                }
+                                else {
+                                    codegen::gen_set_eip_low_bits(
+                                        ctx.builder,
+                                        block.end_addr as i32 & 0xFFF,
+                                    );
+                                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
+                                }
+
+                                codegen::gen_profiler_stat_increment(
+                                    ctx.builder,
+                                    stat::CONDITIONAL_JUMP_PAGE_CHANGE,
+                                );
+                                codegen::gen_page_switch_check(
+                                    ctx,
+                                    next_block_branch_taken_addr,
+                                    block.last_instruction_addr,
+                                );
+
+                                #[cfg(debug_assertions)]
+                                codegen::gen_fn2_const(
+                                    ctx.builder,
+                                    "check_page_switch",
+                                    block.addr,
+                                    next_block_branch_taken_addr,
+                                );
+                            }
+
                             if next_addr.unwrap().len() > 1 {
-                                let target_index_taken = *index_for_addr
-                                    .get(&next_block_branch_taken_addr.unwrap())
-                                    .unwrap();
+                                let target_index_taken =
+                                    *index_for_addr.get(&next_block_branch_taken_addr).unwrap();
                                 let target_index_not_taken =
-                                    *index_for_addr.get(&next_block_addr.unwrap()).unwrap();
+                                    *index_for_addr.get(&next_block_addr).unwrap();
 
                                 codegen::gen_condition_fn(ctx, condition);
                                 ctx.builder.if_i32();
