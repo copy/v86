@@ -551,7 +551,15 @@ pub unsafe fn iret(is_16: bool) {
         },
     };
 
-    dbg_assert!(new_eip as u32 <= cs_descriptor.effective_limit());
+    if new_eip as u32 > cs_descriptor.effective_limit() {
+        dbg_log!(
+            "#gp iret: new_eip > cs_descriptor.effective_limit, new_eip={:x} cs_descriptor.effective_limit={:x}",
+            new_eip as u32,
+            cs_descriptor.effective_limit()
+        );
+        trigger_gp(new_cs & !3);
+        return;
+    }
 
     if !cs_descriptor.is_present() {
         panic!("not present");
