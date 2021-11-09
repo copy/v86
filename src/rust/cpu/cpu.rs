@@ -401,23 +401,29 @@ pub unsafe fn switch_cs_real_mode(selector: i32) {
     update_cs_size(false);
 }
 
-pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {
-    let (tss_stack_offset, page_boundary) = if *tss_size_32 {
-        (((dpl << 3) + 4) as u32, 0x1000 - 6)
+unsafe fn get_tss_ss_esp(dpl: u8) -> OrPageFault<(i32, i32)> {
+    Ok(if *tss_size_32 {
+        let tss_stack_offset = ((dpl << 3) + 4) as u32;
+        if tss_stack_offset + 7 > *segment_limits.offset(TR as isize) {
+            panic!("#TS handler");
+        }
+        let addr = translate_address_system_read(
+            *segment_offsets.offset(TR as isize) + tss_stack_offset as i32,
+        )?;
+        dbg_assert!(addr & 0xFFF <= 0x1000 - 6);
+        (read16(addr + 4), read32s(addr))
     }
     else {
-        (((dpl << 2) + 2) as u32, 0x1000 - 4)
-    };
-
-    if tss_stack_offset + 5 > *segment_limits.offset(TR as isize) {
-        panic!("#TS handler");
-    }
-
-    let tss_stack_addr = *segment_offsets.offset(TR as isize) as u32 + tss_stack_offset;
-
-    dbg_assert!(tss_stack_addr & 0xFFF <= page_boundary);
-
-    Ok(translate_address_system_read(tss_stack_addr as i32)?)
+        let tss_stack_offset = ((dpl << 2) + 2) as u32;
+        if tss_stack_offset + 3 > *segment_limits.offset(TR as isize) {
+            panic!("#TS handler");
+        }
+        let addr = translate_address_system_read(
+            *segment_offsets.offset(TR as isize) + tss_stack_offset as i32,
+        )?;
+        dbg_assert!(addr & 0xFFF <= 0x1000 - 4);
+        (read16(addr + 2), read16(addr))
+    })
 }
 
 pub unsafe fn iret16() { iret(true); }
@@ -822,11 +828,9 @@ pub unsafe fn call_interrupt_vector(
                 panic!("Unimplemented: #GP handler for non-0 cs segment dpl when in vm86 mode");
             }
 
-            let tss_stack_addr =
-                return_on_pagefault!(get_tss_stack_addr(cs_segment_descriptor.dpl()));
+            let (new_ss, new_esp) =
+                return_on_pagefault!(get_tss_ss_esp(cs_segment_descriptor.dpl()));
 
-            let new_esp = read32s(tss_stack_addr);
-            let new_ss = read16(tss_stack_addr + if *tss_size_32 { 4 } else { 2 });
             let ss_segment_selector = SegmentSelector::of_u16(new_ss as u16);
             let ss_segment_descriptor =
                 match return_on_pagefault!(lookup_segment_selector(ss_segment_selector)) {
@@ -836,11 +840,8 @@ pub unsafe fn call_interrupt_vector(
                     },
                 };
 
-            // Disabled: Incorrect handling of direction bit
-            // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
-            //if !((new_esp >>> 0) <= ss_segment_descriptor.effective_limit())
-            //    debugger;
-            //dbg_assert!((new_esp >>> 0) <= ss_segment_descriptor.effective_limit());
+            dbg_assert!(!ss_segment_descriptor.is_dc(), "TODO: Handle direction bit");
+            dbg_assert!(new_esp as u32 <= ss_segment_descriptor.effective_limit());
             dbg_assert!(!ss_segment_descriptor.is_system() && ss_segment_descriptor.is_writable());
 
             if ss_segment_selector.rpl() != cs_segment_descriptor.dpl() {
@@ -1131,18 +1132,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     *cpl,
                     cs_info.dpl()
                 );
-                let tss_stack_addr = return_on_pagefault!(get_tss_stack_addr(cs_info.dpl()));
-
-                let new_esp;
-                let new_ss;
-                if *tss_size_32 {
-                    new_esp = read32s(tss_stack_addr);
-                    new_ss = read16(tss_stack_addr + 4);
-                }
-                else {
-                    new_esp = read16(tss_stack_addr);
-                    new_ss = read16(tss_stack_addr + 2);
-                }
+                let (new_ss, new_esp) = return_on_pagefault!(get_tss_ss_esp(cs_info.dpl()));
 
                 let ss_selector = SegmentSelector::of_u16(new_ss as u16);
                 let ss_info = match return_on_pagefault!(lookup_segment_selector(ss_selector)) {
@@ -1157,11 +1147,8 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     },
                 };
 
-                // Disabled: Incorrect handling of direction bit
-                // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
-                //if(!((new_esp >>> 0) <= ss_info.effective_limit))
-                //    debugger;
-                //dbg_assert!((new_esp >>> 0) <= ss_info.effective_limit);
+                dbg_assert!(!ss_info.is_dc(), "TODO: Handle direction bit");
+                dbg_assert!(new_esp as u32 <= ss_info.effective_limit());
                 dbg_assert!(!ss_info.is_system() && ss_info.is_writable());
 
                 if ss_selector.rpl() != cs_info.dpl()
