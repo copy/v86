@@ -880,6 +880,21 @@
                 settings.boot_order = infos.boot_order;
             }
 
+            if(!infos.state)
+            {
+                const m = parseInt(query_args["m"], 10);
+                if(m > 0)
+                {
+                    settings.memory_size = Math.max(16, m) * 1024 * 1024;
+                }
+
+                const vram = parseInt(query_args["vram"], 10);
+                if(vram > 0)
+                {
+                    settings.vga_memory_size = vram * 1024 * 1024;
+                }
+            }
+
             if(!DEBUG && infos.homepage)
             {
                 $("description").style.display = "block";
