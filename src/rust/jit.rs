@@ -1320,6 +1320,7 @@ fn jit_generate_module(
                         // If we need to update eip in case (2), it's replaced by if { update_eip(); br() }
                         // If case (3) can fall through to the next basic block, the branch is eliminated
                         // Dispatcher target writes can be generated in either case
+                        // Condition may be inverted if it helps generate a fallthrough instead of the second branch
 
                         codegen::gen_profiler_stat_increment(ctx.builder, stat::CONDITIONAL_JUMP);
 
@@ -1330,13 +1331,15 @@ fn jit_generate_module(
                         }
 
                         let mut handle_case = |case: Case, is_first| {
+                            // first case generates condition and *has* to branch away,
+                            // second case branches unconditionally or falls through
+
                             if is_first {
-                                // first case generates condition and *has* to branch away,
-                                // second case branches unconditionally or falls through
-                                codegen::gen_condition_fn(ctx, condition);
                                 if case == Case::BranchNotTaken {
-                                    // TODO: pass to gen_condition_fn
-                                    ctx.builder.eqz_i32();
+                                    codegen::gen_condition_fn_negated(ctx, condition);
+                                }
+                                else {
+                                    codegen::gen_condition_fn(ctx, condition);
                                 }
                             }
 

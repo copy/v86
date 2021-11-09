@@ -2162,6 +2162,10 @@ pub fn gen_trigger_gp(ctx: &mut JitContext, error_code: u32) {
     ctx.builder.br(ctx.exit_with_fault_label);
 }
 
+pub fn gen_condition_fn_negated(ctx: &mut JitContext, condition: u8) {
+    gen_condition_fn(ctx, condition ^ 1)
+}
+
 pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
     if condition & 0xF0 == 0x00 || condition & 0xF0 == 0x70 || condition & 0xF0 == 0x80 {
         match condition & 0xF {
