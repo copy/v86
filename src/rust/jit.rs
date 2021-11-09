@@ -1537,20 +1537,13 @@ fn jit_generate_module(
                                 let target_index_not_taken =
                                     *index_for_addr.get(&next_block_addr.unwrap()).unwrap();
 
-                                if next_block_branch_taken_addr == next_block_addr {
-                                    // weird case: both branch and non-branch jump to same address
-                                    ctx.builder.const_i32(target_index_taken);
-                                    ctx.builder.set_local(target_block);
-                                }
-                                else {
-                                    codegen::gen_condition_fn(ctx, condition);
-                                    ctx.builder.if_i32();
-                                    ctx.builder.const_i32(target_index_taken);
-                                    ctx.builder.else_();
-                                    ctx.builder.const_i32(target_index_not_taken);
-                                    ctx.builder.block_end();
-                                    ctx.builder.set_local(target_block);
-                                }
+                                codegen::gen_condition_fn(ctx, condition);
+                                ctx.builder.if_i32();
+                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.else_();
+                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.block_end();
+                                ctx.builder.set_local(target_block);
                             }
                         }
                         else if branch_taken_is_fallthrough {
