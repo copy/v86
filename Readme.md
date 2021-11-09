@@ -88,23 +88,22 @@ You can get some infos on the disk images here: https://github.com/copy/images.
 
 You need:
 
-- java (for Closure Compiler, not necessary when using `debug.html`)
 - make
-- gcc and libc-i386 for building some of the test binaries
-- nasm, gdb and qemu-system (for running tests)
-- rust-nightly with the wasm32-unknown-unknown target
-- A version of clang compatible with rust-nightly
-- nodejs (a recent version is required, 10.11.0 is known to be working)
+- Rust with the wasm32-unknown-unknown target
+- A version of clang compatible with Rust
+- java (for Closure Compiler, not necessary when using `debug.html`)
+- nodejs (a recent version is required, v16.11.1 is known to be working)
+- To run tests: nasm, gdb, qemu-system, gcc, libc-i386 and rustfmt
 
-See `tools/docker/test-image/Dockerfile` for a full setup on Debian.
+See [tools/docker/test-image/dockerfile](tools/docker/test-image/dockerfile) for a full setup on Debian.
 
 - Run `make` to build the debug build (at `debug.html`).
 - Run `make all` to build the optimized build (at `index.html`).
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's http module.
-- If you only want to embed v86 in a webpage you can use libv86.js. For
-  usage, check out the [examples](examples/).
+- If you only want to embed v86 in a webpage you can use libv86.js. For usage,
+  check out the [examples](examples/). You can download it from the release section.
 
 ### Alternatively, to build using docker
 
