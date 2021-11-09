@@ -1531,28 +1531,23 @@ fn jit_generate_module(
                                     == Page::page_of(block.addr)
                             );
                             if next_addr.unwrap().len() > 1 {
-                                let &(br_taken, target_index_taken) = label_for_addr
+                                let target_index_taken = *index_for_addr
                                     .get(&next_block_branch_taken_addr.unwrap())
                                     .unwrap();
-                                let &(br_not_taken, target_index_not_taken) =
-                                    label_for_addr.get(&next_block_addr.unwrap()).unwrap();
+                                let target_index_not_taken =
+                                    *index_for_addr.get(&next_block_addr.unwrap()).unwrap();
 
-                                dbg_assert!(br_taken == br_not_taken);
-
-                                if target_index_taken == target_index_not_taken {
-                                    dbg_assert!(next_block_branch_taken_addr == next_block_addr);
+                                if next_block_branch_taken_addr == next_block_addr {
                                     // weird case: both branch and non-branch jump to same address
-                                    if let Some(target_index) = target_index_taken {
-                                        ctx.builder.const_i32(target_index);
-                                        ctx.builder.set_local(target_block);
-                                    }
+                                    ctx.builder.const_i32(target_index_taken);
+                                    ctx.builder.set_local(target_block);
                                 }
                                 else {
                                     codegen::gen_condition_fn(ctx, condition);
                                     ctx.builder.if_i32();
-                                    ctx.builder.const_i32(target_index_taken.unwrap());
+                                    ctx.builder.const_i32(target_index_taken);
                                     ctx.builder.else_();
-                                    ctx.builder.const_i32(target_index_not_taken.unwrap());
+                                    ctx.builder.const_i32(target_index_not_taken);
                                     ctx.builder.block_end();
                                     ctx.builder.set_local(target_block);
                                 }
