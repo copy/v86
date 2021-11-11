@@ -2945,6 +2945,7 @@ pub unsafe fn do_many_cycles_native() {
     }
 }
 
+#[inline(never)]
 pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;
@@ -2956,6 +2957,7 @@ pub unsafe fn trigger_de() {
     call_interrupt_vector(CPU_EXCEPTION_DE, false, None);
 }
 
+#[inline(never)]
 pub unsafe fn trigger_ud() {
     dbg_log!("#ud");
     dbg_trace();
@@ -2968,6 +2970,7 @@ pub unsafe fn trigger_ud() {
     call_interrupt_vector(CPU_EXCEPTION_UD, false, None);
 }
 
+#[inline(never)]
 pub unsafe fn trigger_nm() {
     dbg_log!("#nm eip={:x}", *previous_ip);
     dbg_trace();
@@ -2980,6 +2983,7 @@ pub unsafe fn trigger_nm() {
     call_interrupt_vector(CPU_EXCEPTION_NM, false, None);
 }
 
+#[inline(never)]
 pub unsafe fn trigger_gp(code: i32) {
     dbg_log!("#gp");
     *instruction_pointer = *previous_ip;
@@ -3914,6 +3918,7 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
     };
 }
 
+#[inline(never)]
 pub unsafe fn trigger_np(code: i32) {
     dbg_log!("#np");
     *instruction_pointer = *previous_ip;
@@ -3925,6 +3930,7 @@ pub unsafe fn trigger_np(code: i32) {
     call_interrupt_vector(CPU_EXCEPTION_NP, false, Some(code));
 }
 
+#[inline(never)]
 pub unsafe fn trigger_ss(code: i32) {
     dbg_log!("#ss");
     *instruction_pointer = *previous_ip;
