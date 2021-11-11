@@ -2569,6 +2569,7 @@ pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
 }
 
 #[no_mangle]
+#[cfg(feature = "profiler")]
 pub unsafe fn log_segment_null(segment: i32) {
     dbg_assert!(segment >= 0 && segment < 8);
     if *segment_is_null.offset(segment as isize) {
@@ -3961,6 +3962,7 @@ pub unsafe fn pic_call_irq(interrupt_nr: i32) {
 }
 
 #[no_mangle]
+#[cfg(debug_assertions)]
 pub unsafe fn check_page_switch(block_addr: u32, next_block_addr: u32) {
     let x = translate_address_read_jit(*instruction_pointer);
     if x != Ok(next_block_addr) {

@@ -2203,11 +2203,13 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
 }
 
 #[no_mangle]
+#[cfg(feature = "profiler")]
 pub fn debug_set_dispatcher_target(_target_index: i32) {
     //dbg_log!("About to call dispatcher target_index={}", target_index);
 }
 
 #[no_mangle]
+#[cfg(feature = "profiler")]
 pub fn check_dispatcher_target(target_index: i32, max: i32) {
     //dbg_log!("Dispatcher called target={}", target_index);
     dbg_assert!(target_index >= 0);
