@@ -198,7 +198,7 @@ CPU.prototype.create_jit_imports = function()
 
     for(let name of Object.keys(this.wm.exports))
     {
-        if(name.startsWith("_") || name.startsWith("ZSTD") || name.startsWith("zstd") || name.endsWith("_js"))
+        if(name.startsWith("_") || name.startsWith("zstd") || name.endsWith("_js"))
         {
             continue;
         }
