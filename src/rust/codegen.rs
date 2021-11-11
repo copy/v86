@@ -2239,8 +2239,10 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
 }
 
 pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
-    let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-    ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+    if cfg!(feature = "profiler") {
+        let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
+        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+    }
 
     for i in 0..8 {
         ctx.builder
@@ -2250,8 +2252,10 @@ pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
     }
 }
 pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
-    let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-    ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+    if cfg!(feature = "profiler") {
+        let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
+        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+    }
 
     for i in 0..8 {
         ctx.builder
