@@ -2618,6 +2618,7 @@ pub unsafe fn update_cs_size(new_size: bool) {
     }
 }
 
+#[inline(never)]
 pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
     if *protected_mode && (*cpl > getiopl() as u8 || (*flags & FLAG_VM != 0)) {
         if !*tss_size_32 {
