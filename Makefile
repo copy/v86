@@ -168,17 +168,17 @@ src/rust/gen/analyzer0f.rs: $(ANALYZER_DEPENDENCIES)
 
 build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
-	-ls -lh build/v86.wasm
+	-ls -l --block-size=K build/v86.wasm
 	cargo rustc --release $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
-	ls -lh build/v86.wasm
+	ls -l --block-size=K build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
-	-ls -lh build/v86-debug.wasm
+	-ls -l --block-size=K build/v86-debug.wasm
 	cargo rustc $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm
-	ls -lh build/v86-debug.wasm
+	ls -l --block-size=K build/v86-debug.wasm
 
 build/v86-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
