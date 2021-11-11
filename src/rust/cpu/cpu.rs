@@ -3520,6 +3520,81 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     Ok(())
 }
 
+#[inline(always)]
+pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
+    let (phys_addr, can_skip_dirty_page) =
+        return_on_pagefault!(translate_address_write_and_can_skip_dirty(addr));
+    let x = memory::read8(phys_addr);
+    let value = instruction(x);
+    if memory::in_mapped_range(phys_addr) {
+        memory::mmap_write8(phys_addr, value);
+    }
+    else {
+        if !can_skip_dirty_page {
+            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+        }
+        else {
+            dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+        }
+        memory::write8_no_mmap_or_dirty_check(phys_addr, value);
+    }
+}
+
+#[inline(always)]
+pub unsafe fn safe_read_write16(addr: i32, instruction: &dyn Fn(i32) -> i32) {
+    let (phys_addr, can_skip_dirty_page) =
+        return_on_pagefault!(translate_address_write_and_can_skip_dirty(addr));
+    if phys_addr & 0xFFF == 0xFFF {
+        let phys_addr_high = return_on_pagefault!(translate_address_write(addr + 1));
+        let x = virt_boundary_read16(phys_addr, phys_addr_high);
+        virt_boundary_write16(phys_addr, phys_addr_high, instruction(x));
+    }
+    else {
+        let x = memory::read16(phys_addr);
+        let value = instruction(x);
+        if memory::in_mapped_range(phys_addr) {
+            memory::mmap_write16(phys_addr, value);
+        }
+        else {
+            if !can_skip_dirty_page {
+                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            }
+            else {
+                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            }
+            memory::write16_no_mmap_or_dirty_check(phys_addr, value);
+        };
+    }
+}
+
+#[inline(always)]
+pub unsafe fn safe_read_write32(addr: i32, instruction: &dyn Fn(i32) -> i32) {
+    let (phys_addr, can_skip_dirty_page) =
+        return_on_pagefault!(translate_address_write_and_can_skip_dirty(addr));
+    if phys_addr & 0xFFF >= 0xFFD {
+        let phys_addr_high = return_on_pagefault!(translate_address_write(addr + 3 & !3));
+        let phys_addr_high = phys_addr_high | (addr as u32) + 3 & 3;
+        let x = virt_boundary_read32s(phys_addr, phys_addr_high);
+        virt_boundary_write32(phys_addr, phys_addr_high, instruction(x));
+    }
+    else {
+        let x = memory::read32s(phys_addr);
+        let value = instruction(x);
+        if memory::in_mapped_range(phys_addr) {
+            memory::mmap_write32(phys_addr, value);
+        }
+        else {
+            if !can_skip_dirty_page {
+                ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_addr));
+            }
+            else {
+                dbg_assert!(!::jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
+            }
+            memory::write32_no_mmap_or_dirty_check(phys_addr, value);
+        };
+    }
+}
+
 fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }
 
 pub unsafe fn read_reg8(index: i32) -> i32 {

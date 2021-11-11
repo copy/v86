@@ -1,6 +1,3 @@
-#[macro_use]
-mod instruction_helpers;
-
 pub mod arith;
 pub mod call_indirect;
 pub mod cpu;
