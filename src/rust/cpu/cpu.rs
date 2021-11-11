@@ -2366,6 +2366,7 @@ pub unsafe fn lookup_segment_selector(
     Ok(Ok((descriptor, descriptor_address)))
 }
 
+#[inline(never)]
 pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     dbg_assert!(reg >= 0 && reg <= 5);
     dbg_assert!(selector_raw >= 0 && selector_raw < 0x10000);
