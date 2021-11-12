@@ -17,6 +17,8 @@ ifeq ($(STRIP_DEBUG),true)
 STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
+WASM_OPT ?= false
+
 default: build/v86-debug.wasm
 all: build/v86_all.js build/libv86.js build/v86.wasm
 all-debug: build/libv86-debug.js build/v86-debug.wasm
@@ -171,6 +173,7 @@ build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	-ls -l --block-size=K build/v86.wasm
 	cargo rustc --release $(CARGO_FLAGS)
 	mv build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
+	-$(WASM_OPT) && wasm-opt -O2 --strip-debug build/v86.wasm -o build/v86.wasm
 	ls -l --block-size=K build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
