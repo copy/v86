@@ -21,7 +21,7 @@ const emulator = new V86({
         basefs: {
             url: path.join(V86_ROOT, "/images/fs.json"),
         },
-        baseurl: path.join(V86_ROOT, "/images/arch/"),
+        baseurl: path.join(V86_ROOT, "/images/arch-nongz/"),
     },
     screen_dummy: true,
     log_level: 0,
