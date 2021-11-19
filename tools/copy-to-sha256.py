@@ -8,12 +8,13 @@ import hashlib
 import shutil
 import tarfile
 
+HASH_LENGTH = 8
 
-def hash_file(filename):
+def hash_file(filename) -> str:
     with open(filename, "rb", buffering=0) as f:
         return hash_fileobj(f)
 
-def hash_fileobj(f):
+def hash_fileobj(f) -> str:
     h = hashlib.sha256()
     for b in iter(lambda: f.read(128*1024), b""):
         h.update(b)
@@ -42,9 +43,9 @@ def main():
     if tar:
         handle_tar(logger, tar, to_path)
     else:
-        handle_dir(logger, path, to_path)
+        handle_dir(logger, from_path, to_path)
 
-def handle_dir(logger, from_path, to_path):
+def handle_dir(logger, from_path: str, to_path: str):
     def onerror(oserror):
         logger.warning(oserror)
 
@@ -62,8 +63,9 @@ def handle_dir(logger, from_path, to_path):
             if stat.S_ISLNK(mode) or stat.S_ISCHR(mode) or stat.S_ISBLK(mode) or stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode):
                 continue
 
-            sha256 = hash_file(absname)
-            to_abs = os.path.join(to_path, sha256)
+            file_hash = hash_file(absname)
+            filename = file_hash[0:HASH_LENGTH] + ".bin"
+            to_abs = os.path.join(to_path, filename)
 
             if os.path.exists(to_abs):
                 logger.info("Exists, skipped {} ({})".format(to_abs, absname))
@@ -71,13 +73,13 @@ def handle_dir(logger, from_path, to_path):
                 logger.info("cp {} {}".format(absname, to_abs))
                 shutil.copyfile(absname, to_abs)
 
-def handle_tar(logger, tar, to_path):
+def handle_tar(logger, tar, to_path: str):
     for member in tar.getmembers():
         if member.isfile() or member.islnk():
             f = tar.extractfile(member)
-            sha256 = hash_fileobj(f)
-
-            to_abs = os.path.join(to_path, sha256)
+            file_hash = hash_fileobj(f)
+            filename = file_hash[0:HASH_LENGTH] + ".bin"
+            to_abs = os.path.join(to_path, filename)
 
             if os.path.exists(to_abs):
                 logger.info("Exists, skipped {} ({})".format(to_abs, member.name))

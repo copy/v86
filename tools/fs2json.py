@@ -26,19 +26,21 @@ IDX_GID = 5
 
 # target for symbolic links
 # child nodes for directories
-# sha256 for files
+# filename for files
 IDX_TARGET = 6
-IDX_SHA256 = 6
+IDX_FILENAME = 6
+
+HASH_LENGTH = 8
 
 S_IFLNK = 0xA000
 S_IFREG = 0x8000
 S_IFDIR = 0x4000
 
-def hash_file(filename):
+def hash_file(filename) -> str:
     with open(filename, "rb", buffering=0) as f:
         return hash_fileobj(f)
 
-def hash_fileobj(f):
+def hash_fileobj(f) -> str:
     h = hashlib.sha256()
     for b in iter(lambda: f.read(128*1024), b""):
         h.update(b)
@@ -115,6 +117,7 @@ def handle_dir(logger, path, exclude):
     prevpath = []
 
     mainroot = []
+    filename_to_hash = {}
     total_size = 0
     rootstack = [mainroot]
 
@@ -193,7 +196,12 @@ def handle_dir(logger, path, exclude):
                 target = os.readlink(absname)
                 obj[IDX_TARGET] = target
             elif isfile:
-                obj[IDX_SHA256] = hash_file(absname)
+                file_hash = hash_file(absname)
+                filename = file_hash[0:HASH_LENGTH] + ".bin"
+                existing = filename_to_hash.get(filename)
+                assert existing is None or existing == file_hash, "Collision in short hash (%s and %s)" % (existing, file_hash)
+                filename_to_hash[filename] = file_hash
+                obj[IDX_FILENAME] = filename
 
             while obj[-1] is None:
                 obj.pop()
@@ -206,6 +214,7 @@ def handle_dir(logger, path, exclude):
 
 def handle_tar(logger, tar):
     mainroot = []
+    filename_to_hash = {}
     total_size = 0
 
     for member in tar.getmembers():
@@ -230,7 +239,12 @@ def handle_tar(logger, tar):
         if member.isfile() or member.islnk():
             obj[IDX_MODE] |= S_IFREG
             f = tar.extractfile(member)
-            obj[IDX_SHA256] = hash_fileobj(f)
+            file_hash = hash_fileobj(f)
+            filename = file_hash[0:HASH_LENGTH] + ".bin"
+            existing = filename_to_hash.get(filename)
+            assert existing is None or existing == file_hash, "Collision in short hash (%s and %s)" % (existing, file_hash)
+            filename_to_hash[filename] = file_hash
+            obj[IDX_FILENAME] = filename
             if member.islnk():
                 # fix size for hard links
                 f.seek(0, os.SEEK_END)
