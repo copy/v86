@@ -898,17 +898,17 @@
                     settings.vga_memory_size = vram * 1024 * 1024;
                 }
 
-                const networking = parseInt(query_args["networking"]);
+                const networking = parseInt(query_args["networking"], 10);
                 //leave blank to disable
                 if (networking == 0)
                 {
                     settings.networking = ""
                 }
 
-                const audio = !!parseInt(query_args["audio"]);
+                const audio = !!parseInt(query_args["audio"], 10);
                 settings.audio = audio;
 
-                const acpi = !!parseInt(query_args["acpi"]);
+                const acpi = !!parseInt(query_args["acpi"], 10);
                 settings.acpi = acpi;
             }
 
