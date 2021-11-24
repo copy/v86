@@ -869,6 +869,8 @@
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
+            settings.networking = infos.networking;
+            settings.audio = infos.audio;
             settings.acpi = infos.acpi;
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -879,7 +881,9 @@
             {
                 settings.boot_order = infos.boot_order;
             }
-
+            //TODO: networking proxy
+            //audio
+            //ACPI (experimental)
             if(!infos.state)
             {
                 const m = parseInt(query_args["m"], 10);
@@ -893,6 +897,19 @@
                 {
                     settings.vga_memory_size = vram * 1024 * 1024;
                 }
+
+                const networking = parseInt(query_args["networking"]);
+                //leave blank to disable
+                if (networking == 0)
+                {
+                    settings.networking = ""
+                }
+
+                const audio = !!parseInt(query_args["audio"]);
+                settings.audio = audio;
+
+                const acpi = !!parseInt(query_args["acpi"]);
+                settings.acpi = acpi;
             }
 
             if(!DEBUG && infos.homepage)
@@ -1039,8 +1056,8 @@
             }
         }
 
-        const networking_proxy = $("networking_proxy").value;
-        const disable_audio = $("disable_audio").checked;
+        const networking_proxy = settings.networking === undefined ? $("networking_proxy").value : settings.networking;
+        const disable_audio = settings.audio === undefined ? $("disable_audio").checked : settings.audio;
         const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
 
         /** @const */
