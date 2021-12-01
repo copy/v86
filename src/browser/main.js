@@ -722,6 +722,17 @@
                 name: "Android",
             },
             {
+                id: "android4",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    "url": host + "android_x86_nonsse3_4.4r1_20140904.iso",
+                    "size": 247463936,
+                    "async": true,
+                    use_parts: !ON_LOCALHOST,
+                },
+                name: "Android",
+            },
+            {
                 id: "tinycore",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
@@ -1143,7 +1154,7 @@
                     emulator.keyboard_send_text("\n");
                 }, 3000);
             }
-            else if(settings.id == "android")
+            else if(settings.id === "android" || settings.id === "android4")
             {
                 setTimeout(() => {
                     // hack: select vesa mode and start automatically

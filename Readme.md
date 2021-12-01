@@ -62,13 +62,14 @@ Here's an overview of the operating systems supported in v86:
     useful scripts for building one.
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
+  - Ubuntu up to 10.04 works.
   - Alpine Linux works.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works.
 - Haiku works.
 - Android x86 1.6-r2 works if one selects VESA mode at the boot prompt. Newer
-  versions haven't been tested.
+  versions may work if compiled without SSE3. See [#224](https://github.com/copy/v86/issues/224).
 - Windows 1, 3.0, 95, 98, ME and 2000 work. Other versions currently don't (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208)).
   - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
 - Many hobby operating systems work.
