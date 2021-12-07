@@ -842,7 +842,39 @@
             {
                 $("boot_options").style.display = "none";
 
+                parse_param(infos)
                 start_emulation(settings, done);
+            }
+        }
+
+        function parse_param(infos)
+        {
+            if(!infos.state)
+            {
+                const m = parseInt(query_args["m"], 10);
+                if(m > 0)
+                {
+                    settings.memory_size = Math.max(16, m) * 1024 * 1024;
+                }
+
+                const vram = parseInt(query_args["vram"], 10);
+                if(vram > 0)
+                {
+                    settings.vga_memory_size = vram * 1024 * 1024;
+                }
+
+                const networking = parseInt(query_args["networking"], 10);
+                //leave blank to disable
+                if (networking == 0)
+                {
+                    settings.networking = ""
+                }
+
+                const audio = !!parseInt(query_args["audio"], 10);
+                settings.audio = audio;
+
+                const acpi = !!parseInt(query_args["acpi"], 10);
+                settings.acpi = acpi;
             }
         }
 
@@ -881,36 +913,8 @@
             {
                 settings.boot_order = infos.boot_order;
             }
-            //TODO: networking proxy
-            //audio
-            //ACPI (experimental)
-            if(!infos.state)
-            {
-                const m = parseInt(query_args["m"], 10);
-                if(m > 0)
-                {
-                    settings.memory_size = Math.max(16, m) * 1024 * 1024;
-                }
 
-                const vram = parseInt(query_args["vram"], 10);
-                if(vram > 0)
-                {
-                    settings.vga_memory_size = vram * 1024 * 1024;
-                }
-
-                const networking = parseInt(query_args["networking"], 10);
-                //leave blank to disable
-                if (networking == 0)
-                {
-                    settings.networking = ""
-                }
-
-                const audio = !!parseInt(query_args["audio"], 10);
-                settings.audio = audio;
-
-                const acpi = !!parseInt(query_args["acpi"], 10);
-                settings.acpi = acpi;
-            }
+            parse_param(infos);
 
             if(!DEBUG && infos.homepage)
             {
