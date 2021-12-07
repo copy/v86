@@ -842,40 +842,34 @@
             {
                 $("boot_options").style.display = "none";
 
-                parse_param(infos)
+                parse_param()
                 start_emulation(settings, done);
             }
         }
 
-        function parse_param(infos)
+        function parse_param()
         {
-            if(!infos.state)
+            const m = parseInt(query_args["m"], 10);
+            if(m > 0)
             {
-                const m = parseInt(query_args["m"], 10);
-                if(m > 0)
-                {
-                    settings.memory_size = Math.max(16, m) * 1024 * 1024;
-                }
-
-                const vram = parseInt(query_args["vram"], 10);
-                if(vram > 0)
-                {
-                    settings.vga_memory_size = vram * 1024 * 1024;
-                }
-
-                const networking = parseInt(query_args["networking"], 10);
-                //leave blank to disable
-                if (networking == 0)
-                {
-                    settings.networking = ""
-                }
-
-                const audio = !!parseInt(query_args["audio"], 10);
-                settings.audio = audio;
-
-                const acpi = !!parseInt(query_args["acpi"], 10);
-                settings.acpi = acpi;
+                settings.memory_size = Math.max(16, m) * 1024 * 1024;
             }
+
+            const vram = parseInt(query_args["vram"], 10);
+            if(vram > 0)
+            {
+                settings.vga_memory_size = vram * 1024 * 1024;
+            }
+
+            const networking = parseInt(query_args["networking"], 10);
+            settings.networking = networking == 0 ? undefined : networking;
+
+            const audio = !!parseInt(query_args["audio"], 10);
+            settings.audio = audio;
+
+            const acpi = !!parseInt(query_args["acpi"], 10);
+            settings.acpi = acpi;
+
         }
 
         function start_profile(infos)
@@ -901,8 +895,6 @@
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
-            settings.networking = infos.networking;
-            settings.audio = infos.audio;
             settings.acpi = infos.acpi;
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -914,7 +906,10 @@
                 settings.boot_order = infos.boot_order;
             }
 
-            parse_param(infos);
+            if(!infos.state)
+            {
+                parse_param();
+            }
 
             if(!DEBUG && infos.homepage)
             {
