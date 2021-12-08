@@ -1634,9 +1634,25 @@
         $("take_screenshot").onclick = function()
         {
             emulator.screen_make_screenshot();
-
             $("take_screenshot").blur();
         };
+
+        $("mute").onclick = function()
+        {
+            if(emulator.is_muted)
+            {
+                emulator.speaker_adapter.mixer.set_volume(1, undefined);
+                emulator.is_muted = false;
+            }
+            else
+            {
+                emulator.speaker_adapter.mixer.set_volume(0, undefined);
+                emulator.is_muted = true;
+            }
+            
+            $("mute").blur();
+        };
+
 
         window.addEventListener("keydown", ctrl_w_rescue, false);
         window.addEventListener("keyup", ctrl_w_rescue, false);
