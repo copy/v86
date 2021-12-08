@@ -94,6 +94,7 @@ function V86Starter(options)
     //var adapter_bus = this.bus = WorkerBus.init(worker);
 
     this.cpu_is_running = false;
+    this.is_muted = options["disable_speaker"];
 
     const bus = Bus.create();
     const adapter_bus = this.bus = bus[0];
