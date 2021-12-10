@@ -928,7 +928,7 @@
         }
 
         const networking_proxy = parseInt(query_args["networking"], 10);
-        settings.networking = networking_proxy == 0 ? undefined : networking_proxy;
+        settings.networking_proxy = networking_proxy == 0 ? undefined : networking_proxy;
 
         const audio = !parseInt(query_args["audio"], 10);
         settings.audio = audio;
@@ -1055,7 +1055,7 @@
             }
         }
 
-        const networking_proxy = settings.networking === undefined ? $("networking_proxy").value : settings.networking;
+        const networking_proxy = settings.networking_proxy === undefined ? $("networking_proxy").value : settings.networking_proxy;
         const disable_audio = settings.audio === undefined ? $("disable_audio").checked : !settings.audio;
         const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
 
