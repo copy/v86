@@ -842,34 +842,9 @@
             {
                 $("boot_options").style.display = "none";
 
-                parse_param()
+                parse_param(settings);
                 start_emulation(settings, done);
             }
-        }
-
-        function parse_param()
-        {
-            const m = parseInt(query_args["m"], 10);
-            if(m > 0)
-            {
-                settings.memory_size = Math.max(16, m) * 1024 * 1024;
-            }
-
-            const vram = parseInt(query_args["vram"], 10);
-            if(vram > 0)
-            {
-                settings.vga_memory_size = vram * 1024 * 1024;
-            }
-
-            const networking = parseInt(query_args["networking"], 10);
-            settings.networking = networking == 0 ? undefined : networking;
-
-            const audio = !!parseInt(query_args["audio"], 10);
-            settings.audio = audio;
-
-            const acpi = !!parseInt(query_args["acpi"], 10);
-            settings.acpi = acpi;
-
         }
 
         function start_profile(infos)
@@ -908,7 +883,7 @@
 
             if(!infos.state)
             {
-                parse_param();
+                parse_param(settings);
             }
 
             if(!DEBUG && infos.homepage)
@@ -936,6 +911,31 @@
                 }, 25);
             }
         }
+    }
+
+    function parse_param(settings)
+    {
+        const m = parseInt(query_args["m"], 10);
+        if(m > 0)
+        {
+            settings.memory_size = Math.max(16, m) * 1024 * 1024;
+        }
+
+        const vram = parseInt(query_args["vram"], 10);
+        if(vram > 0)
+        {
+            settings.vga_memory_size = vram * 1024 * 1024;
+        }
+
+        const networking_proxy = parseInt(query_args["networking"], 10);
+        settings.networking = networking_proxy == 0 ? undefined : networking_proxy;
+
+        const audio = !parseInt(query_args["audio"], 10);
+        settings.audio = audio;
+
+        const acpi = !!parseInt(query_args["acpi"], 10);
+        settings.acpi = acpi;
+
     }
 
     function debug_onload(settings)
@@ -1056,7 +1056,7 @@
         }
 
         const networking_proxy = settings.networking === undefined ? $("networking_proxy").value : settings.networking;
-        const disable_audio = settings.audio === undefined ? $("disable_audio").checked : settings.audio;
+        const disable_audio = settings.audio === undefined ? $("disable_audio").checked : !settings.audio;
         const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
 
         /** @const */
