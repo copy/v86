@@ -784,6 +784,22 @@
             settings.use_bochs_bios = true;
         }
 
+        const m = parseInt(query_args["m"], 10);
+        if(m > 0)
+        {
+            settings.memory_size = Math.max(16, m) * 1024 * 1024;
+        }
+
+        const vram = parseInt(query_args["vram"], 10);
+        if(vram > 0)
+        {
+            settings.vga_memory_size = vram * 1024 * 1024;
+        }
+
+        settings.networking_proxy = query_args["networking_proxy"];
+        settings.audio = query_args["audio"] !== "0";
+        settings.acpi = !!query_args["acpi"];
+
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
@@ -869,30 +885,15 @@
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
-            settings.acpi = infos.acpi;
-            settings.memory_size = infos.memory_size;
-            settings.vga_memory_size = infos.vga_memory_size;
+            settings.acpi = settings.acpi === undefined ? infos.acpi : settings.acpi;
+            settings.memory_size = (!infos.state && settings.memory_size) ? settings.memory_size : infos.memory_size;
+            settings.vga_memory_size = (!infos.state && settings.vga_memory_size) ? settings.vga_memory_size : infos.vga_memory_size;
 
             settings.id = infos.id;
 
             if(infos.boot_order !== undefined)
             {
                 settings.boot_order = infos.boot_order;
-            }
-
-            if(!infos.state)
-            {
-                const m = parseInt(query_args["m"], 10);
-                if(m > 0)
-                {
-                    settings.memory_size = Math.max(16, m) * 1024 * 1024;
-                }
-
-                const vram = parseInt(query_args["vram"], 10);
-                if(vram > 0)
-                {
-                    settings.vga_memory_size = vram * 1024 * 1024;
-                }
             }
 
             if(!DEBUG && infos.homepage)
@@ -1039,8 +1040,8 @@
             }
         }
 
-        const networking_proxy = $("networking_proxy").value;
-        const disable_audio = $("disable_audio").checked;
+        const networking_proxy = settings.networking_proxy === undefined ? $("networking_proxy").value : settings.networking_proxy;
+        const disable_audio = settings.audio === undefined ? $("disable_audio").checked : !settings.audio;
         const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
 
         /** @const */
@@ -1785,7 +1786,6 @@
         {
             window.history.pushState({ profile: prof }, "", "?profile=" + prof);
         }
-
     }
 
 })();
