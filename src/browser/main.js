@@ -784,6 +784,22 @@
             settings.use_bochs_bios = true;
         }
 
+        const m = parseInt(query_args["m"], 10);
+        if(m > 0)
+        {
+            settings.memory_size = Math.max(16, m) * 1024 * 1024;
+        }
+
+        const vram = parseInt(query_args["vram"], 10);
+        if(vram > 0)
+        {
+            settings.vga_memory_size = vram * 1024 * 1024;
+        }
+
+        settings.networking_proxy = query_args["networking_proxy"];
+        settings.audio = query_args["audio"] !== "0";
+        settings.acpi = !!query_args["acpi"];
+
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
@@ -842,7 +858,6 @@
             {
                 $("boot_options").style.display = "none";
 
-                parse_param(settings);
                 start_emulation(settings, done);
             }
         }
@@ -870,20 +885,15 @@
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
-            settings.acpi = infos.acpi;
-            settings.memory_size = infos.memory_size;
-            settings.vga_memory_size = infos.vga_memory_size;
+            settings.acpi = settings.acpi === undefined ? infos.acpi : settings.acpi;
+            settings.memory_size = (!infos.state && settings.memory_size) ? settings.memory_size : infos.memory_size;
+            settings.vga_memory_size = (!infos.state && settings.vga_memory_size) ? settings.vga_memory_size : infos.vga_memory_size;
 
             settings.id = infos.id;
 
             if(infos.boot_order !== undefined)
             {
                 settings.boot_order = infos.boot_order;
-            }
-
-            if(!infos.state)
-            {
-                parse_param(settings);
             }
 
             if(!DEBUG && infos.homepage)
@@ -911,31 +921,6 @@
                 }, 25);
             }
         }
-    }
-
-    function parse_param(settings)
-    {
-        const m = parseInt(query_args["m"], 10);
-        if(m > 0)
-        {
-            settings.memory_size = Math.max(16, m) * 1024 * 1024;
-        }
-
-        const vram = parseInt(query_args["vram"], 10);
-        if(vram > 0)
-        {
-            settings.vga_memory_size = vram * 1024 * 1024;
-        }
-
-        const networking_proxy = parseInt(query_args["networking"], 10);
-        settings.networking_proxy = networking_proxy == 0 ? undefined : networking_proxy;
-
-        const audio = !parseInt(query_args["audio"], 10);
-        settings.audio = audio;
-
-        const acpi = !!parseInt(query_args["acpi"], 10);
-        settings.acpi = acpi;
-
     }
 
     function debug_onload(settings)
@@ -1791,7 +1776,6 @@
         {
             window.history.pushState({ profile: prof }, "", "?profile=" + prof);
         }
-
     }
 
 })();
