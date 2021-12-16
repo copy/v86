@@ -1637,22 +1637,32 @@
             $("take_screenshot").blur();
         };
 
-        $("mute").onclick = function()
+        if(emulator.speaker_adapter)
         {
-            if(emulator.is_muted)
-            {
-                emulator.speaker_adapter.mixer.set_volume(1, undefined);
-                emulator.is_muted = false;
-            }
-            else
-            {
-                emulator.speaker_adapter.mixer.set_volume(0, undefined);
-                emulator.is_muted = true;
-            }
-            
-            $("mute").blur();
-        };
+            let is_muted = false;
 
+            $("mute").onclick = function()
+            {
+                if(is_muted)
+                {
+                    emulator.speaker_adapter.mixer.set_volume(1, undefined);
+                    is_muted = false;
+                    $("mute").value = "Mute";
+                }
+                else
+                {
+                    emulator.speaker_adapter.mixer.set_volume(0, undefined);
+                    is_muted = true;
+                    $("mute").value = "Unmute";
+                }
+
+                $("mute").blur();
+            };
+        }
+        else
+        {
+            $("mute").remove();
+        }
 
         window.addEventListener("keydown", ctrl_w_rescue, false);
         window.addEventListener("keyup", ctrl_w_rescue, false);
