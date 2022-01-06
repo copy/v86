@@ -896,7 +896,7 @@
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.preserve_mac_from_state_image = infos.preserve_mac_from_state_image;
 
-            settings.acpi = settings.acpi === undefined ? infos.acpi : settings.acpi;
+            settings.acpi = (!infos.state && settings.acpi !== undefined) ? settings.acpi : infos.acpi;
             settings.memory_size = (!infos.state && settings.memory_size) ? settings.memory_size : infos.memory_size;
             settings.vga_memory_size = (!infos.state && settings.vga_memory_size) ? settings.vga_memory_size : infos.vga_memory_size;
 
