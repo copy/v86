@@ -1762,7 +1762,7 @@
         $("dump_gdt").onclick = debug.dump_gdt_ldt.bind(debug);
         $("dump_idt").onclick = debug.dump_idt.bind(debug);
         $("dump_regs").onclick = debug.dump_regs.bind(debug);
-        $("dump_pt").onclick = debug.dump_page_directory.bind(debug);
+        $("dump_pt").onclick = debug.dump_page_structures.bind(debug);
 
         $("dump_log").onclick = function()
         {

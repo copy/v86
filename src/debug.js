@@ -39,7 +39,7 @@ CPU.prototype.debug_init = function()
     debug.dump_state = dump_state;
     debug.dump_stack = dump_stack;
 
-    debug.dump_page_directory = dump_page_directory;
+    debug.dump_page_structures = dump_page_structures;
     debug.dump_gdt_ldt = dump_gdt_ldt;
     debug.dump_idt = dump_idt;
 
@@ -115,6 +115,7 @@ CPU.prototype.debug_init = function()
         }
 
         return ("mode=" + mode + "/" + op_size + " paging=" + (+((cpu.cr[0] & CR0_PG) !== 0)) +
+                " pae=" + (+((cpu.cr[4] & CR4_PAE) !== 0)) +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
                 " cs_off=" + h(cpu.get_seg_cs() >>> 0, 8) +
                 " flgs=" + h(cpu.get_eflags() >>> 0, 6) + " (" + flag_string + ")" +
@@ -297,7 +298,7 @@ CPU.prototype.debug_init = function()
         }
     }
 
-    function load_page_entry(dword_entry, is_directory)
+    function load_page_entry(dword_entry, pae, is_directory)
     {
         if(!DEBUG) return;
 
@@ -312,7 +313,7 @@ CPU.prototype.debug_init = function()
 
         if(size && !is_directory)
         {
-            address = dword_entry & 0xFFC00000;
+            address = dword_entry & (pae ? 0xFFE00000 : 0xFFC00000);
         }
         else
         {
@@ -331,19 +332,47 @@ CPU.prototype.debug_init = function()
         };
     }
 
-    function dump_page_directory()
+    var dbg_log = console.log.bind(console);
+
+    function dump_page_structures() {
+        var pae = !!(cpu.cr[4] & CR4_PAE);
+        if (pae)
+        {
+            dbg_log("PAE enabled");
+
+            for (var i = 0; i < 4; i++) {
+                var addr = cpu.cr[3] + 8 * i;
+                var dword = cpu.read32s(addr);
+                if (dword & 1)
+                {
+                    dump_page_directory(dword & 0xFFFFF000, true, i << 30);
+                }
+            }
+        }
+        else
+        {
+            dbg_log("PAE disabled");
+            dump_page_directory(cpu.cr[3], false, 0);
+        }
+    }
+
+    /* NOTE: PAE entries are 64-bits, we ignore the high half here. */
+    function dump_page_directory(pd_addr, pae, start)
     {
         if(!DEBUG) return;
 
-        for(var i = 0; i < 1024; i++)
+        var n = pae ? 512 : 1024;
+        var entry_size = pae ? 8 : 4;
+        var pd_shift = pae ? 21 : 22;
+
+        for(var i = 0; i < n; i++)
         {
-            var addr = cpu.cr[3] + 4 * i;
-            var dword = cpu.read32s(addr),
-                entry = load_page_entry(dword, true);
+            var addr = pd_addr + i * entry_size,
+                dword = cpu.read32s(addr),
+                entry = load_page_entry(dword, pae, true);
 
             if(!entry)
             {
-                dbg_log("Not present: " + h((i << 22) >>> 0, 8));
                 continue;
             }
 
@@ -357,20 +386,21 @@ CPU.prototype.debug_init = function()
 
             if(entry.size)
             {
-                dbg_log("=== " + h((i << 22) >>> 0, 8) + " -> " + h(entry.address >>> 0, 8) + " | " + flags);
+                dbg_log("=== " + h(start + (i << pd_shift) >>> 0, 8) + " -> " +
+                    h(entry.address >>> 0, 8) + " | " + flags);
                 continue;
             }
             else
             {
-                dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
+                dbg_log("=== " + h(start + (i << pd_shift) >>> 0, 8) + " | " + flags);
             }
 
-            for(var j = 0; j < 1024; j++)
+            for(var j = 0; j < n; j++)
             {
-                var sub_addr = entry.address + 4 * j;
+                var sub_addr = entry.address + j * entry_size;
                 dword = cpu.read32s(sub_addr);
 
-                var subentry = load_page_entry(dword, false);
+                var subentry = load_page_entry(dword, pae, false);
 
                 if(subentry)
                 {
@@ -383,7 +413,7 @@ CPU.prototype.debug_init = function()
                     flags += subentry.accessed ? "A " : "  ";
                     flags += subentry.dirty ? "Di " : "   ";
 
-                    dbg_log("# " + h((i << 22 | j << 12) >>> 0, 8) + " -> " +
+                    dbg_log("# " + h(start + (i << pd_shift | j << 12) >>> 0, 8) + " -> " +
                             h(subentry.address, 8) + " | " + flags + "        (at " + h(sub_addr, 8) + ")");
                 }
             }

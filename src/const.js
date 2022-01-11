@@ -120,6 +120,7 @@ var
 
 /** @const */
 var CR0_PG = 1 << 31;
+var CR4_PAE = 1 << 5;
 
 
 // https://github.com/qemu/seabios/blob/14221cd86eadba82255fdc55ed174d401c7a0a04/src/fw/paravirt.c#L205-L219

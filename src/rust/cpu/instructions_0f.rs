@@ -798,13 +798,10 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 return;
             }
             else {
-                if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE) {
+                if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_PAE) {
                     full_clear_tlb();
                 }
                 *cr.offset(4) = data;
-                if 0 != *cr.offset(4) & CR4_PAE {
-                    dbg_assert!(false, "PAE is not supported");
-                }
             }
         },
         _ => {
@@ -3177,7 +3174,7 @@ pub unsafe fn instr_0FA2() {
                 ecx |= 1 << 31
             }; // hypervisor
             edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
-                    vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
+                    vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
                     1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
 

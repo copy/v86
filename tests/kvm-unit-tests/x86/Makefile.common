@@ -51,6 +51,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
                $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
                $(TEST_DIR)/hyperv_connections.flat \
+               $(TEST_DIR)/pae.flat \
 
 ifdef API
 tests-api = api/api-sample api/dirty-log api/dirty-log-perf
