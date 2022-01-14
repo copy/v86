@@ -457,12 +457,12 @@
             {
                 id: "sectorlisp",
                 fda: {
-                    "url": host + "sectorlisp.img",
+                    "url": host + "sectorlisp-friendly.bin",
                     "async": false,
                     "size": 512,
                 },
                 name: "SectorLISP",
-                homepage: "https://justine.lol/sectorlisp/",
+                homepage: "https://justine.lol/sectorlisp2/",
             },
             {
                 id: "sectorforth",
