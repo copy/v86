@@ -285,11 +285,11 @@ qemutests-release: all
 	diff build/qemu-test-result build/qemu-test-reference
 
 kvm-unit-test: all-debug
-	(cd tests/kvm-unit-tests && ./configure && make)
+	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
 kvm-unit-test-release: all
-	(cd tests/kvm-unit-tests && ./configure && make)
+	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
 expect-tests: all-debug build/libwabt.js
