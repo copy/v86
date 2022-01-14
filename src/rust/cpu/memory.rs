@@ -87,29 +87,6 @@ pub unsafe fn read64s(addr: u32) -> i64 {
     };
 }
 
-pub unsafe fn read_aligned32(addr: u32) -> i32 {
-    dbg_assert!(addr < 0x40000000 as u32);
-    if in_mapped_range(addr << 2) {
-        return mmap_read32(addr << 2);
-    }
-    else {
-        return *(mem8 as *mut i32).offset(addr as isize);
-    };
-}
-
-pub unsafe fn read_aligned64(addr: u32) -> i64 {
-    dbg_assert!(addr < 0x40000000 as u32);
-    dbg_assert!(addr & 1 == 0);
-    if in_mapped_range(addr << 2) {
-        let lo = mmap_read32(addr << 2);
-        let hi = mmap_read32(addr + 1 << 2);
-        return lo as i64 | (hi as i64) << 32;
-    }
-    else {
-        return *(mem8 as *mut i64).offset((addr >> 1) as isize);
-    }
-}
-
 pub unsafe fn read128(addr: u32) -> reg128 {
     let mut value: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -168,22 +145,6 @@ pub unsafe fn write32(addr: u32, value: i32) {
 
 pub unsafe fn write32_no_mmap_or_dirty_check(addr: u32, value: i32) {
     *(mem8.offset(addr as isize) as *mut i32) = value
-}
-
-pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
-    *(mem8 as *mut i32).offset(addr as isize) = value
-}
-
-pub unsafe fn write_aligned32(addr: u32, value: i32) {
-    dbg_assert!(addr < 0x40000000 as u32);
-    let phys_addr = addr << 2;
-    if in_mapped_range(phys_addr) {
-        mmap_write32(phys_addr, value);
-    }
-    else {
-        ::jit::jit_dirty_cache_small(phys_addr, phys_addr.wrapping_add(4 as u32));
-        write_aligned32_no_mmap_or_dirty_check(addr, value);
-    };
 }
 
 pub unsafe fn write64_no_mmap_or_dirty_check(addr: u32, value: u64) {
