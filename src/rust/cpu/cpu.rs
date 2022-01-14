@@ -1816,7 +1816,11 @@ pub unsafe fn do_page_walk(
     let mut allow_user: bool = true;
     let page = (addr as u32 >> 12) as i32;
     let high;
-    if *cr & CR0_PG == 0 {
+
+    let cr0 = *cr;
+    let cr4 = *cr.offset(4);
+
+    if cr0 & CR0_PG == 0 {
         // paging disabled
         high = (addr as u32 & 0xFFFFF000) as i32;
         global = false
@@ -1824,14 +1828,12 @@ pub unsafe fn do_page_walk(
     else {
         profiler::stat_increment(TLB_MISS);
 
-        let pae = *cr.offset(4) & CR4_PAE != 0;
+        let pae = cr4 & CR4_PAE != 0;
 
         let (page_dir_addr, page_dir_entry) = if pae {
-            let pdpt_idx = (addr as u32) >> 30;
-            let page_dir_idx = ((addr as u32) >> 21) & 0x1FF;
-
-            let pdpt_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(pdpt_idx << 1);
-            let pdpt_entry = read64s(pdpt_addr << 2);
+            // XXX: This should execute when cr3 is loaded
+            let pdpt_addr = *cr.offset(3) as u32 + (((addr as u32) >> 30) << 3);
+            let pdpt_entry = read64s(pdpt_addr);
             if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
                     addr,
@@ -1846,8 +1848,8 @@ pub unsafe fn do_page_walk(
             );
 
             let page_dir_addr =
-                ((pdpt_entry as u32 & 0xFFFFF000) >> 2).wrapping_add(page_dir_idx << 1);
-            let page_dir_entry = read64s(page_dir_addr << 2);
+                (pdpt_entry as u32 & 0xFFFFF000) + ((((addr as u32) >> 21) & 0x1FF) << 3);
+            let page_dir_entry = read64s(page_dir_addr);
             dbg_assert!(
                 page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
                 "Unsupported: Page directory entry larger than 32 bits"
@@ -1857,13 +1859,12 @@ pub unsafe fn do_page_walk(
                 "Unsupported: NX bit"
             );
 
-            (page_dir_addr as i32, page_dir_entry as i32)
+            (page_dir_addr, page_dir_entry as i32)
         }
         else {
-            let page_dir_idx = (addr as u32) >> 22;
-            let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(page_dir_idx);
-            let page_dir_entry = read32s(page_dir_addr << 2);
-            (page_dir_addr as i32, page_dir_entry)
+            let page_dir_addr = *cr.offset(3) as u32 + (((addr as u32) >> 22) << 2);
+            let page_dir_entry = read32s(page_dir_addr);
+            (page_dir_addr, page_dir_entry)
         };
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
@@ -1875,7 +1876,7 @@ pub unsafe fn do_page_walk(
             });
         }
 
-        let kernel_write_override = !user && 0 == *cr & CR0_WP;
+        let kernel_write_override = !user && 0 == cr0 & CR0_WP;
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
             can_write = false;
             if for_writing {
@@ -1887,6 +1888,7 @@ pub unsafe fn do_page_walk(
                 });
             }
         }
+
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
             allow_user = false;
             if user {
@@ -1899,7 +1901,8 @@ pub unsafe fn do_page_walk(
                 });
             }
         }
-        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != *cr.offset(4) & CR4_PSE {
+
+        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
             // size bit is set
             // set the accessed and dirty bits
 
@@ -1908,7 +1911,7 @@ pub unsafe fn do_page_walk(
                 | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
 
             if side_effects && page_dir_entry != new_page_dir_entry {
-                write8((page_dir_addr as u32) << 2, new_page_dir_entry);
+                write8(page_dir_addr, new_page_dir_entry);
             }
 
             high = if pae {
@@ -1921,10 +1924,9 @@ pub unsafe fn do_page_walk(
         }
         else {
             let (page_table_addr, page_table_entry) = if pae {
-                let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
-                let page_table_idx = (addr as u32 >> 12) & 0x1FF;
-                let page_table_addr = page_table.wrapping_add(page_table_idx << 1);
-                let page_table_entry = read64s(page_table_addr << 2);
+                let page_table_addr =
+                    (page_dir_entry as u32 & 0xFFFFF000) + (((addr as u32 >> 12) & 0x1FF) << 3);
+                let page_table_entry = read64s(page_table_addr);
                 dbg_assert!(
                     page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
                     "Unsupported: Page table entry larger than 32 bits"
@@ -1934,14 +1936,13 @@ pub unsafe fn do_page_walk(
                     "Unsupported: NX bit"
                 );
 
-                (page_table_addr as i32, page_table_entry as i32)
+                (page_table_addr, page_table_entry as i32)
             }
             else {
-                let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
-                let page_table_idx = (addr as u32 >> 12) & 0x3FF;
-                let page_table_addr = page_table.wrapping_add(page_table_idx);
-                let page_table_entry = read32s(page_table_addr << 2);
-                (page_table_addr as i32, page_table_entry)
+                let page_table_addr =
+                    (page_dir_entry as u32 & 0xFFFFF000) + (((addr as u32 >> 12) & 0x3FF) << 2);
+                let page_table_entry = read32s(page_table_addr);
+                (page_table_addr, page_table_entry)
             };
 
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
@@ -1980,19 +1981,20 @@ pub unsafe fn do_page_walk(
             // Note: dirty bit is only set on the page table entry
             let new_page_dir_entry = page_dir_entry | PAGE_TABLE_ACCESSED_MASK;
             if side_effects && new_page_dir_entry != page_dir_entry {
-                write8((page_dir_addr as u32) << 2, new_page_dir_entry);
+                write8(page_dir_addr, new_page_dir_entry);
             }
             let new_page_table_entry = page_table_entry
                 | PAGE_TABLE_ACCESSED_MASK
                 | if for_writing { PAGE_TABLE_DIRTY_MASK } else { 0 };
             if side_effects && page_table_entry != new_page_table_entry {
-                write8((page_table_addr as u32) << 2, new_page_table_entry);
+                write8(page_table_addr, new_page_table_entry);
             }
 
             high = (page_table_entry as u32 & 0xFFFFF000) as i32;
             global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
     }
+
     if side_effects && tlb_data[page as usize] == 0 {
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
             profiler::stat_increment(TLB_FULL);
@@ -2026,7 +2028,7 @@ pub unsafe fn do_page_walk(
         | if can_write { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
         | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
-        | if global && 0 != *cr.offset(4) & CR4_PGE { TLB_GLOBAL } else { 0 }
+        | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
     dbg_assert!((high ^ page << 12) & 0xFFF == 0);
     if side_effects {
