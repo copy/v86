@@ -335,6 +335,16 @@
                 cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
             },
             {
+                id: "nodeos",
+                bzimage: {
+                    url: host + "nodeos-kernel.bin",
+                    size: 14452000,
+                    async: false,
+                },
+                name: "NodeOS",
+                cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+            },
+            {
                 id: "dsl",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
