@@ -80,7 +80,7 @@ Here's an overview of the operating systems supported in v86:
 - OpenBSD works with a specific boot configuration. At the `boot>` prompt type
   `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
 - NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
-- SerenityOS doesn't work due to missing PAE support.
+- Older versions of SerenityOS work (1.0.gc460f4a is a known working version).
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 

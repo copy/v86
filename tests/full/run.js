@@ -636,6 +636,15 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "SerenityOS",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            hda: root_path + "/images/serenity.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+        },
+        {
             name: "Tiny Core 11 CD",
             skip_if_disk_image_missing: 1,
             timeout: 10 * 60,

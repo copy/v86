@@ -224,6 +224,31 @@
                 bzimage_initrd_from_filesystem: true,
             },
             {
+                id: "serenity",
+                name: "SerenityOS",
+                hda: {
+                    "url": host + "serenity.img",
+                    "async": true,
+                    "size": 876 * 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                memory_size: 512 * 1024 * 1024,
+                state: { url: host + "serenity_state.bin.zst", },
+                homepage: "https://serenityos.org/",
+            },
+            {
+                id: "serenity-boot",
+                name: "SerenityOS",
+                hda: {
+                    "url": host + "serenity.img",
+                    "async": true,
+                    "size": 876 * 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                memory_size: 512 * 1024 * 1024,
+                homepage: "https://serenityos.org/",
+            },
+            {
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
