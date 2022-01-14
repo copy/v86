@@ -1797,20 +1797,17 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
     }
 }
 
-/*
- * 32-bit paging:
- * - 10 bits PD | 10 bits PT | 12 bits offset
- * - 10 bits PD | 22 bits offset (4MB huge page)
- *
- * PAE paging:
- * - 2 bits PDPT | 9 bits PD | 9 bits PT | 12 bits offset
- * - 2 bits PDPT | 9 bits PD | 21 bits offset (2MB huge page)
- *
- * Note that PAE entries are 64-bit, and can describe physical addresses over 32
- * bits. However, since we support only 32-bit physical addresses, we require
- * the high half of the entry to be 0 (except for the execute-disable bit in
- * PDE and PTE).
- */
+// 32-bit paging:
+// - 10 bits PD | 10 bits PT | 12 bits offset
+// - 10 bits PD | 22 bits offset (4MB huge page)
+//
+// PAE paging:
+// - 2 bits PDPT | 9 bits PD | 9 bits PT | 12 bits offset
+// - 2 bits PDPT | 9 bits PD | 21 bits offset (2MB huge page)
+//
+// Note that PAE entries are 64-bit, and can describe physical addresses over 32
+// bits. However, since we support only 32-bit physical addresses, we require
+// the high half of the entry to be 0.
 pub unsafe fn do_page_walk(
     addr: i32,
     for_writing: bool,
@@ -2015,11 +2012,13 @@ unsafe fn walk_page_directory(pae: bool, addr: i32) -> Option<(i32, i32)> {
 
         let page_dir_addr = ((pdpt_entry as u32 & 0xFFFFF000)>> 2).wrapping_add(page_dir_idx << 1);
         let page_dir_entry = read_aligned64(page_dir_addr);
-        // Note that the highest bit of PDE specifies execute-disable, and can
-        // be set (we'll ignore it anyway).
         dbg_assert!(
             page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
             "Unsupported: Page directory entry larger than 32 bits"
+        );
+        dbg_assert!(
+            page_dir_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
+            "Unsupported: NX bit"
         );
 
         return Some((page_dir_addr as i32, page_dir_entry as i32));
@@ -2041,11 +2040,13 @@ unsafe fn walk_page_table(
         let page_table_idx = (addr as u32 >> 12) & 0x1FF;
         let page_table_addr = page_table.wrapping_add(page_table_idx << 1);
         let page_table_entry = read_aligned64(page_table_addr);
-        // Note that the highest bit of PTE specifies execute-disable, and can
-        // be set (we'll ignore it anyway).
         dbg_assert!(
             page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
             "Unsupported: Page table entry larger than 32 bits"
+        );
+        dbg_assert!(
+            page_table_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
+            "Unsupported: NX bit"
         );
 
         return (page_table_addr as i32, page_table_entry as i32);
