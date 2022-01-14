@@ -97,6 +97,19 @@ pub unsafe fn read_aligned32(addr: u32) -> i32 {
     };
 }
 
+pub unsafe fn read_aligned64(addr: u32) -> i64 {
+    dbg_assert!(addr < 0x40000000 as u32);
+    dbg_assert!(addr & 1 == 0);
+    if in_mapped_range(addr << 2) {
+        let lo = mmap_read32(addr << 2);
+        let hi = mmap_read32(addr + 1 << 2);
+        return lo as i64 | (hi as i64) << 32;
+    }
+    else {
+        return *(mem8 as *mut i64).offset((addr >> 1) as isize);
+    }
+}
+
 pub unsafe fn read128(addr: u32) -> reg128 {
     let mut value: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],

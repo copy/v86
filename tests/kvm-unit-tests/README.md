@@ -12,6 +12,7 @@ make -C ../../build/libv86.js
 ./run.js x86/sieve.flat
 ./run.js x86/ioapic.flat
 ./run.js x86/apic.flat
+./run.js x86/pae.flat
 ```
 
 Tests can also be run in browser by going to `?profile=test-$name` (for

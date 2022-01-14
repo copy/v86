@@ -20,8 +20,8 @@ use cpu::global_pointers::*;
 use cpu::memory;
 use cpu::memory::mem8;
 use cpu::memory::{
-    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32, write8,
-    write_aligned32,
+    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32,
+    read_aligned64, write8, write_aligned32,
 };
 use cpu::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
@@ -1797,6 +1797,20 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
     }
 }
 
+/*
+ * 32-bit paging:
+ * - 10 bits PD | 10 bits PT | 12 bits offset
+ * - 10 bits PD | 22 bits offset (4MB huge page)
+ *
+ * PAE paging:
+ * - 2 bits PDPT | 9 bits PD | 9 bits PT | 12 bits offset
+ * - 2 bits PDPT | 9 bits PD | 21 bits offset (2MB huge page)
+ *
+ * Note that PAE entries are 64-bit, and can describe physical addresses over 32
+ * bits. However, since we support only 32-bit physical addresses, we require
+ * the high half of the entry to be 0 (except for the execute-disable bit in
+ * PDE and PTE).
+ */
 pub unsafe fn do_page_walk(
     addr: i32,
     for_writing: bool,
@@ -1816,16 +1830,25 @@ pub unsafe fn do_page_walk(
     else {
         profiler::stat_increment(TLB_MISS);
 
-        let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add((page >> 10) as u32) as i32;
-        let page_dir_entry = read_aligned32(page_dir_addr as u32);
-        // XXX
-        let kernel_write_override = !user && 0 == *cr & CR0_WP;
-        if 0 == page_dir_entry & PAGE_TABLE_PRESENT_MASK {
-            // to do at this place:
-            //
-            // - set cr2 = addr (which caused the page fault)
-            // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
-            // - prevent execution of the function that triggered this call
+        let pae = *cr.offset(4) & CR4_PAE != 0;
+
+        let (page_dir_addr, page_dir_entry) =
+            match walk_page_directory(pae, addr) {
+                Some((a, e)) => (a, e),
+                // to do at this place:
+                //
+                // - set cr2 = addr (which caused the page fault)
+                // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
+                // - prevent execution of the function that triggered this call
+                None => return Err(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: false,
+                }),
+            };
+
+        if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
             return Err(PageFault {
                 addr,
                 for_writing,
@@ -1833,6 +1856,9 @@ pub unsafe fn do_page_walk(
                 present: false,
             });
         }
+
+        // XXX
+        let kernel_write_override = !user && 0 == *cr & CR0_WP;
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
             can_write = false;
             if for_writing {
@@ -1868,13 +1894,17 @@ pub unsafe fn do_page_walk(
                 write_aligned32(page_dir_addr as u32, new_page_dir_entry);
             }
 
-            high = (page_dir_entry as u32 & 0xFFC00000 | (addr & 0x3FF000) as u32) as i32;
+            high = if pae {
+                (page_dir_entry as u32 & 0xFFE00000 | (addr & 0x1FF000) as u32) as i32
+            } else {
+                (page_dir_entry as u32 & 0xFFC00000 | (addr & 0x3FF000) as u32) as i32
+            };
             global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
         else {
-            let page_table_addr = ((page_dir_entry as u32 & 0xFFFFF000) >> 2)
-                .wrapping_add((page & 1023) as u32) as i32;
-            let page_table_entry = read_aligned32(page_table_addr as u32);
+            let (page_table_addr, page_table_entry) =
+                walk_page_table(pae, addr, page_dir_entry);
+
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
                     addr,
@@ -1883,6 +1913,7 @@ pub unsafe fn do_page_walk(
                     present: false,
                 });
             }
+
             if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
                 can_write = false;
                 if for_writing {
@@ -1965,6 +1996,65 @@ pub unsafe fn do_page_walk(
         tlb_data[page as usize] = (high + memory::mem8 as i32) ^ page << 12 | info_bits as i32;
     }
     return Ok(high);
+}
+
+unsafe fn walk_page_directory(pae: bool, addr: i32) -> Option<(i32, i32)> {
+    if pae {
+        let pdpt_idx = (addr as u32) >> 30;
+        let page_dir_idx = ((addr as u32) >> 21) & 0x1FF;
+
+        let pdpt_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(pdpt_idx << 1);
+        let pdpt_entry = read_aligned64(pdpt_addr);
+        if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
+            return None;
+        }
+        dbg_assert!(
+            pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
+            "Unsupported: PDPT entry larger than 32 bits"
+        );
+
+        let page_dir_addr = ((pdpt_entry as u32 & 0xFFFFF000)>> 2).wrapping_add(page_dir_idx << 1);
+        let page_dir_entry = read_aligned64(page_dir_addr);
+        // Note that the highest bit of PDE specifies execute-disable, and can
+        // be set (we'll ignore it anyway).
+        dbg_assert!(
+            page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
+            "Unsupported: Page directory entry larger than 32 bits"
+        );
+
+        return Some((page_dir_addr as i32, page_dir_entry as i32));
+    }
+
+    let page_dir_idx = (addr as u32) >> 22;
+    let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(page_dir_idx);
+    let page_dir_entry = read_aligned32(page_dir_addr);
+    return Some((page_dir_addr as i32, page_dir_entry));
+}
+
+unsafe fn walk_page_table(
+    pae: bool,
+    addr: i32,
+    page_dir_entry: i32
+) -> (i32, i32) {
+    let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
+    if pae {
+        let page_table_idx = (addr as u32 >> 12) & 0x1FF;
+        let page_table_addr = page_table.wrapping_add(page_table_idx << 1);
+        let page_table_entry = read_aligned64(page_table_addr);
+        // Note that the highest bit of PTE specifies execute-disable, and can
+        // be set (we'll ignore it anyway).
+        dbg_assert!(
+            page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
+            "Unsupported: Page table entry larger than 32 bits"
+        );
+
+        return (page_table_addr as i32, page_table_entry as i32);
+    }
+
+    let page_table_idx = (addr as u32 >> 12) & 0x3FF;
+    let page_table_addr = page_table.wrapping_add(page_table_idx);
+    let page_table_entry = read_aligned32(page_table_addr);
+    return (page_table_addr as i32, page_table_entry);
 }
 
 #[no_mangle]
