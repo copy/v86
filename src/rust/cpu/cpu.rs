@@ -1829,16 +1829,44 @@ pub unsafe fn do_page_walk(
 
         let pae = *cr.offset(4) & CR4_PAE != 0;
 
-        let (page_dir_addr, page_dir_entry) = match walk_page_directory(pae, addr) {
-            Some((a, e)) => (a, e),
-            None => {
+        let (page_dir_addr, page_dir_entry) = if pae {
+            let pdpt_idx = (addr as u32) >> 30;
+            let page_dir_idx = ((addr as u32) >> 21) & 0x1FF;
+
+            let pdpt_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(pdpt_idx << 1);
+            let pdpt_entry = read_aligned64(pdpt_addr);
+            if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
                     addr,
                     for_writing,
                     user,
                     present: false,
                 });
-            },
+            }
+            dbg_assert!(
+                pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
+                "Unsupported: PDPT entry larger than 32 bits"
+            );
+
+            let page_dir_addr =
+                ((pdpt_entry as u32 & 0xFFFFF000) >> 2).wrapping_add(page_dir_idx << 1);
+            let page_dir_entry = read_aligned64(page_dir_addr);
+            dbg_assert!(
+                page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
+                "Unsupported: Page directory entry larger than 32 bits"
+            );
+            dbg_assert!(
+                page_dir_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
+                "Unsupported: NX bit"
+            );
+
+            (page_dir_addr as i32, page_dir_entry as i32)
+        }
+        else {
+            let page_dir_idx = (addr as u32) >> 22;
+            let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(page_dir_idx);
+            let page_dir_entry = read_aligned32(page_dir_addr);
+            (page_dir_addr as i32, page_dir_entry)
         };
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
@@ -1895,7 +1923,29 @@ pub unsafe fn do_page_walk(
             global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
         else {
-            let (page_table_addr, page_table_entry) = walk_page_table(pae, addr, page_dir_entry);
+            let (page_table_addr, page_table_entry) = if pae {
+                let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
+                let page_table_idx = (addr as u32 >> 12) & 0x1FF;
+                let page_table_addr = page_table.wrapping_add(page_table_idx << 1);
+                let page_table_entry = read_aligned64(page_table_addr);
+                dbg_assert!(
+                    page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
+                    "Unsupported: Page table entry larger than 32 bits"
+                );
+                dbg_assert!(
+                    page_table_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
+                    "Unsupported: NX bit"
+                );
+
+                (page_table_addr as i32, page_table_entry as i32)
+            }
+            else {
+                let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
+                let page_table_idx = (addr as u32 >> 12) & 0x3FF;
+                let page_table_addr = page_table.wrapping_add(page_table_idx);
+                let page_table_entry = read_aligned32(page_table_addr);
+                (page_table_addr as i32, page_table_entry)
+            };
 
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
@@ -1988,65 +2038,6 @@ pub unsafe fn do_page_walk(
         tlb_data[page as usize] = (high + memory::mem8 as i32) ^ page << 12 | info_bits as i32;
     }
     return Ok(high);
-}
-
-unsafe fn walk_page_directory(pae: bool, addr: i32) -> Option<(i32, i32)> {
-    if pae {
-        let pdpt_idx = (addr as u32) >> 30;
-        let page_dir_idx = ((addr as u32) >> 21) & 0x1FF;
-
-        let pdpt_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(pdpt_idx << 1);
-        let pdpt_entry = read_aligned64(pdpt_addr);
-        if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
-            return None;
-        }
-        dbg_assert!(
-            pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
-            "Unsupported: PDPT entry larger than 32 bits"
-        );
-
-        let page_dir_addr = ((pdpt_entry as u32 & 0xFFFFF000) >> 2).wrapping_add(page_dir_idx << 1);
-        let page_dir_entry = read_aligned64(page_dir_addr);
-        dbg_assert!(
-            page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
-            "Unsupported: Page directory entry larger than 32 bits"
-        );
-        dbg_assert!(
-            page_dir_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
-            "Unsupported: NX bit"
-        );
-
-        return Some((page_dir_addr as i32, page_dir_entry as i32));
-    }
-
-    let page_dir_idx = (addr as u32) >> 22;
-    let page_dir_addr = (*cr.offset(3) as u32 >> 2).wrapping_add(page_dir_idx);
-    let page_dir_entry = read_aligned32(page_dir_addr);
-    return Some((page_dir_addr as i32, page_dir_entry));
-}
-
-unsafe fn walk_page_table(pae: bool, addr: i32, page_dir_entry: i32) -> (i32, i32) {
-    let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
-    if pae {
-        let page_table_idx = (addr as u32 >> 12) & 0x1FF;
-        let page_table_addr = page_table.wrapping_add(page_table_idx << 1);
-        let page_table_entry = read_aligned64(page_table_addr);
-        dbg_assert!(
-            page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
-            "Unsupported: Page table entry larger than 32 bits"
-        );
-        dbg_assert!(
-            page_table_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
-            "Unsupported: NX bit"
-        );
-
-        return (page_table_addr as i32, page_table_entry as i32);
-    }
-
-    let page_table_idx = (addr as u32 >> 12) & 0x3FF;
-    let page_table_addr = page_table.wrapping_add(page_table_idx);
-    let page_table_entry = read_aligned32(page_table_addr);
-    return (page_table_addr as i32, page_table_entry);
 }
 
 #[no_mangle]
