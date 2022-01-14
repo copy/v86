@@ -332,8 +332,6 @@ CPU.prototype.debug_init = function()
         };
     }
 
-    var dbg_log = console.log.bind(console);
-
     function dump_page_structures() {
         var pae = !!(cpu.cr[4] & CR4_PAE);
         if (pae)

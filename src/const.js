@@ -120,6 +120,7 @@ var
 
 /** @const */
 var CR0_PG = 1 << 31;
+/** @const */
 var CR4_PAE = 1 << 5;
 
 

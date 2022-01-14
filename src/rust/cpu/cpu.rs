@@ -20,8 +20,8 @@ use cpu::global_pointers::*;
 use cpu::memory;
 use cpu::memory::mem8;
 use cpu::memory::{
-    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32,
-    read_aligned64, write8, write_aligned32,
+    in_mapped_range, read8, read16, read32s, read64s, read128, read_aligned32, read_aligned64,
+    write8, write_aligned32,
 };
 use cpu::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
@@ -1829,21 +1829,17 @@ pub unsafe fn do_page_walk(
 
         let pae = *cr.offset(4) & CR4_PAE != 0;
 
-        let (page_dir_addr, page_dir_entry) =
-            match walk_page_directory(pae, addr) {
-                Some((a, e)) => (a, e),
-                // to do at this place:
-                //
-                // - set cr2 = addr (which caused the page fault)
-                // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
-                // - prevent execution of the function that triggered this call
-                None => return Err(PageFault {
+        let (page_dir_addr, page_dir_entry) = match walk_page_directory(pae, addr) {
+            Some((a, e)) => (a, e),
+            None => {
+                return Err(PageFault {
                     addr,
                     for_writing,
                     user,
                     present: false,
-                }),
-            };
+                });
+            },
+        };
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
             return Err(PageFault {
@@ -1854,7 +1850,6 @@ pub unsafe fn do_page_walk(
             });
         }
 
-        // XXX
         let kernel_write_override = !user && 0 == *cr & CR0_WP;
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
             can_write = false;
@@ -1893,14 +1888,14 @@ pub unsafe fn do_page_walk(
 
             high = if pae {
                 (page_dir_entry as u32 & 0xFFE00000 | (addr & 0x1FF000) as u32) as i32
-            } else {
+            }
+            else {
                 (page_dir_entry as u32 & 0xFFC00000 | (addr & 0x3FF000) as u32) as i32
             };
             global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
         else {
-            let (page_table_addr, page_table_entry) =
-                walk_page_table(pae, addr, page_dir_entry);
+            let (page_table_addr, page_table_entry) = walk_page_table(pae, addr, page_dir_entry);
 
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
@@ -2010,7 +2005,7 @@ unsafe fn walk_page_directory(pae: bool, addr: i32) -> Option<(i32, i32)> {
             "Unsupported: PDPT entry larger than 32 bits"
         );
 
-        let page_dir_addr = ((pdpt_entry as u32 & 0xFFFFF000)>> 2).wrapping_add(page_dir_idx << 1);
+        let page_dir_addr = ((pdpt_entry as u32 & 0xFFFFF000) >> 2).wrapping_add(page_dir_idx << 1);
         let page_dir_entry = read_aligned64(page_dir_addr);
         dbg_assert!(
             page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
@@ -2030,11 +2025,7 @@ unsafe fn walk_page_directory(pae: bool, addr: i32) -> Option<(i32, i32)> {
     return Some((page_dir_addr as i32, page_dir_entry));
 }
 
-unsafe fn walk_page_table(
-    pae: bool,
-    addr: i32,
-    page_dir_entry: i32
-) -> (i32, i32) {
+unsafe fn walk_page_table(pae: bool, addr: i32, page_dir_entry: i32) -> (i32, i32) {
     let page_table = (page_dir_entry as u32 & 0xFFFFF000) >> 2;
     if pae {
         let page_table_idx = (addr as u32 >> 12) & 0x1FF;

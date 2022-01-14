@@ -11,7 +11,6 @@ list of emulated hardware:
   - Single stepping (trap flag, debug registers)
   - Some exceptions, especially floating point and SSE
   - Multicore
-  - PAE
   - 64-bit extensions
 - A floating point unit (FPU). Calculations are done using the Berkeley
   SoftFloat library and therefore should be precise (but slow). Trigonometric
