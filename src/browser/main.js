@@ -844,7 +844,7 @@
 
         settings.networking_proxy = query_args["networking_proxy"];
         settings.audio = query_args["audio"] !== "0";
-        settings.acpi = !!query_args["acpi"];
+        settings.acpi = query_args["acpi"];
 
         for(var i = 0; i < oses.length; i++)
         {
