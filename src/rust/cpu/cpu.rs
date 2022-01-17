@@ -165,6 +165,7 @@ pub const CR4_PAE: i32 = 1 << 5;
 pub const CR4_PGE: i32 = 1 << 7;
 pub const CR4_OSFXSR: i32 = 1 << 9;
 pub const CR4_OSXMMEXCPT: i32 = 1 << 10;
+pub const CR4_SMEP: i32 = 1 << 20;
 
 pub const TSR_BACKLINK: i32 = 0x00;
 pub const TSR_CR3: i32 = 0x1C;
@@ -1695,9 +1696,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
     *segment_limits.offset(TR as isize) = descriptor.effective_limit();
     *sreg.offset(TR as isize) = selector.raw;
 
-    *cr.offset(3) = new_cr3;
-    dbg_assert!((*cr.offset(3) & 0xFFF) == 0);
-    clear_tlb();
+    set_cr3(new_cr3);
 
     *cr.offset(0) |= CR0_TS;
 
@@ -1831,9 +1830,7 @@ pub unsafe fn do_page_walk(
         let pae = cr4 & CR4_PAE != 0;
 
         let (page_dir_addr, page_dir_entry) = if pae {
-            // XXX: This should execute when cr3 is loaded
-            let pdpt_addr = *cr.offset(3) as u32 + (((addr as u32) >> 30) << 3);
-            let pdpt_entry = read64s(pdpt_addr);
+            let pdpt_entry = *reg_pdpte.offset(((addr as u32) >> 30) as isize);
             if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
                 return Err(PageFault {
                     addr,
@@ -1842,10 +1839,6 @@ pub unsafe fn do_page_walk(
                     present: false,
                 });
             }
-            dbg_assert!(
-                pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
-                "Unsupported: PDPT entry larger than 32 bits"
-            );
 
             let page_dir_addr =
                 (pdpt_entry as u32 & 0xFFFFF000) + ((((addr as u32) >> 21) & 0x1FF) << 3);
@@ -2680,7 +2673,49 @@ pub unsafe fn set_cr0(cr0: i32) {
         full_clear_tlb();
     }
 
+    if *cr.offset(4) & CR4_PAE != 0
+        && old_cr0 & (CR0_CD | CR0_NW | CR0_PG) != cr0 & (CR0_CD | CR0_NW | CR0_PG)
+    {
+        load_pdpte(*cr.offset(3))
+    }
+
     *protected_mode = (*cr & CR0_PE) == CR0_PE;
+}
+
+pub unsafe fn set_cr3(mut cr3: i32) {
+    if false {
+        dbg_log!("cr3 <- {:x}", cr3);
+    }
+    if *cr.offset(4) & CR4_PAE != 0 {
+        cr3 &= !0b1111;
+        load_pdpte(cr3);
+    }
+    else {
+        cr3 &= !0b111111100111;
+        dbg_assert!(cr3 & 0xFFF == 0, "TODO");
+    }
+    *cr.offset(3) = cr3;
+    clear_tlb();
+}
+
+pub unsafe fn load_pdpte(cr3: i32) {
+    dbg_assert!(cr3 & 0b1111 == 0);
+    for i in 0..4 {
+        let mut pdpt_entry = read64s(cr3 as u32 + 8 * i as u32) as u64;
+        pdpt_entry &= !0b1110_0000_0000;
+        dbg_assert!(pdpt_entry & 0b11000 == 0, "TODO");
+        dbg_assert!(
+            pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
+            "Unsupported: PDPT entry larger than 32 bits"
+        );
+        if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
+            dbg_assert!(
+                pdpt_entry & 0b1_1110_0110 == 0,
+                "TODO: #gp reserved bit in pdpte"
+            );
+        }
+        *reg_pdpte.offset(i) = pdpt_entry;
+    }
 }
 
 pub unsafe fn cpl_changed() { *last_virt_eip = -1; }
@@ -4142,6 +4177,10 @@ pub unsafe fn reset_cpu() {
         write_xmm128_2(i as i32, 0, 0);
 
         *fpu_st.offset(i) = ::softfloat::F80::ZERO;
+    }
+
+    for i in 0..4 {
+        *reg_pdpte.offset(i) = 0
     }
 
     *fpu_stack_empty = 0xFF;

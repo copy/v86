@@ -766,7 +766,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
         return;
     }
 
-    let mut data: i32 = read_reg32(r);
+    let data = read_reg32(r);
     // mov cr, addr
     match creg {
         0 => {
@@ -779,17 +779,9 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
             dbg_log!("cr2 <- {:x}", data);
             *cr.offset(2) = data
         },
-        3 => {
-            if false {
-                dbg_log!("cr3 <- {:x}", data);
-            }
-            data &= !0b111111100111;
-            dbg_assert!(data & 0xFFF == 0, "TODO");
-            *cr.offset(3) = data;
-            clear_tlb();
-        },
+        3 => set_cr3(data),
         4 => {
-            dbg_log!("cr4 <- {:x}", *cr.offset(4));
+            dbg_log!("cr4 <- {:x}", data);
             if 0 != data as u32
                 & ((1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19) as u32 | 0xFFC00000)
             {
@@ -800,6 +792,11 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
             else {
                 if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_PAE) {
                     full_clear_tlb();
+                }
+                if data & CR4_PAE != 0
+                    && 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_SMEP)
+                {
+                    load_pdpte(*cr.offset(3));
                 }
                 *cr.offset(4) = data;
             }

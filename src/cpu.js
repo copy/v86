@@ -158,6 +158,8 @@ function CPU(bus, wm)
     // debug registers
     this.dreg = v86util.view(Int32Array, memory, 684, 8);
 
+    this.reg_pdpte = v86util.view(Int32Array, memory, 968, 8);
+
     this.fw_value = [];
     this.fw_pointer = 0;
     this.option_roms = [];
@@ -341,6 +343,7 @@ CPU.prototype.get_state = function()
     state[39] = this.reg32;
     state[40] = this.sreg;
     state[41] = this.dreg;
+    state[42] = this.reg_pdpte;
 
     this.store_current_tsc();
     state[43] = this.current_tsc;
@@ -437,6 +440,7 @@ CPU.prototype.set_state = function(state)
     this.reg32.set(state[39]);
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
+    state[42] && this.reg_pdpte.set(state[42]);
 
     this.set_tsc(state[43][0], state[43][1]);
 

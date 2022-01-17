@@ -233,7 +233,7 @@
                     use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 512 * 1024 * 1024,
-                state: { url: host + "serenity_state.bin.zst", },
+                state: { url: host + "serenity_state-v2.bin.zst", },
                 homepage: "https://serenityos.org/",
             },
             {

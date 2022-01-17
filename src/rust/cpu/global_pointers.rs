@@ -53,6 +53,8 @@ pub const mxcsr: *mut i32 = 824 as *mut i32;
 pub const reg_xmm: *mut reg128 = 832 as *mut reg128;
 pub const current_tsc: *mut u64 = 960 as *mut u64;
 
+pub const reg_pdpte: *mut u64 = 968 as *mut u64; // 4 64-bit entries
+
 pub const fpu_stack_ptr: *mut u8 = 1032 as *mut u8;
 pub const fpu_control_word: *mut u16 = 1036 as *mut u16;
 pub const fpu_status_word: *mut u16 = 1040 as *mut u16;
