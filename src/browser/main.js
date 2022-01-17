@@ -777,6 +777,18 @@
                 name: "Tinycore",
                 homepage: "http://www.tinycorelinux.net/",
             },
+            {
+                id: "freenos",
+                memory_size: 256 * 1024 * 1024,
+                cdrom: {
+                    "url": host + "FreeNOS-1.0.3.iso",
+                    "async": false,
+                    "size": 11014144,
+                },
+                name: "FreeNOS",
+                homepage: "http://www.freenos.org/",
+                acpi: true,
+            },
         ];
 
         if(DEBUG)

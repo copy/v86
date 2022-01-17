@@ -636,6 +636,21 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "FreeNOS",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            cdrom: root_path + "/images/FreeNOS-1.0.3.iso",
+            acpi: true,
+            actions: [
+                {
+                    on_text: "login:",
+                    run: "root\n",
+                },
+            ],
+            expected_texts: ["login:", "(localhost)"],
+            expected_serial_text: ["FreeNOS 1.0.3"],
+        },
+        {
             name: "SerenityOS",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
