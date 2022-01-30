@@ -134,8 +134,6 @@ RTC.prototype.timer = function(time, legacy_mode)
 
         this.next_interrupt += this.periodic_interrupt_time *
                 Math.ceil((time - this.next_interrupt) / this.periodic_interrupt_time);
-
-        return Math.max(0, time - this.next_interrupt);
     }
     else if(this.next_interrupt_alarm && this.next_interrupt_alarm < time)
     {
@@ -145,7 +143,18 @@ RTC.prototype.timer = function(time, legacy_mode)
         this.next_interrupt_alarm = 0;
     }
 
-    return 100;
+    let t = 100;
+
+    if(this.periodic_interrupt && this.next_interrupt)
+    {
+        t = Math.min(t, Math.max(0, this.next_interrupt - time));
+    }
+    if(this.next_interrupt_alarm)
+    {
+        t = Math.min(t, Math.max(0, this.next_interrupt_alarm - time));
+    }
+
+    return t;
 };
 
 RTC.prototype.bcd_pack = function(n)

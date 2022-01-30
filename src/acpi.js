@@ -144,6 +144,7 @@ ACPI.prototype.timer = function(now)
     }
 
     this.last_timer = timer;
+    return 100; // TODO
 };
 
 ACPI.prototype.get_timer = function(now)

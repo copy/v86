@@ -45,7 +45,7 @@ function HPET(cpu)
     {
         if(!hpet_enabled)
         {
-            return;
+            return 100;
         }
 
         var
@@ -107,6 +107,8 @@ function HPET(cpu)
         }
 
         last_check = counter_value;
+
+        return 100; // TODO
     };
 
     function get_counter()

@@ -11,8 +11,9 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm)
+function CPU(bus, wm, next_tick_immediately)
 {
+    this.next_tick_immediately = next_tick_immediately;
     this.wm = wm;
     this.wasm_patch();
     this.create_jit_imports();
@@ -562,15 +563,7 @@ CPU.prototype.main_run = function()
 {
     if(this.in_hlt[0])
     {
-        //if(false)
-        //{
-        //    var _t = this.hlt_loop();
-        //    var t = 0;
-        //}
-        //else
-        //{
-            var t = this.hlt_loop();
-        //}
+        const t = this.hlt_loop();
 
         if(this.in_hlt[0])
         {
@@ -578,7 +571,23 @@ CPU.prototype.main_run = function()
         }
     }
 
-    this.do_run();
+    const start = v86.microtick();
+    let now = start;
+
+    for(; now - start < TIME_PER_FRAME;)
+    {
+        this.do_many_cycles();
+
+        now = v86.microtick();
+
+        const t = this.run_hardware_timers(now);
+        this.handle_irqs();
+
+        if(this.in_hlt[0])
+        {
+            return t;
+        }
+    }
 
     return 0;
 };
@@ -1196,32 +1205,6 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
-CPU.prototype.do_run = function()
-{
-    /** @type {number} */
-    var start = v86.microtick();
-
-    /** @type {number} */
-    var now = start;
-
-    // outer loop:
-    // runs cycles + timers
-    for(; now - start < TIME_PER_FRAME;)
-    {
-        this.run_hardware_timers(now);
-        this.handle_irqs();
-
-        this.do_many_cycles();
-
-        if(this.in_hlt[0])
-        {
-            return;
-        }
-
-        now = v86.microtick();
-    }
-};
-
 CPU.prototype.do_many_cycles = function()
 {
     if(DEBUG)
@@ -1409,12 +1392,9 @@ CPU.prototype.hlt_loop = function()
 {
     if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
     {
-        //dbg_log("In HLT loop", LOG_CPU);
-
-        this.run_hardware_timers(v86.microtick());
+        const t = this.run_hardware_timers(v86.microtick());
         this.handle_irqs();
-
-        return 0;
+        return t;
     }
     else
     {
@@ -1428,19 +1408,24 @@ CPU.prototype.run_hardware_timers = function(now)
     {
         var pit_time = this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
         var rtc_time = this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
-        this.devices.hpet.timer(now);
+        var hpet_time = this.devices.hpet.timer(now);
     }
     else
     {
         var pit_time = this.devices.pit.timer(now, false);
         var rtc_time = this.devices.rtc.timer(now, false);
+        var hpet_time = 100;
     }
 
+    let acpi_time = 100;
+    let apic_time = 100;
     if(this.acpi_enabled[0])
     {
-        this.devices.acpi.timer(now);
-        this.devices.apic.timer(now);
+        acpi_time = this.devices.acpi.timer(now);
+        apic_time = this.devices.apic.timer(now);
     }
+
+    return Math.min(pit_time, rtc_time, hpet_time, acpi_time, apic_time);
 };
 
 CPU.prototype.hlt_op = function()
@@ -1467,6 +1452,7 @@ CPU.prototype.handle_irqs = function()
     if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
     {
         this.pic_acknowledge();
+        this.next_tick_immediately();
     }
 };
 

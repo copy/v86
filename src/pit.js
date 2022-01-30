@@ -106,8 +106,6 @@ PIT.prototype.timer = function(now, no_irq)
     {
         if(this.counter_enabled[0] && this.did_rollover(0, now))
         {
-            time_to_next_interrupt = 0;
-
             this.counter_start_value[0] = this.get_counter_value(0, now);
             this.counter_start_time[0] = now;
 
@@ -130,8 +128,15 @@ PIT.prototype.timer = function(now, no_irq)
         {
             this.cpu.device_lower_irq(0);
         }
+
+        if(this.counter_enabled[0])
+        {
+            const diff = now - this.counter_start_time[0];
+            const diff_in_ticks = Math.floor(diff * OSCILLATOR_FREQ);
+            const ticks_missing = this.counter_start_value[0] - diff_in_ticks; // XXX: to simplify
+            time_to_next_interrupt = ticks_missing / OSCILLATOR_FREQ;
+        }
     }
-    time_to_next_interrupt = 0;
 
     return time_to_next_interrupt;
 };
@@ -172,7 +177,7 @@ PIT.prototype.did_rollover = function(i, now)
     if(diff < 0)
     {
         // should only happen after restore_state
-        dbg_log("Warning: PIT timer difference is negative, resetting");
+        dbg_log("Warning: PIT timer difference is negative, resetting (timer " + i + ")");
         return true;
     }
     var diff_in_ticks = Math.floor(diff * OSCILLATOR_FREQ);

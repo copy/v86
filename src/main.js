@@ -12,8 +12,11 @@ function v86(bus, wasm)
     /** @type {boolean} */
     this.stopped = false;
 
+    this.tick_counter = 0;
+    this.worker = null;
+
     /** @type {CPU} */
-    this.cpu = new CPU(bus, wasm);
+    this.cpu = new CPU(bus, wasm, () => { this.idle && this.next_tick(0); });
 
     this.bus = bus;
     bus.register("cpu-init", this.init, this);
@@ -21,7 +24,7 @@ function v86(bus, wasm)
     bus.register("cpu-stop", this.stop, this);
     bus.register("cpu-restart", this.restart, this);
 
-    this.register_tick();
+    this.register_yield();
 }
 
 v86.prototype.run = function()
@@ -30,30 +33,40 @@ v86.prototype.run = function()
 
     if(!this.running)
     {
+        this.running = true;
         this.bus.send("emulator-started");
-        this.fast_next_tick();
     }
+
+    this.next_tick(0);
 };
 
 v86.prototype.do_tick = function()
 {
-    if(this.stopped)
+    if(this.stopped || !this.running)
     {
         this.stopped = this.running = false;
         this.bus.send("emulator-stopped");
         return;
     }
 
-    this.running = true;
-    var dt = this.cpu.main_run();
+    this.idle = false;
+    const t = this.cpu.main_run();
 
-    if(dt <= 0)
+    this.next_tick(t);
+};
+
+v86.prototype.next_tick = function(t)
+{
+    const tick = ++this.tick_counter;
+    this.idle = true;
+    this.yield(t, tick);
+};
+
+v86.prototype.yield_callback = function(tick)
+{
+    if(tick === this.tick_counter)
     {
-        this.fast_next_tick();
-    }
-    else
-    {
-        this.next_tick(dt);
+        this.do_tick();
     }
 };
 
@@ -67,7 +80,7 @@ v86.prototype.stop = function()
 
 v86.prototype.destroy = function()
 {
-    this.unregister_tick();
+    this.unregister_yield();
 };
 
 v86.prototype.restart = function()
@@ -82,132 +95,102 @@ v86.prototype.init = function(settings)
     this.bus.send("emulator-ready");
 };
 
-
-if(typeof importScripts === "function" && typeof queueMicrotask === "function")
+if(typeof process !== "undefined")
 {
-    let tick_counter = 0;
-
-    /** @this {v86} */
-    var fast_next_tick = function()
+    v86.prototype.yield = function(t, tick)
     {
-        if(tick_counter === 256)
+        if(t < 1)
         {
-            tick_counter = 0;
-            setTimeout(() => { this.do_tick(); }, 0);
+            global.setImmediate(tick => this.yield_callback(tick), tick);
         }
         else
         {
-            tick_counter++;
-            queueMicrotask(() => { this.do_tick(); });
+            setTimeout(tick => this.yield_callback(tick), t, tick);
         }
     };
 
-    /** @this {v86} */
-    var register_tick = function() {};
-
-    /** @this {v86} */
-    var unregister_tick = function() {};
+    v86.prototype.register_yield = function() {};
+    v86.prototype.unregister_yield = function() {};
 }
-else if(typeof setImmediate !== "undefined")
+else if(typeof Worker !== "undefined")
 {
-    /** @this {v86} */
-    fast_next_tick = function()
+    // XXX: This has a slightly lower throughput compared to window.postMessage
+
+    function the_worker()
     {
-        setImmediate(() => { this.do_tick(); });
-    };
-
-    /** @this {v86} */
-    register_tick = function() {};
-
-    /** @this {v86} */
-    unregister_tick = function() {};
-}
-else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
-{
-    // setImmediate shim for the browser.
-    // TODO: Make this deactivatable, for other applications
-    //       using postMessage
-
-    /** @const */
-    let MAGIC_POST_MESSAGE = 0xAA55;
-
-    /** @this {v86} */
-    fast_next_tick = function()
-    {
-        window.postMessage(MAGIC_POST_MESSAGE, "*");
-    };
-
-    let tick;
-
-    /** @this {v86} */
-    register_tick = function()
-    {
-        tick = e =>
+        globalThis.onmessage = function(e)
         {
-            if(e.source === window && e.data === MAGIC_POST_MESSAGE)
-            {
-                this.do_tick();
-            }
+            const t = e.data.t;
+            if(t < 1) postMessage(e.data.tick);
+            else setTimeout(() => postMessage(e.data.tick), t);
         };
+    }
 
-        window.addEventListener("message", tick, false);
+    v86.prototype.register_yield = function()
+    {
+        const url = URL.createObjectURL(new Blob(["(" + the_worker.toString() + ")()"], { type: "text/javascript" }));
+        this.worker = new Worker(url);
+        this.worker.onmessage = e => this.yield_callback(e.data);
+        URL.revokeObjectURL(url);
     };
 
-    /** @this {v86} */
-    unregister_tick = function()
+    v86.prototype.yield = function(t, tick)
     {
-        window.removeEventListener("message", tick);
-        tick = null;
+        this.worker.postMessage({ t, tick });
+    };
+
+    v86.prototype.unregister_yield = function()
+    {
+        this.worker.terminate();
+        this.worker = null;
     };
 }
+//else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
+//{
+//    // setImmediate shim for the browser.
+//    // TODO: Make this deactivatable, for other applications
+//    //       using postMessage
+//
+//    /** @const */
+//    let MAGIC_POST_MESSAGE = 0xAA55;
+//
+//    v86.prototype.yield = function(t)
+//    {
+//        // XXX: Use t
+//        window.postMessage(MAGIC_POST_MESSAGE, "*");
+//    };
+//
+//    let tick;
+//
+//    v86.prototype.register_yield = function()
+//    {
+//        tick = e =>
+//        {
+//            if(e.source === window && e.data === MAGIC_POST_MESSAGE)
+//            {
+//                this.do_tick();
+//            }
+//        };
+//
+//        window.addEventListener("message", tick, false);
+//    };
+//
+//    v86.prototype.unregister_yield = function()
+//    {
+//        window.removeEventListener("message", tick);
+//        tick = null;
+//    };
+//}
 else
 {
-    /** @this {v86} */
-    fast_next_tick = function()
-    {
-        setTimeout(() => { this.do_tick(); }, 0);
-    };
-
-    /** @this {v86} */
-    register_tick = function() {};
-
-    /** @this {v86} */
-    unregister_tick = function() {};
-}
-
-v86.prototype.fast_next_tick = fast_next_tick;
-v86.prototype.register_tick = register_tick;
-v86.prototype.unregister_tick = unregister_tick;
-
-if(typeof document !== "undefined" && typeof document.hidden === "boolean")
-{
-    /** @this {v86} */
-    var next_tick = function(t)
-    {
-        if(t < 4 || document.hidden)
-        {
-            // Avoid sleeping for 1 second (happens if page is not
-            // visible), it can break boot processes. Also don't try to
-            // sleep for less than 4ms, since the value is clamped up
-            this.fast_next_tick();
-        }
-        else
-        {
-            setTimeout(() => { this.do_tick(); }, t);
-        }
-    };
-}
-else
-{
-    // In environments that aren't browsers, we might as well use setTimeout
-    /** @this {v86} */
-    next_tick = function(t)
+    v86.prototype.yield = function(t)
     {
         setTimeout(() => { this.do_tick(); }, t);
     };
-}
 
-v86.prototype.next_tick = next_tick;
+    v86.prototype.register_yield = function() {};
+    v86.prototype.unregister_yield = function() {};
+}
 
 v86.prototype.save_state = function()
 {
