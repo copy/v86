@@ -39,7 +39,7 @@ jobs:
         key: ${{ runner.os }}-kvm-unit-test
     - name: build kvm-unit-test
       if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
-      run: (cd tests/kvm-unit-tests && ./configure && make)
+      run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
     - name: kvm-unit-test
       run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
