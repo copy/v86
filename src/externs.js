@@ -1,17 +1,7 @@
 "use strict";
 
-var performance = {};
-
-
-
 var global = {};
-var require = function(module) {};
 var process = { hrtime: function() {} };
-var __dirname = "";
-
-var exports = {};
-var define = {};
-var module = {};
 
 /**
  * @param {string} name
@@ -20,21 +10,7 @@ var module = {};
 var registerProcessor = function(name, processor) {};
 
 /** @const */
-var currentTime = 0;
-
-/** @const */
 var sampleRate = 0;
-
-
-var WebAssembly = {
-    Memory() {},
-    Table() {},
-    instantiate() { return { instance: null, module: null }; },
-    compile() {},
-    Instance() {},
-    Module() {},
-};
-WebAssembly.Module.customSections = function(module, section) {};
 
 var WabtModule = {
     readWasm: function(buf, opt) {},
@@ -52,5 +28,4 @@ var cs = {
 
 const Buffer = {
     allocUnsafe : function(length) {},
-    from : function(arrayBuffer, byteOffset, length) {},
 };
