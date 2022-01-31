@@ -58,7 +58,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error suspiciousCode\
 		--jscomp_error strictModuleDepCheck\
 		--jscomp_error typeInvalidation\
-		--jscomp_error undefinedNames\
 		--jscomp_error undefinedVars\
 		--jscomp_error unknownDefines\
 		--jscomp_error visibility\
