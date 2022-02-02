@@ -1,0 +1,44 @@
+{
+  "name": "@glasssh/v86",
+  "version": "0.1.0",
+  "description": "x86 virtualization in your browser, recompiling x86 to wasm on the fly",
+  "main": "build/libv86.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "npm run build:all_debug & npm run build:all",
+    "build:all_debug": "make all-debug",
+    "build:all": "make all",
+    "build:release": "make build/libv86.js build/v86.wasm build/v86-fallback.wasm",
+    "test:prepare": "wget -nv -P images/ https://k.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img}",
+    "test": "make kvm-unit-test nasmtests nasmtests-force-jit expect-tests jitpagingtests qemutests qemutests-release rust-test tests"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+  },
+  "files": [
+    "build/libv86.js",
+    "build/v86.wasm",
+    "build/v86-fallback.wasm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glasssh/v86.git"
+  },
+  "keywords": [
+    "x86",
+    "virtualization",
+    "emulator"
+  ],
+  "author": "Fabian Hemmer",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/glasssh/v86/issues"
+  },
+  "homepage": "https://github.com/glasssh/v86#readme"
+}
