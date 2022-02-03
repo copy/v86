@@ -457,7 +457,7 @@ This will make the emulator try to connect to a [WebSockets proxy](https://githu
 ```sh
 sudo docker run --privileged -p 8080:80 --name relay bennottelling/websockproxy
 ```
-**NOTE:** original `benjamincburns/jor1k-relay:latest` has throttling built-in by default which will degrade the networking. In order to remove throttling, `bennottelling/websockproxy` has this throttling removed via [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
+**NOTE:** original `benjamincburns/jor1k-relay:latest` has throttling built-in by default which will degrade the networking. `bennottelling/websockproxy` has this throttling removed via [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
 
 You can check if the relay is running correctly by going to `http://localhost:8080/` in your browser. There you should see a message that reads `Can "Upgrade" only to "Websocket".`.
 
