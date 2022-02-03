@@ -42,10 +42,6 @@ Installing the ISO by hand takes a long time if you intend to recreate the image
 
 [Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap and SSH server. Once the SSH connection is established a script can be started for further provisioning. 
 
-```sh
-cp archlinux32-2021.12.01-i686.iso /tmp/
-```
-
 Create a template for automating the base installation
 ```sh
 mkdir -p packer
@@ -76,7 +72,7 @@ cat > packer/template.json << 'EOF'
       "boot_wait": "10s",
       "disk_size": 1500,
       "disk_interface": "ide",
-      "iso_url": "file:///tmp/archlinux32-2021.12.01-i686.iso",
+      "iso_url": "https://mirror.archlinux32.org/archisos/archlinux32-2021.12.01-i686.iso",
       "iso_checksum": "90c6f5aecb095d5578f6c9970539da7c5e9324ec",
       "iso_checksum_type": "sha1",
       "ssh_wait_timeout": "120s",
@@ -383,8 +379,8 @@ sudo mv $SRC/output-qemu/archlinux $TARGET/images/arch.img
 Given that the packer template and provision.sh is rooted at `packer` (adjust the value of `$SRC` otherwise), run the `build.sh` at root of your `v86` repo:
 
 ```
-chmod +x .\build.sh
-build.sh
+chmod +x build.sh
+./build.sh
 ```
 
 Generated artifacts are now available for serving from `output`.
@@ -459,9 +455,9 @@ network_relay_url: "ws://localhost:8080/",
 This will make the emulator try to connect to a [WebSockets proxy](https://github.com/benjamincburns/websockproxy). Running the proxy is very easy if you use the Docker container.
 
 ```sh
-sudo docker run --privileged -p 8080:80 --name relay benjamincburns/jor1k-relay:latest
+sudo docker run --privileged -p 8080:80 --name relay bennottelling/websockproxy
 ```
-**NOTE:** `benjamincburns/jor1k-relay:latest` has throttling built-in by default which will degrade the networking. In order to remove throttling, refer to [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
+**NOTE:** original `benjamincburns/jor1k-relay:latest` has throttling built-in by default which will degrade the networking. In order to remove throttling, `bennottelling/websockproxy` has this throttling removed via [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
 
 You can check if the relay is running correctly by going to `http://localhost:8080/` in your browser. There you should see a message that reads `Can "Upgrade" only to "Websocket".`.
 
