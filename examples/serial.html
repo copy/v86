@@ -19,9 +19,13 @@ window.onload = function()
         vga_bios: {
             url: "../bios/vgabios.bin",
         },
-        cdrom: {
-            url: "../images/linux4.iso",
+        bzimage: {
+            url: "../images/buildroot-bzimage.bin",
+            size: 5166352,
+            async: false,
         },
+        filesystem: {},
+        cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
         autostart: true,
         disable_keyboard: true,
     });
