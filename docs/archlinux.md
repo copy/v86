@@ -439,7 +439,7 @@ Now that the webserver is running, point your browser to `http://localhost:8000/
 
 ```sh
 initial_state: {
-    "url": ""http://localhost:8000/images/v86state.bin,
+    "url": "http://localhost:8000/images/v86state.bin",
 },
 ```
 
