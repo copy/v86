@@ -19,7 +19,6 @@ function ScreenAdapter(screen_container, bus)
 
     var
         graphic_image_data,
-        graphic_buffer,
         graphic_buffer32,
 
         /** @type {number} */
@@ -322,7 +321,6 @@ function ScreenAdapter(screen_container, bus)
         //screen.clear_screen();
 
         graphic_image_data = graphic_context.createImageData(buffer_width, buffer_height);
-        graphic_buffer = new Uint8Array(graphic_image_data.data.buffer);
         graphic_buffer32 = new Int32Array(graphic_image_data.data.buffer);
 
         graphical_mode_width = width;
