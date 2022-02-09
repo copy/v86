@@ -66,8 +66,7 @@ function ScreenAdapter(screen_container, bus)
     function number_as_color(n)
     {
         n = n.toString(16);
-
-        return "#" + Array(7 - n.length).join("0") + n;
+        return "#" + "0".repeat(6 - n.length) + n;
     }
 
 

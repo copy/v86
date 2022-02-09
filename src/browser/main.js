@@ -47,18 +47,6 @@
         }
     }
 
-    function chr_repeat(chr, count)
-    {
-        var result = "";
-
-        while(count-- > 0)
-        {
-            result += chr;
-        }
-
-        return result;
-    }
-
     var progress_ticks = 0;
 
     function show_progress(e)
@@ -95,12 +83,12 @@
             var per50 = Math.floor(per100 / 2);
 
             line += per100 + "% [";
-            line += chr_repeat("#", per50);
-            line += chr_repeat(" ", 50 - per50) + "]";
+            line += "#".repeat(per50);
+            line += " ".repeat(50 - per50) + "]";
         }
         else
         {
-            line += chr_repeat(".", progress_ticks++ % 50);
+            line += ".".repeat(progress_ticks++ % 50);
         }
 
         el.textContent = line;
