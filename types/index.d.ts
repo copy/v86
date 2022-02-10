@@ -343,6 +343,11 @@ declare class V86Starter {
   constructor(options?: V86StarterOptions)
 
   /**
+   * bus, use it when you must (there are a few wrappers on top of it in V86Starter that you might find helpful instead)
+   */
+  bus: BusConnector
+
+  /**
    * Start emulation. Do nothing if emulator is running already. Can be asynchronous.
    */
   run(): void
