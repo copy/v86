@@ -1741,7 +1741,7 @@ pub fn translate_address_read_no_side_effects(address: i32) -> Option<u32> {
     }
     else {
         match unsafe { do_page_walk(address, false, user, false) } {
-            Ok(phys_addr_high) => Some((phys_addr_high | address & 0xFFF) as u32),
+            Ok(phys_addr_high) => Some(phys_addr_high | address as u32 & 0xFFF),
             Err(_pagefault) => None,
         }
     }
@@ -1754,7 +1754,7 @@ pub fn translate_address_read(address: i32) -> OrPageFault<u32> {
         Ok((entry & !0xFFF ^ address) as u32 - unsafe { memory::mem8 } as u32)
     }
     else {
-        Ok((unsafe { do_page_translation(address, false, user) }? | address & 0xFFF) as u32)
+        Ok(unsafe { do_page_translation(address, false, user) }? | address as u32 & 0xFFF)
     }
 }
 
@@ -1766,7 +1766,7 @@ pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
     }
     else {
         match do_page_walk(address, false, user, true) {
-            Ok(phys_addr_high) => Ok((phys_addr_high | address & 0xFFF) as u32),
+            Ok(phys_addr_high) => Ok(phys_addr_high | address as u32 & 0xFFF),
             Err(pagefault) => {
                 trigger_pagefault_jit(pagefault);
                 Err(())
@@ -1783,7 +1783,7 @@ pub struct PageFault {
 }
 
 #[inline(never)]
-pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> OrPageFault<i32> {
+pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> OrPageFault<u32> {
     match do_page_walk(addr, for_writing, user, true) {
         Ok(phys_addr) => Ok(phys_addr),
         Err(pagefault) => {
@@ -1809,7 +1809,7 @@ pub unsafe fn do_page_walk(
     for_writing: bool,
     user: bool,
     side_effects: bool,
-) -> Result<i32, PageFault> {
+) -> Result<u32, PageFault> {
     let mut can_write: bool = true;
     let global;
     let mut allow_user: bool = true;
@@ -1821,7 +1821,7 @@ pub unsafe fn do_page_walk(
 
     if cr0 & CR0_PG == 0 {
         // paging disabled
-        high = (addr as u32 & 0xFFFFF000) as i32;
+        high = addr as u32 & 0xFFFFF000;
         global = false
     }
     else {
@@ -1908,10 +1908,10 @@ pub unsafe fn do_page_walk(
             }
 
             high = if pae {
-                (page_dir_entry as u32 & 0xFFE00000 | (addr & 0x1FF000) as u32) as i32
+                page_dir_entry as u32 & 0xFFE00000 | (addr & 0x1FF000) as u32
             }
             else {
-                (page_dir_entry as u32 & 0xFFC00000 | (addr & 0x3FF000) as u32) as i32
+                page_dir_entry as u32 & 0xFFC00000 | (addr & 0x3FF000) as u32
             };
             global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
@@ -1983,7 +1983,7 @@ pub unsafe fn do_page_walk(
                 write8(page_table_addr, new_page_table_entry);
             }
 
-            high = (page_table_entry as u32 & 0xFFFFF000) as i32;
+            high = page_table_entry as u32 & 0xFFFFF000;
             global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
     }
@@ -2015,20 +2015,24 @@ pub unsafe fn do_page_walk(
         }
         dbg_assert!(found);
     }
-    let is_in_mapped_range = in_mapped_range(high as u32);
-    let has_code = !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high as u32));
+
+    let is_in_mapped_range = in_mapped_range(high);
+    let has_code = !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high));
     let info_bits = TLB_VALID
         | if can_write { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
         | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
         | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
-    dbg_assert!((high ^ page << 12) & 0xFFF == 0);
+
+    dbg_assert!((high ^ (page as u32) << 12) & 0xFFF == 0);
     if side_effects {
         // bake in the addition with memory::mem8 to save an instruction from the fast path
         // of memory accesses
-        tlb_data[page as usize] = (high + memory::mem8 as i32) ^ page << 12 | info_bits as i32;
+        tlb_data[page as usize] =
+            (high + memory::mem8 as u32) as i32 ^ page << 12 | info_bits as i32;
     }
+
     return Ok(high);
 }
 
@@ -2198,7 +2202,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
     }
     else {
         return Ok((
-            (do_page_translation(address, true, user)? | address & 0xFFF) as u32,
+            do_page_translation(address, true, user)? | address as u32 & 0xFFF,
             false,
         ));
     };
@@ -2211,7 +2215,7 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32);
     }
     else {
-        return Ok((do_page_translation(address, true, user)? | address & 0xFFF) as u32);
+        return Ok(do_page_translation(address, true, user)? | address as u32 & 0xFFF);
     };
 }
 
@@ -2223,7 +2227,7 @@ pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
     }
     else {
         match do_page_walk(address, true, user, true) {
-            Ok(phys_addr_high) => Ok((phys_addr_high | address & 0xFFF) as u32),
+            Ok(phys_addr_high) => Ok(phys_addr_high | address as u32 & 0xFFF),
             Err(pagefault) => {
                 trigger_pagefault_jit(pagefault);
                 Err(())
@@ -4089,7 +4093,7 @@ pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32);
     }
     else {
-        return Ok((do_page_translation(address, false, false)? | address & 0xFFF) as u32);
+        return Ok(do_page_translation(address, false, false)? | address as u32 & 0xFFF);
     };
 }
 
@@ -4099,7 +4103,7 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32);
     }
     else {
-        return Ok((do_page_translation(address, true, false)? | address & 0xFFF) as u32);
+        return Ok(do_page_translation(address, true, false)? | address as u32 & 0xFFF);
     };
 }
 
