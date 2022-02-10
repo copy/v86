@@ -358,16 +358,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.diff_plot_min = this.vga_memory_size;
     this.diff_plot_max = 0;
 
-    this.dest_buffer = undefined;
-
-    bus.register("screen-tell-buffer", function(data)
-    {
-        if(this.dest_buffer && data[0])
-        {
-            data[0].set(this.dest_buffer.subarray(0, data[0].length));
-        }
-        this.dest_buffer = data[0];
-    }, this);
+    this.dest_buffer = null;
 
     bus.register("screen-fill-buffer", function()
     {
@@ -410,14 +401,7 @@ VGAScreen.prototype.get_state = function()
     state[3] = this.cursor_scanline_end;
     state[4] = this.max_cols;
     state[5] = this.max_rows;
-    state[6] = this.layers.map(layer => [
-        layer.screen_x,
-        layer.screen_y,
-        layer.buffer_x,
-        layer.buffer_y,
-        layer.buffer_width,
-        layer.buffer_height,
-    ]);
+
     state[7] = this.dac_state;
     state[8] = this.start_address;
     state[9] = this.graphical_mode;
@@ -484,14 +468,7 @@ VGAScreen.prototype.set_state = function(state)
     this.cursor_scanline_end = state[3];
     this.max_cols = state[4];
     this.max_rows = state[5];
-    this.layers = state[6].map(layer => ({
-        screen_x: layer[0],
-        screen_y: layer[1],
-        buffer_x: layer[2],
-        buffer_y: layer[3],
-        buffer_width: layer[4],
-        buffer_height: layer[5],
-    }));
+
     this.dac_state = state[7];
     this.start_address = state[8];
     this.graphical_mode = state[9];
@@ -564,6 +541,7 @@ VGAScreen.prototype.set_state = function(state)
         else
         {
             this.update_vga_size();
+            this.update_layers();
             this.complete_replot();
         }
     }
@@ -1174,6 +1152,16 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
         this.stats.res_x = width;
         this.stats.res_y = height;
 
+        if (typeof ImageData !== "undefined")
+        {
+            this.image_data = new ImageData(width, height);
+            this.dest_buffer = new Int32Array(this.image_data.data.buffer);
+        }
+        else
+        {
+            // TODO: nodejs
+        }
+
         this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height, bpp]);
     }
 };
@@ -1304,6 +1292,7 @@ VGAScreen.prototype.update_layers = function()
     for(var x = -start_buffer_col, y = 0; x < this.screen_width; x += this.virtual_width, y++)
     {
         this.layers.push({
+            image_data: this.image_data,
             screen_x: x,
             screen_y: 0,
             buffer_x: 0,
@@ -1323,6 +1312,7 @@ VGAScreen.prototype.update_layers = function()
     for(var x = -start_split_col, y = 0; x < this.screen_width; x += this.virtual_width, y++)
     {
         this.layers.push({
+            image_data: this.image_data,
             screen_x: x,
             screen_y: split_screen_row,
             buffer_x: 0,
@@ -2440,6 +2430,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
         var max_y = end_pixel / this.svga_width | 0;
 
         this.bus.send("screen-fill-buffer-end", [{
+            image_data: this.image_data,
             screen_x: 0, screen_y: min_y,
             buffer_x: 0, buffer_y: min_y,
             buffer_width: this.svga_width,
