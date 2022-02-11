@@ -3,7 +3,7 @@
 Choosing an installer ISO
 -------------------------
 
-The last ISO installer version of Archlinux that supports 32-bit is [2017.02.01](https://www.archlinux.org/releng/releases/2017.02.01/). Later versions of the archisos don't work on the v86 emulator because the installer only supports x86_64, not x86 anymore.  For existing Archlinux installations, updates and patches will be done until somewhere around 2018. 
+The last ISO installer version of Archlinux that supports 32-bit is [2017.02.01](https://www.archlinux.org/releng/releases/2017.02.01/). Later versions of the archisos don't work on the v86 emulator because the installer only supports x86_64, not x86 anymore.  For existing Archlinux installations, updates and patches will be done until somewhere around 2018.
 
 In the future the community might come up with an alternative distribution based on Archlinux to maintain support for x86. At this point in time [archlinux32](https://mirror.archlinux32.org) seems to work.
 
@@ -40,7 +40,7 @@ Installing the ISO by hand takes a long time if you intend to recreate the image
 
 ### Creating a packer template
 
-[Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap and SSH server. Once the SSH connection is established a script can be started for further provisioning. 
+[Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap and SSH server. Once the SSH connection is established a script can be started for further provisioning.
 
 Create a template for automating the base installation
 ```sh
@@ -64,8 +64,7 @@ cat > packer/template.json << 'EOF'
       "boot_command": [
         "<enter><wait30><enteropenssl passwd help<wait10>",
         "dhcpcd<enter><wait5>",
-        "usermod --password $(echo root | openssl passwd -1 -stdin) root<enter><wait5>",
-        "echo 'root:magic' | chpasswd<enter><wait5>",
+        "echo root:root | chpasswd<enter><wait5>",
         "systemctl start sshd<enter>"
       ],
       "headless": true,
@@ -78,7 +77,7 @@ cat > packer/template.json << 'EOF'
       "ssh_wait_timeout": "120s",
       "ssh_pty": true,
       "ssh_username": "root",
-      "ssh_password": "magic",
+      "ssh_password": "root",
       "ssh_port": 22,
       "format": "raw",
       "vm_name": "archlinux",
@@ -188,11 +187,7 @@ EOF
 # want to use the network filesystem you only need these. The 9p, 9pnet and 9pnet_virtio
 # modules are needed for being able to mount 9p network filesystems using the emulator.
 echo "Configure mkinitcpio for 9p"
-
-sed -i 's/MODULES=()/MODULES=(atkbd i8042 psmouse virtio_pci 9p 9pnet 9pnet_virtio)/g' /mnt/etc/mkinitcpio.conf
-
-# dump mkinitcpio.conf to check if MODULES get actually set
-cat /mnt/etc/mkinitcpio.conf
+sed -i 's/MODULES=()/MODULES=(atkbd i8042 libps2 serio serio_raw psmouse virtio_pci virtio_pci_modern_dev 9p 9pnet 9pnet_virtio fscache netfs)/g' /mnt/etc/mkinitcpio.conf
 
 # Because we want to mount the root filesystem over the network during boot, we need to
 # hook into initcpio. If you do not want to mount the root filesystem during boot but
@@ -203,7 +198,7 @@ sed -i 's/fsck"/fsck 9p_root"/g' /mnt/etc/mkinitcpio.conf
 
 # enable ssh password auth and root login
 sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
-sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config 
+sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
 
 echo "Writing the installation script"
 cat << 'EOF' > /mnt/bootstrap.sh
@@ -343,7 +338,7 @@ sudo umount diskmount -f || /bin/true
 sudo kpartx -d $LOOP_DEV || /bin/true
 sudo losetup -d $LOOP_DEV || /bin/true
 
-# mount the generated raw image, we do that so we can create 
+# mount the generated raw image, we do that so we can create
 # a json mapping of it and copy it to host on the webserver
 mkdir -p diskmount
 echo "Mounting the created image so we can convert it to a p9 image"
@@ -389,10 +384,10 @@ Generated artifacts are now available for serving from `output`.
 
 Now that we have everything we need to host a server that serves an Archlinux environment over the network.
 
-Create a checkout of v86 and run `make build/libv86.js`. 
+Create a checkout of v86 and run `make build/libv86.js`.
 We can then edit `examples/arch.html`, we have two options:
 
-1. Boot the arclinux from the 9p filesystem (generated .bin artifacts at `/output/images/arch`):
+1. Boot Arch Linux from the 9p filesystem (generated .bin artifacts at `/output/images/arch`):
 
   ```sh
   filesystem: {
@@ -419,11 +414,11 @@ We can then edit `examples/arch.html`, we have two options:
       # NOTE: async: false is slow but proved to be more realiable
       async: false,
 
-      # This needs to be the size of the raw disk. 
-      size: 1.5 * 1024 * 1024 * 1024,  
+      # This needs to be the size of the raw disk.
+      size: 1.5 * 1024 * 1024 * 1024,
       # See the `disk_size` item in the packer template.
   },
-  
+
   acpi: false,
   autostart: true,
   ```
@@ -470,7 +465,6 @@ rmmod ne2k-pci
 To bring the network up, run:
 ```sh
 modprobe ne2k-pci
-ip link set enp0s5 up
 dhcpcd -w4 enp0s5
 ```
 
@@ -488,10 +482,9 @@ systemctl start sshd
 then create a reverse SSH tunnel:
 
 ```sh
-# This will create a port 1122 on the example.com server 
+# This will create a port 1122 on the example.com server
 # which forwards to the SSH in the VM
 ssh root@example.com -R 1122:localhost:22
 ```
 
 Now on the `example.com` server you should be able to SSH into your browser tab by running `ssh root@localhost -p 1122`.
-
