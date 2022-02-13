@@ -1303,12 +1303,16 @@
             total_instructions += last_ips;
 
             var delta_time = now - last_tick;
-            running_time += delta_time;
-            last_tick = now;
 
-            $("speed").textContent = (last_ips / 1000 / delta_time).toFixed(1);
-            $("avg_speed").textContent = (total_instructions / 1000 / running_time).toFixed(1);
-            $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
+            if(delta_time)
+            {
+                running_time += delta_time;
+                last_tick = now;
+
+                $("speed").textContent = (last_ips / 1000 / delta_time).toFixed(1);
+                $("avg_speed").textContent = (total_instructions / 1000 / running_time).toFixed(1);
+                $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
+            }
         }
 
         emulator.add_listener("emulator-started", function()
