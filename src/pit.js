@@ -62,7 +62,10 @@ function PIT(cpu, bus)
 
     cpu.io.register_write(0x40, this, function(data) { this.counter_write(0, data); });
     cpu.io.register_write(0x41, this, function(data) { this.counter_write(1, data); });
-    cpu.io.register_write(0x42, this, function(data) { this.counter_write(2, data); });
+    cpu.io.register_write(0x42, this, function(data) {
+        this.counter_write(2, data);
+        this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+    });
 
     cpu.io.register_write(0x43, this, this.port43_write);
 }
@@ -259,8 +262,6 @@ PIT.prototype.counter_write = function(i, value)
     {
         this.counter_next_low[i] ^= 1;
     }
-
-    this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
 };
 
 PIT.prototype.port43_write = function(reg_byte)
@@ -337,7 +338,10 @@ PIT.prototype.port43_write = function(reg_byte)
     this.counter_mode[i] = mode;
     this.counter_read_mode[i] = read_mode;
 
-    this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+    if(i === 2)
+    {
+        this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+    }
 };
 
 PIT.prototype.dump = function()
