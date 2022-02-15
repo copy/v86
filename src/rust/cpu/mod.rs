@@ -10,3 +10,4 @@ pub mod misc_instr;
 pub mod modrm;
 pub mod sse_instr;
 pub mod string;
+pub mod vga;

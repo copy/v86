@@ -3433,14 +3433,8 @@ pub unsafe fn safe_write_slow_jit(
     }
     else if in_mapped_range(addr_low) {
         match bitsize {
-            128 => memory::mmap_write128(
-                addr_low,
-                value_low as i32,
-                (value_low >> 32) as i32,
-                value_high as i32,
-                (value_high >> 32) as i32,
-            ),
-            64 => memory::mmap_write64(addr_low, value_low as i32, (value_low >> 32) as i32),
+            128 => memory::mmap_write128(addr_low, value_low, value_high),
+            64 => memory::mmap_write64(addr_low, value_low),
             32 => memory::mmap_write32(addr_low, value_low as i32),
             16 => memory::mmap_write16(addr_low, (value_low & 0xFFFF) as i32),
             8 => memory::mmap_write8(addr_low, (value_low & 0xFF) as i32),
@@ -3550,7 +3544,7 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
     else {
         let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
         if in_mapped_range(phys_addr) {
-            memory::mmap_write64(phys_addr, value as i32, (value >> 32) as i32);
+            memory::mmap_write64(phys_addr, value);
         }
         else {
             if !can_skip_dirty_page {
@@ -3574,13 +3568,7 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     else {
         let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
         if in_mapped_range(phys_addr) {
-            memory::mmap_write128(
-                phys_addr,
-                value.i32_0[0],
-                value.i32_0[1],
-                value.i32_0[2],
-                value.i32_0[3],
-            );
+            memory::mmap_write128(phys_addr, value.u64_0[0], value.u64_0[1]);
         }
         else {
             if !can_skip_dirty_page {
