@@ -153,6 +153,17 @@ function V86Starter(options)
 
         "__indirect_function_table": wasm_table,
     };
+       
+    let getDirname = function (fullPath) {
+        let a = fullPath.split(/[/]/);
+        let back = false;
+        if (a.length <= 1) {
+            a = fullPath.split(/[\\]/);
+            back = true;
+        }
+        a.pop(); /* basename */
+        return (!back) ? a.join("/") : a.join("\\"); /* dirname */
+    };
 
     let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
     let v86_bin_fallback = "v86-fallback.wasm";
@@ -164,13 +175,12 @@ function V86Starter(options)
     else if(typeof window === "undefined" && typeof __dirname === "string")
     {
         v86_bin = __dirname + "/" + v86_bin;
-        v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
     }
     else
     {
         v86_bin = "build/" + v86_bin;
-        v86_bin_fallback = "build/" + v86_bin_fallback;
     }
+    v86_bin_fallback = getDirname(v86_bin) + "/" + v86_bin_fallback;
 
     v86util.load_file(v86_bin, {
         done: bytes =>
