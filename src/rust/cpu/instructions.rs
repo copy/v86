@@ -898,9 +898,9 @@ pub unsafe fn instr32_8D_mem(modrm_byte: i32, r: i32) {
     *prefixes = 0;
 }
 
-unsafe fn instr_8E_helper(data: i32, mod_0: i32) {
-    if mod_0 == ES || mod_0 == SS || mod_0 == DS || mod_0 == FS || mod_0 == GS {
-        if !switch_seg(mod_0, data) {
+unsafe fn instr_8E_helper(data: i32, r: i32) {
+    if r == ES || r == SS || r == DS || r == FS || r == GS {
+        if !switch_seg(r, data) {
             return;
         }
     }

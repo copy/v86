@@ -704,9 +704,9 @@ pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
     if result > 0xFFFFFFFF {
         return false;
     }
-    let mod_0 = (target_operand % source_operand as u64) as i32;
+    let modulo = (target_operand % source_operand as u64) as i32;
     write_reg32(EAX, result as i32);
-    write_reg32(EDX, mod_0);
+    write_reg32(EDX, modulo);
     return true;
 }
 pub unsafe fn div32(source_operand: u32) {
@@ -729,9 +729,9 @@ pub unsafe fn idiv32_without_fault(source_operand: i32) -> bool {
     if result < -0x80000000 || result > 0x7FFFFFFF {
         return false;
     }
-    let mod_0 = (target_operand % source_operand as i64) as i32;
+    let modulo = (target_operand % source_operand as i64) as i32;
     write_reg32(EAX, result as i32);
-    write_reg32(EDX, mod_0);
+    write_reg32(EDX, modulo);
     return true;
 }
 pub unsafe fn idiv32(source_operand: i32) {
