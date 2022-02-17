@@ -42,16 +42,16 @@ pub const WASM_TABLE_OFFSET: u32 = 1024;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union reg128 {
-    pub i8_0: [i8; 16],
-    pub i16_0: [i16; 8],
-    pub i32_0: [i32; 4],
-    pub i64_0: [i64; 2],
-    pub u8_0: [u8; 16],
-    pub u16_0: [u16; 8],
-    pub u32_0: [u32; 4],
-    pub u64_0: [u64; 2],
-    pub f32_0: [f32; 4],
-    pub f64_0: [f64; 2],
+    pub i8: [i8; 16],
+    pub i16: [i16; 8],
+    pub i32: [i32; 4],
+    pub i64: [i64; 2],
+    pub u8: [u8; 16],
+    pub u16: [u16; 8],
+    pub u32: [u32; 4],
+    pub u64: [u64; 2],
+    pub f32: [f32; 4],
+    pub f64: [f64; 2],
 }
 
 /// Setting this to true will make execution extremely slow
@@ -3167,7 +3167,7 @@ pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
 pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
     if addr & 0xFFF > 0x1000 - 16 {
         Ok(reg128 {
-            u64_0: [safe_read64s(addr)?, safe_read64s(addr + 8)?],
+            u64: [safe_read64s(addr)?, safe_read64s(addr + 8)?],
         })
     }
     else {
@@ -3408,7 +3408,7 @@ pub unsafe fn safe_write_slow_jit(
             128 => safe_write128(
                 addr,
                 reg128 {
-                    u64_0: [value_low, value_high],
+                    u64: [value_low, value_high],
                 },
             )
             .unwrap(),
@@ -3562,13 +3562,13 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
 pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     if addr & 0xFFF > 0x1000 - 16 {
         writable_or_pagefault(addr, 16)?;
-        safe_write64(addr, value.u64_0[0]).unwrap();
-        safe_write64(addr + 8, value.u64_0[1]).unwrap();
+        safe_write64(addr, value.u64[0]).unwrap();
+        safe_write64(addr + 8, value.u64[1]).unwrap();
     }
     else {
         let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
         if in_mapped_range(phys_addr) {
-            memory::mmap_write128(phys_addr, value.u64_0[0], value.u64_0[1]);
+            memory::mmap_write128(phys_addr, value.u64[0], value.u64[1]);
         }
         else {
             if !can_skip_dirty_page {
@@ -3698,30 +3698,30 @@ pub unsafe fn read_mmx64s(r: i32) -> u64 { (*fpu_st.offset(r as isize)).mantissa
 
 pub unsafe fn write_mmx_reg64(r: i32, data: u64) { (*fpu_st.offset(r as isize)).mantissa = data; }
 
-pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32_0[0]; }
+pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32[0]; }
 
-pub unsafe fn read_xmm32(r: i32) -> i32 { return (*reg_xmm.offset(r as isize)).u32_0[0] as i32; }
+pub unsafe fn read_xmm32(r: i32) -> i32 { return (*reg_xmm.offset(r as isize)).u32[0] as i32; }
 
-pub unsafe fn read_xmm64s(r: i32) -> u64 { (*reg_xmm.offset(r as isize)).u64_0[0] }
+pub unsafe fn read_xmm64s(r: i32) -> u64 { (*reg_xmm.offset(r as isize)).u64[0] }
 
 pub unsafe fn read_xmm128s(r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
 
-pub unsafe fn write_xmm_f32(r: i32, data: f32) { (*reg_xmm.offset(r as isize)).f32_0[0] = data; }
+pub unsafe fn write_xmm_f32(r: i32, data: f32) { (*reg_xmm.offset(r as isize)).f32[0] = data; }
 
-pub unsafe fn write_xmm32(r: i32, data: i32) { (*reg_xmm.offset(r as isize)).i32_0[0] = data; }
+pub unsafe fn write_xmm32(r: i32, data: i32) { (*reg_xmm.offset(r as isize)).i32[0] = data; }
 
-pub unsafe fn write_xmm64(r: i32, data: u64) { (*reg_xmm.offset(r as isize)).u64_0[0] = data }
-pub unsafe fn write_xmm_f64(r: i32, data: f64) { (*reg_xmm.offset(r as isize)).f64_0[0] = data }
+pub unsafe fn write_xmm64(r: i32, data: u64) { (*reg_xmm.offset(r as isize)).u64[0] = data }
+pub unsafe fn write_xmm_f64(r: i32, data: f64) { (*reg_xmm.offset(r as isize)).f64[0] = data }
 
 pub unsafe fn write_xmm128(r: i32, i0: i32, i1: i32, i2: i32, i3: i32) {
     let x = reg128 {
-        u32_0: [i0 as u32, i1 as u32, i2 as u32, i3 as u32],
+        u32: [i0 as u32, i1 as u32, i2 as u32, i3 as u32],
     };
     *reg_xmm.offset(r as isize) = x;
 }
 
 pub unsafe fn write_xmm128_2(r: i32, i0: u64, i1: u64) {
-    *reg_xmm.offset(r as isize) = reg128 { u64_0: [i0, i1] };
+    *reg_xmm.offset(r as isize) = reg128 { u64: [i0, i1] };
 }
 
 pub unsafe fn write_xmm_reg128(r: i32, data: reg128) { *reg_xmm.offset(r as isize) = data; }

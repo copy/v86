@@ -32,8 +32,8 @@ pub unsafe fn movh_m64_r128(addr: i32, r: i32) {
     let orig = read_xmm128s(r);
     write_xmm128(
         r,
-        orig.u32_0[0] as i32,
-        orig.u32_0[1] as i32,
+        orig.u32[0] as i32,
+        orig.u32[1] as i32,
         data as i32,
         (data >> 32) as i32,
     );
@@ -41,43 +41,43 @@ pub unsafe fn movh_m64_r128(addr: i32, r: i32) {
 pub unsafe fn movh_r128_m64(addr: i32, r: i32) {
     // movhp* m64, xmm
     let data = read_xmm128s(r);
-    return_on_pagefault!(safe_write64(addr, data.u64_0[1]));
+    return_on_pagefault!(safe_write64(addr, data.u64[1]));
 }
 
 pub unsafe fn pand_r128(source: reg128, r: i32) {
     // pand xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
-    result.u64_0[0] = source.u64_0[0] & destination.u64_0[0];
-    result.u64_0[1] = source.u64_0[1] & destination.u64_0[1];
+    let mut result = reg128 { i8: [0; 16] };
+    result.u64[0] = source.u64[0] & destination.u64[0];
+    result.u64[1] = source.u64[1] & destination.u64[1];
     write_xmm_reg128(r, result);
 }
 pub unsafe fn pandn_r128(source: reg128, r: i32) {
     // pandn xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
-    result.u64_0[0] = source.u64_0[0] & !destination.u64_0[0];
-    result.u64_0[1] = source.u64_0[1] & !destination.u64_0[1];
+    let mut result = reg128 { i8: [0; 16] };
+    result.u64[0] = source.u64[0] & !destination.u64[0];
+    result.u64[1] = source.u64[1] & !destination.u64[1];
     write_xmm_reg128(r, result);
 }
 pub unsafe fn pxor_r128(source: reg128, r: i32) {
     // pxor xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
-    result.u64_0[0] = source.u64_0[0] ^ destination.u64_0[0];
-    result.u64_0[1] = source.u64_0[1] ^ destination.u64_0[1];
+    let mut result = reg128 { i8: [0; 16] };
+    result.u64[0] = source.u64[0] ^ destination.u64[0];
+    result.u64[1] = source.u64[1] ^ destination.u64[1];
     write_xmm_reg128(r, result);
 }
 pub unsafe fn por_r128(source: reg128, r: i32) {
     // por xmm, xmm/m128
     // XXX: Aligned access or #gp
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
-    result.u64_0[0] = source.u64_0[0] | destination.u64_0[0];
-    result.u64_0[1] = source.u64_0[1] | destination.u64_0[1];
+    let mut result = reg128 { i8: [0; 16] };
+    result.u64[0] = source.u64[0] | destination.u64[0];
+    result.u64[1] = source.u64[1] | destination.u64[1];
     write_xmm_reg128(r, result);
 }
 
@@ -178,10 +178,10 @@ pub unsafe fn psrlw_r128(r: i32, shift: u64) {
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
     if shift <= 15 {
-        dword0 = destination.u16_0[0] as i32 >> shift | destination.u16_0[1] as i32 >> shift << 16;
-        dword1 = destination.u16_0[2] as i32 >> shift | destination.u16_0[3] as i32 >> shift << 16;
-        dword2 = destination.u16_0[4] as i32 >> shift | destination.u16_0[5] as i32 >> shift << 16;
-        dword3 = destination.u16_0[6] as i32 >> shift | destination.u16_0[7] as i32 >> shift << 16
+        dword0 = destination.u16[0] as i32 >> shift | destination.u16[1] as i32 >> shift << 16;
+        dword1 = destination.u16[2] as i32 >> shift | destination.u16[3] as i32 >> shift << 16;
+        dword2 = destination.u16[4] as i32 >> shift | destination.u16[5] as i32 >> shift << 16;
+        dword3 = destination.u16[6] as i32 >> shift | destination.u16[7] as i32 >> shift << 16
     }
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
@@ -189,14 +189,14 @@ pub unsafe fn psraw_r128(r: i32, shift: u64) {
     // psraw xmm, {shift}
     let destination = read_xmm128s(r);
     let shift_clamped = (if shift > 15 { 16 } else { shift as u32 }) as i32;
-    let dword0 = destination.i16_0[0] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[1] as i32 >> shift_clamped << 16;
-    let dword1 = destination.i16_0[2] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[3] as i32 >> shift_clamped << 16;
-    let dword2 = destination.i16_0[4] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[5] as i32 >> shift_clamped << 16;
-    let dword3 = destination.i16_0[6] as i32 >> shift_clamped & 0xFFFF
-        | destination.i16_0[7] as i32 >> shift_clamped << 16;
+    let dword0 = destination.i16[0] as i32 >> shift_clamped & 0xFFFF
+        | destination.i16[1] as i32 >> shift_clamped << 16;
+    let dword1 = destination.i16[2] as i32 >> shift_clamped & 0xFFFF
+        | destination.i16[3] as i32 >> shift_clamped << 16;
+    let dword2 = destination.i16[4] as i32 >> shift_clamped & 0xFFFF
+        | destination.i16[5] as i32 >> shift_clamped << 16;
+    let dword3 = destination.i16[6] as i32 >> shift_clamped & 0xFFFF
+        | destination.i16[7] as i32 >> shift_clamped << 16;
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 pub unsafe fn psllw_r128(r: i32, shift: u64) {
@@ -207,14 +207,14 @@ pub unsafe fn psllw_r128(r: i32, shift: u64) {
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
     if shift <= 15 {
-        dword0 = (destination.u16_0[0] as i32) << shift & 0xFFFF
-            | (destination.u16_0[1] as i32) << shift << 16;
-        dword1 = (destination.u16_0[2] as i32) << shift & 0xFFFF
-            | (destination.u16_0[3] as i32) << shift << 16;
-        dword2 = (destination.u16_0[4] as i32) << shift & 0xFFFF
-            | (destination.u16_0[5] as i32) << shift << 16;
-        dword3 = (destination.u16_0[6] as i32) << shift & 0xFFFF
-            | (destination.u16_0[7] as i32) << shift << 16
+        dword0 = (destination.u16[0] as i32) << shift & 0xFFFF
+            | (destination.u16[1] as i32) << shift << 16;
+        dword1 = (destination.u16[2] as i32) << shift & 0xFFFF
+            | (destination.u16[3] as i32) << shift << 16;
+        dword2 = (destination.u16[4] as i32) << shift & 0xFFFF
+            | (destination.u16[5] as i32) << shift << 16;
+        dword3 = (destination.u16[6] as i32) << shift & 0xFFFF
+            | (destination.u16[7] as i32) << shift << 16
     }
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
@@ -226,10 +226,10 @@ pub unsafe fn psrld_r128(r: i32, shift: u64) {
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
     if shift <= 31 {
-        dword0 = (destination.u32_0[0] >> shift) as i32;
-        dword1 = (destination.u32_0[1] >> shift) as i32;
-        dword2 = (destination.u32_0[2] >> shift) as i32;
-        dword3 = (destination.u32_0[3] >> shift) as i32
+        dword0 = (destination.u32[0] >> shift) as i32;
+        dword1 = (destination.u32[1] >> shift) as i32;
+        dword2 = (destination.u32[2] >> shift) as i32;
+        dword3 = (destination.u32[3] >> shift) as i32
     }
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
@@ -237,10 +237,10 @@ pub unsafe fn psrad_r128(r: i32, shift: u64) {
     // psrad xmm, {shift}
     let destination = read_xmm128s(r);
     let shift_clamped = (if shift > 31 { 31 } else { shift }) as i32;
-    let dword0 = destination.i32_0[0] >> shift_clamped;
-    let dword1 = destination.i32_0[1] >> shift_clamped;
-    let dword2 = destination.i32_0[2] >> shift_clamped;
-    let dword3 = destination.i32_0[3] >> shift_clamped;
+    let dword0 = destination.i32[0] >> shift_clamped;
+    let dword1 = destination.i32[1] >> shift_clamped;
+    let dword2 = destination.i32[2] >> shift_clamped;
+    let dword3 = destination.i32[3] >> shift_clamped;
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 pub unsafe fn pslld_r128(r: i32, shift: u64) {
@@ -251,30 +251,30 @@ pub unsafe fn pslld_r128(r: i32, shift: u64) {
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
     if shift <= 31 {
-        dword0 = destination.i32_0[0] << shift;
-        dword1 = destination.i32_0[1] << shift;
-        dword2 = destination.i32_0[2] << shift;
-        dword3 = destination.i32_0[3] << shift
+        dword0 = destination.i32[0] << shift;
+        dword1 = destination.i32[1] << shift;
+        dword2 = destination.i32[2] << shift;
+        dword3 = destination.i32[3] << shift
     }
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 pub unsafe fn psrlq_r128(r: i32, shift: u64) {
     // psrlq xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
+    let mut result = reg128 { i8: [0; 16] };
     if shift <= 63 {
-        result.u64_0[0] = destination.u64_0[0] >> shift;
-        result.u64_0[1] = destination.u64_0[1] >> shift
+        result.u64[0] = destination.u64[0] >> shift;
+        result.u64[1] = destination.u64[1] >> shift
     }
     write_xmm_reg128(r, result);
 }
 pub unsafe fn psllq_r128(r: i32, shift: u64) {
     // psllq xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8_0: [0; 16] };
+    let mut result = reg128 { i8: [0; 16] };
     if shift <= 63 {
-        result.u64_0[0] = destination.u64_0[0] << shift;
-        result.u64_0[1] = destination.u64_0[1] << shift
+        result.u64[0] = destination.u64[0] << shift;
+        result.u64[1] = destination.u64[1] << shift
     }
     write_xmm_reg128(r, result);
 }

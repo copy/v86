@@ -144,7 +144,7 @@ pub unsafe fn read128(addr: u32) -> reg128 {
     if in_mapped_range(addr) {
         if in_svga_lfb(addr) {
             reg128 {
-                i64_0: [
+                i64: [
                     *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i64),
                     *(vga_mem8.offset((addr - VGA_LFB_ADDRESS + 8) as isize) as *const i64),
                 ],
@@ -152,7 +152,7 @@ pub unsafe fn read128(addr: u32) -> reg128 {
         }
         else {
             reg128 {
-                i32_0: [
+                i32: [
                     ext::mmap_read32(addr + 0),
                     ext::mmap_read32(addr + 4),
                     ext::mmap_read32(addr + 8),
@@ -163,7 +163,7 @@ pub unsafe fn read128(addr: u32) -> reg128 {
     }
     else {
         reg128 {
-            i64_0: [
+            i64: [
                 *(mem8.offset(addr as isize) as *mut i64),
                 *(mem8.offset(addr as isize).offset(8) as *mut i64),
             ],
