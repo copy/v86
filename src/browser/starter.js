@@ -160,6 +160,9 @@ function V86Starter(options)
     if(options["wasm_path"])
     {
         v86_bin = options["wasm_path"];
+        const slash = v86_bin.lastIndexOf("/");
+        const dir = slash === -1 ? "" : v86_bin.substr(0, slash);
+        v86_bin_fallback = dir + "/" + v86_bin_fallback;
     }
     else if(typeof window === "undefined" && typeof __dirname === "string")
     {
