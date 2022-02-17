@@ -136,7 +136,7 @@ pub unsafe fn imul8(source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn mul16(source_operand: u32) {
-    let result = source_operand.wrapping_mul(read_reg16(AX) as u32);
+    let result = source_operand * read_reg16(AX) as u32;
     let high_result = result >> 16;
     write_reg16(AX, result as i32);
     write_reg16(DX, high_result as i32);
@@ -184,7 +184,7 @@ pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn mul32(source_operand: i32) {
     let dest_operand = read_reg32(EAX);
-    let result = (dest_operand as u32 as u64).wrapping_mul(source_operand as u32 as u64);
+    let result = (dest_operand as u32 as u64) * (source_operand as u32 as u64);
     let result_low = result as i32;
     let result_high = (result >> 32) as i32;
     write_reg32(EAX, result_low);
@@ -621,16 +621,13 @@ pub unsafe fn div8(source_operand: u32) {
     }
     else {
         let target_operand = read_reg16(AX);
-        let result = (target_operand as u32).wrapping_div(source_operand) as u16;
+        let result = (target_operand as u32 / source_operand) as u16;
         if result as i32 >= 256 {
             trigger_de();
         }
         else {
             write_reg8(AL, result as i32);
-            write_reg8(
-                AH,
-                (target_operand as u32).wrapping_rem(source_operand) as i32,
-            );
+            write_reg8(AH, (target_operand as u32 % source_operand) as i32);
         }
         return;
     };
@@ -662,12 +659,12 @@ pub unsafe fn div16_without_fault(source_operand: u32) -> bool {
         return false;
     }
     let target_operand = (read_reg16(AX) | read_reg16(DX) << 16) as u32;
-    let result = target_operand.wrapping_div(source_operand);
+    let result = target_operand / source_operand;
     if result >= 0x10000 {
         return false;
     }
     write_reg16(AX, result as i32);
-    write_reg16(DX, target_operand.wrapping_rem(source_operand) as i32);
+    write_reg16(DX, (target_operand % source_operand) as i32);
     return true;
 }
 pub unsafe fn div16(source_operand: u32) {
@@ -703,11 +700,11 @@ pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
     let target_low = read_reg32(EAX) as u32;
     let target_high = read_reg32(EDX) as u32;
     let target_operand = (target_high as u64) << 32 | target_low as u64;
-    let result = target_operand.wrapping_div(source_operand as u64);
+    let result = target_operand / (source_operand as u64);
     if result > 0xFFFFFFFF {
         return false;
     }
-    let mod_0 = target_operand.wrapping_rem(source_operand as u64) as i32;
+    let mod_0 = (target_operand % source_operand as u64) as i32;
     write_reg32(EAX, result as i32);
     write_reg32(EDX, mod_0);
     return true;
