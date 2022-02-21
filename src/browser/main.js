@@ -137,8 +137,18 @@
             var floppy_file = $("floppy_image").files[0];
             if(floppy_file)
             {
-                last_file = floppy_file;
-                settings.fda = { buffer: floppy_file };
+                let name = floppy_file.name;
+                
+                if (name.endsWith("vmlinux") || name.endsWith(".elf") || name.endsWith('.bin') || name.startsWith("bzImage") || name.startsWith("vmlinuz")) {
+                    settings.filesystem = {};
+                    settings.bzimage = { buffer: floppy_file };
+                    last_file = floppy_file;
+                    floppy_file.value = "";
+                    floppy_file = undefined;
+                } else {
+                    last_file = floppy_file;
+                    settings.fda = { buffer: floppy_file };
+                }
             }
 
             var cd_file = $("cd_image").files[0];
@@ -177,7 +187,7 @@
                 set_title(last_file.name);
             }
 
-            start_emulation(settings);
+            start_emulation(settings); ///
         };
 
         if(DEBUG)
@@ -1089,11 +1099,12 @@
             }
         }
 
-        if(!settings.fda)
+        if(!settings.fda && !settings.bzimage)
         {
             var floppy_file = $("floppy_image").files[0];
             if(floppy_file)
             {
+                
                 settings.fda = { buffer: floppy_file };
             }
         }
