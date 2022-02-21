@@ -40,6 +40,10 @@ pub const instruction_counter: *mut u32 = 664 as *mut u32;
 pub const sreg: *mut u16 = 668 as *mut u16;
 pub const dreg: *mut i32 = 684 as *mut i32;
 
+// filled in by svga_fill_pixel_buffer, read by javacsript for optimised putImageData calls
+pub const svga_dirty_bitmap_min_offset: *mut u32 = 716 as *mut u32;
+pub const svga_dirty_bitmap_max_offset: *mut u32 = 720 as *mut u32;
+
 pub const segment_is_null: *mut bool = 724 as *mut bool;
 pub const segment_offsets: *mut i32 = 736 as *mut i32;
 pub const segment_limits: *mut u32 = 768 as *mut u32;

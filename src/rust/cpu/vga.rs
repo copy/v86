@@ -1,5 +1,6 @@
 #![allow(non_upper_case_globals)]
 
+use cpu::global_pointers;
 use cpu::memory;
 
 pub static mut dirty_bitmap: Vec<u64> = Vec::new();
@@ -26,6 +27,9 @@ pub unsafe fn svga_mark_dirty() {
 }
 
 fn iter_dirty_pages(f: &dyn Fn(isize)) {
+    let mut min_off = u32::MAX;
+    let mut max_off = u32::MIN;
+
     for (i, &word) in unsafe { &dirty_bitmap }.iter().enumerate() {
         if word == 0 {
             continue;
@@ -36,13 +40,22 @@ fn iter_dirty_pages(f: &dyn Fn(isize)) {
             }
             let off = ((i << 6 | j) << 12) as isize;
             dbg_assert!(off < unsafe { memory::vga_memory_size as isize });
+            if min_off == u32::MAX {
+                min_off = off as u32;
+            }
+            max_off = off as u32;
             f(off);
         }
+    }
+
+    unsafe {
+        *global_pointers::svga_dirty_bitmap_min_offset = min_off;
+        *global_pointers::svga_dirty_bitmap_max_offset = max_off;
     }
 }
 
 #[no_mangle]
-pub unsafe fn svga_fill_pixel_buffer(bpp: i32, svga_dest_offset: i32) {
+pub unsafe fn svga_fill_pixel_buffer(bpp: u32, svga_dest_offset: u32) {
     let debug_bounds = false;
 
     match bpp {
@@ -58,6 +71,8 @@ pub unsafe fn svga_fill_pixel_buffer(bpp: i32, svga_dest_offset: i32) {
                 isize::min(1024, dest_buffer.len() as isize - dest_offset)
             };
 
+            dbg_assert!(src as u32 % 8 == 0);
+            dbg_assert!(dest as u32 % 8 == 0);
             for i in 0..end {
                 dbg_assert!(off + i < memory::vga_memory_size as isize);
                 let dword = *src.offset(i);

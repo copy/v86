@@ -2279,6 +2279,9 @@ VGAScreen.prototype.screen_fill_buffer = function()
 
     if(this.svga_enabled)
     {
+        let min_y = 0;
+        let max_y = this.svga_height - 1;
+
         if(this.svga_bpp === 8)
         {
             // XXX: Slow, should be ported to rust, but it doesn't have access to vga256_palette
@@ -2295,18 +2298,23 @@ VGAScreen.prototype.screen_fill_buffer = function()
         else
         {
             this.cpu.svga_fill_pixel_buffer(this.svga_bpp, this.svga_offset);
+
+            const bytes_per_pixel = this.svga_bpp === 15 ? 2 : this.svga_bpp / 8;
+            const bytes_per_line = bytes_per_pixel * this.svga_width;
+            min_y = this.cpu.svga_dirty_bitmap_min_offset[0] / bytes_per_line | 0;
+            max_y = this.cpu.svga_dirty_bitmap_max_offset[0] / bytes_per_line | 0;
         }
 
-        const min_y = 0;
-        const max_y = this.svga_height;
-
-        this.bus.send("screen-fill-buffer-end", [{
-            image_data: this.image_data,
-            screen_x: 0, screen_y: min_y,
-            buffer_x: 0, buffer_y: min_y,
-            buffer_width: this.svga_width,
-            buffer_height: max_y - min_y + 1,
-        }]);
+        if(min_y < max_y)
+        {
+            this.bus.send("screen-fill-buffer-end", [{
+                image_data: this.image_data,
+                screen_x: 0, screen_y: min_y,
+                buffer_x: 0, buffer_y: min_y,
+                buffer_width: this.svga_width,
+                buffer_height: max_y - min_y + 1,
+            }]);
+        }
     }
     else
     {

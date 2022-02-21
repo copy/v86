@@ -161,6 +161,9 @@ function CPU(bus, wm, next_tick_immediately)
 
     this.reg_pdpte = v86util.view(Int32Array, memory, 968, 8);
 
+    this.svga_dirty_bitmap_min_offset = v86util.view(Uint32Array, memory, 716, 1);
+    this.svga_dirty_bitmap_max_offset = v86util.view(Uint32Array, memory, 720, 1);
+
     this.fw_value = [];
     this.fw_pointer = 0;
     this.option_roms = [];
