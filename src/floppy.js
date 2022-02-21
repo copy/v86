@@ -93,8 +93,18 @@ function FloppyController(cpu, fda_image, fdb_image)
         }
         else
         {
-            throw "Unknown floppy size: " + h(fda_image.byteLength);
+            console.error("Unknown floppy size: " + h(this.floppy_size));
+            floppy_type = ((this.floppy_size >> 10) > 1440) ?  floppy_types[2880] : floppy_types[1440];
+            console.log("Floppy type rounded: " + (Object.keys(floppy_types)[Object.values(floppy_types).indexOf(floppy_type)]));
+
+            cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
+
+            sectors_per_track = floppy_type.sectors;
+            number_of_heads = floppy_type.heads;
+            number_of_cylinders = floppy_type.tracks;
+
         }
+        console.log("Floppy details: ", floppy_type); 
 
         this.sectors_per_track = sectors_per_track;
         this.number_of_heads = number_of_heads;
