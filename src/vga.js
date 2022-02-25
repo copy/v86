@@ -1091,7 +1091,7 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
         if (typeof ImageData !== "undefined")
         {
             const size = width * height;
-            const offset = this.cpu.svga_allocate_dest_buffer(size);
+            const offset = this.cpu.svga_allocate_dest_buffer(size) >>> 0;
 
             this.dest_buffet_offset = offset;
             this.image_data = new ImageData(new Uint8ClampedArray(this.cpu.wasm_memory.buffer, offset, 4 * size), width, height);
