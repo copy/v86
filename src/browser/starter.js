@@ -175,54 +175,68 @@ function V86Starter(options)
         v86_bin_fallback = "build/" + v86_bin_fallback;
     }
 
-    v86util.load_file(v86_bin, {
-        done: bytes =>
-        {
-            WebAssembly
-                .instantiate(bytes, { "env": wasm_shared_funcs })
-                .then(({ instance }) => {
-                    const imports = wasm_shared_funcs;
-                    const exports = instance["exports"];
-                    wasm_memory = exports.memory;
-                    exports["rust_init"]();
+    if (options["wasm_fn"]) {
+        options["wasm_fn"]({ "env": wasm_shared_funcs })
+            .then((exports) => {
+                const imports = wasm_shared_funcs;
+                wasm_memory = exports.memory;
+                exports["rust_init"]();
 
-                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
-                    cpu = emulator.cpu;
+                const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+                cpu = emulator.cpu;
 
-                    this.continue_init(emulator, options);
-                }, err => {
-                    v86util.load_file(v86_bin_fallback, {
-                        done: bytes => {
-                            WebAssembly
-                                .instantiate(bytes, { "env": wasm_shared_funcs })
-                                .then(({ instance }) => {
-                                    const imports = wasm_shared_funcs;
-                                    const exports = instance["exports"];
-                                    wasm_memory = exports.memory;
-                                    exports["rust_init"]();
-
-                                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
-                                    cpu = emulator.cpu;
-
-                                    this.continue_init(emulator, options);
-                                });
-                        },
-                    });
-                });
-        },
-        progress: e =>
-        {
-            this.emulator_bus.send("download-progress", {
-                file_index: 0,
-                file_count: 1,
-                file_name: v86_bin,
-
-                lengthComputable: e.lengthComputable,
-                total: e.total,
-                loaded: e.loaded,
+                this.continue_init(emulator, options);
             });
-        }
-    });
+    } else {
+        v86util.load_file(v86_bin, {
+            done: bytes =>
+            {
+                WebAssembly
+                    .instantiate(bytes, { "env": wasm_shared_funcs })
+                    .then(({ instance }) => {
+                        const imports = wasm_shared_funcs;
+                        const exports = instance["exports"];
+                        wasm_memory = exports.memory;
+                        exports["rust_init"]();
+
+                        const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+                        cpu = emulator.cpu;
+
+                        this.continue_init(emulator, options);
+                    }, err => {
+                        v86util.load_file(v86_bin_fallback, {
+                            done: bytes => {
+                                WebAssembly
+                                    .instantiate(bytes, { "env": wasm_shared_funcs })
+                                    .then(({ instance }) => {
+                                        const imports = wasm_shared_funcs;
+                                        const exports = instance["exports"];
+                                        wasm_memory = exports.memory;
+                                        exports["rust_init"]();
+
+                                        const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+                                        cpu = emulator.cpu;
+
+                                        this.continue_init(emulator, options);
+                                    });
+                            },
+                        });
+                    });
+            },
+            progress: e =>
+            {
+                this.emulator_bus.send("download-progress", {
+                    file_index: 0,
+                    file_count: 1,
+                    file_name: v86_bin,
+
+                    lengthComputable: e.lengthComputable,
+                    total: e.total,
+                    loaded: e.loaded,
+                });
+            }
+        });
+    }
 }
 
 V86Starter.prototype.continue_init = async function(emulator, options)
