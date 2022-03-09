@@ -2300,8 +2300,8 @@ VGAScreen.prototype.screen_fill_buffer = function()
             this.cpu.svga_fill_pixel_buffer(this.svga_bpp, this.svga_offset);
 
             const bytes_per_pixel = this.svga_bpp === 15 ? 2 : this.svga_bpp / 8;
-            min_y = ((this.cpu.svga_dirty_bitmap_min_offset[0] / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width;
-            max_y = ((this.cpu.svga_dirty_bitmap_max_offset[0] / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width + 1;
+            min_y = (((this.cpu.svga_dirty_bitmap_min_offset[0] / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width | 0);
+            max_y = (((this.cpu.svga_dirty_bitmap_max_offset[0] / bytes_per_pixel | 0) - this.svga_offset) / this.svga_width | 0) + 1;
         }
 
         if(min_y < max_y)
