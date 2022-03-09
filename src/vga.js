@@ -1090,11 +1090,11 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
 
         if (typeof ImageData !== "undefined")
         {
-            const size = width * height;
+            const size = virtual_width * virtual_height;
             const offset = this.cpu.svga_allocate_dest_buffer(size) >>> 0;
 
             this.dest_buffet_offset = offset;
-            this.image_data = new ImageData(new Uint8ClampedArray(this.cpu.wasm_memory.buffer, offset, 4 * size), width, height);
+            this.image_data = new ImageData(new Uint8ClampedArray(this.cpu.wasm_memory.buffer, offset, 4 * size), virtual_width, virtual_height);
 
             this.cpu.svga_mark_dirty();
         }
@@ -2216,7 +2216,7 @@ VGAScreen.prototype.vga_redraw = function()
 {
     var start = this.diff_addr_min;
     var end = Math.min(this.diff_addr_max, VGA_PIXEL_BUFFER_SIZE - 1);
-    const buffer = new Int32Array(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, this.screen_width * this.screen_height);
+    const buffer = new Int32Array(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, this.virtual_width * this.virtual_height);
 
     var mask = 0xFF;
     var colorset = 0x00;
@@ -2272,8 +2272,8 @@ VGAScreen.prototype.screen_fill_buffer = function()
     if(this.image_data.data.byteLength === 0)
     {
         // wasm memory resized
-        const buffer = new Uint8ClampedArray(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, 4 * this.screen_width * this.screen_height);
-        this.image_data = new ImageData(buffer, this.screen_width, this.screen_height);
+        const buffer = new Uint8ClampedArray(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, 4 * this.virtual_width * this.virtual_height);
+        this.image_data = new ImageData(buffer, this.virtual_width, this.virtual_height);
         this.update_layers();
     }
 
