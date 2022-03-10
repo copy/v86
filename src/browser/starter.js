@@ -200,13 +200,13 @@ function V86Starter(options)
                 }
             });
         });
-    }
+    };
     
     const loadWASM = async () =>
     {
-        const exports = options["wasm_fn"]
-            ? await options["wasm_fn"]({ "env": wasm_shared_funcs })
-            : await loadWASMFromUrl(v86_bin);
+        const exports = options["wasm_fn"] ?
+            await options["wasm_fn"]({ "env": wasm_shared_funcs }) :
+            await loadWASMFromUrl(v86_bin);
 
         wasm_memory = exports.memory;
         exports["rust_init"]();
@@ -215,7 +215,7 @@ function V86Starter(options)
         cpu = emulator.cpu;
 
         this.continue_init(emulator, options);
-    }
+    };
 
     loadWASM();
 }
