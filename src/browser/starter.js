@@ -175,7 +175,7 @@ function V86Starter(options)
         v86_bin_fallback = "build/" + v86_bin_fallback;
     }
 
-    async function loadWASMFromUrl(url)
+    const loadWASMFromUrl = async (url) =>
     {
         return new Promise((resolve) =>
         {
@@ -202,7 +202,7 @@ function V86Starter(options)
         });
     }
     
-    async function loadWASM()
+    const loadWASM = async () =>
     {
         const exports = options["wasm_fn"]
             ? await options["wasm_fn"]({ "env": wasm_shared_funcs })
