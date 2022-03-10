@@ -188,14 +188,14 @@ function V86Starter(options)
                         WebAssembly
                             .instantiate(bytes, env)
                             .then(({ instance }) => {
-                                resolve(instance);
+                                resolve(instance.exports);
                             }, err => {
                                 v86util.load_file(v86_bin_fallback, {
                                     done: bytes => {
                                         WebAssembly
                                             .instantiate(bytes, env)
                                             .then(({ instance }) => {
-                                                resolve(instance);
+                                                resolve(instance.exports);
                                             });
                                     },
                                 });
@@ -219,7 +219,7 @@ function V86Starter(options)
     }
 
     wasm_fn({ "env": wasm_shared_funcs })
-        .then(({ exports }) => {
+        .then((exports) => {
             wasm_memory = exports.memory;
             exports["rust_init"]();
 
