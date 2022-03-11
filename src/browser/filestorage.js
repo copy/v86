@@ -95,16 +95,14 @@ function ServerFileStorageWrapper(file_storage, baseurl)
  * @param {string} sha256sum
  * @return {!Promise<Uint8Array>}
  */
-ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
+ServerFileStorageWrapper.prototype.load_from_server = async function(sha256sum)
 {
-    return new Promise((resolve, reject) =>
+    let data ;
+    v86util.load_file(this.baseurl + sha256sum, { done: buffer =>
     {
-        v86util.load_file(this.baseurl + sha256sum, { done: buffer =>
-        {
-            const data = new Uint8Array(buffer);
-            this.cache(sha256sum, data).then(() => resolve(data));
-        }});
-    });
+        data = new Uint8Array(buffer);
+    }});
+    return await this.cache(sha256sum, data);
 };
 
 /**

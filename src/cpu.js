@@ -1237,7 +1237,7 @@ CPU.prototype.cycle = function()
     this.cycle_internal();
 };
 
-CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
+CPU.prototype.codegen_finalize = async function(wasm_table_index, start, state_flags, ptr, len)
 {
     ptr >>>= 0;
     len >>>= 0;
@@ -1304,8 +1304,9 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
 
         return;
     }
-
-    const result = WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => {
+    try{
+        const result = await WebAssembly.instantiate(code, { "e": this.jit_imports });
+    
         const f = result.instance.exports["f"];
 
         this.codegen_finalize_finished(wasm_table_index, start, state_flags);
@@ -1316,16 +1317,16 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, 
         {
             this.test_hook_did_finalize_wasm(code);
         }
-    });
-
-    if(DEBUG)
-    {
-        result.catch(e => {
+        
+    }catch(e){
+        if(DEBUG)
+        {
             console.log(e);
             debugger;
-            throw e;
-        });
+            throw e;   
+        }
     }
+    
 };
 
 CPU.prototype.log_uncompiled_code = function(start, end)

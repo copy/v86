@@ -439,7 +439,7 @@ PCSpeaker.prototype.start = function()
  * @param {!AudioContext} audio_context
  * @param {!SpeakerMixer} mixer
  */
-function SpeakerWorkletDAC(bus, audio_context, mixer)
+async function SpeakerWorkletDAC(bus, audio_context, mixer)
 {
     /** @const */
     this.bus = bus;
@@ -756,11 +756,10 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
     // Placeholder pass-through node to connect to, when worklet node is not ready yet.
     this.node_output = this.audio_context.createGain();
 
-    this.audio_context
+    await this.audio_context
         .audioWorklet
-        .addModule(worklet_url)
-        .then(() =>
-    {
+        .addModule(worklet_url);
+    
         URL.revokeObjectURL(worklet_url);
 
         this.node_processor = new AudioWorkletNode(this.audio_context, "dac-processor",
@@ -794,7 +793,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         // Graph
 
         this.node_processor.connect(this.node_output);
-    });
+    
 
     // Interface
 
