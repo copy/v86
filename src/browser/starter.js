@@ -158,7 +158,7 @@ function V86Starter(options)
 
     if(!wasm_fn)
     {
-        wasm_fn = async function(env)
+        wasm_fn = env =>
         {
             return new Promise(resolve => {
                 let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
