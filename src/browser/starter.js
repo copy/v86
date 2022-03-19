@@ -191,7 +191,7 @@ async function V86Starter(options)
                         }catch(err){
                             v86util.load_file(v86_bin_fallback, {
                                     done: async bytes => {
-                                        const {instance}= await WebAssembly.instantiate(bytes, env)
+                                        const {instance}= await WebAssembly.instantiate(bytes, env);
                                         resolve(instance.exports);
                                     },
                             });
@@ -607,7 +607,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
                 [initrd, bzimage]= await Promise.all([
                     settings.fs9p.read_file(initrd),
-                    settings.fs9p.read_file(bzimage)])
+                    settings.fs9p.read_file(bzimage)]);
                 put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
                 put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
                 finish.call(this);
@@ -1190,7 +1190,7 @@ V86Starter.prototype.create_file = async function(file, data, callback)
 
     if(!not_found)
     {
-        await fs.CreateBinaryFile(filename, parent_id, data)
+        await fs.CreateBinaryFile(filename, parent_id, data);
         callback(null);
     }
     else
