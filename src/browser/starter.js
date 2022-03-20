@@ -88,7 +88,7 @@
  * @param {Object} options Options to initialize the emulator with.
  * @constructor
  */
-async function V86Starter(options)
+function V86Starter(options)
 {
     //var worker = new Worker("src/browser/worker.js");
     //var adapter_bus = this.bus = WorkerBus.init(worker);
@@ -186,16 +186,16 @@ async function V86Starter(options)
                     done: async bytes =>
                     {
                         try{
-                            const {instance} = await WebAssembly.instantiate(bytes,env);
+                            const {instance } = await WebAssembly.instantiate(bytes, env);
                             resolve(instance.exports);
                         }catch(err){
                             v86util.load_file(v86_bin_fallback, {
                                     done: async bytes => {
-                                        const {instance}= await WebAssembly.instantiate(bytes, env);
+                                        const {instance } = await WebAssembly.instantiate(bytes, env);
                                         resolve(instance.exports);
                                     },
-                            });
-                        }
+                                });
+                        }            
                     },
                     progress: e =>
                     {
@@ -214,14 +214,16 @@ async function V86Starter(options)
         };
     }
 
-    const exports = await wasm_fn({ "env": wasm_shared_funcs });
-    wasm_memory = exports.memory;
-    exports["rust_init"]();
+    wasm_fn({ "env": wasm_shared_funcs })
+        .then((exports) => {
+            wasm_memory = exports.memory;
+            exports["rust_init"]();
 
-    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
-    cpu = emulator.cpu;
+            const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+            cpu = emulator.cpu;
 
-    this.continue_init(emulator, options);
+            this.continue_init(emulator, options);
+        });
 }
 
 V86Starter.prototype.continue_init = async function(emulator, options)
@@ -523,11 +525,11 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     var starter = this;
     var total = files_to_load.length;
 
-    var cont = function(index)
+    var cont = async function(index)
     {
         if(index === total)
         {
-            setTimeout(done.bind(this), 0);
+            setTimeout(await done.bind(this), 0);
             return;
         }
 
@@ -535,20 +537,20 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
         if(f.loadable)
         {
-            f.loadable.onload = function(e)
+            f.loadable.onload = async function(e)
             {
                 put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
+                await cont(index + 1);
             }.bind(this);
             f.loadable.load();
         }
         else
         {
             v86util.load_file(f.url, {
-                done: function(result)
+                done: async function(result)
                 {
                     put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
-                    cont(index + 1);
+                    await cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
                 {
@@ -578,7 +580,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             });
         }
     }.bind(this);
-    cont(0);
+    await cont(0);
 
     async function done()
     {
@@ -605,13 +607,13 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
                 dbg_log("Found bzimage: " + bzimage + " and initrd: " + initrd);
 
-                [initrd, bzimage]= await Promise.all([
+                [initrd, bzimage] = await Promise.all([
                     settings.fs9p.read_file(initrd),
-                    settings.fs9p.read_file(bzimage)]);
+                    settings.fs9p.read_file(bzimage),
+                ]);
                 put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
                 put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
                 finish.call(this);
-                
             }
             else
             {
@@ -1190,7 +1192,7 @@ V86Starter.prototype.create_file = async function(file, data, callback)
 
     if(!not_found)
     {
-        await fs.CreateBinaryFile(filename, parent_id, data);
+        await fs.CreateBinaryFile(filename,parent_id,data);
         callback(null);
     }
     else
@@ -1219,7 +1221,7 @@ V86Starter.prototype.read_file = async function(file, callback)
         return;
     }
 
-    const result  = await fs.read_file(file);
+    const result = await fs.read_file(file);
     if(result)
     {
         callback(null, result);

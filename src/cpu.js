@@ -1293,7 +1293,7 @@ CPU.prototype.codegen_finalize = async function(wasm_table_index, start, state_f
         const result = new WebAssembly.Instance(module, { "e": this.jit_imports });
         const f = result.exports["f"];
 
-        this.codegen_finalize_finished(wasm_table_index, start, state_flags);
+        await this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
         this.wm.wasm_table.set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
@@ -1304,9 +1304,9 @@ CPU.prototype.codegen_finalize = async function(wasm_table_index, start, state_f
 
         return;
     }
+
     try{
         const result = await WebAssembly.instantiate(code, { "e": this.jit_imports });
-    
         const f = result.instance.exports["f"];
 
         this.codegen_finalize_finished(wasm_table_index, start, state_flags);
@@ -1317,16 +1317,13 @@ CPU.prototype.codegen_finalize = async function(wasm_table_index, start, state_f
         {
             this.test_hook_did_finalize_wasm(code);
         }
-        
-    }catch(e){
-        if(DEBUG)
-        {
-            console.log(e);
-            debugger;
-            throw e;   
+    }catch(err){
+        if (DEBUG){
+            console.log(err);
+            debugger;   
+            throw err;
         }
     }
-    
 };
 
 CPU.prototype.log_uncompiled_code = function(start, end)
