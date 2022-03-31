@@ -50,7 +50,7 @@ fn iter_dirty_pages(f: &dyn Fn(isize)) {
 
     unsafe {
         *global_pointers::svga_dirty_bitmap_min_offset = min_off;
-        *global_pointers::svga_dirty_bitmap_max_offset = max_off;
+        *global_pointers::svga_dirty_bitmap_max_offset = max_off + 0xFFF;
     }
 }
 
