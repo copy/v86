@@ -372,7 +372,7 @@ pub unsafe fn fxrstor(addr: i32) {
 
     set_control_word(safe_read16(addr + 0).unwrap() as u16);
     fpu_set_status_word(safe_read16(addr + 2).unwrap() as u16);
-    *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() as u8;
+    *fpu_stack_empty = !safe_read8(addr + 4).unwrap() as u8;
     *fpu_opcode = safe_read16(addr + 6).unwrap();
     *fpu_ip = safe_read32s(addr + 8).unwrap();
     *fpu_ip_selector = safe_read16(addr + 12).unwrap();

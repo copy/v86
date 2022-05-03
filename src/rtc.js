@@ -264,7 +264,7 @@ RTC.prototype.cmos_port_read = function()
             return c;
 
         case CMOS_STATUS_D:
-            return 0xFF;
+            return 0;
 
         case CMOS_CENTURY:
             return this.encode_time(new Date(this.rtc_time).getUTCFullYear() / 100 | 0);

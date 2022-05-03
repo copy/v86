@@ -344,11 +344,11 @@ fn jit_find_basic_blocks(
             return None;
         }
         let phys_target = match cpu::translate_address_read_no_side_effects(virt_target) {
-            None => {
+            Err(()) => {
                 dbg_log!("Not analysing {:x} (page not mapped)", virt_target);
                 return None;
             },
-            Some(t) => t,
+            Ok(t) => t,
         };
 
         let phys_page = Page::page_of(phys_target);
@@ -417,11 +417,11 @@ fn jit_find_basic_blocks(
 
     while let Some(to_visit) = to_visit_stack.pop() {
         let phys_addr = match cpu::translate_address_read_no_side_effects(to_visit) {
-            None => {
+            Err(()) => {
                 dbg_log!("Not analysing {:x} (page not mapped)", to_visit);
                 continue;
             },
-            Some(phys_addr) => phys_addr,
+            Ok(phys_addr) => phys_addr,
         };
 
         if basic_blocks.contains_key(&phys_addr) {
@@ -1935,7 +1935,7 @@ pub fn jit_increase_hotness_and_maybe_compile(
             return;
         }
         // only try generating if we're in the correct address space
-        if cpu::translate_address_read_no_side_effects(virt_address) == Some(phys_address) {
+        if cpu::translate_address_read_no_side_effects(virt_address) == Ok(phys_address) {
             ctx.hot_pages[address_hash] = 0;
             jit_analyze_and_generate(ctx, virt_address, phys_address, cs_offset, state_flags)
         }

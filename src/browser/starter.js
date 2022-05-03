@@ -154,72 +154,80 @@ function V86Starter(options)
         "__indirect_function_table": wasm_table,
     };
 
-    let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
-    let v86_bin_fallback = "v86-fallback.wasm";
+    let wasm_fn = options["wasm_fn"];
 
-    if(options["wasm_path"])
+    if(!wasm_fn)
     {
-        v86_bin = options["wasm_path"];
-    }
-    else if(typeof window === "undefined" && typeof __dirname === "string")
-    {
-        v86_bin = __dirname + "/" + v86_bin;
-        v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
-    }
-    else
-    {
-        v86_bin = "build/" + v86_bin;
-        v86_bin_fallback = "build/" + v86_bin_fallback;
-    }
-
-    v86util.load_file(v86_bin, {
-        done: bytes =>
+        wasm_fn = env =>
         {
-            WebAssembly
-                .instantiate(bytes, { "env": wasm_shared_funcs })
-                .then(({ instance }) => {
-                    const imports = wasm_shared_funcs;
-                    const exports = instance["exports"];
-                    wasm_memory = exports.memory;
-                    exports["rust_init"]();
+            return new Promise(resolve => {
+                let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
+                let v86_bin_fallback = "v86-fallback.wasm";
 
-                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
-                    cpu = emulator.cpu;
+                if(options["wasm_path"])
+                {
+                    v86_bin = options["wasm_path"];
+                    const slash = v86_bin.lastIndexOf("/");
+                    const dir = slash === -1 ? "" : v86_bin.substr(0, slash);
+                    v86_bin_fallback = dir + "/" + v86_bin_fallback;
+                }
+                else if(typeof window === "undefined" && typeof __dirname === "string")
+                {
+                    v86_bin = __dirname + "/" + v86_bin;
+                    v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
+                }
+                else
+                {
+                    v86_bin = "build/" + v86_bin;
+                    v86_bin_fallback = "build/" + v86_bin_fallback;
+                }
 
-                    this.continue_init(emulator, options);
-                }, err => {
-                    v86util.load_file(v86_bin_fallback, {
-                        done: bytes => {
-                            WebAssembly
-                                .instantiate(bytes, { "env": wasm_shared_funcs })
-                                .then(({ instance }) => {
-                                    const imports = wasm_shared_funcs;
-                                    const exports = instance["exports"];
-                                    wasm_memory = exports.memory;
-                                    exports["rust_init"]();
-
-                                    const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
-                                    cpu = emulator.cpu;
-
-                                    this.continue_init(emulator, options);
+                v86util.load_file(v86_bin, {
+                    done: bytes =>
+                    {
+                        WebAssembly
+                            .instantiate(bytes, env)
+                            .then(({ instance }) => {
+                                resolve(instance.exports);
+                            }, err => {
+                                v86util.load_file(v86_bin_fallback, {
+                                    done: bytes => {
+                                        WebAssembly
+                                            .instantiate(bytes, env)
+                                            .then(({ instance }) => {
+                                                resolve(instance.exports);
+                                            });
+                                    },
                                 });
-                        },
-                    });
-                });
-        },
-        progress: e =>
-        {
-            this.emulator_bus.send("download-progress", {
-                file_index: 0,
-                file_count: 1,
-                file_name: v86_bin,
+                            });
+                    },
+                    progress: e =>
+                    {
+                        this.emulator_bus.send("download-progress", {
+                            file_index: 0,
+                            file_count: 1,
+                            file_name: v86_bin,
 
-                lengthComputable: e.lengthComputable,
-                total: e.total,
-                loaded: e.loaded,
+                            lengthComputable: e.lengthComputable,
+                            total: e.total,
+                            loaded: e.loaded,
+                        });
+                    }
+                });
             });
-        }
-    });
+        };
+    }
+
+    wasm_fn({ "env": wasm_shared_funcs })
+        .then((exports) => {
+            wasm_memory = exports.memory;
+            exports["rust_init"]();
+
+            const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
+            cpu = emulator.cpu;
+
+            this.continue_init(emulator, options);
+        });
 }
 
 V86Starter.prototype.continue_init = async function(emulator, options)

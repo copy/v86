@@ -2,16 +2,9 @@
 
 const assert = require("assert").strict;
 
-function repeat(s, n)
-{
-    let out = "";
-    for(let i = 0; i < n; i++) out += s;
-    return out;
-}
-
 function indent(lines, how_much)
 {
-    return lines.map(line => repeat(" ", how_much) + line);
+    return lines.map(line => " ".repeat(how_much) + line);
 }
 
 function print_syntax_tree(statements)

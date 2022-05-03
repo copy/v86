@@ -9,8 +9,6 @@ function DummyScreenAdapter(bus)
 {
     var
         graphic_image_data,
-        graphic_buffer,
-        graphic_buffer32,
 
         /** @type {number} */
         cursor_row,
@@ -123,13 +121,8 @@ function DummyScreenAdapter(bus)
 
     this.set_size_graphical = function(width, height)
     {
-        graphic_buffer = new Uint8Array(4 * width * height);
-        graphic_buffer32 = new Int32Array(graphic_buffer.buffer);
-
         graphical_mode_width = width;
         graphical_mode_height = height;
-
-        this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
     };
 
     this.set_scale = function(s_x, s_y)

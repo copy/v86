@@ -3,8 +3,7 @@
 
 const BENCH_COLLECT_STATS = +process.env.BENCH_COLLECT_STATS;
 
-const V86 = require(`../../build/${BENCH_COLLECT_STATS ? "libv86-debug" : "libv86"}.js`).V86;
-const print_stats = require("../../build/libv86.js").print_stats;
+const { V86, print_stats } = require(`../../build/${BENCH_COLLECT_STATS ? "libv86-debug" : "libv86"}.js`);
 const path = require("path");
 
 const V86_ROOT = path.join(__dirname, "../..");
@@ -16,13 +15,8 @@ const emulator = new V86({
     memory_size: 512 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
     network_relay_url: "<UNUSED>",
-    initial_state: { url: __dirname + "/../../images/arch_state.bin" },
-    filesystem: {
-        basefs: {
-            url: path.join(V86_ROOT, "/images/fs.json"),
-        },
-        baseurl: path.join(V86_ROOT, "/images/arch-nongz/"),
-    },
+    initial_state: { url: path.join(V86_ROOT, "/images/arch_state.bin") },
+    filesystem: { baseurl: path.join(V86_ROOT, "/images/arch-nongz/") },
     screen_dummy: true,
     log_level: 0,
 });
