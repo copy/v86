@@ -161,6 +161,9 @@ function CPU(bus, wm, next_tick_immediately)
 
     this.reg_pdpte = v86util.view(Int32Array, memory, 968, 8);
 
+    this.svga_dirty_bitmap_min_offset = v86util.view(Uint32Array, memory, 716, 1);
+    this.svga_dirty_bitmap_max_offset = v86util.view(Uint32Array, memory, 720, 1);
+
     this.fw_value = [];
     this.fw_pointer = 0;
     this.option_roms = [];
@@ -239,6 +242,7 @@ CPU.prototype.wasm_patch = function()
     this.read8 = get_import("read8");
     this.read16 = get_import("read16");
     this.read32s = get_import("read32s");
+    this.write8 = get_import("write8");
     this.write16 = get_import("write16");
     this.write32 = get_import("write32");
     this.in_mapped_range = get_import("in_mapped_range");
@@ -270,6 +274,11 @@ CPU.prototype.wasm_patch = function()
 
     this.allocate_memory = get_import("allocate_memory");
     this.zero_memory = get_import("zero_memory");
+
+    this.svga_allocate_memory = get_import("svga_allocate_memory");
+    this.svga_allocate_dest_buffer = get_import("svga_allocate_dest_buffer");
+    this.svga_fill_pixel_buffer = get_import("svga_fill_pixel_buffer");
+    this.svga_mark_dirty = get_import("svga_mark_dirty");
 
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");

@@ -47,18 +47,6 @@
         }
     }
 
-    function chr_repeat(chr, count)
-    {
-        var result = "";
-
-        while(count-- > 0)
-        {
-            result += chr;
-        }
-
-        return result;
-    }
-
     var progress_ticks = 0;
 
     function show_progress(e)
@@ -95,12 +83,12 @@
             var per50 = Math.floor(per100 / 2);
 
             line += per100 + "% [";
-            line += chr_repeat("#", per50);
-            line += chr_repeat(" ", 50 - per50) + "]";
+            line += "#".repeat(per50);
+            line += " ".repeat(50 - per50) + "]";
         }
         else
         {
-            line += chr_repeat(".", progress_ticks++ % 50);
+            line += ".".repeat(progress_ticks++ % 50);
         }
 
         el.textContent = line;
@@ -1098,6 +1086,24 @@
             }
         }
 
+        if(!settings.bzimage)
+        {
+            var bzimage = $("bzimage").files[0];
+            if(bzimage)
+            {
+                settings.bzimage = { buffer: bzimage };
+            }
+        }
+
+        if(!settings.initrd)
+        {
+            var initrd = $("initrd").files[0];
+            if(initrd)
+            {
+                settings.initrd = { buffer: initrd };
+            }
+        }
+
         const networking_proxy = settings.networking_proxy === undefined ? $("networking_proxy").value : settings.networking_proxy;
         const disable_audio = settings.audio === undefined ? $("disable_audio").checked : !settings.audio;
         const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
@@ -1315,12 +1321,16 @@
             total_instructions += last_ips;
 
             var delta_time = now - last_tick;
-            running_time += delta_time;
-            last_tick = now;
 
-            $("speed").textContent = (last_ips / 1000 / delta_time).toFixed(1);
-            $("avg_speed").textContent = (total_instructions / 1000 / running_time).toFixed(1);
-            $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
+            if(delta_time)
+            {
+                running_time += delta_time;
+                last_tick = now;
+
+                $("speed").textContent = (last_ips / 1000 / delta_time).toFixed(1);
+                $("avg_speed").textContent = (total_instructions / 1000 / running_time).toFixed(1);
+                $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
+            }
         }
 
         emulator.add_listener("emulator-started", function()

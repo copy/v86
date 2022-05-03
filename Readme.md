@@ -53,7 +53,7 @@ list of emulated hardware:
 
 Here's an overview of the operating systems supported in v86:
 
-- Linux works pretty well. Neither 64-bit nor PAE kernels are supported.
+- Linux works pretty well. 64-bit kernels are not supported.
   - Damn Small Linux (2.4 Kernel) works.
   - All tested versions of TinyCore work.
   - [BuildRoot](https://buildroot.uclibc.org) can be used to build a minimal

@@ -1,18 +1,22 @@
-extern "C" {
-    fn mmap_read8(addr: u32) -> i32;
-    fn mmap_read16(addr: u32) -> i32;
-    fn mmap_read32(addr: u32) -> i32;
+mod ext {
+    extern "C" {
+        pub fn mmap_read8(addr: u32) -> i32;
+        pub fn mmap_read16(addr: u32) -> i32;
+        pub fn mmap_read32(addr: u32) -> i32;
 
-    pub fn mmap_write8(addr: u32, value: i32);
-    pub fn mmap_write16(addr: u32, value: i32);
-    pub fn mmap_write32(addr: u32, value: i32);
-    pub fn mmap_write64(addr: u32, v0: i32, v1: i32);
-    pub fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
+        pub fn mmap_write8(addr: u32, value: i32);
+        pub fn mmap_write16(addr: u32, value: i32);
+        pub fn mmap_write32(addr: u32, value: i32);
+        pub fn mmap_write64(addr: u32, v0: i32, v1: i32);
+        pub fn mmap_write128(addr: u32, v0: i32, v1: i32, v2: i32, v3: i32);
+    }
 }
 
 use cpu::cpu::reg128;
 use cpu::global_pointers::memory_size;
+use cpu::vga;
 use page::Page;
+
 use std::alloc;
 use std::ptr;
 
@@ -36,30 +40,69 @@ pub fn allocate_memory(size: u32) -> u32 {
 #[no_mangle]
 pub unsafe fn zero_memory(size: u32) { ptr::write_bytes(mem8, 0, size as usize); }
 
+#[allow(non_upper_case_globals)]
+pub static mut vga_mem8: *mut u8 = ptr::null_mut();
+#[allow(non_upper_case_globals)]
+pub static mut vga_memory_size: u32 = 0;
+
+#[no_mangle]
+pub fn svga_allocate_memory(size: u32) -> u32 {
+    unsafe {
+        dbg_assert!(vga_mem8.is_null());
+    };
+    let layout = alloc::Layout::from_size_align(size as usize, 0x1000).unwrap();
+    let ptr = unsafe { alloc::alloc(layout) as u32 };
+    dbg_assert!(
+        size & (1 << 12 << 6) == 0,
+        "size not aligned to dirty_bitmap"
+    );
+    unsafe {
+        vga_mem8 = ptr as *mut u8;
+        vga_memory_size = size;
+        vga::dirty_bitmap.resize((size >> 12 >> 6) as usize, 0);
+    };
+    ptr
+}
+
 #[no_mangle]
 pub fn in_mapped_range(addr: u32) -> bool {
     return addr >= 0xA0000 && addr < 0xC0000 || addr >= unsafe { *memory_size };
 }
 
+pub const VGA_LFB_ADDRESS: u32 = 0xE0000000;
+pub fn in_svga_lfb(addr: u32) -> bool {
+    addr >= VGA_LFB_ADDRESS && addr < unsafe { VGA_LFB_ADDRESS + vga_memory_size }
+}
+
 #[no_mangle]
 pub fn read8(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return unsafe { mmap_read8(addr) };
+        if in_svga_lfb(addr) {
+            unsafe { *vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as i32 }
+        }
+        else {
+            unsafe { ext::mmap_read8(addr) }
+        }
     }
     else {
-        return read8_no_mmap_check(addr);
-    };
+        read8_no_mmap_check(addr)
+    }
 }
 pub fn read8_no_mmap_check(addr: u32) -> i32 { unsafe { *mem8.offset(addr as isize) as i32 } }
 
 #[no_mangle]
 pub fn read16(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return unsafe { mmap_read16(addr) };
+        if in_svga_lfb(addr) {
+            unsafe { *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const u16) as i32 }
+        }
+        else {
+            unsafe { ext::mmap_read16(addr) }
+        }
     }
     else {
-        return read16_no_mmap_check(addr);
-    };
+        read16_no_mmap_check(addr)
+    }
 }
 pub fn read16_no_mmap_check(addr: u32) -> i32 {
     unsafe { *(mem8.offset(addr as isize) as *mut u16) as i32 }
@@ -68,11 +111,16 @@ pub fn read16_no_mmap_check(addr: u32) -> i32 {
 #[no_mangle]
 pub fn read32s(addr: u32) -> i32 {
     if in_mapped_range(addr) {
-        return unsafe { mmap_read32(addr) };
+        if in_svga_lfb(addr) {
+            unsafe { *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i32) }
+        }
+        else {
+            unsafe { ext::mmap_read32(addr) }
+        }
     }
     else {
-        return read32_no_mmap_check(addr);
-    };
+        read32_no_mmap_check(addr)
+    }
 }
 pub fn read32_no_mmap_check(addr: u32) -> i32 {
     unsafe { *(mem8.offset(addr as isize) as *mut i32) }
@@ -80,30 +128,50 @@ pub fn read32_no_mmap_check(addr: u32) -> i32 {
 
 pub unsafe fn read64s(addr: u32) -> i64 {
     if in_mapped_range(addr) {
-        return mmap_read32(addr) as i64 | (mmap_read32(addr.wrapping_add(4 as u32)) as i64) << 32;
+        if in_svga_lfb(addr) {
+            *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i64)
+        }
+        else {
+            ext::mmap_read32(addr) as i64 | (ext::mmap_read32(addr + 4) as i64) << 32
+        }
     }
     else {
-        return *(mem8.offset(addr as isize) as *mut i64);
-    };
+        *(mem8.offset(addr as isize) as *mut i64)
+    }
 }
 
 pub unsafe fn read128(addr: u32) -> reg128 {
-    let mut value: reg128 = reg128 {
-        i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    };
     if in_mapped_range(addr) {
-        value.i32_0[0] = mmap_read32(addr);
-        value.i32_0[1] = mmap_read32(addr.wrapping_add(4 as u32));
-        value.i32_0[2] = mmap_read32(addr.wrapping_add(8 as u32));
-        value.i32_0[3] = mmap_read32(addr.wrapping_add(12 as u32))
+        if in_svga_lfb(addr) {
+            reg128 {
+                i64: [
+                    *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i64),
+                    *(vga_mem8.offset((addr - VGA_LFB_ADDRESS + 8) as isize) as *const i64),
+                ],
+            }
+        }
+        else {
+            reg128 {
+                i32: [
+                    ext::mmap_read32(addr + 0),
+                    ext::mmap_read32(addr + 4),
+                    ext::mmap_read32(addr + 8),
+                    ext::mmap_read32(addr + 12),
+                ],
+            }
+        }
     }
     else {
-        value.i64_0[0] = *(mem8.offset(addr as isize) as *mut i64);
-        value.i64_0[1] = *(mem8.offset(addr as isize).offset(8) as *mut i64)
+        reg128 {
+            i64: [
+                *(mem8.offset(addr as isize) as *mut i64),
+                *(mem8.offset(addr as isize).offset(8) as *mut i64),
+            ],
+        }
     }
-    return value;
 }
 
+#[no_mangle]
 pub unsafe fn write8(addr: u32, value: i32) {
     if in_mapped_range(addr) {
         mmap_write8(addr, value & 0xFF);
@@ -124,7 +192,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
         mmap_write16(addr, value & 0xFFFF);
     }
     else {
-        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(2 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr + 2);
         write16_no_mmap_or_dirty_check(addr, value);
     };
 }
@@ -138,7 +206,7 @@ pub unsafe fn write32(addr: u32, value: i32) {
         mmap_write32(addr, value);
     }
     else {
-        ::jit::jit_dirty_cache_small(addr, addr.wrapping_add(4 as u32));
+        ::jit::jit_dirty_cache_small(addr, addr + 4);
         write32_no_mmap_or_dirty_check(addr, value);
     };
 }
@@ -166,4 +234,57 @@ pub unsafe fn memcpy_no_mmap_or_dirty_check(src_addr: u32, dst_addr: u32, count:
         mem8.offset(dst_addr as isize),
         count as usize,
     )
+}
+
+pub unsafe fn mmap_write8(addr: u32, value: i32) {
+    if in_svga_lfb(addr) {
+        vga::mark_dirty(addr);
+        *vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) = value as u8
+    }
+    else {
+        ext::mmap_write8(addr, value)
+    }
+}
+pub unsafe fn mmap_write16(addr: u32, value: i32) {
+    if in_svga_lfb(addr) {
+        vga::mark_dirty(addr);
+        *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *mut u16) = value as u16
+    }
+    else {
+        ext::mmap_write16(addr, value)
+    }
+}
+pub unsafe fn mmap_write32(addr: u32, value: i32) {
+    if in_svga_lfb(addr) {
+        vga::mark_dirty(addr);
+        *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *mut i32) = value
+    }
+    else {
+        ext::mmap_write32(addr, value)
+    }
+}
+pub unsafe fn mmap_write64(addr: u32, value: u64) {
+    if in_svga_lfb(addr) {
+        vga::mark_dirty(addr);
+        *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *mut u64) = value
+    }
+    else {
+        ext::mmap_write64(addr, value as i32, (value >> 32) as i32)
+    }
+}
+pub unsafe fn mmap_write128(addr: u32, v0: u64, v1: u64) {
+    if in_svga_lfb(addr) {
+        vga::mark_dirty(addr);
+        *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *mut u64) = v0;
+        *(vga_mem8.offset((addr - VGA_LFB_ADDRESS + 8) as isize) as *mut u64) = v1
+    }
+    else {
+        ext::mmap_write128(
+            addr,
+            v0 as i32,
+            (v0 >> 32) as i32,
+            v1 as i32,
+            (v1 >> 32) as i32,
+        )
+    }
 }

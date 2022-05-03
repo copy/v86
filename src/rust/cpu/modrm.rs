@@ -104,7 +104,7 @@ pub unsafe fn resolve_modrm32_(modrm_byte: i32) -> OrPageFault<i32> {
         )?
     })
 }
-unsafe fn resolve_sib(mod_0: bool) -> OrPageFault<i32> {
+unsafe fn resolve_sib(with_imm: bool) -> OrPageFault<i32> {
     let s;
     let sib_byte = read_imm8()? as u8;
     let r = (sib_byte as i32 & 7) as u8;
@@ -116,7 +116,7 @@ unsafe fn resolve_sib(mod_0: bool) -> OrPageFault<i32> {
         seg = SS
     }
     else if r as i32 == 5 {
-        if mod_0 {
+        if with_imm {
             base = read_reg32(EBP);
             seg = SS
         }

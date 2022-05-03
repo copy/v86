@@ -25,8 +25,6 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.response_index = 0;
     this.response_length = 0;
 
-    this.floppy_size = 0;
-
     /* const */
     this.fda_image = fda_image;
 
@@ -54,47 +52,46 @@ function FloppyController(cpu, fda_image, fdb_image)
         this.sectors_per_track = 0;
         this.number_of_heads = 0;
         this.number_of_cylinders = 0;
-
-        this.floppy_size = 0;
     }
     else
     {
-        this.floppy_size = fda_image.byteLength;
-
         var floppy_types = {
-            160  : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
-            180  : { type: 1, tracks: 40, sectors: 9 , heads: 1 },
-            200  : { type: 1, tracks: 40, sectors: 10, heads: 1 },
-            320  : { type: 1, tracks: 40, sectors: 8 , heads: 2 },
-            360  : { type: 1, tracks: 40, sectors: 9 , heads: 2 },
-            400  : { type: 1, tracks: 40, sectors: 10, heads: 2 },
-            720  : { type: 3, tracks: 80, sectors: 9 , heads: 2 },
-            1200 : { type: 2, tracks: 80, sectors: 15, heads: 2 },
-            1440 : { type: 4, tracks: 80, sectors: 18, heads: 2 },
-            1722 : { type: 5, tracks: 82, sectors: 21, heads: 2 },
-            2880 : { type: 5, tracks: 80, sectors: 36, heads: 2 },
+            [ 160 * 1024] : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
+            [ 180 * 1024] : { type: 1, tracks: 40, sectors: 9 , heads: 1 },
+            [ 200 * 1024] : { type: 1, tracks: 40, sectors: 10, heads: 1 },
+            [ 320 * 1024] : { type: 1, tracks: 40, sectors: 8 , heads: 2 },
+            [ 360 * 1024] : { type: 1, tracks: 40, sectors: 9 , heads: 2 },
+            [ 400 * 1024] : { type: 1, tracks: 40, sectors: 10, heads: 2 },
+            [ 720 * 1024] : { type: 3, tracks: 80, sectors: 9 , heads: 2 },
+            [1200 * 1024] : { type: 2, tracks: 80, sectors: 15, heads: 2 },
+            [1440 * 1024] : { type: 4, tracks: 80, sectors: 18, heads: 2 },
+            [1722 * 1024] : { type: 5, tracks: 82, sectors: 21, heads: 2 },
+            [2880 * 1024] : { type: 5, tracks: 80, sectors: 36, heads: 2 },
 
             // not a real floppy type, used to support sectorlisp and friends
-            0    : { type: 1, tracks: 1, sectors: 1, heads: 1 },
+            512: { type: 1, tracks: 1, sectors: 1, heads: 1 },
         };
+
+        let floppy_size = fda_image.byteLength;
 
         var number_of_cylinders,
             sectors_per_track,
             number_of_heads,
-            floppy_type = floppy_types[this.floppy_size >> 10];
+            floppy_type = floppy_types[floppy_size];
 
-        if(floppy_type && ((this.floppy_size & 0x3FF) === 0 || this.floppy_size === 512))
+        if(!floppy_type)
         {
-            cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
+            floppy_size = fda_image.byteLength > 1440 * 1024 ? 2880 * 1024 : 1440 * 1024;
+            floppy_type = floppy_types[floppy_size];
 
-            sectors_per_track = floppy_type.sectors;
-            number_of_heads = floppy_type.heads;
-            number_of_cylinders = floppy_type.tracks;
+            dbg_log("Warning: Unkown floppy size: " + fda_image.byteLength + ", assuming " + floppy_size);
         }
-        else
-        {
-            throw "Unknown floppy size: " + h(fda_image.byteLength);
-        }
+
+        cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
+
+        sectors_per_track = floppy_type.sectors;
+        number_of_heads = floppy_type.heads;
+        number_of_cylinders = floppy_type.tracks;
 
         this.sectors_per_track = sectors_per_track;
         this.number_of_heads = number_of_heads;
@@ -122,7 +119,7 @@ FloppyController.prototype.get_state = function()
     state[4] = this.response_data;
     state[5] = this.response_index;
     state[6] = this.response_length;
-    state[7] = this.floppy_size;
+
     state[8] = this.status_reg0;
     state[9] = this.status_reg1;
     state[10] = this.status_reg2;
@@ -147,7 +144,7 @@ FloppyController.prototype.set_state = function(state)
     this.response_data = state[4];
     this.response_index = state[5];
     this.response_length = state[6];
-    this.floppy_size = state[7];
+
     this.status_reg0 = state[8];
     this.status_reg1 = state[9];
     this.status_reg2 = state[10];
