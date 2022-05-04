@@ -22,8 +22,11 @@
   "devDependencies": {
   },
   "files": [
+    "bios/*.bin",
     "build/libv86.js",
+    "build/libv86-debug.js",
     "build/v86.wasm",
+    "build/v86-debug.wasm",
     "build/v86-fallback.wasm",
     "types/index.d.ts"
   ],
