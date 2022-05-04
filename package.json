@@ -1,5 +1,5 @@
 {
-  "name": "@glasssh/v86",
+  "name": "@copy/v86",
   "version": "0.1.0",
   "description": "x86 virtualization in your browser, recompiling x86 to wasm on the fly",
   "main": "build/libv86.js",
@@ -33,7 +33,7 @@
   "types": "types/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glasssh/v86.git"
+    "url": "git+https://github.com/copy/v86.git"
   },
   "keywords": [
     "x86",
@@ -43,7 +43,7 @@
   "author": "Fabian Hemmer",
   "license": "BSD-2-Clause",
   "bugs": {
-    "url": "https://github.com/glasssh/v86/issues"
+    "url": "https://github.com/copy/v86/issues"
   },
-  "homepage": "https://github.com/glasssh/v86#readme"
+  "homepage": "https://github.com/copy/v86#readme"
 }
