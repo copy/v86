@@ -24,8 +24,10 @@
   "files": [
     "build/libv86.js",
     "build/v86.wasm",
-    "build/v86-fallback.wasm"
+    "build/v86-fallback.wasm",
+    "types/index.d.ts"
   ],
+  "types": "types/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/glasssh/v86.git"
