@@ -1,7 +1,7 @@
 declare module v86 {
 
   /** set when v86 is built with debug mode enabled */
-  declare const DEBUG: boolean;
+  declare let DEBUG: boolean | undefined;
 
   declare type V86Image = 
     | { url: string } 
@@ -89,18 +89,10 @@ declare module v86 {
      * @param {*=} unused_transfer
      */
     send(name: string, value: any, unused_transfer?: any)
-
-    /**
-     * Send a message, guaranteeing that it is received asynchronously
-     *
-     * @param {string} name
-     * @param {Object=} value
-     */
-    send_async(name: string, value: any)
   }
 
   /**
-   * Custom emulated ethernet card adapter (pass in V86StarterOptions)
+   * Custom emulated ethernet card adapter (pass in V86Options)
    * @see https://github.com/copy/v86/blob/master/src/browser/network.js
    */
   declare class NetworkAdapter {
@@ -137,7 +129,7 @@ declare module v86 {
   /**
    * emulator instance constructor options.
    */
-  declare interface V86StarterOptions {
+  declare interface V86Options {
     /**
      * Path to v86 wasm artifact
      * @default "build/v86.wasm" or "build/v86-debug.wasm" when debug mode enabled 
@@ -342,12 +334,12 @@ declare module v86 {
   }
 
   declare class V86Starter {
-    constructor(options?: V86StarterOptions)
+    constructor(options?: V86Options)
 
     /**
      * bus, use it when you must (there are a few wrappers on top of it in V86Starter that you might find helpful instead)
      */
-    bus: BusConnector
+    protected bus: BusConnector
 
     /**
      * Start emulation. Do nothing if emulator is running already. Can be asynchronous.
@@ -523,16 +515,6 @@ declare module v86 {
     serial_send_bytes(serial: number, data: Uint8Array)
 
     /**
-     * Mount another filesystem to the current filesystem.
-     * @param path Path for the mount point
-     * @param baseurl
-     * @param basefs As a JSON string
-     * @param callback
-     * @export
-     */
-    mount_fs(path: string, baseurl?: string, basefs?: string, callback?: (error: Object | null) => void): void
-
-    /**
      * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
      * been initialized. First argument to the callback is an error object if
      * something went wrong and null otherwise.
@@ -555,7 +537,7 @@ declare module v86 {
      * @param offset
      * @param length
      */
-    read_memory(offset: number, length: number): Array<number> | Uint8Array
+    read_memory(offset: number, length: number): Uint8Array
 
     /**
      * Writes data to memory at specified offset.

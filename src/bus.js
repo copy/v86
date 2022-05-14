@@ -78,19 +78,6 @@ BusConnector.prototype.send = function(name, value, unused_transfer)
     }
 };
 
-/**
- * Send a message, guaranteeing that it is received asynchronously
- *
- * @param {string} name
- * @param {Object=} value
- */
-BusConnector.prototype.send_async = function(name, value)
-{
-    dbg_assert(arguments.length === 1 || arguments.length === 2);
-
-    setTimeout(this.send.bind(this, name, value), 0);
-};
-
 Bus.create = function()
 {
     var c0 = new BusConnector();

@@ -1119,50 +1119,50 @@ V86Starter.prototype.serial_send_bytes = function(serial, data)
  * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
-{
-    let file_storage = new MemoryFileStorage();
+// V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
+// {
+//     let file_storage = new MemoryFileStorage();
 
-    if(baseurl)
-    {
-        file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
-    }
-    const newfs = new FS(file_storage, this.fs9p.qidcounter);
-    const mount = () =>
-    {
-        const idx = this.fs9p.Mount(path, newfs);
-        if(!callback)
-        {
-            return;
-        }
-        if(idx === -ENOENT)
-        {
-            callback(new FileNotFoundError());
-        }
-        else if(idx === -EEXIST)
-        {
-            callback(new FileExistsError());
-        }
-        else if(idx < 0)
-        {
-            dbg_assert(false, "Unexpected error code: " + (-idx));
-            callback(new Error("Failed to mount. Error number: " + (-idx)));
-        }
-        else
-        {
-            callback(null);
-        }
-    };
-    if(baseurl)
-    {
-        dbg_assert(typeof basefs === "object", "Filesystem: basefs must be a JSON object");
-        newfs.load_from_json(basefs, () => mount());
-    }
-    else
-    {
-        mount();
-    }
-};
+//     if(baseurl)
+//     {
+//         file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
+//     }
+//     const newfs = new FS(file_storage, this.fs9p.qidcounter);
+//     const mount = () =>
+//     {
+//         const idx = this.fs9p.Mount(path, newfs);
+//         if(!callback)
+//         {
+//             return;
+//         }
+//         if(idx === -ENOENT)
+//         {
+//             callback(new FileNotFoundError());
+//         }
+//         else if(idx === -EEXIST)
+//         {
+//             callback(new FileExistsError());
+//         }
+//         else if(idx < 0)
+//         {
+//             dbg_assert(false, "Unexpected error code: " + (-idx));
+//             callback(new Error("Failed to mount. Error number: " + (-idx)));
+//         }
+//         else
+//         {
+//             callback(null);
+//         }
+//     };
+//     if(baseurl)
+//     {
+//         dbg_assert(typeof basefs === "object", "Filesystem: basefs must be a JSON object");
+//         newfs.load_from_json(basefs, () => mount());
+//     }
+//     else
+//     {
+//         mount();
+//     }
+// };
 
 /**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
