@@ -13,7 +13,7 @@
     "build": "npm run build:all_debug & npm run build:all",
     "build:all_debug": "make all-debug",
     "build:all": "make all",
-    "build:release": "make build/libv86.js build/v86.wasm build/v86-fallback.wasm",
+    "build:release": "make build/libv86.js build/v86.wasm build/v86-fallback.wasm build/capstone-x86.min.js build/libwabt.js",
     "test:prepare": "wget -nv -P images/ https://k.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img}",
     "test": "make kvm-unit-test nasmtests nasmtests-force-jit expect-tests jitpagingtests qemutests qemutests-release rust-test tests"
   },
@@ -28,6 +28,8 @@
     "build/v86.wasm",
     "build/v86-debug.wasm",
     "build/v86-fallback.wasm",
+    "build/capstone-x86.min.js",
+    "build/libwabt.js",
     "types/index.d.ts"
   ],
   "types": "types/index.d.ts",
