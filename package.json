@@ -1,6 +1,6 @@
 {
-  "name": "@copy/v86",
-  "version": "0.1.0",
+  "name": "v86",
+  "version": "0.0.1",
   "description": "x86 virtualization in your browser, recompiling x86 to wasm on the fly",
   "main": "build/libv86.js",
   "directories": {
@@ -45,5 +45,5 @@
   "bugs": {
     "url": "https://github.com/copy/v86/issues"
   },
-  "homepage": "https://github.com/copy/v86#readme"
+  "homepage": "https://copy.sh/v86/"
 }
