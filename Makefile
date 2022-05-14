@@ -133,7 +133,7 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--define=DEBUG=false\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
-		--output_wrapper ';(function(){%output%}).call(this);'\
+		--output_wrapper 'var v86=(function(){%output% return {v86,V86Starter,CPU,MemoryFileStorage,ServerFileStorageWrapper};}).call(this);if(typeof module !== "undefined" && typeof module.exports !== "undefined"){module.exports = v86;}'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
@@ -147,7 +147,7 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--compilation_level SIMPLE\
-		--output_wrapper ';(function(){%output%}).call(this);'\
+		--output_wrapper 'var v86=(function(){%output% return {v86,V86Starter,CPU,MemoryFileStorage,ServerFileStorageWrapper};}).call(this);if(typeof module !== "undefined" && typeof module.exports !== "undefined"){module.exports = v86;}'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)

@@ -1508,13 +1508,13 @@ CPU.prototype.device_lower_irq = function(i)
 };
 
 // Closure Compiler's way of exporting
-if(typeof window !== "undefined")
-{
-    window["CPU"] = CPU;
-}
-else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["CPU"] = CPU;
+}
+else if(typeof window !== "undefined")
+{
+    window["CPU"] = CPU;
 }
 else if(typeof importScripts === "function")
 {

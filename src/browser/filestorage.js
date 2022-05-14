@@ -142,15 +142,15 @@ ServerFileStorageWrapper.prototype.uncache = function(sha256sum)
 };
 
 // Closure Compiler's way of exporting
-if(typeof window !== "undefined")
-{
-    window["MemoryFileStorage"] = MemoryFileStorage;
-    window["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
-}
-else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["MemoryFileStorage"] = MemoryFileStorage;
     module.exports["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
+}
+else if(typeof window !== "undefined")
+{
+    window["MemoryFileStorage"] = MemoryFileStorage;
+    window["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
 }
 else if(typeof importScripts === "function")
 {
