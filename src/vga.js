@@ -308,8 +308,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
     io.register_read(0x3CE, this, this.port3CE_read);
     io.register_read(0x3CF, this, this.port3CF_read);
 
-	io.register_read(0x3C6, this, this.port3C6_read);
-	io.register_write(0x3C6, this, this.port3C6_write);
+    io.register_read(0x3C6, this, this.port3C6_read);
+    io.register_write(0x3C6, this, this.port3C6_write);
     io.register_write(0x3C7, this, this.port3C7_write);
     io.register_read(0x3C7, this, this.port3C7_read);
     io.register_write(0x3C8, this, this.port3C8_write);
