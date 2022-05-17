@@ -253,8 +253,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.dac_color_index_write = 0;
     this.dac_color_index_read = 0;
     this.dac_state = 0;
-	
-	this.dac_mask = 0;
+
+    this.dac_mask = 0xFF;
 
     this.dac_map = new Uint8Array(0x10);
 
@@ -452,6 +452,7 @@ VGAScreen.prototype.get_state = function()
     state[59] = this.clocking_mode;
     state[60] = this.line_compare;
     state[61] = this.pixel_buffer;
+    state[62] = this.dac_mask;
 
     return state;
 };
@@ -520,6 +521,7 @@ VGAScreen.prototype.set_state = function(state)
     this.clocking_mode = state[59];
     this.line_compare = state[60];
     state[61] && this.pixel_buffer.set(state[61]);
+    this.dac_mask = state[62];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -837,7 +839,7 @@ VGAScreen.prototype.text_mode_redraw = function()
 
             this.bus.send("screen-put-char", [row, col, chr,
                 this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
-				this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
+                this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
 
             addr += 2;
         }
@@ -865,8 +867,8 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
     }
 
     this.bus.send("screen-put-char", [row, col, chr,
-            this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
-			this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
+        this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
+        this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
 
     this.vga_memory[addr] = value;
 };
