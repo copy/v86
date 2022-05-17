@@ -521,7 +521,7 @@ VGAScreen.prototype.set_state = function(state)
     this.clocking_mode = state[59];
     this.line_compare = state[60];
     state[61] && this.pixel_buffer.set(state[61]);
-    this.dac_mask = state[62];
+    this.dac_mask = state[62] === undefined ? 0xFF : state[62];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
