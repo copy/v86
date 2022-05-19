@@ -67,11 +67,12 @@ function PS2(cpu, bus)
     this.sample_rate = 100;
 
     /** @type {number} */
-    this.wheel_movement = 0;
-    /** @type {number} */
     this.intellimouse_activation_counter = 0;
     /** @type {boolean} */
     this.intellimouse_enabled = false;
+
+    /** @type {number} */
+    this.wheel_movement = 0;
 
     /** @type {number} */
     this.resolution = 4;
@@ -472,6 +473,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.intellimouse_activation_counter = 0;
             this.intellimouse_enabled = true;
         }
+		else this.intellimouse_activation_counter = 0;
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
