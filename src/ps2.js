@@ -115,7 +115,7 @@ function PS2(cpu, bus)
     {
         this.wheel_movement += data[0];
         if (this.wheel_movement > 7) // Value beetwen (-8, 7)
-            this.intellimouse_enabled = 7;
+            this.wheel_movement = 7;
         else if (this.wheel_movement < -8)
             this.wheel_movement = -8;
         this.send_mouse_packet(0, 0);
