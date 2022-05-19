@@ -67,6 +67,13 @@ function PS2(cpu, bus)
     this.sample_rate = 100;
 
     /** @type {number} */
+    this.wheel_movement = 0;
+    /** @type {number} */
+    this.wheel_activate_counter = 0;
+    /** @type {boolean} */
+    this.wheel_enabled = false;
+
+    /** @type {number} */
     this.resolution = 4;
 
     /** @type {boolean} */
@@ -106,8 +113,12 @@ function PS2(cpu, bus)
 
     this.bus.register("mouse-wheel", function(data)
     {
-        // TODO: Mouse Wheel
-        // http://www.computer-engineering.org/ps2mouse/
+        this.wheel_movement += data[0];
+        if (this.wheel_movement > 7) // Value beetwen (-8, 7)
+            this.wheel_enabled = 7;
+        else if (this.wheel_movement < -8)
+            this.wheel_movement = -8;
+        this.send_mouse_packet(0, 0);
     }, this);
 
     this.command_register = 1 | 4;
@@ -331,6 +342,10 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
+    if (this.wheel_enabled) {
+        this.mouse_buffer.push(-this.wheel_movement); // Byte 4 - Z Movement
+        this.wheel_movement = 0;
+    }
 
     if(PS2_LOG_VERBOSE)
     {
@@ -448,6 +463,15 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.sample_rate = write_byte;
         dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
+        if (this.wheel_activate_counter == 0 && this.sample_rate == 200)
+            this.wheel_activate_counter = 1;
+        else if (this.wheel_activate_counter == 1 && this.sample_rate == 100)
+            this.wheel_activate_counter = 2;
+        else if (this.wheel_activate_counter == 2 && this.sample_rate == 80) {
+			// Host sends sample rate 200->100->80 to activate Intellimouse
+            this.wheel_activate_counter = 0;
+            this.wheel_enabled = true;
+        }
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
@@ -545,8 +569,9 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xF2:
             //  MouseID Byte
-            this.mouse_buffer.push(0);
-            this.mouse_buffer.push(0);
+			// 0x03 - send OS that we have Intellimouse
+            this.mouse_buffer.push(this.wheel_enabled ? 0x03 : 0x00);
+            this.mouse_buffer.push(this.wheel_enabled ? 0x03 : 0x00);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
@@ -572,6 +597,9 @@ PS2.prototype.port60_write = function(write_byte)
             this.sample_rate = 100;
             this.scaling2 = false;
             this.resolution = 4;
+            this.wheel_activate_counter = 0
+            this.wheel_enabled = false;
+            this.wheel_movement = 0;
             break;
         case 0xFF:
             // reset, send completion code
@@ -586,6 +614,10 @@ PS2.prototype.port60_write = function(write_byte)
             this.sample_rate = 100;
             this.scaling2 = false;
             this.resolution = 4;
+			
+            this.wheel_activate_counter = 0
+            this.wheel_enabled = false;
+            this.wheel_movement = 0;
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
