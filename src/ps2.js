@@ -113,7 +113,7 @@ function PS2(cpu, bus)
 
     this.bus.register("mouse-wheel", function(data)
     {
-        this.wheel_movement += data[0];
+        this.wheel_movement -= data[0];
         if (this.wheel_movement > 7) // Value beetwen (-8, 7)
             this.wheel_movement = 7;
         else if (this.wheel_movement < -8)
@@ -343,7 +343,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
     if (this.intellimouse_enabled) {
-        this.mouse_buffer.push(-this.wheel_movement); // Byte 4 - Z Movement
+        this.mouse_buffer.push(this.wheel_movement); // Byte 4 - Z Movement
         this.wheel_movement = 0;
     }
 
