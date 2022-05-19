@@ -597,7 +597,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.sample_rate = 100;
             this.scaling2 = false;
             this.resolution = 4;
-            this.wheel_activate_counter = 0
+            this.wheel_activate_counter = 0;
             this.wheel_enabled = false;
             this.wheel_movement = 0;
             break;
@@ -615,7 +615,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.scaling2 = false;
             this.resolution = 4;
 			
-            this.wheel_activate_counter = 0
+            this.wheel_activate_counter = 0;
             this.wheel_enabled = false;
             this.wheel_movement = 0;
 
