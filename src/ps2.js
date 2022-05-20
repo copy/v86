@@ -597,7 +597,7 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xF2:
             //  MouseID Byte
-			dbg_log("required id: " + hex8(this.mouse_id), LOG_PS2);
+			dbg_log("required id: " + h(this.mouse_id), LOG_PS2);
             this.mouse_buffer.push(this.mouse_id);
             // this.mouse_buffer.push(this.mouse_id);
 
