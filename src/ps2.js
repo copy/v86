@@ -500,6 +500,7 @@ PS2.prototype.port60_write = function(write_byte)
 			}
 			else this.intellimouse_activation_counter = 0;
 		}
+		dbg_log("rate change: " + this.sample_rate + ", mouse id: " + hex8(this.mouse_id), LOG_PS2);
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
@@ -597,11 +598,13 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xF2:
             //  MouseID Byte
-			// 0x03 - send OS that we have Intellimouse
+			dbg_log("required id: " + hex8(this.mouse_id), LOG_PS2);
             this.mouse_buffer.push(this.mouse_id);
-            this.mouse_buffer.push(this.mouse_id);
+            // this.mouse_buffer.push(this.mouse_id);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
+            // this.send_mouse_packet(0, 0);
+			this.raise_irq();
             break;
         case 0xF3:
             // sample rate
