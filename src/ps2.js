@@ -68,7 +68,7 @@ function PS2(cpu, bus)
 
     /** @type {number} */
     this.intellimouse_activation_counter = 0;
-	
+
     /** @type {number} */
     this.mouse_id = 0x00;
 
@@ -117,10 +117,7 @@ function PS2(cpu, bus)
     {
         this.wheel_movement -= data[0];
         this.wheel_movement -= data[1] * 2; // X Wheel Movement
-        if (this.wheel_movement > 7) // Value beetwen (-8, 7)
-            this.wheel_movement = 7;
-        else if (this.wheel_movement < -8)
-            this.wheel_movement = -8;
+        this.wheel_movement = Math.min(7, Math.max(-8, this.wheel_movement));
         this.send_mouse_packet(0, 0);
     }, this);
 
@@ -167,6 +164,8 @@ PS2.prototype.get_state = function()
     state[22] = this.read_command_register;
     state[23] = this.controller_output_port;
     state[24] = this.read_controller_output_port;
+    state[25] = this.mouse_id;
+    state[26] = this.intellimouse_activation_counter;
 
     return state;
 };
@@ -198,6 +197,8 @@ PS2.prototype.set_state = function(state)
     this.read_command_register = state[22];
     this.controller_output_port = state[23];
     this.read_controller_output_port = state[24];
+    this.mouse_id = state[25] || 0;
+    this.intellimouse_activation_counter = state[26] || 0;
 
     this.next_byte_is_ready = false;
     this.next_byte_is_aux = false;
@@ -345,17 +346,18 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
-    if (this.mouse_id == 0x04) {
+
+    if(this.mouse_id === 0x04)
+    {
         this.mouse_buffer.push(
-			0 << 7 |
-			0 << 6 |
-			0 << 5 | // TODO: 5th button
-			0 << 4 | // TODO: 4th button
-			this.wheel_movement
-		);
+            0 << 5 | // TODO: 5th button
+            0 << 4 | // TODO: 4th button
+            this.wheel_movement & 0xF
+        );
         this.wheel_movement = 0;
     }
-    else if (this.mouse_id == 0x03) {
+    else if(this.mouse_id === 0x03)
+    {
         this.mouse_buffer.push(this.wheel_movement); // Byte 4 - Z Movement
         this.wheel_movement = 0;
     }
@@ -475,30 +477,30 @@ PS2.prototype.port60_write = function(write_byte)
         this.mouse_buffer.push(0xFA);
 
         this.sample_rate = write_byte;
-		if (this.mouse_id == 0x03) {
-			if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
-				this.intellimouse_activation_counter = 1;
-			else if (this.intellimouse_activation_counter == 1 && this.sample_rate == 200)
-				this.intellimouse_activation_counter = 2;
-			else if (this.intellimouse_activation_counter == 2 && this.sample_rate == 80) {
-				// Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
-				this.intellimouse_activation_counter = 0;
-				this.mouse_id = 0x04;
-			}
-			else this.intellimouse_activation_counter = 0;
-		}
-		else if (this.mouse_id == 0x00) {
-			if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
-				this.intellimouse_activation_counter = 1;
-			else if (this.intellimouse_activation_counter == 1 && this.sample_rate == 100)
-				this.intellimouse_activation_counter = 2;
-			else if (this.intellimouse_activation_counter == 2 && this.sample_rate == 80) {
-				// Host sends sample rate 200->100->80 to activate Intellimouse wheel
-				this.intellimouse_activation_counter = 0;
-				this.mouse_id = 0x03;
-			}
-			else this.intellimouse_activation_counter = 0;
-		}
+        if(this.mouse_id === 0x03)
+        {
+            if(this.intellimouse_activation_counter === 0 && this.sample_rate === 200) this.intellimouse_activation_counter = 1;
+            else if(this.intellimouse_activation_counter === 1 && this.sample_rate === 200) this.intellimouse_activation_counter = 2;
+            else if(this.intellimouse_activation_counter === 2 && this.sample_rate === 80) {
+                // Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
+                this.intellimouse_activation_counter = 0;
+                this.mouse_id = 0x04;
+            }
+            else this.intellimouse_activation_counter = 0;
+        }
+        else if(this.mouse_id === 0x00)
+        {
+            if(this.intellimouse_activation_counter === 0 && this.sample_rate === 200)
+                this.intellimouse_activation_counter = 1;
+            else if(this.intellimouse_activation_counter === 1 && this.sample_rate === 100)
+                this.intellimouse_activation_counter = 2;
+            else if(this.intellimouse_activation_counter === 2 && this.sample_rate === 80) {
+                // Host sends sample rate 200->100->80 to activate Intellimouse wheel
+                this.intellimouse_activation_counter = 0;
+                this.mouse_id = 0x03;
+            }
+            else this.intellimouse_activation_counter = 0;
+        }
         dbg_log("mouse sample rate: " + h(write_byte) + ", mouse id: " + h(this.mouse_id), LOG_PS2);
         if(!this.sample_rate)
         {
@@ -597,13 +599,13 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xF2:
             //  MouseID Byte
-			dbg_log("required id: " + h(this.mouse_id), LOG_PS2);
+            dbg_log("required id: " + h(this.mouse_id), LOG_PS2);
             this.mouse_buffer.push(this.mouse_id);
             // this.mouse_buffer.push(this.mouse_id);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             // this.send_mouse_packet(0, 0);
-			this.raise_irq();
+            this.raise_irq();
             break;
         case 0xF3:
             // sample rate
@@ -644,7 +646,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.sample_rate = 100;
             this.scaling2 = false;
             this.resolution = 4;
-			
+
             this.intellimouse_activation_counter = 0;
             this.mouse_id = 0x00;
             this.wheel_movement = 0;
@@ -658,11 +660,11 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.mouse_irq();
     }
-    else if (this.read_controller_output_port)
+    else if(this.read_controller_output_port)
     {
         this.read_controller_output_port = false;
         this.controller_output_port = write_byte;
-        // If we ever want to implement A20 masking, here is where 
+        // If we ever want to implement A20 masking, here is where
         // we should turn the masking off if the second bit is on
     }
     else
