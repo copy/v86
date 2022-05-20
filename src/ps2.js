@@ -475,7 +475,6 @@ PS2.prototype.port60_write = function(write_byte)
         this.mouse_buffer.push(0xFA);
 
         this.sample_rate = write_byte;
-        dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
 		if (this.mouse_id == 0x03) {
 			if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
 				this.intellimouse_activation_counter = 1;
@@ -500,7 +499,7 @@ PS2.prototype.port60_write = function(write_byte)
 			}
 			else this.intellimouse_activation_counter = 0;
 		}
-		dbg_log("rate change: " + this.sample_rate + ", mouse id: " + hex8(this.mouse_id), LOG_PS2);
+        dbg_log("mouse sample rate: " + h(write_byte) + ", mouse id: " + h(this.mouse_id), LOG_PS2);
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
