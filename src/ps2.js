@@ -68,8 +68,9 @@ function PS2(cpu, bus)
 
     /** @type {number} */
     this.intellimouse_activation_counter = 0;
-    /** @type {boolean} */
-    this.intellimouse_enabled = false;
+	
+    /** @type {number} */
+    this.mouse_id = 0x00;
 
     /** @type {number} */
     this.wheel_movement = 0;
@@ -115,6 +116,7 @@ function PS2(cpu, bus)
     this.bus.register("mouse-wheel", function(data)
     {
         this.wheel_movement -= data[0];
+        this.wheel_movement -= data[1] * 2; // X Wheel Movement
         if (this.wheel_movement > 7) // Value beetwen (-8, 7)
             this.wheel_movement = 7;
         else if (this.wheel_movement < -8)
@@ -343,7 +345,17 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
-    if (this.intellimouse_enabled) {
+    if (this.mouse_id == 0x04) {
+        this.mouse_buffer.push(
+			0 << 7 |
+			0 << 6 |
+			0 << 5 | // TODO: 5th button
+			0 << 4 | // TODO: 4th button
+			this.wheel_movement
+		);
+        this.wheel_movement = 0;
+    }
+    else if (this.mouse_id == 0x03) {
         this.mouse_buffer.push(this.wheel_movement); // Byte 4 - Z Movement
         this.wheel_movement = 0;
     }
@@ -464,16 +476,30 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.sample_rate = write_byte;
         dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
-        if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
-            this.intellimouse_activation_counter = 1;
-        else if (this.intellimouse_activation_counter == 1 && this.sample_rate == 100)
-            this.intellimouse_activation_counter = 2;
-        else if (this.intellimouse_activation_counter == 2 && this.sample_rate == 80) {
-			// Host sends sample rate 200->100->80 to activate Intellimouse
-            this.intellimouse_activation_counter = 0;
-            this.intellimouse_enabled = true;
-        }
-		else this.intellimouse_activation_counter = 0;
+		if (this.mouse_id == 0x03) {
+			if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
+				this.intellimouse_activation_counter = 1;
+			else if (this.intellimouse_activation_counter == 1 && this.sample_rate == 200)
+				this.intellimouse_activation_counter = 2;
+			else if (this.intellimouse_activation_counter == 2 && this.sample_rate == 80) {
+				// Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
+				this.intellimouse_activation_counter = 0;
+				this.mouse_id = 0x04;
+			}
+			else this.intellimouse_activation_counter = 0;
+		}
+		else if (this.mouse_id == 0x00) {
+			if (this.intellimouse_activation_counter == 0 && this.sample_rate == 200)
+				this.intellimouse_activation_counter = 1;
+			else if (this.intellimouse_activation_counter == 1 && this.sample_rate == 100)
+				this.intellimouse_activation_counter = 2;
+			else if (this.intellimouse_activation_counter == 2 && this.sample_rate == 80) {
+				// Host sends sample rate 200->100->80 to activate Intellimouse wheel
+				this.intellimouse_activation_counter = 0;
+				this.mouse_id = 0x03;
+			}
+			else this.intellimouse_activation_counter = 0;
+		}
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
@@ -572,8 +598,8 @@ PS2.prototype.port60_write = function(write_byte)
         case 0xF2:
             //  MouseID Byte
 			// 0x03 - send OS that we have Intellimouse
-            this.mouse_buffer.push(this.intellimouse_enabled ? 0x03 : 0x00);
-            this.mouse_buffer.push(this.intellimouse_enabled ? 0x03 : 0x00);
+            this.mouse_buffer.push(this.mouse_id);
+            this.mouse_buffer.push(this.mouse_id);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
@@ -600,7 +626,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.scaling2 = false;
             this.resolution = 4;
             this.intellimouse_activation_counter = 0;
-            this.intellimouse_enabled = false;
+            this.mouse_id = 0x00;
             this.wheel_movement = 0;
             break;
         case 0xFF:
@@ -618,7 +644,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.resolution = 4;
 			
             this.intellimouse_activation_counter = 0;
-            this.intellimouse_enabled = false;
+            this.mouse_id = 0x00;
             this.wheel_movement = 0;
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
