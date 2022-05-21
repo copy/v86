@@ -114,9 +114,9 @@ var ASYNC_SAFE = false;
         {
             const number_of_tries = n_tries || 0;
             const timeout = [1, 1, 2, 3, 5, 8, 13, 21][number_of_tries] || 34;
-            setTimeout(() => {
-                load_file(filename, options, number_of_tries + 1);
-            }, 1000 * timeout);
+            return new Promise(resolve=>{setTimeout(() => {
+                resolve(load_file(filename, options, number_of_tries + 1));
+            }, 1000 * timeout);});
         }
     }
 
