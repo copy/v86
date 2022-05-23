@@ -240,26 +240,28 @@
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "haiku.img",
+                    url: host + "haiku-v2.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 1 * 1024 * 1024 * 1024,
                 },
                 state: {
-                    url: host + "haiku_state.bin.zst",
+                    url: host + "haiku_state-v2.bin.zst",
                 },
                 name: "Haiku",
+                homepage: "https://www.haiku-os.org/",
             },
             {
                 id: "haiku-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "haiku.img",
+                    url: host + "haiku-v2.img",
                     async: true,
                     use_parts: !ON_LOCALHOST,
                     size: 1 * 1024 * 1024 * 1024,
                 },
                 name: "Haiku",
+                homepage: "https://www.haiku-os.org/",
             },
             {
                 id: "msdos",
@@ -289,6 +291,7 @@
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "PsychDOS",
+                homepage: "https://psychoslinux.gitlab.io/DOS/INDEX.HTM",
             },
             {
                 id: "oberon",
@@ -378,6 +381,7 @@
                     async: true,
                     use_parts: !ON_LOCALHOST,
                 },
+                homepage: "https://www.minix3.org/",
             },
             {
                 id: "kolibrios",
@@ -701,28 +705,30 @@
                 id: "9front",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: host + "9front-7781.38dcaeaa222c.386.iso",
-                    size: 496388096,
+                    url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386.iso",
+                    size: 477452288,
                     async: true,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
-                    "url": host + "9front_state.bin.zst",
+                    "url": host + "9front_state-v2.bin.zst",
                 },
                 acpi: true,
                 name: "9front",
+                homepage: "https://9front.org/",
             },
             {
                 id: "9front-boot",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
-                    url: host + "9front-7781.38dcaeaa222c.386.iso",
-                    size: 496388096,
+                    url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386.iso",
+                    size: 477452288,
                     async: true,
                     use_parts: !ON_LOCALHOST,
                 },
                 acpi: true,
                 name: "9front",
+                homepage: "https://9front.org/",
             },
             {
                 id: "mobius",
@@ -774,8 +780,8 @@
                     "size": 11014144,
                 },
                 name: "FreeNOS",
-                homepage: "http://www.freenos.org/",
                 acpi: true,
+                homepage: "http://www.freenos.org/",
             },
         ];
 
