@@ -237,6 +237,17 @@
                 homepage: "https://serenityos.org/",
             },
             {
+                id: "helenos",
+                memory_size: 256 * 1024 * 1024,
+                cdrom: {
+                    url: host + "HelenOS-0.11.2-ia32.iso",
+                    size: 25765888,
+                    async: false,
+                },
+                name: "HelenOS",
+                homepage: "http://www.helenos.org/",
+            },
+            {
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
@@ -1206,7 +1217,7 @@
                     }, CLEAR_STATS ? 5000 : 1000);
             }
 
-            if(settings.id === "dsl")
+            if(settings.id === "dsl" || settings.id === "helenos")
             {
                 setTimeout(() => {
                     // hack: Start automatically

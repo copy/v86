@@ -608,9 +608,10 @@ if(cluster.isMaster)
             name: "HelenOS",
             skip_if_disk_image_missing: true,
             timeout: 3 * 60,
-            cdrom: root_path + "/images/experimental/os/HelenOS-0.5.0-ia32.iso",
+            cdrom: root_path + "/images/HelenOS-0.11.2-ia32.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
+            expected_serial_text: ["init: Spawning"],
         },
         {
             name: "Minix",
