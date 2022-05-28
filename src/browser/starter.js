@@ -1030,7 +1030,7 @@ V86Starter.prototype.screen_go_fullscreen = function()
         focus_element && focus_element.focus();
     }
     // Use keyboard lock when possible
-        try {navigator.keyboard.lock();}catch(e) {};
+        try {navigator.keyboard.lock();}catch(e) {}
     //this.lock_mouse(elem);
     this.lock_mouse();
 };
