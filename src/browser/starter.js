@@ -1029,9 +1029,11 @@ V86Starter.prototype.screen_go_fullscreen = function()
         var focus_element = document.getElementsByClassName("phone_keyboard")[0];
         focus_element && focus_element.focus();
     }
-    // Use keyboard lock when possible
-        try {navigator.keyboard.lock();}catch(e) {}
-    //this.lock_mouse(elem);
+
+    try {
+        navigator.keyboard.lock();
+    } catch(e) {}
+
     this.lock_mouse();
 };
 
