@@ -49,7 +49,7 @@ onload = function()
 </div>
 ```
 To open this html file local http server is needed. Chrome has `--allow-file-access-from-files` command line option which allows using XHR to read local files, but it doesn't work in this case, probably because of `Range` header (`async: true`). Standard Python server `python -m SimpleHTTPServer` and Ruby server `ruby -run -e httpd` can't handle partial downloads either.  
-You can use [nodejs server](https://www.npmjs.com/package/http-server) or [this python server](https://github.com/smgoller/rangehttpserver).  
+You can use [nodejs server](https://www.npmjs.com/package/http-server) or [this python server](https://github.com/smgoller/rangehttpserver) (much slower).  
 Start the server (from the same folder as winxp.htm):
 ```
 npx http-server
