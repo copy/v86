@@ -65,4 +65,4 @@ Windows XP load time (until start button becomes responsive) in Chrome on my com
 * 12 min second time if Network tab in Developer Tools is open
 * 17 min (first time or if cache is disabled) and Network tab in Developer Tools is open
 
-Sometimes Windows XP hangs during boot in v86, displaying only desktop wallpaper without taskbar or desktop icons.
+Sometimes Windows XP hangs after boot (before it is interactive) in v86, displaying only desktop wallpaper without taskbar or desktop icons.
