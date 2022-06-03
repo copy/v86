@@ -112,7 +112,7 @@ function ScreenAdapter(screen_container, bus)
         charmap[i] = String.fromCharCode(chr);
     }
 
-    graphic_context["imageSmoothingEnabled"] = false;
+    graphic_context.imageSmoothingEnabled = false;
 
     cursor_element.style.position = "absolute";
     cursor_element.style.backgroundColor = "#ccc";
@@ -175,9 +175,52 @@ function ScreenAdapter(screen_container, bus)
 
     this.make_screenshot = function()
     {
-        try {
-            const image = new Image();
+        const image = new Image();
+
+        if(is_graphical)
+        {
             image.src = graphic_screen.toDataURL("image/png");
+        }
+        else
+        {
+            // Default 720x400, but can be [8, 16] at 640x400
+            const char_size = [9, 16];
+
+            const canvas = document.createElement("canvas");
+            canvas.width = text_mode_width * char_size[0];
+            canvas.height = text_mode_height * char_size[1];
+            const context = canvas.getContext("2d");
+            context.imageSmoothingEnabled = false;
+            context.font = window.getComputedStyle(text_screen).font;
+            context.textBaseline = "top";
+
+            for(let x = 0; x < text_mode_width; x++)
+            {
+                for(let y = 0; y < text_mode_height; y++)
+                {
+                    const index = (y * text_mode_width + x) * 3;
+                    context.fillStyle = number_as_color(text_mode_data[index + 1]);
+                    context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
+                    context.fillStyle = number_as_color(text_mode_data[index + 2]);
+                    context.fillText(charmap[text_mode_data[index]], x * char_size[0], y * char_size[1]);
+                }
+            }
+
+            if(cursor_element.style.display !== "none")
+            {
+                context.fillStyle = cursor_element.style.backgroundColor;
+                context.fillRect(
+                    cursor_col * char_size[0],
+                    cursor_row * char_size[1] + parseInt(cursor_element.style.marginTop, 10) - 1,
+                    parseInt(cursor_element.style.width, 10),
+                    parseInt(cursor_element.style.height, 10)
+                );
+            }
+
+            image.src = canvas.toDataURL("image/png");
+        }
+
+        try {
             const w = window.open("");
             w.document.write(image.outerHTML);
         }
