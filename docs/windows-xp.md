@@ -12,7 +12,7 @@ Follow setup instructions.
 *(Next step fixes `Uncaught RangeError: Maximum call stack size exceeded` in Chrome during Windows 2000/XP boot in v86)*  
 After installation change computer type to "Standard PC" as described [here](http://web.archive.org/web/20220528021535/https://www.scm-pc-card.de/file/manual/FAQ/acpi_uninstallation_windows_xp_english.pdf):  
 Start > RightClick "My Computer" > Manage >  
-Device Manager > Computer > RightClick "ACPI Uniprocessor PC" > Properties > Driver > Update Driver... >  
+Device Manager > Computer > RightClick "ACPI Uniprocessor PC" > Update Driver... >  
 No, not this time > Next > Install from a list or specific location (Advanced) > Next >  
 Don't search. I will choose the driver to install. > Next > Standard PC > Next > Finish.  
 Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
