@@ -175,13 +175,45 @@ function ScreenAdapter(screen_container, bus)
 
     this.make_screenshot = function()
     {
-        try {
-            const image = new Image();
-            image.src = graphic_screen.toDataURL("image/png");
-            const w = window.open("");
-            w.document.write(image.outerHTML);
-        }
-        catch(e) {}
+		try {
+			var canvas;
+			if (!is_graphical) {
+				/* Default 720x400, but can be [8, 16] 640x400 */
+				const char_size = [9, 16];
+				canvas = document.createElement("canvas");
+				canvas.width = text_mode_width * char_size[0];
+				canvas.height = text_mode_height * char_size[1];
+				const context = canvas.getContext("2d");
+				context["imageSmoothingEnabled"] = false;
+				
+				for (var x = 0; x < text_mode_width; x++) {
+					for (var y = 0; y < text_mode_height; y++) {
+						const index = (y * text_mode_width + x) * 3;
+						context.fillStyle = number_as_color(text_mode_data[index + 1]);
+						context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
+						context.font = "bold 15px Liberation Mono, DejaVu Sans Mono, Courier New";
+						context.textBaseline = "top";
+						context.fillStyle = number_as_color(text_mode_data[index + 2]);
+						context.fillText(charmap[text_mode_data[index]], x * char_size[0], y * char_size[1]);
+					}
+				}
+				
+				if (cursor_element.style.display !== "none") {
+					context.fillStyle = cursor_element.style.backgroundColor;
+					context.fillRect(
+						cursor_col * char_size[0],
+						cursor_row * char_size[1] + parseInt(cursor_element.style.marginTop, 10) - 1,
+						parseInt(cursor_element.style.width, 10),
+						parseInt(cursor_element.style.height, 10)
+					);
+				}
+			}
+			const image = new Image();
+			image.src = (is_graphical ? graphic_screen : canvas).toDataURL("image/png");
+			const w = window.open("");
+			w.document.write(image.outerHTML);
+		}
+		catch(e) {}
     };
 
     this.put_char = function(row, col, chr, bg_color, fg_color)
