@@ -11,7 +11,8 @@ qemu-system-x86_64 -m 512 -drive file=winxp.img,format=raw -cdrom en_windows_xp_
 
 Follow setup instructions.
 
-*(Next step fixes `Uncaught RangeError: Maximum call stack size exceeded` in Chrome during Windows 2000/XP boot in v86)*
+The next step fixes `Uncaught RangeError: Maximum call stack size exceeded` in Chrome during Windows 2000/XP boot in v86.
+
 After installation change computer type to "Standard PC" as described [here](http://web.archive.org/web/20220528021535/https://www.scm-pc-card.de/file/manual/FAQ/acpi_uninstallation_windows_xp_english.pdf):
 Start > RightClick "My Computer" > Manage >
 Device Manager > Computer > RightClick "ACPI Uniprocessor PC" > Update Driver... >
@@ -25,7 +26,7 @@ Or run it in a custom html file as described below.
 
 Get seabios.bin and vgabios.bin from [here](https://github.com/copy/v86/tree/master/bios),
 get libv86.js and v86.wasm from [releases](https://github.com/copy/v86/releases/tag/latest).
-Create winxp.htm with this content (assuming all the files are in the same folder):
+Create `winxp.htm` with this content (assuming all the files are in the same folder):
 
 ```html
 <!doctype html>
@@ -58,7 +59,7 @@ onload = function()
 
 To open this html file locally a HTTP server is needed. The standard Python server `python -m http.server` doesn't support HTTP range requests.
 You can use [http-server](https://www.npmjs.com/package/http-server) or [devd](https://github.com/cortesi/devd).
-Start the server (from the same folder as winxp.htm):
+Start the server (from the same folder as `winxp.htm`):
 ```
 npx http-server
 ```
