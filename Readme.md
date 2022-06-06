@@ -57,8 +57,9 @@ Here's an overview of the operating systems supported in v86:
   - Damn Small Linux (2.4 Kernel) works.
   - All tested versions of TinyCore work.
   - [BuildRoot](https://buildroot.uclibc.org) can be used to build a minimal
-    image. [humphd/browser-vm](https://github.com/humphd/browser-vm) has some
-    useful scripts for building one.
+    image.
+    - [humphd/browser-vm](https://github.com/humphd/browser-vm) 
+    - [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot)
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
   - Ubuntu up to 10.04 works.
