@@ -67,10 +67,13 @@ function PS2(cpu, bus)
     this.sample_rate = 100;
 
     /** @type {number} */
-    this.intellimouse_activation_counter = 0;
+    this.mouse_detect_state = 0;
 
     /** @type {number} */
     this.mouse_id = 0x00;
+
+    /** @type {boolean} */
+    this.mouse_reset_workaround = false;
 
     /** @type {number} */
     this.wheel_movement = 0;
@@ -165,7 +168,8 @@ PS2.prototype.get_state = function()
     state[23] = this.controller_output_port;
     state[24] = this.read_controller_output_port;
     state[25] = this.mouse_id;
-    state[26] = this.intellimouse_activation_counter;
+    state[26] = this.mouse_detect_state;
+    state[27] = this.mouse_reset_workaround;
 
     return state;
 };
@@ -198,7 +202,8 @@ PS2.prototype.set_state = function(state)
     this.controller_output_port = state[23];
     this.read_controller_output_port = state[24];
     this.mouse_id = state[25] || 0;
-    this.intellimouse_activation_counter = state[26] || 0;
+    this.mouse_detect_state = state[26] || 0;
+	this.mouse_reset_workaround = state[27] || false;
 
     this.next_byte_is_ready = false;
     this.next_byte_is_aux = false;
@@ -352,13 +357,13 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
         this.mouse_buffer.push(
             0 << 5 | // TODO: 5th button
             0 << 4 | // TODO: 4th button
-            this.wheel_movement & 0xF
+            this.wheel_movement & 0x0F
         );
         this.wheel_movement = 0;
     }
     else if(this.mouse_id === 0x03)
     {
-        this.mouse_buffer.push(this.wheel_movement); // Byte 4 - Z Movement
+        this.mouse_buffer.push(this.wheel_movement & 0xFF); // Byte 4 - Z Movement
         this.wheel_movement = 0;
     }
 
@@ -477,30 +482,45 @@ PS2.prototype.port60_write = function(write_byte)
         this.mouse_buffer.push(0xFA);
 
         this.sample_rate = write_byte;
-        if(this.mouse_id === 0x03)
-        {
-            if(this.intellimouse_activation_counter === 0 && this.sample_rate === 200) this.intellimouse_activation_counter = 1;
-            else if(this.intellimouse_activation_counter === 1 && this.sample_rate === 200) this.intellimouse_activation_counter = 2;
-            else if(this.intellimouse_activation_counter === 2 && this.sample_rate === 80) {
-                // Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
-                this.intellimouse_activation_counter = 0;
-                this.mouse_id = 0x04;
-            }
-            else this.intellimouse_activation_counter = 0;
-        }
-        else if(this.mouse_id === 0x00)
-        {
-            if(this.intellimouse_activation_counter === 0 && this.sample_rate === 200)
-                this.intellimouse_activation_counter = 1;
-            else if(this.intellimouse_activation_counter === 1 && this.sample_rate === 100)
-                this.intellimouse_activation_counter = 2;
-            else if(this.intellimouse_activation_counter === 2 && this.sample_rate === 80) {
-                // Host sends sample rate 200->100->80 to activate Intellimouse wheel
-                this.intellimouse_activation_counter = 0;
-                this.mouse_id = 0x03;
-            }
-            else this.intellimouse_activation_counter = 0;
-        }
+        switch(this.mouse_detect_state)
+		{
+			case -1:
+				if (write_byte === 60) {
+					// Detect Windows NT and turn on workaround the bug
+					// 200->100->80->60
+					this.mouse_reset_workaround = true;
+					this.mouse_detect_state = 0;
+				}
+				else {
+					this.mouse_reset_workaround = false;
+					this.mouse_detect_state = (write_byte === 200) ? 1 : 0;
+				}
+				break;
+			case 0:
+				if (write_byte === 200)
+					this.mouse_detect_state = 1;
+				break;
+			case 1:
+				if (write_byte === 100)
+					this.mouse_detect_state = 2;
+				else if (write_byte === 200)
+					this.mouse_detect_state = 3;
+				else
+					this.mouse_detect_state = 0;
+				break;
+			case 2:
+				// Host sends sample rate 200->100->80 to activate Intellimouse wheel
+				if (write_byte === 80)
+					this.mouse_id = 0x03;
+				this.mouse_detect_state = -1;
+				break;
+			case 3:
+				// Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
+				if (write_byte === 80)
+					this.mouse_id = 0x04;
+				this.mouse_detect_state = -1;
+				break;
+		}
         dbg_log("mouse sample rate: " + h(write_byte) + ", mouse id: " + h(this.mouse_id), LOG_PS2);
         if(!this.sample_rate)
         {
@@ -629,9 +649,6 @@ PS2.prototype.port60_write = function(write_byte)
             this.sample_rate = 100;
             this.scaling2 = false;
             this.resolution = 4;
-            this.intellimouse_activation_counter = 0;
-            this.mouse_id = 0x00;
-            this.wheel_movement = 0;
             break;
         case 0xFF:
             // reset, send completion code
@@ -647,9 +664,8 @@ PS2.prototype.port60_write = function(write_byte)
             this.scaling2 = false;
             this.resolution = 4;
 
-            this.intellimouse_activation_counter = 0;
-            this.mouse_id = 0x00;
-            this.wheel_movement = 0;
+            if (!this.mouse_reset_workaround)
+				this.mouse_id = 0x00;
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
