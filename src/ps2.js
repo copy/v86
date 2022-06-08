@@ -490,12 +490,14 @@ PS2.prototype.port60_write = function(write_byte)
 					// 200->100->80->60
 					this.mouse_reset_workaround = true;
 					this.mouse_detect_state = 0;
-					break;
 				}
 				else {
 					this.mouse_reset_workaround = false;
 					this.mouse_detect_state = 0;
+					if (write_byte === 200)
+						this.mouse_detect_state = 1;
 				}
+				break;
 			case 0:
 				if (write_byte === 200)
 					this.mouse_detect_state = 1;
