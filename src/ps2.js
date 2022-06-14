@@ -203,7 +203,7 @@ PS2.prototype.set_state = function(state)
     this.read_controller_output_port = state[24];
     this.mouse_id = state[25] || 0;
     this.mouse_detect_state = state[26] || 0;
-	this.mouse_reset_workaround = state[27] || false;
+    this.mouse_reset_workaround = state[27] || false;
 
     this.next_byte_is_ready = false;
     this.next_byte_is_aux = false;
@@ -482,51 +482,51 @@ PS2.prototype.port60_write = function(write_byte)
         this.mouse_buffer.push(0xFA);
 
         this.sample_rate = write_byte;
+
         switch(this.mouse_detect_state)
-		{
-			case -1:
-				if (write_byte === 60) {
-					// Detect Windows NT and turn on workaround the bug
-					// 200->100->80->60
-					this.mouse_reset_workaround = true;
-					this.mouse_detect_state = 0;
-				}
-				else {
-					this.mouse_reset_workaround = false;
-					this.mouse_detect_state = (write_byte === 200) ? 1 : 0;
-				}
-				break;
-			case 0:
-				if (write_byte === 200)
-					this.mouse_detect_state = 1;
-				break;
-			case 1:
-				if (write_byte === 100)
-					this.mouse_detect_state = 2;
-				else if (write_byte === 200)
-					this.mouse_detect_state = 3;
-				else
-					this.mouse_detect_state = 0;
-				break;
-			case 2:
-				// Host sends sample rate 200->100->80 to activate Intellimouse wheel
-				if (write_byte === 80)
-					this.mouse_id = 0x03;
-				this.mouse_detect_state = -1;
-				break;
-			case 3:
-				// Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
-				if (write_byte === 80)
-					this.mouse_id = 0x04;
-				this.mouse_detect_state = -1;
-				break;
-		}
+        {
+            case -1:
+                if(write_byte === 60)
+                {
+                    // Detect Windows NT and turn on workaround the bug
+                    // 200->100->80->60
+                    this.mouse_reset_workaround = true;
+                    this.mouse_detect_state = 0;
+                }
+                else
+                {
+                    this.mouse_reset_workaround = false;
+                    this.mouse_detect_state = (write_byte === 200) ? 1 : 0;
+                }
+                break;
+            case 0:
+                if(write_byte === 200) this.mouse_detect_state = 1;
+                break;
+            case 1:
+                if(write_byte === 100) this.mouse_detect_state = 2;
+                else if(write_byte === 200) this.mouse_detect_state = 3;
+                else this.mouse_detect_state = 0;
+                break;
+            case 2:
+                // Host sends sample rate 200->100->80 to activate Intellimouse wheel
+                if(write_byte === 80) this.mouse_id = 0x03;
+                this.mouse_detect_state = -1;
+                break;
+            case 3:
+                // Host sends sample rate 200->200->80 to activate Intellimouse 4th, 5th buttons
+                if(write_byte === 80) this.mouse_id = 0x04;
+                this.mouse_detect_state = -1;
+                break;
+        }
+
         dbg_log("mouse sample rate: " + h(write_byte) + ", mouse id: " + h(this.mouse_id), LOG_PS2);
+
         if(!this.sample_rate)
         {
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
             this.sample_rate = 100;
         }
+
         this.mouse_irq();
     }
     else if(this.next_read_resolution)
@@ -621,7 +621,6 @@ PS2.prototype.port60_write = function(write_byte)
             //  MouseID Byte
             dbg_log("required id: " + h(this.mouse_id), LOG_PS2);
             this.mouse_buffer.push(this.mouse_id);
-            // this.mouse_buffer.push(this.mouse_id);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             // this.send_mouse_packet(0, 0);
@@ -664,8 +663,10 @@ PS2.prototype.port60_write = function(write_byte)
             this.scaling2 = false;
             this.resolution = 4;
 
-            if (!this.mouse_reset_workaround)
-				this.mouse_id = 0x00;
+            if(!this.mouse_reset_workaround)
+            {
+                this.mouse_id = 0x00;
+            }
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
