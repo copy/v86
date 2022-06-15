@@ -30,6 +30,12 @@ function ScreenAdapter(screen_container, bus)
         /** @type {number} */
         scale_y = 1,
 
+        /** @type {number} */
+        char_width = 9,
+
+        /** @type {boolean} */
+        char_wide = false,
+
         base_scale = 1,
 
         changed_rows,
@@ -162,6 +168,10 @@ function ScreenAdapter(screen_container, bus)
     {
         this.set_size_graphical(data[0], data[1], data[2], data[3]);
     }, this);
+    bus.register("screen-set-size-char", function(data)
+    {
+        this.set_size_char(data[0], data[1]);
+    }, this);
 
 
     this.init = function()
@@ -183,16 +193,19 @@ function ScreenAdapter(screen_container, bus)
         }
         else
         {
-            // Default 720x400, but can be [8, 16] at 640x400
-            const char_size = [9, 16];
+            // Default [9, 16] at 720x400, but can be [8, 16] at 640x400
+            const char_size = [char_width, 16];
 
             const canvas = document.createElement("canvas");
-            canvas.width = text_mode_width * char_size[0];
+            canvas.width = text_mode_width * char_size[0] * (char_wide ? 2 : 1);
             canvas.height = text_mode_height * char_size[1];
             const context = canvas.getContext("2d");
             context.imageSmoothingEnabled = false;
             context.font = window.getComputedStyle(text_screen).font;
             context.textBaseline = "top";
+			if (char_wide) {
+				context.scale(2, 1);
+			}
 
             for(let x = 0; x < text_mode_width; x++)
             {
@@ -361,6 +374,17 @@ function ScreenAdapter(screen_container, bus)
         update_scale_graphic();
     };
 
+    /**
+     * @param {number} width
+     * @param {boolean} wide
+     */
+    this.set_size_char = function(width, wide)
+    {
+		char_width = width;
+		char_wide = wide;
+        update_scale_text();
+    };
+
     this.set_scale = function(s_x, s_y)
     {
         scale_x = s_x;
@@ -373,7 +397,12 @@ function ScreenAdapter(screen_container, bus)
 
     function update_scale_text()
     {
-        elem_set_scale(text_screen, scale_x, scale_y, true);
+		var current_scale_x = scale_x;
+		if (char_wide)
+			current_scale_x *= 2;
+		if (char_width !== 9)
+			current_scale_x /= 9 / char_width;
+        elem_set_scale(text_screen, current_scale_x, scale_y, true);
     }
 
     function update_scale_graphic()

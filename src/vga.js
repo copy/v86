@@ -288,6 +288,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     this.miscellaneous_output_register = 0xff;
     this.port_3DA_value = 0xFF;
+	
+	this.text_char_width = 9;
+	this.text_char_wide = false;
 
 
     var io = cpu.io;
@@ -453,6 +456,8 @@ VGAScreen.prototype.get_state = function()
     state[60] = this.line_compare;
     state[61] = this.pixel_buffer;
     state[62] = this.dac_mask;
+    state[63] = this.text_char_width;
+    state[64] = this.text_char_wide;
 
     return state;
 };
@@ -522,6 +527,8 @@ VGAScreen.prototype.set_state = function(state)
     this.line_compare = state[60];
     state[61] && this.pixel_buffer.set(state[61]);
     this.dac_mask = state[62] === undefined ? 0xFF : state[62];
+	this.text_char_width = state[63] || 9;
+	this.text_char_wide = state[64] || false;
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -547,6 +554,9 @@ VGAScreen.prototype.set_state = function(state)
     else
     {
         this.set_size_text(this.max_cols, this.max_rows);
+		if (this.text_char_width !== 9 || this.text_char_wide) {
+			this.bus.send("screen-set-size-char", [this.text_char_width, this.text_char_wide]);
+		}
         this.update_cursor_scanline();
         this.update_cursor();
     }
@@ -1464,6 +1474,19 @@ VGAScreen.prototype.port3C5_write = function(value)
             {
                 // Screen disable bit modified
                 this.update_layers();
+            }
+            if((previous_clocking_mode ^ value) & 0x08)
+            {
+				// Each column should be duplicated
+				// We will just scale text 2 times by x
+				this.text_char_wide = (value & 0x08) !== 0;
+				this.bus.send("screen-set-size-char", [this.text_char_width, this.text_char_wide]);
+            }
+            if((previous_clocking_mode ^ value) & 0x01)
+            {
+				// Char width can be 8 or 9
+				this.text_char_width = 9 ^ (value & 0x01);
+				this.bus.send("screen-set-size-char", [this.text_char_width, this.text_char_wide]);
             }
             break;
         case 0x02:
