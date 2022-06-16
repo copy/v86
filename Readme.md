@@ -61,7 +61,7 @@ Here's an overview of the operating systems supported in v86:
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
-  - Ubuntu up to 10.04 works.
+  - Ubuntu up to 16.04 works.
   - Alpine Linux works.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
