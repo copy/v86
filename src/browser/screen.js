@@ -33,6 +33,9 @@ function ScreenAdapter(screen_container, bus)
         /** @type {number} */
         char_width = 9,
 
+        /** @type {number} */
+        char_height = 16,
+
         /** @type {boolean} */
         char_wide = false,
 
@@ -170,7 +173,7 @@ function ScreenAdapter(screen_container, bus)
     }, this);
     bus.register("screen-set-size-char", function(data)
     {
-        this.set_size_char(data[0], data[1]);
+        this.set_size_char(data[0], data[1], data[2]);
     }, this);
 
 
@@ -194,7 +197,7 @@ function ScreenAdapter(screen_container, bus)
         else
         {
             // Default [9, 16] at 720x400, but can be [8, 16] at 640x400
-            const char_size = [char_width, 16];
+            const char_size = [char_width, char_height];
 
             const canvas = document.createElement("canvas");
             canvas.width = text_mode_width * char_size[0] * (char_wide ? 2 : 1);
@@ -376,11 +379,13 @@ function ScreenAdapter(screen_container, bus)
 
     /**
      * @param {number} width
+     * @param {number} height
      * @param {boolean} wide
      */
-    this.set_size_char = function(width, wide)
+    this.set_size_char = function(width, height, wide)
     {
 		char_width = width;
+		char_height = height;
 		char_wide = wide;
         update_scale_text();
     };
@@ -398,6 +403,7 @@ function ScreenAdapter(screen_container, bus)
     function update_scale_text()
     {
 		var current_scale_x = scale_x;
+		var current_scale_y = scale_y;
 		if (char_wide) {
 			current_scale_x *= 2;
 			// NOTE: no 18 pixel wide
@@ -405,7 +411,9 @@ function ScreenAdapter(screen_container, bus)
 		}
 		if (char_width !== 9)
 			current_scale_x /= 9 / char_width;
-        elem_set_scale(text_screen, current_scale_x, scale_y, true);
+		if (char_height !== 16)
+			current_scale_y /= 16 / char_height;
+        elem_set_scale(text_screen, current_scale_x, current_scale_y, true);
     }
 
     function update_scale_graphic()
