@@ -414,6 +414,7 @@ function ScreenAdapter(screen_container, bus)
 		if (char_width !== 9)
 			current_scale_x /= 9 / char_width;
 		text_screen.style.fontSize = (char_height - 1) + "px";
+		cursor_element.style.width = Math.floor((char_width - 2) / font_scale) + "px";
         elem_set_scale(text_screen, current_scale_x, current_scale_y, true);
     }
 
