@@ -1781,9 +1781,12 @@ VGAScreen.prototype.port3D5_write = function(value)
 
             var previous_vertical_blank_start = this.vertical_blank_start;
             this.vertical_blank_start = (this.vertical_blank_start & 0x1FF) | (value << 4 & 0x200);
-		
-			this.text_char_height = (this.max_scan_line & 0x1f) + 1;
-			this.bus.send("screen-set-size-char", [this.text_char_width, this.text_char_height, this.text_char_wide]);
+			
+			var text_char_height = (this.max_scan_line & 0x1f) + 1;
+			if (text_char_height !== this.text_char_height) {
+				this.text_char_height = (this.max_scan_line & 0x1f) + 1;
+				this.bus.send("screen-set-size-char", [this.text_char_width, this.text_char_height, this.text_char_wide]);
+			}
 			
             if(previous_vertical_blank_start !== this.vertical_blank_start)
             {

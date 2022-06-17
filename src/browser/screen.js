@@ -387,6 +387,7 @@ function ScreenAdapter(screen_container, bus)
 		char_width = width;
 		char_height = height;
 		char_wide = wide;
+		this.set_size_text(text_mode_width, Math.floor(text_mode_height / char_height * 16)); // Is this right?
         update_scale_text();
     };
 
