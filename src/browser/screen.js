@@ -398,8 +398,11 @@ function ScreenAdapter(screen_container, bus)
     function update_scale_text()
     {
 		var current_scale_x = scale_x;
-		if (char_wide)
+		if (char_wide) {
 			current_scale_x *= 2;
+			// NOTE: no 18 pixel wide
+			char_width = 8;
+		}
 		if (char_width !== 9)
 			current_scale_x /= 9 / char_width;
         elem_set_scale(text_screen, current_scale_x, scale_y, true);
