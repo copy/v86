@@ -403,7 +403,8 @@ function ScreenAdapter(screen_container, bus)
 
     function update_scale_text()
     {
-		var current_scale_x = scale_x;
+		var font_scale = 15 / (char_height - 1);
+		var current_scale_x = scale_x * font_scale;
 		var current_scale_y = scale_y;
 		if (char_wide) {
 			current_scale_x *= 2;
@@ -412,8 +413,7 @@ function ScreenAdapter(screen_container, bus)
 		}
 		if (char_width !== 9)
 			current_scale_x /= 9 / char_width;
-		if (char_height !== 16)
-			current_scale_y /= 16 / char_height;
+		text_screen.style.fontSize = (char_height - 1) + "px";
         elem_set_scale(text_screen, current_scale_x, current_scale_y, true);
     }
 
