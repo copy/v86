@@ -36,11 +36,10 @@ function ScreenAdapter(screen_container, bus)
         /** @type {number} */
         char_height = 16,
 
-        /** @type {number} */
-        font_size = 15,
-
         /** @type {boolean} */
         char_wide = false,
+
+        font_size = 15,
 
         base_scale = 1,
 
@@ -409,7 +408,6 @@ function ScreenAdapter(screen_container, bus)
 		font_size = 10 / 16 * (char_height - 8) + 10;
 		var font_scale = 15 / font_size;
 		var current_scale_x = scale_x * font_scale;
-		var current_scale_y = scale_y;
 		if (char_wide) {
 			current_scale_x *= 2;
 			// NOTE: no 18 pixel wide
@@ -417,9 +415,9 @@ function ScreenAdapter(screen_container, bus)
 		}
 		if (char_width !== 9)
 			current_scale_x /= 9 / char_width;
-		text_screen.style.fontSize = font_size + "px";
+		text_screen.style.fontSize = Math.floor(font_size) + "px";
 		cursor_element.style.width = Math.floor((char_width - 2) / font_scale) + "px";
-        elem_set_scale(text_screen, current_scale_x, current_scale_y, true);
+        elem_set_scale(text_screen, current_scale_x, scale_y, true);
     }
 
     function update_scale_graphic()
