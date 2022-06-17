@@ -36,6 +36,9 @@ function ScreenAdapter(screen_container, bus)
         /** @type {number} */
         char_height = 16,
 
+        /** @type {number} */
+        font_size = 15,
+
         /** @type {boolean} */
         char_wide = false,
 
@@ -388,7 +391,7 @@ function ScreenAdapter(screen_container, bus)
 		char_height = height;
 		char_wide = wide;
         update_scale_text();
-		this.set_size_text(text_mode_width, Math.floor(text_mode_height / (10 / 16 * (char_height - 8) + 10) * 15)); // Is this right?
+		this.set_size_text(text_mode_width, Math.floor(text_mode_height / font_size * 15)); // Is this right?
     };
 
     this.set_scale = function(s_x, s_y)
@@ -403,7 +406,7 @@ function ScreenAdapter(screen_container, bus)
 
     function update_scale_text()
     {
-		var font_size = Math.floor(10 / 16 * (char_height - 8) + 10);
+		font_size = 10 / 16 * (char_height - 8) + 10;
 		var font_scale = 15 / font_size;
 		var current_scale_x = scale_x * font_scale;
 		var current_scale_y = scale_y;
