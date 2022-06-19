@@ -1578,7 +1578,7 @@ VGAScreen.prototype.port3C9_read = function()
     var color = this.vga256_palette[index];
 
     this.dac_color_index_read++;
-    return (color >> (2 - offset) * 8 & 0xFF) / 255 * 63 | 0;
+    return (color >> (2 - offset) * 8 & 0xFF) / 256 * 64 | 0;
 };
 
 VGAScreen.prototype.port3CC_read = function()
