@@ -118,6 +118,12 @@ function UART(cpu, port, bus)
         }
         else
         {
+            if((this.ier & UART_IIR_THRI) === 0 && (out_byte & UART_IIR_THRI)) 
+            {
+                // re-throw THRI if it was masked
+                this.ThrowInterrupt(UART_IIR_THRI);
+            }
+
             this.ier = out_byte & 0xF;
             dbg_log("interrupt enable: " + h(out_byte), LOG_SERIAL);
             this.CheckInterrupt();
