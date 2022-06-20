@@ -1581,14 +1581,14 @@ VGAScreen.prototype.port3C9_read = function()
     var index = this.dac_color_index_read / 3 | 0;
     var offset = this.dac_color_index_read % 3;
     var color = this.vga256_palette[index];
-	var color6 = color >> (2 - offset) * 8 & 0xFF;
+	var color8 = color >> (2 - offset) * 8 & 0xFF;
 
     this.dac_color_index_read++;
 
 	if (this.dispi_enable_value & 0x20)
-		return color6;
-	var b = color6 & 1;
-    return color6 >> 2 | b >> 1 | b;
+		return color8;
+	var b = color8 & 1;
+    return color8 >> 2 | b >> 1 | b;
 };
 
 VGAScreen.prototype.port3CC_read = function()
