@@ -7,7 +7,7 @@
  * @define {boolean}
  * Overridden for production by closure compiler
  */
-var DEBUG = true;
+var DEBUG = false;
 
 /** @const */
 var LOG_TO_FILE = false;
