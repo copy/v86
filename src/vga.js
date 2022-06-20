@@ -1544,11 +1544,11 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
     var index = this.dac_color_index_write / 3 | 0,
         offset = this.dac_color_index_write % 3,
         color = this.vga256_palette[index];
-	
-	var b = color_byte & 1;
+
 	color_byte &= 0x3F;
     if (!(this.dispi_enable_value & 0x20))
 	{
+		var b = color_byte & 1;
 		color_byte = color_byte << 2 | b << 1 | b;
 	}
 
