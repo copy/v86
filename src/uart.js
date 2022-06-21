@@ -118,7 +118,7 @@ function UART(cpu, port, bus)
         }
         else
         {
-            if((this.ier & UART_IIR_THRI) === 0 && (out_byte & UART_IIR_THRI)) 
+            if((this.ier & UART_IIR_THRI) === 0 && (out_byte & UART_IIR_THRI))
             {
                 // re-throw THRI if it was masked
                 this.ThrowInterrupt(UART_IIR_THRI);
@@ -173,12 +173,14 @@ function UART(cpu, port, bus)
 
     io.register_read(port | 2, this, function()
     {
-        var ret = this.iir & 0xF | 0xC0;
+        var ret = this.iir & 0xF;
         dbg_log("read interrupt identification: " + h(this.iir), LOG_SERIAL);
 
         if (this.iir == UART_IIR_THRI) {
             this.ClearInterrupt(UART_IIR_THRI);
         }
+
+        if(this.fifo_control & 1) ret |= 0xC0;
 
         return ret;
     });
