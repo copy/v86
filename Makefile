@@ -254,7 +254,7 @@ build/integration-test-fs/fs.json:
 tests: all-debug build/integration-test-fs/fs.json
 	./tests/full/run.js
 
-tests-release: all build/integration-test-fs/fs.json
+tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
 nasmtests: all-debug
@@ -277,7 +277,7 @@ qemutests: all-debug
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-qemutests-release: all
+qemutests-release: build/libv86.js build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
 	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js > build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
@@ -287,7 +287,7 @@ kvm-unit-test: all-debug
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
-kvm-unit-test-release: all
+kvm-unit-test-release: build/libv86.js build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
