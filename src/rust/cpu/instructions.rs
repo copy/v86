@@ -2260,7 +2260,7 @@ pub unsafe fn instr_F6_1_mem(addr: i32, imm: i32) {
 pub unsafe fn instr_F6_1_reg(r1: i32, imm: i32) { test8(read_reg8(r1), imm); }
 
 #[no_mangle]
-pub unsafe fn instr_F6_2_mem(addr: i32) { safe_read_write8(addr, &|x| !x) }
+pub unsafe fn instr_F6_2_mem(addr: i32) { safe_read_write8(addr, &|x| !x & 0xFF) }
 #[no_mangle]
 pub unsafe fn instr_F6_2_reg(r1: i32) { write_reg8(r1, !read_reg8(r1)); }
 #[no_mangle]
@@ -2296,7 +2296,7 @@ pub unsafe fn instr16_F7_1_mem(addr: i32, imm: i32) {
     test16(return_on_pagefault!(safe_read16(addr)), imm);
 }
 pub unsafe fn instr16_F7_1_reg(r1: i32, imm: i32) { test16(read_reg16(r1), imm); }
-pub unsafe fn instr16_F7_2_mem(addr: i32) { safe_read_write16(addr, &|x| !x) }
+pub unsafe fn instr16_F7_2_mem(addr: i32) { safe_read_write16(addr, &|x| !x & 0xFFFF) }
 pub unsafe fn instr16_F7_2_reg(r1: i32) { write_reg16(r1, !read_reg16(r1)); }
 pub unsafe fn instr16_F7_3_mem(addr: i32) { safe_read_write16(addr, &|x| neg16(x)) }
 pub unsafe fn instr16_F7_3_reg(r1: i32) { write_reg16(r1, neg16(read_reg16(r1))); }
