@@ -153,6 +153,7 @@ function UART(cpu, port, bus)
             {
                 this.lsr &= ~UART_LSR_DATA_READY;
                 this.ClearInterrupt(UART_IIR_CTI);
+                this.ClearInterrupt(UART_IIR_RDI);
             }
 
             return data;
@@ -281,6 +282,10 @@ UART.prototype.CheckInterrupt = function() {
         this.iir = UART_IIR_CTI;
         this.cpu.device_raise_irq(this.irq);
     } else
+    if ((this.ints & (1 << UART_IIR_RDI))  && (this.ier & UART_IER_RDI)) {
+        this.iir = UART_IIR_RDI;
+        this.cpu.device_raise_irq(this.irq);
+    } else
     if ((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
         this.iir = UART_IIR_THRI;
         this.cpu.device_raise_irq(this.irq);
@@ -313,7 +318,15 @@ UART.prototype.data_received = function(data)
     this.input.push(data);
 
     this.lsr |= UART_LSR_DATA_READY;
-    this.ThrowInterrupt(UART_IIR_CTI);
+
+    if(this.fifo_control & 1)
+    {
+        this.ThrowInterrupt(UART_IIR_CTI);
+    }
+    else
+    {
+        this.ThrowInterrupt(UART_IIR_RDI);
+    }
 };
 
 UART.prototype.write_data = function(out_byte)
