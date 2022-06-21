@@ -2021,7 +2021,7 @@ VGAScreen.prototype.port1CF_write = function(value)
             this.dispi_enable_value = value;
             break;
         case 5:
-            dbg_log("SVGA bank offset: " + h(value << 16));
+            dbg_log("SVGA bank offset: " + h(value << 16), LOG_VGA);
             this.svga_bank_offset = value << 16;
             break;
         case 9:
