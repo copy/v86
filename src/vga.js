@@ -1545,12 +1545,12 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
         offset = this.dac_color_index_write % 3,
         color = this.vga256_palette[index];
 
-	color_byte &= 0x3F;
-    if (!(this.dispi_enable_value & 0x20))
-	{
-		var b = color_byte & 1;
-		color_byte = color_byte << 2 | b << 1 | b;
-	}
+    if((this.dispi_enable_value & 0x20) === 0)
+    {
+        color_byte &= 0x3F;
+        const b = color_byte & 1;
+        color_byte = color_byte << 2 | b << 1 | b;
+    }
 
     if(offset === 0)
     {
@@ -1581,14 +1581,18 @@ VGAScreen.prototype.port3C9_read = function()
     var index = this.dac_color_index_read / 3 | 0;
     var offset = this.dac_color_index_read % 3;
     var color = this.vga256_palette[index];
-	var color8 = color >> (2 - offset) * 8 & 0xFF;
+    var color8 = color >> (2 - offset) * 8 & 0xFF;
 
     this.dac_color_index_read++;
 
-	if (this.dispi_enable_value & 0x20)
-		return color8;
-	var b = color8 & 1;
-    return color8 >> 2 | b >> 1 | b;
+    if(this.dispi_enable_value & 0x20)
+    {
+        return color8;
+    }
+    else
+    {
+        return color8 >> 2;
+    }
 };
 
 VGAScreen.prototype.port3CC_read = function()
