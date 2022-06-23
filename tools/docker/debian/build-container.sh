@@ -7,9 +7,9 @@ OUT_FSJSON=$(dirname "$0")/../../../images/debian-base-fs.json
 CONTAINER_NAME=debian-full
 IMAGE_NAME=i386/debian-full
 
-docker build . --rm --tag "$IMAGE_NAME"
+docker build . --platform linux/386 --rm --tag "$IMAGE_NAME"
 docker rm "$CONTAINER_NAME" || true
-docker create -t -i --name "$CONTAINER_NAME" "$IMAGE_NAME" bash
+docker create --platform linux/386 -t -i --name "$CONTAINER_NAME" "$IMAGE_NAME" bash
 
 docker export "$CONTAINER_NAME" > "$OUT_ROOTFS_TAR"
 
