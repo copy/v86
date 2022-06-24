@@ -12,13 +12,8 @@ window.onload = function()
         memory_size: 512 * 1024 * 1024,
         vga_memory_size: 8 * 1024 * 1024,
         screen_container: document.getElementById("screen_container"),
-        bios: { url: "../bios/seabios.bin" },
-        vga_bios: { url: "../bios/vgabios.bin" },
         initial_state: { url: "../images/debian-state-base.bin" },
-        filesystem: {
-            baseurl: "../images/debian-9p-rootfs-flat/",
-            basefs: { url: "../images/debian-base-fs.json" }
-        },
+        filesystem: { baseurl: "../images/debian-9p-rootfs-flat/" },
         autostart: true,
     });
 };
