@@ -179,17 +179,6 @@
         // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
             {
-                id: "debian",
-                name: "Debian",
-                memory_size: 512 * 1024 * 1024,
-                vga_memory_size: 8 * 1024 * 1024,
-                state: { url: host + "debian-state-base.bin" },
-                filesystem: {
-                    "baseurl": host + "debian-9p-rootfs-flat/",
-                    "basefs": { url: host + "debian-base-fs.json" }
-                }
-            },
-            {
                 id: "archlinux",
                 name: "Arch Linux",
                 memory_size: 512 * 1024 * 1024,
