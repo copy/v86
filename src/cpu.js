@@ -1293,7 +1293,7 @@ CPU.prototype.codegen_finalize = async function(wasm_table_index, start, state_f
         const result = new WebAssembly.Instance(module, { "e": this.jit_imports });
         const f = result.exports["f"];
 
-        await this.codegen_finalize_finished(wasm_table_index, start, state_flags);
+        this.codegen_finalize_finished(wasm_table_index, start, state_flags);
 
         this.wm.wasm_table.set(wasm_table_index + WASM_TABLE_OFFSET, f);
 

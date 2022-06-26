@@ -603,13 +603,13 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
             if(options["bzimage_initrd_from_filesystem"])
             {
-                let { bzimage, initrd } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
+                const { bzimage_path, initrd_path } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
 
-                dbg_log("Found bzimage: " + bzimage + " and initrd: " + initrd);
+                dbg_log("Found bzimage: " + bzimage_path + " and initrd: " + initrd_path);
 
-                [initrd, bzimage] = await Promise.all([
-                    settings.fs9p.read_file(initrd),
-                    settings.fs9p.read_file(bzimage),
+                const [initrd, bzimage] = await Promise.all([
+                    settings.fs9p.read_file(initrd_path),
+                    settings.fs9p.read_file(bzimage_path),
                 ]);
                 put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
                 put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
@@ -686,7 +686,7 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
         console.log(boot.join(" "));
     }
 
-    return { initrd, bzimage };
+    return { initrd_path: initrd, bzimage_path: bzimage };
 };
 
 /**
@@ -1190,18 +1190,22 @@ V86Starter.prototype.create_file = async function(file, data, callback)
     var parent_id = path_infos.parentid;
     var not_found = filename === "" || parent_id === -1;
 
-    if(!not_found)
-    {
-        await fs.CreateBinaryFile(filename,parent_id,data);
-        callback(null);
-    }
-    else
-    {
-        setTimeout(function()
+
+    return new Promise((resolve,reject)=>{
+       if(!not_found)
         {
-            callback(new FileNotFoundError());
-        }, 0);
-    }
+             fs.CreateBinaryFile(filename, parent_id, data).then(() =>
+                 resolve(null)
+             );
+        }
+        else
+        {
+            setTimeout(function()
+            {
+                reject(new FileNotFoundError());
+            }, 0);
+        } 
+    });
 };
 
 /**
@@ -1222,14 +1226,9 @@ V86Starter.prototype.read_file = async function(file, callback)
     }
 
     const result = await fs.read_file(file);
-    if(result)
-    {
-        callback(null, result);
-    }
-    else
-    {
-        callback(new FileNotFoundError(), null);
-    }
+
+    
+    return result ? Promise.resolve(result):Promise.reject(new FileNotFoundError()) ;
     
 };
 
