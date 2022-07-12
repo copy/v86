@@ -1267,8 +1267,8 @@
         if(!(settings.filesystem)) {
             // Hide the filesystem panel for now
             $("filesystem_panel").style.display="none";
-            // Show the filesystem panel if it's ever used
-            emulator.add_listener("9p-read-start", function(args) {
+            // Show the filesystem panel if the 9p file share is mounted at some point (May break with saved state)
+            emulator.add_listener("9p-attach", function() {
                 $("filesystem_panel").style.display="block";
             });
         }
