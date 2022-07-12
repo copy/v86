@@ -174,6 +174,11 @@ PS2.prototype.get_state = function()
     return state;
 };
 
+/**
+ * 
+ * @param {Array} state
+ */
+
 PS2.prototype.set_state = function(state)
 {
     this.enable_mouse_stream = state[0];
