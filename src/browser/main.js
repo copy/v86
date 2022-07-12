@@ -1263,12 +1263,15 @@
         $("runtime_options").style.display = "block";
         $("runtime_infos").style.display = "block";
         $("screen_container").style.display = "block";
-
-        if(settings.filesystem)
-        {
-            init_filesystem_panel(emulator);
+        init_filesystem_panel(emulator);
+        if(!(settings.filesystem)) {
+            // Hide the filesystem panel for now
+            $("filesystem_panel").style.display="none";
+            // Show the filesystem panel if it's ever used
+            emulator.add_listener("9p-read-start", function(args) {
+                $("filesystem_panel").style.display="block";
+            });
         }
-
         $("run").onclick = function()
         {
             if(emulator.is_running())
