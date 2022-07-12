@@ -64,6 +64,12 @@ window.onload = function()
     {
         emulator2.serial0_send(char);
     });
+    emulator1.add_listener("net0-send", function(data) {
+        emulator2.bus.send("net0-receive", data);
+    });
+    emulator2.add_listener("net0-send", function(data) {
+        emulator1.bus.send("net0-receive", data);
+    });
 };
 </script>
 
