@@ -1268,6 +1268,13 @@
         {
             init_filesystem_panel(emulator);
         }
+        else
+        {
+            emulator.add_listener("9p-attach", function()
+            {
+                init_filesystem_panel(emulator);
+            });
+        }
 
         $("run").onclick = function()
         {
