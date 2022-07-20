@@ -805,11 +805,10 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(DEBUG)
     {
-        // Use by linux for port-IO delay
-        // Avoid generating tons of debug messages
-        io.register_write(0x80, this, function(out_byte)
-        {
-        });
+        // Avoid logging noisey ports
+        io.register_write(0x80, this, function(out_byte) {});
+        io.register_read(0x80, this, function() { return 0xFF; });
+        io.register_write(0xE9, this, function(out_byte) {});
     }
 
     this.devices = {};
