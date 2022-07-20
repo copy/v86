@@ -208,32 +208,16 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
     io.register_read(this.port | NE_RESET, this, function()
     {
         var pg = this.get_page();
-        if(pg === 0)
-        {
-            dbg_log("Read reset", LOG_NET);
-            this.do_interrupt(ENISR_RESET);
-        }
-        else
-        {
-            dbg_log("Read pg" + pg + "/1f", LOG_NET);
-            dbg_assert(false);
-        }
+        dbg_log("Read reset", LOG_NET);
+        this.do_interrupt(ENISR_RESET);
         return 0;
     });
 
     io.register_write(this.port | NE_RESET, this, function(data_byte)
     {
         var pg = this.get_page();
-        if(pg === 0)
-        {
-            dbg_log("Write reset: " + h(data_byte, 2), LOG_NET);
-            //this.isr &= ~ENISR_RESET;
-        }
-        else
-        {
-            dbg_log("Write pg" + pg + "/1f: " + h(data_byte), LOG_NET);
-            dbg_assert(false);
-        }
+        dbg_log("Write reset: " + h(data_byte, 2), LOG_NET);
+        //this.isr &= ~ENISR_RESET;
     });
 
     io.register_read(this.port | EN0_STARTPG, this, function()
