@@ -1708,9 +1708,8 @@
         phone_keyboard.setAttribute("spellcheck", "false");
         phone_keyboard.tabIndex = 0;
 
-        $("screen_container").addEventListener("mousedown", (e) =>
+        $("screen_container").addEventListener("mousedown", e =>
         {
-            e.preventDefault();
             phone_keyboard.focus();
         }, false);
 
