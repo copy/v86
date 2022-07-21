@@ -133,6 +133,8 @@ CPU.prototype.debug_init = function()
 
     function get_regs_short()
     {
+        if(!DEBUG) return;
+
         var
             r32 = { "eax": REG_EAX, "ecx": REG_ECX, "edx": REG_EDX, "ebx": REG_EBX,
                     "esp": REG_ESP, "ebp": REG_EBP, "esi": REG_ESI, "edi": REG_EDI },
