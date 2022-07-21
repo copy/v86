@@ -3,6 +3,7 @@
 // http://www.ethernut.de/pdf/8019asds.pdf
 
 const NE2K_LOG_VERBOSE = false;
+const NE2K_LOG_PACKETS = false;
 
 /** @const */ var E8390_CMD = 0x00; /* The command register (for all pages) */
 
@@ -178,6 +179,13 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
         {
             var start = this.tpsr << 8;
             var data = this.memory.subarray(start, start + this.tcnt);
+
+            if(NE2K_LOG_PACKETS)
+            {
+                dbg_log("send len=" + data.length + " ethertype=" + h(data[12] << 8 | data[13] << 0, 4) + " ipv4.len=" + (data[14 + 2] << 8 | data[14 + 3]) + " ipv4.protocol=" + h(data[14 + 9]));
+                dbg_log(hex_dump(data));
+            }
+
             this.bus.send("net0-send", data);
             this.bus.send("eth-transmit-end", [data.length]);
             this.cr &= ~4;
@@ -925,6 +933,12 @@ Ne2k.prototype.receive = function(data)
     {
         // stop bit set
         return;
+    }
+
+    if(NE2K_LOG_PACKETS)
+    {
+        dbg_log("receive len=" + data.length + " ethertype=" + h(data[12] << 8 | data[13] << 0, 4) + " ipv4.len=" + (data[14 + 2] << 8 | data[14 + 3]) + " ipv4.protocol=" + h(data[14 + 9]));
+        dbg_log(hex_dump(data));
     }
 
     this.bus.send("eth-receive-end", [data.length]);
