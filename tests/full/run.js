@@ -7,9 +7,9 @@ var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
 const VERBOSE = false;
-const RUN_SLOW_TESTS = false;
 const LOG_SCREEN = false;
 
 try
@@ -678,6 +678,24 @@ if(cluster.isMaster)
             hda: root_path + "/images/serenity.img",
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Android 1.6",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            cdrom: root_path + "/images/android-x86-1.6-r2.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Android 4.4",
+            skip_if_disk_image_missing: true,
+            timeout: 5 * 60,
+            hda: root_path + "/images/android_x86_nonsse3_4.4r1_20140904.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
         },
         {
