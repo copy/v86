@@ -547,7 +547,11 @@ PCI.prototype.set_io_bars = function(bar, from, to)
     for(var i = 0; i < count; i++)
     {
         var old_entry = ports[from + i];
-        ports[from + i] = this.io.create_empty_entry();
+
+        if(from + i >= 0x1000)
+        {
+            ports[from + i] = this.io.create_empty_entry();
+        }
 
         if(old_entry.read8 === this.io.empty_port_read8 &&
            old_entry.read16 === this.io.empty_port_read16 &&
@@ -556,6 +560,7 @@ PCI.prototype.set_io_bars = function(bar, from, to)
            old_entry.write16 === this.io.empty_port_write &&
            old_entry.write32 === this.io.empty_port_write)
         {
+            // happens when a device doesn't register its full range (currently ne2k and virtio)
             dbg_log("Warning: Bad IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
         }
 
@@ -563,7 +568,10 @@ PCI.prototype.set_io_bars = function(bar, from, to)
         var empty_entry = ports[to + i];
         dbg_assert(entry && empty_entry);
 
-        ports[to + i] = entry;
+        if(to + i >= 0x1000)
+        {
+            ports[to + i] = entry;
+        }
 
         if(empty_entry.read8 === this.io.empty_port_read8 ||
             empty_entry.read16 === this.io.empty_port_read16 ||
