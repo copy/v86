@@ -77,6 +77,42 @@ function h(n, len)
     return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
 }
 
+/** @param {number=} length */
+function hex_dump(buffer, length)
+{
+    function hex(n, len)
+    {
+        return v86util.pad0(n.toString(16).toUpperCase(), len);
+    }
+
+    var result = [];
+    length = length || buffer.byteLength;
+    var addr = 0;
+    var line, byt;
+
+    for(var i = 0; i < length >> 4; i++)
+    {
+        line = hex(addr + (i << 4), 5) + "   ";
+
+        for(var j = 0; j < 0x10; j++)
+        {
+            byt = buffer[addr + (i << 4) + j];
+            line += hex(byt, 2) + " ";
+        }
+
+        line += "  ";
+
+        for(j = 0; j < 0x10; j++)
+        {
+            byt = buffer[addr + (i << 4) + j];
+            line += (byt < 33 || byt > 126) ? "." : String.fromCharCode(byt);
+        }
+
+        result.push(line);
+    }
+
+    return "\n" + result.join("\n");
+}
 
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
