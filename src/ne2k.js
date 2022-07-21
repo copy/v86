@@ -56,13 +56,154 @@ const NE2K_LOG_PACKETS = false;
 /** @const */ var STOP_PAGE = 0x80;
 
 
+// Search and replace MAC addresses in ethernet, arp and dhcp packets.
+// Used after restoring an OS from memory dump, so that multiple instances of
+// that OS can run at the same time with different external MAC addresses.
+// Crude but seems to work.
+function translate_mac_address(packet, search_mac, replacement_mac)
+{
+    if(packet[0] === search_mac[0] &&
+       packet[1] === search_mac[1] &&
+       packet[2] === search_mac[2] &&
+       packet[3] === search_mac[3] &&
+       packet[4] === search_mac[4] &&
+       packet[5] === search_mac[5])
+    {
+        dbg_log("Replace mac in eth destination field", LOG_NET);
+
+        packet[0] = replacement_mac[0];
+        packet[1] = replacement_mac[1];
+        packet[2] = replacement_mac[2];
+        packet[3] = replacement_mac[3];
+        packet[4] = replacement_mac[4];
+        packet[5] = replacement_mac[5];
+    }
+
+    if(packet[6 + 0] === search_mac[0] &&
+       packet[6 + 1] === search_mac[1] &&
+       packet[6 + 2] === search_mac[2] &&
+       packet[6 + 3] === search_mac[3] &&
+       packet[6 + 4] === search_mac[4] &&
+       packet[6 + 5] === search_mac[5])
+    {
+        dbg_log("Replace mac in eth source field", LOG_NET);
+
+        packet[6 + 0] = replacement_mac[0];
+        packet[6 + 1] = replacement_mac[1];
+        packet[6 + 2] = replacement_mac[2];
+        packet[6 + 3] = replacement_mac[3];
+        packet[6 + 4] = replacement_mac[4];
+        packet[6 + 5] = replacement_mac[5];
+    }
+
+    const ethertype = packet[12] << 8 | packet[13];
+
+    if(ethertype === 0x0800)
+    {
+        // ipv4
+        const ipv4_packet = packet.subarray(14);
+        const ipv4_version = ipv4_packet[0] >> 4;
+
+        if(ipv4_version !== 4)
+        {
+            dbg_log("Expected ipv4.version==4 but got: " + ipv4_version, LOG_NET);
+            return;
+        }
+
+        const ipv4_ihl = ipv4_packet[0] & 0xF;
+        dbg_assert(ipv4_ihl === 5, "TODO: ihl!=5");
+
+        const ipv4_proto = ipv4_packet[9];
+        if(ipv4_proto === 0x11)
+        {
+            // udp
+            const udp_packet = ipv4_packet.subarray(5 * 4);
+            const source_port = udp_packet[0] << 8 | udp_packet[1];
+            const destination_port = udp_packet[2] << 8 | udp_packet[3];
+            const checksum = udp_packet[6] << 8 | udp_packet[7];
+
+            dbg_log("udp srcport=" + source_port + " dstport=" + destination_port + " checksum=" + h(checksum, 4), LOG_NET);
+
+            if(source_port === 67 || destination_port === 67)
+            {
+                // dhcp
+                const dhcp_packet = udp_packet.subarray(8);
+
+                if(dhcp_packet[28 + 0] === search_mac[0] &&
+                   dhcp_packet[28 + 1] === search_mac[1] &&
+                   dhcp_packet[28 + 2] === search_mac[2] &&
+                   dhcp_packet[28 + 3] === search_mac[3] &&
+                   dhcp_packet[28 + 4] === search_mac[4] &&
+                   dhcp_packet[28 + 5] === search_mac[5])
+                {
+                    dbg_log("Replace mac in dhcp.chaddr", LOG_NET);
+
+                    dhcp_packet[28 + 0] = replacement_mac[0];
+                    dhcp_packet[28 + 1] = replacement_mac[1];
+                    dhcp_packet[28 + 2] = replacement_mac[2];
+                    dhcp_packet[28 + 3] = replacement_mac[3];
+                    dhcp_packet[28 + 4] = replacement_mac[4];
+                    dhcp_packet[28 + 5] = replacement_mac[5];
+
+                    udp_packet[6] = udp_packet[7] = 0; // zero udp checksum
+
+                }
+            }
+        }
+        else
+        {
+            // tcp, ...
+        }
+    }
+    else if(ethertype === 0x0806)
+    {
+        // arp
+        const arp_packet = packet.subarray(14);
+        dbg_log("arp oper=" + arp_packet[7] + " " + format_mac(arp_packet.subarray(8, 8+6)) + " " + format_mac(arp_packet.subarray(18, 18+6)), LOG_NET);
+
+        if(arp_packet[8 + 0] === search_mac[0] &&
+           arp_packet[8 + 1] === search_mac[1] &&
+           arp_packet[8 + 2] === search_mac[2] &&
+           arp_packet[8 + 3] === search_mac[3] &&
+           arp_packet[8 + 4] === search_mac[4] &&
+           arp_packet[8 + 5] === search_mac[5])
+        {
+            dbg_log("Replace mac in arp.sha", LOG_NET);
+
+            arp_packet[8 + 0] = replacement_mac[0];
+            arp_packet[8 + 1] = replacement_mac[1];
+            arp_packet[8 + 2] = replacement_mac[2];
+            arp_packet[8 + 3] = replacement_mac[3];
+            arp_packet[8 + 4] = replacement_mac[4];
+            arp_packet[8 + 5] = replacement_mac[5];
+        }
+    }
+    else
+    {
+        // TODO: ipv6, ...
+    }
+}
+
+function format_mac(mac)
+{
+    return [
+        mac[0].toString(16).padStart(2, "0"),
+        mac[1].toString(16).padStart(2, "0"),
+        mac[2].toString(16).padStart(2, "0"),
+        mac[3].toString(16).padStart(2, "0"),
+        mac[4].toString(16).padStart(2, "0"),
+        mac[5].toString(16).padStart(2, "0"),
+    ].join(":");
+}
+
 /**
  * @constructor
  * @param {CPU} cpu
  * @param {BusConnector} bus
  * @param {Boolean} preserve_mac_from_state_image
+ * @param {Boolean} mac_address_translation
  */
-function Ne2k(cpu, bus, preserve_mac_from_state_image)
+function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -71,6 +212,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
     this.pci = cpu.devices.pci;
 
     this.preserve_mac_from_state_image = preserve_mac_from_state_image;
+    this.mac_address_translation = mac_address_translation;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -127,6 +269,10 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
         Math.random() * 255 | 0,
     ]);
 
+    // Used for mac address translation
+    // The mac the OS thinks it has
+    this.mac_address_in_state = null;
+
     for(var i = 0; i < 6; i++)
     {
         this.memory[i << 1] = this.memory[i << 1 | 1] = this.mac[i];
@@ -137,12 +283,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
     this.memory[14 << 1] = this.memory[14 << 1 | 1] = 0x57;
     this.memory[15 << 1] = this.memory[15 << 1 | 1] = 0x57;
 
-    dbg_log("Mac: " + h(this.mac[0], 2) + ":" +
-                      h(this.mac[1], 2) + ":" +
-                      h(this.mac[2], 2) + ":" +
-                      h(this.mac[3], 2) + ":" +
-                      h(this.mac[4], 2) + ":" +
-                      h(this.mac[5], 2), LOG_NET);
+    dbg_log("Mac: " + format_mac(this.mac), LOG_NET);
 
     this.rsar = 0;
 
@@ -184,6 +325,11 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image)
             {
                 dbg_log("send len=" + data.length + " ethertype=" + h(data[12] << 8 | data[13] << 0, 4) + " ipv4.len=" + (data[14 + 2] << 8 | data[14 + 3]) + " ipv4.protocol=" + h(data[14 + 9]));
                 dbg_log(hex_dump(data));
+            }
+
+            if(this.mac_address_in_state)
+            {
+                translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
             this.bus.send("net0-send", data);
@@ -803,6 +949,15 @@ Ne2k.prototype.set_state = function(state)
         this.mac = state[15];
         this.memory = state[16];
     }
+    else if(this.mac_address_translation)
+    {
+        this.mac_address_in_state = state[15];
+        this.memory = state[16];
+
+        dbg_log("Using mac address translation" +
+            " guest_os_mac=" + format_mac(this.mac_address_in_state) +
+            " real_mac=" + format_mac(this.mac), LOG_NET);
+    }
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
@@ -967,6 +1122,11 @@ Ne2k.prototype.receive = function(data)
     else
     {
         return;
+    }
+
+    if(this.mac_address_in_state)
+    {
+        translate_mac_address(data, this.mac, this.mac_address_in_state);
     }
 
     var packet_length = Math.max(60, data.length);
