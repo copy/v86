@@ -349,9 +349,15 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 
     io.register_read(this.port | EN0_COUNTER1, this, function()
     {
-        dbg_log("Read counter1", LOG_NET);
+        dbg_log("Read8 counter1", LOG_NET);
         return 0;
-    });
+    }, function()
+    {
+        dbg_log("Read16 counter1", LOG_NET);
+        // openbsd
+        return 0;
+    }
+    );
 
     io.register_read(this.port | EN0_COUNTER2, this, function()
     {
