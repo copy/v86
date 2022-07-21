@@ -924,6 +924,37 @@
                 start_emulation(settings, done);
             }
         }
+        else if(/^[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+$/g.test(profile))
+        {
+            // experimental: server that allows user-uploaded images
+
+            const base = "https://v86-user-images.b-cdn.net/" + profile;
+
+            fetch(base + "/profile.json")
+                .then(response => response.json())
+                .then(p => {
+                    function handle_image(o)
+                    {
+                        return o ? { url: base + "/" + o["url"], async: o["async"], size: o["size"] } : o;
+                    }
+
+                    start_profile({
+                        id: p["id"],
+                        name: p["name"],
+                        memory_size: p["memory_size"],
+                        vga_memory_size: p["vga_memory_size"],
+                        acpi: p["acpi"],
+                        boot_order: p["boot_order"],
+                        hda: handle_image(p["hda"]),
+                        cdrom: handle_image(p["cdrom"]),
+                        fda: handle_image(p["fda"]),
+                        multiboot: handle_image(p["multiboot"]),
+                        bzimage: handle_image(p["bzimage"]),
+                        initrd: handle_image(p["initrd"]),
+                    });
+                })
+                .catch(e => alert("Profile not found: " + profile));
+        }
 
         function start_profile(infos)
         {
