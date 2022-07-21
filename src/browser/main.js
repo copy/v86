@@ -523,9 +523,9 @@
                 },
                 name: "Windows 2000",
                 state: {
-                    "url": host + "windows2k_state.bin.zst",
+                    "url": host + "windows2k_state-v2.bin.zst",
                 },
-                preserve_mac_from_state_image: true,
+                mac_address_translation: true,
             },
             {
                 id: "windows2000-boot",
