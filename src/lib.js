@@ -77,41 +77,56 @@ function h(n, len)
     return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
 }
 
-/** @param {number=} length */
-function hex_dump(buffer, length)
+function hex_dump(buffer)
 {
     function hex(n, len)
     {
         return v86util.pad0(n.toString(16).toUpperCase(), len);
     }
 
-    var result = [];
-    length = length || buffer.byteLength;
-    var addr = 0;
-    var line, byt;
+    const result = [];
+    let offset = 0;
 
-    for(var i = 0; i < length >> 4; i++)
+    for(; offset + 15 < buffer.length; offset += 16)
     {
-        line = hex(addr + (i << 4), 5) + "   ";
+        let line = hex(offset, 5) + "   ";
 
-        for(var j = 0; j < 0x10; j++)
+        for(let j = 0; j < 0x10; j++)
         {
-            byt = buffer[addr + (i << 4) + j];
-            line += hex(byt, 2) + " ";
+            line += hex(buffer[offset + j], 2) + " ";
         }
 
         line += "  ";
 
-        for(j = 0; j < 0x10; j++)
+        for(let j = 0; j < 0x10; j++)
         {
-            byt = buffer[addr + (i << 4) + j];
-            line += (byt < 33 || byt > 126) ? "." : String.fromCharCode(byt);
+            const x = buffer[offset + j];
+            line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
         }
 
         result.push(line);
     }
 
-    return "\n" + result.join("\n");
+    let line = hex(offset, 5) + "   ";
+
+    for(; offset < buffer.length; offset++)
+    {
+        line += hex(buffer[offset], 2) + " ";
+    }
+
+    const remainder = offset & 0xF;
+    line += "   ".repeat(0x10 - remainder);
+    line += "  ";
+
+    for(let j = 0; j < remainder; j++)
+    {
+        const x = buffer[offset + j];
+        line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
+    }
+
+    result.push(line);
+
+    return "\n" + result.join("\n") + "\n";
 }
 
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
