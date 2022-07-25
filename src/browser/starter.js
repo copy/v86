@@ -528,11 +528,11 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     var starter = this;
     var total = files_to_load.length;
 
-    var cont = async function(index)
+    var cont = function(index)
     {
         if(index === total)
         {
-            setTimeout(await done.bind(this), 0);
+            setTimeout(done.bind(this), 0);
             return;
         }
 
@@ -540,20 +540,20 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
         if(f.loadable)
         {
-            f.loadable.onload = async function(e)
+            f.loadable.onload = function(e)
             {
                 put_on_settings.call(this, f.name, f.loadable);
-                await cont(index + 1);
+                cont(index + 1);
             }.bind(this);
             f.loadable.load();
         }
         else
         {
             v86util.load_file(f.url, {
-                done: async function(result)
+                done: function(result)
                 {
                     put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
-                    await cont(index + 1);
+                    cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
                 {
@@ -583,7 +583,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             });
         }
     }.bind(this);
-    await cont(0);
+    cont(0);
 
     async function done()
     {
@@ -662,8 +662,8 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
     const root = (filesystem.read_dir("/") || []).map(x => "/" + x);
     const boot = (filesystem.read_dir("/boot/") || []).map(x => "/boot/" + x);
 
-    let initrd;
-    let bzimage;
+    let initrd_path;
+    let bzimage_path;
 
     for(let f of [].concat(root, boot))
     {
@@ -671,25 +671,25 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
         const is_bzimage = /vmlinuz/i.test(f) || /bzimage/i.test(f);
         const is_initrd = /initrd/i.test(f) || /initramfs/i.test(f);
 
-        if(is_bzimage && (!bzimage || !old))
+        if(is_bzimage && (!bzimage_path || !old))
         {
-            bzimage = f;
+            bzimage_path = f;
         }
 
-        if(is_initrd && (!initrd || !old))
+        if(is_initrd && (!initrd_path || !old))
         {
-            initrd = f;
+            initrd_path = f;
         }
     }
 
-    if(!initrd || !bzimage)
+    if(!initrd_path || !bzimage_path)
     {
         console.log("Failed to find bzimage or initrd in filesystem. Files:");
         console.log(root.join(" "));
         console.log(boot.join(" "));
     }
 
-    return { initrd_path: initrd, bzimage_path: bzimage };
+    return { initrd_path, bzimage_path };
 };
 
 /**
