@@ -183,23 +183,22 @@ function V86Starter(options)
                 }
 
                 v86util.load_file(v86_bin, {
-                    done: bytes =>
+                    done: async bytes =>
                     {
-                        WebAssembly
-                            .instantiate(bytes, env)
-                            .then(({ instance }) => {
-                                resolve(instance.exports);
-                            }, err => {
-                                v86util.load_file(v86_bin_fallback, {
-                                    done: bytes => {
-                                        WebAssembly
-                                            .instantiate(bytes, env)
-                                            .then(({ instance }) => {
-                                                resolve(instance.exports);
-                                            });
+                        try
+                        {
+                            const { instance } = await WebAssembly.instantiate(bytes, env);
+                            resolve(instance.exports);
+                        }
+                        catch(err)
+                        {
+                            v86util.load_file(v86_bin_fallback, {
+                                    done: async bytes => {
+                                        const { instance } = await WebAssembly.instantiate(bytes, env);
+                                        resolve(instance.exports);
                                     },
                                 });
-                            });
+                        }
                     },
                     progress: e =>
                     {
@@ -586,7 +585,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     }.bind(this);
     cont(0);
 
-    function done()
+    async function done()
     {
         //if(settings.initial_state)
         //{
@@ -607,18 +606,17 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
             if(options["bzimage_initrd_from_filesystem"])
             {
-                const { bzimage, initrd } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
+                const { bzimage_path, initrd_path } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
 
-                dbg_log("Found bzimage: " + bzimage + " and initrd: " + initrd);
+                dbg_log("Found bzimage: " + bzimage_path + " and initrd: " + initrd_path);
 
-                Promise.all([
-                    settings.fs9p.read_file(initrd),
-                    settings.fs9p.read_file(bzimage),
-                ]).then(([initrd, bzimage]) => {
-                    put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
-                    put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
-                    finish.call(this);
-                });
+                const [initrd, bzimage] = await Promise.all([
+                    settings.fs9p.read_file(initrd_path),
+                    settings.fs9p.read_file(bzimage_path),
+                ]);
+                put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
+                put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
+                finish.call(this);
             }
             else
             {
@@ -664,8 +662,8 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
     const root = (filesystem.read_dir("/") || []).map(x => "/" + x);
     const boot = (filesystem.read_dir("/boot/") || []).map(x => "/boot/" + x);
 
-    let initrd;
-    let bzimage;
+    let initrd_path;
+    let bzimage_path;
 
     for(let f of [].concat(root, boot))
     {
@@ -673,25 +671,25 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
         const is_bzimage = /vmlinuz/i.test(f) || /bzimage/i.test(f);
         const is_initrd = /initrd/i.test(f) || /initramfs/i.test(f);
 
-        if(is_bzimage && (!bzimage || !old))
+        if(is_bzimage && (!bzimage_path || !old))
         {
-            bzimage = f;
+            bzimage_path = f;
         }
 
-        if(is_initrd && (!initrd || !old))
+        if(is_initrd && (!initrd_path || !old))
         {
-            initrd = f;
+            initrd_path = f;
         }
     }
 
-    if(!initrd || !bzimage)
+    if(!initrd_path || !bzimage_path)
     {
         console.log("Failed to find bzimage or initrd in filesystem. Files:");
         console.log(root.join(" "));
         console.log(boot.join(" "));
     }
 
-    return { initrd, bzimage };
+    return { initrd_path, bzimage_path };
 };
 
 /**
@@ -699,7 +697,7 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
  * asynchronous.
  * @export
  */
-V86Starter.prototype.run = function()
+V86Starter.prototype.run = async function()
 {
     this.bus.send("cpu-run");
 };
@@ -708,7 +706,7 @@ V86Starter.prototype.run = function()
  * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
  * @export
  */
-V86Starter.prototype.stop = function()
+V86Starter.prototype.stop = async function()
 {
     this.bus.send("cpu-stop");
 };
@@ -780,34 +778,22 @@ V86Starter.prototype.remove_listener = function(event, listener)
  * @param {ArrayBuffer} state
  * @export
  */
-V86Starter.prototype.restore_state = function(state)
+V86Starter.prototype.restore_state = async function(state)
 {
+    console.assert(arguments.length === 1);
     this.v86.restore_state(state);
 };
 
 /**
- * Asynchronously save the current state of the emulator. The first argument to
- * the callback is an Error object if something went wrong and is null
- * otherwise.
+ * Asynchronously save the current state of the emulator.
  *
- * @param {function(Object, ArrayBuffer)} callback
+ * @return {Promise<ArrayBuffer>}
  * @export
  */
-V86Starter.prototype.save_state = function(callback)
+V86Starter.prototype.save_state = async function()
 {
-    // Might become asynchronous at some point
-
-    setTimeout(function()
-    {
-        try
-        {
-            callback(null, this.v86.save_state());
-        }
-        catch(e)
-        {
-            callback(e, null);
-        }
-    }.bind(this), 0);
+    console.assert(arguments.length === 0);
+    return this.v86.save_state();
 };
 
 /**
@@ -1169,18 +1155,15 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
 
 /**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
- * been initialized. First argument to the callback is an error object if
- * something went wrong and null otherwise.
+ * been initialized.
  *
  * @param {string} file
  * @param {Uint8Array} data
- * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.create_file = function(file, data, callback)
+V86Starter.prototype.create_file = async function(file, data)
 {
-    callback = callback || function() {};
-
+    console.assert(arguments.length === 2);
     var fs = this.fs9p;
 
     if(!fs)
@@ -1197,15 +1180,11 @@ V86Starter.prototype.create_file = function(file, data, callback)
 
     if(!not_found)
     {
-        fs.CreateBinaryFile(filename, parent_id, data)
-            .then(() => callback(null));
+        await fs.CreateBinaryFile(filename, parent_id, data);
     }
     else
     {
-        setTimeout(function()
-        {
-            callback(new FileNotFoundError());
-        }, 0);
+        return Promise.reject(new FileNotFoundError());
     }
 };
 
@@ -1214,11 +1193,11 @@ V86Starter.prototype.create_file = function(file, data, callback)
  * initialized.
  *
  * @param {string} file
- * @param {function(Object, Uint8Array)} callback
  * @export
  */
-V86Starter.prototype.read_file = function(file, callback)
+V86Starter.prototype.read_file = async function(file)
 {
+    console.assert(arguments.length === 1);
     var fs = this.fs9p;
 
     if(!fs)
@@ -1226,16 +1205,16 @@ V86Starter.prototype.read_file = function(file, callback)
         return;
     }
 
-    fs.read_file(file).then((result) => {
-        if(result)
-        {
-            callback(null, result);
-        }
-        else
-        {
-            callback(new FileNotFoundError(), null);
-        }
-    });
+    const result = await fs.read_file(file);
+
+    if(result)
+    {
+        return result;
+    }
+    else
+    {
+        return Promise.reject(new FileNotFoundError());
+    }
 };
 
 V86Starter.prototype.automatically = function(steps)

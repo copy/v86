@@ -29,7 +29,7 @@ emulator.bus.register("emulator-started", function()
 var ran_command = false;
 var line = "";
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-char", async function(chr)
 {
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
@@ -59,17 +59,10 @@ emulator.add_listener("serial0-output-char", function(chr)
     {
         console.error("Done. Reading result ...");
 
-        emulator.read_file("/result", function(err, data)
-            {
-                if(err)
-                {
-                    console.error("Reading test result failed: " + err);
-                    process.exit(1);
-                }
-                console.error("Got result, writing to stdout");
-                process.stdout.write(Buffer.from(data));
-                emulator.stop();
-            });
-    }
+        const data = await emulator.read_file("/result");
+        console.error("Got result, writing to stdout");
 
+        process.stdout.write(Buffer.from(data));
+        emulator.stop();
+    }
 });
