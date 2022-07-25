@@ -1164,18 +1164,14 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
 
 /**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
- * been initialized. First argument to the callback is an error object if
- * something went wrong and null otherwise.
+ * been initialized.
  *
  * @param {string} file
  * @param {Uint8Array} data
- * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.create_file = async function(file, data, callback)
+V86Starter.prototype.create_file = async function(file, data)
 {
-    callback = callback || function() {};
-
     var fs = this.fs9p;
 
     if(!fs)
@@ -1190,22 +1186,14 @@ V86Starter.prototype.create_file = async function(file, data, callback)
     var parent_id = path_infos.parentid;
     var not_found = filename === "" || parent_id === -1;
 
-
-    return new Promise((resolve,reject)=>{
-       if(!not_found)
-        {
-             fs.CreateBinaryFile(filename, parent_id, data).then(() =>
-                 resolve(null)
-             );
-        }
-        else
-        {
-            setTimeout(function()
-            {
-                reject(new FileNotFoundError());
-            }, 0);
-        } 
-    });
+    if(!not_found)
+    {
+        await fs.CreateBinaryFile(filename, parent_id, data);
+    }
+    else
+    {
+        return Promise.reject(new FileNotFoundError());
+    }
 };
 
 /**
@@ -1213,10 +1201,9 @@ V86Starter.prototype.create_file = async function(file, data, callback)
  * initialized.
  *
  * @param {string} file
- * @param {function(Object, Uint8Array)} callback
  * @export
  */
-V86Starter.prototype.read_file = async function(file, callback)
+V86Starter.prototype.read_file = async function(file)
 {
     var fs = this.fs9p;
 
@@ -1227,9 +1214,14 @@ V86Starter.prototype.read_file = async function(file, callback)
 
     const result = await fs.read_file(file);
 
-    
-    return result ? Promise.resolve(result):Promise.reject(new FileNotFoundError()) ;
-    
+    if(result)
+    {
+        return result;
+    }
+    else
+    {
+        Promise.reject(new FileNotFoundError());
+    }
 };
 
 V86Starter.prototype.automatically = function(steps)
