@@ -775,34 +775,20 @@ V86Starter.prototype.remove_listener = function(event, listener)
  * @param {ArrayBuffer} state
  * @export
  */
-V86Starter.prototype.restore_state = function(state)
+V86Starter.prototype.restore_state = async function(state)
 {
     this.v86.restore_state(state);
 };
 
 /**
- * Asynchronously save the current state of the emulator. The first argument to
- * the callback is an Error object if something went wrong and is null
- * otherwise.
+ * Asynchronously save the current state of the emulator.
  *
- * @param {function(Object, ArrayBuffer)} callback
+ * @return {Promise<ArrayBuffer>}
  * @export
  */
-V86Starter.prototype.save_state = function(callback)
+V86Starter.prototype.save_state = async function()
 {
-    // Might become asynchronous at some point
-
-    setTimeout(function()
-    {
-        try
-        {
-            callback(null, this.v86.save_state());
-        }
-        catch(e)
-        {
-            callback(e, null);
-        }
-    }.bind(this), 0);
+    return this.v86.save_state();
 };
 
 /**
