@@ -1575,20 +1575,10 @@
         //    $("memory_dump_dmp").blur();
         //};
 
-        $("save_state").onclick = function()
+        $("save_state").onclick = async function()
         {
-            emulator.save_state(function(error, result)
-            {
-                if(error)
-                {
-                    console.log(error.stack);
-                    console.log("Couldn't save state: ", error);
-                }
-                else
-                {
-                    dump_file(result, "v86state.bin");
-                }
-            });
+            const result = await emulator.save_state();
+            dump_file(result, "v86state.bin");
 
             $("save_state").blur();
         };
