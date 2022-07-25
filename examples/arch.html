@@ -31,21 +31,15 @@ window.onload = function()
         ].join(" "),
     });
 
-    document.getElementById("save_file").onclick = function()
+    document.getElementById("save_file").onclick = async function()
     {
-        emulator.save_state(function(error, new_state)
-        {
-            if(error)
-            {
-                throw error;
-            }
+        const new_state = await emulator.save_state();
 
-            var a = document.createElement("a");
-            a.download = "v86state.bin";
-            a.href = window.URL.createObjectURL(new Blob([new_state]));
-            a.dataset.downloadurl = "application/octet-stream:" + a.download + ":" + a.href;
-            a.click();
-        });
+        var a = document.createElement("a");
+        a.download = "v86state.bin";
+        a.href = window.URL.createObjectURL(new Blob([new_state]));
+        a.dataset.downloadurl = "application/octet-stream:" + a.download + ":" + a.href;
+        a.click();
 
         this.blur();
     };
@@ -57,9 +51,9 @@ window.onload = function()
             var filereader = new FileReader();
             emulator.stop();
 
-            filereader.onload = function(e)
+            filereader.onload = async function(e)
             {
-                emulator.restore_state(e.target.result);
+                await emulator.restore_state(e.target.result);
                 emulator.run();
             };
 

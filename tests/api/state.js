@@ -45,30 +45,23 @@ function run_test(name, config, done)
 {
     const emulator = new V86(config);
 
-    setTimeout(function()
+    setTimeout(async function()
         {
             console.log("Saving: %s", name);
-            emulator.save_state(function(error, state)
+            const state = await emulator.save_state();
+
+            setTimeout(async function()
                 {
-                    if(error)
-                    {
-                        console.error(error);
-                        assert(false);
-                    }
+                    console.log("Restoring: %s", name);
+                    await emulator.restore_state(state);
 
                     setTimeout(function()
                         {
-                            console.log("Restoring: %s", name);
-                            emulator.restore_state(state);
-
-                            setTimeout(function()
-                                {
-                                    console.log("Done: %s", name);
-                                    emulator.stop();
-                                    done && done();
-                                }, 1000);
+                            console.log("Done: %s", name);
+                            emulator.stop();
+                            done && done();
                         }, 1000);
-                });
+                }, 1000);
         }, 5000);
 }
 

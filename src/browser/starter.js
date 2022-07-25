@@ -697,7 +697,7 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
  * asynchronous.
  * @export
  */
-V86Starter.prototype.run = function()
+V86Starter.prototype.run = async function()
 {
     this.bus.send("cpu-run");
 };
@@ -706,7 +706,7 @@ V86Starter.prototype.run = function()
  * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
  * @export
  */
-V86Starter.prototype.stop = function()
+V86Starter.prototype.stop = async function()
 {
     this.bus.send("cpu-stop");
 };
@@ -780,6 +780,7 @@ V86Starter.prototype.remove_listener = function(event, listener)
  */
 V86Starter.prototype.restore_state = async function(state)
 {
+    console.assert(arguments.length === 1);
     this.v86.restore_state(state);
 };
 
@@ -791,6 +792,7 @@ V86Starter.prototype.restore_state = async function(state)
  */
 V86Starter.prototype.save_state = async function()
 {
+    console.assert(arguments.length === 0);
     return this.v86.save_state();
 };
 
@@ -1161,6 +1163,7 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
  */
 V86Starter.prototype.create_file = async function(file, data)
 {
+    console.assert(arguments.length === 2);
     var fs = this.fs9p;
 
     if(!fs)
@@ -1194,6 +1197,7 @@ V86Starter.prototype.create_file = async function(file, data)
  */
 V86Starter.prototype.read_file = async function(file)
 {
+    console.assert(arguments.length === 1);
     var fs = this.fs9p;
 
     if(!fs)

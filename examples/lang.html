@@ -36,7 +36,7 @@ window.onload = function()
 
     document.getElementById("status").textContent += ".";
 
-    emulator.add_listener("emulator-ready", function()
+    emulator.add_listener("emulator-ready", async function()
     {
         document.getElementById("status").textContent += ".";
 
@@ -45,28 +45,20 @@ window.onload = function()
 
         buffer.set(code.split("").map(function(chr) { return chr.charCodeAt(0); }));
 
-        emulator.create_file("/root/code.js", buffer, function(error)
-        {
-            if(error) throw error;
-
-            emulator.serial0_send("node /root/code.js > /root/out.txt 2> /root/out.txt\n");
-        });
+        await emulator.create_file("/root/code.js", buffer);
+        emulator.serial0_send("node /root/code.js > /root/out.txt 2> /root/out.txt\n");
     });
 
     var serial_out = "";
-    emulator.add_listener("serial0-output-char", function(chr)
+    emulator.add_listener("serial0-output-char", async function(chr)
     {
         serial_out += chr;
         //document.getElementById("output").textContent += chr;
 
         if(serial_out.endsWith("root@nyu"))
         {
-            emulator.read_file("/root/out.txt", function(error, data)
-            {
-                if(error) throw error;
-
-                document.getElementById("output").textContent += String.fromCharCode.apply(this, data);
-            });
+            const data = await emulator.read_file("/root/out.txt");
+            document.getElementById("output").textContent += String.fromCharCode.apply(this, data);
         }
     });
 }

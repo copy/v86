@@ -1589,7 +1589,7 @@
             $("load_state").blur();
         };
 
-        $("load_state_input").onchange = function()
+        $("load_state_input").onchange = async function()
         {
             var file = this.files[0];
 
@@ -1602,15 +1602,15 @@
 
             if(was_running)
             {
-                emulator.stop();
+                await emulator.stop();
             }
 
             var filereader = new FileReader();
-            filereader.onload = function(e)
+            filereader.onload = async function(e)
             {
                 try
                 {
-                    emulator.restore_state(e.target.result);
+                    await emulator.restore_state(e.target.result);
                 }
                 catch(err)
                 {
@@ -1779,9 +1779,9 @@
                 var loader = new v86util.SyncFileBuffer(file);
                 loader.onload = function()
                 {
-                    loader.get_buffer(function(buffer)
+                    loader.get_buffer(async function(buffer)
                     {
-                        emulator.create_file("/" + file.name, new Uint8Array(buffer));
+                        await emulator.create_file("/" + file.name, new Uint8Array(buffer));
                     });
                 };
                 loader.load();
@@ -1791,7 +1791,7 @@
             this.blur();
         };
 
-        $("filesystem_get_file").onkeypress = function(e)
+        $("filesystem_get_file").onkeypress = async function(e)
         {
             if(e.which !== 13)
             {
@@ -1800,23 +1800,30 @@
 
             this.disabled = true;
 
-            emulator.read_file(this.value, function(err, uint8array)
+            let result;
+            try
             {
-                this.disabled = false;
+                 result = await emulator.read_file(this.value);
+            }
+            catch(err)
+            {
+                console.log(err);
+            }
 
-                if(uint8array)
-                {
-                    var filename = this.value.replace(/\/$/, "").split("/");
-                    filename = filename[filename.length - 1] || "root";
+            this.disabled = false;
 
-                    dump_file(uint8array, filename);
-                    this.value = "";
-                }
-                else
-                {
-                    alert("Can't read file");
-                }
-            }.bind(this));
+            if(result)
+            {
+                var filename = this.value.replace(/\/$/, "").split("/");
+                filename = filename[filename.length - 1] || "root";
+
+                dump_file(result, filename);
+                this.value = "";
+            }
+            else
+            {
+                alert("Can't read file");
+            }
         };
     }
 

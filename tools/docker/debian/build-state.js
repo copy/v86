@@ -58,21 +58,15 @@ emulator.add_listener("serial0-output-char", function(c)
         // sync and drop caches: Makes it safer to change the filesystem as fewer files are rendered
         emulator.serial0_send("sync;echo 3 >/proc/sys/vm/drop_caches\n");
 
-        setTimeout(function ()
+        setTimeout(async function ()
             {
-                emulator.save_state(function(err, s)
-                    {
-                        if(err)
-                        {
-                            throw err;
-                        }
+                const s = await emulator.save_state();
 
-                        fs.writeFile(OUTPUT_FILE, new Uint8Array(s), function(e)
-                            {
-                                if(e) throw e;
-                                console.error("Saved as " + OUTPUT_FILE);
-                                stop();
-                            });
+                fs.writeFile(OUTPUT_FILE, new Uint8Array(s), function(e)
+                    {
+                        if(e) throw e;
+                        console.error("Saved as " + OUTPUT_FILE);
+                        stop();
                     });
             }, 10 * 1000);
     }

@@ -29,7 +29,7 @@ emulator.bus.register("emulator-started", function()
 var ran_command = false;
 var line = "";
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-char", async function(chr)
 {
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
@@ -59,21 +59,19 @@ emulator.add_listener("serial0-output-char", function(chr)
     {
         console.error("Done. Reading result ...");
 
-        emulator.read_file("/result", function(err, data)
-            {
-                emulator.stop();
-                if(err) throw err;
-                let result = Buffer.from(data).toString();
-                if(result !== "test_shared passed\ntest_consecutive_written passed\n")
-                {
-                    console.error("[!] Error. Result was:\n" + result);
-                    process.exit(1);
-                }
-                else
-                {
-                    console.log("[+] Test passed");
-                }
-            });
-    }
+        const data = await emulator.read_file("/result");
 
+        emulator.stop();
+
+        let result = Buffer.from(data).toString();
+        if(result !== "test_shared passed\ntest_consecutive_written passed\n")
+        {
+            console.error("[!] Error. Result was:\n" + result);
+            process.exit(1);
+        }
+        else
+        {
+            console.log("[+] Test passed");
+        }
+    }
 });
