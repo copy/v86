@@ -103,7 +103,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
         {
             const data = new Uint8Array(buffer);
             await this.cache(sha256sum, data);
-            return data;
+            resolve(data);
         }});
     });
 };

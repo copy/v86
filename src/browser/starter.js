@@ -185,17 +185,20 @@ function V86Starter(options)
                 v86util.load_file(v86_bin, {
                     done: async bytes =>
                     {
-                        try{
-                            const {instance } = await WebAssembly.instantiate(bytes, env);
+                        try
+                        {
+                            const { instance } = await WebAssembly.instantiate(bytes, env);
                             resolve(instance.exports);
-                        }catch(err){
+                        }
+                        catch(err)
+                        {
                             v86util.load_file(v86_bin_fallback, {
                                     done: async bytes => {
-                                        const {instance } = await WebAssembly.instantiate(bytes, env);
+                                        const { instance } = await WebAssembly.instantiate(bytes, env);
                                         resolve(instance.exports);
                                     },
                                 });
-                        }            
+                        }
                     },
                     progress: e =>
                     {
@@ -1206,7 +1209,7 @@ V86Starter.prototype.read_file = async function(file)
     }
     else
     {
-        Promise.reject(new FileNotFoundError());
+        return Promise.reject(new FileNotFoundError());
     }
 };
 
