@@ -371,6 +371,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 
             if(this.mac_address_in_state)
             {
+                data = new Uint8Array(data); // make a copy
                 translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
@@ -1174,6 +1175,7 @@ Ne2k.prototype.receive = function(data)
 
     if(this.mac_address_in_state)
     {
+        data = new Uint8Array(data); // make a copy
         translate_mac_address(data, this.mac, this.mac_address_in_state);
     }
 
