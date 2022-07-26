@@ -128,6 +128,13 @@ function translate_mac_address(packet, search_mac, replacement_mac)
             {
                 // dhcp
                 const dhcp_packet = udp_packet.subarray(8);
+                const dhcp_magic = dhcp_packet[0xEC] << 24 | dhcp_packet[0xED] << 16 | dhcp_packet[0xEE] << 8 | dhcp_packet[0xEF];
+
+                if(dhcp_magic !== 0x63825363)
+                {
+                    dbg_log("dhcp packet didn't match magic: " + h(dhcp_magic, 8));
+                    return;
+                }
 
                 if(dhcp_packet[28 + 0] === search_mac[0] &&
                    dhcp_packet[28 + 1] === search_mac[1] &&
@@ -146,7 +153,42 @@ function translate_mac_address(packet, search_mac, replacement_mac)
                     dhcp_packet[28 + 5] = replacement_mac[5];
 
                     udp_packet[6] = udp_packet[7] = 0; // zero udp checksum
+                }
 
+                let offset = 0xF0;
+                while(offset < dhcp_packet.length)
+                {
+                    const dhcp_option_type = dhcp_packet[offset++];
+
+                    if(dhcp_option_type === 0xFF)
+                    {
+                        break;
+                    }
+
+                    const length = dhcp_packet[offset++];
+
+                    if(dhcp_option_type === 0x3D && // client identifier
+                       dhcp_packet[offset + 0] === 0x01 && // ethernet
+                       dhcp_packet[offset + 1] === search_mac[0] &&
+                       dhcp_packet[offset + 2] === search_mac[1] &&
+                       dhcp_packet[offset + 3] === search_mac[2] &&
+                       dhcp_packet[offset + 4] === search_mac[3] &&
+                       dhcp_packet[offset + 5] === search_mac[4] &&
+                       dhcp_packet[offset + 6] === search_mac[5])
+                    {
+                        dbg_log("Replace mac in dhcp.clientidentifier", LOG_NET);
+
+                        dhcp_packet[offset + 1] = replacement_mac[0];
+                        dhcp_packet[offset + 2] = replacement_mac[1];
+                        dhcp_packet[offset + 3] = replacement_mac[2];
+                        dhcp_packet[offset + 4] = replacement_mac[3];
+                        dhcp_packet[offset + 5] = replacement_mac[4];
+                        dhcp_packet[offset + 6] = replacement_mac[5];
+
+                        udp_packet[6] = udp_packet[7] = 0; // zero udp checksum
+                    }
+
+                    offset += length;
                 }
             }
         }
