@@ -1632,6 +1632,35 @@
         //    $("memory_dump_dmp").blur();
         //};
 
+        $("capture_network_traffic").onclick = function()
+        {
+            this.value = "0 packets";
+
+            let capture = [];
+
+            function do_capture(direction, data)
+            {
+                capture.push({ direction, time: performance.now() / 1000, hex_dump: hex_dump(data) });
+                $("capture_network_traffic").value = capture.length + " packets";
+            }
+
+            emulator.emulator_bus.register("net0-receive", do_capture.bind(this, "I"));
+            emulator.add_listener("net0-send", do_capture.bind(this, "O"));
+
+            this.onclick = function()
+            {
+                const capture_raw = capture.map(({ direction, time, hex_dump }) => {
+                    // https://www.wireshark.org/docs/wsug_html_chunked/ChIOImportSection.html
+                    // In wireshark: file -> import from hex -> tick direction indication, timestamp %s.%f
+                    return direction + " " + time.toFixed(6) + hex_dump + "\n";
+                }).join("");
+                dump_file(capture_raw, "traffic.hex");
+                capture = [];
+                this.value = "0 packets";
+            };
+        };
+
+
         $("save_state").onclick = async function()
         {
             const result = await emulator.save_state();
