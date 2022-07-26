@@ -238,6 +238,48 @@ function format_mac(mac)
     ].join(":");
 }
 
+function dump_packet(packet, prefix)
+{
+    const ethertype = packet[12] << 8 | packet[13] << 0;
+    if(ethertype === 0x0800)
+    {
+        const ipv4_packet = packet.subarray(14);
+        const ipv4_len = ipv4_packet[2] << 8 | ipv4_packet[3];
+        const ipv4_proto = ipv4_packet[9];
+        if(ipv4_proto === 0x11)
+        {
+            const udp_packet = ipv4_packet.subarray(5 * 4);
+            const source_port = udp_packet[0] << 8 | udp_packet[1];
+            const destination_port = udp_packet[2] << 8 | udp_packet[3];
+            const checksum = udp_packet[6] << 8 | udp_packet[7];
+
+            if(source_port === 67 || destination_port === 67)
+            {
+                const dhcp_packet = udp_packet.subarray(8);
+                const dhcp_chaddr = dhcp_packet.subarray(28, 28+6);
+                dbg_log(prefix + " len=" + packet.length + " ethertype=" + h(ethertype) + " ipv4.len=" + ipv4_len + " ipv4.proto=" + h(packet[14 + 9]) + " udp.srcport=" + source_port + " udp.dstport=" + destination_port + " udp.chksum=" + h(checksum, 4) + " dhcp.chaddr=" + format_mac(dhcp_chaddr));
+            }
+            else
+            {
+                dbg_log(prefix + " len=" + packet.length + " ethertype=" + h(ethertype) + " ipv4.len=" + ipv4_len + " ipv4.proto=" + h(packet[14 + 9]) + " udp.srcport=" + source_port + " udp.dstport=" + destination_port + " udp.chksum=" + h(checksum, 4));
+            }
+        }
+        else if(ipv4_proto === 0x01)
+        {
+        }
+        else
+        {
+            dbg_log(prefix + " len=" + packet.length + " ethertype=" + h(ethertype) + " ipv4.len=" + ipv4_len + " ipv4.proto=" + h(packet[14 + 9]));
+        }
+    }
+    else
+    {
+        const arp_packet = packet.subarray(14);
+        dbg_log(prefix + " len=" + packet.length + " ethertype=" + h(ethertype) + " arp");
+    }
+    dbg_log(hex_dump(packet));
+}
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -365,8 +407,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 
             if(NE2K_LOG_PACKETS)
             {
-                dbg_log("send len=" + data.length + " ethertype=" + h(data[12] << 8 | data[13] << 0, 4) + " ipv4.len=" + (data[14 + 2] << 8 | data[14 + 3]) + " ipv4.protocol=" + h(data[14 + 9]));
-                dbg_log(hex_dump(data));
+                dump_packet(data, "send");
             }
 
             if(this.mac_address_in_state)
@@ -1141,8 +1182,7 @@ Ne2k.prototype.receive = function(data)
 
     if(NE2K_LOG_PACKETS)
     {
-        dbg_log("receive len=" + data.length + " ethertype=" + h(data[12] << 8 | data[13] << 0, 4) + " ipv4.len=" + (data[14 + 2] << 8 | data[14 + 3]) + " ipv4.protocol=" + h(data[14 + 9]));
-        dbg_log(hex_dump(data));
+        dump_packet(data, "receive");
     }
 
     this.bus.send("eth-receive-end", [data.length]);
