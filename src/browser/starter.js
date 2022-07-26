@@ -142,7 +142,7 @@ function V86Starter(options)
             console.error(str);
         },
         "dbg_trace_from_wasm": function() {
-            dbg_trace();
+            dbg_trace(LOG_CPU);
         },
 
         "codegen_finalize": (wasm_table_index, start, state_flags, ptr, len) => {
