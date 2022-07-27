@@ -495,14 +495,16 @@ var ASYNC_SAFE = false;
 
     /**
      * Asynchronous access to ArrayBuffer, loading blocks lazily as needed,
-     * downloading files named filename-\d-\d.ext.
+     * downloading files named filename-%d-%d.ext (where the %d are start and end offset).
+     * Or, if partfile_alt_format is set, filename-%08d.ext (where %d is the part number, compatible with gnu split).
      *
      * @constructor
      * @param {string} filename Name of the file to download
      * @param {number|undefined} size
      * @param {number|undefined} fixed_chunk_size
+     * @param {boolean|undefined} partfile_alt_format
      */
-    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size)
+    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfile_alt_format)
     {
         const parts = filename.match(/(.*)(\..*)/);
 
@@ -524,6 +526,7 @@ var ASYNC_SAFE = false;
 
         this.byteLength = size;
         this.fixed_chunk_size = fixed_chunk_size;
+        this.partfile_alt_format = !!partfile_alt_format;
 
         this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
@@ -579,9 +582,19 @@ var ASYNC_SAFE = false;
 
             for(let i = 0; i < total_count; i++)
             {
-                // matches output of gnu split:
-                //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
-                const part_filename = this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension;
+                let part_filename;
+
+                if(this.partfile_alt_format)
+                {
+                    // matches output of gnu split:
+                    //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
+                    part_filename = this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension;
+                }
+                else
+                {
+                    const offset = ((start_index + i) * this.fixed_chunk_size);
+                    part_filename = this.basename + "-" + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
+                }
 
                 v86util.load_file(part_filename, {
                     done: function done(buffer)
