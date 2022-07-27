@@ -239,7 +239,8 @@ var ASYNC_SAFE = false;
         this.block_size = 256;
         this.byteLength = size;
 
-        this.loaded_blocks = Object.create(null);
+        this.block_cache = new Map();
+        this.block_cache_is_write = new Set();
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -274,6 +275,7 @@ var ASYNC_SAFE = false;
      * @param {number} offset
      * @param {number} len
      * @param {function(!Uint8Array)} fn
+     * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
      */
     AsyncXHRBuffer.prototype.get_from_cache = function(offset, len, fn)
     {
@@ -282,7 +284,7 @@ var ASYNC_SAFE = false;
 
         for(var i = 0; i < number_of_blocks; i++)
         {
-            var block = this.loaded_blocks[block_index + i];
+            var block = this.block_cache.get(block_index + i);
 
             if(!block)
             {
@@ -292,14 +294,14 @@ var ASYNC_SAFE = false;
 
         if(number_of_blocks === 1)
         {
-            return this.loaded_blocks[block_index];
+            return this.block_cache.get(block_index);
         }
         else
         {
             var result = new Uint8Array(len);
             for(var i = 0; i < number_of_blocks; i++)
             {
-                result.set(this.loaded_blocks[block_index + i], i * this.block_size);
+                result.set(this.block_cache.get(block_index + i), i * this.block_size);
             }
             return result;
         }
@@ -343,9 +345,9 @@ var ASYNC_SAFE = false;
     };
 
     /**
-     * Relies on this.byteLength, this.loaded_blocks and this.block_size
+     * Relies on this.byteLength, this.block_cache and this.block_size
      *
-     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
+     * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
      *
      * @param {number} start
      * @param {!Uint8Array} data
@@ -366,31 +368,34 @@ var ASYNC_SAFE = false;
 
         for(var i = 0; i < block_count; i++)
         {
-            var block = this.loaded_blocks[start_block + i];
+            var block = this.block_cache.get(start_block + i);
 
             if(block === undefined)
             {
-                block = this.loaded_blocks[start_block + i] = new Uint8Array(this.block_size);
+                block = new Uint8Array(this.block_size);
+                this.block_cache.set(start_block + i, block);
             }
 
             var data_slice = data.subarray(i * this.block_size, (i + 1) * this.block_size);
             block.set(data_slice);
 
             console.assert(block.byteLength === data_slice.length);
+
+            this.block_cache_is_write.add(start_block + i);
         }
 
         fn();
     };
 
     /**
-     * @this {AsyncFileBuffer|AsyncXHRBuffer|AsyncXHRPartfileBuffer}
+     * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
      * @param {number} offset
      * @param {number} len
      * @param {!Uint8Array} block
      */
     AsyncXHRBuffer.prototype.handle_read = function(offset, len, block)
     {
-        // Used by AsyncXHRBuffer and AsyncFileBuffer
+        // Used by AsyncXHRBuffer, AsyncXHRPartfileBuffer and AsyncFileBuffer
         // Overwrites blocks from the original source that have been written since
 
         var start_block = offset / this.block_size;
@@ -398,17 +403,18 @@ var ASYNC_SAFE = false;
 
         for(var i = 0; i < block_count; i++)
         {
-            var written_block = this.loaded_blocks[start_block + i];
+            const cached_block = this.block_cache.get(start_block + i);
 
-            if(written_block)
+            if(cached_block)
             {
-                block.set(written_block, i * this.block_size);
+                block.set(cached_block, i * this.block_size);
             }
-            //else
-            //{
-            //    var cached = this.loaded_blocks[start_block + i] = new Uint8Array(this.block_size);
-            //    cached.set(block.subarray(i * this.block_size, (i + 1) * this.block_size));
-            //}
+            else if(this.cache_reads)
+            {
+                const cached = new Uint8Array(this.block_size);
+                cached.set(block.subarray(i * this.block_size, (i + 1) * this.block_size));
+                this.block_cache.set(start_block + i, cached);
+            }
         }
     };
 
@@ -418,57 +424,72 @@ var ASYNC_SAFE = false;
         fn();
     };
 
-    AsyncXHRBuffer.prototype.get_written_blocks = function()
-    {
-        var count = Object.keys(this.loaded_blocks).length;
+    ///**
+    // * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
+    // */
+    //AsyncXHRBuffer.prototype.get_block_cache = function()
+    //{
+    //    var count = Object.keys(this.block_cache).length;
 
-        var buffer = new Uint8Array(count * this.block_size);
-        var indices = [];
+    //    var buffer = new Uint8Array(count * this.block_size);
+    //    var indices = [];
 
-        var i = 0;
-        for(var index of Object.keys(this.loaded_blocks))
-        {
-            var block = this.loaded_blocks[index];
-            dbg_assert(block.length === this.block_size);
-            index = +index;
-            indices.push(index);
-            buffer.set(
-                block,
-                i * this.block_size
-            );
-            i++;
-        }
+    //    var i = 0;
+    //    for(var index of Object.keys(this.block_cache))
+    //    {
+    //        var block = this.block_cache.get(index);
+    //        dbg_assert(block.length === this.block_size);
+    //        index = +index;
+    //        indices.push(index);
+    //        buffer.set(
+    //            block,
+    //            i * this.block_size
+    //        );
+    //        i++;
+    //    }
 
-        return {
-            buffer,
-            indices,
-            block_size: this.block_size,
-        };
-    };
+    //    return {
+    //        buffer,
+    //        indices,
+    //        block_size: this.block_size,
+    //    };
+    //};
 
+    /**
+     * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
+     */
     AsyncXHRBuffer.prototype.get_state = function()
     {
         const state = [];
-        const loaded_blocks = [];
+        const block_cache = [];
 
-        for(let [index, block] of Object.entries(this.loaded_blocks))
+        for(let [index, block] of this.block_cache)
         {
-            dbg_assert(isFinite(+index));
-            loaded_blocks.push([+index, block]);
+            dbg_assert(isFinite(index));
+            if(this.block_cache_is_write.has(index))
+            {
+                block_cache.push([index, block]);
+            }
         }
 
-        state[0] = loaded_blocks;
+        state[0] = block_cache;
         return state;
     };
 
+    /**
+     * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
+     */
     AsyncXHRBuffer.prototype.set_state = function(state)
     {
-        const loaded_blocks = state[0];
-        this.loaded_blocks = Object.create(null);
+        const block_cache = state[0];
+        this.block_cache.clear();
+        this.block_cache_is_write.clear();
 
-        for(let [index, block] of Object.values(loaded_blocks))
+        for(let [index, block] of block_cache)
         {
-            this.loaded_blocks[index] = block;
+            dbg_assert(isFinite(index));
+            this.block_cache.set(index, block);
+            this.block_cache_is_write.add(index);
         }
     };
 
@@ -498,11 +519,13 @@ var ASYNC_SAFE = false;
 
         /** @const */
         this.block_size = 256;
+        this.block_cache = new Map();
+        this.block_cache_is_write = new Set();
+
         this.byteLength = size;
-        this.use_fixed_chunk_size = typeof fixed_chunk_size === "number";
         this.fixed_chunk_size = fixed_chunk_size;
 
-        this.loaded_blocks = Object.create(null);
+        this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -518,7 +541,6 @@ var ASYNC_SAFE = false;
         dbg_assert(false);
         this.onload && this.onload(Object.create(null));
     };
-    AsyncXHRPartfileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
 
     /**
      * @param {number} offset
@@ -546,13 +568,13 @@ var ASYNC_SAFE = false;
             return;
         }
 
-        if(this.use_fixed_chunk_size)
+        if(this.fixed_chunk_size)
         {
             const start_index = Math.floor(offset / this.fixed_chunk_size);
             const m_offset = offset - start_index * this.fixed_chunk_size;
             dbg_assert(m_offset >= 0);
-            const total_count = Math.floor(len / this.fixed_chunk_size) + (m_offset === 0 ? 1 : 2);
-            const blocks = new Uint8Array(m_offset + (total_count * this.fixed_chunk_size));
+            const total_count = Math.ceil((m_offset + len) / this.fixed_chunk_size);
+            const blocks = new Uint8Array(total_count * this.fixed_chunk_size);
             let finished = 0;
 
             for(let i = 0; i < total_count; i++)
@@ -566,12 +588,12 @@ var ASYNC_SAFE = false;
                     {
                         const cur = i * this.fixed_chunk_size;
                         const block = new Uint8Array(buffer);
+                        this.handle_read((start_index + i) * this.fixed_chunk_size, this.fixed_chunk_size|0, block);
                         blocks.set(block, cur);
                         finished++;
                         if(finished === total_count)
                         {
                             const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
-                            this.handle_read(offset, len, tmp_blocks);
                             fn(tmp_blocks);
                         }
                     }.bind(this),
@@ -594,9 +616,10 @@ var ASYNC_SAFE = false;
         }
     };
 
+    AsyncXHRPartfileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
     AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
     AsyncXHRPartfileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
-    AsyncXHRPartfileBuffer.prototype.get_written_blocks = AsyncXHRBuffer.prototype.get_written_blocks;
+    //AsyncXHRPartfileBuffer.prototype.get_block_cache = AsyncXHRBuffer.prototype.get_block_cache;
     AsyncXHRPartfileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
     AsyncXHRPartfileBuffer.prototype.set_state = AsyncXHRBuffer.prototype.set_state;
 
@@ -720,7 +743,8 @@ var ASYNC_SAFE = false;
 
         /** @const */
         this.block_size = 256;
-        this.loaded_blocks = Object.create(null);
+        this.block_cache = new Map();
+        this.block_cache_is_write = new Set();
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -776,16 +800,14 @@ var ASYNC_SAFE = false;
     AsyncFileBuffer.prototype.get_as_file = function(name)
     {
         var parts = [];
-        var existing_blocks = Object.keys(this.loaded_blocks)
-                                .map(Number)
-                                .sort(function(x, y) { return x - y; });
+        var existing_blocks = Array.from(this.block_cache.keys()).sort(function(x, y) { return x - y; });
 
         var current_offset = 0;
 
         for(var i = 0; i < existing_blocks.length; i++)
         {
             var block_index = existing_blocks[i];
-            var block = this.loaded_blocks[block_index];
+            var block = this.block_cache.get(block_index);
             var start = block_index * this.block_size;
             console.assert(start >= current_offset);
 
