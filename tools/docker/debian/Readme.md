@@ -15,7 +15,7 @@ var oses = [
         memory_size: 512 * 1024 * 1024,
         vga_memory_size: 8 * 1024 * 1024,
         state: { url: host + "debian-state-base.bin" },
-        filesystem: { "baseurl": host + "debian-9p-rootfs-flat/" }
+        filesystem: { baseurl: host + "debian-9p-rootfs-flat/" }
     },
     ...
 ```

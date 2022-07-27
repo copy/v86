@@ -371,7 +371,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             return;
         }
 
-        if(file["get"] && file["set"] && file["load"])
+        if(file.get && file.set && file.load)
         {
             files_to_load.push({
                 name: name,
@@ -379,17 +379,6 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             });
             return;
         }
-
-        // Anything coming from the outside world needs to be quoted for
-        // Closure Compiler compilation
-        file = {
-            buffer: file["buffer"],
-            async: file["async"],
-            url: file["url"],
-            size: file["size"],
-            fixed_chunk_size: file["fixed_chunk_size"],
-            use_parts: file.use_parts,
-        };
 
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot" ||
@@ -493,8 +482,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
     if(options["filesystem"])
     {
-        var fs_url = options["filesystem"]["basefs"];
-        var base_url = options["filesystem"]["baseurl"];
+        var fs_url = options["filesystem"].basefs;
+        var base_url = options["filesystem"].baseurl;
 
         let file_storage = new MemoryFileStorage();
 
@@ -512,8 +501,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
             if(typeof fs_url === "object")
             {
-                size = fs_url["size"];
-                fs_url = fs_url["url"];
+                size = fs_url.size;
+                fs_url = fs_url.url;
             }
             dbg_assert(typeof fs_url === "string");
 
