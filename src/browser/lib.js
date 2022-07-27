@@ -274,10 +274,9 @@ var ASYNC_SAFE = false;
     /**
      * @param {number} offset
      * @param {number} len
-     * @param {function(!Uint8Array)} fn
      * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
      */
-    AsyncXHRBuffer.prototype.get_from_cache = function(offset, len, fn)
+    AsyncXHRBuffer.prototype.get_from_cache = function(offset, len)
     {
         var number_of_blocks = len / this.block_size;
         var block_index = offset / this.block_size;
@@ -319,7 +318,7 @@ var ASYNC_SAFE = false;
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
-        var block = this.get_from_cache(offset, len, fn);
+        var block = this.get_from_cache(offset, len);
         if(block)
         {
             if(ASYNC_SAFE)
@@ -557,7 +556,7 @@ var ASYNC_SAFE = false;
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
-        var block = this.get_from_cache(offset, len, fn);
+        var block = this.get_from_cache(offset, len);
         if(block)
         {
             if(ASYNC_SAFE)
@@ -779,7 +778,7 @@ var ASYNC_SAFE = false;
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
-        var block = this.get_from_cache(offset, len, fn);
+        var block = this.get_from_cache(offset, len);
         if(block)
         {
             fn(block);
