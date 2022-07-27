@@ -1554,7 +1554,7 @@ const emulator = new V86({
     autostart: true,
     memory_size: 64 * 1024 * 1024,
     filesystem: {
-        "baseurl": __dirname + "/testfs/",
+        baseurl: __dirname + "/testfs/",
     },
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
