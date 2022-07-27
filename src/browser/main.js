@@ -1573,7 +1573,7 @@
             elem.onclick = function(e)
             {
                 let buffer = emulator.disk_images[type];
-                let filename = settings.id + (type === "cdrom" ? ".iso" : ".img");
+                let filename = buffer.file && buffer.file.name || (settings.id + (type === "cdrom" ? ".iso" : ".img"));
 
                 if(buffer.get_as_file)
                 {
