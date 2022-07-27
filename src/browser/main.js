@@ -216,8 +216,9 @@
                 name: "SerenityOS",
                 hda: {
                     "url": host + "serenity-v2.img",
-                    "async": true,
                     "size": 700448768,
+                    "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 512 * 1024 * 1024,
@@ -230,8 +231,9 @@
                 name: "SerenityOS",
                 hda: {
                     "url": host + "serenity-v2.img",
-                    "async": true,
                     "size": 700448768,
+                    "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 512 * 1024 * 1024,
@@ -242,8 +244,9 @@
                 name: "SerenityOS",
                 hda: {
                     "url": host + "serenity.img",
-                    "async": true,
                     "size": 876 * 1024 * 1024,
+                    "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 512 * 1024 * 1024,
@@ -255,8 +258,9 @@
                 name: "SerenityOS",
                 hda: {
                     "url": host + "serenity.img",
-                    "async": true,
                     "size": 876 * 1024 * 1024,
+                    "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 512 * 1024 * 1024,
@@ -278,9 +282,10 @@
                 memory_size: 512 * 1024 * 1024,
                 hda: {
                     url: host + "haiku-v2.img",
-                    async: true,
-                    use_parts: !ON_LOCALHOST,
                     size: 1 * 1024 * 1024 * 1024,
+                    async: true,
+                    "fixed_chunk_size": 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 state: {
                     url: host + "haiku_state-v2.bin.zst",
@@ -293,9 +298,10 @@
                 memory_size: 512 * 1024 * 1024,
                 hda: {
                     url: host + "haiku-v2.img",
-                    async: true,
-                    use_parts: !ON_LOCALHOST,
                     size: 1 * 1024 * 1024 * 1024,
+                    async: true,
+                    "fixed_chunk_size": 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 name: "Haiku",
                 homepage: "https://www.haiku-os.org/",
@@ -325,6 +331,7 @@
                     "url": host + "psychdos.img",
                     "size": 549453824,
                     "async": true,
+                    "fixed_chunk_size": 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "PsychDOS",
@@ -416,6 +423,7 @@
                     url: host + "minix-3.3.0.iso",
                     size: 605581312,
                     async: true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 homepage: "https://www.minix3.org/",
@@ -445,9 +453,10 @@
                 id: "openbsd",
                 hda: {
                     "url": host + "openbsd.img",
-                    async: true,
-                    use_parts: !ON_LOCALHOST,
                     size: 1073741824,
+                    async: true,
+                    "fixed_chunk_size": 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 state: {
                     url: host + "openbsd_state.bin.zst",
@@ -459,9 +468,10 @@
                 id: "openbsd-boot",
                 hda: {
                     url: host + "openbsd.img",
-                    async: true,
-                    use_parts: !ON_LOCALHOST,
                     size: 1073741824,
+                    async: true,
+                    "fixed_chunk_size": 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 256 * 1024 * 1024,
                 name: "OpenBSD",
@@ -471,9 +481,10 @@
                 id: "netbsd",
                 hda: {
                     "url": host + "netbsd.img",
-                    async: true,
-                    use_parts: !ON_LOCALHOST,
                     size: 511000064,
+                    async: true,
+                    "fixed_chunk_size": 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 memory_size: 256 * 1024 * 1024,
                 name: "NetBSD",
@@ -545,6 +556,7 @@
                     "url": host + "windows2k.img",
                     "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
+                    "fixed_chunk_size": 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 2000",
@@ -560,6 +572,7 @@
                     "url": host + "windows2k.img",
                     "size": 2 * 1024 * 1024 * 1024,
                     "async": true,
+                    "fixed_chunk_size": 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 boot_order: 0x132,
@@ -570,9 +583,10 @@
                 memory_size: 128 * 1024 * 1024,
                 hda: {
                     "url": host + "windows98.img",
-                    "async": true,
-                    use_parts: !ON_LOCALHOST,
                     "size": 300 * 1024 * 1024,
+                    "async": true,
+                    "fixed_chunk_size": 256 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 98",
                 state: {
@@ -585,9 +599,10 @@
                 memory_size: 128 * 1024 * 1024,
                 hda: {
                     "url": host + "windows98.img",
-                    "async": true,
-                    use_parts: !ON_LOCALHOST,
                     "size": 300 * 1024 * 1024,
+                    "async": true,
+                    "fixed_chunk_size": 256 * 1024,
+                    use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 98",
             },
@@ -598,6 +613,7 @@
                     "url": host + "w95.img",
                     "size": 242049024,
                     "async": true,
+                    "fixed_chunk_size": 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 95",
@@ -612,6 +628,7 @@
                     "url": host + "w95.img",
                     "size": 242049024,
                     "async": true,
+                    "fixed_chunk_size": 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Windows 95",
@@ -642,6 +659,7 @@
                     "url": host + "freebsd.img",
                     "size": 2147483648,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
@@ -656,6 +674,7 @@
                     "url": host + "freebsd.img",
                     "size": 2147483648,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "FreeBSD",
@@ -667,6 +686,7 @@
                     "url": host + "reactos-livecd-0.4.15-dev-73-g03c09c9-x86-gcc-lin-dbg.iso",
                     "size": 250609664,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "ReactOS",
@@ -679,6 +699,7 @@
                     "url": host + "reactos.img",
                     "size": 500 * 1024 * 1024,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
@@ -695,6 +716,7 @@
                     "url": host + "reactos.img",
                     "size": 500 * 1024 * 1024,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "ReactOS",
@@ -745,6 +767,7 @@
                     url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386.iso",
                     size: 477452288,
                     async: true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 state: {
@@ -761,6 +784,7 @@
                     url: host + "9front-8963.f84cf1e60427675514fb056cc1723e45da01e043.386.iso",
                     size: 477452288,
                     async: true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 acpi: true,
@@ -783,6 +807,7 @@
                     "url": host + "android-x86-1.6-r2.iso",
                     "size": 54661120,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Android",
@@ -794,6 +819,7 @@
                     "url": host + "android_x86_nonsse3_4.4r1_20140904.iso",
                     "size": 247463936,
                     "async": true,
+                    "fixed_chunk_size": 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
                 name: "Android",
@@ -1014,6 +1040,30 @@
             if(infos.boot_order !== undefined)
             {
                 settings.boot_order = infos.boot_order;
+            }
+
+            let chunk_size = parseInt(query_args["chunk_size"], 10);
+            if(chunk_size >= 0)
+            {
+                if(chunk_size)
+                {
+                    chunk_size = Math.min(4 * 1024 * 1024, Math.max(512, chunk_size));
+                    chunk_size = 1 << Math.ceil(Math.log2(chunk_size));
+                }
+                else
+                {
+                    chunk_size = undefined;
+                }
+
+                if(settings.hda)
+                {
+                    settings.hda["fixed_chunk_size"] = chunk_size;
+                }
+
+                if(settings.cdrom)
+                {
+                    settings.cdrom["fixed_chunk_size"] = chunk_size;
+                }
             }
 
             if(!DEBUG && infos.homepage)
