@@ -519,7 +519,7 @@ var ASYNC_SAFE = false;
         }
 
         /** @const */
-        this.block_size = 256;
+        this.block_size = 256; // TODO: Could probably be set to fixed_chunk_size if present
         this.block_cache = new Map();
         this.block_cache_is_write = new Set();
 
@@ -583,19 +583,16 @@ var ASYNC_SAFE = false;
             for(let i = 0; i < total_count; i++)
             {
                 const offset = (start_index + i) * this.fixed_chunk_size;
-                let part_filename;
 
-                if(this.partfile_alt_format)
-                {
-                    // matches output of gnu split:
-                    //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
-                    part_filename = this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension;
-                }
-                else
-                {
-                    part_filename = this.basename + "-" + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
-                }
+                const part_filename =
+                    this.partfile_alt_format ?
+                        // matches output of gnu split:
+                        //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
+                        this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension
+                    :
+                        this.basename + "-" + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
 
+                // XXX: unnecessary allocation
                 const block = this.get_from_cache(offset, this.fixed_chunk_size);
 
                 if(block)
