@@ -556,7 +556,8 @@ var ASYNC_SAFE = false;
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
-        var block = this.get_from_cache(offset, len);
+        const block = this.get_from_cache(offset, len);
+
         if(block)
         {
             if(ASYNC_SAFE)
@@ -581,6 +582,7 @@ var ASYNC_SAFE = false;
 
             for(let i = 0; i < total_count; i++)
             {
+                const offset = (start_index + i) * this.fixed_chunk_size;
                 let part_filename;
 
                 if(this.partfile_alt_format)
@@ -591,25 +593,40 @@ var ASYNC_SAFE = false;
                 }
                 else
                 {
-                    const offset = ((start_index + i) * this.fixed_chunk_size);
                     part_filename = this.basename + "-" + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
                 }
 
-                v86util.load_file(part_filename, {
-                    done: function done(buffer)
+                const block = this.get_from_cache(offset, this.fixed_chunk_size);
+
+                if(block)
+                {
+                    const cur = i * this.fixed_chunk_size;
+                    blocks.set(block, cur);
+                    finished++;
+                    if(finished === total_count)
                     {
-                        const cur = i * this.fixed_chunk_size;
-                        const block = new Uint8Array(buffer);
-                        this.handle_read((start_index + i) * this.fixed_chunk_size, this.fixed_chunk_size|0, block);
-                        blocks.set(block, cur);
-                        finished++;
-                        if(finished === total_count)
+                        const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
+                        fn(tmp_blocks);
+                    }
+                }
+                else
+                {
+                    v86util.load_file(part_filename, {
+                        done: function done(buffer)
                         {
-                            const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
-                            fn(tmp_blocks);
-                        }
-                    }.bind(this),
-                });
+                            const cur = i * this.fixed_chunk_size;
+                            const block = new Uint8Array(buffer);
+                            this.handle_read((start_index + i) * this.fixed_chunk_size, this.fixed_chunk_size|0, block);
+                            blocks.set(block, cur);
+                            finished++;
+                            if(finished === total_count)
+                            {
+                                const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
+                                fn(tmp_blocks);
+                            }
+                        }.bind(this),
+                    });
+                }
             }
         }
         else
