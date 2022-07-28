@@ -242,7 +242,8 @@ update_version:
 
 $(CLOSURE):
 	mkdir -p $(CLOSURE_DIR)
-	wget -nv -O $(CLOSURE) https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20220104/closure-compiler-v20220104.jar
+	# don't upgrade until https://github.com/google/closure-compiler/issues/3972 is fixed
+	wget -nv -O $(CLOSURE) https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20210601/closure-compiler-v20210601.jar
 
 build/integration-test-fs/fs.json:
 	mkdir -p build/integration-test-fs/flat
