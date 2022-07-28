@@ -715,6 +715,7 @@ V86Starter.prototype.destroy = function()
     this.mouse_adapter && this.mouse_adapter.destroy();
     this.screen_adapter && this.screen_adapter.destroy();
     this.serial_adapter && this.serial_adapter.destroy();
+    this.speaker_adapter && this.speaker_adapter.destroy();
 };
 
 /**

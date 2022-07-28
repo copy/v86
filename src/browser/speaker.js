@@ -58,6 +58,12 @@ function SpeakerAdapter(bus)
     bus.send("speaker-has-initialized");
 }
 
+SpeakerAdapter.prototype.destroy = function()
+{
+    this.audio_context && this.audio_context.close();
+    this.dac && this.dac.node_processor && this.dac.node_processor.port.close();
+};
+
 /**
  * @constructor
  * @param {!BusConnector} bus
