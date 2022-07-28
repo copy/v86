@@ -32,6 +32,17 @@ function MouseAdapter(bus, screen_container)
         this.enabled = enabled;
     }, this);
 
+    // TODO: Should probably not use bus for this
+    this.is_running = false;
+    this.bus.register("emulator-stopped", function()
+    {
+        this.is_running = false;
+    }, this);
+    this.bus.register("emulator-started", function()
+    {
+        this.is_running = true;
+    }, this);
+
     this.destroy = function()
     {
         if(typeof window === "undefined")
@@ -141,6 +152,11 @@ function MouseAdapter(bus, screen_container)
         }
 
         if(!may_handle(e))
+        {
+            return;
+        }
+
+        if(!mouse.is_running)
         {
             return;
         }
