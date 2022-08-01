@@ -4,12 +4,12 @@ on:
   pull_request:
 jobs:
   jshint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - run: sudo npm install -g jshint; make jshint
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: checkout
       uses: actions/checkout@v2
