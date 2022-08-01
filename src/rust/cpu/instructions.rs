@@ -1989,11 +1989,7 @@ pub unsafe fn instr_DF_4_mem(_addr: i32) {
     fpu_unimpl();
 }
 pub unsafe fn instr_DF_5_mem(addr: i32) { fpu_fildm64(addr); }
-#[no_mangle]
-pub unsafe fn instr_DF_6_mem(_addr: i32) {
-    dbg_log!("fbstp");
-    fpu_unimpl();
-}
+pub unsafe fn instr_DF_6_mem(addr: i32) { fpu_fbstp(addr); }
 pub unsafe fn instr_DF_7_mem(addr: i32) { fpu_fistm64p(addr); }
 
 #[no_mangle]
@@ -2014,7 +2010,6 @@ pub unsafe fn instr_DF_4_reg(r: i32) {
     };
 }
 pub unsafe fn instr_DF_5_reg(r: i32) { fpu_fucomip(r); }
-#[no_mangle]
 pub unsafe fn instr_DF_6_reg(r: i32) { fpu_fcomip(r); }
 pub unsafe fn instr_DF_7_reg(_r: i32) { trigger_ud(); }
 

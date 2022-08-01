@@ -626,6 +626,35 @@ pub unsafe fn fpu_fstp(r: i32) {
 }
 
 #[no_mangle]
+pub unsafe fn fpu_fbstp(addr: i32) {
+    match writable_or_pagefault(addr, 26) {
+        Ok(()) => *page_fault = false,
+        Err(()) => {
+            *page_fault = true;
+            return;
+        },
+    }
+    let st0 = fpu_get_st0();
+    let mut x = st0.to_i64().unsigned_abs();
+    if x <= 99_9999_9999_9999_9999 {
+        for i in 0..=8 {
+            let low = x % 10;
+            x /= 10;
+            let high = x % 10;
+            x /= 10;
+            safe_write8(addr + i, (high as i32) << 4 | low as i32).unwrap();
+        }
+        safe_write8(addr + 9, if st0.sign() { 0x80 } else { 0 }).unwrap();
+    }
+    else {
+        fpu_invalid_arithmetic();
+        safe_write64(addr + 0, 0xC000_0000_0000_0000).unwrap();
+        safe_write16(addr + 8, 0xFFFF).unwrap();
+    }
+    fpu_pop();
+}
+
+#[no_mangle]
 pub unsafe fn fpu_fsub(target_index: i32, val: F80) {
     let st0 = fpu_get_st0();
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, st0 - val)
