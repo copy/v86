@@ -271,6 +271,20 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "MS-DOS (hard disk + floppy disk)",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/msdos.img",
+            fda: root_path + "/images/kolibri.img",
+            boot_order: 0x132,
+            timeout: 90,
+            actions: [
+                { on_text: "C:\\>", run: "a:\n" },
+            ],
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
             name: "Linux 4",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/linux4.iso",
@@ -717,12 +731,16 @@ if(cluster.isMaster)
             actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],
         },
         {
-            name: "Core 9",
+            name: "Core 9 (with floppy disk)",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
             cdrom: root_path + "/images/experimental/os/Core-9.0.iso",
-            expected_texts: ["tc@box"],
-            actions: [{ on_text: "boot:", run: "\n" }],
+            fda: root_path + "/images/freedos722.img",
+            actions: [
+                { on_text: "boot:", run: "\n" },
+                { on_text: "tc@box", run: "sudo mount /dev/fd0 /mnt && ls /mnt\n" },
+            ],
+            expected_texts: ["AUTOEXEC.BAT"],
         },
         {
             name: "Core 8",
@@ -839,14 +857,15 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
-    let image = test.fda || test.hda || test.cdrom || test.bzimage || test.filesystem && test.filesystem.basefs;
-    assert(image, "Bootable drive expected");
+    const images = [test.fda, test.hda, test.cdrom, test.bzimage, test.filesystem && test.filesystem.basefs].filter(x => x);
+    assert(images.length, "Bootable drive expected");
 
-    if(!fs.existsSync(image))
+    const missing_images = images.filter(i => !fs.existsSync(i));
+    if(missing_images.length)
     {
         if(test.skip_if_disk_image_missing)
         {
-            console.warn("Missing disk image: " + image + ", test skipped");
+            console.warn("Missing disk image: " + missing_images.join(", ") + ", test skipped");
             console.warn();
 
             done();
@@ -854,7 +873,7 @@ function run_test(test, done)
         }
         else
         {
-            console.warn("Missing disk image: " + image);
+            console.warn("Missing disk image: " + missing_images.join(", "));
             process.exit(1);
         }
     }
@@ -915,6 +934,7 @@ function run_test(test, done)
     settings.cmdline = test.cmdline;
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
     settings.acpi = test.acpi;
+    settings.boot_order = test.boot_order;
 
     if(test.expected_texts)
     {
