@@ -1050,7 +1050,7 @@ void test_fbcd(double a)
     double b;
 
     asm("fbstp %0" : "=m" (bcd[0]) : "t" (a) : "st");
-    asm("fbld %1" : "=t" (b) : "m" (bcd[0]));
+    //asm("fbld %1" : "=t" (b) : "m" (bcd[0]));
     printf("a=%f bcd=%04x%04x%04x%04x%04x b=%f\n",
            a, bcd[4], bcd[3], bcd[2], bcd[1], bcd[0], b);
 }
@@ -1180,8 +1180,18 @@ void test_floats(void)
     test_fcvt(1.0/0.0);
     test_fcvt(q_nan.d);
     test_fconst();
-    //test_fbcd(1234567890123456.0);
-    //test_fbcd(-123451234567890.0);
+    test_fbcd(0.0);
+    test_fbcd(-0.0);
+    test_fbcd(1.0);
+    test_fbcd(-1.0);
+    test_fbcd(1234567890123456.0);
+    test_fbcd(-123451234567890.0);
+    test_fbcd(341234567890123456.0);
+    test_fbcd(-345123451234567890.0);
+    test_fbcd(999999999999999900.0);
+    test_fbcd(-999999999999999900.0);
+    test_fbcd(1000000000000000000.0);
+    test_fbcd(-1000000000000000000.0);
     test_fenv();
     if (TEST_CMOV) {
         test_fcmov();
