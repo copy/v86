@@ -1192,6 +1192,8 @@ void test_floats(void)
     test_fbcd(-999999999999999900.0);
     test_fbcd(1000000000000000000.0);
     test_fbcd(-1000000000000000000.0);
+    test_fbcd(1000000000000000000000.0);
+    test_fbcd(-1000000000000000000000.0);
     test_fenv();
     if (TEST_CMOV) {
         test_fcmov();
