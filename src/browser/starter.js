@@ -698,16 +698,31 @@ V86Starter.prototype.run = async function()
  */
 V86Starter.prototype.stop = async function()
 {
-    this.bus.send("cpu-stop");
+    // Emulation is not guaranteed to stop immediately in the same event loop
+    // cycle.
+    // If the emulator is running, this promise will resolve when the emulator
+    // has finished stopping.
+    // Else, this promise will resolve immediately.
+    const promise = new Promise(resolve => {
+        if (!this.cpu_is_running) return resolve();
+        const listener = () => {
+            this.remove_listener("emulator-stopped", listener);
+            resolve();
+        };
+        this.add_listener("emulator-stopped", listener);
+        this.bus.send("cpu-stop");
+    })
+
+    await promise;
 };
 
 /**
  * @ignore
  * @export
  */
-V86Starter.prototype.destroy = function()
+V86Starter.prototype.destroy = async function()
 {
-    this.stop();
+    await this.stop();
 
     this.v86.destroy();
     this.keyboard_adapter && this.keyboard_adapter.destroy();
