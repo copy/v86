@@ -227,22 +227,29 @@ function SerialAdapterXtermJS(element, bus)
     term["setOption"]("logLevel", "off");
     term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
-    term["onData"](function(data) {
+    const on_data_disposable = term["onData"](function(data) {
         for(let i = 0; i < data.length; i++)
         {
             bus.send("serial0-input", data.charCodeAt(i));
         }
     });
 
-    bus.register("serial0-output-char", function(chr)
+    bus.register("serial0-output-char", serial_char_handler, this);
+
+    this.destroy = function()
+    {
+        bus.unregister("serial0-output-char", serial_char_handler);
+        on_data_disposable["dispose"]();
+        term["dispose"]();
+    }
+
+    /**
+     * @param {string} chr 
+     */
+    function serial_char_handler(chr)
     {
         term.write(chr);
-    }, this);
-}
-
-SerialAdapterXtermJS.prototype.destroy = function()
-{
-    this.term && this.term.dispose();
+    }
 }
 
 SerialAdapterXtermJS.prototype.show = function()
