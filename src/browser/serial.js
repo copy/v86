@@ -240,6 +240,11 @@ function SerialAdapterXtermJS(element, bus)
     }, this);
 }
 
+SerialAdapterXtermJS.prototype.destroy = function()
+{
+    this.term && this.term.dispose();
+}
+
 SerialAdapterXtermJS.prototype.show = function()
 {
     this.term && this.term.open(this.element);
