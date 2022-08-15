@@ -13,9 +13,8 @@ WorkerBus.Connector = function(pair)
         var data = e.data;
         var listeners = this.listeners[data[0]];
 
-        for(var i = 0; i < listeners.length; i++)
+        for(const listener of listeners)
         {
-            var listener = listeners[i];
             listener.fn.call(listener.this_value, data[1]);
         }
     }.bind(this), false);
@@ -28,10 +27,10 @@ WorkerBus.Connector.prototype.register = function(name, fn, this_value)
 
     if(listeners === undefined)
     {
-        listeners = this.listeners[name] = [];
+        listeners = this.listeners[name] = new Set();
     }
 
-    listeners.push({
+    listeners.add({
         fn: fn,
         this_value: this_value,
     });
