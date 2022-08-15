@@ -698,16 +698,28 @@ V86Starter.prototype.run = async function()
  */
 V86Starter.prototype.stop = async function()
 {
-    this.bus.send("cpu-stop");
+    if(!this.cpu_is_running)
+    {
+        return;
+    }
+
+    await new Promise(resolve => {
+        const listener = () => {
+            this.remove_listener("emulator-stopped", listener);
+            resolve();
+        };
+        this.add_listener("emulator-stopped", listener);
+        this.bus.send("cpu-stop");
+    });
 };
 
 /**
  * @ignore
  * @export
  */
-V86Starter.prototype.destroy = function()
+V86Starter.prototype.destroy = async function()
 {
-    this.stop();
+    await this.stop();
 
     this.v86.destroy();
     this.keyboard_adapter && this.keyboard_adapter.destroy();
