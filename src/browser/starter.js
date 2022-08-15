@@ -708,9 +708,8 @@ V86Starter.prototype.stop = async function()
             resolve();
         };
         this.add_listener("emulator-stopped", listener);
+        this.bus.send("cpu-stop");
     });
-
-    this.bus.send("cpu-stop");
 
     await stopped;
 };
