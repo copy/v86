@@ -234,21 +234,15 @@ function SerialAdapterXtermJS(element, bus)
         }
     });
 
-    bus.register("serial0-output-char", serial_char_handler, this);
-
-    this.destroy = function()
-    {
-        on_data_disposable["dispose"]();
-        term["dispose"]();
-    }
-
-    /**
-     * @param {string} chr 
-     */
-    function serial_char_handler(chr)
+    bus.register("serial0-output-char", function(chr)
     {
         term.write(chr);
-    }
+    }, this);
+
+    this.destroy = function() {
+        on_data_disposable["dispose"]()
+        term["dispose"]()
+    };
 }
 
 SerialAdapterXtermJS.prototype.show = function()
