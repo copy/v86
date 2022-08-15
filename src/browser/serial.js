@@ -240,8 +240,8 @@ function SerialAdapterXtermJS(element, bus)
     }, this);
 
     this.destroy = function() {
-        on_data_disposable["dispose"]()
-        term["dispose"]()
+        on_data_disposable["dispose"]();
+        term["dispose"]();
     };
 }
 
