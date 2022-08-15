@@ -33,7 +33,7 @@ BusConnector.prototype.register = function(name, fn, this_value)
  * Unregister one message with the given name and callback
  *
  * @param {string} name
- * @param {function()} fn
+ * @param {function(?)} fn
  */
 BusConnector.prototype.unregister = function(name, fn)
 {
