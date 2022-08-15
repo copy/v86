@@ -698,22 +698,21 @@ V86Starter.prototype.run = async function()
  */
 V86Starter.prototype.stop = async function()
 {
-    // Emulation is not guaranteed to stop immediately in the same event loop
-    // cycle.
-    // If the emulator is running, this promise will resolve when the emulator
-    // has finished stopping.
-    // Else, this promise will resolve immediately.
-    const promise = new Promise(resolve => {
-        if (!this.cpu_is_running) return resolve();
+    if (!this.cpu_is_running) {
+        return;
+    }
+
+    const stopped = new Promise((resolve) => {
         const listener = () => {
             this.remove_listener("emulator-stopped", listener);
             resolve();
         };
         this.add_listener("emulator-stopped", listener);
-        this.bus.send("cpu-stop");
-    })
+    });
 
-    await promise;
+    this.bus.send("cpu-stop");
+
+    await stopped;
 };
 
 /**
