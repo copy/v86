@@ -238,7 +238,6 @@ function SerialAdapterXtermJS(element, bus)
 
     this.destroy = function()
     {
-        bus.unregister("serial0-output-char", serial_char_handler);
         on_data_disposable["dispose"]();
         term["dispose"]();
     }
