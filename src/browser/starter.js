@@ -698,11 +698,12 @@ V86Starter.prototype.run = async function()
  */
 V86Starter.prototype.stop = async function()
 {
-    if (!this.cpu_is_running) {
+    if(!this.cpu_is_running)
+    {
         return;
     }
 
-    const stopped = new Promise((resolve) => {
+    await new Promise(resolve => {
         const listener = () => {
             this.remove_listener("emulator-stopped", listener);
             resolve();
@@ -710,8 +711,6 @@ V86Starter.prototype.stop = async function()
         this.add_listener("emulator-stopped", listener);
         this.bus.send("cpu-stop");
     });
-
-    await stopped;
 };
 
 /**
