@@ -345,6 +345,7 @@ pub unsafe fn bcd_aam(imm8: i32) {
         write_reg8(AH, temp as i32 / imm8);
         write_reg8(AL, temp as i32 % imm8);
         *last_result = read_reg8(AL);
+        *last_op_size = OPSIZE_8;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
         *flags &= !1 & !FLAG_ADJUST & !FLAG_OVERFLOW
     };
