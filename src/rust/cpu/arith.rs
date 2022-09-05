@@ -3,9 +3,9 @@ use cpu::global_pointers::*;
 use cpu::memory::{read8, write8};
 use cpu::misc_instr::{getaf, getcf, getzf};
 
-pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
+fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
-pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand + source_operand;
     *last_op1 = dest_operand;
     *last_result = res & (2 << op_size) - 1;
@@ -13,7 +13,7 @@ pub unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL;
     return res;
 }
-pub unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand + source_operand + cf;
     *last_op1 = dest_operand;
@@ -27,7 +27,7 @@ pub unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
         | ((source_operand ^ res) & (dest_operand ^ res)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
-pub unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand - source_operand;
     *last_op1 = dest_operand;
     *last_result = res & (2 << op_size) - 1;
@@ -35,7 +35,7 @@ pub unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL | FLAG_SUB;
     return res;
 }
-pub unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand - source_operand - cf;
     *last_op1 = dest_operand;
@@ -70,7 +70,7 @@ pub unsafe fn sbb32(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
 pub unsafe fn cmp8(x: i32, y: i32) { sub(x, y, OPSIZE_8); }
 pub unsafe fn cmp16(x: i32, y: i32) { sub(x, y, OPSIZE_16); }
 pub unsafe fn cmp32(x: i32, y: i32) { sub(x, y, OPSIZE_32); }
-pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
+unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand + 1;
     *last_op1 = dest_operand;
@@ -79,7 +79,7 @@ pub unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1;
     return res;
 }
-pub unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
+unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand - 1;
     *last_op1 = dest_operand;
@@ -97,7 +97,7 @@ pub unsafe fn dec8(x: i32) -> i32 { return dec(x, OPSIZE_8); }
 pub unsafe fn dec16(x: i32) -> i32 { return dec(x, OPSIZE_16); }
 pub unsafe fn dec32(x: i32) -> i32 { return dec(x, OPSIZE_32); }
 
-pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 { sub(0, dest_operand, op_size) }
+unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 { sub(0, dest_operand, op_size) }
 #[no_mangle]
 pub unsafe fn not8(x: i32) -> i32 { return !x; }
 #[no_mangle]
@@ -375,7 +375,7 @@ pub unsafe fn bcd_aas() {
     write_reg8(AL, read_reg8(AL) & 15);
     *flags_changed &= !FLAG_ADJUST & !1;
 }
-pub unsafe fn and(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn and(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand & source_operand;
     *last_result = result;
     *last_op_size = op_size;
@@ -383,7 +383,7 @@ pub unsafe fn and(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW & !FLAG_ADJUST;
     return result;
 }
-pub unsafe fn or(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn or(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand | source_operand;
     *last_result = result;
     *last_op_size = op_size;
@@ -391,7 +391,7 @@ pub unsafe fn or(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW & !FLAG_ADJUST;
     return result;
 }
-pub unsafe fn xor(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
+unsafe fn xor(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let result = dest_operand ^ source_operand;
     *last_result = result;
     *last_op_size = op_size;
