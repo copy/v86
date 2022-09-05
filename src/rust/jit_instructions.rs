@@ -158,6 +158,20 @@ fn sse_read128_xmm_mem(ctx: &mut JitContext, name: &str, modrm_byte: ModrmByte, 
     ctx.builder.const_i32(r as i32);
     ctx.builder.call_fn2(name);
 }
+fn sse_read128_xmm_mem_imm(
+    ctx: &mut JitContext,
+    name: &str,
+    modrm_byte: ModrmByte,
+    r: u32,
+    imm: u32,
+) {
+    let dest = global_pointers::sse_scratch_register as u32;
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
+    ctx.builder.const_i32(dest as i32);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm as i32);
+    ctx.builder.call_fn3(name);
+}
 fn sse_read128_xmm_xmm(ctx: &mut JitContext, name: &str, r1: u32, r2: u32) {
     // Make a copy to avoid aliasing problems: Called function expects a reg128, which must not
     // alias with memory
@@ -5184,23 +5198,13 @@ pub fn instr_0FC2_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     sse_read128_xmm_xmm_imm(ctx, "instr_0FC2", r1, r2, imm8)
 }
 pub fn instr_0FC2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_0FC2");
+    sse_read128_xmm_mem_imm(ctx, "instr_0FC2", modrm_byte, r, imm8)
 }
 pub fn instr_660FC2_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     sse_read128_xmm_xmm_imm(ctx, "instr_660FC2", r1, r2, imm8)
 }
 pub fn instr_660FC2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_660FC2");
+    sse_read128_xmm_mem_imm(ctx, "instr_660FC2", modrm_byte, r, imm8)
 }
 pub fn instr_F20FC2_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder
@@ -5235,23 +5239,13 @@ pub fn instr_0FC6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     sse_read128_xmm_xmm_imm(ctx, "instr_0FC6", r1, r2, imm8)
 }
 pub fn instr_0FC6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_0FC6");
+    sse_read128_xmm_mem_imm(ctx, "instr_0FC6", modrm_byte, r, imm8)
 }
 pub fn instr_660FC6_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     sse_read128_xmm_xmm_imm(ctx, "instr_660FC6", r1, r2, imm8)
 }
 pub fn instr_660FC6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_660FC6");
+    sse_read128_xmm_mem_imm(ctx, "instr_660FC6", modrm_byte, r, imm8)
 }
 
 pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
@@ -6236,52 +6230,22 @@ pub fn instr_0F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder.call_fn3_i64_i32_i32("instr_0F70");
 }
 pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_660F70");
+    sse_read128_xmm_mem_imm(ctx, "instr_660F70", modrm_byte, r, imm8)
 }
 pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::sse_scratch_register;
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r2 as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_660F70");
+    sse_read128_xmm_xmm_imm(ctx, "instr_660F70", r1, r2, imm8)
 }
 pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_F20F70");
+    sse_read128_xmm_mem_imm(ctx, "instr_F20F70", modrm_byte, r, imm8)
 }
 pub fn instr_F20F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::sse_scratch_register;
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r2 as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_F20F70");
+    sse_read128_xmm_xmm_imm(ctx, "instr_F20F70", r1, r2, imm8)
 }
 pub fn instr_F30F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    let dest = global_pointers::sse_scratch_register as u32;
-    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_F30F70");
+    sse_read128_xmm_mem_imm(ctx, "instr_F30F70", modrm_byte, r, imm8)
 }
 pub fn instr_F30F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
-    let dest = global_pointers::sse_scratch_register;
-    ctx.builder.const_i32(dest as i32);
-    ctx.builder.const_i32(r2 as i32);
-    ctx.builder.const_i32(imm8 as i32);
-    ctx.builder.call_fn3("instr_F30F70");
+    sse_read128_xmm_xmm_imm(ctx, "instr_F30F70", r1, r2, imm8)
 }
 
 pub fn instr_0F71_2_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _imm: u32) {
