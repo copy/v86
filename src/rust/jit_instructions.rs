@@ -315,6 +315,7 @@ macro_rules! define_instruction_read8(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
+            let imm = mask_imm!(imm, $imm);
             let dest_operand = codegen::gen_get_reg8_or_alias_to_reg32(ctx, r1);
             $fn(ctx, &dest_operand, &LocalOrImmediate::Immediate(imm as i32));
             codegen::gen_free_reg8_or_alias(ctx, r1, dest_operand);
@@ -358,6 +359,7 @@ macro_rules! define_instruction_read16(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
+            let imm = mask_imm!(imm, $imm);
             $fn(
                 ctx,
                 &ctx.reg(r),
@@ -403,6 +405,7 @@ macro_rules! define_instruction_read32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r: u32, imm: u32) {
+            let imm = mask_imm!(imm, $imm);
             $fn(
                 ctx,
                 &ctx.reg(r),
@@ -480,6 +483,7 @@ macro_rules! mask_imm(
     ($imm:expr, imm8_5bits) => { $imm & 31 };
     ($imm:expr, imm8) => { $imm };
     ($imm:expr, imm8s) => { $imm };
+    ($imm:expr, imm8s_16bits) => { $imm & 0xFFFF };
     ($imm:expr, imm16) => { $imm };
     ($imm:expr, imm32) => { $imm };
 );
@@ -881,13 +885,13 @@ macro_rules! define_instruction_read_write_mem32(
     ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: ModrmByte, imm: u32) {
             codegen::gen_modrm_resolve_with_local(ctx, modrm_byte, &|ctx, addr| {
-                let imm = mask_imm!(imm, $imm) as i32;
+                let imm = mask_imm!(imm, $imm);
                 codegen::gen_safe_read_write(ctx, BitSize::DWORD, &addr, &|ref mut ctx| {
                     let dest_operand = ctx.builder.set_new_local();
                     $fn(
                         ctx,
                         &dest_operand,
-                        &LocalOrImmediate::Immediate(imm),
+                        &LocalOrImmediate::Immediate(imm as i32),
                     );
                     ctx.builder.get_local(&dest_operand);
                     ctx.builder.free_local(dest_operand);
@@ -2611,7 +2615,12 @@ define_instruction_read32!(gen_cmp32, instr32_81_7_mem_jit, instr32_81_7_reg_jit
 
 define_instruction_read8!(gen_cmp8, instr_82_7_mem_jit, instr_82_7_reg_jit, imm8);
 
-define_instruction_read16!(gen_cmp16, instr16_83_7_mem_jit, instr16_83_7_reg_jit, imm8s);
+define_instruction_read16!(
+    gen_cmp16,
+    instr16_83_7_mem_jit,
+    instr16_83_7_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read32!(gen_cmp32, instr32_83_7_mem_jit, instr32_83_7_reg_jit, imm8s);
 
 define_instruction_read8!(gen_test8, instr_84_mem_jit, instr_84_reg_jit);
