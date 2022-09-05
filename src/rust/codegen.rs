@@ -1560,7 +1560,7 @@ pub enum ConditionNegate {
 }
 
 pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         Instruction::Cmp { .. } | Instruction::Sub { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // TODO: Could use local for cmp x, 0; sub x, y
@@ -1624,7 +1624,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
 }
 
 pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         Instruction::Cmp {
             dest,
             source,
@@ -1708,7 +1708,7 @@ pub fn gen_getcf_unoptimised(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_getsf(ctx: &mut JitContext) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         &Instruction::Cmp { opsize, .. }
         | &Instruction::Sub { opsize, .. }
         | &Instruction::Arithmetic { opsize } => {
@@ -1798,7 +1798,7 @@ pub fn gen_getof(builder: &mut WasmBuilder) {
 }
 
 pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         Instruction::Cmp {
             dest,
             source,
@@ -1886,7 +1886,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
 }
 
 pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         Instruction::Cmp {
             dest,
             source,
@@ -1962,7 +1962,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
 }
 
 pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
-    match &ctx.last_instruction {
+    match &ctx.previous_instruction {
         Instruction::Cmp {
             dest,
             source,

@@ -232,7 +232,8 @@ pub struct JitContext<'a> {
     pub start_of_current_instruction: u32,
     pub exit_with_fault_label: Label,
     pub exit_label: Label,
-    pub last_instruction: Instruction,
+    pub current_instruction: Instruction,
+    pub previous_instruction: Instruction,
     pub instruction_counter: WasmLocal,
 }
 impl<'a> JitContext<'a> {
@@ -1029,7 +1030,8 @@ fn jit_generate_module(
         start_of_current_instruction: 0,
         exit_with_fault_label,
         exit_label,
-        last_instruction: Instruction::Other,
+        current_instruction: Instruction::Other,
+        previous_instruction: Instruction::Other,
         instruction_counter,
     };
 
@@ -1853,7 +1855,8 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
     ctx.builder.set_local(&ctx.instruction_counter);
 
     ctx.cpu.eip = start_addr;
-    ctx.last_instruction = Instruction::Other;
+    ctx.current_instruction = Instruction::Other;
+    ctx.previous_instruction = Instruction::Other;
 
     loop {
         let mut instruction = 0;
@@ -1874,9 +1877,6 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
                 );
                 codegen::gen_set_eip_low_bits(ctx.builder, stop_addr as i32 & 0xFFF);
             }
-        }
-        else {
-            ctx.last_instruction = Instruction::Other;
         }
 
         let wasm_length_before = ctx.builder.instruction_body_length();
@@ -1916,6 +1916,8 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
             dbg_assert!(false);
             break;
         }
+
+        ctx.previous_instruction = mem::replace(&mut ctx.current_instruction, Instruction::Other);
     }
 }
 

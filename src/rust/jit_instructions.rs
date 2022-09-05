@@ -911,7 +911,7 @@ macro_rules! define_instruction_read_write_mem32(
 );
 
 fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
     ctx.builder.get_local(dest_operand);
@@ -934,7 +934,7 @@ fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
@@ -949,7 +949,7 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
 }
 
 fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
     ctx.builder.get_local(dest_operand);
@@ -972,7 +972,7 @@ fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Sub { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Sub { opsize: OPSIZE_32 };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
@@ -992,7 +992,7 @@ fn gen_cmp(
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    ctx.last_instruction = Instruction::Cmp {
+    ctx.current_instruction = Instruction::Cmp {
         dest: if ctx.register_locals.iter().any(|l| l == dest_operand) {
             InstructionOperand::WasmLocal(dest_operand.unsafe_clone())
         }
@@ -1205,7 +1205,7 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
 }
 
 fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1224,7 +1224,7 @@ fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_and32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1246,7 +1246,7 @@ fn gen_test(
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     if source_operand.eq_local(dest_operand) {
@@ -1277,7 +1277,7 @@ fn gen_test32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate)
 }
 
 fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1296,7 +1296,7 @@ fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loca
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1313,7 +1313,7 @@ fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
 }
 
 fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1332,7 +1332,7 @@ fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_xor32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
 
     if source_operand.eq_local(dest_operand) {
         ctx.builder.const_i32(0);
@@ -2192,7 +2192,7 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
 }
 
 fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 
     let builder = &mut ctx.builder;
     builder.const_i32(global_pointers::flags as i32);
@@ -2239,7 +2239,7 @@ fn gen_inc32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
 }
 
 fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
-    ctx.last_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 
     let builder = &mut ctx.builder;
     builder.const_i32(global_pointers::flags as i32);
