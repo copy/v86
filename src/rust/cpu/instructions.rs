@@ -761,24 +761,53 @@ pub unsafe fn instr_82_7_reg(r: i32, imm: i32) { cmp8(read_reg8(r), imm); }
 pub unsafe fn instr_82_7_mem(addr: i32, imm: i32) {
     cmp8(return_on_pagefault!(safe_read8(addr)), imm);
 }
-pub unsafe fn instr16_83_0_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| add16(x, imm)) }
-pub unsafe fn instr16_83_0_reg(r1: i32, imm: i32) { write_reg16(r1, add16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_1_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| or16(x, imm)) }
-pub unsafe fn instr16_83_1_reg(r1: i32, imm: i32) { write_reg16(r1, or16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_2_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| adc16(x, imm)) }
-pub unsafe fn instr16_83_2_reg(r1: i32, imm: i32) { write_reg16(r1, adc16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_3_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| sbb16(x, imm)) }
-pub unsafe fn instr16_83_3_reg(r1: i32, imm: i32) { write_reg16(r1, sbb16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_4_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| and16(x, imm)) }
-pub unsafe fn instr16_83_4_reg(r1: i32, imm: i32) { write_reg16(r1, and16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_5_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| sub16(x, imm)) }
-pub unsafe fn instr16_83_5_reg(r1: i32, imm: i32) { write_reg16(r1, sub16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_6_mem(addr: i32, imm: i32) { safe_read_write16(addr, &|x| xor16(x, imm)) }
-pub unsafe fn instr16_83_6_reg(r1: i32, imm: i32) { write_reg16(r1, xor16(read_reg16(r1), imm)); }
-pub unsafe fn instr16_83_7_reg(r: i32, imm: i32) { cmp16(read_reg16(r), imm); }
-pub unsafe fn instr16_83_7_mem(addr: i32, imm: i32) {
-    cmp16(return_on_pagefault!(safe_read16(addr)), imm);
+pub unsafe fn instr16_83_0_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| add16(x, imm & 0xFFFF))
 }
+pub unsafe fn instr16_83_0_reg(r1: i32, imm: i32) {
+    write_reg16(r1, add16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_1_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| or16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_1_reg(r1: i32, imm: i32) {
+    write_reg16(r1, or16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_2_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| adc16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_2_reg(r1: i32, imm: i32) {
+    write_reg16(r1, adc16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_3_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| sbb16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_3_reg(r1: i32, imm: i32) {
+    write_reg16(r1, sbb16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_4_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| and16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_4_reg(r1: i32, imm: i32) {
+    write_reg16(r1, and16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_5_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| sub16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_5_reg(r1: i32, imm: i32) {
+    write_reg16(r1, sub16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_6_mem(addr: i32, imm: i32) {
+    safe_read_write16(addr, &|x| xor16(x, imm & 0xFFFF))
+}
+pub unsafe fn instr16_83_6_reg(r1: i32, imm: i32) {
+    write_reg16(r1, xor16(read_reg16(r1), imm & 0xFFFF));
+}
+pub unsafe fn instr16_83_7_reg(r: i32, imm: i32) { cmp16(read_reg16(r), imm & 0xFFFF); }
+pub unsafe fn instr16_83_7_mem(addr: i32, imm: i32) {
+    cmp16(return_on_pagefault!(safe_read16(addr)), imm & 0xFFFF);
+}
+
 pub unsafe fn instr32_83_0_mem(addr: i32, imm: i32) { safe_read_write32(addr, &|x| add32(x, imm)) }
 pub unsafe fn instr32_83_0_reg(r1: i32, imm: i32) { write_reg32(r1, add32(read_reg32(r1), imm)); }
 pub unsafe fn instr32_83_1_mem(addr: i32, imm: i32) { safe_read_write32(addr, &|x| or32(x, imm)) }

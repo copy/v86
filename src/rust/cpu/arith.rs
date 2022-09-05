@@ -49,9 +49,17 @@ unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
         | ((source_operand ^ dest_operand) & (res ^ dest_operand)) >> op_size << 11 & FLAG_OVERFLOW;
     return res;
 }
-pub unsafe fn add8(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_8); }
+pub unsafe fn add8(x: i32, y: i32) -> i32 {
+    dbg_assert!(x >= 0 && x < 0x10000);
+    dbg_assert!(y >= 0 && y < 0x10000);
+    return add(x, y, OPSIZE_8);
+}
 #[no_mangle]
-pub unsafe fn add16(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_16); }
+pub unsafe fn add16(x: i32, y: i32) -> i32 {
+    dbg_assert!(x >= 0 && x < 0x10000);
+    dbg_assert!(y >= 0 && y < 0x10000);
+    return add(x, y, OPSIZE_16);
+}
 pub unsafe fn add32(x: i32, y: i32) -> i32 { return add(x, y, OPSIZE_32); }
 pub unsafe fn sub8(x: i32, y: i32) -> i32 { return sub(x, y, OPSIZE_8); }
 #[no_mangle]
@@ -67,8 +75,16 @@ pub unsafe fn sbb8(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_8); }
 #[no_mangle]
 pub unsafe fn sbb16(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_16); }
 pub unsafe fn sbb32(x: i32, y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
-pub unsafe fn cmp8(x: i32, y: i32) { sub(x, y, OPSIZE_8); }
-pub unsafe fn cmp16(x: i32, y: i32) { sub(x, y, OPSIZE_16); }
+pub unsafe fn cmp8(x: i32, y: i32) {
+    dbg_assert!(x >= 0 && x < 0x100);
+    dbg_assert!(y >= 0 && y < 0x100);
+    sub(x, y, OPSIZE_8);
+}
+pub unsafe fn cmp16(x: i32, y: i32) {
+    dbg_assert!(x >= 0 && x < 0x10000);
+    dbg_assert!(y >= 0 && y < 0x10000);
+    sub(x, y, OPSIZE_16);
+}
 pub unsafe fn cmp32(x: i32, y: i32) { sub(x, y, OPSIZE_32); }
 unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;

@@ -2588,25 +2588,60 @@ define_instruction_read_write_mem32!(gen_sub32, instr32_81_5_mem_jit, instr32_81
 define_instruction_read_write_mem16!("xor16", instr16_81_6_mem_jit, instr16_81_6_reg_jit, imm16);
 define_instruction_read_write_mem32!(gen_xor32, instr32_81_6_mem_jit, instr32_81_6_reg_jit, imm32);
 
-define_instruction_read_write_mem16!("add16", instr16_83_0_mem_jit, instr16_83_0_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "add16",
+    instr16_83_0_mem_jit,
+    instr16_83_0_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_add32, instr32_83_0_mem_jit, instr32_83_0_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("or16", instr16_83_1_mem_jit, instr16_83_1_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "or16",
+    instr16_83_1_mem_jit,
+    instr16_83_1_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_or32, instr32_83_1_mem_jit, instr32_83_1_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("adc16", instr16_83_2_mem_jit, instr16_83_2_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "adc16",
+    instr16_83_2_mem_jit,
+    instr16_83_2_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_adc32, instr32_83_2_mem_jit, instr32_83_2_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("sbb16", instr16_83_3_mem_jit, instr16_83_3_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "sbb16",
+    instr16_83_3_mem_jit,
+    instr16_83_3_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_sbb32, instr32_83_3_mem_jit, instr32_83_3_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("and16", instr16_83_4_mem_jit, instr16_83_4_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "and16",
+    instr16_83_4_mem_jit,
+    instr16_83_4_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_and32, instr32_83_4_mem_jit, instr32_83_4_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("sub16", instr16_83_5_mem_jit, instr16_83_5_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "sub16",
+    instr16_83_5_mem_jit,
+    instr16_83_5_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_sub32, instr32_83_5_mem_jit, instr32_83_5_reg_jit, imm8s);
 
-define_instruction_read_write_mem16!("xor16", instr16_83_6_mem_jit, instr16_83_6_reg_jit, imm8s);
+define_instruction_read_write_mem16!(
+    "xor16",
+    instr16_83_6_mem_jit,
+    instr16_83_6_reg_jit,
+    imm8s_16bits
+);
 define_instruction_read_write_mem32!(gen_xor32, instr32_83_6_mem_jit, instr32_83_6_reg_jit, imm8s);
 
 define_instruction_read8!(gen_cmp8, instr_80_7_mem_jit, instr_80_7_reg_jit, imm8);
