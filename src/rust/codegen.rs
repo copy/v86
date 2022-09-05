@@ -1839,6 +1839,8 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 &InstructionOperand::Immediate(i) => {
+                    dbg_assert!(*opsize != OPSIZE_8 || i >= 0 && i < 0x100);
+                    dbg_assert!(*opsize != OPSIZE_16 || i >= 0 && i < 0x10000);
                     ctx.builder.const_i32(i);
                 },
             }
