@@ -713,6 +713,18 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "Linux with Postgres",
+            skip_if_disk_image_missing: true,
+            timeout: 3 * 60,
+            memory_size: 512 * 1024 * 1024,
+            cdrom: root_path + "/images/experimental/linux-postgres.iso",
+            expected_texts: [
+                "performing post-bootstrap initialization",
+                "syncing data to disk",
+                "Success. You can now start the database server using",
+            ],
+        },
+        {
             name: "Tiny Core 11 CD",
             skip_if_disk_image_missing: 1,
             timeout: 10 * 60,
