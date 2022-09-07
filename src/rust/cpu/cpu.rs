@@ -741,15 +741,41 @@ pub unsafe fn call_interrupt_vector(
         let dpl = descriptor.dpl();
         let gate_type = descriptor.gate_type();
 
-        if !descriptor.is_present() {
-            // present bit not set
-            panic!("Unimplemented: #NP handler");
-        }
-
         if is_software_int && dpl < *cpl {
             dbg_log!("#gp software interrupt ({:x}) and dpl < cpl", interrupt_nr);
             dbg_trace();
             trigger_gp(interrupt_nr << 3 | 2);
+            return;
+        }
+
+        if gate_type != InterruptDescriptor::TRAP_GATE
+            && gate_type != InterruptDescriptor::INTERRUPT_GATE
+            && gate_type != InterruptDescriptor::TASK_GATE
+        {
+            // invalid gate_type
+            dbg_log!(
+                "gate type invalid. gate_type=0b{:b} raw={:b}",
+                gate_type,
+                descriptor.raw
+            );
+            dbg_trace();
+            panic!("Unimplemented: #GP handler");
+        }
+
+        if !descriptor.reserved_zeros_are_valid() {
+            dbg_log!(
+                "reserved 0s violated. gate_type=0b{:b} raw={:b}",
+                gate_type,
+                descriptor.raw
+            );
+            dbg_trace();
+            panic!("Unimplemented: #GP handler");
+        }
+
+        if !descriptor.is_present() {
+            // present bit not set
+            dbg_log!("#np int descriptor not present, int={}", interrupt_nr);
+            trigger_np(interrupt_nr << 3 | 2);
             return;
         }
 
@@ -762,29 +788,10 @@ pub unsafe fn call_interrupt_vector(
                 dpl
             );
             dbg_trace();
-
+            dbg_assert!(descriptor.is_32(), "TODO: Check this (likely #GP)");
+            dbg_assert!(offset == 0, "TODO: Check this (likely #GP)");
             do_task_switch(selector, error_code);
             return;
-        }
-
-        let is_valid_type = gate_type == InterruptDescriptor::TRAP_GATE
-            || gate_type == InterruptDescriptor::INTERRUPT_GATE;
-
-        if !is_valid_type || !descriptor.reserved_zeros_are_valid() {
-            // invalid gate_type
-            dbg_log!(
-                "gate type invalid or reserved 0s violated. gate_type=0b{:b} raw={:b}",
-                gate_type,
-                descriptor.raw
-            );
-            dbg_log!(
-                "addr={:x} offset={:x} selector={:x}",
-                descriptor_address,
-                offset,
-                selector
-            );
-            dbg_trace();
-            panic!("Unimplemented: #GP handler");
         }
 
         let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(
