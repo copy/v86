@@ -1675,18 +1675,18 @@ fn gen_cmpxchg32(ctx: &mut JitContext, r: u32) {
     let source = ctx.builder.set_new_local();
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
-    codegen::gen_get_reg32(ctx, 0);
+    codegen::gen_get_reg32(ctx, regs::EAX);
     ctx.builder.get_local(&source);
     ctx.builder.sub_i32();
     ctx.builder.store_aligned_i32(0);
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
-    codegen::gen_get_reg32(ctx, 0);
+    codegen::gen_get_reg32(ctx, regs::EAX);
     ctx.builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
     codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
 
-    ctx.builder.get_local(&ctx.register_locals[0]);
+    codegen::gen_get_reg32(ctx, regs::EAX);
     ctx.builder.get_local(&source);
     ctx.builder.eq_i32();
     ctx.builder.if_i32();
