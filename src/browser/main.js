@@ -1030,6 +1030,7 @@
             settings.cmdline = infos.cmdline;
             settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
             settings.mac_address_translation = infos.mac_address_translation;
+            settings.cpuid_level = infos.cpuid_level;
 
             settings.acpi = (!infos.state && settings.acpi !== undefined) ? settings.acpi : infos.acpi;
             settings.memory_size = (!infos.state && settings.memory_size) ? settings.memory_size : infos.memory_size;
@@ -1290,6 +1291,7 @@
             "filesystem": settings.filesystem || {},
             "disable_speaker": disable_audio,
             "mac_address_translation": settings.mac_address_translation,
+            "cpuid_level": settings.cpuid_level,
 
             "autostart": true,
         });

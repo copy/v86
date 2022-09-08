@@ -266,6 +266,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     settings.cmdline = options["cmdline"];
     settings.preserve_mac_from_state_image = options["preserve_mac_from_state_image"];
     settings.mac_address_translation = options["mac_address_translation"];
+    settings.cpuid_level = options["cpuid_level"];
 
     if(options["network_adapter"])
     {

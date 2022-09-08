@@ -3143,18 +3143,12 @@ pub unsafe fn instr_0FA2() {
     let mut edx = 0;
     let mut ebx = 0;
 
-    let winnt_fix = false;
     let level = read_reg32(EAX) as u32;
 
     match level {
         0 => {
-            // maximum supported level
-            if winnt_fix {
-                eax = 2;
-            }
-            else {
-                eax = 0x16;
-            }
+            // maximum supported level (default 0x16, overwritten to 2 as a workaround for Windows NT)
+            eax = cpuid_level as i32;
 
             ebx = 0x756E6547 | 0; // Genu
             edx = 0x49656E69 | 0; // ineI

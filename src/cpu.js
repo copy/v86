@@ -263,6 +263,8 @@ CPU.prototype.wasm_patch = function()
     this.set_tsc = get_import("set_tsc");
     this.store_current_tsc = get_import("store_current_tsc");
 
+    this.set_cpuid_level = get_import("set_cpuid_level");
+
     if(DEBUG)
     {
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
@@ -656,6 +658,8 @@ CPU.prototype.init = function(settings, device_bus)
 
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
+
+    settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
 
     this.acpi_enabled[0] = +settings.acpi;
 

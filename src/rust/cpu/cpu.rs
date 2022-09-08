@@ -264,6 +264,8 @@ pub const DEBUG: bool = cfg!(debug_assertions);
 pub const LOOP_COUNTER: i32 = 100_003;
 pub const TSC_RATE: f64 = 1_000_000.0;
 
+pub static mut cpuid_level: u32 = 0x16;
+
 pub static mut jit_block_boundary: bool = false;
 
 pub static mut rdtsc_imprecision_offset: u64 = 0;
@@ -4188,3 +4190,6 @@ pub unsafe fn reset_cpu() {
 
     jit::jit_clear_cache(jit::get_jit_state());
 }
+
+#[no_mangle]
+pub unsafe fn set_cpuid_level(level: u32) { cpuid_level = level }
