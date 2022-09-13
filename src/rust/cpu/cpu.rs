@@ -3307,11 +3307,30 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else if in_mapped_range(addr_low) {
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
-        dbg_assert!(scratch & 0xFFF == 0);
+        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr();
 
-        for s in addr_low..(addr_low + bitsize as u32 / 8) {
-            *(scratch as *mut u8).offset((s & 0xFFF) as isize) = read8(s) as u8
+        match bitsize {
+            128 => {
+                *(scratch.offset(addr_low as isize & 0xFFF) as *mut reg128) =
+                    memory::read128(addr_low)
+            },
+            64 => {
+                *(scratch.offset(addr_low as isize & 0xFFF) as *mut i64) = memory::read64s(addr_low)
+            },
+            32 => {
+                *(scratch.offset(addr_low as isize & 0xFFF) as *mut i32) = memory::read32s(addr_low)
+            },
+            16 => {
+                *(scratch.offset(addr_low as isize & 0xFFF) as *mut u16) =
+                    memory::read16(addr_low) as u16
+            },
+            8 => {
+                *(scratch.offset(addr_low as isize & 0xFFF) as *mut u8) =
+                    memory::read8(addr_low) as u8
+            },
+            _ => {
+                dbg_assert!(false);
+            },
         }
 
         ((scratch as i32) ^ addr) & !0xFFF
