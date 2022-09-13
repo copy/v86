@@ -579,6 +579,31 @@
                 name: "Windows 2000",
             },
             {
+                id: "windowsnt4",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: host + "winnt4_noacpi.img",
+                    size: 523837440,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                name: "Windows NT 4.0",
+                cpuid_level: 2,
+            },
+            {
+                id: "windowsnt3",
+                memory_size: 256 * 1024 * 1024,
+                hda: {
+                    url: host + "winnt31.img",
+                    size: 87 * 1024 * 1024,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                name: "Windows NT 3.1",
+            },
+            {
                 id: "windows98",
                 memory_size: 128 * 1024 * 1024,
                 hda: {

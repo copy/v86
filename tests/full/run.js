@@ -178,6 +178,27 @@ if(cluster.isMaster)
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
         },
+        {
+            name: "Windows NT 4.0",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/winnt4_noacpi.img",
+            memory_size: 512 * 1024 * 1024,
+            timeout: 60,
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+            cpuid_level: 2,
+        },
+        {
+            name: "Windows NT 3.1",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/winnt31.img",
+            memory_size: 256 * 1024 * 1024,
+            timeout: 60,
+            expect_graphical_mode: true,
+            expect_graphical_size: [640, 480],
+            expect_mouse_registered: true,
+        },
         //{
         //    name: "Windows 98",
         //    skip_if_disk_image_missing: true,
@@ -715,7 +736,7 @@ if(cluster.isMaster)
         {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
-            timeout: 3 * 60,
+            timeout: 5 * 60,
             memory_size: 512 * 1024 * 1024,
             cdrom: root_path + "/images/experimental/linux-postgres.iso",
             expected_texts: [
@@ -947,6 +968,7 @@ function run_test(test, done)
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
+    settings.cpuid_level = test.cpuid_level;
 
     if(test.expected_texts)
     {
