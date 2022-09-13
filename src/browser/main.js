@@ -203,7 +203,7 @@
                     "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8",
                     "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose",
                     "mitigations=off audit=0",
-                    "page_poison=on",
+                    "init_on_free=on",
                     "tsc=reliable",
                     "random.trust_cpu=on",
                     "nowatchdog",
