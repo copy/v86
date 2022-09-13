@@ -1876,7 +1876,6 @@ pub unsafe fn do_page_walk(
     user: bool,
     side_effects: bool,
 ) -> Result<u32, PageFault> {
-    let mut can_write: bool = true;
     let global;
     let mut allow_user: bool = true;
     let page = (addr as u32 >> 12) as i32;
@@ -1936,16 +1935,13 @@ pub unsafe fn do_page_walk(
         }
 
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
-        if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
-            can_write = false;
-            if for_writing {
-                return Err(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: true,
-                });
-            }
+        if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
+            return Err(PageFault {
+                addr,
+                for_writing,
+                user,
+                present: true,
+            });
         }
 
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
@@ -2013,16 +2009,13 @@ pub unsafe fn do_page_walk(
                 });
             }
 
-            if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
-                can_write = false;
-                if for_writing {
-                    return Err(PageFault {
-                        addr,
-                        for_writing,
-                        user,
-                        present: true,
-                    });
-                }
+            if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
+                return Err(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: true,
+                });
             }
             if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
                 allow_user = false;
@@ -2085,7 +2078,7 @@ pub unsafe fn do_page_walk(
     let is_in_mapped_range = in_mapped_range(high);
     let has_code = !is_in_mapped_range && jit::jit_page_has_code(Page::page_of(high));
     let info_bits = TLB_VALID
-        | if can_write { 0 } else { TLB_READONLY }
+        | if for_writing { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
         | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
         | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
