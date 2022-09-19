@@ -154,72 +154,6 @@ else
     dbg_assert(false, "Unsupported platform: No cryptographic random values");
 }
 
-
-/**
- * Synchronous access to ArrayBuffer
- * @constructor
- */
-function SyncBuffer(buffer)
-{
-    dbg_assert(buffer instanceof ArrayBuffer);
-
-    this.buffer = buffer;
-    this.byteLength = buffer.byteLength;
-    this.onload = undefined;
-    this.onprogress = undefined;
-}
-
-SyncBuffer.prototype.load = function()
-{
-    this.onload && this.onload({ buffer: this.buffer });
-};
-
-/**
- * @param {number} start
- * @param {number} len
- * @param {function(!Uint8Array)} fn
- */
-SyncBuffer.prototype.get = function(start, len, fn)
-{
-    dbg_assert(start + len <= this.byteLength);
-    fn(new Uint8Array(this.buffer, start, len));
-};
-
-/**
- * @param {number} start
- * @param {!Uint8Array} slice
- * @param {function()} fn
- */
-SyncBuffer.prototype.set = function(start, slice, fn)
-{
-    dbg_assert(start + slice.byteLength <= this.byteLength);
-
-    new Uint8Array(this.buffer, start, slice.byteLength).set(slice);
-    fn();
-};
-
-/**
- * @param {function(!ArrayBuffer)} fn
- */
-SyncBuffer.prototype.get_buffer = function(fn)
-{
-    fn(this.buffer);
-};
-
-SyncBuffer.prototype.get_state = function()
-{
-    const state = [];
-    state[0] = this.byteLength;
-    state[1] = new Uint8Array(this.buffer);
-    return state;
-};
-
-SyncBuffer.prototype.set_state = function(state)
-{
-    this.byteLength = state[0];
-    this.buffer = state[1].slice().buffer;
-};
-
 (function()
 {
     if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 &&
@@ -571,7 +505,7 @@ v86util.Bitmap = function(length_or_buffer)
     }
     else
     {
-        console.assert(false);
+        dbg_assert(false, "v86util.Bitmap: Invalid argument");
     }
 };
 

@@ -392,7 +392,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
         if(file.buffer instanceof ArrayBuffer)
         {
-            var buffer = new SyncBuffer(file.buffer);
+            var buffer = new v86util.SyncBuffer(file.buffer);
             files_to_load.push({
                 name: name,
                 loadable: buffer,
@@ -496,7 +496,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
         if(fs_url)
         {
-            console.assert(base_url, "Filesystem: baseurl must be specified");
+            dbg_assert(base_url, "Filesystem: baseurl must be specified");
 
             var size;
 
@@ -543,7 +543,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
-                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
+                    put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
@@ -605,8 +605,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                     settings.fs9p.read_file(initrd_path),
                     settings.fs9p.read_file(bzimage_path),
                 ]);
-                put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
-                put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
+                put_on_settings.call(this, "initrd", new v86util.SyncBuffer(initrd.buffer));
+                put_on_settings.call(this, "bzimage", new v86util.SyncBuffer(bzimage.buffer));
                 finish.call(this);
             }
             else
@@ -616,7 +616,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         }
         else
         {
-            console.assert(
+            dbg_assert(
                 !options["bzimage_initrd_from_filesystem"],
                 "bzimage_initrd_from_filesystem: Requires a filesystem");
             finish.call(this);
@@ -784,7 +784,7 @@ V86Starter.prototype.remove_listener = function(event, listener)
  */
 V86Starter.prototype.restore_state = async function(state)
 {
-    console.assert(arguments.length === 1);
+    dbg_assert(arguments.length === 1);
     this.v86.restore_state(state);
 };
 
@@ -796,7 +796,7 @@ V86Starter.prototype.restore_state = async function(state)
  */
 V86Starter.prototype.save_state = async function()
 {
-    console.assert(arguments.length === 0);
+    dbg_assert(arguments.length === 0);
     return this.v86.save_state();
 };
 
@@ -1167,7 +1167,7 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
  */
 V86Starter.prototype.create_file = async function(file, data)
 {
-    console.assert(arguments.length === 2);
+    dbg_assert(arguments.length === 2);
     var fs = this.fs9p;
 
     if(!fs)
@@ -1201,7 +1201,7 @@ V86Starter.prototype.create_file = async function(file, data)
  */
 V86Starter.prototype.read_file = async function(file)
 {
-    console.assert(arguments.length === 1);
+    dbg_assert(arguments.length === 1);
     var fs = this.fs9p;
 
     if(!fs)
@@ -1280,7 +1280,7 @@ V86Starter.prototype.automatically = function(steps)
             return;
         }
 
-        console.assert(false, step);
+        dbg_assert(false, step);
     };
 
     run(steps);

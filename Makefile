@@ -77,7 +77,7 @@ CARGO_FLAGS_SAFE=\
 
 CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory
 
-CORE_FILES=const.js config.js io.js main.js lib.js ide.js pci.js floppy.js \
+CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js \
 	   acpi.js apic.js ioapic.js \
 	   state.js ne2k.js sb16.js virtio.js bus.js log.js \
