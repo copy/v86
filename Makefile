@@ -85,7 +85,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js flopp
 	   elf.js kernel.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
-	      network.js lib.js starter.js worker_bus.js dummy_screen.js \
+	      network.js starter.js worker_bus.js dummy_screen.js \
 	      print_stats.js filestorage.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
