@@ -33,6 +33,7 @@
     };
 
     /**
+     * @this {SyncBuffer|SyncFileBuffer}
      * @param {number} start
      * @param {number} len
      * @param {function(!Uint8Array)} fn
@@ -44,6 +45,7 @@
     };
 
     /**
+     * @this {SyncBuffer|SyncFileBuffer}
      * @param {number} start
      * @param {!Uint8Array} slice
      * @param {function()} fn
@@ -57,6 +59,7 @@
     };
 
     /**
+     * @this {SyncBuffer|SyncFileBuffer}
      * @param {function(!ArrayBuffer)} fn
      */
     SyncBuffer.prototype.get_buffer = function(fn)
@@ -64,6 +67,9 @@
         fn(this.buffer);
     };
 
+    /**
+     * @this {SyncBuffer|SyncFileBuffer}
+     */
     SyncBuffer.prototype.get_state = function()
     {
         const state = [];
@@ -72,6 +78,9 @@
         return state;
     };
 
+    /**
+     * @this {SyncBuffer|SyncFileBuffer}
+     */
     SyncBuffer.prototype.set_state = function(state)
     {
         this.byteLength = state[0];
@@ -564,48 +573,11 @@
         }
     };
 
-    /**
-     * @param {number} start
-     * @param {number} len
-     * @param {function(!Uint8Array)} fn
-     */
-    SyncFileBuffer.prototype.get = function(start, len, fn)
-    {
-        dbg_assert(start + len <= this.byteLength);
-        fn(new Uint8Array(this.buffer, start, len));
-    };
-
-    /**
-     * @param {number} offset
-     * @param {!Uint8Array} slice
-     * @param {function()} fn
-     */
-    SyncFileBuffer.prototype.set = function(offset, slice, fn)
-    {
-        dbg_assert(offset + slice.byteLength <= this.byteLength);
-
-        new Uint8Array(this.buffer, offset, slice.byteLength).set(slice);
-        fn();
-    };
-
-    SyncFileBuffer.prototype.get_buffer = function(fn)
-    {
-        fn(this.buffer);
-    };
-
-    SyncFileBuffer.prototype.get_state = function()
-    {
-        const state = [];
-        state[0] = this.byteLength;
-        state[1] = new Uint8Array(this.buffer);
-        return state;
-    };
-
-    SyncFileBuffer.prototype.set_state = function(state)
-    {
-        this.byteLength = state[0];
-        this.buffer = state[1].slice().buffer;
-    };
+    SyncFileBuffer.prototype.get = SyncBuffer.prototype.get;
+    SyncFileBuffer.prototype.set = SyncBuffer.prototype.set;
+    SyncFileBuffer.prototype.get_buffer = SyncBuffer.prototype.get_buffer;
+    SyncFileBuffer.prototype.get_state = SyncBuffer.prototype.get_state;
+    SyncFileBuffer.prototype.set_state = SyncBuffer.prototype.set_state;
 
     /**
      * Asynchronous access to File, loading blocks from the input type=file
