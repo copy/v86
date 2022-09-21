@@ -2053,63 +2053,39 @@ pub unsafe fn instr32_E3(imm8s: i32) { jcxz32(imm8s); }
 
 #[no_mangle]
 pub unsafe fn instr_E4(port: i32) {
-    if !test_privileges_for_io(port, 1) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 1) {
         write_reg8(AL, io_port_read8(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr16_E5(port: i32) {
-    if !test_privileges_for_io(port, 2) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 2) {
         write_reg16(AX, io_port_read16(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr32_E5(port: i32) {
-    if !test_privileges_for_io(port, 4) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 4) {
         write_reg32(EAX, io_port_read32(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_E6(port: i32) {
-    if !test_privileges_for_io(port, 1) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 1) {
         io_port_write8(port, read_reg8(AL));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr16_E7(port: i32) {
-    if !test_privileges_for_io(port, 2) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 2) {
         io_port_write16(port, read_reg16(AX));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr32_E7(port: i32) {
-    if !test_privileges_for_io(port, 4) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 4) {
         io_port_write32(port, read_reg32(EAX));
-        return;
-    };
+    }
 }
 
 pub unsafe fn instr16_E8(imm16: i32) {
@@ -2160,68 +2136,44 @@ pub unsafe fn instr32_EB(imm8: i32) {
 #[no_mangle]
 pub unsafe fn instr_EC() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 1) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 1) {
         write_reg8(AL, io_port_read8(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr16_ED() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 2) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 2) {
         write_reg16(AX, io_port_read16(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr32_ED() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 4) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 4) {
         write_reg32(EAX, io_port_read32(port));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_EE() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 1) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 1) {
         io_port_write8(port, read_reg8(AL));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr16_EF() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 2) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 2) {
         io_port_write16(port, read_reg16(AX));
-        return;
-    };
+    }
 }
 #[no_mangle]
 pub unsafe fn instr32_EF() {
     let port = read_reg16(DX);
-    if !test_privileges_for_io(port, 4) {
-        return;
-    }
-    else {
+    if test_privileges_for_io(port, 4) {
         io_port_write32(port, read_reg32(EAX));
-        return;
-    };
+    }
 }
 
 pub unsafe fn instr_F0() {
