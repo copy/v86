@@ -24,7 +24,6 @@
   (import "e" "trigger_gp_jit" (func $e.trigger_gp_jit (type $t2)))
   (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t7)))
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t16)))
-  (import "e" "get_phys_eip_slow_jit" (func $e.get_phys_eip_slow_jit (type $t6)))
   (import "e" "jit_find_cache_entry_in_page" (func $e.jit_find_cache_entry_in_page (type $t16)))
   (import "e" "trigger_fault_end_jit" (func $e.trigger_fault_end_jit (type $t0)))
   (import "e" "m" (memory {normalised output}))
@@ -250,39 +249,12 @@
             (i32.store offset=556
               (i32.const 0)
               (get_local $l9))
-            (set_local $l9
-              (i32.load
-                (i32.const 556)))
-            (block $B9
-              (br_if $B9
-                (i32.eq
-                  (i32.and
-                    (tee_local $l10
-                      (i32.load offset={normalised output}
-                        (i32.shl
-                          (i32.shr_u
-                            (get_local $l9)
-                            (i32.const 12))
-                          (i32.const 2))))
-                    (i32.const 4041))
-                  (i32.const 1)))
-              (br_if $B1
-                (i32.and
-                  (tee_local $l10
-                    (call $e.get_phys_eip_slow_jit
-                      (get_local $l9)))
-                  (i32.const 1))))
             (br_if $L2
               (i32.ge_s
                 (tee_local $p0
                   (call $e.jit_find_cache_entry_in_page
-                    (i32.sub
-                      (i32.xor
-                        (i32.and
-                          (get_local $l10)
-                          (i32.const -4096))
-                        (get_local $l9))
-                      (i32.const 5402624))
+                    (i32.load
+                      (i32.const 556))
                     (i32.const 899)
                     (i32.const 3)))
                 (i32.const 0)))

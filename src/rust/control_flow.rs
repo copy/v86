@@ -269,11 +269,11 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                 .collect();
 
             if entries_to_group.len() != 1 {
-                dbg_log!(
-                    "Compiling multi-entry loop with {} entries and {} basic blocks",
-                    entries_to_group.len(),
-                    group.len()
-                );
+                //dbg_log!(
+                //    "Compiling multi-entry loop with {} entries and {} basic blocks",
+                //    entries_to_group.len(),
+                //    group.len()
+                //);
             }
 
             if entries_to_group.len() * group.len() > MAX_EXTRA_BASIC_BLOCKS {
