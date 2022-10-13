@@ -33,6 +33,7 @@ use profiler;
 use profiler::stat::*;
 use state_flags::CachedStateFlags;
 use std::collections::HashSet;
+use std::ptr::NonNull;
 pub use util::dbg_trace;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
@@ -54,7 +55,6 @@ pub union reg128 {
     pub f64: [f64; 2],
 }
 
-/// Setting this to true will make execution extremely slow
 pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
 
 pub const INTERPRETER_ITERATION_LIMIT: u32 = 100_001;
@@ -263,6 +263,7 @@ pub const CPU_EXCEPTION_AC: i32 = 17;
 pub const CPU_EXCEPTION_MC: i32 = 18;
 pub const CPU_EXCEPTION_XM: i32 = 19;
 pub const CPU_EXCEPTION_VE: i32 = 20;
+
 pub const CHECK_TLB_INVARIANTS: bool = false;
 
 pub const DEBUG: bool = cfg!(debug_assertions);
@@ -278,7 +279,15 @@ pub static mut rdtsc_imprecision_offset: u64 = 0;
 pub static mut rdtsc_last_value: u64 = 0;
 pub static mut tsc_offset: u64 = 0;
 
+pub struct Code {
+    pub wasm_table_index: jit::WasmTableIndex,
+    pub state_flags: CachedStateFlags,
+    pub state_table: [u16; 0x1000],
+}
+
 pub static mut tlb_data: [i32; 0x100000] = [0; 0x100000];
+pub static mut tlb_code: [Option<NonNull<Code>>; 0x100000] = [None; 0x100000];
+
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
@@ -2096,6 +2105,8 @@ pub unsafe fn do_page_walk(
         // of memory accesses
         tlb_data[page as usize] =
             (high + memory::mem8 as u32) as i32 ^ page << 12 | info_bits as i32;
+
+        jit::update_tlb_code(Page::page_of(addr as u32), Page::page_of(high));
     }
 
     return Ok(high);
@@ -2108,6 +2119,7 @@ pub unsafe fn full_clear_tlb() {
     *last_virt_eip = -1;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
+        clear_tlb_code(page);
         tlb_data[page as usize] = 0;
     }
     valid_tlb_entries_count = 0;
@@ -2134,7 +2146,8 @@ pub unsafe fn clear_tlb() {
             global_page_offset += 1;
         }
         else {
-            tlb_data[page as usize] = 0
+            clear_tlb_code(page);
+            tlb_data[page as usize] = 0;
         }
     }
     valid_tlb_entries_count = global_page_offset;
@@ -2177,6 +2190,7 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     *cr.offset(2) = addr;
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
+    clear_tlb_code(page);
     tlb_data[page as usize] = 0;
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_PF) {
@@ -2247,6 +2261,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     *cr.offset(2) = addr;
     // invalidate tlb entry
     let page = ((addr as u32) >> 12) as i32;
+    clear_tlb_code(page);
     tlb_data[page as usize] = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(
@@ -2268,6 +2283,9 @@ pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
                 unsafe {
                     tlb_data[page as usize] =
                         if has_code { entry | TLB_HAS_CODE } else { entry & !TLB_HAS_CODE }
+                }
+                if !has_code {
+                    clear_tlb_code(page);
                 }
             }
         }
@@ -2814,23 +2832,54 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opco
 pub unsafe fn cycle_internal() {
     profiler::stat_increment(CYCLE_INTERNAL);
     if !::config::FORCE_DISABLE_JIT {
-        *previous_ip = *instruction_pointer;
-        let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
         let state_flags = pack_current_state_flags();
-        let entry = jit::jit_find_cache_entry(phys_addr, state_flags);
+        let mut jit_entry = None;
+        let initial_eip = *instruction_pointer;
 
-        if entry != jit::CachedCode::NONE {
+        match tlb_code[(initial_eip as u32 >> 12) as usize] {
+            None => {},
+            Some(c) => {
+                let c = c.as_ref();
+
+                if state_flags == c.state_flags {
+                    let state = c.state_table[initial_eip as usize & 0xFFF];
+                    if state != u16::MAX {
+                        jit_entry = Some((c.wasm_table_index.to_u16(), state));
+                    }
+                    else {
+                        profiler::stat_increment(if is_near_end_of_page(initial_eip as u32) {
+                            RUN_INTERPRETED_NEAR_END_OF_PAGE
+                        }
+                        else {
+                            RUN_INTERPRETED_PAGE_HAS_CODE
+                        })
+                    }
+                }
+                else {
+                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE);
+                }
+            },
+        }
+
+        if let Some((wasm_table_index, initial_state)) = jit_entry {
+            if jit::CHECK_JIT_STATE_INVARIANTS {
+                match get_phys_eip() {
+                    Err(()) => dbg_assert!(false),
+                    Ok(phys_eip) => {
+                        let entry = jit::jit_find_cache_entry(phys_eip, state_flags);
+                        dbg_assert!(entry.wasm_table_index.to_u16() == wasm_table_index);
+                        dbg_assert!(entry.initial_state == initial_state);
+                    },
+                }
+            }
             profiler::stat_increment(RUN_FROM_CACHE);
             let initial_instruction_counter = *instruction_counter;
-            let wasm_table_index = entry.wasm_table_index;
-            let initial_state = entry.initial_state;
             #[cfg(debug_assertions)]
             {
                 in_jit = true;
             }
-            let initial_eip = *instruction_pointer;
             call_indirect1(
-                wasm_table_index.to_u16() as i32 + WASM_TABLE_OFFSET as i32,
+                wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
                 initial_state,
             );
             #[cfg(debug_assertions)]
@@ -2876,8 +2925,22 @@ pub unsafe fn cycle_internal() {
             }
         }
         else {
-            let initial_eip = *instruction_pointer;
+            *previous_ip = initial_eip;
+            let phys_addr = return_on_pagefault!(get_phys_eip());
             jit::record_entry_point(phys_addr);
+
+            match tlb_code[(initial_eip as u32 >> 12) as usize] {
+                None => {},
+                Some(c) => {
+                    let c = c.as_ref();
+
+                    if state_flags == c.state_flags
+                        && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
+                    {
+                        profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
+                    }
+                },
+            }
 
             #[cfg(feature = "profiler")]
             {
@@ -2965,19 +3028,11 @@ unsafe fn jit_run_interpreted(phys_addr: u32) {
 
             if entry != jit::CachedCode::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
-                //dbg_log!(
-                //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
-                //    phys_addr,
-                //    prev_opcode,
-                //    opcode
-                //);
             }
         }
 
         if cfg!(debug_assertions) {
-            debug_last_jump = LastJump::Interpreted {
-                phys_addr: phys_addr as u32,
-            };
+            debug_last_jump = LastJump::Interpreted { phys_addr };
         }
 
         *instruction_counter += 1;
@@ -3989,12 +4044,22 @@ pub unsafe fn get_opstats_buffer(
 #[cfg(not(feature = "profiler"))]
 pub unsafe fn get_opstats_buffer() -> f64 { 0.0 }
 
+pub fn clear_tlb_code(page: i32) {
+    unsafe {
+        if let Some(c) = tlb_code[page as usize] {
+            drop(Box::from_raw(c.as_ptr()));
+        }
+        tlb_code[page as usize] = None;
+    }
+}
+
 pub unsafe fn invlpg(addr: i32) {
     let page = (addr as u32 >> 12) as i32;
     // Note: Doesn't remove this page from valid_tlb_entries: This isn't
     // necessary, because when valid_tlb_entries grows too large, it will be
     // empties by calling clear_tlb, which removes this entry as it isn't global.
     // This however means that valid_tlb_entries can contain some invalid entries
+    clear_tlb_code(page);
     tlb_data[page as usize] = 0;
     *last_virt_eip = -1;
 }
