@@ -26,9 +26,11 @@ window.onload = function()
         },
         autostart: true,
         disable_keyboard: true,
+        disable_mouse: true,
     });
 
     var data = "";
+    var do_output = false;
 
     emulator.add_listener("serial0-output-char", function(char)
     {
@@ -37,24 +39,17 @@ window.onload = function()
             data += char;
         }
 
+        if(do_output)
+        {
+            document.getElementById("result").textContent += char;
+        }
+
         if(data.endsWith("~% "))
         {
             console.log("Now ready");
             document.getElementById("status").textContent = "Ready.\n";
             document.getElementById("run").disabled = false;
-        }
-    });
-
-    emulator.add_listener("serial0-output-line", function(line)
-    {
-        // filter noise
-        if(!line.startsWith("/root% lua -e") &&
-           !line.startsWith("> ") &&
-           line.indexOf("Welcome to Buildroot") === -1 &&
-           line.indexOf("login:") === -1 &&
-           line.trim() !== "")
-        {
-            document.getElementById("result").textContent += line;
+            do_output = false;
         }
     });
 
@@ -75,6 +70,8 @@ window.onload = function()
         document.getElementById("result").textContent = "";
         document.getElementById("status").textContent = "Running ...\n";
         this.disabled = true;
+
+        do_output = true;
     };
 };
 
