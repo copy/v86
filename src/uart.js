@@ -67,7 +67,7 @@ function UART(cpu, port, bus)
 
     this.input = new ByteQueue(4096);
 
-    this.current_line = [];
+    this.current_line = "";
 
     switch(port)
     {
@@ -350,13 +350,15 @@ UART.prototype.write_data = function(out_byte)
 
     this.bus.send("serial" + this.com + "-output-char", char);
 
-    this.current_line.push(out_byte);
-
-    if(char === "\n")
+    if(DEBUG)
     {
-        const line = String.fromCharCode.apply("", this.current_line).trimRight().replace(/[\x00-\x08\x0b-\x1f\x7f\x80-\xff]/g, "");
-        dbg_log("SERIAL: " + line);
-        this.bus.send("serial" + this.com + "-output-line", String.fromCharCode.apply("", this.current_line));
-        this.current_line = [];
+        this.current_line += char;
+
+        if(char === "\n")
+        {
+            const line = this.current_line.trimRight().replace(/[\x00-\x08\x0b-\x1f\x7f\x80-\xff]/g, "");
+            dbg_log("SERIAL: " + line);
+            this.current_line = "";
+        }
     }
 };
