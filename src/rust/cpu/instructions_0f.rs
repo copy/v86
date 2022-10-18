@@ -1180,7 +1180,7 @@ pub unsafe fn instr_0F30() {
     else if index == IA32_SYSENTER_ESP {
         *sysenter_esp = low
     }
-    else if index == MSR_IA32_FEAT_CTL {
+    else if index == IA32_FEAT_CTL {
         // linux 5.x
     }
     else if index == MSR_TEST_CTRL {
@@ -1220,6 +1220,18 @@ pub unsafe fn instr_0F30() {
     }
     else if index == IA32_PAT {
         //
+    }
+    else if index == IA32_SPEC_CTRL {
+        // linux 5.19
+    }
+    else if index == IA32_TSX_CTRL {
+        // linux 5.19
+    }
+    else if index == MSR_TSX_FORCE_ABORT {
+        // linux 5.19
+    }
+    else if index == IA32_MCU_OPT_CTRL {
+        // linux 5.19
     }
     else {
         dbg_log!("Unknown msr: {:x}", index);
@@ -1270,7 +1282,7 @@ pub unsafe fn instr_0F32() {
         low = tsc as i32;
         high = (tsc >> 32) as i32
     }
-    else if index == MSR_IA32_FEAT_CTL {
+    else if index == IA32_FEAT_CTL {
         // linux 5.x
     }
     else if index == MSR_TEST_CTRL {
@@ -1309,6 +1321,21 @@ pub unsafe fn instr_0F32() {
         //
     }
     else if index == MSR_PKG_C2_RESIDENCY {
+    }
+    else if index == IA32_SPEC_CTRL {
+        // linux 5.19
+    }
+    else if index == IA32_TSX_CTRL {
+        // linux 5.19
+    }
+    else if index == MSR_TSX_FORCE_ABORT {
+        // linux 5.19
+    }
+    else if index == IA32_MCU_OPT_CTRL {
+        // linux 5.19
+    }
+    else if index == MSR_AMD64_LS_CFG {
+        // linux 5.19
     }
     else {
         dbg_log!("Unknown msr: {:x}", index);
