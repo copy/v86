@@ -1171,71 +1171,47 @@ pub unsafe fn instr_0F30() {
         dbg_log!("wrmsr ecx={:x} data={:x}:{:x}", index, high, low);
     }
 
-    if index == IA32_SYSENTER_CS {
-        *sysenter_cs = low & 0xFFFF
-    }
-    else if index == IA32_SYSENTER_EIP {
-        *sysenter_eip = low
-    }
-    else if index == IA32_SYSENTER_ESP {
-        *sysenter_esp = low
-    }
-    else if index == IA32_FEAT_CTL {
-        // linux 5.x
-    }
-    else if index == MSR_TEST_CTRL {
-        // linux 5.x
-    }
-    else if index == IA32_APIC_BASE_MSR {
-        dbg_assert!(
-            high == 0,
-            ("Changing APIC address (high 32 bits) not supported")
-        );
-        let address = low & !(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
-        dbg_assert!(
-            address == APIC_ADDRESS,
-            ("Changing APIC address not supported")
-        );
-        dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
-        *apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
-    }
-    else if index == IA32_TIME_STAMP_COUNTER {
-        set_tsc(low as u32, high as u32);
-    }
-    else if index == IA32_BIOS_SIGN_ID {
-        //
-    }
-    else if index == MSR_MISC_FEATURE_ENABLES {
-        // Linux 4, see: https://patchwork.kernel.org/patch/9528279/
-    }
-    else if index == IA32_MISC_ENABLE {
-        // Enable Misc. Processor Features
-    }
-    else if index == IA32_MCG_CAP {
-        // netbsd
-    }
-    else if index == IA32_KERNEL_GS_BASE {
-        // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
-        dbg_log!("GS Base written");
-    }
-    else if index == IA32_PAT {
-        //
-    }
-    else if index == IA32_SPEC_CTRL {
-        // linux 5.19
-    }
-    else if index == IA32_TSX_CTRL {
-        // linux 5.19
-    }
-    else if index == MSR_TSX_FORCE_ABORT {
-        // linux 5.19
-    }
-    else if index == IA32_MCU_OPT_CTRL {
-        // linux 5.19
-    }
-    else {
-        dbg_log!("Unknown msr: {:x}", index);
-        dbg_assert!(false);
+    match index {
+        IA32_SYSENTER_CS => *sysenter_cs = low & 0xFFFF,
+        IA32_SYSENTER_EIP => *sysenter_eip = low,
+        IA32_SYSENTER_ESP => *sysenter_esp = low,
+        IA32_FEAT_CTL => {}, // linux 5.x
+        MSR_TEST_CTRL => {}, // linux 5.x
+        IA32_APIC_BASE => {
+            dbg_assert!(
+                high == 0,
+                ("Changing APIC address (high 32 bits) not supported")
+            );
+            let address = low & !(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
+            dbg_assert!(
+                address == APIC_ADDRESS,
+                ("Changing APIC address not supported")
+            );
+            dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
+            *apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
+        },
+        IA32_TIME_STAMP_COUNTER => set_tsc(low as u32, high as u32),
+        IA32_BIOS_SIGN_ID => {},
+        MISC_FEATURE_ENABLES => {
+            // Linux 4, see: https://patchwork.kernel.org/patch/9528279/
+        },
+        IA32_MISC_ENABLE => {
+            // Enable Misc. Processor Features
+        },
+        IA32_MCG_CAP => {}, // netbsd
+        IA32_KERNEL_GS_BASE => {
+            // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
+            dbg_log!("GS Base written");
+        },
+        IA32_PAT => {},
+        IA32_SPEC_CTRL => {},      // linux 5.19
+        IA32_TSX_CTRL => {},       // linux 5.19
+        MSR_TSX_FORCE_ABORT => {}, // linux 5.19
+        IA32_MCU_OPT_CTRL => {},   // linux 5.19
+        _ => {
+            dbg_log!("Unknown msr: {:x}", index);
+            dbg_assert!(false);
+        },
     }
 }
 
@@ -1268,78 +1244,51 @@ pub unsafe fn instr_0F32() {
     let mut low: i32 = 0;
     let mut high: i32 = 0;
 
-    if index == IA32_SYSENTER_CS {
-        low = *sysenter_cs
-    }
-    else if index == IA32_SYSENTER_EIP {
-        low = *sysenter_eip
-    }
-    else if index == IA32_SYSENTER_ESP {
-        low = *sysenter_esp
-    }
-    else if index == IA32_TIME_STAMP_COUNTER {
-        let tsc = read_tsc();
-        low = tsc as i32;
-        high = (tsc >> 32) as i32
-    }
-    else if index == IA32_FEAT_CTL {
-        // linux 5.x
-    }
-    else if index == MSR_TEST_CTRL {
-        // linux 5.x
-    }
-    else if index == IA32_PLATFORM_ID {
-    }
-    else if index == IA32_APIC_BASE_MSR {
-        if *acpi_enabled {
-            low = APIC_ADDRESS;
-            if *apic_enabled {
-                low |= IA32_APIC_BASE_EN
+    match index {
+        IA32_SYSENTER_CS => low = *sysenter_cs,
+        IA32_SYSENTER_EIP => low = *sysenter_eip,
+        IA32_SYSENTER_ESP => low = *sysenter_esp,
+        IA32_TIME_STAMP_COUNTER => {
+            let tsc = read_tsc();
+            low = tsc as i32;
+            high = (tsc >> 32) as i32
+        },
+        IA32_FEAT_CTL => {}, // linux 5.x
+        MSR_TEST_CTRL => {}, // linux 5.x
+        IA32_PLATFORM_ID => {},
+        IA32_APIC_BASE => {
+            if *acpi_enabled {
+                low = APIC_ADDRESS;
+                if *apic_enabled {
+                    low |= IA32_APIC_BASE_EN
+                }
             }
-        }
-    }
-    else if index == IA32_BIOS_SIGN_ID {
-    }
-    else if index == MSR_PLATFORM_INFO {
-        low = 1 << 8
-    }
-    else if index == MSR_MISC_FEATURE_ENABLES {
-    }
-    else if index == IA32_MISC_ENABLE {
-        // Enable Misc. Processor Features
-        low = 1 << 0; // fast string
-    }
-    else if index == IA32_RTIT_CTL {
-        // linux4
-    }
-    else if index == MSR_SMI_COUNT {
-    }
-    else if index == IA32_MCG_CAP {
-        // netbsd
-    }
-    else if index == IA32_PAT {
-        //
-    }
-    else if index == MSR_PKG_C2_RESIDENCY {
-    }
-    else if index == IA32_SPEC_CTRL {
-        // linux 5.19
-    }
-    else if index == IA32_TSX_CTRL {
-        // linux 5.19
-    }
-    else if index == MSR_TSX_FORCE_ABORT {
-        // linux 5.19
-    }
-    else if index == IA32_MCU_OPT_CTRL {
-        // linux 5.19
-    }
-    else if index == MSR_AMD64_LS_CFG {
-        // linux 5.19
-    }
-    else {
-        dbg_log!("Unknown msr: {:x}", index);
-        dbg_assert!(false);
+        },
+        IA32_BIOS_SIGN_ID => {},
+        MSR_PLATFORM_INFO => low = 1 << 8,
+        MISC_FEATURE_ENABLES => {},
+        IA32_MISC_ENABLE => {
+            // Enable Misc. Processor Features
+            low = 1 << 0; // fast string
+        },
+        IA32_RTIT_CTL => {
+            // linux4
+        },
+        MSR_SMI_COUNT => {},
+        IA32_MCG_CAP => {
+            // netbsd
+        },
+        IA32_PAT => {},
+        MSR_PKG_C2_RESIDENCY => {},
+        IA32_SPEC_CTRL => {},      // linux 5.19
+        IA32_TSX_CTRL => {},       // linux 5.19
+        MSR_TSX_FORCE_ABORT => {}, // linux 5.19
+        IA32_MCU_OPT_CTRL => {},   // linux 5.19
+        MSR_AMD64_LS_CFG => {},    // linux 5.19
+        _ => {
+            dbg_log!("Unknown msr: {:x}", index);
+            dbg_assert!(false);
+        },
     }
 
     write_reg32(EAX, low);
