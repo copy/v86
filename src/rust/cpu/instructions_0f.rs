@@ -3218,10 +3218,12 @@ pub unsafe fn instr_0FA2() {
         },
 
         7 => {
-            eax = 0; // maximum supported sub-level
-            ebx = 1 << 9; // enhanced REP MOVSB/STOSB
-            ecx = 0;
-            edx = 0;
+            if read_reg32(ECX) == 0 {
+                eax = 0; // maximum supported sub-level
+                ebx = 1 << 9; // enhanced REP MOVSB/STOSB
+                ecx = 0;
+                edx = 0;
+            }
         },
 
         0x80000000 => {
@@ -3264,11 +3266,11 @@ pub unsafe fn instr_0FA2() {
         },
     }
 
-    if level == 4 {
+    if level == 4 || level == 7 {
         dbg_log!(
-            "cpuid: eax={:08x} cl={:02x}",
+            "cpuid: eax={:08x} ecx={:02x}",
             read_reg32(EAX),
-            read_reg8(CL),
+            read_reg32(ECX),
         );
     }
     else if level != 0 && level != 2 && level != 0x80000000 {
