@@ -212,6 +212,18 @@
                 bzimage_initrd_from_filesystem: true,
             },
             {
+                id: "copy/skiffos",
+                name: "SkiffOS",
+                cdrom: {
+                    url: host + "skiffos.iso",
+                    size: 124672000,
+                    async: true,
+                    fixed_chunk_size: 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                memory_size: 512 * 1024 * 1024,
+            },
+            {
                 id: "serenity",
                 name: "SerenityOS",
                 hda: {
