@@ -21,7 +21,7 @@ macro_rules! console_log {
 #[allow(unused_macros)]
 macro_rules! dbg_assert {
     ($($arg:tt)*) => {
-        debug_assert!($($arg)*);
+        debug_assert!($($arg)*)
     };
 }
 
