@@ -2,6 +2,7 @@
 
 use cpu::cpu::reg128;
 use softfloat::F80;
+use state_flags::CachedStateFlags;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;
@@ -10,6 +11,7 @@ pub const reg32: *mut i32 = 64 as *mut i32;
 pub const last_op1: *mut i32 = 96 as *mut i32;
 
 pub const last_op_size: *mut i32 = 104 as *mut i32;
+pub const state_flags: *mut CachedStateFlags = 108 as *mut CachedStateFlags;
 
 pub const last_result: *mut i32 = 112 as *mut i32;
 pub const flags_changed: *mut i32 = 116 as *mut i32;

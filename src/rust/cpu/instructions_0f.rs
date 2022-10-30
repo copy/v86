@@ -1323,6 +1323,7 @@ pub unsafe fn instr_0F34() {
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
         *stack_size_32 = true;
+        update_state_flags();
         return;
     };
 }
@@ -1349,6 +1350,7 @@ pub unsafe fn instr_0F35() {
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
         *stack_size_32 = true;
+        update_state_flags();
         return;
     };
 }

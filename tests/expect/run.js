@@ -176,6 +176,7 @@ Hint: Use tests/expect/run.js --accept-all to accept all changes (use git diff t
             const START_ADDRESS = 0x1000;
 
             cpu.mem8.set(executable, START_ADDRESS);
+            cpu.update_state_flags();
             cpu.jit_force_generate(START_ADDRESS);
         });
 }
