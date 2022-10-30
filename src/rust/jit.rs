@@ -740,8 +740,9 @@ pub fn jit_force_generate_unsafe(virt_addr: i32) {
     let phys_addr = cpu::translate_address_read(virt_addr).unwrap();
     record_entry_point(phys_addr);
     let cs_offset = cpu::get_seg_cs() as u32;
-    let state_flags = cpu::pack_current_state_flags();
-    jit_analyze_and_generate(ctx, virt_addr, phys_addr, cs_offset, state_flags);
+    jit_analyze_and_generate(ctx, virt_addr, phys_addr, cs_offset, unsafe {
+        *global_pointers::state_flags
+    });
 }
 
 #[inline(never)]

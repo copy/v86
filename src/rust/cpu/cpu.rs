@@ -489,6 +489,7 @@ pub unsafe fn iret(is_16: bool) {
             adjust_stack_reg(3 * 4);
         }
 
+        update_state_flags();
         handle_irqs();
         return;
     }
@@ -714,6 +715,8 @@ pub unsafe fn iret(is_16: bool) {
     *segment_offsets.offset(CS as isize) = cs_descriptor.base();
 
     *instruction_pointer = new_eip + get_seg_cs();
+
+    update_state_flags();
 
     // iret end
 
@@ -2438,6 +2441,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         if reg == SS {
             *stack_size_32 = false;
         }
+        update_state_flags();
         return true;
     }
 
@@ -2493,6 +2497,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         }
 
         *stack_size_32 = descriptor.is_32();
+        update_state_flags();
     }
     else if reg == CS {
         // handled by switch_cs_real_mode, far_return or far_jump
@@ -2528,6 +2533,8 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     *segment_limits.offset(reg as isize) = descriptor.effective_limit();
     *segment_offsets.offset(reg as isize) = descriptor.base();
     *sreg.offset(reg as isize) = selector_raw as u16;
+
+    update_state_flags();
 
     true
 }
@@ -2712,11 +2719,15 @@ pub unsafe fn load_pdpte(cr3: i32) {
     }
 }
 
-pub unsafe fn cpl_changed() { *last_virt_eip = -1; }
+pub unsafe fn cpl_changed() {
+    *last_virt_eip = -1;
+    update_state_flags();
+}
 
 pub unsafe fn update_cs_size(new_size: bool) {
     if *is_32 != new_size {
         *is_32 = new_size;
+        update_state_flags();
     }
 }
 
@@ -2832,7 +2843,6 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opco
 pub unsafe fn cycle_internal() {
     profiler::stat_increment(CYCLE_INTERNAL);
     if !::config::FORCE_DISABLE_JIT {
-        let state_flags = pack_current_state_flags();
         let mut jit_entry = None;
         let initial_eip = *instruction_pointer;
 
@@ -2841,7 +2851,7 @@ pub unsafe fn cycle_internal() {
             Some(c) => {
                 let c = c.as_ref();
 
-                if state_flags == c.state_flags {
+                if *state_flags == c.state_flags {
                     let state = c.state_table[initial_eip as usize & 0xFFF];
                     if state != u16::MAX {
                         jit_entry = Some((c.wasm_table_index.to_u16(), state));
@@ -2866,7 +2876,7 @@ pub unsafe fn cycle_internal() {
                 match get_phys_eip() {
                     Err(()) => dbg_assert!(false),
                     Ok(phys_eip) => {
-                        let entry = jit::jit_find_cache_entry(phys_eip, state_flags);
+                        let entry = jit::jit_find_cache_entry(phys_eip, *state_flags);
                         dbg_assert!(entry.wasm_table_index.to_u16() == wasm_table_index);
                         dbg_assert!(entry.initial_state == initial_state);
                     },
@@ -2934,7 +2944,7 @@ pub unsafe fn cycle_internal() {
                 Some(c) => {
                     let c = c.as_ref();
 
-                    if state_flags == c.state_flags
+                    if *state_flags == c.state_flags
                         && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
                     {
                         profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
@@ -2945,7 +2955,7 @@ pub unsafe fn cycle_internal() {
             #[cfg(feature = "profiler")]
             {
                 if CHECK_MISSED_ENTRY_POINTS {
-                    jit::check_missed_entry_points(phys_addr, state_flags);
+                    jit::check_missed_entry_points(phys_addr, *state_flags);
                 }
             }
 
@@ -2956,7 +2966,7 @@ pub unsafe fn cycle_internal() {
                 initial_eip,
                 phys_addr,
                 get_seg_cs() as u32,
-                state_flags,
+                *state_flags,
                 *instruction_counter - initial_instruction_counter,
             );
 
@@ -3023,8 +3033,7 @@ unsafe fn jit_run_interpreted(phys_addr: u32) {
 
         if CHECK_MISSED_ENTRY_POINTS {
             let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
-            let state_flags = pack_current_state_flags();
-            let entry = jit::jit_find_cache_entry(phys_addr, state_flags);
+            let entry = jit::jit_find_cache_entry(phys_addr, *state_flags);
 
             if entry != jit::CachedCode::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
@@ -3045,9 +3054,10 @@ unsafe fn jit_run_interpreted(phys_addr: u32) {
     }
 }
 
-pub fn pack_current_state_flags() -> CachedStateFlags {
+#[no_mangle]
+pub fn update_state_flags() {
     unsafe {
-        CachedStateFlags::of_u32(
+        *state_flags = CachedStateFlags::of_u32(
             (*is_32 as u32) << 0
                 | (*stack_size_32 as u32) << 1
                 | ((*cpl == 3) as u32) << 2
@@ -4270,6 +4280,8 @@ pub unsafe fn reset_cpu() {
 
     switch_seg(SS, 0x30);
     write_reg32(ESP, 0x100);
+
+    update_state_flags();
 
     jit::jit_clear_cache(jit::get_jit_state());
 }

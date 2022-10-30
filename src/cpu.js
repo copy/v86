@@ -259,6 +259,7 @@ CPU.prototype.wasm_patch = function()
 
     this.clear_tlb = get_import("clear_tlb");
     this.full_clear_tlb = get_import("full_clear_tlb");
+    this.update_state_flags = get_import("update_state_flags");
 
     this.set_tsc = get_import("set_tsc");
     this.store_current_tsc = get_import("store_current_tsc");
@@ -499,6 +500,8 @@ CPU.prototype.set_state = function(state)
     const bitmap = new v86util.Bitmap(state[78].buffer);
     const packed_memory = state[77];
     this.unpack_memory(bitmap, packed_memory);
+
+    this.update_state_flags();
 
     this.full_clear_tlb();
 
@@ -1090,6 +1093,8 @@ CPU.prototype.load_multiboot = function(buffer)
                     }
                 });
         }
+
+        this.update_state_flags();
 
         dbg_log("Starting multiboot kernel at:", LOG_CPU);
         this.debug.dump_state();
