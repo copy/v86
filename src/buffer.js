@@ -94,8 +94,9 @@
      * @constructor
      * @param {string} filename Name of the file to download
      * @param {number|undefined} size
+     * @param {number|undefined} fixed_chunk_size
      */
-    function AsyncXHRBuffer(filename, size)
+    function AsyncXHRBuffer(filename, size, fixed_chunk_size)
     {
         this.filename = filename;
 
@@ -103,6 +104,9 @@
 
         this.block_cache = new Map();
         this.block_cache_is_write = new Set();
+
+        this.fixed_chunk_size = fixed_chunk_size;
+        this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -194,14 +198,29 @@
             return;
         }
 
+        var requested_start = offset;
+        var requested_length = len;
+        if(this.fixed_chunk_size)
+        {
+            requested_start = offset - (offset % this.fixed_chunk_size);
+            requested_length = (Math.floor((offset + len - 1) / this.fixed_chunk_size) + 1 - Math.floor(requested_start / this.fixed_chunk_size)) * this.fixed_chunk_size;
+        }
+
         v86util.load_file(this.filename, {
             done: function done(buffer)
             {
                 var block = new Uint8Array(buffer);
-                this.handle_read(offset, len, block);
-                fn(block);
+                this.handle_read(requested_start, requested_length, block);
+                if(requested_start == offset && requested_length == len)
+                {
+                    fn(block);
+                }
+                else
+                {
+                    fn(block.subarray(offset - requested_start, offset - requested_start + len));
+                }
             }.bind(this),
-            range: { start: offset, length: len },
+            range: { start: requested_start, length: requested_length },
         });
     };
 

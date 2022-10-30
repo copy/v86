@@ -441,7 +441,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                 }
                 else
                 {
-                    buffer = new v86util.AsyncXHRBuffer(file.url, file.size);
+                    buffer = new v86util.AsyncXHRBuffer(file.url, file.size, file.fixed_chunk_size);
                 }
 
                 files_to_load.push({
