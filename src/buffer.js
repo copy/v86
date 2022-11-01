@@ -203,7 +203,7 @@
         if(this.fixed_chunk_size)
         {
             requested_start = offset - (offset % this.fixed_chunk_size);
-            requested_length = (Math.floor((offset + len - 1) / this.fixed_chunk_size) + 1 - Math.floor(requested_start / this.fixed_chunk_size)) * this.fixed_chunk_size;
+            requested_length = Math.ceil((offset - requested_start + len) / this.fixed_chunk_size) * this.fixed_chunk_size;
         }
 
         v86util.load_file(this.filename, {
