@@ -90,7 +90,7 @@
                       (i32.and
                         (tee_local $l9
                           (i32.load
-                            (i32.const 116)))
+                            (i32.const 100)))
                         (i32.const 1))
                       (then
                         (set_local $l9
@@ -104,7 +104,7 @@
                             (get_local $l9))
                           (i32.xor
                             (i32.load
-                              (i32.const 96))
+                              (i32.const 104))
                             (get_local $l9))))
                       (else
                         (i32.and
@@ -112,7 +112,7 @@
                             (i32.const 120))
                           (i32.const 1))))))
                 (i32.store
-                  (i32.const 96)
+                  (i32.const 104)
                   (get_local $l3))
                 (set_local $l3
                   (i32.add
@@ -121,29 +121,24 @@
                 (i32.store
                   (i32.const 112)
                   (get_local $l3))
-                (i32.store
-                  (i32.const 104)
-                  (i32.const 31))
-                (i32.store
-                  (i32.const 116)
-                  (i32.const 2260))
+                (i64.store
+                  (i32.const 96)
+                  (i64.const 9706626088991))
                 (i32.store
                   (i32.const 112)
                   (i32.sub
                     (get_local $l0)
                     (i32.const 10)))
                 (i32.store
-                  (i32.const 96)
-                  (get_local $l0))
-                (i32.store
                   (i32.const 104)
-                  (i32.const 31))
-                (i32.store
-                  (i32.const 116)
-                  (i32.const -2147481387))
+                  (get_local $l0))
+                (i64.store
+                  (i32.const 96)
+                  (i64.const -9223362325933719521))
                 (br_if $L6
-                  (i32.load
-                    (i32.const 112)))))
+                  (i32.ne
+                    (get_local $l0)
+                    (i32.const 10)))))
             (set_local $l8
               (i32.add
                 (get_local $l8)

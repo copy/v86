@@ -85,13 +85,13 @@ function CPU(bus, wm, next_tick_immediately)
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    this.flags_changed = v86util.view(Int32Array, memory, 116, 1);
+    this.flags_changed = v86util.view(Int32Array, memory, 100, 1);
 
     /**
      * enough infos about the last arithmetic operation to compute eflags
      */
-    this.last_op1 = v86util.view(Int32Array, memory, 96, 1);
-    this.last_op_size = v86util.view(Int32Array, memory, 104, 1);
+    this.last_op_size = v86util.view(Int32Array, memory, 96, 1);
+    this.last_op1 = v86util.view(Int32Array, memory, 104, 1);
     this.last_result = v86util.view(Int32Array, memory, 112, 1);
 
     this.current_tsc = v86util.view(Uint32Array, memory, 960, 2); // 64 bit

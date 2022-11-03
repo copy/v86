@@ -968,8 +968,7 @@ fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.and_i32();
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, OPSIZE_8, FLAGS_ALL);
 
     ctx.builder
         .load_fixed_u8(global_pointers::last_result as u32);
@@ -985,8 +984,7 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(ctx.builder, &dest_operand);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, OPSIZE_32, FLAGS_ALL);
 }
 
 fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
@@ -1006,8 +1004,7 @@ fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.and_i32();
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, OPSIZE_8, FLAGS_ALL | FLAG_SUB);
 
     ctx.builder
         .load_fixed_u8(global_pointers::last_result as u32);
@@ -1023,8 +1020,7 @@ fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(ctx.builder, &dest_operand);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, OPSIZE_32, FLAGS_ALL | FLAG_SUB);
 }
 
 fn gen_cmp(
@@ -1063,8 +1059,7 @@ fn gen_cmp(
         ctx.builder.and_i32();
     }
     ctx.builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(ctx.builder, size);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL | FLAG_SUB);
 }
 fn gen_cmp8(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate) {
     gen_cmp(ctx, dest, source, OPSIZE_8)
@@ -1094,9 +1089,9 @@ fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     let res = ctx.builder.set_new_local();
 
     codegen::gen_set_last_result(ctx.builder, &res);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_32,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
 
@@ -1171,9 +1166,9 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     let res = ctx.builder.set_new_local();
 
     codegen::gen_set_last_result(ctx.builder, &res);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_32,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
 
@@ -1239,9 +1234,9 @@ fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.and_i32();
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_8,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1258,9 +1253,9 @@ fn gen_and32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(ctx.builder, &dest_operand);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_32,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1285,9 +1280,9 @@ fn gen_test(
     }
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, size);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        size,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1311,9 +1306,9 @@ fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loca
     ctx.builder.or_i32();
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_8,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1330,9 +1325,9 @@ fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(ctx.builder, &dest_operand);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_32,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1347,9 +1342,9 @@ fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.xor_i32();
     ctx.builder.store_aligned_i32(0);
 
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_8);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_8,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1375,9 +1370,9 @@ fn gen_xor32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     }
 
     codegen::gen_set_last_result(ctx.builder, &dest_operand);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(
+    codegen::gen_set_last_op_size_and_flags_changed(
         ctx.builder,
+        OPSIZE_32,
         FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW & !FLAG_ADJUST,
     );
     codegen::gen_clear_flags_bits(ctx.builder, FLAG_CARRY | FLAG_OVERFLOW | FLAG_ADJUST);
@@ -1524,8 +1519,11 @@ fn gen_shl32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(builder, dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        builder,
+        OPSIZE_32,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW,
+    );
 
     builder.const_i32(global_pointers::flags as i32);
     codegen::gen_get_flags(builder);
@@ -1603,8 +1601,11 @@ fn gen_shr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(builder, dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        builder,
+        OPSIZE_32,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW,
+    );
 
     if let ShiftCount::Local(l) = count {
         builder.block_end();
@@ -1652,8 +1653,11 @@ fn gen_sar32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(builder, dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        builder,
+        OPSIZE_32,
+        FLAGS_ALL & !FLAG_CARRY & !FLAG_OVERFLOW,
+    );
 
     if let ShiftCount::Local(l) = count {
         builder.block_end();
@@ -1685,8 +1689,7 @@ fn gen_cmpxchg32(ctx: &mut JitContext, r: u32) {
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
     codegen::gen_get_reg32(ctx, regs::EAX);
     ctx.builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, OPSIZE_32, FLAGS_ALL | FLAG_SUB);
 
     codegen::gen_get_reg32(ctx, regs::EAX);
     ctx.builder.get_local(&source);
@@ -1728,8 +1731,11 @@ fn gen_mul32(ctx: &mut JitContext) {
     ctx.builder.block_end();
 
     codegen::gen_set_last_result(ctx.builder, &ctx.register_locals[regs::EAX as usize]);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        ctx.builder,
+        OPSIZE_32,
+        FLAGS_ALL & !1 & !FLAG_OVERFLOW,
+    );
 }
 
 fn gen_imul32(ctx: &mut JitContext) {
@@ -1762,8 +1768,11 @@ fn gen_imul32(ctx: &mut JitContext) {
     ctx.builder.block_end();
 
     codegen::gen_set_last_result(ctx.builder, &ctx.register_locals[regs::EAX as usize]);
-    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        ctx.builder,
+        OPSIZE_32,
+        FLAGS_ALL & !1 & !FLAG_OVERFLOW,
+    );
 }
 
 fn gen_imul_reg32(
@@ -1791,8 +1800,11 @@ fn gen_imul3_reg32(
     builder.set_local(&dest_operand);
 
     codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+    codegen::gen_set_last_op_size_and_flags_changed(
+        builder,
+        OPSIZE_32,
+        FLAGS_ALL & !1 & !FLAG_OVERFLOW,
+    );
 
     builder.const_i32(global_pointers::flags as i32);
     builder.get_local_i64(&result);
@@ -2252,8 +2264,7 @@ fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
         ctx.builder.and_i32();
     }
     ctx.builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(ctx.builder, size);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1);
     ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 }
 fn gen_inc16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
@@ -2298,8 +2309,7 @@ fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
         ctx.builder.and_i32();
     }
     ctx.builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(ctx.builder, size);
-    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1 | FLAG_SUB);
     ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 }
 fn gen_dec16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
@@ -2347,8 +2357,7 @@ fn gen_neg32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
     builder.set_local(dest_operand);
 
     codegen::gen_set_last_result(builder, &dest_operand);
-    codegen::gen_set_last_op_size(builder, OPSIZE_32);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL | FLAG_SUB);
+    codegen::gen_set_last_op_size_and_flags_changed(builder, OPSIZE_32, FLAGS_ALL | FLAG_SUB);
 }
 
 pub fn instr16_06_jit(ctx: &mut JitContext) {

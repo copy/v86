@@ -85,24 +85,21 @@
                     (get_local $l0)
                     (i32.const 10)))
                 (i32.store
-                  (i32.const 96)
-                  (get_local $l0))
-                (i32.store
                   (i32.const 104)
-                  (i32.const 31))
-                (i32.store
-                  (i32.const 116)
-                  (i32.const -2147481387))
+                  (get_local $l0))
+                (i64.store
+                  (i32.const 96)
+                  (i64.const -9223362325933719521))
                 (br_if $B5
-                  (i32.eqz
-                    (i32.load
-                      (i32.const 112))))
+                  (i32.eq
+                    (get_local $l0)
+                    (i32.const 10)))
                 (set_local $l8
                   (i32.add
                     (get_local $l8)
                     (i32.const 2)))
                 (i32.store
-                  (i32.const 96)
+                  (i32.const 104)
                   (get_local $l3))
                 (set_local $l3
                   (i32.add
@@ -111,12 +108,9 @@
                 (i32.store
                   (i32.const 112)
                   (get_local $l3))
-                (i32.store
-                  (i32.const 104)
-                  (i32.const 31))
-                (i32.store
-                  (i32.const 116)
-                  (i32.const 2261))
+                (i64.store
+                  (i32.const 96)
+                  (i64.const 9710921056287))
                 (br $L6)))
             (set_local $l8
               (i32.add

@@ -72,14 +72,11 @@
                   (get_local $l0)
                   (i32.const 5)))
               (i32.store
-                (i32.const 96)
-                (get_local $l0))
-              (i32.store
                 (i32.const 104)
-                (i32.const 31))
-              (i32.store
-                (i32.const 116)
-                (i32.const -2147481387))
+                (get_local $l0))
+              (i64.store
+                (i32.const 96)
+                (i64.const -9223362325933719521))
               (br_if $B5
                 (i32.gt_s
                   (get_local $l0)
@@ -99,7 +96,7 @@
                     (i32.and
                       (tee_local $l9
                         (i32.load
-                          (i32.const 116)))
+                          (i32.const 100)))
                       (i32.const 1))
                     (then
                       (set_local $l9
@@ -113,7 +110,7 @@
                           (get_local $l9))
                         (i32.xor
                           (i32.load
-                            (i32.const 96))
+                            (i32.const 104))
                           (get_local $l9))))
                     (else
                       (i32.and
@@ -121,7 +118,7 @@
                           (i32.const 120))
                         (i32.const 1))))))
               (i32.store
-                (i32.const 96)
+                (i32.const 104)
                 (get_local $l1))
               (set_local $l1
                 (i32.add
@@ -130,12 +127,9 @@
               (i32.store
                 (i32.const 112)
                 (get_local $l1))
-              (i32.store
-                (i32.const 104)
-                (i32.const 31))
-              (i32.store
-                (i32.const 116)
-                (i32.const 2260)))
+              (i64.store
+                (i32.const 96)
+                (i64.const 9706626088991)))
             (set_local $l8
               (i32.add
                 (get_local $l8)
@@ -151,7 +145,7 @@
                   (i32.and
                     (tee_local $l9
                       (i32.load
-                        (i32.const 116)))
+                        (i32.const 100)))
                     (i32.const 1))
                   (then
                     (set_local $l9
@@ -165,7 +159,7 @@
                         (get_local $l9))
                       (i32.xor
                         (i32.load
-                          (i32.const 96))
+                          (i32.const 104))
                         (get_local $l9))))
                   (else
                     (i32.and
@@ -173,7 +167,7 @@
                         (i32.const 120))
                       (i32.const 1))))))
             (i32.store
-              (i32.const 96)
+              (i32.const 104)
               (get_local $l3))
             (set_local $l3
               (i32.add
@@ -182,12 +176,9 @@
             (i32.store
               (i32.const 112)
               (get_local $l3))
-            (i32.store
-              (i32.const 104)
-              (i32.const 31))
-            (i32.store
-              (i32.const 116)
-              (i32.const 2260))
+            (i64.store
+              (i32.const 96)
+              (i64.const 9706626088991))
             (i32.store
               (i32.const 560)
               (i32.or
