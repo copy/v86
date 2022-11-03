@@ -1518,23 +1518,25 @@ pub fn gen_set_last_result(builder: &mut WasmBuilder, source: &WasmLocal) {
     builder.store_aligned_i32(0);
 }
 
-pub fn gen_set_last_op_size(builder: &mut WasmBuilder, value: i32) {
-    builder.const_i32(global_pointers::last_op_size as i32);
-    builder.const_i32(value);
-    builder.store_aligned_i32(0);
-}
-
-pub fn gen_set_flags_changed(builder: &mut WasmBuilder, value: i32) {
-    builder.const_i32(global_pointers::flags_changed as i32);
-    builder.const_i32(value);
-    builder.store_aligned_i32(0);
-}
 pub fn gen_clear_flags_changed_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
     builder.const_i32(global_pointers::flags_changed as i32);
     gen_get_flags_changed(builder);
     builder.const_i32(!bits_to_clear);
     builder.and_i32();
     builder.store_aligned_i32(0);
+}
+
+pub fn gen_set_last_op_size_and_flags_changed(
+    builder: &mut WasmBuilder,
+    last_op_size: i32,
+    flags_changed: i32,
+) {
+    dbg_assert!(last_op_size == OPSIZE_8 || last_op_size == OPSIZE_16 || last_op_size == OPSIZE_32);
+    dbg_assert!(global_pointers::last_op_size as i32 % 8 == 0);
+    dbg_assert!(global_pointers::last_op_size as i32 + 4 == global_pointers::flags_changed as i32);
+    builder.const_i32(global_pointers::last_op_size as i32);
+    builder.const_i64(last_op_size as u32 as i64 | (flags_changed as u32 as i64) << 32);
+    builder.store_aligned_i64(0);
 }
 
 pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
