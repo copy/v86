@@ -51,6 +51,23 @@ impl<'a> LocalOrImmediate<'a> {
             _ => false,
         }
     }
+
+    fn to_instruction_operand(&self, ctx: &mut JitContext) -> InstructionOperand {
+        match self {
+            &LocalOrImmediate::WasmLocal(source) => local_to_instruction_operand(ctx, source),
+            &LocalOrImmediate::Immediate(i) => InstructionOperand::Immediate(i),
+        }
+    }
+}
+
+fn local_to_instruction_operand(ctx: &mut JitContext, local: &WasmLocal) -> InstructionOperand {
+    if ctx.register_locals.iter().any(|l| l == local) {
+        // safe because register locals are alive for the duration of the entire function
+        InstructionOperand::WasmLocal(local.unsafe_clone())
+    }
+    else {
+        InstructionOperand::Other
+    }
 }
 
 pub fn jit_instruction(ctx: &mut JitContext, instr_flags: &mut u32) {
@@ -1017,23 +1034,8 @@ fn gen_cmp(
     size: i32,
 ) {
     ctx.current_instruction = Instruction::Cmp {
-        dest: if ctx.register_locals.iter().any(|l| l == dest_operand) {
-            InstructionOperand::WasmLocal(dest_operand.unsafe_clone())
-        }
-        else {
-            InstructionOperand::Other
-        },
-        source: match source_operand {
-            &LocalOrImmediate::WasmLocal(source) => {
-                if ctx.register_locals.iter().any(|l| l == source) {
-                    InstructionOperand::WasmLocal(source.unsafe_clone())
-                }
-                else {
-                    InstructionOperand::Other
-                }
-            },
-            &LocalOrImmediate::Immediate(i) => InstructionOperand::Immediate(i),
-        },
+        dest: local_to_instruction_operand(ctx, dest_operand),
+        source: source_operand.to_instruction_operand(ctx),
         opsize: size,
     };
 
