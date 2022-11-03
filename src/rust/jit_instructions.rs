@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use codegen;
-use codegen::BitSize;
+use codegen::{BitSize, ConditionNegate};
 use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
     FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
@@ -1089,7 +1089,7 @@ fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
     ctx.builder.add_i32();
-    codegen::gen_getcf_unoptimised(ctx.builder);
+    codegen::gen_getcf(ctx, ConditionNegate::False);
     ctx.builder.add_i32();
     let res = ctx.builder.set_new_local();
 
@@ -1166,7 +1166,7 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
     ctx.builder.sub_i32();
-    codegen::gen_getcf_unoptimised(ctx.builder);
+    codegen::gen_getcf(ctx, ConditionNegate::False);
     ctx.builder.sub_i32();
     let res = ctx.builder.set_new_local();
 
@@ -2218,44 +2218,43 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
 }
 
 fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.builder.const_i32(global_pointers::flags as i32);
+    codegen::gen_get_flags(ctx.builder);
+    ctx.builder.const_i32(!1);
+    ctx.builder.and_i32();
+    codegen::gen_getcf(ctx, ConditionNegate::False);
+    ctx.builder.or_i32();
+    ctx.builder.store_aligned_i32(0);
 
-    let builder = &mut ctx.builder;
-    builder.const_i32(global_pointers::flags as i32);
-    codegen::gen_get_flags(builder);
-    builder.const_i32(!1);
-    builder.and_i32();
-    codegen::gen_getcf_unoptimised(builder);
-    builder.or_i32();
-    builder.store_aligned_i32(0);
-
-    builder.const_i32(global_pointers::last_op1 as i32);
-    builder.get_local(&dest_operand);
+    ctx.builder.const_i32(global_pointers::last_op1 as i32);
+    ctx.builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
-        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
-        builder.and_i32();
+        ctx.builder
+            .const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
+    ctx.builder.store_aligned_i32(0);
 
-    builder.get_local(dest_operand);
-    builder.const_i32(1);
-    builder.add_i32();
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(1);
+    ctx.builder.add_i32();
     if size == OPSIZE_16 {
-        codegen::gen_set_reg16_local(builder, dest_operand);
+        codegen::gen_set_reg16_local(ctx.builder, dest_operand);
     }
     else {
-        builder.set_local(dest_operand);
+        ctx.builder.set_local(dest_operand);
     }
 
-    builder.const_i32(global_pointers::last_result as i32);
-    builder.get_local(&dest_operand);
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(&dest_operand);
     if size == OPSIZE_16 {
-        builder.const_i32(0xFFFF);
-        builder.and_i32();
+        ctx.builder.const_i32(0xFFFF);
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(builder, size);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1);
+    ctx.builder.store_aligned_i32(0);
+    codegen::gen_set_last_op_size(ctx.builder, size);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1);
+    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 }
 fn gen_inc16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
     gen_inc(ctx, dest_operand, OPSIZE_16);
@@ -2265,44 +2264,43 @@ fn gen_inc32(ctx: &mut JitContext, dest_operand: &WasmLocal) {
 }
 
 fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.builder.const_i32(global_pointers::flags as i32);
+    codegen::gen_get_flags(ctx.builder);
+    ctx.builder.const_i32(!1);
+    ctx.builder.and_i32();
+    codegen::gen_getcf(ctx, ConditionNegate::False);
+    ctx.builder.or_i32();
+    ctx.builder.store_aligned_i32(0);
 
-    let builder = &mut ctx.builder;
-    builder.const_i32(global_pointers::flags as i32);
-    codegen::gen_get_flags(builder);
-    builder.const_i32(!1);
-    builder.and_i32();
-    codegen::gen_getcf_unoptimised(builder);
-    builder.or_i32();
-    builder.store_aligned_i32(0);
-
-    builder.const_i32(global_pointers::last_op1 as i32);
-    builder.get_local(&dest_operand);
+    ctx.builder.const_i32(global_pointers::last_op1 as i32);
+    ctx.builder.get_local(&dest_operand);
     if size == OPSIZE_8 || size == OPSIZE_16 {
-        builder.const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
-        builder.and_i32();
+        ctx.builder
+            .const_i32(if size == OPSIZE_8 { 0xFF } else { 0xFFFF });
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
+    ctx.builder.store_aligned_i32(0);
 
-    builder.get_local(dest_operand);
-    builder.const_i32(1);
-    builder.sub_i32();
+    ctx.builder.get_local(dest_operand);
+    ctx.builder.const_i32(1);
+    ctx.builder.sub_i32();
     if size == OPSIZE_16 {
-        codegen::gen_set_reg16_local(builder, dest_operand);
+        codegen::gen_set_reg16_local(ctx.builder, dest_operand);
     }
     else {
-        builder.set_local(dest_operand);
+        ctx.builder.set_local(dest_operand);
     }
 
-    builder.const_i32(global_pointers::last_result as i32);
-    builder.get_local(&dest_operand);
+    ctx.builder.const_i32(global_pointers::last_result as i32);
+    ctx.builder.get_local(&dest_operand);
     if size == OPSIZE_16 {
-        builder.const_i32(0xFFFF);
-        builder.and_i32();
+        ctx.builder.const_i32(0xFFFF);
+        ctx.builder.and_i32();
     }
-    builder.store_aligned_i32(0);
-    codegen::gen_set_last_op_size(builder, size);
-    codegen::gen_set_flags_changed(builder, FLAGS_ALL & !1 | FLAG_SUB);
+    ctx.builder.store_aligned_i32(0);
+    codegen::gen_set_last_op_size(ctx.builder, size);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 | FLAG_SUB);
+    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
 }
 fn gen_dec16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
     gen_dec(ctx, dest_operand, OPSIZE_16)
