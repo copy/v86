@@ -7,7 +7,7 @@ use cpu::cpu::{
     FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
 };
 use cpu::global_pointers;
-use jit::{Instruction, InstructionOperand, JitContext};
+use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
 use modrm::{jit_add_seg_offset, jit_add_seg_offset_no_override, ModrmByte};
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
@@ -54,19 +54,21 @@ impl<'a> LocalOrImmediate<'a> {
 
     fn to_instruction_operand(&self, ctx: &mut JitContext) -> InstructionOperand {
         match self {
-            &LocalOrImmediate::WasmLocal(source) => local_to_instruction_operand(ctx, source),
+            &LocalOrImmediate::WasmLocal(source) => {
+                local_to_instruction_operand(ctx, source).into()
+            },
             &LocalOrImmediate::Immediate(i) => InstructionOperand::Immediate(i),
         }
     }
 }
 
-fn local_to_instruction_operand(ctx: &mut JitContext, local: &WasmLocal) -> InstructionOperand {
+fn local_to_instruction_operand(ctx: &mut JitContext, local: &WasmLocal) -> InstructionOperandDest {
     if ctx.register_locals.iter().any(|l| l == local) {
         // safe because register locals are alive for the duration of the entire function
-        InstructionOperand::WasmLocal(local.unsafe_clone())
+        InstructionOperandDest::WasmLocal(local.unsafe_clone())
     }
     else {
-        InstructionOperand::Other
+        InstructionOperandDest::Other
     }
 }
 
