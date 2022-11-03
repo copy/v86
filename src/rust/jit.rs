@@ -234,14 +234,27 @@ impl CachedCode {
 }
 
 #[derive(PartialEq)]
+pub enum InstructionOperandDest {
+    WasmLocal(WasmLocal),
+    Other,
+}
+#[derive(PartialEq)]
 pub enum InstructionOperand {
     WasmLocal(WasmLocal),
     Immediate(i32),
     Other,
 }
+impl Into<InstructionOperand> for InstructionOperandDest {
+    fn into(self: InstructionOperandDest) -> InstructionOperand {
+        match self {
+            InstructionOperandDest::WasmLocal(l) => InstructionOperand::WasmLocal(l),
+            InstructionOperandDest::Other => InstructionOperand::Other,
+        }
+    }
+}
 pub enum Instruction {
     Cmp {
-        dest: InstructionOperand,
+        dest: InstructionOperandDest,
         source: InstructionOperand,
         opsize: i32,
     },

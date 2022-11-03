@@ -4,7 +4,7 @@ use cpu::cpu::{
 };
 use cpu::global_pointers;
 use cpu::memory;
-use jit::{Instruction, InstructionOperand, JitContext};
+use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
 use modrm;
 use modrm::ModrmByte;
 use profiler;
@@ -1640,13 +1640,12 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
             }
             else {
                 match dest {
-                    InstructionOperand::WasmLocal(l) => {
+                    InstructionOperandDest::WasmLocal(l) => {
                         ctx.builder.get_local(l);
                     },
-                    InstructionOperand::Other => {
+                    InstructionOperandDest::Other => {
                         gen_get_last_op1(ctx.builder);
                     },
-                    &InstructionOperand::Immediate(_) => panic!(),
                 }
                 match source {
                     InstructionOperand::WasmLocal(l) => {
@@ -1808,7 +1807,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
         } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             match dest {
-                InstructionOperand::WasmLocal(l) => {
+                InstructionOperandDest::WasmLocal(l) => {
                     ctx.builder.get_local(l);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
@@ -1816,8 +1815,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.and_i32();
                     }
                 },
-                &InstructionOperand::Immediate(_) => panic!(),
-                InstructionOperand::Other => {
+                InstructionOperandDest::Other => {
                     gen_get_last_op1(ctx.builder);
                 },
             }
@@ -1896,7 +1894,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
         } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             match dest {
-                InstructionOperand::WasmLocal(l) => {
+                InstructionOperandDest::WasmLocal(l) => {
                     ctx.builder.get_local(l);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
@@ -1904,7 +1902,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.shl_i32();
                     }
                 },
-                InstructionOperand::Other => {
+                InstructionOperandDest::Other => {
                     gen_get_last_op1(ctx.builder);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
@@ -1912,7 +1910,6 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.shl_i32();
                     }
                 },
-                &InstructionOperand::Immediate(_) => panic!(),
             }
             match source {
                 InstructionOperand::WasmLocal(l) => {
@@ -1972,7 +1969,7 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
         } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             match dest {
-                InstructionOperand::WasmLocal(l) => {
+                InstructionOperandDest::WasmLocal(l) => {
                     ctx.builder.get_local(l);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
@@ -1980,7 +1977,7 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.shl_i32();
                     }
                 },
-                InstructionOperand::Other => {
+                InstructionOperandDest::Other => {
                     gen_get_last_op1(ctx.builder);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
@@ -1988,7 +1985,6 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.shl_i32();
                     }
                 },
-                &InstructionOperand::Immediate(_) => panic!(),
             }
             match source {
                 InstructionOperand::WasmLocal(l) => {
