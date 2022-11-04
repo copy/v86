@@ -354,8 +354,15 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
 fn gen_get_last_op_size(builder: &mut WasmBuilder) {
     builder.load_fixed_i32(global_pointers::last_op_size as u32);
 }
-fn gen_get_last_op1(builder: &mut WasmBuilder) {
-    builder.load_fixed_i32(global_pointers::last_op1 as u32);
+fn gen_get_last_op1(builder: &mut WasmBuilder, previous_instruction: &Instruction) {
+    match previous_instruction {
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(l),
+            source: _,
+            opsize: OPSIZE_32,
+        } => builder.get_local(&l),
+        _ => builder.load_fixed_i32(global_pointers::last_op1 as u32),
+    }
 }
 
 pub fn gen_get_page_fault(builder: &mut WasmBuilder) {
@@ -1646,7 +1653,7 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
             // TODO: add/sub
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             if source == &InstructionOperand::Other || *opsize != OPSIZE_32 {
-                gen_get_last_op1(ctx.builder);
+                gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                 gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             }
             else {
@@ -1655,7 +1662,7 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
                         ctx.builder.get_local(l);
                     },
                     InstructionOperandDest::Other => {
-                        gen_get_last_op1(ctx.builder);
+                        gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     },
                 }
                 match source {
@@ -1704,7 +1711,7 @@ pub fn gen_getcf_unoptimised(ctx: &mut JitContext) {
     ctx.builder.get_local(&sub_mask);
     ctx.builder.xor_i32();
 
-    gen_get_last_op1(ctx.builder);
+    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
     ctx.builder.get_local(&sub_mask);
     ctx.builder.xor_i32();
 
@@ -1772,7 +1779,7 @@ pub fn gen_getof(ctx: &mut JitContext) {
     ctx.builder.and_i32();
     ctx.builder.if_i32();
     {
-        gen_get_last_op1(ctx.builder);
+        gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
         let last_op1 = ctx.builder.tee_new_local();
         gen_get_last_result(ctx.builder, &ctx.previous_instruction);
         let last_result = ctx.builder.tee_new_local();
@@ -1827,7 +1834,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperandDest::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                 },
             }
             match source {
@@ -1840,7 +1847,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperand::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     gen_get_last_result(ctx.builder, &ctx.previous_instruction);
                     ctx.builder.sub_i32();
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
@@ -1866,9 +1873,9 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Sub { opsize, dest: _ } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
 
-            gen_get_last_op1(ctx.builder);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
             // Note: Can only use register if it's different from dest (being lazy here and just using op1 and result)
-            gen_get_last_op1(ctx.builder);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             ctx.builder.sub_i32();
             if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
@@ -1914,7 +1921,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperandDest::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
                             .const_i32(if *opsize == OPSIZE_8 { 24 } else { 16 });
@@ -1932,7 +1939,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperand::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     gen_get_last_result(ctx.builder, &ctx.previous_instruction);
                     ctx.builder.sub_i32();
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
@@ -1989,7 +1996,7 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperandDest::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
                         ctx.builder
                             .const_i32(if *opsize == OPSIZE_8 { 24 } else { 16 });
@@ -2007,7 +2014,7 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                     }
                 },
                 InstructionOperand::Other => {
-                    gen_get_last_op1(ctx.builder);
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
                     gen_get_last_result(ctx.builder, &ctx.previous_instruction);
                     ctx.builder.sub_i32();
                     if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
