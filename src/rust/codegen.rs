@@ -348,6 +348,18 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
         } => builder.get_local(&l),
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(l),
+            source,
+            opsize: OPSIZE_32,
+        } => {
+            if source.is_zero() {
+                builder.get_local(&l)
+            }
+            else {
+                builder.load_fixed_i32(global_pointers::last_result as u32)
+            }
+        },
         _ => builder.load_fixed_i32(global_pointers::last_result as u32),
     }
 }
@@ -1582,7 +1594,6 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
         Instruction::Cmp { .. } | Instruction::Sub { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            // TODO: Could use local for cmp x, 0
             // TODO: Could use eq(local, local) for cmp x, y
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             if negate == ConditionNegate::False {
@@ -1734,7 +1745,8 @@ pub fn gen_getsf(ctx: &mut JitContext) {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // TODO:
-            // Could use local for cmp x, 0; test x, x
+            // use local for test x, x
+            // x >= 0 for ConditionNegate::True
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             ctx.builder.const_i32(if opsize == OPSIZE_32 {
                 0x8000_0000u32 as i32
