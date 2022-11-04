@@ -1692,37 +1692,16 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
 
 pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
-        Instruction::Cmp {
-            dest,
-            source,
-            opsize,
-        } => {
+        Instruction::Cmp { source, opsize, .. } => {
             // TODO: add/sub
+            // Note: x < y and x < x - y can be used interchangeably (see getcf)
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            if source == &InstructionOperand::Other || *opsize != OPSIZE_32 {
-                gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
-                gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+            match (opsize, source) {
+                (&OPSIZE_32, InstructionOperand::WasmLocal(l)) => ctx.builder.get_local(l),
+                (_, &InstructionOperand::Immediate(i)) => ctx.builder.const_i32(i),
+                _ => gen_get_last_result(ctx.builder, &ctx.previous_instruction),
             }
-            else {
-                match dest {
-                    InstructionOperandDest::WasmLocal(l) => {
-                        ctx.builder.get_local(l);
-                    },
-                    InstructionOperandDest::Other => {
-                        gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
-                    },
-                }
-                match source {
-                    InstructionOperand::WasmLocal(l) => {
-                        ctx.builder.get_local(l);
-                    },
-                    InstructionOperand::Other => panic!(),
-                    &InstructionOperand::Immediate(i) => {
-                        ctx.builder.const_i32(i);
-                    },
-                }
-            }
-
             if negate == ConditionNegate::True {
                 ctx.builder.geu_i32();
             }
