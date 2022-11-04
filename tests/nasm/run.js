@@ -32,10 +32,6 @@ const TERMINATE_MSG = "DONE";
 
 const FORCE_JIT = process.argv.includes("--force-jit");
 
-// see --section-start= in makefile
-const V86_TEXT_OFFSET = 0x8000;
-const NASM_TEXT_OFFSET = 0x800000;
-
 // alternative representation for infinity for json
 const JSON_POS_INFINITY = "+INFINITY";
 const JSON_NEG_INFINITY = "-INFINITY";
@@ -479,12 +475,12 @@ else {
         if(current_test.fixture.exception)
         {
             const seen_eip = (recorded_exceptions[0] || {}).eip;
-            if(seen_eip - V86_TEXT_OFFSET !== expected_eip - NASM_TEXT_OFFSET)
+            if(seen_eip !== expected_eip)
             {
                 individual_failures.push({
                     name: "exception eip",
-                    expected: expected_eip - NASM_TEXT_OFFSET,
-                    actual: seen_eip === undefined ? "(none)" : seen_eip - V86_TEXT_OFFSET,
+                    expected: expected_eip,
+                    actual: seen_eip === undefined ? "(none)" : seen_eip,
                 });
             }
         }
