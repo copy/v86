@@ -244,6 +244,14 @@ pub enum InstructionOperand {
     Immediate(i32),
     Other,
 }
+impl InstructionOperand {
+    pub fn is_zero(&self) -> bool {
+        match self {
+            InstructionOperand::Immediate(0) => true,
+            _ => false,
+        }
+    }
+}
 impl Into<InstructionOperand> for InstructionOperandDest {
     fn into(self: InstructionOperandDest) -> InstructionOperand {
         match self {
