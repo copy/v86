@@ -268,6 +268,7 @@ pub enum Instruction {
     },
     Sub {
         dest: InstructionOperandDest,
+        source: InstructionOperand,
         opsize: i32,
     },
     // Any instruction that sets last_result

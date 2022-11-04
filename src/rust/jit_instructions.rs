@@ -1025,6 +1025,12 @@ fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.current_instruction = Instruction::Sub {
         opsize: OPSIZE_32,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
     };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
