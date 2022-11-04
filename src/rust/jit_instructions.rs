@@ -996,10 +996,15 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
 }
 
 fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    // TODO: Instruction::Sub
-    ctx.current_instruction = Instruction::Arithmetic {
+    ctx.current_instruction = Instruction::Sub {
         opsize: OPSIZE_8,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
     };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
