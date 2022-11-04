@@ -2039,6 +2039,49 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.lt_i32();
             }
         },
+        Instruction::Sub {
+            opsize,
+            dest: _,
+            source,
+        } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+            if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
+                ctx.builder
+                    .const_i32(if *opsize == OPSIZE_8 { 24 } else { 16 });
+                ctx.builder.shl_i32();
+            }
+            match (opsize, source) {
+                (&OPSIZE_32, InstructionOperand::WasmLocal(l)) => ctx.builder.get_local(l),
+                (_, &InstructionOperand::Immediate(i)) => ctx.builder.const_i32(
+                    i << if *opsize == OPSIZE_32 {
+                        0
+                    }
+                    else if *opsize == OPSIZE_16 {
+                        16
+                    }
+                    else {
+                        24
+                    },
+                ),
+                _ => {
+                    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+                    gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+                    ctx.builder.sub_i32();
+                    if *opsize == OPSIZE_8 || *opsize == OPSIZE_16 {
+                        ctx.builder
+                            .const_i32(if *opsize == OPSIZE_8 { 24 } else { 16 });
+                        ctx.builder.shl_i32();
+                    }
+                },
+            }
+            if negate == ConditionNegate::True {
+                ctx.builder.ge_i32();
+            }
+            else {
+                ctx.builder.lt_i32();
+            }
+        },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getsf(ctx, ConditionNegate::False);
