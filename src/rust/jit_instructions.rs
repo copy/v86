@@ -954,7 +954,10 @@ macro_rules! define_instruction_read_write_mem32(
 );
 
 fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
     ctx.builder.get_local(dest_operand);
@@ -976,7 +979,10 @@ fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
@@ -990,7 +996,11 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
 }
 
 fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    // TODO: Instruction::Sub
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
     ctx.builder.get_local(dest_operand);
@@ -1012,7 +1022,10 @@ fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Sub { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Sub {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
 
@@ -1228,7 +1241,10 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
 }
 
 fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1247,7 +1263,10 @@ fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_and32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1269,7 +1288,11 @@ fn gen_test(
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
+    // TODO: Instruction::Test { dest: local_to_instruction_operand(ctx, dest_operand) }
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: size,
+        dest: InstructionOperandDest::Other,
+    };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     if source_operand.eq_local(dest_operand) {
@@ -1300,7 +1323,10 @@ fn gen_test32(ctx: &mut JitContext, dest: &WasmLocal, source: &LocalOrImmediate)
 }
 
 fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1319,7 +1345,10 @@ fn gen_or8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loca
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.get_local(&dest_operand);
     source_operand.gen_get(ctx.builder);
@@ -1336,7 +1365,10 @@ fn gen_or32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
 }
 
 fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_8 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
     ctx.builder.get_local(dest_operand);
@@ -1355,7 +1387,10 @@ fn gen_xor8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_xor32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic { opsize: OPSIZE_32 };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 
     if source_operand.eq_local(dest_operand) {
         ctx.builder.const_i32(0);
@@ -2267,7 +2302,10 @@ fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
     }
     ctx.builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1);
-    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: size,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 }
 fn gen_inc16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
     gen_inc(ctx, dest_operand, OPSIZE_16);
@@ -2312,7 +2350,10 @@ fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
     }
     ctx.builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1 | FLAG_SUB);
-    ctx.current_instruction = Instruction::Arithmetic { opsize: size };
+    ctx.current_instruction = Instruction::Arithmetic {
+        opsize: size,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+    };
 }
 fn gen_dec16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
     gen_dec(ctx, dest_operand, OPSIZE_16)
