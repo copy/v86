@@ -1745,7 +1745,6 @@ pub fn gen_getsf(ctx: &mut JitContext) {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // TODO:
-            // use local for test x, x
             // x >= 0 for ConditionNegate::True
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             ctx.builder.const_i32(if opsize == OPSIZE_32 {

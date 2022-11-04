@@ -1288,14 +1288,19 @@ fn gen_test(
     source_operand: &LocalOrImmediate,
     size: i32,
 ) {
-    // TODO: Instruction::Test { dest: local_to_instruction_operand(ctx, dest_operand) }
+    let is_self_test = source_operand.eq_local(dest_operand);
     ctx.current_instruction = Instruction::Arithmetic {
         opsize: size,
-        dest: InstructionOperandDest::Other,
+        dest: if is_self_test {
+            local_to_instruction_operand(ctx, dest_operand)
+        }
+        else {
+            InstructionOperandDest::Other
+        },
     };
 
     ctx.builder.const_i32(global_pointers::last_result as i32);
-    if source_operand.eq_local(dest_operand) {
+    if is_self_test {
         ctx.builder.get_local(&dest_operand);
     }
     else {
