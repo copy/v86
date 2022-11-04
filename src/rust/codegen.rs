@@ -1737,26 +1737,32 @@ pub fn gen_getcf_unoptimised(ctx: &mut JitContext) {
     ctx.builder.free_local(sub_mask);
 }
 
-pub fn gen_getsf(ctx: &mut JitContext) {
+pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
         Instruction::Cmp { opsize, .. }
         | Instruction::Sub { opsize, .. }
         | Instruction::Arithmetic { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            // TODO:
-            // x >= 0 for ConditionNegate::True
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
-            ctx.builder.const_i32(if opsize == OPSIZE_32 {
-                0x8000_0000u32 as i32
-            }
-            else if opsize == OPSIZE_16 {
-                0x8000
+            if opsize == OPSIZE_32 {
+                ctx.builder.const_i32(0);
+                if negate == ConditionNegate::True {
+                    ctx.builder.ge_i32();
+                }
+                else {
+                    ctx.builder.lt_i32();
+                }
             }
             else {
-                0x80
-            });
-            ctx.builder.and_i32();
+                // TODO: use register (see get_last_result)
+                ctx.builder
+                    .const_i32(if opsize == OPSIZE_16 { 0x8000 } else { 0x80 });
+                ctx.builder.and_i32();
+                if negate == ConditionNegate::True {
+                    ctx.builder.eqz_i32();
+                }
+            }
         },
         Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
@@ -1778,6 +1784,9 @@ pub fn gen_getsf(ctx: &mut JitContext) {
                 ctx.builder.and_i32();
             }
             ctx.builder.block_end();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
         },
     }
 }
@@ -2007,7 +2016,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
-            gen_getsf(ctx);
+            gen_getsf(ctx, ConditionNegate::False);
             ctx.builder.eqz_i32();
             gen_getof(ctx);
             ctx.builder.eqz_i32();
@@ -2254,11 +2263,10 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
                 gen_test_be(ctx, ConditionNegate::True);
             },
             0x8 => {
-                gen_getsf(ctx);
+                gen_getsf(ctx, ConditionNegate::False);
             },
             0x9 => {
-                gen_getsf(ctx);
-                ctx.builder.eqz_i32();
+                gen_getsf(ctx, ConditionNegate::True);
             },
             0xA => ctx.builder.call_fn0_ret("test_p"),
             0xB => ctx.builder.call_fn0_ret("test_np"),
