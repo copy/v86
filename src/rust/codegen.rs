@@ -343,6 +343,7 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
         Instruction::Sub {
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
+            ..
         }
         | Instruction::Arithmetic {
             dest: InstructionOperandDest::WasmLocal(l),
@@ -1692,8 +1693,8 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
 
 pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
-        Instruction::Cmp { source, opsize, .. } => {
-            // TODO: add/sub
+        Instruction::Cmp { source, opsize, .. } | Instruction::Sub { source, opsize, .. } => {
+            // TODO: add
             // Note: x < y and x < x - y can be used interchangeably (see getcf)
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
@@ -1935,7 +1936,11 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.leu_i32();
             }
         },
-        Instruction::Sub { opsize, dest: _ } => {
+        Instruction::Sub {
+            opsize,
+            dest: _,
+            source: _,
+        } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
 
             gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
