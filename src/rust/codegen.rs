@@ -1592,9 +1592,45 @@ pub enum ConditionNegate {
 
 pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(dest),
+            source: InstructionOperand::WasmLocal(source),
+            opsize: OPSIZE_32,
+        } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder.get_local(dest);
+            ctx.builder.get_local(source);
+            if negate == ConditionNegate::False {
+                ctx.builder.eq_i32();
+            }
+            else {
+                ctx.builder.ne_i32();
+            }
+        },
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(dest),
+            source: InstructionOperand::Immediate(i),
+            opsize: OPSIZE_32,
+        } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder.get_local(dest);
+            if *i != 0 {
+                ctx.builder.const_i32(*i);
+                if negate == ConditionNegate::False {
+                    ctx.builder.eq_i32();
+                }
+                else {
+                    ctx.builder.ne_i32();
+                }
+            }
+            else {
+                if negate == ConditionNegate::False {
+                    ctx.builder.eqz_i32();
+                }
+            }
+        },
         Instruction::Cmp { .. } | Instruction::Sub { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            // TODO: Could use eq(local, local) for cmp x, y
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             if negate == ConditionNegate::False {
                 ctx.builder.eqz_i32();
