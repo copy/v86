@@ -59,11 +59,11 @@ assert(
 
 const dir_files = fs.readdirSync(BUILD_DIR);
 const test_files = dir_files.filter(name => {
-    return name.endsWith(".bin");
+    return name.endsWith(".img");
 }).map(name => {
     return name.slice(0, -4);
 }).filter(name => {
-    const bin_file = path.join(BUILD_DIR, `${name}.bin`);
+    const bin_file = path.join(BUILD_DIR, `${name}.img`);
     const fixture_file = path.join(BUILD_DIR, `${name}.fixture`);
     if(!fs.existsSync(fixture_file))
     {
@@ -93,7 +93,7 @@ function test_arg_formatter(workload)
 {
     return workload.map(test => {
         const test_path = path.join(BUILD_DIR, test);
-        return `--eval-command=extract-state ${test_path}.bin ${test_path}.fixture`;
+        return `--eval-command=extract-state ${test_path}.img ${test_path}.fixture`;
     });
 }
 
