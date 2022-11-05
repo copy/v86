@@ -963,6 +963,7 @@ fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         else {
             source_operand.to_instruction_operand(ctx)
         },
+        is_inc: false,
     };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
@@ -994,6 +995,7 @@ fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
         else {
             source_operand.to_instruction_operand(ctx)
         },
+        is_inc: false,
     };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
@@ -1017,6 +1019,7 @@ fn gen_sub8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         else {
             source_operand.to_instruction_operand(ctx)
         },
+        is_dec: false,
     };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
@@ -1048,6 +1051,7 @@ fn gen_sub32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
         else {
             source_operand.to_instruction_operand(ctx)
         },
+        is_dec: false,
     };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);
@@ -2330,9 +2334,11 @@ fn gen_inc(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
     }
     ctx.builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1);
-    ctx.current_instruction = Instruction::Arithmetic {
+    ctx.current_instruction = Instruction::Add {
         opsize: size,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: InstructionOperand::Immediate(1),
+        is_inc: true,
     };
 }
 fn gen_inc16(ctx: &mut JitContext, dest_operand: &WasmLocal) {
@@ -2378,9 +2384,11 @@ fn gen_dec(ctx: &mut JitContext, dest_operand: &WasmLocal, size: i32) {
     }
     ctx.builder.store_aligned_i32(0);
     codegen::gen_set_last_op_size_and_flags_changed(ctx.builder, size, FLAGS_ALL & !1 | FLAG_SUB);
-    ctx.current_instruction = Instruction::Arithmetic {
+    ctx.current_instruction = Instruction::Sub {
         opsize: size,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: InstructionOperand::Immediate(1),
+        is_dec: true,
     };
 }
 fn gen_dec16(ctx: &mut JitContext, dest_operand: &WasmLocal) {

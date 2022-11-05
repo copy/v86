@@ -270,11 +270,13 @@ pub enum Instruction {
         dest: InstructionOperandDest,
         source: InstructionOperand,
         opsize: i32,
+        is_dec: bool,
     },
     Add {
         dest: InstructionOperandDest,
         source: InstructionOperand,
         opsize: i32,
+        is_inc: bool,
     },
     // Any instruction that sets last_result
     Arithmetic {
