@@ -2044,7 +2044,17 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_getzf(ctx, negate);
         },
-        _ => {
+        &Instruction::Add { .. } | &Instruction::Sub { is_dec: true, .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            // not the best code generation, but reasonable for this fairly uncommon case
+            gen_getcf(ctx, ConditionNegate::False);
+            gen_getzf(ctx, ConditionNegate::False);
+            ctx.builder.or_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
+        },
+        &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf(ctx, ConditionNegate::False);
             gen_getzf(ctx, ConditionNegate::False);
