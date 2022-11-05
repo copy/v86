@@ -1829,6 +1829,7 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
 pub fn gen_getof(ctx: &mut JitContext) {
     match &ctx.previous_instruction {
         Instruction::Cmp { opsize, .. } | Instruction::Sub { opsize, .. } => {
+            // TODO: a better formula might be possible
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
@@ -1853,8 +1854,33 @@ pub fn gen_getof(ctx: &mut JitContext) {
             });
             ctx.builder.and_i32();
         },
-        Instruction::Add { .. } | Instruction::Arithmetic { .. } | Instruction::Other => {
-            // TODO: add
+        Instruction::Add { opsize, .. } => {
+            // TODO: a better formula might be possible
+            let &opsize = opsize;
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+            gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            ctx.builder.xor_i32();
+
+            gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+            ctx.builder.sub_i32();
+            ctx.builder.xor_i32();
+            ctx.builder.and_i32();
+
+            ctx.builder.const_i32(if opsize == OPSIZE_32 {
+                0x8000_0000u32 as i32
+            }
+            else if opsize == OPSIZE_16 {
+                0x8000
+            }
+            else {
+                0x80
+            });
+            ctx.builder.and_i32();
+        },
+        Instruction::Arithmetic { .. } | Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_get_flags_changed(ctx.builder);
             let flags_changed = ctx.builder.tee_new_local();
