@@ -350,7 +350,7 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
             opsize: OPSIZE_32,
             ..
         }
-        | Instruction::Arithmetic {
+        | Instruction::Bitwise {
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
         } => builder.get_local(&l),
@@ -1642,7 +1642,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        Instruction::Arithmetic { opsize, .. } => {
+        Instruction::Bitwise { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // Note: Necessary because test{8,16} don't mask their neither last_result nor any of their operands
@@ -1662,7 +1662,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        _ => {
+        &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_get_flags_changed(ctx.builder);
             ctx.builder.const_i32(FLAG_ZERO);
@@ -1747,7 +1747,12 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        _ => {
+        Instruction::Bitwise { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder
+                .const_i32(if negate == ConditionNegate::True { 1 } else { 0 });
+        },
+        &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf_unoptimised(ctx);
 
@@ -1795,7 +1800,7 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Cmp { opsize, .. }
         | Instruction::Sub { opsize, .. }
         | Instruction::Add { opsize, .. }
-        | Instruction::Arithmetic { opsize, .. } => {
+        | Instruction::Bitwise { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
@@ -1818,7 +1823,7 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
                 }
             }
         },
-        Instruction::Other => {
+        &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_get_flags_changed(ctx.builder);
             ctx.builder.const_i32(FLAG_SIGN);
@@ -1899,7 +1904,11 @@ pub fn gen_getof(ctx: &mut JitContext) {
             });
             ctx.builder.and_i32();
         },
-        Instruction::Arithmetic { .. } | Instruction::Other => {
+        Instruction::Bitwise { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder.const_i32(0);
+        },
+        &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_get_flags_changed(ctx.builder);
             let flags_changed = ctx.builder.tee_new_local();
@@ -2031,6 +2040,10 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.leu_i32();
             }
         },
+        &Instruction::Bitwise { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_getzf(ctx, negate);
+        },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf(ctx, ConditionNegate::False);
@@ -2142,6 +2155,10 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
             else {
                 ctx.builder.lt_i32();
             }
+        },
+        &Instruction::Bitwise { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_getsf(ctx, negate);
         },
         _ => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
@@ -2255,6 +2272,16 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
             }
             else {
                 ctx.builder.le_i32();
+            }
+        },
+        &Instruction::Bitwise { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            // TODO: Could probably be improved (<= 0)
+            gen_test_l(ctx, ConditionNegate::False);
+            gen_getzf(ctx, ConditionNegate::False);
+            ctx.builder.or_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
             }
         },
         _ => {

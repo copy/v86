@@ -278,8 +278,7 @@ pub enum Instruction {
         opsize: i32,
         is_inc: bool,
     },
-    // Any instruction that sets last_result
-    Arithmetic {
+    Bitwise {
         dest: InstructionOperandDest,
         opsize: i32,
     },
