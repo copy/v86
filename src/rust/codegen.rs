@@ -2170,8 +2170,14 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_getsf(ctx, negate);
         },
-        _ => {
+        &Instruction::Other | Instruction::Add { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
+            if let Instruction::Add { .. } = ctx.previous_instruction {
+                gen_profiler_stat_increment(
+                    ctx.builder,
+                    profiler::stat::CONDITION_UNOPTIMISED_UNHANDLED_L,
+                );
+            }
             gen_getsf(ctx, ConditionNegate::False);
             ctx.builder.eqz_i32();
             gen_getof(ctx);
@@ -2294,8 +2300,14 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        _ => {
+        Instruction::Other | Instruction::Add { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
+            if let Instruction::Add { .. } = ctx.previous_instruction {
+                gen_profiler_stat_increment(
+                    ctx.builder,
+                    profiler::stat::CONDITION_UNOPTIMISED_UNHANDLED_LE,
+                );
+            }
             gen_test_l(ctx, ConditionNegate::False);
             gen_getzf(ctx, ConditionNegate::False);
             ctx.builder.or_i32();
@@ -2473,8 +2485,16 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
             0x9 => {
                 gen_getsf(ctx, ConditionNegate::True);
             },
-            0xA => ctx.builder.call_fn0_ret("test_p"),
-            0xB => ctx.builder.call_fn0_ret("test_np"),
+            0xA => {
+                gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
+                gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED_PF);
+                ctx.builder.call_fn0_ret("test_p");
+            },
+            0xB => {
+                gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
+                gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED_PF);
+                ctx.builder.call_fn0_ret("test_np");
+            },
             0xC => {
                 gen_test_l(ctx, ConditionNegate::False);
             },
