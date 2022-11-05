@@ -954,9 +954,15 @@ macro_rules! define_instruction_read_write_mem32(
 );
 
 fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic {
+    ctx.current_instruction = Instruction::Add {
         opsize: OPSIZE_8,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
     };
 
     ctx.builder.const_i32(global_pointers::last_op1 as i32);
@@ -979,9 +985,15 @@ fn gen_add8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
         .load_fixed_u8(global_pointers::last_result as u32);
 }
 fn gen_add32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
-    ctx.current_instruction = Instruction::Arithmetic {
+    ctx.current_instruction = Instruction::Add {
         opsize: OPSIZE_32,
         dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
     };
 
     codegen::gen_set_last_op1(ctx.builder, &dest_operand);

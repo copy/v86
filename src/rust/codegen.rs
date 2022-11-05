@@ -340,7 +340,12 @@ fn gen_get_flags_changed(builder: &mut WasmBuilder) {
 }
 fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruction) {
     match previous_instruction {
-        Instruction::Sub {
+        Instruction::Add {
+            dest: InstructionOperandDest::WasmLocal(l),
+            opsize: OPSIZE_32,
+            ..
+        }
+        | Instruction::Sub {
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
             ..
@@ -1630,7 +1635,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
                 }
             }
         },
-        Instruction::Cmp { .. } | Instruction::Sub { .. } => {
+        Instruction::Cmp { .. } | Instruction::Sub { .. } | Instruction::Add { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             if negate == ConditionNegate::False {
@@ -1757,6 +1762,7 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
         Instruction::Cmp { opsize, .. }
         | Instruction::Sub { opsize, .. }
+        | Instruction::Add { opsize, .. }
         | Instruction::Arithmetic { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
@@ -1834,7 +1840,7 @@ pub fn gen_getof(ctx: &mut JitContext) {
             });
             ctx.builder.and_i32();
         },
-        &Instruction::Other | Instruction::Arithmetic { .. } => {
+        Instruction::Add { .. } | Instruction::Arithmetic { .. } | Instruction::Other => {
             // TODO: add
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_get_flags_changed(ctx.builder);
