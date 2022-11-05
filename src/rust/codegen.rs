@@ -1642,7 +1642,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        Instruction::Arithmetic { opsize, dest: _ } => {
+        Instruction::Arithmetic { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             // Note: Necessary because test{8,16} don't mask their neither last_result nor any of their operands
@@ -1699,7 +1699,6 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
 pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
     match &ctx.previous_instruction {
         Instruction::Cmp { source, opsize, .. } | Instruction::Sub { source, opsize, .. } => {
-            // TODO: add
             // Note: x < y and x < x - y can be used interchangeably (see getcf)
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
@@ -1707,6 +1706,20 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
                 (&OPSIZE_32, InstructionOperand::WasmLocal(l)) => ctx.builder.get_local(l),
                 (_, &InstructionOperand::Immediate(i)) => ctx.builder.const_i32(i),
                 _ => gen_get_last_result(ctx.builder, &ctx.previous_instruction),
+            }
+            if negate == ConditionNegate::True {
+                ctx.builder.geu_i32();
+            }
+            else {
+                ctx.builder.ltu_i32();
+            }
+        },
+        Instruction::Add { source, opsize, .. } => {
+            gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            match (opsize, source) {
+                (&OPSIZE_32, InstructionOperand::WasmLocal(l)) => ctx.builder.get_local(l),
+                (_, &InstructionOperand::Immediate(i)) => ctx.builder.const_i32(i),
+                _ => gen_get_last_op1(ctx.builder, &ctx.previous_instruction),
             }
             if negate == ConditionNegate::True {
                 ctx.builder.geu_i32();
