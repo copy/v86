@@ -1754,45 +1754,42 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
         },
         &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
-            gen_getcf_unoptimised(ctx);
+
+            gen_get_flags_changed(ctx.builder);
+            let flags_changed = ctx.builder.tee_new_local();
+            ctx.builder.const_i32(FLAG_CARRY);
+            ctx.builder.and_i32();
+            ctx.builder.if_i32();
+
+            ctx.builder.get_local(&flags_changed);
+            ctx.builder.const_i32(31);
+            ctx.builder.shr_s_i32();
+            ctx.builder.free_local(flags_changed);
+            let sub_mask = ctx.builder.set_new_local();
+
+            gen_get_last_result(ctx.builder, &ctx.previous_instruction);
+            ctx.builder.get_local(&sub_mask);
+            ctx.builder.xor_i32();
+
+            gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
+            ctx.builder.get_local(&sub_mask);
+            ctx.builder.xor_i32();
+
+            ctx.builder.ltu_i32();
+
+            ctx.builder.else_();
+            gen_get_flags(ctx.builder);
+            ctx.builder.const_i32(FLAG_CARRY);
+            ctx.builder.and_i32();
+            ctx.builder.block_end();
+
+            ctx.builder.free_local(sub_mask);
 
             if negate == ConditionNegate::True {
                 ctx.builder.eqz_i32();
             }
         },
     }
-}
-
-pub fn gen_getcf_unoptimised(ctx: &mut JitContext) {
-    gen_get_flags_changed(ctx.builder);
-    let flags_changed = ctx.builder.tee_new_local();
-    ctx.builder.const_i32(FLAG_CARRY);
-    ctx.builder.and_i32();
-    ctx.builder.if_i32();
-
-    ctx.builder.get_local(&flags_changed);
-    ctx.builder.const_i32(31);
-    ctx.builder.shr_s_i32();
-    ctx.builder.free_local(flags_changed);
-    let sub_mask = ctx.builder.set_new_local();
-
-    gen_get_last_result(ctx.builder, &ctx.previous_instruction);
-    ctx.builder.get_local(&sub_mask);
-    ctx.builder.xor_i32();
-
-    gen_get_last_op1(ctx.builder, &ctx.previous_instruction);
-    ctx.builder.get_local(&sub_mask);
-    ctx.builder.xor_i32();
-
-    ctx.builder.ltu_i32();
-
-    ctx.builder.else_();
-    gen_get_flags(ctx.builder);
-    ctx.builder.const_i32(FLAG_CARRY);
-    ctx.builder.and_i32();
-    ctx.builder.block_end();
-
-    ctx.builder.free_local(sub_mask);
 }
 
 pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
