@@ -3034,56 +3034,48 @@ pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
     return Ok(phys_addr);
 }
 
-unsafe fn jit_run_interpreted(phys_addr: u32) {
+unsafe fn jit_run_interpreted(mut phys_addr: u32) {
     profiler::stat_increment(RUN_INTERPRETED);
     dbg_assert!(!in_mapped_range(phys_addr));
 
-    if cfg!(debug_assertions) {
-        debug_last_jump = LastJump::Interpreted { phys_addr };
-    }
-
     jit_block_boundary = false;
-    let opcode = *mem8.offset(phys_addr as isize) as i32;
-    *instruction_pointer += 1;
-    *instruction_counter += 1;
-    dbg_assert!(*prefixes == 0);
-    run_instruction(opcode | (*is_32 as i32) << 8);
-    dbg_assert!(*prefixes == 0);
-
-    // We need to limit the number of iterations here as jumps within the same page are not counted
-    // as block boundaries for the interpreter (as they don't create an entry point and don't need
-    // a check if the jump target may have compiled code)
     let mut i = 0;
 
-    while !jit_block_boundary
-        && Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32)
-        && (i < INTERPRETER_ITERATION_LIMIT
-            || (*previous_ip as u32) < (*instruction_pointer as u32))
-    {
-        *previous_ip = *instruction_pointer;
-        let opcode = return_on_pagefault!(read_imm8());
-
+    loop {
         if CHECK_MISSED_ENTRY_POINTS {
-            let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
             let entry = jit::jit_find_cache_entry(phys_addr, *state_flags);
-
             if entry != jit::CachedCode::NONE {
                 profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
             }
         }
 
-        if cfg!(debug_assertions) {
-            debug_last_jump = LastJump::Interpreted { phys_addr };
-        }
-
-        *instruction_counter += 1;
-
+        i += 1;
+        let start_eip = *instruction_pointer;
+        let opcode = *mem8.offset(phys_addr as isize) as i32;
+        *instruction_pointer += 1;
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
         dbg_assert!(*prefixes == 0);
 
-        i += 1;
+        if jit_block_boundary
+            || Page::page_of(start_eip as u32) != Page::page_of(*instruction_pointer as u32)
+                // Limit the number of iterations, as jumps within the same page are not counted as
+                // block boundaries for the interpreter, but only on the next backwards jump
+            || (i >= INTERPRETER_ITERATION_LIMIT
+                && (start_eip as u32) >= (*instruction_pointer as u32))
+        {
+            break;
+        }
+
+        *previous_ip = *instruction_pointer;
+        phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
     }
+
+    if cfg!(debug_assertions) {
+        debug_last_jump = LastJump::Interpreted { phys_addr };
+    }
+
+    *instruction_counter += i;
 }
 
 #[no_mangle]
