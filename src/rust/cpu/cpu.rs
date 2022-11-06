@@ -1803,8 +1803,26 @@ pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
     translate_address(address, true, *cpl == 3, false, true)
 }
-pub unsafe fn translate_address_write_jit(address: i32) -> OrPageFault<u32> {
-    translate_address(address, true, *cpl == 3, true, true)
+pub unsafe fn translate_address_write_jit_and_can_skip_dirty(
+    address: i32,
+) -> OrPageFault<(u32, bool)> {
+    let entry = tlb_data[(address as u32 >> 12) as usize];
+    let user = *cpl == 3;
+    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
+        Ok((
+            (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32,
+            entry & TLB_HAS_CODE == 0,
+        ))
+    }
+    else {
+        match do_page_walk(address, true, user, true) {
+            Ok((phys_addr_high, skip)) => Ok((phys_addr_high | address as u32 & 0xFFF, skip)),
+            Err(pagefault) => {
+                trigger_pagefault_jit(pagefault);
+                Err(())
+            },
+        }
+    }
 }
 
 pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
@@ -1833,7 +1851,7 @@ pub unsafe fn translate_address(
     }
     else {
         match do_page_walk(address, for_writing, user, side_effects) {
-            Ok(phys_addr_high) => Ok(phys_addr_high | address as u32 & 0xFFF),
+            Ok((phys_addr_high, _)) => Ok(phys_addr_high | address as u32 & 0xFFF),
             Err(pagefault) => {
                 if side_effects {
                     if jit {
@@ -1860,7 +1878,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
     }
     else {
         match do_page_walk(address, true, user, true) {
-            Ok(phys_addr_high) => Ok((phys_addr_high | address as u32 & 0xFFF, false)),
+            Ok((phys_addr_high, skip)) => Ok((phys_addr_high | address as u32 & 0xFFF, skip)),
             Err(pagefault) => {
                 trigger_pagefault(pagefault);
                 Err(())
@@ -1893,7 +1911,7 @@ pub unsafe fn do_page_walk(
     for_writing: bool,
     user: bool,
     side_effects: bool,
-) -> Result<u32, PageFault> {
+) -> Result<(u32, bool), PageFault> {
     let global;
     let mut allow_user: bool = true;
     let page = (addr as u32 >> 12) as i32;
@@ -2112,7 +2130,7 @@ pub unsafe fn do_page_walk(
         jit::update_tlb_code(Page::page_of(addr as u32), Page::page_of(high));
     }
 
-    return Ok(high);
+    return Ok((high, !has_code));
 }
 
 #[no_mangle]
@@ -3351,7 +3369,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
     }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
     let addr_low = match if is_write {
-        translate_address_write_jit(addr)
+        translate_address_write_jit_and_can_skip_dirty(addr).map(|x| x.0)
     }
     else {
         translate_address_read_jit(addr)
@@ -3365,7 +3383,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
     if crosses_page {
         let boundary_addr = (addr | 0xFFF) + 1;
         let addr_high = match if is_write {
-            translate_address_write_jit(boundary_addr)
+            translate_address_write_jit_and_can_skip_dirty(boundary_addr).map(|x| x.0)
         }
         else {
             translate_address_read_jit(boundary_addr)
@@ -3491,21 +3509,23 @@ pub unsafe fn safe_write_slow_jit(
         );
     }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
-    let addr_low = match translate_address_write_jit(addr) {
+    let (addr_low, can_skip_dirty_page) = match translate_address_write_jit_and_can_skip_dirty(addr)
+    {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
             return 1;
         },
-        Ok(addr) => addr,
+        Ok(x) => x,
     };
     if crosses_page {
-        let addr_high = match translate_address_write_jit((addr | 0xFFF) + 1) {
-            Err(()) => {
-                *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
-                return 1;
-            },
-            Ok(addr) => addr,
-        };
+        let (addr_high, _) =
+            match translate_address_write_jit_and_can_skip_dirty((addr | 0xFFF) + 1) {
+                Err(()) => {
+                    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                    return 1;
+                },
+                Ok(x) => x,
+            };
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
 
         // do write, return dummy pointer for fast path to write into
@@ -3554,7 +3574,9 @@ pub unsafe fn safe_write_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else {
-        jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(addr_low));
+        if !can_skip_dirty_page {
+            jit::jit_dirty_page(jit::get_jit_state(), Page::page_of(addr_low));
+        }
         ((addr_low as i32 + memory::mem8 as i32) ^ addr) & !0xFFF
     }
 }
