@@ -636,18 +636,14 @@ pub unsafe fn div8(source_operand: u32) {
         trigger_de();
         return;
     }
-    else {
-        let target_operand = read_reg16(AX);
-        let result = (target_operand as u32 / source_operand) as u16;
-        if result as i32 >= 256 {
-            trigger_de();
-        }
-        else {
-            write_reg8(AL, result as i32);
-            write_reg8(AH, (target_operand as u32 % source_operand) as i32);
-        }
+    let target_operand = read_reg16(AX) as u32;
+    let result = target_operand / source_operand;
+    if result >= 0x100 {
+        trigger_de();
         return;
-    };
+    }
+    write_reg8(AL, result as i32);
+    write_reg8(AH, (target_operand % source_operand) as i32);
 }
 
 #[no_mangle]
@@ -656,27 +652,23 @@ pub unsafe fn idiv8(source_operand: i32) {
         trigger_de();
         return;
     }
-    else {
-        let target_operand = read_reg16(AX) << 16 >> 16;
-        let result = target_operand / source_operand;
-        if result >= 128 || result <= -129 {
-            trigger_de();
-        }
-        else {
-            write_reg8(AL, result);
-            write_reg8(AH, target_operand % source_operand);
-        }
+    let target_operand = read_reg16(AX) << 16 >> 16;
+    let result = target_operand / source_operand;
+    if result >= 0x80 || result < -0x80 {
+        trigger_de();
         return;
-    };
+    }
+    write_reg8(AL, result);
+    write_reg8(AH, target_operand % source_operand);
 }
 
 #[no_mangle]
 pub unsafe fn div16_without_fault(source_operand: u32) -> bool {
-    if source_operand == 0 {
-        return false;
-    }
     let target_operand = (read_reg16(AX) | read_reg16(DX) << 16) as u32;
-    let result = target_operand / source_operand;
+    let result = match target_operand.checked_div(source_operand) {
+        None => return false,
+        Some(r) => r,
+    };
     if result >= 0x10000 {
         return false;
     }
@@ -691,12 +683,12 @@ pub unsafe fn div16(source_operand: u32) {
 }
 #[no_mangle]
 pub unsafe fn idiv16_without_fault(source_operand: i32) -> bool {
-    if source_operand == 0 {
-        return false;
-    }
     let target_operand = read_reg16(AX) | read_reg16(DX) << 16;
-    let result = target_operand / source_operand;
-    if result >= 32768 || result <= -32769 {
+    let result = match target_operand.checked_div(source_operand) {
+        None => return false,
+        Some(r) => r,
+    };
+    if result >= 0x8000 || result < -0x8000 {
         return false;
     }
     write_reg16(AX, result);
@@ -711,19 +703,20 @@ pub unsafe fn idiv16(source_operand: i32) {
 
 #[no_mangle]
 pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
-    if source_operand == 0 {
-        return false;
-    }
+    let source_operand = source_operand as u64;
     let target_low = read_reg32(EAX) as u32;
     let target_high = read_reg32(EDX) as u32;
     let target_operand = (target_high as u64) << 32 | target_low as u64;
-    let result = target_operand / (source_operand as u64);
+    let result = match target_operand.checked_div(source_operand) {
+        None => return false,
+        Some(r) => r,
+    };
     if result > 0xFFFFFFFF {
         return false;
     }
-    let modulo = (target_operand % source_operand as u64) as i32;
+    let modulo = target_operand % source_operand;
     write_reg32(EAX, result as i32);
-    write_reg32(EDX, modulo);
+    write_reg32(EDX, modulo as i32);
     return true;
 }
 pub unsafe fn div32(source_operand: u32) {
@@ -733,22 +726,20 @@ pub unsafe fn div32(source_operand: u32) {
 }
 #[no_mangle]
 pub unsafe fn idiv32_without_fault(source_operand: i32) -> bool {
-    if source_operand == 0 {
-        return false;
-    }
+    let source_operand = source_operand as i64;
     let target_low = read_reg32(EAX) as u32;
     let target_high = read_reg32(EDX) as u32;
-    let target_operand = ((target_high as u64) << 32 | target_low as u64) as i64;
-    if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
-        return false;
-    }
-    let result = target_operand / source_operand as i64;
+    let target_operand = (target_high as i64) << 32 | target_low as i64;
+    let result = match target_operand.checked_div(source_operand) {
+        None => return false,
+        Some(r) => r,
+    };
     if result < -0x80000000 || result > 0x7FFFFFFF {
         return false;
     }
-    let modulo = (target_operand % source_operand as i64) as i32;
+    let modulo = target_operand % source_operand;
     write_reg32(EAX, result as i32);
-    write_reg32(EDX, modulo);
+    write_reg32(EDX, modulo as i32);
     return true;
 }
 pub unsafe fn idiv32(source_operand: i32) {
