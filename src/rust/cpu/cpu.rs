@@ -2802,6 +2802,8 @@ pub unsafe fn popa32() {
     write_reg32(EAX, pop32s().unwrap());
 }
 
+pub fn get_state_flags() -> CachedStateFlags { unsafe { *state_flags } }
+
 #[no_mangle]
 pub fn get_seg_cs() -> i32 { unsafe { *segment_offsets.offset(CS as isize) } }
 
@@ -2950,7 +2952,6 @@ pub unsafe fn cycle_internal() {
         else {
             *previous_ip = initial_eip;
             let phys_addr = return_on_pagefault!(get_phys_eip());
-            jit::record_entry_point(phys_addr);
 
             match tlb_code[(initial_eip as u32 >> 12) as usize] {
                 None => {},
