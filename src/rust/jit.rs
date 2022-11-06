@@ -61,8 +61,6 @@ pub const BRTABLE_CUTOFF: usize = 10;
 
 pub const WASM_TABLE_SIZE: u32 = 900;
 
-pub const HASH_PRIME: u32 = 6151;
-
 pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
 pub const JIT_USE_LOOP_SAFETY: bool = true;
@@ -114,8 +112,7 @@ pub struct JitState {
     // (faster, but uses much more memory)
     // or a compressed bitmap (likely faster)
     // or HashSet<u32> rather than nested
-    entry_points: HashMap<Page, HashSet<u16>>,
-    hot_pages: [u32; HASH_PRIME as usize],
+    entry_points: HashMap<Page, (u32, HashSet<u16>)>,
     pages: HashMap<Page, PageInfo>,
     wasm_table_index_free_list: Vec<WasmTableIndex>,
     compiling: Option<(WasmTableIndex, CompilingPageState)>,
@@ -181,7 +178,6 @@ impl JitState {
             wasm_builder: WasmBuilder::new(),
 
             entry_points: HashMap::new(),
-            hot_pages: [0; HASH_PRIME as usize],
             pages: HashMap::new(),
 
             wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
@@ -302,8 +298,6 @@ impl<'a> JitContext<'a> {
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
 
-fn jit_hot_hash_page(page: Page) -> u32 { page.to_u32() % HASH_PRIME }
-
 pub fn is_near_end_of_page(address: u32) -> bool {
     address & 0xFFF >= 0x1000 - MAX_INSTRUCTION_LENGTH
 }
@@ -369,27 +363,6 @@ pub fn jit_find_cache_entry_in_page(
     return -1;
 }
 
-pub fn record_entry_point(phys_address: u32) {
-    let ctx = get_jit_state();
-    if is_near_end_of_page(phys_address) {
-        return;
-    }
-    let page = Page::page_of(phys_address);
-    let offset_in_page = phys_address as u16 & 0xFFF;
-    let mut is_new = false;
-    ctx.entry_points
-        .entry(page)
-        .or_insert_with(|| {
-            is_new = true;
-            HashSet::new()
-        })
-        .insert(offset_in_page);
-
-    if is_new {
-        cpu::tlb_set_has_code(page, true);
-    }
-}
-
 // Maximum number of pages per wasm module. Necessary for the following reasons:
 // - There is an upper limit on the size of a single function in wasm (currently ~7MB in all browsers)
 //   See https://github.com/WebAssembly/design/issues/1138
@@ -433,7 +406,7 @@ fn jit_find_basic_blocks(
 
         if !pages.contains(&phys_page) {
             // page seen for the first time, handle entry points
-            if let Some(entry_points) = ctx.entry_points.get(&phys_page) {
+            if let Some((hotness, entry_points)) = ctx.entry_points.get_mut(&phys_page) {
                 let existing_entry_points = match ctx.pages.get(&phys_page) {
                     Some(PageInfo { entry_points, .. }) => {
                         HashSet::from_iter(entry_points.iter().map(|x| x.0))
@@ -456,10 +429,9 @@ fn jit_find_basic_blocks(
                 //    entry_points.union(&existing_entry_points).count() == entry_points.len()
                 //);
 
-                let address_hash = jit_hot_hash_page(phys_page) as usize;
-                ctx.hot_pages[address_hash] = 0;
+                *hotness = 0;
 
-                for &addr_low in entry_points {
+                for &addr_low in entry_points.iter() {
                     let addr = virt_target & !0xFFF | addr_low as i32;
                     to_visit_stack.push(addr);
                     marked_as_entry.insert(addr);
@@ -766,13 +738,18 @@ fn jit_find_basic_blocks(
 #[no_mangle]
 #[cfg(debug_assertions)]
 pub fn jit_force_generate_unsafe(virt_addr: i32) {
-    let ctx = get_jit_state();
-    let phys_addr = cpu::translate_address_read(virt_addr).unwrap();
-    record_entry_point(phys_addr);
-    let cs_offset = cpu::get_seg_cs() as u32;
-    jit_analyze_and_generate(ctx, virt_addr, phys_addr, cs_offset, unsafe {
-        *global_pointers::state_flags
-    });
+    dbg_assert!(
+        !is_near_end_of_page(virt_addr as u32),
+        "cannot force compile near end of page"
+    );
+    jit_increase_hotness_and_maybe_compile(
+        virt_addr,
+        cpu::translate_address_read(virt_addr).unwrap(),
+        cpu::get_seg_cs() as u32,
+        cpu::get_state_flags(),
+        JIT_THRESHOLD,
+    );
+    dbg_assert!(get_jit_state().compiling.is_some());
 }
 
 #[inline(never)]
@@ -787,7 +764,7 @@ fn jit_analyze_and_generate(
 
     dbg_assert!(ctx.compiling.is_none());
 
-    let entry_points = match ctx.entry_points.get(&page) {
+    let (_, entry_points) = match ctx.entry_points.get(&page) {
         None => return,
         Some(entry_points) => entry_points,
     };
@@ -982,6 +959,12 @@ fn jit_analyze_and_generate(
         ctx.wasm_builder.get_output_len() as u64,
     );
     profiler::stat_increment_by(stat::COMPILE_PAGE, pages.len() as u64);
+
+    for &p in &pages {
+        ctx.entry_points
+            .entry(p)
+            .or_insert_with(|| (0, HashSet::new()));
+    }
 
     cpu::tlb_set_has_code_multiple(&pages, true);
 
@@ -2059,19 +2042,28 @@ pub fn jit_increase_hotness_and_maybe_compile(
     phys_address: u32,
     cs_offset: u32,
     state_flags: CachedStateFlags,
-    hotness: u32,
+    heat: u32,
 ) {
     let ctx = get_jit_state();
     let page = Page::page_of(phys_address);
-    let address_hash = jit_hot_hash_page(page) as usize;
-    ctx.hot_pages[address_hash] += hotness;
-    if ctx.hot_pages[address_hash] >= JIT_THRESHOLD {
+    let (hotness, entry_points) = ctx.entry_points.entry(page).or_insert_with(|| {
+        cpu::tlb_set_has_code(page, true);
+        profiler::stat_increment(stat::RUN_INTERPRETED_NEW_PAGE);
+        (0, HashSet::new())
+    });
+
+    if !is_near_end_of_page(phys_address) {
+        entry_points.insert(phys_address as u16 & 0xFFF);
+    }
+
+    *hotness += heat;
+    if *hotness >= JIT_THRESHOLD {
         if ctx.compiling.is_some() {
             return;
         }
         // only try generating if we're in the correct address space
         if cpu::translate_address_read_no_side_effects(virt_address) == Ok(phys_address) {
-            ctx.hot_pages[address_hash] = 0;
+            *hotness = 0;
             jit_analyze_and_generate(ctx, virt_address, phys_address, cs_offset, state_flags)
         }
         else {
@@ -2191,12 +2183,9 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
 
     match ctx.entry_points.remove(&page) {
         None => {},
-        Some(_entry_points) => {
+        Some(_) => {
             profiler::stat_increment(stat::INVALIDATE_PAGE_HAD_ENTRY_POINTS);
             did_have_code = true;
-
-            // don't try to compile code in this page anymore until it's hot again
-            ctx.hot_pages[jit_hot_hash_page(page) as usize] = 0;
 
             match &ctx.compiling {
                 Some((index, CompilingPageState::Compiling { pages })) => {
