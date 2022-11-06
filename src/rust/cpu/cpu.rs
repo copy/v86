@@ -2867,6 +2867,19 @@ pub unsafe fn cycle_internal() {
                 }
                 else {
                     profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE);
+                    let s = *state_flags;
+                    if c.state_flags.cpl3() != s.cpl3() {
+                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_CPL3);
+                    }
+                    if c.state_flags.has_flat_segmentation() != s.has_flat_segmentation() {
+                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_FLAT);
+                    }
+                    if c.state_flags.is_32() != s.is_32() {
+                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_IS32);
+                    }
+                    if c.state_flags.ssize_32() != s.ssize_32() {
+                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_SS32);
+                    }
                 }
             },
         }
