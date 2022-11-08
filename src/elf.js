@@ -106,9 +106,8 @@ function read_elf(buffer)
     {
         for(let key of Object.keys(header))
         {
-            dbg_log(key + ": 0x" + header[key].toString(16));
+            dbg_log(key + ": 0x" + (header[key].toString(16) >>> 0));
         }
-        dbg_log(header);
     }
 
     console.assert(header.magic === ELF_MAGIC, "Bad magic");
