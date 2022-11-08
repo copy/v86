@@ -663,20 +663,17 @@ pub unsafe fn instr_F30F16_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_F30F16_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
 
-#[no_mangle]
 pub unsafe fn instr_0F17_mem(addr: i32, r: i32) {
     // movhps m64, xmm
     movh_r128_m64(addr, r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F17_reg(_r1: i32, _r2: i32) { trigger_ud(); }
-#[no_mangle]
 pub unsafe fn instr_660F17_mem(addr: i32, r: i32) {
     // movhpd m64, xmm
     movh_r128_m64(addr, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F17_reg(_r1: i32, _r2: i32) { trigger_ud(); }
+
 pub unsafe fn instr_0F18_reg(_r1: i32, _r2: i32) {
     // reserved nop
 }
