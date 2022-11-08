@@ -26,18 +26,6 @@ pub unsafe fn mov_rm_r128(source: reg128, r: i32) {
     // mov* xmm, xmm/m128
     write_xmm_reg128(r, source);
 }
-pub unsafe fn movh_m64_r128(addr: i32, r: i32) {
-    // movhp* xmm, m64
-    let data = return_on_pagefault!(safe_read64s(addr));
-    let orig = read_xmm128s(r);
-    write_xmm128(
-        r,
-        orig.u32[0] as i32,
-        orig.u32[1] as i32,
-        data as i32,
-        (data >> 32) as i32,
-    );
-}
 pub unsafe fn movh_r128_m64(addr: i32, r: i32) {
     // movhp* m64, xmm
     let data = read_xmm128s(r);

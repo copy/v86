@@ -229,7 +229,6 @@ pub const PREFIX_MASK_ADDRSIZE: i32 = 64;
 pub const PREFIX_F2: i32 = PREFIX_REPNZ;
 pub const PREFIX_F3: i32 = PREFIX_REPZ;
 pub const PREFIX_66: i32 = PREFIX_MASK_OPSIZE;
-pub const LOG_CPU: i32 = 2;
 
 pub const MXCSR_MASK: i32 = 0xffff;
 pub const MXCSR_FZ: i32 = 1 << 15;
