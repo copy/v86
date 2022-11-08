@@ -642,24 +642,21 @@ pub unsafe fn instr_660F15_reg(r1: i32, r2: i32) { instr_660F15(read_xmm128s(r1)
 pub unsafe fn instr_660F15_mem(addr: i32, r: i32) {
     instr_660F15(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
 #[no_mangle]
+pub unsafe fn instr_0F16(source: u64, r: i32) { (*reg_xmm.offset(r as isize)).u64[1] = source; }
 pub unsafe fn instr_0F16_mem(addr: i32, r: i32) {
     // movhps xmm, m64
-    movh_m64_r128(addr, r);
+    instr_0F16(return_on_pagefault!(safe_read64s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_0F16_reg(r1: i32, r2: i32) {
     // movlhps xmm, xmm
-    let data = read_xmm128s(r1);
-    let orig = read_xmm128s(r2);
-    write_xmm128_2(r2, orig.u64[0], data.u64[0]);
+    instr_0F16(read_xmm64s(r1), r2);
 }
-#[no_mangle]
 pub unsafe fn instr_660F16_mem(addr: i32, r: i32) {
     // movhpd xmm, m64
-    movh_m64_r128(addr, r);
+    instr_0F16(return_on_pagefault!(safe_read64s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_F30F16_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }

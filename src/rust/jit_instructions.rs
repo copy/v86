@@ -5634,6 +5634,19 @@ pub fn instr_660F15_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F15", r1, r2);
 }
 
+pub fn instr_0F16_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_0F16", modrm_byte, r);
+}
+pub fn instr_0F16_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read64_xmm_xmm(ctx, "instr_0F16", r1, r2);
+}
+pub fn instr_660F16_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_0F16", modrm_byte, r);
+}
+pub fn instr_660F16_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
+}
+
 pub fn instr_0F28_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     let dest = global_pointers::get_reg_xmm_offset(r);
     codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, dest);
