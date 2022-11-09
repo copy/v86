@@ -2864,13 +2864,14 @@ pub unsafe fn cycle_internal() {
     if !::config::FORCE_DISABLE_JIT {
         let mut jit_entry = None;
         let initial_eip = *instruction_pointer;
+        let initial_state_flags = *state_flags;
 
         match tlb_code[(initial_eip as u32 >> 12) as usize] {
             None => {},
             Some(c) => {
                 let c = c.as_ref();
 
-                if *state_flags == c.state_flags {
+                if initial_state_flags == c.state_flags {
                     let state = c.state_table[initial_eip as usize & 0xFFF];
                     if state != u16::MAX {
                         jit_entry = Some((c.wasm_table_index.to_u16(), state));
@@ -2908,7 +2909,7 @@ pub unsafe fn cycle_internal() {
                 match get_phys_eip() {
                     Err(()) => dbg_assert!(false),
                     Ok(phys_eip) => {
-                        let entry = jit::jit_find_cache_entry(phys_eip, *state_flags);
+                        let entry = jit::jit_find_cache_entry(phys_eip, initial_state_flags);
                         dbg_assert!(entry.wasm_table_index.to_u16() == wasm_table_index);
                         dbg_assert!(entry.initial_state == initial_state);
                     },
@@ -2975,7 +2976,7 @@ pub unsafe fn cycle_internal() {
                 Some(c) => {
                     let c = c.as_ref();
 
-                    if *state_flags == c.state_flags
+                    if initial_state_flags == c.state_flags
                         && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
                     {
                         profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
@@ -2986,7 +2987,7 @@ pub unsafe fn cycle_internal() {
             #[cfg(feature = "profiler")]
             {
                 if CHECK_MISSED_ENTRY_POINTS {
-                    jit::check_missed_entry_points(phys_addr, *state_flags);
+                    jit::check_missed_entry_points(phys_addr, initial_state_flags);
                 }
             }
 
@@ -2997,7 +2998,7 @@ pub unsafe fn cycle_internal() {
                 initial_eip,
                 phys_addr,
                 get_seg_cs() as u32,
-                *state_flags,
+                initial_state_flags,
                 *instruction_counter - initial_instruction_counter,
             );
 
