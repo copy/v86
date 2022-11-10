@@ -111,6 +111,10 @@ const print_stats = {
             "MODRM_COMPLEX",
             "SEG_OFFSET_OPTIMISED",
             "SEG_OFFSET_NOT_OPTIMISED",
+            "SEG_OFFSET_NOT_OPTIMISED_ES",
+            "SEG_OFFSET_NOT_OPTIMISED_FS",
+            "SEG_OFFSET_NOT_OPTIMISED_GS",
+            "SEG_OFFSET_NOT_OPTIMISED_NOT_FLAT",
         ];
 
         let j = 0;
