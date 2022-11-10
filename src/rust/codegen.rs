@@ -1635,7 +1635,10 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
                 }
             }
         },
-        Instruction::Cmp { .. } | Instruction::Sub { .. } | Instruction::Add { .. } => {
+        Instruction::Cmp { .. }
+        | Instruction::Sub { .. }
+        | Instruction::Add { .. }
+        | Instruction::NonZeroShift { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
             if negate == ConditionNegate::False {
@@ -1752,6 +1755,15 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
             ctx.builder
                 .const_i32(if negate == ConditionNegate::True { 1 } else { 0 });
         },
+        Instruction::NonZeroShift { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_get_flags(ctx.builder);
+            ctx.builder.const_i32(FLAG_CARRY);
+            ctx.builder.and_i32();
+            if negate == ConditionNegate::True {
+                ctx.builder.eqz_i32();
+            }
+        },
         &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
 
@@ -1797,7 +1809,8 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Cmp { opsize, .. }
         | Instruction::Sub { opsize, .. }
         | Instruction::Add { opsize, .. }
-        | Instruction::Bitwise { opsize, .. } => {
+        | Instruction::Bitwise { opsize, .. }
+        | Instruction::NonZeroShift { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
@@ -1904,6 +1917,12 @@ pub fn gen_getof(ctx: &mut JitContext) {
         Instruction::Bitwise { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             ctx.builder.const_i32(0);
+        },
+        Instruction::NonZeroShift { .. } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            gen_get_flags(ctx.builder);
+            ctx.builder.const_i32(FLAG_OVERFLOW);
+            ctx.builder.and_i32();
         },
         &Instruction::Other => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
@@ -2051,7 +2070,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        &Instruction::Other => {
+        Instruction::Other | Instruction::NonZeroShift { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf(ctx, ConditionNegate::False);
             gen_getzf(ctx, ConditionNegate::False);
@@ -2167,7 +2186,7 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_getsf(ctx, negate);
         },
-        &Instruction::Other | Instruction::Add { .. } => {
+        &Instruction::Other | Instruction::Add { .. } | Instruction::NonZeroShift { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             if let Instruction::Add { .. } = ctx.previous_instruction {
                 gen_profiler_stat_increment(
@@ -2297,7 +2316,7 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        Instruction::Other | Instruction::Add { .. } => {
+        Instruction::Other | Instruction::Add { .. } | Instruction::NonZeroShift { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             if let Instruction::Add { .. } = ctx.previous_instruction {
                 gen_profiler_stat_increment(
