@@ -228,8 +228,9 @@ pub unsafe fn memset_no_mmap_or_dirty_check(addr: u32, value: u8, count: u32) {
 }
 
 pub unsafe fn memcpy_no_mmap_or_dirty_check(src_addr: u32, dst_addr: u32, count: u32) {
-    dbg_assert!(u32::max(src_addr, dst_addr) - u32::min(src_addr, dst_addr) >= count);
-    ptr::copy_nonoverlapping(
+    dbg_assert!(src_addr < *memory_size);
+    dbg_assert!(dst_addr < *memory_size);
+    ptr::copy(
         mem8.offset(src_addr as isize),
         mem8.offset(dst_addr as isize),
         count as usize,
