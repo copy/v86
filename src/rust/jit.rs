@@ -274,6 +274,10 @@ pub enum Instruction {
         opsize: i32,
         is_inc: bool,
     },
+    NonZeroShift {
+        dest: InstructionOperandDest,
+        opsize: i32,
+    },
     Bitwise {
         dest: InstructionOperandDest,
         opsize: i32,

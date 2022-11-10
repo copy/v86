@@ -1555,6 +1555,12 @@ impl ShiftCount {
 }
 
 fn gen_shl32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    if let &LocalOrImmediate::Immediate(1..=31) = source_operand {
+        ctx.current_instruction = Instruction::NonZeroShift {
+            dest: local_to_instruction_operand(ctx, dest_operand),
+            opsize: OPSIZE_32,
+        };
+    }
     let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1622,6 +1628,12 @@ fn gen_shl32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     }
 }
 fn gen_shr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    if let &LocalOrImmediate::Immediate(1..=31) = source_operand {
+        ctx.current_instruction = Instruction::NonZeroShift {
+            dest: local_to_instruction_operand(ctx, dest_operand),
+            opsize: OPSIZE_32,
+        };
+    }
     let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
@@ -1682,6 +1694,12 @@ fn gen_shr32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     }
 }
 fn gen_sar32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
+    if let &LocalOrImmediate::Immediate(1..=31) = source_operand {
+        ctx.current_instruction = Instruction::NonZeroShift {
+            dest: local_to_instruction_operand(ctx, dest_operand),
+            opsize: OPSIZE_32,
+        };
+    }
     let builder = &mut ctx.builder;
     let count = match source_operand {
         LocalOrImmediate::WasmLocal(l) => {
