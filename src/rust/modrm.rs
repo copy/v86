@@ -5,7 +5,7 @@ use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use profiler;
 use regs::{BP, BX, DI, SI};
-use regs::{CS, DS, SS};
+use regs::{CS, DS, ES, FS, GS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 
 pub struct ModrmByte {
@@ -285,6 +285,21 @@ pub fn jit_add_seg_offset_no_override(ctx: &mut JitContext, seg: u32) {
         return;
     }
     codegen::gen_profiler_stat_increment(ctx.builder, profiler::stat::SEG_OFFSET_NOT_OPTIMISED);
+    codegen::gen_profiler_stat_increment(
+        ctx.builder,
+        if seg == ES {
+            profiler::stat::SEG_OFFSET_NOT_OPTIMISED_ES
+        }
+        else if seg == FS {
+            profiler::stat::SEG_OFFSET_NOT_OPTIMISED_FS
+        }
+        else if seg == GS {
+            profiler::stat::SEG_OFFSET_NOT_OPTIMISED_GS
+        }
+        else {
+            profiler::stat::SEG_OFFSET_NOT_OPTIMISED_NOT_FLAT
+        },
+    );
 
     if seg != CS && seg != SS {
         if cfg!(feature = "profiler") {
