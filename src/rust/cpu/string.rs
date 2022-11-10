@@ -34,7 +34,7 @@ fn count_until_end_of_page(direction: i32, size: i32, addr: u32) -> u32 {
     }) as u32
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Instruction {
     Movs,
     Lods,
@@ -135,7 +135,9 @@ unsafe fn string_instruction(
     };
 
     let is_aligned = (ds + src) & (size_bytes - 1) == 0 && (es + dst) & (size_bytes - 1) == 0;
-    let mut rep_fast = is_aligned
+
+    // unaligned movs is properly handled in the fast path
+    let mut rep_fast = (instruction == Instruction::Movs || is_aligned)
         && is_asize_32 // 16-bit address wraparound
         && match rep {
             Rep::NZ | Rep::Z => true,
@@ -145,7 +147,9 @@ unsafe fn string_instruction(
     let mut phys_dst = 0;
     let mut phys_src = 0;
     let mut skip_dirty_page = false;
+
     let mut movs_into_svga_lfb = false;
+    let mut movs_reenter_fast_path = false;
 
     if rep_fast {
         match instruction {
@@ -184,10 +188,27 @@ unsafe fn string_instruction(
 
         match instruction {
             Instruction::Movs => {
-                // note: This check is also valid for both direction == 1 and direction == -1
-                let overlap = u32::max(phys_src, phys_dst) - u32::min(phys_src, phys_dst)
-                    < count * size_bytes as u32;
-                rep_fast = rep_fast && !overlap;
+                let c = count * size_bytes as u32;
+
+                let overlap_interferes = if phys_src < phys_dst {
+                    // backward moves may overlap at the front of the destination string
+                    phys_dst - phys_src < c && direction == 1
+                }
+                else if phys_src > phys_dst {
+                    // forward moves may overlap at the front of the source string
+                    phys_src - phys_dst < c && direction == -1
+                }
+                else {
+                    false
+                };
+                rep_fast = rep_fast && !overlap_interferes;
+
+                // In case the following page-boundary check fails, re-enter instruction after
+                // one iteration of the slow path
+                movs_reenter_fast_path = rep_fast;
+                rep_fast = rep_fast
+                    && (phys_src & 0xFFF <= 0x1000 - size_bytes as u32)
+                    && (phys_dst & 0xFFF <= 0x1000 - size_bytes as u32);
             },
             _ => {},
         }
@@ -419,23 +440,27 @@ unsafe fn string_instruction(
                 _ => {},
             };
 
+            count -= 1;
+
             let finished = match rep {
-                Rep::Z | Rep::NZ => {
-                    let rep_cmp = match (rep, instruction) {
-                        (Rep::Z, Instruction::Cmps) => src_val == dst_val,
-                        (Rep::Z, Instruction::Scas) => src_val == dst_val,
-                        (Rep::NZ, Instruction::Cmps) => src_val != dst_val,
-                        (Rep::NZ, Instruction::Scas) => src_val != dst_val,
-                        _ => true,
-                    };
-                    count -= 1;
-                    if count != 0 && rep_cmp {
-                        //*instruction_pointer = *previous_ip
-                        false
-                    }
-                    else {
-                        true
-                    }
+                Rep::Z | Rep::NZ => match (rep, instruction) {
+                    (Rep::Z, Instruction::Cmps) => src_val != dst_val || count == 0,
+                    (Rep::Z, Instruction::Scas) => src_val != dst_val || count == 0,
+                    (Rep::NZ, Instruction::Cmps) => src_val == dst_val || count == 0,
+                    (Rep::NZ, Instruction::Scas) => src_val == dst_val || count == 0,
+                    (Rep::NZ | Rep::Z, Instruction::Movs) => {
+                        if count == 0 {
+                            true
+                        }
+                        else if movs_reenter_fast_path {
+                            *instruction_pointer = *previous_ip;
+                            true
+                        }
+                        else {
+                            false
+                        }
+                    },
+                    _ => count == 0,
                 },
                 Rep::None => true,
             };
