@@ -547,6 +547,7 @@ pub unsafe fn iret(is_16: bool) {
             cpl_changed();
 
             update_cs_size(false);
+            update_state_flags();
 
             // iret end
             return;
@@ -1020,6 +1021,8 @@ pub unsafe fn call_interrupt_vector(
                 handle_irqs();
             }
         }
+
+        update_state_flags();
     }
     else {
         // call 4 byte cs:ip interrupt vector from ivt at cpu.memory 0
@@ -1044,6 +1047,7 @@ pub unsafe fn call_interrupt_vector(
 
         switch_cs_real_mode(new_cs);
         *instruction_pointer = get_seg_cs() + new_ip;
+        update_state_flags();
     }
 }
 
@@ -1070,6 +1074,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
         }
         switch_cs_real_mode(selector);
         *instruction_pointer = get_seg_cs() + eip;
+        update_state_flags();
         return;
     }
 
@@ -1309,6 +1314,8 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
             dbg_assert!(*sreg.offset(CS as isize) & 3 == *cpl as u16);
 
             *instruction_pointer = get_seg_cs() + new_eip;
+
+            update_state_flags();
         }
         else {
             dbg_assert!(false);
@@ -1374,6 +1381,8 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
         *sreg.offset(CS as isize) = selector as u16 & !3 | *cpl as u16;
 
         *instruction_pointer = get_seg_cs() + eip;
+
+        update_state_flags();
     }
 
     //dbg_log!("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
@@ -1395,6 +1404,7 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
         switch_cs_real_mode(selector);
         *instruction_pointer = get_seg_cs() + eip;
         adjust_stack_reg(2 * (if is_osize_32 { 4 } else { 2 }) + stack_adjust);
+        update_state_flags();
         return;
     }
 
@@ -1519,6 +1529,8 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
     dbg_assert!(selector & 3 == *cpl as i32);
 
     *instruction_pointer = get_seg_cs() + eip;
+
+    update_state_flags();
 
     //dbg_log("far return to:", LOG_CPU)
     //CPU_LOG_VERBOSE && debug.dump_state("far ret end");
@@ -1734,6 +1746,8 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
             push32(error_code).unwrap();
         }
     }
+
+    update_state_flags();
 }
 
 pub unsafe fn after_block_boundary() { jit_block_boundary = true; }
@@ -2478,6 +2492,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                     // es, ds, fs, gs
                     *sreg.offset(reg as isize) = selector_raw as u16;
                     *segment_is_null.offset(reg as isize) = true;
+                    update_state_flags();
                     return true;
                 }
             }
@@ -2514,7 +2529,6 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         }
 
         *stack_size_32 = descriptor.is_32();
-        update_state_flags();
     }
     else if reg == CS {
         // handled by switch_cs_real_mode, far_return or far_jump
@@ -2736,15 +2750,11 @@ pub unsafe fn load_pdpte(cr3: i32) {
     }
 }
 
-pub unsafe fn cpl_changed() {
-    *last_virt_eip = -1;
-    update_state_flags();
-}
+pub unsafe fn cpl_changed() { *last_virt_eip = -1 }
 
 pub unsafe fn update_cs_size(new_size: bool) {
     if *is_32 != new_size {
         *is_32 = new_size;
-        update_state_flags();
     }
 }
 
@@ -3092,10 +3102,11 @@ pub fn update_state_flags() {
 
 #[no_mangle]
 pub unsafe fn has_flat_segmentation() -> bool {
-    // ss can't be null
+    // cs/ss can't be null
     return *segment_offsets.offset(SS as isize) == 0
         && !*segment_is_null.offset(DS as isize)
-        && *segment_offsets.offset(DS as isize) == 0;
+        && *segment_offsets.offset(DS as isize) == 0
+        && *segment_offsets.offset(CS as isize) == 0;
 }
 
 pub unsafe fn run_prefix_instruction() {

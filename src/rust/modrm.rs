@@ -265,7 +265,7 @@ enum Imm32 {
 }
 
 fn can_optimize_get_seg(ctx: &mut JitContext, segment: u32) -> bool {
-    (segment == DS || segment == SS) && ctx.cpu.has_flat_segmentation()
+    (segment == DS || segment == SS || segment == CS) && ctx.cpu.has_flat_segmentation()
 }
 
 pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
