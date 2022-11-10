@@ -19,9 +19,9 @@ use cpu::cpu::{
 };
 use cpu::global_pointers::{flags, instruction_pointer, previous_ip};
 use cpu::memory::{
-    in_mapped_range, memcpy_no_mmap_or_dirty_check, memset_no_mmap_or_dirty_check,
-    read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check, write8_no_mmap_or_dirty_check,
-    write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check,
+    in_mapped_range, in_svga_lfb, memcpy_into_svga_lfb, memcpy_no_mmap_or_dirty_check,
+    memset_no_mmap_or_dirty_check, read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check,
+    write8_no_mmap_or_dirty_check, write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check,
 };
 use page::Page;
 
@@ -145,10 +145,19 @@ unsafe fn string_instruction(
     let mut phys_dst = 0;
     let mut phys_src = 0;
     let mut skip_dirty_page = false;
+    let mut movs_into_svga_lfb = false;
 
     if rep_fast {
         match instruction {
-            Instruction::Movs | Instruction::Stos | Instruction::Ins => {
+            Instruction::Movs => {
+                let (addr, skip) =
+                    return_on_pagefault!(translate_address_write_and_can_skip_dirty(es + dst));
+                movs_into_svga_lfb = in_svga_lfb(addr);
+                rep_fast = rep_fast && (!in_mapped_range(addr) || movs_into_svga_lfb);
+                phys_dst = addr;
+                skip_dirty_page = skip;
+            },
+            Instruction::Stos | Instruction::Ins => {
                 let (addr, skip) =
                     return_on_pagefault!(translate_address_write_and_can_skip_dirty(es + dst));
                 rep_fast = rep_fast && !in_mapped_range(addr);
@@ -256,11 +265,21 @@ unsafe fn string_instruction(
                         phys_src -= (count_until_end_of_page - 1) * size_bytes as u32;
                         phys_dst -= (count_until_end_of_page - 1) * size_bytes as u32;
                     }
-                    memcpy_no_mmap_or_dirty_check(
-                        phys_src,
-                        phys_dst,
-                        count_until_end_of_page * size_bytes as u32,
-                    );
+                    if movs_into_svga_lfb {
+                        ::cpu::vga::mark_dirty(phys_dst);
+                        memcpy_into_svga_lfb(
+                            phys_src,
+                            phys_dst,
+                            count_until_end_of_page * size_bytes as u32,
+                        );
+                    }
+                    else {
+                        memcpy_no_mmap_or_dirty_check(
+                            phys_src,
+                            phys_dst,
+                            count_until_end_of_page * size_bytes as u32,
+                        );
+                    }
                     i = count_until_end_of_page;
                     break;
                 },
