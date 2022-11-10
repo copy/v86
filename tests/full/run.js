@@ -490,6 +490,7 @@ if(cluster.isMaster)
             skip_if_disk_image_missing: true,
             timeout: 20 * 60,
             bzimage_initrd_from_filesystem: true,
+            memory_size: 512 * 1024 * 1024,
             cmdline: [
                 "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8",
                 "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off",
@@ -506,6 +507,7 @@ if(cluster.isMaster)
                 "Hello from JS",
                 "Hello from OCaml",
                 "Compress okay",
+                "v86-in-v86 okay",
             ],
             actions: [
                 {
@@ -533,6 +535,14 @@ if(cluster.isMaster)
                 },
                 {
                     on_text: "Compress okay",
+                    run:
+                        RUN_SLOW_TESTS ?
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo v86-in-v86 okay\n"
+                        :
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo v86-in-v86 okay\n",
+                },
+                {
+                    on_text: "v86-in-v86 okay",
                     run: "./startx.sh\n",
                 },
             ],
