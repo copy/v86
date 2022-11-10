@@ -12,9 +12,11 @@ use regs;
 use wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalI64};
 
 pub fn gen_add_cs_offset(ctx: &mut JitContext) {
-    ctx.builder
-        .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
-    ctx.builder.add_i32();
+    if !ctx.cpu.has_flat_segmentation() {
+        ctx.builder
+            .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
+        ctx.builder.add_i32();
+    }
 }
 
 pub fn gen_get_eip(builder: &mut WasmBuilder) {
@@ -1536,9 +1538,11 @@ pub fn gen_get_real_eip(ctx: &mut JitContext) {
     ctx.builder.and_i32();
     ctx.builder.const_i32(ctx.cpu.eip as i32 & 0xFFF);
     ctx.builder.or_i32();
-    ctx.builder
-        .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
-    ctx.builder.sub_i32();
+    if !ctx.cpu.has_flat_segmentation() {
+        ctx.builder
+            .load_fixed_i32(global_pointers::get_seg_offset(regs::CS));
+        ctx.builder.sub_i32();
+    }
 }
 
 pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {
