@@ -2990,6 +2990,7 @@ pub unsafe fn cycle_internal() {
                         && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
                     {
                         profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
+                        return;
                     }
                 },
             }
