@@ -397,6 +397,11 @@
             this.extension = "";
         }
 
+        if(!this.basename.endsWith("/"))
+        {
+            this.basename += "-";
+        }
+
         this.block_cache = new Map();
         this.block_cache_is_write = new Set();
 
@@ -465,9 +470,9 @@
                     this.partfile_alt_format ?
                         // matches output of gnu split:
                         //   split -b 512 -a8 -d --additional-suffix .img w95.img w95-
-                        this.basename + "-" + (start_index + i + "").padStart(8, "0") + this.extension
+                        this.basename + (start_index + i + "").padStart(8, "0") + this.extension
                     :
-                        this.basename + "-" + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
+                        this.basename + offset + "-" + (offset + this.fixed_chunk_size) + this.extension;
 
                 // XXX: unnecessary allocation
                 const block = this.get_from_cache(offset, this.fixed_chunk_size);
@@ -505,7 +510,7 @@
         }
         else
         {
-            const part_filename = this.basename + "-" + offset + "-" + (offset + len) + this.extension;
+            const part_filename = this.basename + offset + "-" + (offset + len) + this.extension;
 
             v86util.load_file(part_filename, {
                 done: function done(buffer)
