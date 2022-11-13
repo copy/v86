@@ -211,7 +211,7 @@
             {
                 var block = new Uint8Array(buffer);
                 this.handle_read(requested_start, requested_length, block);
-                if(requested_start == offset && requested_length == len)
+                if(requested_start === offset && requested_length === len)
                 {
                     fn(block);
                 }
@@ -250,14 +250,15 @@
 
             if(block === undefined)
             {
-                block = new Uint8Array(BLOCK_SIZE);
-                this.block_cache.set(start_block + i, block);
+                const data_slice = data.slice(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE);
+                this.block_cache.set(start_block + i, data_slice);
             }
-
-            var data_slice = data.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE);
-            block.set(data_slice);
-
-            dbg_assert(block.byteLength === data_slice.length);
+            else
+            {
+                const data_slice = data.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE);
+                dbg_assert(block.byteLength === data_slice.length);
+                block.set(data_slice);
+            }
 
             this.block_cache_is_write.add(start_block + i);
         }
@@ -289,9 +290,7 @@
             }
             else if(this.cache_reads)
             {
-                const cached = new Uint8Array(BLOCK_SIZE);
-                cached.set(block.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE));
-                this.block_cache.set(start_block + i, cached);
+                this.block_cache.set(start_block + i, block.slice(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE));
             }
         }
     };
