@@ -188,6 +188,7 @@ function V86Starter(options)
                         try
                         {
                             const { instance } = await WebAssembly.instantiate(bytes, env);
+                            this.wasm_source = bytes;
                             resolve(instance.exports);
                         }
                         catch(err)
@@ -195,6 +196,7 @@ function V86Starter(options)
                             v86util.load_file(v86_bin_fallback, {
                                     done: async bytes => {
                                         const { instance } = await WebAssembly.instantiate(bytes, env);
+                                        this.wasm_source = bytes;
                                         resolve(instance.exports);
                                     },
                                 });
@@ -227,6 +229,9 @@ function V86Starter(options)
 
             this.continue_init(emulator, options);
         });
+
+    this.zstd_worker = null;
+    this.zstd_worker_request_id = 0;
 }
 
 V86Starter.prototype.continue_init = async function(emulator, options)
@@ -365,7 +370,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
     var files_to_load = [];
 
-    function add_file(name, file)
+    const add_file = (name, file) =>
     {
         if(!file)
         {
@@ -437,7 +442,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
 
                 if(file.use_parts)
                 {
-                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size, file.fixed_chunk_size);
+                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size, file.fixed_chunk_size, false, this.zstd_decompress_worker.bind(this));
                 }
                 else
                 {
@@ -462,7 +467,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         {
             dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
         }
-    }
+    };
 
     if(options["state"])
     {
@@ -543,6 +548,12 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
+                    if(f.url.endsWith(".zst") && f.name !== "initial_state")
+                    {
+                        dbg_assert(f.size, "A size must be provided for compressed images");
+                        result = this.zstd_decompress(f.size, new Uint8Array(result));
+                    }
+
                     put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
@@ -646,6 +657,107 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             this.emulator_bus.send("emulator-loaded");
         }
     }
+};
+
+/**
+ * @param {number} decompressed_size
+ * @param {Uint8Array} src
+ * @return {ArrayBuffer}
+ */
+V86Starter.prototype.zstd_decompress = function(decompressed_size, src)
+{
+    const cpu = this.v86.cpu;
+
+    dbg_assert(!this.zstd_context);
+    this.zstd_context = cpu.zstd_create_ctx(src.length);
+
+    new Uint8Array(cpu.wasm_memory.buffer).set(src, cpu.zstd_get_src_ptr(this.zstd_context));
+
+    const ptr = cpu.zstd_read(this.zstd_context, decompressed_size);
+    const result = cpu.wasm_memory.buffer.slice(ptr, ptr + decompressed_size);
+    cpu.zstd_read_free(ptr, decompressed_size);
+
+    cpu.zstd_free_ctx(this.zstd_context);
+    this.zstd_context = null;
+
+    return result;
+};
+
+/**
+ * @param {number} decompressed_size
+ * @param {Uint8Array} src
+ * @return {Promise<ArrayBuffer>}
+ */
+V86Starter.prototype.zstd_decompress_worker = async function(decompressed_size, src)
+{
+    if(!this.zstd_worker)
+    {
+        function the_worker()
+        {
+            let wasm;
+
+            globalThis.onmessage = function(e)
+            {
+                if(!wasm)
+                {
+                    const env = Object.fromEntries([
+                        "cpu_exception_hook", "hlt_op",
+                        "microtick", "get_rand_int", "pic_acknowledge",
+                        "io_port_read8", "io_port_read16", "io_port_read32",
+                        "io_port_write8", "io_port_write16", "io_port_write32",
+                        "mmap_read8", "mmap_read16", "mmap_read32",
+                        "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
+                        "codegen_finalize",
+                        "jit_clear_func", "jit_clear_all_funcs",
+                    ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
+
+                    env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", "initial": 1024 });
+                    env["abort"] = () => { throw new Error("zstd worker aborted"); };
+                    env["log_from_wasm"] = env["console_log_from_wasm"] = (off, len) => {
+                        console.log(String.fromCharCode(...new Uint8Array(wasm.exports.memory.buffer, off, len)));
+                    };
+                    env["dbg_trace_from_wasm"] = () => console.trace();
+
+                    wasm = new WebAssembly.Instance(new WebAssembly.Module(e.data), { "env": env });
+                    return;
+                }
+
+                const { src, decompressed_size, id } = e.data;
+                const exports = wasm.exports;
+
+                const zstd_context = exports["zstd_create_ctx"](src.length);
+                new Uint8Array(exports.memory.buffer).set(src, exports["zstd_get_src_ptr"](zstd_context));
+
+                const ptr = exports["zstd_read"](zstd_context, decompressed_size);
+                const result = exports.memory.buffer.slice(ptr, ptr + decompressed_size);
+                exports["zstd_read_free"](ptr, decompressed_size);
+
+                exports["zstd_free_ctx"](zstd_context);
+
+                postMessage({ result, id }, [result]);
+            };
+        }
+
+        const url = URL.createObjectURL(new Blob(["(" + the_worker.toString() + ")()"], { type: "text/javascript" }));
+        this.zstd_worker = new Worker(url);
+        URL.revokeObjectURL(url);
+        this.zstd_worker.postMessage(this.wasm_source, [this.wasm_source]);
+    }
+
+    return new Promise(resolve => {
+        const id = this.zstd_worker_request_id++;
+        const done = async e =>
+        {
+            if(e.data.id === id)
+            {
+                this.zstd_worker.removeEventListener("message", done);
+                dbg_assert(decompressed_size === e.data.result.byteLength);
+                resolve(e.data.result);
+            }
+        };
+        this.zstd_worker.addEventListener("message", done);
+        this.zstd_worker.postMessage({ src, decompressed_size, id }, [src.buffer]);
+    });
 };
 
 V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)

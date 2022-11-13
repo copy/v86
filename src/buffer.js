@@ -381,20 +381,14 @@
      * @param {number|undefined} fixed_chunk_size
      * @param {boolean|undefined} partfile_alt_format
      */
-    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfile_alt_format)
+    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfile_alt_format, zstd_decompress)
     {
-        const parts = filename.match(/(.*)(\..*)/);
+        const parts = filename.match(/\.[^\.]+(\.zst)?$/);
 
-        if(parts)
-        {
-            this.basename = parts[1];
-            this.extension = parts[2];
-        }
-        else
-        {
-            this.basename = filename;
-            this.extension = "";
-        }
+        this.extension = parts ? parts[0] : "";
+        this.basename = filename.substring(0, filename.length - this.extension.length);
+
+        this.is_zstd = this.extension.endsWith(".zst");
 
         if(!this.basename.endsWith("/"))
         {
@@ -407,6 +401,7 @@
         this.byteLength = size;
         this.fixed_chunk_size = fixed_chunk_size;
         this.partfile_alt_format = !!partfile_alt_format;
+        this.zstd_decompress = zstd_decompress;
 
         this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
 
@@ -478,29 +473,33 @@
 
                 if(block)
                 {
-                    const cur = i * this.fixed_chunk_size;
-                    blocks.set(block, cur);
+                    blocks.set(block, i * this.fixed_chunk_size);
                     finished++;
                     if(finished === total_count)
                     {
-                        const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
-                        fn(tmp_blocks);
+                        fn(blocks.subarray(m_offset, m_offset + len));
                     }
                 }
                 else
                 {
                     v86util.load_file(part_filename, {
-                        done: function done(buffer)
+                        done: async function done(buffer)
                         {
-                            const cur = i * this.fixed_chunk_size;
-                            const block = new Uint8Array(buffer);
+                            let block = new Uint8Array(buffer);
+
+                            if(this.is_zstd)
+                            {
+                                const decompressed = await this.zstd_decompress(this.fixed_chunk_size, block);
+                                block = new Uint8Array(decompressed);
+                            }
+
+                            blocks.set(block, i * this.fixed_chunk_size);
                             this.handle_read((start_index + i) * this.fixed_chunk_size, this.fixed_chunk_size|0, block);
-                            blocks.set(block, cur);
+
                             finished++;
                             if(finished === total_count)
                             {
-                                const tmp_blocks = blocks.subarray(m_offset, m_offset + len);
-                                fn(tmp_blocks);
+                                fn(blocks.subarray(m_offset, m_offset + len));
                             }
                         }.bind(this),
                     });
