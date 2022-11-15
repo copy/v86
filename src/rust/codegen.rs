@@ -355,6 +355,10 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
         | Instruction::Bitwise {
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
+        }
+        | Instruction::NonZeroShift {
+            dest: InstructionOperandDest::WasmLocal(l),
+            opsize: OPSIZE_32,
         } => builder.get_local(&l),
         Instruction::Cmp {
             dest: InstructionOperandDest::WasmLocal(l),
