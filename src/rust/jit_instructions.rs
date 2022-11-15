@@ -1121,6 +1121,17 @@ fn gen_adc8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.call_fn2_ret("adc8");
     ctx.builder.const_i32(0xFF);
     ctx.builder.and_i32();
+
+    ctx.current_instruction = Instruction::AdcSbb {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
+    };
 }
 fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.builder.get_local(&dest_operand);
@@ -1188,6 +1199,17 @@ fn gen_adc32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.get_local(&res);
     ctx.builder.set_local(dest_operand);
     ctx.builder.free_local(res);
+
+    ctx.current_instruction = Instruction::AdcSbb {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
+    };
 }
 
 fn gen_sbb8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
@@ -1198,6 +1220,17 @@ fn gen_sbb8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Loc
     ctx.builder.call_fn2_ret("sbb8");
     ctx.builder.const_i32(0xFF);
     ctx.builder.and_i32();
+
+    ctx.current_instruction = Instruction::AdcSbb {
+        opsize: OPSIZE_8,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
+    };
 }
 fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {
     ctx.builder.get_local(&dest_operand);
@@ -1265,6 +1298,17 @@ fn gen_sbb32(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &Lo
     ctx.builder.get_local(&res);
     ctx.builder.set_local(dest_operand);
     ctx.builder.free_local(res);
+
+    ctx.current_instruction = Instruction::AdcSbb {
+        opsize: OPSIZE_32,
+        dest: local_to_instruction_operand(ctx, dest_operand),
+        source: if source_operand.eq_local(dest_operand) {
+            InstructionOperand::Other // aliasing
+        }
+        else {
+            source_operand.to_instruction_operand(ctx)
+        },
+    };
 }
 
 fn gen_and8(ctx: &mut JitContext, dest_operand: &WasmLocal, source_operand: &LocalOrImmediate) {

@@ -274,6 +274,11 @@ pub enum Instruction {
         opsize: i32,
         is_inc: bool,
     },
+    AdcSbb {
+        dest: InstructionOperandDest,
+        source: InstructionOperand,
+        opsize: i32,
+    },
     NonZeroShift {
         dest: InstructionOperandDest,
         opsize: i32,

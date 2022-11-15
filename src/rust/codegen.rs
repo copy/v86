@@ -347,6 +347,11 @@ fn gen_get_last_result(builder: &mut WasmBuilder, previous_instruction: &Instruc
             opsize: OPSIZE_32,
             ..
         }
+        | Instruction::AdcSbb {
+            dest: InstructionOperandDest::WasmLocal(l),
+            opsize: OPSIZE_32,
+            ..
+        }
         | Instruction::Sub {
             dest: InstructionOperandDest::WasmLocal(l),
             opsize: OPSIZE_32,
@@ -1646,6 +1651,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Cmp { .. }
         | Instruction::Sub { .. }
         | Instruction::Add { .. }
+        | Instruction::AdcSbb { .. }
         | Instruction::NonZeroShift { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_last_result(ctx.builder, &ctx.previous_instruction);
@@ -1763,7 +1769,7 @@ pub fn gen_getcf(ctx: &mut JitContext, negate: ConditionNegate) {
             ctx.builder
                 .const_i32(if negate == ConditionNegate::True { 1 } else { 0 });
         },
-        Instruction::NonZeroShift { .. } => {
+        Instruction::NonZeroShift { .. } | Instruction::AdcSbb { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_flags(ctx.builder);
             ctx.builder.const_i32(FLAG_CARRY);
@@ -1817,6 +1823,7 @@ pub fn gen_getsf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Cmp { opsize, .. }
         | Instruction::Sub { opsize, .. }
         | Instruction::Add { opsize, .. }
+        | Instruction::AdcSbb { opsize, .. }
         | Instruction::Bitwise { opsize, .. }
         | Instruction::NonZeroShift { opsize, .. } => {
             let &opsize = opsize;
@@ -1926,7 +1933,7 @@ pub fn gen_getof(ctx: &mut JitContext) {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             ctx.builder.const_i32(0);
         },
-        Instruction::NonZeroShift { .. } => {
+        Instruction::NonZeroShift { .. } | Instruction::AdcSbb { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_get_flags(ctx.builder);
             ctx.builder.const_i32(FLAG_OVERFLOW);
@@ -2078,7 +2085,7 @@ pub fn gen_test_be(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        Instruction::Other | Instruction::NonZeroShift { .. } => {
+        Instruction::Other | Instruction::NonZeroShift { .. } | Instruction::AdcSbb { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             gen_getcf(ctx, ConditionNegate::False);
             gen_getzf(ctx, ConditionNegate::False);
@@ -2194,7 +2201,10 @@ pub fn gen_test_l(ctx: &mut JitContext, negate: ConditionNegate) {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             gen_getsf(ctx, negate);
         },
-        &Instruction::Other | Instruction::Add { .. } | Instruction::NonZeroShift { .. } => {
+        &Instruction::Other
+        | Instruction::Add { .. }
+        | Instruction::NonZeroShift { .. }
+        | Instruction::AdcSbb { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             if let Instruction::Add { .. } = ctx.previous_instruction {
                 gen_profiler_stat_increment(
@@ -2324,7 +2334,10 @@ pub fn gen_test_le(ctx: &mut JitContext, negate: ConditionNegate) {
                 ctx.builder.eqz_i32();
             }
         },
-        Instruction::Other | Instruction::Add { .. } | Instruction::NonZeroShift { .. } => {
+        Instruction::Other
+        | Instruction::Add { .. }
+        | Instruction::NonZeroShift { .. }
+        | Instruction::AdcSbb { .. } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_UNOPTIMISED);
             if let Instruction::Add { .. } = ctx.previous_instruction {
                 gen_profiler_stat_increment(
