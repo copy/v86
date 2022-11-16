@@ -1674,6 +1674,13 @@ fn jit_generate_module(
                             let next_block_branch_taken_addr =
                                 next_block_branch_taken_addr.unwrap();
 
+                            dbg_log!(
+                                "Conditional control flow: fallthrough in both cases, page_switch={} next_is_multi={}",
+                                Page::page_of(next_block_branch_taken_addr)
+                                    != Page::page_of(block.addr),
+                                next_addr.as_ref().unwrap().len() > 1,
+                            );
+
                             dbg_assert!(
                                 Page::page_of(next_block_addr) == Page::page_of(block.addr)
                             ); // currently not possible
@@ -1681,6 +1688,9 @@ fn jit_generate_module(
                             if Page::page_of(next_block_branch_taken_addr)
                                 != Page::page_of(block.addr)
                             {
+                                codegen::gen_condition_fn(ctx, condition);
+                                ctx.builder.if_void();
+
                                 if jump_offset_is_32 {
                                     codegen::gen_set_eip_low_bits_and_jump_rel32(
                                         ctx.builder,
@@ -1713,9 +1723,24 @@ fn jit_generate_module(
                                     block.addr,
                                     next_block_branch_taken_addr,
                                 );
-                            }
 
-                            if next_addr.unwrap().len() > 1 {
+                                dbg_assert!(next_addr.unwrap().len() > 1);
+
+                                let target_index_taken =
+                                    *index_for_addr.get(&next_block_branch_taken_addr).unwrap();
+                                let target_index_not_taken =
+                                    *index_for_addr.get(&next_block_addr).unwrap();
+
+                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.set_local(target_block);
+
+                                ctx.builder.else_();
+                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.set_local(target_block);
+
+                                ctx.builder.block_end();
+                            }
+                            else if next_addr.unwrap().len() > 1 {
                                 let target_index_taken =
                                     *index_for_addr.get(&next_block_branch_taken_addr).unwrap();
                                 let target_index_not_taken =
