@@ -151,7 +151,7 @@ unsafe fn string_instruction(
     let mut movs_into_svga_lfb = false;
     let mut movs_reenter_fast_path = false;
 
-    if rep_fast {
+    let count_until_end_of_page = if rep_fast {
         match instruction {
             Instruction::Movs => {
                 let (addr, skip) =
@@ -186,9 +186,25 @@ unsafe fn string_instruction(
             _ => {},
         };
 
+        let count_until_end_of_page = u32::min(
+            count,
+            match instruction {
+                Instruction::Movs | Instruction::Cmps => u32::min(
+                    count_until_end_of_page(direction, size_bytes, phys_src),
+                    count_until_end_of_page(direction, size_bytes, phys_dst),
+                ),
+                Instruction::Stos | Instruction::Ins | Instruction::Scas => {
+                    count_until_end_of_page(direction, size_bytes, phys_dst)
+                },
+                Instruction::Lods | Instruction::Outs => {
+                    count_until_end_of_page(direction, size_bytes, phys_src)
+                },
+            },
+        );
+
         match instruction {
             Instruction::Movs => {
-                let c = count * size_bytes as u32;
+                let c = count_until_end_of_page * size_bytes as u32;
 
                 let overlap_interferes = if phys_src < phys_dst {
                     // backward moves may overlap at the front of the destination string
@@ -212,24 +228,14 @@ unsafe fn string_instruction(
             },
             _ => {},
         }
+
+        count_until_end_of_page
     }
+    else {
+        0 // not used
+    };
 
     if rep_fast {
-        let count_until_end_of_page = u32::min(
-            count,
-            match instruction {
-                Instruction::Movs | Instruction::Cmps => u32::min(
-                    count_until_end_of_page(direction, size_bytes, phys_src),
-                    count_until_end_of_page(direction, size_bytes, phys_dst),
-                ),
-                Instruction::Stos | Instruction::Ins | Instruction::Scas => {
-                    count_until_end_of_page(direction, size_bytes, phys_dst)
-                },
-                Instruction::Lods | Instruction::Outs => {
-                    count_until_end_of_page(direction, size_bytes, phys_src)
-                },
-            },
-        );
         dbg_assert!(count_until_end_of_page > 0);
 
         if !skip_dirty_page {
