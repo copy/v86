@@ -2635,7 +2635,6 @@ pub unsafe fn instr_0F70_reg(r1: i32, r2: i32, imm: i32) { instr_0F70(read_mmx64
 pub unsafe fn instr_0F70_mem(addr: i32, r: i32, imm: i32) {
     instr_0F70(return_on_pagefault!(safe_read64s(addr)), r, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_660F70(source: reg128, r: i32, imm8: i32) {
     // pshufd xmm, xmm/mem128, imm8
     // XXX: Aligned access or #gp

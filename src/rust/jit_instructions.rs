@@ -6456,10 +6456,25 @@ pub fn instr_0F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
     ctx.builder.call_fn3_i64_i32_i32("instr_0F70");
 }
 pub fn instr_660F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
-    sse_read128_xmm_mem_imm(ctx, "instr_660F70", modrm_byte, r, imm8)
+    let src = global_pointers::sse_scratch_register as u32;
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, src);
+    for i in 0..4 {
+        ctx.builder.const_i32(0);
+        ctx.builder.load_fixed_i32(src + 4 * (imm8 >> 2 * i & 3));
+        ctx.builder
+            .store_aligned_i32(global_pointers::get_reg_xmm_offset(r) + 4 * i);
+    }
 }
 pub fn instr_660F70_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
-    sse_read128_xmm_xmm_imm(ctx, "instr_660F70", r1, r2, imm8)
+    codegen::gen_read_reg_xmm128_into_scratch(ctx, r1);
+    // TODO: perf: copy less (handle aliased src/dst), use 64-bit loads/stores if possible
+    let src = global_pointers::sse_scratch_register as u32;
+    for i in 0..4 {
+        ctx.builder.const_i32(0);
+        ctx.builder.load_fixed_i32(src + 4 * (imm8 >> 2 * i & 3));
+        ctx.builder
+            .store_aligned_i32(global_pointers::get_reg_xmm_offset(r2) + 4 * i);
+    }
 }
 pub fn instr_F20F70_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
     sse_read128_xmm_mem_imm(ctx, "instr_F20F70", modrm_byte, r, imm8)
