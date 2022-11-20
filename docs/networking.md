@@ -11,5 +11,5 @@ browser-compatible `WebSocket` constructor being present in the global scope.
 
 **NOTE:** original `benjamincburns/jor1k-relay:latest` docker image has
 throttling built-in by default which will degrade the networking.
-`bennottelling/websockproxy`docker image has this throttling removed via
+`bellenottelling/websockproxy`docker image has this throttling removed via
 [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
