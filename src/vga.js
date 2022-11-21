@@ -192,6 +192,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.latch_dword = 0;
 
     /** @type {number} */
+    this.svga_version = 0xB0C5;
+
+    /** @type {number} */
     this.svga_width = 0;
 
     /** @type {number} */
@@ -1998,6 +2001,16 @@ VGAScreen.prototype.port1CF_write = function(value)
 
     switch(this.dispi_index)
     {
+        case 0:
+            if(value >= 0xB0C0 && value <= 0xB0C5)
+            {
+                this.svga_version = value;
+            }
+            else
+            {
+                dbg_log("Invalid version value: " + h(value), LOG_VGA);
+            }
+            break;
         case 1:
             this.svga_width = value;
             if(this.svga_width > MAX_XRES)
@@ -2080,8 +2093,7 @@ VGAScreen.prototype.svga_register_read = function(n)
     switch(n)
     {
         case 0:
-            // id
-            return 0xB0C0;
+            return this.svga_version;
         case 1:
             return this.dispi_enable_value & 2 ? MAX_XRES : this.svga_width;
         case 2:
