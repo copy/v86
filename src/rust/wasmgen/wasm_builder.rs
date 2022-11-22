@@ -725,11 +725,11 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    //pub fn store_aligned_u16(&mut self, byte_offset: u32) {
-    //    self.instruction_body.push(op::OP_I32STORE16);
-    //    self.instruction_body.push(op::MEM_ALIGN16);
-    //    write_leb_u32(&mut self.instruction_body, byte_offset);
-    //}
+    pub fn store_aligned_u16(&mut self, byte_offset: u32) {
+        self.instruction_body.push(op::OP_I32STORE16);
+        self.instruction_body.push(op::MEM_ALIGN16);
+        write_leb_u32(&mut self.instruction_body, byte_offset);
+    }
 
     pub fn store_aligned_i32(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I32STORE);

@@ -424,12 +424,6 @@ pub fn gen_fn2_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32
     builder.const_i32(arg1 as i32);
     builder.call_fn2(name);
 }
-pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32, arg2: u32) {
-    builder.const_i32(arg0 as i32);
-    builder.const_i32(arg1 as i32);
-    builder.const_i32(arg2 as i32);
-    builder.call_fn3(name);
-}
 
 // helper functions for gen/generate_jit.js
 pub fn gen_modrm_fn0(builder: &mut WasmBuilder, name: &str) {
@@ -440,12 +434,6 @@ pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     // generates: fn( _, arg0 )
     builder.const_i32(arg0 as i32);
     builder.call_fn2(name);
-}
-pub fn gen_modrm_fn2(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
-    // generates: fn( _, arg0, arg1 )
-    builder.const_i32(arg0 as i32);
-    builder.const_i32(arg1 as i32);
-    builder.call_fn3(name);
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: ModrmByte) {

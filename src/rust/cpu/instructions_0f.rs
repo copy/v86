@@ -3723,6 +3723,8 @@ pub unsafe fn instr_0FC3_mem(addr: i32, r: i32) {
     // movnti
     return_on_pagefault!(safe_write32(addr, read_reg32(r)));
 }
+
+#[no_mangle]
 pub unsafe fn instr_0FC4(source: i32, r: i32, imm8: i32) {
     // pinsrw mm, r32/m16, imm8
     let mut destination: [u16; 4] = std::mem::transmute(read_mmx64s(r));
@@ -3730,9 +3732,7 @@ pub unsafe fn instr_0FC4(source: i32, r: i32, imm8: i32) {
     write_mmx_reg64(r, std::mem::transmute(destination));
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_0FC4_reg(r1: i32, r2: i32, imm: i32) { instr_0FC4(read_reg32(r1), r2, imm); }
-#[no_mangle]
 pub unsafe fn instr_0FC4_mem(addr: i32, r: i32, imm: i32) {
     instr_0FC4(return_on_pagefault!(safe_read16(addr)), r, imm);
 }
@@ -3743,15 +3743,12 @@ pub unsafe fn instr_660FC4(source: i32, r: i32, imm8: i32) {
     destination.u16[index as usize] = (source & 0xFFFF) as u16;
     write_xmm_reg128(r, destination);
 }
-#[no_mangle]
 pub unsafe fn instr_660FC4_reg(r1: i32, r2: i32, imm: i32) {
     instr_660FC4(read_reg32(r1), r2, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_660FC4_mem(addr: i32, r: i32, imm: i32) {
     instr_660FC4(return_on_pagefault!(safe_read16(addr)), r, imm);
 }
-#[no_mangle]
 pub unsafe fn instr_0FC5_mem(_addr: i32, _r: i32, _imm8: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0FC5_reg(r1: i32, r2: i32, imm8: i32) {
@@ -3760,9 +3757,7 @@ pub unsafe fn instr_0FC5_reg(r1: i32, r2: i32, imm8: i32) {
     write_reg32(r2, data[(imm8 & 3) as usize] as i32);
     transition_fpu_to_mmx();
 }
-#[no_mangle]
 pub unsafe fn instr_660FC5_mem(_addr: i32, _r: i32, _imm8: i32) { trigger_ud(); }
-#[no_mangle]
 pub unsafe fn instr_660FC5_reg(r1: i32, r2: i32, imm8: i32) {
     // pextrw r32, xmm, imm8
     let data = read_xmm128s(r1);

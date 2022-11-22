@@ -819,10 +819,10 @@ const encodings = [
 
     { opcode: 0x0FC3, e: 1, custom: 1, reg_ud: 1, }, // movnti: Uses normal registers, hence not marked as sse
 
-    { sse: 1, opcode: 0x0FC4, e: 1, imm8: 1 },
-    { sse: 1, opcode: 0x660FC4, e: 1, imm8: 1 },
-    { sse: 1, opcode: 0x0FC5, e: 1, mem_ud: 1, imm8: 1 },
-    { sse: 1, opcode: 0x660FC5, e: 1, mem_ud: 1, imm8: 1, },
+    { sse: 1, opcode: 0x0FC4, e: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0x660FC4, e: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0x0FC5, e: 1, mem_ud: 1, imm8: 1, custom: 1 },
+    { sse: 1, opcode: 0x660FC5, e: 1, mem_ud: 1, imm8: 1, custom: 1 },
 
     { sse: 1, opcode: 0x0FC6, e: 1, imm8: 1, custom: 1 },
     { sse: 1, opcode: 0x660FC6, e: 1, imm8: 1, custom: 1 },

@@ -5338,6 +5338,59 @@ pub fn instr_0FC3_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
 }
 pub fn instr_0FC3_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) { codegen::gen_trigger_ud(ctx) }
 
+pub fn instr_0FC4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read16(ctx, &address_local);
+    ctx.builder.const_i32(r as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_0FC4");
+    ctx.builder.free_local(address_local);
+}
+pub fn instr_0FC4_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    codegen::gen_get_reg32(ctx, r1);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_0FC4");
+}
+
+pub fn instr_660FC4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32, imm8: u32) {
+    ctx.builder.const_i32(0);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_safe_read16(ctx, &address_local);
+    ctx.builder
+        .store_aligned_u16(global_pointers::get_reg_xmm_offset(r) + ((imm8 & 7) << 1));
+    ctx.builder.free_local(address_local);
+}
+pub fn instr_660FC4_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    ctx.builder.const_i32(0);
+    codegen::gen_get_reg32(ctx, r1);
+    ctx.builder
+        .store_aligned_u16(global_pointers::get_reg_xmm_offset(r2) + ((imm8 & 7) << 1));
+}
+
+pub fn instr_0FC5_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _r: u32, _imm8: u32) {
+    codegen::gen_trigger_ud(ctx)
+}
+pub fn instr_0FC5_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.const_i32(r1 as i32);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.const_i32(imm8 as i32);
+    ctx.builder.call_fn3("instr_0FC5_reg");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
+}
+
+pub fn instr_660FC5_mem_jit(ctx: &mut JitContext, _modrm_byte: ModrmByte, _r: u32, _imm8: u32) {
+    codegen::gen_trigger_ud(ctx)
+}
+pub fn instr_660FC5_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8: u32) {
+    ctx.builder
+        .load_fixed_u16(global_pointers::get_reg_xmm_offset(r1) + ((imm8 & 7) << 1));
+    codegen::gen_set_reg32(ctx, r2);
+}
+
 pub fn instr16_0FC7_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     // cmpxchg8b
     codegen::gen_modrm_resolve(ctx, modrm_byte);
