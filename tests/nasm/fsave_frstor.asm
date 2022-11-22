@@ -1,8 +1,5 @@
 global _start
 
-section .data
-	align 16
-
 %include "header.inc"
 
     sub esp, 128
@@ -10,5 +7,6 @@ section .data
     fld1
     fsave [esp]
     frstor [esp]
+    mov dword [esp + 12], 0 ; fpu eip (currently not emulated)
 
 %include "footer.inc"
