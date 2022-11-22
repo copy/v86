@@ -551,14 +551,15 @@ pub unsafe fn fpu_fstenv32(addr: i32) {
             return;
         },
     }
-    safe_write16(addr, (*fpu_control_word).into()).unwrap();
-    safe_write16(addr + 4, fpu_load_status_word().into()).unwrap();
-    safe_write16(addr + 8, fpu_load_tag_word()).unwrap();
+    let high_bits = 0xFFFF0000u32 as i32;
+    safe_write32(addr + 0, high_bits + *fpu_control_word as i32).unwrap();
+    safe_write32(addr + 4, high_bits + fpu_load_status_word() as i32).unwrap();
+    safe_write32(addr + 8, high_bits + fpu_load_tag_word()).unwrap();
     safe_write32(addr + 12, *fpu_ip).unwrap();
     safe_write16(addr + 16, *fpu_ip_selector).unwrap();
     safe_write16(addr + 18, *fpu_opcode).unwrap();
     safe_write32(addr + 20, *fpu_dp).unwrap();
-    safe_write16(addr + 24, *fpu_dp_selector).unwrap();
+    safe_write32(addr + 24, high_bits | *fpu_dp_selector).unwrap();
 }
 #[no_mangle]
 pub unsafe fn fpu_load_tag_word() -> i32 {
