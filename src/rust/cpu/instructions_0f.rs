@@ -449,7 +449,6 @@ pub unsafe fn instr_0F09() {
 }
 #[no_mangle]
 pub unsafe fn instr_0F0A() { undefined_instruction(); }
-#[no_mangle]
 pub unsafe fn instr_0F0B() {
     // UD2
     trigger_ud();

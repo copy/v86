@@ -443,7 +443,7 @@ const encodings = [
     // Technically has a next instruction, but Linux uses this for assertions
     // and embeds the assertion message after this instruction, which is likely
     // the most common use case of ud2
-    { opcode: 0x0F0B, skip: 1, block_boundary: 1, no_next_instruction: 1, },
+    { opcode: 0x0F0B, skip: 1, block_boundary: 1, custom: 1, no_next_instruction: 1, },
     { opcode: 0x0F0C, skip: 1, block_boundary: 1, },
     { opcode: 0x0F0D, skip: 1, block_boundary: 1, },
     { opcode: 0x0F0E, skip: 1, block_boundary: 1, },
