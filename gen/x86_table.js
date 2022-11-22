@@ -203,8 +203,8 @@ const encodings = [
     { opcode: 0x99, os: 1, custom: 1 },
     { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, block_boundary: 1, }, // callf
     { opcode: 0x9B, block_boundary: 1, skip: 1, }, // fwait: block_boundary since it uses non-raising cpu exceptions
-    { opcode: 0x9C, os: 1, custom: 1 },
-    { opcode: 0x9D, os: 1, skip: 1, custom: 1, },
+    { opcode: 0x9C, os: 1, custom: 1, skip: 1 }, // pushf
+    { opcode: 0x9D, os: 1, custom: 1, skip: 1 }, // popf
     { opcode: 0x9E, custom: 1 },
     { opcode: 0x9F, custom: 1 },
 
