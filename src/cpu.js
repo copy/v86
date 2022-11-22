@@ -1077,21 +1077,22 @@ CPU.prototype.load_multiboot = function(buffer)
             function() {});
 
         // only for kvm-unit-test
-        for(let i = 0xE; i <= 0xF; i++)
+        for(let i = 0; i <= 0xF; i++)
         {
-            this.io.register_write(0x2000 + i, this,
-                function(value)
+            function handle_write(value)
+            {
+                dbg_log("kvm-unit-test: Set irq " + h(i) + " to " + h(value, 2));
+                if(value)
                 {
-                    dbg_log("kvm-unit-test: Set irq " + h(i) + " to " + h(value, 2));
-                    if(value)
-                    {
-                        this.device_raise_irq(i);
-                    }
-                    else
-                    {
-                        this.device_lower_irq(i);
-                    }
-                });
+                    this.device_raise_irq(i);
+                }
+                else
+                {
+                    this.device_lower_irq(i);
+                }
+            }
+
+            this.io.register_write(0x2000 + i, this, handle_write, handle_write, handle_write);
         }
 
         this.update_state_flags();
