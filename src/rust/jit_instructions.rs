@@ -6378,10 +6378,42 @@ pub fn instr_660F61_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F61", r1, r2);
 }
 pub fn instr_660F62_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    sse_read128_xmm_mem(ctx, "instr_660F62", modrm_byte, r);
+    let src = global_pointers::sse_scratch_register as u32;
+    codegen::gen_modrm_resolve_safe_read128(ctx, modrm_byte, src);
+    ctx.builder.const_i32(0);
+    ctx.builder.load_fixed_i32(src + 4);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r) + 12);
+
+    ctx.builder.const_i32(0);
+    ctx.builder
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r) + 4);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r) + 8);
+
+    ctx.builder.const_i32(0);
+    ctx.builder.load_fixed_i32(src + 0);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r) + 4);
 }
 pub fn instr_660F62_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    sse_read128_xmm_xmm(ctx, "instr_660F62", r1, r2);
+    ctx.builder.const_i32(0);
+    ctx.builder
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r1) + 4);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r2) + 12);
+
+    ctx.builder.const_i32(0);
+    ctx.builder
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r2) + 4);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r2) + 8);
+
+    ctx.builder.const_i32(0);
+    ctx.builder
+        .load_fixed_i32(global_pointers::get_reg_xmm_offset(r1) + 0);
+    ctx.builder
+        .store_aligned_i32(global_pointers::get_reg_xmm_offset(r2) + 4);
 }
 pub fn instr_660F63_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_660F63", modrm_byte, r);

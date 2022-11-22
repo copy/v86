@@ -2229,7 +2229,6 @@ pub unsafe fn instr_0F62_reg(r1: i32, r2: i32) { instr_0F62(read_mmx32s(r1), r2)
 pub unsafe fn instr_0F62_mem(addr: i32, r: i32) {
     instr_0F62(return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F62(source: reg128, r: i32) {
     // punpckldq xmm, xmm/m128
     // XXX: Aligned access or #gp
