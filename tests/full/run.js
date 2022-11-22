@@ -47,7 +47,7 @@ function string_to_bytearray(str)
 
 function bytearray_to_string(arr)
 {
-    return String.fromCharCode.apply(String, arr);
+    return String.fromCharCode.apply(String, arr).replace(/[\x00-\x08\x0b-\x1f\x7f\x80-\xff]/g, " ");
 }
 
 function screen_to_text(s)
