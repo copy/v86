@@ -491,7 +491,6 @@ pub unsafe fn instr_660F10_reg(r1: i32, r2: i32) { instr_660F10(read_xmm128s(r1)
 pub unsafe fn instr_660F10_mem(addr: i32, r: i32) {
     instr_660F10(return_on_pagefault!(safe_read128s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F10_reg(r1: i32, r2: i32) {
     // movsd xmm, xmm/m64
     let data = read_xmm128s(r1);
@@ -528,7 +527,6 @@ pub unsafe fn instr_660F11_mem(addr: i32, r: i32) {
     // movupd xmm/m128, xmm
     mov_r_m128(addr, r);
 }
-#[no_mangle]
 pub unsafe fn instr_F20F11_reg(r1: i32, r2: i32) {
     // movsd xmm/m64, xmm
     let data = read_xmm128s(r2);
@@ -563,6 +561,7 @@ pub unsafe fn instr_F20F12_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
 pub unsafe fn instr_F30F12_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_F30F12_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
+
 pub unsafe fn instr_0F13_mem(addr: i32, r: i32) {
     // movlps m64, xmm
     movl_r128_m64(addr, r);
@@ -573,6 +572,7 @@ pub unsafe fn instr_660F13_mem(addr: i32, r: i32) {
     // movlpd xmm/m64, xmm
     movl_r128_m64(addr, r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0F14(source: u64, r: i32) {
     // unpcklps xmm, xmm/m128
@@ -835,6 +835,7 @@ pub unsafe fn instr_0F25() { undefined_instruction(); }
 pub unsafe fn instr_0F26() { undefined_instruction(); }
 #[no_mangle]
 pub unsafe fn instr_0F27() { undefined_instruction(); }
+
 pub unsafe fn instr_0F28(source: reg128, r: i32) {
     // movaps xmm, xmm/m128
     // XXX: Aligned read or #gp
@@ -2571,6 +2572,7 @@ pub unsafe fn instr_660F6D_reg(r1: i32, r2: i32) { instr_660F6D(read_xmm128s(r1)
 pub unsafe fn instr_660F6D_mem(addr: i32, r: i32) {
     instr_660F6D(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0F6E(source: i32, r: i32) {
     // movd mm, r/m32
@@ -2581,7 +2583,6 @@ pub unsafe fn instr_0F6E_reg(r1: i32, r2: i32) { instr_0F6E(read_reg32(r1), r2);
 pub unsafe fn instr_0F6E_mem(addr: i32, r: i32) {
     instr_0F6E(return_on_pagefault!(safe_read32s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_660F6E(source: i32, r: i32) {
     // movd mm, r/m32
     write_xmm128(r, source, 0, 0, 0);
@@ -2939,6 +2940,7 @@ pub unsafe fn instr_0F7B() { unimplemented_sse(); }
 pub unsafe fn instr_0F7C() { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_0F7D() { unimplemented_sse(); }
+
 #[no_mangle]
 pub unsafe fn instr_0F7E(r: i32) -> i32 {
     // movd r/m32, mm
@@ -2964,7 +2966,6 @@ pub unsafe fn instr_F30F7E_mem(addr: i32, r: i32) {
     let data = return_on_pagefault!(safe_read64s(addr));
     write_xmm128_2(r, data, 0);
 }
-#[no_mangle]
 pub unsafe fn instr_F30F7E_reg(r1: i32, r2: i32) {
     // movq xmm, xmm/mem64
     write_xmm128_2(r2, read_xmm64s(r1), 0);
@@ -3981,6 +3982,7 @@ pub unsafe fn instr_660FD5_reg(r1: i32, r2: i32) { instr_660FD5(read_xmm128s(r1)
 pub unsafe fn instr_660FD5_mem(addr: i32, r: i32) {
     instr_660FD5(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0FD6_mem(_addr: i32, _r: i32) { trigger_ud(); }
 #[no_mangle]
@@ -3989,12 +3991,11 @@ pub unsafe fn instr_660FD6_mem(addr: i32, r: i32) {
     // movq xmm/m64, xmm
     movl_r128_m64(addr, r);
 }
-#[no_mangle]
 pub unsafe fn instr_660FD6_reg(r1: i32, r2: i32) {
     // movq xmm/m64, xmm
-    let data = read_xmm64s(r2);
-    write_xmm128_2(r1, data, 0);
+    write_xmm128_2(r1, read_xmm64s(r2), 0);
 }
+
 #[no_mangle]
 pub unsafe fn instr_F20FD6_mem(_addr: i32, _r: i32) { trigger_ud(); }
 #[no_mangle]
@@ -4012,6 +4013,7 @@ pub unsafe fn instr_F30FD6_reg(r1: i32, r2: i32) {
     write_xmm_reg128(r2, reg128 { u64: [source, 0] });
     transition_fpu_to_mmx();
 }
+
 pub unsafe fn instr_0FD7_mem(_addr: i32, _r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0FD7(r1: i32) -> i32 {
