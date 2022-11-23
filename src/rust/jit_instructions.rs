@@ -2507,12 +2507,7 @@ pub fn instr16_06_jit(ctx: &mut JitContext) {
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_06_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::ES);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_06_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::ES) }
 
 pub fn instr16_0E_jit(ctx: &mut JitContext) {
     codegen::gen_get_sreg(ctx, regs::CS);
@@ -2520,12 +2515,7 @@ pub fn instr16_0E_jit(ctx: &mut JitContext) {
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_0E_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::CS);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_0E_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::CS) }
 
 pub fn instr16_16_jit(ctx: &mut JitContext) {
     codegen::gen_get_sreg(ctx, regs::SS);
@@ -2533,12 +2523,7 @@ pub fn instr16_16_jit(ctx: &mut JitContext) {
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_16_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::SS);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_16_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::SS) }
 
 pub fn instr16_1E_jit(ctx: &mut JitContext) {
     codegen::gen_get_sreg(ctx, regs::DS);
@@ -2546,12 +2531,7 @@ pub fn instr16_1E_jit(ctx: &mut JitContext) {
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_1E_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::DS);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_1E_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::DS) }
 
 pub fn instr16_40_jit(ctx: &mut JitContext) { gen_inc16_r(ctx, AX); }
 pub fn instr32_40_jit(ctx: &mut JitContext) { gen_inc32_r(ctx, EAX); }
@@ -6858,24 +6838,14 @@ pub fn instr16_0FA0_jit(ctx: &mut JitContext) {
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_0FA0_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::FS);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_0FA0_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::FS) }
 pub fn instr16_0FA8_jit(ctx: &mut JitContext) {
     codegen::gen_get_sreg(ctx, regs::GS);
     let sreg = ctx.builder.set_new_local();
     codegen::gen_push16(ctx, &sreg);
     ctx.builder.free_local(sreg);
 }
-pub fn instr32_0FA8_jit(ctx: &mut JitContext) {
-    codegen::gen_get_sreg(ctx, regs::GS);
-    let sreg = ctx.builder.set_new_local();
-    codegen::gen_push32(ctx, &sreg);
-    ctx.builder.free_local(sreg);
-}
+pub fn instr32_0FA8_jit(ctx: &mut JitContext) { codegen::gen_push32_sreg(ctx, regs::GS) }
 
 pub fn instr16_0FA3_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     gen_bt(

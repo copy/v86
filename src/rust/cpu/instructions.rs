@@ -58,9 +58,7 @@ pub unsafe fn instr32_05(imm32: i32) { write_reg32(EAX, add32(read_reg32(EAX), i
 pub unsafe fn instr16_06() {
     return_on_pagefault!(push16(*sreg.offset(ES as isize) as i32));
 }
-pub unsafe fn instr32_06() {
-    return_on_pagefault!(push32(*sreg.offset(ES as isize) as i32));
-}
+pub unsafe fn instr32_06() { return_on_pagefault!(push32_sreg(ES)) }
 
 #[no_mangle]
 pub unsafe fn instr16_07() {
@@ -123,9 +121,7 @@ pub unsafe fn instr32_0D(imm32: i32) { write_reg32(EAX, or32(read_reg32(EAX), im
 pub unsafe fn instr16_0E() {
     return_on_pagefault!(push16(*sreg.offset(CS as isize) as i32));
 }
-pub unsafe fn instr32_0E() {
-    return_on_pagefault!(push32(*sreg.offset(CS as isize) as i32));
-}
+pub unsafe fn instr32_0E() { return_on_pagefault!(push32_sreg(CS)) }
 
 pub unsafe fn instr16_0F() { run_instruction0f_16(return_on_pagefault!(read_imm8())); }
 pub unsafe fn instr32_0F() { run_instruction0f_32(return_on_pagefault!(read_imm8())); }
@@ -176,9 +172,7 @@ pub unsafe fn instr32_15(imm32: i32) { write_reg32(EAX, adc32(read_reg32(EAX), i
 pub unsafe fn instr16_16() {
     return_on_pagefault!(push16(*sreg.offset(SS as isize) as i32));
 }
-pub unsafe fn instr32_16() {
-    return_on_pagefault!(push32(*sreg.offset(SS as isize) as i32));
-}
+pub unsafe fn instr32_16() { return_on_pagefault!(push32_sreg(SS)) }
 
 #[no_mangle]
 pub unsafe fn instr16_17() {
@@ -244,9 +238,7 @@ pub unsafe fn instr32_1D(imm32: i32) { write_reg32(EAX, sbb32(read_reg32(EAX), i
 pub unsafe fn instr16_1E() {
     return_on_pagefault!(push16(*sreg.offset(DS as isize) as i32));
 }
-pub unsafe fn instr32_1E() {
-    return_on_pagefault!(push32(*sreg.offset(DS as isize) as i32));
-}
+pub unsafe fn instr32_1E() { return_on_pagefault!(push32_sreg(DS)) }
 
 #[no_mangle]
 pub unsafe fn instr16_1F() {

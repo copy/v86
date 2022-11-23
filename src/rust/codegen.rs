@@ -1529,6 +1529,57 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
     ctx.builder.free_local(new_sp_local);
 }
 
+pub fn gen_push32_sreg(ctx: &mut JitContext, reg: u32) {
+    gen_get_sreg(ctx, reg);
+    let value_local = ctx.builder.set_new_local();
+
+    if ctx.cpu.ssize_32() {
+        gen_get_reg32(ctx, regs::ESP);
+    }
+    else {
+        gen_get_reg16(ctx, regs::SP);
+    };
+
+    ctx.builder.const_i32(4);
+    ctx.builder.sub_i32();
+
+    let new_sp_local = if !ctx.cpu.ssize_32() || !ctx.cpu.has_flat_segmentation() {
+        let new_sp_local = ctx.builder.tee_new_local();
+        if !ctx.cpu.ssize_32() {
+            ctx.builder.const_i32(0xFFFF);
+            ctx.builder.and_i32();
+        }
+
+        if !ctx.cpu.has_flat_segmentation() {
+            gen_get_ss_offset(ctx);
+            ctx.builder.add_i32();
+        }
+
+        let sp_local = ctx.builder.set_new_local();
+
+        gen_safe_write16(ctx, &sp_local, &value_local);
+        ctx.builder.free_local(sp_local);
+
+        ctx.builder.get_local(&new_sp_local);
+        new_sp_local
+    }
+    else {
+        // short path: The address written to is equal to ESP/SP minus four
+        let new_sp_local = ctx.builder.tee_new_local();
+        gen_safe_write16(ctx, &new_sp_local, &value_local);
+        new_sp_local
+    };
+
+    if ctx.cpu.ssize_32() {
+        gen_set_reg32(ctx, regs::ESP);
+    }
+    else {
+        gen_set_reg16(ctx, regs::SP);
+    };
+    ctx.builder.free_local(new_sp_local);
+    ctx.builder.free_local(value_local);
+}
+
 pub fn gen_get_real_eip(ctx: &mut JitContext) {
     gen_get_eip(ctx.builder);
     ctx.builder.const_i32(!0xFFF);

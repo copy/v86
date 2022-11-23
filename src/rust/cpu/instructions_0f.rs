@@ -27,7 +27,7 @@ use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::misc_instr::{
     adjust_stack_reg, bswap, cmovcc16, cmovcc32, fxrstor, fxsave, get_stack_pointer, jmpcc16,
-    jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
+    jmpcc32, push16, push32_sreg, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
     test_p, test_s, test_z,
 };
 use cpu::misc_instr::{lar, lsl, verr, verw};
@@ -3075,9 +3075,7 @@ pub unsafe fn instr_0F9F_mem(addr: i32, _: i32) { setcc_mem(!test_le(), addr); }
 pub unsafe fn instr16_0FA0() {
     return_on_pagefault!(push16(*sreg.offset(FS as isize) as i32));
 }
-pub unsafe fn instr32_0FA0() {
-    return_on_pagefault!(push32(*sreg.offset(FS as isize) as i32));
-}
+pub unsafe fn instr32_0FA0() { return_on_pagefault!(push32_sreg(FS)) }
 #[no_mangle]
 pub unsafe fn instr16_0FA1() {
     if !switch_seg(FS, return_on_pagefault!(safe_read16(get_stack_pointer(0)))) {
@@ -3296,9 +3294,7 @@ pub unsafe fn instr_0FA7() { undefined_instruction(); }
 pub unsafe fn instr16_0FA8() {
     return_on_pagefault!(push16(*sreg.offset(GS as isize) as i32));
 }
-pub unsafe fn instr32_0FA8() {
-    return_on_pagefault!(push32(*sreg.offset(GS as isize) as i32));
-}
+pub unsafe fn instr32_0FA8() { return_on_pagefault!(push32_sreg(GS)) }
 #[no_mangle]
 pub unsafe fn instr16_0FA9() {
     if !switch_seg(GS, return_on_pagefault!(safe_read16(get_stack_pointer(0)))) {
