@@ -56,18 +56,27 @@ pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
-// less branches will generate if-else, more will generate brtable
-pub const BRTABLE_CUTOFF: usize = 10;
+// Maximum number of pages per wasm module. Necessary for the following reasons:
+// - There is an upper limit on the size of a single function in wasm (currently ~7MB in all browsers)
+//   See https://github.com/WebAssembly/design/issues/1138
+// - v8 poorly handles large br_table elements and OOMs on modules much smaller than the above limit
+//   See https://bugs.chromium.org/p/v8/issues/detail?id=9697 and https://bugs.chromium.org/p/v8/issues/detail?id=9141
+//   Will hopefully be fixed in the near future by generating direct control flow
+static mut MAX_PAGES: u32 = 3;
 
-pub const WASM_TABLE_SIZE: u32 = 900;
+static mut JIT_USE_LOOP_SAFETY: bool = true;
 
-pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
-
-pub const JIT_USE_LOOP_SAFETY: bool = true;
+pub static mut MAX_EXTRA_BASIC_BLOCKS: u32 = 250;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
-pub const MAX_EXTRA_BASIC_BLOCKS: usize = 250;
+// less branches will generate if-else, more will generate brtable
+pub const BRTABLE_CUTOFF: usize = 10;
+
+// needs to be synced to const.js
+pub const WASM_TABLE_SIZE: u32 = 900;
+
+pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
@@ -372,14 +381,6 @@ pub fn jit_find_cache_entry_in_page(
     return -1;
 }
 
-// Maximum number of pages per wasm module. Necessary for the following reasons:
-// - There is an upper limit on the size of a single function in wasm (currently ~7MB in all browsers)
-//   See https://github.com/WebAssembly/design/issues/1138
-// - v8 poorly handles large br_table elements and OOMs on modules much smaller than the above limit
-//   See https://bugs.chromium.org/p/v8/issues/detail?id=9697 and https://bugs.chromium.org/p/v8/issues/detail?id=9141
-//   Will hopefully be fixed in the near future by generating direct control flow
-const MAX_PAGES: usize = 3;
-
 fn jit_find_basic_blocks(
     ctx: &mut JitState,
     entry_points: HashSet<i32>,
@@ -390,7 +391,7 @@ fn jit_find_basic_blocks(
         ctx: &mut JitState,
         pages: &mut HashSet<Page>,
         page_blacklist: &mut HashSet<Page>,
-        max_pages: usize,
+        max_pages: u32,
         marked_as_entry: &mut HashSet<i32>,
         to_visit_stack: &mut Vec<i32>,
     ) -> Option<u32> {
@@ -407,7 +408,7 @@ fn jit_find_basic_blocks(
 
         let phys_page = Page::page_of(phys_target);
 
-        if !pages.contains(&phys_page) && pages.len() == max_pages
+        if !pages.contains(&phys_page) && pages.len() as u32 == max_pages
             || page_blacklist.contains(&phys_page)
         {
             return None;
@@ -453,7 +454,7 @@ fn jit_find_basic_blocks(
             }
 
             pages.insert(phys_page);
-            dbg_assert!(pages.len() <= max_pages);
+            dbg_assert!(pages.len() as u32 <= max_pages);
         }
 
         to_visit_stack.push(virt_target);
@@ -467,7 +468,12 @@ fn jit_find_basic_blocks(
     let mut page_blacklist = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
-    let max_pages = if cpu.state_flags.is_32() { MAX_PAGES } else { 1 };
+    let max_pages = if cpu.state_flags.is_32() {
+        unsafe { MAX_PAGES }
+    }
+    else {
+        1
+    };
 
     for virt_addr in entry_points {
         let ok = follow_jump(
@@ -712,7 +718,7 @@ fn jit_find_basic_blocks(
         basic_blocks.insert(current_block.addr, current_block);
     }
 
-    dbg_assert!(pages.len() <= max_pages);
+    dbg_assert!(pages.len() as u32 <= max_pages);
 
     for block in basic_blocks.values_mut() {
         if marked_as_entry.contains(&block.virt_addr) {
@@ -935,7 +941,7 @@ fn jit_analyze_and_generate(
     dbg_assert!(wasm_table_index != WasmTableIndex(0));
 
     dbg_assert!(!pages.is_empty());
-    dbg_assert!(pages.len() <= MAX_PAGES);
+    dbg_assert!(pages.len() <= unsafe { MAX_PAGES } as usize);
 
     let basic_block_by_addr: HashMap<u32, BasicBlock> =
         basic_blocks.into_iter().map(|b| (b.addr, b)).collect();
@@ -1152,7 +1158,7 @@ fn jit_generate_module(
     let exit_label = builder.block_void();
     let exit_with_fault_label = builder.block_void();
     let main_loop_label = builder.loop_void();
-    if JIT_USE_LOOP_SAFETY {
+    if unsafe { JIT_USE_LOOP_SAFETY } {
         builder.get_local(&instruction_counter);
         builder.const_i32(cpu::LOOP_COUNTER);
         builder.geu_i32();
@@ -1822,7 +1828,7 @@ fn jit_generate_module(
                     codegen::gen_set_eip_low_bits(ctx.builder, addr as i32 & 0xFFF);
                     profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
                     codegen::gen_profiler_stat_increment(ctx.builder, stat::LOOP_SAFETY);
-                    if JIT_USE_LOOP_SAFETY {
+                    if unsafe { JIT_USE_LOOP_SAFETY } {
                         ctx.builder.get_local(&ctx.instruction_counter);
                         ctx.builder.const_i32(cpu::LOOP_COUNTER);
                         ctx.builder.geu_i32();
@@ -2393,8 +2399,17 @@ pub fn enter_basic_block(phys_eip: u32) {
 }
 
 #[no_mangle]
-#[cfg(feature = "profiler")]
-pub fn get_config(index: u32) -> u32 {
+pub unsafe fn set_jit_config(index: u32, value: u32) {
+    match index {
+        0 => MAX_PAGES = value,
+        1 => JIT_USE_LOOP_SAFETY = value != 0,
+        2 => MAX_EXTRA_BASIC_BLOCKS = value,
+        _ => dbg_assert!(false),
+    }
+}
+
+#[no_mangle]
+pub unsafe fn get_jit_config(index: u32) -> u32 {
     match index {
         0 => MAX_PAGES as u32,
         1 => JIT_USE_LOOP_SAFETY as u32,

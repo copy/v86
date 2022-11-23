@@ -276,7 +276,9 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                 //);
             }
 
-            if entries_to_group.len() * group.len() > MAX_EXTRA_BASIC_BLOCKS {
+            let max_extra_basic_blocks = unsafe { MAX_EXTRA_BASIC_BLOCKS } as usize;
+
+            if entries_to_group.len() * group.len() > max_extra_basic_blocks {
                 let mut subgroup_edges: Graph = Graph::new();
                 for elem in group {
                     subgroup_edges.insert(

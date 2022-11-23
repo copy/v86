@@ -152,9 +152,9 @@ const print_stats = {
         text += "wasm memory size: " + (cpu.wasm_memory.buffer.byteLength >> 20) + "m\n";
 
         text += "Config:\n";
-        text += "MAX_PAGES=" + cpu.wm.exports["get_config"](0) + "\n";
-        text += "JIT_USE_LOOP_SAFETY=" + cpu.wm.exports["get_config"](1) + "\n";
-        text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_config"](2) + "\n";
+        text += "MAX_PAGES=" + cpu.wm.exports["get_jit_config"](0) + "\n";
+        text += "JIT_USE_LOOP_SAFETY=" + Boolean(cpu.wm.exports["get_jit_config"](1)) + "\n";
+        text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_jit_config"](2) + "\n";
 
         return text;
     },
