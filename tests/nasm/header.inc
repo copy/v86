@@ -10,7 +10,7 @@ align 4
     dd CHECKSUM
 
 section .bss
-    resb 128*1024   ; 0x20000
+    resb 2*4096   ; 0x2000
 
 stack_top:
 

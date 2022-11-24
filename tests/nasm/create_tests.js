@@ -4,6 +4,8 @@
 // number of tests per instruction
 const NO_TESTS = 1;
 
+const FLAGS_IGNORE = 0xFFFF3200;
+
 const assert = require("assert").strict;
 const fs = require("fs");
 const encodings = require("../../gen/x86_table.js");
@@ -271,8 +273,8 @@ function create_nasm(op, config, nth_test)
     if(op.is_string)
     {
         codes.push("mov ecx, 3");
-        codes.push("mov edi, (120000h-16)");
-        codes.push("mov esi, (120000h-20)");
+        codes.push("mov edi, (102000h-16)");
+        codes.push("mov esi, (102000h-20)");
     }
 
     if(size === 16)
@@ -356,7 +358,7 @@ function create_nasm(op, config, nth_test)
             {
                 // immaddr: depends on address size
                 // generate valid pointer into bss section
-                codes.push("dd (120000h-16)");
+                codes.push("dd (102000h-16)");
             }
             else
             {
@@ -379,9 +381,16 @@ function create_nasm(op, config, nth_test)
     {
         codes.push(
             "pushf",
-            "and dword [esp], ~" + op.mask_flags,
+            "and dword [esp], ~" + (op.mask_flags | FLAGS_IGNORE),
             "popf"
         );
+    }
+
+    if(op.opcode === 0x06 || op.opcode === 0x0E || op.opcode === 0x16 || op.opcode === 0x1E ||
+        op.opcode === 0x0FA0 || op.opcode === 0x0FA8)
+    {
+        // push sreg: mask result
+        codes.push("mov word [esp], 0");
     }
 
     return all_combinations(codes).map(c => {

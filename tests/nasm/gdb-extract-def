@@ -4,8 +4,6 @@
 define extract-state
   file $arg0
 
-  set $STACK_TOP=0x120000
-
   # Disables logging to stdout - only log to file
   set logging redirect on
 
@@ -25,10 +23,10 @@ define extract-state
   printf "    %d,\n", $ebp
   printf "    %d,\n", $esi
   printf "    %d,\n", $edi
-  printf "    \n"
+  printf "\n"
 
   printf "    %d,\n", $eip
-  printf "    \n"
+  printf "\n"
 
   # For fpu registers, check the tag register first. If the tag index is
   # invalid and you try to access to corresponding register, gdb exits with an
@@ -73,7 +71,7 @@ define extract-state
   else
     printf "    \"invalid\",\n"
   end
-  printf "    \n"
+  printf "\n"
 
   printf "    %d,\n", $mm0.v2_int32[0]
   printf "    %d,\n", $mm0.v2_int32[1]
@@ -91,7 +89,7 @@ define extract-state
   printf "    %d,\n", $mm6.v2_int32[1]
   printf "    %d,\n", $mm7.v2_int32[0]
   printf "    %d,\n", $mm7.v2_int32[1]
-  printf "    \n"
+  printf "\n"
 
   printf "    %d,\n", $xmm0.v4_int32[0]
   printf "    %d,\n", $xmm0.v4_int32[1]
@@ -125,25 +123,15 @@ define extract-state
   printf "    %d,\n", $xmm7.v4_int32[1]
   printf "    %d,\n", $xmm7.v4_int32[2]
   printf "    %d,\n", $xmm7.v4_int32[3]
-  printf "    \n"
+  printf "\n"
 
-  printf "    %d,\n", *(int*)($STACK_TOP-64)
-  printf "    %d,\n", *(int*)($STACK_TOP-60)
-  printf "    %d,\n", *(int*)($STACK_TOP-56)
-  printf "    %d,\n", *(int*)($STACK_TOP-52)
-  printf "    %d,\n", *(int*)($STACK_TOP-48)
-  printf "    %d,\n", *(int*)($STACK_TOP-44)
-  printf "    %d,\n", *(int*)($STACK_TOP-40)
-  printf "    %d,\n", *(int*)($STACK_TOP-36)
-  printf "    %d,\n", *(int*)($STACK_TOP-32)
-  printf "    %d,\n", *(int*)($STACK_TOP-28)
-  printf "    %d,\n", *(int*)($STACK_TOP-24)
-  printf "    %d,\n", *(int*)($STACK_TOP-20)
-  printf "    %d,\n", *(int*)($STACK_TOP-16)
-  printf "    %d,\n", *(int*)($STACK_TOP-12)
-  printf "    %d,\n", *(int*)($STACK_TOP-8)
-  printf "    %d,\n", *(int*)($STACK_TOP-4)
-  printf "    \n"
+
+  set $addr=0x100000
+  while($addr < 0x102000)
+     printf "    %d, %d, %d, %d, %d, %d, %d, %d,\n", *(int*)($addr+0), *(int*)($addr+4), *(int*)($addr+8), *(int*)($addr+12), *(int*)($addr+16), *(int*)($addr+20), *(int*)($addr+24), *(int*)($addr+28)
+     set $addr=$addr+32
+  end
+  printf "\n"
 
   printf "    %d,\n", $eflags
   printf "    %d,\n", $ftag
