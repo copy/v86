@@ -3895,7 +3895,7 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
     }
 
     let exception_mask = new_mxcsr >> 7 & 0b111111;
-    if exception_mask != 0b111111 {
+    if *mxcsr >> 7 & 0b111111 != exception_mask && exception_mask != 0b111111 {
         dbg_log!(
             "Warning: Unimplemented MXCSR exception mask: 0b{:b}",
             exception_mask
