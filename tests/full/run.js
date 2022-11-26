@@ -726,6 +726,20 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "Redox",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            memory_size: 512 * 1024 * 1024,
+            acpi: true,
+            hda: root_path + "/images/redox_demo_i686_2022-11-26_643_harddrive.img",
+            actions: [
+                { on_text: "Arrow keys and enter select mode", run: "\n" },
+            ],
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_serial_text: ["# Login with the following:"],
+        },
+        {
             name: "Android 1.6",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,

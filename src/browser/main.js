@@ -279,6 +279,35 @@
                 homepage: "https://serenityos.org/",
             },
             {
+                id: "redox",
+                name: "Redox",
+                hda: {
+                    url: host + "redox_demo_i686_2022-11-26_643_harddrive.img",
+                    size: 512 * 1024 * 1024,
+                    async: true,
+                    fixed_chunk_size: 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                memory_size: 512 * 1024 * 1024,
+                state: { url: host + "redox_state.bin.zst" },
+                homepage: "https://www.redox-os.org/",
+                acpi: true,
+            },
+            {
+                id: "redox-boot",
+                name: "Redox",
+                hda: {
+                    url: host + "redox_demo_i686_2022-11-26_643_harddrive.img",
+                    size: 512 * 1024 * 1024,
+                    async: true,
+                    fixed_chunk_size: 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                memory_size: 512 * 1024 * 1024,
+                homepage: "https://www.redox-os.org/",
+                acpi: true,
+            },
+            {
                 id: "helenos",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
