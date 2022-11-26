@@ -290,6 +290,19 @@
                 homepage: "http://www.helenos.org/",
             },
             {
+                id: "fiwix",
+                memory_size: 256 * 1024 * 1024,
+                hda: {
+                    url: host + "fiwixos-3.2-i386.img",
+                    size: 1024 * 1024 * 1024,
+                    async: true,
+                    fixed_chunk_size: 1024 * 1024,
+                    use_parts: !ON_LOCALHOST,
+                },
+                name: "FiwixOS",
+                homepage: "https://www.fiwix.org/",
+            },
+            {
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
