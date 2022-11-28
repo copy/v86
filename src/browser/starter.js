@@ -160,59 +160,69 @@ function V86Starter(options)
     {
         wasm_fn = env =>
         {
-            return new Promise(resolve => {
+            return new Promise(async (resolve) => {
                 let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
                 let v86_bin_fallback = "v86-fallback.wasm";
 
-                if(options["wasm_path"])
-                {
-                    v86_bin = options["wasm_path"];
-                    const slash = v86_bin.lastIndexOf("/");
-                    const dir = slash === -1 ? "" : v86_bin.substr(0, slash);
-                    v86_bin_fallback = dir + "/" + v86_bin_fallback;
-                }
-                else if(typeof window === "undefined" && typeof __dirname === "string")
-                {
-                    v86_bin = __dirname + "/" + v86_bin;
-                    v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
-                }
-                else
-                {
-                    v86_bin = "build/" + v86_bin;
-                    v86_bin_fallback = "build/" + v86_bin_fallback;
-                }
+				// provide int8Array which can be compressed
+				// and decompressed with brotli
+				if (options['wasm_buffer']) {
 
-                v86util.load_file(v86_bin, {
-                    done: async bytes =>
-                    {
-                        try
-                        {
-                            const { instance } = await WebAssembly.instantiate(bytes, env);
-                            resolve(instance.exports);
-                        }
-                        catch(err)
-                        {
-                            v86util.load_file(v86_bin_fallback, {
-                                    done: async bytes => {
-                                        const { instance } = await WebAssembly.instantiate(bytes, env);
-                                        resolve(instance.exports);
-                                    },
-                                });
-                        }
-                    },
-                    progress: e =>
-                    {
-                        this.emulator_bus.send("download-progress", {
-                            file_index: 0,
-                            file_count: 1,
-                            file_name: v86_bin,
+					const { instance } = await WebAssembly.instantiate(options['wasm_buffer'], env);
+					resolve(instance.exports);
+				}
+				else {
 
-                            lengthComputable: e.lengthComputable,
-                            total: e.total,
-                            loaded: e.loaded,
-                        });
-                    }
-                });
+					if(options["wasm_path"])
+					{
+						v86_bin = options["wasm_path"];
+						const slash = v86_bin.lastIndexOf("/");
+						const dir = slash === -1 ? "" : v86_bin.substr(0, slash);
+						v86_bin_fallback = dir + "/" + v86_bin_fallback;
+					}
+					else if(typeof window === "undefined" && typeof __dirname === "string")
+					{
+						v86_bin = __dirname + "/" + v86_bin;
+						v86_bin_fallback = __dirname + "/" + v86_bin_fallback;
+					}
+					else
+					{
+						v86_bin = "build/" + v86_bin;
+						v86_bin_fallback = "build/" + v86_bin_fallback;
+					}
+
+					v86util.load_file(v86_bin, {
+						done: async bytes =>
+						{
+							try
+							{
+								const { instance } = await WebAssembly.instantiate(bytes, env);
+								resolve(instance.exports);
+							}
+							catch(err)
+							{
+								v86util.load_file(v86_bin_fallback, {
+										done: async bytes => {
+											const { instance } = await WebAssembly.instantiate(bytes, env);
+											resolve(instance.exports);
+										},
+									});
+							}
+						},
+						progress: e =>
+						{
+							this.emulator_bus.send("download-progress", {
+								file_index: 0,
+								file_count: 1,
+								file_name: v86_bin,
+
+								lengthComputable: e.lengthComputable,
+								total: e.total,
+								loaded: e.loaded,
+							});
+						}
+					});
+				}
             });
         };
     }
