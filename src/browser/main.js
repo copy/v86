@@ -313,15 +313,13 @@
                 id: "haiku",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "haiku-v2.img",
+                    url: host + "haiku-v3.img",
                     size: 1 * 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
-                state: {
-                    url: host + "haiku_state-v2.bin.zst",
-                },
+                state: { url: host + "haiku_state-v3.bin.zst" },
                 name: "Haiku",
                 homepage: "https://www.haiku-os.org/",
             },
@@ -329,7 +327,7 @@
                 id: "haiku-boot",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: host + "haiku-v2.img",
+                    url: host + "haiku-v3.img",
                     size: 1 * 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
