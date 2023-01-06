@@ -345,7 +345,9 @@ function ScreenAdapter(screen_container, bus)
         graphic_screen.height = height;
 
         // add some scaling to tiny resolutions
-        if(width <= 640 && width * 2 < window.innerWidth && width * 2 < window.innerHeight)
+        if(width <= 640 &&
+            width * 2 < window.innerWidth * window.devicePixelRatio &&
+            height * 2 < window.innerHeight * window.devicePixelRatio)
         {
             base_scale = 2;
         }
