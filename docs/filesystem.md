@@ -1,9 +1,7 @@
 A 9p filesystem is supported by the emulator, using a virtio transport. Using
-it, files can be exchanged with the guest OS, see
-[`create_file`](/src/browser/starter.js#L1179-L1199)
-and
-[`read_file`](/src/browser/starter.js#L1209-L1228). It can
-be enabled by passing the following options to `V86Starter`:
+it, files can be exchanged with the guest OS, see `create_file` and `read_file`
+in [`starter.js`](https://github.com/copy/v86/blob/master/src/browser/starter.js).
+It can be enabled by passing the following options to `V86`:
 
 ```javascript
 filesystem: {

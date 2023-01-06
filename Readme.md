@@ -49,6 +49,16 @@ list of emulated hardware:
 [KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
 [QNX](https://copy.sh/v86/?profile=qnx)
 
+## Docs
+
+[How it works](docs/how-it-works.md) —
+[Networking](docs/networking.md) —
+[Archlinux guest setup](docs/archlinux.md) —
+[Windows 2000/XP guest setup](docs/windows-xp.md) —
+[9p filesystem](docs/filesystem.md) —
+[Linux rootfs on 9p](docs/linux-9p-image.md) —
+[Profiling](docs/profiling.md)
+
 ## Compatibility
 
 Here's an overview of the operating systems supported in v86:
