@@ -411,7 +411,7 @@ function ScreenAdapter(screen_container, bus)
             }
             else
             {
-                graphic_screen.style.imageRendering = "";
+                graphic_screen.style["imageRendering"] = "";
                 graphic_screen.style["-ms-interpolation-mode"] = "";
             }
 
