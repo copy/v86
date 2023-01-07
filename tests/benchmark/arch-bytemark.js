@@ -43,7 +43,7 @@ emulator.bus.register("emulator-started", function()
 
     setTimeout(() => {
         const set = exclude_tests.map(name => `echo ${name}=0 >> CMD`).join(" && ");
-        emulator.serial0_send(`echo 0 > /sys/class/graphics/fbcon/cursor_blink && cd nbench && touch CMD && ${set} && ./nbench -cCMD\n`);
+        emulator.serial0_send(`echo 0 > /sys/class/graphics/fbcon/cursor_blink && cd nbench && touch CMD && ${set || "echo"} && ./nbench -cCMD\n`);
     }, 1000);
 });
 
