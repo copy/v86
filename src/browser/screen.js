@@ -65,6 +65,7 @@ function ScreenAdapter(screen_container, bus)
      * @const
      */
     var charmap_high = new Uint16Array([
+        0x2302,
         0xC7, 0xFC, 0xE9, 0xE2, 0xE4, 0xE0, 0xE5, 0xE7,
         0xEA, 0xEB, 0xE8, 0xEF, 0xEE, 0xEC, 0xC4, 0xC5,
         0xC9, 0xE6, 0xC6, 0xF4, 0xF6, 0xF2, 0xFB, 0xF9,
@@ -96,9 +97,9 @@ function ScreenAdapter(screen_container, bus)
 
     for(var i = 0; i < 256; i++)
     {
-        if(i > 127)
+        if(i > 126)
         {
-            chr = charmap_high[i - 0x80];
+            chr = charmap_high[i - 0x7F];
         }
         else if(i < 32)
         {
