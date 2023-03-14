@@ -963,8 +963,9 @@ V86Starter.prototype.screen_make_screenshot = function()
 {
     if(this.screen_adapter)
     {
-        this.screen_adapter.make_screenshot();
+        return this.screen_adapter.make_screenshot();
     }
+    return null;
 };
 
 /**

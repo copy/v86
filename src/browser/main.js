@@ -1932,7 +1932,12 @@
 
         $("take_screenshot").onclick = function()
         {
-            emulator.screen_make_screenshot();
+            const image = emulator.screen_make_screenshot();
+            try {
+                const w = window.open("");
+                w.document.write(image.outerHTML);
+            }
+            catch(e) {}
             $("take_screenshot").blur();
         };
 
