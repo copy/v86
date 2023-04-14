@@ -220,12 +220,7 @@ function ScreenAdapter(screen_container, bus)
 
             image.src = canvas.toDataURL("image/png");
         }
-
-        try {
-            const w = window.open("");
-            w.document.write(image.outerHTML);
-        }
-        catch(e) {}
+        return image;
     };
 
     this.put_char = function(row, col, chr, bg_color, fg_color)
