@@ -16,7 +16,7 @@ function ScreenAdapter(screen_container, bus)
 
         text_screen = screen_container.getElementsByTagName("div")[0],
         cursor_element = document.createElement("div");
-  
+
     var
         /** @type {number} */
         cursor_row,
