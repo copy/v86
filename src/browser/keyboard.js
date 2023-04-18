@@ -174,6 +174,7 @@ function KeyboardAdapter(bus)
         "Comma": 0x0033,
         "Period": 0x0034,
         "Slash": 0x0035,
+        "IntlRo": 0x0035,
         "ShiftRight": 0x0036,
         "NumpadMultiply": 0x0037,
         "AltLeft": 0x0038,
