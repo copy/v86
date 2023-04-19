@@ -1821,6 +1821,24 @@ pub unsafe fn instr_F30F59_reg(r1: i32, r2: i32) { instr_F30F59(read_xmm_f32(r1)
 pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
     instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
 }
+#[no_mangle]
+pub unsafe fn instr_F20F7C(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_F20F7C_reg(r1: i32, r2: i32) { instr_F20F7C(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F20F7C_mem(addr: i32, r: i32) {
+    instr_F20F7C(return_on_pagefault!(safe_read128s(addr)), r);
+}
 
 #[no_mangle]
 pub unsafe fn instr_0F5A(source: u64, r: i32) {
