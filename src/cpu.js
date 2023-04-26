@@ -573,7 +573,7 @@ CPU.prototype.unpack_memory = function(bitmap, packed_memory)
 /**
  * @return {number} time in ms until this method should becalled again
  */
-CPU.prototype.main_run = function()
+CPU.prototype.main_run = function(force_disable_jit)
 {
     if(this.in_hlt[0])
     {
@@ -590,7 +590,7 @@ CPU.prototype.main_run = function()
 
     for(; now - start < TIME_PER_FRAME;)
     {
-        this.do_many_cycles();
+        this.do_many_cycles(force_disable_jit);
 
         now = v86.microtick();
 
@@ -1223,14 +1223,14 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
-CPU.prototype.do_many_cycles = function()
+CPU.prototype.do_many_cycles = function(force_disable_jit)
 {
     if(DEBUG)
     {
         var start_time = v86.microtick();
     }
 
-    this.do_many_cycles_native();
+    this.do_many_cycles_native(force_disable_jit);
 
     if(DEBUG)
     {
