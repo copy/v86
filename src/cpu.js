@@ -3,7 +3,6 @@
 /** @const */
 var CPU_LOG_VERBOSE = false;
 
-
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
@@ -13,6 +12,7 @@ var CPU_LOG_VERBOSE = false;
 /** @constructor */
 function CPU(bus, wm, next_tick_immediately)
 {
+    this.force_disable_jit = false;
     this.next_tick_immediately = next_tick_immediately;
     this.wm = wm;
     this.wasm_patch();
@@ -573,7 +573,7 @@ CPU.prototype.unpack_memory = function(bitmap, packed_memory)
 /**
  * @return {number} time in ms until this method should becalled again
  */
-CPU.prototype.main_run = function(force_disable_jit)
+CPU.prototype.main_run = function()
 {
     if(this.in_hlt[0])
     {
@@ -590,7 +590,7 @@ CPU.prototype.main_run = function(force_disable_jit)
 
     for(; now - start < TIME_PER_FRAME;)
     {
-        this.do_many_cycles(force_disable_jit);
+        this.do_many_cycles(this.force_disable_jit);
 
         now = v86.microtick();
 
@@ -653,6 +653,10 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
+    if(typeof settings.force_disable_jit == "number")
+    {
+        this.force_disable_jit = settings.force_disable_jit > 0;
+    }
     if(typeof settings.log_level === "number")
     {
         // XXX: Shared between all emulator instances
