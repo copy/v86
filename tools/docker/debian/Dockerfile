@@ -23,8 +23,9 @@ RUN apt update && \
         mesa-utils libgl1-mesa-dri \
     && \
     touch /root/.Xdefaults && \
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
-    locale-gen \
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
+    locale-gen && \
+    echo 'LANG="en_US.UTF-8"' > /etc/default/locale && \
     chsh -s /bin/bash && \
     echo "root:root" | chpasswd && \
     mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d/ && \
