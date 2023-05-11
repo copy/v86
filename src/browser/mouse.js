@@ -177,7 +177,7 @@ function MouseAdapter(bus, screen_container)
                 last_x = touch.clientX;
                 last_y = touch.clientY;
 
-                e.preventDefault();
+                // e.preventDefault();
             }
         }
         else
