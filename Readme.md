@@ -86,7 +86,10 @@ Here's an overview of the operating systems supported in v86:
   versions may work if compiled without SSE3. See [#224](https://github.com/copy/v86/issues/224).
 - Windows 1, 3.0, 95, 98, ME and 2000 work. Other versions currently don't (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208)).
   - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
-- Windows 8 build 8133 works
+- Windows 1, 3.x, 95, 98, ME and 2000 work reasonably well
+  - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
+  - There are some known boot issues (#250, #433, #507, #555, #620, #645)
+- Windows XP, Vista and 8 work under certain conditions (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208))
 - Many hobby operating systems work.
 - 9front works.
 - Plan 9 doesn't work.
