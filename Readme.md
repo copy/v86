@@ -47,7 +47,10 @@ list of emulated hardware:
 [Haiku](https://copy.sh/v86/?profile=haiku) —
 [Oberon](https://copy.sh/v86/?profile=oberon) —
 [KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
-[QNX](https://copy.sh/v86/?profile=qnx)
+[QNX](https://copy.sh/v86/?profile=qnx) —
+[Android 1.6-r2](https://copy.sh/v86?profile=android) —
+[Android 4.4](https://copy.sh/v86?profile=android4) —
+[SkiftOS](https://copy.sh/v86?profile=skift)
 
 ## Docs
 
@@ -72,7 +75,7 @@ Here's an overview of the operating systems supported in v86:
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
-  - Ubuntu up to 16.04 works.
+  - Ubuntu works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
   - Alpine Linux works.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
@@ -80,8 +83,11 @@ Here's an overview of the operating systems supported in v86:
 - Haiku works.
 - Android x86 1.6-r2 works if one selects VESA mode at the boot prompt. Newer
   versions may work if compiled without SSE3. See [#224](https://github.com/copy/v86/issues/224).
-- Windows 1, 3.0, 95, 98, ME and 2000 work. Other versions currently don't (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208)).
+- Windows 1, 3.x, 95, 98, ME, NT and 2000 work reasonably well.
   - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
+  - There are some known boot issues (#250, #433, #507, #555, #620, #645)
+- Windows XP, Vista and 8 work under certain conditions (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208))
+  - See [Windows 2000/XP guest setup](docs/windows-xp.md)
 - Many hobby operating systems work.
 - 9front works.
 - Plan 9 doesn't work.
