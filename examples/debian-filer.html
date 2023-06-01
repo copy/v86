@@ -1,0 +1,93 @@
+<!doctype html>
+<title>Debian</title>
+<script src="https://unpkg.com/filer"></script>
+<!-- XXX: button assumed in libv86.js crashes without this -->
+<button id="start_emulation" hidden>Start Emulation</button>
+<script>
+    "use strict";
+
+    var CORE_FILES =
+        "const.js config.js log.js lib.js buffer.js cpu.js debug.js " +
+        "io.js main.js ide.js pci.js floppy.js " +
+        "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js apic.js ioapic.js hpet.js sb16.js " +
+        "ne2k.js state.js virtio.js bus.js elf.js kernel.js";
+
+    var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js speaker.js serial.js network.js starter.js worker_bus.js print_stats.js filestorage.js";
+    var LIB_FILES = "";
+
+    // jor1k stuff
+    LIB_FILES += " jor1k.js 9p-filer.js filesystem.js marshall.js utf8.js";
+
+    var BUILD_FILES = "capstone-x86.min.js libwabt.js";
+
+    var to_load = [];
+
+    load_scripts(CORE_FILES, "/src/");
+    load_scripts(BROWSER_FILES, "/src/browser/");
+    load_scripts(LIB_FILES, "/lib/");
+    load_scripts(BUILD_FILES, "/build/");
+
+    function load_scripts(resp, path) {
+        var files = resp.split(" ");
+
+        for (var i = 0; i < files.length; i++) {
+            if (!files[i]) {
+                continue;
+            }
+
+            to_load.push(path + files[i]);
+        }
+    }
+
+    load_next();
+
+    function load_next() {
+        let s = to_load.shift();
+
+        if (!s) {
+            return;
+        }
+
+        var script = document.createElement("script");
+        script.src = s;
+        script.onload = load_next;
+        script.onerror = function () {
+            console.warn("trying to ignore script " + s + ", which failed to load");
+
+            load_next();
+        };
+        document.head.appendChild(script);
+    }
+</script>
+<script>
+    "use strict";
+
+    window.onload = function () {
+        var fs = Filer.fs;
+        var Path = Filer.Path;
+        var Buffer = Filer.Buffer;
+        var sh = new fs.Shell();
+
+        window.fs = fs;
+        window.path = Path;
+        window.Buffer = Buffer;
+
+        var emulator = new V86Starter({
+            wasm_path: "../build/v86.wasm",
+            memory_size: 512 * 1024 * 1024,
+            vga_memory_size: 8 * 1024 * 1024,
+            screen_container: document.getElementById("screen_container"),
+            bios: {url: "../bios/seabios.bin"},
+            vga_bios: {url: "../bios/vgabios.bin"},
+            cdrom: {url: "../images/v86-linux.iso"},
+            filesystem: {fs, sh, Path, Buffer},
+            autostart: true,
+        });
+    };
+</script>
+
+<!-- A minimal structure for the ScreenAdapter defined in browser/screen.js -->
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>

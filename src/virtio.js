@@ -454,7 +454,7 @@ VirtIO.prototype.create_common_capability = function(options)
 
                     if(this.queue_select < this.queues.length)
                     {
-                        this.queues_selected = this.queues[this.queue_select];
+                        this.queue_selected = this.queues[this.queue_select];
                     }
                     else
                     {

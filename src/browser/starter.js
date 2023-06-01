@@ -492,8 +492,12 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         {
             file_storage = new ServerFileStorageWrapper(file_storage, base_url);
         }
-        settings.fs9p = this.fs9p = new FS(file_storage);
 
+        if(!options["filesystem"].fs) {
+            settings.fs9p = this.fs9p = new FS(file_storage);
+        } else {
+            settings.fs9p = this.fs9p = options["filesystem"];
+        }
         if(fs_url)
         {
             dbg_assert(base_url, "Filesystem: baseurl must be specified");
