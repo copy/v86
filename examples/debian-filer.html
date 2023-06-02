@@ -63,12 +63,16 @@
     "use strict";
 
     window.onload = function () {
-        var fs = Filer.fs;
+        var fs = new Filer.FileSystem({
+                    name: "anura-mainContext",
+                    provider: new Filer.FileSystem.providers.IndexedDB()
+                });
         var Path = Filer.Path;
         var Buffer = Filer.Buffer;
         var sh = new fs.Shell();
 
         window.fs = fs;
+        window.sh = sh
         window.path = Path;
         window.Buffer = Buffer;
 
@@ -79,9 +83,17 @@
             screen_container: document.getElementById("screen_container"),
             bios: {url: "../bios/seabios.bin"},
             vga_bios: {url: "../bios/vgabios.bin"},
-            cdrom: {url: "../images/v86-linux.iso"},
+            // cdrom: {url: "../images/v86-linux.iso"},
             filesystem: {fs, sh, Path, Buffer},
             autostart: true,
+            // bzimage_initrd_from_filesystem: true,
+            bzimage: {
+                url: "/images/buildroot-bzimage.bin",
+                size: 5166352,
+                async: false,
+            },
+            // cdrom: {url: "/images/linux.iso"},
+            cmdline: "tsc=reliable mitigations=off random.trust_cpu=on"
         });
     };
 </script>
