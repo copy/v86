@@ -1,4 +1,4 @@
-FROM i386/debian:buster
+FROM rockylinux:9.2-minimal
 
 ENV DEBIAN_FRONTEND noninteractive
 
