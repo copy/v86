@@ -75,6 +75,7 @@ Here's an overview of the operating systems supported in v86:
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
+  - Debian works fine however it may have errors that do not affect system startup due to the lack of ACPI by default and MCE,and if you see them,ignore it. See #882
   - Ubuntu works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
   - Alpine Linux works.
 - ReactOS works.
