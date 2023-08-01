@@ -80,8 +80,6 @@ function MouseAdapter(bus, screen_container) {
     }
 
     function may_handle(e) {
-        return false;
-        // temporary fix
         if (!mouse.enabled || !mouse.emu_enabled) {
             return false;
         }
