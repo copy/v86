@@ -3,7 +3,6 @@
 /** @const */
 var CPU_LOG_VERBOSE = false;
 
-
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
@@ -13,6 +12,7 @@ var CPU_LOG_VERBOSE = false;
 /** @constructor */
 function CPU(bus, wm, next_tick_immediately)
 {
+    this.force_disable_jit = false;
     this.next_tick_immediately = next_tick_immediately;
     this.wm = wm;
     this.wasm_patch();
@@ -590,7 +590,7 @@ CPU.prototype.main_run = function()
 
     for(; now - start < TIME_PER_FRAME;)
     {
-        this.do_many_cycles();
+        this.do_many_cycles(this.force_disable_jit);
 
         now = v86.microtick();
 
@@ -653,6 +653,10 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
+    if(typeof settings.force_disable_jit == "number")
+    {
+        this.force_disable_jit = settings.force_disable_jit > 0;
+    }
     if(typeof settings.log_level === "number")
     {
         // XXX: Shared between all emulator instances
@@ -1223,14 +1227,14 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
-CPU.prototype.do_many_cycles = function()
+CPU.prototype.do_many_cycles = function(force_disable_jit)
 {
     if(DEBUG)
     {
         var start_time = v86.microtick();
     }
 
-    this.do_many_cycles_native();
+    this.do_many_cycles_native(force_disable_jit);
 
     if(DEBUG)
     {

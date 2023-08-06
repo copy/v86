@@ -2869,9 +2869,9 @@ pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f::run(opco
 pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opcode as u32 | 0x100) }
 
 #[no_mangle]
-pub unsafe fn cycle_internal() {
+pub unsafe fn cycle_internal(force_disable_jit : bool) {
     profiler::stat_increment(CYCLE_INTERNAL);
-    if !::config::FORCE_DISABLE_JIT {
+    if !force_disable_jit {
         let mut jit_entry = None;
         let initial_eip = *instruction_pointer;
         let initial_state_flags = *state_flags;
@@ -3122,13 +3122,13 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn do_many_cycles_native() {
+pub unsafe fn do_many_cycles_native(force_disable_jit: bool) {
     profiler::stat_increment(DO_MANY_CYCLES);
     let initial_instruction_counter = *instruction_counter;
     while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
         && !*in_hlt
     {
-        cycle_internal();
+        cycle_internal(force_disable_jit);
     }
 }
 

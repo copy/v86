@@ -175,6 +175,11 @@
 
         const query_args = get_query_arguments();
         const host = query_args["cdn"] || (ON_LOCALHOST ? "images/" : "//k.copy.sh/");
+        const disable_jit = parseInt(query_args["jit_disable"], 10);
+        if(disable_jit > 0)
+        {
+            settings.force_disable_jit = disable_jit;
+        }
 
         // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
