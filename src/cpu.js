@@ -9,7 +9,6 @@
 /** @constructor */
 function CPU(bus, wm, next_tick_immediately)
 {
-    this.force_disable_jit = false;
     this.next_tick_immediately = next_tick_immediately;
     this.wm = wm;
     this.wasm_patch();
@@ -234,7 +233,7 @@ CPU.prototype.wasm_patch = function()
     this.pic_call_irq = get_import("pic_call_irq");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
-    this.cycle_internal = get_import("cycle_internal");
+    this.do_many_cycles_native_nojit = get_import("do_many_cycles_native_nojit");
 
     this.read8 = get_import("read8");
     this.read16 = get_import("read16");
@@ -587,7 +586,7 @@ CPU.prototype.main_run = function()
 
     for(; now - start < TIME_PER_FRAME;)
     {
-        this.do_many_cycles(this.force_disable_jit);
+        this.do_many_cycles();
 
         now = v86.microtick();
 
@@ -650,10 +649,6 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
-    if(typeof settings.force_disable_jit == "number")
-    {
-        this.force_disable_jit = settings.force_disable_jit > 0;
-    }
     if(typeof settings.log_level === "number")
     {
         // XXX: Shared between all emulator instances
@@ -662,6 +657,11 @@ CPU.prototype.init = function(settings, device_bus)
 
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
+
+    if(settings.disable_jit)
+    {
+        this.do_many_cycles_native = this.do_many_cycles_native_nojit;
+    }
 
     settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
 
@@ -1224,27 +1224,20 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
-CPU.prototype.do_many_cycles = function(force_disable_jit)
+CPU.prototype.do_many_cycles = function()
 {
     if(DEBUG)
     {
         var start_time = v86.microtick();
     }
 
-    this.do_many_cycles_native(force_disable_jit);
+    this.do_many_cycles_native();
 
     if(DEBUG)
     {
         this.do_many_cycles_total += v86.microtick() - start_time;
         this.do_many_cycles_count++;
     }
-};
-
-/** @export */
-CPU.prototype.cycle = function()
-{
-    // XXX: May do several cycles
-    this.cycle_internal();
 };
 
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)

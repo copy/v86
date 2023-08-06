@@ -2857,170 +2857,158 @@ pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u
 pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f::run(opcode as u32) }
 pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opcode as u32 | 0x100) }
 
-#[no_mangle]
-pub unsafe fn cycle_internal(force_disable_jit : bool) {
+pub unsafe fn cycle_internal() {
     profiler::stat_increment(CYCLE_INTERNAL);
-    if !force_disable_jit {
-        let mut jit_entry = None;
-        let initial_eip = *instruction_pointer;
-        let initial_state_flags = *state_flags;
+    let mut jit_entry = None;
+    let initial_eip = *instruction_pointer;
+    let initial_state_flags = *state_flags;
+
+    match tlb_code[(initial_eip as u32 >> 12) as usize] {
+        None => {},
+        Some(c) => {
+            let c = c.as_ref();
+
+            if initial_state_flags == c.state_flags {
+                let state = c.state_table[initial_eip as usize & 0xFFF];
+                if state != u16::MAX {
+                    jit_entry = Some((c.wasm_table_index.to_u16(), state));
+                }
+                else {
+                    profiler::stat_increment(if is_near_end_of_page(initial_eip as u32) {
+                        RUN_INTERPRETED_NEAR_END_OF_PAGE
+                    }
+                    else {
+                        RUN_INTERPRETED_PAGE_HAS_CODE
+                    })
+                }
+            }
+            else {
+                profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE);
+                let s = *state_flags;
+                if c.state_flags.cpl3() != s.cpl3() {
+                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_CPL3);
+                }
+                if c.state_flags.has_flat_segmentation() != s.has_flat_segmentation() {
+                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_FLAT);
+                }
+                if c.state_flags.is_32() != s.is_32() {
+                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_IS32);
+                }
+                if c.state_flags.ssize_32() != s.ssize_32() {
+                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_SS32);
+                }
+            }
+        },
+    }
+
+    if let Some((wasm_table_index, initial_state)) = jit_entry {
+        if jit::CHECK_JIT_STATE_INVARIANTS {
+            match get_phys_eip() {
+                Err(()) => dbg_assert!(false),
+                Ok(phys_eip) => {
+                    let entry = jit::jit_find_cache_entry(phys_eip, initial_state_flags);
+                    dbg_assert!(entry.wasm_table_index.to_u16() == wasm_table_index);
+                    dbg_assert!(entry.initial_state == initial_state);
+                },
+            }
+        }
+        profiler::stat_increment(RUN_FROM_CACHE);
+        let initial_instruction_counter = *instruction_counter;
+        #[cfg(debug_assertions)]
+        {
+            in_jit = true;
+        }
+        call_indirect1(
+            wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
+            initial_state,
+        );
+        #[cfg(debug_assertions)]
+        {
+            in_jit = false;
+        }
+        profiler::stat_increment_by(
+            RUN_FROM_CACHE_STEPS,
+            (*instruction_counter - initial_instruction_counter) as u64,
+        );
+        dbg_assert!(
+            *instruction_counter != initial_instruction_counter,
+            "Instruction counter didn't change"
+        );
+
+        if cfg!(feature = "profiler") {
+            dbg_assert!(match ::cpu::cpu::debug_last_jump {
+                LastJump::Compiled { .. } => true,
+                _ => false,
+            });
+            let last_jump_addr = ::cpu::cpu::debug_last_jump.phys_address().unwrap();
+            let last_jump_opcode = if last_jump_addr != 0 {
+                read32s(last_jump_addr)
+            }
+            else {
+                // Happens during exit due to loop iteration limit
+                0
+            };
+
+            ::opstats::record_opstat_jit_exit(last_jump_opcode as u32);
+        }
+
+        if is_near_end_of_page(*instruction_pointer as u32) {
+            profiler::stat_increment(RUN_FROM_CACHE_EXIT_NEAR_END_OF_PAGE);
+        }
+        else if Page::page_of(initial_eip as u32)
+            == Page::page_of(*instruction_pointer as u32)
+        {
+            profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
+        }
+        else {
+            profiler::stat_increment(RUN_FROM_CACHE_EXIT_DIFFERENT_PAGE);
+        }
+    }
+    else {
+        *previous_ip = initial_eip;
+        let phys_addr = return_on_pagefault!(get_phys_eip());
 
         match tlb_code[(initial_eip as u32 >> 12) as usize] {
             None => {},
             Some(c) => {
                 let c = c.as_ref();
 
-                if initial_state_flags == c.state_flags {
-                    let state = c.state_table[initial_eip as usize & 0xFFF];
-                    if state != u16::MAX {
-                        jit_entry = Some((c.wasm_table_index.to_u16(), state));
-                    }
-                    else {
-                        profiler::stat_increment(if is_near_end_of_page(initial_eip as u32) {
-                            RUN_INTERPRETED_NEAR_END_OF_PAGE
-                        }
-                        else {
-                            RUN_INTERPRETED_PAGE_HAS_CODE
-                        })
-                    }
-                }
-                else {
-                    profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE);
-                    let s = *state_flags;
-                    if c.state_flags.cpl3() != s.cpl3() {
-                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_CPL3);
-                    }
-                    if c.state_flags.has_flat_segmentation() != s.has_flat_segmentation() {
-                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_FLAT);
-                    }
-                    if c.state_flags.is_32() != s.is_32() {
-                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_IS32);
-                    }
-                    if c.state_flags.ssize_32() != s.ssize_32() {
-                        profiler::stat_increment(RUN_INTERPRETED_DIFFERENT_STATE_SS32);
-                    }
+                if initial_state_flags == c.state_flags
+                    && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
+                {
+                    profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
+                    return;
                 }
             },
         }
 
-        if let Some((wasm_table_index, initial_state)) = jit_entry {
-            if jit::CHECK_JIT_STATE_INVARIANTS {
-                match get_phys_eip() {
-                    Err(()) => dbg_assert!(false),
-                    Ok(phys_eip) => {
-                        let entry = jit::jit_find_cache_entry(phys_eip, initial_state_flags);
-                        dbg_assert!(entry.wasm_table_index.to_u16() == wasm_table_index);
-                        dbg_assert!(entry.initial_state == initial_state);
-                    },
-                }
-            }
-            profiler::stat_increment(RUN_FROM_CACHE);
-            let initial_instruction_counter = *instruction_counter;
-            #[cfg(debug_assertions)]
-            {
-                in_jit = true;
-            }
-            call_indirect1(
-                wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
-                initial_state,
-            );
-            #[cfg(debug_assertions)]
-            {
-                in_jit = false;
-            }
-            profiler::stat_increment_by(
-                RUN_FROM_CACHE_STEPS,
-                (*instruction_counter - initial_instruction_counter) as u64,
-            );
-            dbg_assert!(
-                *instruction_counter != initial_instruction_counter,
-                "Instruction counter didn't change"
-            );
-
-            if cfg!(feature = "profiler") {
-                dbg_assert!(match ::cpu::cpu::debug_last_jump {
-                    LastJump::Compiled { .. } => true,
-                    _ => false,
-                });
-                let last_jump_addr = ::cpu::cpu::debug_last_jump.phys_address().unwrap();
-                let last_jump_opcode = if last_jump_addr != 0 {
-                    read32s(last_jump_addr)
-                }
-                else {
-                    // Happens during exit due to loop iteration limit
-                    0
-                };
-
-                ::opstats::record_opstat_jit_exit(last_jump_opcode as u32);
-            }
-
-            if is_near_end_of_page(*instruction_pointer as u32) {
-                profiler::stat_increment(RUN_FROM_CACHE_EXIT_NEAR_END_OF_PAGE);
-            }
-            else if Page::page_of(initial_eip as u32)
-                == Page::page_of(*instruction_pointer as u32)
-            {
-                profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
-            }
-            else {
-                profiler::stat_increment(RUN_FROM_CACHE_EXIT_DIFFERENT_PAGE);
+        #[cfg(feature = "profiler")]
+        {
+            if CHECK_MISSED_ENTRY_POINTS {
+                jit::check_missed_entry_points(phys_addr, initial_state_flags);
             }
         }
-        else {
-            *previous_ip = initial_eip;
-            let phys_addr = return_on_pagefault!(get_phys_eip());
 
-            match tlb_code[(initial_eip as u32 >> 12) as usize] {
-                None => {},
-                Some(c) => {
-                    let c = c.as_ref();
+        let initial_instruction_counter = *instruction_counter;
+        jit_run_interpreted(phys_addr);
 
-                    if initial_state_flags == c.state_flags
-                        && c.state_table[initial_eip as usize & 0xFFF] != u16::MAX
-                    {
-                        profiler::stat_increment(RUN_INTERPRETED_PAGE_HAS_ENTRY_AFTER_PAGE_WALK);
-                        return;
-                    }
-                },
-            }
+        jit::jit_increase_hotness_and_maybe_compile(
+            initial_eip,
+            phys_addr,
+            get_seg_cs() as u32,
+            initial_state_flags,
+            *instruction_counter - initial_instruction_counter,
+        );
 
-            #[cfg(feature = "profiler")]
-            {
-                if CHECK_MISSED_ENTRY_POINTS {
-                    jit::check_missed_entry_points(phys_addr, initial_state_flags);
-                }
-            }
-
-            let initial_instruction_counter = *instruction_counter;
-            jit_run_interpreted(phys_addr);
-
-            jit::jit_increase_hotness_and_maybe_compile(
-                initial_eip,
-                phys_addr,
-                get_seg_cs() as u32,
-                initial_state_flags,
-                *instruction_counter - initial_instruction_counter,
-            );
-
-            profiler::stat_increment_by(
-                RUN_INTERPRETED_STEPS,
-                (*instruction_counter - initial_instruction_counter) as u64,
-            );
-            dbg_assert!(
-                *instruction_counter != initial_instruction_counter,
-                "Instruction counter didn't change"
-            );
-        };
-    }
-    else {
-        *previous_ip = *instruction_pointer;
-
-        let opcode = return_on_pagefault!(read_imm8());
-        *instruction_counter += 1;
-        dbg_assert!(*prefixes == 0);
-        run_instruction(opcode | (*is_32 as i32) << 8);
-        dbg_assert!(*prefixes == 0);
-    }
+        profiler::stat_increment_by(
+            RUN_INTERPRETED_STEPS,
+            (*instruction_counter - initial_instruction_counter) as u64,
+        );
+        dbg_assert!(
+            *instruction_counter != initial_instruction_counter,
+            "Instruction counter didn't change"
+        );
+    };
 }
 
 pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
@@ -3111,13 +3099,29 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn do_many_cycles_native(force_disable_jit: bool) {
+pub unsafe fn do_many_cycles_native() {
     profiler::stat_increment(DO_MANY_CYCLES);
     let initial_instruction_counter = *instruction_counter;
     while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
         && !*in_hlt
     {
-        cycle_internal(force_disable_jit);
+        cycle_internal();
+    }
+}
+
+#[no_mangle]
+pub unsafe fn do_many_cycles_native_nojit() {
+    profiler::stat_increment(DO_MANY_CYCLES);
+    let initial_instruction_counter = *instruction_counter;
+    while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
+        && !*in_hlt
+    {
+        *previous_ip = *instruction_pointer;
+        let opcode = return_on_pagefault!(read_imm8());
+        *instruction_counter += 1;
+        dbg_assert!(*prefixes == 0);
+        run_instruction(opcode | (*is_32 as i32) << 8);
+        dbg_assert!(*prefixes == 0);
     }
 }
 

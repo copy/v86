@@ -175,11 +175,6 @@
 
         const query_args = get_query_arguments();
         const host = query_args["cdn"] || (ON_LOCALHOST ? "images/" : "//k.copy.sh/");
-        const disable_jit = parseInt(query_args["jit_disable"], 10);
-        if(disable_jit > 0)
-        {
-            settings.force_disable_jit = disable_jit;
-        }
 
         // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
@@ -947,6 +942,11 @@
             document.head.appendChild(link);
         }
 
+        if(query_args["disable_jit"])
+        {
+            settings.disable_jit = true;
+        }
+
         if(query_args["use_bochs_bios"])
         {
             settings.use_bochs_bios = true;
@@ -1340,6 +1340,7 @@
             "bzimage_initrd_from_filesystem": settings.bzimage_initrd_from_filesystem,
 
             "acpi": enable_acpi,
+            "disable_jit": settings.disable_jit,
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
             "disable_speaker": disable_audio,
