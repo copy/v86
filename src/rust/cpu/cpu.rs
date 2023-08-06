@@ -1056,9 +1056,6 @@ pub unsafe fn call_interrupt_vector(
 pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool) {
     dbg_assert!(selector < 0x10000 && selector >= 0);
 
-    //dbg_log("far " + ["jump", "call"][+is_call] + " eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4), LOG_CPU);
-    //CPU_LOG_VERBOSE && this.debug.dump_state("far " + ["jump", "call"][+is_call]);
-
     if !*protected_mode || vm86_mode() {
         if is_call {
             if is_osize_32 {
@@ -1386,20 +1383,13 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
         update_state_flags();
     }
-
-    //dbg_log!("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
-    //CPU_LOG_VERBOSE && debug.dump_state("far " + ["jump", "call"][+is_call] + " end");
 }
 
 pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32: bool) {
     dbg_assert!(selector < 0x10000 && selector >= 0);
 
-    //dbg_log("far return eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4) + " stack_adjust=" + h(stack_adjust), LOG_CPU);
-    //CPU_LOG_VERBOSE && this.debug.dump_state("far ret start");
-
     if !*protected_mode {
         dbg_assert!(!*is_32);
-        //dbg_assert(!this.stack_size_32[0]);
     }
 
     if !*protected_mode || vm86_mode() {
@@ -1533,9 +1523,6 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
     *instruction_pointer = get_seg_cs() + eip;
 
     update_state_flags();
-
-    //dbg_log("far return to:", LOG_CPU)
-    //CPU_LOG_VERBOSE && debug.dump_state("far ret end");
 }
 
 pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
