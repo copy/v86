@@ -15,6 +15,7 @@ extern "C" {
     pub fn io_port_write32(port: i32, value: i32);
 }
 
+use config;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::memory;
@@ -32,9 +33,10 @@ use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
 use state_flags::CachedStateFlags;
+pub use util::dbg_trace;
+
 use std::collections::HashSet;
 use std::ptr::NonNull;
-pub use util::dbg_trace;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -2209,7 +2211,7 @@ pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
     let present = fault.present;
     let user = fault.user;
 
-    if ::config::LOG_PAGE_FAULTS {
+    if config::LOG_PAGE_FAULTS {
         dbg_log!(
             "page fault jit w={} u={} p={} eip={:x} cr2={:x}",
             write as i32,
@@ -2280,7 +2282,7 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     let present = fault.present;
     let user = fault.user;
 
-    if ::config::LOG_PAGE_FAULTS {
+    if config::LOG_PAGE_FAULTS {
         dbg_log!(
             "page fault w={} u={} p={} eip={:x} cr2={:x}",
             write as i32,
