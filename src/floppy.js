@@ -388,7 +388,7 @@ FloppyController.prototype.seek = function(args)
     // clear eject flag if seek takes us to a new cylinder
     if(new_cylinder !== this.last_cylinder)
     {
-        this.dir = 0x0;
+        this.dir = 0x80;
     }
     // do nothing if no fda
     if (this.fda_image)
