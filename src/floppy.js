@@ -281,9 +281,6 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
             case 0x05:
             case 0x45:
             case 0xC5:
-            // also format track??
-            case 0x0D:
-            case 0x4D:
                 this.next_command = function(args) { this.do_sector(true, args); };
                 this.bytes_expecting = 8;
                 break;
