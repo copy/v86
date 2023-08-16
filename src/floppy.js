@@ -56,6 +56,10 @@ function FloppyController(cpu, fda_image, fdb_image)
     {
         this.set_fda(fda_image);
     }
+    this.dir = 0x0;
+    cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, this.floppy_type.type << 4);
+
+    dbg_assert(!fdb_image, "FDB not supported");
 
     dbg_assert(!fdb_image, "FDB not supported");
 
@@ -277,6 +281,9 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
             case 0x05:
             case 0x45:
             case 0xC5:
+            // also format track??
+            case 0x0D:
+            case 0x4D:
                 this.next_command = function(args) { this.do_sector(true, args); };
                 this.bytes_expecting = 8;
                 break;
