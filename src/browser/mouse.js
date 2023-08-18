@@ -46,7 +46,7 @@ function MouseAdapter(bus, screen_container) {
         window.removeEventListener("touchstart", touch_start_handler, false);
         window.removeEventListener("touchend", touch_end_handler, false);
         window.removeEventListener("touchmove", mousemove_handler, false);
-        window.removeEventListener("mousemove", mousemove_handler, false);
+        // window.removeEventListener("mousemove", mousemove_handler, false);
         window.removeEventListener("mousedown", mousedown_handler, false);
         window.removeEventListener("mouseup", mouseup_handler, false);
         window.removeEventListener("wheel", mousewheel_handler, { passive: false });
@@ -61,7 +61,7 @@ function MouseAdapter(bus, screen_container) {
         window.addEventListener("touchstart", touch_start_handler, false);
         window.addEventListener("touchend", touch_end_handler, false);
         window.addEventListener("touchmove", mousemove_handler, false);
-        window.addEventListener("mousemove", mousemove_handler, false);
+        // window.addEventListener("mousemove", mousemove_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
         window.addEventListener("wheel", mousewheel_handler, { passive: false });
