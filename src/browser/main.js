@@ -359,6 +359,32 @@
                 name: "Freedos with FreeGEM",
             },
             {
+                id: "freedos-live",
+                cdrom: {
+                    url: host + "FD13LIVE.iso",
+                    async: false,
+                },
+                name: "FreeDOS-Live",
+            },
+            {
+                id: "freedos-13",
+                hda: {
+                    url: host + "freedos13.img",
+                    async: false,
+                },
+                name: "FreeDOS 13",
+                boot_order: 0x312
+            },
+            {
+                id: "debian-wheezy",
+                hda: {
+                    url: host + "debian_wheezy.img",
+                    async: false,
+                },
+                name: "Debian Wheezy",
+                boot_order: 0x312
+            },
+            {
                 id: "psychdos",
                 hda: {
                     url: host + "psychdos.img",
@@ -393,6 +419,10 @@
                 cdrom: {
                     url: host + "linux.iso",
                     size: 6547456,
+                    async: false,
+                },
+                fda: {
+                    url: host + "freedos722.img",
                     async: false,
                 },
                 name: "Linux",
@@ -616,7 +646,7 @@
                 hda: {
                     url: host + "windows2k.img",
                     size: 2 * 1024 * 1024 * 1024,
-                    async: true,
+                    async: false,
                     fixed_chunk_size: 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
@@ -725,6 +755,12 @@
                     url: host + "Win30.iso",
                     async: false,
                 },
+                hda: {
+                    url: host + "win31.img",
+                    async: false,
+                    size: 34463744,
+                },
+                boot_order: 0x213,
                 name: "Windows 3.0",
             },
             {
@@ -735,7 +771,12 @@
                     async: false,
                     size: 34463744,
                 },
+                cdrom: {
+                    url: host + "Win30.iso",
+                    async: false,
+                },
                 name: "Windows 3.1",
+                boot_order: 0x312
             },
             {
                 id: "freebsd",

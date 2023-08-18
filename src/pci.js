@@ -390,7 +390,7 @@ PCI.prototype.pci_write32 = function(address, written)
         var bar_nr = addr - 0x10 >> 2;
         var bar = device.pci_bars[bar_nr];
 
-        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed to " +
+        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed from "+h(space[addr >> 2]) +" to " +
                 h(written >>> 0) + " dev=" + h(bdf >> 3, 2) + " (" + device.name + ") ", LOG_PCI);
 
         if(bar)
@@ -514,6 +514,7 @@ PCI.prototype.register_device = function(device)
 
         var bar_base = bar_space[i];
         var type = bar_base & 1;
+        dbg_log("device "+ device.name +" register bar of size "+bar.size +" at " + h(bar_base), LOG_PCI);
 
         bar.original_bar = bar_base;
         bar.entries = [];
@@ -561,6 +562,9 @@ PCI.prototype.set_io_bars = function(bar, from, to)
            old_entry.write32 === this.io.empty_port_write)
         {
             // happens when a device doesn't register its full range (currently ne2k and virtio)
+            // but it also happens when aligned reads/writes are set up,
+            // e.g. a 16-bit read registered at 0xB400 will show up as
+            // no source mapping at 0xB401.
             dbg_log("Warning: Bad IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
         }
 
@@ -573,16 +577,16 @@ PCI.prototype.set_io_bars = function(bar, from, to)
             ports[to + i] = entry;
         }
 
-        if(empty_entry.read8 === this.io.empty_port_read8 ||
-            empty_entry.read16 === this.io.empty_port_read16 ||
-            empty_entry.read32 === this.io.empty_port_read32 ||
-            empty_entry.write8 === this.io.empty_port_write ||
-            empty_entry.write16 === this.io.empty_port_write ||
-            empty_entry.write32 === this.io.empty_port_write)
+        if(empty_entry.read8 !== this.io.empty_port_read8 ||
+            empty_entry.read16 !== this.io.empty_port_read16 ||
+            empty_entry.read32 !== this.io.empty_port_read32 ||
+            empty_entry.write8 !== this.io.empty_port_write ||
+            empty_entry.write16 !== this.io.empty_port_write ||
+            empty_entry.write32 !== this.io.empty_port_write)
         {
             // These can fail if the os maps an io port in multiple bars (indicating a bug)
             // XXX: Fails during restore_state
-            dbg_log("Warning: Bad IO bar: Target already mapped, port=" + h(to + i, 4), LOG_PCI);
+            dbg_log("Warning: Bad IO bar: Target already mapped, port=" + h(to + i, 4)+" from device "+entry.device.name+" to device "+empty_entry.device.name, LOG_PCI);
         }
     }
 };
