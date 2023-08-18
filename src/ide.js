@@ -1717,13 +1717,13 @@ IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("dev "+this.name+" ATA DMA write lba=" + h(lba) +
+    dbg_log("dev "+this.device.name+" ATA DMA write lba=" + h(lba) +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
     if(start + byte_count > this.buffer.byteLength)
     {
-        dbg_assert(false, "dev "+this.name+" ATA DMA write: Outside of disk", LOG_DISK);
+        dbg_assert(false, "dev "+this.device.name+" ATA DMA write: Outside of disk", LOG_DISK);
 
         this.status = 0xFF;
         this.push_irq();
