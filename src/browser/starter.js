@@ -39,7 +39,7 @@
  * - `filesystem Object` (No 9p filesystem) - A 9p filesystem, see
  *   [filesystem.md](filesystem.md).
  *
- * - `want_cdrom bool` - Whether to set up a CD-ROM drive even with no CD present. Implied by the presence of a `cdrom` object.
+ * - `wants_cdrom bool` - Whether to set up a CD-ROM drive even with no CD present. Implied by the presence of a `cdrom` object.
  * - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
  *   that will receive and send data to the emulated serial terminal.
  *   Alternatively the serial terminal can also be accessed programatically,
