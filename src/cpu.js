@@ -873,7 +873,7 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.hda = new IDEDevice(this, settings.hda, settings.hdb, false, ide_device_count++, device_bus);
         }
 
-        if(settings.cdrom || settings.want_cdrom)
+        if(settings.cdrom || settings.wants_cdrom)
         {
             this.devices.cdrom = new IDEDevice(this, settings.cdrom, undefined, true, ide_device_count++, device_bus);
         }
