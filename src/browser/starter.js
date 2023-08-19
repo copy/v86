@@ -39,6 +39,7 @@
  * - `filesystem Object` (No 9p filesystem) - A 9p filesystem, see
  *   [filesystem.md](filesystem.md).
  *
+ * - `want_cdrom bool` - Whether to set up a CD-ROM drive even with no CD present. Implied by the presence of a `cdrom` object.
  * - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
  *   that will receive and send data to the emulated serial terminal.
  *   Alternatively the serial terminal can also be accessed programatically,
@@ -261,6 +262,8 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         options["fda"] ? BOOT_ORDER_FD_FIRST :
         options["hda"] ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
 
+
+    settings.wants_cdrom = options["wants_cdrom"] || false;
     settings.acpi = options["acpi"];
     settings.disable_jit = options["disable_jit"];
     settings.load_devices = true;
@@ -339,6 +342,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                 break;
             case "cdrom":
                 settings.cdrom = this.disk_images["cdrom"] = buffer;
+                settings.wants_cdrom = true;
                 break;
             case "fda":
                 settings.fda = this.disk_images["fda"] = buffer;
