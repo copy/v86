@@ -638,7 +638,8 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA dev " + this.device.name + " Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if(!this.buffer && cmd != 0xA0 && cmd != 0xA1 && cmd != 0xEC)
+    // && cmd != 0xA0 && cmd != 0xA1 && cmd != 0xEC
+    if(!this.buffer)
     {
         dbg_log("dev "+this.device.name+" abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -1253,20 +1254,12 @@ IDEInterface.prototype.do_atapi_dma = function()
     if((this.device.dma_status & 1) === 0)
     {
         dbg_log("dev "+this.device.name+" do_atapi_dma: Status not set", LOG_DISK);
-        this.device.dma_status &= ~1;
-        this.device.dma_status |= 2;
-        this.status = 0x51;
-        this.push_irq();
         return;
     }
 
     if((this.status & 0x8) === 0)
     {
         dbg_log("dev "+this.device.name+" do_atapi_dma: DRQ not set", LOG_DISK);
-        this.device.dma_status &= ~1;
-        this.device.dma_status |= 2;
-        this.status = 0x51;
-        this.push_irq();
         return;
     }
 

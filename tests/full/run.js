@@ -91,8 +91,73 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "FreeDOS boot with cdrom present",
+            fda: root_path + "/images/freedos722.img",
+            cdrom: root_path + "/images/linux.iso",
+            boot_order:0x231,
+            timeout: 20,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "FreeDOS boot with hda present",
+            fda: root_path + "/images/freedos722.img",
+            hda: root_path + "/images/msdos.img",
+            boot_order:0x231,
+            timeout: 20,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "FreeDOS boot with cdrom and hda present",
+            fda: root_path + "/images/freedos722.img",
+            cdrom: root_path + "/images/linux.iso",
+            hda: root_path + "/images/msdos.img",
+            boot_order:0x321,
+            timeout: 30,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
             name: "FreeDOS boot with Bochs BIOS",
             fda: root_path + "/images/freedos722.img",
+            timeout: 20,
+            alternative_bios: true,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "FreeDOS boot with Bochs BIOS and cdrom present",
+            fda: root_path + "/images/freedos722.img",
+            cdrom: root_path + "/images/linux.iso",
+            boot_order:0x231,
+            timeout: 20,
+            alternative_bios: true,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "FreeDOS boot with Bochs BIOS and hda present",
+            fda: root_path + "/images/freedos722.img",
+            hda: root_path + "/images/msdos.img",
+            boot_order:0x231,
+            timeout: 20,
+            alternative_bios: true,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "FreeDOS boot with Bochs BIOS and cdrom and HDA present",
+            fda: root_path + "/images/freedos722.img",
+            cdrom: root_path + "/images/linux.iso",
+            hda: root_path + "/images/msdos.img",
+            boot_order:0x231,
             timeout: 20,
             alternative_bios: true,
             expected_texts: [
@@ -136,6 +201,23 @@ if(cluster.isMaster)
         {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
+            timeout: 90,
+            expected_texts: [
+                "/root%",
+                "test passed",
+            ],
+            actions: [
+                {
+                    on_text: "/root%",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
+                },
+            ],
+        },
+        {
+            name: "Linux with HDA present",
+            cdrom: root_path + "/images/linux.iso",
+            hda: root_path + "/images/msdos.img",
+            boot_order: 0x123,
             timeout: 90,
             expected_texts: [
                 "/root%",
@@ -283,6 +365,24 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Linux with Bochs BIOS and HDA present",
+            cdrom: root_path + "/images/linux.iso",
+            hda: root_path + "/images/msdos.img",
+            timeout: 90,
+            expected_texts: [
+                "/root%",
+                "test passed",
+            ],
+            boot_order: 0x123,
+            alternative_bios: true,
+            actions: [
+                {
+                    on_text: "/root%",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
+                },
+            ],
+        },
+        {
             name: "MS-DOS",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
@@ -292,7 +392,7 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "MS-DOS (hard disk + floppy disk)",
+            name: "MS-DOS (hard disk + floppy disk present)",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             fda: root_path + "/images/kolibri.img",
@@ -303,6 +403,17 @@ if(cluster.isMaster)
             ],
             expected_texts: [
                 "A:\\>",
+            ],
+        },
+        {
+            name: "MS-DOS (hard disk + cd-rom present)",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/msdos.img",
+            cdrom: root_path + "/images/linux.iso",
+            boot_order: 0x132,
+            timeout: 120,
+            expected_texts: [
+                "C:\\>",
             ],
         },
         {
@@ -428,10 +539,56 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Windows 3.0 (with hda present)",
+            slow: 1,
+            skip_if_disk_image_missing: true,
+            timeout: 10 * 60,
+            hda: root_path + "/images/win31.img",
+            cdrom: root_path + "/images/Win30.iso",
+            expected_texts: [
+                "Press any key to continue",
+                "              **************************************************",
+            ],
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [
+                {
+                    on_text: "Press any key to continue . . .",
+                    after: 1000,
+                    run: "x",
+                },
+                {
+                    on_text: "              **************************************************",
+                    after: 1000,
+                    run: "x",
+                },
+                {
+                    on_text: "C> ",
+                    after: 1000,
+                    run: "win\n",
+                },
+            ],
+            boot_order: 0x123
+        },
+        {
             name: "Windows 3.1",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
             hda: root_path + "/images/win31.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+            expected_texts: [
+                "MODE prepare code page function completed",
+            ],
+        },
+        {
+            name: "Windows 3.1 (with cdrom present)",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            boot_order: 0x312,
+            hda: root_path + "/images/win31.img",
+            cdrom: root_path + "/images/Win30.iso",
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
