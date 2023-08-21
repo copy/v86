@@ -9,7 +9,7 @@ var TEST_NAME = process.env.TEST_NAME;
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
-const VERBOSE = false;
+const VERBOSE = +process.env.VERBOSE || false;
 const LOG_SCREEN = false;
 
 try
@@ -76,6 +76,44 @@ function send_work_to_worker(worker, message)
     else
     {
         worker.disconnect();
+    }
+}
+
+function do_action(test, emulator, run_step)
+{
+    if(Array.isArray(run_step))
+    {
+        for(let step of run_step)
+        {
+            do_action(test, emulator, step);
+        }
+    }
+    else if(typeof run_step == "string")
+    {
+        if(VERBOSE) console.error("Sending '%s'", run_step);
+        emulator.keyboard_send_text(run_step);
+    }
+    else if(typeof run_step == "function")
+    {
+        if(VERBOSE) console.error("Run fn ", run_step);
+        run_step(test, emulator);
+    }
+    else if(typeof run_step == "object")
+    {
+        if(VERBOSE) console.error("Trigger ", run_step);
+        switch(run_step.action)
+        {
+            case "eject_fda":
+            {
+                emulator.v86.cpu.devices.fdc.eject_fda();
+                break;
+            }
+            case "insert_fda":
+            {
+                emulator.v86.cpu.devices.fdc.insert_fda(emulator.extra_images[run_step.image].buffer);
+                break;
+            }
+        }
     }
 }
 
@@ -1168,6 +1206,7 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
+    settings.extra_images = test.extra_images;
 
     if(test.expected_texts)
     {
@@ -1182,7 +1221,6 @@ function run_test(test, done)
     {
         test.expected_serial_text = [];
     }
-
     var emulator = new V86(settings);
     var screen = new Uint8Array(SCREEN_WIDTH * 25);
 
@@ -1360,8 +1398,7 @@ function run_test(test, done)
 
                 timeouts.push(
                     setTimeout(() => {
-                        if(VERBOSE) console.error("Sending '%s'", action.run);
-                        emulator.keyboard_send_text(action.run);
+                        do_action(test, emulator, action.run);
                     }, action.after || 0)
                 );
             }
@@ -1414,8 +1451,7 @@ function run_test(test, done)
         {
             timeouts.push(
                 setTimeout(() => {
-                    if(VERBOSE) console.error("Sending '%s'", action.run);
-                    emulator.keyboard_send_text(action.run);
+                    do_action(test, emulator, action.run);
                 }, action.after || 0)
             );
         }

@@ -56,7 +56,6 @@ function FloppyController(cpu, fda_image, fdb_image)
     {
         this.set_fda(fda_image);
     }
-    this.dir = 0x0;
     cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, this.floppy_type.type << 4);
 
     dbg_assert(!fdb_image, "FDB not supported");
@@ -385,7 +384,7 @@ FloppyController.prototype.seek = function(args)
     // clear eject flag if seek takes us to a new cylinder
     if(new_cylinder !== this.last_cylinder)
     {
-        this.dir = 0x80;
+        this.dir = 0x0;
     }
     // do nothing if no fda
     if (this.fda_image)

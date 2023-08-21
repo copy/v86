@@ -373,7 +373,12 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                 settings.fs9p_json = buffer;
                 break;
             default:
-                dbg_assert(false, name);
+                dbg_assert(name in this.extra_images, name);
+                if(name in this.extra_images)
+                {
+                    this.extra_images[name].buffer = buffer;
+                }
+                break;
         }
     }
 
@@ -426,6 +431,15 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         console.warn("Warning: Unknown option 'state'. Did you mean 'initial_state'?");
     }
 
+    if("extra_images" in options)
+    {
+        this.extra_images = options["extra_images"];
+    }
+    else
+    {
+        this.extra_images = {};
+    }
+
     var image_names = [
         "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
@@ -436,6 +450,14 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     for(var i = 0; i < image_names.length; i++)
     {
         add_file(image_names[i], options[image_names[i]]);
+    }
+    for(let other_image in this.extra_images)
+    {
+        if(other_image in image_names)
+        {
+            throw new Error("Extra image name "+other_image+" overlaps with built-in image");
+        }
+        add_file(other_image, this.extra_images[other_image])
     }
 
     if(options["filesystem"])
