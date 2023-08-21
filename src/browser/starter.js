@@ -457,7 +457,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         {
             throw new Error("Extra image name "+other_image+" overlaps with built-in image");
         }
-        add_file(other_image, this.extra_images[other_image])
+        add_file(other_image, this.extra_images[other_image]);
     }
 
     if(options["filesystem"])
