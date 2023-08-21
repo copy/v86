@@ -167,26 +167,42 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     {
         dbg_log("dev "+this.name+" 1F2/bytecount: " + h(data), LOG_DISK);
         this.master.bytecount = (this.master.bytecount << 8 | data) & 0xFFFF;
-        this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
+        // ignore writes to slave; bochs bios uses this to detect whether a slave is attached.
+        if(slave_buffer)
+        {
+            this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 3, this, function(data)
     {
         dbg_log("dev "+this.name+" 1F3/sector: " + h(data), LOG_DISK);
         this.master.sector = (this.master.sector << 8 | data) & 0xFFFF;
-        this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF;
+        // ignore writes to slave; bochs bios uses this to detect whether a slave is attached.
+        if(slave_buffer)
+        {
+            this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF; 
+        }
     });
 
     cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
         dbg_log("dev "+this.name+" 1F4/sector low: " + h(data), LOG_DISK);
         this.master.cylinder_low = (this.master.cylinder_low << 8 | data) & 0xFFFF;
-        this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
+        // ignore writes to slave; bochs bios uses this to detect whether a slave is attached.
+        if(slave_buffer)
+        {
+            this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
         dbg_log("dev "+this.name+" 1F5/sector high: " + h(data), LOG_DISK);
         this.master.cylinder_high = (this.master.cylinder_high << 8 | data) & 0xFFFF;
-        this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
+        // ignore writes to slave; bochs bios uses this to detect whether a slave is attached.
+        if(slave_buffer)
+        {
+            this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
@@ -606,7 +622,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA dev " + this.device.name + " Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if(!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0)
+    if((!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0))
     {
         dbg_log("dev "+this.device.name+" abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -709,8 +725,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             dbg_log("dev "+this.device.name+" ATA identify packet device", LOG_DISK);
 
             if(this.is_atapi)
-        {
-            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
+            {
                 this.create_identify_packet();
                 this.status = 0x58;
 
@@ -787,7 +802,6 @@ IDEInterface.prototype.ata_command = function(cmd)
                 return;
             }
 
-            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
             this.create_identify_packet();
             this.status = 0x58;
 
@@ -1932,6 +1946,7 @@ IDEInterface.prototype.create_identify_packet = function()
 
     this.data_length = 512;
     this.data_end = 512;
+
 };
 
 IDEInterface.prototype.data_allocate = function(len)
