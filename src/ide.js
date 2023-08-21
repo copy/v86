@@ -469,7 +469,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.sector_count = 0;
 
     /** @type {number} */
-    this.head_count = 0;
+    this.head_count = this.is_atapi ? 1 : 0;
 
     /** @type {number} */
     this.sectors_per_track = 0;
@@ -532,6 +532,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         rtc.cmos_write(reg + 5, 0xC8);
         rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
         rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
+        rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
         //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
         //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)
         
@@ -647,7 +648,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA dev " + this.device.name + " Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if((!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0))
+    if(!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0)
     {
         dbg_log("dev "+this.device.name+" abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -750,7 +751,8 @@ IDEInterface.prototype.ata_command = function(cmd)
             dbg_log("dev "+this.device.name+" ATA identify packet device", LOG_DISK);
 
             if(this.is_atapi)
-            {
+        {
+            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
                 this.create_identify_packet();
                 this.status = 0x58;
 
@@ -827,6 +829,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 return;
             }
 
+            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
             this.create_identify_packet();
             this.status = 0x58;
 
