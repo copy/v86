@@ -96,7 +96,6 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 
     // status
     cpu.io.register_read(this.ata_port | 7, this, function() {
-        dbg_log("dev "+this.name+" lower irq", LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
         return this.read_status();
     });
@@ -203,6 +202,7 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
         }
         else
         {
+            dbg_log("dev "+this.name+" Master", LOG_DISK);
             this.current_interface = this.master;
         }
 
@@ -223,8 +223,10 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 
     cpu.io.register_write(this.ata_port | 7, this, function(data)
     {
-        dbg_log("dev "+this.name+" lower irq", LOG_DISK);
+        // dbg_log("dev "+this.name+" lower irq", LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
+        // clear error and DF bits
+        this.current_interface.status &= ~(1 | (1 << 5));
         this.current_interface.ata_command(data);
     });
 
@@ -255,16 +257,9 @@ function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 
 IDEDevice.prototype.read_status = function()
 {
-    if(this.current_interface.buffer)
-    {
-        var ret = this.current_interface.status;
-        dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
-        return ret;
-    }
-    else
-    {
-        return 0;
-    }
+    var ret = this.current_interface.status;
+    dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
+    return ret;
 };
 
 IDEDevice.prototype.write_control = function(data)
@@ -458,7 +453,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.sector_count = 0;
 
     /** @type {number} */
-    this.head_count = 0;
+    this.head_count = this.is_atapi ? 1 : 0;
 
     /** @type {number} */
     this.sectors_per_track = 0;
@@ -476,12 +471,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
             this.sector_count = Math.ceil(this.sector_count);
         }
 
-        if(is_cd)
-        {
-            this.head_count = 1;
-            this.sectors_per_track = 0;
-        }
-        else
+        if(!is_cd)
         {
             // "default" values: 16/63
             // common: 255, 63
@@ -504,28 +494,6 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         //{
         //    this.cylinder_count = 16383;
         //}
-
-        // disk translation: lba
-        var rtc = cpu.devices.rtc;
-
-        // master
-        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-            rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
-        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
-
-        var reg = CMOS_DISK_DRIVE1_CYL;
-        rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 2, this.head_count & 0xFF);
-        rtc.cmos_write(reg + 3, 0xFF);
-        rtc.cmos_write(reg + 4, 0xFF);
-        rtc.cmos_write(reg + 5, 0xC8);
-        rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
-
-        //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-        //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)); // slave
     }
 
     /** @const */
@@ -638,8 +606,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA dev " + this.device.name + " Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    // && cmd != 0xA0 && cmd != 0xA1 && cmd != 0xEC
-    if(!this.buffer)
+    if(!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0)
     {
         dbg_log("dev "+this.device.name+" abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -742,7 +709,8 @@ IDEInterface.prototype.ata_command = function(cmd)
             dbg_log("dev "+this.device.name+" ATA identify packet device", LOG_DISK);
 
             if(this.is_atapi)
-            {
+        {
+            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
                 this.create_identify_packet();
                 this.status = 0x58;
 
@@ -819,6 +787,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 return;
             }
 
+            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
             this.create_identify_packet();
             this.status = 0x58;
 
@@ -871,6 +840,21 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
+    if(!this.buffer && (this.current_atapi_command == 0x25 ||
+                        this.current_atapi_command == 0x28 ||
+                        this.current_atapi_command == 0x42 ||
+                        this.current_atapi_command == 0x43 ||
+                        this.current_atapi_command == 0x51))
+    {
+        dbg_log("dev "+this.device.name+" CD read-related action: no buffer", LOG_DISK);
+        this.status = 0x51;
+        this.error = 0x21;
+        this.data_allocate(0);
+        this.data_end = this.data_length;
+        this.bytecount = this.bytecount & ~7 | 2 | 1;
+        this.push_irq();
+        return;
+    }
 
     switch(this.current_atapi_command)
     {
@@ -889,7 +873,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status = 0x58;
 
             this.data[0] = 0x80 | 0x70;
-            this.data[2] = 5; // illegal request
+            this.data[2] = this.error >> 4;
             this.data[7] = 8;
             break;
 
@@ -1162,9 +1146,16 @@ IDEInterface.prototype.atapi_read = function(cmd)
         req_length = byte_count;
     }
 
-    if(start >= this.buffer.byteLength)
+    if(!this.buffer)
     {
-        dbg_assert(false, "CD read: Outside of disk  end=" + h(start + byte_count) +
+        dbg_assert(false, "dev "+this.device.name+" CD read: no buffer", LOG_DISK);
+        this.status = 0xFF;
+        this.error = 0x41;
+        this.push_irq();
+    }
+    else if(start >= this.buffer.byteLength)
+    {
+        dbg_assert(false, "dev "+this.device.name+" CD read: Outside of disk  end=" + h(start + byte_count) +
                           " size=" + h(this.buffer.byteLength), LOG_DISK);
 
         this.status = 0xFF;
@@ -1851,13 +1842,6 @@ IDEInterface.prototype.get_count = function(is_lba48)
 IDEInterface.prototype.create_identify_packet = function()
 {
     // http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
-
-    if(this.drive_head & 0x10)
-    {
-        // slave
-        this.data_allocate(0);
-        return;
-    }
 
     for(var i = 0; i < 512; i++)
     {

@@ -1140,6 +1140,7 @@
 
             settings.fda = infos.fda;
             settings.cdrom = infos.cdrom;
+            settings.wants_cdrom = infos.wants_cdrom;
             settings.hda = infos.hda;
             settings.multiboot = infos.multiboot;
             settings.bzimage = infos.bzimage;
