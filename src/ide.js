@@ -648,7 +648,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA dev " + this.device.name + " Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if(!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0)
+    if((!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0))
     {
         dbg_log("dev "+this.device.name+" abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -751,8 +751,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             dbg_log("dev "+this.device.name+" ATA identify packet device", LOG_DISK);
 
             if(this.is_atapi)
-        {
-            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
+            {
                 this.create_identify_packet();
                 this.status = 0x58;
 
@@ -829,7 +828,6 @@ IDEInterface.prototype.ata_command = function(cmd)
                 return;
             }
 
-            // TODO handle missing (slave) drive by setting status = 0x00 or 0xFF?
             this.create_identify_packet();
             this.status = 0x58;
 

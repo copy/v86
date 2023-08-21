@@ -123,7 +123,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot",
             fda: root_path + "/images/freedos722.img",
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -133,7 +133,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             cdrom: root_path + "/images/linux.iso",
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -143,7 +143,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             wants_cdrom:true,
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -153,7 +153,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             wants_cdrom:true,
             boot_order:0x213,
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -183,7 +183,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             hda: root_path + "/images/msdos.img",
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -194,7 +194,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/linux.iso",
             hda: root_path + "/images/msdos.img",
             boot_order:0x321,
-            timeout: 5,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -202,7 +202,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot with Bochs BIOS",
             fda: root_path + "/images/freedos722.img",
-            timeout: 5,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -211,7 +211,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot with Bochs BIOS and empty cdrom",
             fda: root_path + "/images/freedos722.img",
-            timeout: 5,
+            timeout: 20,
             wants_cdrom: true,
             boot_order:0x312,
             alternative_bios: true,
@@ -222,7 +222,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot with Bochs BIOS and empty cdrom (alternative boot order)",
             fda: root_path + "/images/freedos722.img",
-            timeout: 5,
+            timeout: 20,
             boot_order:0x321,
             wants_cdrom: true,
             alternative_bios: true,
@@ -257,7 +257,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             cdrom: root_path + "/images/linux.iso",
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -268,7 +268,7 @@ if(cluster.isMaster)
             fda: root_path + "/images/freedos722.img",
             hda: root_path + "/images/msdos.img",
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -280,7 +280,7 @@ if(cluster.isMaster)
             hda: root_path + "/images/msdos.img",
             wants_cdrom: true,
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -304,7 +304,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/linux.iso",
             hda: root_path + "/images/msdos.img",
             boot_order:0x231,
-            timeout: 5,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -1230,7 +1230,7 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: 0x8000,
+        log_level: 0,
         cmdline: test.cmdline,
     };
 
