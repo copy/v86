@@ -510,6 +510,23 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         //{
         //    this.cylinder_count = 16383;
         //}
+        var rtc = cpu.devices.rtc;
+        // master
+        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
+        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
+
+        var reg = this.nr == 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
+        rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
+        rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
+        rtc.cmos_write(reg + 2, this.head_count & 0xFF);
+        rtc.cmos_write(reg + 3, 0xFF);
+        rtc.cmos_write(reg + 4, 0xFF);
+        rtc.cmos_write(reg + 5, 0xC8);
+        rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
+        rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
+        //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+        //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)
     }
 
     /** @const */
