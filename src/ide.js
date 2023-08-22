@@ -469,7 +469,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.sector_count = 0;
 
     /** @type {number} */
-    this.head_count = this.is_atapi ? 1 : 0;
+    this.head_count = 0;
 
     /** @type {number} */
     this.sectors_per_track = 0;
@@ -487,7 +487,13 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
             this.sector_count = Math.ceil(this.sector_count);
         }
 
-        if(!is_cd)
+        if(is_cd)
+        {
+            // default values: 1/2048
+            this.head_count = 1;
+            this.sectors_per_track = 2048;
+        }
+        else
         {
             // "default" values: 16/63
             // common: 255, 63
@@ -510,6 +516,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         //{
         //    this.cylinder_count = 16383;
         //}
+        
         var rtc = cpu.devices.rtc;
         // master
         rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
@@ -527,6 +534,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
         //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
         //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)
+        
     }
 
     /** @const */
