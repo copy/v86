@@ -434,9 +434,58 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         "bzimage", "initrd",
     ];
 
+    var total = 0;
+    var current_file_index = 0;
+    var current_file_size = 0;
+    var current_file_name = null;
+
+    function mk_progress(starter, index, size, url)
+    {
+        return function progress(e)
+        {
+            if(e.target.status === 200)
+            {
+                starter.emulator_bus.send("download-progress", {
+                    file_index: index,
+                    file_count: total,
+                    file_name: url,
+
+                    lengthComputable: e.lengthComputable,
+                    total: e.total || size,
+                    loaded: e.loaded,
+                });
+            }
+            else
+            {
+                starter.emulator_bus.send("download-error", {
+                    file_index: index,
+                    file_count: total,
+                    file_name: url,
+                    request: e.target,
+                });
+            }
+        };
+    }
+
     for(var i = 0; i < image_names.length; i++)
     {
-        add_file(image_names[i], options[image_names[i]]);
+        let name = image_names[i];
+        let file = options[image_names[i]];
+        if(!file) { continue; }
+        if(name === "bios" || name === "vga_bios" ||
+            name === "initial_state" || name === "multiboot" ||
+            name === "bzimage" || name === "initrd")
+        {
+            // Ignore async for these because they must be available before boot.
+            // This should make result.buffer available after the object is loaded
+            file.async = false;
+        }
+        total += 1;
+        let img = await this.load_image(file, mk_progress(this, total-1, file.size, file.url || name));
+        if(img)
+        {
+            put_on_settings.call(this, name, img.buffer);
+        }
     }
 
     if(options["filesystem"])
@@ -464,81 +513,18 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                 fs_url = fs_url.url;
             }
             dbg_assert(typeof fs_url === "string");
-
-            files_to_load.push({
+            total += 1;
+            let img = await this.load_image({
                 name: "fs9p_json",
                 url: fs_url,
                 size: size,
                 as_json: true,
-            });
+            }, mk_progress(this, total-1, size, fs_url));
+            put_on_settings.call(this, "fs9p_json", img.buffer);
         }
     }
 
-    var starter = this;
-    var total = files_to_load.length;
-
-    var cont = function(index)
-    {
-        if(index === total)
-        {
-            setTimeout(done.bind(this), 0);
-            return;
-        }
-
-        var f = files_to_load[index];
-
-        if(f.loadable)
-        {
-            f.loadable.onload = function(e)
-            {
-                put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
-            }.bind(this);
-            f.loadable.load();
-        }
-        else
-        {
-            v86util.load_file(f.url, {
-                done: function(result)
-                {
-                    if(f.url.endsWith(".zst") && f.name !== "initial_state")
-                    {
-                        dbg_assert(f.size, "A size must be provided for compressed images");
-                        result = this.zstd_decompress(f.size, new Uint8Array(result));
-                    }
-
-                    put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
-                    cont(index + 1);
-                }.bind(this),
-                progress: function progress(e)
-                {
-                    if(e.target.status === 200)
-                    {
-                        starter.emulator_bus.send("download-progress", {
-                            file_index: index,
-                            file_count: total,
-                            file_name: f.url,
-
-                            lengthComputable: e.lengthComputable,
-                            total: e.total || f.size,
-                            loaded: e.loaded,
-                        });
-                    }
-                    else
-                    {
-                        starter.emulator_bus.send("download-error", {
-                            file_index: index,
-                            file_count: total,
-                            file_name: f.url,
-                            request: e.target,
-                        });
-                    }
-                },
-                as_json: f.as_json,
-            });
-        }
-    }.bind(this);
-    cont(0);
+    setTimeout(done.bind(this), 0);
 
     async function done()
     {
@@ -1419,11 +1405,12 @@ V86Starter.prototype.write_memory = function(blob, offset)
  * explicitly given buffer.
  *
  * @param {Object} file
+ * @param {function(*) | undefined} on_progress
  * @return {Promise<Object>}
  * @export
  */
 
-V86Starter.prototype.load_image = async function(file)
+V86Starter.prototype.load_image = async function(file, on_progress)
 {
     if(file.buffer && file.buffer.get && file.buffer.set && file.buffer.load)
     {
@@ -1438,8 +1425,8 @@ V86Starter.prototype.load_image = async function(file)
 
     if(file.buffer instanceof ArrayBuffer)
     {
-        var buffer = new v86util.SyncBuffer(file.buffer);
-        image.buffer = await new Promise((resolve, reject) => {
+        image.buffer = new v86util.SyncBuffer(file.buffer);
+        await new Promise((resolve, reject) => {
             image.buffer.onload = (e) => resolve(buffer);
             image.buffer.load();
         });
@@ -1471,7 +1458,8 @@ V86Starter.prototype.load_image = async function(file)
             var buffer = new v86util.SyncFileBuffer(file.buffer);
         }
 
-        image.buffer = await new Promise((resolve, reject) => {
+        image.buffer = buffer;
+        await new Promise((resolve, reject) => {
             image.buffer.onload = (e) => resolve(buffer);
             image.buffer.load();
         });
@@ -1491,7 +1479,8 @@ V86Starter.prototype.load_image = async function(file)
             {
                 buffer = new v86util.AsyncXHRBuffer(file.url, file.size, file.fixed_chunk_size);
             }
-            image.buffer = await new Promise((resolve, reject) => {
+            image.buffer = buffer;
+            await new Promise((resolve, reject) => {
                 image.buffer.onload = (e) => resolve(buffer);
                 image.buffer.load();
             });
@@ -1501,8 +1490,18 @@ V86Starter.prototype.load_image = async function(file)
         {
             image.buffer = await new Promise((resolve, reject) => {
                 v86util.load_file(file.url, {
-                    done: (result) => resolve(new v86util.SyncBuffer(result))
-                })
+                    done: function(result)
+                    {
+                        if(file.url.endsWith(".zst") && file.name !== "initial_state")
+                        {
+                            dbg_assert(file.size, "A size must be provided for compressed images");
+                            result = this.zstd_decompress(file.size, new Uint8Array(result));
+                        }
+                        resolve(file.as_json ? result : new v86util.SyncBuffer(result));
+                    }.bind(this),
+                    progress: on_progress,
+                    as_json: file.as_json,
+                });
             });
             return image;
         }
