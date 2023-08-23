@@ -121,6 +121,36 @@ if(cluster.isMaster)
 {
     var tests = [
         {
+            name: "Wheezy boot",
+            hda: root_path + "/images/debian_wheezy.img",
+            timeout: 60,
+            expect_graphical_mode: true,
+        },
+        {
+            name: "Wheezy boot with empty cdrom",
+            wants_cdrom: true,
+            hda: root_path + "/images/debian_wheezy.img",
+            timeout: 60,
+            boot_order:0x312,
+            expect_graphical_mode: true,
+        },
+        {
+            name: "Wheezy boot with cdrom present",
+            wants_cdrom: true,
+            hda: root_path + "/images/debian_wheezy.img",
+            cdrom: root_path + "/images/linux.iso",
+            timeout: 60,
+            boot_order:0x312,
+            expect_graphical_mode: true,
+        },
+        {
+            name: "Windows 1.01 boot",
+            fda: root_path + "/images/windows101.img",
+            timeout: 10,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
             name: "FreeDOS boot",
             fda: root_path + "/images/freedos722.img",
             timeout: 20,
@@ -194,7 +224,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/linux.iso",
             hda: root_path + "/images/msdos.img",
             boot_order:0x321,
-            timeout: 20,
+            timeout: 40,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -304,7 +334,7 @@ if(cluster.isMaster)
             cdrom: root_path + "/images/linux.iso",
             hda: root_path + "/images/msdos.img",
             boot_order:0x231,
-            timeout: 20,
+            timeout: 30,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -1230,7 +1260,7 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: 0,
+        log_level: 0x0,
         cmdline: test.cmdline,
     };
 

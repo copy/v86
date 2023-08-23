@@ -457,7 +457,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.buffer = buffer;
+    this.buffer = null;
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
@@ -477,65 +477,9 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @type {number} */
     this.cylinder_count = 0;
 
-    if(this.buffer)
+    if(buffer)
     {
-        this.sector_count = this.buffer.byteLength / this.sector_size;
-
-        if(this.sector_count !== (this.sector_count | 0))
-        {
-            dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
-            this.sector_count = Math.ceil(this.sector_count);
-        }
-
-        if(is_cd)
-        {
-            // default values: 1/2048
-            this.head_count = 1;
-            this.sectors_per_track = 2048;
-        }
-        else
-        {
-            // "default" values: 16/63
-            // common: 255, 63
-            this.head_count = 16;
-            this.sectors_per_track = 63;
-        }
-
-
-        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
-
-        if(this.cylinder_count !== (this.cylinder_count | 0))
-        {
-            dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
-            this.cylinder_count = Math.floor(this.cylinder_count);
-            //this.sector_count = this.cylinder_count * this.head_count *
-            //                        this.sectors_per_track * this.sector_size;
-        }
-
-        //if(this.cylinder_count > 16383)
-        //{
-        //    this.cylinder_count = 16383;
-        //}
-        
-        var rtc = cpu.devices.rtc;
-        // master
-        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
-        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
-
-        var reg = this.nr == 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
-        rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 2, this.head_count & 0xFF);
-        rtc.cmos_write(reg + 3, 0xFF);
-        rtc.cmos_write(reg + 4, 0xFF);
-        rtc.cmos_write(reg + 5, 0xC8);
-        rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
-        //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-        //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)
-        
+        this.insert(buffer);
     }
 
     /** @const */
@@ -611,6 +555,85 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.cancelled_io_ids = new Set();
 
     Object.seal(this);
+}
+
+IDEInterface.prototype.eject = function()
+{
+    this.buffer = null;
+    if(this.is_atapi)
+    {
+        this.status = 0x59;
+        this.error = 0x60;
+    }
+}
+
+IDEInterface.prototype.insert = function(buffer)
+{
+    if(buffer)
+    {
+        this.buffer = buffer;
+        if(this.is_atapi)
+        {
+            this.status = 0x59;
+            this.error = 0x60;
+        }
+        this.sector_count = this.buffer.byteLength / this.sector_size;
+
+        if(this.sector_count !== (this.sector_count | 0))
+        {
+            dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
+            this.sector_count = Math.ceil(this.sector_count);
+        }
+
+        if(this.is_atapi)
+        {
+            // default values: 1/2048
+            this.head_count = 1;
+            this.sectors_per_track = 2048;
+        }
+        else
+        {
+            // "default" values: 16/63
+            // common: 255, 63
+            this.head_count = 16;
+            this.sectors_per_track = 63;
+        }
+
+
+        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+
+        if(this.cylinder_count !== (this.cylinder_count | 0))
+        {
+            dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
+            this.cylinder_count = Math.floor(this.cylinder_count);
+            //this.sector_count = this.cylinder_count * this.head_count *
+            //                        this.sectors_per_track * this.sector_size;
+        }
+
+        //if(this.cylinder_count > 16383)
+        //{
+        //    this.cylinder_count = 16383;
+        //}
+
+        var rtc = cpu.devices.rtc;
+        // master
+        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
+        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
+
+        var reg = this.nr == 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
+        rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
+        rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
+        rtc.cmos_write(reg + 2, this.head_count & 0xFF);
+        rtc.cmos_write(reg + 3, 0xFF);
+        rtc.cmos_write(reg + 4, 0xFF);
+        rtc.cmos_write(reg + 5, 0xC8);
+        rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
+        rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
+        rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
+        //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+        //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)
+    }
 }
 
 IDEInterface.prototype.device_reset = function()

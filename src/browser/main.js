@@ -179,6 +179,44 @@
         // Abandonware OS images are from https://winworldpc.com/library/operating-systems
         var oses = [
             {
+                id: "wheezy",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 16 * 1024 * 1024,
+                hda: {
+                    url: host + "debian_wheezy.img",
+                    async: true,
+                },
+                boot_order: 0x132,
+                name: "Debian Wheezy",
+            },
+            {
+                id: "wheezy+empty",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 16 * 1024 * 1024,
+                wants_cdrom: true,
+                hda: {
+                    url: host + "debian_wheezy.img",
+                    async: true,
+                },
+                boot_order: 0x132,
+                name: "Debian Wheezy (empty cd)",
+            },
+            {
+                id: "wheezy+cd",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 16 * 1024 * 1024,
+                cdrom: {
+                    url: host+"linux.iso",
+                    async:false
+                },
+                hda: {
+                    url: host + "debian_wheezy.img",
+                    async: true,
+                },
+                boot_order: 0x132,
+                name: "Debian Wheezy (with cd)",
+            },
+            {
                 id: "archlinux",
                 name: "Arch Linux",
                 memory_size: 512 * 1024 * 1024,
@@ -736,14 +774,37 @@
             {
                 id: "windows95-boot",
                 memory_size: 32 * 1024 * 1024,
+                boot_order:0x312,
                 hda: {
                     url: host + "w95.img",
-                    size: 242049024,
                     async: true,
-                    fixed_chunk_size: 256 * 1024,
-                    use_parts: !ON_LOCALHOST,
                 },
-                name: "Windows 95",
+                name: "Windows 95 (boot)",
+            },
+            {
+                id: "windows95-boot-empty",
+                memory_size: 32 * 1024 * 1024,
+              boot_order:0x312,
+              wants_cdrom:true,
+                hda: {
+                    url: host + "w95.img",
+                    async: true,
+                },
+                name: "Windows 95 (boot)",
+            },
+            {
+                id: "windows95-boot-cdrom",
+                memory_size: 32 * 1024 * 1024,
+              boot_order:0x312,
+              cdrom: {
+                url: host + "Win30.iso",
+                async:false
+              },
+                hda: {
+                    url: host + "w95.img",
+                    async: true,
+                },
+                name: "Windows 95 (boot)",
             },
             {
                 id: "windows30",
