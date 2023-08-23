@@ -373,11 +373,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
                 settings.fs9p_json = buffer;
                 break;
             default:
-                dbg_assert(name in this.extra_images, name);
-                if(name in this.extra_images)
-                {
-                    this.extra_images[name].buffer = buffer;
-                }
+                dbg_assert(false, name);
                 break;
         }
     }
@@ -431,15 +427,6 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         console.warn("Warning: Unknown option 'state'. Did you mean 'initial_state'?");
     }
 
-    if("extra_images" in options)
-    {
-        this.extra_images = options["extra_images"];
-    }
-    else
-    {
-        this.extra_images = {};
-    }
-
     var image_names = [
         "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
@@ -450,14 +437,6 @@ V86Starter.prototype.continue_init = async function(emulator, options)
     for(var i = 0; i < image_names.length; i++)
     {
         add_file(image_names[i], options[image_names[i]]);
-    }
-    for(let other_image in this.extra_images)
-    {
-        if(other_image in image_names)
-        {
-            throw new Error("Extra image name "+other_image+" overlaps with built-in image");
-        }
-        add_file(other_image, this.extra_images[other_image]);
     }
 
     if(options["filesystem"])
@@ -1431,6 +1410,108 @@ V86Starter.prototype.read_memory = function(offset, length)
 V86Starter.prototype.write_memory = function(blob, offset)
 {
     this.v86.cpu.write_blob(blob, offset);
+};
+
+/**
+ * Loads an image buffer (e.g. a SyncBuffer, AsyncXHRBuffer, etc) from
+ * a buffer descriptor (as detailed in the documentation for the V86
+ * constructor) asynchronously, yielding a buffer desc with an
+ * explicitly given buffer.
+ *
+ * @param {Object} file
+ * @return {Promise<Object>}
+ * @export
+ */
+
+V86Starter.prototype.load_image = async function(file)
+{
+    if(file.buffer && file.buffer.get && file.buffer.set && file.buffer.load)
+    {
+        return file;
+    }
+
+    let image = {};
+    for(let fv in file)
+    {
+        image[fv] = file[fv];
+    }
+
+    if(file.buffer instanceof ArrayBuffer)
+    {
+        var buffer = new v86util.SyncBuffer(file.buffer);
+        image.buffer = await new Promise((resolve, reject) => {
+            image.buffer.onload = (e) => resolve(buffer);
+            image.buffer.load();
+        });
+        return image;
+    }
+    else if(typeof File !== "undefined" && file.buffer instanceof File)
+    {
+        // SyncFileBuffer:
+        // - loads the whole disk image into memory, impossible for large files (more than 1GB)
+        // - can later serve get/set operations fast and synchronously
+        // - takes some time for first load, neglectable for small files (up to 100Mb)
+        //
+        // AsyncFileBuffer:
+        // - loads slices of the file asynchronously as requested
+        // - slower get/set
+
+        // Heuristics: If file is larger than or equal to 256M, use AsyncFileBuffer
+        if(file.async === undefined)
+        {
+            file.async = file.buffer.size >= 256 * 1024 * 1024;
+        }
+
+        if(file.async)
+        {
+            var buffer = new v86util.AsyncFileBuffer(file.buffer);
+        }
+        else
+        {
+            var buffer = new v86util.SyncFileBuffer(file.buffer);
+        }
+
+        image.buffer = await new Promise((resolve, reject) => {
+            image.buffer.onload = (e) => resolve(buffer);
+            image.buffer.load();
+        });
+        return image;
+    }
+    else if(file.url)
+    {
+        if(file.async)
+        {
+            let buffer;
+
+            if(file.use_parts)
+            {
+                buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size, file.fixed_chunk_size, false, this.zstd_decompress_worker.bind(this));
+            }
+            else
+            {
+                buffer = new v86util.AsyncXHRBuffer(file.url, file.size, file.fixed_chunk_size);
+            }
+            image.buffer = await new Promise((resolve, reject) => {
+                image.buffer.onload = (e) => resolve(buffer);
+                image.buffer.load();
+            });
+            return image;
+        }
+        else
+        {
+            image.buffer = await new Promise((resolve, reject) => {
+                v86util.load_file(file.url, {
+                    done: (result) => resolve(new v86util.SyncBuffer(result))
+                })
+            });
+            return image;
+        }
+    }
+    else
+    {
+        dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
+        return null;
+    }
 };
 
 /**

@@ -110,7 +110,7 @@ function do_action(test, emulator, run_step)
             }
             case "insert_fda":
             {
-                emulator.v86.cpu.devices.fdc.insert_fda(emulator.extra_images[run_step.image].buffer);
+                emulator.v86.cpu.devices.fdc.insert_fda(test.extra_images[run_step.image].buffer);
                 break;
             }
         }
@@ -1206,7 +1206,6 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
-    settings.extra_images = test.extra_images;
 
     if(test.expected_texts)
     {
@@ -1221,239 +1220,249 @@ function run_test(test, done)
     {
         test.expected_serial_text = [];
     }
+
     var emulator = new V86(settings);
     var screen = new Uint8Array(SCREEN_WIDTH * 25);
 
-    function check_text_test_done()
+    let extras = [];
+    for(let extra in test.extra_images)
     {
-        return test.expected_texts.length === 0;
+        extras.push(emulator.load_image(test.extra_images[extra]).then((img) => test.extra_images[extra] = img));
     }
-
-    function check_serial_test_done()
-    {
-        return test.expected_serial_text.length === 0;
-    }
-
-    var mouse_test_done = false;
-    function check_mouse_test_done()
-    {
-        return !test.expect_mouse_registered || mouse_test_done;
-    }
-
-    var graphical_test_done = false;
-    var size_test_done = false;
-    function check_graphical_test_done()
-    {
-        return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size || size_test_done));
-    }
-
-    var test_start = Date.now();
-
-    var timeout_seconds = test.timeout * TIMEOUT_EXTRA_FACTOR;
-    var timeout = setTimeout(check_test_done, (timeout_seconds + 1) * 1000);
-    var timeouts = [timeout];
-
-    var on_text = [];
-    var stopped = false;
-
-    var screen_interval = null;
-
-    function check_test_done()
-    {
-        if(stopped)
+    Promise.all(extras).then((_imgs) => {
+        function check_text_test_done()
         {
-            return;
+            return test.expected_texts.length === 0;
         }
 
-        if(check_text_test_done() &&
-            check_mouse_test_done() &&
-            check_graphical_test_done() &&
-            check_serial_test_done())
+        function check_serial_test_done()
         {
-            var end = Date.now();
-
-            for(let timeout of timeouts) clearTimeout(timeout);
-            stopped = true;
-
-            emulator.stop();
-
-            if(screen_interval !== null)
-            {
-                clearInterval(screen_interval);
-            }
-
-            console.warn("Passed test: %s (took %ds)", test.name, (end - test_start) / 1000);
-            console.warn();
-
-            done();
+            return test.expected_serial_text.length === 0;
         }
-        else if(Date.now() >= test_start + timeout_seconds * 1000)
+
+        var mouse_test_done = false;
+        function check_mouse_test_done()
         {
-            for(let timeout of timeouts) clearTimeout(timeout);
-            stopped = true;
+            return !test.expect_mouse_registered || mouse_test_done;
+        }
 
-            if(screen_interval !== null)
+        var graphical_test_done = false;
+        var size_test_done = false;
+        function check_graphical_test_done()
+        {
+            return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size || size_test_done));
+        }
+
+        var test_start = Date.now();
+
+        var timeout_seconds = test.timeout * TIMEOUT_EXTRA_FACTOR;
+        var timeout = setTimeout(check_test_done, (timeout_seconds + 1) * 1000);
+        var timeouts = [timeout];
+
+        var on_text = [];
+        var stopped = false;
+
+        var screen_interval = null;
+
+        function check_test_done()
+        {
+            if(stopped)
             {
-                clearInterval(screen_interval);
+                return;
             }
 
-            emulator.stop();
-            emulator.destroy();
+            if(check_text_test_done() &&
+               check_mouse_test_done() &&
+               check_graphical_test_done() &&
+               check_serial_test_done())
+            {
+                var end = Date.now();
 
-            if(test.failure_allowed)
-            {
-                console.warn("Test failed: %s (failure allowed)\n", test.name);
-            }
-            else
-            {
-                console.warn(screen_to_text(screen));
-                console.warn("Test failed: %s\n", test.name);
-            }
+                for(let timeout of timeouts) clearTimeout(timeout);
+                stopped = true;
 
-            if(!check_text_test_done())
-            {
-                console.warn('Expected text "%s" after %d seconds.', bytearray_to_string(test.expected_texts[0]), timeout_seconds);
-            }
+                emulator.stop();
 
-            if(!check_graphical_test_done())
-            {
-                console.warn("Expected graphical mode after %d seconds.", timeout_seconds);
-            }
+                if(screen_interval !== null)
+                {
+                    clearInterval(screen_interval);
+                }
 
-            if(!check_mouse_test_done())
-            {
-                console.warn("Expected mouse activation after %d seconds.", timeout_seconds);
-            }
+                console.warn("Passed test: %s (took %ds)", test.name, (end - test_start) / 1000);
+                console.warn();
 
-            if(!check_serial_test_done())
-            {
-                console.warn('Expected serial text "%s" after %d seconds.', test.expected_serial_text, timeout_seconds);
-            }
-
-            if(on_text.length)
-            {
-                console.warn(`Note: Expected text "${bytearray_to_string(on_text[0].text)}" to run "${on_text[0].run}"`);
-            }
-
-            if(!test.failure_allowed)
-            {
-                process.exit(1);
-            }
-            else
-            {
                 done();
             }
-        }
-    }
-
-    emulator.add_listener("mouse-enable", function()
-    {
-        mouse_test_done = true;
-        check_test_done();
-    });
-
-    emulator.add_listener("screen-set-mode", function(is_graphical)
-    {
-        graphical_test_done = is_graphical;
-        check_test_done();
-    });
-
-    emulator.add_listener("screen-set-size-graphical", function(size)
-    {
-        if(test.expect_graphical_size)
-        {
-            size_test_done = size[0] === test.expect_graphical_size[0] &&
-                             size[1] === test.expect_graphical_size[1];
-            check_test_done();
-        }
-    });
-
-    emulator.add_listener("screen-put-char", function(chr)
-    {
-        var y = chr[0];
-        var x = chr[1];
-        var code = chr[2];
-        screen[x + SCREEN_WIDTH * y] = code;
-
-        var line = get_line(screen, y);
-
-        if(!check_text_test_done())
-        {
-            let expected = test.expected_texts[0];
-            if(x < expected.length && bytearray_starts_with(line, expected))
+            else if(Date.now() >= test_start + timeout_seconds * 1000)
             {
-                test.expected_texts.shift();
-                if(VERBOSE) console.log(`Passed: "${bytearray_to_string(expected)}" on screen (${test.name})`);
-                check_test_done();
-            }
-        }
+                for(let timeout of timeouts) clearTimeout(timeout);
+                stopped = true;
 
-        if(on_text.length)
-        {
-            let expected = on_text[0].text;
-
-            if(x < expected.length && bytearray_starts_with(line, expected))
-            {
-                var action = on_text.shift();
-
-                timeouts.push(
-                    setTimeout(() => {
-                        do_action(test, emulator, action.run);
-                    }, action.after || 0)
-                );
-            }
-        }
-    });
-
-    if(LOG_SCREEN)
-    {
-        screen_interval = setInterval(() => {
-            console.warn(screen_to_text(screen));
-        }, 10000);
-    }
-
-    let serial_line = "";
-    emulator.add_listener("serial0-output-char", function(c)
-        {
-            if(c === "\n")
-            {
-                if(VERBOSE)
+                if(screen_interval !== null)
                 {
-                    console.log(`Serial (${test.name}):`, serial_line);
+                    clearInterval(screen_interval);
                 }
 
-                if(test.expected_serial_text.length)
+                emulator.stop();
+                emulator.destroy();
+
+                if(test.failure_allowed)
                 {
-                    const expected = test.expected_serial_text[0];
-                    if(serial_line.includes(expected))
-                    {
-                        test.expected_serial_text.shift();
-                        if(VERBOSE) console.log(`Passed: "${expected}" on serial (${test.name})`);
-                        check_test_done();
-                    }
+                    console.warn("Test failed: %s (failure allowed)\n", test.name);
+                }
+                else
+                {
+                    console.warn(screen_to_text(screen));
+                    console.warn("Test failed: %s\n", test.name);
                 }
 
-                serial_line = "";
-            }
-            else if(c >= " " && c <= "~")
-            {
-                serial_line += c;
-            }
-        });
+                if(!check_text_test_done())
+                {
+                    console.warn('Expected text "%s" after %d seconds.', bytearray_to_string(test.expected_texts[0]), timeout_seconds);
+                }
 
-    test.actions && test.actions.forEach(function(action)
-    {
-        if(action.on_text)
-        {
-            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after });
+                if(!check_graphical_test_done())
+                {
+                    console.warn("Expected graphical mode after %d seconds.", timeout_seconds);
+                }
+
+                if(!check_mouse_test_done())
+                {
+                    console.warn("Expected mouse activation after %d seconds.", timeout_seconds);
+                }
+
+                if(!check_serial_test_done())
+                {
+                    console.warn('Expected serial text "%s" after %d seconds.', test.expected_serial_text, timeout_seconds);
+                }
+
+                if(on_text.length)
+                {
+                    console.warn(`Note: Expected text "${bytearray_to_string(on_text[0].text)}" to run "${on_text[0].run}"`);
+                }
+
+                if(!test.failure_allowed)
+                {
+                    process.exit(1);
+                }
+                else
+                {
+                    done();
+                }
+            }
         }
-        else
+
+        emulator.add_listener("mouse-enable", function()
+                              {
+                                  mouse_test_done = true;
+                                  check_test_done();
+                              });
+
+        emulator.add_listener("screen-set-mode", function(is_graphical)
+                              {
+                                  graphical_test_done = is_graphical;
+                                  check_test_done();
+                              });
+
+        emulator.add_listener("screen-set-size-graphical", function(size)
+                              {
+                                  if(test.expect_graphical_size)
+                                  {
+                                      size_test_done = size[0] === test.expect_graphical_size[0] &&
+                                          size[1] === test.expect_graphical_size[1];
+                                      check_test_done();
+                                  }
+                              });
+
+        emulator.add_listener("screen-put-char", function(chr)
+                              {
+                                  var y = chr[0];
+                                  var x = chr[1];
+                                  var code = chr[2];
+                                  screen[x + SCREEN_WIDTH * y] = code;
+
+                                  var line = get_line(screen, y);
+
+                                  if(!check_text_test_done())
+                                  {
+                                      let expected = test.expected_texts[0];
+                                      if(x < expected.length && bytearray_starts_with(line, expected))
+                                      {
+                                          test.expected_texts.shift();
+                                          if(VERBOSE) console.log(`Passed: "${bytearray_to_string(expected)}" on screen (${test.name})`);
+                                          check_test_done();
+                                      }
+                                  }
+
+                                  if(on_text.length)
+                                  {
+                                      let expected = on_text[0].text;
+
+                                      if(x < expected.length && bytearray_starts_with(line, expected))
+                                      {
+                                          var action = on_text.shift();
+
+                                          timeouts.push(
+                                              setTimeout(() => {
+                                                  do_action(test, emulator, action.run);
+                                              }, action.after || 0)
+                                          );
+                                      }
+                                  }
+                              });
+
+        if(LOG_SCREEN)
         {
-            timeouts.push(
-                setTimeout(() => {
-                    do_action(test, emulator, action.run);
-                }, action.after || 0)
-            );
+            screen_interval = setInterval(() => {
+                console.warn(screen_to_text(screen));
+            }, 10000);
         }
+
+        let serial_line = "";
+        emulator.add_listener("serial0-output-char", function(c)
+                              {
+                                  if(c === "\n")
+                                  {
+                                      if(VERBOSE)
+                                      {
+                                          console.log(`Serial (${test.name}):`, serial_line);
+                                      }
+
+                                      if(test.expected_serial_text.length)
+                                      {
+                                          const expected = test.expected_serial_text[0];
+                                          if(serial_line.includes(expected))
+                                          {
+                                              test.expected_serial_text.shift();
+                                              if(VERBOSE) console.log(`Passed: "${expected}" on serial (${test.name})`);
+                                              check_test_done();
+                                          }
+                                      }
+
+                                      serial_line = "";
+                                  }
+                                  else if(c >= " " && c <= "~")
+                                  {
+                                      serial_line += c;
+                                  }
+                              });
+
+        test.actions && test.actions.forEach(function(action)
+                                             {
+                                                 if(action.on_text)
+                                                 {
+                                                     on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after });
+                                                 }
+                                                 else
+                                                 {
+                                                     timeouts.push(
+                                                         setTimeout(() => {
+                                                             do_action(test, emulator, action.run);
+                                                         }, action.after || 0)
+                                                     );
+                                                 }
+                                             });
+
     });
+
 }
