@@ -994,7 +994,7 @@ V86Starter.prototype.set_fda = async function(file)
         {
             this.v86.cpu.devices.fdc.set_fda(image);
         };
-        image.load();
+        await image.load();
     }
 };
 
