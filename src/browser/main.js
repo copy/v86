@@ -343,7 +343,6 @@
                     size: 8 * 1024 * 1024,
                     async: false,
                 },
-                boot_order: 0x132,
                 name: "MS-DOS",
             },
             {
@@ -605,7 +604,6 @@
                     fixed_chunk_size: 256 * 1024,
                     use_parts: !ON_LOCALHOST,
                 },
-                boot_order: 0x132,
                 name: "Windows 2000",
             },
             {

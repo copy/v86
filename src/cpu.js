@@ -1111,7 +1111,7 @@ CPU.prototype.load_multiboot = function(buffer)
 
 CPU.prototype.fill_cmos = function(rtc, settings)
 {
-    var boot_order = settings.boot_order || 0x213;
+    var boot_order = settings.boot_order || BOOT_ORDER_CD_FIRST;
 
     // Used by seabios to determine the boot order
     //   Nibble
