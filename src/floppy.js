@@ -1,5 +1,8 @@
 "use strict";
 
+// https://www.isdaman.com/alsos/hardware/fdc/floppy.htm
+// https://wiki.osdev.org/Floppy_Disk_Controller
+
 const DIR_DOOR = 0x80;
 const ST1_NID  = 1 << 0;
 const ST1_NDAT = 1 << 2;
@@ -63,6 +66,7 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.io.register_read(0x3F7, this, this.port3F7_read);
 
     this.io.register_write(0x3F2, this, this.port3F2_write);
+    this.io.register_write(0x3F4, this, this.port3F4_write);
     this.io.register_write(0x3F5, this, this.port3F5_write);
 }
 
@@ -214,6 +218,18 @@ FloppyController.prototype.port3F5_read = function()
     }
 };
 
+FloppyController.prototype.port3F4_write = function(byte)
+{
+    dbg_log("3F4/data rate write: " + h(byte), LOG_FLOPPY);
+
+    if(byte & 0x80)
+    {
+        dbg_log("dsr reset", LOG_FLOPPY);
+        this.status_reg0 = 0xC0;
+        this.cpu.device_raise_irq(6);
+    }
+};
+
 FloppyController.prototype.port3F5_write = function(reg_byte)
 {
     dbg_log("3F5 write " + h(reg_byte), LOG_FLOPPY);
@@ -249,6 +265,10 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 this.next_command = this.fix_drive_data;
                 this.bytes_expecting = 2;
                 break;
+            case 0x13:
+                this.next_command = this.configure;
+                this.bytes_expecting = 3;
+                break;
             case 0x04:
                 this.next_command = this.check_drive_status;
                 this.bytes_expecting = 1;
@@ -281,13 +301,13 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 this.bytes_expecting = 2;
                 this.next_command = this.seek;
                 break;
-            case 0x0E:
-                // dump regs
-                dbg_log("dump registers", LOG_FLOPPY);
-                this.response_data[0] = 0x80;
+            case 0x0E: // dump registers (not implemented)
+            case 0x10: // determine controller version (winxp, not implemented)
+                dbg_log(reg_byte === 0x0E ? "dump registers" : "determine controller version", LOG_FLOPPY);
+                this.status_reg0 = 0x80;
+                this.response_data[0] = this.status_reg0;
                 this.response_index = 0;
                 this.response_length = 1;
-
                 this.bytes_expecting = 0;
                 break;
             default:
@@ -485,7 +505,12 @@ FloppyController.prototype.done = function(args, cylinder, head, sector, error)
 
 FloppyController.prototype.fix_drive_data = function(args)
 {
-    dbg_log("floppy fix drive data " + args, LOG_FLOPPY);
+    dbg_log("floppy fix drive data " + args.slice(0, this.bytes_expecting), LOG_FLOPPY);
+};
+
+FloppyController.prototype.configure = function(args)
+{
+    dbg_log("floppy configure " + args.slice(0, this.bytes_expecting), LOG_FLOPPY);
 };
 
 FloppyController.prototype.read_sector_id = function(args)
