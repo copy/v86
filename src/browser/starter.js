@@ -395,77 +395,20 @@ V86Starter.prototype.continue_init = async function(emulator, options)
             file.async = false;
         }
 
-        if(file.buffer instanceof ArrayBuffer)
+        if(file.url && !file.async)
         {
-            var buffer = new v86util.SyncBuffer(file.buffer);
             files_to_load.push({
                 name: name,
-                loadable: buffer,
+                url: file.url,
+                size: file.size,
             });
-        }
-        else if(typeof File !== "undefined" && file.buffer instanceof File)
-        {
-            // SyncFileBuffer:
-            // - loads the whole disk image into memory, impossible for large files (more than 1GB)
-            // - can later serve get/set operations fast and synchronously
-            // - takes some time for first load, neglectable for small files (up to 100Mb)
-            //
-            // AsyncFileBuffer:
-            // - loads slices of the file asynchronously as requested
-            // - slower get/set
-
-            // Heuristics: If file is larger than or equal to 256M, use AsyncFileBuffer
-            if(file.async === undefined)
-            {
-                file.async = file.buffer.size >= 256 * 1024 * 1024;
-            }
-
-            if(file.async)
-            {
-                var buffer = new v86util.AsyncFileBuffer(file.buffer);
-            }
-            else
-            {
-                var buffer = new v86util.SyncFileBuffer(file.buffer);
-            }
-
-            files_to_load.push({
-                name: name,
-                loadable: buffer,
-            });
-        }
-        else if(file.url)
-        {
-            if(file.async)
-            {
-                let buffer;
-
-                if(file.use_parts)
-                {
-                    buffer = new v86util.AsyncXHRPartfileBuffer(file.url, file.size, file.fixed_chunk_size, false, this.zstd_decompress_worker.bind(this));
-                }
-                else
-                {
-                    buffer = new v86util.AsyncXHRBuffer(file.url, file.size, file.fixed_chunk_size);
-                }
-
-                files_to_load.push({
-                    name: name,
-                    loadable: buffer,
-                });
-            }
-            else
-            {
-                files_to_load.push({
-                    name: name,
-                    url: file.url,
-                    size: file.size,
-                });
-            }
         }
         else
         {
-            dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
+            files_to_load.push({
+                name,
+                loadable: v86util.buffer_from_object(file),
+            });
         }
     };
 
@@ -1021,6 +964,42 @@ V86Starter.prototype.get_instruction_counter = function()
 V86Starter.prototype.is_running = function()
 {
     return this.cpu_is_running;
+};
+
+/**
+ * Set the image inserted in the floppy drive. Can be changed at runtime, as
+ * when physically changing the floppy disk.
+ * @export
+ */
+V86Starter.prototype.set_fda = async function(file)
+{
+    if(file.url && !file.async)
+    {
+        v86util.load_file(file.url, {
+            done: result =>
+            {
+                this.v86.cpu.devices.fdc.set_fda(new v86util.SyncBuffer(result));
+            },
+        });
+    }
+    else
+    {
+        const image = v86util.buffer_from_object(file);
+        image.onload = () =>
+        {
+            this.v86.cpu.devices.fdc.set_fda(image);
+        };
+        image.load();
+    }
+};
+
+/**
+ * Eject the floppy drive.
+ * @export
+ */
+V86Starter.prototype.eject_fda = function()
+{
+    this.v86.cpu.devices.fdc.eject_fda();
 };
 
 /**

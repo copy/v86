@@ -8,6 +8,8 @@
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
 
+    v86util.buffer_from_object = buffer_from_object;
+
     // The smallest size the emulated hardware can emit
     const BLOCK_SIZE = 256;
 
@@ -743,5 +745,60 @@
                 }
             });
         };
+    }
+
+    function buffer_from_object(obj)
+    {
+        // TODO: accept Uint8Array, ArrayBuffer, File, url rather than { url }
+
+        if(obj.buffer instanceof ArrayBuffer)
+        {
+            return new v86util.SyncBuffer(obj.buffer);
+        }
+        else if(typeof File !== "undefined" && obj.buffer instanceof File)
+        {
+            // SyncFileBuffer:
+            // - loads the whole disk image into memory, impossible for large files (more than 1GB)
+            // - can later serve get/set operations fast and synchronously
+            // - takes some time for first load, neglectable for small files (up to 100Mb)
+            //
+            // AsyncFileBuffer:
+            // - loads slices of the file asynchronously as requested
+            // - slower get/set
+
+            // Heuristics: If file is larger than or equal to 256M, use AsyncFileBuffer
+            let is_async = obj.async;
+            if(is_async === undefined)
+            {
+                is_async = obj.buffer.size >= 256 * 1024 * 1024;
+            }
+
+            if(is_async)
+            {
+                return new v86util.AsyncFileBuffer(obj.buffer);
+            }
+            else
+            {
+                return new v86util.SyncFileBuffer(obj.buffer);
+            }
+        }
+        else if(obj.url)
+        {
+            // Note: Only async for now
+
+            if(obj.use_parts)
+            {
+                const zstd_decompress = null; // TODO
+                return new v86util.AsyncXHRPartfileBuffer(obj.url, obj.size, obj.fixed_chunk_size, false, zstd_decompress);
+            }
+            else
+            {
+                return new v86util.AsyncXHRBuffer(obj.url, obj.size, obj.fixed_chunk_size);
+            }
+        }
+        else
+        {
+            dbg_log("Ignored file: url=" + obj.url + " buffer=" + obj.buffer);
+        }
     }
 })();
