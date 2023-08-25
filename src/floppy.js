@@ -47,13 +47,12 @@ function FloppyController(cpu, fda_image, fdb_image)
     if(!fda_image)
     {
         this.eject_fda();
-        this.floppy_type = { type: 4, tracks: 80, sectors: 18, heads: 2 };
+        this.cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, 4 << 4);
     }
     else
     {
-        this.floppy_type = this.insert_fda(fda_image);
+        this.set_fda(fda_image);
     }
-    cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, this.floppy_type.type << 4);
 
     dbg_assert(!fdb_image, "FDB not supported");
 
@@ -76,7 +75,7 @@ FloppyController.prototype.eject_fda = function()
     this.dir = DIR_DOOR;
 };
 
-FloppyController.prototype.insert_fda = function(fda_image)
+FloppyController.prototype.set_fda = function(fda_image)
 {
     var floppy_types = {
         [160 * 1024]: { type: 1, tracks: 40, sectors: 8, heads: 1 },
@@ -96,11 +95,7 @@ FloppyController.prototype.insert_fda = function(fda_image)
     };
 
     let floppy_size = fda_image.byteLength;
-
-    var number_of_cylinders,
-        sectors_per_track,
-        number_of_heads,
-        floppy_type = floppy_types[floppy_size];
+    let floppy_type = floppy_types[floppy_size];
 
     if (!floppy_type)
     {
@@ -110,16 +105,14 @@ FloppyController.prototype.insert_fda = function(fda_image)
         dbg_log("Warning: Unkown floppy size: " + fda_image.byteLength + ", assuming " + floppy_size);
     }
 
-    sectors_per_track = floppy_type.sectors;
-    number_of_heads = floppy_type.heads;
-    number_of_cylinders = floppy_type.tracks;
-
-    this.sectors_per_track = sectors_per_track;
-    this.number_of_heads = number_of_heads;
-    this.number_of_cylinders = number_of_cylinders;
+    this.sectors_per_track = floppy_type.sectors;
+    this.number_of_heads = floppy_type.heads;
+    this.number_of_cylinders = floppy_type.tracks;
     this.fda_image = fda_image;
     this.dir = DIR_DOOR;
-    return floppy_type;
+
+    // this is probably not supposed to change at runtime
+    this.cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
 };
 
 
