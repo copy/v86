@@ -256,12 +256,17 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         "cdrom": undefined,
     };
 
+    const boot_order =
+        options["boot_order"] ? options["boot_order"] :
+        options["fda"] ? BOOT_ORDER_FD_FIRST :
+        options["hda"] ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
+
     settings.acpi = options["acpi"];
     settings.load_devices = true;
     settings.log_level = options["log_level"];
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
     settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
-    settings.boot_order = options["boot_order"] || 0x213;
+    settings.boot_order = boot_order;
     settings.fastboot = options["fastboot"] || false;
     settings.fda = undefined;
     settings.fdb = undefined;
