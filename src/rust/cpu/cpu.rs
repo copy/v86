@@ -36,7 +36,7 @@ use state_flags::CachedStateFlags;
 pub use util::dbg_trace;
 
 use std::collections::HashSet;
-use std::ptr::NonNull;
+use std::ptr;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -287,7 +287,7 @@ pub struct Code {
 }
 
 pub static mut tlb_data: [i32; 0x100000] = [0; 0x100000];
-pub static mut tlb_code: [Option<NonNull<Code>>; 0x100000] = [None; 0x100000];
+pub static mut tlb_code: [Option<ptr::NonNull<Code>>; 0x100000] = [None; 0x100000];
 
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
@@ -3411,18 +3411,16 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
 
         match bitsize {
             128 => {
-                *(scratch.offset(addr_low as isize & 0xFFF) as *mut reg128) =
-                    memory::read128(addr_low)
+                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut reg128, memory::read128(addr_low))
             },
             64 => {
-                *(scratch.offset(addr_low as isize & 0xFFF) as *mut i64) = memory::read64s(addr_low)
+                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut i64, memory::read64s(addr_low))
             },
             32 => {
-                *(scratch.offset(addr_low as isize & 0xFFF) as *mut i32) = memory::read32s(addr_low)
+                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut i32, memory::read32s(addr_low))
             },
             16 => {
-                *(scratch.offset(addr_low as isize & 0xFFF) as *mut u16) =
-                    memory::read16(addr_low) as u16
+                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut u16, memory::read16(addr_low) as u16)
             },
             8 => {
                 *(scratch.offset(addr_low as isize & 0xFFF) as *mut u8) =
