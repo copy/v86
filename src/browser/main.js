@@ -419,6 +419,15 @@
                 cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
             },
             {
+                id: "basiclinux",
+                hda: {
+                    url: host + "bl3-5.img",
+                    size: 104857600,
+                    async: false,
+                },
+                name: "BasicLinux",
+            },
+            {
                 id: "nodeos",
                 bzimage: {
                     url: host + "nodeos-kernel.bin",
