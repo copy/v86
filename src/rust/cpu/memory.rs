@@ -94,7 +94,7 @@ pub fn read8_no_mmap_check(addr: u32) -> i32 { unsafe { *mem8.offset(addr as isi
 pub fn read16(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         if in_svga_lfb(addr) {
-            unsafe { *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const u16) as i32 }
+            unsafe { ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const u16) as i32 }
         }
         else {
             unsafe { ext::mmap_read16(addr) }
@@ -112,7 +112,7 @@ pub fn read16_no_mmap_check(addr: u32) -> i32 {
 pub fn read32s(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         if in_svga_lfb(addr) {
-            unsafe { *(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i32) }
+            unsafe { ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i32) } // XXX
         }
         else {
             unsafe { ext::mmap_read32(addr) }
