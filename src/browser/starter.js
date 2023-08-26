@@ -413,7 +413,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
         {
             files_to_load.push({
                 name,
-                loadable: v86util.buffer_from_object(file),
+                loadable: v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
             });
         }
     };
@@ -990,7 +990,7 @@ V86Starter.prototype.set_fda = async function(file)
     }
     else
     {
-        const image = v86util.buffer_from_object(file);
+        const image = v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this));
         image.onload = () =>
         {
             this.v86.cpu.devices.fdc.set_fda(image);

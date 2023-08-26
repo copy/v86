@@ -747,7 +747,7 @@
         };
     }
 
-    function buffer_from_object(obj)
+    function buffer_from_object(obj, zstd_decompress_worker)
     {
         // TODO: accept Uint8Array, ArrayBuffer, File, url rather than { url }
 
@@ -788,8 +788,7 @@
 
             if(obj.use_parts)
             {
-                const zstd_decompress = null; // TODO
-                return new v86util.AsyncXHRPartfileBuffer(obj.url, obj.size, obj.fixed_chunk_size, false, zstd_decompress);
+                return new v86util.AsyncXHRPartfileBuffer(obj.url, obj.size, obj.fixed_chunk_size, false, zstd_decompress_worker);
             }
             else
             {
