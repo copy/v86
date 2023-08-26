@@ -428,6 +428,16 @@
                 name: "BasicLinux",
             },
             {
+                id: "xpud",
+                cdrom: {
+                    url: host + "xpud-0.9.2.iso",
+                    size: 67108864,
+                    async: false,
+                },
+                name: "xPUD",
+                memory_size: 256 * 1024 * 1024,
+            },
+            {
                 id: "nodeos",
                 bzimage: {
                     url: host + "nodeos-kernel.bin",
