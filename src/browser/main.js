@@ -438,6 +438,15 @@
                 memory_size: 256 * 1024 * 1024,
             },
             {
+                id: "elks",
+                hda: {
+                    url: host + "elks-hd32-fat.img",
+                    size: 32514048,
+                    async: false,
+                },
+                name: "ELKS",
+            },
+            {
                 id: "nodeos",
                 bzimage: {
                     url: host + "nodeos-kernel.bin",
