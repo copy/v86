@@ -241,7 +241,7 @@ pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
 pub fn get_as_reg_index_if_possible(ctx: &mut JitContext, modrm_byte: &ModrmByte) -> Option<u32> {
     let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
-    let seg = if prefix != 0 { prefix - 1 } else { modrm_byte.segment };
+    let seg = if prefix != 0 { (prefix - 1) as u32 } else { modrm_byte.segment };
     if can_optimize_get_seg(ctx, seg)
         && modrm_byte.second_reg.is_none()
         && modrm_byte.immediate == 0
@@ -275,7 +275,7 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
+    let seg = if prefix != 0 { (prefix - 1) as u32 } else { default_segment };
     jit_add_seg_offset_no_override(ctx, seg);
 }
 

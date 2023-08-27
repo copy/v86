@@ -16,6 +16,7 @@ extern "C" {
 }
 
 use config;
+use prefix;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::memory;
@@ -220,17 +221,6 @@ pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
 pub const IA32_APIC_BASE_EN: i32 = 1 << 11;
 
 pub const APIC_ADDRESS: i32 = 0xFEE00000u32 as i32;
-pub const SEG_PREFIX_NONE: i32 = -1;
-pub const SEG_PREFIX_ZERO: i32 = 7;
-pub const PREFIX_MASK_REP: i32 = 24;
-pub const PREFIX_REPZ: i32 = 8;
-pub const PREFIX_REPNZ: i32 = 16;
-pub const PREFIX_MASK_SEGMENT: i32 = 7;
-pub const PREFIX_MASK_OPSIZE: i32 = 32;
-pub const PREFIX_MASK_ADDRSIZE: i32 = 64;
-pub const PREFIX_F2: i32 = PREFIX_REPNZ;
-pub const PREFIX_F3: i32 = PREFIX_REPZ;
-pub const PREFIX_66: i32 = PREFIX_MASK_OPSIZE;
 
 pub const MXCSR_MASK: i32 = 0xffff;
 pub const MXCSR_FZ: i32 = 1 << 15;
@@ -2410,12 +2400,12 @@ pub unsafe fn read_imm32s() -> OrPageFault<i32> {
 
 pub unsafe fn is_osize_32() -> bool {
     dbg_assert!(!in_jit);
-    return *is_32 != (*prefixes as i32 & PREFIX_MASK_OPSIZE == PREFIX_MASK_OPSIZE);
+    return *is_32 != (*prefixes & prefix::PREFIX_MASK_OPSIZE == prefix::PREFIX_MASK_OPSIZE);
 }
 
 pub unsafe fn is_asize_32() -> bool {
     dbg_assert!(!in_jit);
-    return *is_32 != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE);
+    return *is_32 != (*prefixes & prefix::PREFIX_MASK_ADDRSIZE == prefix::PREFIX_MASK_ADDRSIZE);
 }
 
 pub unsafe fn lookup_segment_selector(
@@ -2827,13 +2817,13 @@ pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize);
 
 pub unsafe fn get_seg_prefix(default_segment: i32) -> OrPageFault<i32> {
     dbg_assert!(!in_jit);
-    let prefix = *prefixes as i32 & PREFIX_MASK_SEGMENT;
+    let prefix = *prefixes & prefix::PREFIX_MASK_SEGMENT;
     if 0 != prefix {
-        if prefix == SEG_PREFIX_ZERO {
+        if prefix == prefix::SEG_PREFIX_ZERO {
             return Ok(0);
         }
         else {
-            return get_seg(prefix - 1);
+            return get_seg(prefix as i32 - 1);
         }
     }
     else {
@@ -3092,8 +3082,8 @@ pub unsafe fn run_prefix_instruction() {
 }
 
 pub unsafe fn segment_prefix_op(seg: i32) {
-    dbg_assert!(seg <= 5);
-    *prefixes = (*prefixes as i32 | seg + 1) as u8;
+    dbg_assert!(seg <= 5 && seg >= 0);
+    *prefixes |= seg as u8 + 1;
     run_prefix_instruction();
     *prefixes = 0
 }

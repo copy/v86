@@ -47,7 +47,7 @@ pub fn analyze_step_handle_segment_prefix(
     analysis: &mut Analysis,
 ) {
     dbg_assert!(segment <= 5);
-    cpu.prefixes |= segment + 1;
+    cpu.prefixes |= segment as u8 + 1;
     analyze_step_handle_prefix(cpu, analysis)
 }
 

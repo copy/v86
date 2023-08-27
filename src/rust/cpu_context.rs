@@ -5,7 +5,7 @@ use state_flags::CachedStateFlags;
 #[derive(Clone)]
 pub struct CpuContext {
     pub eip: u32,
-    pub prefixes: u32,
+    pub prefixes: u8,
     pub cs_offset: u32,
     pub state_flags: CachedStateFlags,
 }

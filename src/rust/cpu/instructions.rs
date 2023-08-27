@@ -4,6 +4,7 @@ extern "C" {
     fn hlt_op();
 }
 
+use prefix;
 use cpu::arith::*;
 use cpu::cpu::*;
 use cpu::fpu::*;
@@ -573,14 +574,14 @@ pub unsafe fn instr_65() { segment_prefix_op(GS); }
 
 pub unsafe fn instr_66() {
     // Operand-size override prefix
-    *prefixes = (*prefixes as i32 | PREFIX_MASK_OPSIZE) as u8;
+    *prefixes |= prefix::PREFIX_MASK_OPSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
 pub unsafe fn instr_67() {
     // Address-size override prefix
     dbg_assert!(is_asize_32() == *is_32);
-    *prefixes = (*prefixes as i32 | PREFIX_MASK_ADDRSIZE) as u8;
+    *prefixes |= prefix::PREFIX_MASK_ADDRSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
@@ -899,7 +900,7 @@ pub unsafe fn instr16_8D_reg(_r: i32, _r2: i32) {
 }
 pub unsafe fn instr16_8D_mem(modrm_byte: i32, r: i32) {
     // lea
-    *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
+    *prefixes |= prefix::SEG_PREFIX_ZERO;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg16(r, addr);
     }
@@ -912,7 +913,7 @@ pub unsafe fn instr32_8D_reg(_r: i32, _r2: i32) {
 pub unsafe fn instr32_8D_mem(modrm_byte: i32, r: i32) {
     // lea
     // override prefix, so modrm_resolve does not return the segment part
-    *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
+    *prefixes |= prefix::SEG_PREFIX_ZERO;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg32(r, addr);
     }
@@ -2182,15 +2183,15 @@ pub unsafe fn instr_F1() {
 
 pub unsafe fn instr_F2() {
     // repnz
-    dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
-    *prefixes = (*prefixes as i32 | PREFIX_REPNZ) as u8;
+    dbg_assert!(*prefixes & prefix::PREFIX_MASK_REP == 0);
+    *prefixes |= prefix::PREFIX_REPNZ;
     run_prefix_instruction();
     *prefixes = 0;
 }
 pub unsafe fn instr_F3() {
     // repz
-    dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
-    *prefixes = (*prefixes as i32 | PREFIX_REPZ) as u8;
+    dbg_assert!(*prefixes & prefix::PREFIX_MASK_REP == 0);
+    *prefixes |= prefix::PREFIX_REPZ;
     run_prefix_instruction();
     *prefixes = 0;
 }
