@@ -793,6 +793,7 @@ if(cluster.isMaster)
             timeout: 5 * 60,
             cdrom: root_path + "/images/experimental/os/Core-9.0.iso",
             fda: root_path + "/images/freedos722.img",
+            boot_order: 0x132,
             actions: [
                 { on_text: "boot:", run: "\n" },
                 { on_text: "tc@box", run: "sudo mount /dev/fd0 /mnt && ls /mnt\n" },
