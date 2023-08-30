@@ -34,10 +34,9 @@ var DUMP_UNCOMPILED_ASSEMBLY = false;
  */
 var TRACK_FILENAMES = false;
 
-// var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC &
-//                           ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK & ~LOG_VGA & ~LOG_SB16;
+var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC &
+                          ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK & ~LOG_VGA & ~LOG_SB16;
 
-var LOG_LEVEL = LOG_DISK;
 /**
  * @const
  * Draws entire buffer and visualizes the layers that would be drawn

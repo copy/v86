@@ -479,7 +479,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
 
     if(buffer)
     {
-        this.insert(buffer);
+        this.set_cdrom(buffer);
     }
 
     /** @const */
@@ -567,7 +567,7 @@ IDEInterface.prototype.eject = function()
     }
 }
 
-IDEInterface.prototype.insert = function(buffer)
+IDEInterface.prototype.set_cdrom = function(buffer)
 {
     if(buffer)
     {
@@ -615,7 +615,7 @@ IDEInterface.prototype.insert = function(buffer)
         //    this.cylinder_count = 16383;
         //}
 
-        var rtc = cpu.devices.rtc;
+        var rtc = this.cpu.devices.rtc;
         // master
         rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
                        rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);

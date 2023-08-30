@@ -56,9 +56,6 @@ function FloppyController(cpu, fda_image, fdb_image)
     {
         this.set_fda(fda_image);
     }
-    cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, this.floppy_type.type << 4);
-
-    dbg_assert(!fdb_image, "FDB not supported");
 
     dbg_assert(!fdb_image, "FDB not supported");
 
