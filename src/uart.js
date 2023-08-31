@@ -65,7 +65,7 @@ function UART(cpu, port, bus)
 
     this.irq = 0;
 
-    this.input = new ByteQueue(4096);
+    this.input = [];
 
     this.current_line = "";
 
@@ -138,22 +138,19 @@ function UART(cpu, port, bus)
         }
         else
         {
-            var data = this.input.shift();
-
-            if(data === -1)
-            {
-                dbg_log("Read input empty", LOG_SERIAL);
-            }
-            else
-            {
-                dbg_log("Read input: " + h(data), LOG_SERIAL);
-            }
+            let data = 0xFF;
 
             if(this.input.length === 0)
             {
+                dbg_log("Read input empty", LOG_SERIAL);
                 this.lsr &= ~UART_LSR_DATA_READY;
                 this.ClearInterrupt(UART_IIR_CTI);
                 this.ClearInterrupt(UART_IIR_RDI);
+            }
+            else
+            {
+                data = this.input.shift();
+                dbg_log("Read input: " + h(data), LOG_SERIAL);
             }
 
             return data;
