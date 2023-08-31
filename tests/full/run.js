@@ -554,7 +554,7 @@ if(cluster.isMaster)
             name: "FreeGEM",
             skip_if_disk_image_missing: true,
             timeout: 60,
-            hda: root_path + "/images/experimental/os/freegem.bin",
+            hda: root_path + "/images/freegem.bin",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
             actions: [

@@ -350,6 +350,15 @@
                 name: "FreeDOS",
             },
             {
+                id: "freegem",
+                hda: {
+                    url: host + "freegem.bin",
+                    size: 209715200,
+                    async: true,
+                },
+                name: "Freedos with FreeGEM",
+            },
+            {
                 id: "psychdos",
                 hda: {
                     url: host + "psychdos.img",
