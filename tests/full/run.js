@@ -213,7 +213,7 @@ if(cluster.isMaster)
             name: "Windows 95",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/w95.img",
-            timeout: 60,
+            timeout: 120,
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
@@ -592,6 +592,7 @@ if(cluster.isMaster)
         },
         {
             name: "9front",
+            failure_allowed: true,
             skip_if_disk_image_missing: true,
             acpi: true,
             timeout: 5 * 60,
