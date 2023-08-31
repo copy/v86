@@ -138,7 +138,7 @@ function UART(cpu, port, bus)
         }
         else
         {
-            let data = 0xFF;
+            let data = 0;
 
             if(this.input.length === 0)
             {
@@ -337,11 +337,6 @@ UART.prototype.write_data = function(out_byte)
     dbg_log("data: " + h(out_byte), LOG_SERIAL);
 
     this.ThrowInterrupt(UART_IIR_THRI);
-
-    if(out_byte === 0xFF)
-    {
-        return;
-    }
 
     var char = String.fromCharCode(out_byte);
 
