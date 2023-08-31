@@ -355,7 +355,8 @@ IO.prototype.port_read8 = function(port_addr)
         );
     }
     var value = entry.read8.call(entry.device);
-    dbg_assert(value < 0x100, "8 bit port returned large value: " + h(port_addr));
+    dbg_assert(typeof value === "number");
+    dbg_assert(value < 0x100 && value >= 0, "8 bit port returned large value: " + h(port_addr));
     return value;
 };
 
@@ -371,6 +372,7 @@ IO.prototype.port_read16 = function(port_addr)
         );
     }
     var value = entry.read16.call(entry.device);
+    dbg_assert(typeof value === "number");
     dbg_assert(value < 0x10000 && value >= 0, "16 bit port returned large value: " + h(port_addr));
     return value;
 };

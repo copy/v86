@@ -1395,14 +1395,13 @@ VGAScreen.prototype.port3C0_write = function(value)
 VGAScreen.prototype.port3C0_read = function()
 {
     dbg_log("3C0 read", LOG_VGA);
-    var result = this.attribute_controller_index | this.palette_source;
-    return result;
+    return (this.attribute_controller_index | this.palette_source) & 0xFF;
 };
 
 VGAScreen.prototype.port3C0_read16 = function()
 {
     dbg_log("3C0 read16", LOG_VGA);
-    return this.port3C0_read() & 0xFF | this.port3C1_read() << 8 & 0xFF00;
+    return this.port3C0_read() | this.port3C1_read() << 8 & 0xFF00;
 };
 
 VGAScreen.prototype.port3C1_read = function()
