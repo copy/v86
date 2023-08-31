@@ -141,7 +141,7 @@ else if(typeof Worker !== "undefined")
 
     v86.prototype.unregister_yield = function()
     {
-        this.worker.terminate();
+        this.worker && this.worker.terminate();
         this.worker = null;
     };
 }
