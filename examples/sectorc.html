@@ -1,0 +1,702 @@
+<!doctype html>
+<title>v86: sectorc</title>
+
+<script src="../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    const libc = `int tmp1;
+int tmp2;
+
+void shutdown()
+{
+  /* Shutdown via APM: coded in asm machine code directly */
+
+  // Check for APM
+  // | mov ah,0x53; mov al,0x00; xor bx,bx; int 0x15; jc error
+  asm 180; asm  83; asm 176; asm   0; asm  49; asm 219;
+  asm 205; asm  21; asm 114; asm  55;
+
+  // Disconnect from any APM interface
+  // | mov ah,0x53; mov al,0x04; xor bx,bx; int 0x15
+  // | jc maybe_error; jmp no_error
+  asm 180; asm  83; asm 176; asm   4; asm  49; asm 219;
+  asm 205; asm  21; asm 114; asm   2; asm 235; asm   5;
+
+  // Label: maybe_error
+  // | cmp ah,0x03; jne error
+  asm 128; asm 252; asm   3; asm 117; asm  38;
+  // Label: no_error
+
+  // Connect to APM interface
+  // | mov ah,0x53; mov al,0x01; xor bx,bx; int 0x15; jc error
+  asm 180; asm  83; asm 176; asm   1; asm  49; asm 219;
+  asm 205; asm  21; asm 114; asm  28;
+
+  // Enable power management for all devices
+  // | mov ah,0x53; mov al,0x08; mov bx,0x0001; mov cx,0x0001
+  // | int 0x15; jc error
+  asm 180; asm  83; asm 176; asm   8;
+  asm 187; asm   1; asm   0; asm 185; asm   1; asm   0;
+  asm 205; asm  21; asm 114; asm  14;
+
+  // Set the power state for all devices
+  // | mov ah,0x53; mov al,0x7; mov bx,0x0001; mov cx,0x0003
+  // | int 0x15; jc error
+  asm 180; asm  83; asm 176; asm   7;
+  asm 187; asm   1; asm   0; asm 185; asm   3; asm   0;
+  asm 205; asm  21; asm 114; asm   0;
+
+  // Label: error
+  // | hlt; jmp error
+  asm 244; asm 235; asm 253;
+}
+
+int store_far_seg;
+int store_far_off;
+int store_far_val;
+void store_far()
+{
+  // mov es, store_far_seg
+  store_far_seg = store_far_seg;
+  asm 142; asm 192;
+
+  // mov si, store_far_off
+  store_far_off = store_far_off;
+  asm 137; asm 198;
+
+  // mov es:[si], store_far_val
+  store_far_val = store_far_val;
+  asm 38; asm 137; asm 4;
+}
+
+int div10_unsigned_n;
+int div10_unsigned_q;
+int div10_unsigned_r;
+void div10_unsigned()
+{
+  /* Taken from "Hacker's Delight", modified to "fit your screen" */
+
+  tmp1 = ( div10_unsigned_n >> 1 ) & 32767; // unsigned
+  tmp2 = ( div10_unsigned_n >> 2 ) & 16383; // unsigned
+  div10_unsigned_q = tmp1 + tmp2;
+
+  tmp1 = ( div10_unsigned_q >> 4 ) & 4095; // unsigned
+  div10_unsigned_q = div10_unsigned_q + tmp1;
+
+  tmp1 = ( div10_unsigned_q >> 8 ) & 255; // unsigned
+  div10_unsigned_q = div10_unsigned_q + tmp1;
+
+  div10_unsigned_q = ( div10_unsigned_q >> 3 ) & 8191; // unsigned
+
+  div10_unsigned_r = div10_unsigned_n
+    - ( ( div10_unsigned_q << 3 ) + ( div10_unsigned_q << 1 ) );
+
+  if( div10_unsigned_r > 9 ){
+    div10_unsigned_q = div10_unsigned_q + 1;
+    div10_unsigned_r = div10_unsigned_r - 10;
+  }
+}
+
+int print_ch;
+void print_char()
+{
+  /* Implement print char via serial port bios function accessed via int 0x14 */
+
+  print_ch = print_ch;     // mov ax,[&print_ch]
+  asm 180; asm 1;          // mov ah,1
+  asm 186; asm 0; asm 0 ;  // mov dx,0
+  asm 205; asm 20;         // int 0x14
+}
+
+// uses 'print_ch'
+void print_newline()
+{
+  print_ch = 10;
+  print_char();
+}
+
+int print_num; // input
+int print_u16_bufptr;
+int print_u16_cur;
+void print_u16()
+{
+  print_u16_bufptr = 30000; // buffer for ascii digits
+
+  if( print_num == 0 ){
+    print_ch = 48;
+    print_char();
+  }
+
+  print_u16_cur = print_num;
+  while( print_u16_cur != 0 ){
+    div10_unsigned_n = print_u16_cur;
+    div10_unsigned();
+
+    *(int*) print_u16_bufptr = div10_unsigned_r;
+    print_u16_bufptr = print_u16_bufptr + 1;
+
+    print_u16_cur = div10_unsigned_q;
+  }
+
+  while( print_u16_bufptr != 30000 ){ // emit them in reverse over
+    print_u16_bufptr = print_u16_bufptr - 1;
+    print_ch = ( *(int*) print_u16_bufptr & 255 ) + 48;
+    print_char();
+  }
+}
+
+// uses 'print_num' and 'print_ch'
+void print_i16()
+{
+  if( print_num < 0 ){
+    print_ch = 45; print_char(); // '-'
+    print_num = 0 - print_num;
+  }
+  print_u16();
+}
+
+void vga_init()
+{
+  // mov ah,0; mov al,0x13; int 0x10
+  asm 180; asm 0; asm 176; asm 19; asm 205; asm 16;
+}
+
+void vga_clear()
+{
+  // push di; xor di,di; mov bx,0xa000; mov es,bx;
+  // mov cx,0x7d00; xor ax,ax; rep stos; pop di
+  asm 87 ; asm 49 ; asm 255; asm 187; asm 0; asm 160;
+  asm 142; asm 195; asm 185; asm 0; asm 125; asm 49;
+  asm 192; asm 243; asm 171; asm 95;
+}
+
+int pixel_x;
+int pixel_y;
+void vga_set_pixel()
+{
+  // need to multiply pixel_y by 320 = 256 + 64
+  // use 'tmp1' for pixel index
+  tmp1 = ( ( pixel_y << 8 ) + ( pixel_y << 6 ) ) + pixel_x;
+
+  // store to 0xa000:pixel_idx
+  // mov bx,0xa000; mov es,bx; mov bx,ax; mov BYTE PTR es:[bx],0xf
+  tmp1 = tmp1;
+  asm 187; asm 0; asm 160; asm 142; asm 195;
+  asm 137; asm 195; asm 38; asm 198; asm 7; asm 15;
+}
+
+int port_num;
+int port_val;
+void port_inb()
+{
+  dx = port_num;
+  // mov dx,WORD PTR [0x464]; in al,dx
+  asm 139; asm 22; asm 160; asm 4; asm 236;
+
+  // mov WORD PTR [0x464],ax
+  asm 137; asm 6; asm 100; asm 4;
+  port_val = ax;
+}
+void port_inw()
+{
+  // mov dx,WORD PTR [0x464]; in ax,dx
+  dx = port_num;
+  asm 139; asm 22; asm 160; asm 4; asm 237;
+
+  // mov WORD PTR [0x464],ax
+  asm 137; asm 6; asm 100; asm 4;
+  port_val = ax;
+}
+void port_outb()
+{
+  dx = port_num;
+  ax = port_val;
+
+  // mov dx,WORD PTR [0x464]
+  asm 139; asm 22; asm 160; asm 4;
+
+  // mov ax,WORD PTR [0x464]
+  asm 139; asm 6; asm 100; asm 4;
+
+  // outb dx,al
+  asm 238;
+}
+void port_outw()
+{
+  dx = port_num;
+  ax = port_val;
+
+  // mov dx,WORD PTR [0x464]
+  asm 139; asm 22; asm 160; asm 4;
+
+  // mov ax,WORD PTR [0x464]
+  asm 139; asm 6; asm 100; asm 4;
+
+  // outb dx,al
+  asm 239;
+}
+
+void dump_code_segment_and_shutdown()
+{
+  /* NOTE: This code is in a different segment from data, and our compiled pointer accesses
+     do not leave the data segment, so we need a little machine code to grab data from the
+     code segment and stash it in a variable for C */
+
+  i = 0;
+  while( i < 8192 ){  /* Just assuming 8K is enough.. might not be true */
+
+    // (put "i" in ax); mov si,ax; mov ax,cs:[si]; mov [&a],ax
+    i = i; asm 137; asm 198; asm 46; asm 139; asm 4; asm 137; asm 133; asm 98; asm 0;
+
+    print_ch = a;
+    print_char();
+    i = i + 1;
+  }
+  shutdown();
+}
+`;
+
+    const start = `void _start()
+{
+  main();
+  shutdown();
+}
+`;
+
+    const hello = `int buf;
+int ptr;
+int len;
+void vga_write()
+{
+  /* Text vga is located at b800:0000 */
+  store_far_seg = 47104; // segment: 0xb800
+  store_far_off = idx << 1;
+  store_far_val = ( 15 << 8 ) | ( ch & 255 ); // white fg and black bg
+  store_far();
+}
+
+int x_off;
+int y_off;
+void vga_write_ch()
+{
+  if( ch != 10 ){
+    idx = y_off + x_off;
+    vga_write();
+    x_off = x_off + 1;
+  }
+  if( ( ch == 10 ) | ( x_off == 80 ) ){
+    y_off = y_off + 80;
+    x_off = 0;
+  }
+}
+
+int idx;
+void vga_clear()
+{
+  idx = 0;
+  while( idx < 2000 ){ // 80x25
+    ch = 32; // char: ' '
+    vga_write();
+    idx = idx + 1;
+  }
+  pos = 0;
+}
+
+void main()
+{
+  // dump_code_segment_and_shutdown();
+
+  vga_clear();
+
+  ch = 72;  vga_write_ch();
+  ch = 101; vga_write_ch();
+  ch = 108; vga_write_ch();
+  ch = 108; vga_write_ch();
+  ch = 111; vga_write_ch();
+  ch = 10;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+  ch = 102; vga_write_ch();
+  ch = 114; vga_write_ch();
+  ch = 111; vga_write_ch();
+  ch = 109; vga_write_ch();
+  ch = 10;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+  ch = 83;  vga_write_ch();
+  ch = 101; vga_write_ch();
+  ch = 99;  vga_write_ch();
+  ch = 116; vga_write_ch();
+  ch = 111; vga_write_ch();
+  ch = 114; vga_write_ch();
+  ch = 67;  vga_write_ch();
+  ch = 10;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+  ch = 32;  vga_write_ch();
+
+  i = 0;
+  while( i < 10 ){
+    ch = 33; vga_write_ch();
+    i = i + 1;
+  }
+
+  while( 1 ){ }
+}
+`;
+
+    const sinwave = `/* A Sine-wave Animation
+
+   Math time:
+   ---------------------------
+   Along the range [0, pi] we can approximate sin(x) very crudely with a 2nd order quadratic
+   That is: y = a * x^2 + b * x + c
+
+   Three unknowns need three constraints, so picking the easy ones:
+     x = 0,    y = 0
+     x = pi/2, y = 1
+     x = pi,   y = 0
+
+   Solving the linear system:
+
+   | 0        0      1 |   | a |   | 0 |
+   | pi^2/4   pi/2   1 | * | b | = | 1 |
+   | pi^2     pi     1 |   | c |   | 0 |
+
+   We get:
+
+   a = -4 / pi^2
+   b = 4 / pi
+   c = 0
+
+   And:
+
+   y = 4x(pi - x)/(pi^2)
+
+   Engineering time:
+   ---------------------------
+   We are working with a 320x200 vga. We also don't have floating-point math. So, the
+   goal here is to do all the math in integer screen coordinates and accept some pixel
+   approximation error.
+
+   First, we want to center the wave in the middle, y = 100
+   We'll let y vary +-50 pixels to remain on the screen, so [50, 150]
+   We want to show an entire cycle (2pi) on the x-axis, so *50 gives us [0, ~314]
+   This implies that the "x-origin" is at x = 157
+
+   Substituting in everything, we get:
+
+   y ~= 100 + x*(157 - x)/125
+
+   The division by 125 is problematic as we don't have division. But luckily 128 is close enough.
+
+   Thus, we get:
+
+   y ~= 100 + (x*(157 - x)) >> 7
+
+   The rest is just adjusting for the [0, pi] range reduction by negating the approximation
+   along [pi, 2pi]
+
+   NOTE: the screen coordinate system is upside-down and I don't bother to correct for that.
+   it simply means that the animation starts at a +pi phase offset
+*/
+
+int y;
+int x;
+int x_0;
+void sin_positive_approx()
+{
+  y = ( x_0 * ( 157 - x_0 ) ) >> 7;
+}
+void sin()
+{
+  x_0 = x;
+  while( x_0 > 314 ){
+    x_0 = x_0 - 314;
+  }
+  if( x_0 <= 157 ){
+    sin_positive_approx();
+  }
+  if( x_0 > 157 ){
+    x_0 = x_0 - 157;
+    sin_positive_approx();
+    y = 0 - y;
+  }
+  y = 100 + y;
+}
+
+
+int offset;
+int x_end;
+void draw_sine_wave()
+{
+  x = offset;
+  x_end = x + 314;
+  while( x <= x_end ){
+    sin();
+    pixel_x = x - offset;
+    pixel_y = y;
+    vga_set_pixel();
+    x = x + 1;
+  }
+}
+
+int v_1;
+int v_2;
+void delay()
+{
+  v_1 = 0;
+  while( v_1 < 50 ){
+    v_2 = 0;
+    while( v_2 < 10000 ){
+      v_2 = v_2 + 1;
+    }
+    v_1 = v_1 + 1;
+  }
+}
+
+void main()
+{
+  vga_init();
+
+  offset = 0;
+  while( 1 ){
+    vga_clear();
+    draw_sine_wave();
+
+    delay();
+    offset = offset + 1;
+    if( offset >= 314 ){ // mod the value to avoid 2^16 integer overflow
+      offset = offset - 314;
+    }
+  }
+}
+`;
+
+    const twinkle = `/* References:
+     http://muruganad.com/8086/8086-assembly-language-program-to-play-sound-using-pc-speaker.html
+     https://en.wikipedia.org/wiki/Twinkle,_Twinkle,_Little_Star
+*/
+
+void delay_1()
+{
+  v_1 = 0;
+  while( v_1 < 4000 ){
+    v_2 = 0;
+    while( v_2 < 10000 ){
+      v_2 = v_2 + 1;
+    }
+    v_1 = v_1 + 1;
+  }
+}
+
+void delay_2()
+{
+  v_1 = 0;
+  while( v_1 < 300 ){
+    v_2 = 0;
+    while( v_2 < 10000 ){
+      v_2 = v_2 + 1;
+    }
+    v_1 = v_1 + 1;
+  }
+}
+
+void audio_init()
+{
+  // Configure PIC2 mode
+  port_num = 67;
+  port_val = 182;
+  port_outb();
+}
+
+void audio_enable()
+{
+  // Set bits 0 and 1 to enable
+  port_num = 97;
+  port_inb();
+  port_val = port_val | 3;
+  port_outb();
+}
+
+void audio_disable()
+{
+  // Clear bits 0 and 1 to enable
+  port_num = 97;
+  port_inb();
+  port_val = port_val & 65532;
+  port_outb();
+}
+
+int audio_freq;
+void audio_freq_set()
+{
+  // Set frequency
+  port_num = 66;
+  port_val = audio_freq & 255;
+  port_outb();
+  port_val = ( audio_freq >> 8 ) & 255;
+  port_outb();
+}
+
+int note;
+void play_quarter_note()
+{
+  audio_freq = note;
+  audio_freq_set();
+  audio_enable();
+  delay_1();
+  audio_disable();
+  delay_2();
+}
+void play_half_note()
+{
+  audio_freq = note;
+  audio_freq_set();
+  audio_enable();
+  delay_1();
+  delay_1();
+  audio_disable();
+  delay_2();
+}
+
+void play_section_1()
+{
+  note = C; play_quarter_note();
+  note = C; play_quarter_note();
+  note = G; play_quarter_note();
+  note = G; play_quarter_note();
+  note = A; play_quarter_note();
+  note = A; play_quarter_note();
+  note = G; play_half_note();
+
+  note = F; play_quarter_note();
+  note = F; play_quarter_note();
+  note = E; play_quarter_note();
+  note = E; play_quarter_note();
+  note = D; play_quarter_note();
+  note = D; play_quarter_note();
+  note = C; play_half_note();
+}
+
+void play_section_2()
+{
+  note = G; play_quarter_note();
+  note = G; play_quarter_note();
+  note = F; play_quarter_note();
+  note = F; play_quarter_note();
+  note = E; play_quarter_note();
+  note = E; play_quarter_note();
+  note = D; play_half_note();
+
+  note = G; play_quarter_note();
+  note = G; play_quarter_note();
+  note = F; play_quarter_note();
+  note = F; play_quarter_note();
+  note = E; play_quarter_note();
+  note = E; play_quarter_note();
+  note = D; play_half_note();
+}
+
+void main()
+{
+  audio_init();
+  audio_enable();
+
+  C = 4560;
+  D = 4063;
+  E = 3619;
+  F = 3416;
+  G = 3043;
+  A = 2711;
+
+  play_section_1();
+  play_section_2();
+  play_section_1();
+
+  audio_disable();
+}
+`;
+
+    document.getElementById("source").onkeydown = function(e)
+    {
+        if(e.which == 13 && e.ctrlKey)
+        {
+            document.getElementById("run").onclick();
+        }
+    };
+
+    document.getElementById("source").textContent = sinwave;
+
+    document.getElementById("source").onkeydown = function(e)
+    {
+        if(e.which == 13 && e.ctrlKey)
+        {
+            document.getElementById("run").onclick();
+        }
+    };
+
+    document.getElementById("examples").onchange = function()
+    {
+        document.getElementById("source").textContent = { sinwave, twinkle, hello }[this.value];
+    };
+
+    let emulator;
+    document.getElementById("run").onclick = run;
+
+    function run()
+    {
+        emulator && emulator.destroy();
+
+        emulator = window.emulator = new V86({
+            wasm_path: "../build/v86.wasm",
+            memory_size: 32 * 1024 * 1024,
+            vga_memory_size: 2 * 1024 * 1024,
+            screen_container: document.getElementById("screen_container"),
+            bios: { url: "../bios/seabios.bin" },
+            vga_bios: { url: "../bios/vgabios.bin" },
+            fda: { url: "../images/sectorc.bin" },
+            autostart: true,
+        });
+
+        emulator.add_listener("emulator-ready", () => {
+            const source = libc + document.getElementById("source").value + start;
+            emulator.serial0_send(source);
+        });
+
+        document.getElementById("run").onclick = stop;
+        document.getElementById("run").textContent = "stop";
+    };
+
+    function stop()
+    {
+        emulator && emulator.destroy();
+        document.getElementById("run").onclick = run;
+        document.getElementById("run").textContent = "run (ctrl-enter)";
+    }
+}
+</script>
+
+<br>
+<textarea id=source rows=20 cols=80>
+</textarea>
+<br>
+
+<select id=examples>
+    <option value=sinwave>Sine wave</option>
+    <option value=hello>Hello</option>
+    <option value=twinkle>Twinkle (audio)</option>
+</select>
+<button id=run>run (ctrl-enter)</button>
+<br>
+<hr>
+
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+
+<hr>
+<a href="https://github.com/xorvoid/sectorc">sectorc</a> on <a href="/v86/">v86</a>
