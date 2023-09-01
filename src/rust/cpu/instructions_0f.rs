@@ -3234,7 +3234,7 @@ pub unsafe fn instr_0FA2() {
             // pentium
             eax = 3 | 6 << 4 | 15 << 8;
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
-            ecx = 1 << 0 | 1 << 23 | 1 << 30; // popcnt, rdrand, sse3
+            ecx = 1 << 23 | 1 << 30 | 1 << 0; // popcnt, rdrand, sse3
             let vme = 0 << 1;
             if ::config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
