@@ -566,7 +566,7 @@ IDEInterface.prototype.eject = function()
         this.error = 0x60;
         this.push_irq();
     }
-}
+};
 
 IDEInterface.prototype.set_cdrom = function(buffer)
 {
@@ -638,7 +638,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
             this.push_irq();
         }
     }
-}
+};
 
 IDEInterface.prototype.device_reset = function()
 {
