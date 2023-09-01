@@ -1822,6 +1822,42 @@ pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
     instr_F30F59(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 #[no_mangle]
+pub unsafe fn instr_660F7C(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_660F7C_reg(r1: i32, r2: i32) { instr_660F7C(read_xmm128s(r1), r2); }
+pub unsafe fn instr_660F7C_mem(addr: i32, r: i32) {
+    instr_660F7C(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_660F7D(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_660F7D_reg(r1: i32, r2: i32) { instr_660F7D(read_xmm128s(r1), r2); }
+pub unsafe fn instr_660F7D_mem(addr: i32, r: i32) {
+    instr_660F7D(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
 pub unsafe fn instr_F20F7C(source: reg128, r: i32) {
     // haddps xmm, xmm/mem128
     let destination = read_xmm128s(r);
@@ -1839,7 +1875,60 @@ pub unsafe fn instr_F20F7C_reg(r1: i32, r2: i32) { instr_F20F7C(read_xmm128s(r1)
 pub unsafe fn instr_F20F7C_mem(addr: i32, r: i32) {
     instr_F20F7C(return_on_pagefault!(safe_read128s(addr)), r);
 }
-
+#[no_mangle]
+pub unsafe fn instr_DF(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_DF_reg(r1: i32, r2: i32) { instr_DF(read_xmm128s(r1), r2); }
+pub unsafe fn instr_DF_mem(addr: i32, r: i32) {
+    instr_DF(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_DD(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
+pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
+    instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F7D(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_F20F7D_reg(r1: i32, r2: i32) { instr_F20F7D(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F20F7D_mem(addr: i32, r: i32) {
+    instr_F20F7D(return_on_pagefault!(safe_read128s(addr)), r);
+}
 #[no_mangle]
 pub unsafe fn instr_0F5A(source: u64, r: i32) {
     // cvtps2pd xmm1, xmm2/m64
