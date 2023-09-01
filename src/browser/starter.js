@@ -1045,7 +1045,7 @@ V86Starter.prototype.set_cdrom = async function(file)
  */
 V86Starter.prototype.eject_cdrom = function()
 {
-    this.v86.cpu.devices.cdrom.master.eject_cdrom();
+    this.v86.cpu.devices.cdrom.master.eject();
 };
 
 /**
