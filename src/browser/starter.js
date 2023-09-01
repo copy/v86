@@ -1363,7 +1363,6 @@ V86Starter.prototype.automatically = function(steps)
 {
     const run = (steps) =>
     {
-        console.log("do step",steps[0]);
         const step = steps[0];
 
         if(!step)
@@ -1383,10 +1382,8 @@ V86Starter.prototype.automatically = function(steps)
         {
             const screen = this.screen_adapter.get_text_screen();
 
-            console.log("LOOKING FOR",step.vga_text);
             for(let line of screen)
             {
-                console.log(line);
                 if(line.includes(step.vga_text))
                 {
                     run(remaining_steps);
@@ -1400,7 +1397,6 @@ V86Starter.prototype.automatically = function(steps)
 
         if(step.keyboard_send)
         {
-            console.log("SEND");
             if(step.keyboard_send instanceof Array)
             {
                 this.keyboard_send_scancodes(step.keyboard_send);
