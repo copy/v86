@@ -359,32 +359,6 @@
                 name: "Freedos with FreeGEM",
             },
             {
-                id: "freedos-live",
-                cdrom: {
-                    url: host + "FD13LIVE.iso",
-                    async: false,
-                },
-                name: "FreeDOS-Live",
-            },
-            {
-                id: "freedos-13",
-                hda: {
-                    url: host + "freedos13.img",
-                    async: false,
-                },
-                name: "FreeDOS 13",
-                boot_order: 0x312
-            },
-            {
-                id: "debian-wheezy",
-                hda: {
-                    url: host + "debian_wheezy.img",
-                    async: false,
-                },
-                name: "Debian Wheezy",
-                boot_order: 0x312
-            },
-            {
                 id: "psychdos",
                 hda: {
                     url: host + "psychdos.img",

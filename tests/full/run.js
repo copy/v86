@@ -9,7 +9,7 @@ var TEST_NAME = process.env.TEST_NAME;
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
-const VERBOSE = +process.env.VERBOSE || false;
+const VERBOSE = false;
 const LOG_SCREEN = false;
 
 try
@@ -79,87 +79,9 @@ function send_work_to_worker(worker, message)
     }
 }
 
-function do_action(test, emulator, run_step)
-{
-    if(Array.isArray(run_step))
-    {
-        for(let step of run_step)
-        {
-            do_action(test, emulator, step);
-        }
-    }
-    else if(typeof run_step == "string")
-    {
-        if(VERBOSE) console.error("Sending '%s'", run_step);
-        emulator.keyboard_send_text(run_step);
-    }
-    else if(typeof run_step == "function")
-    {
-        if(VERBOSE) console.error("Run fn ", run_step);
-        run_step(test, emulator);
-    }
-    else if(typeof run_step == "object")
-    {
-        if(VERBOSE) console.error("Trigger ", run_step);
-        switch(run_step.action)
-        {
-            case "eject_fda":
-            {
-                emulator.eject_fda();
-                break;
-            }
-            case "insert_fda":
-            {
-                emulator.set_fda(test.extra_images[run_step.image]);
-                break;
-            }
-            case "eject_cdrom":
-            {
-                emulator.eject_cdrom();
-                break;
-            }
-            case "insert_cdrom":
-            {
-                emulator.set_cdrom(test.extra_images[run_step.image]);
-                break;
-            }
-        }
-    }
-}
-
 if(cluster.isMaster)
 {
     var tests = [
-        {
-            name: "Wheezy boot",
-            hda: root_path + "/images/debian_wheezy.img",
-            timeout: 60,
-            expect_graphical_mode: true,
-        },
-        {
-            name: "Wheezy boot with empty cdrom",
-            wants_cdrom: true,
-            hda: root_path + "/images/debian_wheezy.img",
-            timeout: 60,
-            boot_order:0x312,
-            expect_graphical_mode: true,
-        },
-        {
-            name: "Wheezy boot with cdrom present",
-            wants_cdrom: true,
-            hda: root_path + "/images/debian_wheezy.img",
-            cdrom: root_path + "/images/linux.iso",
-            timeout: 60,
-            boot_order:0x312,
-            expect_graphical_mode: true,
-        },
-        {
-            name: "Windows 1.01 boot",
-            fda: root_path + "/images/windows101.img",
-            timeout: 10,
-            expect_graphical_mode: true,
-            expect_mouse_registered: true,
-        },
         {
             name: "FreeDOS boot",
             fda: root_path + "/images/freedos722.img",
@@ -169,182 +91,9 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "FreeDOS boot with cdrom present",
-            fda: root_path + "/images/freedos722.img",
-            cdrom: root_path + "/images/linux.iso",
-            boot_order:0x231,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            wants_cdrom:true,
-            boot_order:0x231,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with empty cdrom (alternative boot order)",
-            fda: root_path + "/images/freedos722.img",
-            wants_cdrom:true,
-            boot_order:0x213,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            wants_cdrom:true,
-            boot_order:0x231,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with empty cdrom (alternative boot order)",
-            fda: root_path + "/images/freedos722.img",
-            wants_cdrom:true,
-            boot_order:0x213,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with hda present",
-            fda: root_path + "/images/freedos722.img",
-            hda: root_path + "/images/msdos.img",
-            boot_order:0x231,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with cdrom and hda present",
-            fda: root_path + "/images/freedos722.img",
-            cdrom: root_path + "/images/linux.iso",
-            hda: root_path + "/images/msdos.img",
-            boot_order:0x321,
-            timeout: 40,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
             name: "FreeDOS boot with Bochs BIOS",
             fda: root_path + "/images/freedos722.img",
             timeout: 20,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            timeout: 20,
-            wants_cdrom: true,
-            boot_order:0x312,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and empty cdrom (alternative boot order)",
-            fda: root_path + "/images/freedos722.img",
-            timeout: 20,
-            boot_order:0x321,
-            wants_cdrom: true,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            timeout: 20,
-            wants_cdrom: true,
-            boot_order:0x312,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and empty cdrom (alternative boot order)",
-            fda: root_path + "/images/freedos722.img",
-            timeout: 20,
-            boot_order:0x321,
-            wants_cdrom: true,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and cdrom present",
-            fda: root_path + "/images/freedos722.img",
-            cdrom: root_path + "/images/linux.iso",
-            boot_order:0x231,
-            timeout: 20,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and hda present",
-            fda: root_path + "/images/freedos722.img",
-            hda: root_path + "/images/msdos.img",
-            boot_order:0x231,
-            timeout: 20,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and hda present and empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            hda: root_path + "/images/msdos.img",
-            wants_cdrom: true,
-            boot_order:0x231,
-            timeout: 20,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and hda present and empty cdrom",
-            fda: root_path + "/images/freedos722.img",
-            hda: root_path + "/images/msdos.img",
-            wants_cdrom: true,
-            boot_order:0x231,
-            timeout: 20,
-            alternative_bios: true,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
-        },
-        {
-            name: "FreeDOS boot with Bochs BIOS and cdrom and HDA present",
-            fda: root_path + "/images/freedos722.img",
-            cdrom: root_path + "/images/linux.iso",
-            hda: root_path + "/images/msdos.img",
-            boot_order:0x231,
-            timeout: 30,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
@@ -387,23 +136,6 @@ if(cluster.isMaster)
         {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
-            timeout: 90,
-            expected_texts: [
-                "/root%",
-                "test passed",
-            ],
-            actions: [
-                {
-                    on_text: "/root%",
-                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
-                },
-            ],
-        },
-        {
-            name: "Linux with HDA present",
-            cdrom: root_path + "/images/linux.iso",
-            hda: root_path + "/images/msdos.img",
-            boot_order: 0x123,
             timeout: 90,
             expected_texts: [
                 "/root%",
@@ -551,24 +283,6 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "Linux with Bochs BIOS and HDA present",
-            cdrom: root_path + "/images/linux.iso",
-            hda: root_path + "/images/msdos.img",
-            timeout: 90,
-            expected_texts: [
-                "/root%",
-                "test passed",
-            ],
-            boot_order: 0x123,
-            alternative_bios: true,
-            actions: [
-                {
-                    on_text: "/root%",
-                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
-                },
-            ],
-        },
-        {
             name: "MS-DOS",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
@@ -578,7 +292,7 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "MS-DOS (hard disk + floppy disk present)",
+            name: "MS-DOS (hard disk + floppy disk)",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             fda: root_path + "/images/kolibri.img",
@@ -589,17 +303,6 @@ if(cluster.isMaster)
             ],
             expected_texts: [
                 "A:\\>",
-            ],
-        },
-        {
-            name: "MS-DOS (hard disk + cd-rom present)",
-            skip_if_disk_image_missing: true,
-            hda: root_path + "/images/msdos.img",
-            cdrom: root_path + "/images/linux.iso",
-            boot_order: 0x132,
-            timeout: 120,
-            expected_texts: [
-                "C:\\>",
             ],
         },
         {
@@ -725,56 +428,10 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "Windows 3.0 (with hda present)",
-            slow: 1,
-            skip_if_disk_image_missing: true,
-            timeout: 10 * 60,
-            hda: root_path + "/images/win31.img",
-            cdrom: root_path + "/images/Win30.iso",
-            expected_texts: [
-                "Press any key to continue",
-                "              **************************************************",
-            ],
-            expect_graphical_mode: true,
-            expect_mouse_registered: true,
-            actions: [
-                {
-                    on_text: "Press any key to continue . . .",
-                    after: 1000,
-                    run: "x",
-                },
-                {
-                    on_text: "              **************************************************",
-                    after: 1000,
-                    run: "x",
-                },
-                {
-                    on_text: "C> ",
-                    after: 1000,
-                    run: "win\n",
-                },
-            ],
-            boot_order: 0x123
-        },
-        {
             name: "Windows 3.1",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
             hda: root_path + "/images/win31.img",
-            expect_graphical_mode: true,
-            expect_graphical_size: [1024, 768],
-            expect_mouse_registered: true,
-            expected_texts: [
-                "MODE prepare code page function completed",
-            ],
-        },
-        {
-            name: "Windows 3.1 (with cdrom present)",
-            skip_if_disk_image_missing: true,
-            timeout: 2 * 60,
-            boot_order: 0x312,
-            hda: root_path + "/images/win31.img",
-            cdrom: root_path + "/images/Win30.iso",
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
@@ -1142,17 +799,56 @@ if(cluster.isMaster)
                 { on_text: "boot:", run: "\n" },
                 { on_text: "tc@box", run: "sudo mount /dev/fd0 /mnt && ls /mnt\n" },
             ],
+            expected_texts: ["AUTOEXEC.BAT"],
         },
         {
-            name: "FreeDOS boot with cdrom and HDA present (alternative boot order)",
-            fda: root_path + "/images/freedos722.img",
-            cdrom: root_path + "/images/linux.iso",
-            hda: root_path + "/images/msdos.img",
-            boot_order:0x321,
-            timeout: 20,
-            expected_texts: [
-                "Welcome to FreeDOS",
-            ],
+            name: "Core 8",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-8.0.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 7",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-7.2.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 6",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-6.4.1.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 5",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-5.4.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 4",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-4.7.7.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Damn Small Linux",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/dsl-4.11.rc2.iso",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
         },
     ];
 
@@ -1270,7 +966,7 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: 0x0,
+        log_level: 0,
         cmdline: test.cmdline,
     };
 
@@ -1278,7 +974,6 @@ function run_test(test, done)
     {
         settings.cdrom = { url: test.cdrom };
     }
-    settings.wants_cdrom = test.wants_cdrom;
     if(test.fda)
     {
         settings.fda = { url: test.fda };
@@ -1360,9 +1055,9 @@ function run_test(test, done)
         }
 
         if(check_text_test_done() &&
-           check_mouse_test_done() &&
-           check_graphical_test_done() &&
-           check_serial_test_done())
+            check_mouse_test_done() &&
+            check_graphical_test_done() &&
+            check_serial_test_done())
         {
             var end = Date.now();
 
@@ -1457,7 +1152,7 @@ function run_test(test, done)
         if(test.expect_graphical_size)
         {
             size_test_done = size[0] === test.expect_graphical_size[0] &&
-                size[1] === test.expect_graphical_size[1];
+                             size[1] === test.expect_graphical_size[1];
             check_test_done();
         }
     });
@@ -1492,7 +1187,8 @@ function run_test(test, done)
 
                 timeouts.push(
                     setTimeout(() => {
-                        do_action(test, emulator, action.run);
+                        if(VERBOSE) console.error("Sending '%s'", action.run);
+                        emulator.keyboard_send_text(action.run);
                     }, action.after || 0)
                 );
             }
@@ -1508,47 +1204,47 @@ function run_test(test, done)
 
     let serial_line = "";
     emulator.add_listener("serial0-output-char", function(c)
-    {
-        if(c === "\n")
         {
-            if(VERBOSE)
+            if(c === "\n")
             {
-                console.log(`Serial (${test.name}):`, serial_line);
-            }
-
-            if(test.expected_serial_text.length)
-            {
-                const expected = test.expected_serial_text[0];
-                if(serial_line.includes(expected))
+                if(VERBOSE)
                 {
-                    test.expected_serial_text.shift();
-                    if(VERBOSE) console.log(`Passed: "${expected}" on serial (${test.name})`);
-                    check_test_done();
+                    console.log(`Serial (${test.name}):`, serial_line);
                 }
-            }
 
-            serial_line = "";
-        }
-        else if(c >= " " && c <= "~")
-        {
-            serial_line += c;
-        }
-    });
+                if(test.expected_serial_text.length)
+                {
+                    const expected = test.expected_serial_text[0];
+                    if(serial_line.includes(expected))
+                    {
+                        test.expected_serial_text.shift();
+                        if(VERBOSE) console.log(`Passed: "${expected}" on serial (${test.name})`);
+                        check_test_done();
+                    }
+                }
 
-    test.actions && test.actions.forEach(
-    function(action)
-        {
-            if(action.on_text)
-            {
-                on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after });
+                serial_line = "";
             }
-            else
+            else if(c >= " " && c <= "~")
             {
-                timeouts.push(
-                    setTimeout(() => {
-                        do_action(test, emulator, action.run);
-                    }, action.after || 0)
-                );
+                serial_line += c;
             }
         });
+
+    test.actions && test.actions.forEach(function(action)
+    {
+        if(action.on_text)
+        {
+            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, after: action.after });
+        }
+        else
+        {
+            timeouts.push(
+                setTimeout(() => {
+                    if(VERBOSE) console.error("Sending '%s'", action.run);
+                    emulator.keyboard_send_text(action.run);
+                }, action.after || 0)
+            );
+        }
+    });
 }
