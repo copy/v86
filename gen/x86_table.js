@@ -624,7 +624,6 @@ const encodings = [
     { sse: 1, opcode: 0x660F7C, e: 1, custom: 1 }, // sse3
     { sse: 1, opcode: 0x660F7D, e: 1, custom: 1 }, // sse3
     { sse: 1, opcode: 0xF20F10, e: 1, custom: 1 },
-    { sse: 1, opcode: 0xF20F7C, e: 1, custom: 1 }, // sse3
     { sse: 1, opcode: 0xF20F7D, e: 1, custom: 1 }, // sse3
     { sse: 1, opcode: 0x0F11, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F11, e: 1, custom: 1 },
