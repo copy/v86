@@ -1,4 +1,4 @@
-Some operating systems don't support `hlt` instruction, because of this, the CPU takes cycles on idle.
+Some operating systems don't support `hlt` instruction, because of this, the CPU spin loops instead of idling.
 Here some solutions for different OSes:
 
 
@@ -9,7 +9,7 @@ Here some solutions for different OSes:
 4. Add to file: `C:\path\to\dosidle.exe`
 5. Save changes (*press Alt + F and x*) and restart the VM.
 
-**Note:** To hiding information on starting DOSIdle, change `C:\path\to\dosidle.exe` to `C:\path\to\dosidle.exe > nul` on step №4.
+**Note:** To hide output when starting DOSIdle, change `C:\path\to\dosidle.exe` to `C:\path\to\dosidle.exe > nul` on step №4.
 
 
 ## FreeDOS ([source](https://narkive.com/UGrcO8wU.2))
@@ -26,5 +26,5 @@ Here some solutions for different OSes:
 5. Restart Windows, and while next booting AmnHLT starts automatically (you can safely delete archive and unpacked folder).
 
 
-## Windows 2000+ and Unix-like
+## Windows 98+ and Unix-like
 These systems are already supports `hlt`, no further action is required.
