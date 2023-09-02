@@ -554,14 +554,41 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
     write_xmm64(r, data);
 }
 #[no_mangle]
-pub unsafe fn instr_F20F12_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
+pub unsafe fn instr_F20F12(source: reg128, r: i32) {
+    // movddup xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
+    instr_F20F12(return_on_pagefault!(safe_read128s(addr)), r);
+}
 #[no_mangle]
-pub unsafe fn instr_F20F12_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
-#[no_mangle]
-pub unsafe fn instr_F30F12_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
-#[no_mangle]
-pub unsafe fn instr_F30F12_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
-
+pub unsafe fn instr_F30F12(source: reg128, r: i32) {
+    // movsldup xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_FF30F12_reg(r1: i32, r2: i32) { instr_F30F12(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F30F12_mem(addr: i32, r: i32) {
+    instr_F30F12(return_on_pagefault!(safe_read128s(addr)), r);
+}
 pub unsafe fn instr_0F13_mem(addr: i32, r: i32) {
     // movlps m64, xmm
     movl_r128_m64(addr, r);
@@ -658,10 +685,23 @@ pub unsafe fn instr_660F16_mem(addr: i32, r: i32) {
 }
 pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_F30F16_reg(_r1: i32, _r2: i32) { unimplemented_sse(); }
-#[no_mangle]
-pub unsafe fn instr_F30F16_mem(_addr: i32, _r: i32) { unimplemented_sse(); }
-
+pub unsafe fn instr_F30F16(source: reg128, r: i32) {
+    // movshdup xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F30F16_mem(addr: i32, r: i32) {
+    instr_F30F16(return_on_pagefault!(safe_read128s(addr)), r);
+}
 pub unsafe fn instr_0F17_mem(addr: i32, r: i32) {
     // movhps m64, xmm
     movh_r128_m64(addr, r);
@@ -1823,7 +1863,7 @@ pub unsafe fn instr_F30F59_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_660F7C(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // haddpd xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
@@ -1841,7 +1881,7 @@ pub unsafe fn instr_660F7C_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_660F7D(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // hsupbd xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
@@ -1877,7 +1917,7 @@ pub unsafe fn instr_F20F7C_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DF(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // fisttp xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
@@ -1895,7 +1935,7 @@ pub unsafe fn instr_DF_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DD(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // fisttp xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
@@ -1913,7 +1953,7 @@ pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F20F7D(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // hsubps xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
