@@ -324,7 +324,7 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
     { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, }, // frstor
@@ -342,7 +342,7 @@ const encodings = [
     { opcode: 0xDE, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
+    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
     { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, }, // unimplemented: Binary Coded Decimals
@@ -631,8 +631,8 @@ const encodings = [
     { sse: 1, opcode: 0xF20F11, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F12, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F12, reg_ud: 1, e: 1, custom: 1 },
-    { sse: 1, opcode: 0xF20F12, e: 1, block_boundary: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0xF30F12, e: 1, block_boundary: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF20F12, e: 1, block_boundary: 1, custom: 0 }, // sse3
+    { sse: 1, opcode: 0xF30F12, e: 1, block_boundary: 1, custom: 0 }, // sse3
     { sse: 1, opcode: 0x0F13, reg_ud: 1, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F13, reg_ud: 1, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F14, e: 1, custom: 1 },
@@ -641,7 +641,7 @@ const encodings = [
     { sse: 1, opcode: 0x660F15, e: 1, custom: 1 },
     { sse: 1, opcode: 0x0F16, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F16, reg_ud: 1, e: 1, custom: 1 },
-    { sse: 1, opcode: 0xF30F16,  e: 1, block_boundary: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF30F16,  e: 1, block_boundary: 1, custom: 0 }, // sse3
     { sse: 1, opcode: 0x0F17, reg_ud: 1, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F17, reg_ud: 1, e: 1, custom: 1 },
 
