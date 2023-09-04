@@ -6,13 +6,13 @@ jobs:
   jshint:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: sudo npm install -g jshint; make jshint
   test:
     runs-on: ubuntu-22.04
     steps:
     - name: checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - uses: actions/cache@v3
       id: cache-rustup
