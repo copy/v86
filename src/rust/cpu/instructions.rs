@@ -1999,9 +1999,7 @@ pub unsafe fn instr_DD_1_reg(r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DD_1_mem(addr: i32) { fpu_fisttplm16(addr) }
-#[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
-#[no_mangle]
 pub unsafe fn instr_DF_mem(addr: i32) { fpu_fisttpm16(addr) }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
