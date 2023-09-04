@@ -6,15 +6,15 @@ jobs:
   jshint:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - run: sudo npm install -g jshint; make jshint
   test:
     runs-on: ubuntu-22.04
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       id: cache-rustup
       with:
         path: ~/.cache/rustup/
@@ -32,7 +32,7 @@ jobs:
     - name: make all
       run: make all
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       id: cache-kvm-unit-test
       with:
         path: tests/kvm-unit-tests/
@@ -43,7 +43,7 @@ jobs:
     - name: kvm-unit-test
       run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       id: cache-nasmtests
       with:
         path: tests/nasm/build/
@@ -59,7 +59,7 @@ jobs:
     - name: rust-test
       run: make rust-test
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       id: cache-images
       with:
         path: images/
