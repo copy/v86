@@ -10,9 +10,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         id: cache-rustup
         with:
           path: ~/.cache/rustup/
@@ -27,12 +27,12 @@ jobs:
         run: make build/libv86.js build/v86.wasm build/v86-fallback.wasm
 
       - name: Release to GitHub
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: ncipollo/release-action@v1
         with:
-          title: Latest Release
-          automatic_release_tag: latest
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          files: |
-            build/*.js
-            build/*.js.map
-            build/*.wasm
+          name: Latest Release
+          tag: latest
+          artifacts: "build/*.js, build/*.js.map, build/*.wasm"
+          allowUpdates: true
+          generateReleaseNotes: true
+          prerelease: true
+          token: "${{ secrets.GITHUB_TOKEN }}"
