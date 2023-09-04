@@ -31,8 +31,8 @@ jobs:
         with:
           name: Latest Release
           tag: latest
+          body: ${{ github.event.head_commit.message }}
           artifacts: "build/*.js, build/*.js.map, build/*.wasm"
           allowUpdates: true
-          generateReleaseNotes: true
           prerelease: true
           token: "${{ secrets.GITHUB_TOKEN }}"
