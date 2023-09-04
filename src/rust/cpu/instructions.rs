@@ -1991,17 +1991,10 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
     fpu_fdivr(r, fpu_get_sti(r));
     fpu_pop();
 }
-#[no_mangle]
-pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
-pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
-    instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
-}
-#[no_mangle]
 pub unsafe fn instr_DF_reg(r1: i32, r2: i32) { instr_DF(read_xmm128s(r1), r2); }
 pub unsafe fn instr_DF_mem(addr: i32, r: i32) {
     instr_DF(return_on_pagefault!(safe_read128s(addr)), r);
 }
-#[no_mangle]
 pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
 pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
     instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
