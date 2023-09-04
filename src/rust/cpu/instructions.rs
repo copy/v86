@@ -1989,7 +1989,7 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
     fpu_fdivr(r, fpu_get_sti(r));
     fpu_pop();
 }
-pub unsafe fn instr_DF_1_reg(r: i32) {
+pub unsafe fn instr_DF_reg(r: i32) {
     fpu_fisttp(r, fpu_get_sti(r));
     fpu_pop();
 }
@@ -2002,7 +2002,7 @@ pub unsafe fn instr_DD_1_mem(addr: i32) { fpu_fisttplm16(addr) }
 #[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
 #[no_mangle]
-pub unsafe fn instr_DF_1_mem(addr: i32) { fpu_fisttpm16(addr) }
+pub unsafe fn instr_DF_mem(addr: i32) { fpu_fisttpm16(addr) }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
 pub unsafe fn instr_DF_4_mem(_addr: i32) {
