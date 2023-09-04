@@ -1914,8 +1914,6 @@ pub unsafe fn instr16_DD_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr32_DD_0_reg(r: i32) { instr16_DD_0_reg(r) }
 #[no_mangle]
-
-#[no_mangle]
 pub unsafe fn instr32_DD_1_reg(r: i32) { instr16_DD_1_reg(r) }
 pub unsafe fn instr32_DD_2_reg(r: i32) { instr16_DD_2_reg(r) }
 pub unsafe fn instr32_DD_3_reg(r: i32) { instr16_DD_3_reg(r) }
