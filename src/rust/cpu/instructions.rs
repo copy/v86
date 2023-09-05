@@ -1982,19 +1982,44 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
     fpu_fdivr(r, fpu_get_sti(r));
     fpu_pop();
 }
-pub unsafe fn instr_DF_reg(r: i32) {
-    fpu_fisttp(r, fpu_get_sti(r));
-    fpu_pop();
+#[no_mangle]
+pub unsafe fn instr_DF(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
 }
-pub unsafe fn instr_DD_1_reg(r: i32) {
-    fpu_fisttpl(r, fpu_get_sti(r));
-    fpu_pop();
+pub unsafe fn instr_DF_reg(r1: i32, r2: i32) { instr_DF(read_xmm128s(r1), r2); }
+pub unsafe fn instr_DF_mem(addr: i32, r: i32) {
+    instr_DF(return_on_pagefault!(safe_read128s(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_DD_1_mem(addr: i32) { fpu_fisttplm16(addr) }
+pub unsafe fn instr_DD(source: reg128, r: i32) {
+    // haddps xmm, xmm/mem128
+    let destination = read_xmm128s(r);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] + destination.f32[1],
+            destination.f32[2] + destination.f32[3],
+            source.f32[0] + source.f32[1],
+            source.f32[2] + source.f32[3],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
+pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
+    instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
+}
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
 pub unsafe fn instr_DF_1_mem(addr: i32) { fpu_fxchm16(addr) }
-pub unsafe fn instr_DF_mem(addr: i32) { fpu_fisttpm16(addr) }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
 pub unsafe fn instr_DF_4_mem(_addr: i32) {
