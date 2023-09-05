@@ -1818,7 +1818,6 @@ pub unsafe fn instr_DA_5_reg(r: i32) {
 pub unsafe fn instr_DA_6_reg(_r: i32) { trigger_ud(); }
 pub unsafe fn instr_DA_7_reg(_r: i32) { trigger_ud(); }
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fildm32(addr); }
-pub unsafe fn instr_DB_1_mem(addr: i32) { fpu_fisttpm32(addr); }
 #[no_mangle]
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
@@ -1875,7 +1874,6 @@ pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
 #[no_mangle]
-pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttpm64(addr); }
 pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 #[no_mangle]
@@ -2014,6 +2012,18 @@ pub unsafe fn instr_DD(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
+#[no_mangle]
+pub unsafe fn instr_DF_1_reg(r: i32) { fpu_fxch(r) }
+pub unsafe fn instr_DF_2_reg(r: i32) { fpu_fstp(r); }
+pub unsafe fn instr_DF_3_reg(r: i32) { fpu_fstp(r); }
+pub unsafe fn instr_DF_4_reg(r: i32) {
+    if r == 0 {
+        fpu_fnstsw_reg();
+    }
+    else {
+        trigger_ud();
+    };
+}
 pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
 pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
     instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
@@ -2029,23 +2039,10 @@ pub unsafe fn instr_DF_4_mem(_addr: i32) {
 pub unsafe fn instr_DF_5_mem(addr: i32) { fpu_fildm64(addr); }
 pub unsafe fn instr_DF_6_mem(addr: i32) { fpu_fbstp(addr); }
 pub unsafe fn instr_DF_7_mem(addr: i32) { fpu_fistm64p(addr); }
-
 #[no_mangle]
 pub unsafe fn instr_DF_0_reg(r: i32) {
     fpu_ffree(r);
     fpu_pop();
-}
-#[no_mangle]
-pub unsafe fn instr_DF_1_reg(r: i32) { fpu_fxch(r) }
-pub unsafe fn instr_DF_2_reg(r: i32) { fpu_fstp(r); }
-pub unsafe fn instr_DF_3_reg(r: i32) { fpu_fstp(r); }
-pub unsafe fn instr_DF_4_reg(r: i32) {
-    if r == 0 {
-        fpu_fnstsw_reg();
-    }
-    else {
-        trigger_ud();
-    };
 }
 pub unsafe fn instr_DF_5_reg(r: i32) { fpu_fucomip(r); }
 pub unsafe fn instr_DF_6_reg(r: i32) { fpu_fcomip(r); }
