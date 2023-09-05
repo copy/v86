@@ -35,4 +35,3 @@ jobs:
           artifacts: "build/*.js, build/*.js.map, build/*.wasm"
           allowUpdates: true
           prerelease: true
-          token: "${{ secrets.GITHUB_TOKEN }}"
