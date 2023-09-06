@@ -6218,18 +6218,6 @@ pub fn instr_660F7C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 pub fn instr_660F7C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F7C", r1, r2);
 }
-pub fn instr_DF_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    sse_read128_xmm_mem(ctx, "instr_DF", modrm_byte, r);
-}
-pub fn instr_DF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    sse_read128_xmm_xmm(ctx, "instr_DF", r1, r2);
-}
-pub fn instr_DD_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    sse_read128_xmm_mem(ctx, "instr_DD", modrm_byte, r);
-}
-pub fn instr_DD_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    sse_read128_xmm_xmm(ctx, "instr_DD", r1, r2);
-}
 pub fn instr_F30F5B_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     sse_read128_xmm_mem(ctx, "instr_F30F5B", modrm_byte, r);
 }
