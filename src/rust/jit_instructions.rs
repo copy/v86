@@ -3852,7 +3852,17 @@ pub fn instr32_DD_0_reg_jit(ctx: &mut JitContext, r: u32) { instr16_DD_0_reg_jit
 pub fn instr32_DD_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     instr16_DD_0_mem_jit(ctx, modrm_byte)
 }
-
+pub fn instr16_DD_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    codegen::gen_fpu_load_m64(ctx, modrm_byte);
+    ctx.builder.call_fn2_i64_i32("fpu_push");
+}
+pub fn instr16_DD_1_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "fpu_fisttp", r);
+}
+pub fn instr32_DD_1_reg_jit(ctx: &mut JitContext, r: u32) { instr16_DD_1_reg_jit(ctx, r) }
+pub fn instr32_DD_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    instr16_DD_1_mem_jit(ctx, modrm_byte)
+}
 pub fn instr16_DD_2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
