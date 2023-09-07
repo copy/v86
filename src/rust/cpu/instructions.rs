@@ -1915,10 +1915,7 @@ pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
 #[no_mangle]
-pub unsafe fn instr16_DD_1_mem(_addr: i32) {
-    dbg_log!("fisttp");
-    fpu_unimpl();
-}
+pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttp(addr); }
 pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 #[no_mangle]
