@@ -101,6 +101,29 @@
 
     function onload()
     {
+        // Load previously entered options via the local storage
+        const elementsToRestore = ['memory_size', 'video_memory_size', 'networking_proxy', 'disable_audio', 'enable_acpi', 'boot_order'];
+        for (const elementId of elementsToRestore)
+        {
+            const savedValue = window.localStorage.getItem(elementId);
+          
+            if (savedValue !== null)
+            {
+                const element = document.getElementById(elementId);
+                if (element)
+                {
+                    if(element.type === 'checkbox')
+                    {
+                        element.checked = savedValue === 'true' ? true : false;
+                    }
+                    else
+                    {
+                        element.value = savedValue;
+                    }
+                }
+            }
+        }
+
         if(!window.WebAssembly)
         {
             alert("Your browser is not supported because it doesn't support WebAssembly");
@@ -116,6 +139,22 @@
 
         $("start_emulation").onclick = function()
         {
+            // Save entered options into the local storage
+            for (const elementId of elementsToRestore)
+            {
+                const element = document.getElementById(elementId);
+                if(element){
+                    if(element.tagName === 'SELECT' || element.type !== 'checkbox')
+                    {
+                        window.localStorage.setItem(elementId, element.value);
+                    }
+                    else
+                    {
+                        window.localStorage.setItem(elementId, element.checked);
+                    }
+                }
+            }
+
             $("boot_options").style.display = "none";
             set_profile("custom");
 
