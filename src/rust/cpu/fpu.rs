@@ -662,24 +662,15 @@ pub unsafe fn fpu_fisttp(addr: i32) {
             return;
         },
     }
-    let st0 = fpu_get_st0();
-    let mut x = st0.to_i64().unsigned_abs();
-    if x <= 99_9999_9999_9999_9999 {
-        for i in 0..=8 {
-            let low = x % 10;
-            x /= 10;
-            let high = x % 10;
-            x /= 10;
-            safe_write8(addr + i, (high as i32) << 4 | low as i32).unwrap();
-        }
-        safe_write8(addr + 9, if st0.sign() { 0x80 } else { 0 }).unwrap();
-    }
-    else {
-        fpu_invalid_arithmetic();
-        safe_write64(addr + 0, 0xC000_0000_0000_0000).unwrap();
-        safe_write16(addr + 8, 0xFFFF).unwrap();
-    }
-    fpu_pop();
+    let high_bits = 0xFFFF0000u32 as i32;
+    safe_write32(addr + 0, high_bits + *fpu_control_word as i32).unwrap();
+    safe_write32(addr + 4, high_bits + fpu_load_status_word() as i32).unwrap();
+    safe_write32(addr + 8, high_bits + fpu_load_tag_word()).unwrap();
+    safe_write32(addr + 12, *fpu_ip).unwrap();
+    safe_write16(addr + 16, *fpu_ip_selector).unwrap();
+    safe_write16(addr + 18, *fpu_opcode).unwrap();
+    safe_write32(addr + 20, *fpu_dp).unwrap();
+    safe_write32(addr + 24, high_bits | *fpu_dp_selector).unwrap();
 }
 #[no_mangle]
 pub unsafe fn fpu_fsub(target_index: i32, val: F80) {
