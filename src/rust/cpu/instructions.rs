@@ -1856,7 +1856,10 @@ pub unsafe fn instr_DA_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fildm32(addr); }
 #[no_mangle]
-pub unsafe fn instr_DB_1_mem(addr: i32) { fpu_fisttpm32(addr); }
+pub unsafe fn instr_DB_1_mem(_addr: i32) {
+    dbg_log!("fisttp");
+    fpu_unimpl();
+}
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
 #[no_mangle]
@@ -1912,7 +1915,7 @@ pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
 #[no_mangle]
-pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttpm64(addr); }
+pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttp(addr); }
 pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 #[no_mangle]
@@ -2023,7 +2026,10 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
 #[no_mangle]
-pub unsafe fn instr_DF_1_mem(addr: i32) { fpu_fisttpm16(addr); }
+pub unsafe fn instr_DF_1_mem(_addr: i32) {
+    dbg_log!("fisttp");
+    fpu_unimpl();
+}
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
 pub unsafe fn instr_DF_4_mem(_addr: i32) {
