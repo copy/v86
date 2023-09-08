@@ -243,18 +243,14 @@ pub unsafe fn fpu_fdivr(target_index: i32, val: F80) {
 }
 #[no_mangle]
 pub unsafe fn fpu_ffree(r: i32) { *fpu_stack_empty |= 1 << (*fpu_stack_ptr as i32 + r & 7); }
+
 #[no_mangle]
 pub unsafe fn fpu_fildm16(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i16(addr))); }
 #[no_mangle]
 pub unsafe fn fpu_fildm32(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i32(addr))); }
 #[no_mangle]
 pub unsafe fn fpu_fildm64(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i64(addr))); }
-#[no_mangle]
-pub unsafe fn fpu_fisttpm16(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i16(addr))); }
-#[no_mangle]
-pub unsafe fn fpu_fisttpm32(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i32(addr))); }
-#[no_mangle]
-pub unsafe fn fpu_fisttpm64(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_i64(addr))); }
+
 #[no_mangle]
 pub unsafe fn fpu_push(x: F80) {
     *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
@@ -629,6 +625,7 @@ pub unsafe fn fpu_fstp(r: i32) {
     fpu_fst(r);
     fpu_pop();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fbstp(addr: i32) {
     match writable_or_pagefault(addr, 26) {
@@ -668,7 +665,7 @@ pub unsafe fn fpu_fsubr(target_index: i32, val: F80) {
     let st0 = fpu_get_st0();
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, val - st0)
 }
-#[no_mangle]
+
 #[no_mangle]
 pub unsafe fn fpu_ftst() {
     let x = fpu_get_st0();
@@ -765,7 +762,6 @@ pub unsafe fn fpu_fxch(i: i32) {
     fpu_write_st(*fpu_stack_ptr as i32 + i & 7, fpu_get_st0());
     fpu_write_st(*fpu_stack_ptr as i32, sti);
 }
-
 pub unsafe fn fpu_fyl2x() {
     let st0 = fpu_get_st0();
     if st0 < F80::ZERO {
