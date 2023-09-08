@@ -326,6 +326,12 @@ pub unsafe fn fpu_fistm16(addr: i32) {
     safe_write16(addr, v as i32).unwrap();
 }
 #[no_mangle]
+pub unsafe fn fpu_fisttpm16(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 2));
+    let v = fpu_convert_to_i16(fpu_get_st0());
+    safe_write16(addr, v as i32).unwrap();
+}
+#[no_mangle]
 pub unsafe fn fpu_fistm16p(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 2));
     let v = fpu_convert_to_i16(fpu_get_st0());
@@ -339,6 +345,12 @@ pub unsafe fn fpu_convert_to_i32(f: F80) -> i32 {
     let x = f.to_i32();
     *fpu_status_word |= F80::get_exception_flags() as u16;
     x
+}
+#[no_mangle]
+pub unsafe fn fpu_fisttpm32(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 4));
+    let v = fpu_convert_to_i32(fpu_get_st0());
+    safe_write32(addr, v).unwrap();
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm32(addr: i32) {
@@ -368,7 +380,13 @@ pub unsafe fn fpu_fistm64p(addr: i32) {
     safe_write64(addr, v as u64).unwrap();
     fpu_pop();
 }
-
+#[no_mangle]
+pub unsafe fn fpu_fisttpm64(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 8));
+    let v = fpu_convert_to_i64(fpu_get_st0());
+    safe_write64(addr, v as u64).unwrap();
+    fpu_pop();
+}
 #[no_mangle]
 pub unsafe fn fpu_fldcw(addr: i32) {
     let word = return_on_pagefault!(safe_read16(addr)) as u16;
