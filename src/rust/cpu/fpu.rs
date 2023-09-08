@@ -653,25 +653,7 @@ pub unsafe fn fpu_fbstp(addr: i32) {
     }
     fpu_pop();
 }
-#[no_mangle]
-pub unsafe fn fpu_fisttp(addr: i32) {
-    match writable_or_pagefault(addr, 26) {
-        Ok(()) => *page_fault = false,
-        Err(()) => {
-            *page_fault = true;
-            return;
-        },
-    }
-    let high_bits = 0xFFFF0000u32 as i32;
-    safe_write32(addr + 0, high_bits + *fpu_control_word as i32).unwrap();
-    safe_write32(addr + 4, high_bits + fpu_load_status_word() as i32).unwrap();
-    safe_write32(addr + 8, high_bits + fpu_load_tag_word()).unwrap();
-    safe_write32(addr + 12, *fpu_ip).unwrap();
-    safe_write16(addr + 16, *fpu_ip_selector).unwrap();
-    safe_write16(addr + 18, *fpu_opcode).unwrap();
-    safe_write32(addr + 20, *fpu_dp).unwrap();
-    safe_write32(addr + 24, high_bits | *fpu_dp_selector).unwrap();
-}
+
 #[no_mangle]
 pub unsafe fn fpu_fsub(target_index: i32, val: F80) {
     let st0 = fpu_get_st0();
@@ -682,7 +664,11 @@ pub unsafe fn fpu_fsubr(target_index: i32, val: F80) {
     let st0 = fpu_get_st0();
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, val - st0)
 }
-
+#[no_mangle]
+pub unsafe fn fpu_fisttp(target_index: i32, val: F80) {
+    let st0 = fpu_get_st0();
+    fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, val - st0)
+}
 #[no_mangle]
 pub unsafe fn fpu_ftst() {
     let x = fpu_get_st0();
