@@ -3854,7 +3854,7 @@ pub fn instr32_DD_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 pub fn instr16_DD_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_fpu_load_m64(ctx, modrm_byte);
-    ctx.builder.call_fn2_i64_i32("fpu_push");
+    ctx.builder.call_fn2_i64_i32("fpu_fisttp");
 }
 pub fn instr16_DD_1_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "fpu_fisttp", r);
