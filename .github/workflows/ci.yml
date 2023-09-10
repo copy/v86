@@ -107,11 +107,9 @@ jobs:
         with:
           name: v86
           path: |
-            build/*.js
-            build/*.js.map
-            build/*.wasm
-            !build/libwabt.js
-            !build/dummy_output.wasm 
+            build/libv86*.js
+            build/libv86*.js.map
+            build/v86*.wasm
 
   upload:
     name: Upload release
@@ -139,5 +137,5 @@ jobs:
           tag: latest
           commit: master
           body: ${{ github.event.head_commit.message }}
-          artifacts: "build/v86/*.js, build/v86/*.js.map, build/v86/*.wasm"
+          artifacts: "build/v86/libv86*.js, build/v86/libv86*.js.map, build/v86/v86*.wasm"
           prerelease: true
