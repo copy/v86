@@ -1395,8 +1395,14 @@ pub unsafe fn instr_0F37() {
     // getsec
     undefined_instruction();
 }
-#[no_mangle]
-pub unsafe fn instr_0F38() { unimplemented_sse(); }
+pub unsafe fn instr16_0F38_mem(addr: i32, r: i32) {
+    cmovcc16(test_o(), return_on_pagefault!(safe_read16(addr)), r);
+}
+pub unsafe fn instr16_0F38_reg(r1: i32, r: i32) { cmovcc16(test_o(), read_reg16(r1), r); }
+pub unsafe fn instr32_0F38_mem(addr: i32, r: i32) {
+    cmovcc32(test_o(), return_on_pagefault!(safe_read32s(addr)), r);
+}
+pub unsafe fn instr32_0F38_reg(r1: i32, r: i32) { cmovcc32(test_o(), read_reg32(r1), r); }
 #[no_mangle]
 pub unsafe fn instr_0F39() { unimplemented_sse(); }
 #[no_mangle]
