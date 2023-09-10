@@ -5,7 +5,7 @@ WebAssembly modules at runtime in order to achieve decent performance. Here's a
 list of emulated hardware:
 
 - An x86-compatible CPU. The instruction set is around Pentium 4 level,
-  including full SSE2 support. Some features are missing, in particular:
+  including full SSE3 support. Some features are missing, in particular:
   - Task gates, far calls in protected mode
   - Some 16 bit protected mode features
   - Single stepping (trap flag, debug registers)
