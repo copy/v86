@@ -1868,7 +1868,7 @@ pub unsafe fn instr_660F7C(source: reg128, r: i32) {
     let result = reg128 {
         f64: [
             destination.f64[0] + source.f64[1],
-            destination.f64[1] + source.f64[2],
+            destination.f64[1] + source.f64[1],
         ],
     };
     write_xmm_reg128(r, result);
@@ -1884,7 +1884,7 @@ pub unsafe fn instr_660F7D(source: reg128, r: i32) {
     let result = reg128 {
         f64: [
             destination.f64[0] - source.f64[1],
-            destination.f64[1] - source.f64[2],
+            destination.f64[1] - source.f64[1],
         ],
     };
     write_xmm_reg128(r, result);
