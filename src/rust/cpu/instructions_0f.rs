@@ -1866,7 +1866,12 @@ pub unsafe fn instr_660F7C(source: reg128, r: i32) {
     // haddpd xmm1, xmm2/m128
     let destination = read_xmm128s(r);
     let result = reg128 {
-       f32: [source.f64[0] as f32, source.f64[1] as f32, 0., 0.],
+        i32: [
+            sse_convert_f32_to_i32(source.f32[0]),
+            sse_convert_f32_to_i32(source.f32[1]),
+            sse_convert_f32_to_i32(source.f32[2]),
+            sse_convert_f32_to_i32(source.f32[3]),
+        ],
     };
     write_xmm_reg128(r, result);
 }
@@ -1879,7 +1884,12 @@ pub unsafe fn instr_660F7D(source: reg128, r: i32) {
     // hsubpd xmm1, xmm2/m128
     let destination = read_xmm128s(r);
     let result = reg128 {
-        f32: [source.f64[0] as f32, source.f64[1] as f32, 0., 0.],
+        i32: [
+            sse_convert_f32_to_i32(source.f32[0]),
+            sse_convert_f32_to_i32(source.f32[1]),
+            sse_convert_f32_to_i32(source.f32[2]),
+            sse_convert_f32_to_i32(source.f32[3]),
+        ],
     };
     write_xmm_reg128(r, result);
 }
