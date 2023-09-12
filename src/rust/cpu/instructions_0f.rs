@@ -577,7 +577,7 @@ pub unsafe fn instr_F30F12(source: reg128, r: i32) {
             sse_convert_f32_to_i32(source.f32[2]),
             sse_convert_f32_to_i32(source.f32[3]),
         ],
-    }
+    };
     write_xmm_reg128(r, result);
 }
 pub unsafe fn instr_F30F12_reg(r1: i32, r2: i32) { instr_F30F12(read_xmm128s(r1), r2); }
