@@ -5694,7 +5694,7 @@ pub fn instr_F30F10_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
         .store_aligned_i32(global_pointers::get_reg_xmm_offset(r2));
 }
 pub fn instr_F30F12_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    instr_660F6E_mem_jit(ctx, modrm_byte, r)
+    sse_read128_xmm_mem(ctx, "instr_660F6E", modrm_byte, r);
 }
 pub fn instr_F30F12_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.const_i32(0);
