@@ -330,6 +330,7 @@ pub unsafe fn fpu_fisttpm16(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 2));
     let v = fpu_convert_to_i16(fpu_get_st0());
     safe_write16(addr, v as i32).unwrap();
+    fpu_pop();
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm16p(addr: i32) {
@@ -351,6 +352,7 @@ pub unsafe fn fpu_fisttpm32(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 4));
     let v = fpu_convert_to_i32(fpu_get_st0());
     safe_write32(addr, v).unwrap();
+    fpu_pop();
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm32(addr: i32) {
