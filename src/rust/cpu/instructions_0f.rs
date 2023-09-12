@@ -1873,7 +1873,7 @@ pub unsafe fn instr_660F7C(source: reg128, r: i32) {
             source.f32[2] + source.f32[3],
         ],
     };
-    write_xmm_reg128(r, result);
+    write_xmm_reg128(r, result * 2.0);
 }
 pub unsafe fn instr_660F7C_reg(r1: i32, r2: i32) { instr_660F7C(read_xmm128s(r1), r2); }
 pub unsafe fn instr_660F7C_mem(addr: i32, r: i32) {
