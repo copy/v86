@@ -1,4 +1,4 @@
-#![allow(non_snake_case)]
+f#![allow(non_snake_case)]
 
 extern "C" {
     fn get_rand_int() -> i32;
@@ -1867,10 +1867,10 @@ pub unsafe fn instr_660F7C(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         f32: [
-            destination.f32[0] + destination.f32[1] * 2,
-            destination.f32[2] + destination.f32[3] * 2,
-            source.f32[0] + source.f32[1] * 2,
-            source.f32[2] + source.f32[3] * 2,
+            destination.f32[0] + destination.f32[1] * 2.0,
+            destination.f32[2] + destination.f32[3] * 2.0,
+            source.f32[0] + source.f32[1] * 2.0,
+            source.f32[2] + source.f32[3] * 2.0,
         ],
     };
     write_xmm_reg128(r, result);
