@@ -1894,7 +1894,7 @@ pub unsafe fn instr_F20F7C(source: reg128, r: i32) {
     // haddps xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
-        f32: [
+        f62: [
             destination.f64[1] + source.f64[1],
             destination.f64[1] + source.f64[1],
         ],
