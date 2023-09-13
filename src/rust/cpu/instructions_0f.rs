@@ -559,8 +559,8 @@ pub unsafe fn instr_F20F12(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
         f64: [
-            destination.f32[0] + source.f32[1],
-            destination.f32[2] + source.f32[3],
+            destination.f64[0] + source.f64[1],
+            destination.f64[2] + source.f64[3],
         ],
     };
     write_xmm_reg128(r, result);
