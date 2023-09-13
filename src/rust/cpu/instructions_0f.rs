@@ -1,8 +1,3 @@
-         f64: [
-            destination.f64[0] - source.f64[1],
-            destination.f64[1] - source.f64[1],
-        ],#![allow(non_snake_case)]
-
 extern "C" {
     fn get_rand_int() -> i32;
 }
