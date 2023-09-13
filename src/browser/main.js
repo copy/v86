@@ -101,33 +101,33 @@
 
     function onload()
     {
-        // Load previously entered options via the local storage
-        const elementsToRestore = ['memory_size', 'video_memory_size', 'networking_proxy', 'disable_audio', 'enable_acpi', 'boot_order'];
-        for (const elementId of elementsToRestore)
-        {
-            const savedValue = window.localStorage.getItem(elementId);
-          
-            if (savedValue !== null)
-            {
-                const element = document.getElementById(elementId);
-                if (element)
-                {
-                    if(element.type === 'checkbox')
-                    {
-                        element.checked = savedValue === 'true' ? true : false;
-                    }
-                    else
-                    {
-                        element.value = savedValue;
-                    }
-                }
-            }
-        }
-
         if(!window.WebAssembly)
         {
             alert("Your browser is not supported because it doesn't support WebAssembly");
             return;
+        }
+
+        const elements_to_restore = ["memory_size", "video_memory_size", "networking_proxy", "disable_audio", "enable_acpi", "boot_order"];
+
+        for(const id of elements_to_restore)
+        {
+            const saved_value = window.localStorage.getItem(id);
+
+            if(saved_value)
+            {
+                const element = $(id);
+                if(element)
+                {
+                    if(element.type === "checkbox")
+                    {
+                        element.checked = saved_value === "true" ? true : false;
+                    }
+                    else
+                    {
+                        element.value = saved_value;
+                    }
+                }
+            }
         }
 
         const script = document.createElement("script");
@@ -140,17 +140,18 @@
         $("start_emulation").onclick = function()
         {
             // Save entered options into the local storage
-            for (const elementId of elementsToRestore)
+            for(const id of elements_to_restore)
             {
-                const element = document.getElementById(elementId);
-                if(element){
-                    if(element.tagName === 'SELECT' || element.type !== 'checkbox')
+                const element = document.getElementById(id);
+                if(element)
+                {
+                    if(element.tagName === "SELECT" || element.type !== "checkbox")
                     {
-                        window.localStorage.setItem(elementId, element.value);
+                        window.localStorage.setItem(id, element.value);
                     }
                     else
                     {
-                        window.localStorage.setItem(elementId, element.checked);
+                        window.localStorage.setItem(id, element.checked);
                     }
                 }
             }
