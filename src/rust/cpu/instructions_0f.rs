@@ -1,4 +1,7 @@
-#![allow(non_snake_case)]
+         f64: [
+            destination.f64[0] - source.f64[1],
+            destination.f64[1] - source.f64[1],
+        ],#![allow(non_snake_case)]
 
 extern "C" {
     fn get_rand_int() -> i32;
@@ -574,9 +577,9 @@ pub unsafe fn instr_F30F12(source: reg128, r: i32) {
     // movsldup xmm1, xmm2/m128
     let destination = read_xmm128s(r);
     let result = reg128 {
-        f64: [
-            source.f64[1] + destination.f64[1],
-            source.f64[1] + destination.f64[1],
+         f64: [
+            destination.f64[0] - source.f64[1],
+            destination.f64[1] - source.f64[0],
         ],
     };
     write_xmm_reg128(r, result);
@@ -686,8 +689,8 @@ pub unsafe fn instr_F30F16(source: reg128, r: i32) {
     let destination = read_xmm128s(r);
     let result = reg128 {
          f64: [
+            destination.f64[1] - source.f64[0],
             destination.f64[0] - source.f64[1],
-            destination.f64[1] - source.f64[1],
         ],
     };
     write_xmm_reg128(r, result);
