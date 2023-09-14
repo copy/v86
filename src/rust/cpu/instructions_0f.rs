@@ -668,22 +668,15 @@ pub unsafe fn instr_660F16_mem(addr: i32, r: i32) {
 }
 pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_F30F16(source: reg128, r: i32) {
+pub unsafe fn instr_F30F16(source: f32, r: i32) {
     // movshdup xmm1, xmm2/m128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-         f32: [
-            destination.f32[0] + source.f32[1],
-            destination.f32[1] + source.f32[1],
-            destination.f32[2] + source.f32[3],
-            destination.f32[3] + source.f32[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
+    let destination = read_xmm_f32(r);
+    let result = destination - source;
+    write_xmm_f32(r, result);
 }
-pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm_f32(r1), r2); }
 pub unsafe fn instr_F30F16_mem(addr: i32, r: i32) {
-    instr_F30F16(return_on_pagefault!(safe_read128s(addr)), r);
+    instr_F30F16(return_on_pagefault!(safe_read_f32(addr)), r);
 }
 pub unsafe fn instr_0F17_mem(addr: i32, r: i32) {
     // movhps m64, xmm
