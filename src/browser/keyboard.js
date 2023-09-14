@@ -11,8 +11,13 @@ var SCAN_CODE_RELEASE = 0x80;
  *
  * @param {BusConnector} bus
  */
-function KeyboardAdapter(bus)
+function KeyboardAdapter(bus, screen_container)
 {
+    // Make screen container focusable
+    if(screen_container.tabIndex === undefined)
+    {
+        screen_container.tabIndex = 0;
+    }
     var
         /**
          * @type {!Object.<boolean>}
@@ -234,25 +239,25 @@ function KeyboardAdapter(bus)
 
     this.destroy = function()
     {
-        if(typeof window !== "undefined")
+        if(typeof screen_container !== "undefined")
         {
-            window.removeEventListener("keyup", keyup_handler, false);
-            window.removeEventListener("keydown", keydown_handler, false);
-            window.removeEventListener("blur", blur_handler, false);
+            screen_container.removeEventListener("keyup", keyup_handler, false);
+            screen_container.removeEventListener("keydown", keydown_handler, false);
+            screen_container.removeEventListener("blur", blur_handler, false);
         }
     };
 
     this.init = function()
     {
-        if(typeof window === "undefined")
+        if(typeof screen_container === "undefined")
         {
             return;
         }
         this.destroy();
 
-        window.addEventListener("keyup", keyup_handler, false);
-        window.addEventListener("keydown", keydown_handler, false);
-        window.addEventListener("blur", blur_handler, false);
+        screen_container.addEventListener("keyup", keyup_handler, false);
+        screen_container.addEventListener("keydown", keydown_handler, false);
+        screen_container.addEventListener("blur", blur_handler, false);
     };
     this.init();
 
