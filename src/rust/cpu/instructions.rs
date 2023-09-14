@@ -1671,10 +1671,6 @@ pub unsafe fn instr_DD(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-pub unsafe fn instr_DD_reg(r1: i32, r2: i32) { instr_DD(read_xmm128s(r1), r2); }
-pub unsafe fn instr_DD_mem(addr: i32, r: i32) {
-    instr_DD(return_on_pagefault!(safe_read128s(addr)), r);
-}
 #[no_mangle]
 pub unsafe fn instr_D4(arg: i32) { bcd_aam(arg); }
 #[no_mangle]
