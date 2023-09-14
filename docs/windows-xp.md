@@ -35,7 +35,7 @@ Create `winxp.htm` with this content (assuming all the files are in the same fol
 <script>
 onload = function()
 {
-    new V86Starter({
+    new V86({
         wasm_path: "v86.wasm",
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" },

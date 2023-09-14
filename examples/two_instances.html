@@ -10,7 +10,7 @@ window.onload = function()
     var container1 = document.getElementById("screen_container1");
     var container2 = document.getElementById("screen_container2");
 
-    var emulator1 = new V86Starter({
+    var emulator1 = new V86({
         wasm_path: "../build/v86.wasm",
         screen_container: container1,
         bios: {
@@ -25,7 +25,7 @@ window.onload = function()
         autostart: true,
     });
 
-    var emulator2 = new V86Starter({
+    var emulator2 = new V86({
         wasm_path: "../build/v86.wasm",
         screen_container: container2,
         bios: {

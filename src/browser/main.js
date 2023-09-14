@@ -1391,7 +1391,7 @@
             };
         }
 
-        var emulator = new V86Starter({
+        var emulator = new V86({
             "memory_size": memory_size,
             "vga_memory_size": vga_memory_size,
 
@@ -1494,7 +1494,7 @@
 
     /**
      * @param {Object} settings
-     * @param {V86Starter} emulator
+     * @param {V86} emulator
      */
     function init_ui(settings, emulator)
     {

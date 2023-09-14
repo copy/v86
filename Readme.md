@@ -153,7 +153,7 @@ See [tests/Readme.md](tests/Readme.md) for more infos.
 Using v86 for your own purposes is as easy as:
 
 ```javascript
-var emulator = new V86Starter({
+var emulator = new V86({
     screen_container: document.getElementById("screen_container"),
     bios: {
         url: "../../bios/seabios.bin",

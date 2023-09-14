@@ -3,7 +3,7 @@
 /**
  * Constructor for emulator instances.
  *
- * Usage: `var emulator = new V86Starter(options);`
+ * Usage: `var emulator = new V86(options);`
  *
  * Options can have the following properties (all optional, default in parenthesis):
  *
@@ -88,7 +88,7 @@
  * @param {Object} options Options to initialize the emulator with.
  * @constructor
  */
-function V86Starter(options)
+function V86(options)
 {
     //var worker = new Worker("src/browser/worker.js");
     //var adapter_bus = this.bus = WorkerBus.init(worker);
@@ -234,7 +234,7 @@ function V86Starter(options)
     this.zstd_worker_request_id = 0;
 }
 
-V86Starter.prototype.continue_init = async function(emulator, options)
+V86.prototype.continue_init = async function(emulator, options)
 {
     this.bus.register("emulator-stopped", function()
     {
@@ -613,7 +613,7 @@ V86Starter.prototype.continue_init = async function(emulator, options)
  * @param {Uint8Array} src
  * @return {ArrayBuffer}
  */
-V86Starter.prototype.zstd_decompress = function(decompressed_size, src)
+V86.prototype.zstd_decompress = function(decompressed_size, src)
 {
     const cpu = this.v86.cpu;
 
@@ -637,7 +637,7 @@ V86Starter.prototype.zstd_decompress = function(decompressed_size, src)
  * @param {Uint8Array} src
  * @return {Promise<ArrayBuffer>}
  */
-V86Starter.prototype.zstd_decompress_worker = async function(decompressed_size, src)
+V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
 {
     if(!this.zstd_worker)
     {
@@ -709,7 +709,7 @@ V86Starter.prototype.zstd_decompress_worker = async function(decompressed_size, 
     });
 };
 
-V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
+V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 {
     const root = (filesystem.read_dir("/") || []).map(x => "/" + x);
     const boot = (filesystem.read_dir("/boot/") || []).map(x => "/boot/" + x);
@@ -749,7 +749,7 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
  * asynchronous.
  * @export
  */
-V86Starter.prototype.run = async function()
+V86.prototype.run = async function()
 {
     this.bus.send("cpu-run");
 };
@@ -758,7 +758,7 @@ V86Starter.prototype.run = async function()
  * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
  * @export
  */
-V86Starter.prototype.stop = async function()
+V86.prototype.stop = async function()
 {
     if(!this.cpu_is_running)
     {
@@ -779,7 +779,7 @@ V86Starter.prototype.stop = async function()
  * @ignore
  * @export
  */
-V86Starter.prototype.destroy = async function()
+V86.prototype.destroy = async function()
 {
     await this.stop();
 
@@ -796,7 +796,7 @@ V86Starter.prototype.destroy = async function()
  * Restart (force a reboot).
  * @export
  */
-V86Starter.prototype.restart = function()
+V86.prototype.restart = function()
 {
     this.bus.send("cpu-restart");
 };
@@ -811,7 +811,7 @@ V86Starter.prototype.restart = function()
  * @param {function(*)} listener The callback function.
  * @export
  */
-V86Starter.prototype.add_listener = function(event, listener)
+V86.prototype.add_listener = function(event, listener)
 {
     this.bus.register(event, listener, this);
 };
@@ -823,7 +823,7 @@ V86Starter.prototype.add_listener = function(event, listener)
  * @param {function(*)} listener
  * @export
  */
-V86Starter.prototype.remove_listener = function(event, listener)
+V86.prototype.remove_listener = function(event, listener)
 {
     this.bus.unregister(event, listener);
 };
@@ -843,7 +843,7 @@ V86Starter.prototype.remove_listener = function(event, listener)
  * @param {ArrayBuffer} state
  * @export
  */
-V86Starter.prototype.restore_state = async function(state)
+V86.prototype.restore_state = async function(state)
 {
     dbg_assert(arguments.length === 1);
     this.v86.restore_state(state);
@@ -855,7 +855,7 @@ V86Starter.prototype.restore_state = async function(state)
  * @return {Promise<ArrayBuffer>}
  * @export
  */
-V86Starter.prototype.save_state = async function()
+V86.prototype.save_state = async function()
 {
     dbg_assert(arguments.length === 0);
     return this.v86.save_state();
@@ -901,9 +901,9 @@ V86Starter.prototype.save_state = async function()
  * @return {Object}
  * @export
  */
-V86Starter.prototype.get_statistics = function()
+V86.prototype.get_statistics = function()
 {
-    console.warn("V86Starter.prototype.get_statistics is deprecated. Use events instead.");
+    console.warn("V86.prototype.get_statistics is deprecated. Use events instead.");
 
     var stats = {
         cpu: {
@@ -950,7 +950,7 @@ V86Starter.prototype.get_statistics = function()
  * @ignore
  * @export
  */
-V86Starter.prototype.get_instruction_counter = function()
+V86.prototype.get_instruction_counter = function()
 {
     if(this.v86)
     {
@@ -967,7 +967,7 @@ V86Starter.prototype.get_instruction_counter = function()
  * @return {boolean}
  * @export
  */
-V86Starter.prototype.is_running = function()
+V86.prototype.is_running = function()
 {
     return this.cpu_is_running;
 };
@@ -977,7 +977,7 @@ V86Starter.prototype.is_running = function()
  * when physically changing the floppy disk.
  * @export
  */
-V86Starter.prototype.set_fda = async function(file)
+V86.prototype.set_fda = async function(file)
 {
     if(file.url && !file.async)
     {
@@ -1003,7 +1003,7 @@ V86Starter.prototype.set_fda = async function(file)
  * Eject the floppy drive.
  * @export
  */
-V86Starter.prototype.eject_fda = function()
+V86.prototype.eject_fda = function()
 {
     this.v86.cpu.devices.fdc.eject_fda();
 };
@@ -1016,7 +1016,7 @@ V86Starter.prototype.eject_fda = function()
  * @param {Array.<number>} codes
  * @export
  */
-V86Starter.prototype.keyboard_send_scancodes = function(codes)
+V86.prototype.keyboard_send_scancodes = function(codes)
 {
     for(var i = 0; i < codes.length; i++)
     {
@@ -1029,7 +1029,7 @@ V86Starter.prototype.keyboard_send_scancodes = function(codes)
  * @ignore
  * @export
  */
-V86Starter.prototype.keyboard_send_keys = function(codes)
+V86.prototype.keyboard_send_keys = function(codes)
 {
     for(var i = 0; i < codes.length; i++)
     {
@@ -1042,7 +1042,7 @@ V86Starter.prototype.keyboard_send_keys = function(codes)
  * @ignore
  * @export
  */
-V86Starter.prototype.keyboard_send_text = function(string)
+V86.prototype.keyboard_send_text = function(string)
 {
     for(var i = 0; i < string.length; i++)
     {
@@ -1056,7 +1056,7 @@ V86Starter.prototype.keyboard_send_text = function(string)
  * @ignore
  * @export
  */
-V86Starter.prototype.screen_make_screenshot = function()
+V86.prototype.screen_make_screenshot = function()
 {
     if(this.screen_adapter)
     {
@@ -1074,7 +1074,7 @@ V86Starter.prototype.screen_make_screenshot = function()
  * @ignore
  * @export
  */
-V86Starter.prototype.screen_set_scale = function(sx, sy)
+V86.prototype.screen_set_scale = function(sx, sy)
 {
     if(this.screen_adapter)
     {
@@ -1088,7 +1088,7 @@ V86Starter.prototype.screen_set_scale = function(sx, sy)
  * @ignore
  * @export
  */
-V86Starter.prototype.screen_go_fullscreen = function()
+V86.prototype.screen_go_fullscreen = function()
 {
     if(!this.screen_adapter)
     {
@@ -1132,7 +1132,7 @@ V86Starter.prototype.screen_go_fullscreen = function()
  * @ignore
  * @export
  */
-V86Starter.prototype.lock_mouse = function()
+V86.prototype.lock_mouse = function()
 {
     var elem = document.body;
 
@@ -1151,7 +1151,7 @@ V86Starter.prototype.lock_mouse = function()
  *
  * @param {boolean} enabled
  */
-V86Starter.prototype.mouse_set_status = function(enabled)
+V86.prototype.mouse_set_status = function(enabled)
 {
     if(this.mouse_adapter)
     {
@@ -1165,7 +1165,7 @@ V86Starter.prototype.mouse_set_status = function(enabled)
  * @param {boolean} enabled
  * @export
  */
-V86Starter.prototype.keyboard_set_status = function(enabled)
+V86.prototype.keyboard_set_status = function(enabled)
 {
     if(this.keyboard_adapter)
     {
@@ -1180,7 +1180,7 @@ V86Starter.prototype.keyboard_set_status = function(enabled)
  * @param {string} data
  * @export
  */
-V86Starter.prototype.serial0_send = function(data)
+V86.prototype.serial0_send = function(data)
 {
     for(var i = 0; i < data.length; i++)
     {
@@ -1194,7 +1194,7 @@ V86Starter.prototype.serial0_send = function(data)
  * @param {Uint8Array} data
  * @export
  */
-V86Starter.prototype.serial_send_bytes = function(serial, data)
+V86.prototype.serial_send_bytes = function(serial, data)
 {
     for(var i = 0; i < data.length; i++)
     {
@@ -1210,7 +1210,7 @@ V86Starter.prototype.serial_send_bytes = function(serial, data)
  * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
+V86.prototype.mount_fs = async function(path, baseurl, basefs, callback)
 {
     let file_storage = new MemoryFileStorage();
 
@@ -1263,7 +1263,7 @@ V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback)
  * @param {Uint8Array} data
  * @export
  */
-V86Starter.prototype.create_file = async function(file, data)
+V86.prototype.create_file = async function(file, data)
 {
     dbg_assert(arguments.length === 2);
     var fs = this.fs9p;
@@ -1297,7 +1297,7 @@ V86Starter.prototype.create_file = async function(file, data)
  * @param {string} file
  * @export
  */
-V86Starter.prototype.read_file = async function(file)
+V86.prototype.read_file = async function(file)
 {
     dbg_assert(arguments.length === 1);
     var fs = this.fs9p;
@@ -1319,7 +1319,7 @@ V86Starter.prototype.read_file = async function(file)
     }
 };
 
-V86Starter.prototype.automatically = function(steps)
+V86.prototype.automatically = function(steps)
 {
     const run = (steps) =>
     {
@@ -1392,7 +1392,7 @@ V86Starter.prototype.automatically = function(steps)
  * @param {number} length
  * @returns
  */
-V86Starter.prototype.read_memory = function(offset, length)
+V86.prototype.read_memory = function(offset, length)
 {
     return this.v86.cpu.read_blob(offset, length);
 };
@@ -1403,7 +1403,7 @@ V86Starter.prototype.read_memory = function(offset, length)
  * @param {Array.<number>|Uint8Array} blob
  * @param {number} offset
  */
-V86Starter.prototype.write_memory = function(blob, offset)
+V86.prototype.write_memory = function(blob, offset)
 {
     this.v86.cpu.write_blob(blob, offset);
 };
@@ -1435,17 +1435,17 @@ FileNotFoundError.prototype = Error.prototype;
 // Closure Compiler's way of exporting
 if(typeof window !== "undefined")
 {
-    window["V86Starter"] = V86Starter;
-    window["V86"] = V86Starter;
+    window["V86Starter"] = V86;
+    window["V86"] = V86;
 }
 else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
-    module.exports["V86Starter"] = V86Starter;
-    module.exports["V86"] = V86Starter;
+    module.exports["V86Starter"] = V86;
+    module.exports["V86"] = V86;
 }
 else if(typeof importScripts === "function")
 {
     // web worker
-    self["V86Starter"] = V86Starter;
-    self["V86"] = V86Starter;
+    self["V86Starter"] = V86;
+    self["V86"] = V86;
 }

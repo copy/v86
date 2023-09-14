@@ -13,7 +13,7 @@ window.onload = function()
     // Support of the "Range: bytes=..." header is required on the server, CORS
     // is required if the server is on a different host
 
-    var emulator = new V86Starter({
+    var emulator = new V86({
         wasm_path: "../build/v86.wasm",
         memory_size: 64 * 1024 * 1024,
         vga_memory_size: 2 * 1024 * 1024,
