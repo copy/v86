@@ -1,4 +1,4 @@
-#![allow(nonstandard-style)]
+#![allow(nonstandard_style)]
 
 #![allow(const_item_mutation)]
 
