@@ -552,11 +552,14 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
     write_xmm64(r, data);
 }
 #[no_mangle]
-pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
-    // movddup xmm, xmm/mem64
-    movl_r128_m64(addr, r);
+pub unsafe fn instr_F20F12(source: i32, r: i32) {
+    // movddup xmm1, xmm2/m64
+    write_xmm128(r, source, 0, 0, 0);
 }
-pub unsafe fn instr_F20F12_reg(_r1: i32, _r2: i32) { trigger_ud(); }
+pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_reg32(r1), r2); }
+pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
+    instr_F20F12(return_on_pagefault!(safe_read32s(addr)), r);
+}
 #[no_mangle]
 pub unsafe fn instr_F30F12(source: f32, r: i32) {
     // movsldup xmm1, xmm2/m128
