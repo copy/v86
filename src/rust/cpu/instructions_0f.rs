@@ -556,7 +556,7 @@ pub unsafe fn instr_F20F12(source: reg128, r: i32) {
     // movddup xmm1, xmm2/m64
     movh_r128_m64(addr, r);
 }
-pub unsafe fn instr_F20F12_reg(r1: reg128, r2: i32) { instr_F20F12(read_reg32(r1), r2); }
+pub unsafe fn instr_F20F12_reg(r1: reg128, r2: i32) { instr_F20F12(read_reg128(r1), r2); }
 pub unsafe fn instr_F20F12_mem(addr: reg128, r: i32) {
     instr_F20F12(return_on_pagefault!(safe_read32s(addr)), r);
 }
