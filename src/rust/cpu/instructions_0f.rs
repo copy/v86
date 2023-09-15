@@ -553,7 +553,7 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F20F12(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
+    // movsldup xmm, xmm/mem128
     let destination = read_xmm128s(r);
     let result = reg128 {
         f64: [
