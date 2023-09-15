@@ -552,7 +552,7 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
     write_xmm64(r, data);
 }
 #[no_mangle]
-pub unsafe fn instr_F20F12(source: reg128, r: i32) {
+pub unsafe fn instr_F20F12(addr: i32, r: i32) {
     // movddup xmm, xmm/mem64
     mov_r_m128(addr, r);
 }
