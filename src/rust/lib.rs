@@ -1,5 +1,3 @@
-#![allow(nonstandard_style)]
-
 #![allow(const_item_mutation)]
 
 #[macro_use]

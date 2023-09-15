@@ -1639,38 +1639,7 @@ pub unsafe fn instr32_D3_7_mem(addr: i32) {
 pub unsafe fn instr32_D3_7_reg(r1: i32) {
     write_reg32(r1, sar32(read_reg32(r1), read_reg8(CL) & 31));
 }
-#[no_mangle]
-pub unsafe fn instr_DF(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32: [
-            destination.f32[0] + destination.f32[1],
-            destination.f32[2] + destination.f32[3],
-            source.f32[0] + source.f32[1],
-            source.f32[2] + source.f32[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
-pub unsafe fn instr_DF_reg(r1: i32, r2: i32) { instr_DF(read_xmm128s(r1), r2); }
-pub unsafe fn instr_DF_mem(addr: i32, r: i32) {
-    instr_DF(return_on_pagefault!(safe_read128s(addr)), r);
-}
-#[no_mangle]
-pub unsafe fn instr_DD(source: reg128, r: i32) {
-    // haddps xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
-        f32: [
-            destination.f32[0] + destination.f32[1],
-            destination.f32[2] + destination.f32[3],
-            source.f32[0] + source.f32[1],
-            source.f32[2] + source.f32[3],
-        ],
-    };
-    write_xmm_reg128(r, result);
-}
+
 #[no_mangle]
 pub unsafe fn instr_D4(arg: i32) { bcd_aam(arg); }
 #[no_mangle]
