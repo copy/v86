@@ -563,7 +563,7 @@ pub unsafe fn instr_F20F12(source: reg128, r: i32) {
     };
     write_xmm_reg128(r, result);
 }
-pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm64s(r1), r2); }
+pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
     instr_F20F12(return_on_pagefault!(safe_read128s(addr)), r);
 }
