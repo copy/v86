@@ -552,12 +552,12 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
     write_xmm64(r, data);
 }
 #[no_mangle]
-pub unsafe fn instr_F20F12(source: i32, r: i32) {
+pub unsafe fn instr_F20F12(source: reg128, r: i32) {
     // movddup xmm1, xmm2/m64
-    write_xmm128(r, source, 0, 0, 0);
+    movh_r128_m64(addr, r);
 }
-pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_reg32(r1), r2); }
-pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
+pub unsafe fn instr_F20F12_reg(r1: reg128, r2: i32) { instr_F20F12(read_reg32(r1), r2); }
+pub unsafe fn instr_F20F12_mem(addr: reg128, r: i32) {
     instr_F20F12(return_on_pagefault!(safe_read32s(addr)), r);
 }
 #[no_mangle]
@@ -3193,7 +3193,7 @@ pub unsafe fn instr_0FA2() {
     let mut ebx = 0;
 
     let level = read_reg32(EAX) as u32;
-
+        
     match level {
         0 => {
             // maximum supported level (default 0x16, overwritten to 2 as a workaround for Windows NT)
