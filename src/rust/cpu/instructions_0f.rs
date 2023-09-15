@@ -555,8 +555,7 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
 pub unsafe fn instr_F20F12(source: f32, r: i32) {
     // movddup xmm1, xmm2/m64
     let destination = read_xmm_f32(r);
-    let result = destination - source;
-    write_xmm_f32(r, result);
+    write_xmm_f32(r, f64::from_bits(source), f64::from_bits(source));
 }
 pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm_f32(r1), r2); }
 pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
@@ -2045,7 +2044,7 @@ pub unsafe fn instr_660F5C_mem(addr: i32, r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_F20F5C(source: u64, r: i32) {
-    // subsd xmm, xmm/mem64
+    // subsd xmm1, xmm2/m64
     let destination = read_xmm64s(r);
     write_xmm_f64(r, f64::from_bits(destination) - f64::from_bits(source));
 }
