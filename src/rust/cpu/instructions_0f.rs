@@ -552,18 +552,18 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
     write_xmm64(r, data);
 }
 #[no_mangle]
-pub unsafe fn instr_F20F12(source: reg128, r: i32) {
-    // movddup xmm, xmm/mem128
-    let destination = read_xmm128s(r);
-    let result = reg128 {
+pub unsafe fn instr_F20F12(source: u64, r: i32) {
+    // movddup xmm, xmm/mem64
+    let destination = read_xmm64s(r);
+    let result = reg64 {
         f64: [
-            destination.f64[0] + source.f64[1],
-            destination.f64[2] + source.f64[3],
+            destination.f64[0] = source.f64[0],
+            destination.f64[1] = source.f64[0],
         ],
     };
     write_xmm_reg128(r, result);
 }
-pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm128s(r1), r2); }
+pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm64s(r1), r2); }
 pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
     instr_F20F12(return_on_pagefault!(safe_read128s(addr)), r);
 }
@@ -571,9 +571,13 @@ pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
 pub unsafe fn instr_F30F12(source: reg128, r: i32) {
     // movsldup xmm1, xmm2/m128
     let destination = read_xmm128s(r);
-    let mut result = reg128 { i8: [0; 16] };
-    for i in 0..8 {
-        result.i16[i] = i16::max(destination.i16[i], source.i16[i])
+    let result = reg128 {
+        f32: [
+            destination.f32[0] = source.f32[0];
+	        destination.f32[1] = source.f32[0];
+	        destination.f32[2] = source.f32[2];
+	        destination.f32[3] = source.f32[2];
+        ]
     }
     write_xmm_reg128(r, result);
 }
@@ -677,13 +681,19 @@ pub unsafe fn instr_660F16_mem(addr: i32, r: i32) {
 }
 pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_F30F16(source: f32, r: i32) {
+pub unsafe fn instr_F30F16(source: reg128, r: i32) {
     // movshdup xmm1, xmm2/m128
     let destination = read_xmm_f32(r);
-    let result = destination - source;
-    write_xmm_f32(r, result);
+    let result = reg128 {
+        f32: [
+            destination.f32[0] = source.f32[1];
+	        destination.f32[1] = source.f32[1];
+	        destination.f32[2] = source.f32[3];
+	        destination.f32[3] = source.f32[3];
+        ]
+    }
 }
-pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm_f32(r1), r2); }
+pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F30F16_mem(addr: i32, r: i32) {
     instr_F30F16(return_on_pagefault!(safe_read_f32(addr)), r);
 }
