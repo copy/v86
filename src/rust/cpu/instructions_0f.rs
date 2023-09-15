@@ -556,7 +556,7 @@ pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
     // movddup xmm, xmm/mem64
     movl_r128_m64(addr, r);
 }
-pub unsafe fn instr_F20F12_reg(_r1: i32, _r2: i32) { trigger_ud(); 
+pub unsafe fn instr_F20F12_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_F30F12(source: f32, r: i32) {
     // movsldup xmm1, xmm2/m128
