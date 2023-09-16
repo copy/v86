@@ -11,6 +11,10 @@ const af = 1 << 4;
 const pf = 1 << 2;
 const sf = 1 << 7;
 
+// Test intel-specific behaviour
+// Setting this to true can make some tests fail
+const TESTS_ASSUME_INTEL = false;
+
 // === Types of instructions
 //
 // create entry | check for compiled code | instruction
@@ -158,9 +162,9 @@ const encodings = [
     { opcode: 0x67, prefix: 1, },
 
     { opcode: 0x68, custom: 1, os: 1, imm1632: 1 },
-    { opcode: 0x69, os: 1, e: 1, custom: 1, imm1632: 1, mask_flags: af, }, // zf?
+    { opcode: 0x69, os: 1, e: 1, custom: 1, imm1632: 1, mask_flags: TESTS_ASSUME_INTEL ? af : sf | zf | af | pf },
     { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 },
-    { opcode: 0x6B, os: 1, e: 1, custom: 1, imm8s: 1, mask_flags: af, }, // zf?
+    { opcode: 0x6B, os: 1, e: 1, custom: 1, imm8s: 1, mask_flags: TESTS_ASSUME_INTEL ? af : sf | zf | af | pf },
 
     { opcode: 0x6C, block_boundary: 1, custom: 1, is_string: 1, skip: 1, },          // ins
     { opcode: 0xF26C, block_boundary: 1, custom: 1, is_string: 1, skip: 1, },
@@ -383,19 +387,20 @@ const encodings = [
     { opcode: 0xF6, e: 1, fixed_g: 1, imm8: 1, custom: 1 },
     { opcode: 0xF6, e: 1, fixed_g: 2, custom: 1 },
     { opcode: 0xF6, e: 1, fixed_g: 3, custom: 1 },
-    { opcode: 0xF6, e: 1, fixed_g: 4, mask_flags: af | zf, },
-    { opcode: 0xF6, e: 1, fixed_g: 5, mask_flags: af | zf, },
-    { opcode: 0xF6, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
-    { opcode: 0xF6, e: 1, fixed_g: 7, block_boundary: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 4, mask_flags: TESTS_ASSUME_INTEL ? af | zf : sf | zf | af | pf },
+    { opcode: 0xF6, e: 1, fixed_g: 5, mask_flags: TESTS_ASSUME_INTEL ? af | zf : sf | zf | af | pf },
+    // div/idiv: Not a block boundary, but doesn't use control flow exceptions
+    { opcode: 0xF6, e: 1, fixed_g: 6, mask_flags: TESTS_ASSUME_INTEL ? 0 : sf | zf | af | pf, block_boundary: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 7, mask_flags: TESTS_ASSUME_INTEL ? 0 : sf | zf | af | pf, block_boundary: 1, },
 
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, imm1632: 1, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, imm1632: 1, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: TESTS_ASSUME_INTEL ? af | zf : sf | zf | af | pf, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: TESTS_ASSUME_INTEL ? af | zf : sf | zf | af | pf, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, mask_flags: TESTS_ASSUME_INTEL ? 0 : sf | zf | af | pf, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, mask_flags: TESTS_ASSUME_INTEL ? 0 : sf | zf | af | pf, custom: 1 },
 
     { opcode: 0xF8, custom: 1 },
     { opcode: 0xF9, custom: 1 },
@@ -580,7 +585,7 @@ const encodings = [
     { opcode: 0x0FAE, e: 1, fixed_g: 6, skip: 1, block_boundary: 1, }, // mfence (reg, only 0), xsaveopt (mem, not implemented)
     { opcode: 0x0FAE, e: 1, fixed_g: 7, skip: 1, block_boundary: 1, }, // sfence (reg, only 0), clflush (mem)
 
-    { opcode: 0x0FAF, os: 1, e: 1, mask_flags: af | zf, custom: 1, }, // imul
+    { opcode: 0x0FAF, os: 1, e: 1, mask_flags: TESTS_ASSUME_INTEL ? af | zf : sf | zf | af | pf, custom: 1, }, // imul
 
     { opcode: 0x0FB0, e: 1 }, // cmxchg
     { opcode: 0x0FB1, os: 1, e: 1, custom: 1 },

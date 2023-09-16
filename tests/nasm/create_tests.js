@@ -390,7 +390,15 @@ function create_nasm(op, config, nth_test)
         op.opcode === 0x0FA0 || op.opcode === 0x0FA8)
     {
         // push sreg: mask result
-        codes.push("mov word [esp], 0");
+        if(size === 16)
+        {
+            codes.push("mov word [esp], 0");
+        }
+        else
+        {
+            // NOTE: upper word is undefined behaviour (unchanged on Intel, zero on AMD)
+            codes.push("mov dword [esp], 0");
+        }
     }
 
     return all_combinations(codes).map(c => {
