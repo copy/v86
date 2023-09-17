@@ -129,6 +129,9 @@ impl F80 {
     pub fn to_i32(&self) -> i32 { unsafe { extF80M_to_i32(self, softfloat_roundingMode, false) } }
     pub fn to_i64(&self) -> i64 { unsafe { extF80M_to_i64(self, softfloat_roundingMode, false) } }
 
+    pub fn truncate_to_i32(&self) -> i32 { unsafe { extF80M_to_i32(self, 1, false) } }
+    pub fn truncate_to_i64(&self) -> i64 { unsafe { extF80M_to_i64(self, 1, false) } }
+
     pub fn cos(self) -> F80 { F80::of_f64x(self.to_f64x().cos()) }
     pub fn sin(self) -> F80 { F80::of_f64x(self.to_f64x().sin()) }
     pub fn tan(self) -> F80 { F80::of_f64x(self.to_f64x().tan()) }

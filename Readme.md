@@ -5,7 +5,7 @@ WebAssembly modules at runtime in order to achieve decent performance. Here's a
 list of emulated hardware:
 
 - An x86-compatible CPU. The instruction set is around Pentium 4 level,
-  including full SSE2 support. Some features are missing, in particular:
+  including full SSE3 support. Some features are missing, in particular:
   - Task gates, far calls in protected mode
   - Some 16 bit protected mode features
   - Single stepping (trap flag, debug registers)
@@ -25,7 +25,7 @@ list of emulated hardware:
 - A generic VGA card with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
-- An NE2000 (8390) PCI network card.
+- An NE2000 (RTL8390) PCI network card.
 - A virtio filesystem.
 - A SoundBlaster 16 sound card.
 
@@ -81,8 +81,7 @@ Here's an overview of the operating systems supported in v86:
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works.
 - Haiku works.
-- Android x86 1.6-r2 works if one selects VESA mode at the boot prompt. Newer
-  versions may work if compiled without SSE3. See [#224](https://github.com/copy/v86/issues/224).
+- Android-x86 works up to 4.4-r2, if you select VESA mode at the boot prompt.
 - Windows 1, 3.x, 95, 98, ME, NT and 2000 work reasonably well.
   - In Windows 2000 and higher the PC type has to be changed from ACPI PC to Standard PC
   - There are some known boot issues ([#250](https://github.com/copy/v86/issues/250), [#433](https://github.com/copy/v86/issues/433), [#507](https://github.com/copy/v86/issues/507), [#555](https://github.com/copy/v86/issues/555), [#620](https://github.com/copy/v86/issues/620), [#645](https://github.com/copy/v86/issues/645))
