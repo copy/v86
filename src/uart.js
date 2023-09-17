@@ -143,14 +143,18 @@ function UART(cpu, port, bus)
             if(this.input.length === 0)
             {
                 dbg_log("Read input empty", LOG_SERIAL);
-                this.lsr &= ~UART_LSR_DATA_READY;
-                this.ClearInterrupt(UART_IIR_CTI);
-                this.ClearInterrupt(UART_IIR_RDI);
             }
             else
             {
                 data = this.input.shift();
                 dbg_log("Read input: " + h(data), LOG_SERIAL);
+            }
+
+            if(this.input.length === 0)
+            {
+                this.lsr &= ~UART_LSR_DATA_READY;
+                this.ClearInterrupt(UART_IIR_CTI);
+                this.ClearInterrupt(UART_IIR_RDI);
             }
 
             return data;
