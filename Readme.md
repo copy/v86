@@ -67,7 +67,13 @@ list of emulated hardware:
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well. 64-bit kernels are not supported.
-  - Damn Small Linux (2.4 Kernel) works.
+  - Damn Small Linux (2.4.31 kernel) works.
+  - KNOPPIX 9.1 works.
+  - Elementary OS 0.3.2 works.
+  - Slax works.
+  - AntiX works
+  - Fedora 30 works.
+  - Zorin OS 12.6 works.
   - All tested versions of TinyCore work.
   - [Buildroot](https://buildroot.uclibc.org) can be used to build a minimal image.
     [humphd/browser-vm](https://github.com/humphd/browser-vm) and
