@@ -44,8 +44,9 @@ var boot_start = Date.now();
 var serial_text = "";
 let booted = false;
 
-emulator.add_listener("serial0-output-char", function(c)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var c = String.fromCharCode(byte);
     process.stdout.write(c);
 
     serial_text += c;

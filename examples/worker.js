@@ -17,8 +17,9 @@ var emulator = new V86({
 });
 
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     this.postMessage(chr);
 }.bind(this));
 

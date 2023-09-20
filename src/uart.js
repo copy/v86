@@ -342,12 +342,11 @@ UART.prototype.write_data = function(out_byte)
 
     this.ThrowInterrupt(UART_IIR_THRI);
 
-    var char = String.fromCharCode(out_byte);
-
-    this.bus.send("serial" + this.com + "-output-char", char);
+    this.bus.send("serial" + this.com + "-output-byte", out_byte);
 
     if(DEBUG)
     {
+        var char = String.fromCharCode(out_byte);
         this.current_line += char;
 
         if(char === "\n")

@@ -1203,8 +1203,9 @@ function run_test(test, done)
     }
 
     let serial_line = "";
-    emulator.add_listener("serial0-output-char", function(c)
+    emulator.add_listener("serial0-output-byte", function(byte)
         {
+            var c = String.fromCharCode(byte);
             if(c === "\n")
             {
                 if(VERBOSE)
