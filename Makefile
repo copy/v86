@@ -323,7 +323,7 @@ jshint:
 	jshint --config=./.jshint.json src tests gen lib
 
 rustfmt: $(RUST_FILES)
-	cargo fmt --all -- --check
+	cargo +nightly fmt --all -- --check
 
 build/capstone-x86.min.js:
 	mkdir -p build
