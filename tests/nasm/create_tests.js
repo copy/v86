@@ -284,6 +284,13 @@ function create_nasm(op, config, nth_test)
 
     let opcode = op.opcode;
 
+    if([0x0FA5, 0x0FAD].includes(op.opcode) && size === 16)
+    {
+        // shld/shrd: immediates larger than opsize are undefined behaviour,
+        // but it's anded with 31 automatically, so only bit 4 needs to be cleared
+        codes.push("and cl, ~16");
+    }
+
     if(opcode === 0x8D)
     {
         // special case: lea: generate 16-bit addressing and all modrm combinations
@@ -350,7 +357,15 @@ function create_nasm(op, config, nth_test)
     {
         if(op.imm8 || op.imm8s)
         {
-            codes.push("db 12h");
+            if([0x0FA4, 0x0FAC].includes(op.opcode))
+            {
+                // shld/shrd: immediates larger than opsize are undefined behaviour
+                codes.push("db 0fh");
+            }
+            else
+            {
+                codes.push("db 12h");
+            }
         }
         else
         {
