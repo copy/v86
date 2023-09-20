@@ -310,7 +310,7 @@ const encodings = [
     { opcode: 0xDA, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDB, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
+    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
     { opcode: 0xDB, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -328,7 +328,7 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
     { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1 }, // frstor
@@ -346,7 +346,7 @@ const encodings = [
     { opcode: 0xDE, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1 }, // fisttp (sse3)
+    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1 }, // fisttp (sse3)
     { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, skip_mem: 1 }, // unimplemented: Binary Coded Decimals

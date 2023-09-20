@@ -375,6 +375,7 @@ pub unsafe fn fpu_fistm64p(addr: i32) {
     safe_write64(addr, v as u64).unwrap();
     fpu_pop();
 }
+#[no_mangle]
 pub unsafe fn fpu_truncate_to_i64(f: F80) -> i64 {
     F80::clear_exception_flags();
     let x = f.truncate_to_i64();
