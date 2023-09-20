@@ -621,7 +621,6 @@ const encodings = [
 
 
     // mmx, sse
-    // - skipped or missing are ssse3+
 
     { sse: 1, opcode: 0x0F10, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F10, e: 1, custom: 1 },
@@ -704,10 +703,6 @@ const encodings = [
     { sse: 1, opcode: 0x660F59, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF20F59, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F59, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x660F7C, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0xF20F7C, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0x660F7D, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0xF20F7D, e: 1, custom: 1 }, // sse3
 
     { sse: 1, opcode: 0x0F5A, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F5A, e: 1, custom: 1 },
@@ -811,8 +806,14 @@ const encodings = [
 
     { opcode: 0x0F7A, skip: 1, block_boundary: 1, }, // ud
     { opcode: 0x0F7B, skip: 1, block_boundary: 1, }, // ud
-    { sse: 1, opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // sse3
-    { sse: 1, opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // sse3
+
+    { sse: 1, opcode: 0x660F7C, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF20F7C, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0x660F7D, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF20F7D, e: 1, custom: 1 }, // sse3
+
+    { opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // ud
+    { opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // ud
 
     { sse: 1, opcode: 0x0F7E, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F7E, e: 1, custom: 1 },
