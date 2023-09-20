@@ -4,7 +4,6 @@ extern "C" {
     fn hlt_op();
 }
 
-use prefix;
 use cpu::arith::*;
 use cpu::cpu::*;
 use cpu::fpu::*;
@@ -12,6 +11,7 @@ use cpu::global_pointers::*;
 use cpu::misc_instr::*;
 use cpu::misc_instr::{pop16, pop32s, push16, push32};
 use cpu::string::*;
+use prefix;
 use softfloat::F80;
 
 pub unsafe fn instr_00_mem(addr: i32, r: i32) { safe_read_write8(addr, &|x| add8(x, read_reg8(r))) }

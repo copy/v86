@@ -27,7 +27,12 @@ impl ModrmByte {
 }
 
 pub fn decode(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
-    if ctx.asize_32() { decode32(ctx, modrm_byte) } else { decode16(ctx, modrm_byte) }
+    if ctx.asize_32() {
+        decode32(ctx, modrm_byte)
+    }
+    else {
+        decode16(ctx, modrm_byte)
+    }
 }
 
 fn decode16(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
