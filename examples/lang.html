@@ -50,10 +50,10 @@ window.onload = function()
     });
 
     var serial_out = "";
-    emulator.add_listener("serial0-output-char", async function(chr)
+    emulator.add_listener("serial0-output-byte", async function(byte)
     {
+        var chr = String.fromCharCode(byte);
         serial_out += chr;
-        //document.getElementById("output").textContent += chr;
 
         if(serial_out.endsWith("root@nyu"))
         {

@@ -27,8 +27,9 @@ const emulator = new V86(config);
 let did_restart = false;
 let serial_text = "";
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     serial_text += chr;
 
     if(serial_text.includes("Files send via emulator appear in /mnt/")) {

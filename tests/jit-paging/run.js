@@ -29,8 +29,9 @@ emulator.bus.register("emulator-started", function()
 var ran_command = false;
 var line = "";
 
-emulator.add_listener("serial0-output-char", async function(chr)
+emulator.add_listener("serial0-output-byte", async function(byte)
 {
+    var chr = String.fromCharCode(byte);
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
         return;

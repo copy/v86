@@ -32,8 +32,9 @@ window.onload = function()
     var data = "";
     var do_output = false;
 
-    emulator.add_listener("serial0-output-char", function(char)
+    emulator.add_listener("serial0-output-byte", function(byte)
     {
+        var char = String.fromCharCode(byte);
         if(char !== "\r")
         {
             data += char;

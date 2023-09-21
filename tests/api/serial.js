@@ -37,9 +37,9 @@ const timeout = setTimeout(() => {
     throw new Error("Timeout");
 }, 60 * 1000);
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
-    serial_data.push(chr.charCodeAt(0));
+    serial_data.push(byte);
 
     if(serial_data.length === 510277)
     {

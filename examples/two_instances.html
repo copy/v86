@@ -60,8 +60,9 @@ window.onload = function()
         emulator2.keyboard_set_status(true);
     }, false);
 
-    emulator1.add_listener("serial0-output-char", function(char)
+    emulator1.add_listener("serial0-output-byte", function(byte)
     {
+        var char = String.fromCharCode(byte);
         emulator2.serial0_send(char);
     });
     emulator1.add_listener("net0-send", function(data)

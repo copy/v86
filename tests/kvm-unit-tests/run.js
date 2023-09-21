@@ -49,8 +49,9 @@ emulator.bus.register("emulator-started", function()
         function() {});
 });
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     process.stdout.write(chr);
 });
 
