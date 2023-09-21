@@ -27,3 +27,4 @@ lto = true
 opt-level = 3
 incremental = false
 panic = "abort"
+codegen-units = 1
