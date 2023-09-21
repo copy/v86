@@ -63,7 +63,10 @@ CLOSURE_FLAGS=\
 		--jscomp_error visibility\
 		--use_types_for_optimization\
 		--compilation_level ADVANCED_OPTIMIZATIONS\
+		--assume_static_inheritance_is_not_used\
 		--summary_detail_level 3\
+		--assume_function_wrapper\
+		--rewrite_polyfills=false\
 		--language_in ECMASCRIPT_2017\
 		--language_out ECMASCRIPT_2017
 
