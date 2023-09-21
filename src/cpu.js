@@ -728,7 +728,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         function i32(x)
         {
-            return new Uint8Array(new Int32Array([x]).buffer);
+            return new Uint8Array(Int32Array.of(x).buffer);
         }
 
         function to_be16(x)

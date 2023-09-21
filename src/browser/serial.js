@@ -239,8 +239,7 @@ function SerialAdapterXtermJS(element, bus)
 
     bus.register("serial0-output-byte", function(byte)
     {
-        var chr = new Uint8Array([byte]);
-        term.write(chr);
+        term.write(Uint8Array.of(byte));
     }, this);
 
     this.destroy = function() {
