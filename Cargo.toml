@@ -28,6 +28,5 @@ opt-level = 3
 incremental = false
 panic = "abort"
 codegen-units = 1
-
-[dependencies]
-mimalloc = { version = "0.1.17", default-features = false }
+strip = true
+debug-assertions = false
