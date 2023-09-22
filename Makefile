@@ -17,8 +17,6 @@ ifeq ($(STRIP_DEBUG),true)
 STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
-WASM_OPT ?= false
-
 default: build/v86-debug.wasm
 all: build/v86_all.js build/libv86.js build/v86.wasm
 all-debug: build/libv86-debug.js build/v86-debug.wasm
@@ -62,7 +60,7 @@ CLOSURE_FLAGS=\
 		--jscomp_error unknownDefines\
 		--jscomp_error visibility\
 		--use_types_for_optimization\
-		--compilation_level ADVANCED_OPTIMIZATIONS\
+		--compilation_level SIMPLE_OPTIMIZATIONS\
 		--summary_detail_level 3\
 		--assume_function_wrapper\
 		--rewrite_polyfills=false\
@@ -178,7 +176,7 @@ build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	RUSTFLAGS="--emit asm"
 	cargo rustc --release $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
-	-$(WASM_OPT) && wasm-opt -O4 --strip-debug build/v86.wasm -o build/v86.wasm
+	wasm-opt --all --strip-debug build/v86.wasm -o build/v86.wasm
 	BLOCK_SIZE=K ls -l build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
