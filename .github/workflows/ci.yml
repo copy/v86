@@ -31,7 +31,7 @@ jobs:
       - name: Install APT packages
         run: |
           sudo apt-get update -y
-          sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
+          sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 binaryen -y
 
       - name: Build all-debug
         run: make all-debug
