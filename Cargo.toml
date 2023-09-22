@@ -28,5 +28,4 @@ opt-level = 3
 incremental = false
 panic = "abort"
 codegen-units = 1
-strip = true
 debug-assertions = false
