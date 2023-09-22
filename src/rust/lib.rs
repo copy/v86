@@ -1,5 +1,3 @@
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #![allow(const_item_mutation)]
 
 #[macro_use]
