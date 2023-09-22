@@ -176,7 +176,7 @@ build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	RUSTFLAGS="--emit asm"
 	cargo rustc --release $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
-	wasm-opt -all --strip-debug build/v86.wasm -o build/v86.wasm
+	wasm-opt -all --strip-debug build/v86.wasm --inlining -o build/v86.wasm
 	BLOCK_SIZE=K ls -l build/v86.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
