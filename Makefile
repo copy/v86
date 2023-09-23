@@ -173,7 +173,7 @@ src/rust/gen/analyzer0f.rs: $(ANALYZER_DEPENDENCIES)
 build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-BLOCK_SIZE=K ls -l build/v86.wasm
-	RUSTFLAGS="--emit asm"
+	env RUSTFLAGS="--emit asm"
 	cargo rustc --release $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm
 	wasm-opt -all --coalesce-locals --strip-debug build/v86.wasm --inlining --local-cse --converge --low-memory-unused -tnh -o build/v86.wasm
