@@ -74,7 +74,8 @@ CARGO_FLAGS_SAFE=\
 		-C link-args="--import-table --global-base=4096 $(STRIP_DEBUG_FLAG)" \
 		-C link-args="build/softfloat.o" \
 		-C link-args="build/zstddeclib.o" \
-		--verbose
+		--verbose \
+		--emit asm
 
 CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory
 
