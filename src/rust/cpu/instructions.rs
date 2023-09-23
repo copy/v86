@@ -4,7 +4,6 @@ extern "C" {
     fn hlt_op();
 }
 
-use prefix;
 use cpu::arith::*;
 use cpu::cpu::*;
 use cpu::fpu::*;
@@ -12,6 +11,7 @@ use cpu::global_pointers::*;
 use cpu::misc_instr::*;
 use cpu::misc_instr::{pop16, pop32s, push16, push32};
 use cpu::string::*;
+use prefix;
 use softfloat::F80;
 
 pub unsafe fn instr_00_mem(addr: i32, r: i32) { safe_read_write8(addr, &|x| add8(x, read_reg8(r))) }
@@ -1820,7 +1820,6 @@ pub unsafe fn instr_DA_6_reg(_r: i32) { trigger_ud(); }
 pub unsafe fn instr_DA_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fildm32(addr); }
-#[no_mangle]
 pub unsafe fn instr_DB_1_mem(addr: i32) { fpu_fisttpm32(addr); }
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
@@ -1876,7 +1875,6 @@ pub unsafe fn instr_DC_6_reg(r: i32) { fpu_fdiv(r, fpu_get_sti(r)); }
 pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
-#[no_mangle]
 pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttpm64(addr); }
 pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
@@ -1895,7 +1893,6 @@ pub unsafe fn instr32_DD_6_mem(addr: i32) { fpu_fsave32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_DD_7_mem(addr: i32) { fpu_fnstsw_mem(addr); }
 pub unsafe fn instr16_DD_0_reg(r: i32) { fpu_ffree(r); }
-#[no_mangle]
 pub unsafe fn instr16_DD_1_reg(r: i32) { fpu_fxch(r) }
 pub unsafe fn instr16_DD_2_reg(r: i32) { fpu_fst(r); }
 pub unsafe fn instr16_DD_3_reg(r: i32) { fpu_fstp(r); }
@@ -1987,7 +1984,6 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
 
 #[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
-#[no_mangle]
 pub unsafe fn instr_DF_1_mem(addr: i32) { fpu_fisttpm16(addr); }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
@@ -2004,7 +2000,6 @@ pub unsafe fn instr_DF_0_reg(r: i32) {
     fpu_ffree(r);
     fpu_pop();
 }
-#[no_mangle]
 pub unsafe fn instr_DF_1_reg(r: i32) { fpu_fxch(r) }
 pub unsafe fn instr_DF_2_reg(r: i32) { fpu_fstp(r); }
 pub unsafe fn instr_DF_3_reg(r: i32) { fpu_fstp(r); }

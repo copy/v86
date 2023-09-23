@@ -91,9 +91,7 @@ pub fn rust_init() {
     dbg_assert!(std::mem::size_of::<[Option<NonNull<cpu::Code>>; 0x100000]>() == 0x100000 * 4);
 
     let x = Box::new(JitState::create_and_initialise());
-    unsafe {
-        jit_state = NonNull::new(Box::into_raw(x)).unwrap()
-    }
+    unsafe { jit_state = NonNull::new(Box::into_raw(x)).unwrap() }
 
     use std::panic;
 
@@ -163,9 +161,7 @@ pub fn check_jit_state_invariants(ctx: &mut JitState) {
             );
             let w = match unsafe { cpu::tlb_code[page as usize] } {
                 None => None,
-                Some(c) => unsafe {
-                    Some(c.as_ref().wasm_table_index)
-                },
+                Some(c) => unsafe { Some(c.as_ref().wasm_table_index) },
             };
             let tlb_has_code = entry & cpu::TLB_HAS_CODE == cpu::TLB_HAS_CODE;
             let infos = ctx.pages.get(&tlb_physical_page);
@@ -468,12 +464,7 @@ fn jit_find_basic_blocks(
     let mut page_blacklist = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
-    let max_pages = if cpu.state_flags.is_32() {
-        unsafe { MAX_PAGES }
-    }
-    else {
-        1
-    };
+    let max_pages = if cpu.state_flags.is_32() { unsafe { MAX_PAGES } } else { 1 };
 
     for virt_addr in entry_points {
         let ok = follow_jump(
@@ -2126,17 +2117,15 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
             _ => {},
         }
 
-        dbg_assert!(
-            !ctx.pages
-                .values()
-                .any(|info| info.wasm_table_index == wasm_table_index)
-        );
+        dbg_assert!(!ctx
+            .pages
+            .values()
+            .any(|info| info.wasm_table_index == wasm_table_index));
 
-        dbg_assert!(
-            !ctx.pages
-                .values()
-                .any(|info| info.hidden_wasm_table_indices.contains(&wasm_table_index))
-        );
+        dbg_assert!(!ctx
+            .pages
+            .values()
+            .any(|info| info.hidden_wasm_table_indices.contains(&wasm_table_index)));
 
         for i in 0..unsafe { cpu::valid_tlb_entries_count } {
             let page = unsafe { cpu::valid_tlb_entries[i as usize] };
@@ -2194,7 +2183,8 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
                                 drop(Box::from_raw(c.as_ptr()));
                                 cpu::tlb_code[page as usize] = None;
                                 if !ctx.entry_points.contains_key(&tlb_physical_page) {
-                                    cpu::tlb_data[page as usize] &= !cpu::TLB_HAS_CODE; // XXX
+                                    // XXX
+                                    cpu::tlb_data[page as usize] &= !cpu::TLB_HAS_CODE;
                                 }
                             }
                         },
@@ -2203,13 +2193,11 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
             }
 
             ctx.pages.retain(
-                |
-                    _,
-                    &mut PageInfo {
-                        wasm_table_index: w,
-                        ..
-                    },
-                | w != wasm_table_index,
+                |_,
+                 &mut PageInfo {
+                     wasm_table_index: w,
+                     ..
+                 }| w != wasm_table_index,
             );
 
             for info in ctx.pages.values_mut() {

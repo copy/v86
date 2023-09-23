@@ -16,12 +16,11 @@ extern "C" {
 }
 
 use config;
-use prefix;
 use cpu::fpu::fpu_set_tag_word;
 use cpu::global_pointers::*;
 use cpu::memory;
 use cpu::memory::mem8;
-use cpu::memory::{in_mapped_range, read8, read16, read32s, read64s, read128, write8};
+use cpu::memory::{in_mapped_range, read128, read16, read32s, read64s, read8, write8};
 use cpu::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
     push16, push32,
@@ -31,6 +30,7 @@ use jit;
 use jit::is_near_end_of_page;
 use page::Page;
 use paging::OrPageFault;
+use prefix;
 use profiler;
 use profiler::stat::*;
 use state_flags::CachedStateFlags;
@@ -369,7 +369,12 @@ impl SegmentDescriptor {
     pub fn dpl(&self) -> u8 { (self.access_byte() >> 5) & 3 }
     pub fn is_32(&self) -> bool { self.flags() & 4 == 4 }
     pub fn effective_limit(&self) -> u32 {
-        if self.flags() & 8 == 8 { self.limit() << 12 | 0xFFF } else { self.limit() }
+        if self.flags() & 8 == 8 {
+            self.limit() << 12 | 0xFFF
+        }
+        else {
+            self.limit()
+        }
     }
     pub fn set_busy(&self) -> SegmentDescriptor {
         SegmentDescriptor {
@@ -2840,7 +2845,12 @@ pub unsafe fn get_seg_prefix_ss(offset: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn modrm_resolve(modrm_byte: i32) -> OrPageFault<i32> {
-    if is_asize_32() { resolve_modrm32(modrm_byte) } else { resolve_modrm16(modrm_byte) }
+    if is_asize_32() {
+        resolve_modrm32(modrm_byte)
+    }
+    else {
+        resolve_modrm16(modrm_byte)
+    }
 }
 
 pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u32) }
@@ -2945,9 +2955,7 @@ pub unsafe fn cycle_internal() {
         if is_near_end_of_page(*instruction_pointer as u32) {
             profiler::stat_increment(RUN_FROM_CACHE_EXIT_NEAR_END_OF_PAGE);
         }
-        else if Page::page_of(initial_eip as u32)
-            == Page::page_of(*instruction_pointer as u32)
-        {
+        else if Page::page_of(initial_eip as u32) == Page::page_of(*instruction_pointer as u32) {
             profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
         }
         else {
@@ -3400,18 +3408,22 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         let scratch = jit_paging_scratch_buffer.0.as_mut_ptr();
 
         match bitsize {
-            128 => {
-                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut reg128, memory::read128(addr_low))
-            },
-            64 => {
-                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut i64, memory::read64s(addr_low))
-            },
-            32 => {
-                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut i32, memory::read32s(addr_low))
-            },
-            16 => {
-                ptr::write_unaligned(scratch.offset(addr_low as isize & 0xFFF) as *mut u16, memory::read16(addr_low) as u16)
-            },
+            128 => ptr::write_unaligned(
+                scratch.offset(addr_low as isize & 0xFFF) as *mut reg128,
+                memory::read128(addr_low),
+            ),
+            64 => ptr::write_unaligned(
+                scratch.offset(addr_low as isize & 0xFFF) as *mut i64,
+                memory::read64s(addr_low),
+            ),
+            32 => ptr::write_unaligned(
+                scratch.offset(addr_low as isize & 0xFFF) as *mut i32,
+                memory::read32s(addr_low),
+            ),
+            16 => ptr::write_unaligned(
+                scratch.offset(addr_low as isize & 0xFFF) as *mut u16,
+                memory::read16(addr_low) as u16,
+            ),
             8 => {
                 *(scratch.offset(addr_low as isize & 0xFFF) as *mut u8) =
                     memory::read8(addr_low) as u8
@@ -3927,7 +3939,12 @@ pub unsafe fn task_switch_test_mmx_jit(start_eip: i32) {
 
 pub unsafe fn read_moffs() -> OrPageFault<i32> {
     // read 2 or 4 byte from ip, depending on address size attribute
-    if is_asize_32() { read_imm32s() } else { read_imm16() }
+    if is_asize_32() {
+        read_imm32s()
+    }
+    else {
+        read_imm16()
+    }
 }
 
 #[no_mangle]

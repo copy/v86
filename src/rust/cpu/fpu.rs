@@ -81,9 +81,19 @@ pub unsafe fn fpu_get_sti_f64(mut i: i32) -> f64 {
 }
 
 #[no_mangle]
-pub unsafe fn f32_to_f80(v: i32) -> F80 { F80::of_f32(v) }
+pub unsafe fn f32_to_f80(v: i32) -> F80 {
+    F80::clear_exception_flags();
+    let x = F80::of_f32(v);
+    *fpu_status_word |= F80::get_exception_flags() as u16;
+    x
+}
 #[no_mangle]
-pub unsafe fn f64_to_f80(v: u64) -> F80 { F80::of_f64(v) }
+pub unsafe fn f64_to_f80(v: u64) -> F80 {
+    F80::clear_exception_flags();
+    let x = F80::of_f64(v);
+    *fpu_status_word |= F80::get_exception_flags() as u16;
+    x
+}
 #[no_mangle]
 pub unsafe fn f80_to_f32(v: F80) -> i32 {
     F80::clear_exception_flags();
@@ -118,8 +128,10 @@ pub unsafe fn fpu_load_i64(addr: i32) -> OrPageFault<F80> {
 }
 
 pub unsafe fn fpu_load_m32(addr: i32) -> OrPageFault<F80> {
-    let v = safe_read32s(addr)?;
-    Ok(F80::of_f32(v))
+    F80::clear_exception_flags();
+    let v = F80::of_f32(safe_read32s(addr)?);
+    *fpu_status_word |= F80::get_exception_flags() as u16;
+    Ok(v)
 }
 pub unsafe fn fpu_load_m64(addr: i32) -> OrPageFault<F80> {
     F80::clear_exception_flags();
@@ -375,6 +387,7 @@ pub unsafe fn fpu_fistm64p(addr: i32) {
     safe_write64(addr, v as u64).unwrap();
     fpu_pop();
 }
+#[no_mangle]
 pub unsafe fn fpu_truncate_to_i64(f: F80) -> i64 {
     F80::clear_exception_flags();
     let x = f.truncate_to_i64();

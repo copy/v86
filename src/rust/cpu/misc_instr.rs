@@ -164,7 +164,12 @@ pub unsafe fn push16_ss16_mem(addr: i32) -> OrPageFault<()> { push16_ss16(safe_r
 pub unsafe fn push16_ss32_mem(addr: i32) -> OrPageFault<()> { push16_ss32(safe_read16(addr)?) }
 
 pub unsafe fn push16(imm16: i32) -> OrPageFault<()> {
-    if *stack_size_32 { push16_ss32(imm16) } else { push16_ss16(imm16) }
+    if *stack_size_32 {
+        push16_ss32(imm16)
+    }
+    else {
+        push16_ss16(imm16)
+    }
 }
 
 pub unsafe fn push32_ss16(imm32: i32) -> OrPageFault<()> {
@@ -184,7 +189,12 @@ pub unsafe fn push32_ss16_mem(addr: i32) -> OrPageFault<()> { push32_ss16(safe_r
 pub unsafe fn push32_ss32_mem(addr: i32) -> OrPageFault<()> { push32_ss32(safe_read32s(addr)?) }
 
 pub unsafe fn push32(imm32: i32) -> OrPageFault<()> {
-    if *stack_size_32 { push32_ss32(imm32) } else { push32_ss16(imm32) }
+    if *stack_size_32 {
+        push32_ss32(imm32)
+    }
+    else {
+        push32_ss16(imm32)
+    }
 }
 
 pub unsafe fn push32_sreg(i: i32) -> OrPageFault<()> {
@@ -203,7 +213,12 @@ pub unsafe fn push32_sreg(i: i32) -> OrPageFault<()> {
 }
 
 pub unsafe fn pop16() -> OrPageFault<i32> {
-    if *stack_size_32 { pop16_ss32() } else { pop16_ss16() }
+    if *stack_size_32 {
+        pop16_ss32()
+    }
+    else {
+        pop16_ss16()
+    }
 }
 pub unsafe fn pop16_ss16() -> OrPageFault<i32> {
     let sp = get_seg_ss() + read_reg16(SP);
@@ -218,7 +233,12 @@ pub unsafe fn pop16_ss32() -> OrPageFault<i32> {
     Ok(result)
 }
 pub unsafe fn pop32s() -> OrPageFault<i32> {
-    if *stack_size_32 { pop32s_ss32() } else { pop32s_ss16() }
+    if *stack_size_32 {
+        pop32s_ss32()
+    }
+    else {
+        pop32s_ss16()
+    }
 }
 pub unsafe fn pop32s_ss16() -> OrPageFault<i32> {
     let sp = read_reg16(SP);

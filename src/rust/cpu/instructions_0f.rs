@@ -15,8 +15,8 @@ unsafe fn unimplemented_sse() {
 
 use cpu::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
-    bts_reg, cmpxchg8, cmpxchg16, cmpxchg32, popcnt, shld16, shld32, shrd16, shrd32, xadd8, xadd16,
-    xadd32,
+    bts_reg, cmpxchg16, cmpxchg32, cmpxchg8, popcnt, shld16, shld32, shrd16, shrd32, xadd16,
+    xadd32, xadd8,
 };
 use cpu::arith::{
     imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
@@ -556,7 +556,12 @@ pub unsafe fn instr_660F12_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F20F12(source: u64, r: i32) {
     // movddup xmm1, xmm2/m64
-    write_xmm_reg128(r, reg128 { u64: [source, source] });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            u64: [source, source],
+        },
+    );
 }
 pub unsafe fn instr_F20F12_reg(r1: i32, r2: i32) { instr_F20F12(read_xmm64s(r1), r2); }
 pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
@@ -565,14 +570,12 @@ pub unsafe fn instr_F20F12_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_F30F12(source: reg128, r: i32) {
     // movsldup xmm1, xmm2/m128
-    write_xmm_reg128(r, reg128 {
-        u32: [
-            source.u32[0],
-            source.u32[0],
-            source.u32[2],
-            source.u32[2],
-        ],
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            u32: [source.u32[0], source.u32[0], source.u32[2], source.u32[2]],
+        },
+    );
 }
 pub unsafe fn instr_F30F12_reg(r1: i32, r2: i32) { instr_F30F12(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F30F12_mem(addr: i32, r: i32) {
@@ -676,14 +679,12 @@ pub unsafe fn instr_660F16_reg(_r1: i32, _r2: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_F30F16(source: reg128, r: i32) {
     // movshdup xmm1, xmm2/m128
-    write_xmm_reg128(r, reg128 {
-        u32: [
-            source.u32[1],
-            source.u32[1],
-            source.u32[3],
-            source.u32[3],
-        ]
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            u32: [source.u32[1], source.u32[1], source.u32[3], source.u32[3]],
+        },
+    );
 }
 pub unsafe fn instr_F30F16_reg(r1: i32, r2: i32) { instr_F30F16(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F30F16_mem(addr: i32, r: i32) {
@@ -2974,12 +2975,15 @@ pub unsafe fn instr_0F7D() { unimplemented_sse(); }
 pub unsafe fn instr_660F7C(source: reg128, r: i32) {
     // haddpd xmm1, xmm2/m128
     let destination = read_xmm128s(r);
-    write_xmm_reg128(r, reg128 {
-        f64: [
-            destination.f64[0] + destination.f64[1],
-            source.f64[0] + source.f64[1],
-        ],
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            f64: [
+                destination.f64[0] + destination.f64[1],
+                source.f64[0] + source.f64[1],
+            ],
+        },
+    );
 }
 pub unsafe fn instr_660F7C_reg(r1: i32, r2: i32) { instr_660F7C(read_xmm128s(r1), r2); }
 pub unsafe fn instr_660F7C_mem(addr: i32, r: i32) {
@@ -2989,14 +2993,17 @@ pub unsafe fn instr_660F7C_mem(addr: i32, r: i32) {
 pub unsafe fn instr_F20F7C(source: reg128, r: i32) {
     // haddps xmm, xmm/mem128
     let destination = read_xmm128s(r);
-    write_xmm_reg128(r, reg128 {
-        f32: [
-            destination.f32[0] + destination.f32[1],
-            destination.f32[2] + destination.f32[3],
-            source.f32[0] + source.f32[1],
-            source.f32[2] + source.f32[3],
-        ],
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            f32: [
+                destination.f32[0] + destination.f32[1],
+                destination.f32[2] + destination.f32[3],
+                source.f32[0] + source.f32[1],
+                source.f32[2] + source.f32[3],
+            ],
+        },
+    );
 }
 pub unsafe fn instr_F20F7C_reg(r1: i32, r2: i32) { instr_F20F7C(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F20F7C_mem(addr: i32, r: i32) {
@@ -3007,12 +3014,15 @@ pub unsafe fn instr_F20F7C_mem(addr: i32, r: i32) {
 pub unsafe fn instr_660F7D(source: reg128, r: i32) {
     // hsubpd xmm1, xmm2/m128
     let destination = read_xmm128s(r);
-    write_xmm_reg128(r, reg128 {
-        f64: [
-            destination.f64[0] - destination.f64[1],
-            source.f64[0] - source.f64[1],
-        ],
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            f64: [
+                destination.f64[0] - destination.f64[1],
+                source.f64[0] - source.f64[1],
+            ],
+        },
+    );
 }
 pub unsafe fn instr_660F7D_reg(r1: i32, r2: i32) { instr_660F7D(read_xmm128s(r1), r2); }
 pub unsafe fn instr_660F7D_mem(addr: i32, r: i32) {
@@ -3023,14 +3033,17 @@ pub unsafe fn instr_660F7D_mem(addr: i32, r: i32) {
 pub unsafe fn instr_F20F7D(source: reg128, r: i32) {
     // hsubps xmm1, xmm2/m128
     let destination = read_xmm128s(r);
-    write_xmm_reg128(r, reg128 {
-        f32: [
-            destination.f32[0] - destination.f32[1],
-            destination.f32[2] - destination.f32[3],
-            source.f32[0] - source.f32[1],
-            source.f32[2] - source.f32[3],
-        ],
-    });
+    write_xmm_reg128(
+        r,
+        reg128 {
+            f32: [
+                destination.f32[0] - destination.f32[1],
+                destination.f32[2] - destination.f32[3],
+                source.f32[0] - source.f32[1],
+                source.f32[2] - source.f32[3],
+            ],
+        },
+    );
 }
 pub unsafe fn instr_F20F7D_reg(r1: i32, r2: i32) { instr_F20F7D(read_xmm128s(r1), r2); }
 pub unsafe fn instr_F20F7D_mem(addr: i32, r: i32) {

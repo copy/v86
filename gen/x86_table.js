@@ -310,7 +310,7 @@ const encodings = [
     { opcode: 0xDA, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDB, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
+    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, }, // fisttp (sse3)
     { opcode: 0xDB, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -328,7 +328,7 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, }, // fisttp (sse3)
     { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, os: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, os: 1, skip_mem: 1 }, // frstor
@@ -346,7 +346,7 @@ const encodings = [
     { opcode: 0xDE, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1 }, // fisttp (sse3)
+    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1 }, // fisttp (sse3)
     { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, skip_mem: 1 }, // unimplemented: Binary Coded Decimals
@@ -621,7 +621,6 @@ const encodings = [
 
 
     // mmx, sse
-    // - skipped or missing are ssse3+
 
     { sse: 1, opcode: 0x0F10, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F10, e: 1, custom: 1 },
@@ -704,10 +703,6 @@ const encodings = [
     { sse: 1, opcode: 0x660F59, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF20F59, e: 1, custom: 1 },
     { sse: 1, opcode: 0xF30F59, e: 1, custom: 1 },
-    { sse: 1, opcode: 0x660F7C, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0xF20F7C, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0x660F7D, e: 1, custom: 1 }, // sse3
-    { sse: 1, opcode: 0xF20F7D, e: 1, custom: 1 }, // sse3
 
     { sse: 1, opcode: 0x0F5A, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F5A, e: 1, custom: 1 },
@@ -811,8 +806,14 @@ const encodings = [
 
     { opcode: 0x0F7A, skip: 1, block_boundary: 1, }, // ud
     { opcode: 0x0F7B, skip: 1, block_boundary: 1, }, // ud
-    { sse: 1, opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // sse3
-    { sse: 1, opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // sse3
+
+    { sse: 1, opcode: 0x660F7C, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF20F7C, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0x660F7D, e: 1, custom: 1 }, // sse3
+    { sse: 1, opcode: 0xF20F7D, e: 1, custom: 1 }, // sse3
+
+    { opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // ud
+    { opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // ud
 
     { sse: 1, opcode: 0x0F7E, e: 1, custom: 1 },
     { sse: 1, opcode: 0x660F7E, e: 1, custom: 1 },

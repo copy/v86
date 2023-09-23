@@ -9,7 +9,7 @@ const FLAGS_IGNORE = 0xFFFF3200;
 const assert = require("assert").strict;
 const fs = require("fs");
 const encodings = require("../../gen/x86_table.js");
-const Prand = require("./prand.js");
+const Rand = require("./rand.js");
 
 generate_tests();
 
@@ -184,7 +184,7 @@ function create_nasm(op, config, nth_test)
         }
     }
 
-    const op_rand = new Prand(op.opcode + nth_test * 0x10000);
+    const rng = new Rand(op.opcode + nth_test * 0x10000);
 
     const size = (op.os || op.opcode % 2 === 1) ? config.size : 8;
     const is_modrm = op.e || op.fixed_g !== undefined;
@@ -193,7 +193,7 @@ function create_nasm(op, config, nth_test)
 
     for(let reg of ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"])
     {
-        let rand = op_rand.next();
+        let rand = rng.int32();
         codes.push("mov " + reg + ", " + rand);
     }
 
@@ -202,8 +202,8 @@ function create_nasm(op, config, nth_test)
         codes.push("sub esp, 8");
         for(let i = 0; i < 8; i++)
         {
-            codes.push("mov dword [esp], " + op_rand.next());
-            codes.push("mov dword [esp + 4], " + op_rand.next());
+            codes.push("mov dword [esp], " + rng.int32());
+            codes.push("mov dword [esp + 4], " + rng.int32());
             codes.push("movq mm" + i + ", [esp]");
         }
         codes.push("add esp, 8");
@@ -215,8 +215,8 @@ function create_nasm(op, config, nth_test)
 
         for(let i = 0; i < 8; i++)
         {
-            codes.push("mov dword [esp], " + op_rand.next());
-            codes.push("mov dword [esp + 4], " + op_rand.next());
+            codes.push("mov dword [esp], " + rng.int32());
+            codes.push("mov dword [esp + 4], " + rng.int32());
             codes.push("fld qword [esp]");
         }
 
@@ -233,10 +233,10 @@ function create_nasm(op, config, nth_test)
         codes.push("sub esp, 16");
         for(let i = 0; i < 8; i++)
         {
-            codes.push("mov dword [esp], " + op_rand.next());
-            codes.push("mov dword [esp + 4], " + op_rand.next());
-            codes.push("mov dword [esp + 8], " + op_rand.next());
-            codes.push("mov dword [esp + 12], " + op_rand.next());
+            codes.push("mov dword [esp], " + rng.int32());
+            codes.push("mov dword [esp + 4], " + rng.int32());
+            codes.push("mov dword [esp + 8], " + rng.int32());
+            codes.push("mov dword [esp + 12], " + rng.int32());
             codes.push("movdqu xmm" + i + ", [esp]");
         }
         codes.push("add esp, 16");
@@ -247,16 +247,16 @@ function create_nasm(op, config, nth_test)
         for(let i = 0; i < 8; i++)
         {
             codes.push("sub esp, 4");
-            codes.push("mov dword [esp], " + op_rand.next());
+            codes.push("mov dword [esp], " + rng.int32());
         }
     }
 
-    codes.push("push dword " + (op_rand.next() & ~(1 << 8 | 1 << 9)));
+    codes.push("push dword " + (rng.int32() & ~(1 << 8 | 1 << 9)));
     codes.push("popf");
 
     if(true)
     {
-        // generate random flags using arithmatic instruction
+        // generate random flags using arithmetic instruction
         // not well-distributed, but can trigger bugs in lazy flag calculation
         if(true)
         {
@@ -283,6 +283,13 @@ function create_nasm(op, config, nth_test)
     }
 
     let opcode = op.opcode;
+
+    if([0x0FA5, 0x0FAD].includes(op.opcode) && size === 16)
+    {
+        // shld/shrd: immediates larger than opsize are undefined behaviour,
+        // but it's anded with 31 automatically, so only bit 4 needs to be cleared
+        codes.push("and cl, ~16");
+    }
 
     if(opcode === 0x8D)
     {
@@ -350,7 +357,15 @@ function create_nasm(op, config, nth_test)
     {
         if(op.imm8 || op.imm8s)
         {
-            codes.push("db 12h");
+            if([0x0FA4, 0x0FAC].includes(op.opcode))
+            {
+                // shld/shrd: immediates larger than opsize are undefined behaviour
+                codes.push("db 0fh");
+            }
+            else
+            {
+                codes.push("db 12h");
+            }
         }
         else
         {
