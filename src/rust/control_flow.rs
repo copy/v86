@@ -22,7 +22,7 @@ fn rev_graph_edges(nodes: &Graph) -> Graph {
     rev_nodes
 }
 
-pub fn make_graph(basic_blocks: &Vec<BasicBlock>) -> Graph {
+pub fn make_graph(basic_blocks: &HashMap<BasicBlock>) -> Graph {
     let mut nodes = Graph::new();
     let mut entry_edges = HashSet::new();
 
@@ -74,9 +74,9 @@ pub fn make_graph(basic_blocks: &Vec<BasicBlock>) -> Graph {
 
 pub enum WasmStructure {
     BasicBlock(u32),
-    Dispatcher(Vec<u32>),
-    Loop(Vec<WasmStructure>),
-    Block(Vec<WasmStructure>),
+    Dispatcher(HashMap<u32>),
+    Loop(HashMap<WasmStructure>),
+    Block(HashMap<WasmStructure>),
 }
 impl WasmStructure {
     pub fn print(&self, depth: usize) {
@@ -141,7 +141,7 @@ impl WasmStructure {
 /// - No two nested loops at the beginning
 /// - No empty blocks or loops
 /// - The entry node block is not present
-pub fn assert_invariants(blocks: &Vec<WasmStructure>) {
+pub fn assert_invariants(blocks: &HashMap<WasmStructure>) {
     fn check(node: &WasmStructure, in_tail_block: bool, in_head_loop: bool, is_first: bool) {
         match node {
             WasmStructure::Block(children) => {
@@ -178,13 +178,13 @@ pub fn assert_invariants(blocks: &Vec<WasmStructure>) {
 }
 
 /// Strongly connected components via Kosaraju's algorithm
-fn scc(edges: &Graph, rev_edges: &Graph) -> Vec<Vec<u32>> {
+fn scc(edges: &Graph, rev_edges: &Graph) -> HashMap<HashMap<u32>> {
     fn visit(
         node: u32,
         edges: &Graph,
         rev_edges: &Graph,
         visited: &mut HashSet<u32>,
-        l: &mut Vec<u32>,
+        l: &mut HashMap<u32>,
     ) {
         if visited.contains(&node) {
             return;
@@ -196,7 +196,7 @@ fn scc(edges: &Graph, rev_edges: &Graph) -> Vec<Vec<u32>> {
         l.push(node);
     }
 
-    let mut l = Vec::new();
+    let mut l = HashMap::new();
     let mut visited = HashSet::new();
     for &node in edges.keys() {
         visit(node, edges, rev_edges, &mut visited, &mut l);
@@ -207,7 +207,7 @@ fn scc(edges: &Graph, rev_edges: &Graph) -> Vec<Vec<u32>> {
         edges: &Graph,
         rev_edges: &Graph,
         assigned: &mut HashSet<u32>,
-        group: &mut Vec<u32>,
+        group: &mut HashMap<u32>,
     ) {
         if assigned.contains(&node) {
             return;
@@ -221,9 +221,9 @@ fn scc(edges: &Graph, rev_edges: &Graph) -> Vec<Vec<u32>> {
         }
     }
     let mut assigned = HashSet::new();
-    let mut assignment = Vec::new();
+    let mut assignment = HashMap::new();
     for &node in l.iter().rev() {
-        let mut group = Vec::new();
+        let mut group = HashMap::new();
         assign(node, edges, rev_edges, &mut assigned, &mut group);
         if !group.is_empty() {
             assignment.push(group);
@@ -233,7 +233,7 @@ fn scc(edges: &Graph, rev_edges: &Graph) -> Vec<Vec<u32>> {
     assignment
 }
 
-pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
+pub fn loopify(nodes: &Graph) -> HashMap<WasmStructure> {
     let rev_nodes = rev_graph_edges(nodes);
     let groups = scc(nodes, &rev_nodes);
 
@@ -245,19 +245,19 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                 let addr = group[0];
                 if addr == ENTRY_NODE_ID {
                     let entries = nodes.get(&ENTRY_NODE_ID).unwrap().iter().copied().collect();
-                    return vec![WasmStructure::Dispatcher(entries)].into_iter();
+                    return HashMap![WasmStructure::Dispatcher(entries)].into_iter();
                 }
                 let block = WasmStructure::BasicBlock(addr);
                 // self-loops
                 if nodes.get(&group[0]).unwrap().contains(&group[0]) {
-                    return vec![WasmStructure::Loop(vec![block])].into_iter();
+                    return HashMap![WasmStructure::Loop(HashMap![block])].into_iter();
                 }
                 else {
-                    return vec![block].into_iter();
+                    return HashMap![block].into_iter();
                 }
             }
 
-            let entries_to_group: Vec<u32> = group
+            let entries_to_group: HashMap<u32> = group
                 .iter()
                 .filter(|addr| {
                     // reachable from outside of the group
@@ -304,7 +304,7 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                     loop_nodes.insert(0, WasmStructure::Dispatcher(entries_to_group));
                 }
 
-                return vec![WasmStructure::Loop(loop_nodes)].into_iter();
+                return HashMap![WasmStructure::Loop(loop_nodes)].into_iter();
             }
             else {
                 profiler::stat_increment_by(
@@ -312,7 +312,7 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
                     ((entries_to_group.len() - 1) * group.len()) as u64,
                 );
 
-                let nodes: Vec<WasmStructure> = entries_to_group
+                let nodes: HashMap<WasmStructure> = entries_to_group
                     .iter()
                     .map(|&entry| {
                         let mut subgroup_edges: Graph = Graph::new();
@@ -339,8 +339,8 @@ pub fn loopify(nodes: &Graph) -> Vec<WasmStructure> {
         .collect();
 }
 
-pub fn blockify(blocks: &mut Vec<WasmStructure>, edges: &Graph) {
-    let mut cached_branches: Vec<HashSet<u32>> = Vec::new();
+pub fn blockify(blocks: &mut HashMap<WasmStructure>, edges: &Graph) {
+    let mut cached_branches: HashMap<HashSet<u32>> = HashMap::new();
     for i in 0..blocks.len() {
         cached_branches.push(blocks[i].branches(edges));
     }
@@ -384,8 +384,8 @@ pub fn blockify(blocks: &mut Vec<WasmStructure>, edges: &Graph) {
             }
         }
 
-        let replacement = WasmStructure::Block(Vec::new());
-        let children: Vec<WasmStructure> =
+        let replacement = WasmStructure::Block(HashMap::new());
+        let children: HashMap<WasmStructure> =
             blocks.splice(source..i, iter::once(replacement)).collect();
         match &mut blocks[source] {
             WasmStructure::Block(c) => c.extend(children),
@@ -403,7 +403,7 @@ pub fn blockify(blocks: &mut Vec<WasmStructure>, edges: &Graph) {
 
         {
             let replacement = HashSet::new();
-            let children: Vec<HashSet<u32>> = cached_branches
+            let children: HashMap<HashSet<u32>> = cached_branches
                 .splice(source..i, iter::once(replacement))
                 .collect();
             dbg_assert!(cached_branches[source].len() == 0);
