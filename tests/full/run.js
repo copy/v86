@@ -443,7 +443,7 @@ if(cluster.isMaster)
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
             timeout: 15 * 60,
-            hda: root_path + "/images/internal/freebsd/freebsd.img",
+            hda: root_path + "/images/freebsd.img",
             expected_texts: [
                 "FreeBSD/i386 (nyu) (ttyv0)",
                 "root@nyu:~ #",
