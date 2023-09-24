@@ -94,6 +94,7 @@ function V86(options)
     //var adapter_bus = this.bus = WorkerBus.init(worker);
 
     this.cpu_is_running = false;
+    this.cpu_exception_hook = function(n) {};
 
     const bus = Bus.create();
     const adapter_bus = this.bus = bus[0];
@@ -102,12 +103,10 @@ function V86(options)
     var cpu;
     var wasm_memory;
 
-    const wasm_table = new WebAssembly.Table({ element: "anyfunc", "initial": WASM_TABLE_SIZE + WASM_TABLE_OFFSET });
+    const wasm_table = new WebAssembly.Table({ element: "anyfunc", initial: WASM_TABLE_SIZE + WASM_TABLE_OFFSET });
 
     const wasm_shared_funcs = {
-        "cpu_exception_hook": (n) => {
-            return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
-        },
+        "cpu_exception_hook": n => this.cpu_exception_hook(n),
         "hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
@@ -660,7 +659,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                         "jit_clear_func", "jit_clear_all_funcs",
                     ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
 
-                    env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", "initial": 1024 });
+                    env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", initial: 1024 });
                     env["abort"] = () => { throw new Error("zstd worker aborted"); };
                     env["log_from_wasm"] = env["console_log_from_wasm"] = (off, len) => {
                         console.log(String.fromCharCode(...new Uint8Array(wasm.exports.memory.buffer, off, len)));
