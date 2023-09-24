@@ -64,8 +64,8 @@ CLOSURE_FLAGS=\
 		--use_types_for_optimization\
 		--assume_function_wrapper\
 		--summary_detail_level 3\
-		--language_in ECMASCRIPT_2017\
-		--language_out ECMASCRIPT_2017
+		--language_in ECMASCRIPT_2020\
+		--language_out ECMASCRIPT_2020
 
 CARGO_FLAGS_SAFE=\
 		--target wasm32-unknown-unknown \
