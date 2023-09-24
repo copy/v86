@@ -85,7 +85,11 @@
  *
  * ***
  *
- * @param {Object} options Options to initialize the emulator with.
+ * @param {{
+      disable_mouse: (boolean|undefined),
+      disable_keyboard: (boolean|undefined),
+      wasm_fn: (Function|undefined),
+    }} options
  * @constructor
  */
 function V86(options)
@@ -153,7 +157,7 @@ function V86(options)
         "__indirect_function_table": wasm_table,
     };
 
-    let wasm_fn = options["wasm_fn"];
+    let wasm_fn = options.wasm_fn;
 
     if(!wasm_fn)
     {
@@ -163,9 +167,9 @@ function V86(options)
                 let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
                 let v86_bin_fallback = "v86-fallback.wasm";
 
-                if(options["wasm_path"])
+                if(options.wasm_path)
                 {
-                    v86_bin = options["wasm_path"];
+                    v86_bin = options.wasm_path;
                     const slash = v86_bin.lastIndexOf("/");
                     const dir = slash === -1 ? "" : v86_bin.substr(0, slash);
                     v86_bin_fallback = dir + "/" + v86_bin_fallback;
@@ -248,79 +252,79 @@ V86.prototype.continue_init = async function(emulator, options)
     var settings = {};
 
     this.disk_images = {
-        "fda": undefined,
-        "fdb": undefined,
-        "hda": undefined,
-        "hdb": undefined,
-        "cdrom": undefined,
+        fda: undefined,
+        fdb: undefined,
+        hda: undefined,
+        hdb: undefined,
+        cdrom: undefined,
     };
 
     const boot_order =
-        options["boot_order"] ? options["boot_order"] :
-        options["fda"] ? BOOT_ORDER_FD_FIRST :
-        options["hda"] ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
+        options.boot_order ? options.boot_order :
+        options.fda ? BOOT_ORDER_FD_FIRST :
+        options.hda ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
 
-    settings.acpi = options["acpi"];
-    settings.disable_jit = options["disable_jit"];
+    settings.acpi = options.acpi;
+    settings.disable_jit = options.disable_jit;
     settings.load_devices = true;
-    settings.log_level = options["log_level"];
-    settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
-    settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
+    settings.log_level = options.log_level;
+    settings.memory_size = options.memory_size || 64 * 1024 * 1024;
+    settings.vga_memory_size = options.vga_memory_size || 8 * 1024 * 1024;
     settings.boot_order = boot_order;
-    settings.fastboot = options["fastboot"] || false;
+    settings.fastboot = options.fastboot || false;
     settings.fda = undefined;
     settings.fdb = undefined;
-    settings.uart1 = options["uart1"];
-    settings.uart2 = options["uart2"];
-    settings.uart3 = options["uart3"];
-    settings.cmdline = options["cmdline"];
-    settings.preserve_mac_from_state_image = options["preserve_mac_from_state_image"];
-    settings.mac_address_translation = options["mac_address_translation"];
-    settings.cpuid_level = options["cpuid_level"];
+    settings.uart1 = options.uart1;
+    settings.uart2 = options.uart2;
+    settings.uart3 = options.uart3;
+    settings.cmdline = options.cmdline;
+    settings.preserve_mac_from_state_image = options.preserve_mac_from_state_image;
+    settings.mac_address_translation = options.mac_address_translation;
+    settings.cpuid_level = options.cpuid_level;
 
-    if(options["network_adapter"])
+    if(options.network_adapter)
     {
-        this.network_adapter = options["network_adapter"](this.bus);
+        this.network_adapter = options.network_adapter(this.bus);
     }
-    else if(options["network_relay_url"])
+    else if(options.network_relay_url)
     {
-        this.network_adapter = new NetworkAdapter(options["network_relay_url"], this.bus);
+        this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
     }
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
     settings.enable_ne2k = true;
 
-    if(!options["disable_keyboard"])
+    if(!options.disable_keyboard)
     {
         this.keyboard_adapter = new KeyboardAdapter(this.bus);
     }
-    if(!options["disable_mouse"])
+    if(!options.disable_mouse)
     {
-        this.mouse_adapter = new MouseAdapter(this.bus, options["screen_container"]);
+        this.mouse_adapter = new MouseAdapter(this.bus, options.screen_container);
     }
 
-    if(options["screen_container"])
+    if(options.screen_container)
     {
-        this.screen_adapter = new ScreenAdapter(options["screen_container"], this.bus);
+        this.screen_adapter = new ScreenAdapter(options.screen_container, this.bus);
     }
-    else if(options["screen_dummy"])
+    else if(options.screen_dummy)
     {
         this.screen_adapter = new DummyScreenAdapter(this.bus);
     }
 
-    if(options["serial_container"])
+    if(options.serial_container)
     {
-        this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
+        this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
     }
 
-    if(options["serial_container_xtermjs"])
+    if(options.serial_container_xtermjs)
     {
-        this.serial_adapter = new SerialAdapterXtermJS(options["serial_container_xtermjs"], this.bus);
+        this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus);
     }
 
-    if(!options["disable_speaker"])
+    if(!options.disable_speaker)
     {
         this.speaker_adapter = new SpeakerAdapter(this.bus);
     }
@@ -331,29 +335,29 @@ V86.prototype.continue_init = async function(emulator, options)
         switch(name)
         {
             case "hda":
-                settings.hda = this.disk_images["hda"] = buffer;
+                settings.hda = this.disk_images.hda = buffer;
                 break;
             case "hdb":
-                settings.hdb = this.disk_images["hdb"] = buffer;
+                settings.hdb = this.disk_images.hdb = buffer;
                 break;
             case "cdrom":
-                settings.cdrom = this.disk_images["cdrom"] = buffer;
+                settings.cdrom = this.disk_images.cdrom = buffer;
                 break;
             case "fda":
-                settings.fda = this.disk_images["fda"] = buffer;
+                settings.fda = this.disk_images.fda = buffer;
                 break;
             case "fdb":
-                settings.fdb = this.disk_images["fdb"] = buffer;
+                settings.fdb = this.disk_images.fdb = buffer;
                 break;
 
             case "multiboot":
-                settings.multiboot = this.disk_images["multiboot"] = buffer.buffer;
+                settings.multiboot = this.disk_images.multiboot = buffer.buffer;
                 break;
             case "bzimage":
-                settings.bzimage = this.disk_images["bzimage"] = buffer.buffer;
+                settings.bzimage = this.disk_images.bzimage = buffer.buffer;
                 break;
             case "initrd":
-                settings.initrd = this.disk_images["initrd"] = buffer.buffer;
+                settings.initrd = this.disk_images.initrd = buffer.buffer;
                 break;
 
             case "bios":
@@ -417,27 +421,27 @@ V86.prototype.continue_init = async function(emulator, options)
         }
     };
 
-    if(options["state"])
+    if(options.state)
     {
         console.warn("Warning: Unknown option 'state'. Did you mean 'initial_state'?");
     }
 
-    var image_names = [
-        "bios", "vga_bios",
-        "cdrom", "hda", "hdb", "fda", "fdb",
-        "initial_state", "multiboot",
-        "bzimage", "initrd",
-    ];
+    add_file("bios", options.bios);
+    add_file("vga_bios", options.vga_bios);
+    add_file("cdrom", options.cdrom);
+    add_file("hda", options.hda);
+    add_file("hdb", options.hdb);
+    add_file("fda", options.fda);
+    add_file("fdb", options.fdb);
+    add_file("initial_state", options.initial_state);
+    add_file("multiboot", options.multiboot);
+    add_file("bzimage", options.bzimage);
+    add_file("initrd", options.initrd);
 
-    for(var i = 0; i < image_names.length; i++)
+    if(options.filesystem)
     {
-        add_file(image_names[i], options[image_names[i]]);
-    }
-
-    if(options["filesystem"])
-    {
-        var fs_url = options["filesystem"].basefs;
-        var base_url = options["filesystem"].baseurl;
+        var fs_url = options.filesystem.basefs;
+        var base_url = options.filesystem.baseurl;
 
         let file_storage = new MemoryFileStorage();
 
@@ -554,7 +558,7 @@ V86.prototype.continue_init = async function(emulator, options)
                 dbg_log("Filesystem basefs ignored: Overridden by state image");
             }
 
-            if(options["bzimage_initrd_from_filesystem"])
+            if(options.bzimage_initrd_from_filesystem)
             {
                 const { bzimage_path, initrd_path } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
 
@@ -576,7 +580,7 @@ V86.prototype.continue_init = async function(emulator, options)
         else
         {
             dbg_assert(
-                !options["bzimage_initrd_from_filesystem"],
+                !options.bzimage_initrd_from_filesystem,
                 "bzimage_initrd_from_filesystem: Requires a filesystem");
             finish.call(this);
         }
@@ -597,7 +601,7 @@ V86.prototype.continue_init = async function(emulator, options)
                 settings.initial_state = undefined;
             }
 
-            if(options["autostart"])
+            if(options.autostart)
             {
                 this.bus.send("cpu-run");
             }

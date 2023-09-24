@@ -1392,39 +1392,39 @@
         }
 
         var emulator = new V86({
-            "memory_size": memory_size,
-            "vga_memory_size": vga_memory_size,
+            memory_size: memory_size,
+            vga_memory_size: vga_memory_size,
 
-            "screen_container": $("screen_container"),
-            "serial_container_xtermjs": $("terminal"),
+            screen_container: $("screen_container"),
+            serial_container_xtermjs: $("terminal"),
 
-            "boot_order": settings.boot_order || parseInt($("boot_order").value, 16) || 0,
+            boot_order: settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
-            "network_relay_url": ON_LOCALHOST ? "ws://localhost:8080/" : networking_proxy,
+            network_relay_url: ON_LOCALHOST ? "ws://localhost:8080/" : networking_proxy,
 
-            "bios": bios,
-            "vga_bios": vga_bios,
+            bios: bios,
+            vga_bios: vga_bios,
 
-            "fda": settings.fda,
-            "hda": settings.hda,
-            "hdb": settings.hdb,
-            "cdrom": settings.cdrom,
+            fda: settings.fda,
+            hda: settings.hda,
+            hdb: settings.hdb,
+            cdrom: settings.cdrom,
 
-            "multiboot": settings.multiboot,
-            "bzimage": settings.bzimage,
-            "initrd": settings.initrd,
-            "cmdline": settings.cmdline,
-            "bzimage_initrd_from_filesystem": settings.bzimage_initrd_from_filesystem,
+            multiboot: settings.multiboot,
+            bzimage: settings.bzimage,
+            initrd: settings.initrd,
+            cmdline: settings.cmdline,
+            bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
 
-            "acpi": enable_acpi,
-            "disable_jit": settings.disable_jit,
-            "initial_state": settings.initial_state,
-            "filesystem": settings.filesystem || {},
-            "disable_speaker": disable_audio,
-            "mac_address_translation": settings.mac_address_translation,
-            "cpuid_level": settings.cpuid_level,
+            acpi: enable_acpi,
+            disable_jit: settings.disable_jit,
+            initial_state: settings.initial_state,
+            filesystem: settings.filesystem || {},
+            disable_speaker: disable_audio,
+            mac_address_translation: settings.mac_address_translation,
+            cpuid_level: settings.cpuid_level,
 
-            "autostart": true,
+            autostart: true,
         });
 
         if(DEBUG) window["emulator"] = emulator;
@@ -1737,13 +1737,13 @@
             $("reset").blur();
         };
 
-        add_image_download_button(settings.hda, "hda");
-        add_image_download_button(settings.hdb, "hdb");
-        add_image_download_button(settings.fda, "fda");
-        add_image_download_button(settings.fdb, "fdb");
-        add_image_download_button(settings.cdrom, "cdrom");
+        add_image_download_button(settings.hda, emulator.disk_images.hda, "hda");
+        add_image_download_button(settings.hdb, emulator.disk_images.hdb, "hdb");
+        add_image_download_button(settings.fda, emulator.disk_images.fda, "fda");
+        add_image_download_button(settings.fdb, emulator.disk_images.fdb, "fdb");
+        add_image_download_button(settings.cdrom, emulator.disk_images.cdrom, "cdrom");
 
-        function add_image_download_button(obj, type)
+        function add_image_download_button(obj, buffer, type)
         {
             var elem = $("get_" + type + "_image");
 
@@ -1755,7 +1755,6 @@
 
             elem.onclick = function(e)
             {
-                let buffer = emulator.disk_images[type];
                 let filename = buffer.file && buffer.file.name || (settings.id + (type === "cdrom" ? ".iso" : ".img"));
 
                 if(buffer.get_as_file)
