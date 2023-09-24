@@ -210,7 +210,7 @@
 
         if(DEBUG)
         {
-            debug_onload(settings);
+            debug_onload();
         }
 
         const query_args = get_query_arguments();
@@ -1224,7 +1224,7 @@
         }
     }
 
-    function debug_onload(settings)
+    function debug_onload()
     {
         // called on window.onload, in debug mode
 
