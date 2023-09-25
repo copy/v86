@@ -34,6 +34,7 @@ list of emulated hardware:
 [Arch Linux](https://copy.sh/v86/?profile=archlinux) —
 [Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
 [Buildroot Linux](https://copy.sh/v86/?profile=buildroot) —
+[SkiffOS](https://copy.sh/v86/?profile=copy/skiffos) —
 [ReactOS](https://copy.sh/v86/?profile=reactos) —
 [Windows 2000](https://copy.sh/v86/?profile=windows2000) —
 [Windows 98](https://copy.sh/v86/?profile=windows98) —
@@ -98,6 +99,7 @@ Here's an overview of the operating systems supported in v86:
   `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
 - NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
 - SerenityOS works.
+- [SkiftOS](https://skiftos.org/) works.
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 
