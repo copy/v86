@@ -99,35 +99,22 @@
         return document.getElementById(id);
     }
 
+    // these values are stored in localStorage
+    const elements_to_restore = [
+        "memory_size",
+        "video_memory_size",
+        "networking_proxy",
+        "disable_audio",
+        "enable_acpi",
+        "boot_order",
+    ];
+
     function onload()
     {
         if(!window.WebAssembly)
         {
             alert("Your browser is not supported because it doesn't support WebAssembly");
             return;
-        }
-
-        const elements_to_restore = ["memory_size", "video_memory_size", "networking_proxy", "disable_audio", "enable_acpi", "boot_order"];
-
-        for(const id of elements_to_restore)
-        {
-            const saved_value = window.localStorage.getItem(id);
-
-            if(saved_value)
-            {
-                const element = $(id);
-                if(element)
-                {
-                    if(element.type === "checkbox")
-                    {
-                        element.checked = saved_value === "true" ? true : false;
-                    }
-                    else
-                    {
-                        element.value = saved_value;
-                    }
-                }
-            }
         }
 
         const script = document.createElement("script");
@@ -142,7 +129,7 @@
             // Save entered options into the local storage
             for(const id of elements_to_restore)
             {
-                const element = document.getElementById(id);
+                const element = $(id);
                 if(element)
                 {
                     if(element.tagName === "SELECT" || element.type !== "checkbox")
@@ -1104,6 +1091,7 @@
                 $("boot_options").style.display = "none";
 
                 start_emulation(settings, done);
+                return;
             }
         }
         else if(/^[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+$/g.test(profile))
@@ -1113,6 +1101,7 @@
             const base = "https://v86-user-images.b-cdn.net/" + profile;
 
             fetch(base + "/profile.json")
+                .catch(e => alert("Profile not found: " + profile))
                 .then(response => response.json())
                 .then(p => {
                     function handle_image(o)
@@ -1134,8 +1123,30 @@
                         bzimage: handle_image(p["bzimage"]),
                         initrd: handle_image(p["initrd"]),
                     });
-                })
-                .catch(e => alert("Profile not found: " + profile));
+                });
+
+            return;
+        }
+
+        for(const id of elements_to_restore)
+        {
+            const saved_value = window.localStorage.getItem(id);
+
+            if(saved_value)
+            {
+                const element = $(id);
+                if(element)
+                {
+                    if(element.type === "checkbox")
+                    {
+                        element.checked = saved_value === "true" ? true : false;
+                    }
+                    else
+                    {
+                        element.value = saved_value;
+                    }
+                }
+            }
         }
 
         function start_profile(infos)
