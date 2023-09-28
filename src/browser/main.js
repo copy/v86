@@ -117,11 +117,6 @@
             return;
         }
 
-        const script = document.createElement("script");
-        script.src = "build/xterm.js";
-        script.async = true;
-        document.body.appendChild(script);
-
         var settings = {};
 
         $("start_emulation").onclick = function()
@@ -1006,6 +1001,11 @@
             document.head.appendChild(link);
         }
 
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = "build/xterm.js";
+        document.head.appendChild(link);
+
         if(query_args["disable_jit"])
         {
             settings.disable_jit = true;
@@ -1407,7 +1407,6 @@
             vga_memory_size: vga_memory_size,
 
             screen_container: $("screen_container"),
-            serial_container_xtermjs: $("terminal"),
 
             boot_order: settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
@@ -2075,6 +2074,15 @@
                 window.onbeforeunload = null;
             }
         }
+
+        const script = document.createElement("script");
+        script.src = "build/xterm.js";
+        script.async = true;
+        script.onload = function()
+        {
+            emulator.set_serial_container_xtermjs($("terminal"));
+        };
+        document.body.appendChild(script);
     }
 
     function init_filesystem_panel(emulator)

@@ -1327,6 +1327,13 @@ V86.prototype.write_memory = function(blob, offset)
     this.v86.cpu.write_blob(blob, offset);
 };
 
+V86.prototype.set_serial_container_xtermjs = function(element)
+{
+    this.serial_adapter && this.serial_adapter.destroy && this.serial_adapter.destroy();
+    this.serial_adapter = new SerialAdapterXtermJS(element, this.bus);
+    this.serial_adapter.show();
+};
+
 /**
  * @ignore
  * @constructor
