@@ -1671,6 +1671,8 @@
             write_sectors: 0,
         };
 
+        $("ide_type").textContent = emulator.disk_images.cdrom ? " (CD-ROM)" : " (hard disk)";
+
         emulator.add_listener("ide-read-start", function()
         {
             $("info_storage").style.display = "block";

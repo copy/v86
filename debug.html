@@ -149,12 +149,12 @@ function load_next()
             </tr>
 
             <tr>
-                <td><label for="hda_image">Hard drive disk image</label></td>
+                <td><label for="hda_image">Hard disk image</label></td>
                 <td><input type="file" id="hda_image"><br></td>
             </tr>
 
             <tr>
-                <td>Second hard drive disk image</td>
+                <td>Second hard disk image</td>
                 <td><input type="file" id="hdb_image"><br></td>
             </tr>
 
@@ -258,7 +258,7 @@ function load_next()
         <input type="button" value="Get second floppy image" id="get_fdb_image">
         <input type="button" value="Get hard disk image" id="get_hda_image">
         <input type="button" value="Get second hard disk image" id="get_hdb_image">
-        <input type="button" value="Get cdrom image" id="get_cdrom_image">
+        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
         <input type="button" value="Insert floppy image" id="change_fda_image">
         <input type="button" value="Save State" id="save_state">
         <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
@@ -299,7 +299,7 @@ function load_next()
     Avg speed: <span id="avg_speed">0</span> mIPS<br>
     <br>
     <div id="info_storage" style="display: none">
-        <b>IDE device (HDA or CDROM)</b><br>
+        <b>IDE device<span id="ide_type"></span></b><br>
         Sectors read: <span id="info_storage_sectors_read">0</span><br>
         Bytes read: <span id="info_storage_bytes_read">0</span><br>
         Sectors written: <span id="info_storage_sectors_written">0</span><br>

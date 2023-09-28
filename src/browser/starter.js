@@ -24,7 +24,7 @@
  * - `bios Object` (No bios) - Either a url pointing to a bios or an
  *   ArrayBuffer, see below.
  * - `vga_bios Object` (No VGA bios) - VGA bios, see below.
- * - `hda Object` (No hard drive) - First hard disk, see below.
+ * - `hda Object` (No hard disk) - First hard disk, see below.
  * - `fda Object` (No floppy disk) - First floppy disk, see below.
  * - `cdrom Object` (No CD) - See below.
  *
@@ -77,13 +77,11 @@
  *   bios: {
  *       buffer: document.all.hd_image.files[0]
  *   }
- *   // start with empty hard drive
+ *   // start with empty hard disk
  *   hda: {
  *       buffer: new ArrayBuffer(16 * 1024 * 1024)
  *   }
  *   ```
- *
- * ***
  *
  * @param {{
       disable_mouse: (boolean|undefined),

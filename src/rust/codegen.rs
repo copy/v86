@@ -1701,7 +1701,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Bitwise { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            // Note: Necessary because test{8,16} don't mask their neither last_result nor any of their operands
+            // Note: Necessary because test{8,16} don't mask either last_result or any of their operands
             // TODO: Use local instead of last_result for 8-bit/16-bit
             if opsize == OPSIZE_32 {
                 gen_get_last_result(ctx.builder, &ctx.previous_instruction);

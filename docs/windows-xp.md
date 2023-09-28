@@ -21,7 +21,7 @@ Don't search. I will choose the driver to install. > Next > Standard PC > Next >
 Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
 
 Now `winxp.img` is ready for v86. You can use [the website](https://copy.sh/v86/) to run it:
-Specify `winxp.img` as a hard drive and optionally set memory size to 512 MB.
+Specify `winxp.img` as a hard disk and optionally set memory size to 512 MB.
 Or run it in a custom html file as described below.
 
 Get seabios.bin and vgabios.bin from [here](https://github.com/copy/v86/tree/master/bios),
