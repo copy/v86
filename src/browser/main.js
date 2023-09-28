@@ -1372,7 +1372,7 @@
 
         const networking_proxy = settings.networking_proxy === undefined ? $("networking_proxy").value : settings.networking_proxy;
         const disable_audio = settings.audio === undefined ? $("disable_audio").checked : !settings.audio;
-        const enable_acpi = settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
+        const enable_acpi = !settings.initial_state && settings.acpi === undefined ? $("enable_acpi").checked : settings.acpi;
 
         /** @const */
         var BIOSPATH = "bios/";
