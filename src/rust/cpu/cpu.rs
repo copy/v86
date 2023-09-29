@@ -1847,20 +1847,31 @@ pub unsafe fn translate_address(
         Ok(PhysAddr::create((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32))
     }
     else {
-        match do_page_walk(address, for_writing, user, side_effects) {
-            Ok((phys_addr_high, _)) => Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF)),
-            Err(pagefault) => {
-                if side_effects {
-                    if jit {
-                        trigger_pagefault_jit(pagefault);
-                    }
-                    else {
-                        trigger_pagefault(pagefault);
-                    }
+        translate_address_slow_path(address, for_writing, user, jit, side_effects)
+    }
+}
+
+#[inline(never)]
+pub unsafe fn translate_address_slow_path(
+    address: i32,
+    for_writing: bool,
+    user: bool,
+    jit: bool,
+    side_effects: bool,
+) -> OrPageFault<PhysAddr> {
+    match do_page_walk(address, for_writing, user, side_effects) {
+        Ok((phys_addr_high, _)) => Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF)),
+        Err(pagefault) => {
+            if side_effects {
+                if jit {
+                    trigger_pagefault_jit(pagefault);
                 }
-                Err(())
-            },
-        }
+                else {
+                    trigger_pagefault(pagefault);
+                }
+            }
+            Err(())
+        },
     }
 }
 
