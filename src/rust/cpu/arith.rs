@@ -1018,7 +1018,7 @@ pub unsafe fn bt_mem(virt_addr: i32, mut bit_offset: i32) {
     *flags_changed &= !1;
 }
 pub unsafe fn btc_mem(virt_addr: i32, mut bit_offset: i32) {
-    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))).get();
     let bit_base = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
@@ -1026,7 +1026,7 @@ pub unsafe fn btc_mem(virt_addr: i32, mut bit_offset: i32) {
     write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
 pub unsafe fn btr_mem(virt_addr: i32, mut bit_offset: i32) {
-    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))).get();
     let bit_base = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
@@ -1034,7 +1034,7 @@ pub unsafe fn btr_mem(virt_addr: i32, mut bit_offset: i32) {
     write8(phys_addr, bit_base & !(1 << bit_offset));
 }
 pub unsafe fn bts_mem(virt_addr: i32, mut bit_offset: i32) {
-    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let phys_addr = return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))).get();
     let bit_base = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
