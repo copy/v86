@@ -1864,7 +1864,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
 // Note that PAE entries are 64-bit, and can describe physical addresses over 32
 // bits. However, since we support only 32-bit physical addresses, we require
 // the high half of the entry to be 0.
-#[inline(never)]
+#[cold]
 pub unsafe fn do_page_walk(
     addr: i32,
     for_writing: bool,
@@ -3048,7 +3048,7 @@ pub unsafe fn do_many_cycles_native_nojit() {
     }
 }
 
-#[inline(never)]
+#[cold]
 pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;
@@ -3098,12 +3098,14 @@ pub unsafe fn trigger_gp(code: i32) {
     call_interrupt_vector(CPU_EXCEPTION_GP, false, Some(code));
 }
 
+#[cold]
 pub unsafe fn virt_boundary_read16(low: u32, high: u32) -> i32 {
     dbg_assert!(low & 0xFFF == 0xFFF);
     dbg_assert!(high & 0xFFF == 0);
     return read8(low as u32) | read8(high as u32) << 8;
 }
 
+#[cold]
 pub unsafe fn virt_boundary_read32s(low: u32, high: u32) -> i32 {
     dbg_assert!(low & 0xFFF >= 0xFFD);
     dbg_assert!(high - 3 & 0xFFF == low & 0xFFF);
@@ -3125,6 +3127,7 @@ pub unsafe fn virt_boundary_read32s(low: u32, high: u32) -> i32 {
     return read8(low as u32) | mid << 8 | read8(high as u32) << 24;
 }
 
+#[cold]
 pub unsafe fn virt_boundary_write16(low: u32, high: u32, value: i32) {
     dbg_assert!(low & 0xFFF == 0xFFF);
     dbg_assert!(high & 0xFFF == 0);
@@ -3132,6 +3135,7 @@ pub unsafe fn virt_boundary_write16(low: u32, high: u32, value: i32) {
     write8(high as u32, value >> 8);
 }
 
+#[cold]
 pub unsafe fn virt_boundary_write32(low: u32, high: u32, value: i32) {
     dbg_assert!(low & 0xFFF >= 0xFFD);
     dbg_assert!(high - 3 & 0xFFF == low & 0xFFF);
