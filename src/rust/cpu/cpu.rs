@@ -1873,13 +1873,6 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
     }
 }
 
-pub struct PageFault {
-    addr: i32,
-    for_writing: bool,
-    user: bool,
-    present: bool,
-}
-
 // 32-bit paging:
 // - 10 bits PD | 10 bits PT | 12 bits offset
 // - 10 bits PD | 22 bits offset (4MB huge page)
@@ -1921,12 +1914,7 @@ pub unsafe fn do_page_walk(
             let pdpt_entry = *reg_pdpte.offset(((addr as u32) >> 30) as isize);
             if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
                 if side_effects {
-                    trigger_pagefault(PageFault {
-                        addr,
-                        for_writing,
-                        user,
-                        present: false,
-                    }, jit);
+                    trigger_pagefault(addr, false, for_writing, user, jit);
                 }
                 return Err(());
             }
@@ -1953,12 +1941,7 @@ pub unsafe fn do_page_walk(
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
             if side_effects {
-                trigger_pagefault(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: false,
-                }, jit);
+                trigger_pagefault(addr, false, for_writing, user, jit);
             }
             return Err(());
         }
@@ -1966,12 +1949,7 @@ pub unsafe fn do_page_walk(
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
             if side_effects {
-                trigger_pagefault(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: true,
-                }, jit);
+                trigger_pagefault(addr, true, for_writing, user, jit);
             }
             return Err(());
         }
@@ -1981,12 +1959,7 @@ pub unsafe fn do_page_walk(
             if user {
                 // Page Fault: page table accessed by non-supervisor
                 if side_effects {
-                    trigger_pagefault(PageFault {
-                        addr,
-                        for_writing,
-                        user,
-                        present: true,
-                    }, jit);
+                    trigger_pagefault(addr, true, for_writing, user, jit);
                 }
                 return Err(());
             }
@@ -2037,24 +2010,14 @@ pub unsafe fn do_page_walk(
 
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
                 if side_effects {
-                    trigger_pagefault(PageFault {
-                        addr,
-                        for_writing,
-                        user,
-                        present: false,
-                    }, jit);
+                    trigger_pagefault(addr, false, for_writing, user, jit);
                 }
                 return Err(());
             }
 
             if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
                 if side_effects {
-                    trigger_pagefault(PageFault {
-                        addr,
-                        for_writing,
-                        user,
-                        present: true,
-                    }, jit);
+                    trigger_pagefault(addr, true, for_writing, user, jit);
                 }
                 return Err(());
             }
@@ -2062,12 +2025,7 @@ pub unsafe fn do_page_walk(
                 allow_user = false;
                 if user {
                     if side_effects {
-                        trigger_pagefault(PageFault {
-                            addr,
-                            for_writing,
-                            user,
-                            present: true,
-                        }, jit);
+                        trigger_pagefault(addr, true, for_writing, user, jit);
                     }
                     return Err(());
                 }
@@ -2239,12 +2197,7 @@ pub unsafe fn trigger_fault_end_jit() {
 ///   and finally calls trigger_fault_end_jit, which does the interrupt
 ///
 /// Non-jit resets the instruction pointer and does the PF interrupt directly
-pub unsafe fn trigger_pagefault(fault: PageFault, jit: bool) {
-    let write = fault.for_writing;
-    let addr = fault.addr;
-    let present = fault.present;
-    let user = fault.user;
-
+pub unsafe fn trigger_pagefault(addr: i32, present: bool, write: bool, user: bool, jit: bool) {
     if config::LOG_PAGE_FAULTS {
         dbg_log!(
             "page fault{} w={} u={} p={} eip={:x} cr2={:x}",
