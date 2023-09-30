@@ -1812,13 +1812,8 @@ pub unsafe fn translate_address_write_jit_and_can_skip_dirty(
         ))
     }
     else {
-        match do_page_walk(address, true, user, true) {
-            Ok((phys_addr_high, skip)) => Ok((PhysAddr::create(phys_addr_high | address as u32 & 0xFFF), skip)),
-            Err(pagefault) => {
-                trigger_pagefault(pagefault, true);
-                Err(())
-            },
-        }
+        let (phys_addr_high, skip) = do_page_walk(address, true, user, true, true)?;
+        Ok((PhysAddr::create(phys_addr_high | address as u32 & 0xFFF), skip))
     }
 }
 
@@ -1859,15 +1854,8 @@ pub unsafe fn translate_address_slow_path(
     jit: bool,
     side_effects: bool,
 ) -> OrPageFault<PhysAddr> {
-    match do_page_walk(address, for_writing, user, side_effects) {
-        Ok((phys_addr_high, _)) => Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF)),
-        Err(pagefault) => {
-            if side_effects {
-                trigger_pagefault(pagefault, jit);
-            }
-            Err(())
-        },
-    }
+    let (phys_addr_high, _) = do_page_walk(address, for_writing, user, jit, side_effects)?;
+    Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF))
 }
 
 pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPageFault<(u32, bool)> {
@@ -1880,13 +1868,8 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
         ))
     }
     else {
-        match do_page_walk(address, true, user, true) {
-            Ok((phys_addr_high, skip)) => Ok((phys_addr_high | address as u32 & 0xFFF, skip)),
-            Err(pagefault) => {
-                trigger_pagefault(pagefault, false);
-                Err(())
-            },
-        }
+        let (phys_addr_high, skip) = do_page_walk(address, true, user, false, true)?;
+        Ok((phys_addr_high | address as u32 & 0xFFF, skip))
     }
 }
 
@@ -1913,8 +1896,9 @@ pub unsafe fn do_page_walk(
     addr: i32,
     for_writing: bool,
     user: bool,
+    jit: bool,
     side_effects: bool,
-) -> Result<(u32, bool), PageFault> {
+) -> OrPageFault<(u32, bool)> {
     let global;
     let mut allow_user: bool = true;
     let page = (addr as u32 >> 12) as i32;
@@ -1936,12 +1920,15 @@ pub unsafe fn do_page_walk(
         let (page_dir_addr, page_dir_entry) = if pae {
             let pdpt_entry = *reg_pdpte.offset(((addr as u32) >> 30) as isize);
             if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
-                return Err(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: false,
-                });
+                if side_effects {
+                    trigger_pagefault(PageFault {
+                        addr,
+                        for_writing,
+                        user,
+                        present: false,
+                    }, jit);
+                }
+                return Err(());
             }
 
             let page_dir_addr =
@@ -1965,34 +1952,43 @@ pub unsafe fn do_page_walk(
         };
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
-            return Err(PageFault {
-                addr,
-                for_writing,
-                user,
-                present: false,
-            });
+            if side_effects {
+                trigger_pagefault(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: false,
+                }, jit);
+            }
+            return Err(());
         }
 
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
-            return Err(PageFault {
-                addr,
-                for_writing,
-                user,
-                present: true,
-            });
+            if side_effects {
+                trigger_pagefault(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: true,
+                }, jit);
+            }
+            return Err(());
         }
 
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
             allow_user = false;
             if user {
                 // Page Fault: page table accessed by non-supervisor
-                return Err(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: true,
-                });
+                if side_effects {
+                    trigger_pagefault(PageFault {
+                        addr,
+                        for_writing,
+                        user,
+                        present: true,
+                    }, jit);
+                }
+                return Err(());
             }
         }
 
@@ -2040,31 +2036,40 @@ pub unsafe fn do_page_walk(
             };
 
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
-                return Err(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: false,
-                });
+                if side_effects {
+                    trigger_pagefault(PageFault {
+                        addr,
+                        for_writing,
+                        user,
+                        present: false,
+                    }, jit);
+                }
+                return Err(());
             }
 
             if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
-                return Err(PageFault {
-                    addr,
-                    for_writing,
-                    user,
-                    present: true,
-                });
-            }
-            if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
-                allow_user = false;
-                if user {
-                    return Err(PageFault {
+                if side_effects {
+                    trigger_pagefault(PageFault {
                         addr,
                         for_writing,
                         user,
                         present: true,
-                    });
+                    }, jit);
+                }
+                return Err(());
+            }
+            if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
+                allow_user = false;
+                if user {
+                    if side_effects {
+                        trigger_pagefault(PageFault {
+                            addr,
+                            for_writing,
+                            user,
+                            present: true,
+                        }, jit);
+                    }
+                    return Err(());
                 }
             }
 
