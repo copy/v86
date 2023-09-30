@@ -995,6 +995,7 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
+    settings.disable_jit = +process.env.DISABLE_JIT;
 
     if(test.expected_texts)
     {

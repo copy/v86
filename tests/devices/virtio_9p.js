@@ -1556,6 +1556,7 @@ const emulator = new V86({
     filesystem: {
         baseurl: __dirname + "/testfs/",
     },
+    disable_jit: +process.env.DISABLE_JIT,
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
 

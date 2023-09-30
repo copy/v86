@@ -18,6 +18,7 @@ const emulator = new V86({
     initial_state: { url: path.join(V86_ROOT, "/images/arch_state.bin") },
     filesystem: { baseurl: path.join(V86_ROOT, "/images/arch-nongz/") },
     screen_dummy: true,
+    disable_jit: +process.env.DISABLE_JIT,
     log_level: 0,
 });
 

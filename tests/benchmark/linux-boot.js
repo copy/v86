@@ -19,6 +19,7 @@ if(true)
         cdrom: { url: __dirname + "/../../images/linux3.iso" },
         autostart: true,
         memory_size: 32 * 1024 * 1024,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 }
@@ -40,6 +41,7 @@ else
             baseurl: path.join(V86_ROOT, "/images/arch/"),
         },
         screen_dummy: true,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 }

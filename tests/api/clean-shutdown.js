@@ -20,6 +20,7 @@ const config = {
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
     log_level: 0,
+    disable_jit: +process.env.DISABLE_JIT,
     screen_dummy: true,
 };
 

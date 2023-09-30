@@ -302,6 +302,7 @@ else {
     let emulator = new V86({
         autostart: false,
         memory_size: 2 * 1024 * 1024,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 
