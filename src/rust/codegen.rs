@@ -1667,24 +1667,28 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
         },
         Instruction::Cmp {
             dest: InstructionOperandDest::WasmLocal(dest),
+            source: InstructionOperand::Immediate(0),
+            opsize: OPSIZE_32,
+        } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder.get_local(dest);
+            if negate == ConditionNegate::False {
+                ctx.builder.eqz_i32();
+            }
+        },
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(dest),
             source: InstructionOperand::Immediate(i),
             opsize: OPSIZE_32,
         } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             ctx.builder.get_local(dest);
-            if *i != 0 {
-                ctx.builder.const_i32(*i);
-                if negate == ConditionNegate::False {
-                    ctx.builder.eq_i32();
-                }
-                else {
-                    ctx.builder.ne_i32();
-                }
+            ctx.builder.const_i32(*i);
+            if negate == ConditionNegate::False {
+                ctx.builder.eq_i32();
             }
             else {
-                if negate == ConditionNegate::False {
-                    ctx.builder.eqz_i32();
-                }
+                ctx.builder.ne_i32();
             }
         },
         Instruction::Cmp { .. }
