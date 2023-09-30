@@ -1815,7 +1815,7 @@ pub unsafe fn translate_address_write_jit_and_can_skip_dirty(
         match do_page_walk(address, true, user, true) {
             Ok((phys_addr_high, skip)) => Ok((PhysAddr::create(phys_addr_high | address as u32 & 0xFFF), skip)),
             Err(pagefault) => {
-                trigger_pagefault_jit(pagefault);
+                trigger_pagefault(pagefault, true);
                 Err(())
             },
         }
@@ -1863,12 +1863,7 @@ pub unsafe fn translate_address_slow_path(
         Ok((phys_addr_high, _)) => Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF)),
         Err(pagefault) => {
             if side_effects {
-                if jit {
-                    trigger_pagefault_jit(pagefault);
-                }
-                else {
-                    trigger_pagefault(pagefault);
-                }
+                trigger_pagefault(pagefault, jit);
             }
             Err(())
         },
@@ -1888,7 +1883,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
         match do_page_walk(address, true, user, true) {
             Ok((phys_addr_high, skip)) => Ok((phys_addr_high | address as u32 & 0xFFF, skip)),
             Err(pagefault) => {
-                trigger_pagefault(pagefault);
+                trigger_pagefault(pagefault, false);
                 Err(())
             },
         }
@@ -2188,48 +2183,6 @@ pub unsafe fn clear_tlb() {
     };
 }
 
-/// Pagefault handling with the jit works as follows:
-/// - If the slow path is taken, it calls safe_{read,write}*_jit
-/// - safe_{read,write}*_jit call translate_address_{read,write}_jit
-/// - translate_address_{read,write}_jit do the normal page walk and call this method instead of
-///   trigger_pagefault when a page fault happens
-/// - this method prepares a page fault by setting cr2, and writes the error code
-///   into jit_fault. This method *doesn't* trigger the interrupt, as registers are
-///   still stored in the wasm module
-/// - back in the wasm module, the generated code detects the page fault, restores the registers
-///   and finally calls trigger_fault_end_jit, which does the interrupt
-pub unsafe fn trigger_pagefault_jit(fault: PageFault) {
-    let write = fault.for_writing;
-    let addr = fault.addr;
-    let present = fault.present;
-    let user = fault.user;
-
-    if config::LOG_PAGE_FAULTS {
-        dbg_log!(
-            "page fault jit w={} u={} p={} eip={:x} cr2={:x}",
-            write as i32,
-            user as i32,
-            present as i32,
-            *previous_ip,
-            addr
-        );
-        dbg_trace();
-    }
-    profiler::stat_increment(PAGE_FAULT);
-    *cr.offset(2) = addr;
-    // invalidate tlb entry
-    let page = ((addr as u32) >> 12) as i32;
-    clear_tlb_code(page);
-    tlb_data[page as usize] = 0;
-    if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_PF) {
-            return;
-        }
-    }
-    let error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
-    jit_fault = Some((CPU_EXCEPTION_PF, Some(error_code)));
-}
-
 #[no_mangle]
 pub unsafe fn trigger_de_jit(start_eip: i32) {
     dbg_log!("#de in jit mode");
@@ -2269,7 +2222,19 @@ pub unsafe fn trigger_fault_end_jit() {
     call_interrupt_vector(code, false, error_code);
 }
 
-pub unsafe fn trigger_pagefault(fault: PageFault) {
+/// Pagefault handling with the jit works as follows:
+/// - If the slow path is taken, it calls safe_{read,write}*_jit
+/// - safe_{read,write}*_jit call translate_address_{read,write}_jit
+/// - translate_address_{read,write}_jit do the normal page walk and call this method with
+///   jit=true when a page fault happens
+/// - this method prepares a page fault by setting cr2, and writes the error code
+///   into jit_fault. This method *doesn't* trigger the interrupt, as registers are
+///   still stored in the wasm module
+/// - back in the wasm module, the generated code detects the page fault, restores the registers
+///   and finally calls trigger_fault_end_jit, which does the interrupt
+///
+/// Non-jit resets the instruction pointer and does the PF interrupt directly
+pub unsafe fn trigger_pagefault(fault: PageFault, jit: bool) {
     let write = fault.for_writing;
     let addr = fault.addr;
     let present = fault.present;
@@ -2277,7 +2242,8 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
 
     if config::LOG_PAGE_FAULTS {
         dbg_log!(
-            "page fault w={} u={} p={} eip={:x} cr2={:x}",
+            "page fault{} w={} u={} p={} eip={:x} cr2={:x}",
+            if jit { "jit" } else { "" },
             write as i32,
             user as i32,
             present as i32,
@@ -2292,12 +2258,14 @@ pub unsafe fn trigger_pagefault(fault: PageFault) {
     let page = ((addr as u32) >> 12) as i32;
     clear_tlb_code(page);
     tlb_data[page as usize] = 0;
-    *instruction_pointer = *previous_ip;
-    call_interrupt_vector(
-        CPU_EXCEPTION_PF,
-        false,
-        Some((user as i32) << 2 | (write as i32) << 1 | present as i32),
-    );
+    let error_code = (user as i32) << 2 | (write as i32) << 1 | present as i32;
+    if jit {
+        jit_fault = Some((CPU_EXCEPTION_PF, Some(error_code)));
+    }
+    else {
+        *instruction_pointer = *previous_ip;
+        call_interrupt_vector(CPU_EXCEPTION_PF, false, Some(error_code));
+    }
 }
 
 pub fn tlb_set_has_code(physical_page: Page, has_code: bool) {
