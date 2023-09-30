@@ -1803,18 +1803,15 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<PhysAddr> {
 pub unsafe fn translate_address_write_jit_and_can_skip_dirty(
     address: i32,
 ) -> OrPageFault<(PhysAddr, bool)> {
-    let entry = tlb_data[(address as u32 >> 12) as usize];
+    let mut entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
-    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
-        Ok((
-            PhysAddr::create((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32),
-            entry & TLB_HAS_CODE == 0,
-        ))
+    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) != TLB_VALID {
+        entry = do_page_walk(address, true, user, true, true)?.get();
     }
-    else {
-        let (phys_addr_high, skip) = do_page_walk(address, true, user, true, true)?;
-        Ok((PhysAddr::create(phys_addr_high | address as u32 & 0xFFF), skip))
-    }
+    Ok((
+        PhysAddr::create((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32),
+        entry & TLB_HAS_CODE == 0,
+    ))
 }
 
 pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<PhysAddr> {
@@ -1832,45 +1829,28 @@ pub unsafe fn translate_address(
     jit: bool,
     side_effects: bool,
 ) -> OrPageFault<PhysAddr> {
-    let entry = tlb_data[(address as u32 >> 12) as usize];
+    let mut entry = tlb_data[(address as u32 >> 12) as usize];
     if entry
         & (TLB_VALID
             | if user { TLB_NO_USER } else { 0 }
             | if for_writing { TLB_READONLY } else { 0 })
-        == TLB_VALID
+        != TLB_VALID
     {
-        Ok(PhysAddr::create((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32))
+        entry = do_page_walk(address, for_writing, user, jit, side_effects)?.get();
     }
-    else {
-        translate_address_slow_path(address, for_writing, user, jit, side_effects)
-    }
-}
-
-#[inline(never)]
-pub unsafe fn translate_address_slow_path(
-    address: i32,
-    for_writing: bool,
-    user: bool,
-    jit: bool,
-    side_effects: bool,
-) -> OrPageFault<PhysAddr> {
-    let (phys_addr_high, _) = do_page_walk(address, for_writing, user, jit, side_effects)?;
-    Ok(PhysAddr::create(phys_addr_high | address as u32 & 0xFFF))
+    Ok(PhysAddr::create((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32))
 }
 
 pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPageFault<(u32, bool)> {
-    let entry = tlb_data[(address as u32 >> 12) as usize];
+    let mut entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
-    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) == TLB_VALID {
-        Ok((
-            (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32,
-            entry & TLB_HAS_CODE == 0,
-        ))
+    if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) != TLB_VALID {
+        entry = do_page_walk(address, true, user, false, true)?.get();
     }
-    else {
-        let (phys_addr_high, skip) = do_page_walk(address, true, user, false, true)?;
-        Ok((phys_addr_high | address as u32 & 0xFFF, skip))
-    }
+    Ok((
+        (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32,
+        entry & TLB_HAS_CODE == 0,
+    ))
 }
 
 // 32-bit paging:
@@ -1891,7 +1871,7 @@ pub unsafe fn do_page_walk(
     user: bool,
     jit: bool,
     side_effects: bool,
-) -> OrPageFault<(u32, bool)> {
+) -> OrPageFault<std::num::NonZeroI32> {
     let global;
     let mut allow_user: bool = true;
     let page = (addr as u32 >> 12) as i32;
@@ -2086,17 +2066,25 @@ pub unsafe fn do_page_walk(
         | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
         | if has_code { TLB_HAS_CODE } else { 0 };
 
+    let tlb_entry = (high + memory::mem8 as u32) as i32 ^ page << 12 | info_bits as i32;
+
     dbg_assert!((high ^ (page as u32) << 12) & 0xFFF == 0);
     if side_effects {
         // bake in the addition with memory::mem8 to save an instruction from the fast path
         // of memory accesses
-        tlb_data[page as usize] =
-            (high + memory::mem8 as u32) as i32 ^ page << 12 | info_bits as i32;
+        tlb_data[page as usize] = tlb_entry;
 
         jit::update_tlb_code(Page::page_of(addr as u32), Page::page_of(high));
     }
 
-    return Ok((high, !has_code));
+    Ok(
+        if DEBUG {
+            std::num::NonZeroI32::new(tlb_entry).unwrap()
+        }
+        else {
+            std::num::NonZeroI32::new_unchecked(tlb_entry)
+        }
+    )
 }
 
 #[no_mangle]
