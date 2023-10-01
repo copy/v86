@@ -17,7 +17,7 @@ opt-level = 2
 overflow-checks = false
 
 [profile.dev]
-lto = false
+lto = true
 opt-level = 2
 panic = "abort"
 overflow-checks = false

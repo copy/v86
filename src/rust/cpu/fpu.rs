@@ -61,6 +61,10 @@ pub unsafe fn fpu_sti_empty(mut i: i32) -> bool {
 }
 
 #[no_mangle]
+pub unsafe fn fpu_get_sti_jit(dst: *mut F80, i: i32) {
+    *dst = fpu_get_sti(i);
+}
+
 pub unsafe fn fpu_get_sti(mut i: i32) -> F80 {
     dbg_assert!(i >= 0 && i < 8);
     i = i + *fpu_stack_ptr as i32 & 7;
@@ -81,6 +85,9 @@ pub unsafe fn fpu_get_sti_f64(mut i: i32) -> f64 {
 }
 
 #[no_mangle]
+pub unsafe fn f32_to_f80_jit(dst: *mut F80, v: i32) {
+    *dst = f32_to_f80(v)
+}
 pub unsafe fn f32_to_f80(v: i32) -> F80 {
     F80::clear_exception_flags();
     let x = F80::of_f32(v);
@@ -88,6 +95,9 @@ pub unsafe fn f32_to_f80(v: i32) -> F80 {
     x
 }
 #[no_mangle]
+pub unsafe fn f64_to_f80_jit(dst: *mut F80, v: u64) {
+    *dst = f64_to_f80(v)
+}
 pub unsafe fn f64_to_f80(v: u64) -> F80 {
     F80::clear_exception_flags();
     let x = F80::of_f64(v);
@@ -110,8 +120,10 @@ pub unsafe fn f80_to_f64(v: F80) -> u64 {
 }
 
 #[no_mangle]
+pub unsafe fn i32_to_f80_jit(dst: *mut F80, v: i32) { *dst = i32_to_f80(v) }
 pub unsafe fn i32_to_f80(v: i32) -> F80 { F80::of_i32(v) }
 #[no_mangle]
+pub unsafe fn i64_to_f80_jit(dst: *mut F80, v: i64) { *dst = i64_to_f80(v) }
 pub unsafe fn i64_to_f80(v: i64) -> F80 { F80::of_i64(v) }
 
 pub unsafe fn fpu_load_i16(addr: i32) -> OrPageFault<F80> {
