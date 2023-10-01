@@ -45,6 +45,7 @@ pub const WASM_TABLE_OFFSET: u32 = 1024;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+#[repr(align(16))]
 pub union reg128 {
     pub i8: [i8; 16],
     pub i16: [i16; 8],

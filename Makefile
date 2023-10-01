@@ -76,7 +76,7 @@ CARGO_FLAGS_SAFE=\
 		-C link-args="build/zstddeclib.o" \
 		--verbose
 
-CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory
+CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature=+simd128
 
 CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js \
