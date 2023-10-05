@@ -686,7 +686,7 @@ fn jit_find_basic_blocks(
             .range(..current_block.addr)
             .next_back()
             .filter(|(_, previous_block)| (!previous_block.has_sti))
-            .map(|(_, previous_block)| previous_block.clone());
+            .map(|(_, previous_block)| previous_block);
 
         if let Some(previous_block) = previous_block {
             if current_block.addr < previous_block.end_addr {
