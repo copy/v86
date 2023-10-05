@@ -169,7 +169,7 @@ unsafe fn string_instruction(
                 skip_dirty_page = skip;
             },
             Instruction::Cmps | Instruction::Scas => {
-                let addr = return_on_pagefault!(translate_address_read(es + dst)).get();
+                let addr = return_on_pagefault!(translate_address_read(es + dst));
                 rep_fast = rep_fast && !in_mapped_range(addr);
                 phys_dst = addr;
                 skip_dirty_page = true;
@@ -179,7 +179,7 @@ unsafe fn string_instruction(
 
         match instruction {
             Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
-                let addr = return_on_pagefault!(translate_address_read(ds + src)).get();
+                let addr = return_on_pagefault!(translate_address_read(ds + src));
                 rep_fast = rep_fast && !in_mapped_range(addr);
                 phys_src = addr;
             },

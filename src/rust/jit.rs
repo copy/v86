@@ -399,7 +399,7 @@ fn jit_find_basic_blocks(
                 dbg_log!("Not analysing {:x} (page not mapped)", virt_target);
                 return None;
             },
-            Ok(t) => t.get(),
+            Ok(t) => t,
         };
 
         let phys_page = Page::page_of(phys_target);
@@ -486,7 +486,7 @@ fn jit_find_basic_blocks(
                 dbg_log!("Not analysing {:x} (page not mapped)", to_visit);
                 continue;
             },
-            Ok(phys_addr) => phys_addr.get(),
+            Ok(phys_addr) => phys_addr,
         };
 
         if basic_blocks.contains_key(&phys_addr) {
@@ -750,7 +750,7 @@ pub fn jit_force_generate_unsafe(virt_addr: i32) {
     );
     jit_increase_hotness_and_maybe_compile(
         virt_addr,
-        cpu::translate_address_read(virt_addr).unwrap().get(),
+        cpu::translate_address_read(virt_addr).unwrap(),
         cpu::get_seg_cs() as u32,
         cpu::get_state_flags(),
         JIT_THRESHOLD,
@@ -809,7 +809,7 @@ fn jit_analyze_and_generate(
     };
 
     dbg_assert!(
-        cpu::translate_address_read_no_side_effects(virt_entry_point).unwrap().get() == phys_entry_point
+        cpu::translate_address_read_no_side_effects(virt_entry_point).unwrap() == phys_entry_point
     );
     let virt_page = Page::page_of(virt_entry_point as u32);
     let entry_points: HashSet<i32> = entry_points
@@ -2093,7 +2093,7 @@ pub fn jit_increase_hotness_and_maybe_compile(
             return;
         }
         // only try generating if we're in the correct address space
-        if cpu::translate_address_read_no_side_effects(virt_address).map(|x| x.get()) == Ok(phys_address) {
+        if cpu::translate_address_read_no_side_effects(virt_address) == Ok(phys_address) {
             *hotness = 0;
             jit_analyze_and_generate(ctx, virt_address, phys_address, cs_offset, state_flags)
         }
@@ -2375,7 +2375,7 @@ pub fn check_dispatcher_target(target_index: i32, max: i32) {
 #[cfg(feature = "profiler")]
 pub fn enter_basic_block(phys_eip: u32) {
     let eip =
-        unsafe { cpu::translate_address_read(*global_pointers::instruction_pointer).unwrap().get() };
+        unsafe { cpu::translate_address_read(*global_pointers::instruction_pointer).unwrap() };
     if Page::page_of(eip) != Page::page_of(phys_eip) {
         dbg_log!(
             "enter basic block failed block=0x{:x} actual eip=0x{:x}",
