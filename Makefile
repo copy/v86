@@ -262,12 +262,12 @@ tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
 nasmtests: all-debug
-	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
 nasmtests-force-jit: all-debug
-	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 

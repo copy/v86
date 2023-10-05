@@ -22,16 +22,15 @@ main:
         xor ecx, ecx
         xor edx, edx
         xor ebx, ebx
-        ; xor esp, esp
         mov esp, stack_top
         xor ebp, ebp
         xor esi, esi
         xor edi, edi
 
+        pxor xmm0, xmm0
+
         ; make space for memory operations
-        %rep 8
-        push 0
-        %endrep
+        sub esp, 32
 
         push 0
         popf

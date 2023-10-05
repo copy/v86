@@ -60,15 +60,11 @@ jobs:
           path: tests/nasm/build/
           key: ${{ runner.os }}-nasmtests
 
-      - name: Build namsmtests
-        if: steps.cache-nasmtests.outputs.cache-hit != 'true'
-        run: tests/nasm/create_tests.js; make -C tests/nasm all; ./tests/nasm/gen_fixtures.js
-
       - name: Run nasmtests
-        run: MAX_PARALLEL_TESTS=1 ./tests/nasm/run.js
+        run: MAX_PARALLEL_TESTS=1 make nasmtests
 
       - name: Run nasmtests-force-jit
-        run: MAX_PARALLEL_TESTS=1 ./tests/nasm/run.js --force-jit
+        run: MAX_PARALLEL_TESTS=1 make nasmtests-force-jit
 
       - name: Run rust-test
         run: make rust-test
