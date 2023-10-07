@@ -578,6 +578,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         else
         {
             dbg_assert(false);
+            return 0;
         }
     });
 
@@ -700,6 +701,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         {
             dbg_log("Unimplemented: Read pg" + pg + "/08", LOG_NET);
             dbg_assert(false);
+            return 0;
         }
     });
 
@@ -729,6 +731,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         {
             dbg_log("Unimplemented: Read pg" + pg + "/09", LOG_NET);
             dbg_assert(false);
+            return 0;
         }
     });
 
