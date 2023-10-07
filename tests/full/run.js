@@ -592,7 +592,7 @@ if(cluster.isMaster)
         },
         {
             name: "9front",
-            failure_allowed: true,
+            use_small_bios: true, // has issues with 256k bios
             skip_if_disk_image_missing: true,
             acpi: true,
             timeout: 5 * 60,
@@ -959,7 +959,7 @@ function run_test(test, done)
         var bios = root_path + "/bios/bochs-bios.bin";
         var vga_bios = root_path + "/bios/bochs-vgabios.bin";
     }
-    else if(TEST_RELEASE_BUILD)
+    else if(test.use_small_bios || TEST_RELEASE_BUILD)
     {
         var bios = root_path + "/bios/seabios.bin";
         var vga_bios = root_path + "/bios/vgabios.bin";
