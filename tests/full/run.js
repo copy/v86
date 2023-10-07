@@ -759,6 +759,15 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "Syllable",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/syllable-destop-0.6.7.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
