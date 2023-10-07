@@ -437,7 +437,7 @@ pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    modrm::gen(ctx, modrm_byte)
+    modrm::gen(ctx, modrm_byte, 0)
 }
 pub fn gen_modrm_resolve_with_local(
     ctx: &mut JitContext,
@@ -453,6 +453,9 @@ pub fn gen_modrm_resolve_with_local(
         gen(ctx, &address);
         ctx.builder.free_local(address);
     }
+}
+pub fn gen_modrm_resolve_with_esp_offset(ctx: &mut JitContext, modrm_byte: ModrmByte, esp_offset: i32) {
+    modrm::gen(ctx, modrm_byte, esp_offset)
 }
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {

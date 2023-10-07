@@ -3010,14 +3010,9 @@ pub fn instr32_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
 }
 
 pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    // before gen_modrm_resolve, update esp to the new value
-    codegen::gen_adjust_stack_reg(ctx, 2);
-
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_with_esp_offset(ctx, modrm_byte, 2);
     let address_local = ctx.builder.set_new_local();
 
-    // pop takes care of updating esp, so undo the previous change
-    codegen::gen_adjust_stack_reg(ctx, (-2i32) as u32);
     codegen::gen_pop16(ctx);
     let value_local = ctx.builder.set_new_local();
 
@@ -3034,12 +3029,9 @@ pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 pub fn instr16_8F_0_reg_jit(ctx: &mut JitContext, r: u32) { pop16_reg_jit(ctx, r); }
 pub fn instr32_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    codegen::gen_adjust_stack_reg(ctx, 4);
-
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_with_esp_offset(ctx, modrm_byte, 4);
     let address_local = ctx.builder.set_new_local();
 
-    codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
     codegen::gen_pop32s(ctx);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
