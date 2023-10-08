@@ -957,7 +957,7 @@
                 id: "syllable",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
-                    url: "images/syllable-destop-0.6.7/.img",
+                    url: host + "syllable-destop-0.6.7/.img",
                     async: true,
                     size: 500 * 1024 * 1024,
                     fixed_chunk_size: 512 * 1024,
