@@ -215,6 +215,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
      */
     this.svga_offset = 0;
 
+    this.svga_offset_y = 0;
+
     const pci_revision = 0; // set to 2 for qemu extended registers
 
     // Experimental, could probably need some changes
@@ -2042,13 +2044,15 @@ VGAScreen.prototype.port1CF_write = function(value)
             // y offset
             const offset = value * this.svga_width;
             dbg_log("SVGA offset: " + h(offset) + " y=" + h(value), LOG_VGA);
-            if(this.svga_offset !== offset)
+            if(this.svga_offset_y !== value)
             {
+                this.svga_offset_y = value;
                 this.svga_offset = offset;
                 this.complete_redraw();
             }
             break;
         default:
+            dbg_log("Unimplemented dispi write index: " + h(this.dispi_index), LOG_VGA);
     }
 
     if(this.svga_enabled && (!this.svga_width || !this.svga_height))
@@ -2118,9 +2122,13 @@ VGAScreen.prototype.svga_register_read = function(n)
         case 8:
             // x offset
             return 0;
+        case 9:
+            return this.svga_offset_y;
         case 0x0A:
             // memory size in 64 kilobyte banks
             return this.vga_memory_size / VGA_BANK_SIZE | 0;
+        default:
+            dbg_log("Unimplemented dispi read index: " + h(this.dispi_index), LOG_VGA);
     }
 
     return 0xFF;

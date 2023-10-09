@@ -1487,14 +1487,6 @@
                     emulator.keyboard_send_text("\n");
                 }, 3000);
             }
-            else if(settings.id === "android" || settings.id === "android4")
-            {
-                setTimeout(() => {
-                    // hack: select vesa mode and start automatically
-                    emulator.keyboard_send_scancodes([0xe050, 0xe050 | 0x80]);
-                    emulator.keyboard_send_text("\n");
-                }, 3000);
-            }
 
             init_ui(settings, emulator);
 
