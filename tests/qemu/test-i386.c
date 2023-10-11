@@ -2551,7 +2551,7 @@ void test_sse_comi(double a1, double b1)
 
 #define CVT_OP_XMM(op)\
 {\
-    asm volatile (#op " %1, %0" : "=x" (r.dq) : "x" (a.dq));\
+    asm volatile (#op " %1, %0" : "+x" (r.dq) : "x" (a.dq));\
     printf("%-9s: a=" FMT64X "" FMT64X " r=" FMT64X "" FMT64X "\n",\
            #op,\
            a.q[1], a.q[0],\
@@ -2583,7 +2583,7 @@ void test_sse_comi(double a1, double b1)
 
 #define CVT_OP_REG2XMM(op)\
 {\
-    asm volatile (#op " %1, %0" : "=x" (r.dq) : "r" (a.l[0]));\
+    asm volatile (#op " %1, %0" : "+x" (r.dq) : "r" (a.l[0]));\
     printf("%-9s: a=%08x r=" FMT64X "" FMT64X "\n",\
            #op,\
            a.l[0],\
@@ -2727,10 +2727,10 @@ void test_sse(void)
     MMX_OP2(pavgb);
     MMX_OP2(pavgw);
 
-    asm volatile ("pinsrw $1, %1, %0" : "=y" (r.q[0]) : "r" (0x12345678));
+    asm volatile ("pinsrw $1, %1, %0" : "+y" (r.q[0]) : "r" (0x12345678));
     printf("%-9s: r=" FMT64X "\n", "pinsrw", r.q[0]);
 
-    asm volatile ("pinsrw $5, %1, %0" : "=x" (r.dq) : "r" (0x12345678));
+    asm volatile ("pinsrw $5, %1, %0" : "+x" (r.dq) : "r" (0x12345678));
     printf("%-9s: r=" FMT64X "" FMT64X "\n", "pinsrw", r.q[1], r.q[0]);
 
     a.q[0] = test_values[0][0];
