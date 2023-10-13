@@ -174,9 +174,6 @@ function CPU(bus, wm, next_tick_immediately)
 
     if(DEBUG)
     {
-        this.do_many_cycles_count = 0;
-        this.do_many_cycles_total = 0;
-
         this.seen_code = {};
         this.seen_code_uncompiled = {};
     }
@@ -213,11 +210,9 @@ CPU.prototype.create_jit_imports = function()
 
 CPU.prototype.wasm_patch = function()
 {
-    const get_optional_import = (name) => {
-        return this.wm.exports[name];
-    };
+    const get_optional_import = name => this.wm.exports[name];
 
-    const get_import = (name) =>
+    const get_import = name =>
     {
         const f = get_optional_import(name);
         console.assert(f, "Missing import: " + name);
@@ -228,12 +223,13 @@ CPU.prototype.wasm_patch = function()
 
     this.getiopl = get_import("getiopl");
     this.get_eflags = get_import("get_eflags");
-    this.get_eflags_no_arith = get_import("get_eflags_no_arith");
 
+    this.handle_irqs = get_import("handle_irqs");
     this.pic_call_irq = get_import("pic_call_irq");
 
-    this.do_many_cycles_native = get_import("do_many_cycles_native");
-    this.do_many_cycles_native_nojit = get_import("do_many_cycles_native_nojit");
+    this.main_loop = get_import("main_loop");
+
+    this.set_jit_config = get_import("set_jit_config");
 
     this.read8 = get_import("read8");
     this.read16 = get_import("read16");
@@ -262,6 +258,9 @@ CPU.prototype.wasm_patch = function()
 
     this.set_cpuid_level = get_import("set_cpuid_level");
 
+    this.pic_set_irq = get_import("pic_set_irq");
+    this.pic_clear_irq = get_import("pic_clear_irq");
+
     if(DEBUG)
     {
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
@@ -284,6 +283,21 @@ CPU.prototype.wasm_patch = function()
     this.zstd_free_ctx = get_import("zstd_free_ctx");
     this.zstd_read = get_import("zstd_read");
     this.zstd_read_free = get_import("zstd_read_free");
+
+    this.port20_read = get_import("port20_read");
+    this.port21_read = get_import("port21_read");
+    this.portA0_read = get_import("portA0_read");
+    this.portA1_read = get_import("portA1_read");
+
+    this.port20_write = get_import("port20_write");
+    this.port21_write = get_import("port21_write");
+    this.portA0_write = get_import("portA0_write");
+    this.portA1_write = get_import("portA1_write");
+
+    this.port4D0_read = get_import("port4D0_read");
+    this.port4D1_read = get_import("port4D1_read");
+    this.port4D0_write = get_import("port4D0_write");
+    this.port4D1_write = get_import("port4D1_write");
 };
 
 CPU.prototype.jit_force_generate = function(addr)
@@ -372,7 +386,7 @@ CPU.prototype.get_state = function()
     state[57] = this.devices.hda;
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
-    state[60] = this.devices.pic;
+    //state[60] = this.devices.pic;
     state[61] = this.devices.sb16;
 
     state[62] = this.fw_value;
@@ -468,7 +482,7 @@ CPU.prototype.set_state = function(state)
     this.devices.hda && this.devices.hda.set_state(state[57]);
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
-    this.devices.pic && this.devices.pic.set_state(state[60]);
+    //this.devices.pic && this.devices.pic.set_state(state[60]);
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
@@ -566,42 +580,6 @@ CPU.prototype.unpack_memory = function(bitmap, packed_memory)
     }
 };
 
-/**
- * @return {number} time in ms until this method should becalled again
- */
-CPU.prototype.main_run = function()
-{
-    if(this.in_hlt[0])
-    {
-        const t = this.hlt_loop();
-
-        if(this.in_hlt[0])
-        {
-            return t;
-        }
-    }
-
-    const start = v86.microtick();
-    let now = start;
-
-    for(; now - start < TIME_PER_FRAME;)
-    {
-        this.do_many_cycles();
-
-        now = v86.microtick();
-
-        const t = this.run_hardware_timers(now);
-        this.handle_irqs();
-
-        if(this.in_hlt[0])
-        {
-            return t;
-        }
-    }
-
-    return 0;
-};
-
 CPU.prototype.reboot_internal = function()
 {
     this.reset_cpu();
@@ -660,7 +638,7 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.disable_jit)
     {
-        this.do_many_cycles_native = this.do_many_cycles_native_nojit;
+        this.set_jit_config(0, 1);
     }
 
     settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
@@ -819,12 +797,26 @@ CPU.prototype.init = function(settings, device_bus)
         io.register_write(0xE9, this, function(out_byte) {});
     }
 
+    io.register_read(0x20, this, this.port20_read);
+    io.register_read(0x21, this, this.port21_read);
+    io.register_read(0xA0, this, this.portA0_read);
+    io.register_read(0xA1, this, this.portA1_read);
+
+    io.register_write(0x20, this, this.port20_write);
+    io.register_write(0x21, this, this.port21_write);
+    io.register_write(0xA0, this, this.portA0_write);
+    io.register_write(0xA1, this, this.portA1_write);
+
+    io.register_read(0x4D0, this, this.port4D0_read);
+    io.register_read(0x4D1, this, this.port4D1_read);
+    io.register_write(0x4D0, this, this.port4D0_write);
+    io.register_write(0x4D1, this, this.port4D1_write);
+
     this.devices = {};
 
     // TODO: Make this more configurable
     if(settings.load_devices)
     {
-        this.devices.pic = new PIC(this);
         this.devices.pci = new PCI(this);
 
         if(this.acpi_enabled[0])
@@ -1224,22 +1216,6 @@ CPU.prototype.load_bios = function()
         }.bind(this));
 };
 
-CPU.prototype.do_many_cycles = function()
-{
-    if(DEBUG)
-    {
-        var start_time = v86.microtick();
-    }
-
-    this.do_many_cycles_native();
-
-    if(DEBUG)
-    {
-        this.do_many_cycles_total += v86.microtick() - start_time;
-        this.do_many_cycles_count++;
-    }
-};
-
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
 {
     ptr >>>= 0;
@@ -1398,20 +1374,6 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
     }
 };
 
-CPU.prototype.hlt_loop = function()
-{
-    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
-    {
-        const t = this.run_hardware_timers(v86.microtick());
-        this.handle_irqs();
-        return t;
-    }
-    else
-    {
-        return 100;
-    }
-};
-
 CPU.prototype.run_hardware_timers = function(now)
 {
     if(ENABLE_HPET)
@@ -1438,56 +1400,10 @@ CPU.prototype.run_hardware_timers = function(now)
     return Math.min(pit_time, rtc_time, hpet_time, acpi_time, apic_time);
 };
 
-CPU.prototype.hlt_op = function()
-{
-    if((this.get_eflags_no_arith() & FLAG_INTERRUPT) === 0)
-    {
-        // execution can never resume (until NMIs are supported)
-        this.bus.send("cpu-event-halt");
-    }
-
-    // get out of here and into hlt_loop
-    this.in_hlt[0] = +true;
-
-    // Try an hlt loop right now: This will run timer interrupts, and if one is
-    // due it will immediately call call_interrupt_vector and continue
-    // execution without an unnecessary cycle through do_run
-    this.hlt_loop();
-};
-
-CPU.prototype.handle_irqs = function()
-{
-    //dbg_assert(this.prefixes[0] === 0);
-
-    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
-    {
-        this.pic_acknowledge();
-        this.next_tick_immediately();
-    }
-};
-
-CPU.prototype.pic_acknowledge = function()
-{
-    dbg_assert(this.get_eflags_no_arith() & FLAG_INTERRUPT);
-
-    if(this.devices.pic)
-    {
-        this.devices.pic.acknowledge_irq();
-    }
-
-    if(this.devices.apic)
-    {
-        this.devices.apic.acknowledge_irq();
-    }
-};
-
 CPU.prototype.device_raise_irq = function(i)
 {
     dbg_assert(arguments.length === 1);
-    if(this.devices.pic)
-    {
-        this.devices.pic.set_irq(i);
-    }
+    this.pic_set_irq(i);
 
     if(this.devices.ioapic)
     {
@@ -1497,10 +1413,7 @@ CPU.prototype.device_raise_irq = function(i)
 
 CPU.prototype.device_lower_irq = function(i)
 {
-    if(this.devices.pic)
-    {
-        this.devices.pic.clear_irq(i);
-    }
+    this.pic_clear_irq(i);
 
     if(this.devices.ioapic)
     {

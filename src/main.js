@@ -50,7 +50,7 @@ v86.prototype.do_tick = function()
     }
 
     this.idle = false;
-    const t = this.cpu.main_run();
+    const t = this.cpu.main_loop();
 
     this.next_tick(t);
 };

@@ -49,13 +49,6 @@ var ENABLE_HPET = DEBUG && false;
 
 /**
  * @const
- * How often, in milliseconds, to yield to the browser for rendering and
- * running events
- */
-var TIME_PER_FRAME = 1;
-
-/**
- * @const
  * How many ticks the TSC does per millisecond
  */
 var TSC_RATE = 1 * 1000 * 1000;
