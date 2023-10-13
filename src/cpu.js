@@ -377,7 +377,7 @@ CPU.prototype.get_state = function()
     state[48] = this.devices.pci;
     state[49] = this.devices.dma;
     state[50] = this.devices.acpi;
-    state[51] = this.devices.hpet;
+    // 51 (formerly hpet)
     state[52] = this.devices.vga;
     state[53] = this.devices.ps2;
     state[54] = this.devices.uart0;
@@ -473,7 +473,7 @@ CPU.prototype.set_state = function(state)
     this.devices.pci && this.devices.pci.set_state(state[48]);
     this.devices.dma && this.devices.dma.set_state(state[49]);
     this.devices.acpi && this.devices.acpi.set_state(state[50]);
-    this.devices.hpet && this.devices.hpet.set_state(state[51]);
+    // 51 (formerly hpet)
     this.devices.vga && this.devices.vga.set_state(state[52]);
     this.devices.ps2 && this.devices.ps2.set_state(state[53]);
     this.devices.uart0 && this.devices.uart0.set_state(state[54]);
@@ -830,11 +830,6 @@ CPU.prototype.init = function(settings, device_bus)
         this.fill_cmos(this.devices.rtc, settings);
 
         this.devices.dma = new DMA(this);
-
-        if(ENABLE_HPET)
-        {
-            this.devices.hpet = new HPET(this);
-        }
 
         this.devices.vga = new VGAScreen(this, device_bus,
                 settings.vga_memory_size || 8 * 1024 * 1024);
@@ -1376,18 +1371,8 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
 
 CPU.prototype.run_hardware_timers = function(now)
 {
-    if(ENABLE_HPET)
-    {
-        var pit_time = this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
-        var rtc_time = this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
-        var hpet_time = this.devices.hpet.timer(now);
-    }
-    else
-    {
-        var pit_time = this.devices.pit.timer(now, false);
-        var rtc_time = this.devices.rtc.timer(now, false);
-        var hpet_time = 100;
-    }
+    const pit_time = this.devices.pit.timer(now, false);
+    const rtc_time = this.devices.rtc.timer(now, false);
 
     let acpi_time = 100;
     let apic_time = 100;
@@ -1397,7 +1382,7 @@ CPU.prototype.run_hardware_timers = function(now)
         apic_time = this.devices.apic.timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, hpet_time, acpi_time, apic_time);
+    return Math.min(pit_time, rtc_time, acpi_time, apic_time);
 };
 
 CPU.prototype.device_raise_irq = function(i)
