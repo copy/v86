@@ -39,6 +39,9 @@ jobs:
       - name: Build all
         run: make all
 
+      - name: Build fallback
+        run: make build/v86-fallback.wasm
+
       - name: Fetch kvm-unit-test cache
         uses: actions/cache@v3
         id: cache-kvm-unit-test
@@ -124,7 +127,11 @@ jobs:
       - name: Get artifacts
         uses: actions/download-artifact@v3
         with:
+          name: v86
           path: build
+
+      - name: Display structure of downloaded files
+        run: ls -R
 
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
@@ -133,5 +140,5 @@ jobs:
           tag: latest
           commit: master
           body: ${{ github.event.head_commit.message }}
-          artifacts: "build/v86/libv86*.js, build/v86/libv86*.js.map, build/v86/v86*.wasm"
+          artifacts: "build/libv86*.js,build/libv86*.js.map,build/v86*.wasm"
           prerelease: true
