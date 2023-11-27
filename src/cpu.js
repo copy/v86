@@ -400,6 +400,7 @@ CPU.prototype.get_state = function()
     state[79] = this.devices.uart1;
     state[80] = this.devices.uart2;
     state[81] = this.devices.uart3;
+    state[82] = this.devices.virtio_console;
 
     return state;
 };
@@ -474,6 +475,7 @@ CPU.prototype.set_state = function(state)
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
     this.devices.uart2 && this.devices.uart2.set_state(state[80]);
     this.devices.uart3 && this.devices.uart3.set_state(state[81]);
+    this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
 
     this.fw_value = state[62];
 
@@ -888,6 +890,10 @@ CPU.prototype.init = function(settings, device_bus)
         if(settings.fs9p)
         {
             this.devices.virtio_9p = new Virtio9p(settings.fs9p, this, device_bus);
+        }
+        if(settings.virtio_console)
+        {
+            this.devices.virtio_console = new VirtioConsole(this, device_bus);
         }
 
         if(true)
