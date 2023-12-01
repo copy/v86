@@ -155,7 +155,7 @@ function read_elf(buffer)
             );
         }
 
-        console.log("%d program headers:", sections_headers.length);
+        console.log("%d section headers:", sections_headers.length);
         for(let section of sections_headers)
         {
             console.log(
