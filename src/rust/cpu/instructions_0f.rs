@@ -1230,6 +1230,8 @@ pub unsafe fn instr_0F30() {
         IA32_TSX_CTRL => {},       // linux 5.19
         MSR_TSX_FORCE_ABORT => {}, // linux 5.19
         IA32_MCU_OPT_CTRL => {},   // linux 5.19
+        MSR_AMD64_LS_CFG => {},    // linux 5.19
+        MSR_AMD64_DE_CFG => {},    // linux 6.1
         _ => {
             dbg_log!("Unknown msr: {:x}", index);
             dbg_assert!(false);
@@ -1307,6 +1309,7 @@ pub unsafe fn instr_0F32() {
         MSR_TSX_FORCE_ABORT => {}, // linux 5.19
         IA32_MCU_OPT_CTRL => {},   // linux 5.19
         MSR_AMD64_LS_CFG => {},    // linux 5.19
+        MSR_AMD64_DE_CFG => {},    // linux 6.1
         _ => {
             dbg_log!("Unknown msr: {:x}", index);
             dbg_assert!(false);
