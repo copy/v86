@@ -434,8 +434,8 @@ const encodings = [
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1, custom: 1 },
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1, custom: 1 },
 
-    { opcode: 0x0FBC, os: 1, e: 1, mask_flags: af, custom: 1 }, // bsf
-    { opcode: 0x0FBD, os: 1, e: 1, mask_flags: af, custom: 1 },
+    { opcode: 0x0FBC, os: 1, e: 1, mask_flags: of | sf | af | pf | cf, custom: 1 }, // bsf
+    { opcode: 0x0FBD, os: 1, e: 1, mask_flags: of | sf | af | pf | cf, custom: 1 },
 
     // note: overflow flag only undefined if shift is > 1
     { opcode: 0x0FA4, os: 1, e: 1, custom: 1, imm8: 1, mask_flags: af | of }, // shld
