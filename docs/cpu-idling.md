@@ -1,5 +1,5 @@
 Some operating systems don't support `hlt` instruction, because of this, the CPU spin loops instead of idling.
-Here some solutions for different OSes:
+Here are some solutions for different OSes:
 
 ## MS-DOS (using DOSIdle)
 1. Download `DOSID251.zip` from https://www.vogons.org/viewtopic.php?p=438763#p438763
