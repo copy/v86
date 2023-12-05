@@ -1994,7 +1994,6 @@
             if(mouse_is_enabled && os_uses_mouse)
             {
                 emulator.lock_mouse();
-                $("lock_mouse").blur();
             }
             else
             {
