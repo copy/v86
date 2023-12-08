@@ -29,7 +29,7 @@ For keyboard support, it is necessary to open /etc/mkinitcpio.conf and edit the 
 MODULES="atkbd i8042"
 ```
 
-For the changes to take effect, you need to regenerate the tempoary file system with `mkinitcpio -p linux`
+For the changes to take effect, you need to regenerate the temporary file system with `mkinitcpio -p linux`
 
 The resulting `arch.img` file is a bootable disk image for v86.
 
