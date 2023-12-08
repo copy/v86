@@ -34,6 +34,7 @@ v86util.range = function(size)
 
 v86util.view = function(constructor, memory, offset, length)
 {
+    dbg_assert(offset >= 0);
     return new Proxy({},
         {
             get: function(target, property, receiver)

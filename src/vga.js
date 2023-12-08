@@ -362,7 +362,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     }
 
 
-    const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size);
+    const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size) >>> 0;
     this.svga_memory = v86util.view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
 
     this.diff_addr_min = this.vga_memory_size;

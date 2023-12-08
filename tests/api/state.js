@@ -44,36 +44,43 @@ const config_filesystem = {
     log_level: 0,
 };
 
-function run_test(name, config, done)
+const config_large_memory = {
+    bios: { url: __dirname + "/../../bios/seabios.bin" },
+    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+    cdrom: { url: __dirname + "/../../images/linux4.iso", async: true },
+    autostart: true,
+    memory_size: 2048 * 1024 * 1024,
+    vga_memory_size: 512 * 1024 * 1024,
+    network_relay_url: "<UNUSED>",
+    disable_jit: +process.env.DISABLE_JIT,
+    log_level: 0,
+};
+
+async function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function run_test(name, config, done)
 {
     const emulator = new V86(config);
 
-    setTimeout(async function()
-        {
-            console.log("Saving: %s", name);
-            const state = await emulator.save_state();
+    await sleep(5000);
 
-            setTimeout(async function()
-                {
-                    console.log("Restoring: %s", name);
-                    await emulator.restore_state(state);
+    console.log("Saving: %s", name);
+    const state = await emulator.save_state();
 
-                    setTimeout(function()
-                        {
-                            console.log("Done: %s", name);
-                            emulator.stop();
-                            done && done();
-                        }, 1000);
-                }, 1000);
-        }, 5000);
+    await sleep(1000);
+
+    console.log("Restoring: %s", name);
+    await emulator.restore_state(state);
+
+    await sleep(1000);
+
+    console.log("Done: %s", name);
+    emulator.stop();
 }
 
-run_test("async cdrom", config_async_cdrom, function()
-    {
-        run_test("sync cdrom", config_sync_cdrom, function()
-        {
-            run_test("filesystem", config_filesystem, function()
-            {
-            });
-        });
-    });
+(async function() {
+    await run_test("async cdrom", config_async_cdrom);
+    await run_test("sync cdrom", config_sync_cdrom);
+    await run_test("filesystem", config_filesystem);
+    await run_test("large memory size", config_large_memory);
+})();
