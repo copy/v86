@@ -3,9 +3,7 @@
 Choosing an installer ISO img
 -------------------------
 
-The last ISO image installer version of Arch Linux that supports the 32-bit architecture is version [2017.02.01](https://www.archlinux.org/releng/releases/2017.02.01/). Later versions of the Arch Linux ISO images don't work on the v86 emulator, because the installer only supports the 64-bit architecture. For existing Arch Linux installations, updates and patches will be done until somewhere around 2018.
-
-In the future, the community might come up with an alternative distribution based on Arch Linux to maintain support for the 32-bit architecture. At this point in time [archlinux32](https://mirror.archlinux32.org) seems to work.
+At this point in time, [archlinux32](https://archlinux32.org) seems to work.
 
 Basic installation using QEMU
 -----------------------
