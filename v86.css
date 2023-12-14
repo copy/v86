@@ -42,6 +42,7 @@
 }
 #vga {
     background-color: #000;
+    touch-action: none;
 }
 body {
     background-color: #111;
