@@ -1,4 +1,4 @@
-In order to create a Linux image that can mount the 9p file system, use add the following lines to the kernel config:
+In order to create a Linux image that can mount the 9p file system, add the following lines to the kernel configuration:
 
 ```
 CONFIG_NET_9P=y
