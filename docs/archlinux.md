@@ -1,9 +1,9 @@
 (This document partly also applies to other Linuxes)
 
-Choosing an installer ISO img
+Choosing an installer ISO
 -------------------------
 
-At this point in time, [archlinux32](https://archlinux32.org) seems to work.
+Download Arch Linux 32 from  https://archlinux32.org.
 
 Basic installation using QEMU
 -----------------------
@@ -27,7 +27,7 @@ For keyboard support, it is necessary to open /etc/mkinitcpio.conf and edit the 
 MODULES="atkbd i8042"
 ```
 
-For the changes to take effect, you need to regenerate the temporary file system with `mkinitcpio -p linux`
+For the changes to take effect, you need to regenerate the initial ramdisk with `mkinitcpio -p linux`
 
 The resulting `arch.img` file is a bootable disk image for v86.
 
@@ -88,7 +88,7 @@ cat > packer/template.json << 'EOF'
 EOF
 ```
 
-You can tweak the options a bit to match your situation. For debugging, you can set `headless` to `false`. That will show you the VNC connection instead of running the `boot_command` in the background. For a `base` pacstrap, using a 1.5 GB disk image should be sufficient. The `raw` disk format is important. v86 does not read qcow2 images, only raw disk images. If your system does not support KVM (the default accelerator), you can change `"accelerator": "none"` to the settings, in macos you may use `"accelerator": "hvf"`. Other accelerator options can be found [here](https://www.packer.io/docs/builders/qemu.html#accelerator).
+You can tweak the options a bit to match your situation. For debugging, you can set `headless` to `false`. That will show you the VNC connection instead of running the `boot_command` in the background. For a `base` pacstrap, using a 2 GB disk image should be sufficient. The `raw` disk format is important. v86 does not read qcow2 images, only raw disk images. If your system does not support KVM (the default accelerator), you can change `"accelerator": "none"` to the settings, in macos you may use `"accelerator": "hvf"`. Other accelerator options can be found [here](https://www.packer.io/docs/builders/qemu.html#accelerator).
 
 After gaining SSH connectivity to the VM, packer will run the `scripts/provisioning.sh` script in the guest.
 

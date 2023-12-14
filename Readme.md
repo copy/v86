@@ -41,7 +41,7 @@ list of emulated hardware:
 [ELKS](https://copy.sh/v86/?profile=elks) —
 [FreeDOS](https://copy.sh/v86/?profile=freedos) —
 [FreeBSD](https://copy.sh/v86/?profile=freebsd) —
-[FiwixOS](https://copy.sh/v86/?profile=fiwix) -
+[FiwixOS](https://copy.sh/v86/?profile=fiwix) —
 [Haiku](https://copy.sh/v86/?profile=haiku) —
 [SkiffOS](https://copy.sh/v86/?profile=copy/skiffos) —
 [ReactOS](https://copy.sh/v86/?profile=reactos) —
@@ -53,7 +53,7 @@ list of emulated hardware:
 [OpenBSD](https://copy.sh/v86/?profile=openbsd) —
 [Oberon](https://copy.sh/v86/?profile=oberon) —
 [KolibriOS](https://copy.sh/v86/?profile=kolibrios) —
-[SkiftOS](https://copy.sh/v86?profile=skift) -
+[SkiftOS](https://copy.sh/v86?profile=skift) —
 [QNX](https://copy.sh/v86/?profile=qnx)
 
 ## Documentation
