@@ -6,7 +6,7 @@ extern "C" {
     pub fn microtick() -> f64;
     pub fn run_hardware_timers(t: f64) -> f64;
     pub fn cpu_event_halt();
-    pub fn apic_acknowledge_irq();
+    pub fn apic_acknowledge_irq() -> i32;
 
     pub fn io_port_read8(port: i32) -> i32;
     pub fn io_port_read16(port: i32) -> i32;
@@ -4161,15 +4161,19 @@ pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 #[no_mangle]
 pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
-        pic::pic_acknowledge_irq();
-        if *acpi_enabled {
-            apic_acknowledge_irq();
+        if let Some(irq) = pic::pic_acknowledge_irq() {
+            pic_call_irq(irq)
+        }
+        else if *acpi_enabled {
+            let irq = apic_acknowledge_irq();
+            if irq >= 0 {
+                pic_call_irq(irq as u8)
+            }
         }
     }
 }
 
-#[no_mangle]
-pub unsafe fn pic_call_irq(interrupt_nr: u8) {
+unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
     *in_hlt = false;
     call_interrupt_vector(interrupt_nr as i32, false, None);

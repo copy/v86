@@ -225,7 +225,6 @@ CPU.prototype.wasm_patch = function()
     this.get_eflags = get_import("get_eflags");
 
     this.handle_irqs = get_import("handle_irqs");
-    this.pic_call_irq = get_import("pic_call_irq");
 
     this.main_loop = get_import("main_loop");
 

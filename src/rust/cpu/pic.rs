@@ -87,24 +87,24 @@ static mut slave: Pic = Pic {
 
 
 // Checking for callable interrupts:
-// (cpu changes interrupt flag) -> cpu.handle_irqs -> pic_acknowledge_irq -> cpu.pic_call_irq
+// (cpu changes interrupt flag) -> cpu.handle_irqs -> pic_acknowledge_irq
 // (pic changes isr/irr) -> pic.check_irqs -> cpu.handle_irqs -> ...
 
 // triggering irqs:
 // (io device has irq) -> cpu.device_raise_irq -> pic.set_irq -> pic.check_irqs -> cpu.handle_irqs -> (see above)
 
 // called by the cpu
-pub unsafe fn pic_acknowledge_irq() {
+pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
     let irq = match get_irq(&mut master) {
         Some(i) => i,
-        None => return
+        None => return None
     };
 
     if master.irr == 0 {
         dbg_assert!(false);
         //PIC_LOG_VERBOSE && dbg_log!("master> spurious requested=" + irq);
-        //pic.cpu.pic_call_irq(pic.irq_map | 7);
-        return;
+        //Some(pic.irq_map | 7)
+        return None
     }
 
     let mask = 1 << irq;
@@ -121,28 +121,28 @@ pub unsafe fn pic_acknowledge_irq() {
     if PIC_LOG_VERBOSE {
         dbg_log!("[PIC] master> acknowledge {}", irq);
     }
-    if irq == 2 {
-        acknowledge_irq_slave();
-    }
-    else {
-        cpu::pic_call_irq(master.irq_map | irq);
-    }
 
     check_irqs(&mut master);
+
+    if irq == 2 {
+        acknowledge_irq_slave()
+    }
+    else {
+        Some(master.irq_map | irq)
+    }
 }
 
-unsafe fn acknowledge_irq_slave() {
+unsafe fn acknowledge_irq_slave() -> Option<u8> {
     let irq = match get_irq(&mut slave) {
         Some(i) => i,
-        None => return
+        None => return None
     };
 
     if slave.irr == 0 {
         //PIC_LOG_VERBOSE && dbg_log!("slave> spurious requested=" + irq);
-        //pic.cpu.pic_call_irq(pic.irq_map | 7);
+        //Some(pic.irq_map | 7)
         dbg_assert!(false);
-        cpu::pic_call_irq(slave.irq_map | 7);
-        return;
+        return None
     }
 
     let mask = 1 << irq;
@@ -159,9 +159,9 @@ unsafe fn acknowledge_irq_slave() {
     if PIC_LOG_VERBOSE {
         dbg_log!("[PIC] slave> acknowledge {}", irq);
     }
-    cpu::pic_call_irq(slave.irq_map | irq);
-
     check_irqs(&mut slave);
+
+    Some(slave.irq_map | irq)
 }
 
 unsafe fn get_irq(pic: &mut Pic) -> Option<u8> {

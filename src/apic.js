@@ -513,7 +513,7 @@ APIC.prototype.acknowledge_irq = function()
     if(highest_irr === -1)
     {
         //dbg_log("Spurious", LOG_APIC);
-        return;
+        return -1;
     }
 
     var highest_isr = this.highest_isr();
@@ -521,22 +521,23 @@ APIC.prototype.acknowledge_irq = function()
     if(highest_isr >= highest_irr)
     {
         APIC_LOG_VERBOSE && dbg_log("Higher isr, isr=" + h(highest_isr) + " irr=" + h(highest_irr), LOG_APIC);
-        return;
+        return -1;
     }
 
     if((highest_irr & 0xF0) <= (this.tpr & 0xF0))
     {
         APIC_LOG_VERBOSE && dbg_log("Higher tpr, tpr=" + h(this.tpr & 0xF0) + " irr=" + h(highest_irr), LOG_APIC);
-        return;
+        return -1;
     }
 
     this.register_clear_bit(this.irr, highest_irr);
     this.register_set_bit(this.isr, highest_irr);
 
     APIC_LOG_VERBOSE && dbg_log("Calling vector " + h(highest_irr), LOG_APIC);
-    this.cpu.pic_call_irq(highest_irr);
 
     this.check_vector();
+
+    return highest_irr;
 };
 
 APIC.prototype.get_state = function()

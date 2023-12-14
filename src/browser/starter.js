@@ -114,7 +114,7 @@ function V86(options)
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
-        "apic_acknowledge_irq": function() { cpu.devices.apic.acknowledge_irq(); },
+        "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
