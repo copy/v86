@@ -278,6 +278,9 @@ CPU.prototype.wasm_patch = function()
     this.svga_fill_pixel_buffer = get_import("svga_fill_pixel_buffer");
     this.svga_mark_dirty = get_import("svga_mark_dirty");
 
+    this.get_pic_addr_master = get_import("get_pic_addr_master");
+    this.get_pic_addr_slave = get_import("get_pic_addr_slave");
+
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
     this.zstd_free_ctx = get_import("zstd_free_ctx");
@@ -386,7 +389,7 @@ CPU.prototype.get_state = function()
     state[57] = this.devices.hda;
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
-    //state[60] = this.devices.pic;
+    state[60] = this.get_state_pic();
     state[61] = this.devices.sb16;
 
     state[62] = this.fw_value;
@@ -414,6 +417,46 @@ CPU.prototype.get_state = function()
     state[79] = this.devices.uart1;
     state[80] = this.devices.uart2;
     state[81] = this.devices.uart3;
+
+    return state;
+};
+
+CPU.prototype.get_state_pic = function()
+{
+    const pic_size = 13;
+    const pic = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_master(), pic_size);
+    const pic_slave = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_slave(), pic_size);
+
+    const state = [];
+    const state_slave = [];
+
+    state[0] = pic[0]; // irq_mask
+    state[1] = pic[1]; // irq_map
+    state[2] = pic[2]; // isr
+    state[3] = pic[3]; // irr
+    state[4] = pic[4]; // is_master
+    state[5] = state_slave;
+    state[6] = pic[6]; // expect_icw4
+    state[7] = pic[7]; // state
+    state[8] = pic[8]; // read_isr
+    state[9] = pic[9]; // auto_eoi
+    state[10] = pic[10]; // special_mask_mode
+    state[11] = pic[11]; // elcr
+    state[12] = pic[12]; // irq_value (undefined in old state images)
+
+    state_slave[0] = pic_slave[0]; // irq_mask
+    state_slave[1] = pic_slave[1]; // irq_map
+    state_slave[2] = pic_slave[2]; // isr
+    state_slave[3] = pic_slave[3]; // irr
+    state_slave[4] = pic_slave[4]; // is_master
+    state_slave[5] = null;
+    state_slave[6] = pic_slave[6]; // expect_icw4
+    state_slave[7] = pic_slave[7]; // state
+    state_slave[8] = pic_slave[8]; // read_isr
+    state_slave[9] = pic_slave[9]; // auto_eoi
+    state_slave[10] = pic_slave[10]; // elcr
+    state_slave[12] = pic_slave[12]; // irq_value (undefined in old state images)
+    state_slave[12] = pic_slave[12]; // special_mask_mode (undefined in old state images)
 
     return state;
 };
@@ -482,7 +525,7 @@ CPU.prototype.set_state = function(state)
     this.devices.hda && this.devices.hda.set_state(state[57]);
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
-    //this.devices.pic && this.devices.pic.set_state(state[60]);
+    this.set_state_pic(state[60]);
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
@@ -516,6 +559,44 @@ CPU.prototype.set_state = function(state)
     this.full_clear_tlb();
 
     this.jit_clear_cache();
+};
+
+CPU.prototype.set_state_pic = function(state)
+{
+    // Note: This could exists for compatibility with old state images
+    // It should be deleted when the state version changes
+
+    const pic_size = 13;
+    const pic = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_master(), pic_size);
+    const pic_slave = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_slave(), pic_size);
+
+    pic[0] = state[0]; // irq_mask
+    pic[1] = state[1]; // irq_map
+    pic[2] = state[2]; // isr
+    pic[3] = state[3]; // irr
+    pic[4] = state[4]; // is_master
+    const state_slave = state[5];
+    pic[6] = state[6]; // expect_icw4
+    pic[7] = state[7]; // state
+    pic[8] = state[8]; // read_isr
+    pic[9] = state[9]; // auto_eoi
+    pic[10] = state[10]; // special_mask_mode
+    pic[11] = state[11]; // elcr
+    pic[12] = state[12]; // irq_value (undefined in old state images)
+
+    pic_slave[0] = state_slave[0]; // irq_mask
+    pic_slave[1] = state_slave[1]; // irq_map
+    pic_slave[2] = state_slave[2]; // isr
+    pic_slave[3] = state_slave[3]; // irr
+    pic_slave[4] = state_slave[4]; // is_master
+    // dummy
+    pic_slave[6] = state_slave[6]; // expect_icw4
+    pic_slave[7] = state_slave[7]; // state
+    pic_slave[8] = state_slave[8]; // read_isr
+    pic_slave[9] = state_slave[9]; // auto_eoi
+    pic_slave[10] = state_slave[10]; // elcr
+    pic_slave[12] = state_slave[12]; // irq_value (undefined in old state images)
+    pic_slave[12] = state_slave[12]; // special_mask_mode (undefined in old state images)
 };
 
 CPU.prototype.pack_memory = function()

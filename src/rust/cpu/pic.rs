@@ -1,9 +1,15 @@
 #![allow(non_snake_case)]
 
+// Programmable Interrupt Controller
+// http://stanislavs.org/helppc/8259.html
+
 pub const PIC_LOG: bool = false;
 pub const PIC_LOG_VERBOSE: bool = false;
 use cpu::cpu;
 
+// Note: This layout is deliberately chosen to match the old JavaScript pic state
+// (cpu.get_state_pic depens on this layout)
+#[repr(C, packed)]
 struct Pic {
     irq_mask: u8,
 
@@ -17,19 +23,18 @@ struct Pic {
     // Holds interrupts that have been requested
     irr: u8,
 
-    irq_value: u8,
-
-    requested_irq: Option<u8>,
+    master: bool,
+    dummy: u8, // remove when state image is updated
 
     expect_icw4: bool,
     state: u8,
     read_isr: bool,
     auto_eoi: bool,
-    special_mask_mode: bool,
 
     elcr: u8,
 
-    master: bool,
+    irq_value: u8,
+    special_mask_mode: bool,
 }
 
 #[allow(non_upper_case_globals)]
@@ -46,7 +51,6 @@ static mut master: Pic = Pic {
     // Holds interrupts that have been requested
     irr: 0,
     irq_value: 0,
-    requested_irq: None,
     expect_icw4: false,
     state: 0,
     read_isr: false,
@@ -54,6 +58,7 @@ static mut master: Pic = Pic {
     special_mask_mode: false,
     elcr: 0,
     master: true,
+    dummy: 0,
 };
 
 #[allow(non_upper_case_globals)]
@@ -70,7 +75,6 @@ static mut slave: Pic = Pic {
     // Holds interrupts that have been requested
     irr: 0,
     irq_value: 0,
-    requested_irq: None,
     expect_icw4: false,
     state: 0,
     read_isr: false,
@@ -78,26 +82,27 @@ static mut slave: Pic = Pic {
     special_mask_mode: false,
     elcr: 0,
     master: false,
+    dummy: 0,
 };
 
 
 // Checking for callable interrupts:
-// (cpu changes interrupt flag) -> cpu.handle_irqs -> pic.check_irqs -> cpu.pic_call_irq
-// (pic changes isr/irr) -> cpu.handle_irqs -> ...
+// (cpu changes interrupt flag) -> cpu.handle_irqs -> pic_acknowledge_irq -> cpu.pic_call_irq
+// (pic changes isr/irr) -> pic.check_irqs -> cpu.handle_irqs -> ...
 
 // triggering irqs:
-// (io device has irq) -> cpu.device_raise_irq -> pic.set_irq -> cpu.handle_irqs -> (see above)
+// (io device has irq) -> cpu.device_raise_irq -> pic.set_irq -> pic.check_irqs -> cpu.handle_irqs -> (see above)
 
 // called by the cpu
 pub unsafe fn pic_acknowledge_irq() {
-    let irq = match master.requested_irq {
+    let irq = match get_irq(&mut master) {
         Some(i) => i,
         None => return
     };
-    master.requested_irq = None;
 
     if master.irr == 0 {
-        //PIC_LOG_VERBOSE && dbg_log!("master> spurious requested=" + pic.requested_irq);
+        dbg_assert!(false);
+        //PIC_LOG_VERBOSE && dbg_log!("master> spurious requested=" + irq);
         //pic.cpu.pic_call_irq(pic.irq_map | 7);
         return;
     }
@@ -127,16 +132,15 @@ pub unsafe fn pic_acknowledge_irq() {
 }
 
 unsafe fn acknowledge_irq_slave() {
-    let irq = match slave.requested_irq {
+    let irq = match get_irq(&mut slave) {
         Some(i) => i,
         None => return
     };
-    slave.requested_irq = None;
-    master.irq_value &= !(1 << 2);
 
     if slave.irr == 0 {
-        //PIC_LOG_VERBOSE && dbg_log!("slave> spurious requested=" + pic.requested_irq);
+        //PIC_LOG_VERBOSE && dbg_log!("slave> spurious requested=" + irq);
         //pic.cpu.pic_call_irq(pic.irq_map | 7);
+        dbg_assert!(false);
         cpu::pic_call_irq(slave.irq_map | 7);
         return;
     }
@@ -160,22 +164,14 @@ unsafe fn acknowledge_irq_slave() {
     check_irqs(&mut slave);
 }
 
-unsafe fn check_irqs(pic: &mut Pic) {
-    if let Some(irq) = pic.requested_irq {
-        if PIC_LOG_VERBOSE {
-            dbg_log!("[PIC] Already requested irq: {}", irq);
-        }
-        cpu::handle_irqs();
-        return;
-    }
-
+unsafe fn get_irq(pic: &mut Pic) -> Option<u8> {
     let enabled_irr = pic.irr & pic.irq_mask;
 
     if enabled_irr == 0 {
         if PIC_LOG_VERBOSE {
-            dbg_log!("master> no unmasked irrs. irr={:x} mask={:x} isr={:x}", pic.irr, pic.irq_mask, pic.isr);
+            dbg_log!("[PIC] no unmasked irrs. irr={:x} mask={:x} isr={:x}", pic.irr, pic.irq_mask, pic.isr);
         }
-        return;
+        return None
     }
 
     let irq_mask = enabled_irr & (!enabled_irr + 1);
@@ -184,25 +180,38 @@ unsafe fn check_irqs(pic: &mut Pic) {
     if pic.isr != 0 && (pic.isr & (!pic.isr + 1) & special_mask) <= irq_mask {
         // wait for eoi of higher or same priority interrupt
         if PIC_LOG {
-            dbg_log!("[PIC] higher prio: isr={:x} mask={:x} irq={:x}", pic.isr, pic.irq_mask, irq_mask);
+            dbg_log!("[PIC] higher prio: master={} isr={:x} mask={:x} irq={:x}", pic.master, pic.isr, pic.irq_mask, irq_mask);
         }
-        return;
+        return None
     }
 
     dbg_assert!(irq_mask != 0);
     let irq_number = irq_mask.ilog2() as u8;
-    dbg_assert!(irq_mask == (1 << irq_number));
+    dbg_assert!(irq_mask == 1 << irq_number);
 
     if PIC_LOG_VERBOSE {
         dbg_log!("[PIC] request irq {}", irq_number);
     }
 
-    pic.requested_irq = Some(irq_number);
-    // XXX: lifetimes ...
-    if !pic.master {
-        pic_set_irq(2);
+    Some(irq_number)
+}
+
+unsafe fn check_irqs(pic: &mut Pic) {
+    let is_set = get_irq(pic).is_some();
+
+    if pic.master {
+        if is_set {
+            cpu::handle_irqs();
+        }
     }
-    cpu::handle_irqs();
+    else {
+        if is_set {
+            pic_set_irq(2);
+        }
+        else {
+            pic_clear_irq(2);
+        }
+    }
 }
 
 // called by javascript
@@ -274,7 +283,6 @@ unsafe fn port0_write(pic: &mut Pic, v: u8) {
         pic.irq_mask = 0;
         pic.irq_value = 0;
         pic.auto_eoi = true;
-        pic.requested_irq = None;
 
         pic.expect_icw4 = v & 1 != 0;
         pic.state = 1;
@@ -393,3 +401,8 @@ pub unsafe fn port4D1_read() -> u32 { slave.elcr as u32 }
 pub unsafe fn port4D0_write(v: u8) { master.elcr = v }
 #[no_mangle]
 pub unsafe fn port4D1_write(v: u8) { slave.elcr = v }
+
+#[no_mangle]
+pub unsafe fn get_pic_addr_master() -> u32 { std::ptr::addr_of_mut!(master) as u32 }
+#[no_mangle]
+pub unsafe fn get_pic_addr_slave() -> u32 { std::ptr::addr_of_mut!(slave) as u32 }
