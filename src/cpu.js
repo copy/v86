@@ -1449,14 +1449,14 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
     }
 };
 
-CPU.prototype.run_hardware_timers = function(now)
+CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
 {
     const pit_time = this.devices.pit.timer(now, false);
     const rtc_time = this.devices.rtc.timer(now, false);
 
     let acpi_time = 100;
     let apic_time = 100;
-    if(this.acpi_enabled[0])
+    if(acpi_enabled)
     {
         acpi_time = this.devices.acpi.timer(now);
         apic_time = this.devices.apic.timer(now);

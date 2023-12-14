@@ -4,7 +4,7 @@ extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
     fn call_indirect1(f: i32, x: u16);
     pub fn microtick() -> f64;
-    pub fn run_hardware_timers(t: f64) -> f64;
+    pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
     pub fn cpu_event_halt();
     pub fn apic_acknowledge_irq() -> i32;
 
@@ -3030,7 +3030,7 @@ pub unsafe fn main_loop() -> f64 {
 
     if *in_hlt {
         if *flags & FLAG_INTERRUPT != 0 {
-            let t = run_hardware_timers(start);
+            let t = run_hardware_timers(*acpi_enabled, start);
             handle_irqs();
             if *in_hlt {
                 profiler::stat_increment(MAIN_LOOP_IDLE);
@@ -3047,7 +3047,7 @@ pub unsafe fn main_loop() -> f64 {
         do_many_cycles_native();
 
         let now = microtick();
-        let t = run_hardware_timers(now);
+        let t = run_hardware_timers(*acpi_enabled, now);
         handle_irqs();
         if *in_hlt {
             return t;

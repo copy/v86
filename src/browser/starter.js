@@ -109,7 +109,7 @@ function V86(options)
 
     const wasm_shared_funcs = {
         "cpu_exception_hook": n => this.cpu_exception_hook(n),
-        "run_hardware_timers": function(t) { return cpu.run_hardware_timers(t); },
+        "run_hardware_timers": function(a, t) { return cpu.run_hardware_timers(a, t); },
         "cpu_event_halt": () => { this.emulator_bus.send("cpu-event-halt"); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,

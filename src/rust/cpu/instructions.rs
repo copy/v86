@@ -2192,7 +2192,7 @@ pub unsafe fn instr_F4() {
     // due it will immediately call call_interrupt_vector and continue
     // execution without an unnecessary cycle through do_run
     if *flags & FLAG_INTERRUPT != 0 {
-        run_hardware_timers(microtick());
+        run_hardware_timers(*acpi_enabled, microtick());
         handle_irqs();
     }
     else {
