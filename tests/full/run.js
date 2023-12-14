@@ -768,6 +768,24 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "Mu",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 256 * 1024 * 1024,
+            hda: root_path + "/images/mu-shell.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "ASM Space Invaders",
+            skip_if_disk_image_missing: true,
+            timeout: 10,
+            fda: root_path + "/images/space-invaders.img", // non-standard floppy disk size, reads past end of original image
+            expected_texts: [
+                "                             #   SPACE INVADERS   # ",
+            ],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
