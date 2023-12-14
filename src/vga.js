@@ -32,6 +32,12 @@ var VGA_PIXEL_BUFFER_SIZE = 8 * VGA_BANK_SIZE;
 var VGA_MIN_MEMORY_SIZE = 4 * VGA_BANK_SIZE;
 
 /**
+ * Avoid wrapping past VGA_LFB_ADDRESS
+ * @const
+ */
+var VGA_MAX_MEMORY_SIZE = 256 * 1024 * 1024;
+
+/**
  * @const
  * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#06}
  */
@@ -353,6 +359,11 @@ function VGAScreen(cpu, bus, vga_memory_size)
     {
         this.vga_memory_size = VGA_MIN_MEMORY_SIZE;
         dbg_log("vga memory size rounded up to " + this.vga_memory_size, LOG_VGA);
+    }
+    else if(this.vga_memory_size > VGA_MAX_MEMORY_SIZE)
+    {
+        this.vga_memory_size = VGA_MAX_MEMORY_SIZE;
+        dbg_log("vga memory size rounded down to " + this.vga_memory_size, LOG_VGA);
     }
     else if(this.vga_memory_size & (VGA_BANK_SIZE - 1))
     {

@@ -71,7 +71,7 @@ pub fn in_mapped_range(addr: u32) -> bool {
 
 pub const VGA_LFB_ADDRESS: u32 = 0xE0000000;
 pub fn in_svga_lfb(addr: u32) -> bool {
-    addr >= VGA_LFB_ADDRESS && addr < unsafe { VGA_LFB_ADDRESS + vga_memory_size }
+    addr >= VGA_LFB_ADDRESS && addr <= unsafe { VGA_LFB_ADDRESS + (vga_memory_size - 1) }
 }
 
 #[no_mangle]
