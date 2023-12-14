@@ -533,6 +533,15 @@
                 name: "KolibriOS",
             },
             {
+                id: "mu",
+                hda: {
+                    url: host + "mu-shell.img",
+                },
+                memory_size: 256 * 1024 * 1024,
+                name: "Mu",
+                homepage: "https://github.com/akkartik/mu",
+            },
+            {
                 id: "openbsd",
                 hda: {
                     url: host + "openbsd.img",
