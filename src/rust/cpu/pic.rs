@@ -206,10 +206,10 @@ unsafe fn check_irqs(pic: &mut Pic) {
     }
     else {
         if is_set {
-            pic_set_irq(2);
+            set_irq(&mut master, 2);
         }
         else {
-            pic_clear_irq(2);
+            clear_irq(&mut master, 2);
         }
     }
 }
@@ -224,20 +224,19 @@ pub unsafe fn pic_set_irq(i: u8) {
     }
 
     if i < 8 {
-        let mask = 1 << i;
-        if master.irq_value & mask == 0 || master.elcr & mask != 0 {
-            master.irr |= mask;
-            master.irq_value |= mask;
-            check_irqs(&mut master);
-        }
+        set_irq(&mut master, i);
     }
     else {
-        let mask = 1 << (i - 8);
-        if slave.irq_value & mask == 0 || slave.elcr & mask != 0 {
-            slave.irr |= mask;
-            slave.irq_value |= mask;
-            check_irqs(&mut slave);
-        }
+        set_irq(&mut slave, i - 8);
+    }
+}
+
+unsafe fn set_irq(pic: &mut Pic, i: u8) {
+    let mask = 1 << i;
+    if pic.irq_value & mask == 0 || pic.elcr & mask != 0 {
+        pic.irr |= mask;
+        pic.irq_value |= mask;
+        check_irqs(pic);
     }
 }
 
@@ -251,27 +250,22 @@ pub unsafe fn pic_clear_irq(i: u8) {
     }
 
     if i < 8 {
-        let mask = 1 << i;
-        if master.elcr & mask != 0 {
-            master.irq_value &= !mask;
-            master.irr &= !mask;
-            check_irqs(&mut master);
-        }
-        else if master.irq_value & mask != 0 {
-            master.irq_value &= !mask;
-            check_irqs(&mut master);
-        }
+        clear_irq(&mut master, i);
     } else {
-        let mask = 1 << (i - 8);
-        if slave.elcr & mask != 0 {
-            slave.irq_value &= !mask;
-            slave.irr &= !mask;
-            check_irqs(&mut slave);
-        }
-        else if slave.irq_value & mask != 0 {
-            slave.irq_value &= !mask;
-            check_irqs(&mut slave);
-        }
+        clear_irq(&mut slave, i - 8);
+    }
+}
+
+unsafe fn clear_irq(pic: &mut Pic, i: u8) {
+    let mask = 1 << i;
+    if pic.elcr & mask != 0 {
+        pic.irq_value &= !mask;
+        pic.irr &= !mask;
+        check_irqs(pic);
+    }
+    else if pic.irq_value & mask != 0 {
+        pic.irq_value &= !mask;
+        check_irqs(pic);
     }
 }
 
