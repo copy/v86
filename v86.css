@@ -6,6 +6,11 @@
     padding: 4px;
     color: #fff;
 }
+#screen_container:fullscreen {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+    }
 #runtime_infos, #filesystem_panel {
     float: left;
     width: 250px;
