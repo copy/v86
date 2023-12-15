@@ -225,7 +225,7 @@ pub unsafe fn pic_set_irq(i: u8) {
 
     if i < 8 {
         let mask = 1 << i;
-        if master.irq_value & mask == 0 {
+        if master.irq_value & mask == 0 || master.elcr & mask != 0 {
             master.irr |= mask;
             master.irq_value |= mask;
             check_irqs(&mut master);
@@ -233,7 +233,7 @@ pub unsafe fn pic_set_irq(i: u8) {
     }
     else {
         let mask = 1 << (i - 8);
-        if slave.irq_value & mask == 0 {
+        if slave.irq_value & mask == 0 || slave.elcr & mask != 0 {
             slave.irr |= mask;
             slave.irq_value |= mask;
             check_irqs(&mut slave);
@@ -252,16 +252,24 @@ pub unsafe fn pic_clear_irq(i: u8) {
 
     if i < 8 {
         let mask = 1 << i;
-        if master.irq_value & mask != 0 {
+        if master.elcr & mask != 0 {
             master.irq_value &= !mask;
             master.irr &= !mask;
             check_irqs(&mut master);
         }
+        else if master.irq_value & mask != 0 {
+            master.irq_value &= !mask;
+            check_irqs(&mut master);
+        }
     } else {
         let mask = 1 << (i - 8);
-        if slave.irq_value & mask != 0 {
+        if slave.elcr & mask != 0 {
             slave.irq_value &= !mask;
             slave.irr &= !mask;
+            check_irqs(&mut slave);
+        }
+        else if slave.irq_value & mask != 0 {
+            slave.irq_value &= !mask;
             check_irqs(&mut slave);
         }
     }
