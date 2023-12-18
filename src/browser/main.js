@@ -642,6 +642,16 @@
                 homepage: "http://mihail.co/floppybird",
             },
             {
+                id: "duskos",
+                hda: {
+                    url: host + "duskos.img",
+                    async: false,
+                    size: 8388608,
+                },
+                name: "Dusk OS",
+                homepage: "http://duskos.org/",
+            },
+            {
                 id: "windows2000",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
