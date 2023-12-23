@@ -7,7 +7,7 @@
 
 window.onload = function()
 {
-    var emulator = new V86Starter({
+    var emulator = new V86({
         wasm_path: "../build/v86.wasm",
 
         // Uncomment to see what's going on
@@ -47,8 +47,9 @@ window.onload = function()
     ];
     var stage = 0;
 
-    emulator.add_listener("serial0-output-char", function(char)
+    emulator.add_listener("serial0-output-byte", function(byte)
     {
+        var char = String.fromCharCode(byte);
         if(char === "\r")
         {
             return;

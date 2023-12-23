@@ -27,7 +27,12 @@ impl ModrmByte {
 }
 
 pub fn decode(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
-    if ctx.asize_32() { decode32(ctx, modrm_byte) } else { decode16(ctx, modrm_byte) }
+    if ctx.asize_32() {
+        decode32(ctx, modrm_byte)
+    }
+    else {
+        decode16(ctx, modrm_byte)
+    }
 }
 
 fn decode16(ctx: &mut CpuContext, modrm_byte: u8) -> ModrmByte {
@@ -175,7 +180,7 @@ fn decode_sib(ctx: &mut CpuContext, immediate: Imm32) -> ModrmByte {
     }
 }
 
-pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte, esp_offset: i32) {
     codegen::gen_profiler_stat_increment(
         ctx.builder,
         match modrm_byte {
@@ -210,11 +215,16 @@ pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
     if let Some(reg) = modrm_byte.first_reg {
         codegen::gen_get_reg32(ctx, reg);
+        if reg == ESP && esp_offset != 0 {
+            ctx.builder.const_i32(esp_offset);
+            ctx.builder.add_i32();
+        }
         have_something_on_stack = true;
     }
 
     if let Some(reg) = modrm_byte.second_reg {
         codegen::gen_get_reg32(ctx, reg);
+        dbg_assert!(reg != ESP); // second reg cannot be esp, no need to handle esp_offset
         if modrm_byte.shift != 0 {
             ctx.builder.const_i32(modrm_byte.shift.into());
             ctx.builder.shl_i32();
@@ -241,7 +251,7 @@ pub fn gen(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 
 pub fn get_as_reg_index_if_possible(ctx: &mut JitContext, modrm_byte: &ModrmByte) -> Option<u32> {
     let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
-    let seg = if prefix != 0 { prefix - 1 } else { modrm_byte.segment };
+    let seg = if prefix != 0 { (prefix - 1) as u32 } else { modrm_byte.segment };
     if can_optimize_get_seg(ctx, seg)
         && modrm_byte.second_reg.is_none()
         && modrm_byte.immediate == 0
@@ -275,7 +285,7 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    let seg = if prefix != 0 { prefix - 1 } else { default_segment };
+    let seg = if prefix != 0 { (prefix - 1) as u32 } else { default_segment };
     jit_add_seg_offset_no_override(ctx, seg);
 }
 

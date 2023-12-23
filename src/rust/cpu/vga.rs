@@ -3,6 +3,8 @@
 use cpu::global_pointers;
 use cpu::memory;
 
+use std::ptr;
+
 pub static mut dirty_bitmap: Vec<u64> = Vec::new();
 pub static mut dest_buffer: Vec<u32> = Vec::new();
 
@@ -94,7 +96,7 @@ pub unsafe fn svga_fill_pixel_buffer(bpp: u32, svga_dest_offset: u32) {
                 isize::min(4096 / 3 + 1, dest_buffer.len() as isize - dest_offset)
             };
             for i in 0..end {
-                let dword = *(src.offset(3 * i) as *const u32);
+                let dword = ptr::read_unaligned(src.offset(3 * i) as *const u32);
                 let dword = if debug_bounds && (i == 0 || i == end - 1) { 0xFFFFFF } else { dword };
                 dbg_assert!(dest_offset + i < dest_buffer.len() as isize);
                 *dest.offset(i) = dword << 16 | dword >> 16 & 0xFF | dword & 0xFF00 | 0xFF00_0000;

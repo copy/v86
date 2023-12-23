@@ -50,7 +50,7 @@ v86.prototype.do_tick = function()
     }
 
     this.idle = false;
-    const t = this.cpu.main_run();
+    const t = this.cpu.main_loop();
 
     this.next_tick(t);
 };
@@ -141,7 +141,7 @@ else if(typeof Worker !== "undefined")
 
     v86.prototype.unregister_yield = function()
     {
-        this.worker.terminate();
+        this.worker && this.worker.terminate();
         this.worker = null;
     };
 }

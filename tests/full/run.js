@@ -213,7 +213,7 @@ if(cluster.isMaster)
             name: "Windows 95",
             skip_if_disk_image_missing: true,
             hda: root_path + "/images/w95.img",
-            timeout: 60,
+            timeout: 120,
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
@@ -443,7 +443,7 @@ if(cluster.isMaster)
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
             timeout: 15 * 60,
-            hda: root_path + "/images/internal/freebsd/freebsd.img",
+            hda: root_path + "/images/freebsd.img",
             expected_texts: [
                 "FreeBSD/i386 (nyu) (ttyv0)",
                 "root@nyu:~ #",
@@ -554,7 +554,7 @@ if(cluster.isMaster)
             name: "FreeGEM",
             skip_if_disk_image_missing: true,
             timeout: 60,
-            hda: root_path + "/images/experimental/os/freegem.bin",
+            hda: root_path + "/images/freegem.bin",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
             actions: [
@@ -592,6 +592,7 @@ if(cluster.isMaster)
         },
         {
             name: "9front",
+            use_small_bios: true, // has issues with 256k bios
             skip_if_disk_image_missing: true,
             acpi: true,
             timeout: 5 * 60,
@@ -728,7 +729,7 @@ if(cluster.isMaster)
         {
             name: "Redox",
             skip_if_disk_image_missing: true,
-            timeout: 2 * 60,
+            timeout: 5 * 60,
             memory_size: 512 * 1024 * 1024,
             acpi: true,
             hda: root_path + "/images/redox_demo_i686_2022-11-26_643_harddrive.img",
@@ -756,6 +757,33 @@ if(cluster.isMaster)
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
+        },
+        {
+            name: "Syllable",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/syllable-destop-0.6.7.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Mu",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 256 * 1024 * 1024,
+            hda: root_path + "/images/mu-shell.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "ASM Space Invaders",
+            skip_if_disk_image_missing: true,
+            timeout: 10,
+            fda: root_path + "/images/space-invaders.img", // non-standard floppy disk size, reads past end of original image
+            expected_texts: [
+                "                             #   SPACE INVADERS   # ",
+            ],
         },
         {
             name: "Linux with Postgres",
@@ -793,6 +821,7 @@ if(cluster.isMaster)
             timeout: 5 * 60,
             cdrom: root_path + "/images/experimental/os/Core-9.0.iso",
             fda: root_path + "/images/freedos722.img",
+            boot_order: 0x132,
             actions: [
                 { on_text: "boot:", run: "\n" },
                 { on_text: "tc@box", run: "sudo mount /dev/fd0 /mnt && ls /mnt\n" },
@@ -948,7 +977,7 @@ function run_test(test, done)
         var bios = root_path + "/bios/bochs-bios.bin";
         var vga_bios = root_path + "/bios/bochs-vgabios.bin";
     }
-    else if(TEST_RELEASE_BUILD)
+    else if(test.use_small_bios || TEST_RELEASE_BUILD)
     {
         var bios = root_path + "/bios/seabios.bin";
         var vga_bios = root_path + "/bios/vgabios.bin";
@@ -993,6 +1022,7 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
+    settings.disable_jit = +process.env.DISABLE_JIT;
 
     if(test.expected_texts)
     {
@@ -1201,8 +1231,9 @@ function run_test(test, done)
     }
 
     let serial_line = "";
-    emulator.add_listener("serial0-output-char", function(c)
+    emulator.add_listener("serial0-output-byte", function(byte)
         {
+            var c = String.fromCharCode(byte);
             if(c === "\n")
             {
                 if(VERBOSE)

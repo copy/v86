@@ -5,7 +5,7 @@ use state_flags::CachedStateFlags;
 #[derive(Clone)]
 pub struct CpuContext {
     pub eip: u32,
-    pub prefixes: u32,
+    pub prefixes: u8,
     pub cs_offset: u32,
     pub state_flags: CachedStateFlags,
 }
@@ -21,7 +21,12 @@ impl CpuContext {
     }
     #[allow(unused)]
     pub fn advance_moffs(&mut self) {
-        if self.asize_32() { self.advance32() } else { self.advance16() }
+        if self.asize_32() {
+            self.advance32()
+        }
+        else {
+            self.advance16()
+        }
     }
 
     pub fn read_imm8(&mut self) -> u8 {
@@ -44,7 +49,12 @@ impl CpuContext {
         v
     }
     pub fn read_moffs(&mut self) -> u32 {
-        if self.asize_32() { self.read_imm32() } else { self.read_imm16() as u32 }
+        if self.asize_32() {
+            self.read_imm32()
+        }
+        else {
+            self.read_imm16() as u32
+        }
     }
 
     pub fn cpl3(&self) -> bool { self.state_flags.cpl3() }

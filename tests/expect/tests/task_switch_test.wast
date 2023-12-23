@@ -21,7 +21,7 @@
   (type $t19 (func (param i32 i64 i32) (result i32)))
   (type $t20 (func (param i32 i64 i64 i32) (result i32)))
   (import "e" "task_switch_test_jit" (func $e.task_switch_test_jit (type $t1)))
-  (import "e" "fpu_get_sti" (func $e.fpu_get_sti (type $t2)))
+  (import "e" "fpu_get_sti_jit" (func $e.fpu_get_sti_jit (type $t2)))
   (import "e" "fpu_fadd" (func $e.fpu_fadd (type $t18)))
   (import "e" "fpu_pop" (func $e.fpu_pop (type $t0)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
@@ -79,7 +79,7 @@
                   (i32.const 4096))
                 (br $B1)))
             (i32.const 1)
-            (call $e.fpu_get_sti
+            (call $e.fpu_get_sti_jit
               (i32.const 1136)
               (i32.const 1))
             (i64.load

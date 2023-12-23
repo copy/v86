@@ -65,7 +65,7 @@ function UART(cpu, port, bus)
 
     this.irq = 0;
 
-    this.input = new ByteQueue(4096);
+    this.input = [];
 
     this.current_line = "";
 
@@ -138,14 +138,15 @@ function UART(cpu, port, bus)
         }
         else
         {
-            var data = this.input.shift();
+            let data = 0;
 
-            if(data === -1)
+            if(this.input.length === 0)
             {
                 dbg_log("Read input empty", LOG_SERIAL);
             }
             else
             {
+                data = this.input.shift();
                 dbg_log("Read input: " + h(data), LOG_SERIAL);
             }
 
@@ -341,17 +342,11 @@ UART.prototype.write_data = function(out_byte)
 
     this.ThrowInterrupt(UART_IIR_THRI);
 
-    if(out_byte === 0xFF)
-    {
-        return;
-    }
-
-    var char = String.fromCharCode(out_byte);
-
-    this.bus.send("serial" + this.com + "-output-char", char);
+    this.bus.send("serial" + this.com + "-output-byte", out_byte);
 
     if(DEBUG)
     {
+        var char = String.fromCharCode(out_byte);
         this.current_line += char;
 
         if(char === "\n")

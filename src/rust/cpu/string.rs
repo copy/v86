@@ -9,19 +9,19 @@
 // ins    0    0   1/w
 // outs   0    1   0
 
-use cpu::arith::{cmp8, cmp16, cmp32};
+use cpu::arith::{cmp16, cmp32, cmp8};
 use cpu::cpu::{
-    get_seg, io_port_read8, io_port_read16, io_port_read32, io_port_write8, io_port_write16,
-    io_port_write32, read_reg16, read_reg32, safe_read8, safe_read16, safe_read32s, safe_write8,
-    safe_write16, safe_write32, set_reg_asize, test_privileges_for_io, translate_address_read,
-    translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg8, write_reg16,
-    write_reg32, AL, AX, DX, EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
+    get_seg, io_port_read16, io_port_read32, io_port_read8, io_port_write16, io_port_write32,
+    io_port_write8, read_reg16, read_reg32, safe_read16, safe_read32s, safe_read8, safe_write16,
+    safe_write32, safe_write8, set_reg_asize, test_privileges_for_io, translate_address_read,
+    translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg16, write_reg32,
+    write_reg8, AL, AX, DX, EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
 };
 use cpu::global_pointers::{flags, instruction_pointer, previous_ip};
 use cpu::memory::{
     in_mapped_range, in_svga_lfb, memcpy_into_svga_lfb, memcpy_no_mmap_or_dirty_check,
-    memset_no_mmap_or_dirty_check, read8_no_mmap_check, read16_no_mmap_check, read32_no_mmap_check,
-    write8_no_mmap_or_dirty_check, write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check,
+    memset_no_mmap_or_dirty_check, read16_no_mmap_check, read32_no_mmap_check, read8_no_mmap_check,
+    write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check, write8_no_mmap_or_dirty_check,
 };
 use page::Page;
 

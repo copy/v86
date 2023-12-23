@@ -62,9 +62,10 @@ CLOSURE_FLAGS=\
 		--jscomp_error unknownDefines\
 		--jscomp_error visibility\
 		--use_types_for_optimization\
+		--assume_function_wrapper\
 		--summary_detail_level 3\
-		--language_in ECMASCRIPT_2017\
-		--language_out ECMASCRIPT_2017
+		--language_in ECMASCRIPT_2020\
+		--language_out ECMASCRIPT_2020
 
 CARGO_FLAGS_SAFE=\
 		--target wasm32-unknown-unknown \
@@ -75,10 +76,10 @@ CARGO_FLAGS_SAFE=\
 		-C link-args="build/zstddeclib.o" \
 		--verbose
 
-CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory
+CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
 
 CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
-	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js \
+	   memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js \
 	   acpi.js apic.js ioapic.js \
 	   state.js ne2k.js sb16.js virtio.js bus.js log.js \
 	   cpu.js debug.js \
@@ -262,12 +263,12 @@ tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
 nasmtests: all-debug
-	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
 nasmtests-force-jit: all-debug
-	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
@@ -313,6 +314,8 @@ api-tests: all-debug
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
+	./tests/api/floppy-insert-eject.js
+	./tests/api/serial.js
 
 all-tests: jshint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
@@ -322,7 +325,7 @@ jshint:
 	jshint --config=./.jshint.json src tests gen lib
 
 rustfmt: $(RUST_FILES)
-	cargo fmt --all -- --check
+	cargo +nightly fmt --all -- --check
 
 build/capstone-x86.min.js:
 	mkdir -p build
@@ -335,6 +338,6 @@ build/libwabt.js:
 	rm build/1.0.6.zip
 
 build/xterm.js:
-	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/lib/xterm.js > build/xterm.js
-	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/lib/xterm.js.map > build/xterm.js.map
-	curl https://cdn.jsdelivr.net/npm/xterm@4.9.0/css/xterm.css > build/xterm.css
+	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.min.js > build/xterm.js
+	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.js.map > build/xterm.js.map
+	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/css/xterm.css > build/xterm.css

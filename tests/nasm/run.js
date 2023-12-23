@@ -22,7 +22,7 @@ const os = require("os");
 const cluster = require("cluster");
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
-const TEST_NAME = process.env.TEST_NAME;
+const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
 const SINGLE_TEST_TIMEOUT = 10000;
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
@@ -43,7 +43,7 @@ const JSON_NEG_NAN = "-NAN";
 
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 const FPU_TAG_ALL_INVALID = 0xAAAA;
-const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3); // bits that are not correctly implemented by v86
+const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3 | 1 << 1); // bits that are not correctly implemented by v86
 const FP_COMPARISON_SIGNIFICANT_DIGITS = 7;
 
 try {
@@ -166,11 +166,11 @@ if(cluster.isMaster)
 
     const dir_files = fs.readdirSync(TEST_DIR);
     const files = dir_files.filter((name) => {
-        return name.endsWith(".asm");
+        return name.endsWith(".img");
     }).map(name => {
         return name.slice(0, -4);
     }).filter(name => {
-        return !TEST_NAME || name === TEST_NAME;
+        return TEST_NAME.test(name + ".img");
     });
 
     const tests = files.map(name => {
@@ -274,17 +274,29 @@ else {
 
         if(FORCE_JIT)
         {
+            let eip = cpu.instruction_pointer[0];
+
             cpu.test_hook_did_finalize_wasm = function()
             {
-                cpu.test_hook_did_finalize_wasm = null;
+                eip += 4096;
+                const last_word = cpu.mem32s[eip - 4 >> 2];
 
-                // don't synchronously call into the emulator from this callback
-                setTimeout(() => {
-                    emulator.run();
-                }, 0);
+                if(last_word === 0 || last_word === undefined)
+                {
+                    cpu.test_hook_did_finalize_wasm = null;
+
+                    // don't synchronously call into the emulator from this callback
+                    setTimeout(() => {
+                        emulator.run();
+                    }, 0);
+                }
+                else
+                {
+                    cpu.jit_force_generate(eip);
+                }
             };
 
-            cpu.jit_force_generate(cpu.instruction_pointer[0]);
+            cpu.jit_force_generate(eip);
         }
         else
         {
@@ -302,6 +314,7 @@ else {
     let emulator = new V86({
         autostart: false,
         memory_size: 2 * 1024 * 1024,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 

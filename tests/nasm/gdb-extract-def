@@ -31,42 +31,43 @@ define extract-state
   # For fpu registers, check the tag register first. If the tag index is
   # invalid and you try to access to corresponding register, gdb exits with an
   # error.
-  if ($ftag & (3 << 0)) != (2 << 0)
+  set $top = $fstat >> 11 & 7
+  if ($ftag >> (2 * (($top + 0) & 7)) & 3) != 2
     printf "    %.100e,\n", $st0
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 2)) != (2 << 2)
+  if ($ftag >> (2 * (($top + 1) & 7)) & 3) != 2
     printf "    %.100e,\n", $st1
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 4)) != (2 << 4)
+  if ($ftag >> (2 * (($top + 2) & 7)) & 3) != 2
     printf "    %.100e,\n", $st2
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 6)) != (2 << 6)
+  if ($ftag >> (2 * (($top + 3) & 7)) & 3) != 2
     printf "    %.100e,\n", $st3
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 8)) != (2 << 8)
+  if ($ftag >> (2 * (($top + 4) & 7)) & 3) != 2
     printf "    %.100e,\n", $st4
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 10)) != (2 << 10)
+  if ($ftag >> (2 * (($top + 5) & 7)) & 3) != 2
     printf "    %.100e,\n", $st5
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 12)) != (2 << 12)
+  if ($ftag >> (2 * (($top + 6) & 7)) & 3) != 2
     printf "    %.100e,\n", $st6
   else
     printf "    \"invalid\",\n"
   end
-  if ($ftag & (3 << 14)) != (2 << 14)
+  if ($ftag >> (2 * (($top + 7) & 7)) & 3) != 2
     printf "    %.100e,\n", $st7
   else
     printf "    \"invalid\",\n"

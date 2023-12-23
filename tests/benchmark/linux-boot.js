@@ -19,6 +19,7 @@ if(true)
         cdrom: { url: __dirname + "/../../images/linux3.iso" },
         autostart: true,
         memory_size: 32 * 1024 * 1024,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 }
@@ -40,6 +41,7 @@ else
             baseurl: path.join(V86_ROOT, "/images/arch/"),
         },
         screen_dummy: true,
+        disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });
 }
@@ -53,8 +55,9 @@ emulator.bus.register("emulator-started", function()
 var serial_text = "";
 var start_time;
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
         return;

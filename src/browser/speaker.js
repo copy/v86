@@ -27,7 +27,6 @@ function SpeakerAdapter(bus)
     /** @const */
     this.bus = bus;
 
-    /** @const */
     this.audio_context = window.AudioContext ? new AudioContext() : new webkitAudioContext();
 
     /** @const */
@@ -36,7 +35,6 @@ function SpeakerAdapter(bus)
     /** @const */
     this.pcspeaker = new PCSpeaker(bus, this.audio_context, this.mixer);
 
-    /** @const */
     this.dac = new SpeakerDAC(bus, this.audio_context, this.mixer);
 
     this.pcspeaker.start();
@@ -61,7 +59,9 @@ function SpeakerAdapter(bus)
 SpeakerAdapter.prototype.destroy = function()
 {
     this.audio_context && this.audio_context.close();
+    this.audio_context = null;
     this.dac && this.dac.node_processor && this.dac.node_processor.port.close();
+    this.dac = null;
 };
 
 /**

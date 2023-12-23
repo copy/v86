@@ -40,6 +40,10 @@
 /** @const */ var CMOS_MEM_HIGHMEM_HIGH = 0x5d;
 /** @const */ var CMOS_BIOS_SMP_COUNT = 0x5f;
 
+// see CPU.prototype.fill_cmos
+const BOOT_ORDER_CD_FIRST = 0x123;
+const BOOT_ORDER_HD_FIRST = 0x312;
+const BOOT_ORDER_FD_FIRST = 0x321;
 
 /**
  * RTC (real time clock) and CMOS

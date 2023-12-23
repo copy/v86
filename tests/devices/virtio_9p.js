@@ -1556,6 +1556,7 @@ const emulator = new V86({
     filesystem: {
         baseurl: __dirname + "/testfs/",
     },
+    disable_jit: +process.env.DISABLE_JIT,
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
 
@@ -1800,8 +1801,9 @@ emulator.bus.register("emulator-started", function()
     console.error("Booting now, please stand by");
 });
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
         return;

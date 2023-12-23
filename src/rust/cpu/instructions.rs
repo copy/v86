@@ -1,9 +1,5 @@
 #![allow(non_snake_case)]
 
-extern "C" {
-    fn hlt_op();
-}
-
 use cpu::arith::*;
 use cpu::cpu::*;
 use cpu::fpu::*;
@@ -11,6 +7,7 @@ use cpu::global_pointers::*;
 use cpu::misc_instr::*;
 use cpu::misc_instr::{pop16, pop32s, push16, push32};
 use cpu::string::*;
+use prefix;
 use softfloat::F80;
 
 pub unsafe fn instr_00_mem(addr: i32, r: i32) { safe_read_write8(addr, &|x| add8(x, read_reg8(r))) }
@@ -573,14 +570,14 @@ pub unsafe fn instr_65() { segment_prefix_op(GS); }
 
 pub unsafe fn instr_66() {
     // Operand-size override prefix
-    *prefixes = (*prefixes as i32 | PREFIX_MASK_OPSIZE) as u8;
+    *prefixes |= prefix::PREFIX_MASK_OPSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
 pub unsafe fn instr_67() {
     // Address-size override prefix
     dbg_assert!(is_asize_32() == *is_32);
-    *prefixes = (*prefixes as i32 | PREFIX_MASK_ADDRSIZE) as u8;
+    *prefixes |= prefix::PREFIX_MASK_ADDRSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
@@ -899,7 +896,7 @@ pub unsafe fn instr16_8D_reg(_r: i32, _r2: i32) {
 }
 pub unsafe fn instr16_8D_mem(modrm_byte: i32, r: i32) {
     // lea
-    *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
+    *prefixes |= prefix::SEG_PREFIX_ZERO;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg16(r, addr);
     }
@@ -912,7 +909,7 @@ pub unsafe fn instr32_8D_reg(_r: i32, _r2: i32) {
 pub unsafe fn instr32_8D_mem(modrm_byte: i32, r: i32) {
     // lea
     // override prefix, so modrm_resolve does not return the segment part
-    *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
+    *prefixes |= prefix::SEG_PREFIX_ZERO;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg32(r, addr);
     }
@@ -1819,11 +1816,7 @@ pub unsafe fn instr_DA_6_reg(_r: i32) { trigger_ud(); }
 pub unsafe fn instr_DA_7_reg(_r: i32) { trigger_ud(); }
 
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fildm32(addr); }
-#[no_mangle]
-pub unsafe fn instr_DB_1_mem(_addr: i32) {
-    dbg_log!("fisttp");
-    fpu_unimpl();
-}
+pub unsafe fn instr_DB_1_mem(addr: i32) { fpu_fisttpm32(addr); }
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
 #[no_mangle]
@@ -1878,11 +1871,7 @@ pub unsafe fn instr_DC_6_reg(r: i32) { fpu_fdiv(r, fpu_get_sti(r)); }
 pub unsafe fn instr_DC_7_reg(r: i32) { fpu_fdivr(r, fpu_get_sti(r)); }
 
 pub unsafe fn instr16_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
-#[no_mangle]
-pub unsafe fn instr16_DD_1_mem(_addr: i32) {
-    dbg_log!("fisttp");
-    fpu_unimpl();
-}
+pub unsafe fn instr16_DD_1_mem(addr: i32) { fpu_fisttpm64(addr); }
 pub unsafe fn instr16_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
 pub unsafe fn instr16_DD_3_mem(addr: i32) { fpu_fstm64p(addr); }
 #[no_mangle]
@@ -1900,7 +1889,6 @@ pub unsafe fn instr32_DD_6_mem(addr: i32) { fpu_fsave32(addr); }
 #[no_mangle]
 pub unsafe fn instr16_DD_7_mem(addr: i32) { fpu_fnstsw_mem(addr); }
 pub unsafe fn instr16_DD_0_reg(r: i32) { fpu_ffree(r); }
-#[no_mangle]
 pub unsafe fn instr16_DD_1_reg(r: i32) { fpu_fxch(r) }
 pub unsafe fn instr16_DD_2_reg(r: i32) { fpu_fst(r); }
 pub unsafe fn instr16_DD_3_reg(r: i32) { fpu_fstp(r); }
@@ -1992,11 +1980,7 @@ pub unsafe fn instr_DE_7_reg(r: i32) {
 
 #[no_mangle]
 pub unsafe fn instr_DF_0_mem(addr: i32) { fpu_fildm16(addr) }
-#[no_mangle]
-pub unsafe fn instr_DF_1_mem(_addr: i32) {
-    dbg_log!("fisttp");
-    fpu_unimpl();
-}
+pub unsafe fn instr_DF_1_mem(addr: i32) { fpu_fisttpm16(addr); }
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
 pub unsafe fn instr_DF_4_mem(_addr: i32) {
@@ -2012,7 +1996,6 @@ pub unsafe fn instr_DF_0_reg(r: i32) {
     fpu_ffree(r);
     fpu_pop();
 }
-#[no_mangle]
 pub unsafe fn instr_DF_1_reg(r: i32) { fpu_fxch(r) }
 pub unsafe fn instr_DF_2_reg(r: i32) { fpu_fstp(r); }
 pub unsafe fn instr_DF_3_reg(r: i32) { fpu_fstp(r); }
@@ -2182,15 +2165,15 @@ pub unsafe fn instr_F1() {
 
 pub unsafe fn instr_F2() {
     // repnz
-    dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
-    *prefixes = (*prefixes as i32 | PREFIX_REPNZ) as u8;
+    dbg_assert!(*prefixes & prefix::PREFIX_MASK_REP == 0);
+    *prefixes |= prefix::PREFIX_REPNZ;
     run_prefix_instruction();
     *prefixes = 0;
 }
 pub unsafe fn instr_F3() {
     // repz
-    dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
-    *prefixes = (*prefixes as i32 | PREFIX_REPZ) as u8;
+    dbg_assert!(*prefixes & prefix::PREFIX_MASK_REP == 0);
+    *prefixes |= prefix::PREFIX_REPZ;
     run_prefix_instruction();
     *prefixes = 0;
 }
@@ -2203,7 +2186,19 @@ pub unsafe fn instr_F4() {
         return;
     }
 
-    hlt_op();
+    *in_hlt = true;
+
+    // Try an hlt loop right now: This will run timer interrupts, and if one is
+    // due it will immediately call call_interrupt_vector and continue
+    // execution without an unnecessary cycle through do_run
+    if *flags & FLAG_INTERRUPT != 0 {
+        run_hardware_timers(*acpi_enabled, microtick());
+        handle_irqs();
+    }
+    else {
+        // execution can never resume (until NMIs are supported)
+        cpu_event_halt();
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_F5() {

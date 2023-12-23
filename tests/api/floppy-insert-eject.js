@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-// This test checks that calling emulator.stop() will remove all event
-// listeners, so that the nodejs process cleanly and automatically exits.
-
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const fs = require("fs");
@@ -11,10 +8,10 @@ var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}
 
 process.on("unhandledRejection", exn => { throw exn; });
 
-const config = {
+const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux4.iso", async: true },
+    hda: { url: __dirname + "/../../images/msdos.img" },
     network_relay_url: "<UNUSED>",
     autostart: true,
     memory_size: 32 * 1024 * 1024,
@@ -22,13 +19,24 @@ const config = {
     log_level: 0,
     disable_jit: +process.env.DISABLE_JIT,
     screen_dummy: true,
-};
+});
 
-const emulator = new V86(config);
-
-setTimeout(function()
-    {
-        console.error("Calling stop()");
-        emulator.stop();
-        console.error("Called stop()");
-    }, 3000);
+emulator.automatically([
+    { sleep: 1 },
+    { vga_text: "C:\\> " },
+    { keyboard_send: "dir A:\n" },
+    { vga_text: "Abort, Retry, Fail?" },
+    { keyboard_send: "F" },
+    { call: () => {
+            emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
+        },
+    },
+    { keyboard_send: "dir A:\n" },
+    { sleep: 1 },
+    { vga_text: "FDOS         <DIR>" },
+    { call: () => {
+            console.log("Passed");
+            emulator.stop();
+        }
+    },
+]);

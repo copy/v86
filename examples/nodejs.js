@@ -2,7 +2,7 @@
 "use strict";
 
 var fs = require("fs");
-var V86Starter = require("../build/libv86.js").V86Starter;
+var V86 = require("../build/libv86.js").V86;
 
 function readfile(path)
 {
@@ -18,14 +18,15 @@ process.stdin.setEncoding("utf8");
 
 console.log("Now booting, please stand by ...");
 
-var emulator = new V86Starter({
+var emulator = new V86({
     bios: { buffer: bios },
     cdrom: { buffer: linux },
     autostart: true,
 });
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     if(chr <= "~")
     {
         process.stdout.write(chr);
