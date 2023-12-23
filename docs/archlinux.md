@@ -3,14 +3,12 @@
 Choosing an installer ISO
 -------------------------
 
-The last ISO installer version of Archlinux that supports 32-bit is [2017.02.01](https://www.archlinux.org/releng/releases/2017.02.01/). Later versions of the archisos don't work on the v86 emulator because the installer only supports x86_64, not x86 anymore.  For existing Archlinux installations, updates and patches will be done until somewhere around 2018.
-
-In the future the community might come up with an alternative distribution based on Archlinux to maintain support for x86. At this point in time [archlinux32](https://mirror.archlinux32.org) seems to work.
+Download Arch Linux 32 from  https://archlinux32.org.
 
 Basic installation using QEMU
 -----------------------
 
-Installing Archlinux like this will result in a raw disk image that can be booted by v86.
+Installing Arch Linux with these instructions will result in a raw disk image that can be booted by v86.
 
 ```sh
 # fetch archlinux32 installer
@@ -23,15 +21,15 @@ qemu-img create arch.img 10G
 qemu-system-x86_64 -m 256 -drive file=arch.img,format=raw -cdrom archlinux32-2021.12.01-i686.iso
 ```
 
-For keyboard support it is necessary to open /etc/mkinitcpio.conf and edit the following line:
+For keyboard support, it is necessary to open /etc/mkinitcpio.conf and edit the following line:
 
 ```sh
 MODULES="atkbd i8042"
 ```
 
-For the changes to take effect you need to regenerate the RAMdisk with `mkinitcpio -p linux`
+For the changes to take effect, you need to regenerate the initial ramdisk with `mkinitcpio -p linux`
 
-The resulting `arch.img` is a bootable disk image for v86.
+The resulting `arch.img` file is a bootable disk image for v86.
 
 Scripting image creation for v86
 --------------------------------
@@ -42,7 +40,7 @@ Installing the ISO by hand takes a long time if you intend to recreate the image
 
 [Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap and SSH server. Once the SSH connection is established a script can be started for further provisioning.
 
-Create a template for automating the base installation
+Create a template for automating the base installation:
 ```sh
 mkdir -p packer
 cat > packer/template.json << 'EOF'
@@ -90,20 +88,20 @@ cat > packer/template.json << 'EOF'
 EOF
 ```
 
-You can tweak the options a bit to match your situation. For debugging you can set `headless` to `false`. That will show you the vnc instead of running the `boot_command` in the background. For a `base` pacstrap using a 1.5G disk should be sufficient. The `raw` disk format is important. v86 does not read qcow2 images, only raw disk images. If your system does not support kvm (the default accelerator), you can change `"accelerator": "none"` to the settings, in macos you may use `"accelerator": "hvf"`. Other accelerator options can be found [here](https://www.packer.io/docs/builders/qemu.html#accelerator).
+You can tweak the options a bit to match your situation. For debugging, you can set `headless` to `false`. That will show you the VNC connection instead of running the `boot_command` in the background. For a `base` pacstrap, using a 2 GB disk image should be sufficient. The `raw` disk format is important. v86 does not read qcow2 images, only raw disk images. If your system does not support KVM (the default accelerator), you can change `"accelerator": "none"` to the settings, in macos you may use `"accelerator": "hvf"`. Other accelerator options can be found [here](https://www.packer.io/docs/builders/qemu.html#accelerator).
 
 After gaining SSH connectivity to the VM, packer will run the `scripts/provisioning.sh` script in the guest.
 
-### Creating the Archlinux installation script
+### Creating the Arch Linux installation script
 
-Create a script for your Archlinux installation. This runs in the ISO booted Archlinux environment, so you need to partition, pacstrap and install a bootloader.
+Create a script for your Arch Linux installation. This runs in the live Arch Linux environment, so you need to partition the disk, do a pacstrap, and install a bootloader.
 ```sh
 mkdir -p packer/scripts
 ### Write your own or copy paste the example below
 vim packer/scripts/provision.sh
 ```
 
-An example script to install Archlinux with the root mounted using the 9p network filesystem:
+An example script to install Arch Linux with the root mounted using the 9p network filesystem:
 ```sh
 #!/bin/bash
 echo "Creating a GPT partition on /dev/sda1"
@@ -132,7 +130,7 @@ pacman -Sy archlinux-keyring --noconfirm
 # uncomment to remove signing if unable to resolve signing errors
 sed -i 's/SigLevel.*/SigLevel = Never/g' /etc/pacman.conf
 
-# Install the Archlinux base system, feel free to add packages you need here
+# Install the Arch Linux base system, feel free to add packages you need here
 echo "Performing pacstrap"
 pacstrap -i /mnt base linux dhcpcd curl openssh --noconfirm
 
@@ -300,7 +298,7 @@ EOF
 umount -R /mnt
 ```
 
-With the packer template and the script you have enough to create an image that can be booted by v86. But because this example script installs an Archlinux that wants to mount root over the network with 9p, we need to host that filesystem first. If you do not want to use 9p, you can just run `(cd packer && packer build -force template.json)` to build the image.
+With the packer template and the script you have enough to create an image that can be booted by v86. But because this example script installs an Arch Linux that wants to mount root over the network with 9p, we need to host that filesystem first. If you do not want to use 9p, you can just run `(cd packer && packer build -force template.json)` to build the image.
 
 ### Creating the 9p filesystem
 
@@ -382,7 +380,7 @@ Generated artifacts are now available for serving from `output`.
 
 ### Using the created artifacts in v86
 
-Now that we have everything we need to host a server that serves an Archlinux environment over the network.
+Now that we have everything we need to host a server that serves an Arch Linux environment over the network.
 
 Create a checkout of v86 and run `make build/libv86.js`.
 We can then edit `examples/arch.html`, we have two options:
@@ -405,7 +403,7 @@ We can then edit `examples/arch.html`, we have two options:
   acpi: false,
   autostart: true,
   ```
-2. Boot the archlinux from the qemu raw disk image:
+2. Boot the Arch Linux from the qemu raw disk image:
 
   ```sh
   hda: {

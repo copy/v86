@@ -6,6 +6,15 @@
     padding: 4px;
     color: #fff;
 }
+#screen_container:fullscreen {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+#screen_container:fullscreen #vga {
+    width: auto !important;
+    height: 100% !important;
+}
 #runtime_infos, #filesystem_panel {
     float: left;
     width: 250px;
@@ -42,6 +51,7 @@
 }
 #vga {
     background-color: #000;
+    touch-action: none;
 }
 body {
     background-color: #111;

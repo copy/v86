@@ -56,6 +56,8 @@ pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
+static mut JIT_DISABLED: bool = false;
+
 // Maximum number of pages per wasm module. Necessary for the following reasons:
 // - There is an upper limit on the size of a single function in wasm (currently ~7MB in all browsers)
 //   See https://github.com/WebAssembly/design/issues/1138
@@ -2075,6 +2077,10 @@ pub fn jit_increase_hotness_and_maybe_compile(
     state_flags: CachedStateFlags,
     heat: u32,
 ) {
+    if unsafe { JIT_DISABLED } {
+        return
+    }
+
     let ctx = get_jit_state();
     let page = Page::page_of(phys_address);
     let (hotness, entry_points) = ctx.entry_points.entry(page).or_insert_with(|| {
@@ -2389,9 +2395,10 @@ pub fn enter_basic_block(phys_eip: u32) {
 #[no_mangle]
 pub unsafe fn set_jit_config(index: u32, value: u32) {
     match index {
-        0 => MAX_PAGES = value,
-        1 => JIT_USE_LOOP_SAFETY = value != 0,
-        2 => MAX_EXTRA_BASIC_BLOCKS = value,
+        0 => JIT_DISABLED = value != 0,
+        1 => MAX_PAGES = value,
+        2 => JIT_USE_LOOP_SAFETY = value != 0,
+        3 => MAX_EXTRA_BASIC_BLOCKS = value,
         _ => dbg_assert!(false),
     }
 }
@@ -2399,9 +2406,10 @@ pub unsafe fn set_jit_config(index: u32, value: u32) {
 #[no_mangle]
 pub unsafe fn get_jit_config(index: u32) -> u32 {
     match index {
-        0 => MAX_PAGES as u32,
-        1 => JIT_USE_LOOP_SAFETY as u32,
-        2 => MAX_EXTRA_BASIC_BLOCKS as u32,
+        0 => JIT_DISABLED as u32,
+        1 => MAX_PAGES as u32,
+        2 => JIT_USE_LOOP_SAFETY as u32,
+        3 => MAX_EXTRA_BASIC_BLOCKS as u32,
         _ => 0,
     }
 }

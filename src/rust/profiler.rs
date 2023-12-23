@@ -84,6 +84,8 @@ pub enum stat {
     PAGE_FAULT,
     TLB_MISS,
 
+    MAIN_LOOP,
+    MAIN_LOOP_IDLE,
     DO_MANY_CYCLES,
     CYCLE_INTERNAL,
 

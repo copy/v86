@@ -2,9 +2,11 @@
 
 extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
-    fn microtick() -> f64;
     fn call_indirect1(f: i32, x: u16);
-    fn pic_acknowledge();
+    pub fn microtick() -> f64;
+    pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
+    pub fn cpu_event_halt();
+    pub fn apic_acknowledge_irq() -> i32;
 
     pub fn io_port_read8(port: i32) -> i32;
     pub fn io_port_read16(port: i32) -> i32;
@@ -26,6 +28,7 @@ use cpu::misc_instr::{
     push16, push32,
 };
 use cpu::modrm::{resolve_modrm16, resolve_modrm32};
+use cpu::pic;
 use jit;
 use jit::is_near_end_of_page;
 use page::Page;
@@ -62,6 +65,9 @@ pub union reg128 {
 pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
 
 pub const INTERPRETER_ITERATION_LIMIT: u32 = 100_001;
+
+// How often, in milliseconds, to yield to the browser for rendering and running events
+pub const TIME_PER_FRAME: f64 = 1.0;
 
 pub const FLAG_SUB: i32 = -0x8000_0000;
 pub const FLAG_CARRY: i32 = 1;
@@ -727,10 +733,6 @@ pub unsafe fn call_interrupt_vector(
     is_software_int: bool,
     error_code: Option<i32>,
 ) {
-    // we have to leave hlt_loop at some point, this is a
-    // good place to do it
-    *in_hlt = false;
-
     if *protected_mode {
         if vm86_mode() && *cr.offset(4) & CR4_VME != 0 {
             panic!("Unimplemented: VME");
@@ -1755,9 +1757,6 @@ pub unsafe fn get_eflags() -> i32 {
         | (getsf() as i32) << 7
         | (getof() as i32) << 11;
 }
-
-#[no_mangle]
-pub unsafe fn get_eflags_no_arith() -> i32 { return *flags; }
 
 pub unsafe fn readable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
     dbg_assert!(size < 0x1000);
@@ -3024,6 +3023,44 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 }
 
 #[no_mangle]
+pub unsafe fn main_loop() -> f64 {
+    profiler::stat_increment(MAIN_LOOP);
+
+    let start = microtick();
+
+    if *in_hlt {
+        if *flags & FLAG_INTERRUPT != 0 {
+            let t = run_hardware_timers(*acpi_enabled, start);
+            handle_irqs();
+            if *in_hlt {
+                profiler::stat_increment(MAIN_LOOP_IDLE);
+                return t;
+            }
+        }
+        else {
+            // dead
+            return 100.0;
+        }
+    }
+
+    loop {
+        do_many_cycles_native();
+
+        let now = microtick();
+        let t = run_hardware_timers(*acpi_enabled, now);
+        handle_irqs();
+        if *in_hlt {
+            return t;
+        }
+
+        if now - start > TIME_PER_FRAME {
+            break;
+        }
+    }
+
+    return 0.0;
+}
+
 pub unsafe fn do_many_cycles_native() {
     profiler::stat_increment(DO_MANY_CYCLES);
     let initial_instruction_counter = *instruction_counter;
@@ -3031,22 +3068,6 @@ pub unsafe fn do_many_cycles_native() {
         && !*in_hlt
     {
         cycle_internal();
-    }
-}
-
-#[no_mangle]
-pub unsafe fn do_many_cycles_native_nojit() {
-    profiler::stat_increment(DO_MANY_CYCLES);
-    let initial_instruction_counter = *instruction_counter;
-    while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
-        && !*in_hlt
-    {
-        *previous_ip = *instruction_pointer;
-        let opcode = return_on_pagefault!(read_imm8());
-        *instruction_counter += 1;
-        dbg_assert!(*prefixes == 0);
-        run_instruction(opcode | (*is_32 as i32) << 8);
-        dbg_assert!(*prefixes == 0);
     }
 }
 
@@ -4140,14 +4161,22 @@ pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 #[no_mangle]
 pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
-        pic_acknowledge()
+        if let Some(irq) = pic::pic_acknowledge_irq() {
+            pic_call_irq(irq)
+        }
+        else if *acpi_enabled {
+            let irq = apic_acknowledge_irq();
+            if irq >= 0 {
+                pic_call_irq(irq as u8)
+            }
+        }
     }
 }
 
-#[no_mangle]
-pub unsafe fn pic_call_irq(interrupt_nr: i32) {
+unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
-    call_interrupt_vector(interrupt_nr, false, None);
+    *in_hlt = false;
+    call_interrupt_vector(interrupt_nr as i32, false, None);
 }
 
 #[no_mangle]

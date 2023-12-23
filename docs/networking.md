@@ -2,7 +2,7 @@
 
 Emulating a network card is supported. It can be used by passing the
 `network_relay_url` option to `V86`. The url must point to a running
-WebSockets Proxy. The source code for WebSockets Proxy can be found at
+WebSockets Proxy. The source code for the WebSockets Proxy can be found at
 [benjamincburns/websockproxy](https://github.com/benjamincburns/websockproxy).
 An alternative, Node-based implementation is
 [krishenriksen/node-relay](https://github.com/krishenriksen/node-relay).
@@ -43,5 +43,5 @@ sending and receiving packets correctly. There are several workarounds:
   don't need any of the above workarounds. This seems to be the case for Haiku,
   OpenBSD and FreeBSD.
 
-Note that the same applies to IP addresses, so a dhcp client should only be run
+Note that the same applies to IP addresses, so a DHCP client should only be run
 after the state has been loaded.

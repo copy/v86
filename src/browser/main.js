@@ -533,6 +533,15 @@
                 name: "KolibriOS",
             },
             {
+                id: "mu",
+                hda: {
+                    url: host + "mu-shell.img",
+                },
+                memory_size: 256 * 1024 * 1024,
+                name: "Mu",
+                homepage: "https://github.com/akkartik/mu",
+            },
+            {
                 id: "openbsd",
                 hda: {
                     url: host + "openbsd.img",
@@ -631,6 +640,16 @@
                 },
                 name: "Floppy Bird",
                 homepage: "http://mihail.co/floppybird",
+            },
+            {
+                id: "duskos",
+                hda: {
+                    url: host + "duskos.img",
+                    async: false,
+                    size: 8388608,
+                },
+                name: "Dusk OS",
+                homepage: "http://duskos.org/",
             },
             {
                 id: "windows2000",
@@ -1994,7 +2013,6 @@
             if(mouse_is_enabled && os_uses_mouse)
             {
                 emulator.lock_mouse();
-                $("lock_mouse").blur();
             }
             else
             {

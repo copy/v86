@@ -106,6 +106,12 @@ FloppyController.prototype.set_fda = function(fda_image)
         floppy_size = fda_image.byteLength > 1440 * 1024 ? 2880 * 1024 : 1440 * 1024;
         floppy_type = floppy_types[floppy_size];
 
+        // Note: this may prevent the "Get floppy image" functionality from working
+        dbg_assert(fda_image.buffer && fda_image.buffer instanceof ArrayBuffer);
+        const new_image = new Uint8Array(floppy_size);
+        new_image.set(new Uint8Array(fda_image.buffer));
+        fda_image = new v86util.SyncBuffer(new_image.buffer);
+
         dbg_log("Warning: Unkown floppy size: " + fda_image.byteLength + ", assuming " + floppy_size);
     }
 
@@ -461,6 +467,7 @@ FloppyController.prototype.done = function(args, cylinder, head, sector, error)
     if(error)
     {
         // TODO: Set appropriate bits
+        dbg_log("XXX: Unhandled floppy error", LOG_FLOPPY);
         return;
     }
 

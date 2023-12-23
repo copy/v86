@@ -109,12 +109,12 @@ function V86(options)
 
     const wasm_shared_funcs = {
         "cpu_exception_hook": n => this.cpu_exception_hook(n),
-        "hlt_op": function() { return cpu.hlt_op(); },
+        "run_hardware_timers": function(a, t) { return cpu.run_hardware_timers(a, t); },
+        "cpu_event_halt": () => { this.emulator_bus.send("cpu-event-halt"); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
-
-        "pic_acknowledge": function() { cpu.pic_acknowledge(); },
+        "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -652,8 +652,9 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                 if(!wasm)
                 {
                     const env = Object.fromEntries([
-                        "cpu_exception_hook", "hlt_op",
-                        "microtick", "get_rand_int", "pic_acknowledge",
+                        "cpu_exception_hook", "run_hardware_timers",
+                        "cpu_event_halt", "microtick", "get_rand_int",
+                        "apic_acknowledge_irq",
                         "io_port_read8", "io_port_read16", "io_port_read32",
                         "io_port_write8", "io_port_write16", "io_port_write32",
                         "mmap_read8", "mmap_read16", "mmap_read32",
