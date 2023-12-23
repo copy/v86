@@ -17,7 +17,7 @@ unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand + source_operand + cf;
     *last_op1 = dest_operand;
-    *last_result = res;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW;
     *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
@@ -39,7 +39,7 @@ unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand - source_operand - cf;
     *last_op1 = dest_operand;
-    *last_result = res;
+    *last_result = res & (2 << op_size) - 1;
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW | FLAG_SUB;
     *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
@@ -50,8 +50,8 @@ unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     return res;
 }
 pub unsafe fn add8(x: i32, y: i32) -> i32 {
-    dbg_assert!(x >= 0 && x < 0x10000);
-    dbg_assert!(y >= 0 && y < 0x10000);
+    dbg_assert!(x >= 0 && x < 0x100);
+    dbg_assert!(y >= 0 && y < 0x100);
     return add(x, y, OPSIZE_8);
 }
 #[no_mangle]

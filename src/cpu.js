@@ -1,9 +1,5 @@
 "use strict";
 
-/** @const */
-var CPU_LOG_VERBOSE = false;
-
-
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
@@ -178,9 +174,6 @@ function CPU(bus, wm, next_tick_immediately)
 
     if(DEBUG)
     {
-        this.do_many_cycles_count = 0;
-        this.do_many_cycles_total = 0;
-
         this.seen_code = {};
         this.seen_code_uncompiled = {};
     }
@@ -217,11 +210,9 @@ CPU.prototype.create_jit_imports = function()
 
 CPU.prototype.wasm_patch = function()
 {
-    const get_optional_import = (name) => {
-        return this.wm.exports[name];
-    };
+    const get_optional_import = name => this.wm.exports[name];
 
-    const get_import = (name) =>
+    const get_import = name =>
     {
         const f = get_optional_import(name);
         console.assert(f, "Missing import: " + name);
@@ -232,12 +223,12 @@ CPU.prototype.wasm_patch = function()
 
     this.getiopl = get_import("getiopl");
     this.get_eflags = get_import("get_eflags");
-    this.get_eflags_no_arith = get_import("get_eflags_no_arith");
 
-    this.pic_call_irq = get_import("pic_call_irq");
+    this.handle_irqs = get_import("handle_irqs");
 
-    this.do_many_cycles_native = get_import("do_many_cycles_native");
-    this.cycle_internal = get_import("cycle_internal");
+    this.main_loop = get_import("main_loop");
+
+    this.set_jit_config = get_import("set_jit_config");
 
     this.read8 = get_import("read8");
     this.read16 = get_import("read16");
@@ -266,6 +257,9 @@ CPU.prototype.wasm_patch = function()
 
     this.set_cpuid_level = get_import("set_cpuid_level");
 
+    this.pic_set_irq = get_import("pic_set_irq");
+    this.pic_clear_irq = get_import("pic_clear_irq");
+
     if(DEBUG)
     {
         this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
@@ -283,11 +277,29 @@ CPU.prototype.wasm_patch = function()
     this.svga_fill_pixel_buffer = get_import("svga_fill_pixel_buffer");
     this.svga_mark_dirty = get_import("svga_mark_dirty");
 
+    this.get_pic_addr_master = get_import("get_pic_addr_master");
+    this.get_pic_addr_slave = get_import("get_pic_addr_slave");
+
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
     this.zstd_free_ctx = get_import("zstd_free_ctx");
     this.zstd_read = get_import("zstd_read");
     this.zstd_read_free = get_import("zstd_read_free");
+
+    this.port20_read = get_import("port20_read");
+    this.port21_read = get_import("port21_read");
+    this.portA0_read = get_import("portA0_read");
+    this.portA1_read = get_import("portA1_read");
+
+    this.port20_write = get_import("port20_write");
+    this.port21_write = get_import("port21_write");
+    this.portA0_write = get_import("portA0_write");
+    this.portA1_write = get_import("portA1_write");
+
+    this.port4D0_read = get_import("port4D0_read");
+    this.port4D1_read = get_import("port4D1_read");
+    this.port4D0_write = get_import("port4D0_write");
+    this.port4D1_write = get_import("port4D1_write");
 };
 
 CPU.prototype.jit_force_generate = function(addr)
@@ -367,7 +379,7 @@ CPU.prototype.get_state = function()
     state[48] = this.devices.pci;
     state[49] = this.devices.dma;
     state[50] = this.devices.acpi;
-    state[51] = this.devices.hpet;
+    // 51 (formerly hpet)
     state[52] = this.devices.vga;
     state[53] = this.devices.ps2;
     state[54] = this.devices.uart0;
@@ -376,7 +388,7 @@ CPU.prototype.get_state = function()
     state[57] = this.devices.hda;
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
-    state[60] = this.devices.pic;
+    state[60] = this.get_state_pic();
     state[61] = this.devices.sb16;
 
     state[62] = this.fw_value;
@@ -404,6 +416,46 @@ CPU.prototype.get_state = function()
     state[79] = this.devices.uart1;
     state[80] = this.devices.uart2;
     state[81] = this.devices.uart3;
+
+    return state;
+};
+
+CPU.prototype.get_state_pic = function()
+{
+    const pic_size = 13;
+    const pic = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_master(), pic_size);
+    const pic_slave = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_slave(), pic_size);
+
+    const state = [];
+    const state_slave = [];
+
+    state[0] = pic[0]; // irq_mask
+    state[1] = pic[1]; // irq_map
+    state[2] = pic[2]; // isr
+    state[3] = pic[3]; // irr
+    state[4] = pic[4]; // is_master
+    state[5] = state_slave;
+    state[6] = pic[6]; // expect_icw4
+    state[7] = pic[7]; // state
+    state[8] = pic[8]; // read_isr
+    state[9] = pic[9]; // auto_eoi
+    state[10] = pic[10]; // special_mask_mode
+    state[11] = pic[11]; // elcr
+    state[12] = pic[12]; // irq_value (undefined in old state images)
+
+    state_slave[0] = pic_slave[0]; // irq_mask
+    state_slave[1] = pic_slave[1]; // irq_map
+    state_slave[2] = pic_slave[2]; // isr
+    state_slave[3] = pic_slave[3]; // irr
+    state_slave[4] = pic_slave[4]; // is_master
+    state_slave[5] = null;
+    state_slave[6] = pic_slave[6]; // expect_icw4
+    state_slave[7] = pic_slave[7]; // state
+    state_slave[8] = pic_slave[8]; // read_isr
+    state_slave[9] = pic_slave[9]; // auto_eoi
+    state_slave[10] = pic_slave[10]; // elcr
+    state_slave[12] = pic_slave[12]; // irq_value (undefined in old state images)
+    state_slave[12] = pic_slave[12]; // special_mask_mode (undefined in old state images)
 
     return state;
 };
@@ -463,7 +515,7 @@ CPU.prototype.set_state = function(state)
     this.devices.pci && this.devices.pci.set_state(state[48]);
     this.devices.dma && this.devices.dma.set_state(state[49]);
     this.devices.acpi && this.devices.acpi.set_state(state[50]);
-    this.devices.hpet && this.devices.hpet.set_state(state[51]);
+    // 51 (formerly hpet)
     this.devices.vga && this.devices.vga.set_state(state[52]);
     this.devices.ps2 && this.devices.ps2.set_state(state[53]);
     this.devices.uart0 && this.devices.uart0.set_state(state[54]);
@@ -472,7 +524,7 @@ CPU.prototype.set_state = function(state)
     this.devices.hda && this.devices.hda.set_state(state[57]);
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
-    this.devices.pic && this.devices.pic.set_state(state[60]);
+    this.set_state_pic(state[60]);
     this.devices.sb16 && this.devices.sb16.set_state(state[61]);
 
     this.devices.uart1 && this.devices.uart1.set_state(state[79]);
@@ -506,6 +558,44 @@ CPU.prototype.set_state = function(state)
     this.full_clear_tlb();
 
     this.jit_clear_cache();
+};
+
+CPU.prototype.set_state_pic = function(state)
+{
+    // Note: This could exists for compatibility with old state images
+    // It should be deleted when the state version changes
+
+    const pic_size = 13;
+    const pic = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_master(), pic_size);
+    const pic_slave = new Uint8Array(this.wasm_memory.buffer, this.get_pic_addr_slave(), pic_size);
+
+    pic[0] = state[0]; // irq_mask
+    pic[1] = state[1]; // irq_map
+    pic[2] = state[2]; // isr
+    pic[3] = state[3]; // irr
+    pic[4] = state[4]; // is_master
+    const state_slave = state[5];
+    pic[6] = state[6]; // expect_icw4
+    pic[7] = state[7]; // state
+    pic[8] = state[8]; // read_isr
+    pic[9] = state[9]; // auto_eoi
+    pic[10] = state[10]; // special_mask_mode
+    pic[11] = state[11]; // elcr
+    pic[12] = state[12]; // irq_value (undefined in old state images)
+
+    pic_slave[0] = state_slave[0]; // irq_mask
+    pic_slave[1] = state_slave[1]; // irq_map
+    pic_slave[2] = state_slave[2]; // isr
+    pic_slave[3] = state_slave[3]; // irr
+    pic_slave[4] = state_slave[4]; // is_master
+    // dummy
+    pic_slave[6] = state_slave[6]; // expect_icw4
+    pic_slave[7] = state_slave[7]; // state
+    pic_slave[8] = state_slave[8]; // read_isr
+    pic_slave[9] = state_slave[9]; // auto_eoi
+    pic_slave[10] = state_slave[10]; // elcr
+    pic_slave[12] = state_slave[12]; // irq_value (undefined in old state images)
+    pic_slave[12] = state_slave[12]; // special_mask_mode (undefined in old state images)
 };
 
 CPU.prototype.pack_memory = function()
@@ -570,42 +660,6 @@ CPU.prototype.unpack_memory = function(bitmap, packed_memory)
     }
 };
 
-/**
- * @return {number} time in ms until this method should becalled again
- */
-CPU.prototype.main_run = function()
-{
-    if(this.in_hlt[0])
-    {
-        const t = this.hlt_loop();
-
-        if(this.in_hlt[0])
-        {
-            return t;
-        }
-    }
-
-    const start = v86.microtick();
-    let now = start;
-
-    for(; now - start < TIME_PER_FRAME;)
-    {
-        this.do_many_cycles();
-
-        now = v86.microtick();
-
-        const t = this.run_hardware_timers(now);
-        this.handle_irqs();
-
-        if(this.in_hlt[0])
-        {
-            return t;
-        }
-    }
-
-    return 0;
-};
-
 CPU.prototype.reboot_internal = function()
 {
     this.reset_cpu();
@@ -661,6 +715,11 @@ CPU.prototype.init = function(settings, device_bus)
 
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
+
+    if(settings.disable_jit)
+    {
+        this.set_jit_config(0, 1);
+    }
 
     settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
 
@@ -727,7 +786,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         function i32(x)
         {
-            return new Uint8Array(new Int32Array([x]).buffer);
+            return new Uint8Array(Int32Array.of(x).buffer);
         }
 
         function to_be16(x)
@@ -818,12 +877,26 @@ CPU.prototype.init = function(settings, device_bus)
         io.register_write(0xE9, this, function(out_byte) {});
     }
 
+    io.register_read(0x20, this, this.port20_read);
+    io.register_read(0x21, this, this.port21_read);
+    io.register_read(0xA0, this, this.portA0_read);
+    io.register_read(0xA1, this, this.portA1_read);
+
+    io.register_write(0x20, this, this.port20_write);
+    io.register_write(0x21, this, this.port21_write);
+    io.register_write(0xA0, this, this.portA0_write);
+    io.register_write(0xA1, this, this.portA1_write);
+
+    io.register_read(0x4D0, this, this.port4D0_read);
+    io.register_read(0x4D1, this, this.port4D1_read);
+    io.register_write(0x4D0, this, this.port4D0_write);
+    io.register_write(0x4D1, this, this.port4D1_write);
+
     this.devices = {};
 
     // TODO: Make this more configurable
     if(settings.load_devices)
     {
-        this.devices.pic = new PIC(this);
         this.devices.pci = new PCI(this);
 
         if(this.acpi_enabled[0])
@@ -837,11 +910,6 @@ CPU.prototype.init = function(settings, device_bus)
         this.fill_cmos(this.devices.rtc, settings);
 
         this.devices.dma = new DMA(this);
-
-        if(ENABLE_HPET)
-        {
-            this.devices.hpet = new HPET(this);
-        }
 
         this.devices.vga = new VGAScreen(this, device_bus,
                 settings.vga_memory_size || 8 * 1024 * 1024);
@@ -1107,7 +1175,7 @@ CPU.prototype.load_multiboot = function(buffer)
 
 CPU.prototype.fill_cmos = function(rtc, settings)
 {
-    var boot_order = settings.boot_order || 0x213;
+    var boot_order = settings.boot_order || BOOT_ORDER_CD_FIRST;
 
     // Used by seabios to determine the boot order
     //   Nibble
@@ -1221,29 +1289,6 @@ CPU.prototype.load_bios = function()
             addr &= 0xFFFFF;
             this.mem8[addr] = value;
         }.bind(this));
-};
-
-CPU.prototype.do_many_cycles = function()
-{
-    if(DEBUG)
-    {
-        var start_time = v86.microtick();
-    }
-
-    this.do_many_cycles_native();
-
-    if(DEBUG)
-    {
-        this.do_many_cycles_total += v86.microtick() - start_time;
-        this.do_many_cycles_count++;
-    }
-};
-
-/** @export */
-CPU.prototype.cycle = function()
-{
-    // XXX: May do several cycles
-    this.cycle_internal();
 };
 
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, state_flags, ptr, len)
@@ -1404,96 +1449,26 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
     }
 };
 
-CPU.prototype.hlt_loop = function()
+CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
 {
-    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
-    {
-        const t = this.run_hardware_timers(v86.microtick());
-        this.handle_irqs();
-        return t;
-    }
-    else
-    {
-        return 100;
-    }
-};
-
-CPU.prototype.run_hardware_timers = function(now)
-{
-    if(ENABLE_HPET)
-    {
-        var pit_time = this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
-        var rtc_time = this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
-        var hpet_time = this.devices.hpet.timer(now);
-    }
-    else
-    {
-        var pit_time = this.devices.pit.timer(now, false);
-        var rtc_time = this.devices.rtc.timer(now, false);
-        var hpet_time = 100;
-    }
+    const pit_time = this.devices.pit.timer(now, false);
+    const rtc_time = this.devices.rtc.timer(now, false);
 
     let acpi_time = 100;
     let apic_time = 100;
-    if(this.acpi_enabled[0])
+    if(acpi_enabled)
     {
         acpi_time = this.devices.acpi.timer(now);
         apic_time = this.devices.apic.timer(now);
     }
 
-    return Math.min(pit_time, rtc_time, hpet_time, acpi_time, apic_time);
-};
-
-CPU.prototype.hlt_op = function()
-{
-    if((this.get_eflags_no_arith() & FLAG_INTERRUPT) === 0)
-    {
-        // execution can never resume (until NMIs are supported)
-        this.bus.send("cpu-event-halt");
-    }
-
-    // get out of here and into hlt_loop
-    this.in_hlt[0] = +true;
-
-    // Try an hlt loop right now: This will run timer interrupts, and if one is
-    // due it will immediately call call_interrupt_vector and continue
-    // execution without an unnecessary cycle through do_run
-    this.hlt_loop();
-};
-
-CPU.prototype.handle_irqs = function()
-{
-    //dbg_assert(this.prefixes[0] === 0);
-
-    if(this.get_eflags_no_arith() & FLAG_INTERRUPT)
-    {
-        this.pic_acknowledge();
-        this.next_tick_immediately();
-    }
-};
-
-CPU.prototype.pic_acknowledge = function()
-{
-    dbg_assert(this.get_eflags_no_arith() & FLAG_INTERRUPT);
-
-    if(this.devices.pic)
-    {
-        this.devices.pic.acknowledge_irq();
-    }
-
-    if(this.devices.apic)
-    {
-        this.devices.apic.acknowledge_irq();
-    }
+    return Math.min(pit_time, rtc_time, acpi_time, apic_time);
 };
 
 CPU.prototype.device_raise_irq = function(i)
 {
     dbg_assert(arguments.length === 1);
-    if(this.devices.pic)
-    {
-        this.devices.pic.set_irq(i);
-    }
+    this.pic_set_irq(i);
 
     if(this.devices.ioapic)
     {
@@ -1503,10 +1478,7 @@ CPU.prototype.device_raise_irq = function(i)
 
 CPU.prototype.device_lower_irq = function(i)
 {
-    if(this.devices.pic)
-    {
-        this.devices.pic.clear_irq(i);
-    }
+    this.pic_clear_irq(i);
 
     if(this.devices.ioapic)
     {

@@ -1379,7 +1379,6 @@ IDEInterface.prototype.read_end = function()
         if(this.data_pointer >= this.data_length)
         {
             this.status = 0x50;
-            this.push_irq();
         }
         else
         {

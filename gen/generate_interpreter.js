@@ -139,18 +139,18 @@ function gen_instruction_body(encodings, size)
 
         if(has_66.length) {
             const body = gen_instruction_body_after_prefix(has_66, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_66 != 0", body, });
+            if_blocks.push({ condition: "prefixes_ & ::prefix::PREFIX_66 != 0", body, });
         }
         if(has_F2.length) {
             const body = gen_instruction_body_after_prefix(has_F2, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_F2 != 0", body, });
+            if_blocks.push({ condition: "prefixes_ & ::prefix::PREFIX_F2 != 0", body, });
         }
         if(has_F3.length) {
             const body = gen_instruction_body_after_prefix(has_F3, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_F3 != 0", body, });
+            if_blocks.push({ condition: "prefixes_ & ::prefix::PREFIX_F3 != 0", body, });
         }
 
-        const check_prefixes = encoding.sse ? "(PREFIX_66 | PREFIX_F2 | PREFIX_F3)" : "(PREFIX_F2 | PREFIX_F3)";
+        const check_prefixes = encoding.sse ? "(::prefix::PREFIX_66 | ::prefix::PREFIX_F2 | ::prefix::PREFIX_F3)" : "(::prefix::PREFIX_F2 | ::prefix::PREFIX_F3)";
 
         const else_block = {
             body: [].concat(
@@ -160,7 +160,7 @@ function gen_instruction_body(encodings, size)
         };
 
         return [].concat(
-	    "let prefixes_ = *prefixes as i32;",
+	    "let prefixes_ = *prefixes;",
             code,
             {
                 type: "if-else",
@@ -410,7 +410,7 @@ function gen_table()
 
             "use cpu::cpu::{after_block_boundary, modrm_resolve};",
             "use cpu::cpu::{read_imm8, read_imm8s, read_imm16, read_imm32s, read_moffs};",
-            "use cpu::cpu::{task_switch_test, trigger_ud, DEBUG, PREFIX_F2, PREFIX_F3};",
+            "use cpu::cpu::{task_switch_test, trigger_ud, DEBUG};",
             "use cpu::instructions;",
             "use cpu::global_pointers::{instruction_pointer, prefixes};",
 
@@ -474,7 +474,7 @@ function gen_table()
             "use cpu::cpu::{after_block_boundary, modrm_resolve};",
             "use cpu::cpu::{read_imm8, read_imm16, read_imm32s};",
             "use cpu::cpu::{task_switch_test, task_switch_test_mmx, trigger_ud};",
-            "use cpu::cpu::{DEBUG, PREFIX_66, PREFIX_F2, PREFIX_F3};",
+            "use cpu::cpu::DEBUG;",
             "use cpu::instructions_0f;",
             "use cpu::global_pointers::{instruction_pointer, prefixes};",
 

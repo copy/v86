@@ -396,7 +396,7 @@ pub fn blockify(blocks: &mut Vec<WasmStructure>, edges: &Graph) {
         match &blocks[source + 1] {
             WasmStructure::BasicBlock(_) =>
                 //dbg_assert!(*b == bbs.next().unwrap())
-                {}
+                {},
             WasmStructure::Dispatcher(_) => {},
             WasmStructure::Loop(_blocks) | WasmStructure::Block(_blocks) => {}, //dbg_assert!(blocks[0].head() == bb),
         }

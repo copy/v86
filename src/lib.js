@@ -34,6 +34,7 @@ v86util.range = function(size)
 
 v86util.view = function(constructor, memory, offset, length)
 {
+    dbg_assert(offset >= 0);
     return new Proxy({},
         {
             get: function(target, property, receiver)
@@ -578,6 +579,7 @@ function load_file(filename, options, n_tries)
         let start = options.range.start;
         let end = start + options.range.length - 1;
         http.setRequestHeader("Range", "bytes=" + start + "-" + end);
+        http.setRequestHeader("X-Accept-Encoding", "identity");
 
         // Abort if server responds with complete file in response to range
         // request, to prevent downloading large files from broken http servers
@@ -604,6 +606,14 @@ function load_file(filename, options, n_tries)
             }
             else if(http.response)
             {
+                if(options.range)
+                {
+                    let enc = http.getResponseHeader("Content-Encoding");
+                    if(enc && enc !== "identity")
+                    {
+                        console.error("Server sent Content-Encoding in response to ranged request", {filename, enc});
+                    }
+                }
                 options.done && options.done(http.response, http);
             }
         }

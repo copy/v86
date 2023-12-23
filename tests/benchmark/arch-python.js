@@ -24,27 +24,18 @@ const emulator = new V86({
 
 emulator.bus.register("emulator-started", function()
 {
-    let exclude_tests = [];
+    emulator.create_file("/bench.py", Buffer.from(`
+def fib(n):
+    if n < 2:
+        return n
+    return fib(n-2) + fib(n-1)
 
-    if(process.argv.length > 2)
-    {
-        exclude_tests = [
-            "DONUMSORT",
-            "DOSTRINGSORT",
-            "DOBITFIELD",
-            "DOEMF",
-            "DOFOUR",
-            "DOASSIGN",
-            "DOIDEA",
-            "DOHUFF",
-            "DONNET",
-            "DOLU",
-        ].filter(name => !process.argv.includes(name));
-    }
+n = 30
+print("fib(", n, ")= ", fib(n))
+`));
 
     setTimeout(() => {
-        const set = exclude_tests.map(name => `echo ${name}=0 >> CMD`).join(" && ");
-        emulator.serial0_send(`echo 0 > /sys/class/graphics/fbcon/cursor_blink && cd nbench && touch CMD && ${set || "echo"} && ./nbench -cCMD\n`);
+        emulator.serial0_send(`python3 /bench.py > /dev/null && python /bench.py > /dev/null && time python /bench.py\n`);
     }, 1000);
 });
 
@@ -61,21 +52,22 @@ emulator.add_listener("serial0-output-byte", function(byte)
     if(chr === "\n")
     {
         console.log("%s", line);
+
+        if(line.startsWith("sys"))
+        {
+            emulator.stop();
+
+            if(BENCH_COLLECT_STATS)
+            {
+                const cpu = emulator.v86.cpu;
+                console.log(print_stats.stats_to_string(cpu));
+            }
+        }
+
         line = "";
     }
     else
     {
         line += chr;
-    }
-
-    if(line === "* Trademarks are property of their respective holder.")
-    {
-        emulator.stop();
-
-        if(BENCH_COLLECT_STATS)
-        {
-            const cpu = emulator.v86.cpu;
-            console.log(print_stats.stats_to_string(cpu));
-        }
     }
 });

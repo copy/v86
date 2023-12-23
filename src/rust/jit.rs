@@ -56,6 +56,8 @@ pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
     unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
+static mut JIT_DISABLED: bool = false;
+
 // Maximum number of pages per wasm module. Necessary for the following reasons:
 // - There is an upper limit on the size of a single function in wasm (currently ~7MB in all browsers)
 //   See https://github.com/WebAssembly/design/issues/1138
@@ -91,9 +93,7 @@ pub fn rust_init() {
     dbg_assert!(std::mem::size_of::<[Option<NonNull<cpu::Code>>; 0x100000]>() == 0x100000 * 4);
 
     let x = Box::new(JitState::create_and_initialise());
-    unsafe {
-        jit_state = NonNull::new(Box::into_raw(x)).unwrap()
-    }
+    unsafe { jit_state = NonNull::new(Box::into_raw(x)).unwrap() }
 
     use std::panic;
 
@@ -163,9 +163,7 @@ pub fn check_jit_state_invariants(ctx: &mut JitState) {
             );
             let w = match unsafe { cpu::tlb_code[page as usize] } {
                 None => None,
-                Some(c) => unsafe {
-                    Some(c.as_ref().wasm_table_index)
-                },
+                Some(c) => unsafe { Some(c.as_ref().wasm_table_index) },
             };
             let tlb_has_code = entry & cpu::TLB_HAS_CODE == cpu::TLB_HAS_CODE;
             let infos = ctx.pages.get(&tlb_physical_page);
@@ -468,12 +466,7 @@ fn jit_find_basic_blocks(
     let mut page_blacklist = HashSet::new();
 
     // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
-    let max_pages = if cpu.state_flags.is_32() {
-        unsafe { MAX_PAGES }
-    }
-    else {
-        1
-    };
+    let max_pages = if cpu.state_flags.is_32() { unsafe { MAX_PAGES } } else { 1 };
 
     for virt_addr in entry_points {
         let ok = follow_jump(
@@ -695,7 +688,7 @@ fn jit_find_basic_blocks(
             .range(..current_block.addr)
             .next_back()
             .filter(|(_, previous_block)| (!previous_block.has_sti))
-            .map(|(_, previous_block)| previous_block.clone());
+            .map(|(_, previous_block)| previous_block);
 
         if let Some(previous_block) = previous_block {
             if current_block.addr < previous_block.end_addr {
@@ -2084,6 +2077,10 @@ pub fn jit_increase_hotness_and_maybe_compile(
     state_flags: CachedStateFlags,
     heat: u32,
 ) {
+    if unsafe { JIT_DISABLED } {
+        return
+    }
+
     let ctx = get_jit_state();
     let page = Page::page_of(phys_address);
     let (hotness, entry_points) = ctx.entry_points.entry(page).or_insert_with(|| {
@@ -2126,17 +2123,15 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
             _ => {},
         }
 
-        dbg_assert!(
-            !ctx.pages
-                .values()
-                .any(|info| info.wasm_table_index == wasm_table_index)
-        );
+        dbg_assert!(!ctx
+            .pages
+            .values()
+            .any(|info| info.wasm_table_index == wasm_table_index));
 
-        dbg_assert!(
-            !ctx.pages
-                .values()
-                .any(|info| info.hidden_wasm_table_indices.contains(&wasm_table_index))
-        );
+        dbg_assert!(!ctx
+            .pages
+            .values()
+            .any(|info| info.hidden_wasm_table_indices.contains(&wasm_table_index)));
 
         for i in 0..unsafe { cpu::valid_tlb_entries_count } {
             let page = unsafe { cpu::valid_tlb_entries[i as usize] };
@@ -2194,7 +2189,8 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
                                 drop(Box::from_raw(c.as_ptr()));
                                 cpu::tlb_code[page as usize] = None;
                                 if !ctx.entry_points.contains_key(&tlb_physical_page) {
-                                    cpu::tlb_data[page as usize] &= !cpu::TLB_HAS_CODE; // XXX
+                                    // XXX
+                                    cpu::tlb_data[page as usize] &= !cpu::TLB_HAS_CODE;
                                 }
                             }
                         },
@@ -2203,13 +2199,11 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
             }
 
             ctx.pages.retain(
-                |
-                    _,
-                    &mut PageInfo {
-                        wasm_table_index: w,
-                        ..
-                    },
-                | w != wasm_table_index,
+                |_,
+                 &mut PageInfo {
+                     wasm_table_index: w,
+                     ..
+                 }| w != wasm_table_index,
             );
 
             for info in ctx.pages.values_mut() {
@@ -2401,9 +2395,10 @@ pub fn enter_basic_block(phys_eip: u32) {
 #[no_mangle]
 pub unsafe fn set_jit_config(index: u32, value: u32) {
     match index {
-        0 => MAX_PAGES = value,
-        1 => JIT_USE_LOOP_SAFETY = value != 0,
-        2 => MAX_EXTRA_BASIC_BLOCKS = value,
+        0 => JIT_DISABLED = value != 0,
+        1 => MAX_PAGES = value,
+        2 => JIT_USE_LOOP_SAFETY = value != 0,
+        3 => MAX_EXTRA_BASIC_BLOCKS = value,
         _ => dbg_assert!(false),
     }
 }
@@ -2411,9 +2406,10 @@ pub unsafe fn set_jit_config(index: u32, value: u32) {
 #[no_mangle]
 pub unsafe fn get_jit_config(index: u32) -> u32 {
     match index {
-        0 => MAX_PAGES as u32,
-        1 => JIT_USE_LOOP_SAFETY as u32,
-        2 => MAX_EXTRA_BASIC_BLOCKS as u32,
+        0 => JIT_DISABLED as u32,
+        1 => MAX_PAGES as u32,
+        2 => JIT_USE_LOOP_SAFETY as u32,
+        3 => MAX_EXTRA_BASIC_BLOCKS as u32,
         _ => 0,
     }
 }

@@ -353,6 +353,9 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         Math.random() * 255 | 0,
     ]);
 
+    // multicast addresses
+    this.mar = Uint8Array.of(0xFF, 0xFF, 0xFF, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF);
+
     // Used for mac address translation
     // The mac the OS thinks it has
     this.mac_address_in_state = null;
@@ -427,17 +430,35 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 
     io.register_read(this.port | EN0_COUNTER0, this, function()
     {
-        dbg_log("Read counter0", LOG_NET);
-        return 0;
+        var pg = this.get_page();
+        if(pg === 1)
+        {
+            dbg_log("Read mar5", LOG_NET);
+            return this.mar[5];
+        }
+        else
+        {
+            dbg_log("Read counter0 pg=" + pg, LOG_NET);
+            return 0;
+        }
     });
 
     io.register_read(this.port | EN0_COUNTER1, this, function()
     {
-        dbg_log("Read8 counter1", LOG_NET);
-        return 0;
+        var pg = this.get_page();
+        if(pg === 1)
+        {
+            dbg_log("Read mar6", LOG_NET);
+            return this.mar[6];
+        }
+        else
+        {
+            dbg_log("Read8 counter1 pg=" + pg, LOG_NET);
+            return 0;
+        }
     }, function()
     {
-        dbg_log("Read16 counter1", LOG_NET);
+        dbg_log("Read16 counter1 pg=" + this.get_page(), LOG_NET);
         // openbsd
         return 0;
     }
@@ -445,8 +466,17 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
 
     io.register_read(this.port | EN0_COUNTER2, this, function()
     {
-        dbg_log("Read counter2", LOG_NET);
-        return 0;
+        var pg = this.get_page();
+        if(pg === 1)
+        {
+            dbg_log("Read mar7", LOG_NET);
+            return this.mar[7];
+        }
+        else
+        {
+            dbg_log("Read counter2 pg=" + pg, LOG_NET);
+            return 0;
+        }
     });
 
     io.register_read(this.port | NE_RESET, this, function()
@@ -578,6 +608,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         else
         {
             dbg_assert(false);
+            return 0;
         }
     });
 
@@ -638,6 +669,11 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
             dbg_log("Read pg0/0a", LOG_NET);
             return 0x50;
         }
+        else if(pg === 1)
+        {
+            dbg_log("Read mar2", LOG_NET);
+            return this.mar[2];
+        }
         else
         {
             dbg_assert(false, "TODO");
@@ -666,6 +702,11 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         {
             dbg_log("Read pg0/0b", LOG_NET);
             return 0x43;
+        }
+        else if(pg === 1)
+        {
+            dbg_log("Read mar3", LOG_NET);
+            return this.mar[3];
         }
         else
         {
@@ -696,10 +737,16 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
             dbg_log("Read remote start address low", LOG_NET);
             return this.rsar & 0xFF;
         }
+        else if(pg === 1)
+        {
+            dbg_log("Read mar0", LOG_NET);
+            return this.mar[0];
+        }
         else
         {
             dbg_log("Unimplemented: Read pg" + pg + "/08", LOG_NET);
             dbg_assert(false);
+            return 0;
         }
     });
 
@@ -725,10 +772,16 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
             dbg_log("Read remote start address high", LOG_NET);
             return this.rsar >> 8 & 0xFF;
         }
+        else if(pg === 1)
+        {
+            dbg_log("Read mar1", LOG_NET);
+            return this.mar[1];
+        }
         else
         {
             dbg_log("Unimplemented: Read pg" + pg + "/09", LOG_NET);
             dbg_assert(false);
+            return 0;
         }
     });
 
@@ -953,6 +1006,11 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         if(pg === 0)
         {
             return 1 | 1 << 3; // receive status ok
+        }
+        else if(pg === 1)
+        {
+            dbg_log("Read mar4", LOG_NET);
+            return this.mar[4];
         }
         else
         {

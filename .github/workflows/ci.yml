@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  jshint:
+    name: JSHint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run JSHint
+        run: sudo npm install -g jshint; make jshint
+
+  test:
+    runs-on: ubuntu-latest
+    name: Build and test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32-unknown-unknown
+          rustup component add rustfmt
+
+      - name: Install APT packages
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
+
+      - name: Build all-debug
+        run: make all-debug
+
+      - name: Build all
+        run: make all
+
+      - name: Build fallback
+        run: make build/v86-fallback.wasm
+
+      - name: Fetch kvm-unit-test cache
+        uses: actions/cache@v3
+        id: cache-kvm-unit-test
+        with:
+          path: tests/kvm-unit-tests/
+          key: ${{ runner.os }}-kvm-unit-test
+
+      - name: Build kvm-unit-test
+        if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
+        run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
+
+      - name: Run kvm-unit-test
+        run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+
+      - name: Fetch namsmtests cache
+        uses: actions/cache@v3
+        id: cache-nasmtests
+        with:
+          path: tests/nasm/build/
+          key: ${{ runner.os }}-nasmtests
+
+      - name: Run nasmtests
+        run: MAX_PARALLEL_TESTS=1 make nasmtests
+
+      - name: Run nasmtests-force-jit
+        run: MAX_PARALLEL_TESTS=1 make nasmtests-force-jit
+
+      - name: Run rust-test
+        run: make rust-test
+
+      - name: Fetch image cache
+        uses: actions/cache@v3
+        id: cache-images
+        with:
+          path: images/
+          key: ${{ runner.os }}-images-v2
+
+      - name: Download uncached images
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: wget -nv -P images/ https://k.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img}
+
+      - name: Run api-tests
+        run: make api-tests
+
+      - name: Run qemutests
+        run: make qemutests
+
+      - name: Run qemutests-release
+        run: make qemutests-release
+
+      - name: Run jitpagingtests
+        run: make jitpagingtests
+
+      - name: Run integration tests
+        run: MAX_PARALLEL_TESTS=1 make tests
+
+      - name: Run expect tests
+        run: make expect-tests
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: v86
+          path: |
+            build/libv86*.js
+            build/libv86*.js.map
+            build/v86*.wasm
+
+  upload:
+    name: Upload release
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Delete old release and tag
+        uses: dev-drprasad/delete-tag-and-release@v1.0.1
+        with:
+          delete_release: true
+          tag_name: latest
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: v86
+          path: build
+
+      - name: Display structure of downloaded files
+        run: ls -R
+
+      - name: Release to GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          name: Latest Release
+          tag: latest
+          commit: master
+          body: ${{ github.event.head_commit.message }}
+          artifacts: "build/libv86*.js,build/libv86*.js.map,build/v86*.wasm"
+          prerelease: true

@@ -32,6 +32,12 @@ var VGA_PIXEL_BUFFER_SIZE = 8 * VGA_BANK_SIZE;
 var VGA_MIN_MEMORY_SIZE = 4 * VGA_BANK_SIZE;
 
 /**
+ * Avoid wrapping past VGA_LFB_ADDRESS
+ * @const
+ */
+var VGA_MAX_MEMORY_SIZE = 256 * 1024 * 1024;
+
+/**
  * @const
  * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#06}
  */
@@ -215,6 +221,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
      */
     this.svga_offset = 0;
 
+    this.svga_offset_y = 0;
+
     const pci_revision = 0; // set to 2 for qemu extended registers
 
     // Experimental, could probably need some changes
@@ -352,6 +360,11 @@ function VGAScreen(cpu, bus, vga_memory_size)
         this.vga_memory_size = VGA_MIN_MEMORY_SIZE;
         dbg_log("vga memory size rounded up to " + this.vga_memory_size, LOG_VGA);
     }
+    else if(this.vga_memory_size > VGA_MAX_MEMORY_SIZE)
+    {
+        this.vga_memory_size = VGA_MAX_MEMORY_SIZE;
+        dbg_log("vga memory size rounded down to " + this.vga_memory_size, LOG_VGA);
+    }
     else if(this.vga_memory_size & (VGA_BANK_SIZE - 1))
     {
         // round up to next 64k
@@ -360,7 +373,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     }
 
 
-    const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size);
+    const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size) >>> 0;
     this.svga_memory = v86util.view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
 
     this.diff_addr_min = this.vga_memory_size;
@@ -1395,14 +1408,13 @@ VGAScreen.prototype.port3C0_write = function(value)
 VGAScreen.prototype.port3C0_read = function()
 {
     dbg_log("3C0 read", LOG_VGA);
-    var result = this.attribute_controller_index | this.palette_source;
-    return result;
+    return (this.attribute_controller_index | this.palette_source) & 0xFF;
 };
 
 VGAScreen.prototype.port3C0_read16 = function()
 {
     dbg_log("3C0 read16", LOG_VGA);
-    return this.port3C0_read() & 0xFF | this.port3C1_read() << 8 & 0xFF00;
+    return this.port3C0_read() | this.port3C1_read() << 8 & 0xFF00;
 };
 
 VGAScreen.prototype.port3C1_read = function()
@@ -2043,13 +2055,15 @@ VGAScreen.prototype.port1CF_write = function(value)
             // y offset
             const offset = value * this.svga_width;
             dbg_log("SVGA offset: " + h(offset) + " y=" + h(value), LOG_VGA);
-            if(this.svga_offset !== offset)
+            if(this.svga_offset_y !== value)
             {
+                this.svga_offset_y = value;
                 this.svga_offset = offset;
                 this.complete_redraw();
             }
             break;
         default:
+            dbg_log("Unimplemented dispi write index: " + h(this.dispi_index), LOG_VGA);
     }
 
     if(this.svga_enabled && (!this.svga_width || !this.svga_height))
@@ -2119,9 +2133,13 @@ VGAScreen.prototype.svga_register_read = function(n)
         case 8:
             // x offset
             return 0;
+        case 9:
+            return this.svga_offset_y;
         case 0x0A:
             // memory size in 64 kilobyte banks
             return this.vga_memory_size / VGA_BANK_SIZE | 0;
+        default:
+            dbg_log("Unimplemented dispi read index: " + h(this.dispi_index), LOG_VGA);
     }
 
     return 0xFF;

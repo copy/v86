@@ -1,5 +1,5 @@
 use cpu::cpu::{
-    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
     TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use cpu::global_pointers;
@@ -437,7 +437,7 @@ pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    modrm::gen(ctx, modrm_byte)
+    modrm::gen(ctx, modrm_byte, 0)
 }
 pub fn gen_modrm_resolve_with_local(
     ctx: &mut JitContext,
@@ -453,6 +453,9 @@ pub fn gen_modrm_resolve_with_local(
         gen(ctx, &address);
         ctx.builder.free_local(address);
     }
+}
+pub fn gen_modrm_resolve_with_esp_offset(ctx: &mut JitContext, modrm_byte: ModrmByte, esp_offset: i32) {
+    modrm::gen(ctx, modrm_byte, esp_offset)
 }
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
@@ -1667,24 +1670,28 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
         },
         Instruction::Cmp {
             dest: InstructionOperandDest::WasmLocal(dest),
+            source: InstructionOperand::Immediate(0),
+            opsize: OPSIZE_32,
+        } => {
+            gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
+            ctx.builder.get_local(dest);
+            if negate == ConditionNegate::False {
+                ctx.builder.eqz_i32();
+            }
+        },
+        Instruction::Cmp {
+            dest: InstructionOperandDest::WasmLocal(dest),
             source: InstructionOperand::Immediate(i),
             opsize: OPSIZE_32,
         } => {
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
             ctx.builder.get_local(dest);
-            if *i != 0 {
-                ctx.builder.const_i32(*i);
-                if negate == ConditionNegate::False {
-                    ctx.builder.eq_i32();
-                }
-                else {
-                    ctx.builder.ne_i32();
-                }
+            ctx.builder.const_i32(*i);
+            if negate == ConditionNegate::False {
+                ctx.builder.eq_i32();
             }
             else {
-                if negate == ConditionNegate::False {
-                    ctx.builder.eqz_i32();
-                }
+                ctx.builder.ne_i32();
             }
         },
         Instruction::Cmp { .. }
@@ -1701,7 +1708,7 @@ pub fn gen_getzf(ctx: &mut JitContext, negate: ConditionNegate) {
         Instruction::Bitwise { opsize, .. } => {
             let &opsize = opsize;
             gen_profiler_stat_increment(ctx.builder, profiler::stat::CONDITION_OPTIMISED);
-            // Note: Necessary because test{8,16} don't mask their neither last_result nor any of their operands
+            // Note: Necessary because test{8,16} don't mask either last_result or any of their operands
             // TODO: Use local instead of last_result for 8-bit/16-bit
             if opsize == OPSIZE_32 {
                 gen_get_last_result(ctx.builder, &ctx.previous_instruction);
@@ -2431,7 +2438,7 @@ pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     ctx.builder
         .const_i32(global_pointers::sse_scratch_register as i32);
     ctx.builder.const_i32(i as i32);
-    ctx.builder.call_fn2("fpu_get_sti");
+    ctx.builder.call_fn2("fpu_get_sti_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder
@@ -2442,7 +2449,7 @@ pub fn gen_fpu_load_m32(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     ctx.builder
         .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-    ctx.builder.call_fn2("f32_to_f80");
+    ctx.builder.call_fn2("f32_to_f80_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder
@@ -2453,7 +2460,7 @@ pub fn gen_fpu_load_m64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     ctx.builder
         .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read64(ctx, modrm_byte);
-    ctx.builder.call_fn2_i32_i64("f64_to_f80");
+    ctx.builder.call_fn2_i32_i64("f64_to_f80_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder
@@ -2465,7 +2472,7 @@ pub fn gen_fpu_load_i16(ctx: &mut JitContext, modrm_byte: ModrmByte) {
         .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read16(ctx, modrm_byte);
     sign_extend_i16(ctx.builder);
-    ctx.builder.call_fn2("i32_to_f80");
+    ctx.builder.call_fn2("i32_to_f80_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder
@@ -2475,7 +2482,7 @@ pub fn gen_fpu_load_i32(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     ctx.builder
         .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read32(ctx, modrm_byte);
-    ctx.builder.call_fn2("i32_to_f80");
+    ctx.builder.call_fn2("i32_to_f80_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder
@@ -2485,7 +2492,7 @@ pub fn gen_fpu_load_i64(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     ctx.builder
         .const_i32(global_pointers::sse_scratch_register as i32);
     gen_modrm_resolve_safe_read64(ctx, modrm_byte);
-    ctx.builder.call_fn2_i32_i64("i64_to_f80");
+    ctx.builder.call_fn2_i32_i64("i64_to_f80_jit");
     ctx.builder
         .load_fixed_i64(global_pointers::sse_scratch_register as u32);
     ctx.builder

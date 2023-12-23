@@ -89,6 +89,8 @@ const print_stats = {
             "SAFE_READ_WRITE_SLOW_HAS_CODE",
             "PAGE_FAULT",
             "TLB_MISS",
+            "MAIN_LOOP",
+            "MAIN_LOOP_IDLE",
             "DO_MANY_CYCLES",
             "CYCLE_INTERNAL",
             "INVALIDATE_ALL_MODULES_NO_FREE_WASM_INDICES",
@@ -148,13 +150,13 @@ const print_stats = {
         text += "JIT_CACHE_SIZE=" + cpu.wm.exports["jit_get_cache_size"]() + "\n";
         text += "FLAT_SEGMENTS=" + cpu.wm.exports["has_flat_segmentation"]() + "\n";
 
-        text += "do_many_cycles avg: " + (cpu.do_many_cycles_total / cpu.do_many_cycles_count || 0) + "\n";
         text += "wasm memory size: " + (cpu.wasm_memory.buffer.byteLength >> 20) + "m\n";
 
         text += "Config:\n";
-        text += "MAX_PAGES=" + cpu.wm.exports["get_jit_config"](0) + "\n";
-        text += "JIT_USE_LOOP_SAFETY=" + Boolean(cpu.wm.exports["get_jit_config"](1)) + "\n";
-        text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_jit_config"](2) + "\n";
+        text += "JIT_DISABLED=" + cpu.wm.exports["get_jit_config"](0) + "\n";
+        text += "MAX_PAGES=" + cpu.wm.exports["get_jit_config"](1) + "\n";
+        text += "JIT_USE_LOOP_SAFETY=" + Boolean(cpu.wm.exports["get_jit_config"](2)) + "\n";
+        text += "MAX_EXTRA_BASIC_BLOCKS=" + cpu.wm.exports["get_jit_config"](3) + "\n";
 
         return text;
     },

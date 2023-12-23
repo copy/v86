@@ -4,7 +4,7 @@ use codegen;
 use codegen::{BitSize, ConditionNegate};
 use cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
-    FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_8, OPSIZE_16, OPSIZE_32,
+    FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
 };
 use cpu::global_pointers;
 use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
@@ -92,7 +92,7 @@ pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
 
 pub fn jit_handle_segment_prefix(segment: u32, ctx: &mut JitContext, instr_flags: &mut u32) {
     dbg_assert!(segment <= 5);
-    ctx.cpu.prefixes |= segment + 1;
+    ctx.cpu.prefixes |= segment as u8 + 1;
     jit_handle_prefix(ctx, instr_flags)
 }
 
@@ -3010,14 +3010,9 @@ pub fn instr32_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
 }
 
 pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    // before gen_modrm_resolve, update esp to the new value
-    codegen::gen_adjust_stack_reg(ctx, 2);
-
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_with_esp_offset(ctx, modrm_byte, 2);
     let address_local = ctx.builder.set_new_local();
 
-    // pop takes care of updating esp, so undo the previous change
-    codegen::gen_adjust_stack_reg(ctx, (-2i32) as u32);
     codegen::gen_pop16(ctx);
     let value_local = ctx.builder.set_new_local();
 
@@ -3034,12 +3029,9 @@ pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 pub fn instr16_8F_0_reg_jit(ctx: &mut JitContext, r: u32) { pop16_reg_jit(ctx, r); }
 pub fn instr32_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
-    codegen::gen_adjust_stack_reg(ctx, 4);
-
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_modrm_resolve_with_esp_offset(ctx, modrm_byte, 4);
     let address_local = ctx.builder.set_new_local();
 
-    codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
     codegen::gen_pop32s(ctx);
     let value_local = ctx.builder.set_new_local();
     codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
@@ -3718,6 +3710,21 @@ pub fn instr_DB_0_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "instr_DB_0_reg", r);
 }
 
+pub fn instr_DB_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_fpu_get_sti(ctx, 0);
+    ctx.builder.call_fn2_i64_i32_ret("fpu_truncate_to_i32");
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+    codegen::gen_fn0_const(ctx.builder, "fpu_pop");
+}
+pub fn instr_DB_1_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "instr_DB_1_reg", r);
+}
+
 pub fn instr_DB_2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
@@ -3853,6 +3860,25 @@ pub fn instr32_DD_0_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     instr16_DD_0_mem_jit(ctx, modrm_byte)
 }
 
+pub fn instr16_DD_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_fpu_get_sti(ctx, 0);
+    ctx.builder.call_fn2_i64_i32_ret_i64("fpu_truncate_to_i64");
+    let value_local = ctx.builder.set_new_local_i64();
+    codegen::gen_safe_write64(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local_i64(value_local);
+    codegen::gen_fn0_const(ctx.builder, "fpu_pop");
+}
+pub fn instr16_DD_1_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "fpu_fxch", r);
+}
+pub fn instr32_DD_1_reg_jit(ctx: &mut JitContext, r: u32) { instr16_DD_1_reg_jit(ctx, r) }
+pub fn instr32_DD_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    instr16_DD_1_mem_jit(ctx, modrm_byte)
+}
+
 pub fn instr16_DD_2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
@@ -3973,6 +3999,21 @@ pub fn instr_DE_7_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
 }
 pub fn instr_DE_7_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_DE_reg_jit(ctx, r, "fpu_fdivr")
+}
+
+pub fn instr_DF_1_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_fpu_get_sti(ctx, 0);
+    ctx.builder.call_fn2_i64_i32_ret("fpu_truncate_to_i16");
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+    codegen::gen_fn0_const(ctx.builder, "fpu_pop");
+}
+pub fn instr_DF_1_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "fpu_fxch", r);
 }
 
 pub fn instr_DF_2_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
@@ -5738,6 +5779,19 @@ pub fn instr_660F12_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
     codegen::gen_trigger_ud(ctx);
 }
 
+pub fn instr_F20F12_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read64_xmm_mem(ctx, "instr_F20F12", modrm_byte, r);
+}
+pub fn instr_F20F12_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read64_xmm_xmm(ctx, "instr_F20F12", r1, r2);
+}
+pub fn instr_F30F12_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_F30F12", modrm_byte, r);
+}
+pub fn instr_F30F12_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_F30F12", r1, r2);
+}
+
 pub fn instr_0F13_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     instr_660FD6_mem_jit(ctx, modrm_byte, r)
 }
@@ -5788,6 +5842,13 @@ pub fn instr_660F16_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_660F16_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
     codegen::gen_trigger_ud(ctx);
+}
+
+pub fn instr_F30F16_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_F30F16", modrm_byte, r);
+}
+pub fn instr_F30F16_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_F30F16", r1, r2);
 }
 
 pub fn instr_0F17_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
@@ -6127,12 +6188,6 @@ pub fn instr_F30F59_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_F30F59_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read_f32_xmm_xmm(ctx, "instr_F30F59", r1, r2);
-}
-pub fn instr_F20F7C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
-    sse_read128_xmm_mem(ctx, "instr_F20F7C", modrm_byte, r);
-}
-pub fn instr_F20F7C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    sse_read128_xmm_xmm(ctx, "instr_F20F7C", r1, r2);
 }
 
 pub fn instr_0F5A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
@@ -6764,6 +6819,31 @@ pub fn instr_660F76_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
 }
 pub fn instr_660F76_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     sse_read128_xmm_xmm(ctx, "instr_660F76", r1, r2);
+}
+
+pub fn instr_660F7C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F7C", modrm_byte, r);
+}
+pub fn instr_660F7C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F7C", r1, r2);
+}
+pub fn instr_F20F7C_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_F20F7C", modrm_byte, r);
+}
+pub fn instr_F20F7C_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_F20F7C", r1, r2);
+}
+pub fn instr_660F7D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_660F7D", modrm_byte, r);
+}
+pub fn instr_660F7D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_660F7D", r1, r2);
+}
+pub fn instr_F20F7D_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
+    sse_read128_xmm_mem(ctx, "instr_F20F7D", modrm_byte, r);
+}
+pub fn instr_F20F7D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    sse_read128_xmm_xmm(ctx, "instr_F20F7D", r1, r2);
 }
 
 pub fn instr_0F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {

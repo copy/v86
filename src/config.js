@@ -43,17 +43,6 @@ var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC
  */
 var DEBUG_SCREEN_LAYERS = DEBUG && false;
 
-
-/** @const */
-var ENABLE_HPET = DEBUG && false;
-
-/**
- * @const
- * How often, in milliseconds, to yield to the browser for rendering and
- * running events
- */
-var TIME_PER_FRAME = 1;
-
 /**
  * @const
  * How many ticks the TSC does per millisecond

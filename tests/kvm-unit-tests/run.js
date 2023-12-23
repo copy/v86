@@ -33,6 +33,7 @@ var emulator = new V86({
     multiboot: new Loader(process.argv[2]),
     autostart: true,
     memory_size: 64 * 1024 * 1024,
+    disable_jit: +process.env.DISABLE_JIT,
     log_level: 0,
 });
 
@@ -49,8 +50,9 @@ emulator.bus.register("emulator-started", function()
         function() {});
 });
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-byte", function(byte)
 {
+    var chr = String.fromCharCode(byte);
     process.stdout.write(chr);
 });
 

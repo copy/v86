@@ -10,7 +10,7 @@
 var CORE_FILES =
     "const.js config.js log.js lib.js buffer.js cpu.js debug.js " +
     "io.js main.js ide.js pci.js floppy.js " +
-    "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js apic.js ioapic.js hpet.js sb16.js " +
+    "memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js acpi.js apic.js ioapic.js sb16.js " +
     "ne2k.js state.js virtio.js bus.js elf.js kernel.js";
 
 var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js speaker.js serial.js network.js starter.js worker_bus.js print_stats.js filestorage.js";
@@ -78,8 +78,6 @@ function load_next()
         <input type="button" value="MS-DOS" id="start_msdos">
         <input type="button" value="FreeDOS" id="start_freedos">
         <input type="button" value="FreeDOS with FreeGEM" id="start_freegem">
-        <input type="button" value="FreeDOS CD with games" id="start_fdgame">
-        <input type="button" value="FreeDOS with QBasic" id="start_qbasic">
         <br>
 
         <input type="button" value="Windows 1.01" id="start_windows1">
@@ -127,7 +125,6 @@ function load_next()
         <input type="button" value="Solar OS" id="start_solos">
         <input type="button" value="Bootchess" id="start_bootchess">
         <input type="button" value="HelenOS" id="start_helenos">
-        <input type="button" value="MikeOS" id="start_mikeos">
         <br>
 
         <!--
@@ -152,12 +149,12 @@ function load_next()
             </tr>
 
             <tr>
-                <td><label for="hda_image">Hard drive disk image</label></td>
+                <td><label for="hda_image">Hard disk image</label></td>
                 <td><input type="file" id="hda_image"><br></td>
             </tr>
 
             <tr>
-                <td>Second hard drive disk image</td>
+                <td>Second hard disk image</td>
                 <td><input type="file" id="hdb_image"><br></td>
             </tr>
 
@@ -226,6 +223,7 @@ function load_next()
                 <td><label for="boot_order">Boot order</label></td>
                 <td>
                     <select id="boot_order">
+                        <option value="0">Auto</option>
                         <option value="213">CD / Floppy / Hard Disk</option>
                         <option value="123">CD / Hard Disk / Floppy</option>
                         <option value="231">Floppy / CD / Hard Disk</option>
@@ -260,7 +258,8 @@ function load_next()
         <input type="button" value="Get second floppy image" id="get_fdb_image">
         <input type="button" value="Get hard disk image" id="get_hda_image">
         <input type="button" value="Get second hard disk image" id="get_hdb_image">
-        <input type="button" value="Get cdrom image" id="get_cdrom_image">
+        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
+        <input type="button" value="Insert floppy image" id="change_fda_image">
         <input type="button" value="Save State" id="save_state">
         <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
         <input type="button" value="Memory Dump" id="memory_dump">
@@ -277,16 +276,6 @@ function load_next()
         </label>
 
         <br>
-        <label id="change_fda" style="display: none">
-            Change floppy:
-            <input type="file">
-        </label>
-
-        <label id="change_cdrom" style="display: none">
-            Change CD:
-            <input type="file">
-        </label>
-
     </div>
 
     <pre style="margin: 0" id="log_levels"></pre>
@@ -310,7 +299,7 @@ function load_next()
     Avg speed: <span id="avg_speed">0</span> mIPS<br>
     <br>
     <div id="info_storage" style="display: none">
-        <b>IDE device (HDA or CDROM)</b><br>
+        <b>IDE device<span id="ide_type"></span></b><br>
         Sectors read: <span id="info_storage_sectors_read">0</span><br>
         Bytes read: <span id="info_storage_bytes_read">0</span><br>
         Sectors written: <span id="info_storage_sectors_written">0</span><br>

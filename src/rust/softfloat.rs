@@ -92,32 +92,24 @@ impl F80 {
 
     pub fn of_i32(src: i32) -> F80 {
         let mut x = F80::ZERO;
-        unsafe {
-            i32_to_extF80M(src, &mut x)
-        };
+        unsafe { i32_to_extF80M(src, &mut x) };
         x
     }
     pub fn of_i64(src: i64) -> F80 {
         let mut x = F80::ZERO;
-        unsafe {
-            i64_to_extF80M(src, &mut x)
-        };
+        unsafe { i64_to_extF80M(src, &mut x) };
         x
     }
 
     pub fn of_f32(src: i32) -> F80 {
         let mut x = F80::ZERO;
-        unsafe {
-            f32_to_extF80M(src, &mut x)
-        };
+        unsafe { f32_to_extF80M(src, &mut x) };
         x
     }
 
     pub fn of_f64(src: u64) -> F80 {
         let mut x = F80::ZERO;
-        unsafe {
-            f64_to_extF80M(src, &mut x)
-        };
+        unsafe { f64_to_extF80M(src, &mut x) };
         x
     }
     fn of_f64x(src: f64) -> F80 { F80::of_f64(unsafe { std::mem::transmute(src) }) }
@@ -128,6 +120,9 @@ impl F80 {
 
     pub fn to_i32(&self) -> i32 { unsafe { extF80M_to_i32(self, softfloat_roundingMode, false) } }
     pub fn to_i64(&self) -> i64 { unsafe { extF80M_to_i64(self, softfloat_roundingMode, false) } }
+
+    pub fn truncate_to_i32(&self) -> i32 { unsafe { extF80M_to_i32(self, 1, false) } }
+    pub fn truncate_to_i64(&self) -> i64 { unsafe { extF80M_to_i64(self, 1, false) } }
 
     pub fn cos(self) -> F80 { F80::of_f64x(self.to_f64x().cos()) }
     pub fn sin(self) -> F80 { F80::of_f64x(self.to_f64x().sin()) }
@@ -147,24 +142,18 @@ impl F80 {
     pub fn two_pow(self) -> F80 { F80::of_f64x(2.0f64.powf(self.to_f64x())) }
     pub fn round(self) -> F80 {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_roundToInt(&self, softfloat_roundingMode, false, &mut result)
-        };
+        unsafe { extF80M_roundToInt(&self, softfloat_roundingMode, false, &mut result) };
         result
     }
     pub fn trunc(self) -> F80 {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_roundToInt(&self, 1, false, &mut result)
-        };
+        unsafe { extF80M_roundToInt(&self, 1, false, &mut result) };
         result
     }
 
     pub fn sqrt(self) -> F80 {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_sqrt(&self, &mut result)
-        };
+        unsafe { extF80M_sqrt(&self, &mut result) };
         result
     }
 
@@ -225,9 +214,7 @@ impl std::ops::Add for F80 {
     type Output = F80;
     fn add(self, other: Self) -> Self {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_add(&self, &other, &mut result)
-        };
+        unsafe { extF80M_add(&self, &other, &mut result) };
         result
     }
 }
@@ -235,9 +222,7 @@ impl std::ops::Sub for F80 {
     type Output = F80;
     fn sub(self, other: Self) -> Self {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_sub(&self, &other, &mut result)
-        };
+        unsafe { extF80M_sub(&self, &other, &mut result) };
         result
     }
 }
@@ -253,9 +238,7 @@ impl std::ops::Mul for F80 {
     type Output = F80;
     fn mul(self, other: Self) -> Self {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_mul(&self, &other, &mut result)
-        };
+        unsafe { extF80M_mul(&self, &other, &mut result) };
         result
     }
 }
@@ -263,9 +246,7 @@ impl std::ops::Div for F80 {
     type Output = F80;
     fn div(self, other: Self) -> Self {
         let mut result = F80::ZERO;
-        unsafe {
-            extF80M_div(&self, &other, &mut result)
-        };
+        unsafe { extF80M_div(&self, &other, &mut result) };
         result
     }
 }
