@@ -138,6 +138,12 @@ for a full setup on Debian or
 - Then you can simply run `docker run -it -p 8000:8000 v86:alpine-3.14` to start the server.
 - Check `localhost:8000` for hosted server.
 
+### Running via Devcontainer
+
+- If you are using an IDE that supports Devcontainers, such as Github Codespaces, VSCode Remote Container extension, or possibly others such as Jetbrains IDEA, you can setup the development environment in a Dev container.
+- Follow the instructions from your development environment to setup the container.
+- Run the Task "Fetch images" in order to download images for testing.
+
 ## Testing
 
 The disk images for testing are not included in this repository. You can
