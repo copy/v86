@@ -81,7 +81,7 @@ CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature
 CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js \
 	   acpi.js apic.js ioapic.js \
-	   state.js ne2k.js sb16.js virtio.js bus.js log.js \
+	   state.js ne2k.js sb16.js virtio.js virtio_console.js bus.js log.js \
 	   cpu.js debug.js \
 	   elf.js kernel.js
 LIB_FILES=9p-filer.js filesystem.js jor1k.js marshall.js utf8.js
@@ -302,6 +302,7 @@ expect-tests: all-debug build/libwabt.js
 
 devices-test: all-debug
 	./tests/devices/virtio_9p.js
+	./tests/devices/virtio-console.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
