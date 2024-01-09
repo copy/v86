@@ -95,7 +95,7 @@ function VirtioConsole(cpu, bus)
                         const bufchain = queue.pop_request();
                         const buffer = new Uint8Array(bufchain.length_readable);
                         bufchain.get_next_blob(buffer);
-                        this.bus.send("virito-" + port + "-output-bytes", buffer);
+                        this.bus.send("virtio-console" + port + "-output-bytes", buffer);
                         this.Ack(queue_id, bufchain);
                     }
                 },
@@ -126,7 +126,7 @@ function VirtioConsole(cpu, bus)
                         const bufchain = queue.pop_request();
                         const buffer = new Uint8Array(bufchain.length_readable);
                         bufchain.get_next_blob(buffer);
-                        
+
 
                         let parts = marshall.Unmarshall(["w", "h", "h"], buffer, { offset : 0 });
                         let port = parts[0];
@@ -135,12 +135,12 @@ function VirtioConsole(cpu, bus)
 
 
                         this.Ack(queue_id, bufchain);
-                        
+
                         switch(event) {
                             case VIRTIO_CONSOLE_DEVICE_READY:
                                 for (let i = 0; i < this.ports; ++i) {
                                     this.SendEvent(i, VIRTIO_CONSOLE_DEVICE_ADD, 0);
-                                }                               
+                                }
                                 break;
                             case VIRTIO_CONSOLE_PORT_READY:
                                 this.Ack(queue_id, bufchain);
@@ -148,7 +148,7 @@ function VirtioConsole(cpu, bus)
                                 this.SendName(port, "virtio-" + port);
                                 this.SendEvent(port, VIRTIO_CONSOLE_PORT_OPEN, 1);
 
-                                break;                     
+                                break;
                             case VIRTIO_CONSOLE_PORT_OPEN:
                                 this.Ack(queue_id, bufchain);
                                 if (port == 0) {
@@ -158,7 +158,7 @@ function VirtioConsole(cpu, bus)
                             default:
                                 dbg_assert(false," VirtioConsole received unknown event: " + event[1]);
                                 return;
-                            
+
                         }
                     }
                 },
@@ -195,7 +195,7 @@ function VirtioConsole(cpu, bus)
                     bytes: 4,
                     name: "emerg_wr",
                     read: () => 0,
-                    write: data => { 
+                    write: data => {
                         dbg_assert(false, "Emergency write!");
                     },
                 },
@@ -205,7 +205,7 @@ function VirtioConsole(cpu, bus)
 
     for (let port = 0; port < this.ports; ++port) {
         let queue = port == 0 ? 0 : port * 2 + 2;
-        this.bus.register("virtio-" + port + "-input-bytes", function(data) {
+        this.bus.register("virtio-console" + port + "-input-bytes", function(data) {
             let queue = this.virtio.queues[0];
             if (queue.has_request()) {
                 const bufchain = queue.pop_request();
@@ -215,7 +215,7 @@ function VirtioConsole(cpu, bus)
             }
         }, this);
 
-        this.bus.register("virtio-" + port + "-resize", function(size) {
+        this.bus.register("virtio-console" + port + "-resize", function(size) {
             this.cols = size[0];
             this.rows = size[1];
 
