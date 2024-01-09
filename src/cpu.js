@@ -668,9 +668,13 @@ CPU.prototype.reboot_internal = function()
 
     this.fw_value = [];
 
-    if(this.devices.virtio)
+    if(this.devices.virtio_9p)
     {
-        this.devices.virtio.reset();
+        this.devices.virtio_9p.reset();
+    }
+    if(this.devices.virtio_console)
+    {
+        this.devices.virtio_console.reset();
     }
 
     this.load_bios();
