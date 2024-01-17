@@ -980,8 +980,13 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(option_rom)
         {
-            dbg_log("adding option rom for multiboot", LOG_CPU);
-            this.option_roms.push(option_rom);
+            if (this.bios.main) {
+                dbg_log("adding option rom for multiboot", LOG_CPU);
+                this.option_roms.push(option_rom);
+            } else {
+                dbg_log("loaded multiboot", LOG_CPU);
+                this.reg32[REG_EAX] = this.io.port_read32(0xF4);
+            }
         }
     }
 
@@ -1001,11 +1006,7 @@ CPU.prototype.load_multiboot = function (buffer)
     if(option_rom)
     {
         dbg_log("loaded multiboot", LOG_CPU);
-        this.write_blob(option_rom.data, 0);
-        // set CS segment to 0
-        this.segment_offsets[1] = 0;
-        this.sreg[1] = 0;
-        this.instruction_pointer[0] = this.get_seg_cs() + 0x3 | 0;
+        this.reg32[REG_EAX] = this.io.port_read32(0xF4);
     }
 };
 
@@ -1019,6 +1020,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
     const MULTIBOOT_HEADER_MAGIC = 0x1BADB002;
     const MULTIBOOT_HEADER_MEMORY_INFO = 0x2;
     const MULTIBOOT_HEADER_ADDRESS = 0x10000;
+    const MULTIBOOT_BOOTLOADER_MAGIC = 0x2BADB002;
     const MULTIBOOT_SEARCH_BYTES = 8192;
     const MULTIBOOT_INFO_STRUCT_LEN = 116;
     const MULTIBOOT_INFO_CMDLINE = 0x4;
@@ -1058,13 +1060,12 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         // bit 1 : provide a memory map (which we always will)
         dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS & ~3) === 0, "TODO");
 
-
         let multiboot_info_addr = 0x7C00;
-        // actually do the load and return the entrypoint address
         // do this in a io register hook, so it can happen after BIOS does its work
         var cpu = this;
 
         this.io.register_read(0xF4, this, function () {return 0;} , function () { return 0;}, function () {
+            // actually do the load and return the entrypoint address
             let multiboot_data = multiboot_info_addr + MULTIBOOT_INFO_STRUCT_LEN;
             let info = 0;
 
@@ -1239,7 +1240,32 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
                 cpu.write_blob(new Uint8Array(initrd), ramdisk_address);
             }
-            return entrypoint;
+
+            // set state for multiboot
+
+            cpu.reg32[REG_EBX] = multiboot_info_addr;
+            cpu.cr[0] = 1;
+            cpu.protected_mode[0] = +true;
+            cpu.flags[0] = FLAGS_DEFAULT;
+            cpu.is_32[0] = +true;
+            cpu.stack_size_32[0] = +true;
+
+            for(var i = 0; i < 6; i++)
+            {
+                cpu.segment_is_null[i] = 0;
+                cpu.segment_offsets[i] = 0;
+                cpu.segment_limits[i] = 0xFFFFFFFF;
+                // Value doesn't matter, OS isn't allowed to reload without setting
+                // up a proper GDT
+                cpu.sreg[i] = 0xB002;
+            }
+            cpu.instruction_pointer[0] = cpu.get_seg_cs() + entrypoint | 0;
+            cpu.update_state_flags();
+            dbg_log("Starting multiboot kernel at:", LOG_CPU);
+            cpu.debug.dump_state();
+            cpu.debug.dump_regs();
+
+            return MULTIBOOT_BOOTLOADER_MAGIC;
         });
 
         // only for kvm-unit-test
@@ -1281,134 +1307,11 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
         data16[0] = 0xAA55;
         data8[2] = SIZE / 0x200;
-
         let i = 3;
-
-        // adjust these if the code below changes
-        const TRAMPOFFSET = 0x2F;
-        const GDTOFFSET = 0x35;
-        const GDTSIZE = 0x18;
-
-        // disable interrupts
-        data8[i++] = 0xFA; // cli
-
-        // A20 enabled (do nothing, because v86 doesn't have an A20 gate)
-        // find address of GDT
-        data8[i++] = 0x66; // mov eax, cs
-        data8[i++] = 0x8C;
-        data8[i++] = 0xC8;
-        data8[i++] = 0x66; // shl eax, 0x4
-        data8[i++] = 0xC1;
-        data8[i++] = 0xE0;
-        data8[i++] = 0x04;
-        data8[i++] = 0x66; // add eax, GDTOFFSET
-        data8[i++] = 0x83;
-        data8[i++] = 0xC0;
-        data8[i++] = GDTOFFSET;
-        data8[i++] = 0xBF; // mov di, GDTOFFSET + 2
-        data8[i++] = GDTOFFSET + 2;
-        data8[i++] = 0x00;
-        // store GDT address in GDT[0], used as GDT Descriptor
-        data8[i++] = 0x2E; // mov DWORD PTR cs:[di],eax
-        data8[i++] = 0x66;
-        data8[i++] = 0x89;
-        data8[i++] = 0x05;
-        // load GDT
-        data8[i++] = 0x67; // lgdtw [eax]
-        data8[i++] = 0x0F;
-        data8[i++] = 0x01;
-        data8[i++] = 0x10;
-        // calculate address to jump to protected mode
-        data8[i++] = 0x66; // add eax, GDTSIZE
-        data8[i++] = 0x83;
-        data8[i++] = 0xc0;
-        data8[i++] = GDTSIZE;
-        data8[i++] = 0xBF; // mov di, TRAMPOFFSET
-        data8[i++] = TRAMPOFFSET;
-        data8[i++] = 0x00;
-        // store destination address in far jump
-        data8[i++] = 0x2E; // mov DWORD PTR cs:[di],eax
-        data8[i++] = 0x66;
-        data8[i++] = 0x89;
-        data8[i++] = 0x05;
-        // enable protected mode
-        data8[i++] = 0x0F; // mov eax, cr0
-        data8[i++] = 0x20;
-        data8[i++] = 0xC0;
-        data8[i++] = 0x0C; // or al, 0x1
-        data8[i++] = 0x01;
-        data8[i++] = 0x0F; // mov cr0, eax
-        data8[i++] = 0x22;
-        data8[i++] = 0xC0;
-        data8[i++] = 0x66; // jmp 0x8:0xFFFFFFFF (placeholder to be replaced by physical address of trampoline)
-        data8[i++] = 0xEA;
-        dbg_assert(i == TRAMPOFFSET, "trampoline offset is not correct");
-        data8[i++] = 0xFF;
-        data8[i++] = 0xFF;
-        data8[i++] = 0xFF;
-        data8[i++] = 0xFF;
-        data8[i++] = 0x08;
-        data8[i++] = 0x00;
-        dbg_assert(i == GDTOFFSET, "GDTOFFSET is not correct");
-        // GDT
-        data8[i++] = GDTSIZE - 1; // GDT[0] is inaccesible, use it to store the GDT Descriptor
-        data8[i++] = 0;
-        data8[i++] = 0; data8[i++] = 0;
-        data8[i++] = 0; data8[i++] = 0; data8[i++] = 0; data8[i++] = 0;
-        // segment 0x08, Ring 0 code, base 0, limit 0xFFFF FFFF
-        data8[i++] = 0xFF;
-        data8[i++] = 0xFF;
-        data8[i++] = 0;
-        data8[i++] = 0;
-        data8[i++] = 0;
-        data8[i++] = 0x9A;
-        data8[i++] = 0xCF;
-        data8[i++] = 0;
-        // segment 0x10, Ring 0 data, base 0, limit 0xFFFF FFFF
-        data8[i++] = 0xFF;
-        data8[i++] = 0xFF;
-        data8[i++] = 0;
-        data8[i++] = 0;
-        data8[i++] = 0;
-        data8[i++] = 0x92;
-        data8[i++] = 0xCF;
-        data8[i++] = 0;
-        dbg_assert(i - GDTOFFSET == GDTSIZE, "GDTSIZE is not correct");
-        // now in protected mode, set the rest of the segments
-        data8[i++] = 0xB8; // mov ax, 0x10
-        data8[i++] = 0x10;
-        data8[i++] = 0x00;
-        data8[i++] = 0x8e; // mov ds, eax
-        data8[i++] = 0xd8;
-        data8[i++] = 0x8e; // mov es, eax
-        data8[i++] = 0xc0;
-        data8[i++] = 0x8e; // mov fs, eax
-        data8[i++] = 0xe0;
-        data8[i++] = 0x8e; // mov gs, eax
-        data8[i++] = 0xe8;
-        data8[i++] = 0x8e; // mov ss, eax
-        data8[i++] = 0xd0;
-        // trigger load and input entrypoint into eax
-        data8[i++] = 0xe5; // in 0xF4
+        // trigger load
+        data8[i++] = 0x66; // in 0xF4
+        data8[i++] = 0xE5;
         data8[i++] = 0xF4;
-        // copy entrypoint address to ecx
-        data8[i++] = 0x89; // mv ecx, eax
-        data8[i++] = 0xc1;
-        // place magic value in eax
-        data8[i++] = 0xb8; // mov eax, 0x2badb002
-        data8[i++] = 0x02;
-        data8[i++] = 0xb0;
-        data8[i++] = 0xad;
-        data8[i++] = 0x2b;
-        // place multiboot header location in ebx
-        data8[i++] = 0xbb; // mov ebx, multiboot_info_addr
-        data8[i++] = multiboot_info_addr;
-        data8[i++] = multiboot_info_addr >> 8;
-        data8[i++] = multiboot_info_addr >> 16;
-        data8[i++] = multiboot_info_addr >> 24;
-        // jump to multiboot entrypoint
-        data8[i++] = 0xFF; // jmp rcx
-        data8[i++] = 0xE1;
 
         dbg_assert(i < SIZE);
 
