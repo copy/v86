@@ -976,7 +976,7 @@ CPU.prototype.init = function(settings, device_bus)
     if(settings.multiboot)
     {
         dbg_log("loading multiboot", LOG_CPU);
-        const { option_rom } = this.load_multiboot_option_rom(settings.multiboot, settings.initrd, settings.cmdline || "");
+        const { option_rom } = this.load_multiboot_option_rom(settings.multiboot, settings.initrd, settings.cmdline);
 
         if(option_rom)
         {
@@ -997,11 +997,11 @@ CPU.prototype.load_multiboot = function (buffer)
         dbg_assert(false, "load_multiboot not supported with BIOS");
     }
 
-    const { option_rom } = this.load_multiboot_option_rom(buffer, false, "");
+    const { option_rom } = this.load_multiboot_option_rom(buffer, false, null);
     if(option_rom)
     {
         dbg_log("loaded multiboot", LOG_CPU);
-        this.write_blob(new Uint8Array(option_rom.data), 0);
+        this.write_blob(option_rom.data, 0);
         // set CS segment to 0
         this.segment_offsets[1] = 0;
         this.sreg[1] = 0;
@@ -1015,10 +1015,14 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
     dbg_log("Trying multiboot from buffer of size " + buffer.byteLength, LOG_CPU);
 
-    const MAGIC = 0x1BADB002;
     const ELF_MAGIC = 0x464C457F;
+    const MULTIBOOT_HEADER_MAGIC = 0x1BADB002;
+    const MULTIBOOT_HEADER_MEMORY_INFO = 0x2;
     const MULTIBOOT_HEADER_ADDRESS = 0x10000;
     const MULTIBOOT_SEARCH_BYTES = 8192;
+    const MULTIBOOT_INFO_STRUCT_LEN = 116;
+    const MULTIBOOT_INFO_CMDLINE = 0x4;
+    const MULTIBOOT_INFO_MEM_MAP = 0x40;
 
     if(buffer.byteLength < MULTIBOOT_SEARCH_BYTES)
     {
@@ -1032,11 +1036,11 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
     for(var offset = 0; offset < MULTIBOOT_SEARCH_BYTES; offset += 4)
     {
-        if(buf32[offset >> 2] === MAGIC)
+        if(buf32[offset >> 2] === MULTIBOOT_HEADER_MAGIC)
         {
             var flags = buf32[offset + 4 >> 2];
             var checksum = buf32[offset + 8 >> 2];
-            var total = MAGIC + flags + checksum | 0;
+            var total = MULTIBOOT_HEADER_MAGIC + flags + checksum | 0;
 
             if(total)
             {
@@ -1061,47 +1065,54 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         var cpu = this;
 
         this.io.register_read(0xF4, this, function () {return 0;} , function () { return 0;}, function () {
-            let multiboot_data = multiboot_info_addr + 116;
-            cpu.write32(multiboot_info_addr, ((1 << 2) |  // cmdline set
-                                               (1 << 6) )); // mmap set
+            let multiboot_data = multiboot_info_addr + MULTIBOOT_INFO_STRUCT_LEN;
+            let info = 0;
 
             // command line
-            cpu.write32(multiboot_info_addr + 16, multiboot_data);
+            if (cmdline) {
+                info |= MULTIBOOT_INFO_CMDLINE;
 
-            cmdline += "\x00";
-            const encoder = new TextEncoder();
-            const cmdline_utf8 = encoder.encode(cmdline);
-            cpu.write_blob(cmdline_utf8, multiboot_data);
-            multiboot_data += cmdline_utf8.length;
+                cpu.write32(multiboot_info_addr + 16, multiboot_data);
+
+                cmdline += "\x00";
+                const encoder = new TextEncoder();
+                const cmdline_utf8 = encoder.encode(cmdline);
+                cpu.write_blob(cmdline_utf8, multiboot_data);
+                multiboot_data += cmdline_utf8.length;
+            }
 
             // memory map
-            let multiboot_mmap_count = 0;
-            cpu.write32(multiboot_info_addr + 44, 0);
-            cpu.write32(multiboot_info_addr + 48, multiboot_data);
+            if (flags & MULTIBOOT_HEADER_MEMORY_INFO) {
+                info |= MULTIBOOT_INFO_MEM_MAP;
+                let multiboot_mmap_count = 0;
+                cpu.write32(multiboot_info_addr + 44, 0);
+                cpu.write32(multiboot_info_addr + 48, multiboot_data);
 
-            // Create a memory map for the multiboot kernel
-            // does not exclude traditional bios exclusions
-            let start = 0;
-            let was_memory = false;
-            for (let addr = 0; addr < MMAP_MAX; addr += MMAP_BLOCK_SIZE) {
-                if (was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] !== undefined) {
-                    cpu.write32(multiboot_data, 20); // size
-                    cpu.write32(multiboot_data + 4, start); //addr (64-bit)
-                    cpu.write32(multiboot_data + 8, 0);
-                    cpu.write32(multiboot_data + 12, addr - start); // len (64-bit)
-                    cpu.write32(multiboot_data + 16, 0);
-                    cpu.write32(multiboot_data + 20, 1); // type (MULTIBOOT_MEMORY_AVAILABLE)
-                    multiboot_data += 24;
-                    multiboot_mmap_count += 24;
-                    was_memory = false;
-                } else if (!was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] === undefined) {
-                    start = addr;
-                    was_memory = true;
+                // Create a memory map for the multiboot kernel
+                // does not exclude traditional bios exclusions
+                let start = 0;
+                let was_memory = false;
+                for (let addr = 0; addr < MMAP_MAX; addr += MMAP_BLOCK_SIZE) {
+                    if (was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] !== undefined) {
+                        cpu.write32(multiboot_data, 20); // size
+                        cpu.write32(multiboot_data + 4, start); //addr (64-bit)
+                        cpu.write32(multiboot_data + 8, 0);
+                        cpu.write32(multiboot_data + 12, addr - start); // len (64-bit)
+                        cpu.write32(multiboot_data + 16, 0);
+                        cpu.write32(multiboot_data + 20, 1); // type (MULTIBOOT_MEMORY_AVAILABLE)
+                        multiboot_data += 24;
+                        multiboot_mmap_count += 24;
+                        was_memory = false;
+                    } else if (!was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] === undefined) {
+                        start = addr;
+                        was_memory = true;
+                    }
                 }
+                dbg_assert (!was_memory, "top of 4GB shouldn't have memory");
+                cpu.write32(multiboot_info_addr + 44, multiboot_mmap_count);
             }
-            dbg_assert (!was_memory, "top of 4GB shouldn't have memory");
 
-            cpu.write32(multiboot_info_addr + 44, multiboot_mmap_count);
+            cpu.write32(multiboot_info_addr, info);
 
             let entrypoint = 0;
             let top_of_load = 0;
@@ -1265,7 +1276,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         // It sets up the multiboot environment.
         const SIZE = 0x200;
 
-        const data8 = new Uint8Array(0x100);
+        const data8 = new Uint8Array(SIZE);
         const data16 = new Uint16Array(data8.buffer);
 
         data16[0] = 0xAA55;

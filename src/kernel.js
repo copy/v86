@@ -186,7 +186,7 @@ function make_linux_boot_rom(real_mode_segment, heap_end)
 
     const SIZE = 0x200;
 
-    const data8 = new Uint8Array(0x100);
+    const data8 = new Uint8Array(SIZE);
     const data16 = new Uint16Array(data8.buffer);
 
     data16[0] = 0xAA55;
