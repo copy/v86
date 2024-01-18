@@ -1060,12 +1060,12 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         // bit 1 : provide a memory map (which we always will)
         dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS & ~3) === 0, "TODO");
 
-        let multiboot_info_addr = 0x7C00;
         // do this in a io register hook, so it can happen after BIOS does its work
         var cpu = this;
 
         this.io.register_read(0xF4, this, function () {return 0;} , function () { return 0;}, function () {
-            // actually do the load and return the entrypoint address
+            // actually do the load and return the multiboot magic
+            let multiboot_info_addr = 0x7C00;
             let multiboot_data = multiboot_info_addr + MULTIBOOT_INFO_STRUCT_LEN;
             let info = 0;
 
@@ -1160,7 +1160,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
                 let elf = read_elf(buffer);
 
-                entrypoint = elf.header.entry | 0;
+                entrypoint = elf.header.entry;
 
                 for(let program of elf.program_headers)
                 {
@@ -1172,9 +1172,6 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                     {
                         // load
 
-                        // Since multiboot specifies that paging is disabled,
-                        // virtual and physical address must be equal
-                        dbg_assert(program.paddr === program.vaddr);
                         dbg_assert(program.filesz <= program.memsz);
 
                         if(program.paddr + program.memsz < cpu.memory_size[0])
@@ -1186,6 +1183,13 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                             }
                             top_of_load = Math.max(top_of_load, program.paddr + program.memsz);
                             dbg_log("prg load " + program.paddr + " to " + (program.paddr + program.memsz), LOG_CPU);
+
+                            // Since multiboot specifies that paging is disabled, we load to the physical address;
+                            // but the entry point is specified in virtual addresses so adjust the entrypoint if needed
+
+                            if (entrypoint == elf.header.entry && program.vaddr <= entrypoint && (program.vaddr + program.memsz) > entrypoint) {
+                                entrypoint = (entrypoint - program.vaddr) + program.paddr;
+                            }
                         }
                         else
                         {
