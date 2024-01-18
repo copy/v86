@@ -743,11 +743,11 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.bzimage)
     {
-        const { option_rom } = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline || "");
+        const option_rom = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline || "");
 
         if(option_rom)
         {
-            this.option_roms.push(option_rom);
+            this.option_roms.push(option_rom.option_rom);
         }
     }
 
@@ -976,13 +976,13 @@ CPU.prototype.init = function(settings, device_bus)
     if(settings.multiboot)
     {
         dbg_log("loading multiboot", LOG_CPU);
-        const { option_rom } = this.load_multiboot_option_rom(settings.multiboot, settings.initrd, settings.cmdline);
+        const option_rom = this.load_multiboot_option_rom(settings.multiboot, settings.initrd, settings.cmdline);
 
         if(option_rom)
         {
             if (this.bios.main) {
                 dbg_log("adding option rom for multiboot", LOG_CPU);
-                this.option_roms.push(option_rom);
+                this.option_roms.push(option_rom.option_rom);
             } else {
                 dbg_log("loaded multiboot", LOG_CPU);
                 this.reg32[REG_EAX] = this.io.port_read32(0xF4);
@@ -1002,7 +1002,7 @@ CPU.prototype.load_multiboot = function (buffer)
         dbg_assert(false, "load_multiboot not supported with BIOS");
     }
 
-    const { option_rom } = this.load_multiboot_option_rom(buffer, false, null);
+    const option_rom = this.load_multiboot_option_rom(buffer, false, null);
     if(option_rom)
     {
         dbg_log("loaded multiboot", LOG_CPU);
@@ -1340,6 +1340,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         };
         break;
     }
+    dbg_log("Multiboot header not found", LOG_CPU);
 };
 
 CPU.prototype.fill_cmos = function(rtc, settings)
