@@ -1127,7 +1127,7 @@ V86.prototype.serial_send_bytes = function(serial, data)
 V86.prototype.serial_set_modem_status = function(serial, status)
 {
     this.bus.send("serial" + serial + "-modem-status-input", status);
-}
+};
 
 /**
  * Set the carrier detect status of a serial port.
@@ -1135,7 +1135,7 @@ V86.prototype.serial_set_modem_status = function(serial, status)
 V86.prototype.serial_set_carrier_detect = function(serial, status)
 {
     this.bus.send("serial" + serial + "-carrier-detect-input", status);
-}
+};
 
 /**
  * Set the ring indicator status of a serial port.
@@ -1143,7 +1143,7 @@ V86.prototype.serial_set_carrier_detect = function(serial, status)
 V86.prototype.serial_set_ring_indicator = function(serial, status)
 {
     this.bus.send("serial" + serial + "-ring-indicator-input", status);
-}
+};
 
 /**
  * Set the data set ready status of a serial port.
@@ -1151,7 +1151,7 @@ V86.prototype.serial_set_ring_indicator = function(serial, status)
 V86.prototype.serial_set_data_set_ready = function(serial, status)
 {
     this.bus.send("serial" + serial + "-data-set-ready-input", status);
-}
+};
 
 /**
  * Set the clear to send status of a serial port.
@@ -1159,7 +1159,7 @@ V86.prototype.serial_set_data_set_ready = function(serial, status)
 V86.prototype.serial_set_clear_to_send = function(serial, status)
 {
     this.bus.send("serial" + serial + "-clear-to-send-input", status);
-}
+};
 
 /**
  * Mount another filesystem to the current filesystem.
