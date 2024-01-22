@@ -786,6 +786,30 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "NetBSD multiboot",
+            skip_if_disk_image_missing: true,
+            timeout: 15,
+            memory_size: 256 * 1024 * 1024,
+            multiboot: root_path + "/images/netbsd9.3-kernel-multiboot.img",
+            expected_texts: [
+                // NOTE: doesn't success booting yet, just testing the multiboot boot
+                "[   1.0000030] isa0 at mainbus0",
+            ],
+        },
+        {
+            name: "Crazierl",
+            skip_if_disk_image_missing: true,
+            timeout: 30,
+            memory_size: 256 * 1024 * 1024,
+            multiboot: root_path + "/images/crazierl-elf.img",
+            initrd: root_path + "/images/crazierl-initrd.img",
+            cmdline: "kernel /libexec/ld-elf32.so.1",
+            acpi: true,
+            expected_serial_text: [
+                "Welcome to Crazierl:",
+            ],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
@@ -943,7 +967,7 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
-    const images = [test.fda, test.hda, test.cdrom, test.bzimage, test.filesystem && test.filesystem.basefs].filter(x => x);
+    const images = [test.fda, test.hda, test.cdrom, test.bzimage, test.multiboot, test.filesystem && test.filesystem.basefs].filter(x => x);
     assert(images.length, "Bootable drive expected");
 
     const missing_images = images.filter(i => !fs.existsSync(i));
@@ -1012,6 +1036,14 @@ function run_test(test, done)
     if(test.bzimage)
     {
         settings.bzimage = { url: test.bzimage };
+    }
+    if(test.multiboot)
+    {
+        settings.multiboot = { url: test.multiboot };
+    }
+    if(test.initrd)
+    {
+        settings.initrd = { url: test.initrd };
     }
     if(test.filesystem)
     {
