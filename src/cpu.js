@@ -747,7 +747,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(option_rom)
         {
-            this.option_roms.push(option_rom.option_rom);
+            this.option_roms.push(option_rom);
         }
     }
 
@@ -980,11 +980,14 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(option_rom)
         {
-            if (this.bios.main) {
+            if(this.bios.main)
+            {
                 dbg_log("adding option rom for multiboot", LOG_CPU);
-                this.option_roms.push(option_rom.option_rom);
-            } else {
-                dbg_log("loaded multiboot", LOG_CPU);
+                this.option_roms.push(option_rom);
+            }
+            else
+            {
+                dbg_log("loaded multiboot without bios", LOG_CPU);
                 this.reg32[REG_EAX] = this.io.port_read32(0xF4);
             }
         }
@@ -998,11 +1001,12 @@ CPU.prototype.init = function(settings, device_bus)
 
 CPU.prototype.load_multiboot = function (buffer)
 {
-    if (this.bios.main) {
+    if(this.bios.main)
+    {
         dbg_assert(false, "load_multiboot not supported with BIOS");
     }
 
-    const option_rom = this.load_multiboot_option_rom(buffer, false, null);
+    const option_rom = this.load_multiboot_option_rom(buffer, undefined, "");
     if(option_rom)
     {
         dbg_log("loaded multiboot", LOG_CPU);
@@ -1070,7 +1074,8 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
             let info = 0;
 
             // command line
-            if (cmdline) {
+            if(cmdline)
+            {
                 info |= MULTIBOOT_INFO_CMDLINE;
 
                 cpu.write32(multiboot_info_addr + 16, multiboot_data);
@@ -1083,7 +1088,8 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
             }
 
             // memory map
-            if (flags & MULTIBOOT_HEADER_MEMORY_INFO) {
+            if(flags & MULTIBOOT_HEADER_MEMORY_INFO)
+            {
                 info |= MULTIBOOT_INFO_MEM_MAP;
                 let multiboot_mmap_count = 0;
                 cpu.write32(multiboot_info_addr + 44, 0);
@@ -1093,8 +1099,10 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 // does not exclude traditional bios exclusions
                 let start = 0;
                 let was_memory = false;
-                for (let addr = 0; addr < MMAP_MAX; addr += MMAP_BLOCK_SIZE) {
-                    if (was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] !== undefined) {
+                for(let addr = 0; addr < MMAP_MAX; addr += MMAP_BLOCK_SIZE)
+                {
+                    if(was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] !== undefined)
+                    {
                         cpu.write32(multiboot_data, 20); // size
                         cpu.write32(multiboot_data + 4, start); //addr (64-bit)
                         cpu.write32(multiboot_data + 8, 0);
@@ -1104,7 +1112,9 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                         multiboot_data += 24;
                         multiboot_mmap_count += 24;
                         was_memory = false;
-                    } else if (!was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] === undefined) {
+                    }
+                    else if(!was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] === undefined)
+                    {
                         start = addr;
                         was_memory = true;
                     }
@@ -1187,7 +1197,8 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                             // Since multiboot specifies that paging is disabled, we load to the physical address;
                             // but the entry point is specified in virtual addresses so adjust the entrypoint if needed
 
-                            if (entrypoint == elf.header.entry && program.vaddr <= entrypoint && (program.vaddr + program.memsz) > entrypoint) {
+                            if(entrypoint === elf.header.entry && program.vaddr <= entrypoint && (program.vaddr + program.memsz) > entrypoint)
+                            {
                                 entrypoint = (entrypoint - program.vaddr) + program.paddr;
                             }
                         }
@@ -1221,14 +1232,14 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 dbg_assert(false, "Not a bootable multiboot format");
             }
 
-            if (initrd)
+            if(initrd)
             {
                 cpu.write32(multiboot_info_addr + 20, 1); // mods_count
                 cpu.write32(multiboot_info_addr + 24, multiboot_data); // mods_addr;
 
                 var ramdisk_address = top_of_load;
-                dbg_log("ramdisk address " + ramdisk_address);
-                if ((ramdisk_address & 4095) != 0) {
+                if((ramdisk_address & 4095) !== 0)
+                {
                     ramdisk_address = (ramdisk_address & ~4095) + 4096;
                 }
                 dbg_log("ramdisk address " + ramdisk_address);
@@ -1332,13 +1343,9 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
         data8[checksum_index] = -rom_checksum;
 
         return {
-            option_rom:
-            {
-                name: "genroms/multiboot.bin",
-                data: data8
-            }
+            name: "genroms/multiboot.bin",
+            data: data8
         };
-        break;
     }
     dbg_log("Multiboot header not found", LOG_CPU);
 };
