@@ -148,12 +148,10 @@ function UART(cpu, port, bus)
 
     this.bus.register("serial" + this.com + "-clear-to-send-input", function(data)
     {
-        if(data) {
-            this.set_modem_status(this.modem_status | (1 << UART_MSR_CTS) | (1 << UART_MSR_DCTS));
-        }
-        else {
-            this.set_modem_status(this.modem_status & ~(1 << UART_MSR_CTS) & ~(1 << UART_MSR_DCTS));
-        }
+        const status = data ?
+            this.modem_status | (1 << UART_MSR_CTS) | (1 << UART_MSR_DCTS) :
+            this.modem_status & ~(1 << UART_MSR_CTS) & ~(1 << UART_MSR_DCTS);
+        this.set_modem_status(status);
     }, this);
 
     var io = cpu.io;
