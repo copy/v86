@@ -134,7 +134,7 @@ function UART(cpu, port, bus)
 
     this.bus.register("serial" + this.com + "-data-set-ready-input", function(data)
     {
-        const status =
+        const status = data ?
             this.modem_status | (1 << UART_MSR_DSR) | (1 << UART_MSR_DDSR) :
             this.modem_status & ~(1 << UART_MSR_DSR) & ~(1 << UART_MSR_DDSR);
         this.set_modem_status(status);
