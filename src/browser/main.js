@@ -582,6 +582,23 @@
                 name: "NetBSD",
             },
             {
+                id: "crazierl",
+                multiboot: {
+                    url: host + "crazierl-elf.img",
+                    size: 896592,
+                    async: false,
+                },
+                initrd: {
+                    url: host + "crazierl-initrd.img",
+                    size: 18448316,
+                    async: false,
+                },
+                acpi: true,
+                cmdline: "kernel /libexec/ld-elf32.so.1",
+                memory_size: 128 * 1024 * 1024,
+                name: "Crazierl",
+            },
+            {
                 id: "solos",
                 fda: {
                     url: host + "os8.img",
@@ -1209,6 +1226,8 @@
             settings.memory_size = (!infos.state && settings.memory_size) ? settings.memory_size : infos.memory_size;
             settings.vga_memory_size = (!infos.state && settings.vga_memory_size) ? settings.vga_memory_size : infos.vga_memory_size;
 
+            settings.disable_vga_display = infos.disable_vga_display;
+
             settings.id = infos.id;
 
             if(infos.boot_order !== undefined)
@@ -1438,7 +1457,7 @@
             memory_size: memory_size,
             vga_memory_size: vga_memory_size,
 
-            screen_container: $("screen_container"),
+            screen_container: settings.disable_vga_display ? null : $("screen_container"),
 
             boot_order: settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
@@ -1536,7 +1555,7 @@
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
         $("runtime_infos").style.display = "block";
-        $("screen_container").style.display = "block";
+        if(!settings.disable_vga_display) $("screen_container").style.display = "block";
 
         if(settings.filesystem)
         {
