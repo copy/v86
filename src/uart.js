@@ -118,32 +118,26 @@ function UART(cpu, port, bus)
 
     this.bus.register("serial" + this.com + "-carrier-detect-input", function(data)
     {
-        if(data) {
-            this.set_modem_status(this.modem_status | (1 << UART_MSR_DCD) | (1 << UART_MSR_DDCD));
-        }
-        else {
-            this.set_modem_status(this.modem_status & ~(1 << UART_MSR_DCD) & ~(1 << UART_MSR_DDCD));
-        }
+        const status = data ?
+            this.modem_status | (1 << UART_MSR_DCD) | (1 << UART_MSR_DDCD) :
+            this.modem_status & ~(1 << UART_MSR_DCD) & ~(1 << UART_MSR_DDCD);
+        this.set_modem_status(status);
     }, this);
 
     this.bus.register("serial" + this.com + "-ring-indicator-input", function(data)
     {
-        if(data) {
-            this.set_modem_status(this.modem_status | (1 << UART_MSR_RI) | (1 << UART_MSR_TERI));
-        }
-        else {
-            this.set_modem_status(this.modem_status & ~(1 << UART_MSR_RI) & ~(1 << UART_MSR_TERI));
-        }
+        const status = data ?
+            this.modem_status | (1 << UART_MSR_RI) | (1 << UART_MSR_TERI) :
+            this.modem_status & ~(1 << UART_MSR_RI) & ~(1 << UART_MSR_TERI);
+        this.set_modem_status(status);
     }, this);
 
     this.bus.register("serial" + this.com + "-data-set-ready-input", function(data)
     {
-        if(data) {
-            this.set_modem_status(this.modem_status | (1 << UART_MSR_DSR) | (1 << UART_MSR_DDSR));
-        }
-        else {
-            this.set_modem_status(this.modem_status & ~(1 << UART_MSR_DSR) & ~(1 << UART_MSR_DDSR));
-        }
+        const status =
+            this.modem_status | (1 << UART_MSR_DSR) | (1 << UART_MSR_DDSR) :
+            this.modem_status & ~(1 << UART_MSR_DSR) & ~(1 << UART_MSR_DDSR);
+        this.set_modem_status(status);
     }, this);
 
     this.bus.register("serial" + this.com + "-clear-to-send-input", function(data)
@@ -417,19 +411,19 @@ UART.prototype.write_data = function(out_byte)
     }
 };
 
-UART.prototype.set_modem_status = function(status) {
-        dbg_log("modem status: " + h(status), LOG_SERIAL);
-        var prev_delta_bits = this.modem_status & 0x0F;
-        // compare the bits that have changed and shift
-        // them into the delta bits
-        var delta = (this.modem_status ^ status) >> 4;
-        // The delta should stay set if they were previously set
-        delta |= prev_delta_bits;
-        
-        // update the current modem status
-        this.modem_status = status;
-        // update the delta bits based on the changes and previous
-        // values, but also leave the delta bits set if they were
-        // passed in as part of the status
-        this.modem_status |= delta;
+UART.prototype.set_modem_status = function(status)
+{
+    dbg_log("modem status: " + h(status), LOG_SERIAL);
+    const prev_delta_bits = this.modem_status & 0x0F;
+    // compare the bits that have changed and shift them into the delta bits
+    let delta = (this.modem_status ^ status) >> 4;
+    // The delta should stay set if they were previously set
+    delta |= prev_delta_bits;
+
+    // update the current modem status
+    this.modem_status = status;
+    // update the delta bits based on the changes and previous
+    // values, but also leave the delta bits set if they were
+    // passed in as part of the status
+    this.modem_status |= delta;
 };
