@@ -115,7 +115,9 @@ var
      */
     MMAP_BLOCK_BITS = 17,
     /** @const */
-    MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
+    MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS,
+    /** @const */
+    MMAP_MAX = 0x100000000;
 
 /** @const */
 var CR0_PG = 1 << 31;

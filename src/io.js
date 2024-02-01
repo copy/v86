@@ -29,7 +29,7 @@ function IO(cpu)
         cpu.memory_map_read32[i] = cpu.memory_map_write32[i] = undefined;
     }
 
-    this.mmap_register(memory_size, 0x100000000 - memory_size,
+    this.mmap_register(memory_size, MMAP_MAX - memory_size,
         function(addr) {
             // read outside of the memory size
             dbg_log("Read from unmapped memory space, addr=" + h(addr >>> 0, 8), LOG_IO);

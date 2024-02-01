@@ -743,7 +743,7 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.bzimage)
     {
-        const { option_rom } = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline || "");
+        const option_rom = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline || "");
 
         if(option_rom)
         {
@@ -975,7 +975,22 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.multiboot)
     {
-        this.load_multiboot(settings.multiboot);
+        dbg_log("loading multiboot", LOG_CPU);
+        const option_rom = this.load_multiboot_option_rom(settings.multiboot, settings.initrd, settings.cmdline);
+
+        if(option_rom)
+        {
+            if(this.bios.main)
+            {
+                dbg_log("adding option rom for multiboot", LOG_CPU);
+                this.option_roms.push(option_rom);
+            }
+            else
+            {
+                dbg_log("loaded multiboot without bios", LOG_CPU);
+                this.reg32[REG_EAX] = this.io.port_read32(0xF4);
+            }
+        }
     }
 
     if(DEBUG)
@@ -984,16 +999,36 @@ CPU.prototype.init = function(settings, device_bus)
     }
 };
 
-CPU.prototype.load_multiboot = function(buffer)
+CPU.prototype.load_multiboot = function (buffer)
+{
+    if(this.bios.main)
+    {
+        dbg_assert(false, "load_multiboot not supported with BIOS");
+    }
+
+    const option_rom = this.load_multiboot_option_rom(buffer, undefined, "");
+    if(option_rom)
+    {
+        dbg_log("loaded multiboot", LOG_CPU);
+        this.reg32[REG_EAX] = this.io.port_read32(0xF4);
+    }
+};
+
+CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 {
     // https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
 
     dbg_log("Trying multiboot from buffer of size " + buffer.byteLength, LOG_CPU);
 
-    const MAGIC = 0x1BADB002;
     const ELF_MAGIC = 0x464C457F;
+    const MULTIBOOT_HEADER_MAGIC = 0x1BADB002;
+    const MULTIBOOT_HEADER_MEMORY_INFO = 0x2;
     const MULTIBOOT_HEADER_ADDRESS = 0x10000;
+    const MULTIBOOT_BOOTLOADER_MAGIC = 0x2BADB002;
     const MULTIBOOT_SEARCH_BYTES = 8192;
+    const MULTIBOOT_INFO_STRUCT_LEN = 116;
+    const MULTIBOOT_INFO_CMDLINE = 0x4;
+    const MULTIBOOT_INFO_MEM_MAP = 0x40;
 
     if(buffer.byteLength < MULTIBOOT_SEARCH_BYTES)
     {
@@ -1007,11 +1042,11 @@ CPU.prototype.load_multiboot = function(buffer)
 
     for(var offset = 0; offset < MULTIBOOT_SEARCH_BYTES; offset += 4)
     {
-        if(buf32[offset >> 2] === MAGIC)
+        if(buf32[offset >> 2] === MULTIBOOT_HEADER_MAGIC)
         {
             var flags = buf32[offset + 4 >> 2];
             var checksum = buf32[offset + 8 >> 2];
-            var total = MAGIC + flags + checksum | 0;
+            var total = MULTIBOOT_HEADER_MAGIC + flags + checksum | 0;
 
             if(total)
             {
@@ -1025,123 +1060,228 @@ CPU.prototype.load_multiboot = function(buffer)
         }
 
         dbg_log("Multiboot magic found, flags: " + h(flags >>> 0, 8), LOG_CPU);
-        dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS) === 0, "TODO");
+        // bit 0 : load modules on page boundaries (may as well, if we load modules)
+        // bit 1 : provide a memory map (which we always will)
+        dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS & ~3) === 0, "TODO");
 
-        this.reg32[REG_EAX] = 0x2BADB002;
+        // do this in a io register hook, so it can happen after BIOS does its work
+        var cpu = this;
 
-        let multiboot_info_addr = 0x7C00;
-        this.reg32[REG_EBX] = multiboot_info_addr;
-        this.write32(multiboot_info_addr, 0);
+        this.io.register_read(0xF4, this, function () {return 0;} , function () { return 0;}, function () {
+            // actually do the load and return the multiboot magic
+            let multiboot_info_addr = 0x7C00;
+            let multiboot_data = multiboot_info_addr + MULTIBOOT_INFO_STRUCT_LEN;
+            let info = 0;
 
-        this.cr[0] = 1;
-        this.protected_mode[0] = +true;
-        this.flags[0] = FLAGS_DEFAULT;
-        this.is_32[0] = +true;
-        this.stack_size_32[0] = +true;
-
-        for(var i = 0; i < 6; i++)
-        {
-            this.segment_is_null[i] = 0;
-            this.segment_offsets[i] = 0;
-            this.segment_limits[i] = 0xFFFFFFFF;
-
-            // Value doesn't matter, OS isn't allowed to reload without setting
-            // up a proper GDT
-            this.sreg[i] = 0xB002;
-        }
-
-        if(flags & MULTIBOOT_HEADER_ADDRESS)
-        {
-            dbg_log("Multiboot specifies its own address table", LOG_CPU);
-
-            var header_addr = buf32[offset + 12 >> 2];
-            var load_addr = buf32[offset + 16 >> 2];
-            var load_end_addr = buf32[offset + 20 >> 2];
-            var bss_end_addr = buf32[offset + 24 >> 2];
-            var entry_addr = buf32[offset + 28 >> 2];
-
-            dbg_log("header=" + h(header_addr, 8) +
-                    " load=" + h(load_addr, 8) +
-                    " load_end=" + h(load_end_addr, 8) +
-                    " bss_end=" + h(bss_end_addr, 8) +
-                    " entry=" + h(entry_addr, 8));
-
-            dbg_assert(load_addr <= header_addr);
-
-            var file_start = offset - (header_addr - load_addr);
-
-            if(load_end_addr === 0)
+            // command line
+            if(cmdline)
             {
-                var length = undefined;
-            }
-            else
-            {
-                dbg_assert(load_end_addr >= load_addr);
-                var length = load_end_addr - load_addr;
+                info |= MULTIBOOT_INFO_CMDLINE;
+
+                cpu.write32(multiboot_info_addr + 16, multiboot_data);
+
+                cmdline += "\x00";
+                const encoder = new TextEncoder();
+                const cmdline_utf8 = encoder.encode(cmdline);
+                cpu.write_blob(cmdline_utf8, multiboot_data);
+                multiboot_data += cmdline_utf8.length;
             }
 
-            let blob = new Uint8Array(buffer, file_start, length);
-            this.write_blob(blob, load_addr);
-
-            this.instruction_pointer[0] = this.get_seg_cs() + entry_addr | 0;
-        }
-        else if(buf32[0] === ELF_MAGIC)
-        {
-            dbg_log("Multiboot image is in elf format", LOG_CPU);
-
-            let elf = read_elf(buffer);
-
-            this.instruction_pointer[0] = this.get_seg_cs() + elf.header.entry | 0;
-
-            for(let program of elf.program_headers)
+            // memory map
+            if(flags & MULTIBOOT_HEADER_MEMORY_INFO)
             {
-                if(program.type === 0)
-                {
-                    // null
-                }
-                else if(program.type === 1)
-                {
-                    // load
+                info |= MULTIBOOT_INFO_MEM_MAP;
+                let multiboot_mmap_count = 0;
+                cpu.write32(multiboot_info_addr + 44, 0);
+                cpu.write32(multiboot_info_addr + 48, multiboot_data);
 
-                    // Since multiboot specifies that paging is disabled,
-                    // virtual and physical address must be equal
-                    dbg_assert(program.paddr === program.vaddr);
-                    dbg_assert(program.filesz <= program.memsz);
-
-                    if(program.paddr + program.memsz < this.memory_size[0])
+                // Create a memory map for the multiboot kernel
+                // does not exclude traditional bios exclusions
+                let start = 0;
+                let was_memory = false;
+                for(let addr = 0; addr < MMAP_MAX; addr += MMAP_BLOCK_SIZE)
+                {
+                    if(was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] !== undefined)
                     {
-                        if(program.filesz) // offset might be outside of buffer if filesz is 0
-                        {
-                            let blob = new Uint8Array(buffer, program.offset, program.filesz);
-                            this.write_blob(blob, program.paddr);
-                        }
+                        cpu.write32(multiboot_data, 20); // size
+                        cpu.write32(multiboot_data + 4, start); //addr (64-bit)
+                        cpu.write32(multiboot_data + 8, 0);
+                        cpu.write32(multiboot_data + 12, addr - start); // len (64-bit)
+                        cpu.write32(multiboot_data + 16, 0);
+                        cpu.write32(multiboot_data + 20, 1); // type (MULTIBOOT_MEMORY_AVAILABLE)
+                        multiboot_data += 24;
+                        multiboot_mmap_count += 24;
+                        was_memory = false;
                     }
-                    else
+                    else if(!was_memory && cpu.memory_map_read8[addr >>> MMAP_BLOCK_BITS] === undefined)
                     {
-                        dbg_log("Warning: Skipped loading section, paddr=" + h(program.paddr) + " memsz=" + program.memsz, LOG_CPU);
+                        start = addr;
+                        was_memory = true;
                     }
                 }
-                else if(
-                    program.type === 2 ||
-                    program.type === 3 ||
-                    program.type === 4 ||
-                    program.type === 6 ||
-                    program.type === 0x6474e550 ||
-                    program.type === 0x6474e551 ||
-                    program.type === 0x6474e553)
+                dbg_assert (!was_memory, "top of 4GB shouldn't have memory");
+                cpu.write32(multiboot_info_addr + 44, multiboot_mmap_count);
+            }
+
+            cpu.write32(multiboot_info_addr, info);
+
+            let entrypoint = 0;
+            let top_of_load = 0;
+
+            if(flags & MULTIBOOT_HEADER_ADDRESS)
+            {
+                dbg_log("Multiboot specifies its own address table", LOG_CPU);
+
+                var header_addr = buf32[offset + 12 >> 2];
+                var load_addr = buf32[offset + 16 >> 2];
+                var load_end_addr = buf32[offset + 20 >> 2];
+                var bss_end_addr = buf32[offset + 24 >> 2];
+                var entry_addr = buf32[offset + 28 >> 2];
+
+                dbg_log("header=" + h(header_addr, 8) +
+                        " load=" + h(load_addr, 8) +
+                        " load_end=" + h(load_end_addr, 8) +
+                        " bss_end=" + h(bss_end_addr, 8) +
+                        " entry=" + h(entry_addr, 8));
+
+                dbg_assert(load_addr <= header_addr);
+
+                var file_start = offset - (header_addr - load_addr);
+
+                if(load_end_addr === 0)
                 {
-                    // ignore for now
+                    var length = undefined;
                 }
                 else
                 {
-                    dbg_assert(false, "unimplemented elf section type: " + h(program.type));
+                    dbg_assert(load_end_addr >= load_addr);
+                    var length = load_end_addr - load_addr;
+                }
+
+                let blob = new Uint8Array(buffer, file_start, length);
+                cpu.write_blob(blob, load_addr);
+
+                entrypoint = entry_addr | 0;
+                top_of_load = Math.max(load_end_addr, bss_end_addr);
+            }
+            else if(buf32[0] === ELF_MAGIC)
+            {
+                dbg_log("Multiboot image is in elf format", LOG_CPU);
+
+                let elf = read_elf(buffer);
+
+                entrypoint = elf.header.entry;
+
+                for(let program of elf.program_headers)
+                {
+                    if(program.type === 0)
+                    {
+                        // null
+                    }
+                    else if(program.type === 1)
+                    {
+                        // load
+
+                        dbg_assert(program.filesz <= program.memsz);
+
+                        if(program.paddr + program.memsz < cpu.memory_size[0])
+                        {
+                            if(program.filesz) // offset might be outside of buffer if filesz is 0
+                            {
+                                let blob = new Uint8Array(buffer, program.offset, program.filesz);
+                                cpu.write_blob(blob, program.paddr);
+                            }
+                            top_of_load = Math.max(top_of_load, program.paddr + program.memsz);
+                            dbg_log("prg load " + program.paddr + " to " + (program.paddr + program.memsz), LOG_CPU);
+
+                            // Since multiboot specifies that paging is disabled, we load to the physical address;
+                            // but the entry point is specified in virtual addresses so adjust the entrypoint if needed
+
+                            if(entrypoint === elf.header.entry && program.vaddr <= entrypoint && (program.vaddr + program.memsz) > entrypoint)
+                            {
+                                entrypoint = (entrypoint - program.vaddr) + program.paddr;
+                            }
+                        }
+                        else
+                        {
+                            dbg_log("Warning: Skipped loading section, paddr=" + h(program.paddr) + " memsz=" + program.memsz, LOG_CPU);
+                        }
+                    }
+                    else if(
+                        program.type === 2 || // dynamic
+                        program.type === 3 || // interp
+                        program.type === 4 || // note
+                        program.type === 6 || // phdr
+                        program.type === 7 || // tls
+                        program.type === 0x6474e550 || // gnu_eh_frame
+                        program.type === 0x6474e551 || // gnu_stack
+                        program.type === 0x6474e552 || // gnu_relro
+                        program.type === 0x6474e553)   // gnu_property
+                    {
+                        dbg_log("skip load type " + program.type + " " + program.paddr + " to " + (program.paddr + program.memsz), LOG_CPU);
+                        // ignore for now
+                    }
+                    else
+                    {
+                        dbg_assert(false, "unimplemented elf section type: " + h(program.type));
+                    }
                 }
             }
-        }
-        else
-        {
-            dbg_assert(false, "Not a bootable multiboot format");
-        }
+            else
+            {
+                dbg_assert(false, "Not a bootable multiboot format");
+            }
+
+            if(initrd)
+            {
+                cpu.write32(multiboot_info_addr + 20, 1); // mods_count
+                cpu.write32(multiboot_info_addr + 24, multiboot_data); // mods_addr;
+
+                var ramdisk_address = top_of_load;
+                if((ramdisk_address & 4095) !== 0)
+                {
+                    ramdisk_address = (ramdisk_address & ~4095) + 4096;
+                }
+                dbg_log("ramdisk address " + ramdisk_address);
+                var ramdisk_top = ramdisk_address + initrd.byteLength;
+
+                cpu.write32(multiboot_data, ramdisk_address); // mod_start
+                cpu.write32(multiboot_data + 4, ramdisk_top); // mod_end
+                cpu.write32(multiboot_data + 8, 0); // string
+                cpu.write32(multiboot_data + 12, 0); // reserved
+                multiboot_data += 16;
+
+                dbg_assert(ramdisk_top < cpu.memory_size[0]);
+
+                cpu.write_blob(new Uint8Array(initrd), ramdisk_address);
+            }
+
+            // set state for multiboot
+
+            cpu.reg32[REG_EBX] = multiboot_info_addr;
+            cpu.cr[0] = 1;
+            cpu.protected_mode[0] = +true;
+            cpu.flags[0] = FLAGS_DEFAULT;
+            cpu.is_32[0] = +true;
+            cpu.stack_size_32[0] = +true;
+
+            for(var i = 0; i < 6; i++)
+            {
+                cpu.segment_is_null[i] = 0;
+                cpu.segment_offsets[i] = 0;
+                cpu.segment_limits[i] = 0xFFFFFFFF;
+                // Value doesn't matter, OS isn't allowed to reload without setting
+                // up a proper GDT
+                cpu.sreg[i] = 0xB002;
+            }
+            cpu.instruction_pointer[0] = cpu.get_seg_cs() + entrypoint | 0;
+            cpu.update_state_flags();
+            dbg_log("Starting multiboot kernel at:", LOG_CPU);
+            cpu.debug.dump_state();
+            cpu.debug.dump_regs();
+
+            return MULTIBOOT_BOOTLOADER_MAGIC;
+        });
 
         // only for kvm-unit-test
         this.io.register_write_consecutive(0xF4, this,
@@ -1173,14 +1313,41 @@ CPU.prototype.load_multiboot = function(buffer)
             this.io.register_write(0x2000 + i, this, handle_write, handle_write, handle_write);
         }
 
-        this.update_state_flags();
+        // This rom will be executed by seabios after its initialisation
+        // It sets up the multiboot environment.
+        const SIZE = 0x200;
 
-        dbg_log("Starting multiboot kernel at:", LOG_CPU);
-        this.debug.dump_state();
-        this.debug.dump_regs();
+        const data8 = new Uint8Array(SIZE);
+        const data16 = new Uint16Array(data8.buffer);
 
-        break;
+        data16[0] = 0xAA55;
+        data8[2] = SIZE / 0x200;
+        let i = 3;
+        // trigger load
+        data8[i++] = 0x66; // in 0xF4
+        data8[i++] = 0xE5;
+        data8[i++] = 0xF4;
+
+        dbg_assert(i < SIZE);
+
+        const checksum_index = i;
+        data8[checksum_index] = 0;
+
+        let rom_checksum = 0;
+
+        for(let i = 0; i < data8.length; i++)
+        {
+            rom_checksum += data8[i];
+        }
+
+        data8[checksum_index] = -rom_checksum;
+
+        return {
+            name: "genroms/multiboot.bin",
+            data: data8
+        };
     }
+    dbg_log("Multiboot header not found", LOG_CPU);
 };
 
 CPU.prototype.fill_cmos = function(rtc, settings)

@@ -171,11 +171,8 @@ function load_kernel(mem8, bzimage, initrd, cmdline)
     mem8.set(protected_mode_kernel, KERNEL_HIGH_ADDRESS);
 
     return {
-        option_rom:
-        {
-            name: "genroms/kernel.bin",
-            data: make_linux_boot_rom(real_mode_segment, heap_end),
-        }
+        name: "genroms/kernel.bin",
+        data: make_linux_boot_rom(real_mode_segment, heap_end),
     };
 }
 
@@ -186,7 +183,7 @@ function make_linux_boot_rom(real_mode_segment, heap_end)
 
     const SIZE = 0x200;
 
-    const data8 = new Uint8Array(0x100);
+    const data8 = new Uint8Array(SIZE);
     const data16 = new Uint16Array(data8.buffer);
 
     data16[0] = 0xAA55;

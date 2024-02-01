@@ -1,0 +1,28 @@
+{
+	"name": "v86 dev container",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "ubuntu"
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
+		"ghcr.io/jungaretti/features/ripgrep:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-azuretools.vscode-docker",
+				"yzhang.markdown-all-in-one",
+				"DavidAnson.vscode-markdownlint",
+				"christian-kohler.npm-intellisense",
+				"dbaeumer.vscode-eslint",
+				"dustypomerleau.rust-syntax",
+				"serayuzgur.crates",
+				"ms-vscode.makefile-tools",
+				"rust-lang.rust-analyzer"
+			]
+		}
+	}
+}
