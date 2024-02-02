@@ -9,8 +9,8 @@ use cpu::cpu::{
 use cpu::global_pointers;
 use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
 use modrm::{jit_add_seg_offset, jit_add_seg_offset_no_override, ModrmByte};
-use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
+use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use regs;
 use regs::{AX, BP, BX, CX, DI, DX, SI, SP};
 use regs::{CS, DS, ES, FS, GS, SS};
@@ -4934,9 +4934,12 @@ fn gen_string_ins(ctx: &mut JitContext, ins: String, size: u8, prefix: u8) {
     ctx.builder.const_i32(ctx.cpu.asize_32() as i32);
 
     if ins == String::OUTS || ins == String::CMPS || ins == String::LODS || ins == String::MOVS {
+        // TODO: check es/ds is null (only if rep && count!=0)
         args += 1;
-        ctx.builder.const_i32(0);
-        jit_add_seg_offset(ctx, regs::DS);
+        let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
+        dbg_assert!(prefix != SEG_PREFIX_ZERO);
+        let seg = if prefix != 0 { (prefix - 1) as u32 } else { regs::DS };
+        ctx.builder.const_i32(seg as i32);
     }
 
     let name = format!(

@@ -2746,6 +2746,17 @@ pub fn get_seg_cs() -> i32 { unsafe { *segment_offsets.offset(CS as isize) } }
 
 pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 
+pub unsafe fn segment_prefix(default_segment: i32) -> i32 {
+    let prefix = *prefixes & prefix::PREFIX_MASK_SEGMENT;
+    if 0 != prefix {
+        dbg_assert!(prefix != prefix::SEG_PREFIX_ZERO);
+        prefix as i32 - 1
+    }
+    else {
+        default_segment
+    }
+}
+
 pub unsafe fn get_seg_prefix(default_segment: i32) -> OrPageFault<i32> {
     dbg_assert!(!in_jit);
     let prefix = *prefixes & prefix::PREFIX_MASK_SEGMENT;
