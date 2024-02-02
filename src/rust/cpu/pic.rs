@@ -365,7 +365,7 @@ unsafe fn port1_write(pic: &mut Pic, v: u8) {
     else if pic.state == 1 {
         // icw2
         pic.irq_map = v;
-        dbg_log!("interrupts are mapped to {}", pic.irq_map);
+        dbg_log!("interrupts are mapped to {:x}", pic.irq_map);
         pic.state += 1;
     }
     else if pic.state == 2 {
