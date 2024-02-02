@@ -2078,14 +2078,12 @@ pub unsafe fn do_page_walk(
         jit::update_tlb_code(Page::page_of(addr as u32), Page::page_of(high));
     }
 
-    Ok(
-        if DEBUG {
-            std::num::NonZeroI32::new(tlb_entry).unwrap()
-        }
-        else {
-            std::num::NonZeroI32::new_unchecked(tlb_entry)
-        }
-    )
+    Ok(if DEBUG {
+        std::num::NonZeroI32::new(tlb_entry).unwrap()
+    }
+    else {
+        std::num::NonZeroI32::new_unchecked(tlb_entry)
+    })
 }
 
 #[no_mangle]

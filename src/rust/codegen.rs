@@ -454,7 +454,11 @@ pub fn gen_modrm_resolve_with_local(
         ctx.builder.free_local(address);
     }
 }
-pub fn gen_modrm_resolve_with_esp_offset(ctx: &mut JitContext, modrm_byte: ModrmByte, esp_offset: i32) {
+pub fn gen_modrm_resolve_with_esp_offset(
+    ctx: &mut JitContext,
+    modrm_byte: ModrmByte,
+    esp_offset: i32,
+) {
     modrm::gen(ctx, modrm_byte, esp_offset)
 }
 

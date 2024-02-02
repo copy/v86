@@ -2078,7 +2078,7 @@ pub fn jit_increase_hotness_and_maybe_compile(
     heat: u32,
 ) {
     if unsafe { JIT_DISABLED } {
-        return
+        return;
     }
 
     let ctx = get_jit_state();

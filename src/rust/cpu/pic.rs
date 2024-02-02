@@ -85,7 +85,6 @@ static mut slave: Pic = Pic {
     dummy: 0,
 };
 
-
 // Checking for callable interrupts:
 // (cpu changes interrupt flag) -> cpu.handle_irqs -> pic_acknowledge_irq
 // (pic changes isr/irr) -> pic.check_irqs -> cpu.handle_irqs -> ...
@@ -97,19 +96,19 @@ static mut slave: Pic = Pic {
 pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
     let irq = match get_irq(&mut master) {
         Some(i) => i,
-        None => return None
+        None => return None,
     };
 
     if master.irr == 0 {
         dbg_assert!(false);
         //PIC_LOG_VERBOSE && dbg_log!("master> spurious requested=" + irq);
         //Some(pic.irq_map | 7)
-        return None
+        return None;
     }
 
     let mask = 1 << irq;
 
-    if master.elcr & mask == 0  {
+    if master.elcr & mask == 0 {
         // not in level mode
         master.irr &= !mask;
     }
@@ -135,19 +134,19 @@ pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
 unsafe fn acknowledge_irq_slave() -> Option<u8> {
     let irq = match get_irq(&mut slave) {
         Some(i) => i,
-        None => return None
+        None => return None,
     };
 
     if slave.irr == 0 {
         //PIC_LOG_VERBOSE && dbg_log!("slave> spurious requested=" + irq);
         //Some(pic.irq_map | 7)
         dbg_assert!(false);
-        return None
+        return None;
     }
 
     let mask = 1 << irq;
 
-    if slave.elcr & mask == 0  {
+    if slave.elcr & mask == 0 {
         // not in level mode
         slave.irr &= !mask;
     }
@@ -169,9 +168,14 @@ unsafe fn get_irq(pic: &mut Pic) -> Option<u8> {
 
     if enabled_irr == 0 {
         if PIC_LOG_VERBOSE {
-            dbg_log!("[PIC] no unmasked irrs. irr={:x} mask={:x} isr={:x}", pic.irr, pic.irq_mask, pic.isr);
+            dbg_log!(
+                "[PIC] no unmasked irrs. irr={:x} mask={:x} isr={:x}",
+                pic.irr,
+                pic.irq_mask,
+                pic.isr
+            );
         }
-        return None
+        return None;
     }
 
     let irq_mask = enabled_irr & (!enabled_irr + 1);
@@ -180,9 +184,15 @@ unsafe fn get_irq(pic: &mut Pic) -> Option<u8> {
     if pic.isr != 0 && (pic.isr & (!pic.isr + 1) & special_mask) <= irq_mask {
         // wait for eoi of higher or same priority interrupt
         if PIC_LOG {
-            dbg_log!("[PIC] higher prio: master={} isr={:x} mask={:x} irq={:x}", pic.master, pic.isr, pic.irq_mask, irq_mask);
+            dbg_log!(
+                "[PIC] higher prio: master={} isr={:x} mask={:x} irq={:x}",
+                pic.master,
+                pic.isr,
+                pic.irq_mask,
+                irq_mask
+            );
         }
-        return None
+        return None;
     }
 
     dbg_assert!(irq_mask != 0);
@@ -251,7 +261,8 @@ pub unsafe fn pic_clear_irq(i: u8) {
 
     if i < 8 {
         clear_irq(&mut master, i);
-    } else {
+    }
+    else {
         clear_irq(&mut slave, i - 8);
     }
 }
@@ -269,15 +280,12 @@ unsafe fn clear_irq(pic: &mut Pic, i: u8) {
     }
 }
 
-unsafe fn port0_read(pic: &mut Pic) -> u32 {
-    (if pic.read_isr { pic.isr } else { pic.irr }) as u32
-}
-unsafe fn port1_read(pic: &mut Pic) -> u32 {
-    !pic.irq_mask as u32
-}
+unsafe fn port0_read(pic: &mut Pic) -> u32 { (if pic.read_isr { pic.isr } else { pic.irr }) as u32 }
+unsafe fn port1_read(pic: &mut Pic) -> u32 { !pic.irq_mask as u32 }
 
 unsafe fn port0_write(pic: &mut Pic, v: u8) {
-    if v & 0x10 != 0 { // xxxx1xxx
+    if v & 0x10 != 0 {
+        // xxxx1xxx
         // icw1
         dbg_log!("icw1 = {:x}", v);
         pic.isr = 0;
@@ -289,7 +297,8 @@ unsafe fn port0_write(pic: &mut Pic, v: u8) {
         pic.expect_icw4 = v & 1 != 0;
         pic.state = 1;
     }
-    else if v & 8 != 0 { // xxx01xxx
+    else if v & 8 != 0 {
+        // xxx01xxx
         // ocw3
         dbg_log!("ocw3: {:x}", v);
         if v & 2 != 0 {
@@ -303,7 +312,8 @@ unsafe fn port0_write(pic: &mut Pic, v: u8) {
             dbg_log!("special mask mode: {}", pic.special_mask_mode);
         }
     }
-    else { // xxx00xxx
+    else {
+        // xxx00xxx
         // ocw2
         // end of interrupt
         if PIC_LOG {
