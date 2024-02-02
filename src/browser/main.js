@@ -807,6 +807,17 @@
                 homepage: "https://github.com/vvaltchev/tilck",
             },
             {
+                id: "sanos",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: host + "sanos-flp.img",
+                    async: false,
+                    size: 1474560,
+                },
+                name: "sanos",
+                homepage: "http://www.jbox.dk/sanos/",
+            },
+            {
                 id: "freebsd",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
