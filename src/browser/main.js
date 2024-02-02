@@ -796,6 +796,17 @@
                 name: "Windows 3.1",
             },
             {
+                id: "tilck",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: host + "tilck.img",
+                    async: false,
+                    size: 37748736,
+                },
+                name: "Tilck",
+                homepage: "https://github.com/vvaltchev/tilck",
+            },
+            {
                 id: "freebsd",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
