@@ -686,9 +686,23 @@ pub unsafe fn iret(is_16: bool) {
             *flags = *flags & !FLAG_VIF & !FLAG_VIP | (new_flags & (FLAG_VIF | FLAG_VIP));
         }
 
-    // XXX: Set segment to 0 if it's not usable in the new cpl
-    // XXX: Use cached segment information
-    // ...
+        for reg in [ES, DS, FS, GS] {
+            let access = *segment_access_bytes.offset(reg as isize);
+            let dpl = access >> 5 & 3;
+            let executable = access & 8 == 8;
+            let conforming = access & 4 == 4;
+            if dpl < *cpl && !(executable && conforming) {
+                dbg_log!(
+                    "set segment to null sreg={} dpl={} executable={} conforming={}",
+                    reg,
+                    dpl,
+                    executable,
+                    conforming
+                );
+                *segment_is_null.offset(reg as isize) = true;
+                *sreg.offset(reg as isize) = 0;
+            }
+        }
     }
     else if cs_selector.rpl() == *cpl {
         // same privilege return
@@ -718,6 +732,7 @@ pub unsafe fn iret(is_16: bool) {
 
     *segment_limits.offset(CS as isize) = cs_descriptor.effective_limit();
     *segment_offsets.offset(CS as isize) = cs_descriptor.base();
+    *segment_access_bytes.offset(CS as isize) = cs_descriptor.access_byte();
 
     *instruction_pointer = new_eip + get_seg_cs();
 
@@ -1008,6 +1023,7 @@ pub unsafe fn call_interrupt_vector(
 
         *segment_limits.offset(CS as isize) = cs_segment_descriptor.effective_limit();
         *segment_offsets.offset(CS as isize) = cs_segment_descriptor.base();
+        *segment_access_bytes.offset(CS as isize) = cs_segment_descriptor.access_byte();
 
         *instruction_pointer = get_seg_cs() + offset;
 
@@ -1308,6 +1324,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
             *segment_is_null.offset(CS as isize) = false;
             *segment_limits.offset(CS as isize) = cs_info.effective_limit();
             *segment_offsets.offset(CS as isize) = cs_info.base();
+            *segment_access_bytes.offset(CS as isize) = cs_info.access_byte();
             *sreg.offset(CS as isize) = cs_selector as u16 & !3 | *cpl as u16;
             dbg_assert!(*sreg.offset(CS as isize) & 3 == *cpl as u16);
 
@@ -1374,6 +1391,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
         *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = info.effective_limit();
+        *segment_access_bytes.offset(CS as isize) = info.access_byte();
 
         *segment_offsets.offset(CS as isize) = info.base();
         *sreg.offset(CS as isize) = selector as u16 & !3 | *cpl as u16;
@@ -1486,18 +1504,20 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
         }
         set_stack_reg(temp_esp + stack_adjust);
 
-    //if(is_osize_32)
-    //{
-    //    adjust_stack_reg(2 * 4);
-    //}
-    //else
-    //{
-    //    adjust_stack_reg(2 * 2);
-    //}
+        //if(is_osize_32)
+        //{
+        //    adjust_stack_reg(2 * 4);
+        //}
+        //else
+        //{
+        //    adjust_stack_reg(2 * 2);
+        //}
 
-    //throw debug.unimpl("privilege change");
+        //throw debug.unimpl("privilege change");
 
-    //adjust_stack_reg(stack_adjust);
+        //adjust_stack_reg(stack_adjust);
+
+        // TODO: invalidate segments that are not accessible at this cpl (see iret)
     }
     else {
         if is_osize_32 {
@@ -1514,6 +1534,7 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
 
     *segment_is_null.offset(CS as isize) = false;
     *segment_limits.offset(CS as isize) = info.effective_limit();
+    *segment_access_bytes.offset(CS as isize) = info.access_byte();
 
     *segment_offsets.offset(CS as isize) = info.base();
     *sreg.offset(CS as isize) = selector as u16;
@@ -1659,6 +1680,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
     *segment_is_null.offset(CS as isize) = false;
     *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
     *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
+    *segment_access_bytes.offset(CS as isize) = new_cs_descriptor.access_byte();
     *sreg.offset(CS as isize) = new_cs as u16;
 
     *cpl = new_cs_descriptor.dpl();
@@ -2370,7 +2392,13 @@ pub unsafe fn lookup_segment_selector(
 #[inline(never)]
 pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     dbg_assert!(reg >= 0 && reg <= 5);
+    dbg_assert!(reg != CS);
     dbg_assert!(selector_raw >= 0 && selector_raw < 0x10000);
+
+    if vm86_mode() {
+        // TODO: Should set segment_limits and segment_access_bytes if ever implemented in get_seg
+        //       (only vm86, not in real mode)
+    }
 
     if !*protected_mode || vm86_mode() {
         *sreg.offset(reg as isize) = selector_raw as u16;
@@ -2406,10 +2434,12 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
             }
             else if selector_unusable == SelectorNullOrInvalid::OutsideOfTableLimit {
                 dbg_log!(
-                    "#GP for loading invalid in seg={} sel={:x}",
+                    "#GP for loading invalid in seg={} sel={:x} gdt_limit={:x}",
                     reg,
-                    selector_raw
+                    selector_raw,
+                    *gdtr_size,
                 );
+                dbg_trace();
                 trigger_gp(selector_raw & !3);
                 return false;
             }
@@ -2449,10 +2479,20 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                 && (selector.rpl() > descriptor.dpl() || *cpl > descriptor.dpl()))
         {
             dbg_log!(
-                "#GP for loading invalid in seg {} sel={:x}",
+                "#GP for loading invalid in seg {} sel={:x} sys={} readable={} dc={} exec={} rpl={} dpl={} cpl={} present={} paging={}",
                 reg,
                 selector_raw,
+                descriptor.is_system(),
+                descriptor.is_readable(),
+                descriptor.is_dc(),
+                descriptor.is_executable(),
+                selector.rpl(),
+                descriptor.dpl(),
+                *cpl,
+                descriptor.is_present(),
+                *cr & CR0_PG != 0,
             );
+            dbg_trace();
             trigger_gp(selector_raw & !3);
             return false;
         }
@@ -2471,6 +2511,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     *segment_is_null.offset(reg as isize) = false;
     *segment_limits.offset(reg as isize) = descriptor.effective_limit();
     *segment_offsets.offset(reg as isize) = descriptor.base();
+    *segment_access_bytes.offset(reg as isize) = descriptor.access_byte();
     *sreg.offset(reg as isize) = selector_raw as u16;
 
     update_state_flags();
@@ -2587,7 +2628,7 @@ pub unsafe fn get_seg(segment: i32) -> OrPageFault<i32> {
     dbg_assert!(segment >= 0 && segment < 8);
     if *segment_is_null.offset(segment as isize) {
         dbg_assert!(segment != CS && segment != SS);
-        dbg_log!("#gp: Access null segment");
+        dbg_log!("#gp: Access null segment {}", segment);
         dbg_trace();
         dbg_assert!(!in_jit);
         trigger_gp(0);
@@ -2620,6 +2661,7 @@ pub unsafe fn set_cr0(cr0: i32) {
     }
 
     *protected_mode = (*cr & CR0_PE) == CR0_PE;
+    *segment_access_bytes.offset(CS as isize) = 0x80 | 0x10 | 0x08 | 0x02; // P dpl0 S E RW
 }
 
 pub unsafe fn set_cr3(mut cr3: i32) {
@@ -4213,6 +4255,7 @@ pub unsafe fn reset_cpu() {
         *segment_is_null.offset(i) = false;
         *segment_limits.offset(i) = 0;
         *segment_offsets.offset(i) = 0;
+        *segment_access_bytes.offset(i) = 0x80 | (0 << 5) | 0x10 | 0x02; // P dpl0 S RW
 
         *reg32.offset(i) = 0;
 
@@ -4223,6 +4266,7 @@ pub unsafe fn reset_cpu() {
 
         *fpu_st.offset(i) = ::softfloat::F80::ZERO;
     }
+    *segment_access_bytes.offset(CS as isize) = 0x80 | (0 << 5) | 0x10 | 0x08 | 0x02; // P dpl0 S E RW
 
     for i in 0..4 {
         *reg_pdpte.offset(i) = 0

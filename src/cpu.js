@@ -26,6 +26,7 @@ function CPU(bus, wm, next_tick_immediately)
     this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
     this.segment_offsets = v86util.view(Int32Array, memory, 736, 8);
     this.segment_limits = v86util.view(Uint32Array, memory, 768, 8);
+    this.segment_access_bytes = v86util.view(Uint8Array, memory, 512, 8);
 
     /**
      * Wheter or not in protected mode
@@ -334,7 +335,7 @@ CPU.prototype.get_state = function()
     var state = [];
 
     state[0] = this.memory_size[0];
-    state[1] = this.segment_is_null;
+    state[1] = new Uint8Array([...this.segment_is_null, ...this.segment_access_bytes]);
     state[2] = this.segment_offsets;
     state[3] = this.segment_limits;
     state[4] = this.protected_mode[0];
@@ -470,9 +471,25 @@ CPU.prototype.set_state = function(state)
         console.warn("Note: Memory size mismatch. we=" + this.mem8.length + " state=" + this.memory_size[0]);
     }
 
-    this.segment_is_null.set(state[1]);
+    if(state[1].length === 8)
+    {
+        // NOTE: support for old state images; delete this when bumping STATE_VERSION
+        this.segment_is_null.set(state[1]);
+        this.segment_access_bytes.fill(0x80 | (3 << 5) | 0x10 | 0x02);
+        this.segment_access_bytes[REG_CS] = 0x80 | (3 << 5) | 0x10 | 0x08 | 0x02;
+    }
+    else if(state[1].length === 16)
+    {
+        this.segment_is_null.set(state[1].subarray(0, 8));
+        this.segment_access_bytes.set(state[1].subarray(8, 16));
+    }
+    else
+    {
+        dbg_assert("Unexpected cpu segment state length:" + state[1].length);
+    }
     this.segment_offsets.set(state[2]);
     this.segment_limits.set(state[3]);
+
     this.protected_mode[0] = state[4];
     this.idtr_offset[0] = state[5];
     this.idtr_size[0] = state[6];
@@ -1270,6 +1287,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 cpu.segment_is_null[i] = 0;
                 cpu.segment_offsets[i] = 0;
                 cpu.segment_limits[i] = 0xFFFFFFFF;
+                // cpu.segment_access_bytes[i]
                 // Value doesn't matter, OS isn't allowed to reload without setting
                 // up a proper GDT
                 cpu.sreg[i] = 0xB002;
