@@ -499,6 +499,17 @@
                 homepage: "http://www.damnsmalllinux.org/",
             },
             {
+                id: "xwoaf",
+                memory_size: 256 * 1024 * 1024,
+                cdrom: {
+                    url: host + "xwoaf_rebuild4.iso",
+                    size: 2205696,
+                    async: false,
+                },
+                name: "xwoaf",
+                homepage: "https://pupngo.dk/xwinflpy/xwoaf_rebuild.html",
+            },
+            {
                 id: "minix",
                 name: "Minix",
                 memory_size: 256 * 1024 * 1024,
