@@ -325,7 +325,7 @@ jshint:
 	jshint --config=./.jshint.json src tests gen lib
 
 rustfmt: $(RUST_FILES)
-	cargo +nightly fmt --all -- --check
+	cargo fmt --all -- --check --config fn_single_line=true,control_brace_style=ClosingNextLine
 
 build/capstone-x86.min.js:
 	mkdir -p build
