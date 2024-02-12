@@ -441,9 +441,9 @@ CPU.prototype.get_state_pic = function()
     state[7] = pic[7]; // state
     state[8] = pic[8]; // read_isr
     state[9] = pic[9]; // auto_eoi
-    state[10] = pic[10]; // special_mask_mode
-    state[11] = pic[11]; // elcr
-    state[12] = pic[12]; // irq_value (undefined in old state images)
+    state[10] = pic[10]; // elcr
+    state[11] = pic[11]; // irq_value
+    state[12] = pic[12]; // special_mask_mode
 
     state_slave[0] = pic_slave[0]; // irq_mask
     state_slave[1] = pic_slave[1]; // irq_map
@@ -456,8 +456,8 @@ CPU.prototype.get_state_pic = function()
     state_slave[8] = pic_slave[8]; // read_isr
     state_slave[9] = pic_slave[9]; // auto_eoi
     state_slave[10] = pic_slave[10]; // elcr
-    state_slave[12] = pic_slave[12]; // irq_value (undefined in old state images)
-    state_slave[12] = pic_slave[12]; // special_mask_mode (undefined in old state images)
+    state_slave[11] = pic_slave[11]; // irq_value
+    state_slave[12] = pic_slave[12]; // special_mask_mode
 
     return state;
 };
@@ -598,9 +598,9 @@ CPU.prototype.set_state_pic = function(state)
     pic[7] = state[7]; // state
     pic[8] = state[8]; // read_isr
     pic[9] = state[9]; // auto_eoi
-    pic[10] = state[10]; // special_mask_mode
-    pic[11] = state[11]; // elcr
-    pic[12] = state[12]; // irq_value (undefined in old state images)
+    pic[10] = state[10]; // elcr
+    pic[11] = state[11]; // irq_value (undefined in old state images)
+    pic[12] = state[12]; // special_mask_mode (undefined in old state images)
 
     pic_slave[0] = state_slave[0]; // irq_mask
     pic_slave[1] = state_slave[1]; // irq_map
@@ -613,7 +613,7 @@ CPU.prototype.set_state_pic = function(state)
     pic_slave[8] = state_slave[8]; // read_isr
     pic_slave[9] = state_slave[9]; // auto_eoi
     pic_slave[10] = state_slave[10]; // elcr
-    pic_slave[12] = state_slave[12]; // irq_value (undefined in old state images)
+    pic_slave[11] = state_slave[11]; // irq_value (undefined in old state images)
     pic_slave[12] = state_slave[12]; // special_mask_mode (undefined in old state images)
 };
 
