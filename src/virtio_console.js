@@ -204,12 +204,12 @@ function VirtioConsole(cpu, bus)
     });
 
     for (let port = 0; port < this.ports; ++port) {
-        let queue = port == 0 ? 0 : port * 2 + 2;
+        let queue_id = port == 0 ? 0 : port * 2 + 2;
         this.bus.register("virtio-console" + port + "-input-bytes", function(data) {
-            let queue = this.virtio.queues[0];
+            let queue = this.virtio.queues[queue_id];
             if (queue.has_request()) {
                 const bufchain = queue.pop_request();
-                this.Send(0, bufchain, new Uint8Array(data));
+                this.Send(queue_id, bufchain, new Uint8Array(data));
             } else {
                 //TODO: Buffer
             }
