@@ -670,6 +670,16 @@
                 homepage: "http://mihail.co/floppybird",
             },
             {
+                id: "stillalive",
+                fda: {
+                    url: host + "stillalive-os.img",
+                    async: false,
+                    size: 368640,
+                },
+                name: "Still Alive",
+                homepage: "https://github.com/maniekx86/stillalive-os",
+            },
+            {
                 id: "duskos",
                 hda: {
                     url: host + "duskos.img",
