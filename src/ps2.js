@@ -705,7 +705,7 @@ PS2.prototype.port60_write = function(write_byte)
         case 0xF2:
             // identify
             this.kbd_buffer.push(0xAB);
-            this.kbd_buffer.push(83);
+            this.kbd_buffer.push(0x83);
             break;
         case 0xF3:
             //  Set typematic rate and delay
