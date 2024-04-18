@@ -1928,26 +1928,20 @@ pub unsafe fn do_page_walk(
         }
 
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
-        if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
-            if side_effects {
-                trigger_pagefault(addr, true, for_writing, user, jit);
-            }
-            return Err(());
-        }
+        let mut allow_write = page_dir_entry & PAGE_TABLE_RW_MASK != 0;
 
-        if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
-            allow_user = false;
-            if user {
-                // Page Fault: page table accessed by non-supervisor
+        allow_user &= page_dir_entry & PAGE_TABLE_USER_MASK != 0;
+
+        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
+            // size bit is set
+
+            if for_writing && !allow_write && !kernel_write_override {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
                 return Err(());
             }
-        }
 
-        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
-            // size bit is set
             // set the accessed and dirty bits
 
             let new_page_dir_entry = page_dir_entry
@@ -1996,20 +1990,20 @@ pub unsafe fn do_page_walk(
                 return Err(());
             }
 
-            if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
+            allow_write &= page_table_entry & PAGE_TABLE_RW_MASK != 0;
+            if for_writing && !allow_write && !kernel_write_override {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
                 return Err(());
             }
-            if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
-                allow_user = false;
-                if user {
-                    if side_effects {
-                        trigger_pagefault(addr, true, for_writing, user, jit);
-                    }
-                    return Err(());
+
+            allow_user &= page_table_entry & PAGE_TABLE_USER_MASK != 0;
+            if user && !allow_user{
+                if side_effects {
+                    trigger_pagefault(addr, true, for_writing, user, jit);
                 }
+                return Err(());
             }
 
             // Set the accessed and dirty bits
