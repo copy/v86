@@ -345,7 +345,7 @@ FloppyController.prototype.port3F2_write = function(value)
     dbg_log("drive select: " + (value & 3), LOG_FLOPPY);
     if((value & 3) !== 0)
     {
-        dbg_log("guest: fdb not implemented");
+        dbg_log("guest: fdb not implemented", LOG_FLOPPY);
     }
     dbg_log("DOR = " + h(value), LOG_FLOPPY);
 
@@ -376,7 +376,7 @@ FloppyController.prototype.seek = function(args)
     dbg_log("seek", LOG_FLOPPY);
     if((args[0] & 3) !== 0)
     {
-        dbg_log("seek on fdb");
+        dbg_log("seek on fdb", LOG_FLOPPY);
         this.raise_irq();
         return;
     }
