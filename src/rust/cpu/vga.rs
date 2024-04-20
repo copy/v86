@@ -32,7 +32,7 @@ fn iter_dirty_pages(f: &dyn Fn(isize)) {
     let mut min_off = u32::MAX;
     let mut max_off = u32::MIN;
 
-    for (i, &word) in unsafe { &dirty_bitmap }.iter().enumerate() {
+    for (i, &word) in unsafe { dirty_bitmap.iter().enumerate() } {
         if word == 0 {
             continue;
         }
