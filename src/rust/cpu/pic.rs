@@ -92,9 +92,201 @@ static mut slave: Pic = Pic {
 // triggering irqs:
 // (io device has irq) -> cpu.device_raise_irq -> pic.set_irq -> pic.check_irqs -> cpu.handle_irqs -> (see above)
 
+impl Pic {
+    unsafe fn get_irq(&mut self) -> Option<u8> {
+        let enabled_irr = self.irr & self.irq_mask;
+
+        if enabled_irr == 0 {
+            if PIC_LOG_VERBOSE {
+                dbg_log!(
+                    "[PIC] no unmasked irrs. irr={:x} mask={:x} isr={:x}",
+                    self.irr,
+                    self.irq_mask,
+                    self.isr
+                );
+            }
+            return None;
+        }
+
+        let irq_mask = enabled_irr & (!enabled_irr + 1);
+        let special_mask = if self.special_mask_mode { self.irq_mask } else { 0xFF };
+
+        if self.isr != 0 && (self.isr & (!self.isr + 1) & special_mask) <= irq_mask {
+            // wait for eoi of higher or same priority interrupt
+            if PIC_LOG {
+                dbg_log!(
+                    "[PIC] higher prio: master={} isr={:x} mask={:x} irq={:x}",
+                    self.master,
+                    self.isr,
+                    self.irq_mask,
+                    irq_mask
+                );
+            }
+            return None;
+        }
+
+        dbg_assert!(irq_mask != 0);
+        let irq_number = irq_mask.ilog2() as u8;
+        dbg_assert!(irq_mask == 1 << irq_number);
+
+        if PIC_LOG_VERBOSE {
+            dbg_log!("[PIC] request irq {}", irq_number);
+        }
+
+        Some(irq_number)
+    }
+
+    unsafe fn check_irqs(&mut self) {
+        let is_set = self.get_irq().is_some();
+
+        if self.master {
+            if is_set {
+                cpu::handle_irqs();
+            }
+        }
+        else {
+            if is_set {
+                master.set_irq(2)
+            }
+            else {
+                master.clear_irq(2)
+            }
+        }
+    }
+
+    unsafe fn set_irq(&mut self, i: u8) {
+        let mask = 1 << i;
+        if self.irq_value & mask == 0 || self.elcr & mask != 0 {
+            self.irr |= mask;
+            self.irq_value |= mask;
+            self.check_irqs()
+        }
+    }
+
+    unsafe fn clear_irq(&mut self, i: u8) {
+        let mask = 1 << i;
+        if self.elcr & mask != 0 {
+            self.irq_value &= !mask;
+            self.irr &= !mask;
+            self.check_irqs()
+        }
+        else if self.irq_value & mask != 0 {
+            self.irq_value &= !mask;
+            self.check_irqs()
+        }
+    }
+
+    unsafe fn port0_read(self: &Pic) -> u32 {
+        (if self.read_isr { self.isr } else { self.irr }) as u32
+    }
+    unsafe fn port1_read(self: &Pic) -> u32 { !self.irq_mask as u32 }
+
+    unsafe fn port0_write(&mut self, v: u8) {
+        if v & 0x10 != 0 {
+            // xxxx1xxx
+            // icw1
+            dbg_log!("icw1 = {:x}", v);
+            self.isr = 0;
+            self.irr = 0;
+            self.irq_mask = 0;
+            self.irq_value = 0;
+            self.auto_eoi = true;
+
+            self.expect_icw4 = v & 1 != 0;
+            self.state = 1;
+        }
+        else if v & 8 != 0 {
+            // xxx01xxx
+            // ocw3
+            dbg_log!("ocw3: {:x}", v);
+            if v & 2 != 0 {
+                self.read_isr = v & 1 != 0;
+            }
+            if v & 4 != 0 {
+                dbg_assert!(false, "unimplemented: polling");
+            }
+            if v & 0x40 != 0 {
+                self.special_mask_mode = (v & 0x20) == 0x20;
+                dbg_log!("special mask mode: {}", self.special_mask_mode);
+            }
+        }
+        else {
+            // xxx00xxx
+            // ocw2
+            // end of interrupt
+            if PIC_LOG {
+                dbg_log!("eoi: {:x}", v);
+            }
+
+            let eoi_type = v >> 5;
+
+            if eoi_type == 1 {
+                // non-specific eoi
+                self.isr &= self.isr - 1;
+                if PIC_LOG {
+                    dbg_log!("new isr: {:x}", self.isr);
+                }
+            }
+            else if eoi_type == 3 {
+                // specific eoi
+                self.isr &= !(1 << (v & 7));
+            }
+            else if (v & 0xC8) == 0xC0 {
+                // os2 v4
+                let priority = v & 7;
+                dbg_log!("lowest priority: {:x}", priority);
+            }
+            else {
+                dbg_log!("Unknown eoi: {:x}", v);
+                dbg_assert!(false);
+                self.isr &= self.isr - 1;
+            }
+
+            self.check_irqs()
+        }
+    }
+
+    unsafe fn port1_write(&mut self, v: u8) {
+        //dbg_log!("21 write: " + h(v));
+        if self.state == 0 {
+            if self.expect_icw4 {
+                // icw4
+                self.expect_icw4 = false;
+                self.auto_eoi = v & 2 != 0;
+                dbg_log!("icw4: {:x} autoeoi={}", v, self.auto_eoi);
+
+                if v & 1 == 0 {
+                    dbg_assert!(false, "unimplemented: not 8086 mode");
+                }
+            }
+            else {
+                // ocw1
+                self.irq_mask = !v;
+
+                if PIC_LOG_VERBOSE {
+                    dbg_log!("interrupt mask: {:x}", self.irq_mask);
+                }
+
+                self.check_irqs()
+            }
+        }
+        else if self.state == 1 {
+            // icw2
+            self.irq_map = v;
+            dbg_log!("interrupts are mapped to {:x}", self.irq_map);
+            self.state += 1;
+        }
+        else if self.state == 2 {
+            // icw3
+            self.state = 0;
+            dbg_log!("icw3: {:x}", v);
+        }
+    }
+}
+
 // called by the cpu
 pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
-    let irq = match get_irq(&mut master) {
+    let irq = match master.get_irq() {
         Some(i) => i,
         None => return None,
     };
@@ -121,7 +313,7 @@ pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
         dbg_log!("[PIC] master> acknowledge {}", irq);
     }
 
-    check_irqs(&mut master);
+    master.check_irqs();
 
     if irq == 2 {
         acknowledge_irq_slave()
@@ -132,7 +324,7 @@ pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
 }
 
 unsafe fn acknowledge_irq_slave() -> Option<u8> {
-    let irq = match get_irq(&mut slave) {
+    let irq = match slave.get_irq() {
         Some(i) => i,
         None => return None,
     };
@@ -158,70 +350,9 @@ unsafe fn acknowledge_irq_slave() -> Option<u8> {
     if PIC_LOG_VERBOSE {
         dbg_log!("[PIC] slave> acknowledge {}", irq);
     }
-    check_irqs(&mut slave);
+    slave.check_irqs();
 
     Some(slave.irq_map | irq)
-}
-
-unsafe fn get_irq(pic: &mut Pic) -> Option<u8> {
-    let enabled_irr = pic.irr & pic.irq_mask;
-
-    if enabled_irr == 0 {
-        if PIC_LOG_VERBOSE {
-            dbg_log!(
-                "[PIC] no unmasked irrs. irr={:x} mask={:x} isr={:x}",
-                pic.irr,
-                pic.irq_mask,
-                pic.isr
-            );
-        }
-        return None;
-    }
-
-    let irq_mask = enabled_irr & (!enabled_irr + 1);
-    let special_mask = if pic.special_mask_mode { pic.irq_mask } else { 0xFF };
-
-    if pic.isr != 0 && (pic.isr & (!pic.isr + 1) & special_mask) <= irq_mask {
-        // wait for eoi of higher or same priority interrupt
-        if PIC_LOG {
-            dbg_log!(
-                "[PIC] higher prio: master={} isr={:x} mask={:x} irq={:x}",
-                pic.master,
-                pic.isr,
-                pic.irq_mask,
-                irq_mask
-            );
-        }
-        return None;
-    }
-
-    dbg_assert!(irq_mask != 0);
-    let irq_number = irq_mask.ilog2() as u8;
-    dbg_assert!(irq_mask == 1 << irq_number);
-
-    if PIC_LOG_VERBOSE {
-        dbg_log!("[PIC] request irq {}", irq_number);
-    }
-
-    Some(irq_number)
-}
-
-unsafe fn check_irqs(pic: &mut Pic) {
-    let is_set = get_irq(pic).is_some();
-
-    if pic.master {
-        if is_set {
-            cpu::handle_irqs();
-        }
-    }
-    else {
-        if is_set {
-            set_irq(&mut master, 2);
-        }
-        else {
-            clear_irq(&mut master, 2);
-        }
-    }
 }
 
 // called by javascript
@@ -234,19 +365,10 @@ pub unsafe fn pic_set_irq(i: u8) {
     }
 
     if i < 8 {
-        set_irq(&mut master, i);
+        master.set_irq(i)
     }
     else {
-        set_irq(&mut slave, i - 8);
-    }
-}
-
-unsafe fn set_irq(pic: &mut Pic, i: u8) {
-    let mask = 1 << i;
-    if pic.irq_value & mask == 0 || pic.elcr & mask != 0 {
-        pic.irr |= mask;
-        pic.irq_value |= mask;
-        check_irqs(pic);
+        slave.set_irq(i - 8)
     }
 }
 
@@ -260,150 +382,32 @@ pub unsafe fn pic_clear_irq(i: u8) {
     }
 
     if i < 8 {
-        clear_irq(&mut master, i);
+        master.clear_irq(i)
     }
     else {
-        clear_irq(&mut slave, i - 8);
-    }
-}
-
-unsafe fn clear_irq(pic: &mut Pic, i: u8) {
-    let mask = 1 << i;
-    if pic.elcr & mask != 0 {
-        pic.irq_value &= !mask;
-        pic.irr &= !mask;
-        check_irqs(pic);
-    }
-    else if pic.irq_value & mask != 0 {
-        pic.irq_value &= !mask;
-        check_irqs(pic);
-    }
-}
-
-unsafe fn port0_read(pic: &mut Pic) -> u32 { (if pic.read_isr { pic.isr } else { pic.irr }) as u32 }
-unsafe fn port1_read(pic: &mut Pic) -> u32 { !pic.irq_mask as u32 }
-
-unsafe fn port0_write(pic: &mut Pic, v: u8) {
-    if v & 0x10 != 0 {
-        // xxxx1xxx
-        // icw1
-        dbg_log!("icw1 = {:x}", v);
-        pic.isr = 0;
-        pic.irr = 0;
-        pic.irq_mask = 0;
-        pic.irq_value = 0;
-        pic.auto_eoi = true;
-
-        pic.expect_icw4 = v & 1 != 0;
-        pic.state = 1;
-    }
-    else if v & 8 != 0 {
-        // xxx01xxx
-        // ocw3
-        dbg_log!("ocw3: {:x}", v);
-        if v & 2 != 0 {
-            pic.read_isr = v & 1 != 0;
-        }
-        if v & 4 != 0 {
-            dbg_assert!(false, "unimplemented: polling");
-        }
-        if v & 0x40 != 0 {
-            pic.special_mask_mode = (v & 0x20) == 0x20;
-            dbg_log!("special mask mode: {}", pic.special_mask_mode);
-        }
-    }
-    else {
-        // xxx00xxx
-        // ocw2
-        // end of interrupt
-        if PIC_LOG {
-            dbg_log!("eoi: {:x}", v);
-        }
-
-        let eoi_type = v >> 5;
-
-        if eoi_type == 1 {
-            // non-specific eoi
-            pic.isr &= pic.isr - 1;
-            if PIC_LOG {
-                dbg_log!("new isr: {:x}", pic.isr);
-            }
-        }
-        else if eoi_type == 3 {
-            // specific eoi
-            pic.isr &= !(1 << (v & 7));
-        }
-        else if (v & 0xC8) == 0xC0 {
-            // os2 v4
-            let priority = v & 7;
-            dbg_log!("lowest priority: {:x}", priority);
-        }
-        else {
-            dbg_log!("Unknown eoi: {:x}", v);
-            dbg_assert!(false);
-            pic.isr &= pic.isr - 1;
-        }
-
-        check_irqs(pic);
-    }
-}
-
-unsafe fn port1_write(pic: &mut Pic, v: u8) {
-    //dbg_log!("21 write: " + h(v));
-    if pic.state == 0 {
-        if pic.expect_icw4 {
-            // icw4
-            pic.expect_icw4 = false;
-            pic.auto_eoi = v & 2 != 0;
-            dbg_log!("icw4: {:x} autoeoi={}", v, pic.auto_eoi);
-
-            if v & 1 == 0 {
-                dbg_assert!(false, "unimplemented: not 8086 mode");
-            }
-        }
-        else {
-            // ocw1
-            pic.irq_mask = !v;
-
-            if PIC_LOG_VERBOSE {
-                dbg_log!("interrupt mask: {:x}", pic.irq_mask);
-            }
-
-            check_irqs(pic);
-        }
-    }
-    else if pic.state == 1 {
-        // icw2
-        pic.irq_map = v;
-        dbg_log!("interrupts are mapped to {:x}", pic.irq_map);
-        pic.state += 1;
-    }
-    else if pic.state == 2 {
-        // icw3
-        pic.state = 0;
-        dbg_log!("icw3: {:x}", v);
+        slave.clear_irq(i - 8)
     }
 }
 
 #[no_mangle]
-pub unsafe fn port20_read() -> u32 { port0_read(&mut master) }
+pub unsafe fn port20_read() -> u32 { master.port0_read() }
 #[no_mangle]
-pub unsafe fn port21_read() -> u32 { port1_read(&mut master) }
+pub unsafe fn port21_read() -> u32 { master.port1_read() }
 
 #[no_mangle]
-pub unsafe fn portA0_read() -> u32 { port0_read(&mut slave) }
+pub unsafe fn portA0_read() -> u32 { slave.port0_read() }
 #[no_mangle]
-pub unsafe fn portA1_read() -> u32 { port1_read(&mut slave) }
+pub unsafe fn portA1_read() -> u32 { slave.port1_read() }
 
 #[no_mangle]
-pub unsafe fn port20_write(v: u8) { port0_write(&mut master, v) }
+pub unsafe fn port20_write(v: u8) { master.port0_write(v) }
 #[no_mangle]
-pub unsafe fn port21_write(v: u8) { port1_write(&mut master, v) }
+pub unsafe fn port21_write(v: u8) { master.port1_write(v) }
 
 #[no_mangle]
-pub unsafe fn portA0_write(v: u8) { port0_write(&mut slave, v) }
+pub unsafe fn portA0_write(v: u8) { slave.port0_write(v) }
 #[no_mangle]
-pub unsafe fn portA1_write(v: u8) { port1_write(&mut slave, v) }
+pub unsafe fn portA1_write(v: u8) { slave.port1_write(v) }
 
 #[no_mangle]
 pub unsafe fn port4D0_read() -> u32 { master.elcr as u32 }
