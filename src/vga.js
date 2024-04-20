@@ -876,6 +876,8 @@ VGAScreen.prototype.text_mode_redraw = function()
 
 VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
 {
+    this.vga_memory[addr] = value;
+
     const max_cols = Math.max(this.max_cols, this.offset_register * 2);
     let row;
     let col;
@@ -918,8 +920,6 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
     this.bus.send("screen-put-char", [row, col, chr,
         this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
         this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
-
-    this.vga_memory[addr] = value;
 };
 
 VGAScreen.prototype.update_cursor = function()
