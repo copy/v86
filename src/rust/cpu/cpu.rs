@@ -1999,7 +1999,7 @@ pub unsafe fn do_page_walk(
             }
 
             allow_user &= page_table_entry & PAGE_TABLE_USER_MASK != 0;
-            if user && !allow_user{
+            if user && !allow_user {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
