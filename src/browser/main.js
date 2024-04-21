@@ -568,6 +568,16 @@
                 name: "OpenBSD",
             },
             {
+                id: "sortix",
+                cdrom: {
+                    url: host + "sortix-1.0-i686.iso",
+                    size: 71075840,
+                    async: false,
+                },
+                memory_size: 512 * 1024 * 1024,
+                name: "Sortix",
+            },
+            {
                 id: "openbsd-boot",
                 hda: {
                     url: host + "openbsd.img",
@@ -678,6 +688,15 @@
                 },
                 name: "Still Alive",
                 homepage: "https://github.com/maniekx86/stillalive-os",
+            },
+            {
+                id: "hello-v86",
+                fda: {
+                    url: host + "hello-v86.img",
+                    async: false,
+                    size: 512,
+                },
+                name: "Hello v86",
             },
             {
                 id: "duskos",
