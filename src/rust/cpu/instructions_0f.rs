@@ -1340,6 +1340,7 @@ pub unsafe fn instr_0F34() {
         *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0;
+        *segment_access_bytes.offset(CS as isize) = 0x80 | (0 << 5) | 0x10 | 0x08 | 0x02; // P dpl0 S E RW
         update_cs_size(true);
         *cpl = 0;
         cpl_changed();
@@ -1347,6 +1348,7 @@ pub unsafe fn instr_0F34() {
         *segment_is_null.offset(SS as isize) = false;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
+        *segment_access_bytes.offset(SS as isize) = 0x80 | (0 << 5) | 0x10 | 0x02; // P dpl0 S RW
         *stack_size_32 = true;
         update_state_flags();
         return;
@@ -1367,6 +1369,7 @@ pub unsafe fn instr_0F35() {
         *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0;
+        *segment_access_bytes.offset(CS as isize) = 0x80 | (3 << 5) | 0x10 | 0x08 | 0x02; // P dpl3 S E RW
         update_cs_size(true);
         *cpl = 3;
         cpl_changed();
@@ -1374,6 +1377,7 @@ pub unsafe fn instr_0F35() {
         *segment_is_null.offset(SS as isize) = false;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
+        *segment_access_bytes.offset(SS as isize) = 0x80 | (3 << 5) | 0x10 | 0x02; // P dpl3 S RW
         *stack_size_32 = true;
         update_state_flags();
         return;
