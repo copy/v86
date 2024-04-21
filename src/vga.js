@@ -848,8 +848,16 @@ VGAScreen.prototype.text_mode_redraw = function()
         chr,
         color;
 
+    const split_screen_row = this.scan_line_to_screen_row(this.line_compare);
+    const row_offset = Math.max(0, (this.offset_register * 2 - this.max_cols) * 2);
+
     for(var row = 0; row < this.max_rows; row++)
     {
+        if(row === split_screen_row)
+        {
+            addr = 0;
+        }
+
         for(var col = 0; col < this.max_cols; col++)
         {
             chr = this.vga_memory[addr];
@@ -861,16 +869,39 @@ VGAScreen.prototype.text_mode_redraw = function()
 
             addr += 2;
         }
+
+        addr += row_offset;
     }
 };
 
 VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
 {
-    var memory_start = (addr >> 1) - this.start_address,
-        row = memory_start / this.max_cols | 0,
-        col = memory_start % this.max_cols,
-        chr,
-        color;
+    const max_cols = Math.max(this.max_cols, this.offset_register * 2);
+    let row;
+    let col;
+
+    if((addr >> 1) >= this.start_address)
+    {
+        const memory_start = (addr >> 1) - this.start_address;
+        row = memory_start / max_cols | 0;
+        col = memory_start % max_cols;
+    }
+    else
+    {
+        const memory_start = addr >> 1;
+        row = (memory_start / max_cols | 0) + this.scan_line_to_screen_row(this.line_compare);
+        col = memory_start % max_cols;
+    }
+
+    dbg_assert(row >= 0 && col >= 0);
+
+    if(col >= this.max_cols || row >= this.max_rows)
+    {
+        return;
+    }
+
+    let chr;
+    let color;
 
     // XXX: Should handle 16 bit write if possible
     if(addr & 1)
@@ -893,10 +924,25 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
 
 VGAScreen.prototype.update_cursor = function()
 {
-    var row = (this.cursor_address - this.start_address) / this.max_cols | 0,
-        col = (this.cursor_address - this.start_address) % this.max_cols;
+    const max_cols = Math.max(this.max_cols, this.offset_register * 2);
+    let row;
+    let col;
+
+    if(this.cursor_address >= this.start_address)
+    {
+        row = (this.cursor_address - this.start_address) / max_cols | 0,
+        col = (this.cursor_address - this.start_address) % max_cols;
+    }
+    else
+    {
+        row = (this.cursor_address / max_cols | 0) + this.scan_line_to_screen_row(this.line_compare);
+        col = this.cursor_address % max_cols;
+    }
+
+    dbg_assert(row >= 0 && col >= 0);
 
     row = Math.min(this.max_rows - 1, row);
+    col = Math.min(this.max_cols - 1, col);
 
     this.bus.send("screen-update-cursor", [row, col]);
 };
