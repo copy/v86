@@ -567,7 +567,7 @@ PS2.prototype.port60_write = function(write_byte)
         }
         else
         {
-            this.kbd_buffer.push(2);
+            this.kbd_buffer.push(1);
         }
     }
     else if(this.next_read_rate)
