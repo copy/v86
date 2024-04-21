@@ -1935,7 +1935,9 @@ pub unsafe fn do_page_walk(
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
             // size bit is set
 
-            if for_writing && !allow_write && !kernel_write_override {
+            let user_error = user && !allow_user;
+            let write_error = for_writing && !allow_write && !kernel_write_override;
+            if user_error || write_error {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
@@ -1991,15 +1993,11 @@ pub unsafe fn do_page_walk(
             }
 
             allow_write &= page_table_entry & PAGE_TABLE_RW_MASK != 0;
-            if for_writing && !allow_write && !kernel_write_override {
-                if side_effects {
-                    trigger_pagefault(addr, true, for_writing, user, jit);
-                }
-                return Err(());
-            }
-
             allow_user &= page_table_entry & PAGE_TABLE_USER_MASK != 0;
-            if user && !allow_user {
+
+            let user_error = user && !allow_user;
+            let write_error = for_writing && !allow_write && !kernel_write_override;
+            if user_error || write_error {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
