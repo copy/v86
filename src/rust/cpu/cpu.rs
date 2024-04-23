@@ -1951,15 +1951,12 @@ pub unsafe fn do_page_walk(
 
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
         let mut allow_write = page_dir_entry & PAGE_TABLE_RW_MASK != 0;
-
         allow_user &= page_dir_entry & PAGE_TABLE_USER_MASK != 0;
 
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
             // size bit is set
 
-            let user_error = user && !allow_user;
-            let write_error = for_writing && !allow_write && !kernel_write_override;
-            if user_error || write_error {
+            if for_writing && !allow_write && !kernel_write_override || user && !allow_user {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
@@ -2007,21 +2004,16 @@ pub unsafe fn do_page_walk(
                 (page_table_addr, page_table_entry)
             };
 
-            if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
-                if side_effects {
-                    trigger_pagefault(addr, false, for_writing, user, jit);
-                }
-                return Err(());
-            }
-
+            let present = page_table_entry & PAGE_TABLE_PRESENT_MASK != 0;
             allow_write &= page_table_entry & PAGE_TABLE_RW_MASK != 0;
             allow_user &= page_table_entry & PAGE_TABLE_USER_MASK != 0;
 
-            let user_error = user && !allow_user;
-            let write_error = for_writing && !allow_write && !kernel_write_override;
-            if user_error || write_error {
+            if !present
+                || for_writing && !allow_write && !kernel_write_override
+                || user && !allow_user
+            {
                 if side_effects {
-                    trigger_pagefault(addr, true, for_writing, user, jit);
+                    trigger_pagefault(addr, present, for_writing, user, jit);
                 }
                 return Err(());
             }
