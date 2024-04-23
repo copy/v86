@@ -161,10 +161,10 @@ pub unsafe fn psllq_r64(r: i32, shift: u64) {
 pub unsafe fn psrlw_r128(r: i32, shift: u64) {
     // psrlw xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
-    let mut dword2: i32 = 0;
-    let mut dword3: i32 = 0;
+    let mut dword0 = 0;
+    let mut dword1 = 0;
+    let mut dword2 = 0;
+    let mut dword3 = 0;
     if shift <= 15 {
         dword0 = destination.u16[0] as i32 >> shift | destination.u16[1] as i32 >> shift << 16;
         dword1 = destination.u16[2] as i32 >> shift | destination.u16[3] as i32 >> shift << 16;
@@ -190,10 +190,10 @@ pub unsafe fn psraw_r128(r: i32, shift: u64) {
 pub unsafe fn psllw_r128(r: i32, shift: u64) {
     // psllw xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
-    let mut dword2: i32 = 0;
-    let mut dword3: i32 = 0;
+    let mut dword0 = 0;
+    let mut dword1 = 0;
+    let mut dword2 = 0;
+    let mut dword3 = 0;
     if shift <= 15 {
         dword0 = (destination.u16[0] as i32) << shift & 0xFFFF
             | (destination.u16[1] as i32) << shift << 16;
@@ -209,10 +209,10 @@ pub unsafe fn psllw_r128(r: i32, shift: u64) {
 pub unsafe fn psrld_r128(r: i32, shift: u64) {
     // psrld xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
-    let mut dword2: i32 = 0;
-    let mut dword3: i32 = 0;
+    let mut dword0 = 0;
+    let mut dword1 = 0;
+    let mut dword2 = 0;
+    let mut dword3 = 0;
     if shift <= 31 {
         dword0 = (destination.u32[0] >> shift) as i32;
         dword1 = (destination.u32[1] >> shift) as i32;
@@ -234,10 +234,10 @@ pub unsafe fn psrad_r128(r: i32, shift: u64) {
 pub unsafe fn pslld_r128(r: i32, shift: u64) {
     // pslld xmm, {shift}
     let destination = read_xmm128s(r);
-    let mut dword0: i32 = 0;
-    let mut dword1: i32 = 0;
-    let mut dword2: i32 = 0;
-    let mut dword3: i32 = 0;
+    let mut dword0 = 0;
+    let mut dword1 = 0;
+    let mut dword2 = 0;
+    let mut dword3 = 0;
     if shift <= 31 {
         dword0 = destination.i32[0] << shift;
         dword1 = destination.i32[1] << shift;

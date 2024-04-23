@@ -1896,7 +1896,7 @@ pub unsafe fn do_page_walk(
     side_effects: bool,
 ) -> OrPageFault<std::num::NonZeroI32> {
     let global;
-    let mut allow_user: bool = true;
+    let mut allow_user = true;
     let page = (addr as u32 >> 12) as i32;
     let high;
 
@@ -2054,7 +2054,7 @@ pub unsafe fn do_page_walk(
     // entries from tlb_data but not from valid_tlb_entries
     }
     else if side_effects && CHECK_TLB_INVARIANTS {
-        let mut found: bool = false;
+        let mut found = false;
         for i in 0..valid_tlb_entries_count {
             if valid_tlb_entries[i as usize] == page {
                 found = true;
@@ -2116,7 +2116,7 @@ pub unsafe fn clear_tlb() {
     profiler::stat_increment(CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1;
-    let mut global_page_offset: i32 = 0;
+    let mut global_page_offset = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];
@@ -4101,8 +4101,8 @@ pub unsafe fn invlpg(addr: i32) {
 
 #[no_mangle]
 pub unsafe fn update_eflags(new_flags: i32) {
-    let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
-    let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
+    let mut dont_update = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
+    let mut clear = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
     if 0 != *flags & FLAG_VM {
         // other case needs to be handled in popf or iret
         dbg_assert!(getiopl() == 3);
@@ -4139,7 +4139,7 @@ pub unsafe fn get_valid_tlb_entries_count() -> i32 {
     if !cfg!(feature = "profiler") {
         return 0;
     }
-    let mut result: i32 = 0;
+    let mut result = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];
@@ -4155,7 +4155,7 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
     if !cfg!(feature = "profiler") {
         return 0;
     }
-    let mut result: i32 = 0;
+    let mut result = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];

@@ -1265,8 +1265,8 @@ pub unsafe fn instr_0F32() {
     let index = read_reg32(ECX);
     dbg_log!("rdmsr ecx={:x}", index);
 
-    let mut low: i32 = 0;
-    let mut high: i32 = 0;
+    let mut low = 0;
+    let mut high = 0;
 
     match index {
         IA32_SYSENTER_CS => low = *sysenter_cs,
