@@ -301,7 +301,7 @@ expect-tests: all-debug build/libwabt.js
 
 devices-test: all-debug
 	./tests/devices/virtio_9p.js
-	./tests/devices/virtio-console.js
+	./tests/devices/virtio_console.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
