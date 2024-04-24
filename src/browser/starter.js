@@ -115,6 +115,7 @@ function V86(options)
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
         "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
+        "stop_idling": function() { return cpu.stop_idling(); },
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -654,7 +655,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                     const env = Object.fromEntries([
                         "cpu_exception_hook", "run_hardware_timers",
                         "cpu_event_halt", "microtick", "get_rand_int",
-                        "apic_acknowledge_irq",
+                        "apic_acknowledge_irq", "stop_idling",
                         "io_port_read8", "io_port_read16", "io_port_read32",
                         "io_port_write8", "io_port_write16", "io_port_write32",
                         "mmap_read8", "mmap_read16", "mmap_read32",

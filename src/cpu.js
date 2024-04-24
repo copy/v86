@@ -7,9 +7,9 @@
 
 
 /** @constructor */
-function CPU(bus, wm, next_tick_immediately)
+function CPU(bus, wm, stop_idling)
 {
-    this.next_tick_immediately = next_tick_immediately;
+    this.stop_idling = stop_idling;
     this.wm = wm;
     this.wasm_patch();
     this.create_jit_imports();

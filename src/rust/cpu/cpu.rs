@@ -7,6 +7,7 @@ extern "C" {
     pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
     pub fn cpu_event_halt();
     pub fn apic_acknowledge_irq() -> i32;
+    pub fn stop_idling();
 
     pub fn io_port_read8(port: i32) -> i32;
     pub fn io_port_read16(port: i32) -> i32;
@@ -4210,7 +4211,10 @@ pub unsafe fn handle_irqs() {
 
 unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
-    *in_hlt = false;
+    if *in_hlt {
+        stop_idling();
+        *in_hlt = false;
+    }
     call_interrupt_vector(interrupt_nr as i32, false, None);
 }
 
