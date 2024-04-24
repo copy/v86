@@ -12,6 +12,9 @@ function v86(bus, wasm)
     /** @type {boolean} */
     this.stopping = false;
 
+    /** @type {boolean} */
+    this.idle = true;
+
     this.tick_counter = 0;
     this.worker = null;
 
