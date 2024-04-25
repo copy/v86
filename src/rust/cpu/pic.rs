@@ -188,7 +188,7 @@ impl Pic {
             dbg_log!("icw1 = {:x}", v);
             self.isr = 0;
             self.irr = 0;
-            self.irq_mask = 0;
+            self.irq_mask = 0xff;
             self.irq_value = 0;
             self.auto_eoi = true;
 
