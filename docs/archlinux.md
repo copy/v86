@@ -1,3 +1,6 @@
+See [Alpine setup](../tools/docker/alpine/Readme.md) for a more reliable and
+faster way to automatically build Linux images for v86.
+
 (This document partly also applies to other Linuxes)
 
 Choosing an installer ISO

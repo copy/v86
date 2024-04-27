@@ -1,18 +1,9 @@
-FROM i386/alpine:3.18.6
+FROM docker.io/i386/alpine:3.19.1
 
 ENV KERNEL=lts
-ENV HOSTNAME=localhost
-ENV ROOT_PASSWORD='root'
-ENV ADDPKGS=''
+ENV ADDPKGS=nodejs
 
-RUN apk add openrc \ 
-            alpine-base \
-            agetty \
-            alpine-conf \ 
-            $ADDPKGS
-
-# Install mkinitfs from edge (todo: remove this when 3.19+ has worked properly with 9pfs)
-RUN apk add mkinitfs --no-cache --allow-untrusted --repository https://dl-cdn.alpinelinux.org/alpine/edge/main/ 
+RUN apk add openrc alpine-base agetty alpine-conf $ADDPKGS
 
 RUN if [ "$KERNEL" == "lts" ]; then \
     apk add linux-lts \
@@ -22,16 +13,19 @@ else \
     apk add linux-$KERNEL; \
 fi
 
-RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab && \
-    echo "root:$ROOT_PASSWORD" | chpasswd
+RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab
+RUN echo 'ttyS0::respawn:/sbin/agetty --autologin root -s ttyS0 115200 vt100' >> /etc/inittab
+RUN echo "root:" | chpasswd
 
-RUN setup-hostname $HOSTNAME
+RUN setup-hostname localhost
 
 # Adding networking.sh script (works only on lts kernel yet)
-RUN if [ "$KERNEL" == "lts" ]; then \ 
-    echo -e "rmmod ne2k-pci && modprobe ne2k-pci\nhwclock -s\nsetup-interfaces -a -r" > /root/networking.sh && \ 
-    chmod +x /root/networking.sh; \ 
+RUN if [ "$KERNEL" == "lts" ]; then \
+    echo -e "rmmod ne2k-pci && modprobe ne2k-pci\nhwclock -s\nsetup-interfaces -a -r" > /root/networking.sh && \
+    chmod +x /root/networking.sh; \
 fi
+
+RUN echo 'console.log("Hello, world!");' > /root/hello.js
 
 # https://wiki.alpinelinux.org/wiki/Alpine_Linux_in_a_chroot#Preparing_init_services
 RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done
