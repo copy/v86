@@ -1,0 +1,28 @@
+<!doctype html>
+<title>Alpine</title>
+<script src="../build/libv86.js"></script>
+<script>
+"use strict";
+window.onload = function()
+{
+    var emulator = new V86({
+        wasm_path: "../build/v86.wasm",
+        memory_size: 512 * 1024 * 1024,
+        vga_memory_size: 8 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: { url: "../bios/seabios.bin" },
+        vga_bios: { url: "../bios/vgabios.bin" },
+        filesystem: {
+            baseurl: "../images/alpine-rootfs-flat",
+            basefs: "../images/alpine-fs.json",
+        },
+        autostart: true,
+        bzimage_initrd_from_filesystem: true,
+        cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose modules=virtio_pci tsc=reliable",
+    });
+};
+</script>
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
