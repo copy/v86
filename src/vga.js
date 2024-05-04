@@ -1141,6 +1141,9 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
 
 VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_width, virtual_height)
 {
+    virtual_width = Math.max(virtual_width, 1);
+    virtual_height = Math.max(virtual_height, 1);
+
     var needs_update = !this.stats.is_graphical ||
         this.stats.bpp !== bpp ||
         this.screen_width !== width ||
@@ -1226,10 +1229,10 @@ VGAScreen.prototype.update_vga_size = function()
         // Depended on by: Windows 98 start screen
         var available_bytes = VGA_HOST_MEMORY_SPACE_SIZE[0];
 
-        var virtual_height = Math.ceil(available_bytes / this.vga_bytes_per_line());
+        const bytes_per_line = this.vga_bytes_per_line();
+        const virtual_height = bytes_per_line ? Math.ceil(available_bytes / bytes_per_line) : screen_height;
 
-        this.set_size_graphical(screen_width, screen_height, 8,
-            virtual_width, virtual_height);
+        this.set_size_graphical(screen_width, screen_height, 8, virtual_width, virtual_height);
 
         this.update_vertical_retrace();
         this.update_layers();
