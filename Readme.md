@@ -102,7 +102,7 @@ Here's an overview of the operating systems supported in v86:
 - OpenBSD works with a specific boot configuration. At the `boot>` prompt type
   `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
 - NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
-- SerenityOS works.
+- SerenityOS works (although it is an old 32-bit version).
 - [SkiftOS](https://skiftos.org/) works.
 
 You can get some information on the disk images here: https://github.com/copy/images.
