@@ -98,7 +98,16 @@ NetworkAdapter.prototype.connect = function()
 
     this.last_connect_attempt = Date.now();
 
-    this.socket = new WebSocket(this.url);
+    try
+    {
+        this.socket = new WebSocket(this.url);
+    }
+    catch(e)
+    {
+        console.error(e);
+        return;
+    }
+
     this.socket.binaryType = "arraybuffer";
 
     this.socket.onopen = this.handle_open.bind(this);
