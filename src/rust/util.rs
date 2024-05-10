@@ -4,9 +4,6 @@ pub trait SafeToU8 {
 pub trait SafeToU16 {
     fn safe_to_u16(self) -> u16;
 }
-pub trait SafeToI32 {
-    fn safe_to_i32(self) -> i32;
-}
 
 impl SafeToU8 for u16 {
     fn safe_to_u8(self) -> u8 {
@@ -54,20 +51,6 @@ impl SafeToU16 for usize {
     fn safe_to_u16(self) -> u16 {
         dbg_assert!(self <= ::std::u16::MAX as usize);
         self as u16
-    }
-}
-
-impl SafeToI32 for u32 {
-    fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self <= ::std::i32::MAX as u32);
-        self as i32
-    }
-}
-
-impl SafeToI32 for usize {
-    fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self <= ::std::i32::MAX as usize);
-        self as i32
     }
 }
 
