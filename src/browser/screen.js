@@ -38,8 +38,9 @@ function ScreenAdapter(screen_container, bus)
         is_graphical = false,
 
         // Index 0: ASCII code
-        // Index 1: Background color
-        // Index 2: Foreground color
+        // Index 1: Attribute
+        // Index 2: Background color
+        // Index 3: Foreground color
         text_mode_data,
 
         // number of columns
@@ -47,6 +48,12 @@ function ScreenAdapter(screen_container, bus)
 
         // number of rows
         text_mode_height;
+
+    const CHARACTER_INDEX = 0;
+    const ATTRIBUTE_INDEX = 1;
+    const BG_COLOR_INDEX = 2;
+    const FG_COLOR_INDEX = 3;
+    const TEXT_MODE_COMPONENT_SIZE = 4;
 
     var stopped = false;
 
@@ -115,6 +122,7 @@ function ScreenAdapter(screen_container, bus)
 
     graphic_context.imageSmoothingEnabled = false;
 
+    cursor_element.classList.add("blink")
     cursor_element.style.position = "absolute";
     cursor_element.style.backgroundColor = "#ccc";
     cursor_element.style.width = "7px";
@@ -138,16 +146,16 @@ function ScreenAdapter(screen_container, bus)
     bus.register("screen-put-char", function(data)
     {
         //console.log(data);
-        this.put_char(data[0], data[1], data[2], data[3], data[4]);
+        this.put_char(...data);
     }, this);
 
     bus.register("screen-update-cursor", function(data)
     {
-        this.update_cursor(data[0], data[1]);
+        this.update_cursor(...data);
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(data[0], data[1]);
+        this.update_cursor_scanline(...data);
     }, this);
 
     bus.register("screen-clear", function()
@@ -157,11 +165,11 @@ function ScreenAdapter(screen_container, bus)
 
     bus.register("screen-set-size-text", function(data)
     {
-        this.set_size_text(data[0], data[1]);
+        this.set_size_text(...data);
     }, this);
     bus.register("screen-set-size-graphical", function(data)
     {
-        this.set_size_graphical(data[0], data[1], data[2], data[3]);
+        this.set_size_graphical(...data);
     }, this);
 
 
@@ -199,11 +207,15 @@ function ScreenAdapter(screen_container, bus)
             {
                 for(let y = 0; y < text_mode_height; y++)
                 {
-                    const index = (y * text_mode_width + x) * 3;
-                    context.fillStyle = number_as_color(text_mode_data[index + 1]);
+                    const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
+                    const character = text_mode_data[index + CHARACTER_INDEX];
+                    const bg_color = text_mode_data[index + BG_COLOR_INDEX];
+                    const fg_color = text_mode_data[index + FG_COLOR_INDEX]
+
+                    context.fillStyle = number_as_color(bg_color);
                     context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
-                    context.fillStyle = number_as_color(text_mode_data[index + 2]);
-                    context.fillText(charmap[text_mode_data[index]], x * char_size[0], y * char_size[1]);
+                    context.fillStyle = number_as_color(fg_color);
+                    context.fillText(charmap[character], x * char_size[0], y * char_size[1]);
                 }
             }
 
@@ -223,16 +235,17 @@ function ScreenAdapter(screen_container, bus)
         return image;
     };
 
-    this.put_char = function(row, col, chr, bg_color, fg_color)
+    this.put_char = function(row, col, chr, attr, bg_color, fg_color)
     {
         if(row < text_mode_height && col < text_mode_width)
         {
-            var p = 3 * (row * text_mode_width + col);
+            var p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
             dbg_assert(chr >= 0 && chr < 0x100);
-            text_mode_data[p] = chr;
-            text_mode_data[p + 1] = bg_color;
-            text_mode_data[p + 2] = fg_color;
+            text_mode_data[p + CHARACTER_INDEX] = chr;
+            text_mode_data[p + ATTRIBUTE_INDEX] = attr;
+            text_mode_data[p + BG_COLOR_INDEX] = bg_color;
+            text_mode_data[p + FG_COLOR_INDEX] = fg_color;
 
             changed_rows[row] = 1;
         }
@@ -305,7 +318,7 @@ function ScreenAdapter(screen_container, bus)
         }
 
         changed_rows = new Int8Array(rows);
-        text_mode_data = new Int32Array(cols * rows * 3);
+        text_mode_data = new Int32Array(cols * rows * TEXT_MODE_COMPONENT_SIZE);
 
         text_mode_width = cols;
         text_mode_height = rows;
@@ -463,12 +476,13 @@ function ScreenAdapter(screen_container, bus)
 
     this.text_update_row = function(row)
     {
-        var offset = 3 * row * text_mode_width,
+        var offset = TEXT_MODE_COMPONENT_SIZE * row * text_mode_width,
             row_element,
             color_element,
             fragment;
 
-        var bg_color,
+        var attribute,
+            bg_color,
             fg_color,
             text;
 
@@ -479,8 +493,13 @@ function ScreenAdapter(screen_container, bus)
         {
             color_element = document.createElement("span");
 
-            bg_color = text_mode_data[offset + 1];
-            fg_color = text_mode_data[offset + 2];
+            attribute = text_mode_data[offset + ATTRIBUTE_INDEX];
+            bg_color = text_mode_data[offset + BG_COLOR_INDEX];
+            fg_color = text_mode_data[offset + FG_COLOR_INDEX];
+
+            if (attribute & (1<<7)) {
+                color_element.classList.add('blink');
+            }
 
             color_element.style.backgroundColor = number_as_color(bg_color);
             color_element.style.color = number_as_color(fg_color);
@@ -489,16 +508,15 @@ function ScreenAdapter(screen_container, bus)
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
-                text_mode_data[offset + 1] === bg_color &&
-                text_mode_data[offset + 2] === fg_color)
+                text_mode_data[offset + ATTRIBUTE_INDEX] === attribute)
             {
-                var ascii = text_mode_data[offset];
+                var ascii = text_mode_data[offset + CHARACTER_INDEX];
 
                 text += charmap[ascii];
                 dbg_assert(charmap[ascii]);
 
                 i++;
-                offset += 3;
+                offset += TEXT_MODE_COMPONENT_SIZE;
 
                 if(row === cursor_row)
                 {

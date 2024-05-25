@@ -305,3 +305,7 @@ h4 {
     z-index: 2;
     position: relative;
 }
+
+.blink {
+    animation: blink calc(1s / 4.380) step-start infinite;
+}

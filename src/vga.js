@@ -863,8 +863,8 @@ VGAScreen.prototype.text_mode_redraw = function()
             chr = this.vga_memory[addr];
             color = this.vga_memory[addr | 1];
 
-            this.bus.send("screen-put-char", [row, col, chr,
-                this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
+            this.bus.send("screen-put-char", [row, col, chr, color,
+                this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 7]],
                 this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
 
             addr += 2;
@@ -917,8 +917,8 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
         color = this.vga_memory[addr | 1];
     }
 
-    this.bus.send("screen-put-char", [row, col, chr,
-        this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 0xF]],
+    this.bus.send("screen-put-char", [row, col, chr, color,
+        this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & 7]],
         this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]]);
 };
 
