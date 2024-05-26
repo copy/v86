@@ -374,9 +374,11 @@
             {
                 id: "freegem",
                 hda: {
-                    url: host + "freegem.bin",
+                    url: host + "freegem/.bin",
                     size: 209715200,
                     async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
                 },
                 name: "Freedos with FreeGEM",
             },
