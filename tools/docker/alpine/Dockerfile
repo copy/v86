@@ -1,4 +1,4 @@
-FROM docker.io/i386/alpine:3.19.1
+FROM docker.io/i386/alpine:3.20.0
 
 ENV KERNEL=lts
 ENV ADDPKGS=nodejs
