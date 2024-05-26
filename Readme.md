@@ -60,6 +60,7 @@ list of emulated hardware:
 
 [How it works](docs/how-it-works.md) —
 [Networking](docs/networking.md) —
+[Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
 [Windows 2000/XP guest setup](docs/windows-xp.md) —
 [9p filesystem](docs/filesystem.md) —
@@ -80,9 +81,9 @@ Here's an overview of the operating systems supported in v86:
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
   - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
-  - Debian works. An image can be built from a Dockerfile, see [tools/docker/debian/](tools/docker/debian/).
+  - Debian works.
   - Ubuntu works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
-  - Alpine Linux works.
+  - Alpine Linux works. An image can be built from a Dockerfile, see [tools/docker/alpine/](tools/docker/alpine/).
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works.
@@ -102,7 +103,7 @@ Here's an overview of the operating systems supported in v86:
 - OpenBSD works with a specific boot configuration. At the `boot>` prompt type
   `boot -c`, then at the `UKC>` prompt `disable mpbios` and `exit`.
 - NetBSD works only with a custom kernel, see [#350](https://github.com/copy/v86/issues/350).
-- SerenityOS works.
+- SerenityOS works (only 32-bit versions).
 - [SkiftOS](https://skiftos.org/) works.
 
 You can get some information on the disk images here: https://github.com/copy/images.
