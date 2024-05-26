@@ -122,7 +122,7 @@ function ScreenAdapter(screen_container, bus)
 
     graphic_context.imageSmoothingEnabled = false;
 
-    cursor_element.classList.add("blink")
+    cursor_element.classList.add("cursor")
     cursor_element.style.position = "absolute";
     cursor_element.style.backgroundColor = "#ccc";
     cursor_element.style.width = "7px";
@@ -529,6 +529,7 @@ function ScreenAdapter(screen_container, bus)
                     else if(i === cursor_col + 1)
                     {
                         // found the cursor
+                        cursor_element.style.backgroundColor = color_element.style.color;
                         fragment.appendChild(cursor_element);
                         break;
                     }

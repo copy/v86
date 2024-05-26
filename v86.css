@@ -307,5 +307,22 @@ h4 {
 }
 
 .blink {
-    animation: blink calc(1s / 4.380) step-start infinite;
+    animation: blink 0.6s step-start infinite;
 }
+
+.cursor {
+    animation: cursor 0.2s step-start infinite;
+}
+
+@keyframes blink {
+    50% {
+        color: transparent;
+    }
+}
+
+@keyframes cursor {
+    50% {
+        background-color: transparent;
+    }
+}
+
