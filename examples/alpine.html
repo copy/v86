@@ -19,6 +19,7 @@ window.onload = function()
         autostart: true,
         bzimage_initrd_from_filesystem: true,
         cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose modules=virtio_pci tsc=reliable",
+        //initial_state: { url: "../images/alpine-state.bin" },
     });
 };
 </script>

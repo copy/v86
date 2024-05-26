@@ -27,5 +27,3 @@ mkdir -p "$OUT_ROOTFS_FLAT"
 ../../../tools/copy-to-sha256.py "$OUT_ROOTFS_TAR" "$OUT_ROOTFS_FLAT"
 
 echo "$OUT_ROOTFS_TAR", "$OUT_ROOTFS_FLAT" and "$OUT_FSJSON" created.
-
-# TODO: auto-build state, add examples/alpine.html
