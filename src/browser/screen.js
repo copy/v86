@@ -38,7 +38,7 @@ function ScreenAdapter(screen_container, bus)
         is_graphical = false,
 
         // Index 0: ASCII code
-        // Index 1: Attribute
+        // Index 1: Blinking
         // Index 2: Background color
         // Index 3: Foreground color
         text_mode_data,
@@ -50,7 +50,7 @@ function ScreenAdapter(screen_container, bus)
         text_mode_height;
 
     const CHARACTER_INDEX = 0;
-    const ATTRIBUTE_INDEX = 1;
+    const BLINKING_INDEX = 1;
     const BG_COLOR_INDEX = 2;
     const FG_COLOR_INDEX = 3;
     const TEXT_MODE_COMPONENT_SIZE = 4;
@@ -235,7 +235,7 @@ function ScreenAdapter(screen_container, bus)
         return image;
     };
 
-    this.put_char = function(row, col, chr, attr, bg_color, fg_color)
+    this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
         if(row < text_mode_height && col < text_mode_width)
         {
@@ -243,7 +243,7 @@ function ScreenAdapter(screen_container, bus)
 
             dbg_assert(chr >= 0 && chr < 0x100);
             text_mode_data[p + CHARACTER_INDEX] = chr;
-            text_mode_data[p + ATTRIBUTE_INDEX] = attr;
+            text_mode_data[p + BLINKING_INDEX] = blinking;
             text_mode_data[p + BG_COLOR_INDEX] = bg_color;
             text_mode_data[p + FG_COLOR_INDEX] = fg_color;
 
@@ -481,7 +481,7 @@ function ScreenAdapter(screen_container, bus)
             color_element,
             fragment;
 
-        var attribute,
+        var blinking,
             bg_color,
             fg_color,
             text;
@@ -493,11 +493,11 @@ function ScreenAdapter(screen_container, bus)
         {
             color_element = document.createElement("span");
 
-            attribute = text_mode_data[offset + ATTRIBUTE_INDEX];
+            blinking = text_mode_data[offset + BLINKING_INDEX];
             bg_color = text_mode_data[offset + BG_COLOR_INDEX];
             fg_color = text_mode_data[offset + FG_COLOR_INDEX];
 
-            if (attribute & (1<<7)) {
+            if (blinking) {
                 color_element.classList.add('blink');
             }
 
@@ -508,7 +508,9 @@ function ScreenAdapter(screen_container, bus)
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
-                text_mode_data[offset + ATTRIBUTE_INDEX] === attribute)
+                text_mode_data[offset + BLINKING_INDEX] === blinking &&
+                text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
+                text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
                 var ascii = text_mode_data[offset + CHARACTER_INDEX];
 
