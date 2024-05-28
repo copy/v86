@@ -23,7 +23,7 @@ function DummyScreenAdapter(bus)
         is_graphical = false,
 
         // Index 0: ASCII code
-        // Index 1: Attribute
+        // Index 1: Blinking
         // Index 2: Background color
         // Index 3: Foreground color
         text_mode_data,
@@ -35,7 +35,7 @@ function DummyScreenAdapter(bus)
         text_mode_height;
 
     const CHARACTER_INDEX = 0;
-    const ATTRIBUTE_INDEX = 1;
+    const BLINKING_INDEX = 1;
     const BG_COLOR_INDEX = 2;
     const FG_COLOR_INDEX = 3;
     const TEXT_MODE_COMPONENT_SIZE = 4;
@@ -84,14 +84,14 @@ function DummyScreenAdapter(bus)
         this.set_size_graphical(...data);
     }, this);
 
-    this.put_char = function(row, col, chr, attr, bg_color, fg_color)
+    this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
         if(row < text_mode_height && col < text_mode_width)
         {
             var p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
             text_mode_data[p + CHARACTER_INDEX] = chr;
-            text_mode_data[p + ATTRIBUTE_INDEX] = attr;
+            text_mode_data[p + BLINKING_INDEX] = blinking;
             text_mode_data[p + BG_COLOR_INDEX] = bg_color;
             text_mode_data[p + FG_COLOR_INDEX] = fg_color;
         }
