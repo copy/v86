@@ -241,8 +241,11 @@ IO.prototype.register_write_consecutive = function(port_addr, device, w8_1, w8_2
     }
     else
     {
+        function w16_w8_2(data) {
+            w8_2.call(this, data & 0xFF);
+        }
         this.register_write(port_addr,     device, w8_1, w16_1);
-        this.register_write(port_addr + 1, device, w8_2);
+        this.register_write(port_addr + 1, device, w8_2, w16_w8_2);
     }
 };
 

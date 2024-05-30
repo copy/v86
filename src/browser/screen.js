@@ -147,7 +147,7 @@ function ScreenAdapter(screen_container, bus)
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(data[0], data[1]);
+        this.update_cursor_scanline(...data);
     }, this);
 
     bus.register("screen-clear", function()
@@ -434,7 +434,7 @@ function ScreenAdapter(screen_container, bus)
         }
     }
 
-    this.update_cursor_scanline = function(start, end)
+    this.update_cursor_scanline = function(start, end, max)
     {
         if(start & 0x20)
         {
@@ -442,10 +442,17 @@ function ScreenAdapter(screen_container, bus)
         }
         else
         {
-            cursor_element.style.display = "inline";
-
-            cursor_element.style.height = Math.min(15, end - start) + "px";
-            cursor_element.style.marginTop = Math.min(15, start) + "px";
+            start = Math.min(max, start & 0x1F)
+            end = Math.min(max, end & 0x1F)
+            if (end <= start)
+            {
+                cursor_element.style.display = "none";
+            } else
+            {
+                cursor_element.style.display = "inline";
+                cursor_element.style.height = (end - start) + "px";
+                cursor_element.style.marginTop = start + "px";
+            }
         }
     };
 
@@ -453,7 +460,9 @@ function ScreenAdapter(screen_container, bus)
     {
         if(row !== cursor_row || col !== cursor_col)
         {
-            changed_rows[row] = 1;
+            if (row < text_mode_height) {
+                changed_rows[row] = 1;
+            }
             changed_rows[cursor_row] = 1;
 
             cursor_row = row;

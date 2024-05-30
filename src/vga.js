@@ -941,9 +941,6 @@ VGAScreen.prototype.update_cursor = function()
 
     dbg_assert(row >= 0 && col >= 0);
 
-    row = Math.min(this.max_rows - 1, row);
-    col = Math.min(this.max_cols - 1, col);
-
     this.bus.send("screen-update-cursor", [row, col]);
 };
 
@@ -1352,7 +1349,7 @@ VGAScreen.prototype.update_vertical_retrace = function()
 
 VGAScreen.prototype.update_cursor_scanline = function()
 {
-    this.bus.send("screen-update-cursor-scanline", [this.cursor_scanline_start, this.cursor_scanline_end]);
+    this.bus.send("screen-update-cursor-scanline", [this.cursor_scanline_start, this.cursor_scanline_end, this.max_scan_line]);
 };
 
 /**
