@@ -442,8 +442,8 @@ function ScreenAdapter(screen_container, bus)
         }
         else
         {
-            start = Math.min(max, start & 0x1F)
-            end = Math.min(max, end & 0x1F)
+            start = Math.min(max, start & 0x1F);
+            end = Math.min(max, end & 0x1F);
             if (end <= start)
             {
                 cursor_element.style.display = "none";
