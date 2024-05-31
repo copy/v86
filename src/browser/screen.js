@@ -146,16 +146,16 @@ function ScreenAdapter(screen_container, bus)
     bus.register("screen-put-char", function(data)
     {
         //console.log(data);
-        this.put_char(...data);
+        this.put_char(data[0], data[1], data[2], data[3], data[4], data[5]);
     }, this);
 
     bus.register("screen-update-cursor", function(data)
     {
-        this.update_cursor(...data);
+        this.update_cursor(data[0], data[1]);
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(...data);
+        this.update_cursor_scanline(data[0], data[1]);
     }, this);
 
     bus.register("screen-clear", function()
@@ -165,11 +165,11 @@ function ScreenAdapter(screen_container, bus)
 
     bus.register("screen-set-size-text", function(data)
     {
-        this.set_size_text(...data);
+        this.set_size_text(data[0], data[1]);
     }, this);
     bus.register("screen-set-size-graphical", function(data)
     {
-        this.set_size_graphical(...data);
+        this.set_size_graphical(data[0], data[1], data[2], data[3]);
     }, this);
 
 
