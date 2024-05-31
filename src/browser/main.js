@@ -529,7 +529,7 @@
                 fda: {
                     url: ON_LOCALHOST ?
                             host + "kolibri.img" :
-                            "//builds.kolibrios.org/eng/data/data/kolibri.img",
+                            "//builds.kolibrios.org/en_US/data/data/kolibri.img",
                     size: 1474560,
                     async: false,
                 },
