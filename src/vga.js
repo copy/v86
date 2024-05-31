@@ -865,7 +865,7 @@ VGAScreen.prototype.text_mode_redraw = function()
         {
             chr = this.vga_memory[addr];
             color = this.vga_memory[addr | 1];
-            blinking = blink_flag && (color & (1<<7))
+            blinking = blink_flag && (color & (1<<7));
 
             this.bus.send("screen-put-char", [row, col, chr, blinking,
                 this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & bg_color_mask]],
