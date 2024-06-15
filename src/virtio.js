@@ -250,7 +250,6 @@ function VirtIO(cpu, options)
 
         // Feature bits are grouped in 32 bits.
         this.device_feature[f >>> 5] |= 1 << (f & 0x1F);
-        this.driver_feature[f >>> 5] |= 1 << (f & 0x1F);
     }
 
     dbg_assert(options.common.features.includes(VIRTIO_F_VERSION_1),
