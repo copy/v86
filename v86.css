@@ -130,6 +130,22 @@ h4 {
 #terminal {
     max-width: 1024px;
 }
+.blink {
+    animation: blink 0.6s step-start infinite;
+}
+@keyframes blink {
+    50% {
+        color: transparent;
+    }
+}
+.cursor {
+    animation: cursor 0.6s step-start infinite;
+}
+@keyframes cursor {
+    50% {
+        background-color: transparent;
+    }
+}
 
 /* the code below was copied from xterm.css */
 
