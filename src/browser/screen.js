@@ -452,10 +452,14 @@ function ScreenAdapter(screen_container, bus)
     {
         if(row !== cursor_row || col !== cursor_col)
         {
-            if (row < text_mode_height) {
+            if(row < text_mode_height)
+            {
                 changed_rows[row] = 1;
             }
-            changed_rows[cursor_row] = 1;
+            if(cursor_row < text_mode_height)
+            {
+                changed_rows[cursor_row] = 1;
+            }
 
             cursor_row = row;
             cursor_col = col;
