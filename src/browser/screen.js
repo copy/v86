@@ -497,8 +497,9 @@ function ScreenAdapter(screen_container, bus)
             bg_color = text_mode_data[offset + BG_COLOR_INDEX];
             fg_color = text_mode_data[offset + FG_COLOR_INDEX];
 
-            if (blinking) {
-                color_element.classList.add('blink');
+            if(blinking)
+            {
+                color_element.classList.add("blink");
             }
 
             color_element.style.backgroundColor = number_as_color(bg_color);
