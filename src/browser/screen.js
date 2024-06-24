@@ -122,7 +122,7 @@ function ScreenAdapter(screen_container, bus)
 
     graphic_context.imageSmoothingEnabled = false;
 
-    cursor_element.classList.add("cursor")
+    cursor_element.classList.add("cursor");
     cursor_element.style.position = "absolute";
     cursor_element.style.backgroundColor = "#ccc";
     cursor_element.style.width = "7px";
@@ -210,7 +210,7 @@ function ScreenAdapter(screen_container, bus)
                     const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
                     const character = text_mode_data[index + CHARACTER_INDEX];
                     const bg_color = text_mode_data[index + BG_COLOR_INDEX];
-                    const fg_color = text_mode_data[index + FG_COLOR_INDEX]
+                    const fg_color = text_mode_data[index + FG_COLOR_INDEX];
 
                     context.fillStyle = number_as_color(bg_color);
                     context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
