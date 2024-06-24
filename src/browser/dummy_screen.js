@@ -65,7 +65,7 @@ function DummyScreenAdapter(bus)
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(data[0], data[1]);
+        this.update_cursor_scanline(data[0], data[1], data[2]);
     }, this);
 
     bus.register("screen-set-size-text", function(data)
@@ -129,7 +129,7 @@ function DummyScreenAdapter(bus)
     {
     };
 
-    this.update_cursor_scanline = function(start, end)
+    this.update_cursor_scanline = function(start, end, max)
     {
     };
 

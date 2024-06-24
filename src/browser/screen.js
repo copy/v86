@@ -147,7 +147,7 @@ function ScreenAdapter(screen_container, bus)
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(data[0], data[1]);
+        this.update_cursor_scanline(data[0], data[1], data[2]);
     }, this);
 
     bus.register("screen-clear", function()
@@ -207,12 +207,12 @@ function ScreenAdapter(screen_container, bus)
                 }
             }
 
-            if(cursor_element.style.display !== "none")
+            if(cursor_element.style.display !== "none" && cursor_row < text_mode_height && cursor_col < text_mode_width)
             {
                 context.fillStyle = cursor_element.style.backgroundColor;
                 context.fillRect(
                     cursor_col * char_size[0],
-                    cursor_row * char_size[1] + parseInt(cursor_element.style.marginTop, 10) - 1,
+                    cursor_row * char_size[1] + parseInt(cursor_element.style.marginTop, 10),
                     parseInt(cursor_element.style.width, 10),
                     parseInt(cursor_element.style.height, 10)
                 );
@@ -434,18 +434,17 @@ function ScreenAdapter(screen_container, bus)
         }
     }
 
-    this.update_cursor_scanline = function(start, end)
+    this.update_cursor_scanline = function(start, end, visible)
     {
-        if(start & 0x20)
+        if(visible)
         {
-            cursor_element.style.display = "none";
+            cursor_element.style.display = "inline";
+            cursor_element.style.height = (end - start) + "px";
+            cursor_element.style.marginTop = start + "px";
         }
         else
         {
-            cursor_element.style.display = "inline";
-
-            cursor_element.style.height = Math.min(15, end - start) + "px";
-            cursor_element.style.marginTop = Math.min(15, start) + "px";
+            cursor_element.style.display = "none";
         }
     };
 
@@ -453,8 +452,14 @@ function ScreenAdapter(screen_container, bus)
     {
         if(row !== cursor_row || col !== cursor_col)
         {
-            changed_rows[row] = 1;
-            changed_rows[cursor_row] = 1;
+            if(row < text_mode_height)
+            {
+                changed_rows[row] = 1;
+            }
+            if(cursor_row < text_mode_height)
+            {
+                changed_rows[cursor_row] = 1;
+            }
 
             cursor_row = row;
             cursor_col = col;
