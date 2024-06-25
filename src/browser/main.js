@@ -1582,7 +1582,7 @@
                     }, CLEAR_STATS ? 5000 : 1000);
             }
 
-            if(settings.id === "dsl" || settings.id === "helenos")
+            if(settings.id === "dsl" || settings.id === "helenos" || settings.id === "android" || settings.id === "android4")
             {
                 setTimeout(() => {
                     // hack: Start automatically
