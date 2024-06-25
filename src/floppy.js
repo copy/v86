@@ -288,6 +288,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 break;
             case 0x06:
             case 0x46:
+            case 0xC6:
             case 0xE6:
                 this.next_command = function(args) { this.do_sector(false, args); };
                 this.bytes_expecting = 8;
