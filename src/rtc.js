@@ -232,17 +232,23 @@ RTC.prototype.cmos_port_read = function()
     switch(index)
     {
         case CMOS_RTC_SECONDS:
+            dbg_log("read second: " + h(this.encode_time(new Date(this.rtc_time).getUTCSeconds())), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCSeconds());
         case CMOS_RTC_MINUTES:
+            dbg_log("read minute: " + h(this.encode_time(new Date(this.rtc_time).getUTCMinutes())), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCMinutes());
         case CMOS_RTC_HOURS:
+            dbg_log("read hour: " + h(this.encode_time(new Date(this.rtc_time).getUTCHours())), LOG_RTC);
             // TODO: 12 hour mode
             return this.encode_time(new Date(this.rtc_time).getUTCHours());
         case CMOS_RTC_DAY_MONTH:
+            dbg_log("read day of month: " + h(this.encode_time(new Date(this.rtc_time).getUTCDate())), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCDate());
         case CMOS_RTC_MONTH:
+            dbg_log("read month: " + h(this.encode_time(new Date(this.rtc_time).getUTCMonth() + 1)), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCMonth() + 1);
         case CMOS_RTC_YEAR:
+            dbg_log("read year: " + h(this.encode_time(new Date(this.rtc_time).getUTCFullYear() % 100)), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCFullYear() % 100);
 
         case CMOS_STATUS_A:
@@ -278,6 +284,7 @@ RTC.prototype.cmos_port_read = function()
             return 0;
 
         case CMOS_CENTURY:
+            dbg_log("read century: " + h(this.encode_time(new Date(this.rtc_time).getUTCFullYear() / 100 | 0)), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCFullYear() / 100 | 0);
 
         default:
