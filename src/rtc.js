@@ -241,6 +241,9 @@ RTC.prototype.cmos_port_read = function()
             dbg_log("read hour: " + h(this.encode_time(new Date(this.rtc_time).getUTCHours())), LOG_RTC);
             // TODO: 12 hour mode
             return this.encode_time(new Date(this.rtc_time).getUTCHours());
+        case CMOS_RTC_DAY_WEEK:
+            dbg_log("read day: " + h(this.encode_time(new Date(this.rtc_time).getUTCDay() + 1)), LOG_RTC);
+            return this.encode_time(new Date(this.rtc_time).getUTCDay() + 1);
         case CMOS_RTC_DAY_MONTH:
             dbg_log("read day of month: " + h(this.encode_time(new Date(this.rtc_time).getUTCDate())), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCDate());
