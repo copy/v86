@@ -32,6 +32,7 @@
 /** @const */ var CMOS_CENTURY = 0x32;
 /** @const */ var CMOS_MEM_EXTMEM2_LOW = 0x34;
 /** @const */ var CMOS_MEM_EXTMEM2_HIGH = 0x35;
+/** @const */ var CMOS_CENTURY2 = 0x37;
 /** @const */ var CMOS_BIOS_BOOTFLAG1 = 0x38;
 /** @const */ var CMOS_BIOS_DISKTRANSFLAG = 0x39;
 /** @const */ var CMOS_BIOS_BOOTFLAG2 = 0x3d;
@@ -287,6 +288,7 @@ RTC.prototype.cmos_port_read = function()
             return 0;
 
         case CMOS_CENTURY:
+        case CMOS_CENTURY2:
             dbg_log("read century: " + h(this.encode_time(new Date(this.rtc_time).getUTCFullYear() / 100 | 0)), LOG_RTC);
             return this.encode_time(new Date(this.rtc_time).getUTCFullYear() / 100 | 0);
 
