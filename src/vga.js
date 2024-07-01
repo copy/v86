@@ -286,7 +286,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.clocking_mode = 0;
     this.graphics_index = -1;
 
-    this.plane_read = 0, // value 0-3, which plane to read
+    this.plane_read = 0; // value 0-3, which plane to read
     this.planar_mode = 0;
     this.planar_rotate_reg = 0;
     this.planar_bitmap = 0xFF;
@@ -945,7 +945,7 @@ VGAScreen.prototype.update_cursor = function()
 
     if(this.cursor_address >= this.start_address)
     {
-        row = (this.cursor_address - this.start_address) / max_cols | 0,
+        row = (this.cursor_address - this.start_address) / max_cols | 0;
         col = (this.cursor_address - this.start_address) % max_cols;
     }
     else
