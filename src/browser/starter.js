@@ -92,6 +92,12 @@
  */
 function V86(options)
 {
+    if(typeof options.log_level === "number")
+    {
+        // XXX: Shared between all emulator instances
+        LOG_LEVEL = options.log_level;
+    }
+
     //var worker = new Worker("src/browser/worker.js");
     //var adapter_bus = this.bus = WorkerBus.init(worker);
 
@@ -266,7 +272,6 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.acpi = options.acpi;
     settings.disable_jit = options.disable_jit;
     settings.load_devices = true;
-    settings.log_level = options.log_level;
     settings.memory_size = options.memory_size || 64 * 1024 * 1024;
     settings.vga_memory_size = options.vga_memory_size || 8 * 1024 * 1024;
     settings.boot_order = boot_order;

@@ -730,12 +730,6 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
-    if(typeof settings.log_level === "number")
-    {
-        // XXX: Shared between all emulator instances
-        LOG_LEVEL = settings.log_level;
-    }
-
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
 
