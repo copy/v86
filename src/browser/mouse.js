@@ -222,8 +222,8 @@ function MouseAdapter(bus, screen_container)
 
         if(screen_container)
         {
-            let absolute_x = e.pageX - screen_container.offsetLeft;
-            let absolute_y = e.pageY - screen_container.offsetTop;
+            const absolute_x = e.pageX - screen_container.offsetLeft;
+            const absolute_y = e.pageY - screen_container.offsetTop;
             mouse.bus.send("mouse-absolute", [
                 absolute_x, absolute_y, screen_container.offsetWidth, screen_container.offsetHeight]);
         }

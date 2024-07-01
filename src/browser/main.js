@@ -1093,7 +1093,7 @@
                 "apic",
             ];
 
-            for(let test of tests)
+            for(const test of tests)
             {
                 oses.push({
                     name: "Test case: " + test,
@@ -1874,7 +1874,7 @@
 
             elem.onclick = function(e)
             {
-                let filename = buffer.file && buffer.file.name || (settings.id + (type === "cdrom" ? ".iso" : ".img"));
+                const filename = buffer.file && buffer.file.name || (settings.id + (type === "cdrom" ? ".iso" : ".img"));
 
                 if(buffer.get_as_file)
                 {
@@ -2102,7 +2102,7 @@
                 // allow text selection
                 if(window.getSelection().isCollapsed)
                 {
-                    let phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
+                    const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
 
                     // stop mobile browser from scrolling into view when the keyboard is shown
                     phone_keyboard.style.top = document.body.scrollTop + 100 + "px";

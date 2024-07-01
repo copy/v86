@@ -133,7 +133,7 @@ const print_stats = {
             }
             else
             {
-                let stat = stat_values[name] = cpu.wm.exports["profiler_stat_get"](i - j);
+                const stat = stat_values[name] = cpu.wm.exports["profiler_stat_get"](i - j);
                 value = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             }
             text += name + "=" + value + "\n";
@@ -189,7 +189,7 @@ const print_stats = {
         {
             for(let fixed_g = 0; fixed_g < 8; fixed_g++)
             {
-                for(let is_mem of [false, true])
+                for(const is_mem of [false, true])
                 {
                     const count = cpu.wm.exports["get_opstats_buffer"](compiled, jit_exit, unguarded_register, wasm_size, opcode, false, is_mem, fixed_g);
                     counts.push({ opcode, count, is_mem, fixed_g });
@@ -206,7 +206,7 @@ const print_stats = {
             0x64, 0x65, 0x66, 0x67,
             0xF0, 0xF2, 0xF3,
         ]);
-        for(let { count, opcode } of counts)
+        for(const { count, opcode } of counts)
         {
             if(!prefixes.has(opcode))
             {
@@ -222,7 +222,7 @@ const print_stats = {
         const per_opcode = new Uint32Array(0x100);
         const per_opcode0f = new Uint32Array(0x100);
 
-        for(let { opcode, count } of counts)
+        for(const { opcode, count } of counts)
         {
             if((opcode & 0xFF00) == 0x0F00)
             {
@@ -272,9 +272,9 @@ const print_stats = {
 
         const top_counts = counts.filter(({ count }) => count).sort(({ count: count1 }, { count: count2 }) => count2 - count1);
 
-        for(let { opcode, is_mem, fixed_g, count } of top_counts.slice(0, 200))
+        for(const { opcode, is_mem, fixed_g, count } of top_counts.slice(0, 200))
         {
-            let opcode_description = opcode.toString(16) + "_" + fixed_g + (is_mem ? "_m" : "_r");
+            const opcode_description = opcode.toString(16) + "_" + fixed_g + (is_mem ? "_m" : "_r");
             text += opcode_description + ":" + (count / total * 100).toFixed(2) + " ";
         }
         text += "\n";

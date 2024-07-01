@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-let PS2_LOG_VERBOSE = false;
+const PS2_LOG_VERBOSE = false;
 
 /**
  * @constructor

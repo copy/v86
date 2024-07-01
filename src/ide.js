@@ -331,7 +331,7 @@ IDEDevice.prototype.dma_write_command8 = function(value)
 {
     dbg_log("DMA write command8: " + h(value), LOG_DISK);
 
-    let old_command = this.dma_command;
+    const old_command = this.dma_command;
     this.dma_command = value & 0x9;
 
     if((old_command & 1) === (value & 1))

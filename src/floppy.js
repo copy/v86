@@ -382,8 +382,8 @@ FloppyController.prototype.seek = function(args)
         return;
     }
 
-    let new_cylinder = args[1];
-    let new_head = args[0] >> 2 & 1;
+    const new_cylinder = args[1];
+    const new_head = args[0] >> 2 & 1;
 
     // clear eject flag if seek takes us to a new cylinder
     if(new_cylinder !== this.last_cylinder)

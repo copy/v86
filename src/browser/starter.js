@@ -712,7 +712,7 @@ V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
     let initrd_path;
     let bzimage_path;
 
-    for(let f of [].concat(root, boot))
+    for(const f of [].concat(root, boot))
     {
         const old = /old/i.test(f) || /fallback/i.test(f);
         const is_bzimage = /vmlinuz/i.test(f) || /bzimage/i.test(f);
@@ -1293,7 +1293,7 @@ V86.prototype.automatically = function(steps)
         {
             const screen = this.screen_adapter.get_text_screen();
 
-            for(let line of screen)
+            for(const line of screen)
             {
                 if(line.includes(step.vga_text))
                 {
