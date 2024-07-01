@@ -5,15 +5,15 @@ on:
   pull_request:
 
 jobs:
-  jshint:
-    name: JSHint
+  eslint:
+    name: eslint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run JSHint
-        run: sudo npm install -g jshint; make jshint
+      - name: Run eslint
+        run: sudo npm install -g eslint; make eslint
 
   test:
     runs-on: ubuntu-latest

@@ -317,12 +317,12 @@ api-tests: all-debug
 	./tests/api/floppy-insert-eject.js
 	./tests/api/serial.js
 
-all-tests: jshint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 
-jshint:
-	jshint --config=./.jshint.json src tests gen lib
+eslint:
+	eslint src tests gen lib examples
 
 rustfmt: $(RUST_FILES)
 	cargo fmt --all -- --check --config fn_single_line=true,control_brace_style=ClosingNextLine
