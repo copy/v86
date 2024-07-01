@@ -275,8 +275,13 @@ pub static mut cpuid_level: u32 = 0x16;
 
 pub static mut jit_block_boundary: bool = false;
 
-pub static mut rdtsc_imprecision_offset: u64 = 0;
-pub static mut rdtsc_last_value: u64 = 0;
+const TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND: bool = true;
+const TSC_EXTRA_LOGGING: bool = false;
+#[cfg(debug_assertions)]
+pub static mut tsc_last_offset: u64 = 0;
+pub static mut tsc_last_value: u64 = 0;
+pub static mut tsc_last_instruction_counter: u32 = 0;
+pub static mut tsc_resolution: u64 = u64::MAX;
 pub static mut tsc_offset: u64 = 0;
 
 pub struct Code {
@@ -3995,45 +4000,52 @@ pub unsafe fn decr_ecx_asize(is_asize_32: bool) -> i32 {
 pub unsafe fn set_tsc(low: u32, high: u32) {
     let new_value = low as u64 | (high as u64) << 32;
     let current_value = read_tsc();
-    tsc_offset = current_value.wrapping_sub(new_value);
+    tsc_offset = current_value - new_value;
 }
 
 #[no_mangle]
 pub unsafe fn read_tsc() -> u64 {
-    let n = microtick() * TSC_RATE;
-    let value = (n as u64).wrapping_sub(tsc_offset);
-    if true {
+    let value = (microtick() * TSC_RATE) as u64 - tsc_offset;
+
+    if !TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND {
         return value;
     }
-    else {
-        if value == rdtsc_last_value {
-            // don't go past 1ms
-            if (rdtsc_imprecision_offset as f64) < TSC_RATE {
-                rdtsc_imprecision_offset = rdtsc_imprecision_offset.wrapping_add(1)
-            }
+
+    if value == tsc_last_value {
+        // If the browser returns the same value as last time, add a little extra based on the
+        // number of instructions that were executed
+        let instruction_diff = *instruction_counter - tsc_last_instruction_counter;
+        let extra = u64::min(instruction_diff as u64, tsc_resolution - 1);
+        #[cfg(debug_assertions)]
+        {
+            tsc_last_offset = u64::min(instruction_diff as u64, tsc_resolution - 1);
         }
-        else {
-            let previous_value = rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
-            if previous_value <= value {
-                rdtsc_last_value = value;
-                rdtsc_imprecision_offset = 0
-            }
-            else {
-                dbg_log!(
-                    "XXX: Overshot tsc prev={:x}:{:x} offset={:x}:{:x} curr={:x}:{:x}",
-                    (rdtsc_last_value >> 32) as u32 as i32,
-                    rdtsc_last_value as u32 as i32,
-                    (rdtsc_imprecision_offset >> 32) as u32 as i32,
-                    rdtsc_imprecision_offset as u32 as i32,
-                    (value >> 32) as u32 as i32,
-                    value as u32 as i32
-                );
-                dbg_assert!(false);
-                // Keep current value until time catches up
-            }
+        return value + extra;
+    }
+
+    #[cfg(debug_assertions)]
+    if tsc_last_offset != 0 {
+        if TSC_EXTRA_LOGGING || tsc_last_offset >= tsc_resolution {
+            dbg_log!(
+                "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
+                tsc_last_value, tsc_last_offset,
+                value, value - (tsc_last_value + tsc_last_offset),
+                (100 * tsc_last_offset) / tsc_resolution,
+            );
+            dbg_assert!(tsc_last_offset < tsc_resolution, "XXX: Overshot tsc");
         }
-        return rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
-    };
+        tsc_last_offset = 0;
+    }
+
+    let d = value - tsc_last_value;
+    if d < tsc_resolution {
+        dbg_log!("rdtsc resolution: {}", d);
+    }
+    tsc_resolution = tsc_resolution.min(d);
+    tsc_last_value = value;
+    tsc_last_instruction_counter = *instruction_counter;
+
+    value
 }
 
 pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
