@@ -4028,8 +4028,10 @@ pub unsafe fn read_tsc() -> u64 {
         if TSC_EXTRA_LOGGING || tsc_last_offset >= tsc_resolution {
             dbg_log!(
                 "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
-                tsc_last_value, tsc_last_offset,
-                value, value - (tsc_last_value + tsc_last_offset),
+                tsc_last_value,
+                tsc_last_offset,
+                value,
+                value - (tsc_last_value + tsc_last_offset),
                 (100 * tsc_last_offset) / tsc_resolution,
             );
             dbg_assert!(tsc_last_offset < tsc_resolution, "XXX: Overshot tsc");
