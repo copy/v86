@@ -6,8 +6,11 @@ const path = require('node:path');
 //  qemu-system-i386 -m 2G -nographic -hda ~/disk.qcow2 -netdev dgram,id=net0,remote.type=inet,remote.host=127.0.0.1,remote.port=6677,local.host=127.0.0.1,local.port=7744,local.type=inet -device e1000,netdev=net0
 
 globalThis.dbg_assert = require('node:assert');
+globalThis.dbg_log = (what, level) => console.log(what);
+globalThis.dbg_trace = (what, level) => console.trace(what);
+globalThis.LOG_NET = 0;
 
-let FetchNetworkAdapter = eval(fs.readFileSync(path.join(__dirname, 'browser', 'fetch_network.js'), 'utf-8') + ";FetchNetworkAdapter");
+let FetchNetworkAdapter = require(path.join(__dirname, '..', 'src', 'browser', 'fetch_network.js'));
 
 let events = {};
 

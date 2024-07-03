@@ -15,19 +15,26 @@ const NTP_EPOCH = new Date('1900-01-01T00:00:00Z').getTime();
 const NTP_EPOC_DIFF = UNIX_EPOCH - NTP_EPOCH;
 const TWO_TO_32 = Math.pow(2, 32);
 
+const DHCP_MAGIC_COOKIE = 0x63825363;
+
 /**
  * @constructor
  *
  * @param {BusConnector} bus
+ * @param {*=} config
  */
-function FetchNetworkAdapter(bus)
+function FetchNetworkAdapter(bus, config)
 {
-    let adapater = this;
+    config = config || {};
+    let adapter = this;
     this.bus = bus;
-    this.router_mac = new Uint8Array([82, 84, 0, 1, 2, 3]);
-    this.router_ip = new Uint8Array([192, 168, 86, 1]);
+    this.router_mac = new Uint8Array((config.router_mac || "52:54:0:1:2:3").split(":").map(function(x) { return parseInt(x, 16); }));
+    this.router_ip = new Uint8Array((config.router_ip || "192.168.86.1").split(".").map(function(x) { return parseInt(x, 10); }));
+
     this.tcp_conn = {};
-    // this.cors_proxy = 'https://corsproxy.io/?'
+
+    // Ex: 'https://corsproxy.io/?'
+    this.cors_proxy = config.cors_proxy ? this.cors_proxy : false;
 
     this.bus.register("net0-send", function(data)
     {
@@ -35,12 +42,13 @@ function FetchNetworkAdapter(bus)
     }, this);
 
     this.fetch = function(url, options) {
-        if (adapater.cors_proxy) url = adapater.cors_proxy + encodeURIComponent(url);
+        if (adapter.cors_proxy) url = adapter.cors_proxy + encodeURIComponent(url);
         return fetch(url, options).then(function(resp) {
             return resp.arrayBuffer().then(function(ab) {
                 return [resp, ab];
             });
         }).catch(err => {
+            console.warn('Fetch Failed: ' + url + '\n' + String(err));
             let headers = new Headers();
             headers.set('Content-Type', 'text/plain');
             return [
@@ -284,7 +292,7 @@ FetchNetworkAdapter.prototype.send = function(data)
     }
 
     if (packet.udp && packet.udp.dport == 8) {
-        // UTP Echo Server
+        // UDP Echo Server
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
         reply.ipv4 = {
@@ -430,7 +438,7 @@ function parse_ipv4(data, o) {
     };
 
     // Ethernet minmum packet size.
-    if (Math.max(len, 46) != data.length) dbg_log(`ipv4 Lenghth mismatch: ${len} != ${data.length}`, LOG_NET);
+    if (Math.max(len, 46) != data.length) dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_NET);
 
     o.ipv4 = ipv4;
     let ipdata = data.subarray(ihl * 4, len);
@@ -453,7 +461,7 @@ function write_ipv4(spec, data) {
 
     let ihl = 5; // 20 byte header length normally
     let version = 4;
-    let len = 4*ihl; // Total Lenghth
+    let len = 4 * ihl; // Total Length
 
     if (spec.icmp) {
         len += write_icmp(spec, data.subarray(ihl * 4));
@@ -747,7 +755,7 @@ function write_dhcp(spec, data) {
         view.setUint8(28+i, spec.dhcp.chaddr[i]);
     }
 
-    view.setUint32(236, 0x63825363);
+    view.setUint32(236, DHCP_MAGIC_COOKIE);
 
     let offset = 240;
     for (let o of spec.dhcp.options) {
@@ -1101,3 +1109,8 @@ TCPConnection.prototype.pump = function(packet) {
         this.net.receive(make_packet(reply));
     }
 };
+
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["FetchNetworkAdapter"] = FetchNetworkAdapter;
+}
