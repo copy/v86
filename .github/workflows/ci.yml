@@ -101,6 +101,9 @@ jobs:
       - name: Run integration tests
         run: MAX_PARALLEL_TESTS=1 make tests
 
+      - name: Run devices tests
+        run: make devices-test
+
       - name: Run expect tests
         run: make expect-tests
 
