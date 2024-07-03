@@ -160,7 +160,7 @@ function gen_instruction_body(encodings, size)
         };
 
         return [].concat(
-	    "let prefixes_ = *prefixes;",
+            "let prefixes_ = *prefixes;",
             code,
             {
                 type: "if-else",

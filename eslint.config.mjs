@@ -1,6 +1,13 @@
 export default [
     {
         rules: {
+            "eol-last": "error",
+            //"no-extra-parens": "error",
+            "no-trailing-spaces": "error",
+            "no-extra-semi": "error",
+            "no-tabs": "error",
+            //"quotes": ["error", "double", { "avoidEscape": true }],
+            //"keyword-spacing": ["error", { "after": false }],
             "semi": "error",
             //"no-var": "error",
             "radix": "error",
