@@ -7,7 +7,6 @@ const path = require('node:path');
 
 globalThis.dbg_assert = require('node:assert');
 globalThis.dbg_log = (what, level) => console.log(what);
-globalThis.dbg_trace = (what, level) => console.trace(what);
 globalThis.LOG_NET = 0;
 
 let FetchNetworkAdapter = require(path.join(__dirname, '..', 'src', 'browser', 'fetch_network.js'));

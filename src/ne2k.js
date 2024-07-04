@@ -353,6 +353,8 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         Math.random() * 255 | 0,
     ]);
 
+    this.bus.send("net0-mac", format_mac(this.mac));
+
     // multicast addresses
     this.mar = Uint8Array.of(0xFF, 0xFF, 0xFF, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF);
 
@@ -1106,6 +1108,7 @@ Ne2k.prototype.set_state = function(state)
             " guest_os_mac=" + format_mac(this.mac_address_in_state) +
             " real_mac=" + format_mac(this.mac), LOG_NET);
     }
+    this.bus.send("net0-mac", format_mac(this.mac));
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
