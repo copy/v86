@@ -286,8 +286,9 @@ function dump_packet(packet, prefix)
  * @param {BusConnector} bus
  * @param {Boolean} preserve_mac_from_state_image
  * @param {Boolean} mac_address_translation
+ * @param {number} [id=0] id
  */
-function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
+function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation, id)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -295,17 +296,18 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
     /** @const @type {PCI} */
     this.pci = cpu.devices.pci;
 
+    this.id = id || 0;
     this.preserve_mac_from_state_image = preserve_mac_from_state_image;
     this.mac_address_translation = mac_address_translation;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
-    this.bus.register("net0-receive", function(data)
+    this.bus.register('net' + this.id + "-receive", function(data)
     {
         this.receive(data);
     }, this);
 
-    this.port = 0x300;
+    this.port = 0x300 + 0x100 * this.id;
 
     this.name = "ne2k";
 
@@ -320,7 +322,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
             0x00, 0x00, 0xb8, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
         ];
-        this.pci_id = 0x05 << 3;
+        this.pci_id = (this.id == 0 ? 0x05 : (0x07 + this.id)) << 3;
         this.pci_bars = [
             {
                 size: 32,
@@ -353,7 +355,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
         Math.random() * 255 | 0,
     ]);
 
-    this.bus.send("net0-mac", format_mac(this.mac));
+    this.bus.send('net' + this.id + "-mac", format_mac(this.mac));
 
     // multicast addresses
     this.mar = Uint8Array.of(0xFF, 0xFF, 0xFF, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF);
@@ -421,7 +423,7 @@ function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation)
                 translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
-            this.bus.send("net0-send", data);
+            this.bus.send('net' + this.id + "-send", data);
             this.bus.send("eth-transmit-end", [data.length]);
             this.cr &= ~4;
             this.do_interrupt(ENISR_TX);
@@ -1108,7 +1110,7 @@ Ne2k.prototype.set_state = function(state)
             " guest_os_mac=" + format_mac(this.mac_address_in_state) +
             " real_mac=" + format_mac(this.mac), LOG_NET);
     }
-    this.bus.send("net0-mac", format_mac(this.mac));
+    this.bus.send('net' + this.id + "-mac", format_mac(this.mac));
 };
 
 Ne2k.prototype.do_interrupt = function(ir_mask)

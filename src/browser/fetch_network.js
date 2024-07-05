@@ -41,6 +41,7 @@ function FetchNetworkAdapter(bus, config)
     config = config || {};
     let adapter = this;
     this.bus = bus;
+    this.id = config.id || 0;
     this.router_mac = new Uint8Array((config.router_mac || "52:54:0:1:2:3").split(":").map(function(x) { return parseInt(x, 16); }));
     this.router_ip = new Uint8Array((config.router_ip || "192.168.86.1").split(".").map(function(x) { return parseInt(x, 10); }));
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
@@ -50,10 +51,10 @@ function FetchNetworkAdapter(bus, config)
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy ? this.cors_proxy : false;
-    this.bus.register("net0-mac", function(mac) {
+    this.bus.register("net" + adapter.id + "-mac", function(mac) {
         adapter.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
-    this.bus.register("net0-send", function(data)
+    this.bus.register("net" + adapter.id + "-send", function(data)
     {
         this.send(data);
     }, this);
@@ -384,7 +385,7 @@ FetchNetworkAdapter.prototype.receive = function(data)
     if (o.tcp) console.log("Unpacking sent", JSON.stringify(o.tcp));
     */
 
-    this.bus.send("net0-receive", new Uint8Array(data));
+    this.bus.send("net" + this.id + "-receive", new Uint8Array(data));
 };
 
 function a2ethaddr(bytes) {
