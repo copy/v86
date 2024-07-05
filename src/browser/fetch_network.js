@@ -45,7 +45,7 @@ function FetchNetworkAdapter(bus, config)
     this.router_mac = new Uint8Array((config.router_mac || "52:54:0:1:2:3").split(":").map(function(x) { return parseInt(x, 16); }));
     this.router_ip = new Uint8Array((config.router_ip || "192.168.86.1").split(".").map(function(x) { return parseInt(x, 10); }));
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
-
+    this.masquerade = typeof(config.masquerade) == 'undefined' ? true : !!config.masquerade;
 
     this.tcp_conn = {};
 
@@ -86,8 +86,12 @@ FetchNetworkAdapter.prototype.destroy = function()
 };
 
 
-function iptolong(s) {
+function siptolong(s) {
     let parts = s.split(".").map(function(x) { return parseInt(x, 10); });
+    return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
+}
+
+function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
 
@@ -151,6 +155,15 @@ FetchNetworkAdapter.prototype.send = function(data)
     }
 
     if (packet.arp && packet.arp.oper == 1 && packet.arp.ptype == ETHERTYPE_IPV4) {
+        if (!this.masquerade) {
+            let packet_subnet = iptolong(packet.arp.tpa) & 0xFFFFFF00;
+            let router_subnet = iptolong(this.router_ip) & 0xFFFFFF00;
+
+            if (packet_subnet != router_subnet) {
+                return;
+            }
+        }
+
         // Reply to ARP Whohas
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_ARP, src: this.router_mac, dest: packet.eth.src };
@@ -159,7 +172,7 @@ FetchNetworkAdapter.prototype.send = function(data)
             ptype: ETHERTYPE_IPV4,
             oper: 2,
             sha: this.router_mac,
-            spa: this.router_ip,
+            spa: packet.arp.tpa,
             tha: packet.eth.src,
             tpa: packet.arp.spa
         };
@@ -275,9 +288,9 @@ FetchNetworkAdapter.prototype.send = function(data)
             secs: 0,
             flags: 0,
             ciaddr: 0,
-            yiaddr: iptolong(this.vm_ip.join(".")),
-            siaddr: iptolong(this.router_ip.join(".")),
-            giaddr: iptolong(this.router_ip.join(".")),
+            yiaddr: iptolong(this.vm_ip),
+            siaddr: iptolong(this.router_ip),
+            giaddr: iptolong(this.router_ip),
             chaddr: packet.dhcp.chaddr,
         };
 
@@ -300,9 +313,11 @@ FetchNetworkAdapter.prototype.send = function(data)
 
         let router_ip = [this.router_ip[0], this.router_ip[1], this.router_ip[2], this.router_ip[3]];
         options.push(new Uint8Array([1, 4, 255, 255, 255, 0])); // Netmask
-        options.push(new Uint8Array([3, 4].concat(router_ip)));
-        options.push(new Uint8Array([6, 4].concat(router_ip)));
-        options.push(new Uint8Array([54, 4].concat(router_ip)));
+        if (this.masquerade) {
+            options.push(new Uint8Array([3, 4].concat(router_ip))); // Router
+            options.push(new Uint8Array([6, 4].concat(router_ip))); // DNS
+        }
+        options.push(new Uint8Array([54, 4].concat(router_ip))); // DHCP Server
         options.push(new Uint8Array([60, 3].concat(V86_ASCII))); // Vendor
         options.push(new Uint8Array([255, 0]));
 
@@ -1157,6 +1172,9 @@ function HTTPHandler() {
 
             let first_line = headers[0].split(' ');
             let target = new URL('http://host' + first_line[1]);
+            if (/^https?:/.test(first_line[1])) {
+                target = new URL(first_line[1]);
+            }
             let req_headers = new Headers();
             for (let i = 1; i < headers.length; ++i) {
                 let parts = headers[i].split(': ');
