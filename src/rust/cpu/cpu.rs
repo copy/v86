@@ -276,12 +276,24 @@ pub static mut cpuid_level: u32 = 0x16;
 pub static mut jit_block_boundary: bool = false;
 
 const TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND: bool = true;
-const TSC_EXTRA_LOGGING: bool = false;
+
 #[cfg(debug_assertions)]
-pub static mut tsc_last_offset: u64 = 0;
+const TSC_VERBOSE_LOGGING: bool = false;
+#[cfg(debug_assertions)]
+pub static mut tsc_last_extra: u64 = 0;
+
+// the last value returned by rdtsc
 pub static mut tsc_last_value: u64 = 0;
-pub static mut tsc_last_instruction_counter: u32 = 0;
+// the smallest difference between two rdtsc readings (depends on the browser's performance.now resolution)
 pub static mut tsc_resolution: u64 = u64::MAX;
+// how many times rdtsc was called and had to return the same value (due to browser's performance.now resolution)
+pub static mut tsc_number_of_same_readings: u64 = 0;
+// how often rdtsc was previously called without its value changing, used for interpolating quick
+// consecutive calls between rdtsc (when it's called faster than the browser's performance.now
+// changes)
+pub static mut tsc_speed: u64 = 1;
+
+// used for restoring the state
 pub static mut tsc_offset: u64 = 0;
 
 pub struct Code {
@@ -4012,31 +4024,32 @@ pub unsafe fn read_tsc() -> u64 {
     }
 
     if value == tsc_last_value {
-        // If the browser returns the same value as last time, add a little extra based on the
-        // number of instructions that were executed
-        let instruction_diff = *instruction_counter - tsc_last_instruction_counter;
-        let extra = u64::min(instruction_diff as u64, tsc_resolution - 1);
+        // If the browser returns the same value as last time, extrapolate based on the number of
+        // rdtsc calls between the last two changes
+        tsc_number_of_same_readings += 1;
+        let extra = (tsc_number_of_same_readings * tsc_resolution) / tsc_speed;
+        let extra = u64::min(extra, tsc_resolution - 1);
         #[cfg(debug_assertions)]
         {
-            tsc_last_offset = u64::min(instruction_diff as u64, tsc_resolution - 1);
+            tsc_last_extra = extra;
         }
         return value + extra;
     }
 
     #[cfg(debug_assertions)]
-    if tsc_last_offset != 0 {
-        if TSC_EXTRA_LOGGING || tsc_last_offset >= tsc_resolution {
+    if tsc_last_extra != 0 {
+        if TSC_VERBOSE_LOGGING || tsc_last_extra >= tsc_resolution {
             dbg_log!(
                 "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
                 tsc_last_value,
-                tsc_last_offset,
+                tsc_last_extra,
                 value,
-                value - (tsc_last_value + tsc_last_offset),
-                (100 * tsc_last_offset) / tsc_resolution,
+                value - (tsc_last_value + tsc_last_extra),
+                (100 * tsc_last_extra) / tsc_resolution,
             );
-            dbg_assert!(tsc_last_offset < tsc_resolution, "XXX: Overshot tsc");
+            dbg_assert!(tsc_last_extra < tsc_resolution, "XXX: Overshot tsc");
         }
-        tsc_last_offset = 0;
+        tsc_last_extra = 0;
     }
 
     let d = value - tsc_last_value;
@@ -4045,7 +4058,10 @@ pub unsafe fn read_tsc() -> u64 {
     }
     tsc_resolution = tsc_resolution.min(d);
     tsc_last_value = value;
-    tsc_last_instruction_counter = *instruction_counter;
+    if tsc_number_of_same_readings != 0 {
+        tsc_speed = tsc_number_of_same_readings;
+        tsc_number_of_same_readings = 0;
+    }
 
     value
 }
