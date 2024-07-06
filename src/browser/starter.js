@@ -304,6 +304,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_console = options.virtio_console;
+    settings.virtio_net = options.virtio_net;
 
     const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
     if(relay_url)

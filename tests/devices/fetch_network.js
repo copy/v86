@@ -4,6 +4,7 @@
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const USE_VIRTIO = !!process.env.USE_VIRTIO;
 
 const V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 
@@ -23,6 +24,24 @@ const tests =
         end: (capture) =>
         {
             assert(/lease of 192.168.86.100 obtained/.test(capture), "lease of 192.168.86.100 obtained");
+        },
+    },
+    {
+        name: "lspci",
+        timeout: 60,
+        start: () =>
+        {
+            emulator.serial0_send("lspci -k\n");
+            emulator.serial0_send("echo -e done\\\\tlspci\n");
+        },
+        end_trigger: "done\tlspci",
+        end: (capture) =>
+        {
+            if(!USE_VIRTIO) {
+                assert(/ne2k/.test(capture), "ne2k missing from lspci");
+            } else {
+                assert(!/ne2k/.test(capture), "ne2k in lspci");
+            }
         },
     },
     {
@@ -115,7 +134,10 @@ const emulator = new V86({
     autostart: true,
     memory_size: 64 * 1024 * 1024,
     disable_jit: +process.env.DISABLE_JIT,
-    network_relay_url: "fetch",
+    net_device: {
+        relay_url: "fetch",
+        type: USE_VIRTIO ? "virtio" : "ne2k",
+    },
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
 

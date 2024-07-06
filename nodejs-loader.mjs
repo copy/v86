@@ -38,7 +38,7 @@ let files = [
     "src/sb16.js",
     "src/virtio.js",
     "src/virtio_console.js",
-    //"src/virtio_net.js",
+    "src/virtio_net.js",
     //"src/virtio_balloon.js",
     "src/bus.js",
 
