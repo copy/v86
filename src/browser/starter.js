@@ -286,6 +286,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_console = options.virtio_console;
+    settings.virtio_net = options.virtio_net;
 
     if(options.network_adapter)
     {
@@ -305,7 +306,10 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.enable_ne2k = true;
+    if(options.enable_ne2k !== false)
+    {
+        settings.enable_ne2k = true;
+    }
 
     if(!options.disable_keyboard)
     {

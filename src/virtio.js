@@ -553,7 +553,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => 0,
                 write: data =>
                 {
-                    dbg_log("Warning: High dword of 64 bit queue_desc ignored", LOG_VIRTIO);
+                    if(data !== 0) dbg_log("Warning: High dword of 64 bit queue_desc ignored:" + data, LOG_VIRTIO);
                 },
             },
             {
@@ -571,7 +571,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => 0,
                 write: data =>
                 {
-                    dbg_log("Warning: High dword of 64 bit queue_avail ignored", LOG_VIRTIO);
+                    if(data !== 0) dbg_log("Warning: High dword of 64 bit queue_avail ignored:" + data, LOG_VIRTIO);
                 },
             },
             {
@@ -589,7 +589,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => 0,
                 write: data =>
                 {
-                    dbg_log("Warning: High dword of 64 bit queue_used ignored", LOG_VIRTIO);
+                    if(data !== 0) dbg_log("Warning: High dword of 64 bit queue_used ignored:" + data, LOG_VIRTIO);
                 },
             },
         ],
