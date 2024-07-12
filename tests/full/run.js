@@ -498,7 +498,7 @@ if(cluster.isMaster)
             ].join(" "),
             filesystem: {
                 basefs: "images/fs.json",
-                baseurl: "images/arch-nongz/",
+                baseurl: "images/arch/",
             },
             expected_texts: [
                 "root@localhost",
