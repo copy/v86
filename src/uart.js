@@ -228,7 +228,7 @@ function UART(cpu, port, bus)
         var ret = this.iir & 0xF;
         dbg_log("read interrupt identification: " + h(this.iir), LOG_SERIAL);
 
-        if (this.iir == UART_IIR_THRI) {
+        if(this.iir == UART_IIR_THRI) {
             this.ClearInterrupt(UART_IIR_THRI);
         }
 
@@ -332,19 +332,19 @@ UART.prototype.set_state = function(state)
 };
 
 UART.prototype.CheckInterrupt = function() {
-    if ((this.ints & (1 << UART_IIR_CTI))  && (this.ier & UART_IER_RDI)) {
+    if((this.ints & (1 << UART_IIR_CTI))  && (this.ier & UART_IER_RDI)) {
         this.iir = UART_IIR_CTI;
         this.cpu.device_raise_irq(this.irq);
     } else
-    if ((this.ints & (1 << UART_IIR_RDI))  && (this.ier & UART_IER_RDI)) {
+    if((this.ints & (1 << UART_IIR_RDI))  && (this.ier & UART_IER_RDI)) {
         this.iir = UART_IIR_RDI;
         this.cpu.device_raise_irq(this.irq);
     } else
-    if ((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
+    if((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
         this.iir = UART_IIR_THRI;
         this.cpu.device_raise_irq(this.irq);
     } else
-    if ((this.ints & (1 << UART_IIR_MSI))  && (this.ier & UART_IER_MSI)) {
+    if((this.ints & (1 << UART_IIR_MSI))  && (this.ier & UART_IER_MSI)) {
         this.iir = UART_IIR_MSI;
         this.cpu.device_raise_irq(this.irq);
     } else {

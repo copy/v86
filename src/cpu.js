@@ -1414,7 +1414,7 @@ CPU.prototype.fill_cmos = function(rtc, settings)
     rtc.cmos_write(CMOS_BIOS_SMP_COUNT, 0);
 
     // Used by bochs BIOS to skip the boot menu delay.
-    if (settings.fastboot) rtc.cmos_write(0x3f, 0x01);
+    if(settings.fastboot) rtc.cmos_write(0x3f, 0x01);
 };
 
 CPU.prototype.load_bios = function()

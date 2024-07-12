@@ -48,7 +48,7 @@ function VirtioConsole(cpu, bus)
         },
     ];
 
-    for (let i = 1; i < this.ports; ++i)
+    for(let i = 1; i < this.ports; ++i)
     {
         queues.push({size_supported: 16, notify_offset: 0});
         queues.push({size_supported: 8, notify_offset: 1});
@@ -84,7 +84,7 @@ function VirtioConsole(cpu, bus)
                     const queue = this.virtio.queues[queue_id];
 
                     // TODO: Full buffer looks like an empty buffer so prevent it from filling
-                    while (queue.count_requests() > queue.size - 2) queue.pop_request();
+                    while(queue.count_requests() > queue.size - 2) queue.pop_request();
                 },
                 (queue_id) =>
                 {
@@ -109,7 +109,7 @@ function VirtioConsole(cpu, bus)
                     }
                     const queue = this.virtio.queues[queue_id];
                     // Full buffer looks like an empty buffer so prevent it from filling
-                    while (queue.count_requests() > queue.size - 2) queue.pop_request();
+                    while(queue.count_requests() > queue.size - 2) queue.pop_request();
                 },
                 (queue_id) =>
                 {
@@ -138,7 +138,7 @@ function VirtioConsole(cpu, bus)
 
                         switch(event) {
                             case VIRTIO_CONSOLE_DEVICE_READY:
-                                for (let i = 0; i < this.ports; ++i) {
+                                for(let i = 0; i < this.ports; ++i) {
                                     this.SendEvent(i, VIRTIO_CONSOLE_DEVICE_ADD, 0);
                                 }
                                 break;
@@ -151,7 +151,7 @@ function VirtioConsole(cpu, bus)
                                 break;
                             case VIRTIO_CONSOLE_PORT_OPEN:
                                 this.Ack(queue_id, bufchain);
-                                if (port == 0) {
+                                if(port == 0) {
                                     this.SendWindowSize(port);
                                 }
                                 break;
@@ -203,11 +203,11 @@ function VirtioConsole(cpu, bus)
         },
     });
 
-    for (let port = 0; port < this.ports; ++port) {
+    for(let port = 0; port < this.ports; ++port) {
         const queue_id = port == 0 ? 0 : port * 2 + 2;
         this.bus.register("virtio-console" + port + "-input-bytes", function(data) {
             const queue = this.virtio.queues[queue_id];
-            if (queue.has_request()) {
+            if(queue.has_request()) {
                 const bufchain = queue.pop_request();
                 this.Send(queue_id, bufchain, new Uint8Array(data));
             } else {
@@ -219,7 +219,7 @@ function VirtioConsole(cpu, bus)
             this.cols = size[0];
             this.rows = size[1];
 
-            if (this.virtio.queues[2].is_configured() && this.virtio.queues[2].has_request()) {
+            if(this.virtio.queues[2].is_configured() && this.virtio.queues[2].has_request()) {
                 this.SendWindowSize(port);
             }
         }, this);
@@ -240,7 +240,7 @@ VirtioConsole.prototype.SendName = function(port, name)
     const namex = new TextEncoder().encode(name);
     const buf = new Uint8Array(8 + namex.length + 1);
     marshall.Marshall(["w", "h", "h"], [port, VIRTIO_CONSOLE_PORT_NAME, 1], buf, 0);
-    for ( let i = 0; i < namex.length; ++i ) {
+    for( let i = 0; i < namex.length; ++i ) {
         buf[i+8] = namex[i];
     }
     buf[8 + namex.length] = 0;

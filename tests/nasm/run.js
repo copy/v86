@@ -128,7 +128,7 @@ if(cluster.isMaster)
 
         const json_regex = /---BEGIN JSON---([\s\[\]\.\+\w":\-,]*)---END JSON---/;
         const regex_match = json_regex.exec(fixture_text);
-        if (!regex_match || regex_match.length < 2) {
+        if(!regex_match || regex_match.length < 2) {
             throw new Error("Could not find JSON in fixture text: " + fixture_text + "\nTest: " + name);
         }
 
@@ -202,7 +202,7 @@ if(cluster.isMaster)
         let worker = cluster.fork();
 
         worker.on("message", function(message) {
-            if (message !== DONE_MSG) {
+            if(message !== DONE_MSG) {
                 failed_tests.push(message);
             }
             send_work_to_worker(this);
@@ -230,7 +230,7 @@ if(cluster.isMaster)
             tests.length - failed_tests.length,
             tests.length
         );
-        if (failed_tests.length > 0) {
+        if(failed_tests.length > 0) {
             console.log("[-] Failed %d test(s).", failed_tests.length);
             failed_tests.forEach(function(test_failure) {
 
@@ -416,9 +416,9 @@ else {
 
         if(!current_test.fixture.exception)
         {
-            for (let i = 0; i < cpu.reg32.length; i++) {
+            for(let i = 0; i < cpu.reg32.length; i++) {
                 let reg = cpu.reg32[i];
-                if (reg !== expected_reg32[i]) {
+                if(reg !== expected_reg32[i]) {
                     individual_failures.push({
                         name: "cpu.reg32[" + i + "]",
                         expected: expected_reg32[i],
@@ -429,8 +429,8 @@ else {
 
             if(fpu_tag !== FPU_TAG_ALL_INVALID)
             {
-                for (let i = 0; i < evaluated_fpu_regs.length; i++) {
-                    if (expected_fpu_regs[i] !== "invalid" &&
+                for(let i = 0; i < evaluated_fpu_regs.length; i++) {
+                    if(expected_fpu_regs[i] !== "invalid" &&
                             !float_equal(evaluated_fpu_regs[i], expected_fpu_regs[i])) {
                         individual_failures.push({
                             name: "st" + i,
@@ -451,8 +451,8 @@ else {
             }
             else
             {
-                for (let i = 0; i < evaluated_mmxs.length; i++) {
-                    if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+                for(let i = 0; i < evaluated_mmxs.length; i++) {
+                    if(evaluated_mmxs[i] !== expected_mmx_registers[i]) {
                         individual_failures.push({
                             name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "]",
                             expected: expected_mmx_registers[i],
@@ -462,8 +462,8 @@ else {
                 }
             }
 
-            for (let i = 0; i < evaluated_xmms.length; i++) {
-                if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
+            for(let i = 0; i < evaluated_xmms.length; i++) {
+                if(evaluated_xmms[i] !== expected_xmm_registers[i]) {
                     individual_failures.push({
                         name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
                         expected: expected_xmm_registers[i],
@@ -472,8 +472,8 @@ else {
                 }
             }
 
-            for (let i = 0; i < evaluated_memory.length; i++) {
-                if (evaluated_memory[i] !== expected_memory[i]) {
+            for(let i = 0; i < evaluated_memory.length; i++) {
+                if(evaluated_memory[i] !== expected_memory[i]) {
                     individual_failures.push({
                         name: "mem[" + (BSS + 4 * i).toString(16).toUpperCase() + "]",
                         expected: expected_memory[i],
@@ -526,7 +526,7 @@ else {
 
         recorded_exceptions = [];
 
-        if (individual_failures.length > 0) {
+        if(individual_failures.length > 0) {
             process.send({
                 failures: individual_failures,
                 img_name: current_test.img_name

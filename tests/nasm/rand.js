@@ -8,7 +8,7 @@ function Mash() {
 
   var mash = function(data) {
     data = data.toString();
-    for (var i = 0; i < data.length; i++) {
+    for(var i = 0; i < data.length; i++) {
       n += data.charCodeAt(i);
       var h = 0.02519603282416938 * n;
       n = h >>> 0;
@@ -35,26 +35,26 @@ function KISS07() {
     var w =  14921776;
     var c = 0;
 
-    if (args.length == 0) {
+    if(args.length == 0) {
       args = [+new Date];
     }
     var mash = Mash();
-    for (var i = 0; i < args.length; i++) {
+    for(var i = 0; i < args.length; i++) {
       x ^= mash(args[i]) * 0x100000000; // 2^32
       y ^= mash(args[i]) * 0x100000000;
       z ^= mash(args[i]) * 0x100000000;
       w ^= mash(args[i]) * 0x100000000;
     }
-    if (y === 0) {
+    if(y === 0) {
       y = 1;
     }
     c ^= z >>> 31;
     z &= 0x7fffffff;
-    if ((z % 7559) === 0) {
+    if((z % 7559) === 0) {
       z++;
     }
     w &= 0x7fffffff;
-    if ((w % 7559) === 0) {
+    if((w % 7559) === 0) {
       w++;
     }
     mash = null;

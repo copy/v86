@@ -101,7 +101,7 @@ FloppyController.prototype.set_fda = function(fda_image)
     let floppy_size = fda_image.byteLength;
     let floppy_type = floppy_types[floppy_size];
 
-    if (!floppy_type)
+    if(!floppy_type)
     {
         floppy_size = fda_image.byteLength > 1440 * 1024 ? 2880 * 1024 : 1440 * 1024;
         floppy_type = floppy_types[floppy_size];
@@ -357,7 +357,7 @@ FloppyController.prototype.check_drive_status = function(args)
 {
     dbg_log("check drive status", LOG_FLOPPY);
     // do nothing if no fda
-    if (this.fda_image)
+    if(this.fda_image)
     {
         this.status_reg1 = 0;
     }
@@ -391,7 +391,7 @@ FloppyController.prototype.seek = function(args)
         this.dir = 0x0;
     }
     // do nothing if no fda
-    if (this.fda_image)
+    if(this.fda_image)
     {
         this.status_reg1 = 0;
     }
