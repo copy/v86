@@ -1041,6 +1041,88 @@
                 name: "Syllable",
                 homepage: "http://syllable.metaproject.frl/",
             },
+            {
+                id: "toaruos",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    url: host + "toaruos-1.6.1-core.iso",
+                    size: 67567616,
+                    async: false,
+                },
+                name: "ToaruOS",
+                acpi: true,
+                homepage: "https://toaruos.org/",
+            },
+            {
+                id: "nopeos",
+                cdrom: {
+                    url: host + "nopeos-0.1.iso",
+                    size: 532480,
+                    async: false,
+                },
+                name: "Nope OS",
+                homepage: "https://github.com/d99kris/nopeos",
+            },
+            {
+                id: "soso",
+                cdrom: {
+                    url: host + "soso.iso",
+                    size: 22546432,
+                    async: false,
+                },
+                name: "Soso",
+                homepage: "https://github.com/ozkl/soso",
+            },
+            {
+                id: "pcmos",
+                fda: {
+                    url: host + "PCMOS386-9-user-patched.img",
+                    size: 1440 * 1024,
+                    async: false,
+                },
+                name: "PC-MOS/386",
+                homepage: "https://github.com/roelandjansen/pcmos386v501",
+            },
+            {
+                id: "jx",
+                fda: {
+                    url: host + "jx-demo.img",
+                    size: 1440 * 1024,
+                    async: false,
+                },
+                name: "JX",
+                homepage: "https://www4.cs.fau.de/Projects/JX/index.html",
+            },
+            {
+                id: "house",
+                fda: {
+                    url: host + "hOp-0.8.img",
+                    size: 1440 * 1024,
+                    async: false,
+                },
+                name: "House",
+                homepage: "https://programatica.cs.pdx.edu/House/",
+            },
+            {
+                id: "bleskos",
+                name: "BleskOS",
+                cdrom: {
+                    url: host + "bleskos_2024u32.iso",
+                    size: 1835008,
+                    async: false,
+                },
+                homepage: "https://github.com/VendelinSlezak/BleskOS",
+            },
+            {
+                id: "boneos",
+                name: "BoneOS",
+                cdrom: {
+                    url: host + "BoneOS.iso",
+                    size: 11429888,
+                    async: false,
+                },
+                homepage: "https://amanuel.io/projects/BoneOS/",
+            },
         ];
 
         if(DEBUG)
