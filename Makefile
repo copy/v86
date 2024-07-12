@@ -200,6 +200,9 @@ with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	cargo rustc --release --features profiler $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm || true
 
+watch:
+	cargo watch -x 'rustc $(CARGO_FLAGS)' -s 'cp build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm'
+
 build/softfloat.o: lib/softfloat/softfloat.c
 	mkdir -p build
 	clang -c -Wall \
