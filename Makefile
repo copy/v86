@@ -325,7 +325,7 @@ all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-t
 	# - devices-test (hangs)
 
 eslint:
-	eslint src tests gen lib examples
+	eslint src tests gen lib examples tools
 
 rustfmt: $(RUST_FILES)
 	cargo fmt --all -- --check --config fn_single_line=true,control_brace_style=ClosingNextLine
