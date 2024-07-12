@@ -268,8 +268,8 @@ VirtioConsole.prototype.set_state = function(state)
     this.ports = state[3];
 };
 
-VirtioConsole.prototype.Reset = function() {
-
+VirtioConsole.prototype.reset = function() {
+    this.virtio.reset();
 };
 
 VirtioConsole.prototype.SendEvent = function(port, event, value)
