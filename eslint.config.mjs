@@ -6,7 +6,7 @@ export default [
             "no-trailing-spaces": "error",
             "no-extra-semi": "error",
             "no-tabs": "error",
-            //"quotes": ["error", "double", { "avoidEscape": true }],
+            "quotes": ["error", "double", { "avoidEscape": true, "allowTemplateLiterals": true }],
             //"keyword-spacing": ["error", { "after": false }],
             "semi": "error",
             //"no-var": "error",
