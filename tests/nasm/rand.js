@@ -35,7 +35,7 @@ function KISS07() {
     var w =  14921776;
     var c = 0;
 
-    if(args.length == 0) {
+    if(args.length === 0) {
       args = [+new Date];
     }
     var mash = Mash();

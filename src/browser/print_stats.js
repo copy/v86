@@ -224,7 +224,7 @@ const print_stats = {
 
         for(const { opcode, count } of counts)
         {
-            if((opcode & 0xFF00) == 0x0F00)
+            if((opcode & 0xFF00) === 0x0F00)
             {
                 per_opcode0f[opcode & 0xFF] += count;
             }
@@ -250,7 +250,7 @@ const print_stats = {
         {
             text += i.toString(16).padStart(2, "0") + ":" + v86util.pads(Math.round(per_opcode[i] / factor), pad_length);
 
-            if(i % 16 == 15)
+            if(i % 16 === 15)
                 text += "\n";
             else
                 text += " ";
@@ -263,7 +263,7 @@ const print_stats = {
         {
             text += (i & 0xFF).toString(16).padStart(2, "0") + ":" + v86util.pads(Math.round(per_opcode0f[i] / factor), pad_length);
 
-            if(i % 16 == 15)
+            if(i % 16 === 15)
                 text += "\n";
             else
                 text += " ";

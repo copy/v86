@@ -1827,7 +1827,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             var previous_vertical_display_enable_end = this.vertical_display_enable_end;
             this.vertical_display_enable_end &= 0xFF;
             this.vertical_display_enable_end |= (value << 3 & 0x200) | (value << 7 & 0x100);
-            if(previous_vertical_display_enable_end != this.vertical_display_enable_end)
+            if(previous_vertical_display_enable_end !== this.vertical_display_enable_end)
             {
                 this.update_vga_size();
             }

@@ -15,6 +15,7 @@ export default [
                 "catch": { "after": false },
             } }],
             "semi": "error",
+            "eqeqeq": "error",
             //"no-var": "error",
             "radix": "error",
             "comma-style": ["error", "last"],

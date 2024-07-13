@@ -101,7 +101,7 @@ function VirtioConsole(cpu, bus)
                 },
                 (queue_id) =>
                 {
-                    if(queue_id != 2)
+                    if(queue_id !== 2)
                     {
                         dbg_assert(false, "VirtioConsole Notified for wrong queue: " + queue_id +
                             " (expected queue_id of 2)");
@@ -113,7 +113,7 @@ function VirtioConsole(cpu, bus)
                 },
                 (queue_id) =>
                 {
-                    if(queue_id != 3)
+                    if(queue_id !== 3)
                     {
                         dbg_assert(false, "VirtioConsole Notified for wrong queue: " + queue_id +
                             " (expected queue_id of 3)");
@@ -151,7 +151,7 @@ function VirtioConsole(cpu, bus)
                                 break;
                             case VIRTIO_CONSOLE_PORT_OPEN:
                                 this.Ack(queue_id, bufchain);
-                                if(port == 0) {
+                                if(port === 0) {
                                     this.SendWindowSize(port);
                                 }
                                 break;
@@ -204,7 +204,7 @@ function VirtioConsole(cpu, bus)
     });
 
     for(let port = 0; port < this.ports; ++port) {
-        const queue_id = port == 0 ? 0 : port * 2 + 2;
+        const queue_id = port === 0 ? 0 : port * 2 + 2;
         this.bus.register("virtio-console" + port + "-input-bytes", function(data) {
             const queue = this.virtio.queues[queue_id];
             if(queue.has_request()) {

@@ -228,7 +228,7 @@ function UART(cpu, port, bus)
         var ret = this.iir & 0xF;
         dbg_log("read interrupt identification: " + h(this.iir), LOG_SERIAL);
 
-        if(this.iir == UART_IIR_THRI) {
+        if(this.iir === UART_IIR_THRI) {
             this.ClearInterrupt(UART_IIR_THRI);
         }
 

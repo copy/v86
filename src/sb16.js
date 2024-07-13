@@ -711,7 +711,7 @@ SB16.prototype.port3x1_read = function()
 SB16.prototype.port3x1_write = function(value)
 {
     dbg_log("331 write: mpu command: " + h(value), LOG_SB16);
-    if(value == 0xFF)
+    if(value === 0xFF)
     {
         // Command acknowledge.
         this.mpu_read_buffer.clear();

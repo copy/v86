@@ -1768,7 +1768,7 @@ function finish_tests()
     emulator.stop();
 
     console.log("\nTests finished.");
-    if(failed_tests.length == 0)
+    if(failed_tests.length === 0)
     {
         console.log("All tests passed");
     }
