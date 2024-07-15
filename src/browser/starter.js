@@ -304,6 +304,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.preserve_mac_from_state_image = options.preserve_mac_from_state_image;
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
+    settings.virtio_balloon = options.virtio_balloon;
     settings.virtio_console = options.virtio_console;
     settings.virtio_net = options.virtio_net;
     settings.screen_options = options.screen_options;

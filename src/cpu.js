@@ -420,6 +420,7 @@ CPU.prototype.get_state = function()
     state[81] = this.devices.uart3;
     state[82] = this.devices.virtio_console;
     state[83] = this.devices.virtio_net;
+    state[84] = this.devices.virtio_balloon;
 
     return state;
 };
@@ -552,6 +553,7 @@ CPU.prototype.set_state = function(state)
     this.devices.uart3 && this.devices.uart3.set_state(state[81]);
     this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
     this.devices.virtio_net && this.devices.virtio_net.set_state(state[83]);
+    this.devices.virtio_balloon && this.devices.virtio_balloon.set_state(state[84]);
 
     this.fw_value = state[62];
 
@@ -651,7 +653,7 @@ CPU.prototype.pack_memory = function()
 
 CPU.prototype.unpack_memory = function(bitmap, packed_memory)
 {
-    this.zero_memory(this.memory_size[0]);
+    this.zero_memory(0, this.memory_size[0]);
 
     const page_count = this.memory_size[0] >> 12;
     let packed_page = 0;
@@ -978,6 +980,9 @@ CPU.prototype.init = function(settings, device_bus)
         if(settings.virtio_console)
         {
             this.devices.virtio_console = new VirtioConsole(this, device_bus);
+        }
+        if(settings.virtio_balloon) {
+            this.devices.virtio_balloon = new VirtioBalloon(this, device_bus);
         }
 
         if(true)
