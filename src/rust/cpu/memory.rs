@@ -39,7 +39,9 @@ pub fn allocate_memory(size: u32) -> u32 {
 }
 
 #[no_mangle]
-pub unsafe fn zero_memory(size: u32) { ptr::write_bytes(mem8, 0, size as usize); }
+pub unsafe fn zero_memory(addr: u32, size: u32) {
+    ptr::write_bytes(mem8.offset(addr as isize), 0, size as usize);
+}
 
 #[allow(non_upper_case_globals)]
 pub static mut vga_mem8: *mut u8 = ptr::null_mut();
