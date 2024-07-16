@@ -237,7 +237,13 @@ function end_test()
         clearTimeout(test_timeout);
     }
 
-    tests[test_num].end(capture, report_test);
+    try {
+        tests[test_num].end(capture, report_test);
+    } catch(e) {
+        console.log(e);
+        test_has_failed = true;
+        report_test();
+    }
 }
 
 function report_test()
