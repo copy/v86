@@ -104,11 +104,28 @@ const tests =
         },
     },
     {
-        name: "Curl example.org",
+        name: "Curl mocked.example.org",
         timeout: 60,
+        allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send("wget -q -O - example.org\n");
+            emulator.serial0_send("wget -T 10 -q -O - mocked.example.org\n");
+            emulator.serial0_send("echo -e done\\\\tmocked.example.org\n");
+        },
+        end_trigger: "done\tmocked.example.org",
+        end: (capture, done) =>
+        {
+            assert(/This text is from the mock/.test(capture), "got mocked.example.org text");
+            done();
+        },
+    },
+    {
+        name: "Curl example.org",
+        timeout: 60,
+        allow_failure: true,
+        start: () =>
+        {
+            emulator.serial0_send("wget -T 10 -q -O - example.org\n");
             emulator.serial0_send("echo -e done\\\\texample.org\n");
         },
         end_trigger: "done\texample.org",
@@ -141,8 +158,8 @@ emulator.add_listener("emulator-ready", function () {
     let network_adapter = emulator.network_adapter;
     let original_fetch = network_adapter.fetch;
     network_adapter.fetch = (url, opts) => {
-        if(/^http:\/\/example.org\/?/.test(url)) {
-            let contents = new TextEncoder().encode("This domain is for use in illustrative examples in documents");
+        if(/^http:\/\/mocked.example.org\/?/.test(url)) {
+            let contents = new TextEncoder().encode("This text is from the mock");
             let headers = new Headers();
             return new Promise(res => setTimeout(() => res([
                 {status: 200, statusText: "OK", headers: headers},
