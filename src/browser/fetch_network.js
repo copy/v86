@@ -10,25 +10,25 @@ const IPV4_PROTO_ICMP = 1;
 const IPV4_PROTO_TCP = 6;
 const IPV4_PROTO_UDP = 17;
 
-const UNIX_EPOCH = new Date('1970-01-01T00:00:00Z').getTime();
-const NTP_EPOCH = new Date('1900-01-01T00:00:00Z').getTime();
+const UNIX_EPOCH = new Date("1970-01-01T00:00:00Z").getTime();
+const NTP_EPOCH = new Date("1900-01-01T00:00:00Z").getTime();
 const NTP_EPOC_DIFF = UNIX_EPOCH - NTP_EPOCH;
 const TWO_TO_32 = Math.pow(2, 32);
 
 const DHCP_MAGIC_COOKIE = 0x63825363;
 const V86_ASCII = [118, 56, 54];
 
-const TCP_STATE_CLOSED = 'closed';
-const TCP_STATE_LISTEN = 'listen';
-const TCP_STATE_ESTABLISHED = 'established';
-const TCP_STATE_FIN_WAIT_1 = 'fin-wait-1';
-const TCP_STATE_CLOSE_WAIT = 'close-wait';
-const TCP_STATE_FIN_WAIT_2 = 'fin-wait-2';
-const TCP_STATE_LAST_ACK = 'last-ack';
-const TCP_STATE_CLOSING = 'closing';
-const TCP_STATE_TIME_WAIT = 'time-wait';
-const TCP_STATE_SYN_RECEIVED = 'syn-received';
-const TCP_STATE_SYN_SENT = 'syn-sent';
+const TCP_STATE_CLOSED = "closed";
+const TCP_STATE_LISTEN = "listen";
+const TCP_STATE_ESTABLISHED = "established";
+const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
+const TCP_STATE_CLOSE_WAIT = "close-wait";
+const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
+const TCP_STATE_LAST_ACK = "last-ack";
+const TCP_STATE_CLOSING = "closing";
+const TCP_STATE_TIME_WAIT = "time-wait";
+const TCP_STATE_SYN_RECEIVED = "syn-received";
+const TCP_STATE_SYN_SENT = "syn-sent";
 
 /**
  * @constructor
@@ -45,7 +45,7 @@ function FetchNetworkAdapter(bus, config)
     this.router_mac = new Uint8Array((config.router_mac || "52:54:0:1:2:3").split(":").map(function(x) { return parseInt(x, 16); }));
     this.router_ip = new Uint8Array((config.router_ip || "192.168.86.1").split(".").map(function(x) { return parseInt(x, 10); }));
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
-    this.masquerade = typeof(config.masquerade) == 'undefined' ? true : !!config.masquerade;
+    this.masquerade = typeof(config.masquerade) === "undefined" ? true : !!config.masquerade;
 
     this.tcp_conn = {};
 
@@ -60,15 +60,15 @@ function FetchNetworkAdapter(bus, config)
     }, this);
 
     this.fetch = function(url, options) {
-        if (adapter.cors_proxy) url = adapter.cors_proxy + encodeURIComponent(url);
+        if(adapter.cors_proxy) url = adapter.cors_proxy + encodeURIComponent(url);
         return fetch(url, options).then(function(resp) {
             return resp.arrayBuffer().then(function(ab) {
                 return [resp, ab];
             });
         }).catch(err => {
-            console.warn('Fetch Failed: ' + url + '\n' + String(err));
+            console.warn("Fetch Failed: " + url + "\n" + String(err));
             let headers = new Headers();
-            headers.set('Content-Type', 'text/plain');
+            headers.set("Content-Type", "text/plain");
             return [
                 {
                     status: 502,
@@ -105,7 +105,7 @@ FetchNetworkAdapter.prototype.send = function(data)
     let packet = {};
     parse_eth(data, packet);
 
-    if (packet.tcp) {
+    if(packet.tcp) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
         reply.ipv4 = {
@@ -121,8 +121,8 @@ FetchNetworkAdapter.prototype.send = function(data)
             packet.tcp.dport
         ].join(":");
 
-        if (packet.tcp.syn && packet.tcp.dport == 80) {
-            if (this.tcp_conn[tuple]) {
+        if(packet.tcp.syn && packet.tcp.dport === 80) {
+            if(this.tcp_conn[tuple]) {
                 dbg_log("SYN to already opened port", LOG_NET);
             }
             this.tcp_conn[tuple] = new TCPConnection();
@@ -134,10 +134,10 @@ FetchNetworkAdapter.prototype.send = function(data)
             return;
         }
 
-        if (!this.tcp_conn[tuple]) {
+        if(!this.tcp_conn[tuple]) {
             dbg_log(`I dont know about ${tuple}, so restting`, LOG_NET);
             let bop = packet.tcp.ackn;
-            if (packet.tcp.fin || packet.tcp.syn) bop += 1;
+            if(packet.tcp.fin || packet.tcp.syn) bop += 1;
             reply.tcp = {
                 sport: packet.tcp.dport,
                 dport: packet.tcp.sport,
@@ -154,12 +154,12 @@ FetchNetworkAdapter.prototype.send = function(data)
         this.tcp_conn[tuple].process(packet);
     }
 
-    if (packet.arp && packet.arp.oper == 1 && packet.arp.ptype == ETHERTYPE_IPV4) {
-        if (!this.masquerade) {
+    if(packet.arp && packet.arp.oper === 1 && packet.arp.ptype === ETHERTYPE_IPV4) {
+        if(!this.masquerade) {
             let packet_subnet = iptolong(packet.arp.tpa) & 0xFFFFFF00;
             let router_subnet = iptolong(this.router_ip) & 0xFFFFFF00;
 
-            if (packet_subnet != router_subnet) {
+            if(packet_subnet !== router_subnet) {
                 return;
             }
         }
@@ -179,7 +179,7 @@ FetchNetworkAdapter.prototype.send = function(data)
         this.receive(make_packet(reply));
     }
 
-    if (packet.dns) {
+    if(packet.dns) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
         reply.ipv4 = {
@@ -194,10 +194,10 @@ FetchNetworkAdapter.prototype.send = function(data)
         flags |= 0x0180; // Recursion
         // flags |= 0x0400; Authoritative
 
-        for (let i = 0; i < packet.dns.questions.length; ++i) {
+        for(let i = 0; i < packet.dns.questions.length; ++i) {
             let q = packet.dns.questions[i];
 
-            switch (q.type){
+            switch(q.type){
                 case 1: // A recrod
                     answers.push({
                         name: q.name,
@@ -221,7 +221,7 @@ FetchNetworkAdapter.prototype.send = function(data)
         return;
     }
 
-    if (packet.ntp) {
+    if(packet.ntp) {
 
         let now = Date.now(); // - 1000 * 60 * 60 * 24 * 7;
         let now_n = now + NTP_EPOC_DIFF;
@@ -254,7 +254,7 @@ FetchNetworkAdapter.prototype.send = function(data)
     }
 
     // ICMP Ping
-    if (packet.icmp && packet.icmp.type == 8) {
+    if(packet.icmp && packet.icmp.type === 8) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
         reply.ipv4 = {
@@ -271,7 +271,7 @@ FetchNetworkAdapter.prototype.send = function(data)
         return;
     }
 
-    if (packet.dhcp) {
+    if(packet.dhcp) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
         reply.ipv4 = {
@@ -297,15 +297,15 @@ FetchNetworkAdapter.prototype.send = function(data)
         let options = [];
 
         // idk, it seems like op should be 3, but udhcpc sends 1
-        let fix = packet.dhcp.options.find(function(x) { return x[0] == 53; });
-        if ( fix && fix[2] == 3 ) packet.dhcp.op = 3;
+        let fix = packet.dhcp.options.find(function(x) { return x[0] === 53; });
+        if( fix && fix[2] === 3 ) packet.dhcp.op = 3;
 
-        if (packet.dhcp.op == 1) {
+        if(packet.dhcp.op === 1) {
             reply.dhcp.op = 2;
             options.push(new Uint8Array([53, 1, 2]));
         }
 
-        if (packet.dhcp.op == 3) {
+        if(packet.dhcp.op === 3) {
             reply.dhcp.op = 2;
             options.push(new Uint8Array([53, 1, 5]));
             options.push(new Uint8Array([51, 4, 8, 0, 0, 0]));  // Lease Time
@@ -313,7 +313,7 @@ FetchNetworkAdapter.prototype.send = function(data)
 
         let router_ip = [this.router_ip[0], this.router_ip[1], this.router_ip[2], this.router_ip[3]];
         options.push(new Uint8Array([1, 4, 255, 255, 255, 0])); // Netmask
-        if (this.masquerade) {
+        if(this.masquerade) {
             options.push(new Uint8Array([3, 4].concat(router_ip))); // Router
             options.push(new Uint8Array([6, 4].concat(router_ip))); // DNS
         }
@@ -326,7 +326,7 @@ FetchNetworkAdapter.prototype.send = function(data)
         return;
     }
 
-    if (packet.udp && packet.udp.dport == 8) {
+    if(packet.udp && packet.udp.dport === 8) {
         // UDP Echo Server
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
@@ -361,8 +361,8 @@ FetchNetworkAdapter.prototype.tcp_connect = function(dport)
 
     let conn = new TCPConnection();
     conn.net = this;
-    conn.onData = function(data) { if (reader) reader.call(handle, data); };
-    conn.onConnect = function() { if (connector) connector.call(handle); };
+    conn.onData = function(data) { if(reader) reader.call(handle, data); };
+    conn.onConnect = function() { if(connector) connector.call(handle); };
     conn.tuple = tuple;
 
     conn.hsrc = this.router_mac;
@@ -379,8 +379,8 @@ FetchNetworkAdapter.prototype.tcp_connect = function(dport)
     let handle = {
         write: function(data) { conn.write(data); },
         on: function(event, cb) {
-            if ( event == "data" ) reader = cb;
-            if ( event == "connect" ) connector = cb;
+            if( event === "data" ) reader = cb;
+            if( event === "connect" ) connector = cb;
         },
         close: function() { conn.close(); }
     };
@@ -404,7 +404,7 @@ FetchNetworkAdapter.prototype.receive = function(data)
 };
 
 function a2ethaddr(bytes) {
-    return [0,1,2,3,4,5].map((i) => bytes[i].toString(16)).map(x => x.length == 1 ? '0' + x : x).join(":");
+    return [0,1,2,3,4,5].map((i) => bytes[i].toString(16)).map(x => x.length === 1 ? "0" + x : x).join(":");
 }
 
 function parse_eth(data, o) {
@@ -426,10 +426,10 @@ function parse_eth(data, o) {
     // Remove CRC from the end of the packet maybe?
     let payload = data.subarray(14, data.length);
 
-    if (ethertype == ETHERTYPE_IPV4) {
+    if(ethertype === ETHERTYPE_IPV4) {
         parse_ipv4(payload, o);
     }
-    if (ethertype == ETHERTYPE_ARP) {
+    if(ethertype === ETHERTYPE_ARP) {
         parse_arp(payload, o);
     }
     return true;
@@ -438,14 +438,14 @@ function parse_eth(data, o) {
 function write_eth(spec, data) {
     let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     view.setUint16(12, spec.eth.ethertype);
-    for (let i = 0; i < 6; ++i ) view.setUint8(0 + i, spec.eth.dest[i]);
-    for (let i = 0; i < 6; ++i ) view.setUint8(6 + i, spec.eth.src[i]);
+    for(let i = 0; i < 6; ++i ) view.setUint8(0 + i, spec.eth.dest[i]);
+    for(let i = 0; i < 6; ++i ) view.setUint8(6 + i, spec.eth.src[i]);
 
     let len = 14;
-    if (spec.arp) {
+    if(spec.arp) {
         len += write_arp(spec, data.subarray(14));
     }
-    if (spec.ipv4) {
+    if(spec.ipv4) {
         len += write_ipv4(spec, data.subarray(14));
     }
     return len;
@@ -476,12 +476,12 @@ function write_arp(spec, data) {
     view.setUint8(5, spec.arp.spa.length);
     view.setUint16(6, spec.arp.oper);
 
-    for (let i = 0; i < 6; ++i) {
+    for(let i = 0; i < 6; ++i) {
         view.setUint8(8 + i, spec.arp.sha[i]);
         view.setUint8(18 + i, spec.arp.tha[i]);
     }
 
-    for (let i = 0; i < 4; ++i) {
+    for(let i = 0; i < 4; ++i) {
         view.setUint8(14 + i, spec.arp.spa[i]);
         view.setUint8(24 + i, spec.arp.tpa[i]);
     }
@@ -516,17 +516,17 @@ function parse_ipv4(data, o) {
     };
 
     // Ethernet minmum packet size.
-    if (Math.max(len, 46) != data.length) dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_NET);
+    if(Math.max(len, 46) !== data.length) dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_NET);
 
     o.ipv4 = ipv4;
     let ipdata = data.subarray(ihl * 4, len);
-    if (proto == IPV4_PROTO_ICMP) {
+    if(proto === IPV4_PROTO_ICMP) {
         parse_icmp(ipdata, o);
     }
-    if (proto == IPV4_PROTO_TCP) {
+    if(proto === IPV4_PROTO_TCP) {
         parse_tcp(ipdata, o);
     }
-    if (proto == IPV4_PROTO_UDP) {
+    if(proto === IPV4_PROTO_UDP) {
         parse_udp(ipdata, o);
     }
 
@@ -541,17 +541,17 @@ function write_ipv4(spec, data) {
     let version = 4;
     let len = 4 * ihl; // Total Length
 
-    if (spec.icmp) {
+    if(spec.icmp) {
         len += write_icmp(spec, data.subarray(ihl * 4));
     }
-    if (spec.udp) {
+    if(spec.udp) {
         len += write_udp(spec, data.subarray(ihl * 4));
     }
-    if (spec.tcp) {
+    if(spec.tcp) {
         len += write_tcp(spec, data.subarray(ihl * 4));
     }
-    if (spec.tcp_data) {
-        for (let i = 0; i < spec.tcp_data.length; ++i) {
+    if(spec.tcp_data) {
+        for(let i = 0; i < spec.tcp_data.length; ++i) {
             view.setUint8(len + i, spec.tcp_data[i]);
         }
         len += spec.tcp_data.length;
@@ -566,15 +566,15 @@ function write_ipv4(spec, data) {
     view.setUint8(9, spec.ipv4.proto);
     view.setUint16(10, 0); // Checksum is zero during hashing
 
-    for (let i = 0; i < 4; ++i) {
+    for(let i = 0; i < 4; ++i) {
         view.setUint8(12 + i, spec.ipv4.src[i]);
         view.setUint8(16 + i, spec.ipv4.dest[i]);
     }
 
     let checksum = 0;
-    for (let i = 0; i < ihl * 2; ++i) {
+    for(let i = 0; i < ihl * 2; ++i) {
         checksum += view.getUint16(i << 1);
-        if (checksum > 0xFFFF) {
+        if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
         }
     }
@@ -603,14 +603,14 @@ function write_icmp(spec, data) {
     view.setUint8(1, spec.icmp.code);
     view.setUint16(2, 0); // checksum 0 during calc
 
-    for (let i = 0; i < spec.icmp.data.length; ++i) {
+    for(let i = 0; i < spec.icmp.data.length; ++i) {
         view.setUint8(i + 4, spec.icmp.data[i]);
     }
 
     let checksum = 0;
-    for (let i = 0; i < 4 + spec.icmp.data.length; i += 2) {
+    for(let i = 0; i < 4 + spec.icmp.data.length; i += 2) {
         checksum += view.getUint16(i);
-        if (checksum > 0xFFFF) {
+        if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
         }
     }
@@ -631,13 +631,13 @@ function parse_udp(data, o) {
     };
 
     //dbg_assert(udp.data.length + 8 == udp.len);
-    if (udp.dport == 67 || udp.sport == 67) { //DHCP
+    if(udp.dport === 67 || udp.sport === 67) { //DHCP
         parse_dhcp(data.subarray(8), o);
     }
-    if (udp.dport == 53 || udp.sport == 53) {
+    if(udp.dport === 53 || udp.sport === 53) {
         parse_dns(data.subarray(8), o);
     }
-    if (udp.dport == 123) {
+    if(udp.dport === 123) {
         parse_ntp(data.subarray(8), o);
     }
     o.udp = udp;
@@ -649,16 +649,16 @@ function write_udp(spec, data) {
 
     let payload_length;
 
-    if (spec.dhcp) {
+    if(spec.dhcp) {
         payload_length = write_dhcp(spec, data.subarray(8));
-    } else if (spec.dns) {
+    } else if(spec.dns) {
         payload_length = write_dns(spec, data.subarray(8));
-    } else if (spec.ntp) {
+    } else if(spec.ntp) {
         payload_length = write_ntp(spec, data.subarray(8));
     } else {
         let raw_data = spec.udp.data;
         payload_length = raw_data.length;
-        for (let i = 0; i < raw_data.length; ++i) {
+        for(let i = 0; i < raw_data.length; ++i) {
             view.setUint8(8+i, raw_data[i]);
         }
     }
@@ -693,11 +693,11 @@ function parse_dns(data, o) {
             len = view.getUint8(offset);
             o.push(new TextDecoder().decode(data.subarray(offset+1, offset+1+len)));
             offset += len + 1;
-        } while (len > 0);
+        } while(len > 0);
         return o;
     }
 
-    for (let i = 0; i < qdcount; i++) {
+    for(let i = 0; i < qdcount; i++) {
         dns.questions.push({
             name: read_dstr(),
             type: view.getInt16(offset),
@@ -705,7 +705,7 @@ function parse_dns(data, o) {
         });
         offset += 4;
     }
-    for (let i = 0; i < ancount; i++) {
+    for(let i = 0; i < ancount; i++) {
         let ans = {
             name: read_dstr(),
             type: view.getInt16(offset),
@@ -730,12 +730,12 @@ function write_dns(spec, data) {
     view.setUint16(6, spec.dns.answers.length);
 
     let offset = 12;
-    for (let i = 0; i < spec.dns.questions.length; ++i) {
+    for(let i = 0; i < spec.dns.questions.length; ++i) {
         let q = spec.dns.questions[i];
-        for (let s of q.name) {
+        for(let s of q.name) {
             view.setUint8(offset, s.length);
             offset++;
-            for ( let ii = 0; ii < s.length; ++ii) {
+            for( let ii = 0; ii < s.length; ++ii) {
                 view.setUint8(offset, s.charCodeAt(ii));
                 offset++;
             }
@@ -747,10 +747,10 @@ function write_dns(spec, data) {
     }
 
     function write_reply(a) {
-        for (let s of a.name) {
+        for(let s of a.name) {
             view.setUint8(offset, s.length);
             offset++;
-            for ( let ii = 0; ii < s.length; ++ii) {
+            for( let ii = 0; ii < s.length; ++ii) {
                 view.setUint8(offset, s.charCodeAt(ii));
                 offset++;
             }
@@ -764,14 +764,14 @@ function write_dns(spec, data) {
         view.setUint16(offset, a.data.length);
         offset += 2;
 
-        for (let ii = 0; ii < a.data.length; ++ii) {
+        for(let ii = 0; ii < a.data.length; ++ii) {
             view.setUint8(offset + ii, a.data[ii]);
         }
 
         offset += a.data.length;
     }
 
-    for (let i = 0; i < spec.dns.answers.length; ++i) {
+    for(let i = 0; i < spec.dns.answers.length; ++i) {
         let a = spec.dns.answers[i];
         write_reply(a);
     }
@@ -800,10 +800,10 @@ function parse_dhcp(data, o) {
     };
 
     let options = data.subarray(240);
-    for (let i = 0; i < options.length; ++i) {
+    for(let i = 0; i < options.length; ++i) {
         let start = i;
         let op = options[i];
-        if (op == 0) continue;
+        if(op === 0) continue;
         ++i;
         let len = options[i];
         i += len;
@@ -830,15 +830,15 @@ function write_dhcp(spec, data) {
     view.setUint32(20, spec.dhcp.siaddr);
     view.setUint32(24, spec.dhcp.giaddr);
 
-    for (let i = 0; i < spec.dhcp.chaddr.length; ++i) {
+    for(let i = 0; i < spec.dhcp.chaddr.length; ++i) {
         view.setUint8(28+i, spec.dhcp.chaddr[i]);
     }
 
     view.setUint32(236, DHCP_MAGIC_COOKIE);
 
     let offset = 240;
-    for (let o of spec.dhcp.options) {
-        for (let i = 0; i < o.length; ++i) {
+    for(let o of spec.dhcp.options) {
+        for(let i = 0; i < o.length; ++i) {
             view.setUint8(offset, o[i]);
             ++offset;
         }
@@ -928,14 +928,14 @@ function write_tcp(spec, data) {
     let flags = 0;
     let tcp = spec.tcp;
 
-    if (tcp.fin) flags |= 0x01;
-    if (tcp.syn) flags |= 0x02;
-    if (tcp.rst) flags |= 0x04;
-    if (tcp.psh) flags |= 0x08;
-    if (tcp.ack) flags |= 0x10;
-    if (tcp.urg) flags |= 0x20;
-    if (tcp.ece) flags |= 0x40;
-    if (tcp.cwr) flags |= 0x80;
+    if(tcp.fin) flags |= 0x01;
+    if(tcp.syn) flags |= 0x02;
+    if(tcp.rst) flags |= 0x04;
+    if(tcp.psh) flags |= 0x08;
+    if(tcp.ack) flags |= 0x10;
+    if(tcp.urg) flags |= 0x20;
+    if(tcp.ece) flags |= 0x40;
+    if(tcp.cwr) flags |= 0x80;
 
     let doff = 5;
 
@@ -954,30 +954,30 @@ function write_tcp(spec, data) {
     let checksum = 0;
     let psudo_header = new Uint8Array(12);
     let phview = new DataView(psudo_header.buffer, psudo_header.byteOffset, psudo_header.byteLength);
-    for (let i = 0; i < 4; ++i) {
+    for(let i = 0; i < 4; ++i) {
         phview.setUint8(i, spec.ipv4.src[i]);
         phview.setUint8(4 + i, spec.ipv4.dest[i]);
     }
     phview.setUint8(9, IPV4_PROTO_TCP);
     phview.setUint16(10, total_len);
 
-    for (let i = 0; i < 6; ++i) {
+    for(let i = 0; i < 6; ++i) {
         checksum += phview.getUint16(i << 1);
-        if (checksum > 0xFFFF) {
+        if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
         }
     }
-    for (let i = 0; i < doff * 2; ++i) {
+    for(let i = 0; i < doff * 2; ++i) {
         checksum += view.getUint16(i << 1);
-        if (checksum > 0xFFFF) {
+        if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
         }
     }
 
-    if (spec.tcp_data) {
-        for (let i = 0; i < spec.tcp_data.length; i += 2) {
+    if(spec.tcp_data) {
+        for(let i = 0; i < spec.tcp_data.length; i += 2) {
             checksum += spec.tcp_data[i] << 8 | spec.tcp_data[i+1];
-            if (checksum > 0xFFFF) {
+            if(checksum > 0xFFFF) {
                 checksum = (checksum & 0xFFFF) + 1;
             }
         }
@@ -1077,9 +1077,9 @@ TCPConnection.prototype.accept = function(packet) {
 TCPConnection.prototype.process = function(packet) {
 
     // Receive Handshake Part 2, Send Part 3
-    if (packet.tcp.syn) {
+    if(packet.tcp.syn) {
         dbg_assert(packet.tcp.ack);
-        dbg_assert(this.state == TCP_STATE_SYN_SENT);
+        dbg_assert(this.state === TCP_STATE_SYN_SENT);
 
         this.ack = packet.tcp.seq + 1;
         this.start_seq = packet.tcp.seq;
@@ -1089,13 +1089,13 @@ TCPConnection.prototype.process = function(packet) {
         this.net.receive(make_packet(reply));
 
         this.state = TCP_STATE_ESTABLISHED;
-        if (this.onConnect) this.onConnect.call(this);
+        if(this.onConnect) this.onConnect.call(this);
         return;
     }
 
-    if (packet.tcp.fin) {
+    if(packet.tcp.fin) {
         dbg_log(`All done with ${this.tuple} resetting`, LOG_NET);
-        if (this.ack != packet.tcp.seq) {
+        if(this.ack !== packet.tcp.seq) {
             dbg_log("Closing the connecton, but seq was wrong", LOG_NET);
             ++this.ack; // FIN increases seq#
         }
@@ -1113,7 +1113,7 @@ TCPConnection.prototype.process = function(packet) {
         return;
     }
 
-    if (this.ack != packet.tcp.seq) {
+    if(this.ack !== packet.tcp.seq) {
         dbg_log(`Packet seq was wrong ex: ${this.ack} ~${this.ack - this.start_seq} pk: ${packet.tcp.seq} ~${this.start_seq - packet.tcp.seq} (${this.ack - packet.tcp.seq}) = ${this.name}`, LOG_NET);
 
         let reply = this.ipv4_reply();
@@ -1135,22 +1135,22 @@ TCPConnection.prototype.process = function(packet) {
     this.ack += packet.tcp_data.length;
 
 
-    if (packet.tcp_data.length > 0) {
+    if(packet.tcp_data.length > 0) {
         let reply = this.ipv4_reply();
         this.net.receive(make_packet(reply));
     }
 
-    if (this.last_received_ackn === undefined) this.last_received_ackn = packet.tcp.ackn;
+    if(this.last_received_ackn === undefined) this.last_received_ackn = packet.tcp.ackn;
     let nread = packet.tcp.ackn - this.last_received_ackn;
     //console.log("Read ", nread, "(", this.last_received_ackn, ") ", packet.tcp.ackn, packet.tcp.winsize)
-    if (nread > 0) {
+    if(nread > 0) {
         this.last_received_ackn = packet.tcp.ackn;
         this.send_buffer = this.send_buffer.subarray(nread);
         this.seq += nread;
         this.pending = false;
     }
 
-    if (nread < 0) return;
+    if(nread < 0) return;
 
 
     this.onData.call(this, packet.tcp_data);
@@ -1161,58 +1161,58 @@ TCPConnection.prototype.process = function(packet) {
 
 function HTTPHandler() {
     // TODO: Likely this shouldnt be a string
-    let read = '';
+    let read = "";
     return function(data) {
         read += new TextDecoder().decode(data);
-        if (read && read.indexOf("\r\n\r\n") !== -1) {
+        if(read && read.indexOf("\r\n\r\n") !== -1) {
             let offset = read.indexOf("\r\n\r\n");
             let headers = read.substring(0, offset).split(/\r\n/);
             let data = read.substring(offset + 4);
-            read = '';
+            read = "";
 
-            let first_line = headers[0].split(' ');
-            let target = new URL('http://host' + first_line[1]);
-            if (/^https?:/.test(first_line[1])) {
+            let first_line = headers[0].split(" ");
+            let target = new URL("http://host" + first_line[1]);
+            if(/^https?:/.test(first_line[1])) {
                 target = new URL(first_line[1]);
             }
             let req_headers = new Headers();
-            for (let i = 1; i < headers.length; ++i) {
-                let parts = headers[i].split(': ');
+            for(let i = 1; i < headers.length; ++i) {
+                let parts = headers[i].split(": ");
                 let key =  parts[0].toLowerCase();
                 let value = parts[1];
-                if ( key == 'host' ) target.host = value;
-                else if ( key.length > 1 ) req_headers.set(parts[0], value);
+                if( key === "host" ) target.host = value;
+                else if( key.length > 1 ) req_headers.set(parts[0], value);
             }
-            
+
             dbg_log("HTTP Dispatch: " + target.href, LOG_NET);
             this.name = target.href;
             let opts = {
                 method: first_line[0],
                 headers: req_headers,
             };
-            if (['put', 'post'].indexOf(opts.method.toLowerCase()) != -1) {
+            if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
                 opts.body = data;
             }
             this.net.fetch(target.href, opts).then(([resp, ab]) => {
                 let lines = [
                     `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-                    'connection: Closed',
-                    'content-length: ' + ab.byteLength
+                    "connection: Closed",
+                    "content-length: " + ab.byteLength
                 ];
 
-                lines.push('x-was-fetch-redirected: ' + String(resp.redirected));
-                lines.push('x-fetch-resp-url: ' + String(resp.url));
+                lines.push("x-was-fetch-redirected: " + String(resp.redirected));
+                lines.push("x-fetch-resp-url: " + String(resp.url));
 
                 resp.headers.forEach(function (value, key) {
-                    if ([
-                        'content-encoding', 'connection', 'content-length', 'transfer-encoding'
-                    ].indexOf(key.toLowerCase()) == -1 ) {
-                        lines.push(key + ': ' + value);
+                    if([
+                        "content-encoding", "connection", "content-length", "transfer-encoding"
+                    ].indexOf(key.toLowerCase()) === -1 ) {
+                        lines.push(key + ": " + value);
                     }
                 });
 
-                lines.push('');
-                lines.push('');
+                lines.push("");
+                lines.push("");
 
                 this.write(new TextEncoder().encode(lines.join("\r\n")));
                 this.write(new Uint8Array(ab));
@@ -1222,11 +1222,11 @@ function HTTPHandler() {
 }
 
 /**
- * 
- * @param {Uint8Array} data 
+ *
+ * @param {Uint8Array} data
  */
 TCPConnection.prototype.write = function(data) {
-    if (this.send_buffer.length > 0) {
+    if(this.send_buffer.length > 0) {
         // TODO: Pretty inefficient
         let concat = new Uint8Array(this.send_buffer.byteLength + data.byteLength);
         concat.set(this.send_buffer, 0);
@@ -1249,12 +1249,12 @@ TCPConnection.prototype.close = function() {
 /** @suppress {checkTypes} */
 TCPConnection.prototype.pump = function(packet) {
 
-    if (this.send_buffer.length > 0 && !this.pending) {
+    if(this.send_buffer.length > 0 && !this.pending) {
         let data = this.send_buffer.subarray(0, 500);
         let reply = this.ipv4_reply();
 
         this.pending = true;
-        if (this.send_buffer.length < 1) reply.tcp.fin = true;
+        if(this.send_buffer.length < 1) reply.tcp.fin = true;
         reply.tcp.psh = true;
         reply.tcp_data = data;
         this.net.receive(make_packet(reply));

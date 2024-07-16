@@ -122,7 +122,7 @@ const tests =
         end_trigger: "done\tarp",
         end: (capture, done) =>
         {
-            assert(/.192.168.86.1. at 52:54:00:01:02:03 \[ether\]  on eth0/.test(capture), "(192.168.86.1) at 52:54:00:01:02:03 [ether]  on eth0");
+            assert(/.192.168.86.1. at 52:54:00:01:02:03 \[ether\] {2}on eth0/.test(capture), "(192.168.86.1) at 52:54:00:01:02:03 [ether]  on eth0");
             done();
         },
     },
@@ -168,7 +168,7 @@ const emulator = new V86({
         baseurl: __dirname + "/testfs/",
     },
     disable_jit: +process.env.DISABLE_JIT,
-    network_relay_url: 'fetch',
+    network_relay_url: "fetch",
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
 
@@ -283,7 +283,7 @@ function finish_tests()
     emulator.stop();
 
     console.log("\nTests finished.");
-    if(failed_tests.length == 0)
+    if(failed_tests.length === 0)
     {
         console.log("All tests passed");
     }

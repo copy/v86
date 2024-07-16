@@ -293,7 +293,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     else if(options.network_relay_url)
     {
-        if (options.network_relay_url == "fetch")
+        if(options.network_relay_url === "fetch")
         {
             this.network_adapter = new FetchNetworkAdapter(this.bus);
         }
