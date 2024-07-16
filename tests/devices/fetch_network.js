@@ -6,10 +6,8 @@ process.on("unhandledRejection", exn => { throw exn; });
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-const fs = require("fs");
 
-const testfsjson = require("./testfs.json");
-const { assert } = require("console");
+const assert = require("assert").strict;
 const SHOW_LOGS = false;
 const STOP_ON_FIRST_FAILURE = false;
 
@@ -26,27 +24,6 @@ function log_warn(msg, ...args)
 function log_fail(msg, ...args)
 {
     console.error(`\x1b[91m[-] ${msg}\x1b[0m`, ...args);
-}
-
-function assert_equal(actual, expected, message)
-{
-    if(actual !== expected)
-    {
-        log_warn("Failed assert equal (Test: %s). %s", tests[test_num].name, message || "");
-        log_warn("Expected:\n" + expected);
-        log_warn("Actual:\n" + actual);
-        test_fail();
-    }
-}
-
-function assert_not_equal(actual, expected, message)
-{
-    if(actual === expected)
-    {
-        log_warn("Failed assert not equal (Test: %s). %s", tests[test_num].name, message || "");
-        log_warn("Expected something different than:\n" + expected);
-        test_fail();
-    }
 }
 
 const tests =
@@ -127,14 +104,14 @@ const tests =
         },
     },
     {
-        name: "Curl httpbin.org/ip",
+        name: "Curl example.org",
         timeout: 60,
         start: () =>
         {
             emulator.serial0_send("wget -q -O - example.org\n");
-            emulator.serial0_send("echo -e done\\\\thttpbin\n");
+            emulator.serial0_send("echo -e done\\\\texample.org\n");
         },
-        end_trigger: "done\thttpbin",
+        end_trigger: "done\texample.org",
         end: (capture, done) =>
         {
             assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
@@ -149,27 +126,31 @@ let test_timeout = 0;
 let test_has_failed = false;
 const failed_tests = [];
 
-function test_fail()
-{
-    if(!test_has_failed)
-    {
-        test_has_failed = true;
-        failed_tests.push(test_num);
-    }
-}
-
 const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
     cdrom: { url: __dirname + "/../../images/linux4.iso" },
     autostart: true,
     memory_size: 64 * 1024 * 1024,
-    filesystem: {
-        baseurl: __dirname + "/testfs/",
-    },
     disable_jit: +process.env.DISABLE_JIT,
     network_relay_url: "fetch",
     log_level: SHOW_LOGS ? 0x400000 : 0,
+});
+
+emulator.add_listener("emulator-ready", function () {
+    let network_adapter = emulator.network_adapter;
+    let original_fetch = network_adapter.fetch;
+    network_adapter.fetch = (url, opts) => {
+        if(/^http:\/\/example.org\/?/.test(url)) {
+            let contents = new TextEncoder().encode("This domain is for use in illustrative examples in documents");
+            let headers = new Headers();
+            return new Promise(res => setTimeout(() => res([
+                {status: 200, statusText: "OK", headers: headers},
+                contents.buffer
+            ]), 50));
+        }
+        return original_fetch(url, opts);
+    };
 });
 
 let ran_command = false;
