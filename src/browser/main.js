@@ -1123,8 +1123,16 @@
                 },
                 homepage: "https://amanuel.io/projects/BoneOS/",
             },
-        ];
-
+        ];              {
+                id: "bluejay",
+                name: "Blue Jay",
+                fda: {
+                    url: host + "bj050.img",
+                    size: 11429888,
+                    async: false,
+                },
+                homepage: "https://archiveos.org/blue-jay/",
+             ];
         if(DEBUG)
         {
             // see tests/kvm-unit-tests/x86/
