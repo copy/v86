@@ -9,16 +9,16 @@ globalThis.dbg_assert = require("node:assert");
 globalThis.dbg_log = (what, level) => console.log(what);
 globalThis.LOG_NET = 0;
 
-let FetchNetworkAdapter = require(path.join(__dirname, "..", "src", "browser", "fetch_network.js"));
+const { FetchNetworkAdapter } = require(path.join(__dirname, "..", "src", "browser", "fetch_network.js"));
 
-let events = {};
+const events = {};
 
-let bus = {
+const bus = {
     register: (name, fn, bind) => events[name] = fn.bind(bind),
     send: (name, data) => events[name](data)
 };
 
-let a = new FetchNetworkAdapter(bus);
+const a = new FetchNetworkAdapter(bus);
 
 server.on("error", (err) => {
   console.error(`server error:\n${err.stack}`);

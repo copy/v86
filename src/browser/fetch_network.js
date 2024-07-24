@@ -39,46 +39,28 @@ const TCP_STATE_SYN_SENT = "syn-sent";
 function FetchNetworkAdapter(bus, config)
 {
     config = config || {};
-    let adapter = this;
     this.bus = bus;
     this.id = config.id || 0;
     this.router_mac = new Uint8Array((config.router_mac || "52:54:0:1:2:3").split(":").map(function(x) { return parseInt(x, 16); }));
     this.router_ip = new Uint8Array((config.router_ip || "192.168.86.1").split(".").map(function(x) { return parseInt(x, 10); }));
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
-    this.masquerade = typeof(config.masquerade) === "undefined" ? true : !!config.masquerade;
+    this.masquerade = config.masquerade === undefined || !!config.masquerade;
+    this.vm_mac = new Uint8Array(6);
 
     this.tcp_conn = {};
 
     // Ex: 'https://corsproxy.io/?'
-    this.cors_proxy = config.cors_proxy ? this.cors_proxy : false;
-    this.bus.register("net" + adapter.id + "-mac", function(mac) {
-        adapter.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
+    this.cors_proxy = config.cors_proxy;
+
+    this.bus.register("net" + this.id + "-mac", function(mac) {
+        this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
-    this.bus.register("net" + adapter.id + "-send", function(data)
+    this.bus.register("net" + this.id + "-send", function(data)
     {
         this.send(data);
     }, this);
 
-    this.fetch = function(url, options) {
-        if(adapter.cors_proxy) url = adapter.cors_proxy + encodeURIComponent(url);
-        return fetch(url, options).then(function(resp) {
-            return resp.arrayBuffer().then(function(ab) {
-                return [resp, ab];
-            });
-        }).catch(err => {
-            console.warn("Fetch Failed: " + url + "\n" + String(err));
-            let headers = new Headers();
-            headers.set("Content-Type", "text/plain");
-            return [
-                {
-                    status: 502,
-                    statusText: "Fetch Error",
-                    headers: headers,
-                },
-                new TextEncoder().encode(`Fetch ${url} failed:\n\n${err.stack}`).buffer
-            ];
-        });
-    };
+    //Object.seal(this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
@@ -95,9 +77,33 @@ function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
 
+FetchNetworkAdapter.prototype.fetch = async function(url, options)
+{
+    if(this.cors_proxy) url = this.cors_proxy + encodeURIComponent(url);
+
+    try
+    {
+        const resp = await fetch(url, options);
+        const ab = await resp.arrayBuffer();
+        return [resp, ab];
+    }
+    catch(e)
+    {
+        console.warn("Fetch Failed: " + url + "\n" + e);
+        let headers = new Headers();
+        headers.set("Content-Type", "text/plain");
+        return [
+            {
+                status: 502,
+                statusText: "Fetch Error",
+                headers: headers,
+            },
+            new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
+        ];
+    }
+};
 
 /**
- *
  * @param {Uint8Array} data
  */
 FetchNetworkAdapter.prototype.send = function(data)
@@ -121,21 +127,22 @@ FetchNetworkAdapter.prototype.send = function(data)
             packet.tcp.dport
         ].join(":");
 
+
         if(packet.tcp.syn && packet.tcp.dport === 80) {
             if(this.tcp_conn[tuple]) {
-                dbg_log("SYN to already opened port", LOG_NET);
+                dbg_log("SYN to already opened port", LOG_FETCH);
             }
             this.tcp_conn[tuple] = new TCPConnection();
             this.tcp_conn[tuple].state = TCP_STATE_SYN_RECEIVED;
             this.tcp_conn[tuple].net = this;
-            this.tcp_conn[tuple].onData = HTTPHandler();
+            this.tcp_conn[tuple].on_data = TCPConnection.prototype.on_data_http;
             this.tcp_conn[tuple].tuple = tuple;
             this.tcp_conn[tuple].accept(packet);
             return;
         }
 
         if(!this.tcp_conn[tuple]) {
-            dbg_log(`I dont know about ${tuple}, so restting`, LOG_NET);
+            dbg_log(`I dont know about ${tuple}, so restting`, LOG_FETCH);
             let bop = packet.tcp.ackn;
             if(packet.tcp.fin || packet.tcp.syn) bop += 1;
             reply.tcp = {
@@ -347,6 +354,7 @@ FetchNetworkAdapter.prototype.send = function(data)
 
 FetchNetworkAdapter.prototype.tcp_connect = function(dport)
 {
+    // TODO: check port collisions
     let sport = 49152 + Math.floor(Math.random() * 1000);
     let tuple = [
         this.vm_ip.join("."),
@@ -361,8 +369,8 @@ FetchNetworkAdapter.prototype.tcp_connect = function(dport)
 
     let conn = new TCPConnection();
     conn.net = this;
-    conn.onData = function(data) { if(reader) reader.call(handle, data); };
-    conn.onConnect = function() { if(connector) connector.call(handle); };
+    conn.on_data = function(data) { if(reader) reader.call(handle, data); };
+    conn.on_connect = function() { if(connector) connector.call(handle); };
     conn.tuple = tuple;
 
     conn.hsrc = this.router_mac;
@@ -389,17 +397,10 @@ FetchNetworkAdapter.prototype.tcp_connect = function(dport)
 };
 
 /**
- *
  * @param {Uint8Array} data
  */
 FetchNetworkAdapter.prototype.receive = function(data)
 {
-    /*
-    let o = {};
-    parse_eth(data, o)
-    if (o.tcp) console.log("Unpacking sent", JSON.stringify(o.tcp));
-    */
-
     this.bus.send("net" + this.id + "-receive", new Uint8Array(data));
 };
 
@@ -408,8 +409,6 @@ function a2ethaddr(bytes) {
 }
 
 function parse_eth(data, o) {
-    o = o || {};
-
     let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
     let ethertype = view.getUint16(12);
@@ -429,10 +428,15 @@ function parse_eth(data, o) {
     if(ethertype === ETHERTYPE_IPV4) {
         parse_ipv4(payload, o);
     }
-    if(ethertype === ETHERTYPE_ARP) {
+    else if(ethertype === ETHERTYPE_ARP) {
         parse_arp(payload, o);
     }
-    return true;
+    else if(ethertype === ETHERTYPE_IPV6) {
+        dbg_log("Unimplemented: ipv6");
+    }
+    else {
+        dbg_log("Unknown ethertype: " + h(ethertype), LOG_FETCH);
+    }
 }
 
 function write_eth(spec, data) {
@@ -516,7 +520,7 @@ function parse_ipv4(data, o) {
     };
 
     // Ethernet minmum packet size.
-    if(Math.max(len, 46) !== data.length) dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_NET);
+    if(Math.max(len, 46) !== data.length) dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_FETCH);
 
     o.ipv4 = ipv4;
     let ipdata = data.subarray(ihl * 4, len);
@@ -551,6 +555,7 @@ function write_ipv4(spec, data) {
         len += write_tcp(spec, data.subarray(ihl * 4));
     }
     if(spec.tcp_data) {
+        // TODO(perf)
         for(let i = 0; i < spec.tcp_data.length; ++i) {
             view.setUint8(len + i, spec.tcp_data[i]);
         }
@@ -573,6 +578,7 @@ function write_ipv4(spec, data) {
 
     let checksum = 0;
     for(let i = 0; i < ihl * 2; ++i) {
+        // TODO(perf)
         checksum += view.getUint16(i << 1);
         if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
@@ -609,6 +615,7 @@ function write_icmp(spec, data) {
 
     let checksum = 0;
     for(let i = 0; i < 4 + spec.icmp.data.length; i += 2) {
+        // TODO(perf)
         checksum += view.getUint16(i);
         if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
@@ -962,6 +969,7 @@ function write_tcp(spec, data) {
     phview.setUint16(10, total_len);
 
     for(let i = 0; i < 6; ++i) {
+        // TODO(perf)
         checksum += phview.getUint16(i << 1);
         if(checksum > 0xFFFF) {
             checksum = (checksum & 0xFFFF) + 1;
@@ -999,7 +1007,6 @@ function make_packet(spec) {
 
 /**
  * @constructor
- *
  */
 function TCPConnection()
 {
@@ -1089,14 +1096,14 @@ TCPConnection.prototype.process = function(packet) {
         this.net.receive(make_packet(reply));
 
         this.state = TCP_STATE_ESTABLISHED;
-        if(this.onConnect) this.onConnect.call(this);
+        if(this.on_connect) this.on_connect.call(this);
         return;
     }
 
     if(packet.tcp.fin) {
-        dbg_log(`All done with ${this.tuple} resetting`, LOG_NET);
+        dbg_log(`All done with ${this.tuple} resetting`, LOG_FETCH);
         if(this.ack !== packet.tcp.seq) {
-            dbg_log("Closing the connecton, but seq was wrong", LOG_NET);
+            dbg_log("Closing the connecton, but seq was wrong", LOG_FETCH);
             ++this.ack; // FIN increases seq#
         }
         let reply = this.ipv4_reply();
@@ -1114,7 +1121,7 @@ TCPConnection.prototype.process = function(packet) {
     }
 
     if(this.ack !== packet.tcp.seq) {
-        dbg_log(`Packet seq was wrong ex: ${this.ack} ~${this.ack - this.start_seq} pk: ${packet.tcp.seq} ~${this.start_seq - packet.tcp.seq} (${this.ack - packet.tcp.seq}) = ${this.name}`, LOG_NET);
+        dbg_log(`Packet seq was wrong ex: ${this.ack} ~${this.ack - this.start_seq} pk: ${packet.tcp.seq} ~${this.start_seq - packet.tcp.seq} (${this.ack - packet.tcp.seq}) = ${this.name}`, LOG_FETCH);
 
         let reply = this.ipv4_reply();
         reply.tcp = {
@@ -1134,7 +1141,6 @@ TCPConnection.prototype.process = function(packet) {
 
     this.ack += packet.tcp_data.length;
 
-
     if(packet.tcp_data.length > 0) {
         let reply = this.ipv4_reply();
         this.net.receive(make_packet(reply));
@@ -1152,77 +1158,69 @@ TCPConnection.prototype.process = function(packet) {
 
     if(nread < 0) return;
 
-
-    this.onData.call(this, packet.tcp_data);
-    this.pump(packet);
-
-    return;
+    this.on_data(packet.tcp_data);
+    this.pump();
 };
 
-function HTTPHandler() {
-    // TODO: Likely this shouldnt be a string
-    let read = "";
-    return function(data) {
-        read += new TextDecoder().decode(data);
-        if(read && read.indexOf("\r\n\r\n") !== -1) {
-            let offset = read.indexOf("\r\n\r\n");
-            let headers = read.substring(0, offset).split(/\r\n/);
-            let data = read.substring(offset + 4);
-            read = "";
+TCPConnection.prototype.on_data_http = async function(data) {
+    this.read = this.read || "";
+    this.read += new TextDecoder().decode(data);
+    if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
+        let offset = this.read.indexOf("\r\n\r\n");
+        let headers = this.read.substring(0, offset).split(/\r\n/);
+        let data = this.read.substring(offset + 4);
+        this.read = "";
 
-            let first_line = headers[0].split(" ");
-            let target = new URL("http://host" + first_line[1]);
-            if(/^https?:/.test(first_line[1])) {
-                target = new URL(first_line[1]);
-            }
-            let req_headers = new Headers();
-            for(let i = 1; i < headers.length; ++i) {
-                let parts = headers[i].split(": ");
-                let key =  parts[0].toLowerCase();
-                let value = parts[1];
-                if( key === "host" ) target.host = value;
-                else if( key.length > 1 ) req_headers.set(parts[0], value);
-            }
-
-            dbg_log("HTTP Dispatch: " + target.href, LOG_NET);
-            this.name = target.href;
-            let opts = {
-                method: first_line[0],
-                headers: req_headers,
-            };
-            if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
-                opts.body = data;
-            }
-            this.net.fetch(target.href, opts).then(([resp, ab]) => {
-                let lines = [
-                    `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-                    "connection: Closed",
-                    "content-length: " + ab.byteLength
-                ];
-
-                lines.push("x-was-fetch-redirected: " + String(resp.redirected));
-                lines.push("x-fetch-resp-url: " + String(resp.url));
-
-                resp.headers.forEach(function (value, key) {
-                    if([
-                        "content-encoding", "connection", "content-length", "transfer-encoding"
-                    ].indexOf(key.toLowerCase()) === -1 ) {
-                        lines.push(key + ": " + value);
-                    }
-                });
-
-                lines.push("");
-                lines.push("");
-
-                this.write(new TextEncoder().encode(lines.join("\r\n")));
-                this.write(new Uint8Array(ab));
-            });
+        let first_line = headers[0].split(" ");
+        let target = new URL("http://host" + first_line[1]);
+        if(/^https?:/.test(first_line[1])) {
+            target = new URL(first_line[1]);
         }
-    };
-}
+        let req_headers = new Headers();
+        for(let i = 1; i < headers.length; ++i) {
+            let parts = headers[i].split(": ");
+            let key =  parts[0].toLowerCase();
+            let value = parts[1];
+            if( key === "host" ) target.host = value;
+            else if( key.length > 1 ) req_headers.set(parts[0], value);
+        }
+
+        dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
+        this.name = target.href;
+        let opts = {
+            method: first_line[0],
+            headers: req_headers,
+        };
+        if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
+            opts.body = data;
+        }
+        const [resp, ab] = await this.net.fetch(target.href, opts);
+        const lines = [
+            `HTTP/1.1 ${resp.status} ${resp.statusText}`,
+            "connection: Closed",
+            "content-length: " + ab.byteLength
+        ];
+
+        lines.push("x-was-fetch-redirected: " + String(resp.redirected));
+        lines.push("x-fetch-resp-url: " + String(resp.url));
+
+        resp.headers.forEach(function (value, key) {
+            if([
+                "content-encoding", "connection", "content-length", "transfer-encoding"
+            ].indexOf(key.toLowerCase()) === -1 ) {
+                lines.push(key + ": " + value);
+            }
+        });
+
+        lines.push("");
+        lines.push("");
+
+        this.write(new TextEncoder().encode(lines.join("\r\n")));
+        this.write(new Uint8Array(ab));
+    }
+};
 
 /**
- *
  * @param {Uint8Array} data
  */
 TCPConnection.prototype.write = function(data) {
@@ -1235,7 +1233,7 @@ TCPConnection.prototype.write = function(data) {
     } else {
         this.send_buffer = data;
     }
-    this.pump(false);
+    this.pump();
 };
 
 TCPConnection.prototype.close = function() {
@@ -1243,11 +1241,10 @@ TCPConnection.prototype.close = function() {
     let reply = this.ipv4_reply();
     reply.tcp.fin = true;
     this.net.receive(make_packet(reply));
-    this.pump(false);
+    this.pump();
 };
 
-/** @suppress {checkTypes} */
-TCPConnection.prototype.pump = function(packet) {
+TCPConnection.prototype.pump = function() {
 
     if(this.send_buffer.length > 0 && !this.pending) {
         let data = this.send_buffer.subarray(0, 500);

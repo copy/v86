@@ -5,7 +5,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+const V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 
 const assert = require("assert").strict;
 const SHOW_LOGS = false;
@@ -37,10 +37,9 @@ const tests =
             emulator.serial0_send("echo -e done\\\\tudhcpc\n");
         },
         end_trigger: "done\tudhcpc",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/lease of 192.168.86.100 obtained/.test(capture), "lease of 192.168.86.100 obtained");
-            done();
         },
     },
     {
@@ -52,10 +51,9 @@ const tests =
             emulator.serial0_send("echo -e done\\\\tifconfig\n");
         },
         end_trigger: "done\tifconfig",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/192.168.86.100/.test(capture), "192.168.86.100");
-            done();
         },
     },
     {
@@ -67,10 +65,9 @@ const tests =
             emulator.serial0_send("echo -e done\\\\troute\n");
         },
         end_trigger: "done\troute",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/192.168.86.1/.test(capture), "192.168.86.100");
-            done();
         },
     },
     {
@@ -82,10 +79,9 @@ const tests =
             emulator.serial0_send("echo -e done\\\\tping\n");
         },
         end_trigger: "done\tping",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/2 packets transmitted, 2 packets received, 0% packet loss/.test(capture), "2 packets transmitted, 2 packets received, 0% packet loss");
-            done();
         },
     },
     {
@@ -97,10 +93,9 @@ const tests =
             emulator.serial0_send("echo -e done\\\\tarp\n");
         },
         end_trigger: "done\tarp",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/.192.168.86.1. at 52:54:00:01:02:03 \[ether\] {2}on eth0/.test(capture), "(192.168.86.1) at 52:54:00:01:02:03 [ether]  on eth0");
-            done();
         },
     },
     {
@@ -109,14 +104,13 @@ const tests =
         allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send("wget -T 10 -q -O - mocked.example.org\n");
+            emulator.serial0_send("wget -T 10 -O - mocked.example.org\n");
             emulator.serial0_send("echo -e done\\\\tmocked.example.org\n");
         },
         end_trigger: "done\tmocked.example.org",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/This text is from the mock/.test(capture), "got mocked.example.org text");
-            done();
         },
     },
     {
@@ -125,14 +119,13 @@ const tests =
         allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send("wget -T 10 -q -O - example.org\n");
+            emulator.serial0_send("wget -T 10 -O - example.org\n");
             emulator.serial0_send("echo -e done\\\\texample.org\n");
         },
         end_trigger: "done\texample.org",
-        end: (capture, done) =>
+        end: (capture) =>
         {
             assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
-            done();
         },
     },
 
@@ -140,7 +133,6 @@ const tests =
 
 let test_num = 0;
 let test_timeout = 0;
-let test_has_failed = false;
 const failed_tests = [];
 
 const emulator = new V86({
@@ -166,7 +158,7 @@ emulator.add_listener("emulator-ready", function () {
                 contents.buffer
             ]), 50));
         }
-        return original_fetch(url, opts);
+        return original_fetch.call(network_adapter, url, opts);
     };
 });
 
@@ -237,17 +229,15 @@ function end_test()
         clearTimeout(test_timeout);
     }
 
+    let test_has_failed = false;
+
     try {
-        tests[test_num].end(capture, report_test);
+        tests[test_num].end(capture);
     } catch(e) {
         console.log(e);
         test_has_failed = true;
-        report_test();
     }
-}
 
-function report_test()
-{
     if(!test_has_failed)
     {
         log_pass("Test #%d passed: %s", test_num, tests[test_num].name);
@@ -322,7 +312,7 @@ emulator.bus.register("emulator-started", function()
 
 emulator.add_listener("serial0-output-byte", function(byte)
 {
-    var chr = String.fromCharCode(byte);
+    const chr = String.fromCharCode(byte);
     if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
     {
         return;
