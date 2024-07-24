@@ -293,7 +293,14 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     else if(options.network_relay_url)
     {
-        this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
+        if(options.network_relay_url === "fetch")
+        {
+            this.network_adapter = new FetchNetworkAdapter(this.bus);
+        }
+        else
+        {
+            this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
+        }
     }
 
     // Enable unconditionally, so that state images don't miss hardware
