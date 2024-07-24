@@ -1051,7 +1051,6 @@ TCPConnection.prototype.connect = function() {
         syn: true,
     };
     this.net.receive(make_packet(reply));
-    return;
 };
 
 TCPConnection.prototype.accept = function(packet) {
@@ -1078,7 +1077,6 @@ TCPConnection.prototype.accept = function(packet) {
         ack: true
     };
     this.net.receive(make_packet(reply));
-    return;
 };
 
 TCPConnection.prototype.process = function(packet) {
