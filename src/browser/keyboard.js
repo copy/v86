@@ -443,4 +443,3 @@ function KeyboardAdapter(bus)
         keyboard.bus.send("keyboard-code", code);
     }
 }
-

@@ -61,4 +61,3 @@ WorkerBus.init = function(worker)
 {
     return new WorkerBus.Connector(worker);
 };
-

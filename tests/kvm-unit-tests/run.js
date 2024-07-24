@@ -55,4 +55,3 @@ emulator.add_listener("serial0-output-byte", function(byte)
     var chr = String.fromCharCode(byte);
     process.stdout.write(chr);
 });
-

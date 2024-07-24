@@ -17,6 +17,7 @@ export default [
             "semi": "error",
             "no-useless-return": "error",
             "eqeqeq": "error",
+            "no-multiple-empty-lines": ["error", { "max": 2, "maxBOF": 0, "maxEOF": 0 }],
             //"no-var": "error",
             "radix": "error",
             "comma-style": ["error", "last"],

@@ -1,4 +1,3 @@
-
 "use strict";
 
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
@@ -295,4 +294,3 @@ VirtioConsole.prototype.Ack = function (queue_id, bufchain)
     this.virtio.queues[queue_id].push_reply(bufchain);
     this.virtio.queues[queue_id].flush_replies();
 };
-

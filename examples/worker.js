@@ -27,4 +27,3 @@ this.onmessage = function(e)
 {
     emulator.serial0_send(e.data);
 };
-
