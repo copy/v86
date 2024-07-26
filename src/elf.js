@@ -4,11 +4,11 @@
 
 const ELF_MAGIC = 0x464C457F;
 
-let types = DataView.prototype;
-let U8 = { size: 1, get: types.getUint8, set: types.setUint8, };
-let U16 = { size: 2, get: types.getUint16, set: types.setUint16, };
-let U32 = { size: 4, get: types.getUint32, set: types.setUint32, };
-let pad = function(size)
+const types = DataView.prototype;
+const U8 = { size: 1, get: types.getUint8, set: types.setUint8, };
+const U16 = { size: 2, get: types.getUint16, set: types.setUint16, };
+const U32 = { size: 4, get: types.getUint32, set: types.setUint32, };
+const pad = function(size)
 {
     return {
         size,
@@ -16,7 +16,7 @@ let pad = function(size)
     };
 };
 
-let Header = create_struct([
+const Header = create_struct([
     { magic: U32, },
 
     { class: U8, },
@@ -45,7 +45,7 @@ let Header = create_struct([
 ]);
 console.assert(Header.reduce((a, entry) => a + entry.size, 0) === 52);
 
-let ProgramHeader = create_struct([
+const ProgramHeader = create_struct([
     { type: U32, },
     { offset: U32, },
     { vaddr: U32, },
@@ -57,7 +57,7 @@ let ProgramHeader = create_struct([
 ]);
 console.assert(ProgramHeader.reduce((a, entry) => a + entry.size, 0) === 32);
 
-let SectionHeader = create_struct([
+const SectionHeader = create_struct([
     { name: U32, },
     { type: U32, },
     { flags: U32, },
@@ -77,10 +77,10 @@ function create_struct(struct)
 {
     return struct.map(function(entry)
     {
-        let keys = Object.keys(entry);
+        const keys = Object.keys(entry);
         console.assert(keys.length === 1);
-        let name = keys[0];
-        let type = entry[name];
+        const name = keys[0];
+        const type = entry[name];
 
         console.assert(type.size > 0);
 
@@ -97,14 +97,14 @@ function create_struct(struct)
 /** @param {ArrayBuffer} buffer */
 function read_elf(buffer)
 {
-    let view = new DataView(buffer);
+    const view = new DataView(buffer);
 
-    let [header, offset] = read_struct(view, Header);
+    const [header, offset] = read_struct(view, Header);
     console.assert(offset === 52);
 
     if(DEBUG)
     {
-        for(let key of Object.keys(header))
+        for(const key of Object.keys(header))
         {
             dbg_log(key + ": 0x" + (header[key].toString(16) >>> 0));
         }
@@ -126,12 +126,12 @@ function read_elf(buffer)
     console.assert(header.phentsize === 32, "Bad program header size");
     console.assert(header.shentsize === 40, "Bad section header size");
 
-    let [program_headers, ph_offset] = read_structs(
+    const [program_headers, ph_offset] = read_structs(
         view_slice(view, header.phoff, header.phentsize * header.phnum),
         ProgramHeader,
         header.phnum);
 
-    let [sections_headers, sh_offset] = read_structs(
+    const [sections_headers, sh_offset] = read_structs(
         view_slice(view, header.shoff, header.shentsize * header.shnum),
         SectionHeader,
         header.shnum);
@@ -139,7 +139,7 @@ function read_elf(buffer)
     if(DEBUG && LOG_LEVEL)
     {
         console.log("%d program headers:", program_headers.length);
-        for(let program of program_headers)
+        for(const program of program_headers)
         {
             console.log(
                 "type=%s offset=%s vaddr=%s paddr=%s " +
@@ -156,7 +156,7 @@ function read_elf(buffer)
         }
 
         console.log("%d section headers:", sections_headers.length);
-        for(let section of sections_headers)
+        for(const section of sections_headers)
         {
             console.log(
                 "name=%s type=%s flags=%s addr=%s offset=%s " +
@@ -184,13 +184,13 @@ function read_elf(buffer)
 
 function read_struct(view, Struct)
 {
-    let result = {};
+    const result = {};
     let offset = 0;
     const LITTLE_ENDIAN = true; // big endian not supported yet
 
-    for(let entry of Struct)
+    for(const entry of Struct)
     {
-        let value = entry.get.call(view, offset, LITTLE_ENDIAN);
+        const value = entry.get.call(view, offset, LITTLE_ENDIAN);
         console.assert(result[entry.name] === undefined);
         result[entry.name] = value;
         offset += entry.size;
@@ -201,12 +201,12 @@ function read_struct(view, Struct)
 
 function read_structs(view, Struct, count)
 {
-    let result = [];
+    const result = [];
     let offset = 0;
 
     for(var i = 0; i < count; i++)
     {
-        let [s, size] = read_struct(view_slice(view, offset), Struct);
+        const [s, size] = read_struct(view_slice(view, offset), Struct);
         result.push(s);
         offset += size;
     }

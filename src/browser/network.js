@@ -10,11 +10,13 @@
  *
  * @param {string} url
  * @param {BusConnector} bus
+ * @param {number} [id=0] id
  */
-function NetworkAdapter(url, bus)
+function NetworkAdapter(url, bus, id)
 {
     this.bus = bus;
     this.socket = undefined;
+    this.id = id || 0;
 
     // TODO: circular buffer?
     this.send_queue = [];
@@ -24,7 +26,7 @@ function NetworkAdapter(url, bus)
     this.last_connect_attempt = Date.now() - this.reconnect_interval;
     this.send_queue_limit = 64;
 
-    this.bus.register("net0-send", function(data)
+    this.bus.register("net" + this.id + "-send", function(data)
     {
         this.send(data);
     }, this);
@@ -34,7 +36,7 @@ NetworkAdapter.prototype.handle_message = function(e)
 {
     if(this.bus)
     {
-        this.bus.send("net0-receive", new Uint8Array(e.data));
+        this.bus.send("net" + this.id + "-receive", new Uint8Array(e.data));
     }
 };
 
@@ -98,7 +100,16 @@ NetworkAdapter.prototype.connect = function()
 
     this.last_connect_attempt = Date.now();
 
-    this.socket = new WebSocket(this.url);
+    try
+    {
+        this.socket = new WebSocket(this.url);
+    }
+    catch(e)
+    {
+        console.error(e);
+        return;
+    }
+
     this.socket.binaryType = "arraybuffer";
 
     this.socket.onopen = this.handle_open.bind(this);

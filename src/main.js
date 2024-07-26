@@ -12,6 +12,9 @@ function v86(bus, wasm)
     /** @type {boolean} */
     this.stopping = false;
 
+    /** @type {boolean} */
+    this.idle = true;
+
     this.tick_counter = 0;
     this.worker = null;
 
@@ -118,11 +121,13 @@ else if(typeof Worker !== "undefined")
 
     function the_worker()
     {
+        let timeout;
         globalThis.onmessage = function(e)
         {
             const t = e.data.t;
+            timeout = timeout && clearTimeout(timeout);
             if(t < 1) postMessage(e.data.tick);
-            else setTimeout(() => postMessage(e.data.tick), t);
+            else timeout = setTimeout(() => postMessage(e.data.tick), t);
         };
     }
 

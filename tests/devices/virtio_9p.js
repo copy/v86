@@ -810,7 +810,7 @@ const tests =
             emulator.serial0_send('setfattr --name=security.not_an_attr --value="val3" /mnt/file;');
 
             // Remove the caps attribute we've automatically put in. Tested later.
-            emulator.serial0_send('setfattr --remove=security.capability /mnt/file;');
+            emulator.serial0_send("setfattr --remove=security.capability /mnt/file;");
 
             emulator.serial0_send("getfattr --encoding=text --absolute-names --dump /mnt/file | sort;");
             emulator.serial0_send("getfattr --encoding=text --absolute-names --name=user.nested.attr /mnt/file;");
@@ -849,7 +849,7 @@ const tests =
         {
             emulator.serial0_send("echo originalvalue > /mnt/file\n");
             // Remove the caps attribute we've automatically put in. Tested later.
-            emulator.serial0_send('setfattr --remove=security.capability /mnt/file\n');
+            emulator.serial0_send("setfattr --remove=security.capability /mnt/file\n");
 
             emulator.serial0_send("echo start-capture;");
 
@@ -1084,7 +1084,7 @@ const tests =
 
             // Delete and verify.
             // Using glob checks readdir.
-            emulator.serial0_send('rm /mnt/stress-files/file-*\n');
+            emulator.serial0_send("rm /mnt/stress-files/file-*\n");
             emulator.serial0_send('test -z "$(ls /mnt/stress-files)" && echo delete-success\n');
 
             emulator.serial0_send("echo done-stress-files\n");
@@ -1768,7 +1768,7 @@ function finish_tests()
     emulator.stop();
 
     console.log("\nTests finished.");
-    if(failed_tests.length == 0)
+    if(failed_tests.length === 0)
     {
         console.log("All tests passed");
     }

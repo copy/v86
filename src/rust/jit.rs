@@ -283,6 +283,7 @@ pub enum Instruction {
     },
     AdcSbb {
         dest: InstructionOperandDest,
+        #[allow(dead_code)]
         source: InstructionOperand,
         opsize: i32,
     },

@@ -24,7 +24,7 @@ const emulator = new V86({
     ].join(" "),
     filesystem: {
         basefs: "images/fs.json",
-        baseurl: "images/arch-nongz/",
+        baseurl: "images/arch/",
     },
     disable_jit: +process.env.DISABLE_JIT,
     log_level: SHOW_LOGS ? 0x400000 : 0,

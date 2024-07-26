@@ -220,6 +220,11 @@ APIC.prototype.write32 = function(addr, value)
 
     switch(addr)
     {
+        case 0x20:
+            dbg_log("APIC write id: " + h(value >>> 8, 8), LOG_APIC);
+            this.apic_id = value;
+            break;
+
         case 0x30:
             // version
             dbg_log("APIC write version: " + h(value >>> 0, 8) + ", ignored", LOG_APIC);

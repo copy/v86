@@ -7,9 +7,9 @@
 
 
 /** @constructor */
-function CPU(bus, wm, next_tick_immediately)
+function CPU(bus, wm, stop_idling)
 {
-    this.next_tick_immediately = next_tick_immediately;
+    this.stop_idling = stop_idling;
     this.wm = wm;
     this.wasm_patch();
     this.create_jit_imports();
@@ -196,7 +196,7 @@ CPU.prototype.create_jit_imports = function()
 
     jit_imports["m"] = this.wm.exports["memory"];
 
-    for(let name of Object.keys(this.wm.exports))
+    for(const name of Object.keys(this.wm.exports))
     {
         if(name.startsWith("_") || name.startsWith("zstd") || name.endsWith("_js"))
         {
@@ -648,7 +648,7 @@ CPU.prototype.pack_memory = function()
     const bitmap = new v86util.Bitmap(page_count);
     const packed_memory = new Uint8Array(nonzero_pages.length << 12);
 
-    for(let [i, page] of nonzero_pages.entries())
+    for(const [i, page] of nonzero_pages.entries())
     {
         bitmap.set(page, 1);
 
@@ -671,8 +671,8 @@ CPU.prototype.unpack_memory = function(bitmap, packed_memory)
     {
         if(bitmap.get(page))
         {
-            let offset = packed_page << 12;
-            let view = packed_memory.subarray(offset, offset + 0x1000);
+            const offset = packed_page << 12;
+            const view = packed_memory.subarray(offset, offset + 0x1000);
             this.mem8.set(view, page << 12);
             packed_page++;
         }
@@ -730,12 +730,6 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
-    if(typeof settings.log_level === "number")
-    {
-        // XXX: Shared between all emulator instances
-        LOG_LEVEL = settings.log_level;
-    }
-
     this.create_memory(typeof settings.memory_size === "number" ?
         settings.memory_size : 1024 * 1024 * 64);
 
@@ -1086,7 +1080,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
         this.io.register_read(0xF4, this, function () {return 0;} , function () { return 0;}, function () {
             // actually do the load and return the multiboot magic
-            let multiboot_info_addr = 0x7C00;
+            const multiboot_info_addr = 0x7C00;
             let multiboot_data = multiboot_info_addr + MULTIBOOT_INFO_STRUCT_LEN;
             let info = 0;
 
@@ -1175,7 +1169,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                     var length = load_end_addr - load_addr;
                 }
 
-                let blob = new Uint8Array(buffer, file_start, length);
+                const blob = new Uint8Array(buffer, file_start, length);
                 cpu.write_blob(blob, load_addr);
 
                 entrypoint = entry_addr | 0;
@@ -1185,11 +1179,11 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
             {
                 dbg_log("Multiboot image is in elf format", LOG_CPU);
 
-                let elf = read_elf(buffer);
+                const elf = read_elf(buffer);
 
                 entrypoint = elf.header.entry;
 
-                for(let program of elf.program_headers)
+                for(const program of elf.program_headers)
                 {
                     if(program.type === 0)
                     {
@@ -1205,7 +1199,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                         {
                             if(program.filesz) // offset might be outside of buffer if filesz is 0
                             {
-                                let blob = new Uint8Array(buffer, program.offset, program.filesz);
+                                const blob = new Uint8Array(buffer, program.offset, program.filesz);
                                 cpu.write_blob(blob, program.paddr);
                             }
                             top_of_load = Math.max(top_of_load, program.paddr + program.memsz);
@@ -1420,7 +1414,7 @@ CPU.prototype.fill_cmos = function(rtc, settings)
     rtc.cmos_write(CMOS_BIOS_SMP_COUNT, 0);
 
     // Used by bochs BIOS to skip the boot menu delay.
-    if (settings.fastboot) rtc.cmos_write(0x3f, 0x01);
+    if(settings.fastboot) rtc.cmos_write(0x3f, 0x01);
 };
 
 CPU.prototype.load_bios = function()

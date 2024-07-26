@@ -4,9 +4,6 @@ pub trait SafeToU8 {
 pub trait SafeToU16 {
     fn safe_to_u16(self) -> u16;
 }
-pub trait SafeToI32 {
-    fn safe_to_i32(self) -> i32;
-}
 
 impl SafeToU8 for u16 {
     fn safe_to_u8(self) -> u8 {
@@ -57,20 +54,6 @@ impl SafeToU16 for usize {
     }
 }
 
-impl SafeToI32 for u32 {
-    fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self <= ::std::i32::MAX as u32);
-        self as i32
-    }
-}
-
-impl SafeToI32 for usize {
-    fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self <= ::std::i32::MAX as usize);
-        self as i32
-    }
-}
-
 #[allow(dead_code)]
 pub const DEBUG: bool = cfg!(debug_assertions);
 
@@ -90,7 +73,7 @@ use std::string::ToString;
 
 #[cfg(target_arch = "wasm32")]
 pub fn log_to_js_console<T: ToString>(s: T) {
-    let s: String = s.to_string();
+    let s = s.to_string();
     let len = s.len();
     unsafe {
         log_from_wasm(s.as_bytes().as_ptr(), len);
@@ -99,7 +82,7 @@ pub fn log_to_js_console<T: ToString>(s: T) {
 
 #[cfg(target_arch = "wasm32")]
 pub fn console_log_to_js_console<T: ToString>(s: T) {
-    let s: String = s.to_string();
+    let s = s.to_string();
     let len = s.len();
     unsafe {
         console_log_from_wasm(s.as_bytes().as_ptr(), len);

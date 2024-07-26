@@ -87,7 +87,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js flopp
 LIB_FILES=9p-filer.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js worker_bus.js dummy_screen.js \
-	      print_stats.js filestorage.js
+	      fetch_network.js print_stats.js filestorage.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -201,6 +201,9 @@ with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	cargo rustc --release --features profiler $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86.wasm || true
 
+watch:
+	cargo watch -x 'rustc $(CARGO_FLAGS)' -s 'cp build/wasm32-unknown-unknown/debug/v86.wasm build/v86-debug.wasm'
+
 build/softfloat.o: lib/softfloat/softfloat.c
 	mkdir -p build
 	clang -c -Wall \
@@ -302,7 +305,8 @@ expect-tests: all-debug build/libwabt.js
 
 devices-test: all-debug
 	./tests/devices/virtio_9p.js
-	./tests/devices/virtio-console.js
+	./tests/devices/virtio_console.js
+	./tests/devices/fetch_network.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
@@ -318,12 +322,12 @@ api-tests: all-debug
 	./tests/api/floppy-insert-eject.js
 	./tests/api/serial.js
 
-all-tests: jshint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 
-jshint:
-	jshint --config=./.jshint.json src tests gen lib
+eslint:
+	eslint src tests gen lib examples tools
 
 rustfmt: $(RUST_FILES)
 	cargo fmt --all -- --check --config fn_single_line=true,control_brace_style=ClosingNextLine

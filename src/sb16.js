@@ -711,7 +711,7 @@ SB16.prototype.port3x1_read = function()
 SB16.prototype.port3x1_write = function(value)
 {
     dbg_log("331 write: mpu command: " + h(value), LOG_SB16);
-    if(value == 0xFF)
+    if(value === 0xFF)
     {
         // Command acknowledge.
         this.mpu_read_buffer.clear();
@@ -1589,9 +1589,11 @@ register_fm_write([0x05], function(bits, register, address)
     {
         // No registers documented here.
         this.fm_default_write(bits, register, address);
-        return;
     }
-    // OPL3 Mode Enable
+    else
+    {
+        // OPL3 Mode Enable
+    }
 });
 
 register_fm_write([0x08], function(bits, register, address)

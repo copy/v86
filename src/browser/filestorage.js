@@ -87,6 +87,11 @@ function ServerFileStorageWrapper(file_storage, baseurl)
 {
     dbg_assert(baseurl, "ServerMemoryFileStorage: baseurl should not be empty");
 
+    if(!baseurl.endsWith("/"))
+    {
+        baseurl += "/";
+    }
+
     this.storage = file_storage;
     this.baseurl = baseurl;
 }

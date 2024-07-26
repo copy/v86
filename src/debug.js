@@ -143,8 +143,6 @@ CPU.prototype.debug_init = function()
             line1 = "",
             line2 = "";
 
-
-
         for(var i = 0; i < 4; i++)
         {
             line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]] >>> 0, 8) + " ";
@@ -336,14 +334,14 @@ CPU.prototype.debug_init = function()
 
     function dump_page_structures() {
         var pae = !!(cpu.cr[4] & CR4_PAE);
-        if (pae)
+        if(pae)
         {
             dbg_log("PAE enabled");
 
-            for (var i = 0; i < 4; i++) {
+            for(var i = 0; i < 4; i++) {
                 var addr = cpu.cr[3] + 8 * i;
                 var dword = cpu.read32s(addr);
-                if (dword & 1)
+                if(dword & 1)
                 {
                     dump_page_directory(dword & 0xFFFFF000, true, i << 30);
                 }

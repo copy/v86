@@ -587,7 +587,7 @@ pub unsafe fn fpu_fstenv32(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_load_tag_word() -> i32 {
-    let mut tag_word: i32 = 0;
+    let mut tag_word = 0;
     for i in 0..8 {
         let value = *fpu_st.offset(i as isize);
         if 0 != *fpu_stack_empty >> i & 1 {

@@ -23,8 +23,9 @@ function DummyScreenAdapter(bus)
         is_graphical = false,
 
         // Index 0: ASCII code
-        // Index 1: Background color
-        // Index 2: Foreground color
+        // Index 1: Blinking
+        // Index 2: Background color
+        // Index 3: Foreground color
         text_mode_data,
 
         // number of columns
@@ -32,6 +33,12 @@ function DummyScreenAdapter(bus)
 
         // number of rows
         text_mode_height;
+
+    const CHARACTER_INDEX = 0;
+    const BLINKING_INDEX = 1;
+    const BG_COLOR_INDEX = 2;
+    const FG_COLOR_INDEX = 3;
+    const TEXT_MODE_COMPONENT_SIZE = 4;
 
     this.bus = bus;
 
@@ -51,7 +58,7 @@ function DummyScreenAdapter(bus)
     bus.register("screen-put-char", function(data)
     {
         //console.log(data);
-        this.put_char(data[0], data[1], data[2], data[3], data[4]);
+        this.put_char(data[0], data[1], data[2], data[3], data[4], data[5]);
     }, this);
 
     bus.register("screen-text-scroll", function(rows)
@@ -65,7 +72,7 @@ function DummyScreenAdapter(bus)
     }, this);
     bus.register("screen-update-cursor-scanline", function(data)
     {
-        this.update_cursor_scanline(data[0], data[1]);
+        this.update_cursor_scanline(data[0], data[1], data[2]);
     }, this);
 
     bus.register("screen-set-size-text", function(data)
@@ -77,15 +84,16 @@ function DummyScreenAdapter(bus)
         this.set_size_graphical(data[0], data[1]);
     }, this);
 
-    this.put_char = function(row, col, chr, bg_color, fg_color)
+    this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
         if(row < text_mode_height && col < text_mode_width)
         {
-            var p = 3 * (row * text_mode_width + col);
+            var p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
-            text_mode_data[p] = chr;
-            text_mode_data[p + 1] = bg_color;
-            text_mode_data[p + 2] = fg_color;
+            text_mode_data[p + CHARACTER_INDEX] = chr;
+            text_mode_data[p + BLINKING_INDEX] = blinking;
+            text_mode_data[p + BG_COLOR_INDEX] = bg_color;
+            text_mode_data[p + FG_COLOR_INDEX] = fg_color;
         }
     };
 
@@ -113,7 +121,7 @@ function DummyScreenAdapter(bus)
             return;
         }
 
-        text_mode_data = new Int32Array(cols * rows * 3);
+        text_mode_data = new Int32Array(cols * rows * TEXT_MODE_COMPONENT_SIZE);
 
         text_mode_width = cols;
         text_mode_height = rows;
@@ -129,7 +137,7 @@ function DummyScreenAdapter(bus)
     {
     };
 
-    this.update_cursor_scanline = function(start, end)
+    this.update_cursor_scanline = function(start, end, max)
     {
     };
 
@@ -168,11 +176,11 @@ function DummyScreenAdapter(bus)
     this.get_text_row = function(i)
     {
         var row = "";
-        var offset = 3 * i * text_mode_width;
+        var offset = TEXT_MODE_COMPONENT_SIZE * i * text_mode_width;
 
         for(var j = 0; j < text_mode_width; j++)
         {
-            row += String.fromCharCode(text_mode_data[offset + 3 * j]);
+            row += String.fromCharCode(text_mode_data[offset + CHARACTER_INDEX + TEXT_MODE_COMPONENT_SIZE * j]);
         }
 
         return row;

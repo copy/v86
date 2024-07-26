@@ -132,7 +132,7 @@ function hex_dump(buffer)
 
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
-    let rand_data = new Int32Array(1);
+    const rand_data = new Int32Array(1);
 
     v86util.get_rand_int = function()
     {
@@ -576,8 +576,8 @@ function load_file(filename, options, n_tries)
 
     if(options.range)
     {
-        let start = options.range.start;
-        let end = start + options.range.length - 1;
+        const start = options.range.start;
+        const end = start + options.range.length - 1;
         http.setRequestHeader("Range", "bytes=" + start + "-" + end);
         http.setRequestHeader("X-Accept-Encoding", "identity");
 
@@ -608,7 +608,7 @@ function load_file(filename, options, n_tries)
             {
                 if(options.range)
                 {
-                    let enc = http.getResponseHeader("Content-Encoding");
+                    const enc = http.getResponseHeader("Content-Encoding");
                     if(enc && enc !== "identity")
                     {
                         console.error("Server sent Content-Encoding in response to ranged request", {filename, enc});
@@ -647,7 +647,7 @@ function load_file(filename, options, n_tries)
 
 function load_file_nodejs(filename, options)
 {
-    let fs = require("fs");
+    const fs = require("fs");
 
     if(options.range)
     {
@@ -657,7 +657,7 @@ function load_file_nodejs(filename, options)
             {
                 if(err) throw err;
 
-                let length = options.range.length;
+                const length = options.range.length;
                 var buffer = Buffer.allocUnsafe(length);
 
                 fs["read"](fd, buffer, 0, length, options.range.start, (err, bytes_read) =>

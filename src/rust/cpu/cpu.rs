@@ -7,6 +7,7 @@ extern "C" {
     pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
     pub fn cpu_event_halt();
     pub fn apic_acknowledge_irq() -> i32;
+    pub fn stop_idling();
 
     pub fn io_port_read8(port: i32) -> i32;
     pub fn io_port_read16(port: i32) -> i32;
@@ -274,8 +275,25 @@ pub static mut cpuid_level: u32 = 0x16;
 
 pub static mut jit_block_boundary: bool = false;
 
-pub static mut rdtsc_imprecision_offset: u64 = 0;
-pub static mut rdtsc_last_value: u64 = 0;
+const TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND: bool = true;
+
+#[cfg(debug_assertions)]
+const TSC_VERBOSE_LOGGING: bool = false;
+#[cfg(debug_assertions)]
+pub static mut tsc_last_extra: u64 = 0;
+
+// the last value returned by rdtsc
+pub static mut tsc_last_value: u64 = 0;
+// the smallest difference between two rdtsc readings (depends on the browser's performance.now resolution)
+pub static mut tsc_resolution: u64 = u64::MAX;
+// how many times rdtsc was called and had to return the same value (due to browser's performance.now resolution)
+pub static mut tsc_number_of_same_readings: u64 = 0;
+// how often rdtsc was previously called without its value changing, used for interpolating quick
+// consecutive calls between rdtsc (when it's called faster than the browser's performance.now
+// changes)
+pub static mut tsc_speed: u64 = 1;
+
+// used for restoring the state
 pub static mut tsc_offset: u64 = 0;
 
 pub struct Code {
@@ -1896,7 +1914,7 @@ pub unsafe fn do_page_walk(
     side_effects: bool,
 ) -> OrPageFault<std::num::NonZeroI32> {
     let global;
-    let mut allow_user: bool = true;
+    let mut allow_user = true;
     let page = (addr as u32 >> 12) as i32;
     let high;
 
@@ -1950,26 +1968,19 @@ pub unsafe fn do_page_walk(
         }
 
         let kernel_write_override = !user && 0 == cr0 & CR0_WP;
-        if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
-            if side_effects {
-                trigger_pagefault(addr, true, for_writing, user, jit);
-            }
-            return Err(());
-        }
+        let mut allow_write = page_dir_entry & PAGE_TABLE_RW_MASK != 0;
+        allow_user &= page_dir_entry & PAGE_TABLE_USER_MASK != 0;
 
-        if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
-            allow_user = false;
-            if user {
-                // Page Fault: page table accessed by non-supervisor
+        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
+            // size bit is set
+
+            if for_writing && !allow_write && !kernel_write_override || user && !allow_user {
                 if side_effects {
                     trigger_pagefault(addr, true, for_writing, user, jit);
                 }
                 return Err(());
             }
-        }
 
-        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
-            // size bit is set
             // set the accessed and dirty bits
 
             let new_page_dir_entry = page_dir_entry
@@ -2011,27 +2022,18 @@ pub unsafe fn do_page_walk(
                 (page_table_addr, page_table_entry)
             };
 
-            if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
-                if side_effects {
-                    trigger_pagefault(addr, false, for_writing, user, jit);
-                }
-                return Err(());
-            }
+            let present = page_table_entry & PAGE_TABLE_PRESENT_MASK != 0;
+            allow_write &= page_table_entry & PAGE_TABLE_RW_MASK != 0;
+            allow_user &= page_table_entry & PAGE_TABLE_USER_MASK != 0;
 
-            if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override && for_writing {
+            if !present
+                || for_writing && !allow_write && !kernel_write_override
+                || user && !allow_user
+            {
                 if side_effects {
-                    trigger_pagefault(addr, true, for_writing, user, jit);
+                    trigger_pagefault(addr, present, for_writing, user, jit);
                 }
                 return Err(());
-            }
-            if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
-                allow_user = false;
-                if user {
-                    if side_effects {
-                        trigger_pagefault(addr, true, for_writing, user, jit);
-                    }
-                    return Err(());
-                }
             }
 
             // Set the accessed and dirty bits
@@ -2070,7 +2072,7 @@ pub unsafe fn do_page_walk(
     // entries from tlb_data but not from valid_tlb_entries
     }
     else if side_effects && CHECK_TLB_INVARIANTS {
-        let mut found: bool = false;
+        let mut found = false;
         for i in 0..valid_tlb_entries_count {
             if valid_tlb_entries[i as usize] == page {
                 found = true;
@@ -2132,7 +2134,7 @@ pub unsafe fn clear_tlb() {
     profiler::stat_increment(CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1;
-    let mut global_page_offset: i32 = 0;
+    let mut global_page_offset = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];
@@ -4010,45 +4012,58 @@ pub unsafe fn decr_ecx_asize(is_asize_32: bool) -> i32 {
 pub unsafe fn set_tsc(low: u32, high: u32) {
     let new_value = low as u64 | (high as u64) << 32;
     let current_value = read_tsc();
-    tsc_offset = current_value.wrapping_sub(new_value);
+    tsc_offset = current_value - new_value;
 }
 
 #[no_mangle]
 pub unsafe fn read_tsc() -> u64 {
-    let n = microtick() * TSC_RATE;
-    let value = (n as u64).wrapping_sub(tsc_offset);
-    if true {
+    let value = (microtick() * TSC_RATE) as u64 - tsc_offset;
+
+    if !TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND {
         return value;
     }
-    else {
-        if value == rdtsc_last_value {
-            // don't go past 1ms
-            if (rdtsc_imprecision_offset as f64) < TSC_RATE {
-                rdtsc_imprecision_offset = rdtsc_imprecision_offset.wrapping_add(1)
-            }
+
+    if value == tsc_last_value {
+        // If the browser returns the same value as last time, extrapolate based on the number of
+        // rdtsc calls between the last two changes
+        tsc_number_of_same_readings += 1;
+        let extra = (tsc_number_of_same_readings * tsc_resolution) / tsc_speed;
+        let extra = u64::min(extra, tsc_resolution - 1);
+        #[cfg(debug_assertions)]
+        {
+            tsc_last_extra = extra;
         }
-        else {
-            let previous_value = rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
-            if previous_value <= value {
-                rdtsc_last_value = value;
-                rdtsc_imprecision_offset = 0
-            }
-            else {
-                dbg_log!(
-                    "XXX: Overshot tsc prev={:x}:{:x} offset={:x}:{:x} curr={:x}:{:x}",
-                    (rdtsc_last_value >> 32) as u32 as i32,
-                    rdtsc_last_value as u32 as i32,
-                    (rdtsc_imprecision_offset >> 32) as u32 as i32,
-                    rdtsc_imprecision_offset as u32 as i32,
-                    (value >> 32) as u32 as i32,
-                    value as u32 as i32
-                );
-                dbg_assert!(false);
-                // Keep current value until time catches up
-            }
+        return value + extra;
+    }
+
+    #[cfg(debug_assertions)]
+    if tsc_last_extra != 0 {
+        if TSC_VERBOSE_LOGGING || tsc_last_extra >= tsc_resolution {
+            dbg_log!(
+                "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
+                tsc_last_value,
+                tsc_last_extra,
+                value,
+                value - (tsc_last_value + tsc_last_extra),
+                (100 * tsc_last_extra) / tsc_resolution,
+            );
+            dbg_assert!(tsc_last_extra < tsc_resolution, "XXX: Overshot tsc");
         }
-        return rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
-    };
+        tsc_last_extra = 0;
+    }
+
+    let d = value - tsc_last_value;
+    if d < tsc_resolution {
+        dbg_log!("rdtsc resolution: {}", d);
+    }
+    tsc_resolution = tsc_resolution.min(d);
+    tsc_last_value = value;
+    if tsc_number_of_same_readings != 0 {
+        tsc_speed = tsc_number_of_same_readings;
+        tsc_number_of_same_readings = 0;
+    }
+
+    value
 }
 
 pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
@@ -4117,8 +4132,8 @@ pub unsafe fn invlpg(addr: i32) {
 
 #[no_mangle]
 pub unsafe fn update_eflags(new_flags: i32) {
-    let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
-    let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
+    let mut dont_update = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
+    let mut clear = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
     if 0 != *flags & FLAG_VM {
         // other case needs to be handled in popf or iret
         dbg_assert!(getiopl() == 3);
@@ -4155,7 +4170,7 @@ pub unsafe fn get_valid_tlb_entries_count() -> i32 {
     if !cfg!(feature = "profiler") {
         return 0;
     }
-    let mut result: i32 = 0;
+    let mut result = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];
@@ -4171,7 +4186,7 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
     if !cfg!(feature = "profiler") {
         return 0;
     }
-    let mut result: i32 = 0;
+    let mut result = 0;
     for i in 0..valid_tlb_entries_count {
         let page = valid_tlb_entries[i as usize];
         let entry = tlb_data[page as usize];
@@ -4226,7 +4241,10 @@ pub unsafe fn handle_irqs() {
 
 unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
-    *in_hlt = false;
+    if *in_hlt {
+        stop_idling();
+        *in_hlt = false;
+    }
     call_interrupt_vector(interrupt_nr as i32, false, None);
 }
 

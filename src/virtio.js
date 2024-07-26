@@ -924,7 +924,7 @@ VirtIO.prototype.set_state = function(state)
     this.isr_status = state[8];
     this.queue_select = state[9];
     let i = 0;
-    for(let queue of state.slice(10))
+    for(const queue of state.slice(10))
     {
         this.queues[i].set_state(queue);
         i++;

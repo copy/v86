@@ -101,7 +101,7 @@ FloppyController.prototype.set_fda = function(fda_image)
     let floppy_size = fda_image.byteLength;
     let floppy_type = floppy_types[floppy_size];
 
-    if (!floppy_type)
+    if(!floppy_type)
     {
         floppy_size = fda_image.byteLength > 1440 * 1024 ? 2880 * 1024 : 1440 * 1024;
         floppy_type = floppy_types[floppy_size];
@@ -288,6 +288,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 break;
             case 0x06:
             case 0x46:
+            case 0xC6:
             case 0xE6:
                 this.next_command = function(args) { this.do_sector(false, args); };
                 this.bytes_expecting = 8;
@@ -356,7 +357,7 @@ FloppyController.prototype.check_drive_status = function(args)
 {
     dbg_log("check drive status", LOG_FLOPPY);
     // do nothing if no fda
-    if (this.fda_image)
+    if(this.fda_image)
     {
         this.status_reg1 = 0;
     }
@@ -381,8 +382,8 @@ FloppyController.prototype.seek = function(args)
         return;
     }
 
-    let new_cylinder = args[1];
-    let new_head = args[0] >> 2 & 1;
+    const new_cylinder = args[1];
+    const new_head = args[0] >> 2 & 1;
 
     // clear eject flag if seek takes us to a new cylinder
     if(new_cylinder !== this.last_cylinder)
@@ -390,7 +391,7 @@ FloppyController.prototype.seek = function(args)
         this.dir = 0x0;
     }
     // do nothing if no fda
-    if (this.fda_image)
+    if(this.fda_image)
     {
         this.status_reg1 = 0;
     }

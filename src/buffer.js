@@ -304,7 +304,7 @@
         const state = [];
         const block_cache = [];
 
-        for (let [index, block] of this.block_cache) {
+        for (const [index, block] of this.block_cache) {
             dbg_assert(isFinite(index));
             if (this.block_cache_is_write.has(index)) {
                 block_cache.push([index, block]);
@@ -323,7 +323,7 @@
         this.block_cache.clear();
         this.block_cache_is_write.clear();
 
-        for (let [index, block] of block_cache) {
+        for (const [index, block] of block_cache) {
             dbg_assert(isFinite(index));
             this.block_cache.set(index, block);
             this.block_cache_is_write.add(index);

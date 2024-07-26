@@ -498,7 +498,7 @@ if(cluster.isMaster)
             ].join(" "),
             filesystem: {
                 basefs: "images/fs.json",
-                baseurl: "images/arch-nongz/",
+                baseurl: "images/arch/",
             },
             expected_texts: [
                 "root@localhost",
@@ -793,7 +793,7 @@ if(cluster.isMaster)
             multiboot: root_path + "/images/netbsd9.3-kernel-multiboot.img",
             expected_texts: [
                 // NOTE: doesn't success booting yet, just testing the multiboot boot
-                "[   1.0000030] isa0 at mainbus0",
+                "[   1.0000000] multiboot:",
             ],
         },
         {

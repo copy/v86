@@ -92,6 +92,12 @@
  */
 function V86(options)
 {
+    if(typeof options.log_level === "number")
+    {
+        // XXX: Shared between all emulator instances
+        LOG_LEVEL = options.log_level;
+    }
+
     //var worker = new Worker("src/browser/worker.js");
     //var adapter_bus = this.bus = WorkerBus.init(worker);
 
@@ -115,6 +121,7 @@ function V86(options)
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
         "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
+        "stop_idling": function() { return cpu.stop_idling(); },
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -265,7 +272,6 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.acpi = options.acpi;
     settings.disable_jit = options.disable_jit;
     settings.load_devices = true;
-    settings.log_level = options.log_level;
     settings.memory_size = options.memory_size || 64 * 1024 * 1024;
     settings.vga_memory_size = options.vga_memory_size || 8 * 1024 * 1024;
     settings.boot_order = boot_order;
@@ -287,7 +293,14 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     else if(options.network_relay_url)
     {
-        this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
+        if(options.network_relay_url === "fetch")
+        {
+            this.network_adapter = new FetchNetworkAdapter(this.bus);
+        }
+        else
+        {
+            this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
+        }
     }
 
     // Enable unconditionally, so that state images don't miss hardware
@@ -555,62 +568,53 @@ V86.prototype.continue_init = async function(emulator, options)
             if(!settings.initial_state)
             {
                 settings.fs9p.load_from_json(settings.fs9p_json);
+
+                if(options.bzimage_initrd_from_filesystem)
+                {
+                    const { bzimage_path, initrd_path } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
+
+                    dbg_log("Found bzimage: " + bzimage_path + " and initrd: " + initrd_path);
+
+                    const [initrd, bzimage] = await Promise.all([
+                        settings.fs9p.read_file(initrd_path),
+                        settings.fs9p.read_file(bzimage_path),
+                    ]);
+                    put_on_settings.call(this, "initrd", new v86util.SyncBuffer(initrd.buffer));
+                    put_on_settings.call(this, "bzimage", new v86util.SyncBuffer(bzimage.buffer));
+                }
             }
             else
             {
                 dbg_log("Filesystem basefs ignored: Overridden by state image");
             }
-
-            if(options.bzimage_initrd_from_filesystem)
-            {
-                const { bzimage_path, initrd_path } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
-
-                dbg_log("Found bzimage: " + bzimage_path + " and initrd: " + initrd_path);
-
-                const [initrd, bzimage] = await Promise.all([
-                    settings.fs9p.read_file(initrd_path),
-                    settings.fs9p.read_file(bzimage_path),
-                ]);
-                put_on_settings.call(this, "initrd", new v86util.SyncBuffer(initrd.buffer));
-                put_on_settings.call(this, "bzimage", new v86util.SyncBuffer(bzimage.buffer));
-                finish.call(this);
-            }
-            else
-            {
-                finish.call(this);
-            }
         }
         else
         {
             dbg_assert(
-                !options.bzimage_initrd_from_filesystem,
+                !options.bzimage_initrd_from_filesystem || settings.initial_state,
                 "bzimage_initrd_from_filesystem: Requires a filesystem");
-            finish.call(this);
         }
 
-        function finish()
+        this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
+
+        this.bus.send("cpu-init", settings);
+
+        if(settings.initial_state)
         {
-            this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
+            emulator.restore_state(settings.initial_state);
 
-            this.bus.send("cpu-init", settings);
-
-            if(settings.initial_state)
-            {
-                emulator.restore_state(settings.initial_state);
-
-                // The GC can't free settings, since it is referenced from
-                // several closures. This isn't needed anymore, so we delete it
-                // here
-                settings.initial_state = undefined;
-            }
-
-            if(options.autostart)
-            {
-                this.bus.send("cpu-run");
-            }
-
-            this.emulator_bus.send("emulator-loaded");
+            // The GC can't free settings, since it is referenced from
+            // several closures. This isn't needed anymore, so we delete it
+            // here
+            settings.initial_state = undefined;
         }
+
+        if(options.autostart)
+        {
+            this.bus.send("cpu-run");
+        }
+
+        this.emulator_bus.send("emulator-loaded");
     }
 };
 
@@ -658,7 +662,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                     const env = Object.fromEntries([
                         "cpu_exception_hook", "run_hardware_timers",
                         "cpu_event_halt", "microtick", "get_rand_int",
-                        "apic_acknowledge_irq",
+                        "apic_acknowledge_irq", "stop_idling",
                         "io_port_read8", "io_port_read16", "io_port_read32",
                         "io_port_write8", "io_port_write16", "io_port_write32",
                         "mmap_read8", "mmap_read16", "mmap_read32",
@@ -724,7 +728,7 @@ V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
     let initrd_path;
     let bzimage_path;
 
-    for(let f of [].concat(root, boot))
+    for(const f of [].concat(root, boot))
     {
         const old = /old/i.test(f) || /fallback/i.test(f);
         const is_bzimage = /vmlinuz/i.test(f) || /bzimage/i.test(f);
@@ -1305,7 +1309,7 @@ V86.prototype.automatically = function(steps)
         {
             const screen = this.screen_adapter.get_text_screen();
 
-            for(let line of screen)
+            for(const line of screen)
             {
                 if(line.includes(step.vga_text))
                 {

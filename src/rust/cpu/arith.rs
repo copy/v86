@@ -520,7 +520,7 @@ pub unsafe fn rcl32(dest_operand: i32, count: i32) -> i32 {
         return dest_operand;
     }
     else {
-        let mut result: i32 = dest_operand << count | (getcf() as i32) << count - 1;
+        let mut result = dest_operand << count | (getcf() as i32) << count - 1;
         if count > 1 {
             result = (result as u32 | dest_operand as u32 >> 33 - count) as i32
         }
@@ -618,7 +618,7 @@ pub unsafe fn rcr32(dest_operand: i32, count: i32) -> i32 {
         return dest_operand;
     }
     else {
-        let mut result: i32 =
+        let mut result =
             (dest_operand as u32 >> count | ((getcf() as i32) << 32 - count) as u32) as i32;
         if count > 1 {
             result |= dest_operand << 33 - count
@@ -1132,7 +1132,7 @@ pub unsafe fn saturate_sw_to_ub(v: u16) -> u8 {
 }
 pub unsafe fn saturate_sw_to_sb(v: i32) -> u8 {
     dbg_assert!(v as u32 & 0xFFFF_0000 == 0);
-    let mut ret: i32 = v;
+    let mut ret = v;
     if ret > 65408 {
         ret = ret & 255
     }
@@ -1146,7 +1146,7 @@ pub unsafe fn saturate_sw_to_sb(v: i32) -> u8 {
     return ret as u8;
 }
 pub unsafe fn saturate_sd_to_sw(v: u32) -> u16 {
-    let mut ret: u32 = v;
+    let mut ret = v;
     if ret > 4294934528 {
         ret = ret & 0xFFFF
     }
@@ -1160,7 +1160,7 @@ pub unsafe fn saturate_sd_to_sw(v: u32) -> u16 {
     return ret as u16;
 }
 pub unsafe fn saturate_sd_to_sb(v: u32) -> i8 {
-    let mut ret: u32 = v;
+    let mut ret = v;
     if ret > 0xFFFFFF80 {
         ret = ret & 255
     }
@@ -1174,7 +1174,7 @@ pub unsafe fn saturate_sd_to_sb(v: u32) -> i8 {
     return ret as i8;
 }
 pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
-    let mut ret: i32 = v;
+    let mut ret = v;
     if ret < 0 {
         ret = 0
     }
@@ -1182,7 +1182,7 @@ pub unsafe fn saturate_sd_to_ub(v: i32) -> i32 {
     return ret;
 }
 pub unsafe fn saturate_ud_to_ub(v: u32) -> u8 {
-    let mut ret: u32 = v;
+    let mut ret = v;
     if ret > 255 {
         ret = 255
     }
@@ -1190,7 +1190,7 @@ pub unsafe fn saturate_ud_to_ub(v: u32) -> u8 {
     return ret as u8;
 }
 pub unsafe fn saturate_uw(v: u32) -> u16 {
-    let mut ret: u32 = v;
+    let mut ret = v;
     if ret > 0x7FFFFFFF {
         ret = 0
     }
