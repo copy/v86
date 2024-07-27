@@ -108,9 +108,11 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
  */
 FetchNetworkAdapter.prototype.send = function(data)
 {
+    console.log("got layer 2 packet from emulator")
     let packet = {};
     parse_eth(data, packet);
-
+    console.log("Fully parsed and deconstructed: ")
+    console.log(packet)
     if(packet.tcp) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
@@ -128,16 +130,30 @@ FetchNetworkAdapter.prototype.send = function(data)
         ].join(":");
 
 
-        if(packet.tcp.syn && packet.tcp.dport === 80) {
+        if(packet.tcp.syn) {
             if(this.tcp_conn[tuple]) {
                 dbg_log("SYN to already opened port", LOG_FETCH);
             }
+            const conn = new WebSocket(window.origin.replace("https://", "wss://").replace("http://", "ws://") + "/" + packet.ipv4.dest.join(".") + ":" + packet.tcp.dport) // TODO, replace wsproxy with wisp
+            conn.binaryType = "arraybuffer";
+
             this.tcp_conn[tuple] = new TCPConnection();
             this.tcp_conn[tuple].state = TCP_STATE_SYN_RECEIVED;
             this.tcp_conn[tuple].net = this;
-            this.tcp_conn[tuple].on_data = TCPConnection.prototype.on_data_http;
+            this.tcp_conn[tuple].on_data = TCPConnection.prototype.on_data_wisp;
             this.tcp_conn[tuple].tuple = tuple;
-            this.tcp_conn[tuple].accept(packet);
+            this.tcp_conn[tuple].ws = conn;
+            const deref = this.tcp_conn[tuple];
+            this.tcp_conn[tuple].ws.onopen = () => {
+                deref.accept(packet);
+            }
+            
+            this.tcp_conn[tuple].ws.onmessage = (event) => {
+                console.log("Got message back:");
+                console.log(event.data) 
+                deref.write(new Uint8Array(event.data));
+            }
+            
             return;
         }
 
@@ -184,48 +200,55 @@ FetchNetworkAdapter.prototype.send = function(data)
             tpa: packet.arp.spa
         };
         this.receive(make_packet(reply));
+        
     }
 
     if(packet.dns) {
-        let reply = {};
-        reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
-        reply.ipv4 = {
-            proto: IPV4_PROTO_UDP,
-            src: this.router_ip,
-            dest: packet.ipv4.src,
-        };
-        reply.udp = { sport: 53, dport: packet.udp.sport };
-
-        let answers = [];
-        let flags = 0x8000; //Response,
-        flags |= 0x0180; // Recursion
-        // flags |= 0x0400; Authoritative
-
-        for(let i = 0; i < packet.dns.questions.length; ++i) {
-            let q = packet.dns.questions[i];
-
-            switch(q.type){
-                case 1: // A recrod
-                    answers.push({
-                        name: q.name,
-                        type: q.type,
-                        class: q.class,
-                        ttl: 600,
-                        data: [192, 168, 87, 1]
-                    });
-                    break;
-                default:
+        (async () => {
+            let reply = {};
+            reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
+            reply.ipv4 = {
+                proto: IPV4_PROTO_UDP,
+                src: this.router_ip,
+                dest: packet.ipv4.src,
+            };
+            reply.udp = { sport: 53, dport: packet.udp.sport };
+    
+            let answers = [];
+            let flags = 0x8000; //Response,
+            flags |= 0x0180; // Recursion
+            // flags |= 0x0400; Authoritative
+            console.log("DNS query..")
+            for(let i = 0; i < packet.dns.questions.length; ++i) {
+                let q = packet.dns.questions[i];
+    
+                switch(q.type){
+                    case 1: // A recrod
+                        let res = await (await fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)).json()
+                        console.log(res);
+                        answers.push({
+                            name: res.Question[0].name.split("."),
+                            type: res.Answer[0].type,
+                            class: q.class,
+                            ttl: res.Answer[0].TTL,
+                            data: res.Answer[0].data.split(".")
+                        });
+                        break;
+                    default:
+                }
+                console.log(answers);
             }
-        }
-
-        reply.dns = {
-            id: packet.dns.id,
-            flags: flags,
-            questions: packet.dns.questions,
-            answers: answers
-        };
-        this.receive(make_packet(reply));
-        return;
+    
+            reply.dns = {
+                id: packet.dns.id,
+                flags: flags,
+                questions: packet.dns.questions,
+                answers: answers
+            };
+            this.receive(make_packet(reply));
+            return;
+        })();
+        
     }
 
     if(packet.ntp) {
@@ -1158,6 +1181,10 @@ TCPConnection.prototype.process = function(packet) {
 
     this.on_data(packet.tcp_data);
     this.pump();
+};
+
+TCPConnection.prototype.on_data_wisp = async function(data) {
+    this.ws.send(data);
 };
 
 TCPConnection.prototype.on_data_http = async function(data) {
