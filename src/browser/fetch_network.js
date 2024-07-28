@@ -1190,8 +1190,13 @@ TCPConnection.prototype.process = function(packet) {
     this.pump();
 };
 
+/**
+ * 
+ * @param {Uint8Array} data 
+ */
 TCPConnection.prototype.on_data_wisp = async function(data) {
-    this.ws.send(data);
+    if (data.length !== 0)
+        this.ws.send(data);
 };
 
 /**
