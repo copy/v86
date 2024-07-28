@@ -69,6 +69,20 @@ FetchNetworkAdapter.prototype.destroy = function()
 {
 };
 
+// DNS over HTTPS fetch
+async function dohdns(q) {
+
+    const preffered_fetch =  fetch;
+    const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)
+    if (req.status == 200) {
+        return await req.json();
+    } else {
+        throw new Error("DNS Server returned error code");
+    }
+    
+
+
+}
 
 function siptolong(s) {
     let parts = s.split(".").map(function(x) { return parseInt(x, 10); });
@@ -79,42 +93,13 @@ function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
 
-FetchNetworkAdapter.prototype.fetch = async function(url, options)
-{
-    if(this.cors_proxy) url = this.cors_proxy + encodeURIComponent(url);
-
-    try
-    {
-        const resp = await fetch(url, options);
-        const ab = await resp.arrayBuffer();
-        return [resp, ab];
-    }
-    catch(e)
-    {
-        console.warn("Fetch Failed: " + url + "\n" + e);
-        let headers = new Headers();
-        headers.set("Content-Type", "text/plain");
-        return [
-            {
-                status: 502,
-                statusText: "Fetch Error",
-                headers: headers,
-            },
-            new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
-        ];
-    }
-};
-
 /**
  * @param {Uint8Array} data
  */
 FetchNetworkAdapter.prototype.send = function(data)
 {
-    console.log("got layer 2 packet from emulator")
     let packet = {};
     parse_eth(data, packet);
-    console.log("Fully parsed and deconstructed: ")
-    console.log(packet)
     if(packet.tcp) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
@@ -148,13 +133,11 @@ FetchNetworkAdapter.prototype.send = function(data)
             const deref = this.tcp_conn[tuple];
             this.tcp_conn[tuple].ws.onopen = () => {
                 deref.accept(packet);
-            }
+            };
             
             this.tcp_conn[tuple].ws.onmessage = (event) => {
-                console.log("Got message back:");
-                console.log(event.data) 
                 deref.write(new Uint8Array(event.data));
-            }
+            };
             
             return;
         }
@@ -220,16 +203,15 @@ FetchNetworkAdapter.prototype.send = function(data)
             let flags = 0x8000; //Response,
             flags |= 0x0180; // Recursion
             // flags |= 0x0400; Authoritative
-            console.log("DNS query..")
             for(let i = 0; i < packet.dns.questions.length; ++i) {
                 let q = packet.dns.questions[i];
-    
+
+                // its actually fine if this errors and it isn't handled, its run as an async function so the error shouldn't take down the whole thing. also its a UDP packet so we dont have to maintain "diplomacy" by responding to the VM, we can ghost it like my ex did to me in 8th grade
+                const res = await dohdns(q);
+
                 switch(q.type){
                     case 1: // A recrod
-                        console.log("fetching from: " + `https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);
-                        // its actually fine if this errors and it isn't handled, its run as an async function so the error shouldn't take down the whole thing. also its a UDP packet so we dont have to maintain "diplomacy" by responding to the VM, we can ghost it like my ex did to me in 8th grade
-                        let res = await (await ((window.anura?.net?.fetch) || fetch)(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)).json();
-                        console.log(res);
+                        
                         // for (const ans in res.Answer) {    // v86 DNS server crashes and burns with multiple answers, not quite sure why
                         if (res.Answer) {
                             const ans = res.Answer[0];
@@ -247,7 +229,6 @@ FetchNetworkAdapter.prototype.send = function(data)
                         break;
                     default:
                 }
-                console.log(answers);
             }
     
             reply.dns = {
@@ -1196,64 +1177,6 @@ TCPConnection.prototype.process = function(packet) {
 
 TCPConnection.prototype.on_data_wisp = async function(data) {
     this.ws.send(data);
-};
-
-TCPConnection.prototype.on_data_http = async function(data) {
-    this.read = this.read || "";
-    this.read += new TextDecoder().decode(data);
-    if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
-        let offset = this.read.indexOf("\r\n\r\n");
-        let headers = this.read.substring(0, offset).split(/\r\n/);
-        let data = this.read.substring(offset + 4);
-        this.read = "";
-
-        let first_line = headers[0].split(" ");
-        let target = new URL("http://host" + first_line[1]);
-        if(/^https?:/.test(first_line[1])) {
-            target = new URL(first_line[1]);
-        }
-        let req_headers = new Headers();
-        for(let i = 1; i < headers.length; ++i) {
-            let parts = headers[i].split(": ");
-            let key =  parts[0].toLowerCase();
-            let value = parts[1];
-            if( key === "host" ) target.host = value;
-            else if( key.length > 1 ) req_headers.set(parts[0], value);
-        }
-
-        dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
-        this.name = target.href;
-        let opts = {
-            method: first_line[0],
-            headers: req_headers,
-        };
-        if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
-            opts.body = data;
-        }
-        const [resp, ab] = await this.net.fetch(target.href, opts);
-        const lines = [
-            `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-            "connection: Closed",
-            "content-length: " + ab.byteLength
-        ];
-
-        lines.push("x-was-fetch-redirected: " + String(resp.redirected));
-        lines.push("x-fetch-resp-url: " + String(resp.url));
-
-        resp.headers.forEach(function (value, key) {
-            if([
-                "content-encoding", "connection", "content-length", "transfer-encoding"
-            ].indexOf(key.toLowerCase()) === -1 ) {
-                lines.push(key + ": " + value);
-            }
-        });
-
-        lines.push("");
-        lines.push("");
-
-        this.write(new TextEncoder().encode(lines.join("\r\n")));
-        this.write(new Uint8Array(ab));
-    }
 };
 
 /**
