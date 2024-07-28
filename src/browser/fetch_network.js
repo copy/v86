@@ -1,5 +1,7 @@
 "use strict";
 
+
+
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
 const ETHERTYPE_IPV4 = 0x0800;
 const ETHERTYPE_ARP = 0x0806;
@@ -224,15 +226,24 @@ FetchNetworkAdapter.prototype.send = function(data)
     
                 switch(q.type){
                     case 1: // A recrod
-                        let res = await (await fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)).json()
+                        console.log("fetching from: " + `https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);
+                        // its actually fine if this errors and it isn't handled, its run as an async function so the error shouldn't take down the whole thing. also its a UDP packet so we dont have to maintain "diplomacy" by responding to the VM, we can ghost it like my ex did to me in 8th grade
+                        let res = await (await ((window.anura?.net?.fetch) || fetch)(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)).json();
                         console.log(res);
-                        answers.push({
-                            name: res.Question[0].name.split("."),
-                            type: res.Answer[0].type,
-                            class: q.class,
-                            ttl: res.Answer[0].TTL,
-                            data: res.Answer[0].data.split(".")
-                        });
+                        // for (const ans in res.Answer) {    // v86 DNS server crashes and burns with multiple answers, not quite sure why
+                        if (res.Answer) {
+                            const ans = res.Answer[0];
+                            answers.push({ 
+                                name: ans.name.split("."),
+                                type: ans.type,       
+                                class: q.class,
+                                ttl: ans.TTL,
+                                data: ans.data.split(".")
+                            });
+                        }
+
+                        // }
+
                         break;
                     default:
                 }
