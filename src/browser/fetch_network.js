@@ -72,7 +72,7 @@ FetchNetworkAdapter.prototype.destroy = function()
 // DNS over HTTPS fetch
 async function dohdns(q) {
 
-    const preffered_fetch =  fetch;
+    const preffered_fetch = (window.anura?.net?.fetch) || fetch;
     const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)
     if (req.status == 200) {
         return await req.json();
