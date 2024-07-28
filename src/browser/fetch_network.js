@@ -69,13 +69,31 @@ FetchNetworkAdapter.prototype.destroy = function()
 {
 };
 
-// DNS over HTTPS fetch
-async function dohdns(q) {
+// https://stackoverflow.com/questions/4460586/javascript-regular-expression-to-check-for-ip-addresses
+function validateIPaddress(ipaddress) {  
+    if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
+      return true;  
+    }  
+    return false;  
+}  
 
+// DNS over HTTPS fetch, recursively fetch the A record until the first result is an IPv4
+async function dohdns(q) {
+    console.log("Got DNS query: ");
+    console.log(q);
     const preffered_fetch = (window.anura?.net?.fetch) || fetch;
-    const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`)
+    const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);    
     if (req.status == 200) {
-        return await req.json();
+        const res = await req.json();
+        if (res.Answer) {
+            if (validateIPaddress(res.Answer[0].data)) {
+                return res;
+            } else {
+                console.log({name: res.Answer[0].data, type: q.type});
+                return await dohdns({name: res.Answer[0].data.split("."), type: q.type});
+            }
+        }
+        return 
     } else {
         throw new Error("DNS Server returned error code");
     }
