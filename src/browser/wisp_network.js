@@ -1,4 +1,144 @@
 "use strict";
+let wispws;
+
+const lastStream = 1;
+
+const connections = {};
+let congestion = 0;
+function processIncomingWispFrame(frame) {
+    console.log(frame);
+    let view;
+    let streamID;
+    switch (frame[0]) {
+        case 1: // CONNECT
+            // The server should never send this actually
+            throw new Error("Server sent client only frame: CONNECT 0x01");
+            break;
+        case 2: // DATA
+            view = new DataView(frame.buffer);
+            streamID = view.getUint32(1, true);
+            if (connections[streamID])
+                connections[streamID].dataCallback(frame.slice(5));
+            else
+                throw new Error("Got a DATA packet but stream not registered. ID: " + streamID);
+
+
+            break;
+        case 3: // CONTINUE
+            view = new DataView(frame.buffer);
+            congestion = view.getUint32(0, true);
+
+            break;
+        case 4: // CLOSE
+            // Call some closer here
+            view = new DataView(frame.buffer);
+            streamID = view.getUint32(1, true);
+            if (connections[streamID])
+                connections[streamID].closeCallback(view.getUint8(5));
+
+            break;
+    }
+}
+
+
+// FrameObj will be the following
+// FrameObj.streamID (number)
+//
+// FrameObj.type -- CONNECT
+//      FrameObj.hostname (string)
+//      FrameObj.port (number)
+//      FrameObj.dataCallback (function (Uint8Array))
+//      FrameObj.closeCallback (function (number)) OPTIONAL
+//
+//
+// FrameObj.type -- DATA
+//      FrameObj.data (Uint8Array)
+//
+// FrameObj.type -- CLOSE
+//      FrameObj.reason (number)
+//
+// FrameObj.type -- RESIZE
+//      FrameObj.cols (number)
+//      FrameObj.rows (number)
+//
+//
+//
+
+const congestionBuffer = [];
+let congested = false;
+function sendWispFrame(frameObj) {
+
+    let fullPacket;
+    let view;
+    switch (frameObj.type) {
+        case "CONNECT":
+            const hostnameBuffer = new TextEncoder().encode(frameObj.hostname);
+            fullPacket = new Uint8Array(5 + 1 + 1 + hostnameBuffer .length);
+            view = new DataView(fullPacket.buffer);
+            view.setUint8(0, 0x01);                     // TYPE
+            view.setUint32(1, frameObj.streamID, true); // Stream ID
+            view.setUint8(5, 0x01);                     // TCP
+            view.setUint16(6, frameObj.port);           // PORT 
+            fullPacket.set(hostnameBuffer, 11);         // command
+
+            // Setting callbacks
+            connections[frameObj.streamID] = {
+                dataCallback: frameObj.dataCallback,
+                closeCallback: frameObj. closeCallback
+            }
+
+
+            break;
+        case "DATA":
+            fullPacket = new Uint8Array(5 + frameObj.data.length);
+            view = new DataView(fullPacket.buffer);
+            view.setUint8(0, 0x02);                     // TYPE
+            view.setUint32(1, frameObj.streamID, true); // Stream ID
+            fullPacket.set(frameObj.data, 5);           // Actual data
+
+            break;
+        case "CLOSE":
+            fullPacket = new Uint8Array(5 + 1);
+            view = new DataView(fullPacket.buffer);
+            view.setUint8(0, 0x04);                     // TYPE
+            view.setUint32(1, frameObj.streamID, true); // Stream ID
+            view.setUint8(5, frameObj.reason);          // Packet size
+
+            break;
+
+    }
+
+    if (congestion > 0) {
+        if (frameObj.type === "DATA")
+            congestion--;
+        wispws.send(fullPacket);
+    } else {
+        congestionBuffer.push({data: fullPacket, meta: packetData});
+        async function waitForDecongest() {
+            // Wait for the continue to be recieved and processed
+            if (!congestion) {
+                congestion = true;
+                while (congestion <= 0) {
+                    await new Promise(resolve => setTimeout(resolve, 100)); // sleep(100ms)
+                }
+                congestion = false;
+                for (const redoPacket of congestionBuffer) {
+                    if (redoPacket.meta.type === "DATA")
+                        congestion--;
+                    if (congestion > 0) {
+                        wispws.send(redoPacket)
+                    } else {
+                        await waitForDecongest();
+                        break;
+                    }
+                }
+            }
+        }
+        waitForDecongest();
+    }
+}
+
+
 
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
 const ETHERTYPE_IPV4 = 0x0800;
@@ -36,8 +176,14 @@ const TCP_STATE_SYN_SENT = "syn-sent";
  * @param {BusConnector} bus
  * @param {*=} config
  */
-function FetchNetworkAdapter(bus, config)
+function WispNetworkAdapter(wispURL, bus, config)
 {
+    this.wispURL = wispURL.replace("wisp://", "ws://").replace("wisps://", "wss://");
+    wispws = new WebSocket(this.wispURL);
+    wispws.binaryType = "arraybuffer";
+    wispws.onmessage = (event) => {
+        processIncomingWispFrame(new Uint8Array(event.data));
+    };
     config = config || {};
     this.bus = bus;
     this.id = config.id || 0;
@@ -63,10 +209,39 @@ function FetchNetworkAdapter(bus, config)
     //Object.seal(this);
 }
 
-FetchNetworkAdapter.prototype.destroy = function()
+WispNetworkAdapter.prototype.destroy = function()
 {
 };
 
+// https://stackoverflow.com/questions/4460586/javascript-regular-expression-to-check-for-ip-addresses
+function validateIPaddress(ipaddress) {  
+    if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
+      return true;  
+    }  
+    return false;  
+}  
+
+// DNS over HTTPS fetch, recursively fetch the A record until the first result is an IPv4
+async function dohdns(q) {
+    const preffered_fetch = (window.anura?.net?.fetch) || fetch;
+    const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);    
+    if (req.status == 200) {
+        const res = await req.json();
+        if (res.Answer) {
+            if (validateIPaddress(res.Answer[0].data)) {
+                return res;
+            } else {
+                return await dohdns({name: res.Answer[0].data.split("."), type: q.type});
+            }
+        }
+        return 
+    } else {
+        throw new Error("DNS Server returned error code");
+    }
+    
+
+
+}
 
 function siptolong(s) {
     let parts = s.split(".").map(function(x) { return parseInt(x, 10); });
@@ -77,40 +252,13 @@ function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
 
-FetchNetworkAdapter.prototype.fetch = async function(url, options)
-{
-    if(this.cors_proxy) url = this.cors_proxy + encodeURIComponent(url);
-
-    try
-    {
-        const resp = await fetch(url, options);
-        const ab = await resp.arrayBuffer();
-        return [resp, ab];
-    }
-    catch(e)
-    {
-        console.warn("Fetch Failed: " + url + "\n" + e);
-        let headers = new Headers();
-        headers.set("Content-Type", "text/plain");
-        return [
-            {
-                status: 502,
-                statusText: "Fetch Error",
-                headers: headers,
-            },
-            new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
-        ];
-    }
-};
-
 /**
  * @param {Uint8Array} data
  */
-FetchNetworkAdapter.prototype.send = function(data)
+WispNetworkAdapter.prototype.send = function(data)
 {
     let packet = {};
     parse_eth(data, packet);
-
     if(packet.tcp) {
         let reply = {};
         reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
@@ -128,16 +276,32 @@ FetchNetworkAdapter.prototype.send = function(data)
         ].join(":");
 
 
-        if(packet.tcp.syn && packet.tcp.dport === 80) {
+        if(packet.tcp.syn) {
             if(this.tcp_conn[tuple]) {
                 dbg_log("SYN to already opened port", LOG_FETCH);
             }
+            // const conn = new WebSocket(window.origin.replace("https://", "wss://").replace("http://", "ws://") + "/" + packet.ipv4.dest.join(".") + ":" + packet.tcp.dport) // TODO, replace wsproxy with wisp
+            
+            
+
             this.tcp_conn[tuple] = new TCPConnection();
             this.tcp_conn[tuple].state = TCP_STATE_SYN_RECEIVED;
             this.tcp_conn[tuple].net = this;
-            this.tcp_conn[tuple].on_data = TCPConnection.prototype.on_data_http;
+            this.tcp_conn[tuple].on_data = TCPConnection.prototype.on_data_wisp;
             this.tcp_conn[tuple].tuple = tuple;
-            this.tcp_conn[tuple].accept(packet);
+            this.tcp_conn[tuple].streamID = lastStream++;
+            const deref = this.tcp_conn[tuple];
+            
+            sendWispFrame({
+                type: "CONNECT",
+                streamID: deref.streamID, 
+                command: "bash", 
+                dataCallback: (data) => {deref.write(data)}, 
+                closeCallback: (data) => {deref.close()}
+            })
+            deref.accept();
+
+            
             return;
         }
 
@@ -184,48 +348,62 @@ FetchNetworkAdapter.prototype.send = function(data)
             tpa: packet.arp.spa
         };
         this.receive(make_packet(reply));
+        
     }
 
     if(packet.dns) {
-        let reply = {};
-        reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
-        reply.ipv4 = {
-            proto: IPV4_PROTO_UDP,
-            src: this.router_ip,
-            dest: packet.ipv4.src,
-        };
-        reply.udp = { sport: 53, dport: packet.udp.sport };
+        (async () => {
+            let reply = {};
+            reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
+            reply.ipv4 = {
+                proto: IPV4_PROTO_UDP,
+                src: this.router_ip,
+                dest: packet.ipv4.src,
+            };
+            reply.udp = { sport: 53, dport: packet.udp.sport };
+    
+            let answers = [];
+            let flags = 0x8000; //Response,
+            flags |= 0x0180; // Recursion
+            // flags |= 0x0400; Authoritative
+            for(let i = 0; i < packet.dns.questions.length; ++i) {
+                let q = packet.dns.questions[i];
 
-        let answers = [];
-        let flags = 0x8000; //Response,
-        flags |= 0x0180; // Recursion
-        // flags |= 0x0400; Authoritative
+                // its actually fine if this errors and it isn't handled, its run as an async function so the error shouldn't take down the whole thing. also its a UDP packet so we dont have to maintain "diplomacy" by responding to the VM, we can ghost it like my ex did to me in 8th grade
+                const res = await dohdns(q);
 
-        for(let i = 0; i < packet.dns.questions.length; ++i) {
-            let q = packet.dns.questions[i];
+                switch(q.type){
+                    case 1: // A recrod
+                        
+                        // for (const ans in res.Answer) {    // v86 DNS server crashes and burns with multiple answers, not quite sure why
+                        if (res.Answer) {
+                            const ans = res.Answer[0];
+                            answers.push({ 
+                                name: ans.name.split("."),
+                                type: ans.type,       
+                                class: q.class,
+                                ttl: ans.TTL,
+                                data: ans.data.split(".")
+                            });
+                        }
 
-            switch(q.type){
-                case 1: // A recrod
-                    answers.push({
-                        name: q.name,
-                        type: q.type,
-                        class: q.class,
-                        ttl: 600,
-                        data: [192, 168, 87, 1]
-                    });
-                    break;
-                default:
+                        // }
+
+                        break;
+                    default:
+                }
             }
-        }
-
-        reply.dns = {
-            id: packet.dns.id,
-            flags: flags,
-            questions: packet.dns.questions,
-            answers: answers
-        };
-        this.receive(make_packet(reply));
-        return;
+    
+            reply.dns = {
+                id: packet.dns.id,
+                flags: flags,
+                questions: packet.dns.questions,
+                answers: answers
+            };
+            this.receive(make_packet(reply));
+            return;
+        })();
+        
     }
 
     if(packet.ntp) {
@@ -352,7 +530,7 @@ FetchNetworkAdapter.prototype.send = function(data)
 };
 
 
-FetchNetworkAdapter.prototype.tcp_connect = function(dport)
+WispNetworkAdapter.prototype.tcp_connect = function(dport)
 {
     // TODO: check port collisions
     let sport = 49152 + Math.floor(Math.random() * 1000);
@@ -399,7 +577,7 @@ FetchNetworkAdapter.prototype.tcp_connect = function(dport)
 /**
  * @param {Uint8Array} data
  */
-FetchNetworkAdapter.prototype.receive = function(data)
+WispNetworkAdapter.prototype.receive = function(data)
 {
     this.bus.send("net" + this.id + "-receive", new Uint8Array(data));
 };
@@ -1160,61 +1338,17 @@ TCPConnection.prototype.process = function(packet) {
     this.pump();
 };
 
-TCPConnection.prototype.on_data_http = async function(data) {
-    this.read = this.read || "";
-    this.read += new TextDecoder().decode(data);
-    if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
-        let offset = this.read.indexOf("\r\n\r\n");
-        let headers = this.read.substring(0, offset).split(/\r\n/);
-        let data = this.read.substring(offset + 4);
-        this.read = "";
-
-        let first_line = headers[0].split(" ");
-        let target = new URL("http://host" + first_line[1]);
-        if(/^https?:/.test(first_line[1])) {
-            target = new URL(first_line[1]);
-        }
-        let req_headers = new Headers();
-        for(let i = 1; i < headers.length; ++i) {
-            let parts = headers[i].split(": ");
-            let key =  parts[0].toLowerCase();
-            let value = parts[1];
-            if( key === "host" ) target.host = value;
-            else if( key.length > 1 ) req_headers.set(parts[0], value);
-        }
-
-        dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
-        this.name = target.href;
-        let opts = {
-            method: first_line[0],
-            headers: req_headers,
-        };
-        if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
-            opts.body = data;
-        }
-        const [resp, ab] = await this.net.fetch(target.href, opts);
-        const lines = [
-            `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-            "connection: Closed",
-            "content-length: " + ab.byteLength
-        ];
-
-        lines.push("x-was-fetch-redirected: " + String(resp.redirected));
-        lines.push("x-fetch-resp-url: " + String(resp.url));
-
-        resp.headers.forEach(function (value, key) {
-            if([
-                "content-encoding", "connection", "content-length", "transfer-encoding"
-            ].indexOf(key.toLowerCase()) === -1 ) {
-                lines.push(key + ": " + value);
-            }
-        });
-
-        lines.push("");
-        lines.push("");
-
-        this.write(new TextEncoder().encode(lines.join("\r\n")));
-        this.write(new Uint8Array(ab));
+/**
+ * 
+ * @param {Uint8Array} data 
+ */
+TCPConnection.prototype.on_data_wisp = async function(data) {
+    if (data.length !== 0) {
+        sendWispFrame({
+            type: "DATA",
+            streamID: this.streamID, 
+            data: data
+        })
     }
 };
 
@@ -1258,5 +1392,5 @@ TCPConnection.prototype.pump = function() {
 
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
-    module.exports["FetchNetworkAdapter"] = FetchNetworkAdapter;
+    module.exports["WispNetworkAdapter"] = WispNetworkAdapter;
 }

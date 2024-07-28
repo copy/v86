@@ -296,8 +296,11 @@ V86.prototype.continue_init = async function(emulator, options)
         if(options.network_relay_url === "fetch")
         {
             this.network_adapter = new FetchNetworkAdapter(this.bus);
+        } 
+        else if (options.network_relay_url.startsWith("wisp://") || options.network_relay_url.startsWith("wisps://")) {
+            this.network_adapter = new WispNetworkAdapter(options.network_relay_url, this.bus);
         }
-        else
+        else 
         {
             this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
         }
