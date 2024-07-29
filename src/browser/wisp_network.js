@@ -6,7 +6,7 @@ let lastStream = 1;
 const connections = {};
 let congestion = 0;
 function processIncomingWispFrame(frame) {
-    console.log(frame);
+    // console.log(frame);
     let view;
     let streamID;
     switch (frame[0]) {
@@ -17,8 +17,8 @@ function processIncomingWispFrame(frame) {
         case 2: // DATA
             view = new DataView(frame.buffer);
             streamID = view.getUint32(1, true);
-            console.log("Got incoming data packet for stream ID: " + streamID);
-            console.log(frame.slice(5));
+            // console.log("Got incoming data packet for stream ID: " + streamID);
+            // console.log(frame.slice(5));
             if (connections[streamID])
                 connections[streamID].dataCallback(frame.slice(5));
             else
@@ -98,8 +98,8 @@ function sendWispFrame(frameObj) {
             view.setUint8(0, 0x02);                     // TYPE
             view.setUint32(1, frameObj.streamID, true); // Stream ID
             fullPacket.set(frameObj.data, 5);           // Actual data
-            console.log("Sending data packet");
-            console.log(fullPacket);
+            // console.log("Sending data packet");
+            // console.log(fullPacket);
             
             break;
         case "CLOSE":
@@ -112,7 +112,7 @@ function sendWispFrame(frameObj) {
             break;
 
     }
-    console.log("Congestion:" + congestion);
+    // console.log("Congestion:" + congestion);
     wispws.send(fullPacket);
     // if (congestion > 0) {
     //     if (frameObj.type === "DATA")
@@ -256,29 +256,29 @@ WispNetworkAdapter.prototype.send = function(data)
             this.tcp_conn[tuple].tuple = tuple;
             this.tcp_conn[tuple].streamID = lastStream++;
             const deref = this.tcp_conn[tuple];
-            console.log("Sending CONN frame:");
-            console.log({
-                type: "CONNECT",
-                streamID: deref.streamID, 
-                hostname: packet.ipv4.dest.join("."),
-                port: packet.tcp.dport, 
-                dataCallback: (data) => {
-                    console.log("Sending back data: ");
-                    console.log(data);
-                    deref.write(data);
-                }, 
-                closeCallback: (data) => {
-                    deref.close()
-                }
-            })
+            // console.log("Sending CONN frame:");
+            // console.log({
+            //     type: "CONNECT",
+            //     streamID: deref.streamID, 
+            //     hostname: packet.ipv4.dest.join("."),
+            //     port: packet.tcp.dport, 
+            //     dataCallback: (data) => {
+            //         console.log("Sending back data: ");
+            //         console.log(data);
+            //         deref.write(data);
+            //     }, 
+            //     closeCallback: (data) => {
+            //         deref.close()
+            //     }
+            // })
             sendWispFrame({
                 type: "CONNECT",
                 streamID: deref.streamID, 
                 hostname: packet.ipv4.dest.join("."),
                 port: packet.tcp.dport, 
                 dataCallback: (data) => {
-                    console.log("Sending back data: ");
-                    console.log(data);
+                    // console.log("Sending back data: ");
+                    // console.log(data);
                     deref.write(data);
                 }, 
                 closeCallback: (data) => {
