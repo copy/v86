@@ -7,8 +7,8 @@ const connections = {0: {congestion: 0}};
 
 const congestedBuffer = [];
 function sendPacket(data, type, streamID) {
-    if (connections[streamID].congestion > 0) {
-        if (type === "DATA")
+    if(connections[streamID].congestion > 0) {
+        if(type === "DATA")
             connections[streamID].congestion--;
         wispws.send(data);
     } else {
@@ -21,7 +21,7 @@ function processIncomingWispFrame(frame) {
     // console.log(frame);
     const view = new DataView(frame.buffer);
     const streamID = view.getUint32(1, true);
-    switch (frame[0]) {
+    switch(frame[0]) {
         case 1: // CONNECT
             // The server should never send this actually
             throw new Error("Server sent client only frame: CONNECT 0x01");
@@ -29,7 +29,7 @@ function processIncomingWispFrame(frame) {
         case 2: // DATA
             // console.log("Got incoming data packet for stream ID: " + streamID);
             // console.log(frame.slice(5));
-            if (connections[streamID])
+            if(connections[streamID])
                 connections[streamID].dataCallback(frame.slice(5));
             else
                 throw new Error("Got a DATA packet but stream not registered. ID: " + streamID);
@@ -37,21 +37,21 @@ function processIncomingWispFrame(frame) {
 
             break;
         case 3: // CONTINUE
-            if (connections[streamID]) {
+            if(connections[streamID]) {
                 connections[streamID].congestion = view.getUint32(5, true);
             }
-                
-            if (connections[streamID].congested) {
-                for (const packet of congestedBuffer) {
+
+            if(connections[streamID].congested) {
+                for(const packet of congestedBuffer) {
                     sendPacket(packet.data, packet.type, streamID);
                 }
                 connections[streamID].congested = false;
             }
-            
+
             break;
         case 4: // CLOSE
             // Call some closer here
-            if (connections[streamID])
+            if(connections[streamID])
                 connections[streamID].closeCallback(view.getUint8(5));
             delete connections[streamID];
             break;
@@ -86,7 +86,7 @@ function sendWispFrame(frameObj) {
 
     let fullPacket;
     let view;
-    switch (frameObj.type) {
+    switch(frameObj.type) {
         case "CONNECT":
             const hostnameBuffer = new TextEncoder().encode(frameObj.hostname);
             fullPacket = new Uint8Array(5 + 1 + 2 + hostnameBuffer.length);
@@ -94,7 +94,7 @@ function sendWispFrame(frameObj) {
             view.setUint8(0, 0x01);                     // TYPE
             view.setUint32(1, frameObj.streamID, true); // Stream ID
             view.setUint8(5, 0x01);                     // TCP
-            view.setUint16(6, frameObj.port, true);     // PORT 
+            view.setUint16(6, frameObj.port, true);     // PORT
             fullPacket.set(hostnameBuffer, 8);          // hostname
 
             // Setting callbacks
@@ -107,7 +107,7 @@ function sendWispFrame(frameObj) {
 
             break;
         case "DATA":
-            
+
             fullPacket = new Uint8Array(5 + frameObj.data.length);
             view = new DataView(fullPacket.buffer);
             view.setUint8(0, 0x02);                     // TYPE
@@ -115,7 +115,7 @@ function sendWispFrame(frameObj) {
             fullPacket.set(frameObj.data, 5);           // Actual data
             // console.log("Sending data packet");
             // console.log(fullPacket);
-            
+
             break;
         case "CLOSE":
             fullPacket = new Uint8Array(5 + 1);
@@ -211,21 +211,21 @@ WispNetworkAdapter.prototype.destroy = function()
 };
 
 // https://stackoverflow.com/questions/4460586/javascript-regular-expression-to-check-for-ip-addresses
-function validateIPaddress(ipaddress) {  
-    if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
-      return true;  
-    }  
-    return false;  
-}  
+function validateIPaddress(ipaddress) {
+    if(/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {
+      return true;
+    }
+    return false;
+}
 
 // DNS over HTTPS fetch, recursively fetch the A record until the first result is an IPv4
 async function dohdns(q) {
     const prefered_fetch = (window.anura?.net?.fetch) || fetch;
-    const req = await prefered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);    
-    if (req.status == 200) {
+    const req = await prefered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);
+    if(req.status === 200) {
         const res = await req.json();
-        if (res.Answer) {
-            if (validateIPaddress(res.Answer[0].data)) {
+        if(res.Answer) {
+            if(validateIPaddress(res.Answer[0].data)) {
                 return res;
             } else {
                 return await dohdns({name: res.Answer[0].data.split("."), type: q.type});
@@ -252,11 +252,10 @@ async function dohdns(q) {
                     "data": "127.0.0.1"
                 }
             ]
-        }
+        };
     } else {
         throw new Error("DNS Server returned error code");
     }
-    
 
 
 }
@@ -290,8 +289,7 @@ WispNetworkAdapter.prototype.send = function(data)
                 dbg_log("SYN to already opened port", LOG_FETCH);
             }
             // const conn = new WebSocket(window.origin.replace("https://", "wss://").replace("http://", "ws://") + "/" + packet.ipv4.dest.join(".") + ":" + packet.tcp.dport) // TODO, replace wsproxy with wisp
-            
-            
+
 
             this.tcp_conn[tuple] = new TCPConnection();
             this.tcp_conn[tuple].state = TCP_STATE_SYN_RECEIVED;
@@ -303,35 +301,35 @@ WispNetworkAdapter.prototype.send = function(data)
             // console.log("Sending CONN frame:");
             // console.log({
             //     type: "CONNECT",
-            //     streamID: deref.streamID, 
+            //     streamID: deref.streamID,
             //     hostname: packet.ipv4.dest.join("."),
-            //     port: packet.tcp.dport, 
+            //     port: packet.tcp.dport,
             //     dataCallback: (data) => {
             //         console.log("Sending back data: ");
             //         console.log(data);
             //         deref.write(data);
-            //     }, 
+            //     },
             //     closeCallback: (data) => {
             //         deref.close()
             //     }
             // })
             sendWispFrame({
                 type: "CONNECT",
-                streamID: deref.streamID, 
+                streamID: deref.streamID,
                 hostname: packet.ipv4.dest.join("."),
-                port: packet.tcp.dport, 
+                port: packet.tcp.dport,
                 dataCallback: (data) => {
                     // console.log("Sending back data: ");
                     // console.log(data);
                     deref.write(data);
-                }, 
+                },
                 closeCallback: (data) => {
                     deref.close();
                 }
             });
             deref.accept(packet);
 
-            
+
             return;
         }
 
@@ -378,7 +376,7 @@ WispNetworkAdapter.prototype.send = function(data)
             tpa: packet.arp.spa
         };
         this.receive(make_packet(reply));
-        
+
     }
 
     if(packet.dns) {
@@ -391,7 +389,7 @@ WispNetworkAdapter.prototype.send = function(data)
                 dest: packet.ipv4.src,
             };
             reply.udp = { sport: 53, dport: packet.udp.sport };
-    
+
             let answers = [];
             let flags = 0x8000; //Response,
             flags |= 0x0180; // Recursion
@@ -402,13 +400,13 @@ WispNetworkAdapter.prototype.send = function(data)
                 const res = await dohdns(q);
                 switch(q.type){
                     case 1: // A recrod
-                        
+
                         // for (const ans in res.Answer) {    // v86 DNS server crashes and burns with multiple answers, not quite sure why
-                        if (res?.Answer && res.Answer[0]) {
+                        if(res?.Answer && res.Answer[0]) {
                             const ans = res.Answer[0];
-                            answers.push({ 
+                            answers.push({
                                 name: ans.name.split("."),
-                                type: ans.type,       
+                                type: ans.type,
                                 class: q.class,
                                 ttl: ans.TTL,
                                 data: ans.data.split(".")
@@ -421,7 +419,7 @@ WispNetworkAdapter.prototype.send = function(data)
                     default:
                 }
             }
-    
+
             reply.dns = {
                 id: packet.dns.id,
                 flags: flags,
@@ -429,9 +427,9 @@ WispNetworkAdapter.prototype.send = function(data)
                 answers: answers
             };
             this.receive(make_packet(reply));
-            return;
+
         })();
-        
+
     }
 
     if(packet.ntp) {
@@ -611,14 +609,14 @@ WispNetworkAdapter.prototype.receive = function(data)
 };
 
 /**
- * 
- * @param {Uint8Array} data 
+ *
+ * @param {Uint8Array} data
  */
 TCPConnection.prototype.on_data_wisp = async function(data) {
-    if (data.length !== 0) {
+    if(data.length !== 0) {
         sendWispFrame({
             type: "DATA",
-            streamID: this.streamID, 
+            streamID: this.streamID,
             data: data
         });
     }
