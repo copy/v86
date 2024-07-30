@@ -171,10 +171,18 @@ function sendWispFrame(frameObj) {
 function WispNetworkAdapter(wispURL, bus, config)
 {
     this.wispURL = wispURL.replace("wisp://", "ws://").replace("wisps://", "wss://");
-    wispws = new WebSocket(this.wispURL);
-    wispws.binaryType = "arraybuffer";
-    wispws.onmessage = (event) => {
-        processIncomingWispFrame(new Uint8Array(event.data));
+    const registerWS = function() {
+        wispws = new WebSocket(this.wispURL);
+        wispws.binaryType = "arraybuffer";
+        wispws.onmessage = (event) => {
+            processIncomingWispFrame(new Uint8Array(event.data));
+        };
+        wispws.onerror = () => {
+            registerWS();
+        };
+        wispws.onclose = () => {
+            registerWS();
+        };
     };
     config = config || {};
     this.bus = bus;
@@ -215,8 +223,8 @@ function validateIPaddress(ipaddress) {
 
 // DNS over HTTPS fetch, recursively fetch the A record until the first result is an IPv4
 async function dohdns(q) {
-    const preffered_fetch = (window.anura?.net?.fetch) || fetch;
-    const req = await preffered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);    
+    const prefered_fetch = (window.anura?.net?.fetch) || fetch;
+    const req = await prefered_fetch(`https://dns.google/resolve?name=${q.name.join(".")}&type=${q.type}`);    
     if (req.status == 200) {
         const res = await req.json();
         if (res.Answer) {
@@ -226,7 +234,28 @@ async function dohdns(q) {
                 return await dohdns({name: res.Answer[0].data.split("."), type: q.type});
             }
         }
-        return 
+        return { // if theres an error, Naively return localhost
+            "Status": 0,
+            "TC": false,
+            "RD": true,
+            "RA": true,
+            "AD": true,
+            "CD": false,
+            "Question": [
+                {
+                    "name": q.name.join("."),
+                    "type": 1
+                }
+            ],
+            "Answer": [
+                {
+                    "name": q.name.join("."),
+                    "type": 1,
+                    "TTL": 600,
+                    "data": "127.0.0.1"
+                }
+            ]
+        }
     } else {
         throw new Error("DNS Server returned error code");
     }
@@ -372,15 +401,13 @@ WispNetworkAdapter.prototype.send = function(data)
             // flags |= 0x0400; Authoritative
             for(let i = 0; i < packet.dns.questions.length; ++i) {
                 let q = packet.dns.questions[i];
-
-                // its actually fine if this errors and it isn't handled, its run as an async function so the error shouldn't take down the whole thing. also its a UDP packet so we dont have to maintain "diplomacy" by responding to the VM, we can ghost it like my ex did to me in 8th grade
+                // Sometimes this results in no answer at all, like if dohdns crashes, but UDP is unreliable in nature so this shouldn't be that big of an issue
                 const res = await dohdns(q);
-
                 switch(q.type){
                     case 1: // A recrod
                         
                         // for (const ans in res.Answer) {    // v86 DNS server crashes and burns with multiple answers, not quite sure why
-                        if (res.Answer) {
+                        if (res?.Answer && res.Answer[0]) {
                             const ans = res.Answer[0];
                             answers.push({ 
                                 name: ans.name.split("."),
