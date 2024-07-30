@@ -3,34 +3,30 @@ let wispws;
 
 let lastStream = 1;
 
-const connections = {};
+const connections = {0: {congestion: 0}};
 
 const congestedBuffer = [];
-let congestion = 0;
-let congested = true;
-function sendPacket(data, type) {
-    if (congestion > 0) {
+function sendPacket(data, type, streamID) {
+    if (connections[streamID].congestion > 0) {
         if (type === "DATA")
-            congestion--;
+            connections[streamID].congestion--;
         wispws.send(data);
     } else {
-        congested = true;
+        connections[streamID].congested = true;
         congestedBuffer.push({data: data, type: type});
     }
 }
 
 function processIncomingWispFrame(frame) {
     // console.log(frame);
-    let view;
-    let streamID;
+    const view = new DataView(frame.buffer);
+    const streamID = view.getUint32(1, true);
     switch (frame[0]) {
         case 1: // CONNECT
             // The server should never send this actually
             throw new Error("Server sent client only frame: CONNECT 0x01");
             break;
         case 2: // DATA
-            view = new DataView(frame.buffer);
-            streamID = view.getUint32(1, true);
             // console.log("Got incoming data packet for stream ID: " + streamID);
             // console.log(frame.slice(5));
             if (connections[streamID])
@@ -41,23 +37,23 @@ function processIncomingWispFrame(frame) {
 
             break;
         case 3: // CONTINUE
-            view = new DataView(frame.buffer);
-            congestion = view.getUint32(0, true);
-            if (congested) {
+            if (connections[streamID]) {
+                connections[streamID].congestion = view.getUint32(5, true);
+            }
+                
+            if (connections[streamID].congested) {
                 for (const packet of congestedBuffer) {
-                    sendPacket(packet.data, packet.type);
+                    sendPacket(packet.data, packet.type, streamID);
                 }
-                congested = false;
+                connections[streamID].congested = false;
             }
             
             break;
         case 4: // CLOSE
             // Call some closer here
-            view = new DataView(frame.buffer);
-            streamID = view.getUint32(1, true);
             if (connections[streamID])
                 connections[streamID].closeCallback(view.getUint8(5));
-
+            delete connections[streamID];
             break;
     }
 }
@@ -98,13 +94,14 @@ function sendWispFrame(frameObj) {
             view.setUint8(0, 0x01);                     // TYPE
             view.setUint32(1, frameObj.streamID, true); // Stream ID
             view.setUint8(5, 0x01);                     // TCP
-            view.setUint16(6, frameObj.port, true);             // PORT 
+            view.setUint16(6, frameObj.port, true);     // PORT 
             fullPacket.set(hostnameBuffer, 8);          // hostname
 
             // Setting callbacks
             connections[frameObj.streamID] = {
                 dataCallback: frameObj.dataCallback,
-                closeCallback: frameObj.closeCallback
+                closeCallback: frameObj.closeCallback,
+                congestion: connections[0].congestion
             };
 
 
@@ -131,7 +128,7 @@ function sendWispFrame(frameObj) {
 
     }
     // console.log("Congestion:" + congestion);
-    wispws.send(fullPacket, frameObj.type);
+    sendPacket(fullPacket, frameObj.type, frameObj.streamID);
     // if (congestion > 0) {
     //     if (frameObj.type === "DATA")
     //         congestion--;
@@ -170,9 +167,8 @@ function sendWispFrame(frameObj) {
  */
 function WispNetworkAdapter(wispURL, bus, config)
 {
-    this.wispURL = wispURL.replace("wisp://", "ws://").replace("wisps://", "wss://");
     const registerWS = function() {
-        wispws = new WebSocket(this.wispURL);
+        wispws = new WebSocket(wispURL.replace("wisp://", "ws://").replace("wisps://", "wss://"));
         wispws.binaryType = "arraybuffer";
         wispws.onmessage = (event) => {
             processIncomingWispFrame(new Uint8Array(event.data));
@@ -184,6 +180,7 @@ function WispNetworkAdapter(wispURL, bus, config)
             registerWS();
         };
     };
+    registerWS();
     config = config || {};
     this.bus = bus;
     this.id = config.id || 0;
@@ -329,7 +326,7 @@ WispNetworkAdapter.prototype.send = function(data)
                     deref.write(data);
                 }, 
                 closeCallback: (data) => {
-                    deref.close()
+                    deref.close();
                 }
             });
             deref.accept(packet);
