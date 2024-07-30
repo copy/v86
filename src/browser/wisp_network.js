@@ -27,8 +27,6 @@ function processIncomingWispFrame(frame) {
             throw new Error("Server sent client only frame: CONNECT 0x01");
             break;
         case 2: // DATA
-            // console.log("Got incoming data packet for stream ID: " + streamID);
-            // console.log(frame.slice(5));
             if(connections[streamID])
                 connections[streamID].dataCallback(frame.slice(5));
             else
@@ -50,7 +48,6 @@ function processIncomingWispFrame(frame) {
 
             break;
         case 4: // CLOSE
-            // Call some closer here
             if(connections[streamID])
                 connections[streamID].closeCallback(view.getUint8(5));
             delete connections[streamID];
@@ -113,8 +110,6 @@ function sendWispFrame(frameObj) {
             view.setUint8(0, 0x02);                     // TYPE
             view.setUint32(1, frameObj.streamID, true); // Stream ID
             fullPacket.set(frameObj.data, 5);           // Actual data
-            // console.log("Sending data packet");
-            // console.log(fullPacket);
 
             break;
         case "CLOSE":
@@ -127,36 +122,7 @@ function sendWispFrame(frameObj) {
             break;
 
     }
-    // console.log("Congestion:" + congestion);
     sendPacket(fullPacket, frameObj.type, frameObj.streamID);
-    // if (congestion > 0) {
-    //     if (frameObj.type === "DATA")
-    //         congestion--;
-    //     wispws.send(fullPacket);
-    // } else {
-    //     congestionBuffer.push({data: fullPacket, meta: frameObj});
-    //     async function waitForDecongest() {
-    //         // Wait for the continue to be recieved and processed
-    //         if (!congestion) {
-    //             congestion = true;
-    //             while (congestion <= 0) {
-    //                 await new Promise(resolve => setTimeout(resolve, 100)); // sleep(100ms)
-    //             }
-    //             congestion = false;
-    //             for (const redoPacket of congestionBuffer) {
-    //                 if (redoPacket.meta.type === "DATA")
-    //                     congestion--;
-    //                 if (congestion > 0) {
-    //                     wispws.send(redoPacket)
-    //                 } else {
-    //                     await waitForDecongest();
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     waitForDecongest();
-    // }
 }
 
 /**
@@ -192,9 +158,6 @@ function WispNetworkAdapter(wispURL, bus, config)
 
     this.tcp_conn = {};
 
-    // Ex: 'https://corsproxy.io/?'
-    this.cors_proxy = config.cors_proxy;
-
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
@@ -202,8 +165,6 @@ function WispNetworkAdapter(wispURL, bus, config)
     {
         this.send(data);
     }, this);
-
-    //Object.seal(this);
 }
 
 WispNetworkAdapter.prototype.destroy = function()
@@ -288,8 +249,6 @@ WispNetworkAdapter.prototype.send = function(data)
             if(this.tcp_conn[tuple]) {
                 dbg_log("SYN to already opened port", LOG_FETCH);
             }
-            // const conn = new WebSocket(window.origin.replace("https://", "wss://").replace("http://", "ws://") + "/" + packet.ipv4.dest.join(".") + ":" + packet.tcp.dport) // TODO, replace wsproxy with wisp
-
 
             this.tcp_conn[tuple] = new TCPConnection();
             this.tcp_conn[tuple].state = TCP_STATE_SYN_RECEIVED;
@@ -298,21 +257,6 @@ WispNetworkAdapter.prototype.send = function(data)
             this.tcp_conn[tuple].tuple = tuple;
             this.tcp_conn[tuple].streamID = lastStream++;
             const deref = this.tcp_conn[tuple];
-            // console.log("Sending CONN frame:");
-            // console.log({
-            //     type: "CONNECT",
-            //     streamID: deref.streamID,
-            //     hostname: packet.ipv4.dest.join("."),
-            //     port: packet.tcp.dport,
-            //     dataCallback: (data) => {
-            //         console.log("Sending back data: ");
-            //         console.log(data);
-            //         deref.write(data);
-            //     },
-            //     closeCallback: (data) => {
-            //         deref.close()
-            //     }
-            // })
             sendWispFrame({
                 type: "CONNECT",
                 streamID: deref.streamID,
@@ -328,7 +272,6 @@ WispNetworkAdapter.prototype.send = function(data)
                 }
             });
             deref.accept(packet);
-
 
             return;
         }
