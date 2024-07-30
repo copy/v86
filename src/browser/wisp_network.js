@@ -4,7 +4,21 @@ let wispws;
 let lastStream = 1;
 
 const connections = {};
+
+const congestedBuffer = [];
 let congestion = 0;
+let congested = true;
+function sendPacket(data, type) {
+    if (congestion > 0) {
+        if (type === "DATA")
+            congestion--;
+        wispws.send(data);
+    } else {
+        congested = true;
+        congestedBuffer.push({data: data, type: type});
+    }
+}
+
 function processIncomingWispFrame(frame) {
     // console.log(frame);
     let view;
@@ -29,7 +43,13 @@ function processIncomingWispFrame(frame) {
         case 3: // CONTINUE
             view = new DataView(frame.buffer);
             congestion = view.getUint32(0, true);
-
+            if (congested) {
+                for (const packet of congestedBuffer) {
+                    sendPacket(packet.data, packet.type);
+                }
+                congested = false;
+            }
+            
             break;
         case 4: // CLOSE
             // Call some closer here
@@ -66,8 +86,6 @@ function processIncomingWispFrame(frame) {
 //
 //
 
-const congestionBuffer = [];
-let congested = false;
 function sendWispFrame(frameObj) {
 
     let fullPacket;
@@ -113,7 +131,7 @@ function sendWispFrame(frameObj) {
 
     }
     // console.log("Congestion:" + congestion);
-    wispws.send(fullPacket);
+    wispws.send(fullPacket, frameObj.type);
     // if (congestion > 0) {
     //     if (frameObj.type === "DATA")
     //         congestion--;
