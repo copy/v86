@@ -36,11 +36,13 @@ list of emulated hardware:
 [Android-x86 1.6-r2](https://copy.sh/v86?profile=android) —
 [Android-x86 4.4-r2](https://copy.sh/v86?profile=android4) —
 [BasicLinux](https://copy.sh/v86/?profile=basiclinux) —
+[Soso](https://copy.sh/v86/?profile=soso) —
 [Buildroot Linux](https://copy.sh/v86/?profile=buildroot) —
 [Damn Small Linux](https://copy.sh/v86/?profile=dsl) —
 [ELKS](https://copy.sh/v86/?profile=elks) —
 [FreeDOS](https://copy.sh/v86/?profile=freedos) —
 [FreeBSD](https://copy.sh/v86/?profile=freebsd) —
+[OpenBSD](https://copy.sh/v86/?profile=openbsd) —
 [FiwixOS](https://copy.sh/v86/?profile=fiwix) —
 [Haiku](https://copy.sh/v86/?profile=haiku) —
 [SkiffOS](https://copy.sh/v86/?profile=copy/skiffos) —
@@ -48,6 +50,7 @@ list of emulated hardware:
 [Windows 2000](https://copy.sh/v86/?profile=windows2000) —
 [Windows 98](https://copy.sh/v86/?profile=windows98) —
 [Windows 95](https://copy.sh/v86/?profile=windows95) —
+[Windows 3.1](https://copy.sh/v86/?profile=windows31) —
 [Windows 1.01](https://copy.sh/v86/?profile=windows1) —
 [MS-DOS 6.22](https://copy.sh/v86/?profile=msdos) —
 [OpenBSD](https://copy.sh/v86/?profile=openbsd) —
