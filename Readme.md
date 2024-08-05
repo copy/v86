@@ -213,4 +213,3 @@ Shoot me an email to `copy@copy.sh`. Please report bugs on GitHub.
 ## Author
 
 Fabian Hemmer (https://copy.sh/, `copy@copy.sh`)
-di
