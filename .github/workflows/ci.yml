@@ -22,6 +22,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          check-latest: true
+
       - name: Setup toolchain
         run: |
           rustup toolchain install stable --profile minimal
