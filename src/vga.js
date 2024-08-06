@@ -2113,7 +2113,7 @@ VGAScreen.prototype.port1CF_write = function(value)
         case 4:
             // enable, options
             this.svga_enabled = (value & 1) === 1;
-            if(this.svga_enabled & ((value & 0x80) === 0))
+            if(this.svga_enabled && (value & 0x80) === 0)
             {
                 this.svga_memory.fill(0);
             }
