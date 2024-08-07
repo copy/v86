@@ -80,10 +80,12 @@ Here's an overview of the operating systems supported in v86:
     [humphd/browser-vm](https://github.com/humphd/browser-vm) and
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
-  - Archlinux works. See [archlinux.md](docs/archlinux.md) for building an image.
+  - Arch Linux 32 works. See [archlinux.md](docs/archlinux.md) for building an image.
   - Debian works.
   - Ubuntu works up to the latest version that supported i386 (16.04 LTS or 18.04 LTS for some variants).
   - Alpine Linux works. An image can be built from a Dockerfile, see [tools/docker/alpine/](tools/docker/alpine/).
+  - Slackware works.
+  - Void Linux works.
 - ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works.
