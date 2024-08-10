@@ -1403,15 +1403,15 @@ function FileNotFoundError(message)
 FileNotFoundError.prototype = Error.prototype;
 
 // Closure Compiler's way of exporting
-if(typeof window !== "undefined")
-{
-    window["V86Starter"] = V86;
-    window["V86"] = V86;
-}
-else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["V86Starter"] = V86;
     module.exports["V86"] = V86;
+}
+else if(typeof window !== "undefined")
+{
+    window["V86Starter"] = V86;
+    window["V86"] = V86;
 }
 else if(typeof importScripts === "function")
 {
