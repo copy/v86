@@ -1146,10 +1146,20 @@
                 name: "MikeOS",
                 cdrom: {
                     url: host + "mikeos.iso",
-                    size: 11429888,
+                    size: 3311616,
                     async: false,
                 },
                 homepage: "https://mikeos.sourceforge.net/",
+            },
+            {
+                id: "bluejay",
+                name: "Blue Jay",
+                fda: {
+                    url: host + "bj050.img",
+                    size: 1474560,
+                    async: false,
+                },
+                homepage: "https://archiveos.org/blue-jay/",
             },
         ];
 
