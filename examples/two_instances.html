@@ -20,7 +20,7 @@ window.onload = function()
             url: "../bios/vgabios.bin",
         },
         cdrom: {
-            url: "../images/linux.iso",
+            url: "../images/linux4.iso",
         },
         autostart: true,
     });
@@ -35,7 +35,7 @@ window.onload = function()
             url: "../bios/vgabios.bin",
         },
         cdrom: {
-            url: "../images/linux.iso",
+            url: "../images/linux4.iso",
         },
         autostart: true,
     });
@@ -76,7 +76,17 @@ window.onload = function()
 };
 </script>
 
-Click on a screen to control it.<hr>
+To set up networking:
+<pre>
+# first VM
+ifconfig eth0 up arp 10.5.0.2
+
+# second VM
+ifconfig eth0 up arp 10.5.0.3
+ping 10.5.0.2
+</pre>
+Click on a screen to control it.
+<hr>
 
 <div id="screen_container1" style="float: left; margin: 10px; border: 3px solid yellow;">
     <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
