@@ -418,6 +418,15 @@
                 name: "Windows",
             },
             {
+                id: "windows2",
+                hda: {
+                    url: host + "windows2.img",
+                    size: 4177920,
+                    async: false,
+                },
+                name: "Windows 2.03",
+            },
+            {
                 id: "linux26",
                 cdrom: {
                     url: host + "linux.iso",
