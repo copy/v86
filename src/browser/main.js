@@ -1024,6 +1024,17 @@
                 homepage: "http://www.tinycorelinux.net/",
             },
             {
+                id: "slitaz",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: host + "slitaz-rolling-2024.iso",
+                    size: 56573952,
+                    async: false,
+                },
+                name: "SliTaz",
+                homepage: "https://slitaz.org/",
+            },
+            {
                 id: "freenos",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
