@@ -146,21 +146,3 @@ ServerFileStorageWrapper.prototype.uncache = function(sha256sum)
 {
     this.storage.uncache(sha256sum);
 };
-
-// Closure Compiler's way of exporting
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    module.exports["MemoryFileStorage"] = MemoryFileStorage;
-    module.exports["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
-}
-else if(typeof window !== "undefined")
-{
-    window["MemoryFileStorage"] = MemoryFileStorage;
-    window["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
-}
-else if(typeof importScripts === "function")
-{
-    // web worker
-    self["MemoryFileStorage"] = MemoryFileStorage;
-    self["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
-}

@@ -166,5 +166,6 @@ FetchNetworkAdapter.prototype.receive = function(data)
 
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
+    // only for testing
     module.exports["FetchNetworkAdapter"] = FetchNetworkAdapter;
 }
