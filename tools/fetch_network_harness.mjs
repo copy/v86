@@ -1,21 +1,9 @@
-const dgram = require("node:dgram");
-const server = dgram.createSocket("udp4");
-const fs = require("node:fs");
-const path = require("node:path");
+import dgram from "node:dgram";
+import { V86, FetchNetworkAdapter } from "../nodejs-loader.mjs";
 
 //  qemu-system-i386 -m 2G -nographic -hda ~/disk.qcow2 -netdev dgram,id=net0,remote.type=inet,remote.host=127.0.0.1,remote.port=6677,local.host=127.0.0.1,local.port=7744,local.type=inet -device e1000,netdev=net0
 
-globalThis.dbg_assert = require("node:assert");
-globalThis.dbg_log = (what, level) => console.log(what);
-globalThis.LOG_NET = 0;
-globalThis.LOG_FETCH = 1;
-
-const { fake_tcp_connect, handle_fake_networking } = require(path.join(__dirname, "..", "src", "browser", "fake_network.js"));
-globalThis.fake_tcp_connect = fake_tcp_connect;
-globalThis.handle_fake_networking = handle_fake_networking;
-
-const { FetchNetworkAdapter } = require(path.join(__dirname, "..", "src", "browser", "fetch_network.js"));
-
+const server = dgram.createSocket("udp4");
 const events = {};
 
 const bus = {
