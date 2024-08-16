@@ -164,7 +164,6 @@ FetchNetworkAdapter.prototype.receive = function(data)
     this.bus.send("net" + this.id + "-receive", new Uint8Array(data));
 };
 
-
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["FetchNetworkAdapter"] = FetchNetworkAdapter;

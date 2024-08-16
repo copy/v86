@@ -1133,10 +1133,3 @@ TCPConnection.prototype.pump = function() {
         this.net.receive(make_packet(reply));
     }
 };
-
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    module.exports["fake_tcp_connect"] = fake_tcp_connect;
-    module.exports["handle_fake_networking"] = handle_fake_networking;
-    module.exports["TCPConnection"] = TCPConnection;
-}
