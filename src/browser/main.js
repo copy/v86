@@ -144,6 +144,13 @@
             var images = [];
             var last_file;
 
+            var bios = $("bios").files[0];
+            if(bios)
+            {
+                last_file = bios;
+                settings.bios = { buffer: bios };
+            }
+
             var floppy_file = $("floppy_image").files[0];
             if(floppy_file)
             {
@@ -1525,6 +1532,15 @@
             }
         }
 
+        if(!settings.bios)
+        {
+            var bios = $("bios").files[0];
+            if(bios)
+            {
+                settings.bios = { buffer: bios };
+            }
+        }
+
         if(!settings.fda)
         {
             var floppy_file = $("floppy_image").files[0];
@@ -1594,8 +1610,8 @@
 
             network_relay_url: ON_LOCALHOST ? "ws://localhost:8080/" : networking_proxy,
 
-            bios: bios,
-            vga_bios: vga_bios,
+            bios: settings.bios || bios,
+            vga_bios: settings.bios ? null : vga_bios,
 
             fda: settings.fda,
             hda: settings.hda,
