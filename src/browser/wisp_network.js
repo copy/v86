@@ -11,6 +11,10 @@ function WispNetworkAdapter(wisp_url, bus, config)
 {
 
     this.register_ws(wisp_url);
+    this.last_stream = 1;
+    this.connections = {0: {congestion: 0}};
+    this.congested_buffer = [];
+
     config = config || {};
     this.bus = bus;
     this.id = config.id || 0;
@@ -43,11 +47,7 @@ WispNetworkAdapter.prototype.register_ws = function (wisp_url) {
         }, 10000); // wait 10s before reconnecting
     };
 };
-WispNetworkAdapter.prototype.last_stream = 1;
 
-WispNetworkAdapter.prototype.connections = {0: {congestion: 0}};
-
-WispNetworkAdapter.prototype.congested_buffer = [];
 WispNetworkAdapter.prototype.send_packet = function (data, type, stream_id) {
     if(this.connections[stream_id].congestion > 0) {
         if(type === "DATA") {
