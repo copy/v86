@@ -15,6 +15,9 @@ function v86(bus, wasm)
     /** @type {boolean} */
     this.idle = true;
 
+    /** @type {number} */
+    this.delay = 0;
+
     this.tick_counter = 0;
     this.worker = null;
 
@@ -55,7 +58,7 @@ v86.prototype.do_tick = function()
     this.idle = false;
     const t = this.cpu.main_loop();
 
-    this.next_tick(t);
+    this.next_tick(this.delay || t);
 };
 
 v86.prototype.next_tick = function(t)

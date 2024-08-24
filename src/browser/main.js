@@ -2070,6 +2070,10 @@
             };
         };
 
+        $("delay").onchange = function()
+        {
+            emulator.v86.delay = parseFloat(this.value);
+        }
 
         $("save_state").onclick = async function()
         {

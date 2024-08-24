@@ -559,6 +559,8 @@ V86.prototype.continue_init = async function(emulator, options)
         //    settings.memory_size = 0;
         //}
 
+        emulator.delay = settings.delay || 0;
+
         if(settings.fs9p && settings.fs9p_json)
         {
             if(!settings.initial_state)
