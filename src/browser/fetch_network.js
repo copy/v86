@@ -68,10 +68,19 @@ async function on_data_http(data)
         this.read = "";
 
         let first_line = headers[0].split(" ");
-        let target = new URL("http://host" + first_line[1]);
+        let target;
         if(/^https?:/.test(first_line[1])) {
+            // HTTP proxy
             target = new URL(first_line[1]);
         }
+        else {
+            target = new URL("http://host" + first_line[1]);
+        }
+        if(typeof window !== "undefined" && target.protocol === "http:" && window.location.protocol === "https:") {
+            // fix "Mixed Content" errors
+            target.protocol = "https:";
+        }
+
         let req_headers = new Headers();
         for(let i = 1; i < headers.length; ++i) {
             let parts = headers[i].split(": ");
