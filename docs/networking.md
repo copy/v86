@@ -18,6 +18,17 @@ throttling built-in by default which will degrade the networking.
 `bellenottelling/websockproxy`docker image has this throttling removed via
 [websockproxy/issues/4#issuecomment-317255890](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890).
 
+### fetch-based networking
+
+v86 supports an experimental networking mode, which is enabled by specifying
+`"fetch"` as the relay url. In this mode, no external relay is used and packets
+are parsed internally by v86. DHCP and ARP requests are handled by an internal
+router, and HTTP requests are translated into calls to `fetch` (which only
+works on [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled
+hosts). Additionally, NTP, ICMP pings and UDP echo packets are handled to a
+certain degree. See [#1061](https://github.com/copy/v86/pull/1061) for some
+technical details.
+
 ### Interaction with state images
 
 When using state images, v86 randomises the MAC address after the state has
