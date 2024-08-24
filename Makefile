@@ -87,7 +87,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js flopp
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js worker_bus.js dummy_screen.js \
-	      fake_network.js fetch_network.js print_stats.js filestorage.js
+	      fake_network.js wisp_network.js fetch_network.js print_stats.js filestorage.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -306,6 +306,7 @@ devices-test: all-debug
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
+	./tests/devices/wisp_network.js
 
 rust-test: $(RUST_FILES)
 	env RUSTFLAGS="-D warnings" RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture

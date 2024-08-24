@@ -1,0 +1,283 @@
+<!doctype html>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<title>Virtual x86</title>
+<meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="description" content="Run KolibriOS, Linux or Windows 98 in your browser">
+
+<script src="build/v86_all.js"></script>
+<link rel="stylesheet" href="v86.css">
+
+<div>
+    <div id="boot_options">
+        <h4>Select profile</h4>
+        <table id="oses">
+            <tr id="start_archlinux"><td><a href="?profile=archlinux">Arch Linux</a> <small>12 MB &gt;_</small></td> <td>
+            Complete Arch Linux with various compilers, networking and Xorg. Restored from snapshot.</td></tr>
+            <tr id="start_dsl"><td><a href="?profile=dsl">Damn Small Linux</a> <small>50 MB 💻</small></td> <td>
+            Graphical Linux with 2.4 kernel, Firefox 2.0 and more. Takes 1 minute to boot.</td></tr>
+            <tr id="start_buildroot"><td><a href="?profile=buildroot">Buildroot Linux</a> <small>5.0 MB &gt;_</small></td> <td>
+            Minimal Linux with busybox, Lua, tests, internet access, ping, telnet and curl. Exchange files through <code>/mnt/</code>.</td></tr>
+            <tr id="start_reactos"><td><a href="?profile=reactos">ReactOS</a> <small>18 MB 💻</small></td> <td>
+            Windows-compatible OS with QtWeb and Breakout. Restored from snapshot.</td></tr>
+            <tr id="start_windows2000"><td><a href="?profile=windows2000">Windows 2000</a> <small>22 MB 💻</small></td> <td>
+            Including Pinball and Internet Explorer with internet access. Additional sectors are loaded as needed.</td></tr>
+            <tr id="start_windows98"><td><a href="?profile=windows98">Windows 98</a> <small>9.7 MB 💻</small></td> <td>
+            Including Minesweeper and Internet Explorer with internet access. Additional sectors are loaded as needed.</td></tr>
+            <tr id="start_windows95"><td><a href="?profile=windows95">Windows 95</a> <small>4.6 MB 💻</small></td> <td>
+            Restored from snapshot</td></tr>
+            <tr id="start_windows31"><td><a href="?profile=windows31">Windows 3.1</a> <small>15 MB 💻</small></td> <td>
+            Takes 15 seconds to boot</td></tr>
+            <tr id="start_windows1"><td><a href="?profile=windows1">Windows 1.01</a> <small>0.6 MB 💻</small></td> <td>
+            The first version of Microsoft Windows</td></tr>
+            <tr id="start_msdos"><td><a href="?profile=msdos">MS-DOS 6.22</a> <small>4.4 MB &gt;_</small></td> <td>
+            With Enhanced Tools, QBasic, vim, games and demos.</td></tr>
+            <tr id="start_freedos"><td><a href="?profile=freedos">FreeDOS</a> <small>0.5 MB &gt;_</small></td> <td>
+            With nasm, vim, debug.com, Rogue, some games and demos.</td></tr>
+            <tr id="start_freebsd"><td><a href="?profile=freebsd">FreeBSD</a> <small>17 MB &gt;_</small></td> <td>
+            FreeBSD 12.0 base install. Restored from snapshot.</td></tr>
+            <tr id="start_openbsd"><td><a href="?profile=openbsd">OpenBSD</a> <small>12 MB &gt;_</small></td> <td>
+            OpenBSD 6.6 base install. Restored from snapshot.</td></tr>
+            <tr id="start_9front"><td><a href="?profile=9front">9front</a> <small>4.4 MB 💻</small></td> <td>
+            A Plan 9 fork.</td></tr>
+            <tr id="start_haiku"><td><a href="?profile=haiku">Haiku</a> <small>38 MB 💻</small></td> <td>
+            An open-source operating system inspired by BeOS. Restored from snapshot. Includes network support.</td></tr>
+            <tr id="start_serenity"><td><a href="?profile=serenity">SerenityOS</a> <small>17 MB 💻</small></td> <td>
+            A graphical Unix-like operating system. Restored from snapshot.</td></tr>
+            <tr id="start_helenos"><td><a href="?profile=helenos">HelenOS</a> <small>7.9 MB 💻</small></td> <td>
+            A graphical operating system based on a multiserver microkernel design</td></tr>
+            <tr id="start_fiwix"><td><a href="?profile=fiwix">FiwixOS</a> <small>15 MB &gt;_</small></td> <td>
+            A Unix-like OS written from scratch. Includes Doom.</td></tr>
+            <tr id="start_android"><td><a href="?profile=android">Android-x86</a> <small>42 MB 💻</small></td> <td>
+            An x86 port of the Android 1.6. Quite slow. Takes about 3 minutes to boot.</td></tr>
+            <tr id="start_oberon"><td><a href="?profile=oberon">Oberon</a> <small>1.2 MB 💻</small></td> <td>
+            Native Oberon 2.3.6</td></tr>
+            <tr id="start_kolibrios"><td><a href="?profile=kolibrios">KolibriOS</a> <small>1.4 MB 💻</small></td> <td>
+            Fast graphical OS written in Assembly</td></tr>
+            <tr id="start_qnx"><td><a href="?profile=qnx">QNX</a> <small>1.3 MB 💻</small></td> <td>
+            QNX 4.05 Demo disk (no networking)</td></tr>
+            <tr id="start_snowdrop"><td><a href="?profile=snowdrop">Snowdrop</a> <small>0.3 MB &gt;_</small></td> <td>
+            A homebrew operating system from scratch, written in assembly language</td></tr>
+            <tr id="start_solos"><td><a href="?profile=solos">Solar OS</a> <small>0.3 MB 💻</small></td> <td>
+            Simple graphical OS</td></tr>
+            <tr id="start_bootchess"><td><a href="?profile=bootchess">Bootchess</a> <small>512 B &gt;_</small></td> <td>
+            A tiny chess program written in the boot sector</td></tr>
+            <tr id="start_sectorlisp"><td><a href="?profile=sectorlisp">SectorLISP</a> <small>512 B &gt;_</small></td> <td>
+            A LISP interpreter that fits into the boot sector</td></tr>
+        </table>
+
+        <hr>
+        <h4>Setup</h4>
+        <table>
+            <tr>
+                <td><label for="bios">BIOS</label></td>
+                <td> <input type="file" id="bios"><br></td>
+            </tr>
+
+            <tr>
+                <td width="350"><label for="cd_image">CD image</label></td>
+                <td>
+                    <input type="file" id="cd_image">
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="floppy_image">Floppy disk image</label></td>
+                <td> <input type="file" id="floppy_image"><br></td>
+            </tr>
+
+            <tr>
+                <td><label for="hda_image">Hard disk image</label></td>
+                <td><input type="file" id="hda_image"><br></td>
+            </tr>
+
+            <!--
+            <tr>
+                <td><label for="multiboot_image">Multiboot kernel image (experimental)</td>
+                <td><input type="file" id="multiboot_image"><br></td>
+            </tr>
+            -->
+
+            <tr>
+                <td><label for="bzimage">Kernel image (bzimage)</label></td>
+                <td><input type="file" id="bzimage"><br></td>
+            </tr>
+            <tr>
+                <td><label for="initrd">initrd</label></td>
+                <td><input type="file" id="initrd"><br></td>
+            </tr>
+
+
+            <tr>
+                <td colspan="2"><small>Disk images are not uploaded to the server</small><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="memory_size">Memory size</label></td>
+                <td>
+                    <input id="memory_size" type="number" value="128" min="16" max="2048" step="16"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="video_memory_size">Video Memory size</label></td>
+                <td>
+                    <input id="video_memory_size" type="number" value="8" min="1" max="128" step="1"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="networking_proxy">Networking proxy (leave blank to disable)</label></td>
+                <td>
+                    <input id="networking_proxy" type="text" value="wss://relay.widgetry.org/">
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="disable_audio">Disable audio</label></td>
+                <td>
+                    <input id="disable_audio" type="checkbox"><br>
+                </td>
+            </tr>
+
+            <tr>
+                <td><label for="enable_acpi">Enable ACPI (experimental)</label></td>
+                <td>
+                    <input id="enable_acpi" type="checkbox"><br>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td><label for="boot_order">Boot order</label></td>
+                <td>
+                    <select id="boot_order">
+                        <option value="0">Auto</option>
+                        <option value="213">CD / Floppy / Hard Disk</option>
+                        <option value="123">CD / Hard Disk / Floppy</option>
+                        <option value="231">Floppy / CD / Hard Disk</option>
+                        <option value="321">Floppy / Hard Disk / CD</option>
+                        <option value="312">Hard Disk / Floppy / CD</option>
+                        <option value="132">Hard Disk / CD / Floppy</option>
+                    </select>
+                 </td>
+            </tr>
+        </table>
+
+        <br>
+        <button id="start_emulation">Start Emulation</button>
+    </div>
+
+    <div id="runtime_options" style="display: none">
+        <input type="button" value="Pause" id="run">
+        <input type="button" value="Reset" id="reset">
+        <input type="button" value="Exit" id="exit">
+        <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
+        <input type="button" value="Send Alt-Tab" id="alttab">
+        <input type="button" value="Get floppy image" id="get_fda_image">
+        <input type="button" value="Get second floppy image" id="get_fdb_image">
+        <input type="button" value="Get hard disk image" id="get_hda_image">
+        <input type="button" value="Get second hard disk image" id="get_hdb_image">
+        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
+        <input type="button" value="Insert floppy image" id="change_fda_image">
+        <input type="button" value="Save State" id="save_state">
+        <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
+        <input type="button" value="Memory Dump" id="memory_dump">
+        <input type="button" value="Capture network traffic" id="capture_network_traffic" title="In wireshark: file -> import from hex -> tick direction indication, timestamp %s.%f">
+        <input type="button" value="Disable mouse" id="toggle_mouse">
+        <input type="button" value="Lock mouse" id="lock_mouse">
+        <input type="button" value="Go fullscreen" id="fullscreen">
+        <input type="button" value="Take screenshot" id="take_screenshot">
+        <input type="button" value="Mute" id="mute">
+
+        <label>
+            Scale:
+            <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
+        </label>
+
+        <br><br>
+    </div>
+    <pre style="display: none" id="loading"></pre>
+</div>
+
+<div id="screen_container" style="display: none">
+    <div id="screen"></div>
+    <canvas id="vga"></canvas>
+    <div style="position: absolute; top: 0; z-index: 10">
+        <textarea class="phone_keyboard"></textarea>
+    </div>
+</div>
+
+
+<div id="runtime_infos" style="display: none">
+    Running: <span id="running_time">0s</span> <br>
+    Speed: <span id="speed">0</span> mIPS<br>
+    Avg speed: <span id="avg_speed">0</span> mIPS<br>
+    <br>
+    <div id="info_storage" style="display: none">
+        <b>IDE device<span id="ide_type"></span></b><br>
+        Sectors read: <span id="info_storage_sectors_read">0</span><br>
+        Bytes read: <span id="info_storage_bytes_read">0</span><br>
+        Sectors written: <span id="info_storage_sectors_written">0</span><br>
+        Bytes written: <span id="info_storage_bytes_written">0</span><br>
+        Status: <span id="info_storage_status"></span><br>
+        <br>
+    </div>
+    <div id="info_filesystem" style="display: none">
+        <b>9p Filesystem</b><br>
+        Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
+        Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
+        <div style="white-space: nowrap; overflow-x: hidden">Last file: <span id="info_filesystem_last_file"></span></div>
+        Status: <span id="info_filesystem_status"></span><br>
+        <br>
+    </div>
+    <div id="info_network" style="display: none">
+        <b>Network</b><br>
+        Bytes received: <span id="info_network_bytes_received">0</span><br>
+        Bytes transmitted: <span id="info_network_bytes_transmitted">0</span><br>
+        <br>
+    </div>
+    <b>VGA</b><br>
+    Mode: <span id="info_vga_mode"></span><br>
+    Resolution: <span id="info_res">-</span><br>
+    BPP: <span id="info_bpp">-</span><br>
+    <br>
+    Mouse: <span id="info_mouse_enabled">No</span><br>
+
+    <div id="description" style="display: none"><br></div>
+</div>
+
+<div id="filesystem_panel" style="display: none">
+    <label>
+        Send files to emulator<br>
+        <input type="file" id="filesystem_send_file" multiple>
+    </label>
+    <br><br>
+    <label>
+        Get file from emulator<br>
+        <input type="text" id="filesystem_get_file" placeholder="Absolute path">
+    </label>
+</div>
+
+<br style="clear: both"><br>
+
+<div id="terminal"></div>
+
+<br style="clear: both">
+<code>Version: <a href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
+
+<hr>
+<a href="debug.html">Enable debug</a>
+&mdash;
+<a href="https://github.com/copy/v86/blob/master/Readme.md">Readme</a>
+&mdash;
+<a href="https://github.com/copy/v86">Project on Github</a>
+&mdash;
+<a href="https://github.com/copy/v86#compatibility">Compatibility</a>
