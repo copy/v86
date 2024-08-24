@@ -138,10 +138,10 @@ h4 {
         color: transparent;
     }
 }
-.cursor {
-    animation: cursor 0.6s step-start infinite;
+.blinking-cursor {
+    animation: blinking-cursor 0.6s step-start infinite;
 }
-@keyframes cursor {
+@keyframes blinking-cursor {
     50% {
         background-color: transparent;
     }

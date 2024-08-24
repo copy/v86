@@ -284,6 +284,16 @@ function ScreenAdapter(screen_container, bus)
         stopped = true;
     };
 
+    // TODO: Should probably not use bus for this
+    this.bus.register("emulator-stopped", function()
+    {
+        cursor_element.classList.remove("blinking-cursor");
+    }, this);
+    this.bus.register("emulator-started", function()
+    {
+        cursor_element.classList.add("blinking-cursor");
+    }, this);
+
     this.set_mode = function(graphical)
     {
         is_graphical = graphical;
