@@ -329,6 +329,8 @@ function ScreenAdapter(options, screen_fill_buffer)
 
         graphic_screen.width = width;
         graphic_screen.height = height;
+        // graphic_context loses its configuration when its graphic_screen gets resized, reinitialize
+        graphic_context.imageSmoothingEnabled = false;
 
         // add some scaling to tiny resolutions
         if(!options.disable_autoscale &&
