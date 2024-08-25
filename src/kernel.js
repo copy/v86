@@ -156,6 +156,11 @@ function load_kernel(mem8, bzimage, initrd, cmdline)
     {
         ramdisk_address = INITRD_ADDRESS;
         ramdisk_size = initrd.byteLength;
+        
+        if ( ramdisk_size + 64 * 1024**2 >= mem8.length ) {
+            console.error('Not enough RAM - boot will fail!');
+            console.error('See the comment near the top of kernel.js for details');
+        }
 
         dbg_assert(KERNEL_HIGH_ADDRESS + protected_mode_kernel.length < ramdisk_address);
 
