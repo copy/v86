@@ -1170,6 +1170,16 @@
                 },
                 homepage: "https://archiveos.org/blue-jay/",
             },
+            {
+                id: "t3xforth",
+                name: "T3XFORTH",
+                fda: {
+                    url: host + "t3xforth.img",
+                    size: 1474560,
+                    async: false,
+                },
+                homepage: "https://t3x.org/t3xforth/",
+            },
         ];
 
         if(DEBUG)
