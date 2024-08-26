@@ -1366,6 +1366,12 @@
             }
         }
 
+        if(DEBUG && ON_LOCALHOST)
+        {
+            // don't use online relay in debug mode
+            $("networking_proxy").value = "ws://localhost:8080/";
+        }
+
         function start_profile(infos)
         {
             $("boot_options").style.display = "none";
@@ -1638,7 +1644,7 @@
 
             boot_order: settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
-            network_relay_url: ON_LOCALHOST ? "ws://localhost:8080/" : networking_proxy,
+            network_relay_url: networking_proxy,
 
             bios: settings.bios || bios,
             vga_bios: settings.bios ? null : vga_bios,
