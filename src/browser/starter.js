@@ -419,6 +419,12 @@ V86.prototype.continue_init = async function(emulator, options)
             file.async = false;
         }
 
+        if(name === "fda" || name === "fdb")
+        {
+            // small, doesn't make sense loading asynchronously
+            file.async = false;
+        }
+
         if(file.url && !file.async)
         {
             files_to_load.push({

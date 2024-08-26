@@ -372,7 +372,6 @@
                 fda: {
                     url: host + "freedos722.img",
                     size: 737280,
-                    async: false,
                 },
                 name: "FreeDOS",
             },
@@ -413,7 +412,6 @@
                 fda: {
                     url: host + "windows101.img",
                     size: 1474560,
-                    async: false,
                 },
                 name: "Windows",
             },
@@ -545,7 +543,6 @@
                             host + "kolibri.img" :
                             "//builds.kolibrios.org/en_US/data/data/kolibri.img",
                     size: 1474560,
-                    async: false,
                 },
                 name: "KolibriOS",
                 homepage: "https://kolibrios.org/en/",
@@ -555,7 +552,6 @@
                 fda: {
                     url: host + "kolibri.img",
                     size: 1474560,
-                    async: false,
                 },
                 name: "KolibriOS",
             },
@@ -639,7 +635,6 @@
                 id: "solos",
                 fda: {
                     url: host + "os8.img",
-                    async: false,
                     size: 1474560,
                 },
                 name: "Sol OS",
@@ -649,7 +644,6 @@
                 id: "bootchess",
                 fda: {
                     url: host + "bootchess.img",
-                    async: false,
                     size: 1474560,
                 },
                 name: "BootChess",
@@ -659,7 +653,6 @@
                 id: "bootbasic",
                 fda: {
                     url: host + "bootbasic.img",
-                    async: false,
                     size: 1474560,
                 },
                 name: "bootBASIC",
@@ -669,7 +662,6 @@
                 id: "sectorlisp",
                 fda: {
                     url: host + "sectorlisp-friendly.bin",
-                    async: false,
                     size: 512,
                 },
                 name: "SectorLISP",
@@ -679,7 +671,6 @@
                 id: "sectorforth",
                 fda: {
                     url: host + "sectorforth.img",
-                    async: false,
                     size: 512,
                 },
                 name: "sectorforth",
@@ -689,7 +680,6 @@
                 id: "floppybird",
                 fda: {
                     url: host + "floppybird.img",
-                    async: false,
                     size: 1474560,
                 },
                 name: "Floppy Bird",
@@ -699,7 +689,6 @@
                 id: "stillalive",
                 fda: {
                     url: host + "stillalive-os.img",
-                    async: false,
                     size: 368640,
                 },
                 name: "Still Alive",
@@ -709,7 +698,6 @@
                 id: "hello-v86",
                 fda: {
                     url: host + "hello-v86.img",
-                    async: false,
                     size: 512,
                 },
                 name: "Hello v86",
@@ -936,7 +924,6 @@
                 fda: {
                     url: host + "snowdrop.img",
                     size: 1440 * 1024,
-                    async: false,
                 },
                 name: "Snowdrop",
                 homepage: "http://www.sebastianmihai.com/snowdrop/",
@@ -955,7 +942,6 @@
                 fda: {
                     url: host + "qnx-demo-network-4.05.img",
                     size: 1474560,
-                    async: false
                 },
                 name: "QNX 4.05",
             },
@@ -993,7 +979,6 @@
                 fda: {
                     url: host + "mobius-fd-release5.img",
                     size: 1474560,
-                    async: false,
                 },
                 name: "Mobius",
             },
@@ -1105,7 +1090,6 @@
                 fda: {
                     url: host + "PCMOS386-9-user-patched.img",
                     size: 1440 * 1024,
-                    async: false,
                 },
                 name: "PC-MOS/386",
                 homepage: "https://github.com/roelandjansen/pcmos386v501",
@@ -1115,7 +1099,6 @@
                 fda: {
                     url: host + "jx-demo.img",
                     size: 1440 * 1024,
-                    async: false,
                 },
                 name: "JX",
                 homepage: "https://www4.cs.fau.de/Projects/JX/index.html",
@@ -1125,7 +1108,6 @@
                 fda: {
                     url: host + "hOp-0.8.img",
                     size: 1440 * 1024,
-                    async: false,
                 },
                 name: "House",
                 homepage: "https://programatica.cs.pdx.edu/House/",
@@ -1166,7 +1148,6 @@
                 fda: {
                     url: host + "bj050.img",
                     size: 1474560,
-                    async: false,
                 },
                 homepage: "https://archiveos.org/blue-jay/",
             },
@@ -1176,7 +1157,6 @@
                 fda: {
                     url: host + "t3xforth.img",
                     size: 1474560,
-                    async: false,
                 },
                 homepage: "https://t3x.org/t3xforth/",
             },
