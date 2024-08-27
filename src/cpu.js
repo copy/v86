@@ -702,16 +702,17 @@ CPU.prototype.reset_memory = function()
     this.mem8.fill(0);
 };
 
-/** @export */
-CPU.prototype.create_memory = function(size)
+CPU.prototype.create_memory = function(size, minimum_size)
 {
-    if(size < 1024 * 1024)
+    if(size < minimum_size)
     {
-        size = 1024 * 1024;
+        size = minimum_size;
+        dbg_log("Rounding memory size up to " + size, LOG_CPU);
     }
     else if((size | 0) < 0)
     {
         size = Math.pow(2, 31) - MMAP_BLOCK_SIZE;
+        dbg_log("Rounding memory size down to " + size, LOG_CPU);
     }
 
     size = ((size - 1) | (MMAP_BLOCK_SIZE - 1)) + 1 | 0;
@@ -730,8 +731,10 @@ CPU.prototype.create_memory = function(size)
 
 CPU.prototype.init = function(settings, device_bus)
 {
-    this.create_memory(typeof settings.memory_size === "number" ?
-        settings.memory_size : 1024 * 1024 * 64);
+    this.create_memory(
+        settings.memory_size || 64 * 1024 * 1024,
+        settings.initrd ? 64 * 1024 * 1024 : 1024 * 1024,
+    );
 
     if(settings.disable_jit)
     {
