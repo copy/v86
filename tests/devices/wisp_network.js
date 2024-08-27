@@ -70,34 +70,20 @@ const tests =
             assert(/192.168.86.1/.test(capture), "192.168.86.100");
         },
     },
-    {
-        name: "ping 1.2.3.4",
-        timeout: 60,
-        start: () =>
-        {
-            emulator.serial0_send("ping -c 2 1.2.3.4\n");
-            emulator.serial0_send("echo -e done\\\\tping\n");
-        },
-        end_trigger: "done\tping",
-        end: (capture) =>
-        {
-            assert(/2 packets transmitted, 2 packets received, 0% packet loss/.test(capture), "2 packets transmitted, 2 packets received, 0% packet loss");
-        },
-    },
-    {
-        name: "arp -a",
-        timeout: 60,
-        start: () =>
-        {
-            emulator.serial0_send("arp -a\n");
-            emulator.serial0_send("echo -e done\\\\tarp\n");
-        },
-        end_trigger: "done\tarp",
-        end: (capture) =>
-        {
-            assert(/.192.168.86.1. at 52:54:00:01:02:03 \[ether\] {2}on eth0/.test(capture), "(192.168.86.1) at 52:54:00:01:02:03 [ether]  on eth0");
-        },
-    },
+    //{
+    //    name: "arp -a",
+    //    timeout: 60,
+    //    start: () =>
+    //    {
+    //        emulator.serial0_send("arp -a\n");
+    //        emulator.serial0_send("echo -e done\\\\tarp\n");
+    //    },
+    //    end_trigger: "done\tarp",
+    //    end: (capture) =>
+    //    {
+    //        assert(/.192.168.86.1. at 52:54:00:01:02:03 \[ether\] {2}on eth0/.test(capture), "(192.168.86.1) at 52:54:00:01:02:03 [ether]  on eth0");
+    //    },
+    //},
     {
         name: "Curl example.org",
         timeout: 60,

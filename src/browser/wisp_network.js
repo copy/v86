@@ -1,4 +1,5 @@
 "use strict";
+
 const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
 
 /**
@@ -35,7 +36,7 @@ function WispNetworkAdapter(wisp_url, bus, config)
     }, this);
 }
 
-WispNetworkAdapter.prototype.register_ws = function (wisp_url) {
+WispNetworkAdapter.prototype.register_ws = function(wisp_url) {
     this.wispws = new WebSocket(wisp_url.replace("wisp://", "ws://").replace("wisps://", "wss://"));
     this.wispws.binaryType = "arraybuffer";
     this.wispws.onmessage = (event) => {
@@ -48,7 +49,7 @@ WispNetworkAdapter.prototype.register_ws = function (wisp_url) {
     };
 };
 
-WispNetworkAdapter.prototype.send_packet = function (data, type, stream_id) {
+WispNetworkAdapter.prototype.send_packet = function(data, type, stream_id) {
     if(this.connections[stream_id].congestion > 0) {
         if(type === "DATA") {
             this.connections[stream_id].congestion--;
@@ -60,7 +61,7 @@ WispNetworkAdapter.prototype.send_packet = function (data, type, stream_id) {
     }
 };
 
-WispNetworkAdapter.prototype.process_incoming_wisp_frame = function (frame) {
+WispNetworkAdapter.prototype.process_incoming_wisp_frame = function(frame) {
     const view = new DataView(frame.buffer);
     const stream_id = view.getUint32(1, true);
     switch(frame[0]) {
@@ -73,8 +74,6 @@ WispNetworkAdapter.prototype.process_incoming_wisp_frame = function (frame) {
                 this.connections[stream_id].data_callback(frame.slice(5));
             else
                 throw new Error("Got a DATA packet but stream not registered. ID: " + stream_id);
-
-
             break;
         case 3: // CONTINUE
             if(this.connections[stream_id]) {
@@ -87,7 +86,6 @@ WispNetworkAdapter.prototype.process_incoming_wisp_frame = function (frame) {
                 }
                 this.connections[stream_id].congested = false;
             }
-
             break;
         case 4: // CLOSE
             if(this.connections[stream_id])
@@ -122,7 +120,7 @@ WispNetworkAdapter.prototype.process_incoming_wisp_frame = function (frame) {
 //
 //
 
-WispNetworkAdapter.prototype.send_wisp_frame = function (frame_obj) {
+WispNetworkAdapter.prototype.send_wisp_frame = function(frame_obj) {
     let full_packet;
     let view;
     switch(frame_obj.type) {
@@ -142,17 +140,13 @@ WispNetworkAdapter.prototype.send_wisp_frame = function (frame_obj) {
                 close_callback: frame_obj.close_callback,
                 congestion: this.connections[0].congestion
             };
-
-
             break;
         case "DATA":
-
             full_packet = new Uint8Array(5 + frame_obj.data.length);
             view = new DataView(full_packet.buffer);
             view.setUint8(0, 0x02);                     // TYPE
             view.setUint32(1, frame_obj.stream_id, true); // Stream ID
             full_packet.set(frame_obj.data, 5);           // Actual data
-
             break;
         case "CLOSE":
             full_packet = new Uint8Array(5 + 1);
@@ -160,7 +154,6 @@ WispNetworkAdapter.prototype.send_wisp_frame = function (frame_obj) {
             view.setUint8(0, 0x04);                     // TYPE
             view.setUint32(1, frame_obj.stream_id, true); // Stream ID
             view.setUint8(5, frame_obj.reason);          // Packet size
-
             break;
         default:
             dbg_log("Client tried to send unknown packet: " + frame_obj.type, LOG_NET);
@@ -175,6 +168,7 @@ WispNetworkAdapter.prototype.destroy = function()
         this.wispws.onmessage = null;
         this.wispws.onclose = null;
         this.wispws.close();
+        this.wispws = null;
     }
 };
 
@@ -202,7 +196,6 @@ WispNetworkAdapter.prototype.send = function(data)
             packet.tcp.dport
         ].join(":");
 
-
         if(packet.tcp.syn) {
             if(this.tcp_conn[tuple]) {
                 dbg_log("SYN to already opened port", LOG_FETCH);
@@ -211,7 +204,6 @@ WispNetworkAdapter.prototype.send = function(data)
 
             tcp_conn.state = TCP_STATE_SYN_RECEIVED;
             tcp_conn.net = this;
-            tcp_conn.send_wisp_frame = this.send_wisp_frame;
             tcp_conn.tuple = tuple;
             tcp_conn.stream_id = this.last_stream++;
             this.tcp_conn[tuple] = tcp_conn;
@@ -240,7 +232,6 @@ WispNetworkAdapter.prototype.send = function(data)
             });
 
             tcp_conn.accept(packet);
-
             return;
         }
 
@@ -269,6 +260,7 @@ WispNetworkAdapter.prototype.send = function(data)
     }
 
     if(packet.dns) {
+        // TODO: remove when this wisp client supports udp
         (async () => {
             let reply = {};
             reply.eth = { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src };
@@ -281,19 +273,12 @@ WispNetworkAdapter.prototype.send = function(data)
             const result = await ((await fetch(`https://${this.doh_server}/dns-query`, {method: "POST", headers: [["content-type", "application/dns-message"]], body: packet.udp.data})).arrayBuffer());
             reply.udp.data = new Uint8Array(result);
             this.receive(make_packet(reply));
-
         })();
-
     }
 
     if(packet.ntp) {
+        // TODO: remove when this wisp client supports udp
         handle_fake_ntp(packet, this);
-        return;
-    }
-
-    // ICMP Ping
-    if(packet.icmp && packet.icmp.type === 8) {
-        handle_fake_ping(packet, this);
         return;
     }
 
@@ -303,6 +288,7 @@ WispNetworkAdapter.prototype.send = function(data)
     }
 
     if(packet.udp && packet.udp.dport === 8) {
+        // TODO: remove when this wisp client supports udp
         handle_udp_echo(packet, this);
     }
 };
