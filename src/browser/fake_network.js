@@ -225,33 +225,7 @@ function handle_fake_networking(data, adapter) {
     }
 
     if(packet.arp && packet.arp.oper === 1 && packet.arp.ptype === ETHERTYPE_IPV4) {
-        let packet_subnet = iptolong(packet.arp.tpa) & 0xFFFFFF00;
-        let router_subnet = iptolong(adapter.router_ip) & 0xFFFFFF00;
-
-        if(!adapter.masquerade) {
-            if(packet_subnet !== router_subnet) {
-                return;
-            }
-        }
-
-        if(packet_subnet === router_subnet) {
-            // Ignore the DHCP client area
-            if(packet.arp.tpa[3] > 99) return;
-        }
-
-        // Reply to ARP Whohas
-        let reply = {};
-        reply.eth = { ethertype: ETHERTYPE_ARP, src: adapter.router_mac, dest: packet.eth.src };
-        reply.arp = {
-            htype: 1,
-            ptype: ETHERTYPE_IPV4,
-            oper: 2,
-            sha: adapter.router_mac,
-            spa: packet.arp.tpa,
-            tha: packet.eth.src,
-            tpa: packet.arp.spa
-        };
-        adapter.receive(make_packet(reply));
+        arp_whohas(packet, adapter);
     }
 
     if(packet.dns) {
@@ -264,20 +238,7 @@ function handle_fake_networking(data, adapter) {
 
     // ICMP Ping
     if(packet.icmp && packet.icmp.type === 8) {
-        let reply = {};
-        reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
-        reply.ipv4 = {
-            proto: IPV4_PROTO_ICMP,
-            src: adapter.router_ip,
-            dest: packet.ipv4.src,
-        };
-        reply.icmp = {
-            type: 0,
-            code: packet.icmp.code,
-            data: packet.icmp.data
-        };
-        adapter.receive(make_packet(reply));
-        return;
+        handle_fake_ping(packet, adapter);
     }
 
     if(packet.dhcp) {
@@ -285,20 +246,7 @@ function handle_fake_networking(data, adapter) {
     }
 
     if(packet.udp && packet.udp.dport === 8) {
-        // UDP Echo Server
-        let reply = {};
-        reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
-        reply.ipv4 = {
-            proto: IPV4_PROTO_UDP,
-            src: packet.ipv4.dest,
-            dest: packet.ipv4.src,
-        };
-        reply.udp = {
-            sport: packet.udp.dport,
-            dport: packet.udp.sport,
-            data: new TextEncoder().encode(packet.udp.data_s)
-        };
-        adapter.receive(make_packet(reply));
+        handle_udp_echo(packet, adapter);
     }
 }
 
@@ -528,6 +476,7 @@ function parse_udp(data, o) {
         dport: view.getUint16(2),
         len: view.getUint16(4),
         checksum: view.getUint16(6),
+        data: data.subarray(8),
         data_s: new TextDecoder().decode(data.subarray(8))
     };
 
@@ -1133,3 +1082,67 @@ TCPConnection.prototype.pump = function() {
         this.net.receive(make_packet(reply));
     }
 };
+
+
+function arp_whohas(packet, adapter) {
+    let packet_subnet = iptolong(packet.arp.tpa) & 0xFFFFFF00;
+    let router_subnet = iptolong(adapter.router_ip) & 0xFFFFFF00;
+
+    if(!adapter.masquerade) {
+        if(packet_subnet !== router_subnet) {
+            return;
+        }
+    }
+
+    if(packet_subnet === router_subnet) {
+        // Ignore the DHCP client area
+        if(packet.arp.tpa[3] > 99) return;
+    }
+
+    // Reply to ARP Whohas
+    let reply = {};
+    reply.eth = { ethertype: ETHERTYPE_ARP, src: adapter.router_mac, dest: packet.eth.src };
+    reply.arp = {
+        htype: 1,
+        ptype: ETHERTYPE_IPV4,
+        oper: 2,
+        sha: adapter.router_mac,
+        spa: packet.arp.tpa,
+        tha: packet.eth.src,
+        tpa: packet.arp.spa
+    };
+    adapter.receive(make_packet(reply));
+}
+
+function handle_fake_ping(packet, adapter) {
+    let reply = {};
+    reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
+    reply.ipv4 = {
+        proto: IPV4_PROTO_ICMP,
+        src: adapter.router_ip,
+        dest: packet.ipv4.src,
+    };
+    reply.icmp = {
+        type: 0,
+        code: packet.icmp.code,
+        data: packet.icmp.data
+    };
+    adapter.receive(make_packet(reply));
+}
+
+function handle_udp_echo(packet, adapter) {
+    // UDP Echo Server
+    let reply = {};
+    reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
+    reply.ipv4 = {
+        proto: IPV4_PROTO_UDP,
+        src: packet.ipv4.dest,
+        dest: packet.ipv4.src,
+    };
+    reply.udp = {
+        sport: packet.udp.dport,
+        dport: packet.udp.sport,
+        data: new TextEncoder().encode(packet.udp.data_s)
+    };
+    adapter.receive(make_packet(reply));
+}
