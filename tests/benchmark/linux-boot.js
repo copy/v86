@@ -48,7 +48,7 @@ else
 
 emulator.bus.register("emulator-started", function()
 {
-    console.error("Booting now, please stand by");
+    console.log("Booting now, please stand by");
     start_time = Date.now();
 });
 

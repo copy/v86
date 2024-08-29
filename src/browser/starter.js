@@ -1179,10 +1179,9 @@ V86.prototype.serial_set_clear_to_send = function(serial, status)
  * @param {string} path Path for the mount point
  * @param {string|undefined} baseurl
  * @param {string|undefined} basefs As a JSON string
- * @param {function(Object)=} callback
  * @export
  */
-V86.prototype.mount_fs = async function(path, baseurl, basefs, callback)
+V86.prototype.mount_fs = async function(path, baseurl, basefs)
 {
     let file_storage = new MemoryFileStorage();
 
@@ -1191,39 +1190,26 @@ V86.prototype.mount_fs = async function(path, baseurl, basefs, callback)
         file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
     }
     const newfs = new FS(file_storage, this.fs9p.qidcounter);
-    const mount = () =>
-    {
-        const idx = this.fs9p.Mount(path, newfs);
-        if(!callback)
-        {
-            return;
-        }
-        if(idx === -ENOENT)
-        {
-            callback(new FileNotFoundError());
-        }
-        else if(idx === -EEXIST)
-        {
-            callback(new FileExistsError());
-        }
-        else if(idx < 0)
-        {
-            dbg_assert(false, "Unexpected error code: " + (-idx));
-            callback(new Error("Failed to mount. Error number: " + (-idx)));
-        }
-        else
-        {
-            callback(null);
-        }
-    };
     if(baseurl)
     {
         dbg_assert(typeof basefs === "object", "Filesystem: basefs must be a JSON object");
-        newfs.load_from_json(basefs, () => mount());
+        newfs.load_from_json(basefs);
     }
-    else
+
+    const idx = this.fs9p.Mount(path, newfs);
+
+    if(idx === -ENOENT)
     {
-        mount();
+        throw new FileNotFoundError();
+    }
+    else if(idx === -EEXIST)
+    {
+        throw new FileExistsError();
+    }
+    else if(idx < 0)
+    {
+        dbg_assert(false, "Unexpected error code: " + (-idx));
+        throw new Error("Failed to mount. Error number: " + (-idx));
     }
 };
 
@@ -1354,7 +1340,6 @@ V86.prototype.automatically = function(steps)
     };
 
     run(steps);
-
 };
 
 /**

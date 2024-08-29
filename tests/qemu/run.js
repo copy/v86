@@ -23,7 +23,6 @@ var emulator = new V86({
 
 emulator.bus.register("emulator-started", function()
 {
-    console.error("Booting now, please stand by");
     emulator.create_file("test-i386", test_executable);
 });
 

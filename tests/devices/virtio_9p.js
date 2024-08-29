@@ -12,28 +12,13 @@ const testfsjson = require("./testfs.json");
 const SHOW_LOGS = false;
 const STOP_ON_FIRST_FAILURE = false;
 
-function log_pass(msg, ...args)
-{
-    console.log(`\x1b[92m[+] ${msg}\x1b[0m`, ...args);
-}
-
-function log_warn(msg, ...args)
-{
-    console.error(`\x1b[93m[!] ${msg}\x1b[0m`, ...args);
-}
-
-function log_fail(msg, ...args)
-{
-    console.error(`\x1b[91m[-] ${msg}\x1b[0m`, ...args);
-}
-
 function assert_equal(actual, expected, message)
 {
     if(actual !== expected)
     {
-        log_warn("Failed assert equal (Test: %s). %s", tests[test_num].name, message || "");
-        log_warn("Expected:\n" + expected);
-        log_warn("Actual:\n" + actual);
+        console.warn("Failed assert equal (Test: %s). %s", tests[test_num].name, message || "");
+        console.warn("Expected:\n" + expected);
+        console.warn("Actual:\n" + actual);
         test_fail();
     }
 }
@@ -42,8 +27,8 @@ function assert_not_equal(actual, expected, message)
 {
     if(actual === expected)
     {
-        log_warn("Failed assert not equal (Test: %s). %s", tests[test_num].name, message || "");
-        log_warn("Expected something different than:\n" + expected);
+        console.warn("Failed assert not equal (Test: %s). %s", tests[test_num].name, message || "");
+        console.warn("Expected something different than:\n" + expected);
         test_fail();
     }
 }
@@ -164,7 +149,7 @@ const tests =
             assert_equal(data.length, 512 * 1024);
             if(data.find(v => v !== 0))
             {
-                log_warn("Fail: Incorrect data. Expected all zeros.");
+                console.warn("Fail: Incorrect data. Expected all zeros.");
                 test_fail();
             }
             done();
@@ -663,7 +648,7 @@ const tests =
             const outputs = capture.split("\n").map(output => output.split(/\s+/));
             if(outputs.length < 3)
             {
-                log_warn("Wrong format: %s", capture);
+                console.warn("Wrong format: %s", capture);
                 test_fail();
                 done();
                 return;
@@ -732,7 +717,7 @@ const tests =
 
             if(outputs.length < 3)
             {
-                log_warn("Wrong format (expected 3 rows): %s", capture);
+                console.warn("Wrong format (expected 3 rows): %s", capture);
                 test_fail();
                 done();
                 return;
@@ -1567,96 +1552,46 @@ let capture = "";
 let next_trigger;
 let next_trigger_handler;
 
-function start_timeout()
+async function prepare_test()
 {
+    console.log("\nPreparing test #%d: %s", test_num, tests[test_num].name);
+
     if(tests[test_num].timeout)
     {
         test_timeout = setTimeout(() =>
         {
-            log_fail("Test #%d (%s) took longer than %s sec. Timing out and terminating.", test_num, tests[test_num].name, tests[test_num].timeout);
+            console.error("[-] Test #%d (%s) took longer than %s sec. Timing out and terminating.", test_num, tests[test_num].name, tests[test_num].timeout);
             process.exit(1);
         }, tests[test_num].timeout * 1000);
     }
-}
 
-function nuke_fs()
-{
-    start_timeout();
-
-    console.log("\nPreparing test #%d: %s", test_num, tests[test_num].name);
     console.log("    Nuking /mnt");
-
     emulator.fs9p.RecursiveDelete("");
-    reload_fsjson();
-}
 
-function reload_fsjson()
-{
     if(tests[test_num].use_fsjson)
     {
         console.log("    Reloading files from json");
-        emulator.fs9p.load_from_json(testfsjson, () => do_mounts());
+        emulator.fs9p.load_from_json(testfsjson);
     }
-    else
-    {
-        do_mounts();
-    }
-}
 
-function do_mounts()
-{
     console.log("    Configuring mounts");
     if(tests[test_num].mounts && tests[test_num].mounts.length > 0)
     {
-        premount(0);
-
-        function premount(mount_num)
+        for(const { path, baseurl, basefs } of tests[test_num].mounts)
         {
-            const path = tests[test_num].mounts[mount_num].path;
-            emulator.serial0_send("mkdir -p /mnt" +  path + "\n");
-            emulator.serial0_send("rmdir /mnt" +  path + "\n");
-            emulator.serial0_send("echo done-premount\n");
-            next_trigger = "done-premount";
-            next_trigger_handler = () => mount(mount_num);
-        }
-
-        function mount(mount_num)
-        {
-            const { path, baseurl, basefs } = tests[test_num].mounts[mount_num];
-            emulator.mount_fs(path, baseurl, basefs, err =>
-            {
-                if(err)
-                {
-                    log_warn("Failed to mount fs required for test %s: %s",
-                        tests[test_num].name, err);
-                    test_fail();
-                }
-                if(mount_num + 1 < tests[test_num].mounts.length)
-                {
-                    premount(mount_num + 1);
-                }
-                else
-                {
-                    if(test_has_failed)
-                    {
-                        report_test();
-                    }
-                    else
-                    {
-                        load_files();
-                    }
-                }
-            });
+            await async function() {
+                return new Promise((resolve, reject) => {
+                    emulator.serial0_send("mkdir -p /mnt" +  path + "\n");
+                    emulator.serial0_send("rmdir /mnt" +  path + "\n");
+                    emulator.serial0_send("echo done-premount\n");
+                    next_trigger = "done-premount";
+                    next_trigger_handler = resolve;
+                });
+            }();
+            emulator.mount_fs(path, baseurl, basefs);
         }
     }
-    else
-    {
-        load_files();
-    }
-}
 
-async function load_files()
-{
     console.log("    Loading additional files");
     if(tests[test_num].files)
     {
@@ -1664,29 +1599,9 @@ async function load_files()
         for(const f of tests[test_num].files)
         {
             await emulator.create_file(f.file, f.data);
-
-            remaining--;
-            if(!remaining)
-            {
-                if(test_has_failed)
-                {
-                    report_test();
-                }
-                else
-                {
-                    start_test();
-                }
-            }
         }
     }
-    else
-    {
-        start_test();
-    }
-}
 
-function start_test()
-{
     console.log("Starting test #%d: %s", test_num, tests[test_num].name);
 
     capture = "";
@@ -1731,17 +1646,17 @@ function report_test()
 {
     if(!test_has_failed)
     {
-        log_pass("Test #%d passed: %s", test_num, tests[test_num].name);
+        console.log("[+] Test #%d passed: %s", test_num, tests[test_num].name);
     }
     else
     {
         if(tests[test_num].allow_failure)
         {
-            log_warn("Test #%d failed: %s (failure allowed)", test_num, tests[test_num].name);
+            console.warn("Test #%d failed: %s (failure allowed)", test_num, tests[test_num].name);
         }
         else
         {
-            log_fail("Test #%d failed: %s", test_num, tests[test_num].name);
+            console.error("[-] Test #%d failed: %s", test_num, tests[test_num].name);
 
             if(STOP_ON_FIRST_FAILURE)
             {
@@ -1755,7 +1670,7 @@ function report_test()
 
     if(test_num < tests.length)
     {
-        nuke_fs();
+        prepare_test();
     }
     else
     {
@@ -1776,17 +1691,17 @@ function finish_tests()
     {
         let unallowed_failure = false;
 
-        console.error("Failed %d out of %d tests:", failed_tests.length, tests.length);
+        console.error("[-] Failed %d out of %d tests:", failed_tests.length, tests.length);
         for(const num of failed_tests)
         {
             if(tests[num].allow_failure)
             {
-                log_warn("#%d %s (failure allowed)", num, tests[num].name);
+                console.warn("#%d %s (failure allowed)", num, tests[num].name);
             }
             else
             {
                 unallowed_failure = true;
-                log_fail("#%d %s", num, tests[num].name);
+                console.error("[-] #%d %s", num, tests[num].name);
             }
         }
         if(unallowed_failure)
@@ -1798,7 +1713,7 @@ function finish_tests()
 
 emulator.bus.register("emulator-started", function()
 {
-    console.error("Booting now, please stand by");
+    console.log("Booting now, please stand by");
 });
 
 emulator.add_listener("serial0-output-byte", function(byte)
@@ -1825,7 +1740,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
     if(!ran_command && line.endsWith("~% "))
     {
         ran_command = true;
-        nuke_fs();
+        prepare_test();
     }
     else if(new_line === next_trigger)
     {
