@@ -29,6 +29,13 @@ hosts). Additionally, NTP, ICMP pings and UDP echo packets are handled to a
 certain degree. See [#1061](https://github.com/copy/v86/pull/1061) for some
 technical details.
 
+### wisp networking
+
+v86 also supports the [wisp
+protocol](https://github.com/MercuryWorkshop/wisp-protocol) as a networking
+proxy. Wisp servers can be specified with the `wisp://` or `wisps://` prefix.
+See #1097 for some information.
+
 ### Interaction with state images
 
 When using state images, v86 randomises the MAC address after the state has
