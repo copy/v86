@@ -84,7 +84,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js flopp
 	   state.js ne2k.js sb16.js virtio.js virtio_console.js bus.js log.js \
 	   cpu.js debug.js \
 	   elf.js kernel.js
-LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
+LIB_FILES=9p.js filesystem.js jor1k.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js worker_bus.js dummy_screen.js \
 	      fake_network.js wisp_network.js fetch_network.js print_stats.js filestorage.js
