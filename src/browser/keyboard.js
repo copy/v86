@@ -468,7 +468,7 @@ function KeyboardAdapter(bus)
         if(deferred_code)
         {
             clearTimeout(deferred_timeout_id);
-            if(!altgr_key || (deferred_code === 0x1D && code !== 0xE038) || (deferred_code === 0x9D && code !== 0xE0B8))
+            if(!(altgr_key && ((deferred_code === 0x1D && code === 0xE038) || (deferred_code === 0x9D && code === 0xE0B8))))
             {
                 send_to_controller(deferred_code);
             }
