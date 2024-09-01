@@ -249,9 +249,9 @@ $(CLOSURE):
 	# don't upgrade until https://github.com/google/closure-compiler/issues/3972 is fixed
 	wget -nv -O $(CLOSURE) https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20210601/closure-compiler-v20210601.jar
 
-build/integration-test-fs/fs.json:
+build/integration-test-fs/fs.json: images/buildroot-bzimage68.bin
 	mkdir -p build/integration-test-fs/flat
-	cp images/buildroot-bzimage.bin build/integration-test-fs/bzImage
+	cp images/buildroot-bzimage68.bin build/integration-test-fs/bzImage
 	touch build/integration-test-fs/initrd
 	cd build/integration-test-fs && tar cfv fs.tar bzImage initrd
 	./tools/fs2json.py build/integration-test-fs/fs.tar --out build/integration-test-fs/fs.json

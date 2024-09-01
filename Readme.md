@@ -152,7 +152,7 @@ for a full setup on Debian or
 The disk images for testing are not included in this repository. You can
 download them directly from the website using:
 
-`wget -P images/ https://i.copy.sh/{linux3.iso,linux.iso,linux4.iso,buildroot-bzimage.bin,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img}`
+`wget -P images/ https://i.copy.sh/{linux3.iso,linux.iso,linux4.iso,buildroot-bzimage68.bin,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img}`
 
 Run integration tests: `make tests`
 

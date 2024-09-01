@@ -464,6 +464,17 @@
                 cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
             },
             {
+                id: "buildroot6",
+                bzimage: {
+                    url: host + "buildroot-bzimage68.bin",
+                    size: 10068480,
+                    async: false,
+                },
+                name: "Buildroot Linux",
+                filesystem: {},
+                cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+            },
+            {
                 id: "basiclinux",
                 hda: {
                     url: host + "bl3-5.img",

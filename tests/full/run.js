@@ -320,7 +320,7 @@ if(cluster.isMaster)
         },
         {
             name: "Linux bzImage",
-            bzimage: root_path + "/images/buildroot-bzimage.bin",
+            bzimage: root_path + "/images/buildroot-bzimage68.bin",
             cmdline: "auto",
             timeout: 200,
             expected_texts: [
