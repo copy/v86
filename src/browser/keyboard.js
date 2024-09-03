@@ -6,6 +6,9 @@ var SHIFT_SCAN_CODE = 0x2A;
 /** @const */
 var SCAN_CODE_RELEASE = 0x80;
 
+/** @const */
+const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platform.toString().toLowerCase().search("win") >= 0;
+
 /**
  * @constructor
  *
@@ -18,6 +21,24 @@ function KeyboardAdapter(bus)
          * @type {!Object.<boolean>}
          */
         keys_pressed = {},
+
+        /**
+         * Deferred KeyboardEvent or null (Windows AltGr-Filter)
+         * @type {KeyboardEvent|Object|null}
+         */
+        deferred_event = null,
+
+        /**
+         * Deferred keydown state (Windows AltGr-Filter)
+         * @type {boolean}
+         */
+        deferred_keydown = false,
+
+        /**
+         * Timeout-ID returned by setTimeout() or 0 (Windows AltGr-Filter)
+         * @type {number}
+         */
+        deferred_timeout_id = 0,
 
         keyboard = this;
 
@@ -366,6 +387,7 @@ function KeyboardAdapter(bus)
     }
 
     /**
+     * @param {KeyboardEvent|Object} e
      * @param {boolean} keydown
      */
     function handler(e, keydown)
@@ -380,6 +402,51 @@ function KeyboardAdapter(bus)
             return;
         }
 
+        e.preventDefault && e.preventDefault();
+
+        if(PLATFOM_WINDOWS)
+        {
+            // Remove ControlLeft from key sequence [ControlLeft, AltRight] when
+            // AltGraph-key is pressed or released.
+            //
+            // NOTE: AltGraph is false for the 1st key (ControlLeft-Down), becomes
+            // true with the 2nd (AltRight-Down) and stays true until key AltGraph
+            // is released (AltRight-Up).
+            if(deferred_event)
+            {
+                clearTimeout(deferred_timeout_id);
+                if(!(e.getModifierState && e.getModifierState("AltGraph") &&
+                        deferred_keydown === keydown &&
+                        deferred_event.code === "ControlLeft" && e.code === "AltRight"))
+                {
+                    handle_event(deferred_event, deferred_keydown);
+                }
+                deferred_event = null;
+            }
+
+            if(e.code === "ControlLeft")
+            {
+                // defer ControlLeft-Down/-Up until the next invocation of this method or 10ms have passed, whichever comes first
+                deferred_event = e;
+                deferred_keydown = keydown;
+                deferred_timeout_id = setTimeout(() => {
+                    handle_event(deferred_event, deferred_keydown);
+                    deferred_event = null;
+                }, 10);
+                return false;
+            }
+        }
+
+        handle_event(e, keydown);
+        return false;
+    }
+
+    /**
+     * @param {KeyboardEvent|Object} e
+     * @param {boolean} keydown
+     */
+    function handle_event(e, keydown)
+    {
         var code = translate(e);
 
         if(!code)
@@ -389,10 +456,6 @@ function KeyboardAdapter(bus)
         }
 
         handle_code(code, keydown, e.repeat);
-
-        e.preventDefault && e.preventDefault();
-
-        return false;
     }
 
     /**
