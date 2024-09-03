@@ -433,7 +433,7 @@ function KeyboardAdapter(bus)
                     handle_event(deferred_event, deferred_keydown);
                     deferred_event = null;
                 }, 10);
-                return;
+                return false;
             }
         }
 
