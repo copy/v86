@@ -6,7 +6,8 @@ var SHIFT_SCAN_CODE = 0x2A;
 /** @const */
 var SCAN_CODE_RELEASE = 0x80;
 
-const platfom_windows = typeof window !== "undefined" && window.navigator.platform.toString().toLowerCase().search("win") >= 0;
+/** @const */
+const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platform.toString().toLowerCase().search("win") >= 0;
 
 /**
  * @constructor
@@ -22,13 +23,19 @@ function KeyboardAdapter(bus)
         keys_pressed = {},
 
         /**
-         * Deferred scancode or 0, used by send_to_controller_filter_altgr()
-         * @type {number}
+         * Deferred KeyboardEvent or null (Windows AltGr-Filter)
+         * @type {KeyboardEvent|Object|null}
          */
-        deferred_code = 0,
+        deferred_event = null,
 
         /**
-         * Timeout-ID returned by setTimeout() or 0, used by send_to_controller_filter_altgr()
+         * Deferred keydown state (Windows AltGr-Filter)
+         * @type {boolean}
+         */
+        deferred_keydown = false,
+
+        /**
+         * Timeout-ID returned by setTimeout() or 0 (Windows AltGr-Filter)
          * @type {number}
          */
         deferred_timeout_id = 0,
@@ -344,7 +351,7 @@ function KeyboardAdapter(bus)
         {
             // trigger ALT keyup manually - some browsers don't
             // see issue #165
-            handle_code(e, 0x38, false);
+            handle_code(0x38, false);
         }
         return handler(e, false);
     }
@@ -355,7 +362,7 @@ function KeyboardAdapter(bus)
         {
             // trigger ALT keyup manually - some browsers don't
             // see issue #165
-            handle_code(e, 0x38, false);
+            handle_code(0x38, false);
         }
         return handler(e, true);
     }
@@ -372,7 +379,7 @@ function KeyboardAdapter(bus)
 
             if(keys_pressed[key])
             {
-                handle_code(e, key, false);
+                handle_code(key, false);
             }
         }
 
@@ -395,6 +402,51 @@ function KeyboardAdapter(bus)
             return;
         }
 
+        e.preventDefault && e.preventDefault();
+
+        if(PLATFOM_WINDOWS)
+        {
+            // Remove ControlLeft from key sequence [ControlLeft, AltRight] when
+            // AltGraph-key is pressed or released.
+            //
+            // NOTE: AltGraph is false for the 1st key (ControlLeft-Down), becomes
+            // true with the 2nd (AltRight-Down) and stays true until key AltGraph
+            // is released (AltRight-Up).
+            if(deferred_event)
+            {
+                clearTimeout(deferred_timeout_id);
+                if(!(e.getModifierState && e.getModifierState("AltGraph") &&
+                        deferred_keydown === keydown &&
+                        deferred_event.code === "ControlLeft" && e.code === "AltRight"))
+                {
+                    handle_event(deferred_event, deferred_keydown);
+                }
+                deferred_event = null;
+            }
+
+            if(e.code === "ControlLeft")
+            {
+                // defer ControlLeft-Down/-Up until the next invocation of this method or 10ms have passed, whichever comes first
+                deferred_event = e;
+                deferred_keydown = keydown;
+                deferred_timeout_id = setTimeout(() => {
+                    handle_event(deferred_event, deferred_keydown);
+                    deferred_event = null;
+                }, 10);
+                return;
+            }
+        }
+
+        handle_event(e, keydown);
+        return false;
+    }
+
+    /**
+     * @param {KeyboardEvent|Object} e
+     * @param {boolean} keydown
+     */
+    function handle_event(e, keydown)
+    {
         var code = translate(e);
 
         if(!code)
@@ -403,26 +455,21 @@ function KeyboardAdapter(bus)
             return;
         }
 
-        handle_code(e, code, keydown, e.repeat);
-
-        e.preventDefault && e.preventDefault();
-
-        return false;
+        handle_code(code, keydown, e.repeat);
     }
 
     /**
-     * @param {KeyboardEvent|Object} e
      * @param {number} code
      * @param {boolean} keydown
      * @param {boolean=} is_repeat
      */
-    function handle_code(e, code, keydown, is_repeat)
+    function handle_code(code, keydown, is_repeat)
     {
         if(keydown)
         {
             if(keys_pressed[code] && !is_repeat)
             {
-                handle_code(e, code, false);
+                handle_code(code, false);
             }
         }
         else
@@ -442,47 +489,11 @@ function KeyboardAdapter(bus)
         }
         //console.log("Key: " + code.toString(16) + " from " + chr.toString(16) + " down=" + keydown);
 
-        if(platfom_windows)
+        if(code > 0xFF)
         {
-            send_to_controller_filter_altgr(code, e.getModifierState && e.getModifierState("AltGraph"));
-        }
-        else
-        {
-            send_to_controller(code);
-        }
-    }
-
-    function send_to_controller_filter_altgr(code, altgr_key)
-    {
-        // Remove ControlLeft from key sequence [ControlLeft, AltRight] when
-        // AltGr-key is pressed or released.
-        //
-        // NOTE: altgr_key is false for the 1st key (ControlLeft-Down), becomes
-        // true with the 2nd (AltRight-Down) and stays true until key AltGr
-        // is released (AltRight-Up).
-        //
-        // Scancodes (note: bit 0x80 indicates Key-Up):
-        // - 0x1D, 0x9D: ControlLeft-Down, ControlLeft-Up
-        // - 0xE038, 0xE0B8: AltRight-Down, AltRight-Up
-
-        if(deferred_code)
-        {
-            clearTimeout(deferred_timeout_id);
-            if(!(altgr_key && ((deferred_code === 0x1D && code === 0xE038) || (deferred_code === 0x9D && code === 0xE0B8))))
-            {
-                send_to_controller(deferred_code);
-            }
-            deferred_code = 0;
-        }
-
-        if(code === 0x1D || code === 0x9D)
-        {
-            // defer ControlLeft-Down/-Up until the next invocation of this method or 10ms have passed, whichever comes first
-            deferred_code = code;
-            deferred_timeout_id = setTimeout(() => {
-                send_to_controller(deferred_code);
-                deferred_code = 0;
-            }, 10);
+            // prefix
+            send_to_controller(code >> 8);
+            send_to_controller(code & 0xFF);
         }
         else
         {
@@ -492,11 +503,6 @@ function KeyboardAdapter(bus)
 
     function send_to_controller(code)
     {
-        if(code > 0xFF)
-        {
-            // prefix
-            keyboard.bus.send("keyboard-code", code >> 8);
-        }
-        keyboard.bus.send("keyboard-code", code & 0xFF);
+        keyboard.bus.send("keyboard-code", code);
     }
 }
