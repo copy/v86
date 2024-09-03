@@ -399,6 +399,15 @@
                 homepage: "https://psychoslinux.gitlab.io/DOS/INDEX.HTM",
             },
             {
+                id: "86dos",
+                fda: {
+                    url: host + "pc86dos.img",
+                    size: 163840,
+                },
+                name: "86-DOS",
+                homepage: "https://www.os2museum.com/wp/pc-86-dos/",
+            },
+            {
                 id: "oberon",
                 hda: {
                     url: host + "oberon.img",
