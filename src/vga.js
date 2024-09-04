@@ -220,7 +220,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
      * @type {number}
      */
     this.svga_offset = 0;
-
+    this.svga_offset_x = 0;
     this.svga_offset_y = 0;
 
     const pci_revision = 0; // set to 2 for qemu extended registers
@@ -2123,14 +2123,23 @@ VGAScreen.prototype.port1CF_write = function(value)
             dbg_log("SVGA bank offset: " + h(value << 16), LOG_VGA);
             this.svga_bank_offset = value << 16;
             break;
+        case 8:
+            // x offset
+            dbg_log("SVGA X offset: " + h(value), LOG_VGA);
+            if(this.svga_offset_x !== value)
+            {
+                this.svga_offset_x = value;
+                this.svga_offset = this.svga_offset_y * this.svga_width + this.svga_offset_x;
+                this.complete_redraw();
+            }
+            break;
         case 9:
             // y offset
-            const offset = value * this.svga_width;
-            dbg_log("SVGA offset: " + h(offset) + " y=" + h(value), LOG_VGA);
+            dbg_log("SVGA Y offset: " + h(value * this.svga_width) + " y=" + h(value), LOG_VGA);
             if(this.svga_offset_y !== value)
             {
                 this.svga_offset_y = value;
-                this.svga_offset = offset;
+                this.svga_offset = this.svga_offset_y * this.svga_width + this.svga_offset_x;
                 this.complete_redraw();
             }
             break;
@@ -2204,7 +2213,7 @@ VGAScreen.prototype.svga_register_read = function(n)
 
         case 8:
             // x offset
-            return 0;
+            return this.svga_offset_x;
         case 9:
             return this.svga_offset_y;
         case 0x0A:
