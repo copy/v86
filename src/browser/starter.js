@@ -602,7 +602,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
 
-        this.bus.send("cpu-init", settings);
+        this.v86.init(settings);
 
         if(settings.initial_state)
         {
@@ -616,7 +616,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(options.autostart)
         {
-            this.bus.send("cpu-run");
+            this.v86.run();
         }
 
         this.emulator_bus.send("emulator-loaded");
@@ -767,7 +767,7 @@ V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
  */
 V86.prototype.run = async function()
 {
-    this.bus.send("cpu-run");
+    this.v86.run();
 };
 
 /**
@@ -787,7 +787,7 @@ V86.prototype.stop = async function()
             resolve();
         };
         this.add_listener("emulator-stopped", listener);
-        this.bus.send("cpu-stop");
+        this.v86.stop();
     });
 };
 
@@ -814,7 +814,7 @@ V86.prototype.destroy = async function()
  */
 V86.prototype.restart = function()
 {
-    this.bus.send("cpu-restart");
+    this.v86.restart();
 };
 
 /**

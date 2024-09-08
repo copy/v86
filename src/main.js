@@ -22,10 +22,6 @@ function v86(bus, wasm)
     this.cpu = new CPU(bus, wasm, () => { this.idle && this.next_tick(0); });
 
     this.bus = bus;
-    bus.register("cpu-init", this.init, this);
-    bus.register("cpu-run", this.run, this);
-    bus.register("cpu-stop", this.stop, this);
-    bus.register("cpu-restart", this.restart, this);
 
     this.register_yield();
 }
