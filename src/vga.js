@@ -2163,6 +2163,9 @@ VGAScreen.prototype.port1CF_write = function(value)
 
     if(this.svga_enabled && this.dispi_index === 4)
     {
+        this.svga_offset = 0;
+        this.svga_offset_x = 0;
+        this.svga_offset_y = 0;
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp, this.svga_width, this.svga_height);
         this.bus.send("screen-set-mode", true);
         this.graphical_mode = true;
