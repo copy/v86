@@ -1189,6 +1189,33 @@
                 },
                 homepage: "https://t3x.org/t3xforth/",
             },
+            {
+                id: "nanoshell",
+                name: "NanoShell",
+                cdrom: {
+                    url: host + "nanoshell.iso",
+                    size: 6785024,
+                },
+                homepage: "https://github.com/iProgramMC/NanoShellOS",
+            },
+            {
+                id: "catk",
+                name: "CatK",
+                cdrom: {
+                    url: host + "catkernel.iso",
+                    size: 11968512,
+                },
+                homepage: "https://catk.neocities.org/",
+            },
+            {
+                id: "mcp",
+                name: "M/CP",
+                fda: {
+                    url: host + "mcp2.img",
+                    size: 512,
+                },
+                homepage: "https://github.com/ybuzoku/MCP",
+            },
         ];
 
         if(DEBUG)
