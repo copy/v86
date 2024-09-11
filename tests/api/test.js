@@ -18,7 +18,6 @@ const emulator = new V86({
     filesystem: {},
     log_level: -641,
     disable_jit: +process.env.DISABLE_JIT,
-    screen_dummy: true,
 });
 
 setInterval(() => {

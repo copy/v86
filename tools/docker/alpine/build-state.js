@@ -23,7 +23,6 @@ var emulator = new V86({
         baseurl: path.join(V86_ROOT, "images/alpine-rootfs-flat"),
         basefs: path.join(V86_ROOT, "images/alpine-fs.json"),
     },
-    screen_dummy: true,
 });
 
 console.log("Now booting, please stand by ...");

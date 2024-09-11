@@ -40,7 +40,6 @@ else
             },
             baseurl: path.join(V86_ROOT, "/images/arch/"),
         },
-        screen_dummy: true,
         disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
     });

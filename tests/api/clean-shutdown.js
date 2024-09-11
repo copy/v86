@@ -21,7 +21,6 @@ const config = {
     filesystem: {},
     log_level: 0,
     disable_jit: +process.env.DISABLE_JIT,
-    screen_dummy: true,
 };
 
 const emulator = new V86(config);

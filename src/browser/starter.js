@@ -323,7 +323,7 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         this.screen_adapter = new ScreenAdapter(options.screen_container, this.bus);
     }
-    else if(options.screen_dummy)
+    else
     {
         this.screen_adapter = new DummyScreenAdapter(this.bus);
     }
