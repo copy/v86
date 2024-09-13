@@ -3,11 +3,11 @@
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
- *
- * @param {BusConnector} bus
  */
-function ScreenAdapter(screen_container, bus)
+function ScreenAdapter(screen_container, screen_fill_buffer)
 {
+    this.screen_fill_buffer = screen_fill_buffer;
+
     console.assert(screen_container, "1st argument must be a DOM container");
 
     var
@@ -56,8 +56,7 @@ function ScreenAdapter(screen_container, bus)
     const TEXT_MODE_COMPONENT_SIZE = 4;
 
     var stopped = false;
-
-    var screen = this;
+    var paused = false;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
@@ -131,48 +130,6 @@ function ScreenAdapter(screen_container, bus)
     text_screen.style.display = "block";
     graphic_screen.style.display = "none";
 
-    this.bus = bus;
-
-    bus.register("screen-set-mode", function(data)
-    {
-        this.set_mode(data);
-    }, this);
-
-    bus.register("screen-fill-buffer-end", function(data)
-    {
-        this.update_buffer(data);
-    }, this);
-
-    bus.register("screen-put-char", function(data)
-    {
-        //console.log(data);
-        this.put_char(data[0], data[1], data[2], data[3], data[4], data[5]);
-    }, this);
-
-    bus.register("screen-update-cursor", function(data)
-    {
-        this.update_cursor(data[0], data[1]);
-    }, this);
-    bus.register("screen-update-cursor-scanline", function(data)
-    {
-        this.update_cursor_scanline(data[0], data[1], data[2]);
-    }, this);
-
-    bus.register("screen-clear", function()
-    {
-        this.clear_screen();
-    }, this);
-
-    bus.register("screen-set-size-text", function(data)
-    {
-        this.set_size_text(data[0], data[1]);
-    }, this);
-    bus.register("screen-set-size-graphical", function(data)
-    {
-        this.set_size_graphical(data[0], data[1], data[2], data[3]);
-    }, this);
-
-
     this.init = function()
     {
         // not necessary, because this gets initialized by the bios early,
@@ -203,9 +160,9 @@ function ScreenAdapter(screen_container, bus)
             context.font = window.getComputedStyle(text_screen).font;
             context.textBaseline = "top";
 
-            for(let x = 0; x < text_mode_width; x++)
+            for(let y = 0; y < text_mode_height; y++)
             {
-                for(let y = 0; y < text_mode_height; y++)
+                for(let x = 0; x < text_mode_width; x++)
                 {
                     const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
                     const character = text_mode_data[index + CHARACTER_INDEX];
@@ -237,62 +194,66 @@ function ScreenAdapter(screen_container, bus)
 
     this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
-        if(row < text_mode_height && col < text_mode_width)
-        {
-            var p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
+        dbg_assert(row >= 0 && row < text_mode_height);
+        dbg_assert(col >= 0 && col < text_mode_width);
+        dbg_assert(chr >= 0 && chr < 0x100);
 
-            dbg_assert(chr >= 0 && chr < 0x100);
-            text_mode_data[p + CHARACTER_INDEX] = chr;
-            text_mode_data[p + BLINKING_INDEX] = blinking;
-            text_mode_data[p + BG_COLOR_INDEX] = bg_color;
-            text_mode_data[p + FG_COLOR_INDEX] = fg_color;
+        const p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
-            changed_rows[row] = 1;
-        }
+        text_mode_data[p + CHARACTER_INDEX] = chr;
+        text_mode_data[p + BLINKING_INDEX] = blinking;
+        text_mode_data[p + BG_COLOR_INDEX] = bg_color;
+        text_mode_data[p + FG_COLOR_INDEX] = fg_color;
+
+        changed_rows[row] = 1;
     };
 
     this.timer = function()
     {
         if(!stopped)
         {
-            requestAnimationFrame(is_graphical ? update_graphical : update_text);
+            requestAnimationFrame(() => is_graphical ? this.update_graphical() : this.update_text());
         }
     };
 
-    var update_text = function()
+    this.update_text = function()
     {
         for(var i = 0; i < text_mode_height; i++)
         {
             if(changed_rows[i])
             {
-                screen.text_update_row(i);
+                this.text_update_row(i);
                 changed_rows[i] = 0;
             }
         }
 
         this.timer();
-    }.bind(this);
+    };
 
-    var update_graphical = function()
+    this.update_graphical = function()
     {
-        this.bus.send("screen-fill-buffer");
+        if(!paused)
+        {
+            this.screen_fill_buffer();
+        }
         this.timer();
-    }.bind(this);
+    };
 
     this.destroy = function()
     {
         stopped = true;
     };
 
-    // TODO: Should probably not use bus for this
-    this.bus.register("emulator-stopped", function()
+    this.pause = function()
     {
+        paused = true;
         cursor_element.classList.remove("blinking-cursor");
-    }, this);
-    this.bus.register("emulator-started", function()
+    };
+    this.continue = function()
     {
+        paused = false;
         cursor_element.classList.add("blinking-cursor");
-    }, this);
+    };
 
     this.set_mode = function(graphical)
     {
@@ -569,7 +530,7 @@ function ScreenAdapter(screen_container, bus)
             // rectangle to visualise the layer instead.
             graphic_context.strokeStyle = "#0F0";
             graphic_context.lineWidth = 4;
-            layers.forEach(layer =>
+            for(const layer of layers)
             {
                 graphic_context.strokeRect(
                     layer.buffer_x,
@@ -577,12 +538,12 @@ function ScreenAdapter(screen_container, bus)
                     layer.buffer_width,
                     layer.buffer_height
                 );
-            });
+            }
             graphic_context.lineWidth = 1;
             return;
         }
 
-        layers.forEach(layer =>
+        for(const layer of layers)
         {
             graphic_context.putImageData(
                 layer.image_data,
@@ -593,7 +554,34 @@ function ScreenAdapter(screen_container, bus)
                 layer.buffer_width,
                 layer.buffer_height
             );
-        });
+        }
+    };
+
+    // XXX: duplicated in DummyScreenAdapter
+    this.get_text_screen = function()
+    {
+        var screen = [];
+
+        for(var i = 0; i < text_mode_height; i++)
+        {
+            screen.push(this.get_text_row(i));
+        }
+
+        return screen;
+    };
+
+    this.get_text_row = function(y)
+    {
+        let result = "";
+
+        for(let x = 0; x < text_mode_width; x++)
+        {
+            const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
+            const character = text_mode_data[index + CHARACTER_INDEX];
+            result += String.fromCharCode(character);
+        }
+
+        return result;
     };
 
     this.init();

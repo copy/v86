@@ -26,12 +26,12 @@ const emulator = new V86(config);
 
 let serial_data = [];
 
-emulator.automatically([
-    { sleep: 1 },
-    { vga_text: "/root% " },
-    { call: () => { console.log("Booted, sending file to ttyS0"); } },
-    { keyboard_send: "cat /bin/busybox > /dev/ttyS0\n" },
-]);
+setTimeout(async () =>
+{
+    await emulator.wait_until_vga_screen_contains("/root% ");
+    console.log("Booted, sending file to ttyS0");
+    emulator.keyboard_send_text("cat /bin/busybox > /dev/ttyS0\n");
+}, 1000);
 
 const timeout = setTimeout(() => {
     throw new Error("Timeout");

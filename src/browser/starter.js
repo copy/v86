@@ -247,11 +247,13 @@ V86.prototype.continue_init = async function(emulator, options)
     this.bus.register("emulator-stopped", function()
     {
         this.cpu_is_running = false;
+        this.screen_adapter.pause();
     }, this);
 
     this.bus.register("emulator-started", function()
     {
         this.cpu_is_running = true;
+        this.screen_adapter.continue();
     }, this);
 
     var settings = {};
@@ -321,12 +323,13 @@ V86.prototype.continue_init = async function(emulator, options)
 
     if(options.screen_container)
     {
-        this.screen_adapter = new ScreenAdapter(options.screen_container, this.bus);
+        this.screen_adapter = new ScreenAdapter(options.screen_container, () => this.v86.cpu.devices.vga.screen_fill_buffer());
     }
     else
     {
-        this.screen_adapter = new DummyScreenAdapter(this.bus);
+        this.screen_adapter = new DummyScreenAdapter();
     }
+    settings.screen = this.screen_adapter;
 
     if(options.serial_container)
     {
@@ -824,7 +827,7 @@ V86.prototype.restart = function()
  * The callback function gets a single argument which depends on the event.
  *
  * @param {string} event Name of the event.
- * @param {function(*)} listener The callback function.
+ * @param {function(?)} listener The callback function.
  * @export
  */
 V86.prototype.add_listener = function(event, listener)
@@ -1277,6 +1280,10 @@ V86.prototype.read_file = async function(file)
     }
 };
 
+/*
+ * @deprecated
+ * Use wait_until_vga_screen_contains etc.
+ */
 V86.prototype.automatically = function(steps)
 {
     const run = (steps) =>
@@ -1298,18 +1305,7 @@ V86.prototype.automatically = function(steps)
 
         if(step.vga_text)
         {
-            const screen = this.screen_adapter.get_text_screen();
-
-            for(const line of screen)
-            {
-                if(line.includes(step.vga_text))
-                {
-                    run(remaining_steps);
-                    return;
-                }
-            }
-
-            setTimeout(() => run(steps), 1000);
+            this.wait_until_vga_screen_contains(step.vga_text).then(() => run(remaining_steps));
             return;
         }
 
@@ -1340,6 +1336,54 @@ V86.prototype.automatically = function(steps)
     };
 
     run(steps);
+};
+
+V86.prototype.wait_until_vga_screen_contains = function(text)
+{
+    return new Promise(resolve =>
+    {
+        function test_line(line)
+        {
+            return typeof text === "string" ? line.includes(text) : text.test(line);
+        }
+
+        for(const line of this.screen_adapter.get_text_screen())
+        {
+            if(test_line(line))
+            {
+                resolve(true);
+                return;
+            }
+        }
+
+        const changed_rows = new Set();
+
+        function put_char(args)
+        {
+            const [row, col, char] = args;
+            changed_rows.add(col);
+        }
+
+        const check = () =>
+        {
+            for(const row of changed_rows)
+            {
+                const line = this.screen_adapter.get_text_row(row);
+                if(test_line(line))
+                {
+                    this.remove_listener("screen-put-char", put_char);
+                    resolve();
+                    return;
+                }
+            }
+
+            changed_rows.clear();
+            setTimeout(check, 100);
+        };
+        check();
+
+        this.add_listener("screen-put-char", put_char);
+    });
 };
 
 /**

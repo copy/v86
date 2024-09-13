@@ -2,22 +2,20 @@
 
 /**
  * @constructor
- *
- * @param {BusConnector} bus
  */
-function DummyScreenAdapter(bus)
+function DummyScreenAdapter()
 {
     var
         graphic_image_data,
 
         /** @type {number} */
-        cursor_row,
+        cursor_row = 0,
 
         /** @type {number} */
-        cursor_col,
+        cursor_col = 0,
 
-        graphical_mode_width,
-        graphical_mode_height,
+        graphical_mode_width = 0,
+        graphical_mode_height = 0,
 
         // are we in graphical mode now?
         is_graphical = false,
@@ -29,77 +27,21 @@ function DummyScreenAdapter(bus)
         text_mode_data,
 
         // number of columns
-        text_mode_width,
+        text_mode_width = 0,
 
         // number of rows
-        text_mode_height;
-
-    const CHARACTER_INDEX = 0;
-    const BLINKING_INDEX = 1;
-    const BG_COLOR_INDEX = 2;
-    const FG_COLOR_INDEX = 3;
-    const TEXT_MODE_COMPONENT_SIZE = 4;
-
-    this.bus = bus;
-
-    bus.register("screen-set-mode", function(data)
-    {
-        this.set_mode(data);
-    }, this);
-
-    bus.register("screen-fill-buffer-end", function(data)
-    {
-        var min = data[0];
-        var max = data[1];
-
-        this.update_buffer(min, max);
-    }, this);
-
-    bus.register("screen-put-char", function(data)
-    {
-        //console.log(data);
-        this.put_char(data[0], data[1], data[2], data[3], data[4], data[5]);
-    }, this);
-
-    bus.register("screen-text-scroll", function(rows)
-    {
-        console.log("scroll", rows);
-    }, this);
-
-    bus.register("screen-update-cursor", function(data)
-    {
-        this.update_cursor(data[0], data[1]);
-    }, this);
-    bus.register("screen-update-cursor-scanline", function(data)
-    {
-        this.update_cursor_scanline(data[0], data[1], data[2]);
-    }, this);
-
-    bus.register("screen-set-size-text", function(data)
-    {
-        this.set_size_text(data[0], data[1]);
-    }, this);
-    bus.register("screen-set-size-graphical", function(data)
-    {
-        this.set_size_graphical(data[0], data[1]);
-    }, this);
+        text_mode_height = 0;
 
     this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
-        if(row < text_mode_height && col < text_mode_width)
-        {
-            var p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
-
-            text_mode_data[p + CHARACTER_INDEX] = chr;
-            text_mode_data[p + BLINKING_INDEX] = blinking;
-            text_mode_data[p + BG_COLOR_INDEX] = bg_color;
-            text_mode_data[p + FG_COLOR_INDEX] = fg_color;
-        }
+        dbg_assert(row >= 0 && row < text_mode_height);
+        dbg_assert(col >= 0 && col < text_mode_width);
+        text_mode_data[row * text_mode_width + col] = chr;
     };
 
-    this.destroy = function()
-    {
-    };
+    this.destroy = function() {};
+    this.pause = function() {};
+    this.continue = function() {};
 
     this.set_mode = function(graphical)
     {
@@ -121,8 +63,7 @@ function DummyScreenAdapter(bus)
             return;
         }
 
-        text_mode_data = new Int32Array(cols * rows * TEXT_MODE_COMPONENT_SIZE);
-
+        text_mode_data = new Uint8Array(cols * rows);
         text_mode_width = cols;
         text_mode_height = rows;
     };
@@ -143,22 +84,12 @@ function DummyScreenAdapter(bus)
 
     this.update_cursor = function(row, col)
     {
-        if(row !== cursor_row || col !== cursor_col)
-        {
-            cursor_row = row;
-            cursor_col = col;
-        }
+        cursor_row = row;
+        cursor_col = col;
     };
 
-    this.update_buffer = function(min, max)
+    this.update_buffer = function(layers)
     {
-        if(max < min)
-        {
-            return;
-        }
-
-        var min_y = min / graphical_mode_width | 0;
-        var max_y = max / graphical_mode_width | 0;
     };
 
     this.get_text_screen = function()
@@ -175,14 +106,9 @@ function DummyScreenAdapter(bus)
 
     this.get_text_row = function(i)
     {
-        var row = "";
-        var offset = TEXT_MODE_COMPONENT_SIZE * i * text_mode_width;
-
-        for(var j = 0; j < text_mode_width; j++)
-        {
-            row += String.fromCharCode(text_mode_data[offset + CHARACTER_INDEX + TEXT_MODE_COMPONENT_SIZE * j]);
-        }
-
-        return row;
+        const offset = i * text_mode_width;
+        return String.fromCharCode.apply(String, text_mode_data.subarray(offset, offset + text_mode_width));
     };
+
+    this.set_size_text(80, 25);
 }

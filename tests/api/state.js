@@ -58,12 +58,6 @@ const config_large_memory = {
 
 async function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-function screen_contains(emulator, text)
-{
-    const lines = emulator.screen_adapter.get_text_screen();
-    return lines.some(line => line.startsWith(text));
-}
-
 async function run_test(name, config, done)
 {
     const emulator = new V86(config);
@@ -78,18 +72,14 @@ async function run_test(name, config, done)
     console.log("Restoring: %s", name);
     await emulator.restore_state(state);
 
-    do
-    {
-        await sleep(1000);
-    }
-    while(!screen_contains(emulator, "~% "));
+    await emulator.wait_until_vga_screen_contains("~% ");
+    await sleep(1000);
 
     emulator.keyboard_send_text("echo -n test; echo passed\n");
-
     await sleep(1000);
 
     const lines = emulator.screen_adapter.get_text_screen();
-    if(!screen_contains(emulator, "testpassed"))
+    if(!lines.some(line => line.startsWith("testpassed")))
     {
         console.warn("Failed: " + name);
         console.warn(lines.map(line => line.replace(/\x00/g, " ")));

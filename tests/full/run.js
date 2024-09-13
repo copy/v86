@@ -1201,20 +1201,17 @@ function run_test(test, done)
         check_test_done();
     });
 
-    emulator.add_listener("screen-set-mode", function(is_graphical)
+    emulator.add_listener("screen-set-size", function(args)
     {
-        graphical_test_done = is_graphical;
-        check_test_done();
-    });
+        const [w, h, bpp] = args;
+        graphical_test_done = bpp !== 0;
 
-    emulator.add_listener("screen-set-size-graphical", function(size)
-    {
         if(test.expect_graphical_size)
         {
-            size_test_done = size[0] === test.expect_graphical_size[0] &&
-                             size[1] === test.expect_graphical_size[1];
-            check_test_done();
+            size_test_done = w === test.expect_graphical_size[0] && h === test.expect_graphical_size[1];
         }
+
+        check_test_done();
     });
 
     emulator.add_listener("screen-put-char", function(chr)

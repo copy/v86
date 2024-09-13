@@ -20,22 +20,19 @@ const emulator = new V86({
     disable_jit: +process.env.DISABLE_JIT,
 });
 
-emulator.automatically([
-    { sleep: 1 },
-    { vga_text: "C:\\> " },
-    { keyboard_send: "dir A:\n" },
-    { vga_text: "Abort, Retry, Fail?" },
-    { keyboard_send: "F" },
-    { call: () => {
-            emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
-        },
-    },
-    { keyboard_send: "dir A:\n" },
-    { sleep: 1 },
-    { vga_text: "FDOS         <DIR>" },
-    { call: () => {
-            console.log("Passed");
-            emulator.stop();
-        }
-    },
-]);
+const timeout = setTimeout(() => {
+    throw new Error("Timeout");
+}, 60 * 1000);
+
+setTimeout(async () =>
+{
+    await emulator.wait_until_vga_screen_contains("C:\\> ");
+    emulator.keyboard_send_text("dir A:\n");
+    await emulator.wait_until_vga_screen_contains("Abort, Retry, Fail?");
+    emulator.keyboard_send_text("F");
+    emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
+    emulator.keyboard_send_text("dir A:\n");
+    await emulator.wait_until_vga_screen_contains("FDOS         <DIR>");
+    emulator.stop();
+    clearTimeout(timeout);
+}, 1000);

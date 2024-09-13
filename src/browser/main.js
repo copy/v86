@@ -1995,23 +1995,11 @@
             $("info_mouse_enabled").textContent = is_enabled ? "Yes" : "No";
         });
 
-        emulator.add_listener("screen-set-mode", function(is_graphical)
+        emulator.add_listener("screen-set-size", function(args)
         {
-            if(is_graphical)
-            {
-                $("info_vga_mode").textContent = "Graphical";
-            }
-            else
-            {
-                $("info_vga_mode").textContent = "Text";
-                $("info_res").textContent = "-";
-                $("info_bpp").textContent = "-";
-            }
-        });
-        emulator.add_listener("screen-set-size-graphical", function(args)
-        {
-            $("info_res").textContent = args[0] + "x" + args[1];
-            $("info_bpp").textContent = args[4];
+            const [w, h, bpp] = args;
+            $("info_res").textContent = w + "x" + h + (bpp ? "x" + bpp : "");
+            $("info_vga_mode").textContent = bpp ? "Graphical" : "Text";
         });
 
 

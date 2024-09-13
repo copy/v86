@@ -729,6 +729,9 @@ CPU.prototype.create_memory = function(size, minimum_size)
     this.mem32s = v86util.view(Uint32Array, this.wasm_memory, memory_offset, size >> 2);
 };
 
+/**
+ * @param {BusConnector} device_bus
+ */
 CPU.prototype.init = function(settings, device_bus)
 {
     this.create_memory(
@@ -931,8 +934,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.dma = new DMA(this);
 
-        this.devices.vga = new VGAScreen(this, device_bus,
-                settings.vga_memory_size || 8 * 1024 * 1024);
+        this.devices.vga = new VGAScreen(this, device_bus, settings.screen, settings.vga_memory_size || 8 * 1024 * 1024);
 
         this.devices.ps2 = new PS2(this, device_bus);
 
