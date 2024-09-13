@@ -331,7 +331,8 @@ function ScreenAdapter(options, screen_fill_buffer)
         graphic_screen.height = height;
 
         // add some scaling to tiny resolutions
-        if(width <= 640 &&
+        if(!options.disable_autoscale &&
+            width <= 640 &&
             width * 2 < window.innerWidth * window.devicePixelRatio &&
             height * 2 < window.innerHeight * window.devicePixelRatio)
         {

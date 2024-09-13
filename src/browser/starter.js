@@ -49,7 +49,8 @@
  *   provided for backwards compatibility, use `screen` instead.
  *
  * - `screen Object` (No screen) - An object with the following properties:
- *   - `container HTMLElement`: An HTMLElement, see above.
+ *   - `container HTMLElement` - An HTMLElement, see above.
+ *   - `disable_autoscale boolean` (false) - Disable automatic scaling of small resolutions.
  *
  * ***
  *
@@ -91,6 +92,9 @@
       disable_mouse: (boolean|undefined),
       disable_keyboard: (boolean|undefined),
       wasm_fn: (Function|undefined),
+      screen: ({
+          disable_autoscale: (boolean|undefined),
+      } | undefined),
     }} options
  * @constructor
  */
