@@ -207,6 +207,7 @@ repository under their own licenses:
 - [Berkeley SoftFloat](http://www.jhauser.us/arithmetic/SoftFloat.html) is included to precisely emulate 80-bit floating point numbers
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
 - [WinWorld](https://winworldpc.com/) sources of some old operating systems
+- [OS/2 Museum](https://www.os2museum.com/) sources of some old operating systems
 
 ## More questions?
 
