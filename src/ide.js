@@ -518,16 +518,6 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
         //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)); // slave
     }
 
-    /** @const */
-    this.stats = {
-        sectors_read: 0,
-        sectors_written: 0,
-        bytes_read: 0,
-        bytes_written: 0,
-        loading: false,
-    };
-
-
     this.buffer = buffer;
 
     /** @type {number} */
@@ -1967,27 +1957,18 @@ IDEInterface.prototype.data_set = function(data)
 
 IDEInterface.prototype.report_read_start = function()
 {
-    this.stats.loading = true;
     this.bus.send("ide-read-start");
 };
 
 IDEInterface.prototype.report_read_end = function(byte_count)
 {
-    this.stats.loading = false;
-
-    var sector_count = byte_count / this.sector_size | 0;
-    this.stats.sectors_read += sector_count;
-    this.stats.bytes_read += byte_count;
-
+    const sector_count = byte_count / this.sector_size | 0;
     this.bus.send("ide-read-end", [this.nr, byte_count, sector_count]);
 };
 
 IDEInterface.prototype.report_write = function(byte_count)
 {
-    var sector_count = byte_count / this.sector_size | 0;
-    this.stats.sectors_written += sector_count;
-    this.stats.bytes_written += byte_count;
-
+    const sector_count = byte_count / this.sector_size | 0;
     this.bus.send("ide-write-end", [this.nr, byte_count, sector_count]);
 };
 
