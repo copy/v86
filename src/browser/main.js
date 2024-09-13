@@ -1216,6 +1216,14 @@
                 },
                 homepage: "https://github.com/ybuzoku/MCP",
             },
+            {
+                id: "ibm-exploring",
+                name: "Exploring The IBM Personal Computer",
+                fda: {
+                    url: host + "ibm-exploring.img",
+                    size: 368640,
+                },
+            },
         ];
 
         if(DEBUG)
