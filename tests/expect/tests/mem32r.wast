@@ -76,7 +76,7 @@
               (then
                 (call $e.trigger_gp_jit
                   (i32.const 0)
-                  (i32.const 4096))
+                  (i32.const 0))
                 (br $B1)))
             (i32.load
               (i32.const 748))

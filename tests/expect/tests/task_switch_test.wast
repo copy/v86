@@ -76,7 +76,7 @@
                 (i32.const 12))
               (then
                 (call $e.task_switch_test_jit
-                  (i32.const 4096))
+                  (i32.const 0))
                 (br $B1)))
             (i32.const 1)
             (call $e.fpu_get_sti_jit

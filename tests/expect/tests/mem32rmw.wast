@@ -78,7 +78,7 @@
               (then
                 (call $e.trigger_gp_jit
                   (i32.const 0)
-                  (i32.const 4096))
+                  (i32.const 0))
                 (br $B1)))
             (i32.load
               (i32.const 748))
@@ -175,7 +175,7 @@
                     (call $e.safe_write32_slow_jit
                       (get_local $l9)
                       (get_local $l12)
-                      (i32.const 4096))
+                      (i32.const 0))
                     (i32.const 1))
                   (then
                     (call $e.bug_gen_safe_read_write_page_fault

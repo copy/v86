@@ -74,7 +74,7 @@
                 (i32.const 12))
               (then
                 (call $e.task_switch_test_mmx_jit
-                  (i32.const 4096))
+                  (i32.const 0))
                 (br $B1)))
             (i64.store
               (i32.const 1136)

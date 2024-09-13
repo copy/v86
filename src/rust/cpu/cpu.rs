@@ -2158,30 +2158,34 @@ pub unsafe fn clear_tlb() {
 }
 
 #[no_mangle]
-pub unsafe fn trigger_de_jit(start_eip: i32) {
+pub unsafe fn trigger_de_jit(eip_offset_in_page: i32) {
     dbg_log!("#de in jit mode");
-    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
     jit_fault = Some((CPU_EXCEPTION_DE, None))
 }
 
 #[no_mangle]
-pub unsafe fn trigger_ud_jit(start_eip: i32) {
+pub unsafe fn trigger_ud_jit(eip_offset_in_page: i32) {
     dbg_log!("#ud in jit mode");
-    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
     jit_fault = Some((CPU_EXCEPTION_UD, None))
 }
 
 #[no_mangle]
-pub unsafe fn trigger_nm_jit(start_eip: i32) {
+pub unsafe fn trigger_nm_jit(eip_offset_in_page: i32) {
     dbg_log!("#nm in jit mode");
-    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
     jit_fault = Some((CPU_EXCEPTION_NM, None))
 }
 
 #[no_mangle]
-pub unsafe fn trigger_gp_jit(code: i32, start_eip: i32) {
+pub unsafe fn trigger_gp_jit(code: i32, eip_offset_in_page: i32) {
     dbg_log!("#gp in jit mode");
-    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
     jit_fault = Some((CPU_EXCEPTION_GP, Some(code)))
 }
 
@@ -3357,13 +3361,19 @@ pub fn report_safe_read_write_jit_slow(address: u32, entry: i32) {
 struct ScratchBuffer([u8; 0x1000 * 2]);
 static mut jit_paging_scratch_buffer: ScratchBuffer = ScratchBuffer([0; 2 * 0x1000]);
 
-pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_write: bool) -> i32 {
+pub unsafe fn safe_read_slow_jit(
+    addr: i32,
+    bitsize: i32,
+    eip_offset_in_page: i32,
+    is_write: bool,
+) -> i32 {
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     if is_write && Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
         // XXX: Check based on virtual address
         dbg_log!(
             "SMC (rmw): bits={} eip={:x} writeaddr={:x}",
             bitsize,
-            start_eip as u32,
+            (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
             addr as u32
         );
     }
@@ -3375,7 +3385,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
         translate_address_read_jit(addr)
     } {
         Err(()) => {
-            *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
             return 1;
         },
         Ok(addr) => addr,
@@ -3389,7 +3399,7 @@ pub unsafe fn safe_read_slow_jit(addr: i32, bitsize: i32, start_eip: i32, is_wri
             translate_address_read_jit(boundary_addr)
         } {
             Err(()) => {
-                *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
                 return 1;
             },
             Ok(addr) => addr,
@@ -3499,14 +3509,15 @@ pub unsafe fn safe_write_slow_jit(
     bitsize: i32,
     value_low: u64,
     value_high: u64,
-    start_eip: i32,
+    eip_offset_in_page: i32,
 ) -> i32 {
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     if Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
         // XXX: Check based on virtual address
         dbg_log!(
             "SMC: bits={} eip={:x} writeaddr={:x}",
             bitsize,
-            start_eip as u32,
+            (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
             addr as u32
         );
     }
@@ -3514,7 +3525,7 @@ pub unsafe fn safe_write_slow_jit(
     let (addr_low, can_skip_dirty_page) = match translate_address_write_jit_and_can_skip_dirty(addr)
     {
         Err(()) => {
-            *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+            *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
             return 1;
         },
         Ok(x) => x,
@@ -3523,7 +3534,7 @@ pub unsafe fn safe_write_slow_jit(
         let (addr_high, _) =
             match translate_address_write_jit_and_can_skip_dirty((addr | 0xFFF) + 1) {
                 Err(()) => {
-                    *instruction_pointer = *instruction_pointer & !0xFFF | start_eip & 0xFFF;
+                    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
                     return 1;
                 },
                 Ok(x) => x,
@@ -3584,24 +3595,29 @@ pub unsafe fn safe_write_slow_jit(
 }
 
 #[no_mangle]
-pub unsafe fn safe_write8_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
-    safe_write_slow_jit(addr, 8, value as u64, 0, start_eip)
+pub unsafe fn safe_write8_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
+    safe_write_slow_jit(addr, 8, value as u64, 0, eip_offset_in_page)
 }
 #[no_mangle]
-pub unsafe fn safe_write16_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
-    safe_write_slow_jit(addr, 16, value as u64, 0, start_eip)
+pub unsafe fn safe_write16_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
+    safe_write_slow_jit(addr, 16, value as u64, 0, eip_offset_in_page)
 }
 #[no_mangle]
-pub unsafe fn safe_write32_slow_jit(addr: i32, value: u32, start_eip: i32) -> i32 {
-    safe_write_slow_jit(addr, 32, value as u64, 0, start_eip)
+pub unsafe fn safe_write32_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
+    safe_write_slow_jit(addr, 32, value as u64, 0, eip_offset_in_page)
 }
 #[no_mangle]
-pub unsafe fn safe_write64_slow_jit(addr: i32, value: u64, start_eip: i32) -> i32 {
-    safe_write_slow_jit(addr, 64, value, 0, start_eip)
+pub unsafe fn safe_write64_slow_jit(addr: i32, value: u64, eip_offset_in_page: i32) -> i32 {
+    safe_write_slow_jit(addr, 64, value, 0, eip_offset_in_page)
 }
 #[no_mangle]
-pub unsafe fn safe_write128_slow_jit(addr: i32, low: u64, high: u64, start_eip: i32) -> i32 {
-    safe_write_slow_jit(addr, 128, low, high, start_eip)
+pub unsafe fn safe_write128_slow_jit(
+    addr: i32,
+    low: u64,
+    high: u64,
+    eip_offset_in_page: i32,
+) -> i32 {
+    safe_write_slow_jit(addr, 128, low, high, eip_offset_in_page)
 }
 
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
@@ -3904,9 +3920,10 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_jit(start_eip: i32) {
+pub unsafe fn task_switch_test_jit(eip_offset_in_page: i32) {
     dbg_assert!(0 != *cr & (CR0_EM | CR0_TS));
-    trigger_nm_jit(start_eip);
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    trigger_nm_jit(eip_offset_in_page);
 }
 
 pub unsafe fn task_switch_test_mmx() -> bool {
@@ -3927,15 +3944,16 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_mmx_jit(start_eip: i32) {
+pub unsafe fn task_switch_test_mmx_jit(eip_offset_in_page: i32) {
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     if *cr.offset(4) & CR4_OSFXSR == 0 {
         dbg_log!("Warning: Unimplemented task switch test with cr4.osfxsr=0");
     }
     if 0 != *cr & CR0_EM {
-        trigger_ud_jit(start_eip);
+        trigger_ud_jit(eip_offset_in_page);
     }
     else if 0 != *cr & CR0_TS {
-        trigger_nm_jit(start_eip);
+        trigger_nm_jit(eip_offset_in_page);
     }
     else {
         dbg_assert!(false);
