@@ -3,12 +3,14 @@
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
+ * @param {Object} options
  */
-function ScreenAdapter(screen_container, screen_fill_buffer)
+function ScreenAdapter(options, screen_fill_buffer)
 {
+    const screen_container = options.container;
     this.screen_fill_buffer = screen_fill_buffer;
 
-    console.assert(screen_container, "1st argument must be a DOM container");
+    console.assert(screen_container, "options.container must be provided");
 
     var
         graphic_screen = screen_container.getElementsByTagName("canvas")[0],

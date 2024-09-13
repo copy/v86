@@ -45,7 +45,11 @@
  *   see [serial.html](../examples/serial.html).
  *
  * - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
- *   have a certain structure, see [basic.html](../examples/basic.html).
+ *   have a certain structure, see [basic.html](../examples/basic.html). Only
+ *   provided for backwards compatibility, use `screen` instead.
+ *
+ * - `screen Object` (No screen) - An object with the following properties:
+ *   - `container HTMLElement`: An HTMLElement, see above.
  *
  * ***
  *
@@ -312,18 +316,24 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     settings.enable_ne2k = true;
 
+    const screen_options = options.screen || {};
+    if(options.screen_container)
+    {
+        screen_options.container = options.screen_container;
+    }
+
     if(!options.disable_keyboard)
     {
         this.keyboard_adapter = new KeyboardAdapter(this.bus);
     }
     if(!options.disable_mouse)
     {
-        this.mouse_adapter = new MouseAdapter(this.bus, options.screen_container);
+        this.mouse_adapter = new MouseAdapter(this.bus, screen_options.container);
     }
 
-    if(options.screen_container)
+    if(screen_options.container)
     {
-        this.screen_adapter = new ScreenAdapter(options.screen_container, () => this.v86.cpu.devices.vga.screen_fill_buffer());
+        this.screen_adapter = new ScreenAdapter(screen_options, () => this.v86.cpu.devices.vga.screen_fill_buffer());
     }
     else
     {
