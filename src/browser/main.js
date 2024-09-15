@@ -1698,7 +1698,10 @@
 
             boot_order: settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
-            network_relay_url: networking_proxy,
+            net_device: {
+                type: "ne2k",
+                relay_url: networking_proxy,
+            },
 
             bios: settings.bios || bios,
             vga_bios: settings.bios ? null : vga_bios,

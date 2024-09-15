@@ -969,7 +969,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.pit = new PIT(this, device_bus);
 
-        if(settings.enable_ne2k)
+        if(settings.net_device.type === "ne2k")
         {
             this.devices.net = new Ne2k(this, device_bus, settings.preserve_mac_from_state_image, settings.mac_address_translation);
         }

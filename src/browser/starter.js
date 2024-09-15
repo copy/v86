@@ -3,11 +3,11 @@
 /**
  * Constructor for emulator instances.
  *
- * Usage: `var emulator = new V86(options);`
+ * Usage: `new V86(options);`
  *
  * Options can have the following properties (all optional, default in parenthesis):
  *
- * - `memory_size number` (16 * 1024 * 1024) - The memory size in bytes, should
+ * - `memory_size number` (64 * 1024 * 1024) - The memory size in bytes, should
  *   be a power of 2.
  * - `vga_memory_size number` (8 * 1024 * 1024) - VGA memory size in bytes.
  *
@@ -19,7 +19,15 @@
  *
  * - `network_relay_url string` (No network card) - The url of a server running
  *   websockproxy. See [networking.md](networking.md). Setting this will
- *   enable an emulated network card.
+ *   enable an emulated ne2k network card. Only provided for backwards
+ *   compatibility, use `net_device` instead.
+ *
+ * - `net_device Object` (null) - An object with the following properties:
+ *   - `relay_url: string` - See above
+ *   - `type: "ne2k" | "virtio"` - the type of the emulated cards
+ *
+ * - `net_devices Array<Object>` - Like `net_device`, but allows specifying
+ *   more than one network card (up to 4). (currently not implemented)
  *
  * - `bios Object` (No bios) - Either a url pointing to a bios or an
  *   ArrayBuffer, see below.
@@ -297,28 +305,27 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_console = options.virtio_console;
 
-    if(options.network_adapter)
+    const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
+    if(relay_url)
     {
-        this.network_adapter = options.network_adapter(this.bus);
-    }
-    else if(options.network_relay_url)
-    {
-        if(options.network_relay_url === "fetch")
+        // TODO: remove bus, use direct calls instead
+        if(relay_url === "fetch")
         {
             this.network_adapter = new FetchNetworkAdapter(this.bus);
         }
-        else if(options.network_relay_url.startsWith("wisp://") || options.network_relay_url.startsWith("wisps://")) {
-            this.network_adapter = new WispNetworkAdapter(options.network_relay_url, this.bus, options);
+        else if(relay_url.startsWith("wisp://") || relay_url.startsWith("wisps://"))
+        {
+            this.network_adapter = new WispNetworkAdapter(relay_url, this.bus, options);
         }
         else
         {
-            this.network_adapter = new NetworkAdapter(options.network_relay_url, this.bus);
+            this.network_adapter = new NetworkAdapter(relay_url, this.bus);
         }
     }
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.enable_ne2k = true;
+    settings.net_device = options.net_device || { type: "ne2k" };
 
     const screen_options = options.screen || {};
     if(options.screen_container)
