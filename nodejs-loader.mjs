@@ -50,7 +50,6 @@ let files = [
     "lib/filesystem.js",
     "lib/jor1k.js",
     "lib/marshall.js",
-    "lib/utf8.js",
 
     "src/browser/screen.js",
     "src/browser/keyboard.js",
