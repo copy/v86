@@ -1245,6 +1245,46 @@
                 },
                 homepage: "https://newos.org/",
             },
+            {
+                id: "aros-broadway",
+                name: "AROS Broadway",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    url: host + "broadway10/.iso",
+                    size: 742051840,
+                    async: true,
+                    fixed_chunk_size: 512 * 1024,
+                    use_parts: true,
+                },
+                homepage: "https://web.archive.org/web/20231109224346/http://www.aros-broadway.de/",
+            },
+            {
+                id: "icaros",
+                name: "Icaros Desktop",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    url: host + "icaros-pc-i386-2.3/.iso",
+                    size: 726511616,
+                    async: true,
+                    // NOTE: needs 136MB/287 requests to boot, maybe state image or zst parts?
+                    fixed_chunk_size: 512 * 1024,
+                    use_parts: true,
+                },
+                homepage: "http://vmwaros.blogspot.com/",
+            },
+            {
+                id: "tinyaros",
+                name: "Tiny Aros",
+                memory_size: 512 * 1024 * 1024,
+                cdrom: {
+                    url: host + "tinyaros-pc-i386/.iso",
+                    size: 111175680,
+                    async: true,
+                    fixed_chunk_size: 512 * 1024,
+                    use_parts: true,
+                },
+                homepage: "https://www.tinyaros.it/",
+            },
         ];
 
         if(DEBUG)
