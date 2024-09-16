@@ -1195,6 +1195,7 @@
                 cdrom: {
                     url: host + "nanoshell.iso",
                     size: 6785024,
+                    async: false,
                 },
                 homepage: "https://github.com/iProgramMC/NanoShellOS",
             },
@@ -1204,6 +1205,7 @@
                 cdrom: {
                     url: host + "catkernel.iso",
                     size: 11968512,
+                    async: false,
                 },
                 homepage: "https://catk.neocities.org/",
             },
@@ -1223,6 +1225,15 @@
                     url: host + "ibm-exploring.img",
                     size: 368640,
                 },
+            },
+            {
+                id: "leetos",
+                name: "lEEt/OS",
+                fda: {
+                    url: host + "leetos.img",
+                    size: 1474560,
+                },
+                homepage: "http://sininenankka.dy.fi/leetos/index.php",
             },
         ];
 
