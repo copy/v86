@@ -29,6 +29,12 @@ hosts). Additionally, NTP, ICMP pings and UDP echo packets are handled to a
 certain degree. See [#1061](https://github.com/copy/v86/pull/1061) for some
 technical details.
 
+You can pass the following flags to chromium to allow browsing without
+restrictions in `fetch` mode:
+    `--disable-web-security --user-data-dir=/tmp/test`
+Note that this turns off the same-origin policy and should only be used
+temporarily.
+
 ### wisp networking
 
 v86 also supports the [wisp
