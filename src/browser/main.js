@@ -1235,6 +1235,16 @@
                 },
                 homepage: "http://sininenankka.dy.fi/leetos/index.php",
             },
+            {
+                id: "newos",
+                name: "NewOS",
+                fda: {
+                    url: host + "newos-flp.img",
+                    size: 1474560,
+                    async: false,
+                },
+                homepage: "https://newos.org/",
+            },
         ];
 
         if(DEBUG)
