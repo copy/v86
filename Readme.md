@@ -208,6 +208,7 @@ repository under their own licenses:
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
 - [WinWorld](https://winworldpc.com/) sources of some old operating systems
 - [OS/2 Museum](https://www.os2museum.com/) sources of some old operating systems
+- [ArchiveOS](https://archiveos.org/) sources of several operating systems
 
 ## More questions?
 
