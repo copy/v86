@@ -311,8 +311,10 @@
                 id: "helenos",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
-                    url: host + "HelenOS-0.11.2-ia32.iso",
-                    size: 25765888,
+                    //url: host + "HelenOS-0.11.2-ia32.iso",
+                    //size: 25765888,
+                    url: host + "HelenOS-0.14.1-ia32.iso",
+                    size: 25792512,
                     async: false,
                 },
                 name: "HelenOS",
