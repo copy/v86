@@ -675,10 +675,19 @@
                 id: "bootbasic",
                 fda: {
                     url: host + "bootbasic.img",
-                    size: 1474560,
+                    size: 512,
                 },
                 name: "bootBASIC",
                 homepage: "https://github.com/nanochess/bootBASIC",
+            },
+            {
+                id: "bootlogo",
+                fda: {
+                    url: host + "bootlogo.img",
+                    size: 512,
+                },
+                name: "bootLogo",
+                homepage: "https://github.com/nanochess/bootLogo",
             },
             {
                 id: "sectorlisp",
@@ -723,6 +732,33 @@
                     size: 512,
                 },
                 name: "Hello v86",
+            },
+            {
+                id: "tetros",
+                fda: {
+                    url: host + "tetros.img",
+                    size: 512,
+                },
+                name: "TetrOS",
+                homepage: "https://github.com/daniel-e/tetros",
+            },
+            {
+                id: "dino",
+                fda: {
+                    url: host + "bootdino.img",
+                    size: 512,
+                },
+                name: "dino",
+                homepage: "https://github.com/franeklubi/dino",
+            },
+            {
+                id: "bootrogue",
+                fda: {
+                    url: host + "bootrogue.img",
+                    size: 512,
+                },
+                name: "bootRogue",
+                homepage: "https://github.com/nanochess/bootRogue",
             },
             {
                 id: "duskos",
