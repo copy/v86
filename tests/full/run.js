@@ -799,7 +799,7 @@ if(cluster.isMaster)
         {
             name: "Crazierl",
             skip_if_disk_image_missing: true,
-            timeout: 30,
+            timeout: 60,
             memory_size: 256 * 1024 * 1024,
             multiboot: root_path + "/images/crazierl-elf.img",
             initrd: root_path + "/images/crazierl-initrd.img",
