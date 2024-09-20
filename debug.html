@@ -4,67 +4,58 @@
 <title>Virtual x86 (debug)</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 
-<script>
-"use strict";
+<script src="src/const.js"></script>
+<script src="src/config.js"></script>
+<script src="src/log.js"></script>
+<script src="src/lib.js"></script>
+<script src="src/buffer.js"></script>
+<script src="src/cpu.js"></script>
+<script src="src/debug.js"></script>
+<script src="src/io.js"></script>
+<script src="src/main.js"></script>
+<script src="src/ide.js"></script>
+<script src="src/pci.js"></script>
+<script src="src/floppy.js"></script>
+<script src="src/memory.js"></script>
+<script src="src/dma.js"></script>
+<script src="src/pit.js"></script>
+<script src="src/vga.js"></script>
+<script src="src/ps2.js"></script>
+<script src="src/rtc.js"></script>
+<script src="src/uart.js"></script>
+<script src="src/acpi.js"></script>
+<script src="src/apic.js"></script>
+<script src="src/ioapic.js"></script>
+<script src="src/sb16.js"></script>
+<script src="src/ne2k.js"></script>
+<script src="src/state.js"></script>
+<script src="src/virtio.js"></script>
+<script src="src/virtio_console.js"></script>
+<script src="src/virtio_net.js"></script>
+<script src="src/bus.js"></script>
+<script src="src/elf.js"></script>
+<script src="src/kernel.js"></script>
+<script src="src/browser/main.js"></script>
+<script src="src/browser/screen.js"></script>
+<script src="src/browser/keyboard.js"></script>
+<script src="src/browser/mouse.js"></script>
+<script src="src/browser/speaker.js"></script>
+<script src="src/browser/serial.js"></script>
+<script src="src/browser/network.js"></script>
+<script src="src/browser/fake_network.js"></script>
+<script src="src/browser/fetch_network.js"></script>
+<script src="src/browser/wisp_network.js"></script>
+<script src="src/browser/starter.js"></script>
+<script src="src/browser/worker_bus.js"></script>
+<script src="src/browser/print_stats.js"></script>
+<script src="src/browser/filestorage.js"></script>
+<script src="lib/jor1k.js"></script>
+<script src="lib/9p.js"></script>
+<script src="lib/filesystem.js"></script>
+<script src="lib/marshall.js"></script>
+<script src="build/capstone-x86.min.js"></script>
+<script src="build/libwabt.js"></script>
 
-var CORE_FILES =
-    "const.js config.js log.js lib.js buffer.js cpu.js debug.js " +
-    "io.js main.js ide.js pci.js floppy.js " +
-    "memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js acpi.js apic.js ioapic.js sb16.js " +
-    "ne2k.js state.js virtio.js virtio_console.js virtio_net.js bus.js elf.js kernel.js";
-
-var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js speaker.js serial.js network.js fake_network.js fetch_network.js wisp_network.js starter.js worker_bus.js print_stats.js filestorage.js";
-var LIB_FILES = "";
-
-// jor1k stuff
-LIB_FILES += " jor1k.js 9p.js filesystem.js marshall.js";
-
-var BUILD_FILES = "capstone-x86.min.js libwabt.js";
-
-var to_load = [];
-
-load_scripts(CORE_FILES, "src/");
-load_scripts(BROWSER_FILES, "src/browser/");
-load_scripts(LIB_FILES, "lib/");
-load_scripts(BUILD_FILES, "build/");
-
-function load_scripts(resp, path)
-{
-    var files = resp.split(" ");
-
-    for(var i = 0; i < files.length; i++)
-    {
-        if(!files[i])
-        {
-            continue;
-        }
-
-        to_load.push(path + files[i]);
-    }
-}
-
-load_next();
-
-function load_next()
-{
-    let s = to_load.shift();
-
-    if(!s)
-    {
-        return;
-    }
-
-    var script = document.createElement("script");
-    script.src = s;
-    script.onload = load_next;
-    script.onerror = function() {
-        console.warn("trying to ignore script " + s + ", which failed to load");
-
-        load_next();
-    };
-    document.head.appendChild(script);
-}
-</script>
 <link rel="stylesheet" href="v86.css">
 
 <div>
