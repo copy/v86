@@ -206,6 +206,21 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
     this.svga_offset_x = 0;
     this.svga_offset_y = 0;
 
+    if(this.vga_memory_size === undefined || this.vga_memory_size < VGA_MIN_MEMORY_SIZE)
+    {
+        this.vga_memory_size = VGA_MIN_MEMORY_SIZE;
+    }
+    else if(this.vga_memory_size > VGA_MAX_MEMORY_SIZE)
+    {
+        this.vga_memory_size = VGA_MAX_MEMORY_SIZE;
+    }
+    else
+    {
+        // required for pci code
+        this.vga_memory_size = v86util.round_up_to_next_power_of_2(this.vga_memory_size);
+    }
+    dbg_log("effective vga memory size: " + this.vga_memory_size, LOG_VGA);
+
     const pci_revision = 0; // set to 2 for qemu extended registers
 
     // Experimental, could probably need some changes
@@ -220,7 +235,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
     this.pci_id = 0x12 << 3;
     this.pci_bars = [
         {
-            size: vga_memory_size,
+            size: this.vga_memory_size,
         },
     ];
 
@@ -338,23 +353,6 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
 
     io.register_write(0x1CF, this, undefined, this.port1CF_write);
     io.register_read(0x1CF, this, undefined, this.port1CF_read);
-
-    if(this.vga_memory_size === undefined || this.vga_memory_size < VGA_MIN_MEMORY_SIZE)
-    {
-        this.vga_memory_size = VGA_MIN_MEMORY_SIZE;
-        dbg_log("vga memory size rounded up to " + this.vga_memory_size, LOG_VGA);
-    }
-    else if(this.vga_memory_size > VGA_MAX_MEMORY_SIZE)
-    {
-        this.vga_memory_size = VGA_MAX_MEMORY_SIZE;
-        dbg_log("vga memory size rounded down to " + this.vga_memory_size, LOG_VGA);
-    }
-    else if(this.vga_memory_size & (VGA_BANK_SIZE - 1))
-    {
-        // round up to next 64k
-        this.vga_memory_size |= VGA_BANK_SIZE - 1;
-        this.vga_memory_size++;
-    }
 
 
     const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size) >>> 0;
