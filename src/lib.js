@@ -161,19 +161,6 @@ else
        Math.clz32(0x12345) === 15 && Math.clz32(-1) === 0)
     {
         /**
-         * calculate the integer logarithm base 2 of a byte
-         * @param {number} x
-         * @return {number}
-         */
-        v86util.int_log2_byte = function(x)
-        {
-            dbg_assert(x > 0);
-            dbg_assert(x < 0x100);
-
-            return 31 - Math.clz32(x);
-        };
-
-        /**
          * calculate the integer logarithm base 2
          * @param {number} x
          * @return {number}
@@ -197,19 +184,6 @@ else
 
         int_log2_table[i] = b;
     }
-
-    /**
-     * calculate the integer logarithm base 2 of a byte
-     * @param {number} x
-     * @return {number}
-     */
-    v86util.int_log2_byte = function(x)
-    {
-        dbg_assert(x > 0);
-        dbg_assert(x < 0x100);
-
-        return int_log2_table[x];
-    };
 
     /**
      * calculate the integer logarithm base 2
