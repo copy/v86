@@ -4,11 +4,21 @@
 {
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
 
+    const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost:8080/"];
+    const DEFAULT_MEMORY_SIZE = 128;
+    const DEFAULT_VGA_MEMORY_SIZE = 8;
+    const DEFAULT_BOOT_ORDER = 0;
+
     function set_title(text)
     {
         document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
         const description = document.querySelector("meta[name=description]");
         description && (description.content = "Running " + text);
+    }
+
+    function bool_arg(x)
+    {
+        return !!x && x !== "0";
     }
 
     function format_timestamp(time)
@@ -1330,7 +1340,12 @@
             }
             else
             {
-                // TODO: fill input fields with query arg values?
+                if(query_args.has("m")) $("memory_size").value = query_args.get("m");
+                if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
+                if(query_args.has("networking_proxy")) $("networking_proxy").value = query_args.get("networking_proxy");
+                if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
+                if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
+                if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
             }
         }
         else if(/^[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+$/g.test(profile))
@@ -1454,10 +1469,7 @@
     {
         $("boot_options").style.display = "none";
 
-        if(!query_args)
-        {
-            set_profile(profile?.id || "custom");
-        }
+        const new_query_args = new URLSearchParams({ "profile": profile?.id || "custom" });
 
         const settings = {};
 
@@ -1556,26 +1568,28 @@
                     settings.vga_memory_size = vram * 1024 * 1024;
                 }
 
-                settings.acpi = query_args.has("acpi") ? !!query_args.get("acpi") : undefined;
-                settings.use_bochs_bios = !!query_args.get("use_bochs_bios");
+                settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : undefined;
+                settings.use_bochs_bios = query_args.get("bios") === "bochs";
             }
 
-            settings.disable_jit = !!query_args.get("disable_jit");
             settings.networking_proxy = query_args.get("networking_proxy");
-            settings.audio = query_args.get("audio") && query_args.get("audio") !== "0";
+            settings.disable_jit = bool_arg(query_args.get("disable_jit"));
+            settings.disable_audio = bool_arg(query_args.get("mute"));
         }
 
         if(!settings.networking_proxy)
         {
             settings.networking_proxy = $("networking_proxy").value;
+            if(!DEFAULT_NETWORKING_PROXIES.includes(settings.networking_proxy)) new_query_args.append("networking_proxy", settings.networking_proxy);
         }
-        settings.disable_audio = $("disable_audio").checked || !settings.audio;
+        settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
+        if(settings.disable_audio) new_query_args.append("mute", "1");
 
         // some settings cannot be overridden when a state image is used
         if(!settings.initial_state)
         {
             const bios = $("bios").files[0];
-            if(bios && !settings.initial_state)
+            if(bios)
             {
                 settings.bios = { buffer: bios };
             }
@@ -1623,35 +1637,31 @@
 
             const MB = 1024 * 1024;
 
-            if(!settings.memory_size)
+            const memory_size = parseInt($("memory_size").value, 10) || DEFAULT_MEMORY_SIZE;
+            if(!settings.memory_size || memory_size !== DEFAULT_MEMORY_SIZE)
             {
-                let memory_size = parseInt($("memory_size").value, 10) * MB;
-                if(!memory_size)
-                {
-                    alert("Invalid memory size - reset to 128MB");
-                    memory_size = 128 * MB;
-                }
-                settings.memory_size = memory_size;
+                settings.memory_size = memory_size * MB;
             }
-            if(!settings.vga_memory_size)
-            {
-                let vga_memory_size = parseInt($("video_memory_size").value, 10) * MB;
-                if(!vga_memory_size)
-                {
-                    alert("Invalid video memory size - reset to 8MB");
-                    vga_memory_size = 8 * MB;
-                }
-                settings.vga_memory_size = vga_memory_size;
-            }
+            if(memory_size !== DEFAULT_MEMORY_SIZE) new_query_args.append("m", String(memory_size));
 
-            if(!settings.boot_order)
+            const vga_memory_size = parseInt($("vga_memory_size").value, 10) || DEFAULT_VGA_MEMORY_SIZE;
+            if(!settings.vga_memory_size || vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE)
             {
-                settings.boot_order = parseInt($("boot_order").value, 16) || 0;
+                settings.vga_memory_size = vga_memory_size * MB;
             }
+            if(vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE) new_query_args.append("vram", String(vga_memory_size));
+
+            const boot_order = parseInt($("boot_order").value, 16) || DEFAULT_BOOT_ORDER;
+            if(!settings.boot_order || boot_order !== DEFAULT_BOOT_ORDER)
+            {
+                settings.boot_order = boot_order;
+            }
+            if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.append("boot_order", String(settings.boot_order));
 
             if(settings.acpi === undefined)
             {
-                settings.acpi = $("enable_acpi").checked;
+                settings.acpi = $("acpi").checked;
+                if(settings.acpi) new_query_args.append("acpi", "1");
             }
 
             if(!settings.bios)
@@ -1672,6 +1682,11 @@
                 settings.bios = { url: BIOSPATH + biosfile };
                 settings.vga_bios = { url: BIOSPATH + vgabiosfile };
             }
+        }
+
+        if(!query_args)
+        {
+            push_state(new_query_args);
         }
 
         const emulator = new V86({
@@ -2447,11 +2462,12 @@
         location.reload();
     }
 
-    function set_profile(prof)
+    function push_state(params)
     {
         if(window.history.pushState)
         {
-            window.history.pushState({ profile: prof }, "", "?profile=" + prof);
+            const search = "?" + params.toString();
+            window.history.pushState({ search }, "", search);
         }
     }
 
