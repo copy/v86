@@ -149,6 +149,7 @@
                 filesystem: {
                     baseurl: host + "arch/",
                 },
+                net_device_type: "virtio",
             },
             {
                 id: "archlinux-boot",
@@ -170,6 +171,7 @@
                     "init=/usr/bin/init-openrc net.ifnames=0 biosdevname=0",
                 ].join(" "),
                 bzimage_initrd_from_filesystem: true,
+                net_device_type: "virtio",
             },
             {
                 id: "copy/skiffos",
@@ -1498,6 +1500,7 @@
             settings.memory_size = profile.memory_size;
             settings.vga_memory_size = profile.vga_memory_size;
             settings.boot_order = profile.boot_order;
+            settings.net_device_type = profile.net_device_type;
 
             if(!DEBUG && profile.homepage)
             {
@@ -1570,6 +1573,7 @@
 
                 settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : undefined;
                 settings.use_bochs_bios = query_args.get("bios") === "bochs";
+                settings.net_device_type = query_args.get("net_device_type") === "virtio" ? "virtio" : "ne2k";
             }
 
             settings.relay_url = query_args.get("relay_url");
@@ -1692,7 +1696,7 @@
         const emulator = new V86({
             screen_container: $("screen_container"),
             net_device: {
-                type: "ne2k",
+                type: settings.net_device_type || "ne2k",
                 relay_url: settings.relay_url,
             },
             autostart: true,

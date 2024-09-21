@@ -101,6 +101,7 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
                         const buffer = new Uint8Array(bufchain.length_readable);
                         bufchain.get_next_blob(buffer);
                         this.bus.send("net" + this.id + "-send", buffer.subarray(12));
+                        this.bus.send("eth-transmit-end", [buffer.length - 12]);
                         this.virtio.queues[queue_id].push_reply(bufchain);
                     }
                     this.virtio.queues[queue_id].flush_replies();
@@ -188,6 +189,7 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
     });
 
     this.bus.register("net" + this.id + "-receive", data => {
+        this.bus.send("eth-receive-end", [data.length]);
         const with_header = new Uint8Array(12 + data.byteLength);
         const view = new DataView(with_header.buffer, with_header.byteOffset, with_header.byteLength);
         view.setInt16(10, 1);
