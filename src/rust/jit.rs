@@ -310,7 +310,15 @@ pub struct JitContext<'a> {
     pub instruction_counter: WasmLocal,
 }
 impl<'a> JitContext<'a> {
-    pub fn reg(&self, i: u32) -> WasmLocal { self.register_locals[i as usize].unsafe_clone() }
+    pub fn reg(&self, i: u32) -> WasmLocal {
+        match self.register_locals.get(i as usize) {
+            Some(x) => x.unsafe_clone(),
+            None => {
+                dbg_assert!(false);
+                unsafe { std::hint::unreachable_unchecked() }
+            },
+        }
+    }
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;

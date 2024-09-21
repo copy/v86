@@ -29,7 +29,7 @@ pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {
         0o207 => get_seg_prefix_ds(read_reg16(BX) + read_imm16()? & 0xFFFF),
         _ => {
             dbg_assert!(false);
-            0
+            std::hint::unreachable_unchecked()
         },
     }
 }
@@ -127,7 +127,7 @@ pub unsafe fn resolve_modrm32(modrm_byte: i32) -> OrPageFault<i32> {
         0o207 => get_seg_prefix_ds(read_reg32(EDI) + read_imm32s()?),
         _ => {
             dbg_assert!(false);
-            0
+            std::hint::unreachable_unchecked()
         },
     }
 }
