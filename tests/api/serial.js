@@ -34,6 +34,7 @@ setTimeout(async () =>
 }, 1000);
 
 const timeout = setTimeout(() => {
+    console.log(serial_data);
     throw new Error("Timeout");
 }, 60 * 1000);
 
