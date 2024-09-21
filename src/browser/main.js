@@ -132,7 +132,7 @@
         if(DEBUG && ON_LOCALHOST)
         {
             // don't use online relay in debug mode
-            $("networking_proxy").value = "ws://localhost:8080/";
+            $("relay_url").value = "ws://localhost:8080/";
         }
 
         const query_args = new URLSearchParams(location.search);
@@ -1342,7 +1342,7 @@
             {
                 if(query_args.has("m")) $("memory_size").value = query_args.get("m");
                 if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
-                if(query_args.has("networking_proxy")) $("networking_proxy").value = query_args.get("networking_proxy");
+                if(query_args.has("relay_url")) $("relay_url").value = query_args.get("relay_url");
                 if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
                 if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
                 if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
@@ -1572,15 +1572,15 @@
                 settings.use_bochs_bios = query_args.get("bios") === "bochs";
             }
 
-            settings.networking_proxy = query_args.get("networking_proxy");
+            settings.relay_url = query_args.get("relay_url");
             settings.disable_jit = bool_arg(query_args.get("disable_jit"));
             settings.disable_audio = bool_arg(query_args.get("mute"));
         }
 
-        if(!settings.networking_proxy)
+        if(!settings.relay_url)
         {
-            settings.networking_proxy = $("networking_proxy").value;
-            if(!DEFAULT_NETWORKING_PROXIES.includes(settings.networking_proxy)) new_query_args.append("networking_proxy", settings.networking_proxy);
+            settings.relay_url = $("relay_url").value;
+            if(!DEFAULT_NETWORKING_PROXIES.includes(settings.relay_url)) new_query_args.append("relay_url", settings.relay_url);
         }
         settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
         if(settings.disable_audio) new_query_args.append("mute", "1");
@@ -1693,7 +1693,7 @@
             screen_container: $("screen_container"),
             net_device: {
                 type: "ne2k",
-                relay_url: settings.networking_proxy,
+                relay_url: settings.relay_url,
             },
             autostart: true,
 
