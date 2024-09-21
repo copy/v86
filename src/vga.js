@@ -276,6 +276,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
     this.sequencer_memory_mode = 0;
     this.clocking_mode = 0;
     this.graphics_index = -1;
+    this.character_map_select = 0;
 
     this.plane_read = 0; // value 0-3, which plane to read
     this.planar_mode = 0;
@@ -323,23 +324,22 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
 
     io.register_read(0x3CC, this, this.port3CC_read);
 
-    io.register_write(0x3D4, this, this.port3D4_write, value => {
-        this.port3D4_write(value & 0xFF);
-        this.port3D5_write(value >> 8 & 0xFF);
-    });
-    io.register_write(0x3D5, this, this.port3D5_write, value => {
-        dbg_log("16-bit write to 3D5: " + h(value, 4), LOG_VGA);
-        this.port3D5_write(value & 0xFF);
-    });
+    io.register_write(0x3D4, this, this.port3D4_write, this.port3D4_write16);
+    io.register_write(0x3D5, this, this.port3D5_write, this.port3D5_write16);
 
     io.register_read(0x3D4, this, this.port3D4_read);
-    io.register_read(0x3D5, this, this.port3D5_read, () => {
-        dbg_log("Warning: 16-bit read from 3D5", LOG_VGA);
-        return this.port3D5_read();
-    });
+    io.register_read(0x3D5, this, this.port3D5_read, this.port3D5_read16);
+
+    // use same handlers for monochrome text-mode's alternate port addresses 0x3B4/0x3B5 as for the regular addresses (0x3D4/0x3D5)
+    io.register_write(0x3B4, this, this.port3D4_write, this.port3D4_write16);
+    io.register_write(0x3B5, this, this.port3D5_write, this.port3D5_write16);
+
+    io.register_read(0x3B4, this, this.port3D4_read);
+    io.register_read(0x3B5, this, this.port3D5_read, this.port3D5_read16);
 
     io.register_read(0x3CA, this, function() { dbg_log("3CA read", LOG_VGA); return 0; });
 
+    // use same handler for monochrome text-mode's alternate port address 0x3BA as for its regular address (0x3DA)
     io.register_read(0x3DA, this, this.port3DA_read);
     io.register_read(0x3BA, this, this.port3DA_read);
 
@@ -447,6 +447,7 @@ VGAScreen.prototype.get_state = function()
     state[60] = this.line_compare;
     state[61] = this.pixel_buffer;
     state[62] = this.dac_mask;
+    state[63] = this.character_map_select;
 
     return state;
 };
@@ -516,6 +517,7 @@ VGAScreen.prototype.set_state = function(state)
     this.line_compare = state[60];
     state[61] && this.pixel_buffer.set(state[61]);
     this.dac_mask = state[62] === undefined ? 0xFF : state[62];
+    this.character_map_select = state[63] === undefined ? 0 : state[63];
 
     this.screen.set_mode(this.graphical_mode);
 
@@ -600,8 +602,9 @@ VGAScreen.prototype.vga_memory_read = function(addr)
         var plane = this.plane_read;
         if(!this.graphical_mode)
         {
-            // We currently put all text data linearly
-            plane = 0;
+            // We store all text data linearly and font data in plane 2.
+            // TODO: works well for planes 0 and 2, but what about plane 1?
+            plane &= 0x3;
         }
         else if(this.sequencer_memory_mode & 0x8)
         {
@@ -645,7 +648,7 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
     {
         if(!(this.plane_write_bm & 0x3))
         {
-            // Ignore writes to font planes.
+            this.plane2[addr] = value;
             return;
         }
         this.vga_memory_write_text_mode(addr, value);
@@ -1520,7 +1523,20 @@ VGAScreen.prototype.port3C5_write = function(value)
             break;
         case 0x02:
             dbg_log("plane write mask: " + h(value), LOG_VGA);
+            var previous_plane_write_bm = this.plane_write_bm;
             this.plane_write_bm = value;
+            if(this.graphical_text && previous_plane_write_bm !== 0xf && (previous_plane_write_bm & 0x4) && !(this.plane_write_bm & 0x4))
+            {
+                // End of font plane 2 write access (initial value of plane_write_bm assumed to be 0xf)
+            }
+            break;
+        case 0x03:
+            dbg_log("character map select: " + h(value), LOG_VGA);
+            var previous_character_map_select = this.character_map_select;
+            this.character_map_select = value;
+            if(this.graphical_text && previous_character_map_select !== this.character_map_select)
+            {
+            }
             break;
         case 0x04:
             dbg_log("sequencer memory mode: " + h(value), LOG_VGA);
@@ -1541,6 +1557,8 @@ VGAScreen.prototype.port3C5_read = function()
             return this.clocking_mode;
         case 0x02:
             return this.plane_write_bm;
+        case 0x03:
+            return this.character_map_select;
         case 0x04:
             return this.sequencer_memory_mode;
         case 0x06:
@@ -1759,6 +1777,12 @@ VGAScreen.prototype.port3D4_write = function(register)
     this.index_crtc = register;
 };
 
+VGAScreen.prototype.port3D4_write16 = function(register)
+{
+    this.port3D4_write(register & 0xFF);
+    this.port3D5_write(register >> 8 & 0xFF);
+};
+
 VGAScreen.prototype.port3D4_read = function()
 {
     dbg_log("3D4 read / crtc index: " + this.index_crtc, LOG_VGA);
@@ -1816,12 +1840,13 @@ VGAScreen.prototype.port3D5_write = function(value)
             break;
         case 0x9:
             dbg_log("3D5 / max scan line write: " + h(value), LOG_VGA);
+            var previous_max_scan_line = this.max_scan_line;
             this.max_scan_line = value;
             this.line_compare = (this.line_compare & 0x1FF) | (value << 3 & 0x200);
 
             var previous_vertical_blank_start = this.vertical_blank_start;
             this.vertical_blank_start = (this.vertical_blank_start & 0x1FF) | (value << 4 & 0x200);
-            if(previous_vertical_blank_start !== this.vertical_blank_start)
+            if(((previous_max_scan_line ^ this.max_scan_line) & 0x9F) || previous_vertical_blank_start !== this.vertical_blank_start)
             {
                 this.update_vga_size();
             }
@@ -1956,6 +1981,12 @@ VGAScreen.prototype.port3D5_write = function(value)
 
 };
 
+VGAScreen.prototype.port3D5_write16 = function(register)
+{
+    dbg_log("16-bit write to 3D5: " + h(register, 4), LOG_VGA);
+    this.port3D5_write(register & 0xFF);
+};
+
 VGAScreen.prototype.port3D5_read = function()
 {
     dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
@@ -2009,6 +2040,12 @@ VGAScreen.prototype.port3D5_read = function()
     {
         return 0;
     }
+};
+
+VGAScreen.prototype.port3D5_read16 = function()
+{
+    dbg_log("Warning: 16-bit read from 3D5", LOG_VGA);
+    return this.port3D5_read();
 };
 
 VGAScreen.prototype.port3DA_read = function()
