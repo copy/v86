@@ -211,9 +211,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         if(!font_width || !text_mode_width || !font_height || !text_mode_height)
         {
             console.log(font_width, text_mode_width, font_height, text_mode_height);
-            return;
         }
-        return;
 /*
         const gfx_width = font_width * text_mode_width;
         const gfx_height = font_height * text_mode_height;
