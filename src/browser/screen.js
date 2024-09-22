@@ -37,7 +37,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         changed_rows,
 
         // are we in graphical mode now?
-        is_graphical = false,
+        is_graphical = !!options.use_graphical_text,
 
         // Index 0: ASCII code
         // Index 1: Blinking
@@ -134,9 +134,19 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.init = function()
     {
-        // not necessary, because this gets initialized by the bios early,
-        // but nicer to look at
-        this.set_size_text(80, 25);
+        // initialize with mode and size presets as expected by the bios
+        // to avoid flickering during early startup
+        this.set_mode(is_graphical);
+
+        if(is_graphical)
+        {
+            // assume 80x25 with 9x16 font
+            this.set_size_graphical(720, 400, 720, 400);
+        }
+        else
+        {
+            this.set_size_text(80, 25);
+        }
 
         this.timer();
     };
