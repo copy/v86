@@ -48,6 +48,14 @@ function DummyScreenAdapter()
         is_graphical = graphical;
     };
 
+    this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
+    {
+    };
+
+    this.set_font_page = function(page_a, page_b)
+    {
+    };
+
     this.clear_screen = function()
     {
     };
