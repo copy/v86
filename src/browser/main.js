@@ -1694,10 +1694,7 @@
         }
 
         const emulator = new V86({
-            screen: {
-                container: $("screen_container"),
-                use_graphical_text: false,
-            },
+            screen_container: $("screen_container"),
             net_device: {
                 type: settings.net_device_type || "ne2k",
                 relay_url: settings.relay_url,
