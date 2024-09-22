@@ -84,10 +84,13 @@ function ScreenAdapter(options, screen_fill_buffer)
         blink_visible;
 
     const CHARACTER_INDEX = 0;
-    const BLINKING_INDEX = 1;
+    const FLAGS_INDEX = 1;
     const BG_COLOR_INDEX = 2;
     const FG_COLOR_INDEX = 3;
     const TEXT_MODE_COMPONENT_SIZE = 4;
+
+    const FLAG_BLINKING = 0x01;
+    const FLAG_FONT_PAGE_A = 0x02;
 
     var stopped = false;
     var paused = false;
@@ -206,13 +209,13 @@ function ScreenAdapter(options, screen_fill_buffer)
         return dst_bitmap;
     }
 
-    function rebuild_graphical_text_buffer()   // was: GraphicalText.rebuild_image_data()
+    function rebuild_graphical_text_buffer()
     {
-        if(!font_width || !text_mode_width || !font_height || !text_mode_height)
+        if(!font_width || !font_height || !text_mode_width || !text_mode_height)
         {
-            console.log(font_width, text_mode_width, font_height, text_mode_height);
+            return;
         }
-/*
+
         const gfx_width = font_width * text_mode_width;
         const gfx_height = font_height * text_mode_height;
         const gfx_size = gfx_width * gfx_height * 4;
@@ -229,47 +232,20 @@ function ScreenAdapter(options, screen_fill_buffer)
             changed_rows.fill(1);
         }
         // TODO: send bus message about changed screen size?
-*/
     }
 
     function render_dirty_rows()
     {
-        //const vga = this.vga;                     // deprecated
-        //const vga_memory = vga.vga_memory;        // deprecated
-        //onst txt_width = this.txt_width;          // use text_mode_width instead
-        //const txt_height = this.txt_height;       // use text_mode_height instead
-        //const txt_row_dirty = this.txt_row_dirty; // use changed_rows instead
-        // const gfx_data = this.gfx_data;          // use graphical_text_buffer instead
-        //const font_bitmap = this.font_bitmap;     // ok
-        //const font_size = this.font_width * this.font_height;
-        //const font_A_offset = this.font_index_A * 256;
-        //const font_B_offset = this.font_index_B * 256;
         const font_size = font_width * font_height;
         const font_A_offset = font_page_a * 256;
         const font_B_offset = font_page_b * 256;
         const font_AB_enabled = font_A_offset !== font_B_offset;
-
-        //const font_blink_enabled = this.font_blink_enabled;
-        //const blink_visible = this.blink_visible; // ok
-        //const cursor_top = this.cursor_top;       // use cursor_start instead
-        //const cursor_height = this.cursor_bottom - cursor_top + 1;
         const font_blink_enabled = true;            // TODO!
         const cursor_visible = cursor_enabled && blink_visible;
         const cursor_height = cursor_end - cursor_start + 1;
 
         const gfx_width = font_width * text_mode_width;
         const gfx_height = font_height * text_mode_height;
-
-        //const split_screen_row = vga.scan_line_to_screen_row(vga.line_compare);
-        //const bg_color_mask = font_blink_enabled ? 0x7 : 0xF;
-        //const palette = new Int32Array(16);
-        //for(let i = 0; i < 16; ++i)
-        //{
-        //    palette[i] = vga.vga256_palette[vga.dac_mask & vga.dac_map[i]];
-        //}
-
-        //const txt_row_size = text_mode_width * 2;
-        //const txt_row_step = Math.max(0, (vga.offset_register * 2 - text_mode_width) * 2);
         const txt_row_size = text_mode_width * TEXT_MODE_COMPONENT_SIZE;
 
         // column size in graphical_text_buffer (tuple of 4 RGBA items)
@@ -292,16 +268,8 @@ function ScreenAdapter(options, screen_fill_buffer)
         let draw_cursor, gfx_ic;
         let row, col;
 
-        //txt_i = vga.start_address << 1;
-        for(row = 0, txt_i = 0; row < text_mode_height; ++row) //, txt_i += txt_row_step)
+        for(row = 0, txt_i = 0; row < text_mode_height; ++row)
         {
-            /*
-            if(row === split_screen_row)
-            {
-                txt_i = 0;
-            }
-            */
-
             if(!changed_rows[row])
             {
                 txt_i += txt_row_size;
@@ -310,21 +278,12 @@ function ScreenAdapter(options, screen_fill_buffer)
 
             gfx_i = row * gfx_row_size;
 
-            //for(col = 0; col < text_mode_width; ++col, txt_i += 2, gfx_i += gfx_col_step)
             for(col = 0; col < text_mode_width; ++col, txt_i += TEXT_MODE_COMPONENT_SIZE, gfx_i += gfx_col_step)
             {
-                /*
-                chr = vga_memory[txt_i];
-                chr_attr = vga_memory[txt_i | 1];
-                chr_blinking = font_blink_enabled && chr_attr & 0x80;
-                chr_font_ofs = font_AB_enabled ? (chr_attr & 0x8 ? font_A_offset : font_B_offset) : font_A_offset;
-                chr_bg_rgba = palette[chr_attr >> 4 & bg_color_mask];
-                chr_fg_rgba = palette[chr_attr & 0xF];
-                */
-                //const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
-                const chr_blinking = font_blink_enabled && text_mode_data[txt_i + BG_COLOR_INDEX];
-                const chr_font_ofs = font_AB_enabled ? font_A_offset : font_A_offset; // TODO! 4th bit of attribute byte selects font page A or B
+                const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
+                const chr_blinking = font_blink_enabled && chr_flags & FLAG_BLINKING;
+                const chr_font_ofs = font_AB_enabled ? (chr_flags & FLAG_FONT_PAGE_A ? font_A_offset : font_B_offset) : font_A_offset;
                 const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
                 const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
 
@@ -403,17 +362,14 @@ function ScreenAdapter(options, screen_fill_buffer)
         // to avoid flickering during early startup
         this.set_mode(is_graphical);
 
-/*
-        if(!is_graphical)
-*/
-        if(mode !== MODE_TEXT)
+        if(mode === MODE_TEXT)
         {
-            // assume 80x25 with 9x16 font
-            this.set_size_graphical(720, 400, 720, 400);
+            this.set_size_text(80, 25);
         }
         else
         {
-            this.set_size_text(80, 25);
+            // assume 80x25 with 9x16 font
+            this.set_size_graphical(720, 400, 720, 400);
         }
 
         this.timer();
@@ -423,9 +379,6 @@ function ScreenAdapter(options, screen_fill_buffer)
     {
         const image = new Image();
 
-/*
-        if(is_graphical)
-*/
         if(mode !== MODE_TEXT)
         {
             image.src = graphic_screen.toDataURL("image/png");
@@ -475,18 +428,21 @@ function ScreenAdapter(options, screen_fill_buffer)
         return image;
     };
 
-    this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
+    this.put_char = function(row, col, chr, flags, bg_color, fg_color)
     {
+        if(!text_mode_data || !changed_rows || !text_mode_width || !text_mode_height)
+        {
+            return;
+        }
+
         dbg_assert(row >= 0 && row < text_mode_height);
         dbg_assert(col >= 0 && col < text_mode_width);
         dbg_assert(chr >= 0 && chr < 0x100);
 
-if(!text_mode_data || !changed_rows) { return; }
-
         const p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
         text_mode_data[p + CHARACTER_INDEX] = chr;
-        text_mode_data[p + BLINKING_INDEX] = blinking;
+        text_mode_data[p + FLAGS_INDEX] = flags;
         text_mode_data[p + BG_COLOR_INDEX] = bg_color;
         text_mode_data[p + FG_COLOR_INDEX] = fg_color;
 
@@ -495,12 +451,6 @@ if(!text_mode_data || !changed_rows) { return; }
 
     this.timer = function()
     {
-/*
-        if(!stopped)
-        {
-            requestAnimationFrame(() => is_graphical ? this.update_graphical() : this.update_text());
-        }
-*/
         if(!stopped)
         {
             switch(mode)
@@ -619,13 +569,12 @@ if(!text_mode_data || !changed_rows) { return; }
 
     this.set_font_page = function(page_a, page_b)
     {
-        if(!use_graphical_text || (font_page_a === page_a && font_page_b === page_b))
+        if(use_graphical_text && (font_page_a !== page_a || font_page_b !== page_b))
         {
-            return;
+            font_page_a = page_a;
+            font_page_b = page_b;
+            changed_rows.fill(1);
         }
-        font_page_a = page_a;
-        font_page_b = page_b;
-        // TODO: redraw
     };
 
     this.clear_screen = function()
@@ -698,12 +647,6 @@ if(!text_mode_data || !changed_rows) { return; }
         graphic_context.imageSmoothingEnabled = false;
 
         // add some scaling to tiny resolutions
-/*
-        if(!options.disable_autoscale &&
-            width <= 640 &&
-            width * 2 < window.innerWidth * window.devicePixelRatio &&
-            height * 2 < window.innerHeight * window.devicePixelRatio)
-*/
         if(width <= 640 &&
             width * 2 < window.innerWidth * window.devicePixelRatio &&
             height * 2 < window.innerHeight * window.devicePixelRatio)
@@ -735,9 +678,6 @@ if(!text_mode_data || !changed_rows) { return; }
 
     function update_scale_graphic()
     {
-/*
-        elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
-*/
         if(!options.disable_autoscale)
         {
             elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
@@ -860,7 +800,7 @@ if(!text_mode_data || !changed_rows) { return; }
         {
             color_element = document.createElement("span");
 
-            blinking = text_mode_data[offset + BLINKING_INDEX];
+            blinking = text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING;
             bg_color = text_mode_data[offset + BG_COLOR_INDEX];
             fg_color = text_mode_data[offset + FG_COLOR_INDEX];
 
@@ -876,7 +816,7 @@ if(!text_mode_data || !changed_rows) { return; }
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
-                text_mode_data[offset + BLINKING_INDEX] === blinking &&
+                text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING === blinking &&
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {

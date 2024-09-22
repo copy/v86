@@ -846,10 +846,12 @@ VGAScreen.prototype.text_mode_redraw = function()
             const chr = this.vga_memory[addr];
             const color = this.vga_memory[addr | 1];
             const blinking = blink_flag && (color & 1 << 7);
+            const font_page_a = color & 1 << 3;
+            const flags = (blinking ? 1 : 0) | (font_page_a ? 2 : 0);
 
             this.bus.send("screen-put-char", [row, col, chr]);
 
-            this.screen.put_char(row, col, chr, blinking,
+            this.screen.put_char(row, col, chr, flags,
                 this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & bg_color_mask]],
                 this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]);
 
@@ -904,11 +906,13 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
     }
     const blink_flag = this.attribute_mode & 1 << 3;
     const blinking = blink_flag && (color & 1 << 7);
+    const font_page_a = color & 1 << 3;
+    const flags = (blinking ? 1 : 0) | (font_page_a ? 2 : 0);
     const bg_color_mask = blink_flag ? 7 : 0xF;
 
     this.bus.send("screen-put-char", [row, col, chr]);
 
-    this.screen.put_char(row, col, chr, blinking,
+    this.screen.put_char(row, col, chr, flags,
         this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & bg_color_mask]],
         this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]);
 };
