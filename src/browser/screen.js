@@ -284,7 +284,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         const gfx_line_step = (gfx_width - font_width) * 4;
 
         // int, current cursor linear position in canvas coordinates (top left of row/col)
-        const cursor_gfx_i = (this.cursor_row * gfx_width * this.font_height + this.cursor_col * this.font_width) * 4;
+        const cursor_gfx_i = (cursor_row * gfx_width * font_height + cursor_col * font_width) * 4;
 
         let txt_i, chr, chr_attr, chr_bg_rgba, chr_fg_rgba, chr_blinking, chr_font_ofs;
         let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0;
