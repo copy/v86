@@ -12,6 +12,10 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     console.assert(screen_container, "options.container must be provided");
 
+    const MODE_TEXT = 0;
+    const MODE_GRAPHICAL = 1;
+    const MODE_GRAPHICAL_TEXT = 2;
+
     var
         graphic_screen = screen_container.getElementsByTagName("canvas")[0],
         graphic_context = graphic_screen.getContext("2d", { alpha: false }),
@@ -36,8 +40,14 @@ function ScreenAdapter(options, screen_fill_buffer)
 
         changed_rows,
 
+        // use graphical text mode?
+        use_graphical_text = !!options.use_graphical_text,
+
+        // current display mode: MODE_TEXT, MODE_GRAPHICAL or MODE_GRAPHICAL_TEXT
+        mode = use_graphical_text ? MODE_GRAPHICAL_TEXT : MODE_TEXT,
+
         // are we in graphical mode now?
-        is_graphical = false,
+        is_graphical = false,   //use_graphical_text,
 
         // Index 0: ASCII code
         // Index 1: Blinking
@@ -49,7 +59,29 @@ function ScreenAdapter(options, screen_fill_buffer)
         text_mode_width,
 
         // number of rows
-        text_mode_height;
+        text_mode_height,
+
+        // cursor attributes
+        cursor_start,
+        cursor_end,
+        cursor_enabled,
+
+        // graphical text mode state
+        graphical_text_buffer,
+        graphical_text_image_data,
+
+        // font attributes
+        font_bitmap,
+        font_height,
+        font_width,
+        font_width_9px,
+        font_width_dbl,
+        font_copy_8th_col,
+        font_page_a = 0,
+        font_page_b = 0,
+
+        // blink state
+        blink_visible;
 
     const CHARACTER_INDEX = 0;
     const BLINKING_INDEX = 1;
@@ -129,14 +161,262 @@ function ScreenAdapter(options, screen_fill_buffer)
     cursor_element.style.width = "7px";
     cursor_element.style.display = "inline-block";
 
-    text_screen.style.display = "block";
-    graphic_screen.style.display = "none";
+    text_screen.style.display = mode === MODE_TEXT ? "block" : "none";
+    graphic_screen.style.display = mode === MODE_TEXT ? "none" : "block";
+
+    function rebuild_font_bitmap(src_bitmap)
+    {
+        const dst_size = 8 * 256 * font_width * font_height;
+        const dst_bitmap = font_bitmap && font_bitmap.length === dst_size ?
+            font_bitmap : new Uint8ClampedArray(dst_size);
+        const vga_inc_chr = 32 - font_height;
+
+        let i_dst = 0;
+        const copy_bit = font_width_dbl ?
+            function(value)
+            {
+                dst_bitmap[i_dst++] = value;
+                dst_bitmap[i_dst++] = value;
+            } :
+            function(value)
+            {
+                dst_bitmap[i_dst++] = value;
+            };
+
+        let i_src = 0;
+        for(let i_font = 0; i_font < 8; ++i_font)
+        {
+            for(let i_chr = 0; i_chr < 256; ++i_chr, i_src += vga_inc_chr)
+            {
+                for(let i_line = 0; i_line < font_height; ++i_line)
+                {
+                    const line_bits = src_bitmap[i_src++];
+                    for(let i_bit = 0x80; i_bit > 0; i_bit >>= 1)
+                    {
+                        copy_bit(line_bits & i_bit ? 1 : 0);
+                    }
+                    if(font_width_9px)
+                    {
+                        copy_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 1 : 0);
+                    }
+                }
+            }
+        }
+
+        return dst_bitmap;
+    }
+
+    function rebuild_graphical_text_buffer()   // was: GraphicalText.rebuild_image_data()
+    {
+        if(!font_width || !text_mode_width || !font_height || !text_mode_height)
+        {
+            console.log(font_width, text_mode_width, font_height, text_mode_height);
+            return;
+        }
+        return;
+/*
+        const gfx_width = font_width * text_mode_width;
+        const gfx_height = font_height * text_mode_height;
+        const gfx_size = gfx_width * gfx_height * 4;
+        const gfx_buffer = new Uint8ClampedArray(gfx_size);
+        for(let i = 3; i < gfx_size; i += 4)
+        {
+            gfx_buffer[i] = 0xff;
+        }
+        graphical_text_buffer = gfx_buffer;
+        graphical_text_image_data = new ImageData(gfx_buffer, gfx_width, gfx_height);
+        // invalidate all text rows
+        if(changed_rows)
+        {
+            changed_rows.fill(1);
+        }
+        // TODO: send bus message about changed screen size?
+*/
+    }
+
+    function render_dirty_rows()
+    {
+        //const vga = this.vga;                     // deprecated
+        //const vga_memory = vga.vga_memory;        // deprecated
+        //onst txt_width = this.txt_width;          // use text_mode_width instead
+        //const txt_height = this.txt_height;       // use text_mode_height instead
+        //const txt_row_dirty = this.txt_row_dirty; // use changed_rows instead
+        // const gfx_data = this.gfx_data;          // use graphical_text_buffer instead
+        //const font_bitmap = this.font_bitmap;     // ok
+        //const font_size = this.font_width * this.font_height;
+        //const font_A_offset = this.font_index_A * 256;
+        //const font_B_offset = this.font_index_B * 256;
+        const font_size = font_width * font_height;
+        const font_A_offset = font_page_a * 256;
+        const font_B_offset = font_page_b * 256;
+        const font_AB_enabled = font_A_offset !== font_B_offset;
+
+        //const font_blink_enabled = this.font_blink_enabled;
+        //const blink_visible = this.blink_visible; // ok
+        //const cursor_top = this.cursor_top;       // use cursor_start instead
+        //const cursor_height = this.cursor_bottom - cursor_top + 1;
+        const font_blink_enabled = true;            // TODO!
+        const cursor_visible = cursor_enabled && blink_visible;
+        const cursor_height = cursor_end - cursor_start + 1;
+
+        const gfx_width = font_width * text_mode_width;
+        const gfx_height = font_height * text_mode_height;
+
+        //const split_screen_row = vga.scan_line_to_screen_row(vga.line_compare);
+        //const bg_color_mask = font_blink_enabled ? 0x7 : 0xF;
+        //const palette = new Int32Array(16);
+        //for(let i = 0; i < 16; ++i)
+        //{
+        //    palette[i] = vga.vga256_palette[vga.dac_mask & vga.dac_map[i]];
+        //}
+
+        //const txt_row_size = text_mode_width * 2;
+        //const txt_row_step = Math.max(0, (vga.offset_register * 2 - text_mode_width) * 2);
+        const txt_row_size = text_mode_width * TEXT_MODE_COMPONENT_SIZE;
+
+        // column size in graphical_text_buffer (tuple of 4 RGBA items)
+        const gfx_col_size = font_width * 4;
+        // line size in graphical_text_buffer
+        const gfx_line_size = gfx_width * 4;
+        // row size in graphical_text_buffer
+        const gfx_row_size = gfx_line_size * font_height;
+        // move from end of current column to start of next in graphical_text_buffer
+        const gfx_col_step = (font_width - font_height * gfx_width) * 4;
+        // move forward to start of column's next line in graphical_text_buffer
+        const gfx_line_step = (gfx_width - font_width) * 4;
+
+        // int, current cursor linear position in canvas coordinates (top left of row/col)
+        const cursor_gfx_i = (this.cursor_row * gfx_width * this.font_height + this.cursor_col * this.font_width) * 4;
+
+        let txt_i, chr, chr_attr, chr_bg_rgba, chr_fg_rgba, chr_blinking, chr_font_ofs;
+        let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0;
+        let gfx_i, gfx_end_y, gfx_end_x, glyph_i;
+        let draw_cursor, gfx_ic;
+        let row, col;
+
+        //txt_i = vga.start_address << 1;
+        for(row = 0, txt_i = 0; row < text_mode_height; ++row) //, txt_i += txt_row_step)
+        {
+            /*
+            if(row === split_screen_row)
+            {
+                txt_i = 0;
+            }
+            */
+
+            if(!changed_rows[row])
+            {
+                txt_i += txt_row_size;
+                continue;
+            }
+
+            gfx_i = row * gfx_row_size;
+
+            //for(col = 0; col < text_mode_width; ++col, txt_i += 2, gfx_i += gfx_col_step)
+            for(col = 0; col < text_mode_width; ++col, txt_i += TEXT_MODE_COMPONENT_SIZE, gfx_i += gfx_col_step)
+            {
+                /*
+                chr = vga_memory[txt_i];
+                chr_attr = vga_memory[txt_i | 1];
+                chr_blinking = font_blink_enabled && chr_attr & 0x80;
+                chr_font_ofs = font_AB_enabled ? (chr_attr & 0x8 ? font_A_offset : font_B_offset) : font_A_offset;
+                chr_bg_rgba = palette[chr_attr >> 4 & bg_color_mask];
+                chr_fg_rgba = palette[chr_attr & 0xF];
+                */
+                //const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
+                const chr = text_mode_data[txt_i + CHARACTER_INDEX];
+                const chr_blinking = font_blink_enabled && text_mode_data[txt_i + BG_COLOR_INDEX];
+                const chr_font_ofs = font_AB_enabled ? font_A_offset : font_A_offset; // TODO! 4th bit of attribute byte selects font page A or B
+                const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
+                const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
+
+                if(bg !== chr_bg_rgba)
+                {
+                    bg = chr_bg_rgba;
+                    bg_r = bg >> 16;
+                    bg_g = (bg >> 8) & 0xff;
+                    bg_b = bg & 0xff;
+                }
+
+                if(chr_blinking && ! blink_visible)
+                {
+                    if(fg !== bg) {
+                        fg = bg;
+                        fg_r = bg_r;
+                        fg_g = bg_g;
+                        fg_b = bg_b;
+                    }
+                }
+                else if(fg !== chr_fg_rgba)
+                {
+                    fg = chr_fg_rgba;
+                    fg_r = fg >> 16;
+                    fg_g = (fg >> 8) & 0xff;
+                    fg_b = fg & 0xff;
+                }
+
+                draw_cursor = cursor_visible && cursor_gfx_i === gfx_i;
+
+                glyph_i = (chr_font_ofs + chr) * font_size;
+
+                gfx_end_y = gfx_i + gfx_row_size;
+                for(; gfx_i < gfx_end_y; gfx_i += gfx_line_step)
+                {
+                    gfx_end_x = gfx_i + gfx_col_size;
+                    for(; gfx_i < gfx_end_x; gfx_i += 4)
+                    {
+                        if(font_bitmap[glyph_i++])
+                        {
+                            graphical_text_buffer[gfx_i]   = fg_r;
+                            graphical_text_buffer[gfx_i+1] = fg_g;
+                            graphical_text_buffer[gfx_i+2] = fg_b;
+                        }
+                        else
+                        {
+                            graphical_text_buffer[gfx_i]   = bg_r;
+                            graphical_text_buffer[gfx_i+1] = bg_g;
+                            graphical_text_buffer[gfx_i+2] = bg_b;
+                        }
+                    }
+                }
+
+                if(draw_cursor)
+                {
+                    gfx_ic = cursor_gfx_i + cursor_start * gfx_line_size;
+                    gfx_end_y = gfx_ic + cursor_height * gfx_line_size;
+                    for(; gfx_ic < gfx_end_y; gfx_ic += gfx_line_step)
+                    {
+                        gfx_end_x = gfx_ic + gfx_col_size;
+                        for(; gfx_ic < gfx_end_x; gfx_ic += 4)
+                        {
+                            graphical_text_buffer[gfx_ic]   = fg_r;
+                            graphical_text_buffer[gfx_ic+1] = fg_g;
+                            graphical_text_buffer[gfx_ic+2] = fg_b;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     this.init = function()
     {
-        // not necessary, because this gets initialized by the bios early,
-        // but nicer to look at
-        this.set_size_text(80, 25);
+        // initialize with mode and size presets as expected by the bios
+        // to avoid flickering during early startup
+        this.set_mode(is_graphical);
+
+/*
+        if(!is_graphical)
+*/
+        if(mode !== MODE_TEXT)
+        {
+            // assume 80x25 with 9x16 font
+            this.set_size_graphical(720, 400, 720, 400);
+        }
+        else
+        {
+            this.set_size_text(80, 25);
+        }
 
         this.timer();
     };
@@ -145,7 +425,10 @@ function ScreenAdapter(options, screen_fill_buffer)
     {
         const image = new Image();
 
+/*
         if(is_graphical)
+*/
+        if(mode !== MODE_TEXT)
         {
             image.src = graphic_screen.toDataURL("image/png");
         }
@@ -200,6 +483,8 @@ function ScreenAdapter(options, screen_fill_buffer)
         dbg_assert(col >= 0 && col < text_mode_width);
         dbg_assert(chr >= 0 && chr < 0x100);
 
+if(!text_mode_data || !changed_rows) { return; }
+
         const p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
 
         text_mode_data[p + CHARACTER_INDEX] = chr;
@@ -212,9 +497,26 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.timer = function()
     {
+/*
         if(!stopped)
         {
             requestAnimationFrame(() => is_graphical ? this.update_graphical() : this.update_text());
+        }
+*/
+        if(!stopped)
+        {
+            switch(mode)
+            {
+                case MODE_TEXT:
+                    requestAnimationFrame(() => this.update_text());
+                    break;
+                case MODE_GRAPHICAL:
+                    requestAnimationFrame(() => this.update_graphical());
+                    break;
+                case MODE_GRAPHICAL_TEXT:
+                    requestAnimationFrame(() => this.update_graphical_text());
+                    break;
+            }
         }
     };
 
@@ -241,6 +543,17 @@ function ScreenAdapter(options, screen_fill_buffer)
         this.timer();
     };
 
+    this.update_graphical_text = function()
+    {
+        if(!paused && text_mode_data && font_bitmap && graphical_text_buffer)
+        {
+            render_dirty_rows();
+            changed_rows.fill(0);
+            graphic_context.putImageData(graphical_text_image_data, 0, 0);
+        }
+        this.timer();
+    };
+
     this.destroy = function()
     {
         stopped = true;
@@ -260,17 +573,61 @@ function ScreenAdapter(options, screen_fill_buffer)
     this.set_mode = function(graphical)
     {
         is_graphical = graphical;
+        mode = graphical ? MODE_GRAPHICAL : (use_graphical_text ? MODE_GRAPHICAL_TEXT : MODE_TEXT);
 
-        if(graphical)
-        {
-            text_screen.style.display = "none";
-            graphic_screen.style.display = "block";
-        }
-        else
+        if(mode === MODE_TEXT)
         {
             text_screen.style.display = "block";
             graphic_screen.style.display = "none";
         }
+        else
+        {
+            text_screen.style.display = "none";
+            graphic_screen.style.display = "block";
+        }
+    };
+
+    this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
+    {
+        if(!use_graphical_text || (font_height === height && font_width_9px === width_9px &&
+            font_width_dbl === width_dbl && font_copy_8th_col === copy_8th_col &&
+            !bitmap_changed))
+        {
+            return;
+        }
+
+        const width = (width_9px ? 9 : 8) * ((!width_9px && width_dbl) ? 2 : 1);
+        const size_changed = font_width !== width || font_height !== height;
+        const glyphs_changed = bitmap_changed || font_copy_8th_col !== copy_8th_col;
+
+        font_height = height;
+        font_width = width;
+        font_width_9px = width_9px;
+        font_width_dbl = width_dbl;
+        font_copy_8th_col = copy_8th_col;
+
+        if(glyphs_changed || size_changed)
+        {
+            font_bitmap = rebuild_font_bitmap(bitmap);
+            if(size_changed)
+            {
+                const gfx_width = width * text_mode_width;
+                const gfx_height = height * text_mode_height;
+                this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
+                rebuild_graphical_text_buffer();
+            }
+        }
+    };
+
+    this.set_font_page = function(page_a, page_b)
+    {
+        if(!use_graphical_text || (font_page_a === page_a && font_page_b === page_b))
+        {
+            return;
+        }
+        font_page_a = page_a;
+        font_page_b = page_b;
+        // TODO: redraw
     };
 
     this.clear_screen = function()
@@ -296,22 +653,32 @@ function ScreenAdapter(options, screen_fill_buffer)
         text_mode_width = cols;
         text_mode_height = rows;
 
-        while(text_screen.childNodes.length > rows)
+        if(mode === MODE_TEXT)
         {
-            text_screen.removeChild(text_screen.firstChild);
-        }
+            while(text_screen.childNodes.length > rows)
+            {
+                text_screen.removeChild(text_screen.firstChild);
+            }
 
-        while(text_screen.childNodes.length < rows)
+            while(text_screen.childNodes.length < rows)
+            {
+                text_screen.appendChild(document.createElement("div"));
+            }
+
+            for(var i = 0; i < rows; i++)
+            {
+                this.text_update_row(i);
+            }
+
+            update_scale_text();
+        }
+        else
         {
-            text_screen.appendChild(document.createElement("div"));
+            const gfx_width = font_width * text_mode_width;
+            const gfx_height = font_height * text_mode_height;
+            this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
+            rebuild_graphical_text_buffer();
         }
-
-        for(var i = 0; i < rows; i++)
-        {
-            this.text_update_row(i);
-        }
-
-        update_scale_text();
     };
 
     this.set_size_graphical = function(width, height, buffer_width, buffer_height)
@@ -333,8 +700,13 @@ function ScreenAdapter(options, screen_fill_buffer)
         graphic_context.imageSmoothingEnabled = false;
 
         // add some scaling to tiny resolutions
+/*
         if(!options.disable_autoscale &&
             width <= 640 &&
+            width * 2 < window.innerWidth * window.devicePixelRatio &&
+            height * 2 < window.innerHeight * window.devicePixelRatio)
+*/
+        if(width <= 640 &&
             width * 2 < window.innerWidth * window.devicePixelRatio &&
             height * 2 < window.innerHeight * window.devicePixelRatio)
         {
@@ -365,7 +737,13 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     function update_scale_graphic()
     {
+/*
         elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
+*/
+        if(!options.disable_autoscale)
+        {
+            elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
+        }
     }
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)
@@ -423,17 +801,27 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
     }
 
-    this.update_cursor_scanline = function(start, end, visible)
+    this.update_cursor_scanline = function(start, end, enabled)
     {
-        if(visible)
+        if(start !== cursor_start || end !== cursor_end || enabled !== cursor_enabled)
         {
-            cursor_element.style.display = "inline";
-            cursor_element.style.height = (end - start) + "px";
-            cursor_element.style.marginTop = start + "px";
-        }
-        else
-        {
-            cursor_element.style.display = "none";
+            if(!use_graphical_text)
+            {
+                if(enabled)
+                {
+                    cursor_element.style.display = "inline";
+                    cursor_element.style.height = (end - start) + "px";
+                    cursor_element.style.marginTop = start + "px";
+                }
+                else
+                {
+                    cursor_element.style.display = "none";
+                }
+            }
+
+            cursor_start = start;
+            cursor_end = end;
+            cursor_enabled = enabled;
         }
     };
 

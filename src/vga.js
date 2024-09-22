@@ -1,3 +1,6 @@
+// Base: commit c758d6d
+// https://github.com/copy/v86/blob/c758d6da40c79d8ee648e00ff66ee66e44b33501/src/vga.js
+
 "use strict";
 
 // Always 64k
@@ -50,8 +53,9 @@ const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
  * @param {BusConnector} bus
  * @param {ScreenAdapter|DummyScreenAdapter} screen
  * @param {number} vga_memory_size
+ * @param {Object} options
  */
-function VGAScreen(cpu, bus, screen, vga_memory_size)
+function VGAScreen(cpu, bus, screen, vga_memory_size, options)
 {
     this.cpu = cpu;
 
@@ -1405,6 +1409,8 @@ VGAScreen.prototype.port3C0_write = function(value)
 
                     // Data stored in image buffer are invalidated
                     this.complete_redraw();
+
+                    this.set_font_bitmap(false);
                 }
                 break;
             case 0x12:
@@ -1520,22 +1526,31 @@ VGAScreen.prototype.port3C5_write = function(value)
                 // Screen disable bit modified
                 this.update_layers();
             }
+            this.set_font_bitmap(false);
             break;
         case 0x02:
             dbg_log("plane write mask: " + h(value), LOG_VGA);
             var previous_plane_write_bm = this.plane_write_bm;
             this.plane_write_bm = value;
-            if(this.graphical_text && previous_plane_write_bm !== 0xf && (previous_plane_write_bm & 0x4) && !(this.plane_write_bm & 0x4))
+            if(!this.graphical_mode && previous_plane_write_bm !== 0xf && (previous_plane_write_bm & 0x4) && !(this.plane_write_bm & 0x4))
             {
                 // End of font plane 2 write access (initial value of plane_write_bm assumed to be 0xf)
+                this.set_font_bitmap(true);
             }
             break;
         case 0x03:
             dbg_log("character map select: " + h(value), LOG_VGA);
             var previous_character_map_select = this.character_map_select;
             this.character_map_select = value;
-            if(this.graphical_text && previous_character_map_select !== this.character_map_select)
+            if(!this.graphical_mode && previous_character_map_select !== value)
             {
+                // bits 2, 3 and 5 (LSB to MSB): VGA font page index of font A
+                // bits 0, 1 and 4: VGA font page index of font B
+                // linear_index_map[] maps VGA's non-liner font page index to linear index
+                const linear_index_map = [0, 2, 4, 6, 1, 3, 5, 7];
+                const vga_index_A = ((value & 0b1100) >> 2) | ((value & 0b100000) >> 3);
+                const vga_index_B = (value & 0b11) | ((value & 0b10000) >> 2);
+                this.screen.set_font_page(linear_index_map[vga_index_A], linear_index_map[vga_index_B]);
             }
             break;
         case 0x04:
@@ -1853,6 +1868,8 @@ VGAScreen.prototype.port3D5_write = function(value)
 
             this.update_cursor_scanline();
             this.update_layers();
+
+            this.set_font_bitmap(false);
             break;
         case 0xA:
             dbg_log("3D5 / cursor scanline start write: " + h(value), LOG_VGA);
@@ -2489,4 +2506,16 @@ VGAScreen.prototype.screen_fill_buffer = function()
 
     this.reset_diffs();
     this.update_vertical_retrace();
+};
+
+VGAScreen.prototype.set_font_bitmap = function(bitmap_changed)
+{
+    this.screen.set_font_bitmap(
+        (this.max_scan_line & 0x1f) + 1,    // int height, font height in pixel 1..32
+        ! (this.clocking_mode & 0x01),      // bool width_9px, True: font width is 9px, else 8px
+        !! (this.clocking_mode & 0x08),     // bool width_dbl, True: font width is 16px instead of 8px
+        !! (this.attribute_mode & 0x04),    // bool copy_8th_col, True: duplicate 8th into 9th column in ASCII chars 0xC0-0xDF
+        this.plane2,                        // Uint8Array font_bitmap[64k], static
+        bitmap_changed                      // bool bitmap_changed, True: content of font_bitmap[] has changed (transient flag)
+    );
 };
