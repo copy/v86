@@ -831,6 +831,8 @@ VGAScreen.prototype.text_mode_redraw = function()
     const row_offset = Math.max(0, (this.offset_register * 2 - this.max_cols) * 2);
     const blink_flag = this.attribute_mode & 1 << 3;
     const bg_color_mask = blink_flag ? 7 : 0xF;
+    const FLAG_BLINKING = this.screen.FLAG_BLINKING;
+    const FLAG_FONT_PAGE_B = this.screen.FLAG_FONT_PAGE_B;
 
     let addr = this.start_address << 1;
 
@@ -846,8 +848,8 @@ VGAScreen.prototype.text_mode_redraw = function()
             const chr = this.vga_memory[addr];
             const color = this.vga_memory[addr | 1];
             const blinking = blink_flag && (color & 1 << 7);
-            const font_page_a = color & 1 << 3;
-            const flags = (blinking ? 1 : 0) | (font_page_a ? 2 : 0);
+            const font_page_b = !(color & 1 << 3);
+            const flags = (blinking ? FLAG_BLINKING : 0) | (font_page_b ? FLAG_FONT_PAGE_B : 0);
 
             this.bus.send("screen-put-char", [row, col, chr]);
 
@@ -906,8 +908,8 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
     }
     const blink_flag = this.attribute_mode & 1 << 3;
     const blinking = blink_flag && (color & 1 << 7);
-    const font_page_a = color & 1 << 3;
-    const flags = (blinking ? 1 : 0) | (font_page_a ? 2 : 0);
+    const font_page_b = !(color & 1 << 3);
+    const flags = (blinking ? this.screen.FLAG_BLINKING : 0) | (font_page_b ? this.screen.FLAG_FONT_PAGE_B : 0);
     const bg_color_mask = blink_flag ? 7 : 0xF;
 
     this.bus.send("screen-put-char", [row, col, chr]);

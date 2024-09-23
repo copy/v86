@@ -81,7 +81,8 @@ function ScreenAdapter(options, screen_fill_buffer)
         font_page_b = 0,
 
         // blink state
-        blink_visible;
+        blink_visible,
+        tm_last_update = 0;
 
     const CHARACTER_INDEX = 0;
     const FLAGS_INDEX = 1;
@@ -90,7 +91,10 @@ function ScreenAdapter(options, screen_fill_buffer)
     const TEXT_MODE_COMPONENT_SIZE = 4;
 
     const FLAG_BLINKING = 0x01;
-    const FLAG_FONT_PAGE_A = 0x02;
+    const FLAG_FONT_PAGE_B = 0x02;
+
+    this.FLAG_BLINKING = FLAG_BLINKING;
+    this.FLAG_FONT_PAGE_B = FLAG_FONT_PAGE_B;
 
     var stopped = false;
     var paused = false;
@@ -237,13 +241,13 @@ function ScreenAdapter(options, screen_fill_buffer)
     function render_dirty_rows()
     {
         const font_size = font_width * font_height;
+        const font_AB_enabled = font_page_a !== font_page_b;
         const font_A_offset = font_page_a * 256;
         const font_B_offset = font_page_b * 256;
-        const font_AB_enabled = font_A_offset !== font_B_offset;
         const font_blink_enabled = true;            // TODO!
-        const cursor_visible = cursor_enabled && blink_visible;
+//        const cursor_visible = cursor_enabled && blink_visible;
+        const cursor_visible = cursor_enabled && (!font_blink_enabled || blink_visible);
         const cursor_height = cursor_end - cursor_start + 1;
-
         const gfx_width = font_width * text_mode_width;
         const gfx_height = font_height * text_mode_height;
         const txt_row_size = text_mode_width * TEXT_MODE_COMPONENT_SIZE;
@@ -258,9 +262,8 @@ function ScreenAdapter(options, screen_fill_buffer)
         const gfx_col_step = (font_width - font_height * gfx_width) * 4;
         // move forward to start of column's next line in graphical_text_buffer
         const gfx_line_step = (gfx_width - font_width) * 4;
-
-        // int, current cursor linear position in canvas coordinates (top left of row/col)
-        const cursor_gfx_i = (cursor_row * gfx_width * font_height + cursor_col * font_width) * 4;
+        // current cursor linear position in canvas coordinates (top left of its row/col)
+        const cursor_gfx_i = (cursor_row*gfx_width*font_height + cursor_col*font_width) * 4;
 
         let txt_i, chr, chr_attr, chr_bg_rgba, chr_fg_rgba, chr_blinking, chr_font_ofs;
         let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0;
@@ -283,7 +286,8 @@ function ScreenAdapter(options, screen_fill_buffer)
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
                 const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
                 const chr_blinking = font_blink_enabled && chr_flags & FLAG_BLINKING;
-                const chr_font_ofs = font_AB_enabled ? (chr_flags & FLAG_FONT_PAGE_A ? font_A_offset : font_B_offset) : font_A_offset;
+//                const chr_font_ofs = font_AB_enabled ? (chr_flags & FLAG_FONT_PAGE_A ? font_A_offset : font_B_offset) : font_A_offset;
+                const chr_font_offset = font_AB_enabled && chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
                 const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
                 const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
 
@@ -314,7 +318,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
                 draw_cursor = cursor_visible && cursor_gfx_i === gfx_i;
 
-                glyph_i = (chr_font_ofs + chr) * font_size;
+                glyph_i = (chr_font_offset + chr) * font_size;
 
                 gfx_end_y = gfx_i + gfx_row_size;
                 for(; gfx_i < gfx_end_y; gfx_i += gfx_line_step)
@@ -351,6 +355,28 @@ function ScreenAdapter(options, screen_fill_buffer)
                             graphical_text_buffer[gfx_ic+2] = fg_b;
                         }
                     }
+                }
+            }
+        }
+    }
+
+    function mark_blinking_rows_dirty()
+    {
+        const txt_row_size = text_mode_width * TEXT_MODE_COMPONENT_SIZE;
+        for(let row = 0, txt_i = 0; row < text_mode_height; ++row)
+        {
+            if(changed_rows[row])
+            {
+                txt_i += txt_row_size;
+                continue;
+            }
+            for(let col = 0; col < text_mode_width; ++col, txt_i += TEXT_MODE_COMPONENT_SIZE)
+            {
+                if(text_mode_data[txt_i + FLAGS_INDEX] & FLAG_BLINKING)
+                {
+                    changed_rows[row] = 1;
+                    txt_i += txt_row_size - col * TEXT_MODE_COMPONENT_SIZE;
+                    break;
                 }
             }
         }
@@ -493,11 +519,24 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.update_graphical_text = function()
     {
-        if(!paused && text_mode_data && font_bitmap && graphical_text_buffer)
+//        if(!paused && text_mode_data && font_bitmap && graphical_text_buffer)
+        if(!paused && font_bitmap && graphical_text_buffer)
         {
+            // toggle cursor and blinking character visibility at a frequency of ~3.75hz
+            const tm_now = performance.now();
+            if(tm_now - tm_last_update > 266)
+            {
+                blink_visible = !blink_visible;
+                if(cursor_enabled)
+                {
+                    changed_rows[cursor_row] = 1;
+                }
+                mark_blinking_rows_dirty();
+                tm_last_update = tm_now;
+            }
             render_dirty_rows();
-            changed_rows.fill(0);
             graphic_context.putImageData(graphical_text_image_data, 0, 0);
+            changed_rows.fill(0);
         }
         this.timer();
     };
@@ -559,8 +598,8 @@ function ScreenAdapter(options, screen_fill_buffer)
             font_bitmap = rebuild_font_bitmap(bitmap);
             if(size_changed)
             {
-                const gfx_width = width * text_mode_width;
-                const gfx_height = height * text_mode_height;
+                const gfx_width = font_width * text_mode_width;
+                const gfx_height = font_height * text_mode_height;
                 this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
                 rebuild_graphical_text_buffer();
             }
@@ -754,6 +793,13 @@ function ScreenAdapter(options, screen_fill_buffer)
                 else
                 {
                     cursor_element.style.display = "none";
+                }
+            }
+            else
+            {
+                if(cursor_row < text_mode_height)
+                {
+                    changed_rows[cursor_row] = 1;
                 }
             }
 
