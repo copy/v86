@@ -892,7 +892,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
-                text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING === blinking &&
+                (text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING) === blinking &&
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
