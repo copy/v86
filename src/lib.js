@@ -581,6 +581,7 @@ function load_file(filename, options, n_tries)
         {
             if(http.status === 200)
             {
+                console.error("Server sent full file in response to ranged request, aborting", { filename });
                 http.abort();
             }
         };
