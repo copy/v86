@@ -240,7 +240,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0;
         let gfx_i, gfx_end_y, gfx_end_x, glyph_i;
         let draw_cursor, gfx_ic;
-        let row, col;
+        let row, col, n_rows_rendered=0;
 
         for(row = 0, txt_i = 0; row < text_mode_height; ++row)
         {
@@ -250,6 +250,7 @@ function ScreenAdapter(options, screen_fill_buffer)
                 continue;
             }
 
+            ++n_rows_rendered;
             gfx_i = row * gfx_row_size;
 
             for(col = 0; col < text_mode_width; ++col, txt_i += TEXT_MODE_COMPONENT_SIZE, gfx_i += gfx_col_step)
@@ -329,7 +330,11 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
         }
 
-        changed_rows.fill(0);
+        if(n_rows_rendered)
+        {
+            changed_rows.fill(0);
+        }
+        return n_rows_rendered;
     }
 
     function mark_blinking_rows_dirty()
@@ -530,9 +535,11 @@ function ScreenAdapter(options, screen_fill_buffer)
                 mark_blinking_rows_dirty();
                 tm_last_update = tm_now;
             }
-
-            render_dirty_rows();
-            graphic_context.putImageData(graphical_text_image_data, 0, 0);
+            // copy to canvas only if render buffer changed
+            if(render_dirty_rows())
+            {
+                graphic_context.putImageData(graphical_text_image_data, 0, 0);
+            }
         }
 
         this.timer();
