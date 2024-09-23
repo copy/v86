@@ -229,8 +229,8 @@ VirtioNet.prototype.set_state = function(state)
     this.virtio.set_state(state[0]);
 };
 
-VirtioNet.prototype.Reset = function() {
-
+VirtioNet.prototype.reset = function() {
+    this.virtio.reset();
 };
 
 VirtioNet.prototype.Send = function (queue_id, bufchain, blob)
