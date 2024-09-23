@@ -1385,7 +1385,7 @@ V86.prototype.wait_until_vga_screen_contains = function(text)
         function put_char(args)
         {
             const [row, col, char] = args;
-            changed_rows.add(col);
+            changed_rows.add(row);
         }
 
         const check = () =>
