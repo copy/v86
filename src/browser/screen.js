@@ -581,6 +581,11 @@ function ScreenAdapter(options, screen_fill_buffer)
             text_screen.style.display = "none";
             graphic_screen.style.display = "block";
         }
+
+        if(mode === MODE_GRAPHICAL_TEXT && changed_rows)
+        {
+            changed_rows.fill(1);
+        }
     };
 
     this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
