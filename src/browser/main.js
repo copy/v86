@@ -298,9 +298,19 @@
             {
                 id: "msdos",
                 hda: {
-                    url: host + "msdos.img",
-                    size: 8 * 1024 * 1024,
-                    async: false,
+                    url: host + "msdos622/.img",
+                    size: 64 * 1024 * 1024,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
+                },
+                name: "MS-DOS",
+            },
+            {
+                id: "msdos4",
+                fda: {
+                    url: host + "msdos4.img",
+                    size: 1474560,
                 },
                 name: "MS-DOS",
             },
