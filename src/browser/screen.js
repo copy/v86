@@ -453,7 +453,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
         }
         return text_rows;
-    }
+    };
 
     this.put_char = function(row, col, chr, flags, bg_color, fg_color)
     {
@@ -653,7 +653,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         changed_rows.fill(1);
 
         // TODO: send bus message about changed screen size?
-    }
+    };
 
     /**
      * @param {number} cols

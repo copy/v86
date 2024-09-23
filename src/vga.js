@@ -2532,7 +2532,7 @@ VGAScreen.prototype.set_font_bitmap = function()
     const height = this.max_scan_line & 0x1f;
     if(height)
     {
-        const width_dbl = !!(this.clocking_mode & 0x08)
+        const width_dbl = !!(this.clocking_mode & 0x08);
         const width_9px = !width_dbl && !(this.clocking_mode & 0x01);
         const copy_8th_col = !!(this.attribute_mode & 0x04);
         this.screen.set_font_bitmap(
