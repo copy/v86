@@ -145,7 +145,7 @@
                 name: "Arch Linux",
                 memory_size: 512 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
-                state: { url: host + "arch_state.bin.zst" },
+                state: { url: host + "arch_state-v2.bin.zst" },
                 filesystem: {
                     baseurl: host + "arch/",
                 },
