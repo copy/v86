@@ -298,6 +298,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size, options)
     this.miscellaneous_output_register = 0xff;
     this.port_3DA_value = 0xFF;
 
+    this.text_font_plane_dirty = false;
 
     var io = cpu.io;
 
@@ -648,13 +649,18 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
     {
         this.vga_memory_write_graphical(addr, value);
     }
+    else if(!(this.plane_write_bm & 0x3))
+    {
+        if(this.plane_write_bm & 0x4)
+        {
+            // write to plane 2 (font-bitmap)
+            this.plane2[addr] = value;
+            this.text_font_plane_dirty = true;
+        }
+    }
     else
     {
-        if(!(this.plane_write_bm & 0x3))
-        {
-            this.plane2[addr] = value;
-            return;
-        }
+        // write to planes 0 and 1
         this.vga_memory_write_text_mode(addr, value);
     }
 };
@@ -1132,6 +1138,11 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     this.max_cols = cols_count;
     this.max_rows = rows_count;
 
+    if(this.text_font_plane_dirty)
+    {
+        this.set_font_bitmap();
+    }
+
     this.screen.set_size_text(cols_count, rows_count);
     this.bus.send("screen-set-size", [cols_count, rows_count, 0]);
 };
@@ -1246,6 +1257,8 @@ VGAScreen.prototype.update_vga_size = function()
         {
             this.set_size_text(horizontal_characters, height);
         }
+
+        this.set_font_bitmap();
     }
 };
 
@@ -1416,7 +1429,7 @@ VGAScreen.prototype.port3C0_write = function(value)
                     // Data stored in image buffer are invalidated
                     this.complete_redraw();
 
-                    this.set_font_bitmap(false);
+                    this.set_font_bitmap();
                 }
                 break;
             case 0x12:
@@ -1532,16 +1545,16 @@ VGAScreen.prototype.port3C5_write = function(value)
                 // Screen disable bit modified
                 this.update_layers();
             }
-            this.set_font_bitmap(false);
+            this.set_font_bitmap();
             break;
         case 0x02:
             dbg_log("plane write mask: " + h(value), LOG_VGA);
             var previous_plane_write_bm = this.plane_write_bm;
             this.plane_write_bm = value;
-            if(!this.graphical_mode && previous_plane_write_bm !== 0xf && (previous_plane_write_bm & 0x4) && !(this.plane_write_bm & 0x4))
+            if(!this.graphical_mode && this.text_font_plane_dirty && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
             {
-                // End of font plane 2 write access (initial value of plane_write_bm assumed to be 0xf)
-                this.set_font_bitmap(true);
+                // End of font plane 2 write access
+                this.set_font_bitmap();
             }
             break;
         case 0x03:
@@ -1875,7 +1888,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.update_cursor_scanline();
             this.update_layers();
 
-            this.set_font_bitmap(false);
+            this.set_font_bitmap();
             break;
         case 0xA:
             dbg_log("3D5 / cursor scanline start write: " + h(value), LOG_VGA);
@@ -2514,14 +2527,22 @@ VGAScreen.prototype.screen_fill_buffer = function()
     this.update_vertical_retrace();
 };
 
-VGAScreen.prototype.set_font_bitmap = function(bitmap_changed)
+VGAScreen.prototype.set_font_bitmap = function()
 {
-    this.screen.set_font_bitmap(
-        (this.max_scan_line & 0x1f) + 1,    // int height, font height in pixel 1..32
-        ! (this.clocking_mode & 0x01),      // bool width_9px, True: font width is 9px, else 8px
-        !! (this.clocking_mode & 0x08),     // bool width_dbl, True: font width is 16px instead of 8px
-        !! (this.attribute_mode & 0x04),    // bool copy_8th_col, True: duplicate 8th into 9th column in ASCII chars 0xC0-0xDF
-        this.plane2,                        // Uint8Array font_bitmap[64k], static
-        bitmap_changed                      // bool bitmap_changed, True: content of font_bitmap[] has changed (transient flag)
-    );
+    const height = this.max_scan_line & 0x1f;
+    if(height)
+    {
+        const width_dbl = !!(this.clocking_mode & 0x08)
+        const width_9px = !width_dbl && !(this.clocking_mode & 0x01);
+        const copy_8th_col = !!(this.attribute_mode & 0x04);
+        this.screen.set_font_bitmap(
+            height + 1,                 // int height, font height 1..32px
+            width_9px,                  // bool width_9px, True: font width 9px, else 8px
+            width_dbl,                  // bool width_dbl, True: font width 16px (overrides width_9px)
+            copy_8th_col,               // bool copy_8th_col, True: duplicate 8th into 9th column in ASCII chars 0xC0-0xDF
+            this.plane2,                // Uint8Array font_bitmap[64k], static
+            this.text_font_plane_dirty  // bool bitmap_changed, True: content of this.plane2 has changed
+        );
+        this.text_font_plane_dirty = false;
+    }
 };
