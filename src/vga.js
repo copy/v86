@@ -299,6 +299,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size, options)
     this.port_3DA_value = 0xFF;
 
     this.text_font_plane_dirty = false;
+    this.font_page_ab_enabled = false;
 
     var io = cpu.io;
 
@@ -835,8 +836,9 @@ VGAScreen.prototype.text_mode_redraw = function()
 {
     const split_screen_row = this.scan_line_to_screen_row(this.line_compare);
     const row_offset = Math.max(0, (this.offset_register * 2 - this.max_cols) * 2);
-    const blink_flag = this.attribute_mode & 1 << 3;
-    const bg_color_mask = blink_flag ? 7 : 0xF;
+    const blink_enabled = this.attribute_mode & 1 << 3;
+    const fg_color_mask = this.font_page_ab_enabled ? 7 : 0xF;
+    const bg_color_mask = blink_enabled ? 7 : 0xF;
     const FLAG_BLINKING = this.screen.FLAG_BLINKING;
     const FLAG_FONT_PAGE_B = this.screen.FLAG_FONT_PAGE_B;
 
@@ -853,15 +855,15 @@ VGAScreen.prototype.text_mode_redraw = function()
         {
             const chr = this.vga_memory[addr];
             const color = this.vga_memory[addr | 1];
-            const blinking = blink_flag && (color & 1 << 7);
-            const font_page_b = !(color & 1 << 3);
+            const blinking = blink_enabled && (color & 1 << 7);
+            const font_page_b = this.font_page_ab_enabled && !(color & 1 << 3);
             const flags = (blinking ? FLAG_BLINKING : 0) | (font_page_b ? FLAG_FONT_PAGE_B : 0);
 
             this.bus.send("screen-put-char", [row, col, chr]);
 
             this.screen.put_char(row, col, chr, flags,
                 this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & bg_color_mask]],
-                this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]);
+                this.vga256_palette[this.dac_mask & this.dac_map[color & fg_color_mask]]);
 
             addr += 2;
         }
@@ -912,17 +914,18 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
         chr = value;
         color = this.vga_memory[addr | 1];
     }
-    const blink_flag = this.attribute_mode & 1 << 3;
-    const blinking = blink_flag && (color & 1 << 7);
-    const font_page_b = !(color & 1 << 3);
+    const blink_enabled = this.attribute_mode & 1 << 3;
+    const blinking = blink_enabled && (color & 1 << 7);
+    const font_page_b = this.font_page_ab_enabled && !(color & 1 << 3);
     const flags = (blinking ? this.screen.FLAG_BLINKING : 0) | (font_page_b ? this.screen.FLAG_FONT_PAGE_B : 0);
-    const bg_color_mask = blink_flag ? 7 : 0xF;
+    const fg_color_mask = this.font_page_ab_enabled ? 7 : 0xF;
+    const bg_color_mask = blink_enabled ? 7 : 0xF;
 
     this.bus.send("screen-put-char", [row, col, chr]);
 
     this.screen.put_char(row, col, chr, flags,
         this.vga256_palette[this.dac_mask & this.dac_map[color >> 4 & bg_color_mask]],
-        this.vga256_palette[this.dac_mask & this.dac_map[color & 0xF]]);
+        this.vga256_palette[this.dac_mask & this.dac_map[color & fg_color_mask]]);
 };
 
 VGAScreen.prototype.update_cursor = function()
@@ -1138,11 +1141,6 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     this.max_cols = cols_count;
     this.max_rows = rows_count;
 
-    if(this.text_font_plane_dirty)
-    {
-        this.set_font_bitmap();
-    }
-
     this.screen.set_size_text(cols_count, rows_count);
     this.bus.send("screen-set-size", [cols_count, rows_count, 0]);
 };
@@ -1258,7 +1256,7 @@ VGAScreen.prototype.update_vga_size = function()
             this.set_size_text(horizontal_characters, height);
         }
 
-        this.set_font_bitmap();
+        this.set_font_bitmap(false);
     }
 };
 
@@ -1429,7 +1427,7 @@ VGAScreen.prototype.port3C0_write = function(value)
                     // Data stored in image buffer are invalidated
                     this.complete_redraw();
 
-                    this.set_font_bitmap();
+                    this.set_font_bitmap(false);
                 }
                 break;
             case 0x12:
@@ -1545,7 +1543,7 @@ VGAScreen.prototype.port3C5_write = function(value)
                 // Screen disable bit modified
                 this.update_layers();
             }
-            this.set_font_bitmap();
+            this.set_font_bitmap(false);
             break;
         case 0x02:
             dbg_log("plane write mask: " + h(value), LOG_VGA);
@@ -1554,7 +1552,8 @@ VGAScreen.prototype.port3C5_write = function(value)
             if(!this.graphical_mode && this.text_font_plane_dirty && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
             {
                 // End of font plane 2 write access
-                this.set_font_bitmap();
+                this.set_font_bitmap(true);
+                this.text_font_plane_dirty = false;
             }
             break;
         case 0x03:
@@ -1569,7 +1568,9 @@ VGAScreen.prototype.port3C5_write = function(value)
                 const linear_index_map = [0, 2, 4, 6, 1, 3, 5, 7];
                 const vga_index_A = ((value & 0b1100) >> 2) | ((value & 0b100000) >> 3);
                 const vga_index_B = (value & 0b11) | ((value & 0b10000) >> 2);
+                this.font_page_ab_enabled = vga_index_A !== vga_index_B;
                 this.screen.set_font_page(linear_index_map[vga_index_A], linear_index_map[vga_index_B]);
+                this.complete_redraw();
             }
             break;
         case 0x04:
@@ -1604,7 +1605,11 @@ VGAScreen.prototype.port3C5_read = function()
 
 VGAScreen.prototype.port3C6_write = function(data)
 {
-    this.dac_mask = data;
+    if(this.dac_mask !== data)
+    {
+        this.dac_mask = data;
+        this.complete_redraw();
+    }
 };
 
 VGAScreen.prototype.port3C6_read = function()
@@ -1888,7 +1893,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.update_cursor_scanline();
             this.update_layers();
 
-            this.set_font_bitmap();
+            this.set_font_bitmap(false);
             break;
         case 0xA:
             dbg_log("3D5 / cursor scanline start write: " + h(value), LOG_VGA);
@@ -2527,7 +2532,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
     this.update_vertical_retrace();
 };
 
-VGAScreen.prototype.set_font_bitmap = function()
+VGAScreen.prototype.set_font_bitmap = function(font_plane_dirty)
 {
     const height = this.max_scan_line & 0x1f;
     if(height)
@@ -2536,13 +2541,12 @@ VGAScreen.prototype.set_font_bitmap = function()
         const width_9px = !width_dbl && !(this.clocking_mode & 0x01);
         const copy_8th_col = !!(this.attribute_mode & 0x04);
         this.screen.set_font_bitmap(
-            height + 1,                 // int height, font height 1..32px
-            width_9px,                  // bool width_9px, True: font width 9px, else 8px
-            width_dbl,                  // bool width_dbl, True: font width 16px (overrides width_9px)
-            copy_8th_col,               // bool copy_8th_col, True: duplicate 8th into 9th column in ASCII chars 0xC0-0xDF
-            this.plane2,                // Uint8Array font_bitmap[64k], static
-            this.text_font_plane_dirty  // bool bitmap_changed, True: content of this.plane2 has changed
+            height + 1,         // int height, font height 1..32px
+            width_9px,          // bool width_9px, True: font width 9px, else 8px
+            width_dbl,          // bool width_dbl, True: font width 16px (overrides width_9px)
+            copy_8th_col,       // bool copy_8th_col, True: duplicate 8th into 9th column in ASCII chars 0xC0-0xDF
+            this.plane2,        // Uint8Array font_bitmap[64k], static
+            font_plane_dirty    // bool bitmap_changed, True: content of this.plane2 has changed
         );
-        this.text_font_plane_dirty = false;
     }
 };

@@ -188,7 +188,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             };
 
         let i_src = 0;
-        for(let i_font = 0; i_font < 8; ++i_font)
+        for(let i_font_page = 0; i_font_page < 8; ++i_font_page)
         {
             for(let i_chr = 0; i_chr < 256; ++i_chr, i_src += vga_inc_chr)
             {
@@ -210,13 +210,11 @@ function ScreenAdapter(options, screen_fill_buffer)
         return dst_bitmap;
     }
 
-    function render_dirty_rows()
+    function render_changed_rows()
     {
         const font_size = font_width * font_height;
-        const font_AB_enabled = font_page_a !== font_page_b;
         const font_A_offset = font_page_a * 256;
         const font_B_offset = font_page_b * 256;
-        const font_blink_enabled = true;            // TODO!
         const cursor_visible = cursor_enabled && blink_visible;
         const cursor_height = cursor_end - cursor_start + 1;
         const gfx_width = font_width * text_mode_width;
@@ -257,8 +255,8 @@ function ScreenAdapter(options, screen_fill_buffer)
             {
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
                 const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
-                const chr_blinking = font_blink_enabled && chr_flags & FLAG_BLINKING;
-                const chr_font_offset = font_AB_enabled && chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
+                const chr_blinking = chr_flags & FLAG_BLINKING;
+                const chr_font_offset = chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
                 const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
                 const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
 
@@ -536,7 +534,7 @@ function ScreenAdapter(options, screen_fill_buffer)
                 tm_last_update = tm_now;
             }
             // copy to canvas only if render buffer changed
-            if(render_dirty_rows())
+            if(render_changed_rows())
             {
                 graphic_context.putImageData(graphical_text_image_data, 0, 0);
             }
@@ -611,12 +609,9 @@ function ScreenAdapter(options, screen_fill_buffer)
         {
             font_bitmap = render_font_bitmap(bitmap);
             changed_rows.fill(1);
-            if(size_changed)
+            if(size_changed && mode === MODE_GRAPHICAL_TEXT)
             {
-                if(mode === MODE_GRAPHICAL_TEXT)
-                {
-                    this.set_size_graphical_text();
-                }
+                this.set_size_graphical_text();
             }
         }
     };
