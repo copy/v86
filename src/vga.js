@@ -1,6 +1,3 @@
-// Base: commit c758d6d
-// https://github.com/copy/v86/blob/c758d6da40c79d8ee648e00ff66ee66e44b33501/src/vga.js
-
 "use strict";
 
 // Always 64k
