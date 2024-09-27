@@ -588,21 +588,24 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
     {
-        const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
-        const size_changed = font_width !== width || font_height !== height;
-
-        font_height = height;
-        font_width = width;
-        font_width_9px = width_9px;
-        font_width_dbl = width_dbl;
-        font_copy_8th_col = copy_8th_col;
-
-        font_bitmap = render_font_bitmap(bitmap);
-        changed_rows.fill(1);
-
-        if(mode === MODE_GRAPHICAL_TEXT && size_changed)
+        if(mode === MODE_GRAPHICAL_TEXT)
         {
-            this.set_size_graphical_text();
+            const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
+            const size_changed = font_width !== width || font_height !== height;
+
+            font_height = height;
+            font_width = width;
+            font_width_9px = width_9px;
+            font_width_dbl = width_dbl;
+            font_copy_8th_col = copy_8th_col;
+
+            font_bitmap = render_font_bitmap(bitmap);
+            changed_rows.fill(1);
+
+            if(size_changed)
+            {
+                this.set_size_graphical_text();
+            }
         }
     };
 
