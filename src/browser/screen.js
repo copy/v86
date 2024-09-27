@@ -588,16 +588,8 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
     {
-        if(!use_graphical_text || (font_height === height && font_width_9px === width_9px &&
-            font_width_dbl === width_dbl && font_copy_8th_col === copy_8th_col &&
-            !bitmap_changed))
-        {
-            return;
-        }
-
         const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
         const size_changed = font_width !== width || font_height !== height;
-        const glyphs_changed = bitmap_changed || font_copy_8th_col !== copy_8th_col;
 
         font_height = height;
         font_width = width;
@@ -605,14 +597,12 @@ function ScreenAdapter(options, screen_fill_buffer)
         font_width_dbl = width_dbl;
         font_copy_8th_col = copy_8th_col;
 
-        if(glyphs_changed || size_changed)
+        font_bitmap = render_font_bitmap(bitmap);
+        changed_rows.fill(1);
+
+        if(mode === MODE_GRAPHICAL_TEXT && size_changed)
         {
-            font_bitmap = render_font_bitmap(bitmap);
-            changed_rows.fill(1);
-            if(size_changed && mode === MODE_GRAPHICAL_TEXT)
-            {
-                this.set_size_graphical_text();
-            }
+            this.set_size_graphical_text();
         }
     };
 

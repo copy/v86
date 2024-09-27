@@ -295,7 +295,6 @@ function VGAScreen(cpu, bus, screen, vga_memory_size, options)
     this.miscellaneous_output_register = 0xff;
     this.port_3DA_value = 0xFF;
 
-    this.font_plane_dirty = false;
     this.font_page_ab_enabled = false;
 
     var io = cpu.io;
@@ -656,7 +655,6 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
         {
             // write to plane 2 (font-bitmap)
             this.plane2[addr] = value;
-            this.font_plane_dirty = true;
         }
     }
     else
@@ -1255,8 +1253,6 @@ VGAScreen.prototype.update_vga_size = function()
         {
             this.set_size_text(horizontal_characters, height);
         }
-
-        this.set_font_bitmap(false);
     }
 };
 
@@ -1549,11 +1545,10 @@ VGAScreen.prototype.port3C5_write = function(value)
             dbg_log("plane write mask: " + h(value), LOG_VGA);
             var previous_plane_write_bm = this.plane_write_bm;
             this.plane_write_bm = value;
-            if(!this.graphical_mode && this.font_plane_dirty && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
+            if(!this.graphical_mode && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
             {
                 // End of font plane 2 write access
                 this.set_font_bitmap(true);
-                this.font_plane_dirty = false;
             }
             break;
         case 0x03:
