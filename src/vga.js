@@ -295,7 +295,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size, options)
     this.miscellaneous_output_register = 0xff;
     this.port_3DA_value = 0xFF;
 
-    this.text_font_plane_dirty = false;
+    this.font_plane_dirty = false;
     this.font_page_ab_enabled = false;
 
     var io = cpu.io;
@@ -451,6 +451,7 @@ VGAScreen.prototype.get_state = function()
     state[61] = this.pixel_buffer;
     state[62] = this.dac_mask;
     state[63] = this.character_map_select;
+    state[64] = this.font_page_ab_enabled;
 
     return state;
 };
@@ -521,6 +522,7 @@ VGAScreen.prototype.set_state = function(state)
     state[61] && this.pixel_buffer.set(state[61]);
     this.dac_mask = state[62] === undefined ? 0xFF : state[62];
     this.character_map_select = state[63] === undefined ? 0 : state[63];
+    this.font_page_ab_enabled = state[64] === undefined ? 0 : state[64];
 
     this.screen.set_mode(this.graphical_mode);
 
@@ -544,6 +546,7 @@ VGAScreen.prototype.set_state = function(state)
     }
     else
     {
+        this.set_font_bitmap(true);
         this.set_size_text(this.max_cols, this.max_rows);
         this.update_cursor_scanline();
         this.update_cursor();
@@ -653,7 +656,7 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
         {
             // write to plane 2 (font-bitmap)
             this.plane2[addr] = value;
-            this.text_font_plane_dirty = true;
+            this.font_plane_dirty = true;
         }
     }
     else
@@ -1546,11 +1549,11 @@ VGAScreen.prototype.port3C5_write = function(value)
             dbg_log("plane write mask: " + h(value), LOG_VGA);
             var previous_plane_write_bm = this.plane_write_bm;
             this.plane_write_bm = value;
-            if(!this.graphical_mode && this.text_font_plane_dirty && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
+            if(!this.graphical_mode && this.font_plane_dirty && previous_plane_write_bm & 0x4 && !(this.plane_write_bm & 0x4))
             {
                 // End of font plane 2 write access
                 this.set_font_bitmap(true);
-                this.text_font_plane_dirty = false;
+                this.font_plane_dirty = false;
             }
             break;
         case 0x03:
