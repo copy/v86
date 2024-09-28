@@ -2373,16 +2373,23 @@ pub unsafe fn lookup_segment_selector(
     }
 
     let (table_offset, table_limit) = if selector.is_gdt() {
-        (*gdtr_offset as u32, *gdtr_size as u16)
+        (*gdtr_offset as u32, *gdtr_size as u32)
     }
     else {
         (
             *segment_offsets.offset(LDTR as isize) as u32,
-            *segment_limits.offset(LDTR as isize) as u16,
+            *segment_limits.offset(LDTR as isize) as u32,
         )
     };
 
-    if selector.descriptor_offset() > table_limit {
+    if selector.descriptor_offset() as u32 > table_limit {
+        dbg_log!(
+            "segment outside of table limit: selector={:x} offset={:x} isgdt={} table_limit={:x}",
+            selector.raw,
+            selector.descriptor_offset(),
+            selector.is_gdt(),
+            table_limit
+        );
         return Ok(Err(SelectorNullOrInvalid::OutsideOfTableLimit));
     }
 
@@ -2421,36 +2428,28 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     let selector = SegmentSelector::of_u16(selector_raw as u16);
     let descriptor = match return_on_pagefault!(lookup_segment_selector(selector), false) {
         Ok((desc, _)) => desc,
-        Err(selector_unusable) => {
-            // The selector couldn't be used to fetch a descriptor, so we handle all of those
-            // cases
-            if selector_unusable == SelectorNullOrInvalid::IsNull {
-                if reg == SS {
-                    dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
-                    trigger_gp(0);
-                    return false;
-                }
-                else if reg != CS {
-                    // es, ds, fs, gs
-                    *sreg.offset(reg as isize) = selector_raw as u16;
-                    *segment_is_null.offset(reg as isize) = true;
-                    update_state_flags();
-                    return true;
-                }
-            }
-            else if selector_unusable == SelectorNullOrInvalid::OutsideOfTableLimit {
-                dbg_log!(
-                    "#GP for loading invalid in seg={} sel={:x} gdt_limit={:x}",
-                    reg,
-                    selector_raw,
-                    *gdtr_size,
-                );
-                dbg_trace();
-                trigger_gp(selector_raw & !3);
+        Err(SelectorNullOrInvalid::IsNull) => {
+            if reg == SS {
+                dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
+                trigger_gp(0);
                 return false;
             }
-
-            dbg_assert!(false);
+            else {
+                // es, ds, fs, gs
+                *sreg.offset(reg as isize) = selector_raw as u16;
+                *segment_is_null.offset(reg as isize) = true;
+                update_state_flags();
+                return true;
+            }
+        }
+        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+            dbg_log!(
+                "#GP for loading invalid in seg={} sel={:x}",
+                reg,
+                selector_raw,
+            );
+            dbg_trace();
+            trigger_gp(selector_raw & !3);
             return false;
         },
     };
@@ -2580,6 +2579,7 @@ pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
     let selector = SegmentSelector::of_u16(selector as u16);
 
     if selector.is_null() {
+        dbg_log!("lldt: null loaded");
         *segment_limits.offset(LDTR as isize) = 0;
         *segment_offsets.offset(LDTR as isize) = 0;
         *sreg.offset(LDTR as isize) = selector.raw;
@@ -2613,6 +2613,12 @@ pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
         );
     }
 
+    dbg_log!(
+        "lldt: {:x} offset={:x} limit={:x}",
+        selector.raw,
+        descriptor.base(),
+        descriptor.effective_limit()
+    );
     *segment_limits.offset(LDTR as isize) = descriptor.effective_limit();
     *segment_offsets.offset(LDTR as isize) = descriptor.base();
     *sreg.offset(LDTR as isize) = selector.raw;
