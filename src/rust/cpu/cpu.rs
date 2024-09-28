@@ -2373,16 +2373,22 @@ pub unsafe fn lookup_segment_selector(
     }
 
     let (table_offset, table_limit) = if selector.is_gdt() {
-        (*gdtr_offset as u32, *gdtr_size as u16)
+        (*gdtr_offset as u32, *gdtr_size as u32)
     }
     else {
         (
             *segment_offsets.offset(LDTR as isize) as u32,
-            *segment_limits.offset(LDTR as isize) as u16,
+            *segment_limits.offset(LDTR as isize) as u32,
         )
     };
 
-    if selector.descriptor_offset() > table_limit {
+    if selector.descriptor_offset() as u32 > table_limit {
+        dbg_log!(
+            "offset={:x} ldt: {:x} {:x}",
+            selector.descriptor_offset(),
+            table_offset,
+            table_limit
+        );
         return Ok(Err(SelectorNullOrInvalid::OutsideOfTableLimit));
     }
 
@@ -2580,6 +2586,7 @@ pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
     let selector = SegmentSelector::of_u16(selector as u16);
 
     if selector.is_null() {
+        dbg_log!("lldt: null loaded");
         *segment_limits.offset(LDTR as isize) = 0;
         *segment_offsets.offset(LDTR as isize) = 0;
         *sreg.offset(LDTR as isize) = selector.raw;
@@ -2613,6 +2620,12 @@ pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
         );
     }
 
+    dbg_log!(
+        "lldt: {:x} offset={:x} limit={:x}",
+        selector.raw,
+        descriptor.base(),
+        descriptor.effective_limit()
+    );
     *segment_limits.offset(LDTR as isize) = descriptor.effective_limit();
     *segment_offsets.offset(LDTR as isize) = descriptor.base();
     *sreg.offset(LDTR as isize) = selector.raw;
