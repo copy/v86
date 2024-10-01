@@ -689,15 +689,15 @@ CPU.prototype.reboot_internal = function()
 
     if(this.devices.virtio_9p)
     {
-        this.devices.virtio_9p.Reset();
+        this.devices.virtio_9p.reset();
     }
     if(this.devices.virtio_console)
     {
-        this.devices.virtio_console.Reset();
+        this.devices.virtio_console.reset();
     }
     if(this.devices.virtio_net)
     {
-        this.devices.virtio_net.Reset();
+        this.devices.virtio_net.reset();
     }
 
     this.load_bios();

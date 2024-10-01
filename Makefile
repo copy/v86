@@ -322,6 +322,7 @@ api-tests: all-debug
 	./tests/api/reset.js
 	./tests/api/floppy-insert-eject.js
 	./tests/api/serial.js
+	./tests/api/reboot.js
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
