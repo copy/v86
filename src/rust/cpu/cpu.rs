@@ -592,13 +592,9 @@ pub unsafe fn iret(is_16: bool) {
     let cs_selector = SegmentSelector::of_u16(new_cs as u16);
     let cs_descriptor = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
         Ok((desc, _)) => desc,
-        Err(selector_unusable) => match selector_unusable {
-            SelectorNullOrInvalid::IsNull => {
-                panic!("Unimplemented: CS selector is null");
-            },
-            SelectorNullOrInvalid::OutsideOfTableLimit => {
-                panic!("Unimplemented: CS selector is invalid");
-            },
+        Err(SelectorNullOrInvalid::IsNull) => panic!("Unimplemented: CS selector is null"),
+        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+            panic!("Unimplemented: CS selector is invalid")
         },
     };
 
@@ -653,18 +649,16 @@ pub unsafe fn iret(is_16: bool) {
         let ss_selector = SegmentSelector::of_u16(temp_ss as u16);
         let ss_descriptor = match return_on_pagefault!(lookup_segment_selector(ss_selector)) {
             Ok((desc, _)) => desc,
-            Err(selector_unusable) => match selector_unusable {
-                SelectorNullOrInvalid::IsNull => {
-                    dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
-                    dbg_trace();
-                    trigger_gp(0);
-                    return;
-                },
-                SelectorNullOrInvalid::OutsideOfTableLimit => {
-                    dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
-                    trigger_gp(temp_ss & !3);
-                    return;
-                },
+            Err(SelectorNullOrInvalid::IsNull) => {
+                dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
+                dbg_trace();
+                trigger_gp(0);
+                return;
+            },
+            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
+                trigger_gp(temp_ss & !3);
+                return;
             },
         };
         let new_cpl = cs_selector.rpl();
@@ -858,15 +852,13 @@ pub unsafe fn call_interrupt_vector(
             SegmentSelector::of_u16(selector as u16)
         )) {
             Ok((desc, _)) => desc,
-            Err(selector_unusable) => match selector_unusable {
-                SelectorNullOrInvalid::IsNull => {
-                    dbg_log!("is null");
-                    panic!("Unimplemented: #GP handler");
-                },
-                SelectorNullOrInvalid::OutsideOfTableLimit => {
-                    dbg_log!("is invalid");
-                    panic!("Unimplemented: #GP handler (error code)");
-                },
+            Err(SelectorNullOrInvalid::IsNull) => {
+                dbg_log!("is null");
+                panic!("Unimplemented: #GP handler");
+            },
+            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                dbg_log!("is invalid");
+                panic!("Unimplemented: #GP handler (error code)");
             },
         };
 
@@ -1119,17 +1111,15 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
     let cs_selector = SegmentSelector::of_u16(selector as u16);
     let info = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
         Ok((desc, _)) => desc,
-        Err(selector_unusable) => match selector_unusable {
-            SelectorNullOrInvalid::IsNull => {
-                dbg_log!("#gp null cs");
-                trigger_gp(0);
-                return;
-            },
-            SelectorNullOrInvalid::OutsideOfTableLimit => {
-                dbg_log!("#gp invalid cs: {:x}", selector);
-                trigger_gp(selector & !3);
-                return;
-            },
+        Err(SelectorNullOrInvalid::IsNull) => {
+            dbg_log!("#gp null cs");
+            trigger_gp(0);
+            return;
+        },
+        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+            dbg_log!("#gp invalid cs: {:x}", selector);
+            trigger_gp(selector & !3);
+            return;
         },
     };
 
@@ -1160,17 +1150,15 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 SegmentSelector::of_u16(cs_selector as u16)
             )) {
                 Ok((desc, _)) => desc,
-                Err(selector_unusable) => match selector_unusable {
-                    SelectorNullOrInvalid::IsNull => {
-                        dbg_log!("#gp null cs");
-                        trigger_gp(0);
-                        return;
-                    },
-                    SelectorNullOrInvalid::OutsideOfTableLimit => {
-                        dbg_log!("#gp invalid cs: {:x}", selector);
-                        trigger_gp(selector & !3);
-                        return;
-                    },
+                Err(SelectorNullOrInvalid::IsNull) => {
+                    dbg_log!("#gp null cs");
+                    trigger_gp(0);
+                    return;
+                },
+                Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                    dbg_log!("#gp invalid cs: {:x}", selector);
+                    trigger_gp(selector & !3);
+                    return;
                 },
             };
 
@@ -1204,13 +1192,11 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 let ss_selector = SegmentSelector::of_u16(new_ss as u16);
                 let ss_info = match return_on_pagefault!(lookup_segment_selector(ss_selector)) {
                     Ok((desc, _)) => desc,
-                    Err(selector_unusable) => match selector_unusable {
-                        SelectorNullOrInvalid::IsNull => {
-                            panic!("null ss: {}", new_ss);
-                        },
-                        SelectorNullOrInvalid::OutsideOfTableLimit => {
-                            panic!("invalid ss: {}", new_ss);
-                        },
+                    Err(SelectorNullOrInvalid::IsNull) => {
+                        panic!("null ss: {}", new_ss);
+                    },
+                    Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                        panic!("invalid ss: {}", new_ss);
                     },
                 };
 
@@ -1444,17 +1430,15 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
     let cs_selector = SegmentSelector::of_u16(selector as u16);
     let info = match return_on_pagefault!(lookup_segment_selector(cs_selector)) {
         Ok((desc, _)) => desc,
-        Err(selector_unusable) => match selector_unusable {
-            SelectorNullOrInvalid::IsNull => {
-                dbg_log!("far return: #gp null cs");
-                trigger_gp(0);
-                return;
-            },
-            SelectorNullOrInvalid::OutsideOfTableLimit => {
-                dbg_log!("far return: #gp invalid cs: {:x}", selector);
-                trigger_gp(selector & !3);
-                return;
-            },
+        Err(SelectorNullOrInvalid::IsNull) => {
+            dbg_log!("far return: #gp null cs");
+            trigger_gp(0);
+            return;
+        },
+        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+            dbg_log!("far return: #gp invalid cs: {:x}", selector);
+            trigger_gp(selector & !3);
+            return;
         },
     };
 
@@ -2447,7 +2431,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                 update_state_flags();
                 return true;
             }
-        }
+        },
         Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
             dbg_log!(
                 "#GP for loading invalid in seg={} sel={:x}",
