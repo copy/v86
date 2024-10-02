@@ -2416,33 +2416,34 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     }
 
     let selector = SegmentSelector::of_u16(selector_raw as u16);
-    let (mut descriptor, descriptor_address) = match return_on_pagefault!(lookup_segment_selector(selector), false) {
-        Ok(desc) => desc,
-        Err(SelectorNullOrInvalid::IsNull) => {
-            if reg == SS {
-                dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
-                trigger_gp(0);
+    let (mut descriptor, descriptor_address) =
+        match return_on_pagefault!(lookup_segment_selector(selector), false) {
+            Ok(desc) => desc,
+            Err(SelectorNullOrInvalid::IsNull) => {
+                if reg == SS {
+                    dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
+                    trigger_gp(0);
+                    return false;
+                }
+                else {
+                    // es, ds, fs, gs
+                    *sreg.offset(reg as isize) = selector_raw as u16;
+                    *segment_is_null.offset(reg as isize) = true;
+                    update_state_flags();
+                    return true;
+                }
+            },
+            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                dbg_log!(
+                    "#GP for loading invalid in seg={} sel={:x}",
+                    reg,
+                    selector_raw,
+                );
+                dbg_trace();
+                trigger_gp(selector_raw & !3);
                 return false;
-            }
-            else {
-                // es, ds, fs, gs
-                *sreg.offset(reg as isize) = selector_raw as u16;
-                *segment_is_null.offset(reg as isize) = true;
-                update_state_flags();
-                return true;
-            }
-        },
-        Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
-            dbg_log!(
-                "#GP for loading invalid in seg={} sel={:x}",
-                reg,
-                selector_raw,
-            );
-            dbg_trace();
-            trigger_gp(selector_raw & !3);
-            return false;
-        },
-    };
+            },
+        };
 
     if reg == SS {
         if descriptor.is_system()
