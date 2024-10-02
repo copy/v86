@@ -385,6 +385,7 @@ impl SegmentDescriptor {
     pub fn is_system(&self) -> bool { self.access_byte() & 0x10 == 0 }
     pub fn system_type(&self) -> u8 { self.access_byte() & 0xF }
 
+    pub fn accessed(&self) -> bool { self.access_byte() & 1 == 1 }
     pub fn is_rw(&self) -> bool { self.access_byte() & 2 == 2 }
     pub fn is_dc(&self) -> bool { self.access_byte() & 4 == 4 }
     pub fn is_executable(&self) -> bool { self.access_byte() & 8 == 8 }
@@ -405,6 +406,11 @@ impl SegmentDescriptor {
     pub fn set_busy(&self) -> SegmentDescriptor {
         SegmentDescriptor {
             raw: self.raw | 2 << 40,
+        }
+    }
+    pub fn set_accessed(&self) -> SegmentDescriptor {
+        SegmentDescriptor {
+            raw: self.raw | 1 << 40,
         }
     }
 }
@@ -2426,8 +2432,8 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     }
 
     let selector = SegmentSelector::of_u16(selector_raw as u16);
-    let descriptor = match return_on_pagefault!(lookup_segment_selector(selector), false) {
-        Ok((desc, _)) => desc,
+    let (mut descriptor, descriptor_address) = match return_on_pagefault!(lookup_segment_selector(selector), false) {
+        Ok(desc) => desc,
         Err(SelectorNullOrInvalid::IsNull) => {
             if reg == SS {
                 dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
@@ -2511,6 +2517,15 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
             trigger_np(selector_raw & !3);
             return false;
         }
+    }
+
+    if !descriptor.accessed() {
+        descriptor = descriptor.set_accessed();
+
+        memory::write8(
+            translate_address_system_write(descriptor_address + 5).unwrap(),
+            descriptor.access_byte() as i32,
+        );
     }
 
     *segment_is_null.offset(reg as isize) = false;
