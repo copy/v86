@@ -1443,6 +1443,8 @@ CPU.prototype.load_bios = function()
         return;
     }
 
+    dbg_assert(bios instanceof ArrayBuffer);
+
     // load bios
     var data = new Uint8Array(bios),
         start = 0x100000 - bios.byteLength;
@@ -1451,6 +1453,8 @@ CPU.prototype.load_bios = function()
 
     if(vga_bios)
     {
+        dbg_assert(vga_bios instanceof ArrayBuffer);
+
         // load vga bios
         var vga_bios8 = new Uint8Array(vga_bios);
 
