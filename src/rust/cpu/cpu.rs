@@ -2463,10 +2463,6 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 
         *stack_size_32 = descriptor.is_32();
     }
-    else if reg == CS {
-        // handled by switch_cs_real_mode, far_return or far_jump
-        dbg_assert!(false);
-    }
     else {
         if descriptor.is_system()
             || !descriptor.is_readable()
