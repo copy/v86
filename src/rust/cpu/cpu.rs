@@ -2567,7 +2567,10 @@ pub unsafe fn load_tr(selector: i32) {
     *sreg.offset(TR as isize) = selector.raw;
 
     // Mark task as busy
-    safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
+    memory::write8(
+        translate_address_system_write(descriptor_address + 5).unwrap(),
+        descriptor.set_busy().access_byte() as i32,
+    );
 }
 
 pub unsafe fn load_ldt(selector: i32) -> OrPageFault<()> {
