@@ -659,7 +659,6 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
     }
     else
     {
-        // write to planes 0 and 1
         this.vga_memory_write_text_mode(addr, value);
     }
 };
