@@ -678,8 +678,6 @@ function ScreenAdapter(options, screen_fill_buffer)
         graphic_screen.height = height;
 
         // graphic_context must be reconfigured whenever its graphic_screen is resized
-        graphic_context.webkitImageSmoothingEnabled = false;
-        graphic_context.mozImageSmoothingEnabled = false;
         graphic_context.imageSmoothingEnabled = false;
 
         // add some scaling to tiny resolutions
