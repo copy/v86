@@ -1406,7 +1406,7 @@ VGAScreen.prototype.port3C0_write = function(value)
                     var previous_mode = this.attribute_mode;
                     this.attribute_mode = value;
 
-                    var is_graphical = (value & 0x1) > 0;
+                    const is_graphical = (value & 0x1) !== 0;
                     if(!this.svga_enabled && this.graphical_mode !== is_graphical)
                     {
                         this.graphical_mode = is_graphical;
