@@ -80,9 +80,6 @@ function ScreenAdapter(options, screen_fill_buffer)
         font_bitmap,
         font_height,
         font_width,
-        font_width_9px,
-        font_width_dbl,
-        font_copy_8th_col,
         font_page_a = 0,
         font_page_b = 0,
 
@@ -101,7 +98,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         return "#" + "0".repeat(6 - n.length) + n;
     }
 
-    function render_font_bitmap(src_bitmap)
+    function render_font_bitmap(src_bitmap, width_9px, width_dbl, copy_8th_col)
     {
         const dst_size = 8 * 256 * font_width * font_height;
         const dst_bitmap = font_bitmap && font_bitmap.length === dst_size ?
@@ -109,7 +106,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         const vga_inc_chr = 32 - font_height;
 
         let i_dst = 0;
-        const copy_bit = font_width_dbl ?
+        const copy_bit = width_dbl ?
             function(value)
             {
                 dst_bitmap[i_dst++] = value;
@@ -132,9 +129,9 @@ function ScreenAdapter(options, screen_fill_buffer)
                     {
                         copy_bit(line_bits & i_bit ? 1 : 0);
                     }
-                    if(font_width_9px)
+                    if(width_9px)
                     {
-                        copy_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 1 : 0);
+                        copy_bit(copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 1 : 0);
                     }
                 }
             }
@@ -167,12 +164,9 @@ function ScreenAdapter(options, screen_fill_buffer)
         // current cursor linear position in canvas coordinates (top left of its row/col)
         const cursor_gfx_i = (cursor_row*gfx_width*font_height + cursor_col*font_width) * 4;
 
-        let txt_i, chr, chr_flags, chr_blinking, chr_font_offset, chr_bg_rgba, chr_fg_rgba;
-        let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0;
-        let gfx_i, gfx_end_y, gfx_end_x, gfx_ic, glyph_i;
-        let draw_cursor, row, col, n_rows_rendered=0;
+        let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0, n_rows_rendered=0;
 
-        for(row = 0, txt_i = 0; row < text_mode_height; ++row)
+        for(let row = 0, txt_i = 0; row < text_mode_height; ++row)
         {
             if(!changed_rows[row])
             {
@@ -181,16 +175,16 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
 
             ++n_rows_rendered;
-            gfx_i = row * gfx_row_size;
+            let gfx_i = row * gfx_row_size;
 
-            for(col = 0; col < text_mode_width; ++col, txt_i += TEXT_BUF_COMPONENT_SIZE, gfx_i += gfx_col_step)
+            for(let col = 0; col < text_mode_width; ++col, txt_i += TEXT_BUF_COMPONENT_SIZE, gfx_i += gfx_col_step)
             {
-                chr = text_mode_data[txt_i + CHARACTER_INDEX];
-                chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
-                chr_blinking = chr_flags & FLAG_BLINKING;
-                chr_font_offset = chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
-                chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
-                chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
+                const chr = text_mode_data[txt_i + CHARACTER_INDEX];
+                const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
+                const chr_blinking = chr_flags & FLAG_BLINKING;
+                const chr_font_offset = chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
+                const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
+                const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
 
                 if(bg !== chr_bg_rgba)
                 {
@@ -217,14 +211,12 @@ function ScreenAdapter(options, screen_fill_buffer)
                     fg_b = fg & 0xff;
                 }
 
-                draw_cursor = cursor_visible && cursor_gfx_i === gfx_i;
+                const draw_cursor = cursor_visible && cursor_gfx_i === gfx_i;
+                const gfx_end_y = gfx_i + gfx_row_size;
 
-                glyph_i = (chr_font_offset + chr) * font_size;
-
-                gfx_end_y = gfx_i + gfx_row_size;
-                for(; gfx_i < gfx_end_y; gfx_i += gfx_line_step)
+                for(let glyph_i = (chr_font_offset + chr) * font_size; gfx_i < gfx_end_y; gfx_i += gfx_line_step)
                 {
-                    gfx_end_x = gfx_i + gfx_col_size;
+                    const gfx_end_x = gfx_i + gfx_col_size;
                     for(; gfx_i < gfx_end_x; gfx_i += 4)
                     {
                         if(font_bitmap[glyph_i++])
@@ -244,12 +236,12 @@ function ScreenAdapter(options, screen_fill_buffer)
 
                 if(draw_cursor)
                 {
-                    gfx_ic = cursor_gfx_i + cursor_start * gfx_line_size;
-                    gfx_end_y = gfx_ic + cursor_height * gfx_line_size;
-                    for(; gfx_ic < gfx_end_y; gfx_ic += gfx_line_step)
+                    let gfx_ic = cursor_gfx_i + cursor_start * gfx_line_size;
+                    const gfx_end_yc = gfx_ic + cursor_height * gfx_line_size;
+                    for(; gfx_ic < gfx_end_yc; gfx_ic += gfx_line_step)
                     {
-                        gfx_end_x = gfx_ic + gfx_col_size;
-                        for(; gfx_ic < gfx_end_x; gfx_ic += 4)
+                        const gfx_end_xc = gfx_ic + gfx_col_size;
+                        for(; gfx_ic < gfx_end_xc; gfx_ic += 4)
                         {
                             graphical_text_buffer[gfx_ic]   = fg_r;
                             graphical_text_buffer[gfx_ic+1] = fg_g;
@@ -573,11 +565,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
             font_height = height;
             font_width = width;
-            font_width_9px = width_9px;
-            font_width_dbl = width_dbl;
-            font_copy_8th_col = copy_8th_col;
-
-            font_bitmap = render_font_bitmap(bitmap);
+            font_bitmap = render_font_bitmap(bitmap, width_9px, width_dbl, copy_8th_col);
             changed_rows.fill(1);
 
             if(size_changed)
