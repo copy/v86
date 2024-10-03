@@ -404,35 +404,6 @@ function ScreenAdapter(options, screen_fill_buffer)
         return image;
     };
 
-    /**
-     * Return content of the complete text screen as an array of Unicode strings.
-     * Trim each line's trailing whitespace unless keep_whitespace is true.
-     * If defined, codepage must be an array of 256 single-character strings.
-     * If codepage is undefined or null an internal US-codepage (CP437) is used.
-     *
-     * @param {boolean|undefined} keep_whitespace
-     * @param {Array<string>|null|undefined} codepage
-     * @return {Array<string>} The screen's current text rows.
-     */
-    this.grab_text_content = function(keep_whitespace, codepage)
-    {
-        const text_rows = [];
-        if(mode === MODE_TEXT || mode === MODE_GRAPHICAL_TEXT)
-        {
-            codepage = codepage || charmap;
-            for(var row = 0, i_chr = 0; row < text_mode_height; row++)
-            {
-                let line = "";
-                for(var col = 0; col < text_mode_width; col++, i_chr += TEXT_BUF_COMPONENT_SIZE)
-                {
-                    line += codepage[text_mode_data[i_chr]];
-                }
-                text_rows.push(keep_whitespace ? line : line.trimEnd());
-            }
-        }
-        return text_rows;
-    };
-
     this.put_char = function(row, col, chr, flags, bg_color, fg_color)
     {
         dbg_assert(row >= 0 && row < text_mode_height);
@@ -955,7 +926,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         {
             const index = (y * text_mode_width + x) * TEXT_BUF_COMPONENT_SIZE;
             const character = text_mode_data[index + CHARACTER_INDEX];
-            result += String.fromCharCode(character);
+            result += charmap[character];
         }
 
         return result;
