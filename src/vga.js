@@ -167,7 +167,6 @@ function VGAScreen(cpu, bus, screen, vga_memory_size, options)
 
     /** @type {boolean} */
     this.graphical_mode = false;
-    this.screen.set_mode(this.graphical_mode);
 
     /*
      * VGA palette containing 256 colors for video mode 13, svga 8bpp, etc.
