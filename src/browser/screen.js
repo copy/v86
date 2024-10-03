@@ -43,10 +43,10 @@ function ScreenAdapter(options, screen_fill_buffer)
         cursor_col,
 
         /** @type {number} */
-        scale_x = 1,
+        scale_x = options.scale !== undefined ? options.scale : 1,
 
         /** @type {number} */
-        scale_y = 1,
+        scale_y = options.scale !== undefined ? options.scale : 1,
 
         base_scale = 1,
 
@@ -688,14 +688,16 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     function update_scale_graphic()
     {
-        if(!options.disable_autoscale)
-        {
-            elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
-        }
+        elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
     }
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)
     {
+        if(!scale_x || !scale_y)
+        {
+            return;
+        }
+
         elem.style.width = "";
         elem.style.height = "";
 
