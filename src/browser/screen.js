@@ -102,20 +102,22 @@ function ScreenAdapter(options, screen_fill_buffer)
     function render_font_bitmap(src_bitmap, width_9px, width_dbl, copy_8th_col)
     {
         const dst_size = 8 * 256 * font_width * font_height;
-        const dst_bitmap = font_bitmap && font_bitmap.length === dst_size ?
-            font_bitmap : new Uint8ClampedArray(dst_size);
         const vga_inc_chr = 32 - font_height;
+        if(!font_bitmap || font_bitmap.length < dst_size)
+        {
+            font_bitmap = new Uint8ClampedArray(dst_size);
+        }
 
         let i_dst = 0;
         const copy_bit = width_dbl ?
             function(value)
             {
-                dst_bitmap[i_dst++] = value;
-                dst_bitmap[i_dst++] = value;
+                font_bitmap[i_dst++] = value;
+                font_bitmap[i_dst++] = value;
             } :
             function(value)
             {
-                dst_bitmap[i_dst++] = value;
+                font_bitmap[i_dst++] = value;
             };
 
         let i_src = 0;
@@ -137,8 +139,6 @@ function ScreenAdapter(options, screen_fill_buffer)
                 }
             }
         }
-
-        return dst_bitmap;
     }
 
     function render_changed_rows()
@@ -537,7 +537,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
             font_height = height;
             font_width = width;
-            font_bitmap = render_font_bitmap(bitmap, width_9px, width_dbl, copy_8th_col);
+            render_font_bitmap(bitmap, width_9px, width_dbl, copy_8th_col);
             changed_rows.fill(1);
 
             if(size_changed)
