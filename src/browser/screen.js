@@ -89,7 +89,8 @@ function ScreenAdapter(options, screen_fill_buffer)
 
         timer_id = 0,
         paused = false,
-        charmap = [];
+        charmap_default = [],
+        charmap = charmap_default;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
@@ -326,7 +327,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             {
                 chr = i;
             }
-            charmap.push(String.fromCharCode(chr));
+            charmap_default.push(String.fromCharCode(chr));
         }
 
         // setup text mode cursor DOM element
@@ -693,6 +694,11 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
 
         update_scale_graphic();
+    };
+
+    this.set_charmap = function(text_charmap)
+    {
+        charmap = text_charmap || charmap_default;
     };
 
     this.set_scale = function(s_x, s_y)
