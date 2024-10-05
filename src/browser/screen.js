@@ -67,19 +67,18 @@ function ScreenAdapter(options, screen_fill_buffer)
         // number of rows
         text_mode_height,
 
-        // cursor attributes
-        cursor_start,
-        cursor_end,
-        cursor_enabled,
+        // graphical text mode's offscreen canvas contexts
+        offscreen_context,
+        offscreen_extra_context,
 
-        // graphical text mode state
-        graphical_text_buffer,
-        graphical_text_image_data,
-
-        // font attributes
-        font_bitmap,
+        // fonts
+        font_context,
+        font_image_data,
         font_height,
         font_width,
+        font_width_9px,
+        font_width_dbl,
+        font_copy_8th_col,
         font_page_a = 0,
         font_page_b = 0,
 
@@ -87,10 +86,18 @@ function ScreenAdapter(options, screen_fill_buffer)
         blink_visible,
         tm_last_update = 0,
 
-        timer_id = 0,
-        paused = false,
+        // cursor attributes
+        cursor_start,
+        cursor_end,
+        cursor_enabled,
+
+        // 8-bit Unicode character maps
         charmap_default = [],
-        charmap = charmap_default;
+        charmap = charmap_default,
+
+        // render loop state
+        timer_id = 0,
+        paused = false;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
@@ -99,158 +106,174 @@ function ScreenAdapter(options, screen_fill_buffer)
         return "#" + "0".repeat(6 - n.length) + n;
     }
 
-    function render_font_bitmap(src_bitmap, width_9px, width_dbl, copy_8th_col)
+    function render_font_bitmap(vga_bitmap)
     {
-        const dst_size = 8 * 256 * font_width * font_height;
-        const vga_inc_chr = 32 - font_height;
-        if(!font_bitmap || font_bitmap.length < dst_size)
+        // - Browsers impose limts on the X- and Y-axes of bitmaps (typically around 8 to 32k).
+        //   Draw the 8 VGA font pages of 256 glyphs in 8 rows of 256 columns, this results
+        //   in 2048, 2304 or 4096px on the X-axis (for 8, 9 or 16px VGA font width, resp.).
+        //   This 2d layout is also convenient for glyph lookup when rendering text.
+        // - Font bitmap pixels are black and either fully opaque (alpha 255) or fully transparent (0).
+        const bitmap_width = font_width * 256;
+        const bitmap_height = font_height * 8;
+
+        let font_canvas = font_context ? font_context.canvas : null;
+        if(!font_canvas || font_canvas.width !== bitmap_width || font_canvas.height !== bitmap_height)
         {
-            font_bitmap = new Uint8ClampedArray(dst_size);
+            if(!font_canvas)
+            {
+                font_canvas = new OffscreenCanvas(bitmap_width, bitmap_height);
+                font_context = font_canvas.getContext("2d");
+            }
+            else
+            {
+                font_canvas.width = bitmap_width;
+                font_canvas.height = bitmap_height;
+            }
+            font_image_data = font_context.createImageData(bitmap_width, bitmap_height);
         }
 
+        const font_bitmap = font_image_data.data;
         let i_dst = 0;
-        const copy_bit = width_dbl ?
+        const put_bit = font_width_dbl ?
             function(value)
             {
-                font_bitmap[i_dst++] = value;
-                font_bitmap[i_dst++] = value;
+                font_bitmap[i_dst + 3] = value;
+                font_bitmap[i_dst + 7] = value;
+                i_dst += 8;
             } :
             function(value)
             {
-                font_bitmap[i_dst++] = value;
+                font_bitmap[i_dst + 3] = value;
+                i_dst += 4;
             };
 
-        let i_src = 0;
-        for(let i_font_page = 0; i_font_page < 8; ++i_font_page)
+        // move i_vga from end of glyph to start of next glyph
+        const vga_inc_chr = 32 - font_height;
+        // move i_dst from end of font page (bitmap row) to start of next font page
+        const dst_inc_row = bitmap_width * (font_height - 1) * 4;
+        // move i_dst from end of glyph (bitmap column) to start of next glyph
+        const dst_inc_col = (font_width - bitmap_width * font_height) * 4;
+        // move i_dst from end of a glyph's scanline to start of its next scanline
+        const dst_inc_line = font_width * 255 * 4;
+
+        for(let i_font_page = 0, i_vga = 0; i_font_page < 8; ++i_font_page, i_dst += dst_inc_row)
         {
-            for(let i_chr = 0; i_chr < 256; ++i_chr, i_src += vga_inc_chr)
+            for(let i_chr = 0; i_chr < 256; ++i_chr, i_vga += vga_inc_chr, i_dst += dst_inc_col)
             {
-                for(let i_line = 0; i_line < font_height; ++i_line, ++i_src)
+                for(let i_line = 0; i_line < font_height; ++i_line, ++i_vga, i_dst += dst_inc_line)
                 {
-                    const line_bits = src_bitmap[i_src];
+                    const line_bits = vga_bitmap[i_vga];
                     for(let i_bit = 0x80; i_bit > 0; i_bit >>= 1)
                     {
-                        copy_bit(line_bits & i_bit ? 1 : 0);
+                        put_bit(line_bits & i_bit ? 255 : 0);
                     }
-                    if(width_9px)
+                    if(font_width_9px)
                     {
-                        copy_bit(copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 1 : 0);
+                        put_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 255 : 0);
                     }
                 }
             }
         }
+
+        font_context.putImageData(font_image_data, 0, 0);
     }
 
     function render_changed_rows()
     {
-        const font_size = font_width * font_height;
-        const font_A_offset = font_page_a * 256;
-        const font_B_offset = font_page_b * 256;
-        const cursor_visible = cursor_enabled && blink_visible;
-        const cursor_height = cursor_end - cursor_start + 1;
-        const gfx_width = font_width * text_mode_width;
-        const gfx_height = font_height * text_mode_height;
+        const font_canvas = font_context.canvas;
+        const offscreen_extra_canvas = offscreen_extra_context.canvas;
         const txt_row_size = text_mode_width * TEXT_BUF_COMPONENT_SIZE;
+        const gfx_width = text_mode_width * font_width;
+        const draw_cursor = cursor_enabled && blink_visible;
+        const cursor_txt_i = (cursor_row * text_mode_width + cursor_col) * TEXT_BUF_COMPONENT_SIZE;
+        const row_extra_1_y = 0;
+        const row_extra_2_y = font_height;
 
-        // column size in graphical_text_buffer (tuple of 4 RGBA items)
-        const gfx_col_size = font_width * 4;
-        // line size in graphical_text_buffer (tuple of 4 RGBA items)
-        const gfx_line_size = gfx_width * 4;
-        // row size in graphical_text_buffer
-        const gfx_row_size = gfx_line_size * font_height;
-        // move from end of current column to start of next in graphical_text_buffer
-        const gfx_col_step = (font_width - font_height * gfx_width) * 4;
-        // move forward to start of column's next line in graphical_text_buffer
-        const gfx_line_step = (gfx_width - font_width) * 4;
-        // current cursor linear position in canvas coordinates (top left of its row/col)
-        const cursor_gfx_i = (cursor_row*gfx_width*font_height + cursor_col*font_width) * 4;
-
-        let fg, bg, fg_r=0, fg_g=0, fg_b=0, bg_r=0, bg_g=0, bg_b=0, n_rows_rendered=0;
-
-        for(let row = 0, txt_i = 0; row < text_mode_height; ++row)
+        let n_rows_rendered = 0, fg_rgba, cursor_fill_style;
+        for(let row_i = 0, row_y = 0, txt_i = 0; row_i < text_mode_height; ++row_i, row_y += font_height)
         {
-            if(!changed_rows[row])
+            if(!changed_rows[row_i])
             {
                 txt_i += txt_row_size;
                 continue;
             }
-
             ++n_rows_rendered;
-            let gfx_i = row * gfx_row_size;
 
-            for(let col = 0; col < text_mode_width; ++col, txt_i += TEXT_BUF_COMPONENT_SIZE, gfx_i += gfx_col_step)
+            let bg_rgba, bg_x;
+            for(let col_x = 0; col_x < gfx_width; col_x += font_width, txt_i += TEXT_BUF_COMPONENT_SIZE)
             {
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
                 const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
-                const chr_blinking = chr_flags & FLAG_BLINKING;
-                const chr_font_offset = chr_flags & FLAG_FONT_PAGE_B ? font_B_offset : font_A_offset;
                 const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
                 const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
+                const chr_blinking = chr_flags & FLAG_BLINKING;
+                const chr_font_page = chr_flags & FLAG_FONT_PAGE_B ? font_page_b : font_page_a;
 
-                if(bg !== chr_bg_rgba)
+                if(bg_rgba !== chr_bg_rgba)
                 {
-                    bg = chr_bg_rgba;
-                    bg_r = bg >> 16;
-                    bg_g = (bg >> 8) & 0xff;
-                    bg_b = bg & 0xff;
-                }
-
-                if(chr_blinking && ! blink_visible)
-                {
-                    if(fg !== bg) {
-                        fg = bg;
-                        fg_r = bg_r;
-                        fg_g = bg_g;
-                        fg_b = bg_b;
-                    }
-                }
-                else if(fg !== chr_fg_rgba)
-                {
-                    fg = chr_fg_rgba;
-                    fg_r = fg >> 16;
-                    fg_g = (fg >> 8) & 0xff;
-                    fg_b = fg & 0xff;
-                }
-
-                const draw_cursor = cursor_visible && cursor_gfx_i === gfx_i;
-                const gfx_end_y = gfx_i + gfx_row_size;
-
-                for(let glyph_i = (chr_font_offset + chr) * font_size; gfx_i < gfx_end_y; gfx_i += gfx_line_step)
-                {
-                    const gfx_end_x = gfx_i + gfx_col_size;
-                    for(; gfx_i < gfx_end_x; gfx_i += 4)
+                    if(bg_rgba !== undefined)
                     {
-                        if(font_bitmap[glyph_i++])
-                        {
-                            graphical_text_buffer[gfx_i]   = fg_r;
-                            graphical_text_buffer[gfx_i+1] = fg_g;
-                            graphical_text_buffer[gfx_i+2] = fg_b;
-                        }
-                        else
-                        {
-                            graphical_text_buffer[gfx_i]   = bg_r;
-                            graphical_text_buffer[gfx_i+1] = bg_g;
-                            graphical_text_buffer[gfx_i+2] = bg_b;
-                        }
+                        // draw opaque background color block into offscreen_context
+                        offscreen_context.fillStyle = number_as_color(bg_rgba);
+                        offscreen_context.fillRect(bg_x, row_y, col_x - bg_x, font_height);
                     }
+                    bg_rgba = chr_bg_rgba;
+                    bg_x = col_x;
                 }
 
-                if(draw_cursor)
+                if(fg_rgba !== chr_fg_rgba)
                 {
-                    let gfx_ic = cursor_gfx_i + cursor_start * gfx_line_size;
-                    const gfx_end_yc = gfx_ic + cursor_height * gfx_line_size;
-                    for(; gfx_ic < gfx_end_yc; gfx_ic += gfx_line_step)
-                    {
-                        const gfx_end_xc = gfx_ic + gfx_col_size;
-                        for(; gfx_ic < gfx_end_xc; gfx_ic += 4)
-                        {
-                            graphical_text_buffer[gfx_ic]   = fg_r;
-                            graphical_text_buffer[gfx_ic+1] = fg_g;
-                            graphical_text_buffer[gfx_ic+2] = fg_b;
-                        }
-                    }
+                    fg_rgba = chr_fg_rgba;
+                    offscreen_extra_context.fillStyle = number_as_color(chr_fg_rgba);
+                }
+
+                if(!chr_blinking || blink_visible)
+                {
+                    // draw opaque foreground color blocks into extra row 1
+                    offscreen_extra_context.fillRect(col_x, row_extra_1_y, font_width, font_height);
+                    // copy transparent glyphs into extra row 2
+                    offscreen_extra_context.drawImage(font_canvas,
+                        chr * font_width, chr_font_page * font_height, font_width, font_height,
+                        col_x, row_extra_2_y, font_width, font_height);
+                }
+                else
+                {
+                    // erase hidden glyphs in extra row 1
+                    offscreen_extra_context.clearRect(col_x, row_extra_1_y, font_width, font_height);
+                }
+
+                if(draw_cursor && txt_i === cursor_txt_i)
+                {
+                    // store foreground color here at cursor's row and column for later when drawing the cursor
+                    cursor_fill_style = offscreen_extra_context.fillStyle;
                 }
             }
+
+            // draw rightmost background color block into offscreen_context
+            offscreen_context.fillStyle = number_as_color(bg_rgba);
+            offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
+
+            // combine extra row 1 (colors) and 2 (glyphs) into colored glyphs in extra row 1
+            offscreen_extra_context.globalCompositeOperation = "destination-in";
+            offscreen_extra_context.drawImage(offscreen_extra_canvas,
+                0, row_extra_2_y, gfx_width, font_height,
+                0, row_extra_1_y, gfx_width, font_height);
+            offscreen_extra_context.globalCompositeOperation = "source-over";
+
+            // copy colored glyphs from extra row 1 into offscreen_context (on top of background colors)
+            offscreen_context.drawImage(offscreen_extra_canvas,
+                0, row_extra_1_y, gfx_width, font_height,
+                0, row_y, gfx_width, font_height);
+        }
+
+        if(draw_cursor && cursor_fill_style)
+        {
+            offscreen_context.fillStyle = cursor_fill_style;
+            offscreen_context.fillRect(
+                cursor_col * font_width,
+                cursor_row * font_height + cursor_start,
+                font_width,
+                cursor_end - cursor_start + 1);
         }
 
         if(n_rows_rendered)
@@ -263,9 +286,9 @@ function ScreenAdapter(options, screen_fill_buffer)
     function mark_blinking_rows_dirty()
     {
         const txt_row_size = text_mode_width * TEXT_BUF_COMPONENT_SIZE;
-        for(let row = 0, txt_i = 0; row < text_mode_height; ++row)
+        for(let row_i = 0, txt_i = 0; row_i < text_mode_height; ++row_i)
         {
-            if(changed_rows[row])
+            if(changed_rows[row_i])
             {
                 txt_i += txt_row_size;
                 continue;
@@ -274,7 +297,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             {
                 if(text_mode_data[txt_i + FLAGS_INDEX] & FLAG_BLINKING)
                 {
-                    changed_rows[row] = 1;
+                    changed_rows[row_i] = 1;
                     txt_i += txt_row_size - col * TEXT_BUF_COMPONENT_SIZE;
                     break;
                 }
@@ -464,7 +487,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.update_graphical_text = function()
     {
-        if(graphical_text_buffer)
+        if(offscreen_context)
         {
             // toggle cursor and blinking character visibility at a frequency of ~3.75hz
             const tm_now = performance.now();
@@ -478,10 +501,10 @@ function ScreenAdapter(options, screen_fill_buffer)
                 mark_blinking_rows_dirty();
                 tm_last_update = tm_now;
             }
-            // copy to canvas only if anything new was rendered
+            // copy to DOM canvas only if anything new was rendered
             if(render_changed_rows())
             {
-                graphic_context.putImageData(graphical_text_image_data, 0, 0);
+                graphic_context.drawImage(offscreen_context.canvas, 0, 0);
             }
         }
     };
@@ -528,21 +551,27 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
     };
 
-    this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, bitmap, bitmap_changed)
+    this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, vga_bitmap, vga_bitmap_changed)
     {
-        if(mode === MODE_GRAPHICAL_TEXT)
+        const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
+        if(font_height !== height || font_width !== width || font_width_9px !== width_9px ||
+            font_width_dbl !== width_dbl || font_copy_8th_col !== copy_8th_col ||
+            vga_bitmap_changed)
         {
-            const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
             const size_changed = font_width !== width || font_height !== height;
-
             font_height = height;
             font_width = width;
-            render_font_bitmap(bitmap, width_9px, width_dbl, copy_8th_col);
-            changed_rows.fill(1);
-
-            if(size_changed)
+            font_width_9px = width_9px;
+            font_width_dbl = width_dbl;
+            font_copy_8th_col = copy_8th_col;
+            if(mode === MODE_GRAPHICAL_TEXT)
             {
-                this.set_size_graphical_text();
+                render_font_bitmap(vga_bitmap);
+                changed_rows.fill(1);
+                if(size_changed)
+                {
+                    this.set_size_graphical_text();
+                }
             }
         }
     };
@@ -565,30 +594,40 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.set_size_graphical_text = function()
     {
-        if(!font_bitmap)
+        if(!font_context)
         {
             return;
         }
 
-        // allocate RGBA bitmap buffer and initialize alpha channel to 0xff (opaque)
         const gfx_width = font_width * text_mode_width;
         const gfx_height = font_height * text_mode_height;
-        const gfx_size = gfx_width * gfx_height * 4;
-        if(!graphical_text_buffer || graphical_text_buffer.length !== gfx_size)
+        const offscreen_extra_height = font_height * 2;
+
+        if(!offscreen_context || offscreen_context.canvas.width !== gfx_width ||
+            offscreen_context.canvas.height !== gfx_height ||
+            offscreen_extra_context.canvas.height !== offscreen_extra_height)
         {
-            graphical_text_buffer = new Uint8ClampedArray(gfx_size);
-            graphical_text_image_data = new ImageData(graphical_text_buffer, gfx_width, gfx_height);
-            for(let i = 3; i < gfx_size; i += 4)
+            // resize offscreen canvases
+            if(!offscreen_context)
             {
-                graphical_text_buffer[i] = 0xff;
+                const offscreen_canvas = new OffscreenCanvas(gfx_width, gfx_height);
+                offscreen_context = offscreen_canvas.getContext("2d", { alpha: false });
+                const offscreen_extra_canvas = new OffscreenCanvas(gfx_width, offscreen_extra_height);
+                offscreen_extra_context = offscreen_extra_canvas.getContext("2d");
             }
+            else
+            {
+                offscreen_context.canvas.width = gfx_width;
+                offscreen_context.canvas.height = gfx_height;
+                offscreen_extra_context.canvas.width = gfx_width;
+                offscreen_extra_context.canvas.height = offscreen_extra_height;
+            }
+
+            // resize DOM canvas graphic_screen
+            this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
+
+            changed_rows.fill(1);
         }
-
-        // resize canvas
-        this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
-
-        // set all text rows dirty
-        changed_rows.fill(1);
     };
 
     /**
