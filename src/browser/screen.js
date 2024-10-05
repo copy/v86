@@ -74,6 +74,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         // fonts
         font_context,
         font_image_data,
+        font_is_visible = new Int8Array(8 * 256),
         font_height,
         font_width,
         font_width_9px,
@@ -133,16 +134,18 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
 
         const font_bitmap = font_image_data.data;
-        let i_dst = 0;
+        let i_dst = 0, is_visible;
         const put_bit = font_width_dbl ?
             function(value)
             {
+                is_visible = is_visible || value;
                 font_bitmap[i_dst + 3] = value;
                 font_bitmap[i_dst + 7] = value;
                 i_dst += 8;
             } :
             function(value)
             {
+                is_visible = is_visible || value;
                 font_bitmap[i_dst + 3] = value;
                 i_dst += 4;
             };
@@ -156,23 +159,27 @@ function ScreenAdapter(options, screen_fill_buffer)
         // move i_dst from end of a glyph's scanline to start of its next scanline
         const dst_inc_line = font_width * 255 * 4;
 
-        for(let i_font_page = 0, i_vga = 0; i_font_page < 8; ++i_font_page, i_dst += dst_inc_row)
+        for(let i_chr_all = 0, i_vga = 0; i_chr_all < 2048; ++i_chr_all, i_vga += vga_inc_chr, i_dst += dst_inc_col)
         {
-            for(let i_chr = 0; i_chr < 256; ++i_chr, i_vga += vga_inc_chr, i_dst += dst_inc_col)
+            const i_chr = i_chr_all % 256;
+            if(i_chr_all && !i_chr)
             {
-                for(let i_line = 0; i_line < font_height; ++i_line, ++i_vga, i_dst += dst_inc_line)
+                i_dst += dst_inc_row;
+            }
+            is_visible = false;
+            for(let i_line = 0; i_line < font_height; ++i_line, ++i_vga, i_dst += dst_inc_line)
+            {
+                const line_bits = vga_bitmap[i_vga];
+                for(let i_bit = 0x80; i_bit > 0; i_bit >>= 1)
                 {
-                    const line_bits = vga_bitmap[i_vga];
-                    for(let i_bit = 0x80; i_bit > 0; i_bit >>= 1)
-                    {
-                        put_bit(line_bits & i_bit ? 255 : 0);
-                    }
-                    if(font_width_9px)
-                    {
-                        put_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 255 : 0);
-                    }
+                    put_bit(line_bits & i_bit ? 255 : 0);
+                }
+                if(font_width_9px)
+                {
+                    put_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 255 : 0);
                 }
             }
+            font_is_visible[i_chr_all] = is_visible ? 1 : 0;
         }
 
         font_context.putImageData(font_image_data, 0, 0);
@@ -197,6 +204,9 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
             ++n_rows_rendered;
 
+            // clear extra row 2
+            offscreen_extra_context.clearRect(0, row_extra_2_y, gfx_width, font_height);
+
             let fg_rgba, fg_x, bg_rgba, bg_x;
             for(let col_x = 0; col_x < gfx_width; col_x += font_width, txt_i += TEXT_BUF_COMPONENT_SIZE)
             {
@@ -204,8 +214,8 @@ function ScreenAdapter(options, screen_fill_buffer)
                 const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
                 const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
                 const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
-                const chr_blinking = chr_flags & FLAG_BLINKING;
                 const chr_font_page = chr_flags & FLAG_FONT_PAGE_B ? font_page_b : font_page_a;
+                const chr_visible = (!(chr_flags & FLAG_BLINKING) || blink_visible) && font_is_visible[(chr_font_page << 8) + chr];
 
                 if(bg_rgba !== chr_bg_rgba)
                 {
@@ -231,17 +241,12 @@ function ScreenAdapter(options, screen_fill_buffer)
                     fg_x = col_x;
                 }
 
-                if(!chr_blinking || blink_visible)
+                if(chr_visible)
                 {
                     // copy transparent glyphs into extra row 2
                     offscreen_extra_context.drawImage(font_canvas,
                         chr * font_width, chr_font_page * font_height, font_width, font_height,
                         col_x, row_extra_2_y, font_width, font_height);
-                }
-                else
-                {
-                    // erase hidden glyphs in extra row 2
-                    offscreen_extra_context.clearRect(col_x, row_extra_2_y, font_width, font_height);
                 }
             }
 
@@ -281,6 +286,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
             changed_rows.fill(0);
         }
+
         return n_rows_rendered;
     }
 
