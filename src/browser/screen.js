@@ -187,7 +187,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         const row_extra_1_y = 0;
         const row_extra_2_y = font_height;
 
-        let n_rows_rendered = 0, fg_rgba;
+        let n_rows_rendered = 0;
         for(let row_i = 0, row_y = 0, txt_i = 0; row_i < text_mode_height; ++row_i, row_y += font_height)
         {
             if(!changed_rows[row_i])
@@ -197,7 +197,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             }
             ++n_rows_rendered;
 
-            let bg_rgba, bg_x;
+            let fg_rgba, fg_x, bg_rgba, bg_x;
             for(let col_x = 0; col_x < gfx_width; col_x += font_width, txt_i += TEXT_BUF_COMPONENT_SIZE)
             {
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
@@ -211,7 +211,7 @@ function ScreenAdapter(options, screen_fill_buffer)
                 {
                     if(bg_rgba !== undefined)
                     {
-                        // draw opaque background color block into offscreen_context
+                        // draw opaque block of background color into offscreen_context
                         offscreen_context.fillStyle = number_as_color(bg_rgba);
                         offscreen_context.fillRect(bg_x, row_y, col_x - bg_x, font_height);
                     }
@@ -221,14 +221,18 @@ function ScreenAdapter(options, screen_fill_buffer)
 
                 if(fg_rgba !== chr_fg_rgba)
                 {
+                    if(fg_rgba !== undefined)
+                    {
+                        // draw opaque block of foreground color into extra row 1
+                        offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
+                        offscreen_extra_context.fillRect(fg_x, row_extra_1_y, col_x - fg_x, font_height);
+                    }
                     fg_rgba = chr_fg_rgba;
-                    offscreen_extra_context.fillStyle = number_as_color(chr_fg_rgba);
+                    fg_x = col_x;
                 }
 
                 if(!chr_blinking || blink_visible)
                 {
-                    // draw opaque foreground color blocks into extra row 1
-                    offscreen_extra_context.fillRect(col_x, row_extra_1_y, font_width, font_height);
                     // copy transparent glyphs into extra row 2
                     offscreen_extra_context.drawImage(font_canvas,
                         chr * font_width, chr_font_page * font_height, font_width, font_height,
@@ -236,16 +240,20 @@ function ScreenAdapter(options, screen_fill_buffer)
                 }
                 else
                 {
-                    // erase hidden glyphs in extra row 1
-                    offscreen_extra_context.clearRect(col_x, row_extra_1_y, font_width, font_height);
+                    // erase hidden glyphs in extra row 2
+                    offscreen_extra_context.clearRect(col_x, row_extra_2_y, font_width, font_height);
                 }
             }
 
-            // draw rightmost background color block into offscreen_context
+            // draw rightmost block of background color into offscreen_context
             offscreen_context.fillStyle = number_as_color(bg_rgba);
             offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
 
-            // combine extra row 1 (colors) and 2 (glyphs) into colored glyphs in extra row 1
+            // draw rightmost block of foreground color into extra row 1
+            offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
+            offscreen_extra_context.fillRect(fg_x, row_extra_1_y, gfx_width - fg_x, font_height);
+
+            // combine extra row 1 (colors) and 2 (glyphs) into extra row 1 (colored glyphs)
             offscreen_extra_context.globalCompositeOperation = "destination-in";
             offscreen_extra_context.drawImage(offscreen_extra_canvas,
                 0, row_extra_2_y, gfx_width, font_height,
