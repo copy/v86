@@ -245,10 +245,6 @@ function ScreenAdapter(options, screen_fill_buffer)
                 }
             }
 
-            // draw rightmost block of background color into offscreen_context
-            offscreen_context.fillStyle = number_as_color(bg_rgba);
-            offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
-
             // draw rightmost block of foreground color into extra row 1
             offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
             offscreen_extra_context.fillRect(fg_x, row_extra_1_y, gfx_width - fg_x, font_height);
@@ -259,6 +255,10 @@ function ScreenAdapter(options, screen_fill_buffer)
                 0, row_extra_2_y, gfx_width, font_height,
                 0, row_extra_1_y, gfx_width, font_height);
             offscreen_extra_context.globalCompositeOperation = "source-over";
+
+            // draw rightmost block of background color into offscreen_context
+            offscreen_context.fillStyle = number_as_color(bg_rgba);
+            offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
 
             // copy colored glyphs from extra row 1 into offscreen_context (on top of background colors)
             offscreen_context.drawImage(offscreen_extra_canvas,
@@ -294,12 +294,12 @@ function ScreenAdapter(options, screen_fill_buffer)
                 txt_i += txt_row_size;
                 continue;
             }
-            for(let col = 0; col < text_mode_width; ++col, txt_i += TEXT_BUF_COMPONENT_SIZE)
+            for(let col_i = 0; col_i < text_mode_width; ++col_i, txt_i += TEXT_BUF_COMPONENT_SIZE)
             {
                 if(text_mode_data[txt_i + FLAGS_INDEX] & FLAG_BLINKING)
                 {
                     changed_rows[row_i] = 1;
-                    txt_i += txt_row_size - col * TEXT_BUF_COMPONENT_SIZE;
+                    txt_i += txt_row_size - col_i * TEXT_BUF_COMPONENT_SIZE;
                     break;
                 }
             }
