@@ -2521,7 +2521,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
 VGAScreen.prototype.set_font_bitmap = function(font_plane_dirty)
 {
     const height = this.max_scan_line & 0x1f;
-    if(height)
+    if(height && !this.graphical_mode)
     {
         const width_dbl = !!(this.clocking_mode & 0x08);
         const width_9px = !width_dbl && !(this.clocking_mode & 0x01);
