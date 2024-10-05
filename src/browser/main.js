@@ -504,6 +504,17 @@
                 homepage: "https://www.minix3.org/",
             },
             {
+                id: "unix-v7",
+                name: "Unix V7/x86",
+                hda: {
+                    url: host + "unix-v7x86-0.8a/.img",
+                    size: 152764416,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
+                },
+            },
+            {
                 id: "kolibrios",
                 fda: {
                     url: ON_LOCALHOST ?
