@@ -184,12 +184,10 @@ function ScreenAdapter(options, screen_fill_buffer)
         const offscreen_extra_canvas = offscreen_extra_context.canvas;
         const txt_row_size = text_mode_width * TEXT_BUF_COMPONENT_SIZE;
         const gfx_width = text_mode_width * font_width;
-        const draw_cursor = cursor_enabled && blink_visible;
-        const cursor_txt_i = (cursor_row * text_mode_width + cursor_col) * TEXT_BUF_COMPONENT_SIZE;
         const row_extra_1_y = 0;
         const row_extra_2_y = font_height;
 
-        let n_rows_rendered = 0, fg_rgba, cursor_fill_style;
+        let n_rows_rendered = 0, fg_rgba;
         for(let row_i = 0, row_y = 0, txt_i = 0; row_i < text_mode_height; ++row_i, row_y += font_height)
         {
             if(!changed_rows[row_i])
@@ -241,12 +239,6 @@ function ScreenAdapter(options, screen_fill_buffer)
                     // erase hidden glyphs in extra row 1
                     offscreen_extra_context.clearRect(col_x, row_extra_1_y, font_width, font_height);
                 }
-
-                if(draw_cursor && txt_i === cursor_txt_i)
-                {
-                    // store foreground color here at cursor's row and column for later when drawing the cursor
-                    cursor_fill_style = offscreen_extra_context.fillStyle;
-                }
             }
 
             // draw rightmost background color block into offscreen_context
@@ -266,18 +258,19 @@ function ScreenAdapter(options, screen_fill_buffer)
                 0, row_y, gfx_width, font_height);
         }
 
-        if(draw_cursor && cursor_fill_style)
-        {
-            offscreen_context.fillStyle = cursor_fill_style;
-            offscreen_context.fillRect(
-                cursor_col * font_width,
-                cursor_row * font_height + cursor_start,
-                font_width,
-                cursor_end - cursor_start + 1);
-        }
-
         if(n_rows_rendered)
         {
+            if(blink_visible && cursor_enabled && changed_rows[cursor_row])
+            {
+                const cursor_txt_i = (cursor_row * text_mode_width + cursor_col) * TEXT_BUF_COMPONENT_SIZE;
+                const cursor_rgba = text_mode_data[cursor_txt_i + FG_COLOR_INDEX];
+                offscreen_context.fillStyle = number_as_color(cursor_rgba);
+                offscreen_context.fillRect(
+                    cursor_col * font_width,
+                    cursor_row * font_height + cursor_start,
+                    font_width,
+                    cursor_end - cursor_start + 1);
+            }
             changed_rows.fill(0);
         }
         return n_rows_rendered;
