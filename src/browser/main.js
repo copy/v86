@@ -742,6 +742,19 @@
                 name: "Windows 2000",
             },
             {
+                id: "windows-me",
+                memory_size: 128 * 1024 * 1024,
+                hda: {
+                    url: host + "windowsme/.img",
+                    size: 834666496,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
+                },
+                state: { url: host + "windows-me_state.bin.zst" },
+                name: "Windows ME",
+            },
+            {
                 id: "windowsnt4",
                 memory_size: 512 * 1024 * 1024,
                 hda: {
