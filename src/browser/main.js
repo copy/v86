@@ -11,7 +11,7 @@
 
     function set_title(text)
     {
-        document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
+        document.title = text + " - v86" +  (DEBUG ? " - debug" : "");
         const description = document.querySelector("meta[name=description]");
         description && (description.content = "Running " + text);
     }
