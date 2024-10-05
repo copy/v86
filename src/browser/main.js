@@ -334,6 +334,15 @@
                 name: "Freedos with FreeGEM",
             },
             {
+                id: "xcom",
+                fda: {
+                    url: host + "xcom144.img",
+                    size: 1440 * 1024,
+                },
+                name: "Freedos with Xcom",
+                homepage: "http://xcom.infora.hu/index.html",
+            },
+            {
                 id: "psychdos",
                 hda: {
                     url: host + "psychdos/.img",
