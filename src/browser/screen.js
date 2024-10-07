@@ -12,6 +12,22 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     console.assert(screen_container, "options.container must be provided");
 
+    const MODE_TEXT = 0;
+    const MODE_GRAPHICAL = 1;
+    const MODE_GRAPHICAL_TEXT = 2;
+
+    const CHARACTER_INDEX = 0;
+    const FLAGS_INDEX = 1;
+    const BG_COLOR_INDEX = 2;
+    const FG_COLOR_INDEX = 3;
+    const TEXT_BUF_COMPONENT_SIZE = 4;
+
+    const FLAG_BLINKING = 0x01;
+    const FLAG_FONT_PAGE_B = 0x02;
+
+    this.FLAG_BLINKING = FLAG_BLINKING;
+    this.FLAG_FONT_PAGE_B = FLAG_FONT_PAGE_B;
+
     var
         graphic_screen = screen_container.getElementsByTagName("canvas")[0],
         graphic_context = graphic_screen.getContext("2d", { alpha: false }),
@@ -27,20 +43,20 @@ function ScreenAdapter(options, screen_fill_buffer)
         cursor_col,
 
         /** @type {number} */
-        scale_x = 1,
+        scale_x = options.scale !== undefined ? options.scale : 1,
 
         /** @type {number} */
-        scale_y = 1,
+        scale_y = options.scale !== undefined ? options.scale : 1,
 
         base_scale = 1,
 
         changed_rows,
 
-        // are we in graphical mode now?
-        is_graphical = !!options.use_graphical_text,
+        // current display mode: MODE_GRAPHICAL or either MODE_TEXT/MODE_GRAPHICAL_TEXT
+        mode,
 
         // Index 0: ASCII code
-        // Index 1: Blinking
+        // Index 1: Flags bitset (see FLAG_...)
         // Index 2: Background color
         // Index 3: Foreground color
         text_mode_data,
@@ -49,16 +65,40 @@ function ScreenAdapter(options, screen_fill_buffer)
         text_mode_width,
 
         // number of rows
-        text_mode_height;
+        text_mode_height,
 
-    const CHARACTER_INDEX = 0;
-    const BLINKING_INDEX = 1;
-    const BG_COLOR_INDEX = 2;
-    const FG_COLOR_INDEX = 3;
-    const TEXT_MODE_COMPONENT_SIZE = 4;
+        // graphical text mode's offscreen canvas contexts
+        offscreen_context,
+        offscreen_extra_context,
 
-    var stopped = false;
-    var paused = false;
+        // fonts
+        font_context,
+        font_image_data,
+        font_is_visible = new Int8Array(8 * 256),
+        font_height,
+        font_width,
+        font_width_9px,
+        font_width_dbl,
+        font_copy_8th_col,
+        font_page_a = 0,
+        font_page_b = 0,
+
+        // blink state
+        blink_visible,
+        tm_last_update = 0,
+
+        // cursor attributes
+        cursor_start,
+        cursor_end,
+        cursor_enabled,
+
+        // 8-bit Unicode character maps
+        charmap_default = [],
+        charmap = charmap_default,
+
+        // render loop state
+        timer_id = 0,
+        paused = false;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
@@ -67,86 +107,276 @@ function ScreenAdapter(options, screen_fill_buffer)
         return "#" + "0".repeat(6 - n.length) + n;
     }
 
-
-    /**
-     * Charmaps that constraint unicode sequences for the default dospage
-     * @const
-     */
-    var charmap_high = new Uint16Array([
-        0x2302,
-        0xC7, 0xFC, 0xE9, 0xE2, 0xE4, 0xE0, 0xE5, 0xE7,
-        0xEA, 0xEB, 0xE8, 0xEF, 0xEE, 0xEC, 0xC4, 0xC5,
-        0xC9, 0xE6, 0xC6, 0xF4, 0xF6, 0xF2, 0xFB, 0xF9,
-        0xFF, 0xD6, 0xDC, 0xA2, 0xA3, 0xA5, 0x20A7, 0x192,
-        0xE1, 0xED, 0xF3, 0xFA, 0xF1, 0xD1, 0xAA, 0xBA,
-        0xBF, 0x2310, 0xAC, 0xBD, 0xBC, 0xA1, 0xAB, 0xBB,
-        0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556,
-        0x2555, 0x2563, 0x2551, 0x2557, 0x255D, 0x255C, 0x255B, 0x2510,
-        0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x255E, 0x255F,
-        0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x2567,
-        0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256B,
-        0x256A, 0x2518, 0x250C, 0x2588, 0x2584, 0x258C, 0x2590, 0x2580,
-        0x3B1, 0xDF, 0x393, 0x3C0, 0x3A3, 0x3C3, 0xB5, 0x3C4,
-        0x3A6, 0x398, 0x3A9, 0x3B4, 0x221E, 0x3C6, 0x3B5, 0x2229,
-        0x2261, 0xB1, 0x2265, 0x2264, 0x2320, 0x2321, 0xF7,
-        0x2248, 0xB0, 0x2219, 0xB7, 0x221A, 0x207F, 0xB2, 0x25A0, 0xA0
-    ]);
-
-    /** @const */
-    var charmap_low = new Uint16Array([
-        0x20,   0x263A, 0x263B, 0x2665, 0x2666, 0x2663, 0x2660, 0x2022,
-        0x25D8, 0x25CB, 0x25D9, 0x2642, 0x2640, 0x266A, 0x266B, 0x263C,
-        0x25BA, 0x25C4, 0x2195, 0x203C, 0xB6,   0xA7,   0x25AC, 0x21A8,
-        0x2191, 0x2193, 0x2192, 0x2190, 0x221F, 0x2194, 0x25B2, 0x25BC
-    ]);
-
-    var charmap = [],
-        chr;
-
-    for(var i = 0; i < 256; i++)
+    function render_font_bitmap(vga_bitmap)
     {
-        if(i > 126)
+        // - Browsers impose limts on the X- and Y-axes of bitmaps (typically around 8 to 32k).
+        //   Draw the 8 VGA font pages of 256 glyphs in 8 rows of 256 columns, this results
+        //   in 2048, 2304 or 4096px on the X-axis (for 8, 9 or 16px VGA font width, resp.).
+        //   This 2d layout is also convenient for glyph lookup when rendering text.
+        // - Font bitmap pixels are black and either fully opaque (alpha 255) or fully transparent (0).
+        const bitmap_width = font_width * 256;
+        const bitmap_height = font_height * 8;
+
+        let font_canvas = font_context ? font_context.canvas : null;
+        if(!font_canvas || font_canvas.width !== bitmap_width || font_canvas.height !== bitmap_height)
         {
-            chr = charmap_high[i - 0x7F];
-        }
-        else if(i < 32)
-        {
-            chr = charmap_low[i];
-        }
-        else
-        {
-            chr = i;
+            if(!font_canvas)
+            {
+                font_canvas = new OffscreenCanvas(bitmap_width, bitmap_height);
+                font_context = font_canvas.getContext("2d");
+            }
+            else
+            {
+                font_canvas.width = bitmap_width;
+                font_canvas.height = bitmap_height;
+            }
+            font_image_data = font_context.createImageData(bitmap_width, bitmap_height);
         }
 
-        charmap[i] = String.fromCharCode(chr);
+        const font_bitmap = font_image_data.data;
+        let i_dst = 0, is_visible;
+        const put_bit = font_width_dbl ?
+            function(value)
+            {
+                is_visible = is_visible || value;
+                font_bitmap[i_dst + 3] = value;
+                font_bitmap[i_dst + 7] = value;
+                i_dst += 8;
+            } :
+            function(value)
+            {
+                is_visible = is_visible || value;
+                font_bitmap[i_dst + 3] = value;
+                i_dst += 4;
+            };
+
+        // move i_vga from end of glyph to start of next glyph
+        const vga_inc_chr = 32 - font_height;
+        // move i_dst from end of font page (bitmap row) to start of next font page
+        const dst_inc_row = bitmap_width * (font_height - 1) * 4;
+        // move i_dst from end of glyph (bitmap column) to start of next glyph
+        const dst_inc_col = (font_width - bitmap_width * font_height) * 4;
+        // move i_dst from end of a glyph's scanline to start of its next scanline
+        const dst_inc_line = font_width * 255 * 4;
+
+        for(let i_chr_all = 0, i_vga = 0; i_chr_all < 2048; ++i_chr_all, i_vga += vga_inc_chr, i_dst += dst_inc_col)
+        {
+            const i_chr = i_chr_all % 256;
+            if(i_chr_all && !i_chr)
+            {
+                i_dst += dst_inc_row;
+            }
+            is_visible = false;
+            for(let i_line = 0; i_line < font_height; ++i_line, ++i_vga, i_dst += dst_inc_line)
+            {
+                const line_bits = vga_bitmap[i_vga];
+                for(let i_bit = 0x80; i_bit > 0; i_bit >>= 1)
+                {
+                    put_bit(line_bits & i_bit ? 255 : 0);
+                }
+                if(font_width_9px)
+                {
+                    put_bit(font_copy_8th_col && i_chr >= 0xC0 && i_chr <= 0xDF && line_bits & 1 ? 255 : 0);
+                }
+            }
+            font_is_visible[i_chr_all] = is_visible ? 1 : 0;
+        }
+
+        font_context.putImageData(font_image_data, 0, 0);
     }
 
-    graphic_context.imageSmoothingEnabled = false;
+    function render_changed_rows()
+    {
+        const font_canvas = font_context.canvas;
+        const offscreen_extra_canvas = offscreen_extra_context.canvas;
+        const txt_row_size = text_mode_width * TEXT_BUF_COMPONENT_SIZE;
+        const gfx_width = text_mode_width * font_width;
+        const row_extra_1_y = 0;
+        const row_extra_2_y = font_height;
 
-    cursor_element.classList.add("cursor");
-    cursor_element.style.position = "absolute";
-    cursor_element.style.backgroundColor = "#ccc";
-    cursor_element.style.width = "7px";
-    cursor_element.style.display = "inline-block";
+        let n_rows_rendered = 0;
+        for(let row_i = 0, row_y = 0, txt_i = 0; row_i < text_mode_height; ++row_i, row_y += font_height)
+        {
+            if(!changed_rows[row_i])
+            {
+                txt_i += txt_row_size;
+                continue;
+            }
+            ++n_rows_rendered;
 
-    text_screen.style.display = "block";
-    graphic_screen.style.display = "none";
+            // clear extra row 2
+            offscreen_extra_context.clearRect(0, row_extra_2_y, gfx_width, font_height);
+
+            let fg_rgba, fg_x, bg_rgba, bg_x;
+            for(let col_x = 0; col_x < gfx_width; col_x += font_width, txt_i += TEXT_BUF_COMPONENT_SIZE)
+            {
+                const chr = text_mode_data[txt_i + CHARACTER_INDEX];
+                const chr_flags = text_mode_data[txt_i + FLAGS_INDEX];
+                const chr_bg_rgba = text_mode_data[txt_i + BG_COLOR_INDEX];
+                const chr_fg_rgba = text_mode_data[txt_i + FG_COLOR_INDEX];
+                const chr_font_page = chr_flags & FLAG_FONT_PAGE_B ? font_page_b : font_page_a;
+                const chr_visible = (!(chr_flags & FLAG_BLINKING) || blink_visible) && font_is_visible[(chr_font_page << 8) + chr];
+
+                if(bg_rgba !== chr_bg_rgba)
+                {
+                    if(bg_rgba !== undefined)
+                    {
+                        // draw opaque block of background color into offscreen_context
+                        offscreen_context.fillStyle = number_as_color(bg_rgba);
+                        offscreen_context.fillRect(bg_x, row_y, col_x - bg_x, font_height);
+                    }
+                    bg_rgba = chr_bg_rgba;
+                    bg_x = col_x;
+                }
+
+                if(fg_rgba !== chr_fg_rgba)
+                {
+                    if(fg_rgba !== undefined)
+                    {
+                        // draw opaque block of foreground color into extra row 1
+                        offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
+                        offscreen_extra_context.fillRect(fg_x, row_extra_1_y, col_x - fg_x, font_height);
+                    }
+                    fg_rgba = chr_fg_rgba;
+                    fg_x = col_x;
+                }
+
+                if(chr_visible)
+                {
+                    // copy transparent glyphs into extra row 2
+                    offscreen_extra_context.drawImage(font_canvas,
+                        chr * font_width, chr_font_page * font_height, font_width, font_height,
+                        col_x, row_extra_2_y, font_width, font_height);
+                }
+            }
+
+            // draw rightmost block of foreground color into extra row 1
+            offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
+            offscreen_extra_context.fillRect(fg_x, row_extra_1_y, gfx_width - fg_x, font_height);
+
+            // combine extra row 1 (colors) and 2 (glyphs) into extra row 1 (colored glyphs)
+            offscreen_extra_context.globalCompositeOperation = "destination-in";
+            offscreen_extra_context.drawImage(offscreen_extra_canvas,
+                0, row_extra_2_y, gfx_width, font_height,
+                0, row_extra_1_y, gfx_width, font_height);
+            offscreen_extra_context.globalCompositeOperation = "source-over";
+
+            // draw rightmost block of background color into offscreen_context
+            offscreen_context.fillStyle = number_as_color(bg_rgba);
+            offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
+
+            // copy colored glyphs from extra row 1 into offscreen_context (on top of background colors)
+            offscreen_context.drawImage(offscreen_extra_canvas,
+                0, row_extra_1_y, gfx_width, font_height,
+                0, row_y, gfx_width, font_height);
+        }
+
+        if(n_rows_rendered)
+        {
+            if(blink_visible && cursor_enabled && changed_rows[cursor_row])
+            {
+                const cursor_txt_i = (cursor_row * text_mode_width + cursor_col) * TEXT_BUF_COMPONENT_SIZE;
+                const cursor_rgba = text_mode_data[cursor_txt_i + FG_COLOR_INDEX];
+                offscreen_context.fillStyle = number_as_color(cursor_rgba);
+                offscreen_context.fillRect(
+                    cursor_col * font_width,
+                    cursor_row * font_height + cursor_start,
+                    font_width,
+                    cursor_end - cursor_start + 1);
+            }
+            changed_rows.fill(0);
+        }
+
+        return n_rows_rendered;
+    }
+
+    function mark_blinking_rows_dirty()
+    {
+        const txt_row_size = text_mode_width * TEXT_BUF_COMPONENT_SIZE;
+        for(let row_i = 0, txt_i = 0; row_i < text_mode_height; ++row_i)
+        {
+            if(changed_rows[row_i])
+            {
+                txt_i += txt_row_size;
+                continue;
+            }
+            for(let col_i = 0; col_i < text_mode_width; ++col_i, txt_i += TEXT_BUF_COMPONENT_SIZE)
+            {
+                if(text_mode_data[txt_i + FLAGS_INDEX] & FLAG_BLINKING)
+                {
+                    changed_rows[row_i] = 1;
+                    txt_i += txt_row_size - col_i * TEXT_BUF_COMPONENT_SIZE;
+                    break;
+                }
+            }
+        }
+    }
 
     this.init = function()
     {
-        // initialize with mode and size presets as expected by the bios
-        // to avoid flickering during early startup
-        this.set_mode(is_graphical);
+        // map 8-bit DOS codepage 437 character range 0-31 to 16-bit Unicode codepoints
+        const charmap_low = new Uint16Array([
+            0x20,   0x263A, 0x263B, 0x2665, 0x2666, 0x2663, 0x2660, 0x2022,
+            0x25D8, 0x25CB, 0x25D9, 0x2642, 0x2640, 0x266A, 0x266B, 0x263C,
+            0x25BA, 0x25C4, 0x2195, 0x203C, 0xB6,   0xA7,   0x25AC, 0x21A8,
+            0x2191, 0x2193, 0x2192, 0x2190, 0x221F, 0x2194, 0x25B2, 0x25BC
+        ]);
+        // map 8-bit DOS codepage 437 character range 127-255 to 16-bit Unicode codepoints
+        const charmap_high = new Uint16Array([
+            0x2302,
+            0xC7, 0xFC, 0xE9, 0xE2, 0xE4, 0xE0, 0xE5, 0xE7,
+            0xEA, 0xEB, 0xE8, 0xEF, 0xEE, 0xEC, 0xC4, 0xC5,
+            0xC9, 0xE6, 0xC6, 0xF4, 0xF6, 0xF2, 0xFB, 0xF9,
+            0xFF, 0xD6, 0xDC, 0xA2, 0xA3, 0xA5, 0x20A7, 0x192,
+            0xE1, 0xED, 0xF3, 0xFA, 0xF1, 0xD1, 0xAA, 0xBA,
+            0xBF, 0x2310, 0xAC, 0xBD, 0xBC, 0xA1, 0xAB, 0xBB,
+            0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556,
+            0x2555, 0x2563, 0x2551, 0x2557, 0x255D, 0x255C, 0x255B, 0x2510,
+            0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x255E, 0x255F,
+            0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x2567,
+            0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256B,
+            0x256A, 0x2518, 0x250C, 0x2588, 0x2584, 0x258C, 0x2590, 0x2580,
+            0x3B1, 0xDF, 0x393, 0x3C0, 0x3A3, 0x3C3, 0xB5, 0x3C4,
+            0x3A6, 0x398, 0x3A9, 0x3B4, 0x221E, 0x3C6, 0x3B5, 0x2229,
+            0x2261, 0xB1, 0x2265, 0x2264, 0x2320, 0x2321, 0xF7,
+            0x2248, 0xB0, 0x2219, 0xB7, 0x221A, 0x207F, 0xB2, 0x25A0, 0xA0
+        ]);
 
-        if(is_graphical)
+        // initialize 8-bit DOS codepage 437 map charmap[256] (Uint8 -> String[1])
+        for(var i = 0, chr; i < 256; i++)
         {
-            // assume 80x25 with 9x16 font
+            if(i > 126)
+            {
+                chr = charmap_high[i - 0x7F];
+            }
+            else if(i < 32)
+            {
+                chr = charmap_low[i];
+            }
+            else
+            {
+                chr = i;
+            }
+            charmap_default.push(String.fromCharCode(chr));
+        }
+
+        // setup text mode cursor DOM element
+        cursor_element.classList.add("cursor");
+        cursor_element.style.position = "absolute";
+        cursor_element.style.backgroundColor = "#ccc";
+        cursor_element.style.width = "7px";
+        cursor_element.style.display = "inline-block";
+
+        // initialize display mode and size to 80x25 text with 9x16 font
+        this.set_mode(false);
+        this.set_size_text(80, 25);
+        if(mode === MODE_GRAPHICAL_TEXT)
+        {
             this.set_size_graphical(720, 400, 720, 400);
         }
-        else
-        {
-            this.set_size_text(80, 25);
-        }
+
+        // initialize CSS scaling
+        this.set_scale(scale_x, scale_y);
 
         this.timer();
     };
@@ -155,7 +385,7 @@ function ScreenAdapter(options, screen_fill_buffer)
     {
         const image = new Image();
 
-        if(is_graphical)
+        if(mode === MODE_GRAPHICAL || mode === MODE_GRAPHICAL_TEXT)
         {
             image.src = graphic_screen.toDataURL("image/png");
         }
@@ -176,7 +406,7 @@ function ScreenAdapter(options, screen_fill_buffer)
             {
                 for(let x = 0; x < text_mode_width; x++)
                 {
-                    const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
+                    const index = (y * text_mode_width + x) * TEXT_BUF_COMPONENT_SIZE;
                     const character = text_mode_data[index + CHARACTER_INDEX];
                     const bg_color = text_mode_data[index + BG_COLOR_INDEX];
                     const fg_color = text_mode_data[index + FG_COLOR_INDEX];
@@ -204,16 +434,16 @@ function ScreenAdapter(options, screen_fill_buffer)
         return image;
     };
 
-    this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
+    this.put_char = function(row, col, chr, flags, bg_color, fg_color)
     {
         dbg_assert(row >= 0 && row < text_mode_height);
         dbg_assert(col >= 0 && col < text_mode_width);
         dbg_assert(chr >= 0 && chr < 0x100);
 
-        const p = TEXT_MODE_COMPONENT_SIZE * (row * text_mode_width + col);
+        const p = TEXT_BUF_COMPONENT_SIZE * (row * text_mode_width + col);
 
         text_mode_data[p + CHARACTER_INDEX] = chr;
-        text_mode_data[p + BLINKING_INDEX] = blinking;
+        text_mode_data[p + FLAGS_INDEX] = flags;
         text_mode_data[p + BG_COLOR_INDEX] = bg_color;
         text_mode_data[p + FG_COLOR_INDEX] = fg_color;
 
@@ -222,10 +452,27 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.timer = function()
     {
-        if(!stopped)
+        timer_id = requestAnimationFrame(() => this.update_screen());
+    };
+
+    this.update_screen = function()
+    {
+        if(!paused)
         {
-            requestAnimationFrame(() => is_graphical ? this.update_graphical() : this.update_text());
+            if(mode === MODE_TEXT)
+            {
+                this.update_text();
+            }
+            else if(mode === MODE_GRAPHICAL)
+            {
+                this.update_graphical();
+            }
+            else
+            {
+                this.update_graphical_text();
+            }
         }
+        this.timer();
     };
 
     this.update_text = function()
@@ -238,22 +485,44 @@ function ScreenAdapter(options, screen_fill_buffer)
                 changed_rows[i] = 0;
             }
         }
-
-        this.timer();
     };
 
     this.update_graphical = function()
     {
-        if(!paused)
+        this.screen_fill_buffer();
+    };
+
+    this.update_graphical_text = function()
+    {
+        if(offscreen_context)
         {
-            this.screen_fill_buffer();
+            // toggle cursor and blinking character visibility at a frequency of ~3.75hz
+            const tm_now = performance.now();
+            if(tm_now - tm_last_update > 266)
+            {
+                blink_visible = !blink_visible;
+                if(cursor_enabled)
+                {
+                    changed_rows[cursor_row] = 1;
+                }
+                mark_blinking_rows_dirty();
+                tm_last_update = tm_now;
+            }
+            // copy to DOM canvas only if anything new was rendered
+            if(render_changed_rows())
+            {
+                graphic_context.drawImage(offscreen_context.canvas, 0, 0);
+            }
         }
-        this.timer();
     };
 
     this.destroy = function()
     {
-        stopped = true;
+        if(timer_id)
+        {
+            cancelAnimationFrame(timer_id);
+            timer_id = 0;
+        }
     };
 
     this.pause = function()
@@ -261,6 +530,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         paused = true;
         cursor_element.classList.remove("blinking-cursor");
     };
+
     this.continue = function()
     {
         paused = false;
@@ -269,17 +539,57 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.set_mode = function(graphical)
     {
-        is_graphical = graphical;
+        mode = graphical ? MODE_GRAPHICAL : (options.use_graphical_text ? MODE_GRAPHICAL_TEXT : MODE_TEXT);
 
-        if(graphical)
-        {
-            text_screen.style.display = "none";
-            graphic_screen.style.display = "block";
-        }
-        else
+        if(mode === MODE_TEXT)
         {
             text_screen.style.display = "block";
             graphic_screen.style.display = "none";
+        }
+        else
+        {
+            text_screen.style.display = "none";
+            graphic_screen.style.display = "block";
+
+            if(mode === MODE_GRAPHICAL_TEXT && changed_rows)
+            {
+                changed_rows.fill(1);
+            }
+        }
+    };
+
+    this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, vga_bitmap, vga_bitmap_changed)
+    {
+        const width = width_dbl ? 16 : (width_9px ? 9 : 8);
+        if(font_height !== height || font_width !== width || font_width_9px !== width_9px ||
+            font_width_dbl !== width_dbl || font_copy_8th_col !== copy_8th_col ||
+            vga_bitmap_changed)
+        {
+            const size_changed = font_width !== width || font_height !== height;
+            font_height = height;
+            font_width = width;
+            font_width_9px = width_9px;
+            font_width_dbl = width_dbl;
+            font_copy_8th_col = copy_8th_col;
+            if(mode === MODE_GRAPHICAL_TEXT)
+            {
+                render_font_bitmap(vga_bitmap);
+                changed_rows.fill(1);
+                if(size_changed)
+                {
+                    this.set_size_graphical_text();
+                }
+            }
+        }
+    };
+
+    this.set_font_page = function(page_a, page_b)
+    {
+        if(font_page_a !== page_a || font_page_b !== page_b)
+        {
+            font_page_a = page_a;
+            font_page_b = page_b;
+            changed_rows.fill(1);
         }
     };
 
@@ -287,6 +597,44 @@ function ScreenAdapter(options, screen_fill_buffer)
     {
         graphic_context.fillStyle = "#000";
         graphic_context.fillRect(0, 0, graphic_screen.width, graphic_screen.height);
+    };
+
+    this.set_size_graphical_text = function()
+    {
+        if(!font_context)
+        {
+            return;
+        }
+
+        const gfx_width = font_width * text_mode_width;
+        const gfx_height = font_height * text_mode_height;
+        const offscreen_extra_height = font_height * 2;
+
+        if(!offscreen_context || offscreen_context.canvas.width !== gfx_width ||
+            offscreen_context.canvas.height !== gfx_height ||
+            offscreen_extra_context.canvas.height !== offscreen_extra_height)
+        {
+            // resize offscreen canvases
+            if(!offscreen_context)
+            {
+                const offscreen_canvas = new OffscreenCanvas(gfx_width, gfx_height);
+                offscreen_context = offscreen_canvas.getContext("2d", { alpha: false });
+                const offscreen_extra_canvas = new OffscreenCanvas(gfx_width, offscreen_extra_height);
+                offscreen_extra_context = offscreen_extra_canvas.getContext("2d");
+            }
+            else
+            {
+                offscreen_context.canvas.width = gfx_width;
+                offscreen_context.canvas.height = gfx_height;
+                offscreen_extra_context.canvas.width = gfx_width;
+                offscreen_extra_context.canvas.height = offscreen_extra_height;
+            }
+
+            // resize DOM canvas graphic_screen
+            this.set_size_graphical(gfx_width, gfx_height, gfx_width, gfx_height);
+
+            changed_rows.fill(1);
+        }
     };
 
     /**
@@ -301,27 +649,34 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
 
         changed_rows = new Int8Array(rows);
-        text_mode_data = new Int32Array(cols * rows * TEXT_MODE_COMPONENT_SIZE);
+        text_mode_data = new Int32Array(cols * rows * TEXT_BUF_COMPONENT_SIZE);
 
         text_mode_width = cols;
         text_mode_height = rows;
 
-        while(text_screen.childNodes.length > rows)
+        if(mode === MODE_TEXT)
         {
-            text_screen.removeChild(text_screen.firstChild);
-        }
+            while(text_screen.childNodes.length > rows)
+            {
+                text_screen.removeChild(text_screen.firstChild);
+            }
 
-        while(text_screen.childNodes.length < rows)
+            while(text_screen.childNodes.length < rows)
+            {
+                text_screen.appendChild(document.createElement("div"));
+            }
+
+            for(var i = 0; i < rows; i++)
+            {
+                this.text_update_row(i);
+            }
+
+            update_scale_text();
+        }
+        else if(mode === MODE_GRAPHICAL_TEXT)
         {
-            text_screen.appendChild(document.createElement("div"));
+            this.set_size_graphical_text();
         }
-
-        for(var i = 0; i < rows; i++)
-        {
-            this.text_update_row(i);
-        }
-
-        update_scale_text();
     };
 
     this.set_size_graphical = function(width, height, buffer_width, buffer_height)
@@ -339,12 +694,12 @@ function ScreenAdapter(options, screen_fill_buffer)
 
         graphic_screen.width = width;
         graphic_screen.height = height;
-        // graphic_context loses its configuration when its graphic_screen gets resized, reinitialize
+
+        // graphic_context must be reconfigured whenever its graphic_screen is resized
         graphic_context.imageSmoothingEnabled = false;
 
         // add some scaling to tiny resolutions
-        if(!options.disable_autoscale &&
-            width <= 640 &&
+        if(width <= 640 &&
             width * 2 < window.innerWidth * window.devicePixelRatio &&
             height * 2 < window.innerHeight * window.devicePixelRatio)
         {
@@ -358,6 +713,11 @@ function ScreenAdapter(options, screen_fill_buffer)
         update_scale_graphic();
     };
 
+    this.set_charmap = function(text_charmap)
+    {
+        charmap = text_charmap || charmap_default;
+    };
+
     this.set_scale = function(s_x, s_y)
     {
         scale_x = s_x;
@@ -366,7 +726,6 @@ function ScreenAdapter(options, screen_fill_buffer)
         update_scale_text();
         update_scale_graphic();
     };
-    this.set_scale(scale_x, scale_y);
 
     function update_scale_text()
     {
@@ -380,6 +739,11 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)
     {
+        if(!scale_x || !scale_y)
+        {
+            return;
+        }
+
         elem.style.width = "";
         elem.style.height = "";
 
@@ -433,17 +797,34 @@ function ScreenAdapter(options, screen_fill_buffer)
         }
     }
 
-    this.update_cursor_scanline = function(start, end, visible)
+    this.update_cursor_scanline = function(start, end, enabled)
     {
-        if(visible)
+        if(start !== cursor_start || end !== cursor_end || enabled !== cursor_enabled)
         {
-            cursor_element.style.display = "inline";
-            cursor_element.style.height = (end - start) + "px";
-            cursor_element.style.marginTop = start + "px";
-        }
-        else
-        {
-            cursor_element.style.display = "none";
+            if(mode === MODE_TEXT)
+            {
+                if(enabled)
+                {
+                    cursor_element.style.display = "inline";
+                    cursor_element.style.height = (end - start) + "px";
+                    cursor_element.style.marginTop = start + "px";
+                }
+                else
+                {
+                    cursor_element.style.display = "none";
+                }
+            }
+            else if(mode === MODE_GRAPHICAL_TEXT)
+            {
+                if(cursor_row < text_mode_height)
+                {
+                    changed_rows[cursor_row] = 1;
+                }
+            }
+
+            cursor_start = start;
+            cursor_end = end;
+            cursor_enabled = enabled;
         }
     };
 
@@ -467,7 +848,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.text_update_row = function(row)
     {
-        var offset = TEXT_MODE_COMPONENT_SIZE * row * text_mode_width,
+        var offset = TEXT_BUF_COMPONENT_SIZE * row * text_mode_width,
             row_element,
             color_element,
             fragment;
@@ -484,7 +865,7 @@ function ScreenAdapter(options, screen_fill_buffer)
         {
             color_element = document.createElement("span");
 
-            blinking = text_mode_data[offset + BLINKING_INDEX];
+            blinking = text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING;
             bg_color = text_mode_data[offset + BG_COLOR_INDEX];
             fg_color = text_mode_data[offset + FG_COLOR_INDEX];
 
@@ -500,7 +881,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
-                text_mode_data[offset + BLINKING_INDEX] === blinking &&
+                (text_mode_data[offset + FLAGS_INDEX] & FLAG_BLINKING) === blinking &&
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
@@ -510,7 +891,7 @@ function ScreenAdapter(options, screen_fill_buffer)
                 dbg_assert(charmap[ascii]);
 
                 i++;
-                offset += TEXT_MODE_COMPONENT_SIZE;
+                offset += TEXT_BUF_COMPONENT_SIZE;
 
                 if(row === cursor_row)
                 {
@@ -591,9 +972,9 @@ function ScreenAdapter(options, screen_fill_buffer)
 
         for(let x = 0; x < text_mode_width; x++)
         {
-            const index = (y * text_mode_width + x) * TEXT_MODE_COMPONENT_SIZE;
+            const index = (y * text_mode_width + x) * TEXT_BUF_COMPONENT_SIZE;
             const character = text_mode_data[index + CHARACTER_INDEX];
-            result += String.fromCharCode(character);
+            result += charmap[character];
         }
 
         return result;
