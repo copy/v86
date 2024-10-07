@@ -50,9 +50,8 @@ const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
  * @param {BusConnector} bus
  * @param {ScreenAdapter|DummyScreenAdapter} screen
  * @param {number} vga_memory_size
- * @param {Object} options
  */
-function VGAScreen(cpu, bus, screen, vga_memory_size, options)
+function VGAScreen(cpu, bus, screen, vga_memory_size)
 {
     this.cpu = cpu;
 
