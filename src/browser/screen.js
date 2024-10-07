@@ -560,7 +560,7 @@ function ScreenAdapter(options, screen_fill_buffer)
 
     this.set_font_bitmap = function(height, width_9px, width_dbl, copy_8th_col, vga_bitmap, vga_bitmap_changed)
     {
-        const width = (width_9px ? 9 : 8) * (width_dbl ? 2 : 1);
+        const width = width_dbl ? 16 : (width_9px ? 9 : 8);
         if(font_height !== height || font_width !== width || font_width_9px !== width_9px ||
             font_width_dbl !== width_dbl || font_copy_8th_col !== copy_8th_col ||
             vga_bitmap_changed)
