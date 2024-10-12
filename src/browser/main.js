@@ -304,7 +304,7 @@
                     fixed_chunk_size: 256 * 1024,
                     use_parts: true,
                 },
-                name: "MS-DOS",
+                name: "MS-DOS 6.22",
             },
             {
                 id: "msdos4",
@@ -312,7 +312,7 @@
                     url: host + "msdos4.img",
                     size: 1474560,
                 },
-                name: "MS-DOS",
+                name: "MS-DOS 4",
             },
             {
                 id: "freedos",
@@ -378,7 +378,7 @@
                     url: host + "windows101.img",
                     size: 1474560,
                 },
-                name: "Windows",
+                name: "Windows 1.01",
             },
             {
                 id: "windows2",
@@ -435,7 +435,7 @@
                     size: 10068480,
                     async: false,
                 },
-                name: "Buildroot Linux",
+                name: "Buildroot Linux 6.8",
                 filesystem: {},
                 cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
             },
@@ -1059,7 +1059,7 @@
                     fixed_chunk_size: 1024 * 1024,
                     use_parts: true,
                 },
-                name: "Android",
+                name: "Android 4",
             },
             {
                 id: "tinycore",
@@ -1812,7 +1812,7 @@
                     }, CLEAR_STATS ? 5000 : 1000);
             }
 
-            if(["dsl", "helenos", "android", "android4"].includes(profile?.id))
+            if(["dsl", "helenos", "android", "android4", "redox"].includes(profile?.id))
             {
                 setTimeout(() => {
                     // hack: Start automatically
