@@ -891,6 +891,16 @@
                 homepage: "https://github.com/vvaltchev/tilck",
             },
             {
+                id: "littlekernel",
+                multiboot: {
+                    url: host + "littlekernel-multiboot.img",
+                    async: false,
+                    size: 969580,
+                },
+                name: "Little Kernel",
+                homepage: "https://github.com/littlekernel/lk",
+            },
+            {
                 id: "sanos",
                 memory_size: 128 * 1024 * 1024,
                 hda: {
