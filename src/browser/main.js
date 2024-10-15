@@ -1390,9 +1390,12 @@
             {
                 element.onclick = e =>
                 {
-                    e.preventDefault();
-                    element.blur();
-                    start_emulation(os, null);
+                    if(!e.ctrlKey)
+                    {
+                        e.preventDefault();
+                        element.blur();
+                        start_emulation(os, null);
+                    }
                 };
             }
         }
