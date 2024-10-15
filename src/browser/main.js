@@ -1539,7 +1539,8 @@
     {
         $("boot_options").style.display = "none";
 
-        const new_query_args = new URLSearchParams({ "profile": profile?.id || "custom" });
+        const new_query_args = new Map();
+        new_query_args.set("profile", profile?.id || "custom");
 
         const settings = {};
 
@@ -1652,10 +1653,10 @@
         if(!settings.relay_url)
         {
             settings.relay_url = $("relay_url").value;
-            if(!DEFAULT_NETWORKING_PROXIES.includes(settings.relay_url)) new_query_args.append("relay_url", settings.relay_url);
+            if(!DEFAULT_NETWORKING_PROXIES.includes(settings.relay_url)) new_query_args.set("relay_url", settings.relay_url);
         }
         settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
-        if(settings.disable_audio) new_query_args.append("mute", "1");
+        if(settings.disable_audio) new_query_args.set("mute", "1");
 
         // some settings cannot be overridden when a state image is used
         if(!settings.initial_state)
@@ -1714,26 +1715,26 @@
             {
                 settings.memory_size = memory_size * MB;
             }
-            if(memory_size !== DEFAULT_MEMORY_SIZE) new_query_args.append("m", String(memory_size));
+            if(memory_size !== DEFAULT_MEMORY_SIZE) new_query_args.set("m", String(memory_size));
 
             const vga_memory_size = parseInt($("vga_memory_size").value, 10) || DEFAULT_VGA_MEMORY_SIZE;
             if(!settings.vga_memory_size || vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE)
             {
                 settings.vga_memory_size = vga_memory_size * MB;
             }
-            if(vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE) new_query_args.append("vram", String(vga_memory_size));
+            if(vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE) new_query_args.set("vram", String(vga_memory_size));
 
             const boot_order = parseInt($("boot_order").value, 16) || DEFAULT_BOOT_ORDER;
             if(!settings.boot_order || boot_order !== DEFAULT_BOOT_ORDER)
             {
                 settings.boot_order = boot_order;
             }
-            if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.append("boot_order", String(settings.boot_order));
+            if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.set("boot_order", String(settings.boot_order));
 
             if(settings.acpi === undefined)
             {
                 settings.acpi = $("acpi").checked;
-                if(settings.acpi) new_query_args.append("acpi", "1");
+                if(settings.acpi) new_query_args.set("acpi", "1");
             }
 
             if(!settings.bios)
@@ -2541,7 +2542,7 @@
     {
         if(window.history.pushState)
         {
-            const search = "?" + params.toString();
+            let search = "?" + params.entries().map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent))["toArray"]().join("&");
             window.history.pushState({ search }, "", search);
         }
     }
