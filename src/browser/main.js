@@ -2338,6 +2338,11 @@
 
         $("screen_container").onclick = function()
         {
+            if(emulator.is_running() && emulator.speaker_adapter && emulator.speaker_adapter.audio_context.state === "suspended")
+            {
+                emulator.speaker_adapter.audio_context.resume();
+            }
+
             if(mouse_is_enabled && os_uses_mouse)
             {
                 emulator.lock_mouse();
