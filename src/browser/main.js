@@ -296,6 +296,18 @@
                 homepage: "https://www.haiku-os.org/",
             },
             {
+                id: "beos",
+                memory_size: 512 * 1024 * 1024,
+                hda: {
+                    url: host + "beos5/.img",
+                    size: 536870912,
+                    async: true,
+                    fixed_chunk_size: 1024 * 1024,
+                    use_parts: true,
+                },
+                name: "BeOS 5",
+            },
+            {
                 id: "msdos",
                 hda: {
                     url: host + "msdos622/.img",
@@ -1812,7 +1824,7 @@
                     }, CLEAR_STATS ? 5000 : 1000);
             }
 
-            if(["dsl", "helenos", "android", "android4", "redox"].includes(profile?.id))
+            if(["dsl", "helenos", "android", "android4", "redox", "beos"].includes(profile?.id))
             {
                 setTimeout(() => {
                     // hack: Start automatically
