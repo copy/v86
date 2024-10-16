@@ -478,6 +478,7 @@
                     async: false,
                 },
                 name: "ELKS",
+                homepage: "https://github.com/ghaerr/elks",
             },
             {
                 id: "nodeos",
@@ -526,7 +527,7 @@
             },
             {
                 id: "unix-v7",
-                name: "Unix V7/x86",
+                name: "Unix V7",
                 hda: {
                     url: host + "unix-v7x86-0.8a/.img",
                     size: 152764416,
@@ -920,7 +921,7 @@
                     async: false,
                     size: 1474560,
                 },
-                name: "sanos",
+                name: "Sanos",
                 homepage: "http://www.jbox.dk/sanos/",
             },
             {
