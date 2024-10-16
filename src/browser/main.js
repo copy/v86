@@ -1640,7 +1640,7 @@
                     settings.vga_memory_size = vram * 1024 * 1024;
                 }
 
-                settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : undefined;
+                settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : settings.acpi;
                 settings.use_bochs_bios = query_args.get("bios") === "bochs";
                 settings.net_device_type = query_args.get("net_device_type") === "virtio" ? "virtio" : "ne2k";
             }
