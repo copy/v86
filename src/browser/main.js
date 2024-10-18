@@ -1455,6 +1455,72 @@
                 });
         }
 
+        const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
+        {
+            const [_, size_raw, unit] = element.children[1].textContent.match(/([\d\.]+)\+? (\w+)/);
+            let size = +size_raw;
+            if(unit === "MB") size *= 1024 * 1024;
+            else if(unit === "KB") size *= 1024;
+            return {
+                element,
+                size,
+                graphical: element.children[2].firstChild.className === "gui_icon",
+                family: element.children[3].textContent.replace(/-like/, ""),
+                arch: element.children[4].textContent,
+                status: element.children[5].textContent,
+                source: element.children[6].textContent,
+                languages: new Set(element.children[7].textContent.split(", ")),
+                medium: element.children[8].textContent,
+            };
+        });
+
+        const filter_elements = document.querySelectorAll("#filter input");
+        for(const element of filter_elements)
+        {
+            element.onchange = update_filters;
+        }
+
+        function update_filters()
+        {
+            const filter = {};
+            for(const element of filter_elements)
+            {
+                filter[element.id.replace(/filter_/, "")] = element.checked;
+            }
+
+            const show_all = !Object.values(filter).includes(true);
+            for(const os of os_info)
+            {
+                const show = show_all ||
+                    filter["graphical"] && os.graphical ||
+                    filter["text"] && !os.graphical ||
+                    filter["linux"] && os.family === "Linux" ||
+                    filter["bsd"] && os.family === "BSD" ||
+                    filter["windows"] && os.family === "Windows" ||
+                    filter["unix"] && os.family === "Unix" ||
+                    filter["dos"] && os.family === "DOS" ||
+                    filter["custom"] && os.family === "Custom" ||
+                    filter["floppy"] && os.medium === "Floppy" ||
+                    filter["cd"] && os.medium === "CD" ||
+                    filter["hd"] && os.medium === "HD" ||
+                    filter["modern"] && os.status === "Modern" ||
+                    filter["historic"] && os.status === "Historic" ||
+                    filter["opensource"] && os.source === "Open-source" ||
+                    filter["proprietary"] && os.source === "Proprietary" ||
+                    filter["bootsector"] && os.size <= 512 ||
+                    filter["lt5mb"] && os.size <= 5 * 1024 * 1024 ||
+                    filter["gt5mb"] && os.size > 5 * 1024 * 1024 ||
+                    filter["16bit"] && os.arch === "16-bit" ||
+                    filter["32bit"] && os.arch === "32-bit" ||
+                    filter["asm"] && os.languages.has("ASM") ||
+                    filter["c"] && os.languages.has("C") ||
+                    filter["cpp"] && os.languages.has("C++") ||
+                    filter["other_lang"] && ["Java", "Haskell", "Rust", "Erlang", "Oberon"].some(l => os.languages.has(l));
+
+                os.element.style.display = show ? "" : "none";
+            }
+        }
+
         function set_proxy_value(id, value)
         {
             const elem = $(id);
