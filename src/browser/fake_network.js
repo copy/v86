@@ -1177,9 +1177,11 @@ TCPConnection.prototype.write = function(data) {
 
 TCPConnection.prototype.close = function() {
     this.state = TCP_STATE_FIN_WAIT_1;
-    let reply = this.ipv4_reply();
-    reply.tcp.fin = true;
-    this.net.receive(make_packet(reply));
+    if(!this.send_stream.length) {
+        let reply = this.ipv4_reply();
+        reply.tcp.fin = true;
+        this.net.receive(make_packet(reply));
+    }
     this.pump();
 };
 
@@ -1189,10 +1191,7 @@ TCPConnection.prototype.pump = function() {
         const n_ready = this.send_stream.peek(data, data.length);
         const reply = this.ipv4_reply();
         this.pending = true;
-/*
-        if(this.send_stream.length - n_ready < 1) {
-*/
-        if(this.send_stream.length < 1) {  // TODO: this can never be true!?
+        if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_stream.length - n_ready === 0) {
             reply.tcp.fin = true;
         }
         reply.tcp.psh = true;
