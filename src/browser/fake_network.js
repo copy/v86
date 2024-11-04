@@ -1017,7 +1017,7 @@ function fake_tcp_connect(dport, adapter)
  */
 function TCPConnection()
 {
-    this.send_stream = new Uint8Stream(512, 0);
+    this.send_stream = new Uint8Stream(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
     this.seq_history = [];
 }
@@ -1191,7 +1191,7 @@ TCPConnection.prototype.pump = function() {
         const n_ready = this.send_stream.peek(data, data.length);
         const reply = this.ipv4_reply();
         this.pending = true;
-        if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_stream.length - n_ready === 0) {
+        if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_stream.length === n_ready) {
             reply.tcp.fin = true;
         }
         reply.tcp.psh = true;
