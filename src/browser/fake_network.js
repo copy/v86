@@ -93,12 +93,12 @@ class Uint8Stream
         const src_length = src_array.length;
         const total_length = this.length + src_length;
         let capacity = this.buffer.length;
-        if (capacity < total_length) {
-            while (capacity < total_length) {
+        if(capacity < total_length) {
+            while(capacity < total_length) {
                 capacity *= 2;
             }
-            if (this.maximum_capacity && capacity > this.maximum_capacity) {
-                console.error('stream capacity overflow in Uint8Stream.write()');
+            if(this.maximum_capacity && capacity > this.maximum_capacity) {
+                console.error("stream capacity overflow in Uint8Stream.write()");
                 return;
             }
             this.resize(capacity);
@@ -107,7 +107,7 @@ class Uint8Stream
 
         /*
         let head = this.head;
-        for (let i=0; i<src_length; ++i) {
+        for(let i=0; i<src_length; ++i) {
             buffer[head] = src_array[i];
             head = (head + 1) % capacity;
         }
@@ -115,7 +115,7 @@ class Uint8Stream
         this.length += src_length;
         */
         const new_head = this.head + src_length;
-        if (new_head > capacity) {
+        if(new_head > capacity) {
             const i_split = capacity - this.head;
             buffer.set(src_array.subarray(0, i_split), this.head);
             buffer.set(src_array.subarray(i_split));
@@ -133,20 +133,20 @@ class Uint8Stream
      */
     peek(dst_array, length)
     {
-        if (length > this.length) {
+        if(length > this.length) {
             length = this.length;
         }
-        if (length) {
+        if(length) {
             const buffer = this.buffer;
             const capacity = buffer.length;
             /*
-            for (let i=0, tail = this.tail; i<length; ++i) {
+            for(let i=0, tail = this.tail; i<length; ++i) {
                 dst_array[i] = buffer[tail];
                 tail = (tail + 1) % capacity;
             }
             */
             const new_tail = this.tail + length;
-            if (new_tail > capacity) {
+            if(new_tail > capacity) {
                 const buf_len_left = new_tail % capacity;
                 const buf_len_right = capacity - this.tail;
                 dst_array.set(buffer.subarray(this.tail));
@@ -164,10 +164,10 @@ class Uint8Stream
      */
     remove(length)
     {
-        if (length > this.length) {
+        if(length > this.length) {
             length = this.length;
         }
-        if (length) {
+        if(length) {
             this.tail = (this.tail + length) % this.buffer.length;
             this.length -= length;
         }
@@ -188,7 +188,7 @@ class EthernetPacketEncoder
         this.ipv4_payload_view = new DataView(eth_frame.buffer, offset + IPV4_PAYLOAD_OFFSET, IPV4_PAYLOAD_SIZE);
         this.udp_payload_view = new DataView(eth_frame.buffer, offset + UDP_PAYLOAD_OFFSET, UDP_PAYLOAD_SIZE);
 
-        for (const view of [this.eth_frame_view, this.eth_payload_view, this.ipv4_payload_view, this.udp_payload_view]) {
+        for(const view of [this.eth_frame_view, this.eth_payload_view, this.ipv4_payload_view, this.udp_payload_view]) {
             view.setArray = this.view_setArray.bind(this, view);
             view.setString = this.view_setString.bind(this, view);
             view.setInetChecksum = this.view_setInetChecksum.bind(this, view);
@@ -238,13 +238,13 @@ class EthernetPacketEncoder
         const data = this.eth_frame;
         const offset = dst_view.byteOffset;
         const uint16_end = offset + (length & ~1);
-        for (let i = offset; i < uint16_end; i += 2) {
+        for(let i = offset; i < uint16_end; i += 2) {
             checksum += data[i] << 8 | data[i+1];
         }
-        if (length & 1) {
+        if(length & 1) {
             checksum += data[uint16_end] << 8;
         }
-        while (checksum >> 16) {
+        while(checksum >> 16) {
             checksum = (checksum & 0xffff) + (checksum >> 16);
         }
         dst_view.setUint16(dst_offset, ~checksum);
@@ -284,7 +284,7 @@ function handle_fake_tcp(packet, adapter)
     const tuple = `${packet.ipv4.src.join(".")}:${packet.tcp.sport}:${packet.ipv4.dest.join(".")}:${packet.tcp.dport}`;
 
     if(packet.tcp.syn) {
-        if(adapter.tcp_conn.hasOwnProperty(tuple)) {
+        if(adapter.tcp_conn[tuple]) {
             dbg_log("SYN to already opened port", LOG_FETCH);
         }
         if(adapter.on_tcp_connection(adapter, packet, tuple)) {
@@ -292,7 +292,7 @@ function handle_fake_tcp(packet, adapter)
         }
     }
 
-    if(!adapter.tcp_conn.hasOwnProperty(tuple)) {
+    if(!adapter.tcp_conn[tuple]) {
         dbg_log(`I dont know about ${tuple}, so resetting`, LOG_FETCH);
         let bop = packet.tcp.ackn;
         if(packet.tcp.fin || packet.tcp.syn) bop += 1;
@@ -978,7 +978,7 @@ function fake_tcp_connect(dport, adapter)
     do {
         sport = 1000 + Math.random() * 64535 | 0;
         tuple = `${vm_ip_str}:${dport}:${router_ip_str}:${sport}`;
-    } while (adapter.tcp_conn.hasOwnProperty(tuple));
+    } while(adapter.tcp_conn[tuple]);
 
     let reader;
     let connector;
@@ -1184,15 +1184,15 @@ TCPConnection.prototype.close = function() {
 };
 
 TCPConnection.prototype.pump = function() {
-    if (this.send_stream.length > 0 && !this.pending) {
+    if(this.send_stream.length > 0 && !this.pending) {
         const data = this.send_chunk_buf;
         const n_ready = this.send_stream.peek(data, data.length);
         const reply = this.ipv4_reply();
         this.pending = true;
 /*
-        if (this.send_stream.length - n_ready < 1) {
+        if(this.send_stream.length - n_ready < 1) {
 */
-        if (this.send_stream.length < 1) {  // TODO: this can never be true!?
+        if(this.send_stream.length < 1) {  // TODO: this can never be true!?
             reply.tcp.fin = true;
         }
         reply.tcp.psh = true;
