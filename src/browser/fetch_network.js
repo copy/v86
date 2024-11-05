@@ -18,6 +18,7 @@ function FetchNetworkAdapter(bus, config)
     this.vm_mac = new Uint8Array(6);
 
     this.tcp_conn = {};
+    this.eth_encoder_buf = create_eth_encoder_buf();
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;

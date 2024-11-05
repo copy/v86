@@ -26,6 +26,7 @@ function WispNetworkAdapter(wisp_url, bus, config)
     this.vm_mac = new Uint8Array(6);
     this.doh_server =  config.doh_server || DEFAULT_DOH_SERVER;
     this.tcp_conn = {};
+    this.eth_encoder_buf = create_eth_encoder_buf();
 
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
@@ -248,7 +249,7 @@ WispNetworkAdapter.prototype.send = function(data)
                 rst: true,
                 ack: packet.tcp.syn
             };
-            this.receive(make_packet(reply));
+            adapter_receive(this, reply);
             return;
         }
 
@@ -272,7 +273,7 @@ WispNetworkAdapter.prototype.send = function(data)
             reply.udp = { sport: 53, dport: packet.udp.sport };
             const result = await ((await fetch(`https://${this.doh_server}/dns-query`, {method: "POST", headers: [["content-type", "application/dns-message"]], body: packet.udp.data})).arrayBuffer());
             reply.udp.data = new Uint8Array(result);
-            this.receive(make_packet(reply));
+            adapter_receive(this, reply);
         })();
     }
 
