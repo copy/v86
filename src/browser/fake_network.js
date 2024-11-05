@@ -58,7 +58,7 @@ function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
 
-class Uint8Stream
+class GrowableRingbuffer
 {
     /**
      * @param {number} initial_capacity
@@ -66,23 +66,12 @@ class Uint8Stream
      */
     constructor(initial_capacity, maximum_capacity)
     {
-        this.maximum_capacity = maximum_capacity;
+        initial_capacity = Math.min(initial_capacity, 16);
+        this.maximum_capacity = maximum_capacity ? Math.max(maximum_capacity, initial_capacity) : 0;
         this.tail = 0;
         this.head = 0;
         this.length = 0;
         this.buffer = new Uint8Array(initial_capacity);
-    }
-
-    /**
-     * @param {number} capacity
-     */
-    resize(capacity)
-    {
-        const new_buffer = new Uint8Array(capacity);
-        this.peek(new_buffer, this.length);
-        this.tail = 0;
-        this.head = this.length;
-        this.buffer = new_buffer;
     }
 
     /**
@@ -98,22 +87,16 @@ class Uint8Stream
                 capacity *= 2;
             }
             if(this.maximum_capacity && capacity > this.maximum_capacity) {
-                console.error("stream capacity overflow in Uint8Stream.write()");
-                return;
+                throw new Error("stream capacity overflow in GrowableRingbuffer.write(), package dropped");
             }
-            this.resize(capacity);
+            const new_buffer = new Uint8Array(capacity);
+            this.peek(new_buffer);
+            this.tail = 0;
+            this.head = this.length;
+            this.buffer = new_buffer;
         }
         const buffer = this.buffer;
 
-        /*
-        let head = this.head;
-        for(let i=0; i<src_length; ++i) {
-            buffer[head] = src_array[i];
-            head = (head + 1) % capacity;
-        }
-        this.head = head;
-        this.length += src_length;
-        */
         const new_head = this.head + src_length;
         if(new_head > capacity) {
             const i_split = capacity - this.head;
@@ -129,22 +112,13 @@ class Uint8Stream
 
     /**
      * @param {Uint8Array} dst_array
-     * @param {number} length
      */
-    peek(dst_array, length)
+    peek(dst_array)
     {
-        if(length > this.length) {
-            length = this.length;
-        }
+        const length = Math.min(this.length, dst_array.length);
         if(length) {
             const buffer = this.buffer;
             const capacity = buffer.length;
-            /*
-            for(let i=0, tail = this.tail; i<length; ++i) {
-                dst_array[i] = buffer[tail];
-                tail = (tail + 1) % capacity;
-            }
-            */
             const new_tail = this.tail + length;
             if(new_tail > capacity) {
                 const buf_len_left = new_tail % capacity;
@@ -1017,7 +991,7 @@ function fake_tcp_connect(dport, adapter)
  */
 function TCPConnection()
 {
-    this.send_stream = new Uint8Stream(2048, 0);
+    this.send_stream = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
     this.seq_history = [];
 }
@@ -1188,7 +1162,7 @@ TCPConnection.prototype.close = function() {
 TCPConnection.prototype.pump = function() {
     if(this.send_stream.length > 0 && !this.pending) {
         const data = this.send_chunk_buf;
-        const n_ready = this.send_stream.peek(data, data.length);
+        const n_ready = this.send_stream.peek(data);
         const reply = this.ipv4_reply();
         this.pending = true;
         if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_stream.length === n_ready) {
