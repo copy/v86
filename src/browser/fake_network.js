@@ -29,6 +29,11 @@ const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";      // close() (graceful-shutdown in
 const TCP_STATE_SYN_RECEIVED = "syn-received";  // WispNetworkAdapter.send() (wisp_network.js)
 const TCP_STATE_SYN_SENT = "syn-sent";          // connect() + process()
 
+// source: RFC6335, 6. Port Number Ranges
+const TCP_DYNAMIC_PORT_START = 49152;
+const TCP_DYNAMIC_PORT_END   = 65535;
+const TCP_DYNAMIC_PORT_RANGE = TCP_DYNAMIC_PORT_END - TCP_DYNAMIC_PORT_START;
+
 const ETH_HEADER_SIZE     = 14;
 const ETH_PAYLOAD_OFFSET  = ETH_HEADER_SIZE;
 const ETH_PAYLOAD_SIZE    = 1500;
@@ -948,11 +953,15 @@ function fake_tcp_connect(dport, adapter)
 {
     const vm_ip_str = adapter.vm_ip.join(".");
     const router_ip_str = adapter.router_ip.join(".");
-    let sport, tuple;
+    const sport_0 = (Math.random() * TCP_DYNAMIC_PORT_RANGE) | 0;
+    let sport, tuple, sport_i = 0;
     do {
-        sport = 1000 + Math.random() * 64535 | 0;
+        sport = TCP_DYNAMIC_PORT_START + ((sport_0 + sport_i) % TCP_DYNAMIC_PORT_RANGE);
         tuple = `${vm_ip_str}:${dport}:${router_ip_str}:${sport}`;
-    } while(adapter.tcp_conn[tuple]);
+    } while(++sport_i < TCP_DYNAMIC_PORT_RANGE && adapter.tcp_conn[tuple]);
+    if(adapter.tcp_conn[tuple]) {
+        throw new Error("pool of dynamic TCP port numbers exhausted, connection aborted");
+    }
 
     let reader;
     let connector;
