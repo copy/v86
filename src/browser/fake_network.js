@@ -17,17 +17,17 @@ const TWO_TO_32 = Math.pow(2, 32);
 const DHCP_MAGIC_COOKIE = 0x63825363;
 const V86_ASCII = [118, 56, 54];
 
-//const TCP_STATE_CLOSED = "closed";            // unused (terminal state)
-//const TCP_STATE_LISTEN = "listen";            // unused
-const TCP_STATE_ESTABLISHED = "established";    // TCPConnection.process()
-const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";      // close() (graceful-shutdown initiator state)
-//const TCP_STATE_CLOSE_WAIT = "close-wait";    // unused (graceful-shutdown receiver state)
-//const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";    // unused (graceful-shutdown initiator state)
-//const TCP_STATE_LAST_ACK = "last-ack";        // unused (graceful-shutdown receiver state)
-//const TCP_STATE_CLOSING = "closing";          // unused
-//const TCP_STATE_TIME_WAIT = "time-wait";      // unused (graceful-shutdown initiator state)
-const TCP_STATE_SYN_RECEIVED = "syn-received";  // WispNetworkAdapter.send() (wisp_network.js)
-const TCP_STATE_SYN_SENT = "syn-sent";          // connect() + process()
+//const TCP_STATE_CLOSED = "closed";
+//const TCP_STATE_LISTEN = "listen";
+const TCP_STATE_ESTABLISHED = "established";
+const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
+//const TCP_STATE_CLOSE_WAIT = "close-wait";
+//const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
+//const TCP_STATE_LAST_ACK = "last-ack";
+//const TCP_STATE_CLOSING = "closing";
+//const TCP_STATE_TIME_WAIT = "time-wait";
+const TCP_STATE_SYN_RECEIVED = "syn-received";
+const TCP_STATE_SYN_SENT = "syn-sent";
 
 // source: RFC6335, 6. Port Number Ranges
 const TCP_DYNAMIC_PORT_START = 49152;
@@ -640,21 +640,20 @@ function parse_udp(data, o) {
 
 function write_udp(spec, out) {
     const view = out.ipv4_payload_view;
-    let payload_length;
+    let total_length = UDP_HEADER_SIZE;
     if(spec.dhcp) {
-        payload_length = write_dhcp(spec, out);
+        total_length += write_dhcp(spec, out);
     }
     else if(spec.dns) {
-        payload_length = write_dns(spec, out);
+        total_length += write_dns(spec, out);
     }
     else if(spec.ntp) {
-        payload_length = write_ntp(spec, out);
+        total_length += write_ntp(spec, out);
     }
     else {
-        payload_length = view_setArray(0, spec.udp.data, out.udp_payload_view, out);
+        total_length += view_setArray(0, spec.udp.data, out.udp_payload_view, out);
     }
 
-    const total_length = UDP_HEADER_SIZE + payload_length;
     view.setUint16(0, spec.udp.sport);
     view.setUint16(2, spec.udp.dport);
     view.setUint16(4, total_length);
@@ -925,10 +924,9 @@ function write_tcp(spec, out) {
     view.setUint16(16, 0); // checksum initially zero before calculation
     view.setUint16(18, tcp.urgent || 0);
 
-    const total_length = TCP_HEADER_SIZE + (spec.tcp_data ? spec.tcp_data.length : 0);
-
+    let total_length = TCP_HEADER_SIZE;
     if(spec.tcp_data) {
-        view_setArray(TCP_HEADER_SIZE, spec.tcp_data, view, out);
+        total_length += view_setArray(TCP_HEADER_SIZE, spec.tcp_data, view, out);
     }
 
     const pseudo_header =
@@ -993,7 +991,7 @@ function fake_tcp_connect(dport, adapter)
  */
 function TCPConnection()
 {
-    this.send_stream = new GrowableRingbuffer(2048, 0);
+    this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
     this.seq_history = [];
 }
@@ -1132,7 +1130,7 @@ TCPConnection.prototype.process = function(packet) {
     //console.log("Read ", nread, "(", this.last_received_ackn, ") ", packet.tcp.ackn, packet.tcp.winsize)
     if(nread > 0) {
         this.last_received_ackn = packet.tcp.ackn;
-        this.send_stream.remove(nread);
+        this.send_buffer.remove(nread);
         this.seq += nread;
         this.pending = false;
     }
@@ -1147,13 +1145,13 @@ TCPConnection.prototype.process = function(packet) {
  * @param {Uint8Array} data
  */
 TCPConnection.prototype.write = function(data) {
-    this.send_stream.write(data);
+    this.send_buffer.write(data);
     this.pump();
 };
 
 TCPConnection.prototype.close = function() {
     this.state = TCP_STATE_FIN_WAIT_1;
-    if(!this.send_stream.length) {
+    if(!this.send_buffer.length) {
         let reply = this.ipv4_reply();
         reply.tcp.fin = true;
         adapter_receive(this.net, reply);
@@ -1162,12 +1160,12 @@ TCPConnection.prototype.close = function() {
 };
 
 TCPConnection.prototype.pump = function() {
-    if(this.send_stream.length > 0 && !this.pending) {
+    if(this.send_buffer.length > 0 && !this.pending) {
         const data = this.send_chunk_buf;
-        const n_ready = this.send_stream.peek(data);
+        const n_ready = this.send_buffer.peek(data);
         const reply = this.ipv4_reply();
         this.pending = true;
-        if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_stream.length === n_ready) {
+        if(this.state === TCP_STATE_FIN_WAIT_1 && this.send_buffer.length === n_ready) {
             reply.tcp.fin = true;
         }
         reply.tcp.psh = true;
