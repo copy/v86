@@ -154,101 +154,85 @@ class GrowableRingbuffer
     }
 }
 
-class EthernetPacketEncoder
+function create_eth_encoder_buf()
 {
-    constructor()
-    {
-        const eth_frame = new Uint8Array(ETH_FRAME_SIZE);
-        const offset = eth_frame.byteOffset;
-
-        this.eth_frame = eth_frame;
-        this.eth_frame_view = new DataView(eth_frame.buffer);
-        this.eth_payload_view = new DataView(eth_frame.buffer, offset + ETH_PAYLOAD_OFFSET, ETH_PAYLOAD_SIZE);
-        this.ipv4_payload_view = new DataView(eth_frame.buffer, offset + IPV4_PAYLOAD_OFFSET, IPV4_PAYLOAD_SIZE);
-        this.udp_payload_view = new DataView(eth_frame.buffer, offset + UDP_PAYLOAD_OFFSET, UDP_PAYLOAD_SIZE);
-
-        for(const view of [this.eth_frame_view, this.eth_payload_view, this.ipv4_payload_view, this.udp_payload_view]) {
-            view.setArray = this.view_setArray.bind(this, view);
-            view.setString = this.view_setString.bind(this, view);
-            view.setInetChecksum = this.view_setInetChecksum.bind(this, view);
-        }
-
-        this.text_encoder = new TextEncoder();
-    }
-
-    /**
-     * Copy given data array into dst_view[dst_offset], return number of bytes written.
-     *
-     * @param {DataView} dst_view
-     * @param {number} dst_offset
-     * @param data
-     */
-    view_setArray(dst_view, dst_offset, data)
-    {
-        this.eth_frame.set(data, dst_view.byteOffset + dst_offset);
-        return data.length;
-    }
-
-    /**
-     * UTF8-encode given string into dst_view[dst_offset], return number of bytes written.
-     *
-     * @param {DataView} dst_view
-     * @param {number} dst_offset
-     * @param {string} str
-     */
-    view_setString(dst_view, dst_offset, str)
-    {
-        const ofs = dst_view.byteOffset + dst_offset;
-        const result = this.text_encoder.encodeInto(str, ofs ? this.eth_frame.subarray(ofs) : this.eth_frame);
-        return result.written;
-    }
-
-    /**
-     * Calculate 16-bit internet checksum for dst_view[0 : length], store result in dst_view[dst_offset].
-     * Source: RFC768 and RFC1071 (chapter 4.1).
-     *
-     * @param {DataView} dst_view
-     * @param {number} dst_offset
-     * @param {number} length
-     * @param {number} checksum
-     */
-    view_setInetChecksum(dst_view, dst_offset, length, checksum)
-    {
-        const data = this.eth_frame;
-        const offset = dst_view.byteOffset;
-        const uint16_end = offset + (length & ~1);
-        for(let i = offset; i < uint16_end; i += 2) {
-            checksum += data[i] << 8 | data[i+1];
-        }
-        if(length & 1) {
-            checksum += data[uint16_end] << 8;
-        }
-        while(checksum >> 16) {
-            checksum = (checksum & 0xffff) + (checksum >> 16);
-        }
-        dst_view.setUint16(dst_offset, ~checksum);
-    }
-
-    /**
-     * Encode and return ethernet packet for given spec.
-     * TODO: what about the trailing 32-bit ethernet checksum?
-     *
-     * @param {Object} spec
-     */
-    encode_packet(spec)
-    {
-        dbg_assert(spec.eth);
-        this.eth_frame.fill(0);
-        const length = write_eth(spec, this.eth_frame_view, this);
-        return this.eth_frame.subarray(0, length);
-    }
+    const eth_frame = new Uint8Array(ETH_FRAME_SIZE);
+    const buffer = eth_frame.buffer;
+    const offset = eth_frame.byteOffset;
+    return {
+        eth_frame: eth_frame,
+        eth_frame_view: new DataView(buffer),
+        eth_payload_view: new DataView(buffer, offset + ETH_PAYLOAD_OFFSET, ETH_PAYLOAD_SIZE),
+        ipv4_payload_view: new DataView(buffer, offset + IPV4_PAYLOAD_OFFSET, IPV4_PAYLOAD_SIZE),
+        udp_payload_view: new DataView(buffer, offset + UDP_PAYLOAD_OFFSET, UDP_PAYLOAD_SIZE),
+        text_encoder: new TextEncoder()
+    };
 }
 
-const ethernet_encoder = new EthernetPacketEncoder();
-
-function make_packet(spec)
+/**
+ * Copy given data array into view starting at offset, return number of bytes written.
+ *
+ * @param {number} offset
+ * @param {ArrayBuffer|ArrayBufferView} data
+ * @param {DataView} view
+ * @param {Object} out
+ */
+function view_setArray(offset, data, view, out)
 {
-    return ethernet_encoder.encode_packet(spec);
+    out.eth_frame.set(data, view.byteOffset + offset);
+    return data.length;
+}
+
+/**
+ * UTF8-encode given string into view starting at offset, return number of bytes written.
+ *
+ * @param {number} offset
+ * @param {string} str
+ * @param {DataView} view
+ * @param {Object} out
+ */
+function view_setString(offset, str, view, out)
+{
+    const ofs = view.byteOffset + offset;
+    const result = out.text_encoder.encodeInto(str, ofs ? out.eth_frame.subarray(ofs) : out.eth_frame);
+    return result.written;
+}
+
+/**
+ * Calculate internet checksum for view[0 : length], store 16-bit result in view at offset.
+ * Source: RFC768 and RFC1071 (chapter 4.1).
+ *
+ * @param {number} offset
+ * @param {number} length
+ * @param {number} checksum
+ * @param {DataView} view
+ * @param {Object} out
+ */
+function view_setInetChecksum(offset, length, checksum, view, out)
+{
+    const uint16_end = view.byteOffset + (length & ~1);
+    for(let i = view.byteOffset; i < uint16_end; i += 2) {
+        checksum += out.eth_frame[i] << 8 | out.eth_frame[i+1];
+    }
+    if(length & 1) {
+        checksum += out.eth_frame[uint16_end] << 8;
+    }
+    while(checksum >> 16) {
+        checksum = (checksum & 0xffff) + (checksum >> 16);
+    }
+    view.setUint16(offset, ~checksum);
+}
+
+/**
+ * @param {WispNetworkAdapter|FetchNetworkAdapter} adapter
+ * @param {Object} spec
+ */
+function adapter_receive(adapter, spec)
+{
+    dbg_assert(spec.eth);
+    const out = adapter.eth_encoder_buf;
+    out.eth_frame.fill(0);
+    adapter.receive(out.eth_frame.subarray(0, write_eth(spec, out)));
 }
 
 function handle_fake_tcp(packet, adapter)
@@ -284,7 +268,7 @@ function handle_fake_tcp(packet, adapter)
             rst: true,
             ack: packet.tcp.syn
         };
-        adapter.receive(make_packet(reply));
+        adapter_receive(adapter, reply);
         return true;
     }
 
@@ -330,7 +314,7 @@ function handle_fake_dns(packet, adapter)
         questions: packet.dns.questions,
         answers: answers
     };
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
     return true;
 }
 
@@ -361,7 +345,7 @@ function handle_fake_ntp(packet, adapter) {
     reply.ntp.trans_ts_f = now_n_f;
 
     reply.ntp.stratum = 2;
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
     return true;
 }
 
@@ -416,7 +400,7 @@ function handle_fake_dhcp(packet, adapter) {
     options.push(new Uint8Array([255, 0]));
 
     reply.dhcp.options = options;
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
 }
 
 function handle_fake_networking(data, adapter) {
@@ -491,16 +475,17 @@ function parse_eth(data, o) {
     }
 }
 
-function write_eth(spec, view, eth_encoder) {
-    view.setArray(0, spec.eth.dest);
-    view.setArray(6, spec.eth.src);
+function write_eth(spec, out) {
+    const view = out.eth_frame_view;
+    view_setArray(0, spec.eth.dest, view, out);
+    view_setArray(6, spec.eth.src, view, out);
     view.setUint16(12, spec.eth.ethertype);
     let len = ETH_HEADER_SIZE;
     if(spec.arp) {
-        len += write_arp(spec, eth_encoder.eth_payload_view);
+        len += write_arp(spec, out);
     }
     else if(spec.ipv4) {
-        len += write_ipv4(spec, eth_encoder.eth_payload_view, eth_encoder);
+        len += write_ipv4(spec, out);
     }
     return len;
 }
@@ -522,16 +507,17 @@ function parse_arp(data, o) {
     o.arp = arp;
 }
 
-function write_arp(spec, view) {
+function write_arp(spec, out) {
+    const view = out.eth_payload_view;
     view.setUint16(0, spec.arp.htype);
     view.setUint16(2, spec.arp.ptype);
     view.setUint8(4, spec.arp.sha.length);
     view.setUint8(5, spec.arp.spa.length);
     view.setUint16(6, spec.arp.oper);
-    view.setArray(8, spec.arp.sha);
-    view.setArray(14, spec.arp.spa);
-    view.setArray(18, spec.arp.tha);
-    view.setArray(24, spec.arp.tpa);
+    view_setArray(8, spec.arp.sha, view, out);
+    view_setArray(14, spec.arp.spa, view, out);
+    view_setArray(18, spec.arp.tha, view, out);
+    view_setArray(24, spec.arp.tpa, view, out);
     return 28;
 }
 
@@ -576,19 +562,20 @@ function parse_ipv4(data, o) {
     }
 }
 
-function write_ipv4(spec, view, eth_encoder) {
+function write_ipv4(spec, out) {
+    const view = out.eth_payload_view;
     const ihl = IPV4_HEADER_SIZE >> 2; // header length in 32-bit words
     const version = 4;
 
     let len = IPV4_HEADER_SIZE;
     if(spec.icmp) {
-        len += write_icmp(spec, eth_encoder.ipv4_payload_view);
+        len += write_icmp(spec, out);
     }
     else if(spec.udp) {
-        len += write_udp(spec, eth_encoder.ipv4_payload_view, eth_encoder);
+        len += write_udp(spec, out);
     }
     else if(spec.tcp) {
-        len += write_tcp(spec, eth_encoder.ipv4_payload_view);
+        len += write_tcp(spec, out);
     }
 
     view.setUint8(0, version << 4 | (ihl & 0x0F));
@@ -599,9 +586,9 @@ function write_ipv4(spec, view, eth_encoder) {
     view.setUint8(8, spec.ipv4.ttl || 32);
     view.setUint8(9, spec.ipv4.proto);
     view.setUint16(10, 0); // checksum initially zero before calculation
-    view.setArray(12, spec.ipv4.src);
-    view.setArray(16, spec.ipv4.dest);
-    view.setInetChecksum(10, IPV4_HEADER_SIZE, 0);
+    view_setArray(12, spec.ipv4.src, view, out);
+    view_setArray(16, spec.ipv4.dest, view, out);
+    view_setInetChecksum(10, IPV4_HEADER_SIZE, 0, view, out);
     return len;
 }
 
@@ -616,13 +603,14 @@ function parse_icmp(data, o) {
     o.icmp = icmp;
 }
 
-function write_icmp(spec, view) {
+function write_icmp(spec, out) {
+    const view = out.ipv4_payload_view;
     view.setUint8(0, spec.icmp.type);
     view.setUint8(1, spec.icmp.code);
     view.setUint16(2, 0); // checksum initially zero before calculation
-    const data_length = view.setArray(ICMP_HEADER_SIZE, spec.icmp.data);
+    const data_length = view_setArray(ICMP_HEADER_SIZE, spec.icmp.data, view, out);
     const total_length = ICMP_HEADER_SIZE + data_length;
-    view.setInetChecksum(2, total_length, 0);
+    view_setInetChecksum(2, total_length, 0, view, out);
     return total_length;
 }
 
@@ -650,19 +638,20 @@ function parse_udp(data, o) {
     o.udp = udp;
 }
 
-function write_udp(spec, view, eth_encoder) {
+function write_udp(spec, out) {
+    const view = out.ipv4_payload_view;
     let payload_length;
     if(spec.dhcp) {
-        payload_length = write_dhcp(spec, eth_encoder.udp_payload_view);
+        payload_length = write_dhcp(spec, out);
     }
     else if(spec.dns) {
-        payload_length = write_dns(spec, eth_encoder.udp_payload_view);
+        payload_length = write_dns(spec, out);
     }
     else if(spec.ntp) {
-        payload_length = write_ntp(spec, eth_encoder.udp_payload_view);
+        payload_length = write_ntp(spec, out);
     }
     else {
-        payload_length = eth_encoder.udp_payload_view.setArray(0, spec.udp.data);
+        payload_length = view_setArray(0, spec.udp.data, out.udp_payload_view, out);
     }
 
     const total_length = UDP_HEADER_SIZE + payload_length;
@@ -678,7 +667,7 @@ function write_udp(spec, view, eth_encoder) {
         (spec.ipv4.dest[2] << 8 | spec.ipv4.dest[3]) +
         IPV4_PROTO_UDP +
         total_length;
-    view.setInetChecksum(6, total_length, pseudo_header);
+    view_setInetChecksum(6, total_length, pseudo_header, view, out);
     return total_length;
 }
 
@@ -733,7 +722,8 @@ function parse_dns(data, o) {
     o.dns = dns;
 }
 
-function write_dns(spec, view) {
+function write_dns(spec, out) {
+    const view = out.udp_payload_view;
     view.setUint16(0, spec.dns.id);
     view.setUint16(2, spec.dns.flags);
     view.setUint16(4, spec.dns.questions.length);
@@ -743,7 +733,7 @@ function write_dns(spec, view) {
     for(let i = 0; i < spec.dns.questions.length; ++i) {
         let q = spec.dns.questions[i];
         for(let s of q.name) {
-            const n_written = view.setString(offset + 1, s);
+            const n_written = view_setString(offset + 1, s, view, out);
             view.setUint8(offset, n_written);
             offset += 1 + n_written;
         }
@@ -755,7 +745,7 @@ function write_dns(spec, view) {
 
     function write_reply(a) {
         for(let s of a.name) {
-            const n_written = view.setString(offset + 1, s);
+            const n_written = view_setString(offset + 1, s, view, out);
             view.setUint8(offset, n_written);
             offset += 1 + n_written;
         }
@@ -767,7 +757,7 @@ function write_dns(spec, view) {
         offset += 4;
         view.setUint16(offset, a.data.length);
         offset += 2;
-        offset += view.setArray(offset, a.data);
+        offset += view_setArray(offset, a.data, view, out);
     }
 
     for(let i = 0; i < spec.dns.answers.length; ++i) {
@@ -813,7 +803,8 @@ function parse_dhcp(data, o) {
     o.dhcp_options = dhcp.options;
 }
 
-function write_dhcp(spec, view) {
+function write_dhcp(spec, out) {
+    const view = out.udp_payload_view;
     view.setUint8(0, spec.dhcp.op);
     view.setUint8(1, spec.dhcp.htype);
     view.setUint8(2, spec.dhcp.hlen);
@@ -825,13 +816,13 @@ function write_dhcp(spec, view) {
     view.setUint32(16, spec.dhcp.yiaddr);
     view.setUint32(20, spec.dhcp.siaddr);
     view.setUint32(24, spec.dhcp.giaddr);
-    view.setArray(28, spec.dhcp.chaddr);
+    view_setArray(28, spec.dhcp.chaddr, view, out);
 
     view.setUint32(236, DHCP_MAGIC_COOKIE);
 
     let offset = 240;
     for(let o of spec.dhcp.options) {
-        offset += view.setArray(offset, o);
+        offset += view_setArray(offset, o, view, out);
     }
     return offset;
 }
@@ -857,7 +848,8 @@ function parse_ntp(data, o) {
     };
 }
 
-function write_ntp(spec, view) {
+function write_ntp(spec, out) {
+    const view = out.udp_payload_view;
     view.setUint8(0, spec.ntp.flags);
     view.setUint8(1, spec.ntp.stratum);
     view.setUint8(2, spec.ntp.poll);
@@ -907,7 +899,8 @@ function parse_tcp(data, o) {
     o.tcp_data = data.subarray(offset);
 }
 
-function write_tcp(spec, view) {
+function write_tcp(spec, out) {
+    const view = out.ipv4_payload_view;
     let flags = 0;
     let tcp = spec.tcp;
 
@@ -935,7 +928,7 @@ function write_tcp(spec, view) {
     const total_length = TCP_HEADER_SIZE + (spec.tcp_data ? spec.tcp_data.length : 0);
 
     if(spec.tcp_data) {
-        view.setArray(TCP_HEADER_SIZE, spec.tcp_data);
+        view_setArray(TCP_HEADER_SIZE, spec.tcp_data, view, out);
     }
 
     const pseudo_header =
@@ -945,7 +938,7 @@ function write_tcp(spec, view) {
         (spec.ipv4.dest[2] << 8 | spec.ipv4.dest[3]) +
         IPV4_PROTO_TCP +
         total_length;
-    view.setInetChecksum(16, total_length, pseudo_header);
+    view_setInetChecksum(16, total_length, pseudo_header, view, out);
     return total_length;
 }
 
@@ -1041,7 +1034,7 @@ TCPConnection.prototype.connect = function() {
         winsize: 0,
         syn: true,
     };
-    this.net.receive(make_packet(reply));
+    adapter_receive(this.net, reply);
 };
 
 TCPConnection.prototype.accept = function(packet) {
@@ -1067,7 +1060,7 @@ TCPConnection.prototype.accept = function(packet) {
         syn: true,
         ack: true
     };
-    this.net.receive(make_packet(reply));
+    adapter_receive(this.net, reply);
 };
 
 TCPConnection.prototype.process = function(packet) {
@@ -1081,7 +1074,7 @@ TCPConnection.prototype.process = function(packet) {
         this.last_received_ackn = packet.tcp.ackn;
 
         let reply = this.ipv4_reply();
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
 
         this.state = TCP_STATE_ESTABLISHED;
         if(this.on_connect) this.on_connect.call(this);
@@ -1104,7 +1097,7 @@ TCPConnection.prototype.process = function(packet) {
             rst: true,
         };
         delete this.net.tcp_conn[this.tuple];
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
         return;
     }
 
@@ -1120,7 +1113,7 @@ TCPConnection.prototype.process = function(packet) {
             winsize: packet.tcp.winsize,
             ack: true
         };
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
 
         return;
     }
@@ -1131,7 +1124,7 @@ TCPConnection.prototype.process = function(packet) {
 
     if(packet.tcp_data.length > 0) {
         let reply = this.ipv4_reply();
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
     }
 
     if(this.last_received_ackn === undefined) this.last_received_ackn = packet.tcp.ackn;
@@ -1163,7 +1156,7 @@ TCPConnection.prototype.close = function() {
     if(!this.send_stream.length) {
         let reply = this.ipv4_reply();
         reply.tcp.fin = true;
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
     }
     this.pump();
 };
@@ -1179,7 +1172,7 @@ TCPConnection.prototype.pump = function() {
         }
         reply.tcp.psh = true;
         reply.tcp_data = data.subarray(0, n_ready);
-        this.net.receive(make_packet(reply));
+        adapter_receive(this.net, reply);
     }
 };
 
@@ -1211,7 +1204,7 @@ function arp_whohas(packet, adapter) {
         tha: packet.eth.src,
         tpa: packet.arp.spa
     };
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
 }
 
 function handle_fake_ping(packet, adapter) {
@@ -1227,7 +1220,7 @@ function handle_fake_ping(packet, adapter) {
         code: packet.icmp.code,
         data: packet.icmp.data
     };
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
 }
 
 function handle_udp_echo(packet, adapter) {
@@ -1244,5 +1237,5 @@ function handle_udp_echo(packet, adapter) {
         dport: packet.udp.sport,
         data: new TextEncoder().encode(packet.udp.data_s)
     };
-    adapter.receive(make_packet(reply));
+    adapter_receive(adapter, reply);
 }
