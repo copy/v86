@@ -12,7 +12,7 @@ Welcome to v86's issue tracker!
 
 We use this tracker for bug reports or feature requests. For user support, questions or general comments, use the chat at https://gitter.im/copy/v86 or the forum at https://github.com/copy/v86/discussions
 
-Please don't ask for support for any version of Windows. There are many existing issues at https://github.com/copy/v86/issues?q=is%253Aissue+windows. See also docs/windows-xp.md.
+Please don't ask for support for any version of Windows. There are many existing issues at https://github.com/copy/v86/issues?q=is%253Aissue+windows. See also docs/windows-xp.md and docs/windows-9x.md.
 
 Before reporting OS incompatibilities, check existing issues and the compatibility section of the readme.
 
