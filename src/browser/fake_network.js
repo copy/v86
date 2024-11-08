@@ -940,52 +940,6 @@ function write_tcp(spec, out) {
     return total_length;
 }
 
-function fake_tcp_connect(dport, adapter)
-{
-    const vm_ip_str = adapter.vm_ip.join(".");
-    const router_ip_str = adapter.router_ip.join(".");
-    const sport_0 = (Math.random() * TCP_DYNAMIC_PORT_RANGE) | 0;
-    let sport, tuple, sport_i = 0;
-    do {
-        sport = TCP_DYNAMIC_PORT_START + ((sport_0 + sport_i) % TCP_DYNAMIC_PORT_RANGE);
-        tuple = `${vm_ip_str}:${dport}:${router_ip_str}:${sport}`;
-    } while(++sport_i < TCP_DYNAMIC_PORT_RANGE && adapter.tcp_conn[tuple]);
-    if(adapter.tcp_conn[tuple]) {
-        throw new Error("pool of dynamic TCP port numbers exhausted, connection aborted");
-    }
-
-    let reader;
-    let connector;
-
-    let conn = new TCPConnection();
-    conn.net = adapter;
-    conn.on_data = function(data) { if(reader) reader.call(handle, data); };
-    conn.on_connect = function() { if(connector) connector.call(handle); };
-    conn.tuple = tuple;
-
-    conn.hsrc = adapter.router_mac;
-    conn.psrc = adapter.router_ip;
-    conn.sport = sport;
-    conn.hdest = adapter.vm_mac;
-    conn.dport = dport;
-    conn.pdest = adapter.vm_ip;
-
-    adapter.tcp_conn[tuple] = conn;
-    conn.connect();
-
-    // TODO: Real event source
-    let handle = {
-        write: function(data) { conn.write(data); },
-        on: function(event, cb) {
-            if( event === "data" ) reader = cb;
-            if( event === "connect" ) connector = cb;
-        },
-        close: function() { conn.close(); }
-    };
-
-    return handle;
-}
-
 /**
  * @constructor
  */

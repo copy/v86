@@ -160,12 +160,6 @@ FetchNetworkAdapter.prototype.send = function(data)
     handle_fake_networking(data, this);
 };
 
-
-FetchNetworkAdapter.prototype.tcp_connect = function(dport)
-{
-    return fake_tcp_connect(dport, this);
-};
-
 /**
  * @param {Uint8Array} data
  */
