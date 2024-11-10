@@ -83,9 +83,9 @@ async function on_data_http(data)
 
         let req_headers = new Headers();
         for(let i = 1; i < headers.length; ++i) {
-            let parts = headers[i].split(": ");
+            let parts = headers[i].split(/:(.+)/);
             let key =  parts[0].toLowerCase();
-            let value = parts[1];
+            let value = parts[1].trim();
             if( key === "host" ) target.host = value;
             else if( key.length > 1 ) req_headers.set(parts[0], value);
         }
