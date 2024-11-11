@@ -83,11 +83,19 @@ async function on_data_http(data)
 
         let req_headers = new Headers();
         for(let i = 1; i < headers.length; ++i) {
-            let parts = headers[i].split(/:(.+)/);
-            let key =  parts[0].toLowerCase();
-            let value = parts[1].trim();
+            let parts = headers[i].match(/^([^:]*):(.*)$/);
+            let key = "";
+            let value = "";
+            if(parts !== null && parts.length === 3) {
+                key = parts[1].toLowerCase();
+                value = parts[2].trim();
+            }
+            if(!this.net.validate_header(key, value)) {
+                this.write(new TextEncoder().encode("HTTP/1.1 400 Bad Request\r\nContent-Length: 0"));
+                return;
+            }
             if( key === "host" ) target.host = value;
-            else if( key.length > 1 ) req_headers.set(parts[0], value);
+            else if( key.length > 1 ) req_headers.append(parts[1], value);
         }
 
         dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
@@ -149,6 +157,32 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
             new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
         ];
     }
+};
+
+FetchNetworkAdapter.prototype.validate_header = function(key, value)
+{
+    if(key.length === 0)
+    {
+        dbg_log("Header key is empty", LOG_FETCH);
+        return false;
+    }
+    if(value.length === 0)
+    {
+        dbg_log("Header value is empty", LOG_FETCH);
+        return false;
+    }
+    if(!/^[\w-]+$/.test(key))
+    {
+        dbg_log("Header key contains forbidden characters", LOG_FETCH);
+        return false;
+    }
+    if(!/^[\x20-\x7E]+$/.test(value))
+    {
+        dbg_log("Header value contains forbidden characters", LOG_FETCH);
+        return false;
+    }
+
+    return true;
 };
 
 /**
