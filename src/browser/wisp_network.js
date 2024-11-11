@@ -249,7 +249,7 @@ WispNetworkAdapter.prototype.send = function(data)
                 rst: true,
                 ack: packet.tcp.syn
             };
-            adapter_receive(this, reply);
+            this.receive(make_packet(this.eth_encoder_buf, reply));
             return;
         }
 
@@ -273,7 +273,7 @@ WispNetworkAdapter.prototype.send = function(data)
             reply.udp = { sport: 53, dport: packet.udp.sport };
             const result = await ((await fetch(`https://${this.doh_server}/dns-query`, {method: "POST", headers: [["content-type", "application/dns-message"]], body: packet.udp.data})).arrayBuffer());
             reply.udp.data = new Uint8Array(result);
-            adapter_receive(this, reply);
+            this.receive(make_packet(this.eth_encoder_buf, reply));
         })();
     }
 
