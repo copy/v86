@@ -966,7 +966,7 @@ function TCPConnection()
     this.state = TCP_STATE_CLOSED;
     this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
-    this.delayed_active_close = false;
+    this.delayed_send_fin = false;
 }
 
 TCPConnection.prototype.ipv4_reply = function() {
@@ -1119,7 +1119,7 @@ TCPConnection.prototype.process = function(packet) {
             this.pending = false;
 
             let send_fin;
-            if(this.delayed_active_close && !this.send_buffer.length) {
+            if(this.delayed_send_fin && !this.send_buffer.length) {
                 if(this.state === TCP_STATE_ESTABLISHED) {
                     dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
                     this.state = TCP_STATE_FIN_WAIT_1;
@@ -1158,6 +1158,7 @@ TCPConnection.prototype.process = function(packet) {
             reply.tcp.ack = true;
             if(this.send_buffer.length || this.pending) {
                 this.state = TCP_STATE_CLOSE_WAIT;
+                this.delayed_send_fin = true;
             }
             else {
                 dbg_log(`TCP[${this.tuple}]: sending FIN in state "${this.state}", next "${TCP_STATE_LAST_ACK}"`, LOG_FETCH);
@@ -1210,10 +1211,10 @@ TCPConnection.prototype.write = function(data) {
 };
 
 TCPConnection.prototype.close = function() {
-    if(this.state === TCP_STATE_ESTABLISHED && !this.delayed_active_close) {
+    if(this.state === TCP_STATE_ESTABLISHED && !this.delayed_send_fin) {
         if(this.send_buffer.length || this.pending) {
             dbg_log(`TCP[${this.tuple}]: active close, delaying FIN in state "${this.state}"`, LOG_FETCH);
-            this.delayed_active_close = true;
+            this.delayed_send_fin = true;
         }
         else {
             dbg_log(`TCP[${this.tuple}]: active close, sending FIN in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
