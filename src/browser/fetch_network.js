@@ -83,19 +83,13 @@ async function on_data_http(data)
 
         let req_headers = new Headers();
         for(let i = 1; i < headers.length; ++i) {
-            let parts = headers[i].match(/^([^:]*):(.*)$/);
-            let key = "";
-            let value = "";
-            if(parts !== null && parts.length === 3) {
-                key = parts[1].toLowerCase();
-                value = parts[2].trim();
-            }
-            if(!this.net.validate_header(key, value)) {
+            const header = this.net.parse_http_header(headers[i]);
+            if(!header) {
                 this.write(new TextEncoder().encode("HTTP/1.1 400 Bad Request\r\nContent-Length: 0"));
                 return;
             }
-            if( key === "host" ) target.host = value;
-            else if( key.length > 1 ) req_headers.append(parts[1], value);
+            if( header.key.toLowerCase() === "host" ) target.host = header.value;
+            else req_headers.append(header.key, header.value);
         }
 
         dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
@@ -159,30 +153,45 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
     }
 };
 
-FetchNetworkAdapter.prototype.validate_header = function(key, value)
+FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
+    if(!header.includes(":"))
+    {
+        dbg_log("Header doesn't have a separator", LOG_FETCH);
+        return;
+    }
+
+    const parts = header.match(/^([^:]*):(.*)$/);
+    if(parts === null || parts.length !== 3) {
+        dbg_log("Unable to parse HTTP header", LOG_FETCH);
+        return;
+    }
+
+    const key = parts[1];
+    const value = parts[2].trim();
+
     if(key.length === 0)
     {
         dbg_log("Header key is empty", LOG_FETCH);
-        return false;
+        return;
     }
     if(value.length === 0)
     {
         dbg_log("Header value is empty", LOG_FETCH);
-        return false;
+        return;
     }
     if(!/^[\w-]+$/.test(key))
     {
         dbg_log("Header key contains forbidden characters", LOG_FETCH);
-        return false;
+        return;
     }
     if(!/^[\x20-\x7E]+$/.test(value))
     {
         dbg_log("Header value contains forbidden characters", LOG_FETCH);
-        return false;
+        return;
     }
 
-    return true;
+    return { key, value };
 };
 
 /**
