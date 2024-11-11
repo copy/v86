@@ -75,11 +75,6 @@ function a2ethaddr(bytes) {
     return [0,1,2,3,4,5].map((i) => bytes[i].toString(16)).map(x => x.length === 1 ? "0" + x : x).join(":");
 }
 
-function siptolong(s) { // TODO: this function is not used anywhere, can it be removed?
-    let parts = s.split(".").map(function(x) { return parseInt(x, 10); });
-    return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
-}
-
 function iptolong(parts) {
     return parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3];
 }
@@ -198,7 +193,7 @@ function create_eth_encoder_buf()
  * @param {DataView} view
  * @param {Object} out
  */
-function view_setArray(offset, data, view, out)
+function view_set_array(offset, data, view, out)
 {
     out.eth_frame.set(data, view.byteOffset + offset);
     return data.length;
@@ -212,24 +207,21 @@ function view_setArray(offset, data, view, out)
  * @param {DataView} view
  * @param {Object} out
  */
-function view_setString(offset, str, view, out)
+function view_set_string(offset, str, view, out)
 {
-    const ofs = view.byteOffset + offset;
-    const result = out.text_encoder.encodeInto(str, ofs ? out.eth_frame.subarray(ofs) : out.eth_frame);
-    return result.written;
+    return out.text_encoder.encodeInto(str, out.eth_frame.subarray(view.byteOffset + offset)).written;
 }
 
 /**
- * Calculate internet checksum for view[0 : length], store 16-bit result in view at offset.
+ * Calculate internet checksum for view[0 : length] and return the 16-bit result.
  * Source: RFC768 and RFC1071 (chapter 4.1).
  *
- * @param {number} offset
  * @param {number} length
  * @param {number} checksum
  * @param {DataView} view
  * @param {Object} out
  */
-function view_setInetChecksum(offset, length, checksum, view, out)
+function calc_inet_checksum(length, checksum, view, out)
 {
     const uint16_end = view.byteOffset + (length & ~1);
     const eth_frame = out.eth_frame;
@@ -242,19 +234,18 @@ function view_setInetChecksum(offset, length, checksum, view, out)
     while(checksum >> 16) {
         checksum = (checksum & 0xffff) + (checksum >> 16);
     }
-    view.setUint16(offset, ~checksum);
+    return ~checksum & 0xffff;
 }
 
 /**
- * @param {WispNetworkAdapter|FetchNetworkAdapter} adapter
+ * @param {Object} out
  * @param {Object} spec
  */
-function adapter_receive(adapter, spec)
+function make_packet(out, spec)
 {
     dbg_assert(spec.eth);
-    const out = adapter.eth_encoder_buf;
     out.eth_frame.fill(0);
-    adapter.receive(out.eth_frame.subarray(0, write_eth(spec, out)));
+    return out.eth_frame.subarray(0, write_eth(spec, out));
 }
 
 function handle_fake_tcp(packet, adapter)
@@ -290,7 +281,7 @@ function handle_fake_tcp(packet, adapter)
             rst: true,
             ack: packet.tcp.syn
         };
-        adapter_receive(adapter, reply);
+        adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
         return true;
     }
 
@@ -336,7 +327,7 @@ function handle_fake_dns(packet, adapter)
         questions: packet.dns.questions,
         answers: answers
     };
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
     return true;
 }
 
@@ -367,7 +358,7 @@ function handle_fake_ntp(packet, adapter) {
     reply.ntp.trans_ts_f = now_n_f;
 
     reply.ntp.stratum = 2;
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
     return true;
 }
 
@@ -422,7 +413,7 @@ function handle_fake_dhcp(packet, adapter) {
     options.push(new Uint8Array([255, 0]));
 
     reply.dhcp.options = options;
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
 
 function handle_fake_networking(data, adapter) {
@@ -499,8 +490,8 @@ function parse_eth(data, o) {
 
 function write_eth(spec, out) {
     const view = out.eth_frame_view;
-    view_setArray(0, spec.eth.dest, view, out);
-    view_setArray(6, spec.eth.src, view, out);
+    view_set_array(0, spec.eth.dest, view, out);
+    view_set_array(6, spec.eth.src, view, out);
     view.setUint16(12, spec.eth.ethertype);
     let len = ETH_HEADER_SIZE;
     if(spec.arp) {
@@ -536,10 +527,10 @@ function write_arp(spec, out) {
     view.setUint8(4, spec.arp.sha.length);
     view.setUint8(5, spec.arp.spa.length);
     view.setUint16(6, spec.arp.oper);
-    view_setArray(8, spec.arp.sha, view, out);
-    view_setArray(14, spec.arp.spa, view, out);
-    view_setArray(18, spec.arp.tha, view, out);
-    view_setArray(24, spec.arp.tpa, view, out);
+    view_set_array(8, spec.arp.sha, view, out);
+    view_set_array(14, spec.arp.spa, view, out);
+    view_set_array(18, spec.arp.tha, view, out);
+    view_set_array(24, spec.arp.tpa, view, out);
     return 28;
 }
 
@@ -569,7 +560,7 @@ function parse_ipv4(data, o) {
     };
 
     // Ethernet minmum packet size.
-    /* TODO: What's the overall reasoning behind this check, and where does the 46 come from? We get plenty of IP packets of size 40.
+    /* TODO: What's the overall reasoning behind this check, and where does the 46 come from? We get plenty of IP packets of size 40, 42, etc.
     if(Math.max(len, 46) !== data.length) {
     */
     if(Math.max(len, 40) !== data.length) {
@@ -613,9 +604,9 @@ function write_ipv4(spec, out) {
     view.setUint8(8, spec.ipv4.ttl || 32);
     view.setUint8(9, spec.ipv4.proto);
     view.setUint16(10, 0); // checksum initially zero before calculation
-    view_setArray(12, spec.ipv4.src, view, out);
-    view_setArray(16, spec.ipv4.dest, view, out);
-    view_setInetChecksum(10, IPV4_HEADER_SIZE, 0, view, out);
+    view_set_array(12, spec.ipv4.src, view, out);
+    view_set_array(16, spec.ipv4.dest, view, out);
+    view.setUint16(10, calc_inet_checksum(IPV4_HEADER_SIZE, 0, view, out));
     return len;
 }
 
@@ -635,9 +626,9 @@ function write_icmp(spec, out) {
     view.setUint8(0, spec.icmp.type);
     view.setUint8(1, spec.icmp.code);
     view.setUint16(2, 0); // checksum initially zero before calculation
-    const data_length = view_setArray(ICMP_HEADER_SIZE, spec.icmp.data, view, out);
+    const data_length = view_set_array(ICMP_HEADER_SIZE, spec.icmp.data, view, out);
     const total_length = ICMP_HEADER_SIZE + data_length;
-    view_setInetChecksum(2, total_length, 0, view, out);
+    view.setUint16(2, calc_inet_checksum(total_length, 0, view, out));
     return total_length;
 }
 
@@ -678,7 +669,7 @@ function write_udp(spec, out) {
         total_length += write_ntp(spec, out);
     }
     else {
-        total_length += view_setArray(0, spec.udp.data, out.udp_payload_view, out);
+        total_length += view_set_array(0, spec.udp.data, out.udp_payload_view, out);
     }
 
     view.setUint16(0, spec.udp.sport);
@@ -693,7 +684,7 @@ function write_udp(spec, out) {
         (spec.ipv4.dest[2] << 8 | spec.ipv4.dest[3]) +
         IPV4_PROTO_UDP +
         total_length;
-    view_setInetChecksum(6, total_length, pseudo_header, view, out);
+    view.setUint16(6, calc_inet_checksum(total_length, pseudo_header, view, out));
     return total_length;
 }
 
@@ -759,7 +750,7 @@ function write_dns(spec, out) {
     for(let i = 0; i < spec.dns.questions.length; ++i) {
         let q = spec.dns.questions[i];
         for(let s of q.name) {
-            const n_written = view_setString(offset + 1, s, view, out);
+            const n_written = view_set_string(offset + 1, s, view, out);
             view.setUint8(offset, n_written);
             offset += 1 + n_written;
         }
@@ -771,7 +762,7 @@ function write_dns(spec, out) {
 
     function write_reply(a) {
         for(let s of a.name) {
-            const n_written = view_setString(offset + 1, s, view, out);
+            const n_written = view_set_string(offset + 1, s, view, out);
             view.setUint8(offset, n_written);
             offset += 1 + n_written;
         }
@@ -783,7 +774,7 @@ function write_dns(spec, out) {
         offset += 4;
         view.setUint16(offset, a.data.length);
         offset += 2;
-        offset += view_setArray(offset, a.data, view, out);
+        offset += view_set_array(offset, a.data, view, out);
     }
 
     for(let i = 0; i < spec.dns.answers.length; ++i) {
@@ -842,13 +833,13 @@ function write_dhcp(spec, out) {
     view.setUint32(16, spec.dhcp.yiaddr);
     view.setUint32(20, spec.dhcp.siaddr);
     view.setUint32(24, spec.dhcp.giaddr);
-    view_setArray(28, spec.dhcp.chaddr, view, out);
+    view_set_array(28, spec.dhcp.chaddr, view, out);
 
     view.setUint32(236, DHCP_MAGIC_COOKIE);
 
     let offset = 240;
     for(let o of spec.dhcp.options) {
-        offset += view_setArray(offset, o, view, out);
+        offset += view_set_array(offset, o, view, out);
     }
     return offset;
 }
@@ -953,7 +944,7 @@ function write_tcp(spec, out) {
 
     let total_length = TCP_HEADER_SIZE;
     if(spec.tcp_data) {
-        total_length += view_setArray(TCP_HEADER_SIZE, spec.tcp_data, view, out);
+        total_length += view_set_array(TCP_HEADER_SIZE, spec.tcp_data, view, out);
     }
 
     const pseudo_header =
@@ -963,7 +954,7 @@ function write_tcp(spec, out) {
         (spec.ipv4.dest[2] << 8 | spec.ipv4.dest[3]) +
         IPV4_PROTO_TCP +
         total_length;
-    view_setInetChecksum(16, total_length, pseudo_header, view, out);
+    view.setUint16(16, calc_inet_checksum(total_length, pseudo_header, view, out));
     return total_length;
 }
 
@@ -1034,7 +1025,7 @@ TCPConnection.prototype.connect = function() {
         winsize: 0,
         syn: true,
     };
-    adapter_receive(this.net, reply);
+    this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
 };
 
 TCPConnection.prototype.accept = function(packet) {
@@ -1061,13 +1052,14 @@ TCPConnection.prototype.accept = function(packet) {
     };
     dbg_log(`TCP[${this.tuple}]: accept(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_SYN_SENT}"`, LOG_FETCH);
     this.state = TCP_STATE_SYN_SENT;
-    adapter_receive(this.net, reply);
+    this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
 };
 
 TCPConnection.prototype.process = function(packet) {
     if(this.state === TCP_STATE_CLOSED) {
         dbg_log(`TCP[${this.tuple}]: WARNING: connection already closed, packet dropped`, LOG_FETCH);
-        adapter_receive(this.net, this.packet_reply(packet, {rst: true}));
+        const reply = this.packet_reply(packet, {rst: true});
+        this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
         return;
     }
     else if(packet.tcp.rst) {
@@ -1080,7 +1072,9 @@ TCPConnection.prototype.process = function(packet) {
             this.ack = packet.tcp.seq + 1;
             this.start_seq = packet.tcp.seq;
             this.last_received_ackn = packet.tcp.ackn;
-            adapter_receive(this.net, this.ipv4_reply());
+
+            const reply = this.ipv4_reply();
+            this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
             dbg_log(`TCP[${this.tuple}]: received SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
             this.state = TCP_STATE_ESTABLISHED;
             if(this.on_connect) {
@@ -1123,10 +1117,31 @@ TCPConnection.prototype.process = function(packet) {
             this.send_buffer.remove(n_ack);
             this.seq += n_ack;
             this.pending = false;
+
+            let send_fin;
+            if(this.delayed_active_close && !this.send_buffer.length) {
+                if(this.state === TCP_STATE_ESTABLISHED) {
+                    dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
+                    this.state = TCP_STATE_FIN_WAIT_1;
+                    send_fin = true;
+                }
+                else if(this.state === TCP_STATE_CLOSE_WAIT) {
+                    dbg_log(`TCP[${this.tuple}]: sending delayed FIN from passive close in state "${this.state}", next "${TCP_STATE_LAST_ACK}"`, LOG_FETCH);
+                    this.state = TCP_STATE_LAST_ACK;
+                    send_fin = true;
+                }
+            }
+            if(send_fin) {
+                const reply = this.ipv4_reply();
+                reply.tcp.fin = true;
+                this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
+                return;
+            }
         }
         else if(n_ack < 0) {    // TODO: any better way to handle this? could this just be a 32-bit sequence number overflow?
             dbg_log(`TCP[${this.tuple}]: ERROR: ack underflow (pkt=${packet.tcp.ackn} last=${this.last_received_ackn}), resetting`, LOG_FETCH);
-            adapter_receive(this.net, this.packet_reply(packet, {rst: true}));
+            const reply = this.packet_reply(packet, {rst: true});
+            this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
             this.release();
             return;
         }
@@ -1141,7 +1156,7 @@ TCPConnection.prototype.process = function(packet) {
         const reply = this.packet_reply(packet, {});
         if(this.state === TCP_STATE_ESTABLISHED) {
             reply.tcp.ack = true;
-            if(this.send_buffer.length) {
+            if(this.send_buffer.length || this.pending) {
                 this.state = TCP_STATE_CLOSE_WAIT;
             }
             else {
@@ -1159,7 +1174,7 @@ TCPConnection.prototype.process = function(packet) {
             this.release();
             reply.tcp.rst = true;
         }
-        adapter_receive(this.net, reply);
+        this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
     }
     else if(this.ack !== packet.tcp.seq) {
         // Handle TCP Keep-Alives silently.
@@ -1173,11 +1188,13 @@ TCPConnection.prototype.process = function(packet) {
                 `pk: ${packet.tcp.seq} ~${this.start_seq - packet.tcp.seq} ` +
                 `(${this.ack - packet.tcp.seq}) = ${this.name}`, LOG_FETCH);
         }
-        adapter_receive(this.net, this.packet_reply(packet, {ack: true}));
+        const reply = this.packet_reply(packet, {ack: true});
+        this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
     }
     else if(packet.tcp.ack && packet.tcp_data.length > 0) {
         this.ack += packet.tcp_data.length;
-        adapter_receive(this.net, this.ipv4_reply());
+        const reply = this.ipv4_reply();
+        this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
         this.on_data(packet.tcp_data);
     }
 
@@ -1194,16 +1211,16 @@ TCPConnection.prototype.write = function(data) {
 
 TCPConnection.prototype.close = function() {
     if(this.state === TCP_STATE_ESTABLISHED && !this.delayed_active_close) {
-        if(this.send_buffer.length) {
+        if(this.send_buffer.length || this.pending) {
             dbg_log(`TCP[${this.tuple}]: active close, delaying FIN in state "${this.state}"`, LOG_FETCH);
             this.delayed_active_close = true;
         }
         else {
             dbg_log(`TCP[${this.tuple}]: active close, sending FIN in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
             this.state = TCP_STATE_FIN_WAIT_1;
-            let fin_reply = this.ipv4_reply();
-            fin_reply.tcp.fin = true;
-            adapter_receive(this.net, fin_reply);
+            const reply = this.ipv4_reply();
+            reply.tcp.fin = true;
+            this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
         }
     }
     this.pump();
@@ -1218,25 +1235,13 @@ TCPConnection.prototype.release = function() {
 };
 
 TCPConnection.prototype.pump = function() {
-    if(this.send_buffer.length > 0 && !this.pending) {
+    if(this.send_buffer.length && !this.pending) {
         const data = this.send_chunk_buf;
         const n_ready = this.send_buffer.peek(data);
         const reply = this.ipv4_reply();
         reply.tcp.psh = true;
         reply.tcp_data = data.subarray(0, n_ready);
-        if(this.delayed_active_close && this.send_buffer.length === n_ready) {
-            if(this.state === TCP_STATE_ESTABLISHED) {
-                dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
-                this.state = TCP_STATE_FIN_WAIT_1;
-                reply.tcp.fin = true;
-            }
-            else if(this.state === TCP_STATE_CLOSE_WAIT) {
-                dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${TCP_STATE_LAST_ACK}"`, LOG_FETCH);
-                this.state = TCP_STATE_LAST_ACK;
-                reply.tcp.fin = true;
-            }
-        }
-        adapter_receive(this.net, reply);
+        this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
         this.pending = true;
     }
 };
@@ -1269,7 +1274,7 @@ function arp_whohas(packet, adapter) {
         tha: packet.eth.src,
         tpa: packet.arp.spa
     };
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
 
 function handle_fake_ping(packet, adapter) {
@@ -1285,7 +1290,7 @@ function handle_fake_ping(packet, adapter) {
         code: packet.icmp.code,
         data: packet.icmp.data
     };
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
 
 function handle_udp_echo(packet, adapter) {
@@ -1302,5 +1307,5 @@ function handle_udp_echo(packet, adapter) {
         dport: packet.udp.sport,
         data: new TextEncoder().encode(packet.udp.data_s)
     };
-    adapter_receive(adapter, reply);
+    adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
