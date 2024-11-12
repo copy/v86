@@ -85,7 +85,7 @@ async function on_data_http(data)
         for(let i = 1; i < headers.length; ++i) {
             const header = this.net.parse_http_header(headers[i]);
             if(!header) {
-                console.warn('The request contains an invalid header: "%s"', header);
+                console.warn('The request contains an invalid header: "%s"', headers[i]);
                 this.write(new TextEncoder().encode("HTTP/1.1 400 Bad Request\r\nContent-Length: 0"));
                 return;
             }
