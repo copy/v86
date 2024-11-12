@@ -85,6 +85,7 @@ async function on_data_http(data)
         for(let i = 1; i < headers.length; ++i) {
             const header = this.net.parse_http_header(headers[i]);
             if(!header) {
+                console.warn('The request contains an invalid header: "%s"', header);
                 this.write(new TextEncoder().encode("HTTP/1.1 400 Bad Request\r\nContent-Length: 0"));
                 return;
             }
@@ -155,12 +156,6 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
-    if(!header.includes(":"))
-    {
-        dbg_log("Header doesn't have a separator", LOG_FETCH);
-        return;
-    }
-
     const parts = header.match(/^([^:]*):(.*)$/);
     if(parts === null || parts.length !== 3) {
         dbg_log("Unable to parse HTTP header", LOG_FETCH);
@@ -172,7 +167,7 @@ FetchNetworkAdapter.prototype.parse_http_header = function(header)
 
     if(key.length === 0)
     {
-        dbg_log("Header key is empty", LOG_FETCH);
+        dbg_log("Header key is empty, raw header", LOG_FETCH);
         return;
     }
     if(value.length === 0)
