@@ -157,7 +157,7 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
     const parts = header.match(/^([^:]*):(.*)$/);
-    if(parts === null || parts.length !== 3) {
+    if(!parts) {
         dbg_log("Unable to parse HTTP header", LOG_FETCH);
         return;
     }
