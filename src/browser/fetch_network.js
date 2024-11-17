@@ -123,6 +123,7 @@ async function on_data_http(data)
 
         this.write(new TextEncoder().encode(lines.join("\r\n")));
         this.write(new Uint8Array(ab));
+        this.close();
     }
 }
 
