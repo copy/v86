@@ -17,26 +17,14 @@ const TWO_TO_32 = Math.pow(2, 32);
 const DHCP_MAGIC_COOKIE = 0x63825363;
 const V86_ASCII = [118, 56, 54];
 
-/* TCP 4-way close handshake
+/* For the complete TCP state diagram see:
  *
- *          Initiator    Receiver
- *     (active close)    (passive close)
- *              :           :
- *  ESTABLISHED |           | ESTABLISHED
- *              |           |
- *   FIN_WAIT_1 |--- FIN -->| CLOSE_WAIT    [1]
- *              |           |
- *   FIN_WAIT_2 |<-- ACK ---|               [2]
- *              |           |
- *    TIME_WAIT |<-- FIN ---| LAST_ACK      [3]
- *              |           |
- *              |--- ACK -->| CLOSED        [4]
- *       CLOSED |           |
+ *   https://en.wikipedia.org/wiki/File:Tcp_state_diagram_fixed_new.svg
  *
- * - Receiver MAY combine [2] and [3] into a single ACK+FIN packet.
- * - State CLOSING (simultaneous close from both ends) not implemented.
- * - In [3], instead of TIME_WAIT go diretly to CLOSED after sending ACK.
- * - TODO: what about state LISTEN? Neither WISP nor FETCH seem to support it.
+ * State TIME_WAIT is not needed, we can skip it and transition directly to CLOSED instead.
+ *
+ * TODO:
+ * - What about state LISTEN? Neither WISP nor FETCH seem to support it.
  */
 const TCP_STATE_CLOSED = "closed";
 const TCP_STATE_SYN_RECEIVED = "syn-received";
@@ -47,7 +35,7 @@ const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
 const TCP_STATE_CLOSE_WAIT = "close-wait";
 const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
 const TCP_STATE_LAST_ACK = "last-ack";
-//const TCP_STATE_CLOSING = "closing";
+const TCP_STATE_CLOSING = "closing";
 //const TCP_STATE_TIME_WAIT = "time-wait";
 
 // source: RFC6335, 6. Port Number Ranges
@@ -966,7 +954,9 @@ function TCPConnection()
     this.state = TCP_STATE_CLOSED;
     this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
+    this.in_active_close = false;
     this.delayed_send_fin = false;
+    this.delayed_state = undefined;
 }
 
 TCPConnection.prototype.ipv4_reply = function() {
@@ -1006,9 +996,10 @@ TCPConnection.prototype.packet_reply = function(packet, tcp_options) {
     return reply;
 };
 
+/*
 // TODO: Is this method used anywhere anymore? It used to be called from fake_tcp_connect() which was removed.
 TCPConnection.prototype.connect = function() {
-    dbg_log(`TCP[${this.tuple}]: connect(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_SYN_SENT}"`, LOG_FETCH);
+    // dbg_log(`TCP[${this.tuple}]: connect(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_SYN_SENT}"`, LOG_FETCH);
     this.seq = 1338;
     this.ack = 1;
     this.start_seq = 0;
@@ -1027,6 +1018,7 @@ TCPConnection.prototype.connect = function() {
     };
     this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
 };
+*/
 
 TCPConnection.prototype.accept = function(packet) {
     this.seq = 1338;
@@ -1050,20 +1042,20 @@ TCPConnection.prototype.accept = function(packet) {
         syn: true,
         ack: true
     };
-    dbg_log(`TCP[${this.tuple}]: accept(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_SYN_SENT}"`, LOG_FETCH);
-    this.state = TCP_STATE_SYN_SENT;
+    // dbg_log(`TCP[${this.tuple}]: accept(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
+    this.state = TCP_STATE_ESTABLISHED;
     this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
 };
 
 TCPConnection.prototype.process = function(packet) {
     if(this.state === TCP_STATE_CLOSED) {
-        dbg_log(`TCP[${this.tuple}]: WARNING: connection already closed, packet dropped`, LOG_FETCH);
+        // dbg_log(`TCP[${this.tuple}]: WARNING: connection already closed, packet dropped`, LOG_FETCH);
         const reply = this.packet_reply(packet, {rst: true});
         this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
         return;
     }
     else if(packet.tcp.rst) {
-        dbg_log(`TCP[${this.tuple}]: received RST in state "${this.state}"`, LOG_FETCH);
+        // dbg_log(`TCP[${this.tuple}]: received RST in state "${this.state}"`, LOG_FETCH);
         this.release();
         return;
     }
@@ -1075,7 +1067,7 @@ TCPConnection.prototype.process = function(packet) {
 
             const reply = this.ipv4_reply();
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
-            dbg_log(`TCP[${this.tuple}]: received SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
+            // dbg_log(`TCP[${this.tuple}]: received SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
             this.state = TCP_STATE_ESTABLISHED;
             if(this.on_connect) {
                 this.on_connect.call(this);
@@ -1091,16 +1083,14 @@ TCPConnection.prototype.process = function(packet) {
     }
 
     if(packet.tcp.ack) {
-        if(this.state === TCP_STATE_SYN_SENT) {
-            dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
-            this.state = TCP_STATE_ESTABLISHED;
+        if(this.state === TCP_STATE_FIN_WAIT_1) {
+            if(!packet.tcp.fin) {   // handle FIN+ACK in FIN_WAIT_1 separately further down below
+                // dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_FIN_WAIT_2}"`, LOG_FETCH);
+                this.state = TCP_STATE_FIN_WAIT_2;
+            }
         }
-        else if(this.state === TCP_STATE_FIN_WAIT_1) {
-            dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_FIN_WAIT_2}"`, LOG_FETCH);
-            this.state = TCP_STATE_FIN_WAIT_2;
-        }
-        else if(this.state === TCP_STATE_LAST_ACK) {
-            dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}"`, LOG_FETCH);
+        else if(this.state === TCP_STATE_CLOSING || this.state === TCP_STATE_LAST_ACK) {
+            // dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}"`, LOG_FETCH);
             this.release();
             return;
         }
@@ -1118,20 +1108,10 @@ TCPConnection.prototype.process = function(packet) {
             this.seq += n_ack;
             this.pending = false;
 
-            let send_fin;
             if(this.delayed_send_fin && !this.send_buffer.length) {
-                if(this.state === TCP_STATE_ESTABLISHED) {
-                    dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
-                    this.state = TCP_STATE_FIN_WAIT_1;
-                    send_fin = true;
-                }
-                else if(this.state === TCP_STATE_CLOSE_WAIT) {
-                    dbg_log(`TCP[${this.tuple}]: sending delayed FIN from passive close in state "${this.state}", next "${TCP_STATE_LAST_ACK}"`, LOG_FETCH);
-                    this.state = TCP_STATE_LAST_ACK;
-                    send_fin = true;
-                }
-            }
-            if(send_fin) {
+                // dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${this.delayed_state}"`, LOG_FETCH);
+                this.delayed_send_fin = false;
+                this.state = this.delayed_state;
                 const reply = this.ipv4_reply();
                 reply.tcp.fin = true;
                 this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
@@ -1148,30 +1128,45 @@ TCPConnection.prototype.process = function(packet) {
     }
 
     if(packet.tcp.fin) {
-        dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}", payload: ${packet.tcp_data.length}`, LOG_FETCH);
         if(this.ack !== packet.tcp.seq) {
             dbg_log(`TCP[${this.tuple}]: WARNING: closing connection in state "${this.state}" with invalid seq (${this.ack} != ${packet.tcp.seq})`, LOG_FETCH);
         }
         ++this.ack; // FIN increases seqnr
         const reply = this.packet_reply(packet, {});
         if(this.state === TCP_STATE_ESTABLISHED) {
+            // dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}, next "${TCP_STATE_CLOSE_WAIT}""`, LOG_FETCH);
             reply.tcp.ack = true;
-            if(this.send_buffer.length || this.pending) {
-                this.state = TCP_STATE_CLOSE_WAIT;
-                this.delayed_send_fin = true;
-            }
-            else {
-                dbg_log(`TCP[${this.tuple}]: sending FIN in state "${this.state}", next "${TCP_STATE_LAST_ACK}"`, LOG_FETCH);
-                this.state = TCP_STATE_LAST_ACK;
-                reply.tcp.fin = true;
+            this.state = TCP_STATE_CLOSE_WAIT;
+            // pass the passive close event up to the NetworkAdapter, this event is intended for the remote end
+            // TODO: method *NetworkAdapter.on_passive_close(), implementation:
+            // - WispNetworkAdapter: as below
+            // - FetchNetworkAdapter: not sure, maybe just an empty method?
+            if(this.net instanceof WispNetworkAdapter) {
+                this.net.send_wisp_frame({
+                    type: "CLOSE",
+                    stream_id: this.stream_id,
+                    reason: 0x02    // 0x02: Voluntary stream closure
+                });
             }
         }
+        else if(this.state === TCP_STATE_FIN_WAIT_1) {
+            if(packet.tcp.ack) {
+                // dbg_log(`TCP[${this.tuple}]: received ACK+FIN in state "${this.state}"`, LOG_FETCH);
+                this.release();
+            }
+            else {
+                // dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_CLOSING}"`, LOG_FETCH);
+                this.state = TCP_STATE_CLOSING;
+            }
+            reply.tcp.ack = true;
+        }
         else if(this.state === TCP_STATE_FIN_WAIT_2) {
+            // dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}"`, LOG_FETCH);
             this.release();
             reply.tcp.ack = true;
         }
         else {
-            dbg_log(`TCP[${this.tuple}]: ERROR: received FIN in unexpected TCP state "${this.state}", resetting`, LOG_FETCH);
+            // dbg_log(`TCP[${this.tuple}]: ERROR: received FIN in unexpected TCP state "${this.state}", resetting`, LOG_FETCH);
             this.release();
             reply.tcp.rst = true;
         }
@@ -1206,19 +1201,38 @@ TCPConnection.prototype.process = function(packet) {
  * @param {Uint8Array} data
  */
 TCPConnection.prototype.write = function(data) {
-    this.send_buffer.write(data);
+    if(!this.in_active_close) {
+        this.send_buffer.write(data);
+    }
     this.pump();
 };
 
 TCPConnection.prototype.close = function() {
-    if(this.state === TCP_STATE_ESTABLISHED && !this.delayed_send_fin) {
-        if(this.send_buffer.length || this.pending) {
-            dbg_log(`TCP[${this.tuple}]: active close, delaying FIN in state "${this.state}"`, LOG_FETCH);
-            this.delayed_send_fin = true;
+    if(!this.in_active_close) {
+        this.in_active_close = true;
+        let next_state;
+        if(this.state === TCP_STATE_ESTABLISHED || this.state === TCP_STATE_SYN_RECEIVED) {
+            next_state = TCP_STATE_FIN_WAIT_1;
+        }
+        else if(this.state === TCP_STATE_CLOSE_WAIT) {
+            next_state = TCP_STATE_LAST_ACK;
         }
         else {
-            dbg_log(`TCP[${this.tuple}]: active close, sending FIN in state "${this.state}", next "${TCP_STATE_FIN_WAIT_1}"`, LOG_FETCH);
-            this.state = TCP_STATE_FIN_WAIT_1;
+            if(this.state !== TCP_STATE_SYN_SENT) {
+                dbg_log(`TCP[${this.tuple}]: active close in unexpected state "${this.state}"`, LOG_FETCH);
+            }
+            this.release();
+            return;
+        }
+
+        if(this.send_buffer.length || this.pending) {
+            // dbg_log(`TCP[${this.tuple}]: active close, delaying FIN in state "${this.state}", delayed next "${next_state}"`, LOG_FETCH);
+            this.delayed_send_fin = true;
+            this.delayed_state = next_state;
+        }
+        else {
+            // dbg_log(`TCP[${this.tuple}]: active close, sending FIN in state "${this.state}", next "${next_state}"`, LOG_FETCH);
+            this.state = next_state;
             const reply = this.ipv4_reply();
             reply.tcp.fin = true;
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
@@ -1229,7 +1243,7 @@ TCPConnection.prototype.close = function() {
 
 TCPConnection.prototype.release = function() {
     if(this.net.tcp_conn[this.tuple]) {
-        dbg_log(`TCP[${this.tuple}]: connection closed in state "${this.state}"`, LOG_FETCH);
+        // dbg_log(`TCP[${this.tuple}]: connection closed in state "${this.state}"`, LOG_FETCH);
         this.state = TCP_STATE_CLOSED;
         delete this.net.tcp_conn[this.tuple];
     }
