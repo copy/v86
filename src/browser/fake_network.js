@@ -1207,6 +1207,18 @@ TCPConnection.prototype.write = function(data) {
     this.pump();
 };
 
+/**
+ * @param {!Array<Uint8Array>} data_array
+ */
+TCPConnection.prototype.writev = function(data_array) {
+    if(!this.in_active_close) {
+        for(const data of data_array) {
+            this.send_buffer.write(data);
+        }
+    }
+    this.pump();
+};
+
 TCPConnection.prototype.close = function() {
     if(!this.in_active_close) {
         this.in_active_close = true;
