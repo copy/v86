@@ -55,11 +55,10 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(adapter, packet, tupl
 
 /**
  * @this {TCPConnection}
- * @param {ArrayBuffer} data
+ * @param {!ArrayBuffer} data
  */
 async function on_data_http(data)
 {
-    if(!data) return; // Make type checking happy.
     this.read = this.read || "";
     this.read += new TextDecoder().decode(data);
     if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
@@ -103,6 +102,7 @@ async function on_data_http(data)
         if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
             opts.body = data;
         }
+/*
         const [resp, ab] = await this.net.fetch(target.href, opts);
         const lines = [
             `HTTP/1.1 ${resp.status} ${resp.statusText}`,
@@ -127,9 +127,57 @@ async function on_data_http(data)
         this.write(new TextEncoder().encode(lines.join("\r\n")));
         this.write(new Uint8Array(ab));
         this.close();
+*/
+        const fetch_url = this.cors_proxy ? this.cors_proxy + encodeURIComponent(target.href) : target.href;
+        const encoder = new TextEncoder();
+        let response_started = false;
+        fetch(fetch_url, opts).then((resp) => {
+            const header_lines = [
+                `HTTP/1.1 ${resp.status} ${resp.statusText}`,
+                `x-was-fetch-redirected: ${!!resp.redirected}`,
+                `x-fetch-resp-url: ${resp.url}`,
+                "Connection: closed"
+            ];
+            for(const [key, value] of resp.headers.entries()) {
+                if(!["content-encoding", "connection", "content-length", "transfer-encoding"].includes(key.toLowerCase())) {
+                    header_lines.push(`${key}:  ${value}`);
+                }
+            }
+            this.write(encoder.encode(header_lines.join("\r\n") + "\r\n\r\n"));
+            response_started = true;
+
+            const resp_reader = resp.body.getReader();
+            const pump = ({ value, done }) => {
+                if(value) {
+                    this.write(value);
+                }
+                if(done) {
+                    this.close();
+                }
+                else {
+                    return resp_reader.read().then(pump);
+                }
+            };
+            resp_reader.read().then(pump);
+        })
+        .catch((e) => {
+            console.warn("Fetch Failed: " + fetch_url + "\n" + e);
+            if(!response_started) {
+                const body = encoder.encode(`Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
+                const header_lines = [
+                    "HTTP/1.1 502 Fetch Error",
+                    "Content-Type: text/plain",
+                    `Content-Length: ${body.length}`,
+                    "Connection: closed"
+                ];
+                this.writev([encoder.encode(header_lines.join("\r\n") + "\r\n\r\n"), body]);
+            }
+            this.close();
+        });
     }
 }
 
+/*
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
 {
     if(this.cors_proxy) url = this.cors_proxy + encodeURIComponent(url);
@@ -155,6 +203,7 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
         ];
     }
 };
+*/
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
