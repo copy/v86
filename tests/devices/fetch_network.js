@@ -124,7 +124,45 @@ const tests =
             assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
         },
     },
-
+    {
+        name: "Forbidden character in header name",
+        start: () =>
+        {
+            emulator.serial0_send("wget --header='test.v86: 123' -T 10 -O - test.domain\n");
+            emulator.serial0_send("echo -e done\\\\tincorrect header name\n");
+        },
+        end_trigger: "done\tincorrect header name",
+        end: (capture) =>
+        {
+            assert(/400 Bad Request/.test(capture), "got error 400");
+        },
+    },
+    {
+        name: "Empty header value",
+        start: () =>
+        {
+            emulator.serial0_send("wget --header='test:' -T 10 -O - test.domain\n");
+            emulator.serial0_send("echo -e done\\\\tempty header value\n");
+        },
+        end_trigger: "done\tempty header value",
+        end: (capture) =>
+        {
+            assert(/400 Bad Request/.test(capture), "got error 400");
+        },
+    },
+    {
+        name: "Header without separator",
+        start: () =>
+        {
+            emulator.serial0_send("wget --spider --header='testheader' -T 10 -O - test.domain\n");
+            emulator.serial0_send("echo -e done\\\\theader without colon\n");
+        },
+        end_trigger: "done\theader without colon",
+        end: (capture) =>
+        {
+            assert(/400 Bad Request/.test(capture), "got error 400");
+        },
+    }
 ];
 
 const emulator = new V86({
