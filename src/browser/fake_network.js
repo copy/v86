@@ -1238,7 +1238,7 @@ TCPConnection.prototype.close = function() {
 };
 
 TCPConnection.prototype.on_passive_close = function() {
-}
+};
 
 TCPConnection.prototype.release = function() {
     if(this.net.tcp_conn[this.tuple]) {
