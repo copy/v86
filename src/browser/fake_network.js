@@ -22,9 +22,6 @@ const V86_ASCII = [118, 56, 54];
  *   https://en.wikipedia.org/wiki/File:Tcp_state_diagram_fixed_new.svg
  *
  * State TIME_WAIT is not needed, we can skip it and transition directly to CLOSED instead.
- *
- * TODO:
- * - What about state LISTEN? Neither WISP nor FETCH seem to support it.
  */
 const TCP_STATE_CLOSED = "closed";
 const TCP_STATE_SYN_RECEIVED = "syn-received";
@@ -249,7 +246,7 @@ function handle_fake_tcp(packet, adapter)
 
     if(packet.tcp.syn) {
         if(adapter.tcp_conn[tuple]) {
-            dbg_log("SYN to already opened port", LOG_FETCH);   // TODO: is LOG_FETCH a good choice for this module?
+            dbg_log("SYN to already opened port", LOG_FETCH);
         }
         if(adapter.on_tcp_connection(adapter, packet, tuple)) {
             return;
@@ -548,10 +545,7 @@ function parse_ipv4(data, o) {
     };
 
     // Ethernet minmum packet size.
-    /* TODO: What's the overall reasoning behind this check, and where does the 46 come from? We get plenty of IP packets of size 40, 42, etc.
     if(Math.max(len, 46) !== data.length) {
-    */
-    if(Math.max(len, 40) !== data.length) {
         dbg_log(`ipv4 Length mismatch: ${len} != ${data.length}`, LOG_FETCH);
     }
 
@@ -1118,7 +1112,7 @@ TCPConnection.prototype.process = function(packet) {
                 return;
             }
         }
-        else if(n_ack < 0) {    // TODO: any better way to handle this? could this just be a 32-bit sequence number overflow?
+        else if(n_ack < 0) {    // TODO: could this just be a 32-bit sequence number overflow?
             dbg_log(`TCP[${this.tuple}]: ERROR: ack underflow (pkt=${packet.tcp.ackn} last=${this.last_received_ackn}), resetting`, LOG_FETCH);
             const reply = this.packet_reply(packet, {rst: true});
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
@@ -1137,17 +1131,7 @@ TCPConnection.prototype.process = function(packet) {
             // dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}, next "${TCP_STATE_CLOSE_WAIT}""`, LOG_FETCH);
             reply.tcp.ack = true;
             this.state = TCP_STATE_CLOSE_WAIT;
-            // pass the passive close event up to the NetworkAdapter, this event is intended for the remote end
-            // TODO: method *NetworkAdapter.on_passive_close(), implementation:
-            // - WispNetworkAdapter: as below
-            // - FetchNetworkAdapter: not sure, maybe just an empty method?
-            if(this.net instanceof WispNetworkAdapter) {
-                this.net.send_wisp_frame({
-                    type: "CLOSE",
-                    stream_id: this.stream_id,
-                    reason: 0x02    // 0x02: Voluntary stream closure
-                });
-            }
+            this.on_passive_close();
         }
         else if(this.state === TCP_STATE_FIN_WAIT_1) {
             if(packet.tcp.ack) {
@@ -1252,6 +1236,9 @@ TCPConnection.prototype.close = function() {
     }
     this.pump();
 };
+
+TCPConnection.prototype.on_passive_close = function() {
+}
 
 TCPConnection.prototype.release = function() {
     if(this.net.tcp_conn[this.tuple]) {

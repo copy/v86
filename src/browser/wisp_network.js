@@ -219,6 +219,14 @@ WispNetworkAdapter.prototype.send = function(data)
                 }
             };
 
+            tcp_conn.on_passive_close = () => {
+                this.send_wisp_frame({
+                    type: "CLOSE",
+                    stream_id: tcp_conn.stream_id,
+                    reason: 0x02    // 0x02: Voluntary stream closure
+                });
+            };
+
             this.send_wisp_frame({
                 type: "CONNECT",
                 stream_id: tcp_conn.stream_id,
