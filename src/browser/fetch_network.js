@@ -177,7 +177,6 @@ async function on_data_http(data)
     }
 }
 
-/*
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
 {
     if(this.cors_proxy) url = this.cors_proxy + encodeURIComponent(url);
@@ -203,7 +202,6 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
         ];
     }
 };
-*/
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
