@@ -1131,7 +1131,7 @@ TCPConnection.prototype.process = function(packet) {
             // dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}, next "${TCP_STATE_CLOSE_WAIT}""`, LOG_FETCH);
             reply.tcp.ack = true;
             this.state = TCP_STATE_CLOSE_WAIT;
-            this.on_passive_close();
+            // NOTE that we should forward the CLOSE event from the guest here, but neither WISP nor fetch() support that
         }
         else if(this.state === TCP_STATE_FIN_WAIT_1) {
             if(packet.tcp.ack) {
@@ -1235,9 +1235,6 @@ TCPConnection.prototype.close = function() {
         }
     }
     this.pump();
-};
-
-TCPConnection.prototype.on_passive_close = function() {
 };
 
 TCPConnection.prototype.release = function() {
