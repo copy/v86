@@ -51,14 +51,16 @@ WispNetworkAdapter.prototype.register_ws = function(wisp_url) {
 };
 
 WispNetworkAdapter.prototype.send_packet = function(data, type, stream_id) {
-    if(this.connections[stream_id].congestion > 0) {
-        if(type === "DATA") {
-            this.connections[stream_id].congestion--;
+    if(this.connections[stream_id]) {
+        if(this.connections[stream_id].congestion > 0) {
+            if(type === "DATA") {
+                this.connections[stream_id].congestion--;
+            }
+            this.wispws.send(data);
+        } else {
+            this.connections[stream_id].congested = true;
+            this.congested_buffer.push({data: data, type: type});
         }
-        this.wispws.send(data);
-    } else {
-        this.connections[stream_id].congested = true;
-        this.congested_buffer.push({data: data, type: type});
     }
 };
 
@@ -217,6 +219,22 @@ WispNetworkAdapter.prototype.send = function(data)
                         data: data
                     });
                 }
+            };
+
+            tcp_conn.on_shutdown = () => {
+                this.send_wisp_frame({
+                    type: "CLOSE",
+                    stream_id: tcp_conn.stream_id,
+                    reason: 0x02    // 0x02: Voluntary stream closure
+                });
+            };
+
+            tcp_conn.on_close = () => {
+                this.send_wisp_frame({
+                    type: "CLOSE",
+                    stream_id: tcp_conn.stream_id,
+                    reason: 0x02    // 0x02: Voluntary stream closure
+                });
             };
 
             this.send_wisp_frame({

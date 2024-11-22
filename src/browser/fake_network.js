@@ -1050,6 +1050,7 @@ TCPConnection.prototype.process = function(packet) {
     }
     else if(packet.tcp.rst) {
         // dbg_log(`TCP[${this.tuple}]: received RST in state "${this.state}"`, LOG_FETCH);
+        this.on_close();
         this.release();
         return;
     }
@@ -1116,6 +1117,7 @@ TCPConnection.prototype.process = function(packet) {
             dbg_log(`TCP[${this.tuple}]: ERROR: ack underflow (pkt=${packet.tcp.ackn} last=${this.last_received_ackn}), resetting`, LOG_FETCH);
             const reply = this.packet_reply(packet, {rst: true});
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
+            this.on_close();
             this.release();
             return;
         }
@@ -1131,7 +1133,7 @@ TCPConnection.prototype.process = function(packet) {
             // dbg_log(`TCP[${this.tuple}]: received FIN in state "${this.state}, next "${TCP_STATE_CLOSE_WAIT}""`, LOG_FETCH);
             reply.tcp.ack = true;
             this.state = TCP_STATE_CLOSE_WAIT;
-            // NOTE that we should forward the CLOSE event from the guest here, but neither WISP nor fetch() support that
+            this.on_shutdown();
         }
         else if(this.state === TCP_STATE_FIN_WAIT_1) {
             if(packet.tcp.ack) {
@@ -1152,6 +1154,7 @@ TCPConnection.prototype.process = function(packet) {
         else {
             // dbg_log(`TCP[${this.tuple}]: ERROR: received FIN in unexpected TCP state "${this.state}", resetting`, LOG_FETCH);
             this.release();
+            this.on_close();
             reply.tcp.rst = true;
         }
         this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
@@ -1235,6 +1238,14 @@ TCPConnection.prototype.close = function() {
         }
     }
     this.pump();
+};
+
+TCPConnection.prototype.on_shutdown = function() {
+    // forward FIN event from guest to network provider
+};
+
+TCPConnection.prototype.on_close = function() {
+    // forward RST event from guest to network provider
 };
 
 TCPConnection.prototype.release = function() {
