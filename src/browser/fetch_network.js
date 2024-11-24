@@ -38,7 +38,7 @@ FetchNetworkAdapter.prototype.destroy = function()
 {
 };
 
-FetchNetworkAdapter.prototype.on_tcp_connection = function(adapter, packet, tuple)
+FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
 {
     if(packet.tcp.dport === 80) {
         let conn = new TCPConnection();
@@ -47,7 +47,7 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(adapter, packet, tupl
         conn.on_data = on_data_http;
         conn.tuple = tuple;
         conn.accept(packet);
-        adapter.tcp_conn[tuple] = conn;
+        this.tcp_conn[tuple] = conn;
         return true;
     }
     return false;

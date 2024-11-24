@@ -235,20 +235,13 @@ function make_packet(out, spec)
 
 function handle_fake_tcp(packet, adapter)
 {
-    let reply = {};
-    reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
-    reply.ipv4 = {
-        proto: IPV4_PROTO_TCP,
-        src: packet.ipv4.dest,
-        dest: packet.ipv4.src
-    };
     const tuple = `${packet.ipv4.src.join(".")}:${packet.tcp.sport}:${packet.ipv4.dest.join(".")}:${packet.tcp.dport}`;
 
     if(packet.tcp.syn) {
         if(adapter.tcp_conn[tuple]) {
             dbg_log("SYN to already opened port", LOG_FETCH);
         }
-        if(adapter.on_tcp_connection(adapter, packet, tuple)) {
+        if(adapter.on_tcp_connection(packet, tuple)) {
             return;
         }
     }
@@ -257,6 +250,13 @@ function handle_fake_tcp(packet, adapter)
         dbg_log(`I dont know about ${tuple}, so resetting`, LOG_FETCH);
         let bop = packet.tcp.ackn;
         if(packet.tcp.fin || packet.tcp.syn) bop += 1;
+        let reply = {};
+        reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
+        reply.ipv4 = {
+            proto: IPV4_PROTO_TCP,
+            src: packet.ipv4.dest,
+            dest: packet.ipv4.src
+        };
         reply.tcp = {
             sport: packet.tcp.dport,
             dport: packet.tcp.sport,
@@ -1068,7 +1068,11 @@ TCPConnection.prototype.process = function(packet) {
     }
 
     if(packet.tcp.ack) {
-        if(this.state === TCP_STATE_FIN_WAIT_1) {
+        if(this.state === TCP_STATE_SYN_RECEIVED) {
+            // dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
+            this.state = TCP_STATE_ESTABLISHED;
+        }
+        else if(this.state === TCP_STATE_FIN_WAIT_1) {
             if(!packet.tcp.fin) {   // handle FIN+ACK in FIN_WAIT_1 separately further down below
                 // dbg_log(`TCP[${this.tuple}]: received ACK in state "${this.state}", next "${TCP_STATE_FIN_WAIT_2}"`, LOG_FETCH);
                 this.state = TCP_STATE_FIN_WAIT_2;
