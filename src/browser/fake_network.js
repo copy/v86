@@ -404,41 +404,31 @@ function handle_fake_dhcp(packet, adapter) {
 function handle_fake_networking(data, adapter) {
     let packet = {};
     parse_eth(data, packet);
-    if(packet.tcp) {
-        if(handle_fake_tcp(packet, adapter)) {
-            return true;
+
+    if(packet.ipv4) {
+        if(packet.tcp) {
+            handle_fake_tcp(packet, adapter);
+        }
+        else if(packet.udp) {
+            if(packet.dns) {
+                handle_fake_dns(packet, adapter);
+            }
+            else if(packet.dhcp) {
+                handle_fake_dhcp(packet, adapter);
+            }
+            else if(packet.ntp) {
+                handle_fake_ntp(packet, adapter);
+            }
+            else if(packet.udp.dport === 8) {
+                handle_udp_echo(packet, adapter);
+            }
+        }
+        else if(packet.icmp && packet.icmp.type === 8) {
+            handle_fake_ping(packet, adapter);
         }
     }
-
-    if(packet.arp && packet.arp.oper === 1 && packet.arp.ptype === ETHERTYPE_IPV4) {
+    else if(packet.arp && packet.arp.oper === 1 && packet.arp.ptype === ETHERTYPE_IPV4) {
         arp_whohas(packet, adapter);
-    }
-
-    if(packet.dns) {
-        if(handle_fake_dns(packet, adapter)) {
-            return;
-        }
-    }
-
-    if(packet.ntp) {
-        if(handle_fake_ntp(packet, adapter)) {
-            return;
-        }
-    }
-
-    // ICMP Ping
-    if(packet.icmp && packet.icmp.type === 8) {
-        handle_fake_ping(packet, adapter);
-    }
-
-    if(packet.dhcp) {
-        if(handle_fake_dhcp(packet, adapter)) {
-            return;
-        }
-    }
-
-    if(packet.udp && packet.udp.dport === 8) {
-        handle_udp_echo(packet, adapter);
     }
 }
 
