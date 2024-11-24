@@ -224,7 +224,7 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
 
     conn.accept(packet);
     return true;
-}
+};
 
 /**
  * @param {Uint8Array} data
