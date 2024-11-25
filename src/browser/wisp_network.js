@@ -1,7 +1,5 @@
 "use strict";
 
-const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
-
 /**
  * @constructor
  *
@@ -10,7 +8,6 @@ const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
  */
 function WispNetworkAdapter(wisp_url, bus, config)
 {
-
     this.register_ws(wisp_url);
     this.last_stream = 1;
     this.connections = {0: {congestion: 0}};
@@ -24,15 +21,15 @@ function WispNetworkAdapter(wisp_url, bus, config)
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
     this.masquerade = config.masquerade === undefined || !!config.masquerade;
     this.vm_mac = new Uint8Array(6);
-    this.doh_server =  config.doh_server || DEFAULT_DOH_SERVER;
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
+    this.dns_method = "doh";
+    this.doh_server = config.doh_server;
 
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
-    this.bus.register("net" + this.id + "-send", function(data)
-    {
+    this.bus.register("net" + this.id + "-send", function(data) {
         this.send(data);
     }, this);
 }
@@ -231,47 +228,8 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
  */
 WispNetworkAdapter.prototype.send = function(data)
 {
-    let packet = {};
-    parse_eth(data, packet);
-
-    if(packet.ipv4) {
-        if(packet.tcp) {
-            handle_fake_tcp(packet, this);
-        }
-        else if(packet.udp) {
-            // TODO: remove when this wisp client supports udp
-            if(packet.dns) {
-                (async () => {
-                    const reply = {
-                        eth: { ethertype: ETHERTYPE_IPV4, src: this.router_mac, dest: packet.eth.src },
-                        ipv4: { proto: IPV4_PROTO_UDP, src: this.router_ip, dest: packet.ipv4.src },
-                        udp: { sport: 53, dport: packet.udp.sport }
-                    };
-                    const result = await (await fetch(`https://${this.doh_server}/dns-query`, {
-                        method: "POST",
-                        headers: [["content-type", "application/dns-message"]],
-                        body: packet.udp.data})).arrayBuffer();
-                    reply.udp.data = new Uint8Array(result);
-                    this.receive(make_packet(this.eth_encoder_buf, reply));
-                })();
-            }
-            else if(packet.dhcp) {
-                handle_fake_dhcp(packet, this);
-            }
-            else if(packet.ntp) {
-                handle_fake_ntp(packet, this);
-            }
-            else if(packet.udp.dport === 8) {
-                handle_udp_echo(packet, this);
-            }
-        }
-        else if(packet.icmp && packet.icmp.type === 8) {
-            handle_fake_ping(packet, this);
-        }
-    }
-    else if(packet.arp && packet.arp.oper === 1 && packet.arp.ptype === ETHERTYPE_IPV4) {
-        arp_whohas(packet, this);
-    }
+    // TODO: forward UDP traffic to WISP server once this WISP client supports UDP
+    handle_fake_networking(data, this);
 };
 
 /**

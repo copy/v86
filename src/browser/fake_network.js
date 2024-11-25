@@ -56,6 +56,8 @@ const TCP_PAYLOAD_OFFSET  = IPV4_PAYLOAD_OFFSET + TCP_HEADER_SIZE;
 const TCP_PAYLOAD_SIZE    = IPV4_PAYLOAD_SIZE - TCP_HEADER_SIZE;
 const ICMP_HEADER_SIZE    = 4;
 
+const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
+
 function a2ethaddr(bytes) {
     return [0,1,2,3,4,5].map((i) => bytes[i].toString(16)).map(x => x.length === 1 ? "0" + x : x).join(":");
 }
@@ -273,7 +275,7 @@ function handle_fake_tcp(packet, adapter)
     adapter.tcp_conn[tuple].process(packet);
 }
 
-function handle_fake_dns(packet, adapter)
+function handle_fake_dns_static(packet, adapter)
 {
     let reply = {};
     reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
@@ -314,6 +316,47 @@ function handle_fake_dns(packet, adapter)
     };
     adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
     return true;
+}
+
+function handle_fake_dns_doh(packet, adapter)
+{
+    const fetch_url = `https://${adapter.doh_server || DEFAULT_DOH_SERVER}/dns-query`;
+    const fetch_opts = {
+        method: "POST",
+        headers: [["content-type", "application/dns-message"]],
+        body: packet.udp.data
+    };
+    fetch(fetch_url, fetch_opts).then(async (resp) => {
+        const reply = {
+            eth: {
+                ethertype: ETHERTYPE_IPV4,
+                src: adapter.router_mac,
+                dest: packet.eth.src
+            },
+            ipv4: {
+                proto: IPV4_PROTO_UDP,
+                src: adapter.router_ip,
+                dest: packet.ipv4.src
+            },
+            udp: {
+                sport: 53,
+                dport: packet.udp.sport,
+                data: new Uint8Array(await resp.arrayBuffer())
+            }
+        };
+        adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
+    });
+    return true;
+}
+
+function handle_fake_dns(packet, adapter)
+{
+    if(adapter.dns_method === 'static') {
+        return handle_fake_dns_static(packet, adapter);
+    }
+    else {
+        return handle_fake_dns_doh(packet, adapter);
+    }
 }
 
 function handle_fake_ntp(packet, adapter) {
@@ -1235,11 +1278,11 @@ TCPConnection.prototype.close = function() {
 };
 
 TCPConnection.prototype.on_shutdown = function() {
-    // forward FIN event from guest to network provider
+    // forward FIN event from guest device to network adapter
 };
 
 TCPConnection.prototype.on_close = function() {
-    // forward RST event from guest to network provider
+    // forward RST event from guest device to network adapter
 };
 
 TCPConnection.prototype.release = function() {
