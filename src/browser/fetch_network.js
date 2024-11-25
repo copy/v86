@@ -16,9 +16,9 @@ function FetchNetworkAdapter(bus, config)
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
     this.masquerade = config.masquerade === undefined || !!config.masquerade;
     this.vm_mac = new Uint8Array(6);
-
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
+    this.dns_method = "static";
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
