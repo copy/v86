@@ -259,7 +259,7 @@
                 id: "fiwix",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
-                    url: host + "FiwixOS-3.3-i386/.img",
+                    url: host + "FiwixOS-3.4-i386/.img",
                     size: 1024 * 1024 * 1024,
                     async: true,
                     fixed_chunk_size: 1024 * 1024,
