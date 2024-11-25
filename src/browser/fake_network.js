@@ -351,7 +351,7 @@ function handle_fake_dns_doh(packet, adapter)
 
 function handle_fake_dns(packet, adapter)
 {
-    if(adapter.dns_method === 'static') {
+    if(adapter.dns_method === "static") {
         return handle_fake_dns_static(packet, adapter);
     }
     else {
