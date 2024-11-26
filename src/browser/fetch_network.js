@@ -128,7 +128,7 @@ async function on_data_http(data)
         this.write(new Uint8Array(ab));
         this.close();
 */
-        const fetch_url = this.cors_proxy ? this.cors_proxy + encodeURIComponent(target.href) : target.href;
+        const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
         const encoder = new TextEncoder();
         let response_started = false;
         fetch(fetch_url, opts).then((resp) => {
