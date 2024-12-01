@@ -311,12 +311,9 @@ V86.prototype.continue_init = async function(emulator, options)
     if(relay_url)
     {
         // TODO: remove bus, use direct calls instead
-        if(relay_url.startsWith("fetch")) {
-            const fetch_options = {};
-            if(relay_url.length > 6 && relay_url[5] === ":") {
-                fetch_options.cors_proxy = relay_url.slice(6);
-            }
-            this.network_adapter = new FetchNetworkAdapter(this.bus, fetch_options);
+        if(relay_url === "fetch")
+        {
+            this.network_adapter = new FetchNetworkAdapter(this.bus, options.net_device ? options.net_device : {});
         }
         else if(relay_url.startsWith("wisp://") || relay_url.startsWith("wisps://"))
         {
