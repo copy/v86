@@ -1737,7 +1737,8 @@
             settings.relay_url = $("relay_url").value;
             if(!DEFAULT_NETWORKING_PROXIES.includes(settings.relay_url)) new_query_args.set("relay_url", settings.relay_url);
         }
-        if(settings.relay_url.startsWith("fetch") && settings.relay_url.length > 6 && settings.relay_url[5] === ":") {
+        if(settings.relay_url.startsWith("fetch:"))
+        {
             settings.cors_proxy = settings.relay_url.slice(6);
             settings.relay_url = "fetch";
         }
