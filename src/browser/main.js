@@ -1737,6 +1737,11 @@
             settings.relay_url = $("relay_url").value;
             if(!DEFAULT_NETWORKING_PROXIES.includes(settings.relay_url)) new_query_args.set("relay_url", settings.relay_url);
         }
+        if(settings.relay_url.startsWith("fetch:"))
+        {
+            settings.cors_proxy = settings.relay_url.slice(6);
+            settings.relay_url = "fetch";
+        }
         settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
         if(settings.disable_audio) new_query_args.set("mute", "1");
 
@@ -1852,6 +1857,7 @@
             net_device: {
                 type: settings.net_device_type || "ne2k",
                 relay_url: settings.relay_url,
+                cors_proxy: settings.cors_proxy
             },
             autostart: true,
 

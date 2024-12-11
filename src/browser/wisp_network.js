@@ -3,6 +3,7 @@
 /**
  * @constructor
  *
+ * @param {String} wisp_url
  * @param {BusConnector} bus
  * @param {*=} config
  */
@@ -21,10 +22,10 @@ function WispNetworkAdapter(wisp_url, bus, config)
     this.vm_ip = new Uint8Array((config.vm_ip || "192.168.86.100").split(".").map(function(x) { return parseInt(x, 10); }));
     this.masquerade = config.masquerade === undefined || !!config.masquerade;
     this.vm_mac = new Uint8Array(6);
+    this.dns_method = config.dns_method || "doh";
+    this.doh_server = config.doh_server;
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
-    this.dns_method = "doh";
-    this.doh_server = config.doh_server;
 
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
