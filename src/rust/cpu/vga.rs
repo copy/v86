@@ -14,7 +14,6 @@ pub unsafe fn svga_allocate_dest_buffer(size: u32) -> u32 {
     dest_buffer.as_mut_ptr() as u32
 }
 
-#[no_mangle]
 pub unsafe fn mark_dirty(addr: u32) {
     let page = (addr - memory::VGA_LFB_ADDRESS) >> 12;
     dbg_assert!(((page >> 6) as usize) < dirty_bitmap.len());
