@@ -168,6 +168,7 @@ See [tests/Readme.md](tests/Readme.md) for more information.
 - [Programatically using the serial terminal](examples/serial.html)
 - [A Lua interpreter](examples/lua.html)
 - [Two instances in one window](examples/two_instances.html)
+- [Networking between browser windows/tabs using the Broadcast Channel API](examples/broadcast-network.html)
 - [Saving and restoring emulator state](examples/save_restore.html)
 
 Using v86 for your own purposes is as easy as:

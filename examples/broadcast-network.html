@@ -1,0 +1,59 @@
+<!doctype html>
+<title>Networking via Broadcast Channel API</title>
+
+<script src="../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var emulator = window.emulator = new V86({
+        wasm_path: "../build/v86.wasm",
+        memory_size: 64 * 1024 * 1024,
+        vga_memory_size: 2 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: {
+            url: "../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../bios/vgabios.bin",
+        },
+        bzimage: {
+            url: "../images/buildroot-bzimage68.bin",
+        },
+        autostart: true,
+    });
+
+    var broadcast = new BroadcastChannel("v86-network");
+
+    broadcast.addEventListener("message", function(e) {
+        emulator.bus.send("net0-receive", e.data);
+    });
+    emulator.add_listener("net0-send", function(packet) {
+        broadcast.postMessage(packet);
+    });
+}
+</script>
+
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+
+<pre>
+# Configure a static IP
+ifconfig eth0 up arp 10.5.0.x
+
+# Ping by IP
+ping 10.5.0.x
+
+# Run a DNS server and send a query (10.5.0.x for server, 10.5.0.y for record)
+echo "anotherhost 10.5.0.y" | dnsd -c - -v    - server
+nslookup -type=a anotherhost 10.5.0.x         - client
+
+# Telnet calculator
+socat TCP-L:23,fork exec:bc
+
+# Simple HTTP server
+socat TCP-L:80,crlf,fork system:'echo HTTP/1.1 200 OK;echo;lua /root/test.lua'
+</pre>
