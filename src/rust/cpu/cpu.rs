@@ -4248,9 +4248,11 @@ pub unsafe fn trigger_ss(code: i32) {
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
 #[no_mangle]
-pub unsafe fn handle_irqs() {
+pub unsafe fn handle_irqs() { handle_irqs_internal(&mut pic::get_pic()) }
+
+pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
     if *flags & FLAG_INTERRUPT != 0 {
-        if let Some(irq) = pic::pic_acknowledge_irq() {
+        if let Some(irq) = pic::pic_acknowledge_irq(pic) {
             pic_call_irq(irq)
         }
         else if *acpi_enabled {
