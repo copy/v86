@@ -25,6 +25,7 @@ function NetworkAdapter(url, bus, id)
     this.reconnect_interval = 10000;
     this.last_connect_attempt = Date.now() - this.reconnect_interval;
     this.send_queue_limit = 64;
+    this.destroyed = false;
 
     this.bus.register("net" + this.id + "-send", function(data)
     {
@@ -44,8 +45,11 @@ NetworkAdapter.prototype.handle_close = function(e)
 {
     //console.log("onclose", e);
 
-    this.connect();
-    setTimeout(this.connect.bind(this), this.reconnect_interval);
+    if(!this.destroyed)
+    {
+        this.connect();
+        setTimeout(this.connect.bind(this), this.reconnect_interval);
+    }
 };
 
 NetworkAdapter.prototype.handle_open = function(e)
@@ -67,6 +71,7 @@ NetworkAdapter.prototype.handle_error = function(e)
 
 NetworkAdapter.prototype.destroy = function()
 {
+    this.destroyed = true;
     if(this.socket)
     {
         this.socket.close();
