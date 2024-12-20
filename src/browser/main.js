@@ -1997,7 +1997,7 @@
 
         $("exit").onclick = function()
         {
-            emulator.stop();
+            emulator.destroy();
             location.href = location.pathname;
         };
 

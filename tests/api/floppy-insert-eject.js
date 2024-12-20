@@ -44,7 +44,7 @@ setTimeout(async () =>
     emulator.keyboard_send_text("dir A:\n");
     await emulator.wait_until_vga_screen_contains("FDOS         <DIR>");
     console.log("Got FDOS");
-    emulator.stop();
+    emulator.destroy();
     clearTimeout(timeout);
     //clearInterval(interval);
 }, 1000);

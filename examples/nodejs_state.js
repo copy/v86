@@ -42,7 +42,7 @@ process.stdin.on("data", async function(c)
     if(c === "\u0003")
     {
         // ctrl c
-        emulator.stop();
+        emulator.destroy();
         process.stdin.pause();
     }
     else if(c === "\x1b\x4f\x51")

@@ -63,7 +63,7 @@ emulator.add_listener("serial0-output-byte", async function(byte)
 
         const data = await emulator.read_file("/result");
 
-        emulator.stop();
+        emulator.destroy();
 
         let result = Buffer.from(data).toString();
         if(result !== "test_shared passed\ntest_consecutive_written passed\n")

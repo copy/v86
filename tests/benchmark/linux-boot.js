@@ -71,7 +71,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
         const end_time = Date.now();
         const elapsed = end_time - start_time;
         console.log("Done in %dms", elapsed);
-        emulator.stop();
+        emulator.destroy();
 
         if(BENCH_COLLECT_STATS)
         {

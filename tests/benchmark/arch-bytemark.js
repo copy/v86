@@ -69,7 +69,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
 
     if(line === "* Trademarks are property of their respective holder.")
     {
-        emulator.stop();
+        emulator.destroy();
 
         if(BENCH_COLLECT_STATS)
         {

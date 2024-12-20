@@ -49,6 +49,6 @@ emulator.add_listener("serial0-output-byte", function(byte)
         assert("da1fb5b421123c58080a59832675632505b8c139a8d7ecd1c31591ca5c65cea6" === hash.digest("hex"));
         console.log("ok");
         clearTimeout(timeout);
-        emulator.stop();
+        emulator.destroy();
     }
 });

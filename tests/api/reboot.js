@@ -44,7 +44,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
         if(serial_text.endsWith("Files send via emulator appear in /mnt/"))
         {
             console.log("Ok");
-            emulator.stop();
+            emulator.destroy();
             clearTimeout(timeout);
         }
     }

@@ -38,7 +38,7 @@ process.stdin.on("data", function(c)
     if(c === "\u0003")
     {
         // ctrl c
-        emulator.stop();
+        emulator.destroy();
         process.stdin.pause();
     }
     else

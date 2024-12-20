@@ -19,7 +19,6 @@ window.onload = function()
     });
 
     setTimeout(() => {
-        emulator.stop();
         emulator.destroy();
         console.log("Emulator freed. Check using devtools (in chromium: Memory -> Heap Snapshot -> click collect garbage -> take snapshot).");
     }, 3 * 1000);

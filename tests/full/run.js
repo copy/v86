@@ -1146,7 +1146,6 @@ function run_test(test, done)
                 clearInterval(screen_interval);
             }
 
-            emulator.stop();
             emulator.destroy();
 
             if(test.failure_allowed)

@@ -162,7 +162,6 @@ emulator.add_listener("serial0-output-byte", function(byte)
 
         if(test_num >= tests.length)
         {
-            emulator.stop();
             emulator.destroy();
 
             console.log("Tests finished.");

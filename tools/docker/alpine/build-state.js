@@ -51,7 +51,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
                     {
                         if(e) throw e;
                         console.log("Saved as " + OUTPUT_FILE);
-                        emulator.stop();
+                        emulator.destroy();
                     });
             }, 10 * 1000);
     }

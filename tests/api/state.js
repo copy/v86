@@ -87,7 +87,7 @@ async function run_test(name, config, done)
     }
 
     console.log("Done: %s", name);
-    emulator.stop();
+    emulator.destroy();
 }
 
 (async function() {

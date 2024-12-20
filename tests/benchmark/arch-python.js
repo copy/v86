@@ -54,7 +54,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
 
         if(line.startsWith("sys"))
         {
-            emulator.stop();
+            emulator.destroy();
 
             if(BENCH_COLLECT_STATS)
             {

@@ -59,7 +59,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
     if(line.endsWith("pong"))
     {
         console.log("\nTest passed");
-        emulator.stop();
+        emulator.destroy();
     }
 });
 

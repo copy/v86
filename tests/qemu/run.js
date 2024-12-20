@@ -64,6 +64,6 @@ emulator.add_listener("serial0-output-byte", async function(byte)
         console.error("Got result, writing to stdout");
 
         process.stdout.write(Buffer.from(data));
-        emulator.stop();
+        emulator.destroy();
     }
 });

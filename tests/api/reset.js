@@ -36,7 +36,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
         serial_text = "";
         if(did_restart) {
             console.log("Ok");
-            emulator.stop();
+            emulator.destroy();
         }
         else {
             console.log("Calling restart()");
