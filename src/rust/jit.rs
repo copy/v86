@@ -2347,7 +2347,9 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
             return;
         }
 
+        #[allow(static_mut_refs)]
         let last_jump_type = unsafe { cpu::debug_last_jump.name() };
+        #[allow(static_mut_refs)]
         let last_jump_addr = unsafe { cpu::debug_last_jump.phys_address() }.unwrap_or(0);
         let last_jump_opcode =
             if last_jump_addr != 0 { memory::read32s(last_jump_addr) } else { 0 };

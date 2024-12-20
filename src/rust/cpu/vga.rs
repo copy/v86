@@ -1,18 +1,23 @@
 #![allow(non_upper_case_globals)]
+#![allow(static_mut_refs)]
+
+// Safety of allow(static_mut_refs) in this file:
+// These following two globals are not passed anywhere, only built-in function are called on them
+static mut dirty_bitmap: Vec<u64> = Vec::new();
+static mut dest_buffer: Vec<u32> = Vec::new();
 
 use cpu::global_pointers;
 use cpu::memory;
 
 use std::ptr;
 
-pub static mut dirty_bitmap: Vec<u64> = Vec::new();
-pub static mut dest_buffer: Vec<u32> = Vec::new();
-
 #[no_mangle]
 pub unsafe fn svga_allocate_dest_buffer(size: u32) -> u32 {
     dest_buffer.resize(size as usize, 0);
     dest_buffer.as_mut_ptr() as u32
 }
+
+pub unsafe fn set_dirty_bitmap_size(size: u32) { dirty_bitmap.resize(size as usize, 0); }
 
 pub unsafe fn mark_dirty(addr: u32) {
     let page = (addr - memory::VGA_LFB_ADDRESS) >> 12;

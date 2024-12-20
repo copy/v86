@@ -2113,6 +2113,7 @@ pub unsafe fn full_clear_tlb() {
     valid_tlb_entries_count = 0;
 
     if CHECK_TLB_INVARIANTS {
+        #[allow(static_mut_refs)]
         for &entry in tlb_data.iter() {
             dbg_assert!(entry == 0);
         }
@@ -2141,6 +2142,7 @@ pub unsafe fn clear_tlb() {
     valid_tlb_entries_count = global_page_offset;
 
     if CHECK_TLB_INVARIANTS {
+        #[allow(static_mut_refs)]
         for &entry in tlb_data.iter() {
             dbg_assert!(entry == 0 || 0 != entry & TLB_GLOBAL);
         }
@@ -2181,6 +2183,7 @@ pub unsafe fn trigger_gp_jit(code: i32, eip_offset_in_page: i32) {
 
 #[no_mangle]
 pub unsafe fn trigger_fault_end_jit() {
+    #[allow(static_mut_refs)]
     let (code, error_code) = jit_fault.take().unwrap();
     if DEBUG {
         if cpu_exception_hook(code) {
@@ -2924,11 +2927,12 @@ pub unsafe fn cycle_internal() {
         );
 
         if cfg!(feature = "profiler") {
-            dbg_assert!(match ::cpu::cpu::debug_last_jump {
+            dbg_assert!(match debug_last_jump {
                 LastJump::Compiled { .. } => true,
                 _ => false,
             });
-            let last_jump_addr = ::cpu::cpu::debug_last_jump.phys_address().unwrap();
+            #[allow(static_mut_refs)]
+            let last_jump_addr = debug_last_jump.phys_address().unwrap();
             let last_jump_opcode = if last_jump_addr != 0 {
                 read32s(last_jump_addr)
             }

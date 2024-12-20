@@ -51,17 +51,17 @@ pub fn svga_allocate_memory(size: u32) -> u32 {
         dbg_assert!(vga_mem8.is_null());
     };
     let layout = alloc::Layout::from_size_align(size as usize, 0x1000).unwrap();
-    let ptr = unsafe { alloc::alloc(layout) as u32 };
+    let ptr = unsafe { alloc::alloc(layout) };
     dbg_assert!(
         size & (1 << 12 << 6) == 0,
         "size not aligned to dirty_bitmap"
     );
     unsafe {
-        vga_mem8 = ptr as *mut u8;
+        vga_mem8 = ptr;
         vga_memory_size = size;
-        vga::dirty_bitmap.resize((size >> 12 >> 6) as usize, 0);
+        vga::set_dirty_bitmap_size(size >> 12 >> 6);
     };
-    ptr
+    ptr as u32
 }
 
 #[no_mangle]
