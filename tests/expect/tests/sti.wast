@@ -67,7 +67,7 @@
                 (br_if $B4
                   (i32.eq
                     (get_local $p0)
-                    (i32.const 1))))
+                    (i32.const 0))))
               (set_local $l8
                 (i32.add
                   (get_local $l8)
