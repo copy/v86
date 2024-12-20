@@ -4068,8 +4068,8 @@ pub unsafe fn read_tsc() -> u64 {
         if TSC_VERBOSE_LOGGING || tsc_last_extra >= tsc_resolution {
             dbg_log!(
                 "rdtsc: jump from {}+{} to {} (diff {}, {}%)",
-                tsc_last_value,
-                tsc_last_extra,
+                tsc_last_value as u64,
+                tsc_last_extra as u64,
                 value,
                 value - (tsc_last_value + tsc_last_extra),
                 (100 * tsc_last_extra) / tsc_resolution,
