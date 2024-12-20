@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
-use std::mem;
+use std::mem::{self, MaybeUninit};
+use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+use std::sync::{Mutex, MutexGuard};
 
 use analysis::AnalysisType;
 use codegen;
@@ -82,18 +84,27 @@ pub const CHECK_JIT_STATE_INVARIANTS: bool = false;
 
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
-#[allow(non_upper_case_globals)]
-static mut jit_state: NonNull<JitState> =
-    unsafe { NonNull::new_unchecked(mem::align_of::<JitState>() as *mut _) };
+static JIT_STATE: Mutex<MaybeUninit<JitState>> = Mutex::new(MaybeUninit::uninit());
+fn get_jit_state() -> JitStateRef { JitStateRef(JIT_STATE.try_lock().unwrap()) }
 
-pub fn get_jit_state() -> &'static mut JitState { unsafe { jit_state.as_mut() } }
+struct JitStateRef(MutexGuard<'static, MaybeUninit<JitState>>);
+
+impl Deref for JitStateRef {
+    type Target = JitState;
+    fn deref(&self) -> &Self::Target { unsafe { self.0.assume_init_ref() } }
+}
+impl DerefMut for JitStateRef {
+    fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.0.assume_init_mut() } }
+}
 
 #[no_mangle]
 pub fn rust_init() {
     dbg_assert!(std::mem::size_of::<[Option<NonNull<cpu::Code>>; 0x100000]>() == 0x100000 * 4);
 
-    let x = Box::new(JitState::create_and_initialise());
-    unsafe { jit_state = NonNull::new(Box::into_raw(x)).unwrap() }
+    let _ = JIT_STATE
+        .try_lock()
+        .unwrap()
+        .write(JitState::create_and_initialise());
 
     use std::panic;
 
@@ -114,7 +125,7 @@ enum CompilingPageState {
     CompilingWritten,
 }
 
-pub struct JitState {
+struct JitState {
     wasm_builder: WasmBuilder,
 
     // as an alternative to HashSet, we could use a bitmap of 4096 bits here
@@ -127,7 +138,7 @@ pub struct JitState {
     compiling: Option<(WasmTableIndex, CompilingPageState)>,
 }
 
-pub fn check_jit_state_invariants(ctx: &mut JitState) {
+fn check_jit_state_invariants(ctx: &mut JitState) {
     if !CHECK_JIT_STATE_INVARIANTS {
         return;
     }
@@ -1011,7 +1022,7 @@ pub fn codegen_finalize_finished(
     phys_addr: u32,
     state_flags: CachedStateFlags,
 ) {
-    let ctx = get_jit_state();
+    let mut ctx = get_jit_state();
 
     dbg_assert!(wasm_table_index != WasmTableIndex(0));
 
@@ -1029,8 +1040,8 @@ pub fn codegen_finalize_finished(
             dbg_assert!(wasm_table_index == in_progress_wasm_table_index);
 
             profiler::stat_increment(stat::INVALIDATE_MODULE_WRITTEN_WHILE_COMPILED);
-            free_wasm_table_index(ctx, wasm_table_index);
-            check_jit_state_invariants(ctx);
+            free_wasm_table_index(&mut ctx, wasm_table_index);
+            check_jit_state_invariants(&mut ctx);
             return;
         },
         Some((in_progress_wasm_table_index, CompilingPageState::Compiling { pages })) => {
@@ -1083,10 +1094,10 @@ pub fn codegen_finalize_finished(
 
         dbg_log!("unused after overwrite {}", index.to_u16());
         profiler::stat_increment(stat::INVALIDATE_MODULE_UNUSED_AFTER_OVERWRITE);
-        free_wasm_table_index(ctx, index);
+        free_wasm_table_index(&mut ctx, index);
     }
 
-    check_jit_state_invariants(ctx);
+    check_jit_state_invariants(&mut ctx);
 }
 
 pub fn update_tlb_code(virt_page: Page, phys_page: Page) {
@@ -2090,7 +2101,8 @@ pub fn jit_increase_hotness_and_maybe_compile(
         return;
     }
 
-    let ctx = get_jit_state();
+    let mut ctx = get_jit_state();
+    let is_compiling = ctx.compiling.is_some();
     let page = Page::page_of(phys_address);
     let (hotness, entry_points) = ctx.entry_points.entry(page).or_insert_with(|| {
         cpu::tlb_set_has_code(page, true);
@@ -2104,18 +2116,18 @@ pub fn jit_increase_hotness_and_maybe_compile(
 
     *hotness += heat;
     if *hotness >= JIT_THRESHOLD {
-        if ctx.compiling.is_some() {
+        if is_compiling {
             return;
         }
         // only try generating if we're in the correct address space
         if cpu::translate_address_read_no_side_effects(virt_address) == Ok(phys_address) {
             *hotness = 0;
-            jit_analyze_and_generate(ctx, virt_address, phys_address, cs_offset, state_flags)
+            jit_analyze_and_generate(&mut ctx, virt_address, phys_address, cs_offset, state_flags)
         }
         else {
             profiler::stat_increment(stat::COMPILE_WRONG_ADDRESS_SPACE);
         }
-    };
+    }
 }
 
 fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
@@ -2164,7 +2176,7 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
 }
 
 /// Register a write in this page: Delete all present code
-pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
+fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
     let mut did_have_code = false;
 
     if let Some(PageInfo {
@@ -2269,9 +2281,12 @@ pub fn jit_dirty_cache(start_addr: u32, end_addr: u32) {
     let end_page = Page::page_of(end_addr - 1);
 
     for page in start_page.to_u32()..end_page.to_u32() + 1 {
-        jit_dirty_page(get_jit_state(), Page::page_of(page << 12));
+        jit_dirty_page_ctx(&mut get_jit_state(), Page::page_of(page << 12));
     }
 }
+
+#[no_mangle]
+pub fn jit_dirty_page(page: Page) { jit_dirty_page_ctx(&mut get_jit_state(), page) }
 
 /// dirty pages in the range of start_addr and end_addr, which must span at most two pages
 pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
@@ -2280,21 +2295,21 @@ pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
     let start_page = Page::page_of(start_addr);
     let end_page = Page::page_of(end_addr - 1);
 
-    let ctx = get_jit_state();
-    jit_dirty_page(ctx, start_page);
+    let mut ctx = get_jit_state();
+    jit_dirty_page_ctx(&mut ctx, start_page);
 
     // Note: This can't happen when paging is enabled, as writes across
     //       boundaries are split up on two pages
     if start_page != end_page {
         dbg_assert!(start_page.to_u32() + 1 == end_page.to_u32());
-        jit_dirty_page(ctx, end_page);
+        jit_dirty_page_ctx(&mut ctx, end_page);
     }
 }
 
 #[no_mangle]
-pub fn jit_clear_cache_js() { jit_clear_cache(get_jit_state()) }
+pub fn jit_clear_cache_js() { jit_clear_cache(&mut get_jit_state()) }
 
-pub fn jit_clear_cache(ctx: &mut JitState) {
+fn jit_clear_cache(ctx: &mut JitState) {
     let mut pages_with_code = HashSet::new();
 
     for &p in ctx.entry_points.keys() {
@@ -2305,13 +2320,13 @@ pub fn jit_clear_cache(ctx: &mut JitState) {
     }
 
     for page in pages_with_code {
-        jit_dirty_page(ctx, page);
+        jit_dirty_page_ctx(ctx, page);
     }
 }
 
-pub fn jit_page_has_code(page: Page) -> bool { jit_page_has_code_ctx(get_jit_state(), page) }
+pub fn jit_page_has_code(page: Page) -> bool { jit_page_has_code_ctx(&mut get_jit_state(), page) }
 
-pub fn jit_page_has_code_ctx(ctx: &mut JitState, page: Page) -> bool {
+fn jit_page_has_code_ctx(ctx: &mut JitState, page: Page) -> bool {
     ctx.pages.contains_key(&page) || ctx.entry_points.contains_key(&page)
 }
 

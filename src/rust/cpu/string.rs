@@ -23,6 +23,7 @@ use cpu::memory::{
     memset_no_mmap_or_dirty_check, read16_no_mmap_check, read32_no_mmap_check, read8_no_mmap_check,
     write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check, write8_no_mmap_or_dirty_check,
 };
+use jit;
 use page::Page;
 
 fn count_until_end_of_page(direction: i32, size: i32, addr: u32) -> u32 {
@@ -248,7 +249,7 @@ unsafe fn string_instruction(
         dbg_assert!(count_until_end_of_page > 0);
 
         if !skip_dirty_page {
-            ::jit::jit_dirty_page(::jit::get_jit_state(), Page::page_of(phys_dst));
+            jit::jit_dirty_page(Page::page_of(phys_dst));
         }
 
         let mut rep_cmp_finished = false;
