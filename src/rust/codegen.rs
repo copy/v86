@@ -2648,7 +2648,7 @@ pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::st
     if !cfg!(feature = "profiler") {
         return;
     }
-    let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
+    let addr = unsafe { &raw mut profiler::stat_array[stat as usize] } as u32;
     builder.increment_fixed_i64(addr, 1)
 }
 

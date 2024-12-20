@@ -3412,7 +3412,7 @@ pub unsafe fn safe_read_slow_jit(
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
         // do read, write into scratch buffer
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
 
         for s in addr_low..((addr_low | 0xFFF) + 1) {
@@ -3425,7 +3425,7 @@ pub unsafe fn safe_read_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else if in_mapped_range(addr_low) {
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr();
+        let scratch = &raw mut jit_paging_scratch_buffer.0[0];
 
         match bitsize {
             128 => ptr::write_unaligned(
@@ -3571,7 +3571,7 @@ pub unsafe fn safe_write_slow_jit(
             },
         }
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
         ((scratch as i32) ^ addr) & !0xFFF
     }
@@ -3587,7 +3587,7 @@ pub unsafe fn safe_write_slow_jit(
             },
         }
 
-        let scratch = jit_paging_scratch_buffer.0.as_mut_ptr() as u32;
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
         dbg_assert!(scratch & 0xFFF == 0);
         ((scratch as i32) ^ addr) & !0xFFF
     }
