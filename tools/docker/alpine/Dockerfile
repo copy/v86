@@ -12,7 +12,7 @@ RUN echo "root:" | chpasswd
 RUN setup-hostname localhost
 
 # Adding networking.sh script
-RUN echo -e "rmmod ne2k-pci && modprobe ne2k-pci\nhwclock -s\nsetup-interfaces -a -r" > /root/networking.sh && chmod +x /root/networking.sh
+RUN echo -e "rmmod ne2k-pci && modprobe ne2k-pci\nrmmod virtio-net && modprobe virtio-net\nhwclock -s\nsetup-interfaces -a -r" > /root/networking.sh && chmod +x /root/networking.sh
 
 RUN echo 'console.log("Hello, world!");' > /root/hello.js
 
