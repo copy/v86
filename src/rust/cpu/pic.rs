@@ -340,7 +340,7 @@ pub unsafe fn pic_acknowledge_irq(pic: &mut Pic) -> Option<u8> {
         dbg_log!("[PIC] master> acknowledge {}", irq);
     }
 
-    //pic.check_irqs_master(); // XXX
+    dbg_assert!(pic.master.get_irq().is_none());
 
     if irq == 2 {
         acknowledge_irq_slave(pic)
@@ -377,7 +377,9 @@ unsafe fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
     if PIC_LOG_VERBOSE {
         dbg_log!("[PIC] slave> acknowledge {}", irq);
     }
-    //pic.check_irqs_slave(); // XXX
+
+    dbg_assert!(pic.slave.get_irq().is_none());
+    pic.clear_irq(2);
 
     Some(pic.slave.irq_map | irq)
 }
