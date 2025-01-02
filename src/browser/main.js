@@ -668,6 +668,15 @@
                 homepage: "https://github.com/nanochess/bootLogo",
             },
             {
+                id: "pillman",
+                fda: {
+                    url: host + "pillman.img",
+                    size: 512,
+                },
+                name: "Pillman",
+                homepage: "https://github.com/nanochess/Pillman",
+            },
+            {
                 id: "sectorlisp",
                 fda: {
                     url: host + "sectorlisp-friendly.bin",
