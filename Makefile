@@ -323,6 +323,7 @@ api-tests: all-debug
 	#./tests/api/floppy-insert-eject.js # disabled for now, sometimes hangs
 	./tests/api/serial.js
 	./tests/api/reboot.js
+	./tests/api/pic.js
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
 	# Skipping:
