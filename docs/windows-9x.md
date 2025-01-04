@@ -8,7 +8,7 @@ Recommended versions:
 
 1. Create a disk image (up to 2 GB): 
 ```sh
-qemu-img -f raw hdd.img <size in megabytes>M
+qemu-img create -f raw hdd.img <size in megabytes>M
 ```
 2. Run QEMU with the following settings:
 ```sh
