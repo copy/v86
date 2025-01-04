@@ -97,7 +97,7 @@ Here's an overview of the operating systems supported in v86:
   - There are some known boot issues ([#250](https://github.com/copy/v86/issues/250), [#433](https://github.com/copy/v86/issues/433), [#507](https://github.com/copy/v86/issues/507), [#555](https://github.com/copy/v86/issues/555), [#620](https://github.com/copy/v86/issues/620), [#645](https://github.com/copy/v86/issues/645))
   - See [Windows 9x guest setup](docs/windows-9x.md)
 - Windows XP, Vista and 8 work under certain conditions (see [#86](https://github.com/copy/v86/issues/86), [#208](https://github.com/copy/v86/issues/208))
-  - See [Windows 2000/XP guest setup](docs/windows-xp.md)
+  - See [Windows NT guest setup](docs/windows-nt.md)
 - Many hobby operating systems work.
 - 9front works.
 - Plan 9 doesn't work.
