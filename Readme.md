@@ -62,7 +62,7 @@ list of emulated hardware:
 [Networking](docs/networking.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
-[Windows 2000/XP guest setup](docs/windows-xp.md) —
+[Windows NT guest setup](docs/windows-nt.md) —
 [Windows 9x guest setup](docs/windows-9x.md) —
 [9p filesystem](docs/filesystem.md) —
 [Linux rootfs on 9p](docs/linux-9p-image.md) —
