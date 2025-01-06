@@ -1,3 +1,9 @@
+
+ - [Windows NT 3.1](#windows-nt-31) / [3.51](#windows-nt-351) / [4.0](#windows-nt-40)
+ - [Windows 2000/XP](#windows-2000xp)
+ - [Windows Vista and newer](#windows-vista-and-newer)
+
+------------------------
 ## Windows NT 3.1
 
 ### Installing using QEMU
@@ -6,7 +12,7 @@
 2. Create 4 blank floppy disk images:
 
  - run `qemu-img create -f raw floppy.img 1440K`
- - mount and run `format C:` in a VM
+ - mount (`-fda floppy.img`) and run `format A:` in a VM
 
 3. Run QEMU with the following settings for installation:
 
@@ -155,7 +161,7 @@ Enable ACPI and set the memory size to 512 MB or more.
 
 ### Enabling networking (ne2k)
 
-Source: https://phaq.phunsites.net/2007/05/21/vista-on-xen-using-ne2000-in-favor-to-rtl8139/
+*Source: https://phaq.phunsites.net/2007/05/21/vista-on-xen-using-ne2000-in-favor-to-rtl8139/*
 
 1. Download https://phaq.phunsites.net/files/2007/05/drivercd.iso_.zip, unpack the archive, mount the ISO to the VM (`-cdrom path/to/drivercd.iso` or `change ide1-cd0 path/to/drivercd.iso` in QEMU Monitor), unpack the archive from CDROM into Windows.
 2. Open Start Menu > "Control Panel" > "System" > "Device Manager"
