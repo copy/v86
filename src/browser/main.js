@@ -785,15 +785,15 @@
             },
             {
                 id: "windows-me",
-                memory_size: 128 * 1024 * 1024,
+                memory_size: 256 * 1024 * 1024,
                 hda: {
-                    url: host + "windowsme/.img",
+                    url: host + "windowsme-v2/.img",
                     size: 834666496,
                     async: true,
                     fixed_chunk_size: 256 * 1024,
                     use_parts: true,
                 },
-                state: { url: host + "windows-me_state.bin.zst" },
+                state: { url: host + "windows-me_state-v2.bin.zst" },
                 name: "Windows ME",
             },
             {
