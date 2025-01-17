@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
 use jit::{BasicBlock, BasicBlockType, MAX_EXTRA_BASIC_BLOCKS};
@@ -6,7 +7,11 @@ use profiler;
 
 const ENTRY_NODE_ID: u32 = 0xffff_ffff;
 
-type Graph = HashMap<u32, HashSet<u32>>;
+// this code works fine with either BTree or Hash Maps/Sets
+// - HashMap / HashSet: slightly faster
+// - BTreeMap / BTreeSet: stable iteration order (graphs don't change between rust versions, required for expect tests)
+type Set = BTreeSet<u32>;
+type Graph = BTreeMap<u32, Set>;
 
 /// Reverse the direction of all edges in the graph
 fn rev_graph_edges(nodes: &Graph) -> Graph {
@@ -15,7 +20,7 @@ fn rev_graph_edges(nodes: &Graph) -> Graph {
         for to in tos {
             rev_nodes
                 .entry(*to)
-                .or_insert_with(|| HashSet::new())
+                .or_insert_with(|| Set::new())
                 .insert(*from);
         }
     }
@@ -24,10 +29,10 @@ fn rev_graph_edges(nodes: &Graph) -> Graph {
 
 pub fn make_graph(basic_blocks: &Vec<BasicBlock>) -> Graph {
     let mut nodes = Graph::new();
-    let mut entry_edges = HashSet::new();
+    let mut entry_edges = Set::new();
 
     for b in basic_blocks.iter() {
-        let mut edges = HashSet::new();
+        let mut edges = Set::new();
 
         match &b.ty {
             &BasicBlockType::ConditionalJump {
