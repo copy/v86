@@ -810,6 +810,18 @@
                 cpuid_level: 2,
             },
             {
+                id: "windowsnt35",
+                memory_size: 256 * 1024 * 1024,
+                hda: {
+                    url: host + "windowsnt351/.img",
+                    size: 163577856,
+                    async: true,
+                    fixed_chunk_size: 256 * 1024,
+                    use_parts: true,
+                },
+                name: "Windows NT 3.51",
+            },
+            {
                 id: "windowsnt3",
                 memory_size: 256 * 1024 * 1024,
                 hda: {
