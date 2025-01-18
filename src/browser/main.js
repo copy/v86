@@ -1347,6 +1347,36 @@
                 },
                 homepage: "https://www.tinyaros.it/",
             },
+            {
+                id: "dancy",
+                name: "Dancy",
+                cdrom: {
+                    url: host + "dancy.iso",
+                    size: 10485760,
+                    async: false,
+                },
+                homepage: "https://github.com/Tiihala/Dancy",
+            },
+            {
+                id: "curios",
+                name: "CuriOS",
+                hda: {
+                    url: host + "curios.img",
+                    size: 83886080,
+                    async: false,
+                },
+                homepage: "https://github.com/h5n1xp/CuriOS",
+            },
+            {
+                id: "os64",
+                name: "OS64",
+                cdrom: {
+                    url: host + "os64boot.iso",
+                    size: 5580800,
+                    async: false,
+                },
+                homepage: "https://os64.blogspot.com/",
+            },
         ];
 
         if(DEBUG)
