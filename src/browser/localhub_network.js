@@ -27,7 +27,7 @@ function LocalhubNetworkAdapter(bus, config)
     this.is_open = true;
 
     // forward ethernet frames from emulated NIC to hub
-    this.nic_to_hub_fn = (eth_frame) => { 
+    this.nic_to_hub_fn = (eth_frame) => {
         this.channel.postMessage(eth_frame);
     };
     this.bus.register(this.bus_send_msgid, this.nic_to_hub_fn, this);
