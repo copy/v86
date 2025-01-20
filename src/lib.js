@@ -535,8 +535,9 @@ if(typeof XMLHttpRequest === "undefined")
 else
 {
     v86util.load_file = load_file;
-    v86util.load_file_async = load_file_async;
 }
+
+v86util.load_file_async = load_file_async;
 
 /**
  * @param {string} filename
@@ -558,7 +559,7 @@ async function load_file_async(filename, options, n_tries) {
             }
             resolve();
         };
-        load_file(filename, options, n_tries);
+        v86util.load_file(filename, options, n_tries);
     });
 }
 
