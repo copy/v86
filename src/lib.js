@@ -549,17 +549,17 @@ async function load_file_async(filename, options, n_tries) {
 
     return new Promise((resolve) => {
         options.done = (result) => {
-            if (done) {
+            if(done) {
                 const r = done(result);
-                if (r instanceof Promise) {
+                if(r instanceof Promise) {
                     r.then(resolve);
                     return;
                 }
             }
             resolve();
-        }
+        };
         load_file(filename, options, n_tries);
-    })
+    });
 }
 
 /**
