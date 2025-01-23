@@ -632,9 +632,18 @@ CPU.prototype.pack_memory = function()
         const view = this.mem32s.subarray(offset >> 2, offset + 0x1000 >> 2);
         let is_zero = true;
 
-        for(let i = 0; i < view.length; i++)
+        // partial loop unrolling to check 64 bytes per iteration
+        for(let i = 0; i < view.length; i += 8)
         {
-            if(view[i] !== 0)
+            if(   view[i+0]
+                | view[i+1]
+                | view[i+2]
+                | view[i+3]
+                | view[i+4]
+                | view[i+5]
+                | view[i+6]
+                | view[i+7]
+                !== 0)
             {
                 is_zero = false;
                 break;
