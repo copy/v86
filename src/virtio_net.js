@@ -214,19 +214,19 @@ VirtioNet.prototype.get_state = function()
     const state = [];
     state[0] = this.virtio;
     state[1] = this.id;
-
-    if(this.preserve_mac_from_state_image)
-    {
-        this.mac = state[2];
-        this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
-    }
-
+    state[2] = this.mac;
     return state;
 };
 
 VirtioNet.prototype.set_state = function(state)
 {
     this.virtio.set_state(state[0]);
+    this.id = state[1];
+    if(this.preserve_mac_from_state_image)
+    {
+        this.mac = state[2];
+        this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
+    }
 };
 
 VirtioNet.prototype.reset = function() {

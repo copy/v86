@@ -20,6 +20,7 @@ function FetchNetworkAdapter(bus, config)
     this.doh_server = config.doh_server;
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
+    this.fetch = fetch;
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
@@ -52,6 +53,11 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
         return true;
     }
     return false;
+};
+
+FetchNetworkAdapter.prototype.connect = function(port)
+{
+    return fake_tcp_connect(port, this);
 };
 
 /**
@@ -103,36 +109,11 @@ async function on_data_http(data)
         if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
             opts.body = data;
         }
-/*
-        const [resp, ab] = await this.net.fetch(target.href, opts);
-        const lines = [
-            `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-            "connection: Closed",
-            "content-length: " + ab.byteLength
-        ];
 
-        lines.push("x-was-fetch-redirected: " + String(resp.redirected));
-        lines.push("x-fetch-resp-url: " + String(resp.url));
-
-        resp.headers.forEach(function (value, key) {
-            if([
-                "content-encoding", "connection", "content-length", "transfer-encoding"
-            ].indexOf(key.toLowerCase()) === -1 ) {
-                lines.push(key + ": " + value);
-            }
-        });
-
-        lines.push("");
-        lines.push("");
-
-        this.write(new TextEncoder().encode(lines.join("\r\n")));
-        this.write(new Uint8Array(ab));
-        this.close();
-*/
         const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
         const encoder = new TextEncoder();
         let response_started = false;
-        fetch(fetch_url, opts).then((resp) => {
+        this.net.fetch(fetch_url, opts).then((resp) => {
             const header_lines = [
                 `HTTP/1.1 ${resp.status} ${resp.statusText}`,
                 `x-was-fetch-redirected: ${!!resp.redirected}`,
@@ -147,19 +128,26 @@ async function on_data_http(data)
             this.write(encoder.encode(header_lines.join("\r\n") + "\r\n\r\n"));
             response_started = true;
 
-            const resp_reader = resp.body.getReader();
-            const pump = ({ value, done }) => {
-                if(value) {
-                    this.write(value);
-                }
-                if(done) {
+            if(resp.body && resp.body.getReader) {
+                const resp_reader = resp.body.getReader();
+                const pump = ({ value, done }) => {
+                    if(value) {
+                        this.write(value);
+                    }
+                    if(done) {
+                        this.close();
+                    }
+                    else {
+                        return resp_reader.read().then(pump);
+                    }
+                };
+                resp_reader.read().then(pump);
+            } else {
+                resp.arrayBuffer().then(buffer => {
+                    this.write(new Uint8Array(buffer));
                     this.close();
-                }
-                else {
-                    return resp_reader.read().then(pump);
-                }
-            };
-            resp_reader.read().then(pump);
+                });
+            }
         })
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
