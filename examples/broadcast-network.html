@@ -21,16 +21,11 @@ window.onload = function()
         bzimage: {
             url: "../images/buildroot-bzimage68.bin",
         },
+        net_device: {
+            type: "virtio",
+            relay_url: "localhub"
+        },
         autostart: true,
-    });
-
-    var broadcast = new BroadcastChannel("v86-network");
-
-    broadcast.addEventListener("message", function(e) {
-        emulator.bus.send("net0-receive", e.data);
-    });
-    emulator.add_listener("net0-send", function(packet) {
-        broadcast.postMessage(packet);
     });
 }
 </script>
