@@ -642,8 +642,7 @@ CPU.prototype.pack_memory = function()
                 | view[i+4]
                 | view[i+5]
                 | view[i+6]
-                | view[i+7]
-                !== 0)
+                | view[i+7])
             {
                 is_zero = false;
                 break;
