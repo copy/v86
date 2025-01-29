@@ -223,27 +223,11 @@ emulator.add_listener("emulator-ready", function () {
             let headers = new Headers();
             headers.append("Content-Type", "text/plain");
             headers.append("Content-Length", contents.length);
-            return new Promise(res => setTimeout(() => res((
-                {
-                    status: 200,
-                    statusText: "OK",
-                    headers: headers,
-                    body: {
-                        getReader() {
-                            return {
-                                async read() {
-                                    return {
-                                        value: contents,
-                                        done: true
-                                    };
-                                }
-                            };
-                        }
-                    }
-                }
-            )), 50));
+            return new Promise(res => setTimeout(() => res(new Response(contents, {
+                headers
+            })), 50));
         }
-        return original_fetch.call(network_adapter, url, opts);
+        return original_fetch(url, opts);
     };
 });
 
