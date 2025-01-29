@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Network adapter "localhub" which connects the emulated NIC
+ * Network adapter "inbrowser" which connects the emulated NIC
  * to a shared in-browser BroadcastChannel.
  *
  * NOTE: BroadcastChannel.postMessage() sends the given message to
@@ -16,14 +16,14 @@
  * @param {BusConnector} bus
  * @param {*=} config
  */
-function LocalhubNetworkAdapter(bus, config)
+function InBrowserNetworkAdapter(bus, config)
 {
     const id = config.id || 0;
 
     this.bus = bus;
     this.bus_send_msgid = `net${id}-send`;
     this.bus_recv_msgid = `net${id}-receive`;
-    this.channel = new BroadcastChannel(`v86-localhub-${id}`);
+    this.channel = new BroadcastChannel(`v86-inbrowser-${id}`);
     this.is_open = true;
 
     // forward ethernet frames from emulated NIC to hub
@@ -39,7 +39,7 @@ function LocalhubNetworkAdapter(bus, config)
     this.channel.addEventListener("message", this.hub_to_nic_fn);
 }
 
-LocalhubNetworkAdapter.prototype.destroy = function()
+InBrowserNetworkAdapter.prototype.destroy = function()
 {
     if(this.is_open) {
         this.bus.unregister(this.bus_send_msgid, this.nic_to_hub_fn);
