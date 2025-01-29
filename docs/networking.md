@@ -19,7 +19,7 @@ The active network backend is configured through a user-specified **backend URL*
 
 | Backend | Backend URL scheme(s) | Example(s) |
 | :------ | :-------------------- | :--------- |
-| **[localhub](#the-localhub-backend)** | `localhub` | `localhub` |
+| **[inbrowser](#the-inbrowser-backend)** | `inbrowser` | `inbrowser` |
 | **[wsproxy](#the-wsproxy-backend)** | `"ws://" PROXY [":" PORT=80] ["/" ...]`<br>`"wss://" PROXY [":" PORT=443] ["/" ...]` | `wss://relay.widgetry.org/` |
 | **[wisp](#the-wisp-backend)** | `"wisp://" PROXY [":" PORT=80] ["/" ...]`<br>`"wisps://" PROXY [":" PORT=443] ["/" ...]` | `wisp://localhost:12345` |
 | **[fetch](#the-fetch-backend)** | `"fetch" [ "://" PROXY [":" PORT] ["/" QUERY] ]` | `fetch`<br>`fetch://localhost:1234/?url=` |
@@ -99,7 +99,7 @@ One way to compare the different network backends is how they operate on differe
     [ 4: Transport    ] <---- wisp -----> | v86 |       [ 4: Transport    ]
     [ 3: Network      ]                   |     |       [ 3: Network      ]
     [ 2: Data Link    ] <--- wsproxy ---> |     | <---> [ 2: Data Link    ]
-    [ 1: Physical     ]    and localhub   +-----+       [ 1: Physical     ]
+    [ 1: Physical     ]   and inbrowser   +-----+       [ 1: Physical     ]
 
                         Fig. 1: Network backends in v86
 
@@ -107,11 +107,11 @@ v86 guests strictly expect to exchange layer-2 ethernet frames with their (emula
 
 In order to facilitate this for backend implementations, v86 provides helper functions to encode/decode ethernet frames, ARP and IPv4 packets, UDP datagrams, TCP streams and HTTP requests/responses. v86 can also provide minimal but sufficient ARP, ICMP-echo, DHCP, DNS (including DoH) and NTP services to guests.
 
-### The `localhub` backend
+### The `inbrowser` backend
 
 This backend provides layer-2 networking services for multiple v86 guests running within the same browser process (meaning within the same web page and/or in separate browser tabs). It works standalone without a proxy server, but it also does not provide any access to external networks.
 
-The `localhub` backend is implemented using the browser-internal [BroadcastChannel](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) API, due to its simplicity it is the most efficient backend, however all VMs have to share the same browser resources.
+The `inbrowser` backend is implemented using the browser-internal [BroadcastChannel](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) API, due to its simplicity it is the most efficient backend, however all VMs have to share the same browser resources.
 
 **Example**
 
@@ -205,7 +205,7 @@ after the state has been loaded.
 
 ### NodeJS
 
-There is no built-in support for v86 networking under NodeJS, but network backends `wsproxy` and `wisp` only depend on a browser-compatible `WebSocket` constructor being present in the global scope, whereas backends `localhub` and `fetch` should work directly.
+There is no built-in support for v86 networking under NodeJS, but network backends `wsproxy` and `wisp` only depend on a browser-compatible `WebSocket` constructor being present in the global scope, whereas backends `inbrowser` and `fetch` should work directly.
 
 ## Links
 
