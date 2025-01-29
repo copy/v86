@@ -973,12 +973,60 @@ function write_tcp(spec, out) {
     return total_length;
 }
 
+function fake_tcp_connect(dport, adapter)
+{
+    const vm_ip_str = adapter.vm_ip.join(".");
+    const router_ip_str = adapter.router_ip.join(".");
+    const sport_0 = (Math.random() * TCP_DYNAMIC_PORT_RANGE) | 0;
+    let sport, tuple, sport_i = 0;
+    do {
+        sport = TCP_DYNAMIC_PORT_START + ((sport_0 + sport_i) % TCP_DYNAMIC_PORT_RANGE);
+        tuple = `${vm_ip_str}:${dport}:${router_ip_str}:${sport}`;
+    } while(++sport_i < TCP_DYNAMIC_PORT_RANGE && adapter.tcp_conn[tuple]);
+    if(adapter.tcp_conn[tuple]) {
+        throw new Error("pool of dynamic TCP port numbers exhausted, connection aborted");
+    }
+    let on_data;
+    let on_connect;
+    let on_close;
+    let on_shutdown;
+    let conn = new TCPConnection();
+    conn.net = adapter;
+    conn.on_data = function(data) { if(on_data) on_data.call(handle, data); };
+    conn.on_connect = function() { if(on_connect) on_connect.call(handle); };
+    conn.on_close = function() { if(on_close) on_close.call(handle); };
+    conn.on_shutdown = function() { if(on_shutdown) on_shutdown.call(handle); };
+
+    conn.tuple = tuple;
+    conn.hsrc = adapter.router_mac;
+    conn.psrc = adapter.router_ip;
+    conn.sport = sport;
+    conn.hdest = adapter.vm_mac;
+    conn.dport = dport;
+    conn.pdest = adapter.vm_ip;
+    adapter.tcp_conn[tuple] = conn;
+    conn.connect();
+    // TODO: Real event source
+    let handle = {
+        write: function(data) { conn.write(data); },
+        on: function(event, cb) {
+            if(event === "data") on_data = cb;
+            if(event === "connect") on_connect = cb;
+            if(event === "close") on_close = cb;
+            if(event === "shutdown") on_shutdown = cb;
+        },
+        close: function() { conn.close(); }
+    };
+    return handle;
+}
+
 /**
  * @constructor
  */
 function TCPConnection()
 {
     this.state = TCP_STATE_CLOSED;
+    this.net = null; // The adapter is stored here
     this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
     this.in_active_close = false;
@@ -1023,8 +1071,7 @@ TCPConnection.prototype.packet_reply = function(packet, tcp_options) {
     return reply;
 };
 
-/*
-// TODO: Is this method used anywhere anymore? It used to be called from fake_tcp_connect() which was removed.
+
 TCPConnection.prototype.connect = function() {
     // dbg_log(`TCP[${this.tuple}]: connect(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_SYN_SENT}"`, LOG_FETCH);
     this.seq = 1338;
@@ -1045,7 +1092,7 @@ TCPConnection.prototype.connect = function() {
     };
     this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
 };
-*/
+
 
 TCPConnection.prototype.accept = function(packet) {
     this.seq = 1338;
