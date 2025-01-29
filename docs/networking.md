@@ -158,7 +158,7 @@ The `fetch` backend uses the browser's [`fetch()`](https://developer.mozilla.org
 
 Even though a proxy server is optional with this backend, a CORS proxy server is generally indispensable in order to evade the limitations imposed by CORS and to access the open Internet. Yet, this backend is highly useful in special cases where CORS is not in the way.
 
-This backend handles DHCP and ARP requests from guests internally (DNS lookups are handled by the browser), and also monitors the guest's outbound traffic for HTTP requests which it translates into calls to `fetch()`. Additionally, NTP, ICMP pings and UDP echo packets are handled to a certain degree. See PR [#1061](https://github.com/copy/v86/pull/1061) for additional technical details.
+This backend handles DHCP and ARP requests from guests internally (DNS lookups are handled by `fetch()`), and also monitors the guest's outbound traffic for HTTP requests which it translates into calls to `fetch()`. Additionally, NTP, ICMP pings and UDP echo packets are handled to a certain degree. See PR [#1061](https://github.com/copy/v86/pull/1061) for additional technical details.
 
 v86 guests are isolated from each other when using the `fetch` backend.
 
