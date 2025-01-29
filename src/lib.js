@@ -453,7 +453,7 @@ CircularQueue.prototype.set = function(new_data)
 
 function dump_file(ab, name)
 {
-    if(!(ab instanceof Array))
+    if(!Array.isArray(ab))
     {
         ab = [ab];
     }
