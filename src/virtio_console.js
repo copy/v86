@@ -57,7 +57,7 @@ function VirtioConsole(cpu, bus)
     this.virtio = new VirtIO(cpu,
     {
         name: "virtio-console",
-        pci_id: 0x07 << 3,
+        pci_id: 0x0C << 3,
         device_id: 0x1043,
         subsystem_device_id: 3,
         common:
