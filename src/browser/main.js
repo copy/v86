@@ -1581,6 +1581,7 @@
             }
         }
         set_proxy_value("network_none", "");
+        set_proxy_value("network_inbrowser", "inbrowser");
         set_proxy_value("network_fetch", "fetch");
         set_proxy_value("network_relay", "wss://relay.widgetry.org/");
         set_proxy_value("network_wisp", "wisps://wisp.mercurywork.shop/v86/");
