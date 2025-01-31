@@ -129,15 +129,15 @@ Since this backend (including its proxy server) only forwards unmodified etherne
   * Docker container `benjamincburns/jor1k-relay:latest` is throttled, see [this comment](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890)
   * Docker container `bellenottelling/websockproxy` is unthrottled
   * See [here](https://github.com/copy/v86/discussions/1175#discussioncomment-11199254) for step-by-step instructions on how to unthrottle websockproxy manually.
-* **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS
+* **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS (see [here](https://github.com/copy/v86/discussions/1199#discussion-7726530) for a benchmark comparison with `websockproxy`)
 * **[node-relay](https://github.com/krishenriksen/node-relay)** -- NodeJs
 * **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- Go
 
-See [here](https://github.com/copy/v86/discussions/1199#discussion-7726530) for a benchmark comparison between `websockproxy` and `wsnic`.
-
 ### The `wisp` backend
 
-This backend implements the client side of the [WISP protocol](https://github.com/MercuryWorkshop/wisp-protocol). WISP is a client/server protocol designed to exchange messages containing UDP and TCP payloads between a WebSocket client and a WISP-compatible proxy server. Note that WISP transports only the payloads, not the raw UDP or TCP packets. See PR [#1097](https://github.com/copy/v86/pull/1097) for additional information about the `wisp` backend.
+The `wisp` backend implements the client side of the [WISP protocol](https://github.com/MercuryWorkshop/wisp-protocol). WISP is a client/server protocol designed to exchange messages containing UDP and TCP payloads between a WebSocket client and a WISP-compatible proxy server. Note that WISP transports only the packet payloads, not the raw UDP or TCP packets.
+
+This backend monitors outbound traffic from guests and wraps/unwraps TCP payload data in WISP messages. A TCP state machine is included to terminate the guest's TCP stream. In addition to the TCP stream, virtual replies to ARP, DHCP, DNS, NTP, ICMP-Ping and UDP-Echo requests from guests are generated (to a certain degree). See PR [#1097](https://github.com/copy/v86/pull/1097) for additional information about this backend.
 
 v86 guests are isolated from each other when using the `wisp` backend.
 
@@ -150,15 +150,15 @@ v86 guests are isolated from each other when using the `wisp` backend.
 > The WISP protocol only supports UDP and TCP client sockets in the v86 guest, any server sockets listening in the guest are not supported.
 
 > [!NOTE]
-> The WISP implementation in v86 is missing support for UDP.
+> This WISP implementation does not support UDP, only TCP.
 
 ### The `fetch` backend
 
 The `fetch` backend uses the browser's [`fetch()`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) API to allow guests to send HTTP requests to external HTTP servers and to receive related HTTP responses. This is however complicated by the fact that browsers add [CORS headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) to HTTP requests initiated by `fetch()`, and that they check the CORS headers of related HTTP responses to block access to external web resources not authorized to `fetch()` in the given context.
 
-Even though a proxy server is optional with this backend, a CORS proxy server is generally indispensable in order to evade the limitations imposed by CORS and to access the open Internet. Yet, this backend is highly useful in special cases where CORS is not in the way.
+This backend is efficient and very useful in cases where CORS is not in the way, otherwise (and in general) a CORS proxy server must be used to provide access to HTTP servers on the open Internet.
 
-This backend handles DHCP and ARP requests from guests internally, and also monitors the guest's outbound traffic for HTTP requests which it translates into calls to `fetch()`. Additionally, NTP, ICMP pings and UDP echo packets are handled to a certain degree. Note that `fetch()` performs the DNS lookup using the browser's internal DNS client. See PR [#1061](https://github.com/copy/v86/pull/1061) for additional technical details.
+Like the [`wisp`](#the-wisp-backend) backend, the `fetch` backend handles DHCP and ARP requests from guests internally, and additionally monitors the guest's outbound traffic for HTTP requests which it translates into calls to `fetch()`. NTP, ICMP pings and UDP echo packets are handled to a certain degree. Note that `fetch()` performs the DNS lookup using the browser's internal DNS client. See PR [#1061](https://github.com/copy/v86/pull/1061) for additional technical details.
 
 v86 guests are isolated from each other when using the `fetch` backend.
 
