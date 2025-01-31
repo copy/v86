@@ -209,6 +209,6 @@ There is no built-in support for v86 networking under NodeJS, but network backen
 
 ## Links
 
-* [`examples/two_instances.html`](examples/two_instances.html), example code that shows how to connect two V86 instances in a web page with a virtual ethernet crossover cable.
+* [`examples/two_instances.html`](../examples/two_instances.html), example code that shows how to connect two V86 instances in a web page with a virtual ethernet crossover cable.
 * [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Windows Server 2003) using a virtual crossover cable.
 * [Working on a new cross-platform network relay that is a full virtualized network #1064](https://github.com/copy/v86/discussions/1064) (used in [env86 #1085](https://github.com/copy/v86/discussions/1085))
