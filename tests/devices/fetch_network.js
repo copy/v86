@@ -85,6 +85,7 @@ const tests =
         end: (capture) =>
         {
             assert(/2 packets transmitted, 2 (packets )?received, 0% packet loss/.test(capture), "2 packets transmitted, 2 packets received, 0% packet loss");
+            assert(/from 1\.2\.3\.4:/.test(capture), "got correct source ip");
         },
     },
     {
