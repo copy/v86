@@ -315,6 +315,11 @@ V86.prototype.continue_init = async function(emulator, options)
         {
             this.network_adapter = new FetchNetworkAdapter(this.bus, options.net_device);
         }
+        else if(relay_url === "inbrowser")
+        {
+            // NOTE: experimental, will change when usage of options.net_device gets refactored in favour of emulator.bus
+            this.network_adapter = new InBrowserNetworkAdapter(this.bus, options.net_device);
+        }
         else if(relay_url.startsWith("wisp://") || relay_url.startsWith("wisps://"))
         {
             this.network_adapter = new WispNetworkAdapter(relay_url, this.bus, options.net_device);
