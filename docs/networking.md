@@ -113,10 +113,6 @@ This backend provides layer-2 networking services for multiple v86 guests runnin
 
 The `inbrowser` backend is implemented using the browser-internal [BroadcastChannel](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) API, due to its simplicity it is the most efficient backend, however all VMs have to share the same browser resources.
 
-**Example**
-
-* [`examples/broadcast-network.html`](../examples/broadcast-network.html)
-
 ### The `wsproxy` backend
 
 A backend based on a proxy server that provides layer-2 networking services to guests using the [WebSocket](https://en.wikipedia.org/wiki/WebSocket) protocol for transport. It depends on the specific proxy server what kind of network configuration it presents to guests, but usually a separate IP subnet with DHCP and DNS services and optional access to the server's physical network and possibly Internet are provided.
@@ -209,6 +205,7 @@ There is no built-in support for v86 networking under NodeJS, but network backen
 
 ## Links
 
-* [`examples/two_instances.html`](../examples/two_instances.html), example code that shows how to connect two V86 instances in a web page with a virtual ethernet crossover cable.
-* [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Windows Server 2003) using a virtual crossover cable.
+* [`examples/two_instances.html`](../examples/two_instances.html), example code that shows how to connect two VMs in a web page with a virtual ethernet crossover cable.
+* [`examples/broadcast-network.html`](../examples/broadcast-network.html), example code that shows how the `inbrowser` backend works.
+* [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Server 2003) using a virtual crossover cable.
 * [Working on a new cross-platform network relay that is a full virtualized network #1064](https://github.com/copy/v86/discussions/1064) (used in [env86 #1085](https://github.com/copy/v86/discussions/1085))
