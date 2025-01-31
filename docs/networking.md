@@ -130,7 +130,7 @@ Since this backend (including its proxy server) only forwards unmodified etherne
   * Docker container `bellenottelling/websockproxy` is unthrottled
   * See [here](https://github.com/copy/v86/discussions/1175#discussioncomment-11199254) for step-by-step instructions on how to unthrottle websockproxy manually.
 * **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS (see [here](https://github.com/copy/v86/discussions/1199#discussion-7726530) for a benchmark comparison with `websockproxy`)
-* **[node-relay](https://github.com/krishenriksen/node-relay)** -- NodeJs
+* **[node-relay](https://github.com/krishenriksen/node-relay)** -- see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
 * **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- Go
 
 ### The `wisp` backend
@@ -209,4 +209,6 @@ There is no built-in support for v86 networking under NodeJS, but network backen
 
 ## Links
 
-*TODO: Add relevant links to discussions and PRs that provide further information.*
+* [`examples/two_instances.html`](examples/two_instances.html), example code that shows how to connect two V86 instances in a web page with a virtual ethernet crossover cable.
+* [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Windows Server 2003) using a virtual crossover cable.
+* [Working on a new cross-platform network relay that is a full virtualized network #1064](https://github.com/copy/v86/discussions/1064) (used in [env86 #1085](https://github.com/copy/v86/discussions/1085))
