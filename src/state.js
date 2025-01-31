@@ -49,7 +49,7 @@ function save_object(obj, saved_buffers)
         return obj;
     }
 
-    if(obj instanceof Array)
+    if(Array.isArray(obj))
     {
         return obj.map(x => save_object(x, saved_buffers));
     }
@@ -103,7 +103,7 @@ function restore_buffers(obj, buffers)
         return obj;
     }
 
-    if(obj instanceof Array)
+    if(Array.isArray(obj))
     {
         for(let i = 0; i < obj.length; i++)
         {

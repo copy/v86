@@ -1340,7 +1340,7 @@ V86.prototype.automatically = function(steps)
 
         if(step.keyboard_send)
         {
-            if(step.keyboard_send instanceof Array)
+            if(Array.isArray(step.keyboard_send))
             {
                 this.keyboard_send_scancodes(step.keyboard_send);
             }
