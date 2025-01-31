@@ -272,6 +272,7 @@ CPU.prototype.wasm_patch = function()
 
     this.allocate_memory = get_import("allocate_memory");
     this.zero_memory = get_import("zero_memory");
+    this.is_memory_zeroed = get_import("is_memory_zeroed");
 
     this.svga_allocate_memory = get_import("svga_allocate_memory");
     this.svga_allocate_dest_buffer = get_import("svga_allocate_dest_buffer");
@@ -625,23 +626,9 @@ CPU.prototype.pack_memory = function()
 
     const page_count = this.mem8.length >> 12;
     const nonzero_pages = [];
-
     for(let page = 0; page < page_count; page++)
     {
-        const offset = page << 12;
-        const view = this.mem32s.subarray(offset >> 2, offset + 0x1000 >> 2);
-        let is_zero = true;
-
-        for(let i = 0; i < view.length; i++)
-        {
-            if(view[i] !== 0)
-            {
-                is_zero = false;
-                break;
-            }
-        }
-
-        if(!is_zero)
+        if(!this.is_memory_zeroed(page << 12, 0x1000))
         {
             nonzero_pages.push(page);
         }

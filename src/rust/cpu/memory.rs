@@ -310,3 +310,15 @@ pub unsafe fn mmap_write128(addr: u32, v0: u64, v1: u64) {
         )
     }
 }
+
+#[no_mangle]
+pub unsafe fn is_memory_zeroed(addr: u32, length: u32) -> bool {
+    dbg_assert!(addr % 8 == 0);
+    dbg_assert!(length % 8 == 0);
+    for i in (addr..addr + length).step_by(8) {
+        if *(mem8.offset(i as isize) as *const i64) != 0 {
+            return false;
+        }
+    }
+    return true;
+}
