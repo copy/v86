@@ -1388,7 +1388,7 @@ function handle_fake_ping(packet, adapter) {
     reply.eth = { ethertype: ETHERTYPE_IPV4, src: adapter.router_mac, dest: packet.eth.src };
     reply.ipv4 = {
         proto: IPV4_PROTO_ICMP,
-        src: adapter.router_ip,
+        src: packet.ipv4.dest,
         dest: packet.ipv4.src,
     };
     reply.icmp = {
