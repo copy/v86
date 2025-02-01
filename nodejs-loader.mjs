@@ -88,9 +88,10 @@ for( let f of files ) {
 }
 
 export let {
-    V86,
-    CPU,
     FetchNetworkAdapter,
     MemoryFileStorage,
     ServerFileStorageWrapper,
 } = globals;
+
+export default V86;
+
