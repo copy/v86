@@ -21,6 +21,9 @@ var STATE_INDEX_INFO_LEN = 3;
 /** @const */
 var STATE_INFO_BLOCK_START = 16;
 
+/** @const */
+var STATE_BUFFER_ALIGN_BYTES = 256;
+
 const ZSTD_MAGIC = 0xFD2FB528;
 
 /** @constructor */
@@ -143,7 +146,7 @@ CPU.prototype.save_state = function()
         total_buffer_size += len;
 
         // align
-        total_buffer_size = total_buffer_size + 3 & ~3;
+        total_buffer_size = total_buffer_size + STATE_BUFFER_ALIGN_BYTES - 1 & ~(STATE_BUFFER_ALIGN_BYTES - 1);
     }
 
     var info_object = JSON.stringify({
@@ -153,7 +156,7 @@ CPU.prototype.save_state = function()
     var info_block = new TextEncoder().encode(info_object);
 
     var buffer_block_start = STATE_INFO_BLOCK_START + info_block.length;
-    buffer_block_start = buffer_block_start + 3 & ~3;
+    buffer_block_start = buffer_block_start + STATE_BUFFER_ALIGN_BYTES - 1 & ~(STATE_BUFFER_ALIGN_BYTES - 1);
     var total_size = buffer_block_start + total_buffer_size;
 
     //console.log("State: json_size=" + Math.ceil(buffer_block_start / 1024 / 1024) + "MB " +
@@ -257,7 +260,7 @@ CPU.prototype.restore_state = function(state)
 
         for(const buffer_info of buffer_infos)
         {
-            const front_padding = (position + 3 & ~3) - position;
+            const front_padding = (position + STATE_BUFFER_ALIGN_BYTES - 1 & ~(STATE_BUFFER_ALIGN_BYTES - 1)) - position;
             const CHUNK_SIZE = 1 * 1024 * 1024;
 
             if(buffer_info.length > CHUNK_SIZE)
@@ -312,7 +315,7 @@ CPU.prototype.restore_state = function(state)
         let state_object = info_block_obj["state"];
         const buffer_infos = info_block_obj["buffer_infos"];
         let buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
-        buffer_block_start = buffer_block_start + 3 & ~3;
+        buffer_block_start = buffer_block_start + STATE_BUFFER_ALIGN_BYTES - 1 & ~(STATE_BUFFER_ALIGN_BYTES - 1);
 
         const buffers = buffer_infos.map(buffer_info => {
             const offset = buffer_block_start + buffer_info.offset;
