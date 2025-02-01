@@ -20,7 +20,7 @@ endif
 WASM_OPT ?= false
 
 default: build/v86-debug.wasm
-all: build/v86_all.js build/libv86.js build/v86.wasm
+all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm
 all-debug: build/libv86-debug.js build/v86-debug.wasm
 browser: build/v86_all.js
 
@@ -142,6 +142,23 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
+build/libv86.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	-ls -lh build/libv86.js
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86.mjs\
+		--define=DEBUG=false\
+		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
+		--jscomp_off=missingProperties\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86;'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)\
+		--chunk_output_type=ES_MODULES\
+		--emit_use_strict=false
+	ls -lh build/libv86.mjs
+
 build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
@@ -222,6 +239,7 @@ build/zstddeclib.o: lib/zstd/zstddeclib.c
 
 clean:
 	-rm build/libv86.js
+	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
 	-rm build/v86_all.js
 	-rm build/v86.wasm

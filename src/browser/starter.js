@@ -105,6 +105,7 @@
       } | undefined),
     }} options
  * @constructor
+ * @export
  */
 function V86(options)
 {
@@ -1468,18 +1469,3 @@ function FileNotFoundError(message)
     this.message = message || "File not found";
 }
 FileNotFoundError.prototype = Error.prototype;
-
-// Closure Compiler's way of exporting
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    module.exports["V86"] = V86;
-}
-else if(typeof window !== "undefined")
-{
-    window["V86"] = V86;
-}
-else if(typeof importScripts === "function")
-{
-    // web worker
-    self["V86"] = V86;
-}
