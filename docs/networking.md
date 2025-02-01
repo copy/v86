@@ -121,13 +121,15 @@ Since this backend (including its proxy server) only forwards unmodified etherne
 
 **Proxy server**
 
-* **[websockproxy](https://github.com/benjamincburns/websockproxy)** -- uses a single TAP device for all clients, integrates dnsmasq for DHCP/DNS, original server implementation by benjamincburns
-  * Docker container `benjamincburns/jor1k-relay:latest` is throttled, see [this comment](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890)
+* **[websockproxy](https://github.com/benjamincburns/websockproxy)** -- one TAP device for all clients, integrates dnsmasq for DHCP/DNS, no TLS, original server by benjamincburns
+  * Docker container `benjamincburns/jor1k-relay` is throttled, see [this comment](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890)
   * Docker container `bellenottelling/websockproxy` is unthrottled
   * See [here](https://github.com/copy/v86/discussions/1175#discussioncomment-11199254) for step-by-step instructions on how to unthrottle websockproxy manually.
-* **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS (see [here](https://github.com/copy/v86/discussions/1199#discussion-7726530) for a benchmark comparison with `websockproxy`)
-* **[node-relay](https://github.com/krishenriksen/node-relay)** -- see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
-* **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- Go
+* **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- one TAP device for all clients, written in Go, without integraded DHCP but with integrated TLS support
+* **[node-relay](https://github.com/krishenriksen/node-relay)** -- like websockproxy but written for NodeJS (dnsmasq/no TLS), see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
+* **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS
+
+[See here](https://github.com/copy/v86/discussions/1199#discussioncomment-12026845) for a benchmark comparing the download performance of these proxy servers.
 
 ### The `wisp` backend
 
