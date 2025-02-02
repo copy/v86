@@ -39,7 +39,9 @@ pub fn allocate_memory(size: u32) -> u32 {
 }
 
 #[no_mangle]
-pub unsafe fn zero_memory(size: u32) { ptr::write_bytes(mem8, 0, size as usize); }
+pub unsafe fn zero_memory(addr: u32, size: u32) {
+    ptr::write_bytes(mem8.offset(addr as isize), 0, size as usize);
+}
 
 #[allow(non_upper_case_globals)]
 pub static mut vga_mem8: *mut u8 = ptr::null_mut();
@@ -309,4 +311,16 @@ pub unsafe fn mmap_write128(addr: u32, v0: u64, v1: u64) {
             (v1 >> 32) as i32,
         )
     }
+}
+
+#[no_mangle]
+pub unsafe fn is_memory_zeroed(addr: u32, length: u32) -> bool {
+    dbg_assert!(addr % 8 == 0);
+    dbg_assert!(length % 8 == 0);
+    for i in (addr..addr + length).step_by(8) {
+        if *(mem8.offset(i as isize) as *const i64) != 0 {
+            return false;
+        }
+    }
+    return true;
 }

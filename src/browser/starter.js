@@ -105,6 +105,7 @@
       } | undefined),
     }} options
  * @constructor
+ * @export
  */
 function V86(options)
 {
@@ -303,6 +304,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.preserve_mac_from_state_image = options.preserve_mac_from_state_image;
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
+    settings.virtio_balloon = options.virtio_balloon;
     settings.virtio_console = options.virtio_console;
     settings.virtio_net = options.virtio_net;
     settings.screen_options = options.screen_options;
@@ -1340,7 +1342,7 @@ V86.prototype.automatically = function(steps)
 
         if(step.keyboard_send)
         {
-            if(step.keyboard_send instanceof Array)
+            if(Array.isArray(step.keyboard_send))
             {
                 this.keyboard_send_scancodes(step.keyboard_send);
             }
@@ -1468,18 +1470,3 @@ function FileNotFoundError(message)
     this.message = message || "File not found";
 }
 FileNotFoundError.prototype = Error.prototype;
-
-// Closure Compiler's way of exporting
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    module.exports["V86"] = V86;
-}
-else if(typeof window !== "undefined")
-{
-    window["V86"] = V86;
-}
-else if(typeof importScripts === "function")
-{
-    // web worker
-    self["V86"] = V86;
-}

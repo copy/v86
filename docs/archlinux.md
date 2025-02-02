@@ -41,7 +41,7 @@ Installing the ISO by hand takes a long time if you intend to recreate the image
 
 ### Creating a packer template
 
-[Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap and SSH server. Once the SSH connection is established a script can be started for further provisioning.
+[Packer](https://www.packer.io/docs/builders/qemu.html) is a tool that lets you boot an ISO in any of multiple emulators (so QEMU in our case) and send pre-scripted keystrokes to bootstrap an SSH server. Once the SSH connection is established a script can be started for further provisioning.
 
 Create a template for automating the base installation:
 ```sh

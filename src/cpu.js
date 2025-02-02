@@ -272,6 +272,7 @@ CPU.prototype.wasm_patch = function()
 
     this.allocate_memory = get_import("allocate_memory");
     this.zero_memory = get_import("zero_memory");
+    this.is_memory_zeroed = get_import("is_memory_zeroed");
 
     this.svga_allocate_memory = get_import("svga_allocate_memory");
     this.svga_allocate_dest_buffer = get_import("svga_allocate_dest_buffer");
@@ -419,6 +420,7 @@ CPU.prototype.get_state = function()
     state[81] = this.devices.uart3;
     state[82] = this.devices.virtio_console;
     state[83] = this.devices.virtio_net;
+    state[84] = this.devices.virtio_balloon;
 
     return state;
 };
@@ -551,6 +553,7 @@ CPU.prototype.set_state = function(state)
     this.devices.uart3 && this.devices.uart3.set_state(state[81]);
     this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
     this.devices.virtio_net && this.devices.virtio_net.set_state(state[83]);
+    this.devices.virtio_balloon && this.devices.virtio_balloon.set_state(state[84]);
 
     this.fw_value = state[62];
 
@@ -625,23 +628,9 @@ CPU.prototype.pack_memory = function()
 
     const page_count = this.mem8.length >> 12;
     const nonzero_pages = [];
-
     for(let page = 0; page < page_count; page++)
     {
-        const offset = page << 12;
-        const view = this.mem32s.subarray(offset >> 2, offset + 0x1000 >> 2);
-        let is_zero = true;
-
-        for(let i = 0; i < view.length; i++)
-        {
-            if(view[i] !== 0)
-            {
-                is_zero = false;
-                break;
-            }
-        }
-
-        if(!is_zero)
+        if(!this.is_memory_zeroed(page << 12, 0x1000))
         {
             nonzero_pages.push(page);
         }
@@ -664,7 +653,7 @@ CPU.prototype.pack_memory = function()
 
 CPU.prototype.unpack_memory = function(bitmap, packed_memory)
 {
-    this.zero_memory(this.memory_size[0]);
+    this.zero_memory(0, this.memory_size[0]);
 
     const page_count = this.memory_size[0] >> 12;
     let packed_page = 0;
@@ -991,6 +980,9 @@ CPU.prototype.init = function(settings, device_bus)
         if(settings.virtio_console)
         {
             this.devices.virtio_console = new VirtioConsole(this, device_bus);
+        }
+        if(settings.virtio_balloon) {
+            this.devices.virtio_balloon = new VirtioBalloon(this, device_bus);
         }
 
         if(true)

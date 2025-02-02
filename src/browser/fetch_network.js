@@ -5,6 +5,7 @@
  *
  * @param {BusConnector} bus
  * @param {*=} config
+ * @export
  */
 function FetchNetworkAdapter(bus, config)
 {
@@ -242,9 +243,3 @@ FetchNetworkAdapter.prototype.receive = function(data)
 {
     this.bus.send("net" + this.id + "-receive", new Uint8Array(data));
 };
-
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    // only for testing
-    module.exports["FetchNetworkAdapter"] = FetchNetworkAdapter;
-}

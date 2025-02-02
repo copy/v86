@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * @export
+ */
 const print_stats = {
     stats_to_string: function(cpu)
     {
@@ -282,8 +285,3 @@ const print_stats = {
         return text;
     },
 };
-
-if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-{
-    module.exports["print_stats"] = print_stats;
-}

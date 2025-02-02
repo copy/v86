@@ -1,7 +1,21 @@
 "use strict";
 
 var goog = goog || {};
-goog.exportSymbol = function() {};
+goog.exportSymbol = function(name, sym) {
+    if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+    {
+        module.exports[name] = sym;
+    }
+    else if(typeof window !== "undefined")
+    {
+        window[name] = sym;
+    }
+    else if(typeof importScripts === "function")
+    {
+        // web worker
+        self[name] = sym;
+    }
+};
 goog.exportProperty = function() {};
 
 var v86util = v86util || {};
@@ -453,7 +467,7 @@ CircularQueue.prototype.set = function(new_data)
 
 function dump_file(ab, name)
 {
-    if(!(ab instanceof Array))
+    if(!Array.isArray(ab))
     {
         ab = [ab];
     }

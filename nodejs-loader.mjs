@@ -39,7 +39,7 @@ let files = [
     "src/virtio.js",
     "src/virtio_console.js",
     "src/virtio_net.js",
-    //"src/virtio_balloon.js",
+    "src/virtio_balloon.js",
     "src/bus.js",
 
     "src/debug.js",
@@ -88,9 +88,10 @@ for( let f of files ) {
 }
 
 export let {
-    V86,
-    CPU,
     FetchNetworkAdapter,
     MemoryFileStorage,
     ServerFileStorageWrapper,
 } = globals;
+
+export default V86;
+
