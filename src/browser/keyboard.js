@@ -35,6 +35,15 @@ function KeyboardAdapter(bus)
         deferred_keydown = false,
 
         /**
+         * @type {!Object.<boolean>}
+         */
+        state = {
+            "CapsLock": false,
+            "NumLock": false,
+            "ScrollLock": false,
+        },
+
+        /**
          * Timeout-ID returned by setTimeout() or 0 (Windows AltGr-Filter)
          * @type {number}
          */
@@ -364,6 +373,21 @@ function KeyboardAdapter(bus)
             // see issue #165
             handle_code(0x38, false);
         }
+
+        Object.keys(state).forEach((name) => {
+          let current = state[name];
+          if(e.code === name) {
+              current = !current;
+          }
+          if(current !== e.getModifierState(name)) {
+              var code = codemap[name];
+              handle_code(code, true);
+              handle_code(code, false);
+              current = !current;
+          }
+          state[name] = current;
+        });
+
         return handler(e, true);
     }
 
