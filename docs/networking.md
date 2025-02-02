@@ -122,9 +122,9 @@ Since this backend (including its proxy server) only forwards unmodified etherne
 **Proxy server**
 
 * **[websockproxy](https://github.com/benjamincburns/websockproxy)** -- one TAP device for all clients, integrates dnsmasq for DHCP/DNS, no TLS, original server by benjamincburns
-  * Docker container `benjamincburns/jor1k-relay` is throttled, see [this comment](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890)
-  * Docker container `bellenottelling/websockproxy` is unthrottled
-  * See [here](https://github.com/copy/v86/discussions/1175#discussioncomment-11199254) for step-by-step instructions on how to unthrottle websockproxy manually.
+  * Docker container [`benjamincburns/jor1k-relay`](https://hub.docker.com/r/benjamincburns/jor1k-relay) is throttled, see [this comment](https://github.com/benjamincburns/websockproxy/issues/4#issuecomment-317255890)
+  * Docker container [`bellenottelling/websockproxy`](https://hub.docker.com/r/bellenottelling/websockproxy) is unthrottled
+  * [See here](https://github.com/copy/v86/discussions/1175#discussioncomment-11199254) for step-by-step instructions on how to unthrottle websockproxy manually.
 * **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- one TAP device for all clients, written in Go, without integraded DHCP but with integrated TLS support
 * **[node-relay](https://github.com/krishenriksen/node-relay)** -- like websockproxy but written for NodeJS (dnsmasq/no TLS), see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
 * **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS
