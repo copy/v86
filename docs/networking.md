@@ -58,7 +58,7 @@ Backends `fetch` and `wisp` support a couple of special settings in `config.net_
 | **router_mac** | str  | MAC address of virtual network peers (ARP, PING, DHCP, DNS, NTP, UDP echo and TCP peers) in common MAC address notation. Default `52:54:0:1:2:3`. |
 | **router_ip**  | str  | IP address of virtual network peers (ARP, PING, DHCP, DNS and TCP peers) in dotted IP notation. Default `192.168.86.1`. |
 | **vm_ip**      | str  | IP address to be assigned to the guest by DHCP in dotted IP notation. Default `192.168.86.100`. |
-| **masquerade** | bool | `False`: TODO, `True`: TODO. Default: `True`. |
+| **masquerade** | bool | If `True`, announce `router_ip` as the router's and DNS server's IP addresses in generated DHCP replies, and also generate ARP replies to IPs outside the router's subnet `255.255.255.0`. Default: `True`. |
 | **dns_method** | str  | DNS method to use, either `static` or `doh`. `static`: use built-in DNS server, `doh`: use [DNS-over-HTTPS](https://en.wikipedia.org/wiki/DNS_over_HTTPS) (DoH). Defaults to `static` for `fetch` and to `doh` for `wisp` backend. |
 | **doh_server** | str  | Host name or IP address (and optional port number) of the DoH server if `dns_method` is `doh`. The value is expanded to the URL `https://DOH_SERVER/dns-query`. Default: `cloudflare-dns.com`. |
 | **cors_proxy** | str  | CORS proxy server URL, do not use a proxy if undefined. Default: undefined (`fetch` backend only). |
