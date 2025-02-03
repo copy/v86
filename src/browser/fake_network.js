@@ -26,6 +26,7 @@ const V86_ASCII = [118, 56, 54];
 const TCP_STATE_CLOSED = "closed";
 const TCP_STATE_SYN_RECEIVED = "syn-received";
 const TCP_STATE_SYN_SENT = "syn-sent";
+const TCP_STATE_SYN_PROBE = "syn-probe";
 //const TCP_STATE_LISTEN = "listen";
 const TCP_STATE_ESTABLISHED = "established";
 const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
@@ -986,16 +987,8 @@ function fake_tcp_connect(dport, adapter)
     if(adapter.tcp_conn[tuple]) {
         throw new Error("pool of dynamic TCP port numbers exhausted, connection aborted");
     }
-    let on_data;
-    let on_connect;
-    let on_close;
-    let on_shutdown;
+
     let conn = new TCPConnection();
-    conn.net = adapter;
-    conn.on_data = function(data) { if(on_data) on_data.call(handle, data); };
-    conn.on_connect = function() { if(on_connect) on_connect.call(handle); };
-    conn.on_close = function() { if(on_close) on_close.call(handle); };
-    conn.on_shutdown = function() { if(on_shutdown) on_shutdown.call(handle); };
 
     conn.tuple = tuple;
     conn.hsrc = adapter.router_mac;
@@ -1004,20 +997,18 @@ function fake_tcp_connect(dport, adapter)
     conn.hdest = adapter.vm_mac;
     conn.dport = dport;
     conn.pdest = adapter.vm_ip;
+    conn.net = adapter;
     adapter.tcp_conn[tuple] = conn;
     conn.connect();
-    // TODO: Real event source
-    let handle = {
-        write: function(data) { conn.write(data); },
-        on: function(event, cb) {
-            if(event === "data") on_data = cb;
-            if(event === "connect") on_connect = cb;
-            if(event === "close") on_close = cb;
-            if(event === "shutdown") on_shutdown = cb;
-        },
-        close: function() { conn.close(); }
-    };
-    return handle;
+    return conn;
+}
+
+function fake_tcp_probe(dport, adapter) {
+    return new Promise((res, rej) => {
+        let handle = fake_tcp_connect(dport, adapter);
+        handle.state = TCP_STATE_SYN_PROBE;
+        handle.on("probe", res);
+    });
 }
 
 /**
@@ -1032,7 +1023,18 @@ function TCPConnection()
     this.in_active_close = false;
     this.delayed_send_fin = false;
     this.delayed_state = undefined;
+    this.events_handlers = {};
 }
+
+TCPConnection.prototype.on = function(event, handler) {
+    this.events_handlers[event] = handler;
+};
+
+TCPConnection.prototype.emit = function(event, ...args) {
+    if(!this.events_handlers[event]) return;
+    this.events_handlers[event].apply(this, args);
+};
+
 
 TCPConnection.prototype.ipv4_reply = function() {
     let reply = {};
@@ -1129,6 +1131,11 @@ TCPConnection.prototype.process = function(packet) {
         return;
     }
     else if(packet.tcp.rst) {
+        if(this.state === TCP_STATE_SYN_PROBE) {
+            this.emit("probe", false);
+            this.release();
+            return;
+        }
         // dbg_log(`TCP[${this.tuple}]: received RST in state "${this.state}"`, LOG_FETCH);
         this.on_close();
         this.release();
@@ -1144,9 +1151,13 @@ TCPConnection.prototype.process = function(packet) {
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
             // dbg_log(`TCP[${this.tuple}]: received SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
             this.state = TCP_STATE_ESTABLISHED;
-            if(this.on_connect) {
-                this.on_connect.call(this);
-            }
+            this.emit("connect");
+        }
+        else if(this.state === TCP_STATE_SYN_PROBE && packet.tcp.ack) {
+            this.emit("probe", true);
+            const reply = this.packet_reply(packet, {rst: true});
+            this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
+            this.release();
         }
         else {
             dbg_log(`TCP[${this.tuple}]: WARNING: unexpected SYN packet dropped`, LOG_FETCH);
@@ -1262,7 +1273,7 @@ TCPConnection.prototype.process = function(packet) {
         this.ack += packet.tcp_data.length;
         const reply = this.ipv4_reply();
         this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
-        this.on_data(packet.tcp_data);
+        this.emit("data", packet.tcp_data);
     }
 
     this.pump();
@@ -1325,10 +1336,12 @@ TCPConnection.prototype.close = function() {
 };
 
 TCPConnection.prototype.on_shutdown = function() {
+    this.emit("shutdown");
     // forward FIN event from guest device to network adapter
 };
 
 TCPConnection.prototype.on_close = function() {
+    this.emit("close");
     // forward RST event from guest device to network adapter
 };
 

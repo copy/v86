@@ -186,7 +186,7 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
     conn.stream_id = this.last_stream++;
     this.tcp_conn[tuple] = conn;
 
-    conn.on_data = (data) => {
+    conn.on("data", data => {
         if(data.length !== 0) {
             this.send_wisp_frame({
                 type: "DATA",
@@ -194,7 +194,7 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
                 data: data
             });
         }
-    };
+    });
 
     conn.on_close = () => {
         this.send_wisp_frame({
