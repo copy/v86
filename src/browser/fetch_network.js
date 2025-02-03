@@ -47,7 +47,7 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
         let conn = new TCPConnection();
         conn.state = TCP_STATE_SYN_RECEIVED;
         conn.net = this;
-        conn.on_data = on_data_http;
+        conn.on("data", on_data_http);
         conn.tuple = tuple;
         conn.accept(packet);
         this.tcp_conn[tuple] = conn;
@@ -59,6 +59,11 @@ FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
 FetchNetworkAdapter.prototype.connect = function(port)
 {
     return fake_tcp_connect(port, this);
+};
+
+FetchNetworkAdapter.prototype.tcp_probe = function(port)
+{
+    return fake_tcp_probe(port, this);
 };
 
 /**

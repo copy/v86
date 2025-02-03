@@ -107,7 +107,12 @@ const tests =
         allow_failure: true,
         start: async () =>
         {
+            let open = await emulator.network_adapter.tcp_probe(80);
+            assert(!open, "Probe shows port not open");
             emulator.serial0_send("echo -n hello | socat TCP4-LISTEN:80 - && echo -e done\\\\tlisten\n");
+            await wait(1000);
+            open = await emulator.network_adapter.tcp_probe(80);
+            assert(open, "Probe shows port open, but does not show as a connection");
             await wait(1000);
             let h = emulator.network_adapter.connect(80);
             h.on("connect", () => {
