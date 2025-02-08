@@ -93,5 +93,5 @@ export let {
     ServerFileStorageWrapper,
 } = globals;
 
-export default V86;
+export default globals.V86;
 

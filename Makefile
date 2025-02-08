@@ -21,7 +21,7 @@ WASM_OPT ?= false
 
 default: build/v86-debug.wasm
 all: build/v86_all.js build/libv86.js build/libv86.mjs build/v86.wasm
-all-debug: build/libv86-debug.js build/v86-debug.wasm
+all-debug: build/libv86-debug.js build/libv86-debug.mjs  build/v86-debug.wasm
 browser: build/v86_all.js
 
 # Used for nodejs builds and in order to profile code.
@@ -172,6 +172,22 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+
+build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86-debug.mjs\
+		--define=DEBUG=true\
+		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
+		--jscomp_off=missingProperties\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)\
+		--chunk_output_type=ES_MODULES\
+		--emit_use_strict=false
+	ls -lh build/libv86-debug.mjs
 
 src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit
