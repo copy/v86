@@ -2687,7 +2687,7 @@
     {
         if(window.history.pushState)
         {
-            let search = "?" + params.entries().map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent))["toArray"]().join("&");
+            let search = "?" + Array.from(params.entries()).map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
             window.history.pushState({ search }, "", search);
         }
     }
