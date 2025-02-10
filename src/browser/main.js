@@ -677,6 +677,15 @@
                 homepage: "https://github.com/nanochess/Pillman",
             },
             {
+                id: "invaders",
+                fda: {
+                    url: host + "invaders.img",
+                    size: 512,
+                },
+                name: "Invaders",
+                homepage: "https://github.com/nanochess/Invaders",
+            },
+            {
                 id: "sectorlisp",
                 fda: {
                     url: host + "sectorlisp-friendly.bin",
