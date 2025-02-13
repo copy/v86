@@ -220,6 +220,8 @@ CPU.prototype.wasm_patch = function()
         return f;
     };
 
+    this.cycle_internal = get_import("cycle_internal");
+
     this.reset_cpu = get_import("reset_cpu");
 
     this.getiopl = get_import("getiopl");

@@ -2856,6 +2856,7 @@ pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u
 pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f::run(opcode as u32) }
 pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f::run(opcode as u32 | 0x100) }
 
+#[no_mangle]
 pub unsafe fn cycle_internal() {
     profiler::stat_increment(CYCLE_INTERNAL);
     let mut jit_entry = None;
