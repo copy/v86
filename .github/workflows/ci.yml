@@ -122,6 +122,7 @@ jobs:
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
+            build/*.mjs
 
   upload:
     name: Upload release
