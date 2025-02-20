@@ -133,15 +133,15 @@ function gen_instruction_body(encodings, size)
 
         if(has_66.length) {
             const body = gen_instruction_body_after_prefix(has_66, size);
-            if_blocks.push({ condition: "cpu.prefixes & ::prefix::PREFIX_66 != 0", body, });
+            if_blocks.push({ condition: "cpu.prefixes & prefix::PREFIX_66 != 0", body, });
         }
         if(has_F2.length) {
             const body = gen_instruction_body_after_prefix(has_F2, size);
-            if_blocks.push({ condition: "cpu.prefixes & ::prefix::PREFIX_F2 != 0", body, });
+            if_blocks.push({ condition: "cpu.prefixes & prefix::PREFIX_F2 != 0", body, });
         }
         if(has_F3.length) {
             const body = gen_instruction_body_after_prefix(has_F3, size);
-            if_blocks.push({ condition: "cpu.prefixes & ::prefix::PREFIX_F3 != 0", body, });
+            if_blocks.push({ condition: "cpu.prefixes & prefix::PREFIX_F3 != 0", body, });
         }
 
         const else_block = {
@@ -199,7 +199,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [
-                        "analysis.ty = ::analysis::AnalysisType::BlockBoundary;",
+                        "analysis.ty = analysis::AnalysisType::BlockBoundary;",
                         "analysis.no_next_instruction = true;",
                     ],
                 }
@@ -218,14 +218,14 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     const instruction_postfix = [];
 
     if(encoding.custom_sti) {
-        instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::STI;");
+        instruction_postfix.push("analysis.ty = analysis::AnalysisType::STI;");
     }
     else if(
         encoding.block_boundary &&
         // jump_offset_imm: Is a block boundary, but gets a different type (Jump) below
         !encoding.jump_offset_imm || (!encoding.custom && encoding.e))
     {
-        instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::BlockBoundary;");
+        instruction_postfix.push("analysis.ty = analysis::AnalysisType::BlockBoundary;");
     }
 
     if(encoding.no_next_instruction)
@@ -239,7 +239,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
     if(encoding.prefix)
     {
-        const instruction_name = "::analysis::" + make_instruction_name(encoding, size) + "_analyze";
+        const instruction_name = "analysis::" + make_instruction_name(encoding, size) + "_analyze";
         const args = ["cpu", "analysis"];
 
         assert(!imm_read);
@@ -259,14 +259,14 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         if(encoding.mem_ud)
         {
             mem_postfix.push(
-                "analysis.ty = ::analysis::AnalysisType::BlockBoundary;"
+                "analysis.ty = analysis::AnalysisType::BlockBoundary;"
             );
         }
 
         if(encoding.reg_ud)
         {
             reg_postfix.push(
-                "analysis.ty = ::analysis::AnalysisType::BlockBoundary;"
+                "analysis.ty = analysis::AnalysisType::BlockBoundary;"
             );
         }
 
@@ -287,7 +287,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                     if_blocks: [{
                         condition: "modrm_byte < 0xC0",
                         body: [].concat(
-                            gen_call("::analysis::modrm_analyze", ["cpu", "modrm_byte"]),
+                            gen_call("analysis::modrm_analyze", ["cpu", "modrm_byte"]),
                             mem_postfix,
                         ),
                     }],
@@ -320,11 +320,11 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                         (encoding.opcode & ~0x3) === 0xE0
                     );
                     const condition_index = encoding.opcode & 0xFF;
-                    body.push(`analysis.ty = ::analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: Some(0x${hex(condition_index, 2)}), is_32: cpu.osize_32() };`);
+                    body.push(`analysis.ty = analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: Some(0x${hex(condition_index, 2)}), is_32: cpu.osize_32() };`);
                 }
                 else
                 {
-                    body.push(`analysis.ty = ::analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: None, is_32: cpu.osize_32() };`);
+                    body.push(`analysis.ty = analysis::AnalysisType::Jump { offset: jump_offset as i32, condition: None, is_32: cpu.osize_32() };`);
                 }
             }
             else
@@ -415,7 +415,10 @@ function gen_table()
     {
         const code = [
             "#[cfg_attr(rustfmt, rustfmt_skip)]",
-            "pub fn analyzer(opcode: u32, cpu: &mut ::cpu_context::CpuContext, analysis: &mut ::analysis::Analysis) {",
+            "use crate::analysis;",
+            "use crate::prefix;",
+            "use crate::cpu_context;",
+            "pub fn analyzer(opcode: u32, cpu: &mut cpu_context::CpuContext, analysis: &mut analysis::Analysis) {",
             table,
             "}",
         ];
@@ -472,7 +475,10 @@ function gen_table()
         const code = [
             "#![allow(unused)]",
             "#[cfg_attr(rustfmt, rustfmt_skip)]",
-            "pub fn analyzer(opcode: u32, cpu: &mut ::cpu_context::CpuContext, analysis: &mut ::analysis::Analysis) {",
+            "use crate::analysis;",
+            "use crate::prefix;",
+            "use crate::cpu_context;",
+            "pub fn analyzer(opcode: u32, cpu: &mut cpu_context::CpuContext, analysis: &mut analysis::Analysis) {",
             table0f,
             "}"
         ];

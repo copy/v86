@@ -6,7 +6,7 @@
 pub const PIC_LOG: bool = false;
 pub const PIC_LOG_VERBOSE: bool = false;
 
-use cpu::cpu;
+use crate::cpu::cpu;
 use std::sync::{Mutex, MutexGuard};
 
 // Note: This layout is deliberately chosen to match the old JavaScript pic state

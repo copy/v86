@@ -9,22 +9,19 @@
 // ins    0    0   1/w
 // outs   0    1   0
 
-use cpu::arith::{cmp16, cmp32, cmp8};
-use cpu::cpu::{
+use crate::cpu;
+use crate::cpu::arith::{cmp16, cmp32, cmp8};
+use crate::cpu::cpu::{
     get_seg, io_port_read16, io_port_read32, io_port_read8, io_port_write16, io_port_write32,
     io_port_write8, read_reg16, read_reg32, safe_read16, safe_read32s, safe_read8, safe_write16,
     safe_write32, safe_write8, set_reg_asize, test_privileges_for_io, translate_address_read,
     translate_address_write_and_can_skip_dirty, writable_or_pagefault, write_reg16, write_reg32,
     write_reg8, AL, AX, DX, EAX, ECX, EDI, ES, ESI, FLAG_DIRECTION,
 };
-use cpu::global_pointers::{flags, instruction_pointer, previous_ip};
-use cpu::memory::{
-    in_mapped_range, in_svga_lfb, memcpy_into_svga_lfb, memcpy_no_mmap_or_dirty_check,
-    memset_no_mmap_or_dirty_check, read16_no_mmap_check, read32_no_mmap_check, read8_no_mmap_check,
-    write16_no_mmap_or_dirty_check, write32_no_mmap_or_dirty_check, write8_no_mmap_or_dirty_check,
-};
-use jit;
-use page::Page;
+use crate::cpu::global_pointers::{flags, instruction_pointer, previous_ip};
+use crate::cpu::memory;
+use crate::jit;
+use crate::page::Page;
 
 fn count_until_end_of_page(direction: i32, size: i32, addr: u32) -> u32 {
     (if direction == 1 {
@@ -166,21 +163,21 @@ unsafe fn string_instruction(
             Instruction::Movs => {
                 let (addr, skip) =
                     return_on_pagefault!(translate_address_write_and_can_skip_dirty(es + dst));
-                movs_into_svga_lfb = in_svga_lfb(addr);
-                rep_fast = rep_fast && (!in_mapped_range(addr) || movs_into_svga_lfb);
+                movs_into_svga_lfb = memory::in_svga_lfb(addr);
+                rep_fast = rep_fast && (!memory::in_mapped_range(addr) || movs_into_svga_lfb);
                 phys_dst = addr;
                 skip_dirty_page = skip;
             },
             Instruction::Stos | Instruction::Ins => {
                 let (addr, skip) =
                     return_on_pagefault!(translate_address_write_and_can_skip_dirty(es + dst));
-                rep_fast = rep_fast && !in_mapped_range(addr);
+                rep_fast = rep_fast && !memory::in_mapped_range(addr);
                 phys_dst = addr;
                 skip_dirty_page = skip;
             },
             Instruction::Cmps | Instruction::Scas => {
                 let addr = return_on_pagefault!(translate_address_read(es + dst));
-                rep_fast = rep_fast && !in_mapped_range(addr);
+                rep_fast = rep_fast && !memory::in_mapped_range(addr);
                 phys_dst = addr;
                 skip_dirty_page = true;
             },
@@ -190,7 +187,7 @@ unsafe fn string_instruction(
         match instruction {
             Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
                 let addr = return_on_pagefault!(translate_address_read(ds + src));
-                rep_fast = rep_fast && !in_mapped_range(addr);
+                rep_fast = rep_fast && !memory::in_mapped_range(addr);
                 phys_src = addr;
             },
             _ => {},
@@ -261,9 +258,9 @@ unsafe fn string_instruction(
             let src_val = match instruction {
                 Instruction::Movs | Instruction::Cmps | Instruction::Lods | Instruction::Outs => {
                     match size {
-                        Size::B => read8_no_mmap_check(phys_src),
-                        Size::W => read16_no_mmap_check(phys_src),
-                        Size::D => read32_no_mmap_check(phys_src),
+                        Size::B => memory::read8_no_mmap_check(phys_src),
+                        Size::W => memory::read16_no_mmap_check(phys_src),
+                        Size::D => memory::read32_no_mmap_check(phys_src),
                     }
                 },
                 Instruction::Scas | Instruction::Stos => data & size_mask,
@@ -278,9 +275,9 @@ unsafe fn string_instruction(
 
             match instruction {
                 Instruction::Cmps | Instruction::Scas => match size {
-                    Size::B => dst_val = read8_no_mmap_check(phys_dst),
-                    Size::W => dst_val = read16_no_mmap_check(phys_dst),
-                    Size::D => dst_val = read32_no_mmap_check(phys_dst),
+                    Size::B => dst_val = memory::read8_no_mmap_check(phys_dst),
+                    Size::W => dst_val = memory::read16_no_mmap_check(phys_dst),
+                    Size::D => dst_val = memory::read32_no_mmap_check(phys_dst),
                 },
                 Instruction::Outs => match size {
                     Size::B => io_port_write8(port, src_val),
@@ -293,9 +290,9 @@ unsafe fn string_instruction(
                     Size::D => write_reg32(EAX, src_val),
                 },
                 Instruction::Ins => match size {
-                    Size::B => write8_no_mmap_or_dirty_check(phys_dst, src_val),
-                    Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
-                    Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::B => memory::write8_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::W => memory::write16_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::D => memory::write32_no_mmap_or_dirty_check(phys_dst, src_val),
                 },
                 Instruction::Movs => {
                     if direction == -1 {
@@ -303,15 +300,15 @@ unsafe fn string_instruction(
                         phys_dst -= (count_until_end_of_page - 1) * size_bytes as u32;
                     }
                     if movs_into_svga_lfb {
-                        ::cpu::vga::mark_dirty(phys_dst);
-                        memcpy_into_svga_lfb(
+                        cpu::vga::mark_dirty(phys_dst);
+                        memory::memcpy_into_svga_lfb(
                             phys_src,
                             phys_dst,
                             count_until_end_of_page * size_bytes as u32,
                         );
                     }
                     else {
-                        memcpy_no_mmap_or_dirty_check(
+                        memory::memcpy_no_mmap_or_dirty_check(
                             phys_src,
                             phys_dst,
                             count_until_end_of_page * size_bytes as u32,
@@ -325,7 +322,7 @@ unsafe fn string_instruction(
                         if direction == -1 {
                             phys_dst -= count_until_end_of_page - 1
                         }
-                        memset_no_mmap_or_dirty_check(
+                        memory::memset_no_mmap_or_dirty_check(
                             phys_dst,
                             src_val as u8,
                             count_until_end_of_page,
@@ -333,8 +330,8 @@ unsafe fn string_instruction(
                         i = count_until_end_of_page;
                         break;
                     },
-                    Size::W => write16_no_mmap_or_dirty_check(phys_dst, src_val),
-                    Size::D => write32_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::W => memory::write16_no_mmap_or_dirty_check(phys_dst, src_val),
+                    Size::D => memory::write32_no_mmap_or_dirty_check(phys_dst, src_val),
                 },
             };
 

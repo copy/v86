@@ -1,5 +1,5 @@
-use cpu::cpu::*;
-use paging::OrPageFault;
+use crate::cpu::cpu::*;
+use crate::paging::OrPageFault;
 
 pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {
     match modrm_byte & !0o070 {

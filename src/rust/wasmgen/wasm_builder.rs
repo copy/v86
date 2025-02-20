@@ -1,11 +1,11 @@
 use std::collections::HashMap;
+use std::mem::transmute;
 
-use leb::{
+use crate::leb::{
     write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_i64, write_leb_u32,
 };
-use std::mem::transmute;
-use util::{SafeToU16, SafeToU8};
-use wasmgen::wasm_opcodes as op;
+use crate::util::{SafeToU16, SafeToU8};
+use crate::wasmgen::wasm_opcodes as op;
 
 #[derive(PartialEq)]
 #[allow(non_camel_case_types)]

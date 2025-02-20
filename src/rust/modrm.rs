@@ -1,12 +1,12 @@
-use codegen;
-use cpu::global_pointers;
-use cpu_context::CpuContext;
-use jit::JitContext;
-use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
-use profiler;
-use regs::{BP, BX, DI, SI};
-use regs::{CS, DS, ES, FS, GS, SS};
-use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
+use crate::codegen;
+use crate::cpu::global_pointers;
+use crate::cpu_context::CpuContext;
+use crate::jit::JitContext;
+use crate::prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
+use crate::profiler;
+use crate::regs::{BP, BX, DI, SI};
+use crate::regs::{CS, DS, ES, FS, GS, SS};
+use crate::regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 
 pub struct ModrmByte {
     segment: u32,

@@ -13,26 +13,27 @@ unsafe fn unimplemented_sse() {
     trigger_ud()
 }
 
-use cpu::arith::{
+use crate::config;
+use crate::cpu::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
     bts_reg, cmpxchg16, cmpxchg32, cmpxchg8, popcnt, shld16, shld32, shrd16, shrd32, xadd16,
     xadd32, xadd8,
 };
-use cpu::arith::{
+use crate::cpu::arith::{
     imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
     saturate_sw_to_sb, saturate_sw_to_ub, saturate_ud_to_ub, saturate_uw,
 };
-use cpu::cpu::*;
-use cpu::fpu::fpu_set_tag_word;
-use cpu::global_pointers::*;
-use cpu::misc_instr::{
+use crate::cpu::cpu::*;
+use crate::cpu::fpu::fpu_set_tag_word;
+use crate::cpu::global_pointers::*;
+use crate::cpu::misc_instr::{
     adjust_stack_reg, bswap, cmovcc16, cmovcc32, fxrstor, fxsave, get_stack_pointer, jmpcc16,
     jmpcc32, push16, push32_sreg, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
     test_p, test_s, test_z,
 };
-use cpu::misc_instr::{lar, lsl, verr, verw};
-use cpu::misc_instr::{lss16, lss32};
-use cpu::sse_instr::*;
+use crate::cpu::misc_instr::{lar, lsl, verr, verw};
+use crate::cpu::misc_instr::{lss16, lss32};
+use crate::cpu::sse_instr::*;
 
 #[no_mangle]
 pub unsafe fn instr16_0F00_0_mem(addr: i32) {
@@ -1202,12 +1203,12 @@ pub unsafe fn instr_0F30() {
         IA32_APIC_BASE => {
             dbg_assert!(
                 high == 0,
-                ("Changing APIC address (high 32 bits) not supported")
+                "Changing APIC address (high 32 bits) not supported"
             );
             let address = low & !(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
             dbg_assert!(
                 address == APIC_ADDRESS,
-                ("Changing APIC address not supported")
+                "Changing APIC address not supported"
             );
             dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
             *apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
@@ -3245,7 +3246,7 @@ pub unsafe fn instr_0FA2() {
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
             ecx = 1 << 0 | 1 << 23 | 1 << 30; // sse3, popcnt, rdrand
             let vme = 0 << 1;
-            if ::config::VMWARE_HYPERVISOR_PORT {
+            if config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
             }; // hypervisor
             edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
@@ -3318,7 +3319,7 @@ pub unsafe fn instr_0FA2() {
 
         0x40000000 => {
             // hypervisor
-            if ::config::VMWARE_HYPERVISOR_PORT {
+            if config::VMWARE_HYPERVISOR_PORT {
                 // h("Ware".split("").reduce((a, c, i) => a | c.charCodeAt(0) << i * 8, 0))
                 ebx = 0x61774D56 | 0; // VMwa
                 ecx = 0x4D566572 | 0; // reVM

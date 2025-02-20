@@ -1,5 +1,5 @@
-use cpu::cpu::*;
-use cpu::global_pointers::mxcsr;
+use crate::cpu::cpu::*;
+use crate::cpu::global_pointers::mxcsr;
 
 pub unsafe fn mov_r_m64(addr: i32, r: i32) {
     // mov* m64, mm

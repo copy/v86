@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
-use jit::{BasicBlock, BasicBlockType, MAX_EXTRA_BASIC_BLOCKS};
-use profiler;
+use crate::jit::{BasicBlock, BasicBlockType, MAX_EXTRA_BASIC_BLOCKS};
+use crate::profiler;
 
 const ENTRY_NODE_ID: u32 = 0xffff_ffff;
 

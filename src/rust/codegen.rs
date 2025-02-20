@@ -1,15 +1,16 @@
-use cpu::cpu::{
+use crate::cpu::cpu::{
     tlb_data, FLAG_CARRY, FLAG_OVERFLOW, FLAG_SIGN, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
     TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
-use cpu::global_pointers;
-use cpu::memory;
-use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
-use modrm;
-use modrm::ModrmByte;
-use profiler;
-use regs;
-use wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalI64};
+use crate::cpu::global_pointers;
+use crate::cpu::memory;
+use crate::jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
+use crate::modrm;
+use crate::modrm::ModrmByte;
+use crate::opstats;
+use crate::profiler;
+use crate::regs;
+use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalI64};
 
 pub fn gen_add_cs_offset(ctx: &mut JitContext) {
     if !ctx.cpu.has_flat_segmentation() {
@@ -2620,7 +2621,7 @@ pub fn gen_condition_fn(ctx: &mut JitContext, condition: u8) {
 pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
     if cfg!(feature = "profiler") {
         let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+        opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
     }
 
     for i in 0..8 {
@@ -2633,7 +2634,7 @@ pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
 pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
     if cfg!(feature = "profiler") {
         let instruction = memory::read32s(ctx.start_of_current_instruction) as u32;
-        ::opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
+        opstats::gen_opstat_unguarded_register(ctx.builder, instruction);
     }
 
     for i in 0..8 {

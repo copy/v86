@@ -5,22 +5,23 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 use std::sync::{Mutex, MutexGuard};
 
-use analysis::AnalysisType;
-use codegen;
-use control_flow;
-use control_flow::WasmStructure;
-use cpu::cpu;
-use cpu::global_pointers;
-use cpu::memory;
-use cpu_context::CpuContext;
-use jit_instructions;
-use opstats;
-use page::Page;
-use profiler;
-use profiler::stat;
-use state_flags::CachedStateFlags;
-use util::SafeToU16;
-use wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal};
+use crate::analysis;
+use crate::analysis::AnalysisType;
+use crate::codegen;
+use crate::control_flow;
+use crate::control_flow::WasmStructure;
+use crate::cpu::cpu;
+use crate::cpu::global_pointers;
+use crate::cpu::memory;
+use crate::cpu_context::CpuContext;
+use crate::jit_instructions;
+use crate::opstats;
+use crate::page::Page;
+use crate::profiler;
+use crate::profiler::stat;
+use crate::state_flags::CachedStateFlags;
+use crate::util::SafeToU16;
+use crate::wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal};
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(transparent)]
@@ -30,7 +31,7 @@ impl WasmTableIndex {
 }
 
 mod unsafe_jit {
-    use jit::{CachedStateFlags, WasmTableIndex};
+    use super::{CachedStateFlags, WasmTableIndex};
 
     extern "C" {
         pub fn codegen_finalize(
@@ -538,7 +539,7 @@ fn jit_find_basic_blocks(
                 eip: current_address,
                 ..cpu
             };
-            let analysis = ::analysis::analyze_step(&mut cpu);
+            let analysis = analysis::analyze_step(&mut cpu);
             current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;

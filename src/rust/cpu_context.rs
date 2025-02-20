@@ -1,6 +1,6 @@
-use cpu::memory;
-use prefix::{PREFIX_MASK_ADDRSIZE, PREFIX_MASK_OPSIZE};
-use state_flags::CachedStateFlags;
+use crate::cpu::memory;
+use crate::prefix::{PREFIX_MASK_ADDRSIZE, PREFIX_MASK_OPSIZE};
+use crate::state_flags::CachedStateFlags;
 
 #[derive(Clone)]
 pub struct CpuContext {

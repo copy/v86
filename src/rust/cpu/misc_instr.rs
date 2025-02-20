@@ -1,9 +1,9 @@
-use cpu::cpu::*;
-use cpu::fpu::{
+use crate::cpu::cpu::*;
+use crate::cpu::fpu::{
     fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80, set_control_word,
 };
-use cpu::global_pointers::*;
-use paging::OrPageFault;
+use crate::cpu::global_pointers::*;
+use crate::paging::OrPageFault;
 
 pub unsafe fn getcf() -> bool {
     if 0 != *flags_changed & 1 {

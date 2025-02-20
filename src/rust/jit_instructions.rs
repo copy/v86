@@ -1,21 +1,22 @@
 #![allow(non_snake_case)]
 
-use codegen;
-use codegen::{BitSize, ConditionNegate};
-use cpu::cpu::{
+use crate::codegen;
+use crate::codegen::{BitSize, ConditionNegate};
+use crate::cpu::cpu::{
     FLAGS_ALL, FLAGS_DEFAULT, FLAGS_MASK, FLAG_ADJUST, FLAG_CARRY, FLAG_DIRECTION, FLAG_INTERRUPT,
     FLAG_IOPL, FLAG_OVERFLOW, FLAG_SUB, FLAG_VM, FLAG_ZERO, OPSIZE_16, OPSIZE_32, OPSIZE_8,
 };
-use cpu::global_pointers;
-use jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
-use modrm::{jit_add_seg_offset, jit_add_seg_offset_no_override, ModrmByte};
-use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
-use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
-use regs;
-use regs::{AX, BP, BX, CX, DI, DX, SI, SP};
-use regs::{CS, DS, ES, FS, GS, SS};
-use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
-use wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
+use crate::cpu::global_pointers;
+use crate::gen;
+use crate::jit::{Instruction, InstructionOperand, InstructionOperandDest, JitContext};
+use crate::modrm::{jit_add_seg_offset, jit_add_seg_offset_no_override, ModrmByte};
+use crate::prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
+use crate::prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
+use crate::regs;
+use crate::regs::{AX, BP, BX, CX, DI, DX, SI, SP};
+use crate::regs::{CS, DS, ES, FS, GS, SS};
+use crate::regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
+use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocal};
 
 enum LocalOrImmediate<'a> {
     WasmLocal(&'a WasmLocal),
@@ -75,7 +76,7 @@ fn local_to_instruction_operand(ctx: &mut JitContext, local: &WasmLocal) -> Inst
 pub fn jit_instruction(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes = 0;
     ctx.start_of_current_instruction = ctx.cpu.eip;
-    ::gen::jit::jit(
+    gen::jit::jit(
         ctx.cpu.read_imm8() as u32 | (ctx.cpu.osize_32() as u32) << 8,
         ctx,
         instr_flags,
@@ -83,7 +84,7 @@ pub fn jit_instruction(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 
 pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
-    ::gen::jit::jit(
+    gen::jit::jit(
         ctx.cpu.read_imm8() as u32 | (ctx.cpu.osize_32() as u32) << 8,
         ctx,
         instr_flags,
@@ -97,10 +98,10 @@ pub fn jit_handle_segment_prefix(segment: u32, ctx: &mut JitContext, instr_flags
 }
 
 pub fn instr16_0F_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
-    ::gen::jit0f::jit(ctx.cpu.read_imm8() as u32, ctx, instr_flags)
+    gen::jit0f::jit(ctx.cpu.read_imm8() as u32, ctx, instr_flags)
 }
 pub fn instr32_0F_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
-    ::gen::jit0f::jit(ctx.cpu.read_imm8() as u32 | 0x100, ctx, instr_flags)
+    gen::jit0f::jit(ctx.cpu.read_imm8() as u32 | 0x100, ctx, instr_flags)
 }
 pub fn instr_26_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     jit_handle_segment_prefix(ES, ctx, instr_flags)

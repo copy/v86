@@ -2,6 +2,7 @@
 name = "v86"
 version = "0.1.0"
 publish = false
+edition = "2021"
 
 [features]
 default = []

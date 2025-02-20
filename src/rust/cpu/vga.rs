@@ -6,8 +6,8 @@
 static mut dirty_bitmap: Vec<u64> = Vec::new();
 static mut dest_buffer: Vec<u32> = Vec::new();
 
-use cpu::global_pointers;
-use cpu::memory;
+use crate::cpu::global_pointers;
+use crate::cpu::memory;
 
 use std::ptr;
 

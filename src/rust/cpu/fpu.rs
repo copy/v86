@@ -1,7 +1,8 @@
-use cpu::cpu::*;
-use cpu::global_pointers::*;
-use paging::OrPageFault;
-use softfloat::{Precision, RoundingMode, F80};
+use crate::cpu::cpu::*;
+use crate::cpu::global_pointers::*;
+use crate::paging::OrPageFault;
+use crate::softfloat::{Precision, RoundingMode, F80};
+
 use std::f64;
 
 const FPU_C0: u16 = 0x100;

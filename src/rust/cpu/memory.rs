@@ -12,11 +12,11 @@ mod ext {
     }
 }
 
-use cpu::cpu::reg128;
-use cpu::global_pointers::memory_size;
-use cpu::vga;
-use jit;
-use page::Page;
+use crate::cpu::cpu::reg128;
+use crate::cpu::global_pointers::memory_size;
+use crate::cpu::vga;
+use crate::jit;
+use crate::page::Page;
 
 use std::alloc;
 use std::ptr;

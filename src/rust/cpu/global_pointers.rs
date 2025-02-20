@@ -1,8 +1,8 @@
 #![allow(non_upper_case_globals)]
 
-use cpu::cpu::reg128;
-use softfloat::F80;
-use state_flags::CachedStateFlags;
+use crate::cpu::cpu::reg128;
+use crate::softfloat::F80;
+use crate::state_flags::CachedStateFlags;
 
 pub const reg8: *mut u8 = 64 as *mut u8;
 pub const reg16: *mut u16 = 64 as *mut u16;

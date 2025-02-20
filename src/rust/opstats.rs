@@ -1,4 +1,4 @@
-use wasmgen::wasm_builder::WasmBuilder;
+use crate::wasmgen::wasm_builder::WasmBuilder;
 
 const SIZE: usize = if cfg!(feature = "profiler") { 8192 } else { 0 };
 
