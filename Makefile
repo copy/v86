@@ -361,7 +361,7 @@ api-tests: all-debug
 	./tests/api/reboot.js
 	./tests/api/pic.js
 
-all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit tests expect-tests
+all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
 	# Skipping:
 	# - devices-test (hangs)
 

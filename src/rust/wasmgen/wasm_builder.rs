@@ -961,14 +961,13 @@ impl WasmBuilder {
 
 #[cfg(test)]
 mod tests {
+    use super::{FunctionType, WasmBuilder, WASM_MODULE_ARGUMENT_COUNT};
     use std::fs::File;
     use std::io::Write;
-    use wasmgen::wasm_builder;
-    use wasmgen::wasm_builder::FunctionType;
 
     #[test]
     fn import_table_management() {
-        let mut w = wasm_builder::WasmBuilder::new();
+        let mut w = WasmBuilder::new();
 
         assert_eq!(0, w.get_fn_idx("foo", FunctionType::FN0));
         assert_eq!(1, w.get_fn_idx("bar", FunctionType::FN1));
@@ -978,7 +977,7 @@ mod tests {
 
     #[test]
     fn builder_test() {
-        let mut m = wasm_builder::WasmBuilder::new();
+        let mut m = WasmBuilder::new();
 
         m.call_fn("foo", FunctionType::FN0);
         m.call_fn("bar", FunctionType::FN0);
@@ -1006,7 +1005,7 @@ mod tests {
         m.free_local(local1);
 
         let local3 = m.alloc_local();
-        assert_eq!(local3.idx(), wasm_builder::WASM_MODULE_ARGUMENT_COUNT);
+        assert_eq!(local3.idx(), WASM_MODULE_ARGUMENT_COUNT);
 
         m.free_local(local2);
         m.free_local(local3);
