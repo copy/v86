@@ -21,7 +21,7 @@ function FetchNetworkAdapter(bus, config)
     this.doh_server = config.doh_server;
     this.tcp_conn = {};
     this.eth_encoder_buf = create_eth_encoder_buf();
-    this.fetch = fetch;
+    this.fetch = (...args) => fetch(...args);
 
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
@@ -33,8 +33,6 @@ function FetchNetworkAdapter(bus, config)
     {
         this.send(data);
     }, this);
-
-    //Object.seal(this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
