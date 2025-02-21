@@ -66,7 +66,7 @@ Backends `fetch` and `wisp` support a couple of special settings in `config.net_
 #### Example `net_device` settings
 
 * **Example 1:** Provide an emulated NE2000 NIC to the guest OS and use the `wsproxy` backend with a secure wsproxy server at public host `relay.widgetry.org` listening at default TLS port 443:
-   ```
+   ```javascript
    let example_1 = new V86({
        net_device: {
            relay_url: "wss://relay.widgetry.org/"
@@ -76,7 +76,7 @@ Backends `fetch` and `wisp` support a couple of special settings in `config.net_
    ```
 
 * **Example 2:** Provide a VirtIO NIC to the guest OS and use the `fetch` backend with a CORS proxy server at the local machine listening at port number 23456:
-   ```
+   ```javascript
    let example_2 = new V86({
        net_device: {
            type: "virtio",
@@ -89,33 +89,33 @@ Backends `fetch` and `wisp` support a couple of special settings in `config.net_
 
 ## Network backends
 
-One way to compare the different network backends is how they operate on different layers in the [OSI reference model](https://en.wikipedia.org/wiki/OSI_model) (roughly):
+One way to compare the different network backends is how they operate on different layers of the TCP/IP Model (see [Wikipedia](https://en.wikipedia.org/wiki/OSI_model#Comparison_with_TCP/IP_model) for a comparison to the OSI model), approximately:
 
-       Network Peer                Backend                   v86 Guest
+     Network Peer              Backend                 v86 Guest
 
-    [ 7: Application  ] <---- fetch ----> +-----+       [ 7: Application  ]
-    [ 6: Presentation ]                   |     |       [ 6: Presentation ]
-    [ 5: Session      ]                   |     |       [ 5: Session      ]
-    [ 4: Transport    ] <---- wisp -----> | v86 |       [ 4: Transport    ]
-    [ 3: Network      ]                   |     |       [ 3: Network      ]
-    [ 2: Data Link    ] <--- wsproxy ---> |     | <---> [ 2: Data Link    ]
-    [ 1: Physical     ]   and inbrowser   +-----+       [ 1: Physical     ]
+    [ Application ] <---- fetch ----> +-----+       [ Application ]
+    [   Transport ] <---- wisp -----> | v86 |       [ Transport   ]
+    [     Network ]                   |     |       [ Network     ]
+    [      Access ] <--- wsproxy ---> +-----+ <---> [ Access      ]
+                      and inbrowser
 
-                        Fig. 1: Network backends in v86
+                    Fig. 1: Network backends in v86
 
-v86 guests strictly expect to exchange layer-2 ethernet frames with their (emulated) network card, hence the higher the OSI layer that a v86 network backend operates on the more virtualized the network becomes and the more work has to be done by the backend to fill in for the missing layers.
+v86 guests strictly expect to exchange raw ethernet frames with their (emulated) network card, hence the higher the layer that a v86 network backend operates on the more virtualized the network becomes and the more work has to be done by the backend to fill in for the missing layers.
 
 In order to facilitate this for backend implementations, v86 provides helper functions to encode/decode ethernet frames, ARP and IPv4 packets, UDP datagrams, TCP streams and HTTP requests/responses. v86 can also provide minimal but sufficient ARP, ICMP-echo, DHCP, DNS (including DoH) and NTP services to guests.
 
+The v86 architecture is open for additional network backend implementations, for a basic example see [examples/two_instances.html](../examples/two_instances.html).
+
 ### The `inbrowser` backend
 
-This backend provides layer-2 networking services for multiple v86 guests running within the same browser process (meaning within the same web page and/or in separate browser tabs). It works standalone without a proxy server, but it also does not provide any access to external networks.
+This backend provides raw ethernet services for multiple v86 guests running within the same browser process (meaning within the same web page and/or in separate browser tabs). It works standalone without a proxy server, but it also does not provide any access to external networks.
 
 The `inbrowser` backend is implemented using the browser-internal [BroadcastChannel](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel) API, due to its simplicity it is the most efficient backend, however all VMs have to share the same browser resources.
 
 ### The `wsproxy` backend
 
-A backend based on a proxy server that provides layer-2 networking services to guests using the [WebSocket](https://en.wikipedia.org/wiki/WebSocket) protocol for transport. It depends on the specific proxy server what kind of network configuration it presents to guests, but usually a separate IP subnet with DHCP and DNS services and optional access to the server's physical network and possibly Internet are provided.
+A backend based on a proxy server that provides raw ethernet services to guests using the [WebSocket](https://en.wikipedia.org/wiki/WebSocket) protocol for transport. It depends on the specific proxy server what kind of network configuration it presents to guests, but usually a separate IP subnet with DHCP and DNS services and optional access to the server's physical network and possibly Internet are provided.
 
 Since this backend (including its proxy server) only forwards unmodified ethernet frames it is inherently efficient while providing full physical network emulation to guests.
 
@@ -148,7 +148,7 @@ v86 guests are isolated from each other when using the `wisp` backend.
 > The WISP protocol only supports UDP and TCP client sockets in the v86 guest, any server sockets listening in the guest are not supported.
 
 > [!NOTE]
-> This WISP implementation does not support UDP, only TCP.
+> This WISP implementation does not support UDP, only TCP. Once UDP is added, regular DNS over UDP will become the default (instead of DoH), and the builtin NTP and UDP-Echo servers will be removed.
 
 ### The `fetch` backend
 
@@ -203,11 +203,11 @@ after the state has been loaded.
 
 ### NodeJS
 
-There is no built-in support for v86 networking under NodeJS, but network backends `wsproxy` and `wisp` only depend on a browser-compatible `WebSocket` constructor being present in the global scope, whereas backends `inbrowser` and `fetch` should work directly.
+Network backends `wsproxy` and `wisp` depend on a browser-compatible `WebSocket` constructor being present which is the case since NodeJS v22, backends `inbrowser` and `fetch` should work straightaway.
 
 ## Links
 
 * [`examples/two_instances.html`](../examples/two_instances.html), example code that shows how to connect two VMs in a web page with a virtual ethernet crossover cable.
-* [`examples/broadcast-network.html`](../examples/broadcast-network.html), example code that shows how the `inbrowser` backend works.
+* [`examples/broadcast-network.html`](../examples/broadcast-network.html), example code that shows the raw packet API.
 * [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Server 2003) using a virtual crossover cable.
 * [Working on a new cross-platform network relay that is a full virtualized network #1064](https://github.com/copy/v86/discussions/1064) (used in [env86 #1085](https://github.com/copy/v86/discussions/1085))
