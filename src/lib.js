@@ -542,7 +542,7 @@ v86util.Bitmap.prototype.get_buffer = function()
 };
 
 
-if(typeof XMLHttpRequest === "undefined")
+if(typeof XMLHttpRequest === "undefined" || (typeof process !== "undefined" && process.versions && process.versions.node))
 {
     v86util.load_file = load_file_nodejs;
 }
