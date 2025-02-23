@@ -3311,16 +3311,16 @@ pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
 #[cfg(feature = "profiler")]
 pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
     if entry & TLB_VALID == 0 {
-        profiler::stat_increment(SAFE_READ_SLOW_NOT_VALID);
+        profiler::stat_increment(stat::SAFE_READ_SLOW_NOT_VALID);
     }
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
-        profiler::stat_increment(SAFE_READ_SLOW_IN_MAPPED_RANGE);
+        profiler::stat_increment(stat::SAFE_READ_SLOW_IN_MAPPED_RANGE);
     }
     else if entry & TLB_NO_USER != 0 {
-        profiler::stat_increment(SAFE_READ_SLOW_NOT_USER);
+        profiler::stat_increment(stat::SAFE_READ_SLOW_NOT_USER);
     }
     else if address & 0xFFF > 0x1000 - 16 {
-        profiler::stat_increment(SAFE_READ_SLOW_PAGE_CROSSED);
+        profiler::stat_increment(stat::SAFE_READ_SLOW_PAGE_CROSSED);
     }
     else {
         dbg_log!("Unexpected entry bit: {:x} (read at {:x})", entry, address);
@@ -3332,22 +3332,22 @@ pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
 #[cfg(feature = "profiler")]
 pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     if entry & TLB_VALID == 0 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_NOT_VALID);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_NOT_VALID);
     }
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
     }
     else if entry & TLB_HAS_CODE != 0 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_HAS_CODE);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_HAS_CODE);
     }
     else if entry & TLB_READONLY != 0 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_READ_ONLY);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_READ_ONLY);
     }
     else if entry & TLB_NO_USER != 0 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_NOT_USER);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_NOT_USER);
     }
     else if address & 0xFFF > 0x1000 - 16 {
-        profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
+        profiler::stat_increment(stat::SAFE_WRITE_SLOW_PAGE_CROSSED);
     }
     else {
         dbg_assert!(false);
@@ -3358,22 +3358,22 @@ pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
 #[cfg(feature = "profiler")]
 pub fn report_safe_read_write_jit_slow(address: u32, entry: i32) {
     if entry & TLB_VALID == 0 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_NOT_VALID);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_NOT_VALID);
     }
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_IN_MAPPED_RANGE);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_IN_MAPPED_RANGE);
     }
     else if entry & TLB_HAS_CODE != 0 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_HAS_CODE);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_HAS_CODE);
     }
     else if entry & TLB_READONLY != 0 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_READ_ONLY);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_READ_ONLY);
     }
     else if entry & TLB_NO_USER != 0 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_NOT_USER);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_NOT_USER);
     }
     else if address & 0xFFF > 0x1000 - 16 {
-        profiler::stat_increment(SAFE_READ_WRITE_SLOW_PAGE_CROSSED);
+        profiler::stat_increment(stat::SAFE_READ_WRITE_SLOW_PAGE_CROSSED);
     }
     else {
         dbg_assert!(false);
