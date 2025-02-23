@@ -533,26 +533,23 @@ V86.prototype.continue_init = async function(emulator, options)
 
     var cont = function(index)
     {
-        if(index === total)
-        {
-            setTimeout(done.bind(this), 0);
-            return;
-        }
-
         var f = files_to_load[index];
-
+        dbg_log("Start loading file: " + f.name);
         if(f.loadable)
         {
+            return new Promise((resolve) => {
             f.loadable.onload = function(e)
             {
                 put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
+                dbg_log("File Loaded: " + f.name);
+                resolve();
             }.bind(this);
             f.loadable.load();
+            });
         }
         else
         {
-            v86util.load_file(f.url, {
+            return v86util.load_file_async(f.url, {
                 done: function(result)
                 {
                     if(f.url.endsWith(".zst") && f.name !== "initial_state")
@@ -562,7 +559,7 @@ V86.prototype.continue_init = async function(emulator, options)
                     }
 
                     put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
-                    cont(index + 1);
+                    dbg_log("File loaded: " + f.name);
                 }.bind(this),
                 progress: function progress(e)
                 {
@@ -592,9 +589,8 @@ V86.prototype.continue_init = async function(emulator, options)
             });
         }
     }.bind(this);
-    cont(0);
+    await Promise.all(files_to_load.map((_, i) => cont(i)));
 
-    async function done()
     {
         //if(settings.initial_state)
         //{
