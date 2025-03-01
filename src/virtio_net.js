@@ -40,8 +40,8 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
 
     for(let i = 0; i < this.pairs; ++i)
     {
-        queues.push({size_supported: 32, notify_offset: 0});
-        queues.push({size_supported: 32, notify_offset: 1});
+        queues.push({size_supported: 1024, notify_offset: 0});
+        queues.push({size_supported: 1024, notify_offset: 1});
     }
     queues.push({
         size_supported: 16,
