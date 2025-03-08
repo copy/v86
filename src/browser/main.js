@@ -1534,50 +1534,80 @@
             };
         });
 
-        const filter_elements = document.querySelectorAll("#filter input");
-        for(const element of filter_elements)
+        const filter_categories = [
+            {   // Family:
+                "linux": os => os.family === "Linux",
+                "bsd": os => os.family === "BSD",
+                "windows": os => os.family === "Windows",
+                "unix": os => os.family === "Unix",
+                "dos": os => os.family === "DOS",
+                "custom": os => os.family === "Custom",
+            },
+            {   // UI:
+                "graphical": os => os.graphical,
+                "text": os => !os.graphical,
+            },
+            {   // Medium:
+                "floppy": os => os.medium === "Floppy",
+                "cd": os => os.medium === "CD",
+                "hd": os => os.medium === "HD",
+            },
+            {   // Size:
+                "bootsector": os => os.size <= 512,
+                "lt5mb": os => os.size <= 5 * 1024 * 1024,
+                "gt5mb": os => os.size > 5 * 1024 * 1024,
+            },
+            {   // Status:
+                "modern": os => os.status === "Modern",
+                "historic": os => os.status === "Historic",
+            },
+            {   // License:
+                "opensource": os => os.source === "Open-source",
+                "proprietary": os => os.source === "Proprietary",
+            },
+            {   // Arch:
+                "16bit": os => os.arch === "16-bit",
+                "32bit": os => os.arch === "32-bit",
+            },
+            {   // Lang:
+                "asm": os => os.languages.has("ASM"),
+                "c": os => os.languages.has("C"),
+                "cpp": os => os.languages.has("C++"),
+                "other_lang": os => !os.languages.has("ASM") && !os.languages.has("C") && !os.languages.has("C++"),
+            },
+        ];
+
+        const filter_element = {};
+        for(const element of document.querySelectorAll("#filter input"))
         {
+            const label = element.id.replace(/filter_/, "");
+            dbg_assert(filter_categories.some(category => category.hasOwnProperty(label)));
+            dbg_assert(!filter_element.hasOwnProperty(label));
+            filter_element[label] = element;
             element.onchange = update_filters;
         }
 
         function update_filters()
         {
-            const filter = {};
-            for(const element of filter_elements)
+            const conjunction = [];
+            for(const filter_conditions of filter_categories)
             {
-                filter[element.id.replace(/filter_/, "")] = element.checked;
+                const disjunction = [];
+                for(const [label, condition] of Object.entries(filter_conditions))
+                {
+                    if(filter_element[label].checked)
+                    {
+                        disjunction.push(condition);
+                    }
+                }
+                if(disjunction.length)
+                {
+                    conjunction.push(disjunction);
+                }
             }
-
-            const show_all = !Object.values(filter).includes(true);
             for(const os of os_info)
             {
-                const show = show_all ||
-                    filter["graphical"] && os.graphical ||
-                    filter["text"] && !os.graphical ||
-                    filter["linux"] && os.family === "Linux" ||
-                    filter["bsd"] && os.family === "BSD" ||
-                    filter["windows"] && os.family === "Windows" ||
-                    filter["unix"] && os.family === "Unix" ||
-                    filter["dos"] && os.family === "DOS" ||
-                    filter["custom"] && os.family === "Custom" ||
-                    filter["floppy"] && os.medium === "Floppy" ||
-                    filter["cd"] && os.medium === "CD" ||
-                    filter["hd"] && os.medium === "HD" ||
-                    filter["modern"] && os.status === "Modern" ||
-                    filter["historic"] && os.status === "Historic" ||
-                    filter["opensource"] && os.source === "Open-source" ||
-                    filter["proprietary"] && os.source === "Proprietary" ||
-                    filter["bootsector"] && os.size <= 512 ||
-                    filter["lt5mb"] && os.size <= 5 * 1024 * 1024 ||
-                    filter["gt5mb"] && os.size > 5 * 1024 * 1024 ||
-                    filter["16bit"] && os.arch === "16-bit" ||
-                    filter["32bit"] && os.arch === "32-bit" ||
-                    filter["asm"] && os.languages.has("ASM") ||
-                    filter["c"] && os.languages.has("C") ||
-                    filter["cpp"] && os.languages.has("C++") ||
-                    filter["other_lang"] && ["Java", "Haskell", "Rust", "Erlang", "Oberon"].some(l => os.languages.has(l));
-
-                os.element.style.display = show ? "" : "none";
+                os.element.style.display = conjunction.every(disjunction => disjunction.some(condition => condition(os))) ? "" : "none";
             }
         }
 
