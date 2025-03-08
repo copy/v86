@@ -1581,8 +1581,8 @@
         for(const element of document.querySelectorAll("#filter input"))
         {
             const label = element.id.replace(/filter_/, "");
-            dbg_assert(filter_categories.some(category => category.hasOwnProperty(label)));
-            dbg_assert(!filter_element.hasOwnProperty(label));
+            dbg_assert(filter_categories.some(category => Object.prototype.hasOwnProperty.call(category, label)));
+            dbg_assert(!Object.prototype.hasOwnProperty.call(filter_element, label));
             filter_element[label] = element;
             element.onchange = update_filters;
         }
