@@ -1535,69 +1535,70 @@
         });
 
         const filter_categories = [
-            {   // Family:
-                "linux": os => os.family === "Linux",
-                "bsd": os => os.family === "BSD",
-                "windows": os => os.family === "Windows",
-                "unix": os => os.family === "Unix",
-                "dos": os => os.family === "DOS",
-                "custom": os => os.family === "Custom",
-            },
-            {   // UI:
-                "graphical": os => os.graphical,
-                "text": os => !os.graphical,
-            },
-            {   // Medium:
-                "floppy": os => os.medium === "Floppy",
-                "cd": os => os.medium === "CD",
-                "hd": os => os.medium === "HD",
-            },
-            {   // Size:
-                "bootsector": os => os.size <= 512,
-                "lt5mb": os => os.size <= 5 * 1024 * 1024,
-                "gt5mb": os => os.size > 5 * 1024 * 1024,
-            },
-            {   // Status:
-                "modern": os => os.status === "Modern",
-                "historic": os => os.status === "Historic",
-            },
-            {   // License:
-                "opensource": os => os.source === "Open-source",
-                "proprietary": os => os.source === "Proprietary",
-            },
-            {   // Arch:
-                "16bit": os => os.arch === "16-bit",
-                "32bit": os => os.arch === "32-bit",
-            },
-            {   // Lang:
-                "asm": os => os.languages.has("ASM"),
-                "c": os => os.languages.has("C"),
-                "cpp": os => os.languages.has("C++"),
-                "other_lang": os => !os.languages.has("ASM") && !os.languages.has("C") && !os.languages.has("C++"),
-            },
+            [   // Family:
+                { label: "linux", condition: os => os.family === "Linux" },
+                { label: "bsd", condition: os => os.family === "BSD" },
+                { label: "windows", condition: os => os.family === "Windows" },
+                { label: "unix", condition: os => os.family === "Unix" },
+                { label: "dos", condition: os => os.family === "DOS" },
+                { label: "custom", condition: os => os.family === "Custom" },
+            ],
+            [   // UI:
+                { label: "graphical", condition: os => os.graphical },
+                { label: "text", condition: os => !os.graphical },
+            ],
+            [   // Medium:
+                { label: "floppy", condition: os => os.medium === "Floppy" },
+                { label: "cd", condition: os => os.medium === "CD" },
+                { label: "hd", condition: os => os.medium === "HD" },
+            ],
+            [   // Size:
+                { label: "bootsector", condition: os => os.size <= 512 },
+                { label: "lt5mb", condition: os => os.size <= 5 * 1024 * 1024 },
+                { label: "gt5mb", condition: os => os.size > 5 * 1024 * 1024 },
+            ],
+            [   // Status:
+                { label: "modern", condition: os => os.status === "Modern" },
+                { label: "historic", condition: os => os.status === "Historic" },
+            ],
+            [   // License:
+                { label: "opensource", condition: os => os.source === "Open-source" },
+                { label: "proprietary", condition: os => os.source === "Proprietary" },
+            ],
+            [   // Arch:
+                { label: "16bit", condition: os => os.arch === "16-bit" },
+                { label: "32bit", condition: os => os.arch === "32-bit" },
+            ],
+            [   // Lang:
+                { label: "asm", condition: os => os.languages.has("ASM") },
+                { label: "c", condition: os => os.languages.has("C") },
+                { label: "cpp", condition: os => os.languages.has("C++") },
+                { label: "other_lang", condition: os => ["ASM", "C", "C++"].every(lang => !os.languages.has(lang)) },
+            ],
         ];
 
-        const filter_element = {};
-        for(const element of document.querySelectorAll("#filter input"))
+        for(const filter_category of filter_categories)
         {
-            const label = element.id.replace(/filter_/, "");
-            dbg_assert(filter_categories.some(category => Object.prototype.hasOwnProperty.call(category, label)));
-            dbg_assert(!Object.prototype.hasOwnProperty.call(filter_element, label));
-            filter_element[label] = element;
-            element.onchange = update_filters;
+            for(const filter of filter_category)
+            {
+                const element = document.getElementById(`filter_${filter.label}`);
+                dbg_assert(element);
+                element.onchange = update_filters;
+                filter.element = element;
+            }
         }
 
         function update_filters()
         {
             const conjunction = [];
-            for(const filter_conditions of filter_categories)
+            for(const filter_category of filter_categories)
             {
                 const disjunction = [];
-                for(const [label, condition] of Object.entries(filter_conditions))
+                for(const filter of filter_category)
                 {
-                    if(filter_element[label].checked)
+                    if(filter.element.checked)
                     {
-                        disjunction.push(condition);
+                        disjunction.push(filter.condition);
                     }
                 }
                 if(disjunction.length)
