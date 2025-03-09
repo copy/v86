@@ -35,9 +35,9 @@ def main():
     from_path = os.path.normpath(args.from_path)
     to_path = os.path.normpath(args.to_path)
 
-    try:
+    if os.path.isfile(from_path):
         tar = tarfile.open(from_path, "r")
-    except IsADirectoryError:
+    else:
         tar = None
 
     if tar:
