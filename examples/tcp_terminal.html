@@ -1,0 +1,144 @@
+<!doctype html>
+<title>TCP Terminal</title>
+
+<script src="../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var emulator = window.emulator = new V86({
+        wasm_path: "../build/v86.wasm",
+        memory_size: 64 * 1024 * 1024,
+        vga_memory_size: 2 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: {
+            url: "../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../bios/vgabios.bin",
+        },
+        bzimage: {
+            url: "../images/buildroot-bzimage68.bin",
+        },
+        net_device: {
+            relay_url: "fetch",
+            type: "virtio"
+        },
+        autostart: true
+    });
+
+    var is_connected = false, connection = null;
+
+    function clear_log()
+    {
+        document.getElementById("log").value = "";
+    }
+
+    function write_log(text)
+    {
+        document.getElementById("log").value += text;
+    }
+
+    function on_connect()
+    {
+        document.getElementById("connect").innerHTML = "Disconnect";
+        document.getElementById("send").disabled = false;
+        is_connected = true; 
+    }
+
+    function on_disconnect()
+    {
+        document.getElementById("connect").innerHTML = "Connect";
+        document.getElementById("send").disabled = true;
+        is_connected = false;
+    }
+
+    document.getElementById("connect").onclick = async function() {
+        if(!is_connected) 
+        {
+            clear_log();
+            let port = parseInt(document.getElementById("port").value);
+            write_log("> Probing port " + port + "\n");
+
+            let open = await emulator.network_adapter.tcp_probe(port);
+            if(open)
+            {
+                connection = emulator.network_adapter.connect(port);
+
+                connection.on("connect", function()
+                {
+                    write_log("> Connected\n\n");
+                    on_connect();
+                });
+
+                connection.on("data", function(data)
+                {
+                    write_log(new TextDecoder().decode(data));
+                });
+
+                connection.on("close", function()
+                {
+                    write_log("\n> Closed by listener");
+                    on_disconnect();
+                });
+
+                connection.on("shutdown", function()
+                {
+                    write_log("\n> Shutdown by listener");
+                    on_disconnect();
+                });
+            }
+            else
+            {
+                write_log("> Probing failed");
+            }
+        }
+        else
+        {
+            connection.close();
+            write_log("\n> Closed by client");
+            on_disconnect();
+        }
+    }
+
+    document.getElementById("send").onclick = function() 
+    {
+        connection.write(new TextEncoder().encode(document.getElementById("prompt").value + "\r\n"));
+        document.getElementById("prompt").value = "";
+    }
+
+    document.getElementById("prompt").onkeydown = function(e)
+    {
+        if(e.which == 13 && is_connected)
+        {
+            document.getElementById("send").onclick();
+        }
+    };
+
+    clear_log();
+}
+</script>
+
+<div id="screen_container" style="float: left">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+
+<div style="float: left; margin: 10px">
+    <textarea readonly cols="60" rows="15" id="log"></textarea><br>
+    Port: <input type="number" min="1" max="65535" value="1234" id="port" />
+    <button id="connect">Connect</button> <input type="text" id="prompt" />
+    <button id="send" disabled="true">Send (enter)</button>
+
+    <h3>Getting started</h3>
+    <ol>
+        <li>Run <code>udhcpc</code></li>
+        <li>Run any TCP server:
+        <ul>
+        <li>Echo: <code>socat -v PIPE TCP-L:1234,fork</code></li> 
+        <li>(more examples on <a href="broadcast-network.html">broadcast-network.html</a>)</li>
+        </ul>
+        <li>Type a port number and press "Connect"</li>
+    </ol>
+</div>
