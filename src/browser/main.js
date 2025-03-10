@@ -1536,44 +1536,44 @@
 
         const filter_categories = [
             [   // Family:
-                { label: "linux", condition: os => os.family === "Linux" },
-                { label: "bsd", condition: os => os.family === "BSD" },
-                { label: "windows", condition: os => os.family === "Windows" },
-                { label: "unix", condition: os => os.family === "Unix" },
-                { label: "dos", condition: os => os.family === "DOS" },
-                { label: "custom", condition: os => os.family === "Custom" },
+                { id: "linux", condition: os => os.family === "Linux" },
+                { id: "bsd", condition: os => os.family === "BSD" },
+                { id: "windows", condition: os => os.family === "Windows" },
+                { id: "unix", condition: os => os.family === "Unix" },
+                { id: "dos", condition: os => os.family === "DOS" },
+                { id: "custom", condition: os => os.family === "Custom" },
             ],
             [   // UI:
-                { label: "graphical", condition: os => os.graphical },
-                { label: "text", condition: os => !os.graphical },
+                { id: "graphical", condition: os => os.graphical },
+                { id: "text", condition: os => !os.graphical },
             ],
             [   // Medium:
-                { label: "floppy", condition: os => os.medium === "Floppy" },
-                { label: "cd", condition: os => os.medium === "CD" },
-                { label: "hd", condition: os => os.medium === "HD" },
+                { id: "floppy", condition: os => os.medium === "Floppy" },
+                { id: "cd", condition: os => os.medium === "CD" },
+                { id: "hd", condition: os => os.medium === "HD" },
             ],
             [   // Size:
-                { label: "bootsector", condition: os => os.size <= 512 },
-                { label: "lt5mb", condition: os => os.size <= 5 * 1024 * 1024 },
-                { label: "gt5mb", condition: os => os.size > 5 * 1024 * 1024 },
+                { id: "bootsector", condition: os => os.size <= 512 },
+                { id: "lt5mb", condition: os => os.size <= 5 * 1024 * 1024 },
+                { id: "gt5mb", condition: os => os.size > 5 * 1024 * 1024 },
             ],
             [   // Status:
-                { label: "modern", condition: os => os.status === "Modern" },
-                { label: "historic", condition: os => os.status === "Historic" },
+                { id: "modern", condition: os => os.status === "Modern" },
+                { id: "historic", condition: os => os.status === "Historic" },
             ],
             [   // License:
-                { label: "opensource", condition: os => os.source === "Open-source" },
-                { label: "proprietary", condition: os => os.source === "Proprietary" },
+                { id: "opensource", condition: os => os.source === "Open-source" },
+                { id: "proprietary", condition: os => os.source === "Proprietary" },
             ],
             [   // Arch:
-                { label: "16bit", condition: os => os.arch === "16-bit" },
-                { label: "32bit", condition: os => os.arch === "32-bit" },
+                { id: "16bit", condition: os => os.arch === "16-bit" },
+                { id: "32bit", condition: os => os.arch === "32-bit" },
             ],
             [   // Lang:
-                { label: "asm", condition: os => os.languages.has("ASM") },
-                { label: "c", condition: os => os.languages.has("C") },
-                { label: "cpp", condition: os => os.languages.has("C++") },
-                { label: "other_lang", condition: os => ["ASM", "C", "C++"].every(lang => !os.languages.has(lang)) },
+                { id: "asm", condition: os => os.languages.has("ASM") },
+                { id: "c", condition: os => os.languages.has("C") },
+                { id: "cpp", condition: os => os.languages.has("C++") },
+                { id: "other_lang", condition: os => ["ASM", "C", "C++"].every(lang => !os.languages.has(lang)) },
             ],
         ];
 
@@ -1581,10 +1581,12 @@
         {
             for(const filter of filter_category)
             {
-                const element = document.getElementById(`filter_${filter.label}`);
-                dbg_assert(element);
-                element.onchange = update_filters;
+                const element = document.getElementById(`filter_${filter.id}`);
                 filter.element = element;
+                if(element)
+                {
+                    element.onchange = update_filters;
+                }
             }
         }
 
@@ -1596,7 +1598,7 @@
                 const disjunction = [];
                 for(const filter of filter_category)
                 {
-                    if(filter.element.checked)
+                    if(filter.element && filter.element.checked)
                     {
                         disjunction.push(filter.condition);
                     }
