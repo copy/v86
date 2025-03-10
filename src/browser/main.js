@@ -1534,7 +1534,7 @@
             };
         });
 
-        const filter_categories = [
+        const known_filter = [
             [   // Family:
                 { id: "linux", condition: os => os.family === "Linux" },
                 { id: "bsd", condition: os => os.family === "BSD" },
@@ -1577,32 +1577,30 @@
             ],
         ];
 
-        for(const filter_category of filter_categories)
+        const defined_filter = [];
+        for(const known_category of known_filter)
         {
-            for(const filter of filter_category)
-            {
+            const category = known_category.filter(filter => {
                 const element = document.getElementById(`filter_${filter.id}`);
-                filter.element = element;
                 if(element)
                 {
                     element.onchange = update_filters;
+                    filter.element = element;
                 }
+                return element;
+            });
+            if(category.length)
+            {
+                defined_filter.push(category);
             }
         }
 
         function update_filters()
         {
             const conjunction = [];
-            for(const filter_category of filter_categories)
+            for(const category of defined_filter)
             {
-                const disjunction = [];
-                for(const filter of filter_category)
-                {
-                    if(filter.element && filter.element.checked)
-                    {
-                        disjunction.push(filter.condition);
-                    }
-                }
+                const disjunction = category.filter(filter => filter.element.checked);
                 if(disjunction.length)
                 {
                     conjunction.push(disjunction);
@@ -1610,7 +1608,7 @@
             }
             for(const os of os_info)
             {
-                os.element.style.display = conjunction.every(disjunction => disjunction.some(condition => condition(os))) ? "" : "none";
+                os.element.style.display = conjunction.every(disjunction => disjunction.some(filter => filter.condition(os))) ? "" : "none";
             }
         }
 
