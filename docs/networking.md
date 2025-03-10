@@ -158,6 +158,8 @@ This backend is efficient and very useful in cases where CORS is not in the way,
 
 Like the [`wisp`](#the-wisp-backend) backend, the `fetch` backend handles DHCP and ARP requests from guests internally, and additionally monitors the guest's outbound traffic for HTTP requests which it translates into calls to `fetch()`. NTP, ICMP pings and UDP echo packets are handled to a certain degree. Note that `fetch()` performs the DNS lookup using the browser's internal DNS client. See PR [#1061](https://github.com/copy/v86/pull/1061) for additional technical details.
 
+Starting with PR [#1233](https://github.com/copy/v86/pull/1233), the TCP guest listener can be accessed from JS API, see the [examples/tcp_terminal.html](../examples/tcp_terminal.html) example.
+
 v86 guests are isolated from each other when using the `fetch` backend.
 
 **CORS proxy server**
@@ -209,5 +211,6 @@ Network backends `wsproxy` and `wisp` depend on a browser-compatible `WebSocket`
 
 * [`examples/two_instances.html`](../examples/two_instances.html), example code that shows how to connect two VMs in a web page with a virtual ethernet crossover cable.
 * [`examples/broadcast-network.html`](../examples/broadcast-network.html), example code that shows the raw packet API.
+* [`examples/tcp_terminal.html`](../examples/tcp_terminal.html), example code that shows how to communicate with a guest TCP port on the `fetch` backend.
 * [DC through windows OS for experimental lab #1195](https://github.com/copy/v86/discussions/1195), demonstrates how to setup a Domain Controller for two Windows VMs (XP and Server 2003) using a virtual crossover cable.
 * [Working on a new cross-platform network relay that is a full virtualized network #1064](https://github.com/copy/v86/discussions/1064) (used in [env86 #1085](https://github.com/copy/v86/discussions/1085))
