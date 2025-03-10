@@ -52,7 +52,7 @@ def main():
     logger.setLevel(logging.DEBUG)
 
     args = argparse.ArgumentParser(description="Create filesystem JSON. Example:\n"
-                                               "    ./fs2xml.py --exclude /boot/ --out fs.json /mnt/",
+                                               "    ./fs2json.py --exclude /boot/ --out fs.json /mnt/",
                                    formatter_class=argparse.RawTextHelpFormatter
                                   )
     args.add_argument("--exclude",
@@ -73,9 +73,9 @@ def main():
 
     path = os.path.normpath(args.path)
 
-    try:
+    if os.path.isfile(path):
         tar = tarfile.open(path, "r")
-    except IsADirectoryError:
+    else:
         tar = None
 
     if tar:
