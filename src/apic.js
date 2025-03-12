@@ -610,7 +610,7 @@ APIC.prototype.set_state = function(state)
     this.local_destination = state[19];
     this.error = state[20];
     this.read_error = state[21];
-    this.lvt_thermal_sensor = state[22];
+    this.lvt_thermal_sensor = state[22] || IOAPIC_CONFIG_MASKED;
 };
 
 // functions operating on 256-bit registers (for irr, isr, tmr)
