@@ -57,6 +57,7 @@ function APIC(cpu)
     this.next_tick = v86.microtick();
 
     this.lvt_timer = IOAPIC_CONFIG_MASKED;
+    this.lvt_thermal_sensor = IOAPIC_CONFIG_MASKED;
     this.lvt_perf_counter = IOAPIC_CONFIG_MASKED;
     this.lvt_int0 = IOAPIC_CONFIG_MASKED;
     this.lvt_int1 = IOAPIC_CONFIG_MASKED;
@@ -177,6 +178,10 @@ APIC.prototype.read32 = function(addr)
         case 0x320:
             dbg_log("read timer lvt", LOG_APIC);
             return this.lvt_timer;
+
+        case 0x330:
+            dbg_log("read lvt thermal sensor", LOG_APIC);
+            return this.lvt_thermal_sensor;
 
         case 0x340:
             dbg_log("read lvt perf counter", LOG_APIC);
@@ -324,6 +329,11 @@ APIC.prototype.write32 = function(addr, value)
         case 0x320:
             dbg_log("timer lvt: " + h(value >>> 0, 8), LOG_APIC);
             this.lvt_timer = value;
+            break;
+
+        case 0x330:
+            dbg_log("lvt thermal sensor: " + h(value >>> 0, 8), LOG_APIC);
+            this.lvt_thermal_sensor = value;
             break;
 
         case 0x340:
@@ -571,6 +581,7 @@ APIC.prototype.get_state = function()
     state[19] = this.local_destination;
     state[20] = this.error;
     state[21] = this.read_error;
+    state[22] = this.lvt_thermal_sensor;
 
     return state;
 };
@@ -599,6 +610,7 @@ APIC.prototype.set_state = function(state)
     this.local_destination = state[19];
     this.error = state[20];
     this.read_error = state[21];
+    this.lvt_thermal_sensor = state[22] || IOAPIC_CONFIG_MASKED;
 };
 
 // functions operating on 256-bit registers (for irr, isr, tmr)
