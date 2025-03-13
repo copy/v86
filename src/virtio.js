@@ -823,10 +823,14 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                 {
                     case 4:
                         this.cpu.io.register_read(port, this, shim_read8_on_32, undefined, read);
+                        this.cpu.io.register_read(port + 1, this, shim_read8_on_32);
+                        this.cpu.io.register_read(port + 2, this, shim_read8_on_32);
+                        this.cpu.io.register_read(port + 3, this, shim_read8_on_32);
                         this.cpu.io.register_write(port, this, undefined, undefined, write);
                         break;
                     case 2:
                         this.cpu.io.register_read(port, this, shim_read8_on_16, read);
+                        this.cpu.io.register_read(port + 1, this, shim_read8_on_16);
                         this.cpu.io.register_write(port, this, undefined, write);
                         break;
                     case 1:
@@ -1122,7 +1126,7 @@ VirtQueue.prototype.set_size = function(size)
 VirtQueue.prototype.count_requests = function()
 {
     dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
-    return (this.avail_get_idx() - this.avail_last_idx) & this.mask;
+    return (this.avail_get_idx() - this.avail_last_idx) & 0xFFFF;
 };
 
 /**
@@ -1131,7 +1135,7 @@ VirtQueue.prototype.count_requests = function()
 VirtQueue.prototype.has_request = function()
 {
     dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
-    return (this.avail_get_idx() & this.mask) !== this.avail_last_idx;
+    return this.count_requests() !== 0;
 };
 
 /**
@@ -1148,7 +1152,7 @@ VirtQueue.prototype.pop_request = function()
 
     const bufchain = new VirtQueueBufferChain(this, desc_idx);
 
-    this.avail_last_idx = this.avail_last_idx + 1 & this.mask;
+    this.avail_last_idx = (this.avail_last_idx + 1) & 0xFFFF;
 
     return bufchain;
 };
@@ -1267,7 +1271,7 @@ VirtQueue.prototype.avail_get_idx = function()
 
 VirtQueue.prototype.avail_get_entry = function(i)
 {
-    return this.cpu.read16(this.avail_addr + 4 + VIRTQ_AVAIL_ENTRYSIZE * i);
+    return this.cpu.read16(this.avail_addr + 4 + VIRTQ_AVAIL_ENTRYSIZE * (i & this.mask));
 };
 
 VirtQueue.prototype.avail_get_used_event = function()
