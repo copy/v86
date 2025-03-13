@@ -79,17 +79,7 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
             [
                 (queue_id) =>
                 {
-                    // TODO: Full buffer looks like an empty buffer so prevent it from filling
-                    // The kernel gives us a prefilled one, so throw the first bufchain so
-                    // it doesnt look filled.
 
-                    const queue = this.virtio.queues[queue_id];
-
-                    const desc_idx = queue.avail_get_entry(queue.avail_last_idx);
-                    const bufchain = new VirtQueueBufferChain(queue, desc_idx);
-                    queue.avail_last_idx = queue.avail_last_idx + 1 & queue.mask;
-                    this.virtio.queues[0].push_reply(bufchain);
-                    this.virtio.queues[0].flush_replies();
                 },
                 (queue_id) =>
                 {
@@ -110,7 +100,7 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
                 {
                     if(queue_id !== this.pairs * 2)
                     {
-                        dbg_assert(false, "VirtioConsole Notified for wrong queue: " + queue_id +
+                        dbg_assert(false, "VirtioNet Notified for wrong queue: " + queue_id +
                             " (expected queue_id of 3)");
                         return;
                     }
@@ -142,7 +132,7 @@ function VirtioNet(cpu, bus, preserve_mac_from_state_image)
                                 this.bus.send("net" + this.id + "-mac", format_mac(this.mac));
                                 break;
                             default:
-                                dbg_assert(false," VirtioConsole received unknown command: " + xclass + ":" + command);
+                                dbg_assert(false," VirtioNet received unknown command: " + xclass + ":" + command);
                                 this.Send(queue_id, bufchain, new Uint8Array([1]));
                                 return;
 
