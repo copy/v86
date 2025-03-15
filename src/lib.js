@@ -551,6 +551,32 @@ else
     v86util.load_file = load_file;
 }
 
+v86util.load_file_async = load_file_async;
+
+/**
+ * @param {string} filename
+ * @param {Object} options
+ * @param {number=} n_tries
+ * @return {Promise}
+ */
+async function load_file_async(filename, options, n_tries) {
+    const done = options.done;
+
+    return new Promise((resolve) => {
+        options.done = (result) => {
+            if(done) {
+                const r = done(result);
+                if(r instanceof Promise) {
+                    r.then(resolve);
+                    return;
+                }
+            }
+            resolve();
+        };
+        v86util.load_file(filename, options, n_tries);
+    });
+}
+
 /**
  * @param {string} filename
  * @param {Object} options
