@@ -1017,7 +1017,7 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: 0,
+        log_level: +process.env.LOG_LEVEL || 0,
         cmdline: test.cmdline,
     };
 

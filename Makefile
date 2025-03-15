@@ -294,7 +294,7 @@ build/integration-test-fs/fs.json: images/buildroot-bzimage68.bin
 	rm build/integration-test-fs/fs.tar build/integration-test-fs/bzImage build/integration-test-fs/initrd
 
 tests: all-debug build/integration-test-fs/fs.json
-	./tests/full/run.js
+	LOG_LEVEL=3 ./tests/full/run.js
 
 tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
@@ -315,7 +315,7 @@ jitpagingtests: all-debug
 
 qemutests: all-debug
 	$(MAKE) -C tests/qemu test-i386
-	./tests/qemu/run.js build/qemu-test-result
+	LOG_LEVEL=3 ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
