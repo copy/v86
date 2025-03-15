@@ -315,13 +315,13 @@ jitpagingtests: all-debug
 
 qemutests: all-debug
 	$(MAKE) -C tests/qemu test-i386
-	./tests/qemu/run.js > build/qemu-test-result
+	./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
 qemutests-release: build/libv86.js build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
-	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js > build/qemu-test-result
+	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
