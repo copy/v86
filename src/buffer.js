@@ -703,7 +703,7 @@
         return file;
     };
 
-    if(typeof XMLHttpRequest === "undefined")
+    if(typeof XMLHttpRequest === "undefined" || (typeof process !== "undefined" && process.versions && process.versions.node))
     {
         var determine_size = function(path, cb)
         {
