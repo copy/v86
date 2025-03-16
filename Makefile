@@ -380,6 +380,10 @@ build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
 
+build/mitm.mjs:
+	mkdir -p build
+	wget -nv -P build https://github.com/basicer/mitm.js/releases/download/latest/mitm.mjs
+
 build/libwabt.cjs:
 	mkdir -p build
 	wget -nv -P build https://github.com/WebAssembly/wabt/archive/1.0.6.zip
