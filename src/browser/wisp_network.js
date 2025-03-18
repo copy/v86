@@ -185,17 +185,12 @@ WispNetworkAdapter.prototype.destroy = function()
 };
 
 /**
+ * @param {TCPConnection} conn
  * @param {Uint8Array} packet
- * @param {String} tuple
  */
-WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
+WispNetworkAdapter.prototype.on_tcp_connection = function(conn, packet)
 {
-    let conn = new TCPConnection();
-    conn.state = TCP_STATE_SYN_RECEIVED;
-    conn.net = this;
-    conn.tuple = tuple;
     conn.stream_id = this.last_stream++;
-    this.tcp_conn[tuple] = conn;
 
     conn.on("data", data => {
         if(data.length !== 0) {
@@ -222,7 +217,7 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
         type: "CONNECT",
         stream_id: conn.stream_id,
         hostname: packet.ipv4.dest.join("."),
-        port: packet.tcp.dport,
+        port: conn.sport,
         data_callback: (data) => {
             conn.write(data);
         },
@@ -231,7 +226,7 @@ WispNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
         }
     });
 
-    conn.accept(packet);
+    conn.accept();
     return true;
 };
 

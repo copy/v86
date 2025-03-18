@@ -43,7 +43,6 @@ export function FetchNetworkAdapter(bus, config)
         });
     }
 
-
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
 
@@ -54,35 +53,20 @@ export function FetchNetworkAdapter(bus, config)
     {
         this.send(data);
     }, this);
+    this.bus.register("tcp-connection", (conn) => {
+        if(conn.sport === 80) {
+            conn.on("data", on_data_http);
+            conn.accept();
+        }
+        if(conn.sport === 443 && this.tls) {
+            conn.on("data", on_data_tls.bind(conn, {net: this}));
+            conn.accept();
+        }
+    }, this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
 {
-};
-
-FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
-{
-    if(packet.tcp.dport === 80) {
-        let conn = new TCPConnection();
-        conn.state = TCP_STATE_SYN_RECEIVED;
-        conn.net = this;
-        conn.on("data", on_data_http);
-        conn.tuple = tuple;
-        conn.accept(packet);
-        this.tcp_conn[tuple] = conn;
-        return true;
-    }
-    if(packet.tcp.dport === 443 && this.tls) {
-        let conn = new TCPConnection();
-        conn.state = TCP_STATE_SYN_RECEIVED;
-        conn.net = this;
-        conn.on("data", on_data_tls.bind(conn, {net: this}));
-        conn.tuple = tuple;
-        conn.accept(packet);
-        this.tcp_conn[tuple] = conn;
-        return true;
-    }
-    return false;
 };
 
 FetchNetworkAdapter.prototype.connect = function(port)
@@ -222,27 +206,27 @@ async function on_data_tls(ctx, data)
     if(!ctx.tls) {
         ctx.tls = packet.net.tls["ssl"]();
         ctx.write = d => {
-            let r = ctx.tls["write"](d);
+            let r = ctx.tls["dataIn"](d);
         };
         ctx.writev = v => {
             for(const data of v) {
-                let r = ctx.tls["write"](data);
+                let r = ctx.tls["dataIn"](data);
             }
         };
         ctx.close = () => {
-            ctx.tls.close();
+            ctx.tls["close"]();
             setTimeout(()=> packet.close(), 100);
         };
 
-        ctx.tls["setWriteCallback"](d => {
+        ctx.tls["setPacketOutCallback"](d => {
             let r = packet.write(d);
         });
 
-        ctx.tls["setDataCallback"](d => {
+        ctx.tls["setDataOutCallback"](d => {
             on_data_http.call(ctx, d);
         });
     }
-    ctx.tls.send(data);
+    ctx.tls["packetIn"](data);
 }
 
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
