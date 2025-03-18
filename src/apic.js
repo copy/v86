@@ -1,10 +1,16 @@
 "use strict";
 
+
 // See Intel's System Programming Guide
 
+import { v86 } from "./main.js";
+import { IOAPIC_CONFIG_MASKED, IOAPIC_DELIVERY_INIT, IOAPIC_DELIVERY_NMI, IOAPIC_DELIVERY_FIXED } from "./ioapic.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
 
 /** @const */
-var APIC_LOG_VERBOSE = false;
+export const APIC_LOG_VERBOSE = false;
 
 /** @const */
 var APIC_ADDRESS = 0xFEE00000;
@@ -23,7 +29,7 @@ var APIC_TIMER_MODE_TSC = 2 << 17;
 
 
 /** @const */
-var DELIVERY_MODES = [
+export const DELIVERY_MODES = [
     "Fixed (0)",
     "Lowest Prio (1)",
     "SMI (2)",
@@ -35,13 +41,14 @@ var DELIVERY_MODES = [
 ];
 
 /** @const */
-var DESTINATION_MODES = ["physical", "logical"];
+export const DESTINATION_MODES = ["physical", "logical"];
 
 
 /**
  * @constructor
  * @param {CPU} cpu
  */
+export
 function APIC(cpu)
 {
     /** @type {CPU} */

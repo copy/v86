@@ -3,6 +3,13 @@
 // https://www.isdaman.com/alsos/hardware/fdc/floppy.htm
 // https://wiki.osdev.org/Floppy_Disk_Controller
 
+import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { DMA } from "./dma.js";
+import { IO } from "./io.js";
+
 const DIR_DOOR = 0x80;
 const ST1_NID  = 1 << 0;
 const ST1_NDAT = 1 << 2;
@@ -12,7 +19,7 @@ const ST1_NDAT = 1 << 2;
  *
  * @param {CPU} cpu
  */
-function FloppyController(cpu, fda_image, fdb_image)
+export function FloppyController(cpu, fda_image, fdb_image)
 {
     /** @const @type {IO|undefined} */
     this.io = cpu.io;

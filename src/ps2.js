@@ -1,5 +1,8 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+
 /** @const */
 const PS2_LOG_VERBOSE = false;
 
@@ -8,7 +11,7 @@ const PS2_LOG_VERBOSE = false;
  * @param {CPU} cpu
  * @param {BusConnector} bus
  */
-function PS2(cpu, bus)
+export function PS2(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;

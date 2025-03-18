@@ -5,7 +5,7 @@
  * @constructor
  * @param {Object} options
  */
-function ScreenAdapter(options, screen_fill_buffer)
+export function ScreenAdapter(options, screen_fill_buffer)
 {
     const screen_container = options.container;
     this.screen_fill_buffer = screen_fill_buffer;

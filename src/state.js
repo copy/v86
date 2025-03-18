@@ -1,5 +1,7 @@
 "use strict";
 
+import { CPU } from "./cpu.js";
+
 /** @const */
 var STATE_VERSION = 6;
 

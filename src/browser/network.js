@@ -12,7 +12,7 @@
  * @param {BusConnector} bus
  * @param {number} [id=0] id
  */
-function NetworkAdapter(url, bus, id)
+export function NetworkAdapter(url, bus, id)
 {
     this.bus = bus;
     this.socket = undefined;

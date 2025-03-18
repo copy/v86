@@ -1,5 +1,9 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+
+
 /**
  * The ISA IO bus
  * Devices register their ports here
@@ -7,7 +11,7 @@
  * @constructor
  * @param {CPU} cpu
  */
-function IO(cpu)
+export function IO(cpu)
 {
     /** @const */
     this.ports = [];

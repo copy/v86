@@ -14,7 +14,7 @@ const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platfo
  *
  * @param {BusConnector} bus
  */
-function KeyboardAdapter(bus)
+export function KeyboardAdapter(bus)
 {
     var
         /**
