@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 "use strict";
+import url from "node:url";
+import fs from "node:fs";
 
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-const fs = require("fs");
 
-const testfsjson = require("./testfs.json");
+const testfsjson = JSON.parse(fs.readFileSync(__dirname + "/testfs.json", "utf-8"));
 const SHOW_LOGS = false;
 const STOP_ON_FIRST_FAILURE = false;
 

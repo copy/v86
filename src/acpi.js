@@ -2,14 +2,22 @@
 
 // http://www.uefi.org/sites/default/files/resources/ACPI_6_1.pdf
 
+import { v86 } from "./main.js";
+import { LOG_ACPI } from "../src/const.js";
+import { h } from "./lib.js";
+import { dbg_log, dbg_assert } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+
 /** @const */
-var PMTIMER_FREQ_SECONDS = 3579545;
+export const PMTIMER_FREQ_SECONDS = 3579545;
 
 /**
  * @constructor
  * @param {CPU} cpu
  */
-function ACPI(cpu)
+export function ACPI(cpu)
 {
     /** @type {CPU} */
     this.cpu = cpu;

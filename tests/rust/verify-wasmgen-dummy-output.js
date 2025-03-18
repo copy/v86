@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 
-process.on("unhandledRejection", exn => { throw exn; });
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+import assert from "node:assert/strict";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
+process.on("unhandledRejection", exn => { throw exn; });
 
 const DUMMY_MODULE_PATH = path.resolve(__dirname, "../../build/dummy_output.wasm");
 const dummy_module = fs.readFileSync(DUMMY_MODULE_PATH);

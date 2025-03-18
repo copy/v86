@@ -1,5 +1,21 @@
 "use strict";
 
+import { LOG_FETCH } from "../const.js";
+import { h } from "../lib.js";
+import { dbg_log } from "../log.js";
+
+import {
+    create_eth_encoder_buf,
+    handle_fake_networking,
+    TCPConnection,
+    TCP_STATE_SYN_RECEIVED,
+    fake_tcp_connect,
+    fake_tcp_probe
+} from "./fake_network.js";
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *
@@ -7,7 +23,7 @@
  * @param {*=} config
  * @export
  */
-function FetchNetworkAdapter(bus, config)
+export function FetchNetworkAdapter(bus, config)
 {
     config = config || {};
     this.bus = bus;

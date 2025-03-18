@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
+import path from "node:path";
+import fs from "node:fs";
+import url from "node:url";
+
 console.log("Don't forget to run `make all` before running this script");
 
-const path = require("path");
-const fs = require("fs");
-const V86 = require("./../../../build/libv86.js").V86;
+const { V86 } = await import("./../../../build/libv86.js");
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const V86_ROOT = path.join(__dirname, "../../..");
 const OUTPUT_FILE = path.join(V86_ROOT, "images/alpine-state.bin");

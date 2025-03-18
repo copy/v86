@@ -1,9 +1,11 @@
 "use strict";
 
-var Bus = {};
+import { dbg_assert } from "./log.js";
+
+export var Bus = {};
 
 /** @constructor */
-function BusConnector()
+export function BusConnector()
 {
     this.listeners = {};
     this.pair = undefined;

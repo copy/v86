@@ -1,7 +1,14 @@
 "use strict";
 
-(function()
-{
+import { V86 } from "./starter.js";
+import { LOG_NAMES } from "../const.js";
+import { LOG_LEVEL, setLogLevel } from "../config.js";
+import { print_stats } from "./print_stats.js";
+import { SyncFileBuffer } from "../buffer.js";
+import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
+import { log_data } from "../log.js";
+
+
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
 
     const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost:8080/"];
@@ -29,13 +36,13 @@
         }
         else if(time < 3600)
         {
-            return (time / 60 | 0) + "m " + v86util.pad0(time % 60, 2) + "s";
+            return (time / 60 | 0) + "m " + pad0(time % 60, 2) + "s";
         }
         else
         {
             return (time / 3600 | 0) + "h " +
-                v86util.pad0((time / 60 | 0) % 60, 2) + "m " +
-                v86util.pad0(time % 60, 2) + "s";
+                pad0((time / 60 | 0) % 60, 2) + "m " +
+                pad0(time % 60, 2) + "s";
         }
     }
 
@@ -1659,7 +1666,7 @@
             }
             input.mask = mask;
 
-            label.append(input, v86util.pads(name, 4) + " ");
+            label.append(input, pads(name, 4) + " ");
             log_levels.appendChild(label);
 
             if(i === Math.floor(LOG_NAMES.length / 2))
@@ -1675,11 +1682,11 @@
 
             if(target.checked)
             {
-                LOG_LEVEL |= mask;
+                setLogLevel(LOG_LEVEL | mask);
             }
             else
             {
-                LOG_LEVEL &= ~mask;
+                setLogLevel(LOG_LEVEL & ~mask);
             }
 
             target.blur();
@@ -1765,7 +1772,7 @@
                 if(chunk_size >= 0)
                 {
                     chunk_size = Math.min(4 * 1024 * 1024, Math.max(512, chunk_size));
-                    chunk_size = v86util.round_up_to_next_power_of_2(chunk_size);
+                    chunk_size = round_up_to_next_power_of_2(chunk_size);
                 }
                 else
                 {
@@ -2384,6 +2391,9 @@
         //    $("memory_dump_dmp").blur();
         //};
 
+        /**
+         * @this HTMLElement
+         */
         $("capture_network_traffic").onclick = function()
         {
             this.value = "0 packets";
@@ -2427,6 +2437,9 @@
             $("load_state").blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("load_state_input").onchange = async function()
         {
             var file = this.files[0];
@@ -2501,6 +2514,9 @@
             $("alttab").blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("scale").onchange = function()
         {
             var n = parseFloat(this.value);
@@ -2627,11 +2643,14 @@
     {
         $("filesystem_panel").style.display = "block";
 
+        /**
+         * @this HTMLElement
+         */
         $("filesystem_send_file").onchange = function()
         {
             Array.prototype.forEach.call(this.files, function(file)
             {
-                var loader = new v86util.SyncFileBuffer(file);
+                var loader = new SyncFileBuffer(file);
                 loader.onload = function()
                 {
                     loader.get_buffer(async function(buffer)
@@ -2646,6 +2665,9 @@
             this.blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("filesystem_get_file").onkeypress = async function(e)
         {
             if(e.which !== 13)
@@ -2731,5 +2753,3 @@
             window.history.pushState({ search }, "", search);
         }
     }
-
-})();

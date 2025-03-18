@@ -2,55 +2,64 @@
 
 // http://download.intel.com/design/chipsets/datashts/29056601.pdf
 
-/** @const */
-var IOAPIC_ADDRESS = 0xFEC00000;
+import { LOG_APIC, MMAP_BLOCK_SIZE } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+import { DELIVERY_MODES, DESTINATION_MODES, APIC_LOG_VERBOSE } from "./apic.js";
 
-/** @const */
-var IOREGSEL = 0;
-
-/** @const */
-var IOWIN = 0x10;
-
-/** @const */
-var IOAPIC_IRQ_COUNT = 24;
-
-/** @const */
-var IOAPIC_ID = 0; // must match value in seabios
+// For Types Only
+import { CPU } from "./cpu.js";
 
 
 /** @const */
-var IOAPIC_CONFIG_TRIGGER_MODE_LEVEL = 1 << 15;
+export const IOAPIC_ADDRESS = 0xFEC00000;
 
 /** @const */
-var IOAPIC_CONFIG_MASKED = 1 << 16;
+export const IOREGSEL = 0;
 
 /** @const */
-var IOAPIC_CONFIG_DELIVS = 1 << 12;
+export const IOWIN = 0x10;
 
 /** @const */
-var IOAPIC_CONFIG_REMOTE_IRR = 1 << 14;
+export const IOAPIC_IRQ_COUNT = 24;
 
 /** @const */
-var IOAPIC_CONFIG_READONLY_MASK = IOAPIC_CONFIG_REMOTE_IRR | IOAPIC_CONFIG_DELIVS | 0xFFFE0000;
+export const IOAPIC_ID = 0; // must match value in seabios
+
 
 /** @const */
-var IOAPIC_DELIVERY_FIXED = 0;
+export const IOAPIC_CONFIG_TRIGGER_MODE_LEVEL = 1 << 15;
 
 /** @const */
-var IOAPIC_DELIVERY_LOWEST_PRIORITY = 1;
+export const IOAPIC_CONFIG_MASKED = 1 << 16;
 
 /** @const */
-var IOAPIC_DELIVERY_NMI = 4;
+export const IOAPIC_CONFIG_DELIVS = 1 << 12;
 
 /** @const */
-var IOAPIC_DELIVERY_INIT = 5;
+export const IOAPIC_CONFIG_REMOTE_IRR = 1 << 14;
+
+/** @const */
+export const IOAPIC_CONFIG_READONLY_MASK = IOAPIC_CONFIG_REMOTE_IRR | IOAPIC_CONFIG_DELIVS | 0xFFFE0000;
+
+/** @const */
+export const IOAPIC_DELIVERY_FIXED = 0;
+
+/** @const */
+export const IOAPIC_DELIVERY_LOWEST_PRIORITY = 1;
+
+/** @const */
+export const IOAPIC_DELIVERY_NMI = 4;
+
+/** @const */
+export const IOAPIC_DELIVERY_INIT = 5;
 
 
 /**
  * @constructor
  * @param {CPU} cpu
  */
-function IOAPIC(cpu)
+export function IOAPIC(cpu)
 {
     /** @type {CPU} */
     this.cpu = cpu;

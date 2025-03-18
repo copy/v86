@@ -1,5 +1,9 @@
 "use strict";
 
+import { LOG_FETCH } from "../const.js";
+import { h } from "../lib.js";
+import { dbg_assert, dbg_log } from "../log.js";
+
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
 const ETHERTYPE_IPV4 = 0x0800;
 const ETHERTYPE_ARP = 0x0806;
@@ -23,17 +27,17 @@ const V86_ASCII = [118, 56, 54];
  *
  * State TIME_WAIT is not needed, we can skip it and transition directly to CLOSED instead.
  */
-const TCP_STATE_CLOSED = "closed";
-const TCP_STATE_SYN_RECEIVED = "syn-received";
-const TCP_STATE_SYN_SENT = "syn-sent";
-const TCP_STATE_SYN_PROBE = "syn-probe";
+export const TCP_STATE_CLOSED = "closed";
+export const TCP_STATE_SYN_RECEIVED = "syn-received";
+export const TCP_STATE_SYN_SENT = "syn-sent";
+export const TCP_STATE_SYN_PROBE = "syn-probe";
 //const TCP_STATE_LISTEN = "listen";
-const TCP_STATE_ESTABLISHED = "established";
-const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
-const TCP_STATE_CLOSE_WAIT = "close-wait";
-const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
-const TCP_STATE_LAST_ACK = "last-ack";
-const TCP_STATE_CLOSING = "closing";
+export const TCP_STATE_ESTABLISHED = "established";
+export const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
+export const TCP_STATE_CLOSE_WAIT = "close-wait";
+export const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
+export const TCP_STATE_LAST_ACK = "last-ack";
+export const TCP_STATE_CLOSING = "closing";
 //const TCP_STATE_TIME_WAIT = "time-wait";
 
 // source: RFC6335, 6. Port Number Ranges
@@ -158,7 +162,7 @@ class GrowableRingbuffer
     }
 }
 
-function create_eth_encoder_buf()
+export function create_eth_encoder_buf()
 {
     const eth_frame = new Uint8Array(ETH_FRAME_SIZE);
     const buffer = eth_frame.buffer;
@@ -445,7 +449,7 @@ function handle_fake_dhcp(packet, adapter) {
     adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
 
-function handle_fake_networking(data, adapter) {
+export function handle_fake_networking(data, adapter) {
     let packet = {};
     parse_eth(data, packet);
 
@@ -974,7 +978,7 @@ function write_tcp(spec, out) {
     return total_length;
 }
 
-function fake_tcp_connect(dport, adapter)
+export function fake_tcp_connect(dport, adapter)
 {
     const vm_ip_str = adapter.vm_ip.join(".");
     const router_ip_str = adapter.router_ip.join(".");
@@ -1003,7 +1007,7 @@ function fake_tcp_connect(dport, adapter)
     return conn;
 }
 
-function fake_tcp_probe(dport, adapter) {
+export function fake_tcp_probe(dport, adapter) {
     return new Promise((res, rej) => {
         let handle = fake_tcp_connect(dport, adapter);
         handle.state = TCP_STATE_SYN_PROBE;
@@ -1014,7 +1018,7 @@ function fake_tcp_probe(dport, adapter) {
 /**
  * @constructor
  */
-function TCPConnection()
+export function TCPConnection()
 {
     this.state = TCP_STATE_CLOSED;
     this.net = null; // The adapter is stored here

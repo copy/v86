@@ -1,6 +1,10 @@
 "use strict";
 
-var log_data = [];
+import { LOG_NAMES } from "./const.js";
+import { LOG_TO_FILE, LOG_LEVEL } from "./config.js";
+import { pad0, pads } from "./lib.js";
+
+export var log_data = [];
 
 function do_the_log(message)
 {
@@ -18,7 +22,7 @@ function do_the_log(message)
  * @type {function((string|number), number=)}
  * @const
  */
-var dbg_log = (function()
+export var dbg_log = (function()
 {
     if(!DEBUG)
     {
@@ -47,7 +51,7 @@ var dbg_log = (function()
         if(level & LOG_LEVEL)
         {
             var level_name = dbg_names[level] || "",
-                message = "[" + v86util.pads(level_name, 4) + "] " + stuff;
+                message = "[" + pads(level_name, 4) + "] " + stuff;
 
             if(message === log_last_message)
             {
@@ -60,10 +64,10 @@ var dbg_log = (function()
             }
 
             var now = new Date();
-            var time_str = v86util.pad0(now.getHours(), 2) + ":" +
-                           v86util.pad0(now.getMinutes(), 2) + ":" +
-                           v86util.pad0(now.getSeconds(), 2) + "+" +
-                           v86util.pad0(now.getMilliseconds(), 3) + " ";
+            var time_str = pad0(now.getHours(), 2) + ":" +
+                           pad0(now.getMinutes(), 2) + ":" +
+                           pad0(now.getSeconds(), 2) + "+" +
+                           pad0(now.getMilliseconds(), 3) + " ";
 
             if(log_message_repetitions)
             {
@@ -90,7 +94,7 @@ var dbg_log = (function()
 /**
  * @param {number=} level
  */
-function dbg_trace(level)
+export function dbg_trace(level)
 {
     if(!DEBUG) return;
 
@@ -102,7 +106,7 @@ function dbg_trace(level)
  * @param {string=} msg
  * @param {number=} level
  */
-function dbg_assert(cond, msg, level)
+export function dbg_assert(cond, msg, level)
 {
     if(!DEBUG) return;
 
@@ -113,7 +117,7 @@ function dbg_assert(cond, msg, level)
 }
 
 
-function dbg_assert_failed(msg)
+export function dbg_assert_failed(msg)
 {
     debugger;
     console.trace();

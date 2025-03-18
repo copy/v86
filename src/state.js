@@ -1,5 +1,9 @@
 "use strict";
 
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+import { CPU } from "./cpu.js";
+
 /** @const */
 var STATE_VERSION = 6;
 

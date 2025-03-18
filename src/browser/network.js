@@ -1,5 +1,8 @@
 "use strict";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * An ethernet-through-websocket adapter, to be used with
  *     https://github.com/benjamincburns/websockproxy
@@ -12,7 +15,7 @@
  * @param {BusConnector} bus
  * @param {number} [id=0] id
  */
-function NetworkAdapter(url, bus, id)
+export function NetworkAdapter(url, bus, id)
 {
     this.bus = bus;
     this.socket = undefined;

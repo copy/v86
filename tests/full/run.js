@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
+import assert from "node:assert/strict";
+import cluster from "node:cluster";
+import os from "node:os";
+import fs from "node:fs";
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 process.on("unhandledRejection", exn => { throw exn; });
 
 var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
@@ -14,7 +22,7 @@ const LOG_SCREEN = false;
 
 try
 {
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+    var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 }
 catch(e)
 {
@@ -22,10 +30,6 @@ catch(e)
     process.exit(1);
 }
 
-const assert = require("assert").strict;
-var cluster = require("cluster");
-var os = require("os");
-var fs = require("fs");
 var root_path = __dirname + "/../..";
 
 var SCREEN_WIDTH = 80;
@@ -79,7 +83,7 @@ function send_work_to_worker(worker, message)
     }
 }
 
-if(cluster.isMaster)
+if(cluster.isPrimary)
 {
     var tests = [
         {
@@ -918,7 +922,6 @@ if(cluster.isMaster)
         var worker = cluster.fork();
 
         worker.on("message", send_work_to_worker.bind(null, worker));
-        worker.on("online", send_work_to_worker.bind(null, worker));
 
         worker.on("exit", function(code, signal)
         {
@@ -949,6 +952,7 @@ else
             process.send("I'm done");
         });
     });
+    process.send("up");
 }
 
 function bytearray_starts_with(arr, search)

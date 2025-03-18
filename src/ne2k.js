@@ -1,5 +1,14 @@
 "use strict";
 
+import { LOG_NET } from "./const.js";
+import { h, hex_dump } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { PCI } from "./pci.js";
+import { BusConnector } from "./bus.js";
+
 // http://www.ethernut.de/pdf/8019asds.pdf
 
 const NE2K_LOG_VERBOSE = false;
@@ -226,7 +235,7 @@ function translate_mac_address(packet, search_mac, replacement_mac)
     }
 }
 
-function format_mac(mac)
+export function format_mac(mac)
 {
     return [
         mac[0].toString(16).padStart(2, "0"),
@@ -288,7 +297,7 @@ function dump_packet(packet, prefix)
  * @param {Boolean} mac_address_translation
  * @param {number} [id=0] id
  */
-function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation, id)
+export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_translation, id)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
