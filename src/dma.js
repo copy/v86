@@ -1,10 +1,13 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+
 /**
  * @constructor
  * @param {CPU} cpu
  */
-function DMA(cpu)
+export function DMA(cpu)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;

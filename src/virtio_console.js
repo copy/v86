@@ -1,6 +1,10 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
+
 
 const VIRTIO_CONSOLE_DEVICE_READY     = 0;
 const VIRTIO_CONSOLE_DEVICE_ADD       = 1;
@@ -20,7 +24,7 @@ const VIRTIO_CONSOLE_F_EMERG_WRITE    = 2;
  *
  * @param {CPU} cpu
  */
-function VirtioConsole(cpu, bus)
+export function VirtioConsole(cpu, bus)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;

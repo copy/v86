@@ -1,5 +1,14 @@
 "use strict";
 
+import {
+    create_eth_encoder_buf,
+    handle_fake_networking,
+    TCPConnection,
+    TCP_STATE_SYN_RECEIVED,
+    fake_tcp_connect,
+    fake_tcp_probe
+} from "./fake_network.js";
+
 /**
  * @constructor
  *
@@ -7,7 +16,7 @@
  * @param {*=} config
  * @export
  */
-function FetchNetworkAdapter(bus, config)
+export function FetchNetworkAdapter(bus, config)
 {
     config = config || {};
     this.bus = bus;

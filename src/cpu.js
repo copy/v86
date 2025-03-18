@@ -1,5 +1,40 @@
 "use strict";
 
+import { SB16 } from "./sb16.js";
+import { IOAPIC } from "./ioapic.js";
+import { APIC, APIC_LOG_VERBOSE } from "./apic.js";
+import { ACPI } from "./acpi.js";
+import { PIT } from "./pit.js";
+import { DMA } from "./dma.js";
+import { UART } from "./uart.js";
+import { Ne2k } from "./ne2k.js";
+import { IO } from "./io.js";
+import { VirtioConsole } from "./virtio_console.js";
+import { PCI } from "./pci.js";
+import { PS2 } from "./ps2.js";
+import { read_elf } from "./elf.js";
+
+import { FloppyController } from "./floppy.js";
+import { IDEDevice } from "./ide.js";
+import { VirtioNet } from "./virtio_net.js";
+import { VGAScreen } from "./vga.js";
+import { VirtioBalloon } from "./virtio_balloon.js";
+
+import { load_kernel } from "./kernel.js";
+
+
+import {
+    RTC,
+    CMOS_EQUIPMENT_INFO, CMOS_BIOS_SMP_COUNT,
+    CMOS_MEM_HIGHMEM_HIGH, CMOS_MEM_HIGHMEM_MID, CMOS_MEM_HIGHMEM_LOW,
+    CMOS_DISK_DATA, CMOS_BIOS_DISKTRANSFLAG, CMOS_FLOPPY_DRIVE_TYPE,
+    BOOT_ORDER_CD_FIRST, CMOS_BIOS_BOOTFLAG1, CMOS_BIOS_BOOTFLAG2,
+    CMOS_MEM_BASE_LOW, CMOS_MEM_BASE_HIGH,
+    CMOS_MEM_OLD_EXT_LOW, CMOS_MEM_OLD_EXT_HIGH, CMOS_MEM_EXTMEM_LOW,
+    CMOS_MEM_EXTMEM_HIGH, CMOS_MEM_EXTMEM2_LOW, CMOS_MEM_EXTMEM2_HIGH
+} from "./rtc.js";
+
+
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
@@ -7,7 +42,7 @@
 
 
 /** @constructor */
-function CPU(bus, wm, stop_idling)
+export function CPU(bus, wm, stop_idling)
 {
     this.stop_idling = stop_idling;
     this.wm = wm;

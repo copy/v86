@@ -34,7 +34,7 @@ const VIRTIO_ISR_DEVICE_CFG = 2;
 
 const VIRTIO_F_RING_INDIRECT_DESC = 28;
 const VIRTIO_F_RING_EVENT_IDX = 29;
-const VIRTIO_F_VERSION_1 = 32;
+var VIRTIO_F_VERSION_1 = 32;
 
 // Queue struct sizes.
 
@@ -150,17 +150,17 @@ var VirtIO_Options;
 
 /**
  * @constructor
- * @param {CPU} cpu
+ * [FIX@]param {CPU} cpu
  * @param {VirtIO_Options} options
  */
 function VirtIO(cpu, options)
 {
     const io = cpu.io;
 
-    /** @const @type {CPU} */
+    /** [FIX@]const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {PCI} */
+    /** [FIX@]const @type {PCI} */
     this.pci = cpu.devices.pci;
 
     this.device_id = options.device_id;
@@ -1029,12 +1029,12 @@ VirtIO.prototype.lower_irq = function()
 
 /**
  * @constructor
- * @param {CPU} cpu
+ * [FIX@]param {CPU} cpu
  * @param {VirtQueue_Options} options
  */
 function VirtQueue(cpu, virtio, options)
 {
-    /** @const @type {CPU} */
+    /** [FIX@]const @type {CPU} */
     this.cpu = cpu;
 
     /** @const @type {VirtIO} */
@@ -1321,7 +1321,7 @@ VirtQueue.prototype.used_set_avail_event = function(value)
  */
 function VirtQueueBufferChain(virtqueue, head_idx)
 {
-    /** @const @type {CPU} */
+    /** @const [FIX@]type {CPU} */
     this.cpu = virtqueue.cpu;
 
     /** @const @type {VirtIO} */

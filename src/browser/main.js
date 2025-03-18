@@ -1,5 +1,7 @@
 "use strict";
 
+import { V86 } from "./starter.js";
+
 (function()
 {
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");

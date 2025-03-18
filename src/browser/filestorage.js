@@ -1,7 +1,7 @@
 "use strict";
 
 /** @interface */
-function FileStorageInterface() {}
+export function FileStorageInterface() {}
 
 /**
  * Read a portion of a file.
@@ -31,7 +31,7 @@ FileStorageInterface.prototype.uncache = function(sha256sum) {};
  * @constructor
  * @implements {FileStorageInterface}
  */
-function MemoryFileStorage()
+export function MemoryFileStorage()
 {
     /**
      * From sha256sum to file data.
@@ -83,7 +83,7 @@ MemoryFileStorage.prototype.uncache = function(sha256sum)
  * @param {FileStorageInterface} file_storage
  * @param {string} baseurl
  */
-function ServerFileStorageWrapper(file_storage, baseurl)
+export function ServerFileStorageWrapper(file_storage, baseurl)
 {
     dbg_assert(baseurl, "ServerMemoryFileStorage: baseurl should not be empty");
 

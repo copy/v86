@@ -1,5 +1,6 @@
 "use strict";
 
+import {CPU} from "./cpu.js";
 
 CPU.prototype.mmap_read8 = function(addr)
 {

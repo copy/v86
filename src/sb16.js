@@ -1,5 +1,10 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+import { DMA } from "./dma.js";
+import { IO } from "./io.js";
+
 // Useful documentation, articles, and source codes for reference:
 // ===============================================================
 //
@@ -92,7 +97,7 @@ var FM_HANDLERS = [];
  * @param {CPU} cpu
  * @param {BusConnector} bus
  */
-function SB16(cpu, bus)
+export function SB16(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;

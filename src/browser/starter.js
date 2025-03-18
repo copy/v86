@@ -1,5 +1,22 @@
 "use strict";
 
+import { v86 } from "../main.js";
+import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
+
+import { SpeakerAdapter } from "./speaker.js";
+import { NetworkAdapter } from "./network.js";
+import { FetchNetworkAdapter } from "./fetch_network.js";
+import { WispNetworkAdapter } from "./wisp_network.js";
+import { KeyboardAdapter } from "./keyboard.js";
+import { MouseAdapter } from "./mouse.js";
+import { ScreenAdapter } from "./screen.js";
+
+import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
+
+// Decorates CPU
+import "../debug.js";
+import "../memory.js";
+
 /**
  * Constructor for emulator instances.
  *
@@ -107,7 +124,7 @@
  * @constructor
  * @export
  */
-function V86(options)
+export function V86(options)
 {
     if(typeof options.log_level === "number")
     {
@@ -1470,3 +1487,12 @@ function FileNotFoundError(message)
     this.message = message || "File not found";
 }
 FileNotFoundError.prototype = Error.prototype;
+
+if(typeof window !== "undefined")
+{
+    window["V86"] = V86;
+}
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["V86"] = V86;
+}

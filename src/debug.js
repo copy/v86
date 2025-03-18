@@ -1,5 +1,7 @@
 "use strict";
 
+import { CPU } from "./cpu.js";
+
 CPU.prototype.debug_init = function()
 {
     var cpu = this;
