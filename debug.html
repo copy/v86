@@ -4,58 +4,12 @@
 <title>v86 (debug)</title>
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 
-<script src="src/const.js"></script>
-<script src="src/config.js"></script>
-<script src="src/log.js"></script>
-<script src="src/lib.js"></script>
-<script src="src/buffer.js"></script>
-<script src="src/cpu.js"></script>
-<script src="src/debug.js"></script>
-<script src="src/io.js"></script>
-<script src="src/main.js"></script>
-<script src="src/ide.js"></script>
-<script src="src/pci.js"></script>
-<script src="src/floppy.js"></script>
-<script src="src/memory.js"></script>
-<script src="src/dma.js"></script>
-<script src="src/pit.js"></script>
-<script src="src/vga.js"></script>
-<script src="src/ps2.js"></script>
-<script src="src/rtc.js"></script>
-<script src="src/uart.js"></script>
-<script src="src/acpi.js"></script>
-<script src="src/apic.js"></script>
-<script src="src/ioapic.js"></script>
-<script src="src/sb16.js"></script>
-<script src="src/ne2k.js"></script>
-<script src="src/state.js"></script>
-<script src="src/virtio.js"></script>
-<script src="src/virtio_balloon.js"></script>
-<script src="src/virtio_console.js"></script>
-<script src="src/virtio_net.js"></script>
-<script src="src/bus.js"></script>
-<script src="src/elf.js"></script>
-<script src="src/kernel.js"></script>
-<script src="src/browser/main.js"></script>
-<script src="src/browser/screen.js"></script>
-<script src="src/browser/keyboard.js"></script>
-<script src="src/browser/mouse.js"></script>
-<script src="src/browser/speaker.js"></script>
-<script src="src/browser/serial.js"></script>
-<script src="src/browser/network.js"></script>
-<script src="src/browser/fake_network.js"></script>
-<script src="src/browser/fetch_network.js"></script>
-<script src="src/browser/wisp_network.js"></script>
-<script src="src/browser/starter.js"></script>
-<script src="src/browser/worker_bus.js"></script>
-<script src="src/browser/print_stats.js"></script>
-<script src="src/browser/filestorage.js"></script>
-<script src="lib/jor1k.js"></script>
-<script src="lib/9p.js"></script>
-<script src="lib/filesystem.js"></script>
-<script src="lib/marshall.js"></script>
+<script>
+    var DEBUG = true;
+</script>
 <script src="build/capstone-x86.min.js"></script>
-<script src="build/libwabt.js"></script>
+<script src="build/libwabt.cjs"></script>
+<script type="module" src="./src/browser/main.js"></script>
 
 <link rel="stylesheet" href="v86.css">
 

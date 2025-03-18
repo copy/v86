@@ -1,5 +1,16 @@
 "use strict";
 
+import {
+    LOG_BIOS, LOG_CPU,
+    REG_ESP, REG_EBP, REG_ESI, REG_EAX, REG_EBX, REG_ECX, REG_EDX, REG_EDI,
+    REG_CS, REG_DS, REG_ES, REG_FS, REG_GS, REG_SS, CR0_PG, CR4_PAE, REG_LDTR,
+    FLAG_VM, FLAG_INTERRUPT, FLAG_CARRY, FLAG_ADJUST, FLAG_ZERO, FLAG_SIGN, FLAG_TRAP,
+    FLAG_DIRECTION, FLAG_OVERFLOW, FLAG_PARITY
+} from "./const.js";
+import { h, pads } from "./lib.js";
+import { dbg_log } from "./log.js";
+import { CPU } from "./cpu.js";
+
 CPU.prototype.debug_init = function()
 {
     var cpu = this;
@@ -560,6 +571,7 @@ CPU.prototype.debug_init = function()
         {
             if(cs === undefined)
             {
+                /* global require */
                 if(typeof require === "function")
                 {
                     cs = require("./capstone-x86.min.js");
@@ -588,7 +600,7 @@ CPU.prototype.debug_init = function()
 
             instructions.forEach(function (instr) {
                 dbg_log(h(instr.address >>> 0) + ": " +
-                    v86util.pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
+                    pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
                     instr.mnemonic + " " + instr.op_str);
             });
             dbg_log("");
@@ -616,11 +628,12 @@ CPU.prototype.debug_init = function()
 
     debug.dump_wasm = function(buffer)
     {
+        /* global require */
         if(wabt === undefined)
         {
             if(typeof require === "function")
             {
-                wabt = require("./libwabt.js");
+                wabt = require("./libwabt.cjs");
             }
             else
             {

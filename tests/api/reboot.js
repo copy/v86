@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-const fs = require("fs");
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 
 process.on("unhandledRejection", exn => { throw exn; });
 
@@ -30,7 +33,7 @@ let did_reboot = false;
 let serial_text = "";
 
 const timeout = setTimeout(() => {
-    console.log(serial_data);
+    console.log(serial_text);
     throw new Error("Timeout");
 }, 120 * 1000);
 

@@ -1,5 +1,14 @@
 "use strict";
 
+import { LOG_IO, MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX } from "./const.js";
+import { LOG_ALL_IO } from "./config.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+
+// For Types Only
+import { CPU } from "./cpu.js";
+
 /**
  * The ISA IO bus
  * Devices register their ports here
@@ -7,7 +16,7 @@
  * @constructor
  * @param {CPU} cpu
  */
-function IO(cpu)
+export function IO(cpu)
 {
     /** @const */
     this.ports = [];
@@ -87,9 +96,9 @@ IO.prototype.empty_port_write = function(x)
 /**
  * @param {number} port_addr
  * @param {Object} device
- * @param {function():number=} r8
- * @param {function():number=} r16
- * @param {function():number=} r32
+ * @param {function(number):number=} r8
+ * @param {function(number):number=} r16
+ * @param {function(number):number=} r32
  */
 IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
 {

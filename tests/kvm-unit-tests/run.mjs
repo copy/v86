@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 "use strict";
 
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-var fs = require("fs");
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 
 function readfile(path)
 {

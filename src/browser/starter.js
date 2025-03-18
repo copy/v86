@@ -1,5 +1,36 @@
 "use strict";
 
+import { v86 } from "../main.js";
+import { LOG_CPU, WASM_TABLE_OFFSET, WASM_TABLE_SIZE } from "../const.js";
+import { setLogLevel } from "../config.js";
+import { get_rand_int, load_file, read_sized_string_from_mem } from "../lib.js";
+import { dbg_assert, dbg_trace, dbg_log } from "../log.js";
+import { print_stats } from "./print_stats.js";
+import { Bus } from "../bus.js";
+import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
+
+import { SpeakerAdapter } from "./speaker.js";
+import { NetworkAdapter } from "./network.js";
+import { FetchNetworkAdapter } from "./fetch_network.js";
+import { WispNetworkAdapter } from "./wisp_network.js";
+import { KeyboardAdapter } from "./keyboard.js";
+import { MouseAdapter } from "./mouse.js";
+import { ScreenAdapter } from "./screen.js";
+import { DummyScreenAdapter } from "./dummy_screen.js";
+import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
+import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
+
+import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
+import { SyncBuffer, buffer_from_object } from "../buffer.js";
+import { FS } from "../../lib/filesystem.js";
+import { EEXIST, ENOENT } from "../../lib/9p.js";
+
+
+// Decorates CPU
+import "../debug.js";
+import "../memory.js";
+import "../state.js";
+
 /**
  * Constructor for emulator instances.
  *
@@ -107,12 +138,12 @@
  * @constructor
  * @export
  */
-function V86(options)
+export function V86(options)
 {
     if(typeof options.log_level === "number")
     {
         // XXX: Shared between all emulator instances
-        LOG_LEVEL = options.log_level;
+        setLogLevel(options.log_level);
     }
 
     //var worker = new Worker("src/browser/worker.js");
@@ -136,7 +167,7 @@ function V86(options)
         "cpu_event_halt": () => { this.emulator_bus.send("cpu-event-halt"); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
-        "get_rand_int": function() { return v86util.get_rand_int(); },
+        "get_rand_int": function() { return get_rand_int(); },
         "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
         "stop_idling": function() { return cpu.stop_idling(); },
 
@@ -159,11 +190,11 @@ function V86(options)
         },
 
         "log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
+            const str = read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);
         },
         "console_log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
+            const str = read_sized_string_from_mem(wasm_memory, offset, len);
             console.error(str);
         },
         "dbg_trace_from_wasm": function() {
@@ -185,6 +216,8 @@ function V86(options)
     {
         wasm_fn = env =>
         {
+            /* global __dirname */
+
             return new Promise(resolve => {
                 let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
                 let v86_bin_fallback = "v86-fallback.wasm";
@@ -207,7 +240,7 @@ function V86(options)
                     v86_bin_fallback = "build/" + v86_bin_fallback;
                 }
 
-                v86util.load_file(v86_bin, {
+                load_file(v86_bin, {
                     done: async bytes =>
                     {
                         try
@@ -218,7 +251,7 @@ function V86(options)
                         }
                         catch(err)
                         {
-                            v86util.load_file(v86_bin_fallback, {
+                            load_file(v86_bin_fallback, {
                                     done: async bytes => {
                                         const { instance } = await WebAssembly.instantiate(bytes, env);
                                         this.wasm_source = bytes;
@@ -471,7 +504,7 @@ V86.prototype.continue_init = async function(emulator, options)
         {
             files_to_load.push({
                 name,
-                loadable: v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
+                loadable: buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
             });
         }
     };
@@ -552,7 +585,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
         else
         {
-            v86util.load_file(f.url, {
+            load_file(f.url, {
                 done: function(result)
                 {
                     if(f.url.endsWith(".zst") && f.name !== "initial_state")
@@ -561,7 +594,7 @@ V86.prototype.continue_init = async function(emulator, options)
                         result = this.zstd_decompress(f.size, new Uint8Array(result));
                     }
 
-                    put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
+                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
@@ -618,8 +651,8 @@ V86.prototype.continue_init = async function(emulator, options)
                         settings.fs9p.read_file(initrd_path),
                         settings.fs9p.read_file(bzimage_path),
                     ]);
-                    put_on_settings.call(this, "initrd", new v86util.SyncBuffer(initrd.buffer));
-                    put_on_settings.call(this, "bzimage", new v86util.SyncBuffer(bzimage.buffer));
+                    put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
+                    put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
                 }
             }
             else
@@ -947,16 +980,16 @@ V86.prototype.set_fda = async function(file)
 {
     if(file.url && !file.async)
     {
-        v86util.load_file(file.url, {
+        load_file(file.url, {
             done: result =>
             {
-                this.v86.cpu.devices.fdc.set_fda(new v86util.SyncBuffer(result));
+                this.v86.cpu.devices.fdc.set_fda(new SyncBuffer(result));
             },
         });
     }
     else
     {
-        const image = v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
         image.onload = () =>
         {
             this.v86.cpu.devices.fdc.set_fda(image);
@@ -1470,3 +1503,11 @@ function FileNotFoundError(message)
     this.message = message || "File not found";
 }
 FileNotFoundError.prototype = Error.prototype;
+
+/* global module */
+
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["V86"] = V86;
+    module.exports["print_stats"] = print_stats;
+}

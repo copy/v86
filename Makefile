@@ -78,7 +78,7 @@ CARGO_FLAGS_SAFE=\
 
 CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
 
-CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
+CORE_FILES=cjs.js const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js \
 	   acpi.js apic.js ioapic.js \
 	   state.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
@@ -151,7 +151,7 @@ build/libv86.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
 		--jscomp_off=missingProperties\
-		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86;'\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)\
@@ -257,6 +257,7 @@ clean:
 	-rm build/libv86.js
 	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
+	-rm build/libv86-debug.mjs
 	-rm build/v86_all.js
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
@@ -299,45 +300,45 @@ tests: build/libv86-debug.js build/v86-debug.wasm build/integration-test-fs/fs.j
 tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
-nasmtests: build/libv86-debug.js build/v86-debug.wasm
+nasmtests: build/libv86-debug.mjs build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm
+nasmtests-force-jit: build/libv86-debug.mjs build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
-jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
+jitpagingtests: build/libv86-debug.mjs build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: build/libv86-debug.js build/v86-debug.wasm
+qemutests: build/libv86-debug.mjs build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
 	LOG_LEVEL=3 ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-qemutests-release: build/libv86.js build/v86.wasm
+qemutests-release: build/libv86.mjs build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
 	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
+kvm-unit-test: build/libv86-debug.mjs build/v86-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
-	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
-kvm-unit-test-release: build/libv86.js build/v86.wasm
+kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
-	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
-expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
+expect-tests: build/libv86-debug.mjs build/v86-debug.wasm build/libwabt.cjs
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/libv86-debug.js build/v86-debug.wasm
+devices-test: build/libv86-debug.mjs build/v86-debug.wasm
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
@@ -352,7 +353,7 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-api-tests: build/libv86-debug.js build/v86-debug.wasm
+api-tests: build/libv86-debug.mjs build/v86-debug.wasm
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
@@ -375,10 +376,11 @@ build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
 
-build/libwabt.js:
+build/libwabt.cjs:
 	mkdir -p build
 	wget -nv -P build https://github.com/WebAssembly/wabt/archive/1.0.6.zip
 	unzip -j -d build/ build/1.0.6.zip wabt-1.0.6/demo/libwabt.js
+	mv build/libwabt.js build/libwabt.cjs
 	rm build/1.0.6.zip
 
 build/xterm.js:

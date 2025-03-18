@@ -1,5 +1,16 @@
 "use strict";
 
+import { LOG_VGA } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { ScreenAdapter } from "./browser/screen.js";
+import { BusConnector } from "./bus.js";
+import { DummyScreenAdapter } from "./browser/dummy_screen.js";
+import { round_up_to_next_power_of_2, view } from "./lib.js";
+
 // Always 64k
 const VGA_BANK_SIZE = 64 * 1024;
 
@@ -51,7 +62,7 @@ const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
  * @param {ScreenAdapter|DummyScreenAdapter} screen
  * @param {number} vga_memory_size
  */
-function VGAScreen(cpu, bus, screen, vga_memory_size)
+export function VGAScreen(cpu, bus, screen, vga_memory_size)
 {
     this.cpu = cpu;
 
@@ -216,7 +227,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
     else
     {
         // required for pci code
-        this.vga_memory_size = v86util.round_up_to_next_power_of_2(this.vga_memory_size);
+        this.vga_memory_size = round_up_to_next_power_of_2(this.vga_memory_size);
     }
     dbg_log("effective vga memory size: " + this.vga_memory_size, LOG_VGA);
 
@@ -356,7 +367,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
 
 
     const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size) >>> 0;
-    this.svga_memory = v86util.view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
+    this.svga_memory = view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
 
     this.diff_addr_min = this.vga_memory_size;
     this.diff_addr_max = 0;

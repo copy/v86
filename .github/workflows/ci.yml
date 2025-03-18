@@ -68,7 +68,7 @@ jobs:
         run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 
       - name: Run kvm-unit-test
-        run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+        run: tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v4

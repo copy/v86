@@ -1,5 +1,21 @@
 "use strict";
 
+import {
+    LOG_SB16,
+    MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+} from "./const.js";
+import { h } from "./lib.js";
+import { dbg_log } from "./log.js";
+import { SyncBuffer } from "./buffer.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { DMA } from "./dma.js";
+import { IO } from "./io.js";
+import { BusConnector } from "./bus.js";
+import { ByteQueue, FloatQueue } from "./lib.js";
+
 // Useful documentation, articles, and source codes for reference:
 // ===============================================================
 //
@@ -92,7 +108,7 @@ var FM_HANDLERS = [];
  * @param {CPU} cpu
  * @param {BusConnector} bus
  */
-function SB16(cpu, bus)
+export function SB16(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -150,7 +166,7 @@ function SB16(cpu, bus)
     this.dma_buffer_uint8 = new Uint8Array(this.dma_buffer);
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
-    this.dma_syncbuffer = new v86util.SyncBuffer(this.dma_buffer);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
     this.sampling_rate = 22050;
@@ -399,7 +415,7 @@ SB16.prototype.set_state = function(state)
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
-    this.dma_syncbuffer = new v86util.SyncBuffer(this.dma_buffer);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
 
     if(this.dma_paused)
     {

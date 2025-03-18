@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 "use strict";
+import assert from "assert/strict";
+import fs from "node:fs";
+import url from "node:url";
 
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const SHOW_LOGS = false;
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-const fs = require("fs");
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+
 
 const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },

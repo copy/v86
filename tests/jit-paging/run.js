@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 
+import fs from "node:fs";
+import url from "node:url";
 process.on("unhandledRejection", exn => { throw exn; });
 
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-var fs = require("fs");
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+
 
 var test_executable = new Uint8Array(fs.readFileSync(__dirname + "/test-jit"));
 

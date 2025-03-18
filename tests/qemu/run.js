@@ -10,7 +10,7 @@ import path from "path";
 import fs from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const { default: { V86 } } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`);
+const { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 
 var test_executable = new Uint8Array(fs.readFileSync(__dirname + "/test-i386"));
 

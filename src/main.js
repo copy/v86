@@ -1,10 +1,12 @@
 "use strict";
 
+import { CPU } from "./cpu.js";
+
 /**
  * @constructor
  * @param {Object=} wasm
  */
-function v86(bus, wasm)
+export function v86(bus, wasm)
 {
     /** @type {boolean} */
     this.running = false;
@@ -98,6 +100,7 @@ if(typeof process !== "undefined")
 {
     v86.prototype.yield = function(t, tick)
     {
+        /* global global */
         if(t < 1)
         {
             global.setImmediate(tick => this.yield_callback(tick), tick);
@@ -205,7 +208,7 @@ v86.prototype.restore_state = function(state)
     return this.cpu.restore_state(state);
 };
 
-
+/* global require */
 if(typeof performance === "object" && performance.now)
 {
     v86.microtick = performance.now.bind(performance);

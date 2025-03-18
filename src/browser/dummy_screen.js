@@ -1,9 +1,11 @@
 "use strict";
 
+import { dbg_assert } from "../log.js";
+
 /**
  * @constructor
  */
-function DummyScreenAdapter()
+export function DummyScreenAdapter()
 {
     var
         graphic_image_data,

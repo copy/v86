@@ -1,8 +1,16 @@
 "use strict";
 
+import { LOG_PCI } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+
+
 // http://wiki.osdev.org/PCI
 
-var
+export const
 /** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
 /** @const */ PCI_CONFIG_DATA = 0xCFC;
 
@@ -10,7 +18,7 @@ var
  * @constructor
  * @param {CPU} cpu
  */
-function PCI(cpu)
+export function PCI(cpu)
 {
     this.pci_addr = new Uint8Array(4);
     this.pci_value = new Uint8Array(4);

@@ -1,5 +1,8 @@
 "use strict";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /** @const */
 var SHIFT_SCAN_CODE = 0x2A;
 
@@ -14,7 +17,7 @@ const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platfo
  *
  * @param {BusConnector} bus
  */
-function KeyboardAdapter(bus)
+export function KeyboardAdapter(bus)
 {
     var
         /**

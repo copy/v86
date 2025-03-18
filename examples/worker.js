@@ -1,5 +1,7 @@
 importScripts("../build/libv86.js");
 
+/* global V86 */
+
 var emulator = new V86({
     wasm_path: "../build/v86.wasm",
     memory_size: 32 * 1024 * 1024,
