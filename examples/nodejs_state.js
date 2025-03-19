@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
-var fs = require("fs");
-var V86 = require("../build/libv86.js").V86;
+import fs from "node:fs";
+var V86 = await import("../build/libv86.js").V86;
 
 function readfile(path)
 {

@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 "use strict";
 
+import url from "node:url";
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+
+import { createRequire } from "node:module";
+globalThis.require = createRequire(import.meta.url);
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const crypto = require("crypto");
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`);
 
 process.on("unhandledRejection", exn => { throw exn; });
 
