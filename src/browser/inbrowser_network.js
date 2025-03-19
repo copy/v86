@@ -1,5 +1,9 @@
 "use strict";
 
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * Network adapter "inbrowser" which connects the emulated NIC
  * to a shared in-browser BroadcastChannel.
@@ -16,7 +20,7 @@
  * @param {BusConnector} bus
  * @param {*=} config
  */
-function InBrowserNetworkAdapter(bus, config)
+export function InBrowserNetworkAdapter(bus, config)
 {
     const id = config.id || 0;
 

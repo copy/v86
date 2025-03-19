@@ -3,6 +3,7 @@
 // For Types Only
 import { CPU } from "./cpu.js";
 import { PCI } from "./pci.js";
+import { BusConnector } from "./bus.js";
 
 // http://www.ethernut.de/pdf/8019asds.pdf
 

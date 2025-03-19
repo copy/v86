@@ -1,5 +1,8 @@
 "use strict";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *

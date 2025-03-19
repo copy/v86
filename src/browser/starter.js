@@ -1,6 +1,8 @@
 "use strict";
 
 import { v86 } from "../main.js";
+import { print_stats } from "./print_stats.js";
+import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 
 import { SpeakerAdapter } from "./speaker.js";
@@ -10,6 +12,9 @@ import { WispNetworkAdapter } from "./wisp_network.js";
 import { KeyboardAdapter } from "./keyboard.js";
 import { MouseAdapter } from "./mouse.js";
 import { ScreenAdapter } from "./screen.js";
+import { DummyScreenAdapter } from "./dummy_screen.js";
+import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
+import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 
@@ -1488,11 +1493,8 @@ function FileNotFoundError(message)
 }
 FileNotFoundError.prototype = Error.prototype;
 
-if(typeof window !== "undefined")
-{
-    window["V86"] = V86;
-}
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["V86"] = V86;
+    module.exports["print_stats"] = print_stats;
 }

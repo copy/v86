@@ -1,5 +1,8 @@
 "use strict";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * An ethernet-through-websocket adapter, to be used with
  *     https://github.com/benjamincburns/websockproxy

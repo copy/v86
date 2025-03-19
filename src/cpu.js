@@ -22,7 +22,6 @@ import { VirtioBalloon } from "./virtio_balloon.js";
 
 import { load_kernel } from "./kernel.js";
 
-
 import {
     RTC,
     CMOS_EQUIPMENT_INFO, CMOS_BIOS_SMP_COUNT,
@@ -34,6 +33,10 @@ import {
     CMOS_MEM_EXTMEM_HIGH, CMOS_MEM_EXTMEM2_LOW, CMOS_MEM_EXTMEM2_HIGH
 } from "./rtc.js";
 
+
+// For Types Only
+
+import { BusConnector } from "./bus.js";
 
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm

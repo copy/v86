@@ -2,6 +2,7 @@
 
 // For Types Only
 import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 /*
  * Serial ports

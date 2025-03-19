@@ -6,6 +6,7 @@ import { format_mac } from "./ne2k.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 const VIRTIO_NET_F_MAC = 5;
 const VIRTIO_NET_F_CTRL_VQ = 17;

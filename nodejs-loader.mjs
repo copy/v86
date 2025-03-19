@@ -14,7 +14,6 @@ let files = [
     "src/log.js",
     "src/lib.js",
     "src/buffer.js",
-    "src/bus.js",
     "src/virtio.js",
 
     "lib/9p.js",
@@ -23,8 +22,6 @@ let files = [
     "lib/marshall.js",
 
     "src/browser/worker_bus.js",
-    "src/browser/dummy_screen.js",
-    "src/browser/print_stats.js",
 ];
 
 

@@ -1,6 +1,7 @@
 "use strict";
 
 import { V86 } from "./starter.js";
+import { print_stats } from "./print_stats.js";
 
 (function()
 {

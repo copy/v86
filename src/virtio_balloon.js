@@ -4,6 +4,7 @@
 
 // For Types Only
 import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 const VIRTIO_BALLOON_F_MUST_TELL_HOST = 0;
 const VIRTIO_BALLOON_F_STATS_VQ = 1;

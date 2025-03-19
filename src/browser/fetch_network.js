@@ -9,6 +9,9 @@ import {
     fake_tcp_probe
 } from "./fake_network.js";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *
