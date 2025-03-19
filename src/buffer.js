@@ -1,5 +1,6 @@
 "use strict";
 
+import { CPU } from "./cpu.js";
 
     // The smallest size the emulated hardware can emit
     const BLOCK_SIZE = 256;
@@ -793,4 +794,3 @@
             dbg_log("Ignored file: url=" + obj.url + " buffer=" + obj.buffer);
         }
     }
-

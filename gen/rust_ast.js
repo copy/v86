@@ -77,4 +77,3 @@ export function print_syntax_tree(statements)
 
     return code;
 }
-

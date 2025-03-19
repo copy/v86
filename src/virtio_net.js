@@ -2,7 +2,9 @@
 
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
 
+import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
 import { format_mac } from "./ne2k.js";
+import { marshall } from "../lib/marshall.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";

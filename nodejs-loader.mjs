@@ -13,14 +13,7 @@ let files = [
     "src/config.js",
     "src/log.js",
     "src/lib.js",
-    "src/virtio.js",
-
-    "lib/9p.js",
-    "lib/filesystem.js",
-    "lib/jor1k.js",
-    "lib/marshall.js",
 ];
-
 
 
 let ctx = vm.createContext(globalThis);
@@ -34,13 +27,11 @@ globalThis.require = (what) => {
 };
 
 for( let f of files ) {
-    console.log(f);
     vm.runInContext(fs.readFileSync(path.join(__dirname, f), "utf8"), ctx, {
         filename: f
     });
 }
 
-console.log(globalThis);
 
 var V86 = await import("./src/browser/starter.js");
 export default V86.V86;
