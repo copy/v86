@@ -1,5 +1,8 @@
 "use strict";
 
+import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
+import { marshall } from "../lib/marshall.js";
+
 // For Types Only
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";

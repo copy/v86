@@ -44,4 +44,3 @@ export function finalize_table_rust(out_dir, name, contents)
     fs.writeFileSync(file_path, contents);
     console.log(CYAN_FMT, `[+] Wrote table ${name}.`);
 }
-

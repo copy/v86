@@ -1,5 +1,10 @@
 "use strict";
 
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { PCI } from "./pci.js";
+
 // http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
 
 const VIRTIO_PCI_VENDOR_ID = 0x1AF4;
@@ -32,9 +37,9 @@ const VIRTIO_ISR_DEVICE_CFG = 2;
 
 // Feature bits (bit positions).
 
-const VIRTIO_F_RING_INDIRECT_DESC = 28;
-const VIRTIO_F_RING_EVENT_IDX = 29;
-var VIRTIO_F_VERSION_1 = 32;
+export const VIRTIO_F_RING_INDIRECT_DESC = 28;
+export const VIRTIO_F_RING_EVENT_IDX = 29;
+export const VIRTIO_F_VERSION_1 = 32;
 
 // Queue struct sizes.
 
@@ -150,17 +155,17 @@ var VirtIO_Options;
 
 /**
  * @constructor
- * [FIX@]param {CPU} cpu
+ * @param {CPU} cpu
  * @param {VirtIO_Options} options
  */
-function VirtIO(cpu, options)
+export function VirtIO(cpu, options)
 {
     const io = cpu.io;
 
-    /** [FIX@]const @type {CPU} */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** [FIX@]const @type {PCI} */
+    /** @const @type {PCI} */
     this.pci = cpu.devices.pci;
 
     this.device_id = options.device_id;
@@ -1029,12 +1034,12 @@ VirtIO.prototype.lower_irq = function()
 
 /**
  * @constructor
- * [FIX@]param {CPU} cpu
+ * @param {CPU} cpu
  * @param {VirtQueue_Options} options
  */
 function VirtQueue(cpu, virtio, options)
 {
-    /** [FIX@]const @type {CPU} */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
     /** @const @type {VirtIO} */
@@ -1321,7 +1326,7 @@ VirtQueue.prototype.used_set_avail_event = function(value)
  */
 function VirtQueueBufferChain(virtqueue, head_idx)
 {
-    /** @const [FIX@]type {CPU} */
+    /** @const @type {CPU} */
     this.cpu = virtqueue.cpu;
 
     /** @const @type {VirtIO} */
