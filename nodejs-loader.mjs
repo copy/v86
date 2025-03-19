@@ -13,15 +13,12 @@ let files = [
     "src/config.js",
     "src/log.js",
     "src/lib.js",
-    "src/buffer.js",
     "src/virtio.js",
 
     "lib/9p.js",
     "lib/filesystem.js",
     "lib/jor1k.js",
     "lib/marshall.js",
-
-    "src/browser/worker_bus.js",
 ];
 
 

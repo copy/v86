@@ -2,6 +2,7 @@
 
 import { V86 } from "./starter.js";
 import { print_stats } from "./print_stats.js";
+import { SyncFileBuffer } from "../buffer.js";
 
 (function()
 {
@@ -2634,7 +2635,7 @@ import { print_stats } from "./print_stats.js";
         {
             Array.prototype.forEach.call(this.files, function(file)
             {
-                var loader = new v86util.SyncFileBuffer(file);
+                var loader = new SyncFileBuffer(file);
                 loader.onload = function()
                 {
                     loader.get_buffer(async function(buffer)
