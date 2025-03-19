@@ -3,7 +3,7 @@
 /**
  * @export
  */
-const print_stats = {
+export const print_stats = {
     stats_to_string: function(cpu)
     {
         return print_stats.print_misc_stats(cpu) +

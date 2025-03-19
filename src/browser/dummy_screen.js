@@ -3,7 +3,7 @@
 /**
  * @constructor
  */
-function DummyScreenAdapter()
+export function DummyScreenAdapter()
 {
     var
         graphic_image_data,

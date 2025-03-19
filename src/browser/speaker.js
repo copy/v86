@@ -2,6 +2,9 @@
 
 import { OSCILLATOR_FREQ } from "../pit.js";
 
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /** @const */
 var DAC_QUEUE_RESERVE = 0.2;
 

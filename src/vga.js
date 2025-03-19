@@ -3,6 +3,8 @@
 // For Types Only
 import { CPU } from "./cpu.js";
 import { ScreenAdapter } from "./browser/screen.js";
+import { BusConnector } from "./bus.js";
+import { DummyScreenAdapter } from "./browser/dummy_screen.js";
 
 // Always 64k
 const VGA_BANK_SIZE = 64 * 1024;

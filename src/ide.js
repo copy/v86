@@ -4,6 +4,7 @@ import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL } from ".
 
 // For Types Only
 import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 /** @const */
 var CDROM_SECTOR_SIZE = 2048;

@@ -2,6 +2,7 @@
 
 // For Types Only
 import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
 

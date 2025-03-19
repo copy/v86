@@ -4,6 +4,7 @@
 import { CPU } from "./cpu.js";
 import { DMA } from "./dma.js";
 import { IO } from "./io.js";
+import { BusConnector } from "./bus.js";
 
 // Useful documentation, articles, and source codes for reference:
 // ===============================================================
