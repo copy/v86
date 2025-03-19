@@ -4,6 +4,7 @@
 // https://wiki.osdev.org/Floppy_Disk_Controller
 
 import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";
+import { SyncBuffer } from "./buffer.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -117,7 +118,7 @@ FloppyController.prototype.set_fda = function(fda_image)
         dbg_assert(fda_image.buffer && fda_image.buffer instanceof ArrayBuffer);
         const new_image = new Uint8Array(floppy_size);
         new_image.set(new Uint8Array(fda_image.buffer));
-        fda_image = new v86util.SyncBuffer(new_image.buffer);
+        fda_image = new SyncBuffer(new_image.buffer);
 
         dbg_log("Warning: Unkown floppy size: " + fda_image.byteLength + ", assuming " + floppy_size);
     }

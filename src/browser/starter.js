@@ -17,6 +17,7 @@ import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
+import { SyncBuffer, buffer_from_object } from "../buffer.js";
 
 // Decorates CPU
 import "../debug.js";
@@ -493,7 +494,7 @@ V86.prototype.continue_init = async function(emulator, options)
         {
             files_to_load.push({
                 name,
-                loadable: v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
+                loadable: buffer_from_object(file, this.zstd_decompress_worker.bind(this)),
             });
         }
     };
@@ -583,7 +584,7 @@ V86.prototype.continue_init = async function(emulator, options)
                         result = this.zstd_decompress(f.size, new Uint8Array(result));
                     }
 
-                    put_on_settings.call(this, f.name, f.as_json ? result : new v86util.SyncBuffer(result));
+                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
@@ -640,8 +641,8 @@ V86.prototype.continue_init = async function(emulator, options)
                         settings.fs9p.read_file(initrd_path),
                         settings.fs9p.read_file(bzimage_path),
                     ]);
-                    put_on_settings.call(this, "initrd", new v86util.SyncBuffer(initrd.buffer));
-                    put_on_settings.call(this, "bzimage", new v86util.SyncBuffer(bzimage.buffer));
+                    put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
+                    put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
                 }
             }
             else
@@ -972,13 +973,13 @@ V86.prototype.set_fda = async function(file)
         v86util.load_file(file.url, {
             done: result =>
             {
-                this.v86.cpu.devices.fdc.set_fda(new v86util.SyncBuffer(result));
+                this.v86.cpu.devices.fdc.set_fda(new SyncBuffer(result));
             },
         });
     }
     else
     {
-        const image = v86util.buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
         image.onload = () =>
         {
             this.v86.cpu.devices.fdc.set_fda(image);
