@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+import assert from "node:assert/strict";
+import os from "node:os";
+import cluster from "node:cluster";
+
 process.on("unhandledRejection", exn => { throw exn; });
 
 // Mapping between signals and x86 exceptions:
@@ -14,12 +21,6 @@ process.on("unhandledRejection", exn => { throw exn; });
 // to be determined -> #PF
 
 // A #UD might indicate a bug in the test generation
-
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const cluster = require("cluster");
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
@@ -47,7 +48,7 @@ const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3 | 1 << 1); // bits t
 const FP_COMPARISON_SIGNIFICANT_DIGITS = 7;
 
 try {
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+    var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`);
 }
 catch(e) {
     console.error(e);

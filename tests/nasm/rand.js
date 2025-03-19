@@ -1,5 +1,4 @@
 "use strict";
-const assert = require("assert");
 
 // From http://baagoe.com/en/RandomMusings/javascript/
 // Johannes Baagøe <baagoe@baagoe.com>, 2010
