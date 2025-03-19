@@ -1,5 +1,9 @@
 "use strict";
 
+import { V86 } from "./starter.js";
+import { print_stats } from "./print_stats.js";
+import { SyncFileBuffer } from "../buffer.js";
+
 (function()
 {
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
@@ -2631,7 +2635,7 @@
         {
             Array.prototype.forEach.call(this.files, function(file)
             {
-                var loader = new v86util.SyncFileBuffer(file);
+                var loader = new SyncFileBuffer(file);
                 loader.onload = function()
                 {
                     loader.get_buffer(async function(buffer)

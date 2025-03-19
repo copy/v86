@@ -5,10 +5,10 @@ process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-const fs = require("fs");
+var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`);
 
-const testfsjson = require("./testfs.json");
+
+const testfsjson = await import("./testfs.json");
 const SHOW_LOGS = false;
 const STOP_ON_FIRST_FAILURE = false;
 

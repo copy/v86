@@ -1,5 +1,10 @@
 "use strict";
 
+import { OSCILLATOR_FREQ } from "../pit.js";
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /** @const */
 var DAC_QUEUE_RESERVE = 0.2;
 
@@ -10,7 +15,7 @@ var AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
  * @constructor
  * @param {!BusConnector} bus
  */
-function SpeakerAdapter(bus)
+export function SpeakerAdapter(bus)
 {
     if(typeof window === "undefined")
     {

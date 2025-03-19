@@ -57,7 +57,7 @@ jobs:
         id: cache-kvm-unit-test
         with:
           path: tests/kvm-unit-tests/
-          key: ${{ runner.os }}-kvm-unit-test
+          key: ${{ runner.os }}-kvm-unit-test-es6
 
       - name: Build kvm-unit-test
         if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'

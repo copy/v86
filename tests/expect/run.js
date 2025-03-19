@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 "use strict";
 
+import fs from "node:fs";
+import path from "node:path";
+import assert from "node:assert/strict";
+import url from "node:url";
+import { spawnSync } from "node:child_process";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
-const { spawnSync } = require("child_process");
-
-const libwabt = require("../../build/libwabt.js")();
+const libwabt = (await import("../../build/libwabt.js")).default();
 
 try {
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+    var {V86} = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`);
 }
 catch(e) {
     console.error(e);

@@ -2,6 +2,13 @@
 
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
 
+import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
+import { format_mac } from "./ne2k.js";
+import { marshall } from "../lib/marshall.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 const VIRTIO_NET_F_MAC = 5;
 const VIRTIO_NET_F_CTRL_VQ = 17;
@@ -19,7 +26,7 @@ const VIRTIO_NET_CTRL_MAC_ADDR_SET = 1;
  * @param {BusConnector} bus
  * @param {Boolean} preserve_mac_from_state_image
  */
-function VirtioNet(cpu, bus, preserve_mac_from_state_image)
+export function VirtioNet(cpu, bus, preserve_mac_from_state_image)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;

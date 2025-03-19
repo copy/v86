@@ -1,5 +1,6 @@
 {
   "name": "v86",
   "version": "0",
-  "license": "BSD-2-Clause"
+  "license": "BSD-2-Clause",
+  "type": "module"
 }

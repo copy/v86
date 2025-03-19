@@ -1,5 +1,11 @@
 "use strict";
 
+import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL } from "./rtc.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
+
 /** @const */
 var CDROM_SECTOR_SIZE = 2048;
 /** @const */
@@ -12,7 +18,7 @@ var HD_SECTOR_SIZE = 512;
  * @param {number} nr
  * @param {BusConnector} bus
  * */
-function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
+export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 {
     this.master = new IDEInterface(this, cpu, master_buffer, is_cd, nr, 0, bus);
     this.slave = new IDEInterface(this, cpu, slave_buffer, false, nr, 1, bus);

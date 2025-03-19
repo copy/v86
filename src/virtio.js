@@ -1,5 +1,10 @@
 "use strict";
 
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { PCI } from "./pci.js";
+
 // http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
 
 const VIRTIO_PCI_VENDOR_ID = 0x1AF4;
@@ -32,9 +37,9 @@ const VIRTIO_ISR_DEVICE_CFG = 2;
 
 // Feature bits (bit positions).
 
-const VIRTIO_F_RING_INDIRECT_DESC = 28;
-const VIRTIO_F_RING_EVENT_IDX = 29;
-const VIRTIO_F_VERSION_1 = 32;
+export const VIRTIO_F_RING_INDIRECT_DESC = 28;
+export const VIRTIO_F_RING_EVENT_IDX = 29;
+export const VIRTIO_F_VERSION_1 = 32;
 
 // Queue struct sizes.
 
@@ -153,7 +158,7 @@ var VirtIO_Options;
  * @param {CPU} cpu
  * @param {VirtIO_Options} options
  */
-function VirtIO(cpu, options)
+export function VirtIO(cpu, options)
 {
     const io = cpu.io;
 

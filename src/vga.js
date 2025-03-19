@@ -1,5 +1,11 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+import { ScreenAdapter } from "./browser/screen.js";
+import { BusConnector } from "./bus.js";
+import { DummyScreenAdapter } from "./browser/dummy_screen.js";
+
 // Always 64k
 const VGA_BANK_SIZE = 64 * 1024;
 
@@ -51,7 +57,7 @@ const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
  * @param {ScreenAdapter|DummyScreenAdapter} screen
  * @param {number} vga_memory_size
  */
-function VGAScreen(cpu, bus, screen, vga_memory_size)
+export function VGAScreen(cpu, bus, screen, vga_memory_size)
 {
     this.cpu = cpu;
 

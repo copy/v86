@@ -1,9 +1,9 @@
 "use strict";
 
-var Bus = {};
+export var Bus = {};
 
 /** @constructor */
-function BusConnector()
+export function BusConnector()
 {
     this.listeners = {};
     this.pair = undefined;

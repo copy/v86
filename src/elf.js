@@ -95,7 +95,7 @@ function create_struct(struct)
 }
 
 /** @param {ArrayBuffer} buffer */
-function read_elf(buffer)
+export function read_elf(buffer)
 {
     const view = new DataView(buffer);
 

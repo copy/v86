@@ -1,5 +1,9 @@
 "use strict";
 
+// For Types Only
+import { CPU } from "./cpu.js";
+
+
 /**
  * The ISA IO bus
  * Devices register their ports here
@@ -7,7 +11,7 @@
  * @constructor
  * @param {CPU} cpu
  */
-function IO(cpu)
+export function IO(cpu)
 {
     /** @const */
     this.ports = [];
@@ -87,9 +91,10 @@ IO.prototype.empty_port_write = function(x)
 /**
  * @param {number} port_addr
  * @param {Object} device
- * @param {function():number=} r8
- * @param {function():number=} r16
- * @param {function():number=} r32
+ * @param {function(number):number=} r8
+ * @param {function(number):number=} r16
+ * @param {function(
+ * number):number=} r32
  */
 IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
 {
