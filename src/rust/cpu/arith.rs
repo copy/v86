@@ -5,10 +5,15 @@ use crate::cpu::misc_instr::{getaf, getcf, getzf};
 
 fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
+fn opsize_to_mask(op_size: i32) -> i32 {
+    dbg_assert!(op_size == OPSIZE_8 || op_size == OPSIZE_16 || op_size == OPSIZE_32);
+    (2 << op_size) - 1
+}
+
 unsafe fn add(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand + source_operand;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL;
     return res;
@@ -17,7 +22,7 @@ unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand + source_operand + cf;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW;
     *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
@@ -30,7 +35,7 @@ unsafe fn adc(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
 unsafe fn sub(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let res = dest_operand - source_operand;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL | FLAG_SUB;
     return res;
@@ -39,7 +44,7 @@ unsafe fn sbb(dest_operand: i32, source_operand: i32, op_size: i32) -> i32 {
     let cf = getcf() as i32;
     let res = dest_operand - source_operand - cf;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW | FLAG_SUB;
     *flags = *flags & !FLAG_CARRY & !FLAG_ADJUST & !FLAG_OVERFLOW
@@ -90,7 +95,7 @@ unsafe fn inc(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand + 1;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !1;
     return res;
@@ -99,7 +104,7 @@ unsafe fn dec(dest_operand: i32, op_size: i32) -> i32 {
     *flags = *flags & !1 | getcf() as i32;
     let res = dest_operand - 1;
     *last_op1 = dest_operand;
-    *last_result = res & (2 << op_size) - 1;
+    *last_result = res & opsize_to_mask(op_size);
     *last_op_size = op_size;
     *flags_changed = FLAGS_ALL & !1 | FLAG_SUB;
     return res;
