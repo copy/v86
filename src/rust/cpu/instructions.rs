@@ -601,7 +601,7 @@ pub unsafe fn instr32_69_reg(r1: i32, r: i32, imm: i32) {
 }
 
 pub unsafe fn instr16_6A(imm8: i32) {
-    return_on_pagefault!(push16(imm8));
+    return_on_pagefault!(push16(imm8 & 0xFFFF));
 }
 pub unsafe fn instr32_6A(imm8: i32) {
     return_on_pagefault!(push32(imm8));
@@ -1028,7 +1028,7 @@ pub unsafe fn instr16_9C() {
         trigger_gp(0);
     }
     else {
-        return_on_pagefault!(push16(get_eflags()));
+        return_on_pagefault!(push16(get_eflags() & 0xFFFF));
     };
 }
 pub unsafe fn instr32_9C() {

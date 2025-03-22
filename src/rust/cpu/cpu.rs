@@ -969,7 +969,7 @@ pub unsafe fn call_interrupt_vector(
             }
             else {
                 push16(old_ss).unwrap();
-                push16(old_esp).unwrap();
+                push16(old_esp & 0xFFFF).unwrap();
             }
         }
         else if cs_segment_descriptor.is_dc() || cs_segment_descriptor.dpl() == *cpl {
@@ -1014,11 +1014,12 @@ pub unsafe fn call_interrupt_vector(
             }
         }
         else {
-            push16(old_flags).unwrap();
+            push16(old_flags & 0xFFFF).unwrap();
             push16(*sreg.offset(CS as isize) as i32).unwrap();
-            push16(get_real_eip()).unwrap();
+            push16(get_real_eip() & 0xFFFF).unwrap();
 
             if let Some(ec) = error_code {
+                dbg_assert!(ec >= 0 && ec < 0x10000);
                 push16(ec).unwrap();
             }
 
@@ -1073,9 +1074,9 @@ pub unsafe fn call_interrupt_vector(
         // XXX: #SS if stack would cross stack limit
 
         // push flags, cs:ip
-        push16(get_eflags()).unwrap();
+        push16(get_eflags() & 0xFFFF).unwrap();
         push16(*sreg.offset(CS as isize) as i32).unwrap();
-        push16(get_real_eip()).unwrap();
+        push16(get_real_eip() & 0xFFFF).unwrap();
 
         *flags &= !FLAG_INTERRUPT & !FLAG_AC & !FLAG_TRAP;
 
@@ -3662,6 +3663,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
 
 pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
+    dbg_assert!(value >= 0 && value < 0x10000);
     if addr & 0xFFF == 0xFFF {
         virt_boundary_write16(phys_addr, translate_address_write(addr + 1)?, value);
     }
@@ -3758,6 +3760,7 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         return_on_pagefault!(translate_address_write_and_can_skip_dirty(addr));
     let x = memory::read8(phys_addr);
     let value = instruction(x);
+    dbg_assert!(value >= 0 && value < 0x100);
     if memory::in_mapped_range(phys_addr) {
         memory::mmap_write8(phys_addr, value);
     }
@@ -3784,6 +3787,7 @@ pub unsafe fn safe_read_write16(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     else {
         let x = memory::read16(phys_addr);
         let value = instruction(x);
+        dbg_assert!(value >= 0 && value < 0x10000);
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write16(phys_addr, value);
         }

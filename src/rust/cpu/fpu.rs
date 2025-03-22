@@ -323,12 +323,12 @@ pub unsafe fn fpu_convert_to_i16(f: F80) -> i16 {
 pub unsafe fn fpu_fistm16(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 2));
     let v = fpu_convert_to_i16(fpu_get_st0());
-    safe_write16(addr, v as i32).unwrap();
+    safe_write16(addr, v as i32 & 0xFFFF).unwrap();
 }
 pub unsafe fn fpu_fistm16p(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 2));
     let v = fpu_convert_to_i16(fpu_get_st0());
-    safe_write16(addr, v as i32).unwrap();
+    safe_write16(addr, v as i32 & 0xFFFF).unwrap();
     fpu_pop();
 }
 #[no_mangle]
@@ -345,7 +345,7 @@ pub unsafe fn fpu_truncate_to_i16(f: F80) -> i16 {
 pub unsafe fn fpu_fisttpm16(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 2));
     let v = fpu_truncate_to_i16(fpu_get_st0());
-    safe_write16(addr, v as i32).unwrap();
+    safe_write16(addr, v as i32 & 0xFFFF).unwrap();
     fpu_pop();
 }
 
