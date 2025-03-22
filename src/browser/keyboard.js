@@ -251,6 +251,23 @@ function KeyboardAdapter(bus)
         "ContextMenu": 0xe05d,
     };
 
+    /** @const */
+    var ignored_keys = [
+        // for chromium
+        "AudioVolumeUp",
+        "AudioVolumeDown",
+        "AudioVolumeMute",
+        // for other browsers
+        "VolumeUp",
+        "VolumeDown",
+        "VolumeMute",
+
+        "MediaStop",
+        "MediaTrackPrevious",
+        "MediaTrackNext",
+        "MediaPlayPause"
+    ];
+
     this.bus = bus;
 
     this.destroy = function()
@@ -435,6 +452,11 @@ function KeyboardAdapter(bus)
                 }, 10);
                 return false;
             }
+        }
+
+        if(ignored_keys.indexOf(e.code) !== -1)
+        {
+            return;
         }
 
         handle_event(e, keydown);
