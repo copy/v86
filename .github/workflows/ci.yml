@@ -28,6 +28,7 @@ jobs:
         with:
           node-version: '20'
           check-latest: true
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup toolchain
         run: |
@@ -119,6 +120,7 @@ jobs:
         with:
           name: v86
           path: |
+            package.json
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
@@ -147,6 +149,16 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R
 
+      - name: Set package.json version
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const fs = require("fs");
+            const pkg = {...require("./build/package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER)}
+            console.log(pkg);
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, "  "), "utf8");
+
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
         with:
@@ -156,3 +168,5 @@ jobs:
           body: ${{ github.event.head_commit.message }}
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
+
+      - run: npm publish --provenance --access public
