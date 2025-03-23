@@ -5,6 +5,8 @@
   "description": "x86 PC emulator and x86-to-wasm JIT, running in the browser",
   "homepage": "https://copy.sh/v86/",
   "files": [
+    "Readme.md",
+    "LICENSE",
     "build/libv86*.js",
     "build/libv86*.js.map",
     "build/*.mjs",
