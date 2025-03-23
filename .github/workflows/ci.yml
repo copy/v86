@@ -121,6 +121,8 @@ jobs:
           name: v86
           path: |
             package.json
+            LICENSE
+            Readme.md
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
@@ -155,7 +157,7 @@ jobs:
           result-encoding: string
           script: |
             const fs = require("fs");
-            const pkg = {...require("./build/package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER)}
+            const pkg = {...require("./build/package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER) + '.0'}
             console.log(pkg);
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, "  "), "utf8");
 
@@ -169,4 +171,5 @@ jobs:
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
 
+      - run: mv build/Readme.md build/LICENSE .
       - run: npm publish --provenance --access public
