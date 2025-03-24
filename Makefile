@@ -387,4 +387,5 @@ build/xterm.js:
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/css/xterm.css > build/xterm.css
 
 update-package-json-version:
-	jq --arg version "$$(git describe --tags | sed 's/-/./' | tr - +)" '.version = $$version' package.json | sponge package.json
+	jq --arg version "$$(git describe --tags | sed 's/-/./' | tr - +)" '.version = $$version' package.json > package.json.tmp
+	mv package.json.tmp package.json
