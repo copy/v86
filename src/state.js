@@ -1,5 +1,7 @@
 "use strict";
 
+
+import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
 /** @const */

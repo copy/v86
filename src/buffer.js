@@ -1,6 +1,8 @@
 "use strict";
 
 import { CPU } from "./cpu.js";
+import { load_file } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
 
     // The smallest size the emulated hardware can emit
     const BLOCK_SIZE = 256;
@@ -200,7 +202,7 @@ import { CPU } from "./cpu.js";
             requested_length = Math.ceil((offset - requested_start + len) / this.fixed_chunk_size) * this.fixed_chunk_size;
         }
 
-        v86util.load_file(this.filename, {
+        load_file(this.filename, {
             done: function done(buffer)
             {
                 var block = new Uint8Array(buffer);
@@ -476,7 +478,7 @@ import { CPU } from "./cpu.js";
                 }
                 else
                 {
-                    v86util.load_file(part_filename, {
+                    load_file(part_filename, {
                         done: async function done(buffer)
                         {
                             let block = new Uint8Array(buffer);
@@ -504,7 +506,7 @@ import { CPU } from "./cpu.js";
         {
             const part_filename = this.basename + offset + "-" + (offset + len) + this.extension;
 
-            v86util.load_file(part_filename, {
+            load_file(part_filename, {
                 done: function done(buffer)
                 {
                     dbg_assert(buffer.byteLength === len);
@@ -717,7 +719,7 @@ import { CPU } from "./cpu.js";
     {
         determine_size = function(url, cb)
         {
-            v86util.load_file(url, {
+            load_file(url, {
                 done: (buffer, http) =>
                 {
                     var header = http.getResponseHeader("Content-Range") || "";

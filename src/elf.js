@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_log } from "./log.js";
+
 // A minimal elf parser for loading 32 bit, x86, little endian, executable elf files
 
 const ELF_MAGIC = 0x464C457F;

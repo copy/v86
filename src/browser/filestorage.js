@@ -1,5 +1,9 @@
 "use strict";
 
+
+import { dbg_assert } from "../log.js";
+import { load_file } from "../lib.js";
+
 /** @interface */
 export function FileStorageInterface() {}
 
@@ -104,7 +108,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
 {
     return new Promise((resolve, reject) =>
     {
-        v86util.load_file(this.baseurl + sha256sum, { done: async buffer =>
+        load_file(this.baseurl + sha256sum, { done: async buffer =>
         {
             const data = new Uint8Array(buffer);
             await this.cache(sha256sum, data);

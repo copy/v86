@@ -5,6 +5,7 @@
 
 import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";
 import { SyncBuffer } from "./buffer.js";
+import { dbg_assert, dbg_log } from "./log.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";

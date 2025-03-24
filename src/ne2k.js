@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_assert, dbg_log } from "./log.js";
+
 // For Types Only
 import { CPU } from "./cpu.js";
 import { PCI } from "./pci.js";

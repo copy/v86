@@ -1,5 +1,6 @@
 "use strict";
 
+import { dbg_assert } from "./log.js";
 import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
 import { marshall } from "../lib/marshall.js";
 

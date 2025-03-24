@@ -1,5 +1,8 @@
 "use strict";
 
+
+import { dbg_log } from "../log.js";
+
 import {
     create_eth_encoder_buf,
     handle_fake_networking,

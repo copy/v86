@@ -1,6 +1,7 @@
 "use strict";
 
 import { v86 } from "./main.js";
+import { dbg_log } from "./log.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";

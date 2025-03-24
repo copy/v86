@@ -251,7 +251,7 @@ export const print_stats = {
 
         for(let i = 0; i < 0x100; i++)
         {
-            text += i.toString(16).padStart(2, "0") + ":" + v86util.pads(Math.round(per_opcode[i] / factor), pad_length);
+            text += i.toString(16).padStart(2, "0") + ":" + pads(Math.round(per_opcode[i] / factor), pad_length);
 
             if(i % 16 === 15)
                 text += "\n";
@@ -264,7 +264,7 @@ export const print_stats = {
 
         for(let i = 0; i < 0x100; i++)
         {
-            text += (i & 0xFF).toString(16).padStart(2, "0") + ":" + v86util.pads(Math.round(per_opcode0f[i] / factor), pad_length);
+            text += (i & 0xFF).toString(16).padStart(2, "0") + ":" + pads(Math.round(per_opcode0f[i] / factor), pad_length);
 
             if(i % 16 === 15)
                 text += "\n";

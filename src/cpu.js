@@ -22,6 +22,8 @@ import { VirtioBalloon } from "./virtio_balloon.js";
 import { Virtio9p } from "../lib/9p.js";
 
 import { load_kernel } from "./kernel.js";
+import { view, Bitmap } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
 
 import {
     RTC,
@@ -57,91 +59,91 @@ export function CPU(bus, wm, stop_idling)
 
     this.wasm_memory = memory;
 
-    this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
+    this.memory_size = view(Uint32Array, memory, 812, 1);
 
     this.mem8 = new Uint8Array(0);
     this.mem32s = new Int32Array(this.mem8.buffer);
 
-    this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
-    this.segment_offsets = v86util.view(Int32Array, memory, 736, 8);
-    this.segment_limits = v86util.view(Uint32Array, memory, 768, 8);
-    this.segment_access_bytes = v86util.view(Uint8Array, memory, 512, 8);
+    this.segment_is_null = view(Uint8Array, memory, 724, 8);
+    this.segment_offsets = view(Int32Array, memory, 736, 8);
+    this.segment_limits = view(Uint32Array, memory, 768, 8);
+    this.segment_access_bytes = view(Uint8Array, memory, 512, 8);
 
     /**
      * Wheter or not in protected mode
      */
-    this.protected_mode = v86util.view(Int32Array, memory, 800, 1);
+    this.protected_mode = view(Int32Array, memory, 800, 1);
 
-    this.idtr_size = v86util.view(Int32Array, memory, 564, 1);
-    this.idtr_offset = v86util.view(Int32Array, memory, 568, 1);
+    this.idtr_size = view(Int32Array, memory, 564, 1);
+    this.idtr_offset = view(Int32Array, memory, 568, 1);
 
     /**
      * global descriptor table register
      */
-    this.gdtr_size = v86util.view(Int32Array, memory, 572, 1);
-    this.gdtr_offset = v86util.view(Int32Array, memory, 576, 1);
+    this.gdtr_size = view(Int32Array, memory, 572, 1);
+    this.gdtr_offset = view(Int32Array, memory, 576, 1);
 
-    this.tss_size_32 = v86util.view(Int32Array, memory, 1128, 1);
+    this.tss_size_32 = view(Int32Array, memory, 1128, 1);
 
     /*
      * whether or not a page fault occured
      */
-    this.page_fault = v86util.view(Uint32Array, memory, 540, 8);
+    this.page_fault = view(Uint32Array, memory, 540, 8);
 
-    this.cr = v86util.view(Int32Array, memory, 580, 8);
+    this.cr = view(Int32Array, memory, 580, 8);
 
     // current privilege level
-    this.cpl = v86util.view(Uint8Array, memory, 612, 1);
+    this.cpl = view(Uint8Array, memory, 612, 1);
 
     // current operand/address size
-    this.is_32 = v86util.view(Int32Array, memory, 804, 1);
+    this.is_32 = view(Int32Array, memory, 804, 1);
 
-    this.stack_size_32 = v86util.view(Int32Array, memory, 808, 1);
+    this.stack_size_32 = view(Int32Array, memory, 808, 1);
 
     /**
      * Was the last instruction a hlt?
      */
-    this.in_hlt = v86util.view(Uint8Array, memory, 616, 1);
+    this.in_hlt = view(Uint8Array, memory, 616, 1);
 
-    this.last_virt_eip = v86util.view(Int32Array, memory, 620, 1);
-    this.eip_phys = v86util.view(Int32Array, memory, 624, 1);
+    this.last_virt_eip = view(Int32Array, memory, 620, 1);
+    this.eip_phys = view(Int32Array, memory, 624, 1);
 
 
-    this.sysenter_cs = v86util.view(Int32Array, memory, 636, 1);
+    this.sysenter_cs = view(Int32Array, memory, 636, 1);
 
-    this.sysenter_esp = v86util.view(Int32Array, memory, 640, 1);
+    this.sysenter_esp = view(Int32Array, memory, 640, 1);
 
-    this.sysenter_eip = v86util.view(Int32Array, memory, 644, 1);
+    this.sysenter_eip = view(Int32Array, memory, 644, 1);
 
-    this.prefixes = v86util.view(Int32Array, memory, 648, 1);
+    this.prefixes = view(Int32Array, memory, 648, 1);
 
-    this.flags = v86util.view(Int32Array, memory, 120, 1);
+    this.flags = view(Int32Array, memory, 120, 1);
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    this.flags_changed = v86util.view(Int32Array, memory, 100, 1);
+    this.flags_changed = view(Int32Array, memory, 100, 1);
 
     /**
      * enough infos about the last arithmetic operation to compute eflags
      */
-    this.last_op_size = v86util.view(Int32Array, memory, 96, 1);
-    this.last_op1 = v86util.view(Int32Array, memory, 104, 1);
-    this.last_result = v86util.view(Int32Array, memory, 112, 1);
+    this.last_op_size = view(Int32Array, memory, 96, 1);
+    this.last_op1 = view(Int32Array, memory, 104, 1);
+    this.last_result = view(Int32Array, memory, 112, 1);
 
-    this.current_tsc = v86util.view(Uint32Array, memory, 960, 2); // 64 bit
+    this.current_tsc = view(Uint32Array, memory, 960, 2); // 64 bit
 
     /** @type {!Object} */
     this.devices = {};
 
-    this.instruction_pointer = v86util.view(Int32Array, memory, 556, 1);
-    this.previous_ip = v86util.view(Int32Array, memory, 560, 1);
+    this.instruction_pointer = view(Int32Array, memory, 556, 1);
+    this.previous_ip = view(Int32Array, memory, 560, 1);
 
     // configured by guest
-    this.apic_enabled = v86util.view(Uint8Array, memory, 548, 1);
+    this.apic_enabled = view(Uint8Array, memory, 548, 1);
     // configured when the emulator starts (changes bios initialisation)
-    this.acpi_enabled = v86util.view(Uint8Array, memory, 552, 1);
+    this.acpi_enabled = view(Uint8Array, memory, 552, 1);
 
     // managed in io.js
     /** @const */ this.memory_map_read8 = [];
@@ -158,47 +160,47 @@ export function CPU(bus, wm, stop_idling)
         vga: null,
     };
 
-    this.instruction_counter = v86util.view(Uint32Array, memory, 664, 1);
+    this.instruction_counter = view(Uint32Array, memory, 664, 1);
 
     // registers
-    this.reg32 = v86util.view(Int32Array, memory, 64, 8);
+    this.reg32 = view(Int32Array, memory, 64, 8);
 
-    this.fpu_st = v86util.view(Int32Array, memory, 1152, 4 * 8);
+    this.fpu_st = view(Int32Array, memory, 1152, 4 * 8);
 
-    this.fpu_stack_empty = v86util.view(Uint8Array, memory, 816, 1);
+    this.fpu_stack_empty = view(Uint8Array, memory, 816, 1);
     this.fpu_stack_empty[0] = 0xFF;
-    this.fpu_stack_ptr = v86util.view(Uint8Array, memory, 1032, 1);
+    this.fpu_stack_ptr = view(Uint8Array, memory, 1032, 1);
     this.fpu_stack_ptr[0] = 0;
 
-    this.fpu_control_word = v86util.view(Uint16Array, memory, 1036, 1);
+    this.fpu_control_word = view(Uint16Array, memory, 1036, 1);
     this.fpu_control_word[0] = 0x37F;
-    this.fpu_status_word = v86util.view(Uint16Array, memory, 1040, 1);
+    this.fpu_status_word = view(Uint16Array, memory, 1040, 1);
     this.fpu_status_word[0] = 0;
-    this.fpu_ip = v86util.view(Int32Array, memory, 1048, 1);
+    this.fpu_ip = view(Int32Array, memory, 1048, 1);
     this.fpu_ip[0] = 0;
-    this.fpu_ip_selector = v86util.view(Int32Array, memory, 1052, 1);
+    this.fpu_ip_selector = view(Int32Array, memory, 1052, 1);
     this.fpu_ip_selector[0] = 0;
-    this.fpu_opcode = v86util.view(Int32Array, memory, 1044, 1);
+    this.fpu_opcode = view(Int32Array, memory, 1044, 1);
     this.fpu_opcode[0] = 0;
-    this.fpu_dp = v86util.view(Int32Array, memory, 1056, 1);
+    this.fpu_dp = view(Int32Array, memory, 1056, 1);
     this.fpu_dp[0] = 0;
-    this.fpu_dp_selector = v86util.view(Int32Array, memory, 1060, 1);
+    this.fpu_dp_selector = view(Int32Array, memory, 1060, 1);
     this.fpu_dp_selector[0] = 0;
 
-    this.reg_xmm32s = v86util.view(Int32Array, memory, 832, 8 * 4);
+    this.reg_xmm32s = view(Int32Array, memory, 832, 8 * 4);
 
-    this.mxcsr = v86util.view(Int32Array, memory, 824, 1);
+    this.mxcsr = view(Int32Array, memory, 824, 1);
 
     // segment registers, tr and ldtr
-    this.sreg = v86util.view(Uint16Array, memory, 668, 8);
+    this.sreg = view(Uint16Array, memory, 668, 8);
 
     // debug registers
-    this.dreg = v86util.view(Int32Array, memory, 684, 8);
+    this.dreg = view(Int32Array, memory, 684, 8);
 
-    this.reg_pdpte = v86util.view(Int32Array, memory, 968, 8);
+    this.reg_pdpte = view(Int32Array, memory, 968, 8);
 
-    this.svga_dirty_bitmap_min_offset = v86util.view(Uint32Array, memory, 716, 1);
-    this.svga_dirty_bitmap_max_offset = v86util.view(Uint32Array, memory, 720, 1);
+    this.svga_dirty_bitmap_min_offset = view(Uint32Array, memory, 716, 1);
+    this.svga_dirty_bitmap_max_offset = view(Uint32Array, memory, 720, 1);
 
     this.fw_value = [];
     this.fw_pointer = 0;
@@ -612,7 +614,7 @@ CPU.prototype.set_state = function(state)
     this.fpu_dp_selector[0] = state[74];
     this.fpu_opcode[0] = state[75];
 
-    const bitmap = new v86util.Bitmap(state[78].buffer);
+    const bitmap = new Bitmap(state[78].buffer);
     const packed_memory = state[77];
     this.unpack_memory(bitmap, packed_memory);
 
@@ -675,7 +677,7 @@ CPU.prototype.pack_memory = function()
         }
     }
 
-    const bitmap = new v86util.Bitmap(page_count);
+    const bitmap = new Bitmap(page_count);
     const packed_memory = new Uint8Array(nonzero_pages.length << 12);
 
     for(const [i, page] of nonzero_pages.entries())
@@ -759,8 +761,8 @@ CPU.prototype.create_memory = function(size, minimum_size)
 
     const memory_offset = this.allocate_memory(size);
 
-    this.mem8 = v86util.view(Uint8Array, this.wasm_memory, memory_offset, size);
-    this.mem32s = v86util.view(Uint32Array, this.wasm_memory, memory_offset, size >> 2);
+    this.mem8 = view(Uint8Array, this.wasm_memory, memory_offset, size);
+    this.mem32s = view(Uint32Array, this.wasm_memory, memory_offset, size >> 2);
 };
 
 /**

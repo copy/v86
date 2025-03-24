@@ -1,5 +1,8 @@
 "use strict";
 
+import { dbg_assert, dbg_log } from "./log.js";
+
+
 // https://www.kernel.org/doc/Documentation/x86/boot.txt
 
 const LINUX_BOOT_HDR_SETUP_SECTS = 0x1F1;

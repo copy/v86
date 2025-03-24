@@ -1,52 +1,8 @@
 "use strict";
 
-var goog = goog || {};
-goog.exportSymbol = function(name, sym) {
-    if(typeof module !== "undefined" && typeof module.exports !== "undefined")
-    {
-        module.exports[name] = sym;
-    }
-    else if(typeof window !== "undefined")
-    {
-        window[name] = sym;
-    }
-    else if(typeof importScripts === "function")
-    {
-        // web worker
-        self[name] = sym;
-    }
-};
-goog.exportProperty = function() {};
+import { dbg_assert } from "./log.js";
 
-var v86util = v86util || {};
-
-// pad string with spaces on the right
-v86util.pads = function(str, len)
-{
-    str = (str || str === 0) ? str + "" : "";
-    return str.padEnd(len, " ");
-};
-
-// pad string with zeros on the left
-v86util.pad0 = function(str, len)
-{
-    str = (str || str === 0) ? str + "" : "";
-    return str.padStart(len, "0");
-};
-
-// generates array given size with zeros
-v86util.zeros = function(size)
-{
-    return Array(size).fill(0);
-};
-
-// generates [0, 1, 2, ..., size-1]
-v86util.range = function(size)
-{
-    return Array.from(Array(size).keys());
-};
-
-v86util.view = function(constructor, memory, offset, length)
+export var view = function(constructor, memory, offset, length)
 {
     dbg_assert(offset >= 0);
     return new Proxy({},
@@ -72,83 +28,12 @@ v86util.view = function(constructor, memory, offset, length)
         });
 };
 
-/**
- * number to hex
- * @param {number} n
- * @param {number=} len
- * @return {string}
- */
-function h(n, len)
-{
-    if(!n)
-    {
-        var str = "";
-    }
-    else
-    {
-        var str = n.toString(16);
-    }
-
-    return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
-}
-
-function hex_dump(buffer)
-{
-    function hex(n, len)
-    {
-        return v86util.pad0(n.toString(16).toUpperCase(), len);
-    }
-
-    const result = [];
-    let offset = 0;
-
-    for(; offset + 15 < buffer.length; offset += 16)
-    {
-        let line = hex(offset, 5) + "   ";
-
-        for(let j = 0; j < 0x10; j++)
-        {
-            line += hex(buffer[offset + j], 2) + " ";
-        }
-
-        line += "  ";
-
-        for(let j = 0; j < 0x10; j++)
-        {
-            const x = buffer[offset + j];
-            line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
-        }
-
-        result.push(line);
-    }
-
-    let line = hex(offset, 5) + "   ";
-
-    for(; offset < buffer.length; offset++)
-    {
-        line += hex(buffer[offset], 2) + " ";
-    }
-
-    const remainder = offset & 0xF;
-    line += "   ".repeat(0x10 - remainder);
-    line += "  ";
-
-    for(let j = 0; j < remainder; j++)
-    {
-        const x = buffer[offset + j];
-        line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
-    }
-
-    result.push(line);
-
-    return "\n" + result.join("\n") + "\n";
-}
-
+export var get_rand_int;
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
     const rand_data = new Int32Array(1);
 
-    v86util.get_rand_int = function()
+    get_rand_int = function()
     {
         crypto.getRandomValues(rand_data);
         return rand_data[0];
@@ -159,7 +44,7 @@ else if(typeof require !== "undefined")
     /** @type {{ randomBytes: Function }} */
     const crypto = require("crypto");
 
-    v86util.get_rand_int = function()
+    get_rand_int = function()
     {
         return crypto.randomBytes(4)["readInt32LE"](0);
     };
@@ -169,95 +54,26 @@ else
     dbg_assert(false, "Unsupported platform: No cryptographic random values");
 }
 
-(function()
-{
-    if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 && Math.clz32(0x12345) === 15 && Math.clz32(-1) === 0)
-    {
-        /**
-         * calculate the integer logarithm base 2
-         * @param {number} x
-         * @return {number}
-         */
-        v86util.int_log2 = function(x)
-        {
-            dbg_assert(x > 0);
-
-            return 31 - Math.clz32(x);
-        };
-
-        return;
-    }
-
-    var int_log2_table = new Int8Array(256);
-
-    for(var i = 0, b = -2; i < 256; i++)
-    {
-        if(!(i & i - 1))
-            b++;
-
-        int_log2_table[i] = b;
-    }
-
-    /**
-     * calculate the integer logarithm base 2
-     * @param {number} x
-     * @return {number}
-     */
-    v86util.int_log2 = function(x)
-    {
-        x >>>= 0;
-        dbg_assert(x > 0);
-
-        // http://jsperf.com/integer-log2/6
-        var tt = x >>> 16;
-
-        if(tt)
-        {
-            var t = tt >>> 8;
-            if(t)
-            {
-                return 24 + int_log2_table[t];
-            }
-            else
-            {
-                return 16 + int_log2_table[tt];
-            }
-        }
-        else
-        {
-            var t = x >>> 8;
-            if(t)
-            {
-                return 8 + int_log2_table[t];
-            }
-            else
-            {
-                return int_log2_table[x];
-            }
-        }
-    };
-})();
-
-v86util.round_up_to_next_power_of_2 = function(x)
+export const round_up_to_next_power_of_2 = function(x)
 {
     dbg_assert(x >= 0);
-    return x <= 1 ? 1 : 1 << 1 + v86util.int_log2(x - 1);
+    return x <= 1 ? 1 : 1 << 1 + int_log2(x - 1);
 };
 
 if(DEBUG)
 {
-    dbg_assert(v86util.int_log2(1) === 0);
-    dbg_assert(v86util.int_log2(2) === 1);
-    dbg_assert(v86util.int_log2(7) === 2);
-    dbg_assert(v86util.int_log2(8) === 3);
-    dbg_assert(v86util.int_log2(123456789) === 26);
+    dbg_assert(int_log2(1) === 0);
+    dbg_assert(int_log2(2) === 1);
+    dbg_assert(int_log2(7) === 2);
+    dbg_assert(int_log2(8) === 3);
+    dbg_assert(int_log2(123456789) === 26);
 
-    dbg_assert(v86util.round_up_to_next_power_of_2(0) === 1);
-    dbg_assert(v86util.round_up_to_next_power_of_2(1) === 1);
-    dbg_assert(v86util.round_up_to_next_power_of_2(2) === 2);
-    dbg_assert(v86util.round_up_to_next_power_of_2(7) === 8);
-    dbg_assert(v86util.round_up_to_next_power_of_2(8) === 8);
-    dbg_assert(v86util.round_up_to_next_power_of_2(123456789) === 134217728);
+    dbg_assert(round_up_to_next_power_of_2(0) === 1);
+    dbg_assert(round_up_to_next_power_of_2(1) === 1);
+    dbg_assert(round_up_to_next_power_of_2(2) === 2);
+    dbg_assert(round_up_to_next_power_of_2(7) === 8);
+    dbg_assert(round_up_to_next_power_of_2(8) === 8);
+    dbg_assert(round_up_to_next_power_of_2(123456789) === 134217728);
 }
 
 /**
@@ -266,7 +82,7 @@ if(DEBUG)
  * Queue wrapper around Uint8Array
  * Used by devices such as the PS2 controller
  */
-function ByteQueue(size)
+export function ByteQueue(size)
 {
     var data = new Uint8Array(size),
         start,
@@ -337,7 +153,7 @@ function ByteQueue(size)
  * Queue wrapper around Float32Array
  * Used by devices such as the sound blaster sound card
  */
-function FloatQueue(size)
+export function FloatQueue(size)
 {
     this.size = size;
     this.data = new Float32Array(size);
@@ -465,7 +281,7 @@ CircularQueue.prototype.set = function(new_data)
     this.index = 0;
 };
 
-function dump_file(ab, name)
+export function dump_file(ab, name)
 {
     if(!Array.isArray(ab))
     {
@@ -476,7 +292,7 @@ function dump_file(ab, name)
     download(blob, name);
 }
 
-function download(file_or_blob, name)
+export function download(file_or_blob, name)
 {
     var a = document.createElement("a");
     a["download"] = name;
@@ -502,7 +318,7 @@ function download(file_or_blob, name)
  * A simple 1d bitmap
  * @constructor
  */
-v86util.Bitmap = function(length_or_buffer)
+export var Bitmap = function(length_or_buffer)
 {
     if(typeof length_or_buffer === "number")
     {
@@ -514,11 +330,11 @@ v86util.Bitmap = function(length_or_buffer)
     }
     else
     {
-        dbg_assert(false, "v86util.Bitmap: Invalid argument");
+        dbg_assert(false, "Bitmap: Invalid argument");
     }
 };
 
-v86util.Bitmap.prototype.set = function(index, value)
+Bitmap.prototype.set = function(index, value)
 {
     const bit_index = index & 7;
     const byte_index = index >> 3;
@@ -528,7 +344,7 @@ v86util.Bitmap.prototype.set = function(index, value)
         value ? this.view[byte_index] | bit_mask : this.view[byte_index] & ~bit_mask;
 };
 
-v86util.Bitmap.prototype.get = function(index)
+Bitmap.prototype.get = function(index)
 {
     const bit_index = index & 7;
     const byte_index = index >> 3;
@@ -536,19 +352,20 @@ v86util.Bitmap.prototype.get = function(index)
     return this.view[byte_index] >> bit_index & 1;
 };
 
-v86util.Bitmap.prototype.get_buffer = function()
+Bitmap.prototype.get_buffer = function()
 {
     return this.view.buffer;
 };
 
 
+export var load_file;
 if(typeof XMLHttpRequest === "undefined")
 {
-    v86util.load_file = load_file_nodejs;
+    load_file = load_file_nodejs;
 }
 else
 {
-    v86util.load_file = load_file;
+    load_file = _load_file;
 }
 
 /**
@@ -556,7 +373,7 @@ else
  * @param {Object} options
  * @param {number=} n_tries
  */
-function load_file(filename, options, n_tries)
+function _load_file(filename, options, n_tries)
 {
     var http = new XMLHttpRequest();
 
@@ -714,9 +531,9 @@ function load_file_nodejs(filename, options)
 }
 
 // Reads len characters at offset from Memory object mem as a JS string
-v86util.read_sized_string_from_mem = function read_sized_string_from_mem(mem, offset, len)
+export function read_sized_string_from_mem(mem, offset, len)
 {
     offset >>>= 0;
     len >>>= 0;
     return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
-};
+}

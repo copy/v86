@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_assert, dbg_log } from "../log.js";
+
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
 const ETHERTYPE_IPV4 = 0x0800;
 const ETHERTYPE_ARP = 0x0806;

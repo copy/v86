@@ -1,6 +1,8 @@
 "use strict";
 
-import {CPU} from "./cpu.js";
+import { CPU } from "./cpu.js";
+import { dbg_assert } from "./log.js";
+
 
 CPU.prototype.mmap_read8 = function(addr)
 {

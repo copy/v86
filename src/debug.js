@@ -1,5 +1,6 @@
 "use strict";
 
+import { dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
 CPU.prototype.debug_init = function()
@@ -590,7 +591,7 @@ CPU.prototype.debug_init = function()
 
             instructions.forEach(function (instr) {
                 dbg_log(h(instr.address >>> 0) + ": " +
-                    v86util.pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
+                    pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
                     instr.mnemonic + " " + instr.op_str);
             });
             dbg_log("");

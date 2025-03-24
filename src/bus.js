@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_assert } from "./log.js";
+
 export var Bus = {};
 
 /** @constructor */

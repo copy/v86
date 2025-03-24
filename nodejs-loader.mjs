@@ -11,8 +11,7 @@ const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 let files = [
     "src/const.js",
     "src/config.js",
-    "src/log.js",
-    "src/lib.js",
+    "src/util.js",
 ];
 
 

@@ -1,6 +1,9 @@
 "use strict";
 
+
+import { dbg_assert, dbg_log } from "../log.js";
 import { OSCILLATOR_FREQ } from "../pit.js";
+import { dump_file } from "../lib.js";
 
 // For Types Only
 import { BusConnector } from "../bus.js";

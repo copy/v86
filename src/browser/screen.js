@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_assert } from "../log.js";
+
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor

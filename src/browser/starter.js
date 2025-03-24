@@ -1,6 +1,8 @@
 "use strict";
 
 import { v86 } from "../main.js";
+import { get_rand_int, load_file, read_sized_string_from_mem } from "../lib.js";
+import { dbg_assert, dbg_trace, dbg_log } from "../log.js";
 import { print_stats } from "./print_stats.js";
 import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
@@ -20,6 +22,7 @@ import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
 import { FS } from "../../lib/filesystem.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
+
 
 // Decorates CPU
 import "../debug.js";
@@ -161,7 +164,7 @@ export function V86(options)
         "cpu_event_halt": () => { this.emulator_bus.send("cpu-event-halt"); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
-        "get_rand_int": function() { return v86util.get_rand_int(); },
+        "get_rand_int": function() { return get_rand_int(); },
         "apic_acknowledge_irq": function() { return cpu.devices.apic.acknowledge_irq(); },
         "stop_idling": function() { return cpu.stop_idling(); },
 
@@ -184,11 +187,11 @@ export function V86(options)
         },
 
         "log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
+            const str = read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);
         },
         "console_log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
+            const str = read_sized_string_from_mem(wasm_memory, offset, len);
             console.error(str);
         },
         "dbg_trace_from_wasm": function() {
@@ -232,7 +235,7 @@ export function V86(options)
                     v86_bin_fallback = "build/" + v86_bin_fallback;
                 }
 
-                v86util.load_file(v86_bin, {
+                load_file(v86_bin, {
                     done: async bytes =>
                     {
                         try
@@ -243,7 +246,7 @@ export function V86(options)
                         }
                         catch(err)
                         {
-                            v86util.load_file(v86_bin_fallback, {
+                            load_file(v86_bin_fallback, {
                                     done: async bytes => {
                                         const { instance } = await WebAssembly.instantiate(bytes, env);
                                         this.wasm_source = bytes;
@@ -577,7 +580,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
         else
         {
-            v86util.load_file(f.url, {
+            load_file(f.url, {
                 done: function(result)
                 {
                     if(f.url.endsWith(".zst") && f.name !== "initial_state")
@@ -972,7 +975,7 @@ V86.prototype.set_fda = async function(file)
 {
     if(file.url && !file.async)
     {
-        v86util.load_file(file.url, {
+        load_file(file.url, {
             done: result =>
             {
                 this.v86.cpu.devices.fdc.set_fda(new SyncBuffer(result));

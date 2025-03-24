@@ -1,6 +1,6 @@
 "use strict";
 
-import {CPU} from "./cpu.js";
+import { CPU } from "./cpu.js";
 
 /**
  * @constructor

@@ -1,5 +1,7 @@
 "use strict";
 
+import { dbg_assert } from "../log.js";
+
 /** @constructor */
 export var Connector = function(pair)
 {

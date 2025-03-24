@@ -3,6 +3,7 @@
 import { V86 } from "./starter.js";
 import { print_stats } from "./print_stats.js";
 import { SyncFileBuffer } from "../buffer.js";
+import { dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 
 (function()
 {
@@ -33,13 +34,13 @@ import { SyncFileBuffer } from "../buffer.js";
         }
         else if(time < 3600)
         {
-            return (time / 60 | 0) + "m " + v86util.pad0(time % 60, 2) + "s";
+            return (time / 60 | 0) + "m " + pad0(time % 60, 2) + "s";
         }
         else
         {
             return (time / 3600 | 0) + "h " +
-                v86util.pad0((time / 60 | 0) % 60, 2) + "m " +
-                v86util.pad0(time % 60, 2) + "s";
+                pad0((time / 60 | 0) % 60, 2) + "m " +
+                pad0(time % 60, 2) + "s";
         }
     }
 
@@ -1663,7 +1664,7 @@ import { SyncFileBuffer } from "../buffer.js";
             }
             input.mask = mask;
 
-            label.append(input, v86util.pads(name, 4) + " ");
+            label.append(input, pads(name, 4) + " ");
             log_levels.appendChild(label);
 
             if(i === Math.floor(LOG_NAMES.length / 2))
@@ -1769,7 +1770,7 @@ import { SyncFileBuffer } from "../buffer.js";
                 if(chunk_size >= 0)
                 {
                     chunk_size = Math.min(4 * 1024 * 1024, Math.max(512, chunk_size));
-                    chunk_size = v86util.round_up_to_next_power_of_2(chunk_size);
+                    chunk_size = round_up_to_next_power_of_2(chunk_size);
                 }
                 else
                 {

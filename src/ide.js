@@ -1,5 +1,6 @@
 "use strict";
 
+import { dbg_assert, dbg_log } from "./log.js";
 import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL } from "./rtc.js";
 
 // For Types Only

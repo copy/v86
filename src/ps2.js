@@ -1,8 +1,11 @@
 "use strict";
 
+import { dbg_log } from "./log.js";
+
 // For Types Only
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
+import { ByteQueue } from "./lib.js";
 
 /** @const */
 const PS2_LOG_VERBOSE = false;

@@ -1,9 +1,9 @@
 "use strict";
 
-
 // See Intel's System Programming Guide
 
 import { v86 } from "./main.js";
+import { dbg_assert, dbg_log, dbg_trace } from "./log.js";
 import { IOAPIC_CONFIG_MASKED, IOAPIC_DELIVERY_INIT, IOAPIC_DELIVERY_NMI, IOAPIC_DELIVERY_FIXED } from "./ioapic.js";
 
 // For Types Only
@@ -647,7 +647,7 @@ APIC.prototype.register_get_highest_bit = function(v)
 
         if(word)
         {
-            return v86util.int_log2(word >>> 0) | i << 5;
+            return int_log2(word >>> 0) | i << 5;
         }
     }
 
