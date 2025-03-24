@@ -171,3 +171,5 @@ jobs:
           prerelease: true
 
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
