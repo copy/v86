@@ -146,7 +146,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: v86
-          path: build
 
       - name: Display structure of downloaded files
         run: ls -R
@@ -157,7 +156,7 @@ jobs:
           result-encoding: string
           script: |
             const fs = require("fs");
-            const pkg = {...require("./build/package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER) + '.0'}
+            const pkg = {...require("./package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER) + '.0'}
             console.log(pkg);
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, "  "), "utf8");
 
@@ -171,5 +170,6 @@ jobs:
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
 
-      - run: mv build/Readme.md build/LICENSE .
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
