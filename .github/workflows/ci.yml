@@ -156,7 +156,7 @@ jobs:
           result-encoding: string
           script: |
             const fs = require("fs");
-            const pkg = {...require("./build/package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER) + '.0'}
+            const pkg = {...require("./package.json"), version: '0.' + String(process.env.GITHUB_RUN_NUMBER) + '.0'}
             console.log(pkg);
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, "  "), "utf8");
 
