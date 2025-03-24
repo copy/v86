@@ -115,6 +115,9 @@ jobs:
       - name: Run expect tests
         run: make expect-tests
 
+      - name: Update package.json version
+        run: make update-package-json-version
+
       - name: Upload the artifact
         uses: actions/upload-artifact@v4
         with:
@@ -149,18 +152,6 @@ jobs:
 
       - name: Display structure of downloaded files
         run: ls -R
-
-      - name: Set package.json version
-        uses: actions/github-script@v7
-        with:
-          result-encoding: string
-          script: |
-            const fs = require("fs");
-            const { execFileSync } = require("child_process")
-            const version = execFileSync("git", ["describe", "--tags"], { encoding: "utf8" }).trim().replace("-", ".");
-            const pkg = { ...require("./package.json"), version };
-            console.log(pkg);
-            fs.writeFileSync("package.json", JSON.stringify(pkg, null, "  "), "utf8");
 
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
