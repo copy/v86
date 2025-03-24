@@ -146,7 +146,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: v86
-          path: build
 
       - name: Display structure of downloaded files
         run: ls -R
@@ -171,5 +170,4 @@ jobs:
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
 
-      - run: mv build/Readme.md build/LICENSE .
       - run: npm publish --provenance --access public
