@@ -2,6 +2,32 @@
 
 import { dbg_assert } from "./log.js";
 
+// pad string with spaces on the right
+export function pads(str, len)
+{
+    str = (str || str === 0) ? str + "" : "";
+    return str.padEnd(len, " ");
+}
+
+// pad string with zeros on the left
+export function pad0(str, len)
+{
+    str = (str || str === 0) ? str + "" : "";
+    return str.padStart(len, "0");
+}
+
+// generates array given size with zeros
+export function zeros(size)
+{
+    return Array(size).fill(0);
+}
+
+// generates [0, 1, 2, ..., size-1]
+export function range(size)
+{
+    return Array.from(Array(size).keys());
+}
+
 export var view = function(constructor, memory, offset, length)
 {
     dbg_assert(offset >= 0);
@@ -48,6 +74,58 @@ export function h(n, len)
     return "0x" + pad0(str.toUpperCase(), len || 1);
 }
 
+export function hex_dump(buffer)
+{
+    function hex(n, len)
+    {
+        return pad0(n.toString(16).toUpperCase(), len);
+    }
+
+    const result = [];
+    let offset = 0;
+
+    for(; offset + 15 < buffer.length; offset += 16)
+    {
+        let line = hex(offset, 5) + "   ";
+
+        for(let j = 0; j < 0x10; j++)
+        {
+            line += hex(buffer[offset + j], 2) + " ";
+        }
+
+        line += "  ";
+
+        for(let j = 0; j < 0x10; j++)
+        {
+            const x = buffer[offset + j];
+            line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
+        }
+
+        result.push(line);
+    }
+
+    let line = hex(offset, 5) + "   ";
+
+    for(; offset < buffer.length; offset++)
+    {
+        line += hex(buffer[offset], 2) + " ";
+    }
+
+    const remainder = offset & 0xF;
+    line += "   ".repeat(0x10 - remainder);
+    line += "  ";
+
+    for(let j = 0; j < remainder; j++)
+    {
+        const x = buffer[offset + j];
+        line += (x >= 33 && x !== 34 && x !== 92 && x <= 126) ? String.fromCharCode(x) : ".";
+    }
+
+    result.push(line);
+
+    return "\n" + result.join("\n") + "\n";
+}
+
 export var get_rand_int;
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
@@ -72,6 +150,73 @@ else if(typeof require !== "undefined")
 else
 {
     dbg_assert(false, "Unsupported platform: No cryptographic random values");
+}
+
+export var int_log2;
+
+if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 && Math.clz32(0x12345) === 15 && Math.clz32(-1) === 0)
+{
+    /**
+     * calculate the integer logarithm base 2
+     * @param {number} x
+     * @return {number}
+     */
+    int_log2 = function(x)
+    {
+        /*FIX*/ // dbg_assert(x > 0);
+
+        return 31 - Math.clz32(x);
+    };
+} else {
+
+    var int_log2_table = new Int8Array(256);
+
+    for(var i = 0, b = -2; i < 256; i++)
+    {
+        if(!(i & i - 1))
+            b++;
+
+        int_log2_table[i] = b;
+    }
+
+    /**
+     * calculate the integer logarithm base 2
+     * @param {number} x
+     * @return {number}
+     */
+    int_log2 = function(x)
+    {
+        x >>>= 0;
+        /*FIX*/ // dbg_assert(x > 0);
+
+        // http://jsperf.com/integer-log2/6
+        var tt = x >>> 16;
+
+        if(tt)
+        {
+            var t = tt >>> 8;
+            if(t)
+            {
+                return 24 + int_log2_table[t];
+            }
+            else
+            {
+                return 16 + int_log2_table[tt];
+            }
+        }
+        else
+        {
+            var t = x >>> 8;
+            if(t)
+            {
+                return 8 + int_log2_table[t];
+            }
+            else
+            {
+                return int_log2_table[x];
+            }
+        }
+    };
 }
 
 export const round_up_to_next_power_of_2 = function(x)

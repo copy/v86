@@ -1,6 +1,6 @@
 "use strict";
 
-import { h } from "./lib.js";
+import { h, pads } from "./lib.js";
 import { dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 

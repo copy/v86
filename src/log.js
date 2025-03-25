@@ -1,5 +1,7 @@
 "use strict";
 
+import { pad0, pads } from "./lib.js";
+
 export var log_data = [];
 
 function do_the_log(message)

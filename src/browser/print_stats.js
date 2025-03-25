@@ -1,5 +1,7 @@
 "use strict";
 
+import { pads } from "../lib.js";
+
 /**
  * @export
  */
