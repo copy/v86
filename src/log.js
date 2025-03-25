@@ -1,6 +1,6 @@
 "use strict";
 
-var log_data = [];
+export var log_data = [];
 
 function do_the_log(message)
 {
