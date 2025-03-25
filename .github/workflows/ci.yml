@@ -142,6 +142,7 @@ jobs:
 
     permissions:
       id-token: write
+      contents: write
 
     steps:
       - name: Delete old release and tag
