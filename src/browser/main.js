@@ -1,7 +1,8 @@
 "use strict";
 
 import { V86 } from "./starter.js";
-import { LOG_NAMES, LOG_LEVEL } from "./const.js";
+import { LOG_NAMES } from "../const.js";
+import { LOG_LEVEL, setLogLevel } from "../config.js";
 import { print_stats } from "./print_stats.js";
 import { SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
@@ -1682,11 +1683,11 @@ import { log_data } from "../log.js";
 
             if(target.checked)
             {
-                LOG_LEVEL |= mask;
+                setLogLevel(LOG_LEVEL | mask);
             }
             else
             {
-                LOG_LEVEL &= ~mask;
+                setLogLevel(LOG_LEVEL & ~mask);
             }
 
             target.blur();

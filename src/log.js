@@ -1,6 +1,7 @@
 "use strict";
 
 import { LOG_NAMES } from "./const.js";
+import { LOG_TO_FILE, LOG_LEVEL } from "./config.js";
 import { pad0, pads } from "./lib.js";
 
 export var log_data = [];

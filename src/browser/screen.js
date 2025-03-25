@@ -1,5 +1,6 @@
 "use strict";
 
+import { DEBUG_SCREEN_LAYERS } from "../config.js";
 import { dbg_assert } from "../log.js";
 
 /**

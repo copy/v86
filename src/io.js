@@ -1,6 +1,7 @@
 "use strict";
 
 import { LOG_IO, MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX } from "./const.js";
+import { LOG_ALL_IO } from "./config.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 

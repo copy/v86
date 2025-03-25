@@ -9,6 +9,7 @@ import {
     FW_CFG_CUSTOM_START, REG_EAX, REG_EBX, FLAGS_DEFAULT,
     MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX
 } from "./const.js";
+import { DUMP_GENERATED_WASM, DUMP_UNCOMPILED_ASSEMBLY } from "./config.js";
 import { h, view, Bitmap } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 

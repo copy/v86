@@ -4,6 +4,7 @@
 
 import { v86 } from "./main.js";
 import { LOG_APIC } from "../src/const.js";
+import { APIC_TIMER_FREQ } from "./config.js";
 import { h, int_log2 } from "./lib.js";
 import { dbg_assert, dbg_log, dbg_trace } from "./log.js";
 import { IOAPIC_CONFIG_MASKED, IOAPIC_DELIVERY_INIT, IOAPIC_DELIVERY_NMI, IOAPIC_DELIVERY_FIXED } from "./ioapic.js";
