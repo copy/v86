@@ -12,7 +12,7 @@
     "build/*.mjs",
     "build/v86*.wasm"
   ],
-  "main": "build/libv86.js",
+  "main": "build/libv86.mjs",
   "repository": "github:copy/v86",
   "type": "module"
 }
