@@ -140,6 +140,9 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/master'
 
+    permissions:
+      id-token: write
+
     steps:
       - name: Delete old release and tag
         uses: dev-drprasad/delete-tag-and-release@v1.0.1
