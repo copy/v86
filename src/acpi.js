@@ -3,6 +3,7 @@
 // http://www.uefi.org/sites/default/files/resources/ACPI_6_1.pdf
 
 import { v86 } from "./main.js";
+import { h } from "./lib.js";
 import { dbg_log, dbg_assert } from "./log.js";
 
 // For Types Only

@@ -28,6 +28,26 @@ export var view = function(constructor, memory, offset, length)
         });
 };
 
+/**
+ * number to hex
+ * @param {number} n
+ * @param {number=} len
+ * @return {string}
+ */
+export function h(n, len)
+{
+    if(!n)
+    {
+        var str = "";
+    }
+    else
+    {
+        var str = n.toString(16);
+    }
+
+    return "0x" + pad0(str.toUpperCase(), len || 1);
+}
+
 export var get_rand_int;
 if(typeof crypto !== "undefined" && crypto.getRandomValues)
 {
