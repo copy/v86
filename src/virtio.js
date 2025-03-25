@@ -1,5 +1,6 @@
 "use strict";
 
+import { LOG_VIRTIO } from "./const.js";
 import { h, zeros, int_log2 } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 

@@ -1,6 +1,7 @@
 "use strict";
 
 import { v86 } from "./main.js";
+import { LOG_PIT } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_log } from "./log.js";
 

@@ -1,5 +1,6 @@
 "use strict";
 
+import { MMAP_BLOCK_BITS } from "./const.js";
 import { CPU } from "./cpu.js";
 import { dbg_assert } from "./log.js";
 

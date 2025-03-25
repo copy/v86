@@ -1,5 +1,14 @@
 "use strict";
 
+import {
+    LOG_CPU,  REG_CS,
+    FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,
+    WASM_TABLE_SIZE, WASM_TABLE_OFFSET, FW_CFG_ID,
+    FW_CFG_RAM_SIZE, FW_CFG_NB_CPUS, FW_CFG_MAX_CPUS,
+    FW_CFG_NUMA, FW_CFG_FILE_DIR, FW_CFG_FILE_START,
+    FW_CFG_CUSTOM_START, REG_EAX, REG_EBX, FLAGS_DEFAULT,
+    MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX
+} from "./const.js";
 import { h, view, Bitmap } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 

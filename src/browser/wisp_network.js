@@ -1,6 +1,6 @@
 "use strict";
 
-
+import { LOG_NET } from "../const.js";
 import { dbg_log } from "../log.js";
 
 import {

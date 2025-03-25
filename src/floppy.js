@@ -3,6 +3,7 @@
 // https://www.isdaman.com/alsos/hardware/fdc/floppy.htm
 // https://wiki.osdev.org/Floppy_Disk_Controller
 
+import { LOG_FLOPPY } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 import { CMOS_FLOPPY_DRIVE_TYPE } from "./rtc.js";

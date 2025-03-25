@@ -1,6 +1,9 @@
 "use strict";
 
-
+import {
+    MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+} from "../const.js";
 import { dbg_assert, dbg_log } from "../log.js";
 import { OSCILLATOR_FREQ } from "../pit.js";
 import { dump_file } from "../lib.js";

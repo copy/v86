@@ -2,6 +2,7 @@
 
 // http://download.intel.com/design/chipsets/datashts/29056601.pdf
 
+import { LOG_APIC, MMAP_BLOCK_SIZE } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 import { DELIVERY_MODES, DESTINATION_MODES, APIC_LOG_VERBOSE } from "./apic.js";

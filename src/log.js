@@ -1,5 +1,6 @@
 "use strict";
 
+import { LOG_NAMES } from "./const.js";
 import { pad0, pads } from "./lib.js";
 
 export var log_data = [];

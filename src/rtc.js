@@ -1,6 +1,7 @@
 "use strict";
 
 import { v86 } from "./main.js";
+import { LOG_RTC } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 

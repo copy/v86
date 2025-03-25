@@ -1,5 +1,10 @@
 "use strict";
 
+import {
+    LOG_SB16,
+    MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+} from "./const.js";
 import { h } from "./lib.js";
 import { dbg_log } from "./log.js";
 import { SyncBuffer } from "./buffer.js";

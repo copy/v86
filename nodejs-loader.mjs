@@ -9,9 +9,7 @@ import perf_hooks from "node:perf_hooks";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 let files = [
-    "src/const.js",
     "src/config.js",
-    "src/util.js",
 ];
 
 

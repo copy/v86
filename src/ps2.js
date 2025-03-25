@@ -1,5 +1,6 @@
 "use strict";
 
+import { LOG_PS2 } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_log } from "./log.js";
 
