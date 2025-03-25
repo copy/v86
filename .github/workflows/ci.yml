@@ -156,6 +156,11 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
         with:
@@ -168,4 +173,4 @@ jobs:
 
       - run: npm publish --provenance --access public
         env:
-          NPM_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
