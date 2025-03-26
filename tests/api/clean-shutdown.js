@@ -2,8 +2,6 @@
 "use strict";
 
 import url from "node:url";
-import { createRequire } from "node:module";
-globalThis.require = createRequire(import.meta.url);
 
 // This test checks that calling emulator.destroy() will remove all event
 // listeners, so that the nodejs process cleanly and automatically exits.

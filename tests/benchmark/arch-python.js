@@ -3,8 +3,6 @@
 
 import path from "node:path";
 import url from "node:url";
-import { createRequire } from "node:module";
-globalThis.require = createRequire(import.meta.url);
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const BENCH_COLLECT_STATS = +process.env.BENCH_COLLECT_STATS;

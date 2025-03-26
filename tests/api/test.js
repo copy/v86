@@ -2,8 +2,6 @@
 "use strict";
 
 import url from "node:url";
-import { createRequire } from "node:module";
-globalThis.require = createRequire(import.meta.url);
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;

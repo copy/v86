@@ -3,8 +3,6 @@
 
 import fs from "node:fs";
 import url from "node:url";
-import { createRequire } from "node:module";
-globalThis.require = createRequire(import.meta.url);
 process.on("unhandledRejection", exn => { throw exn; });
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));

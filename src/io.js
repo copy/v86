@@ -98,8 +98,7 @@ IO.prototype.empty_port_write = function(x)
  * @param {Object} device
  * @param {function(number):number=} r8
  * @param {function(number):number=} r16
- * @param {function(
- * number):number=} r32
+ * @param {function(number):number=} r32
  */
 IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
 {

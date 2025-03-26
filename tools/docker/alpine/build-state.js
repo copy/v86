@@ -7,6 +7,7 @@ import fs from "fs";
 console.log("Don't forget to run `make all` before running this script");
 
 const { V86 } = await import("./../../../build/libv86.js");
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const V86_ROOT = path.join(__dirname, "../../..");
 const OUTPUT_FILE = path.join(V86_ROOT, "images/alpine-state.bin");

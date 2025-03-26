@@ -702,7 +702,7 @@ import { dbg_assert, dbg_log } from "./log.js";
     {
         determine_size = function(path, cb)
         {
-            globalThis["require"]("fs")["stat"](path, (err, stats) =>
+            import("node:" + "fs").then(fs => fs.stat(path, (err, stats) =>
             {
                 if(err)
                 {
@@ -712,7 +712,7 @@ import { dbg_assert, dbg_log } from "./log.js";
                 {
                     cb(null, stats.size);
                 }
-            });
+            }));
         };
     }
     else

@@ -5,9 +5,6 @@ import url from "node:url";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 
-import { createRequire } from "node:module";
-globalThis.require = createRequire(import.meta.url);
-
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;

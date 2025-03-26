@@ -6,10 +6,8 @@ import cluster from "node:cluster";
 import os from "node:os";
 import fs from "node:fs";
 import url from "node:url";
-import { createRequire } from "node:module";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
-globalThis.require = createRequire(import.meta.url);
 
 process.on("unhandledRejection", exn => { throw exn; });
 

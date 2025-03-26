@@ -163,7 +163,7 @@ if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 && Math.clz32(0x1234
      */
     int_log2 = function(x)
     {
-        /*FIX*/ // dbg_assert(x > 0);
+        dbg_assert(x > 0);
 
         return 31 - Math.clz32(x);
     };
@@ -187,7 +187,7 @@ if(typeof Math.clz32 === "function" && Math.clz32(0) === 32 && Math.clz32(0x1234
     int_log2 = function(x)
     {
         x >>>= 0;
-        /*FIX*/ // dbg_assert(x > 0);
+        dbg_assert(x > 0);
 
         // http://jsperf.com/integer-log2/6
         var tt = x >>> 16;

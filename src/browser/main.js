@@ -8,8 +8,7 @@ import { SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data } from "../log.js";
 
-(function()
-{
+
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
 
     const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost:8080/"];
@@ -2392,6 +2391,9 @@ import { log_data } from "../log.js";
         //    $("memory_dump_dmp").blur();
         //};
 
+        /**
+         * @this HTMLElement
+         */
         $("capture_network_traffic").onclick = function()
         {
             this.value = "0 packets";
@@ -2435,6 +2437,9 @@ import { log_data } from "../log.js";
             $("load_state").blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("load_state_input").onchange = async function()
         {
             var file = this.files[0];
@@ -2509,6 +2514,9 @@ import { log_data } from "../log.js";
             $("alttab").blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("scale").onchange = function()
         {
             var n = parseFloat(this.value);
@@ -2635,6 +2643,9 @@ import { log_data } from "../log.js";
     {
         $("filesystem_panel").style.display = "block";
 
+        /**
+         * @this HTMLElement
+         */
         $("filesystem_send_file").onchange = function()
         {
             Array.prototype.forEach.call(this.files, function(file)
@@ -2654,6 +2665,9 @@ import { log_data } from "../log.js";
             this.blur();
         };
 
+        /**
+         * @this HTMLElement
+         */
         $("filesystem_get_file").onkeypress = async function(e)
         {
             if(e.which !== 13)
@@ -2739,5 +2753,3 @@ import { log_data } from "../log.js";
             window.history.pushState({ search }, "", search);
         }
     }
-
-})();

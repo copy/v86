@@ -1,10 +1,9 @@
 "use strict";
 
-const assert = await import("assert");
-const fs = await import("fs");
-const path = await import("path");
-const process = await import("process");
-const child_process = await import("child_process");
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+
 
 const CYAN_FMT = "\x1b[36m%s\x1b[0m";
 
