@@ -1,11 +1,16 @@
 "use strict";
 
+import { dbg_assert, dbg_log } from "../log.js";
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *
  * @param {BusConnector} bus
  */
-function SerialAdapter(element, bus)
+export function SerialAdapter(element, bus)
 {
     var serial = this;
 
@@ -216,7 +221,7 @@ function SerialRecordingAdapter(bus)
  * @constructor
  * @param {BusConnector} bus
  */
-function SerialAdapterXtermJS(element, bus)
+export function SerialAdapterXtermJS(element, bus)
 {
     this.element = element;
 

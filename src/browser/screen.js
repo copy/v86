@@ -1,11 +1,14 @@
 "use strict";
 
+import { DEBUG_SCREEN_LAYERS } from "../config.js";
+import { dbg_assert } from "../log.js";
+
 /**
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  * @param {Object} options
  */
-function ScreenAdapter(options, screen_fill_buffer)
+export function ScreenAdapter(options, screen_fill_buffer)
 {
     const screen_container = options.container;
     this.screen_fill_buffer = screen_fill_buffer;

@@ -1,5 +1,18 @@
 "use strict";
 
+import { LOG_NET } from "../const.js";
+import { dbg_log } from "../log.js";
+
+import {
+    create_eth_encoder_buf,
+    handle_fake_networking,
+    TCPConnection,
+    TCP_STATE_SYN_RECEIVED,
+} from "./fake_network.js";
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *
@@ -7,7 +20,7 @@
  * @param {BusConnector} bus
  * @param {*=} config
  */
-function WispNetworkAdapter(wisp_url, bus, config)
+export function WispNetworkAdapter(wisp_url, bus, config)
 {
     this.register_ws(wisp_url);
     this.last_stream = 1;

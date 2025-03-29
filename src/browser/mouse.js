@@ -1,11 +1,17 @@
 "use strict";
 
+
+import { dbg_log } from "../log.js";
+
+// For Types Only
+import { BusConnector } from "../bus.js";
+
 /**
  * @constructor
  *
  * @param {BusConnector} bus
  */
-function MouseAdapter(bus, screen_container)
+export function MouseAdapter(bus, screen_container)
 {
     /** @const */
     var SPEED_FACTOR = 0.15;

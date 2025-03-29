@@ -1,14 +1,8 @@
 "use strict";
 
-(function()
-{
-    v86util.SyncBuffer = SyncBuffer;
-    v86util.AsyncXHRBuffer = AsyncXHRBuffer;
-    v86util.AsyncXHRPartfileBuffer = AsyncXHRPartfileBuffer;
-    v86util.AsyncFileBuffer = AsyncFileBuffer;
-    v86util.SyncFileBuffer = SyncFileBuffer;
-
-    v86util.buffer_from_object = buffer_from_object;
+import { CPU } from "./cpu.js";
+import { load_file } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
 
     // The smallest size the emulated hardware can emit
     const BLOCK_SIZE = 256;
@@ -19,7 +13,7 @@
      * Synchronous access to ArrayBuffer
      * @constructor
      */
-    function SyncBuffer(buffer)
+    export function SyncBuffer(buffer)
     {
         dbg_assert(buffer instanceof ArrayBuffer);
 
@@ -208,7 +202,7 @@
             requested_length = Math.ceil((offset - requested_start + len) / this.fixed_chunk_size) * this.fixed_chunk_size;
         }
 
-        v86util.load_file(this.filename, {
+        load_file(this.filename, {
             done: function done(buffer)
             {
                 var block = new Uint8Array(buffer);
@@ -383,7 +377,7 @@
      * @param {number|undefined} fixed_chunk_size
      * @param {boolean|undefined} partfile_alt_format
      */
-    function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfile_alt_format, zstd_decompress)
+    export function AsyncXHRPartfileBuffer(filename, size, fixed_chunk_size, partfile_alt_format, zstd_decompress)
     {
         const parts = filename.match(/\.[^\.]+(\.zst)?$/);
 
@@ -484,7 +478,7 @@
                 }
                 else
                 {
-                    v86util.load_file(part_filename, {
+                    load_file(part_filename, {
                         done: async function done(buffer)
                         {
                             let block = new Uint8Array(buffer);
@@ -512,7 +506,7 @@
         {
             const part_filename = this.basename + offset + "-" + (offset + len) + this.extension;
 
-            v86util.load_file(part_filename, {
+            load_file(part_filename, {
                 done: function done(buffer)
                 {
                     dbg_assert(buffer.byteLength === len);
@@ -537,7 +531,7 @@
      *
      * @constructor
      */
-    function SyncFileBuffer(file)
+    export function SyncFileBuffer(file)
     {
         this.file = file;
         this.byteLength = file.size;
@@ -608,7 +602,7 @@
      *
      * @constructor
      */
-    function AsyncFileBuffer(file)
+    export function AsyncFileBuffer(file)
     {
         this.file = file;
         this.byteLength = file.size;
@@ -703,11 +697,12 @@
         return file;
     };
 
+    var determine_size;
     if(typeof XMLHttpRequest === "undefined")
     {
-        var determine_size = function(path, cb)
+        determine_size = function(path, cb)
         {
-            require("fs")["stat"](path, (err, stats) =>
+            import("node:" + "fs").then(fs => fs["stat"](path, (err, stats) =>
             {
                 if(err)
                 {
@@ -717,14 +712,14 @@
                 {
                     cb(null, stats.size);
                 }
-            });
+            }));
         };
     }
     else
     {
-        var determine_size = function(url, cb)
+        determine_size = function(url, cb)
         {
-            v86util.load_file(url, {
+            load_file(url, {
                 done: (buffer, http) =>
                 {
                     var header = http.getResponseHeader("Content-Range") || "";
@@ -748,13 +743,13 @@
         };
     }
 
-    function buffer_from_object(obj, zstd_decompress_worker)
+    export function buffer_from_object(obj, zstd_decompress_worker)
     {
         // TODO: accept Uint8Array, ArrayBuffer, File, url rather than { url }
 
         if(obj.buffer instanceof ArrayBuffer)
         {
-            return new v86util.SyncBuffer(obj.buffer);
+            return new SyncBuffer(obj.buffer);
         }
         else if(typeof File !== "undefined" && obj.buffer instanceof File)
         {
@@ -776,11 +771,11 @@
 
             if(is_async)
             {
-                return new v86util.AsyncFileBuffer(obj.buffer);
+                return new AsyncFileBuffer(obj.buffer);
             }
             else
             {
-                return new v86util.SyncFileBuffer(obj.buffer);
+                return new SyncFileBuffer(obj.buffer);
             }
         }
         else if(obj.url)
@@ -789,11 +784,11 @@
 
             if(obj.use_parts)
             {
-                return new v86util.AsyncXHRPartfileBuffer(obj.url, obj.size, obj.fixed_chunk_size, false, zstd_decompress_worker);
+                return new AsyncXHRPartfileBuffer(obj.url, obj.size, obj.fixed_chunk_size, false, zstd_decompress_worker);
             }
             else
             {
-                return new v86util.AsyncXHRBuffer(obj.url, obj.size, obj.fixed_chunk_size);
+                return new AsyncXHRBuffer(obj.url, obj.size, obj.fixed_chunk_size);
             }
         }
         else
@@ -801,4 +796,3 @@
             dbg_log("Ignored file: url=" + obj.url + " buffer=" + obj.buffer);
         }
     }
-})();

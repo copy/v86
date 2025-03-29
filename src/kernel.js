@@ -1,5 +1,9 @@
 "use strict";
 
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+
 // https://www.kernel.org/doc/Documentation/x86/boot.txt
 
 const LINUX_BOOT_HDR_SETUP_SECTS = 0x1F1;
@@ -37,7 +41,7 @@ const LINUX_BOOT_HDR_LOADFLAGS_KEEP_SEGMENTS = 1 << 6;
 const LINUX_BOOT_HDR_LOADFLAGS_CAN_USE_HEAPS = 1 << 7;
 
 
-function load_kernel(mem8, bzimage, initrd, cmdline)
+export function load_kernel(mem8, bzimage, initrd, cmdline)
 {
     dbg_log("Trying to load kernel of size " + bzimage.byteLength);
 
