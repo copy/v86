@@ -61,14 +61,14 @@ jobs:
         id: cache-kvm-unit-test
         with:
           path: tests/kvm-unit-tests/
-          key: ${{ runner.os }}-kvm-unit-test-es6-2
+          key: ${{ runner.os }}-kvm-unit-test-es6
 
       - name: Build kvm-unit-test
         if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
         run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 
       - name: Run kvm-unit-test
-        run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+        run: tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v4
