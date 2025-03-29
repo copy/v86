@@ -638,13 +638,11 @@ function _load_file(filename, options, n_tries)
 
 function load_file_nodejs(filename, options)
 {
-    const fs = require("fs");
-
     if(options.range)
     {
         dbg_assert(!options.as_json);
 
-        fs["open"](filename, "r", (err, fd) =>
+        import("node:" + "fS").then(fs => fs["open"](filename, "r", (err, fd) =>
             {
                 if(err) throw err;
 
@@ -662,7 +660,7 @@ function load_file_nodejs(filename, options)
                             if(err) throw err;
                         });
                     });
-            });
+            }));
     }
     else
     {
@@ -670,7 +668,7 @@ function load_file_nodejs(filename, options)
             encoding: options.as_json ? "utf-8" : null,
         };
 
-        fs["readFile"](filename, o, function(err, data)
+        import("node:" + "fs").then(fs => fs["readFile"](filename, o, function(err, data)
             {
                 if(err)
                 {
@@ -691,7 +689,7 @@ function load_file_nodejs(filename, options)
 
                     options.done(result);
                 }
-            });
+            }));
     }
 }
 
