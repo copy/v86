@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const BENCH_COLLECT_STATS = +process.env.BENCH_COLLECT_STATS;
 const { V86, print_stats } = await import(`../../build/${BENCH_COLLECT_STATS ? "libv86-debug" : "libv86"}.js`).V86;

@@ -2,6 +2,7 @@
 "use strict";
 
 import url from "node:url";
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 // This test checks that calling emulator.destroy() will remove all event
 // listeners, so that the nodejs process cleanly and automatically exits.

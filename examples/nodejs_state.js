@@ -3,6 +3,7 @@
 
 import fs from "node:fs";
 var V86 = await import("../build/libv86.js").V86;
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 function readfile(path)
 {

@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 const DEBUG = process.env.DEBUG || false;
 // Maximum number of gdb processes to spawn in parallel
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;

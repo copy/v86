@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import cluster from "node:cluster";
 
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+
 process.on("unhandledRejection", exn => { throw exn; });
 
 // Mapping between signals and x86 exceptions:
