@@ -24,7 +24,7 @@ function Mash() {
 }
 
 // From http://baagoe.com/en/RandomMusings/javascript/
-function KISS07() {
+export default function KISS07() {
   return (function(args) {
     // George Marsaglia, 2007-06-23
     //http://groups.google.com/group/comp.lang.fortran/msg/6edb8ad6ec5421a5
@@ -99,5 +99,3 @@ function KISS07() {
     };
   } (Array.prototype.slice.call(arguments)));
 }
-
-module.exports = KISS07;

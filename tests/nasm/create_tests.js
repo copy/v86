@@ -6,10 +6,14 @@ import fse from "node:fs/promises";
 import path from "node:path";
 import assert from "node:assert/strict";
 import util from "node:util";
+import url from "node:url";
 import { execFile as execFileAsync } from "node:child_process";
 
 import encodings from "../../gen/x86_table.js";
 import Rand from "./rand.js";
+
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 // number of tests per instruction
 const NUMBER_TESTS = 5;
