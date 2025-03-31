@@ -1829,7 +1829,7 @@ import { log_data } from "../log.js";
 
                 settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : settings.acpi;
                 settings.use_bochs_bios = query_args.get("bios") === "bochs";
-                settings.net_device_type = query_args.get("net_device_type") === "virtio" ? "virtio" : "ne2k";
+                settings.net_device_type = query_args.get("net_device_type") || settings.net_device_type;
             }
 
             settings.relay_url = query_args.get("relay_url");
