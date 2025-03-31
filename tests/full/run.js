@@ -814,6 +814,21 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Fiwix",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/FiwixOS-3.4-i386.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "(root):~#",
+            ],
+            actions: [
+                { on_text: "(root):~#", run: "/usr/games/lsdoom\n" },
+            ],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
