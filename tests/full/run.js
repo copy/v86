@@ -829,6 +829,26 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "9legacy",
+            use_small_bios: true, // has issues with 256k bios
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // if netdevice is found, waits for dhcp before starting desktop
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/9legacy.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "Selection:",
+            ],
+            actions: [
+                { on_text: "Selection:", run: "1\n" },
+            ],
+            expected_serial_text: [
+                "init: starting",
+            ],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
@@ -1073,6 +1093,7 @@ function run_test(test, done)
     settings.acpi = test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
+    settings.net_device = test.net_device;
     settings.disable_jit = +process.env.DISABLE_JIT;
 
     if(test.expected_texts)
