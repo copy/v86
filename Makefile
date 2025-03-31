@@ -274,8 +274,11 @@ update_version:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
-	SEARCH='<code>Version: <a href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
-	REPLACE='<code>Version: <a href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
+	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
+	SEARCH='<script src="build/v86_all.js?[a-f0-9]\+"></script>' ;\
+	REPLACE='<script src="build/v86_all.js?'$$COMMIT'"></script>' ;\
 	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
 	grep $$COMMIT index.html
 
