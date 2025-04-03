@@ -685,6 +685,15 @@
                 name: "Invaders",
                 homepage: "https://github.com/nanochess/Invaders",
             },
+                        {
+                id: "bootmine",
+                fda: {
+                    url: host + "bootmine.img",
+                    size: 512,
+                },
+                name: "BootMine",
+                homepage: "https://github.com/io12/BootMine",
+            },
             {
                 id: "sectorlisp",
                 fda: {
