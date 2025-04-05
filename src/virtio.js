@@ -1071,6 +1071,7 @@ VirtQueue.prototype.get_state = function()
     state[6] = this.avail_last_idx;
     state[7] = this.used_addr;
     state[8] = this.num_staged_replies;
+    state[9] = 1;
 
     return state;
 };
@@ -1088,6 +1089,7 @@ VirtQueue.prototype.set_state = function(state)
     this.num_staged_replies = state[8];
 
     this.mask = this.size - 1;
+    this.fix_wrapping = state[9] !== 1;
 };
 
 VirtQueue.prototype.reset = function()
@@ -1126,6 +1128,10 @@ VirtQueue.prototype.set_size = function(size)
 VirtQueue.prototype.count_requests = function()
 {
     dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
+    if(this.fix_wrapping) {
+        this.fix_wrapping = false;
+        this.avail_last_idx = (this.avail_get_idx() & ~this.mask) + (this.avail_last_idx & this.mask);
+    }
     return (this.avail_get_idx() - this.avail_last_idx) & 0xFFFF;
 };
 
