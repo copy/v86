@@ -7,13 +7,13 @@ import path from "node:path";
 import url from "node:url";
 
 import x86_table from "./x86_table.js";
-const rust_ast = await import("./rust_ast.js");
-const { hex, mkdirpSync, get_switch_value, get_switch_exist, finalize_table_rust } = await import("./util.js");
+import * as rust_ast from "./rust_ast.js";
+import { hex, get_switch_value, get_switch_exist, finalize_table_rust } from "./util.js";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const OUT_DIR = path.join(__dirname, "..", "src/rust/gen/");
 
-mkdirpSync(OUT_DIR);
+fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const table_arg = get_switch_value("--table");
 const gen_all = get_switch_exist("--all");

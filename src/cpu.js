@@ -15,7 +15,7 @@ import { dbg_assert, dbg_log } from "./log.js";
 
 import { SB16 } from "./sb16.js";
 import { IOAPIC } from "./ioapic.js";
-import { APIC, APIC_LOG_VERBOSE } from "./apic.js";
+import { APIC } from "./apic.js";
 import { ACPI } from "./acpi.js";
 import { PIT } from "./pit.js";
 import { DMA } from "./dma.js";
@@ -35,7 +35,6 @@ import { VirtioBalloon } from "./virtio_balloon.js";
 import { Virtio9p } from "../lib/9p.js";
 
 import { load_kernel } from "./kernel.js";
-
 
 import {
     RTC,

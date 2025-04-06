@@ -51,8 +51,7 @@ export const DESTINATION_MODES = ["physical", "logical"];
  * @constructor
  * @param {CPU} cpu
  */
-export
-function APIC(cpu)
+export function APIC(cpu)
 {
     /** @type {CPU} */
     this.cpu = cpu;
