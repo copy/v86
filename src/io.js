@@ -1,12 +1,14 @@
 "use strict";
 
 import { LOG_IO, MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX } from "./const.js";
-import { LOG_ALL_IO } from "./config.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
+
+// Enables logging all IO port reads and writes. Very verbose
+export const LOG_ALL_IO = false;
 
 /**
  * The ISA IO bus

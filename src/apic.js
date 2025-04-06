@@ -4,7 +4,6 @@
 
 import { v86 } from "./main.js";
 import { LOG_APIC } from "../src/const.js";
-import { APIC_TIMER_FREQ } from "./config.js";
 import { h, int_log2 } from "./lib.js";
 import { dbg_assert, dbg_log, dbg_trace } from "./log.js";
 import { IOAPIC_CONFIG_MASKED, IOAPIC_DELIVERY_INIT, IOAPIC_DELIVERY_NMI, IOAPIC_DELIVERY_FIXED } from "./ioapic.js";
@@ -14,6 +13,9 @@ import { CPU } from "./cpu.js";
 
 /** @const */
 export const APIC_LOG_VERBOSE = false;
+
+// should probably be kept in sync with TSC_RATE in cpu.rs
+const APIC_TIMER_FREQ = 1 * 1000 * 1000;
 
 /** @const */
 var APIC_ADDRESS = 0xFEE00000;

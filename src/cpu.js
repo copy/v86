@@ -13,7 +13,6 @@ import {
     FLAG_VM, FLAG_INTERRUPT, FLAG_CARRY, FLAG_ADJUST, FLAG_ZERO, FLAG_SIGN, FLAG_TRAP,
     FLAG_DIRECTION, FLAG_OVERFLOW, FLAG_PARITY,
 } from "./const.js";
-import { DUMP_GENERATED_WASM, DUMP_UNCOMPILED_ASSEMBLY } from "./config.js";
 import { h, view, pads, Bitmap } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
@@ -61,6 +60,8 @@ import { BusConnector } from "./bus.js";
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
 // http://ref.x86asm.net/geek32.html
 
+const DUMP_GENERATED_WASM = false;
+const DUMP_UNCOMPILED_ASSEMBLY = false;
 
 /** @constructor */
 export function CPU(bus, wm, stop_idling)

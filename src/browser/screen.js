@@ -1,7 +1,9 @@
 "use strict";
 
-import { DEBUG_SCREEN_LAYERS } from "../config.js";
 import { dbg_assert } from "../log.js";
+
+// Draws entire buffer and visualizes the layers that would be drawn
+export const DEBUG_SCREEN_LAYERS = DEBUG && false;
 
 /**
  * Adapter to use visual screen in browsers (in contrast to node)

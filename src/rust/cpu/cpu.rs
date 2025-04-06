@@ -270,6 +270,8 @@ pub const CHECK_TLB_INVARIANTS: bool = false;
 pub const DEBUG: bool = cfg!(debug_assertions);
 
 pub const LOOP_COUNTER: i32 = 100_003;
+
+// should probably be kept in sync with APIC_TIMER_FREQ in apic.js
 pub const TSC_RATE: f64 = 1_000_000.0;
 
 pub static mut cpuid_level: u32 = 0x16;

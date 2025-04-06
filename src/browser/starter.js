@@ -2,9 +2,8 @@
 
 import { v86 } from "../main.js";
 import { LOG_CPU, WASM_TABLE_OFFSET, WASM_TABLE_SIZE } from "../const.js";
-import { set_log_level } from "../config.js";
 import { get_rand_int, load_file, read_sized_string_from_mem } from "../lib.js";
-import { dbg_assert, dbg_trace, dbg_log } from "../log.js";
+import { dbg_assert, dbg_trace, dbg_log, set_log_level } from "../log.js";
 import { print_stats } from "./print_stats.js";
 import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";

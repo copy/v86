@@ -18,8 +18,7 @@ make -C ../../build/libv86.js
 Tests can also be run in browser by going to `?profile=test-$name` (for
 example, `?profile=test-realmode`).
 
-Most tests require you to set `ENABLE_ACPI` to `true` in `src/config.js`
-(currently not the default).
+Most tests require you to set `acpi: true` in the v86 constructor.
 
 
 # Welcome to kvm-unit-tests
