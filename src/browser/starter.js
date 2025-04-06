@@ -27,7 +27,6 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
 
 
 // Decorates CPU
-import "../memory.js";
 import "../state.js";
 
 /**
