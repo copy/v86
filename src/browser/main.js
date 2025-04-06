@@ -1411,6 +1411,27 @@ import { log_data } from "../log.js";
                 },
                 homepage: "https://os64.blogspot.com/",
             },
+            {
+                id: "ipxe",
+                name: "iPXE",
+                cdrom: {
+                    url: host + "ipxe.iso",
+                    size: 4194304,
+                    async: false,
+                },
+                homepage: "https://ipxe.org/",
+            },
+            {
+                id: "netboot.xyz",
+                name: "iPXE",
+                cdrom: {
+                    url: host + "netboot.xyz.iso",
+                    size: 2398208,
+                    async: false,
+                },
+                homepage: "https://netboot.xyz/",
+                net_device_type: "virtio",
+            },
         ];
 
         if(DEBUG)
