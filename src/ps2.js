@@ -16,6 +16,40 @@ function PS2(cpu, bus)
     /** @const @type {BusConnector} */
     this.bus = bus;
 
+    this.reset();
+
+    this.bus.register("keyboard-code", function(code)
+    {
+        this.kbd_send_code(code);
+    }, this);
+
+    this.bus.register("mouse-click", function(data)
+    {
+        this.mouse_send_click(data[0], data[1], data[2]);
+    }, this);
+
+    this.bus.register("mouse-delta", function(data)
+    {
+        this.mouse_send_delta(data[0], data[1]);
+    }, this);
+
+    this.bus.register("mouse-wheel", function(data)
+    {
+        this.wheel_movement -= data[0];
+        this.wheel_movement -= data[1] * 2; // X Wheel Movement
+        this.wheel_movement = Math.min(7, Math.max(-8, this.wheel_movement));
+        this.send_mouse_packet(0, 0);
+    }, this);
+
+    cpu.io.register_read(0x60, this, this.port60_read);
+    cpu.io.register_read(0x64, this, this.port64_read);
+
+    cpu.io.register_write(0x60, this, this.port60_write);
+    cpu.io.register_write(0x64, this, this.port64_write);
+}
+
+PS2.prototype.reset = function()
+{
     /** @type {boolean} */
     this.enable_mouse_stream = false;
 
@@ -101,41 +135,12 @@ function PS2(cpu, bus)
     /** @type {boolean} */
     this.next_byte_is_aux = false;
 
-    this.bus.register("keyboard-code", function(code)
-    {
-        this.kbd_send_code(code);
-    }, this);
-
-    this.bus.register("mouse-click", function(data)
-    {
-        this.mouse_send_click(data[0], data[1], data[2]);
-    }, this);
-
-    this.bus.register("mouse-delta", function(data)
-    {
-        this.mouse_send_delta(data[0], data[1]);
-    }, this);
-
-    this.bus.register("mouse-wheel", function(data)
-    {
-        this.wheel_movement -= data[0];
-        this.wheel_movement -= data[1] * 2; // X Wheel Movement
-        this.wheel_movement = Math.min(7, Math.max(-8, this.wheel_movement));
-        this.send_mouse_packet(0, 0);
-    }, this);
-
     this.command_register = 1 | 4;
     // TODO: What should be the initial value?
     this.controller_output_port = 0;
     this.read_output_register = false;
     this.read_command_register = false;
     this.read_controller_output_port = false;
-
-    cpu.io.register_read(0x60, this, this.port60_read);
-    cpu.io.register_read(0x64, this, this.port64_read);
-
-    cpu.io.register_write(0x60, this, this.port60_write);
-    cpu.io.register_write(0x64, this, this.port64_write);
 }
 
 PS2.prototype.get_state = function()
