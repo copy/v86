@@ -2,7 +2,7 @@
 
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
-import { LOG_LEVEL, setLogLevel } from "../config.js";
+import { LOG_LEVEL, set_log_level } from "../config.js";
 import { print_stats } from "./print_stats.js";
 import { SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
@@ -1721,11 +1721,11 @@ function debug_onload()
 
         if(target.checked)
         {
-            setLogLevel(LOG_LEVEL | mask);
+            set_log_level(LOG_LEVEL | mask);
         }
         else
         {
-            setLogLevel(LOG_LEVEL & ~mask);
+            set_log_level(LOG_LEVEL & ~mask);
         }
 
         target.blur();
