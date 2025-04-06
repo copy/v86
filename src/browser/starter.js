@@ -26,9 +26,6 @@ import { FS } from "../../lib/filesystem.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 
 
-// Decorates CPU
-import "../state.js";
-
 /**
  * Constructor for emulator instances.
  *

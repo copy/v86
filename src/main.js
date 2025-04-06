@@ -1,6 +1,7 @@
 "use strict";
 
 import { CPU } from "./cpu.js";
+import { save_state, restore_state } from "./state.js";
 
 /**
  * @constructor
@@ -199,13 +200,13 @@ else
 v86.prototype.save_state = function()
 {
     // TODO: Should be implemented here, not on cpu
-    return this.cpu.save_state();
+    return save_state(this.cpu);
 };
 
 v86.prototype.restore_state = function(state)
 {
     // TODO: Should be implemented here, not on cpu
-    return this.cpu.restore_state(state);
+    return restore_state(this.cpu, state);
 };
 
 /* global require */
