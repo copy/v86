@@ -141,7 +141,7 @@ PS2.prototype.reset = function()
     this.read_output_register = false;
     this.read_command_register = false;
     this.read_controller_output_port = false;
-}
+};
 
 PS2.prototype.get_state = function()
 {
