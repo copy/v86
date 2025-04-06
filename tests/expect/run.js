@@ -5,10 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import url from "node:url";
-import wabtfactory from "../../build/libwabt.cjs";
-
-
 import { spawnSync } from "node:child_process";
+import wabtfactory from "../../build/libwabt.cjs";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 

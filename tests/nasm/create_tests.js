@@ -12,7 +12,6 @@ import { execFile as execFileAsync } from "node:child_process";
 import encodings from "../../gen/x86_table.js";
 import Rand from "./rand.js";
 
-
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 // number of tests per instruction

@@ -11,7 +11,7 @@ import { dbg_log, dbg_assert } from "./log.js";
 import { CPU } from "./cpu.js";
 
 /** @const */
-export const PMTIMER_FREQ_SECONDS = 3579545;
+const PMTIMER_FREQ_SECONDS = 3579545;
 
 /**
  * @constructor

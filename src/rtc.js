@@ -61,8 +61,7 @@ export const BOOT_ORDER_FD_FIRST = 0x321;
  * @constructor
  * @param {CPU} cpu
  */
-export
-function RTC(cpu)
+export function RTC(cpu)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
