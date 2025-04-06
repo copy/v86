@@ -2,7 +2,7 @@
 
 import { v86 } from "../main.js";
 import { LOG_CPU, WASM_TABLE_OFFSET, WASM_TABLE_SIZE } from "../const.js";
-import { setLogLevel } from "../config.js";
+import { set_log_level } from "../config.js";
 import { get_rand_int, load_file, read_sized_string_from_mem } from "../lib.js";
 import { dbg_assert, dbg_trace, dbg_log } from "../log.js";
 import { print_stats } from "./print_stats.js";
@@ -138,7 +138,7 @@ export function V86(options)
     if(typeof options.log_level === "number")
     {
         // XXX: Shared between all emulator instances
-        setLogLevel(options.log_level);
+        set_log_level(options.log_level);
     }
 
     //var worker = new Worker("src/browser/worker.js");
