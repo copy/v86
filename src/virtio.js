@@ -1,5 +1,5 @@
 import { LOG_VIRTIO } from "./const.js";
-import { h, zeros, int_log2 } from "./lib.js";
+import { h, int_log2 } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
 // For Types Only
@@ -230,7 +230,7 @@ export function VirtIO(cpu, options)
     ];
 
     // Prevent sparse arrays by preallocating.
-    this.pci_space = this.pci_space.concat(zeros(256 - this.pci_space.length));
+    this.pci_space = this.pci_space.concat(Array(256 - this.pci_space.length).fill(0));
     // Remaining PCI space is appended by capabilities further below.
 
     this.pci_id = options.pci_id;
