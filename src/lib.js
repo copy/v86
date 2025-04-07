@@ -535,7 +535,8 @@ Bitmap.prototype.get_buffer = function()
 export var load_file;
 export var get_file_size;
 
-if(typeof XMLHttpRequest === "undefined")
+if(typeof XMLHttpRequest === "undefined" ||
+    typeof process !== "undefined" && process.versions && process.versions.node)
 {
     let fs;
 
