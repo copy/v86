@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 "use strict";
+
 import url from "node:url";
+import fs from "node:fs";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
-import fs from "node:fs";
-const { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const root_path = __dirname + "/../..";
 

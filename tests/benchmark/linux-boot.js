@@ -8,7 +8,7 @@ import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const BENCH_COLLECT_STATS = +process.env.BENCH_COLLECT_STATS;
-const { V86, print_stats } = await import(`../../build/${BENCH_COLLECT_STATS ? "libv86-debug" : "libv86"}.js`).V86;
+const { V86, print_stats } = await import(BENCH_COLLECT_STATS ? "../../src/main.js" : "../../build/libv86.mjs");
 
 const V86_ROOT = path.join(__dirname, "../..");
 

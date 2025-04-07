@@ -8,6 +8,9 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import cluster from "node:cluster";
 
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
@@ -27,7 +30,6 @@ process.on("unhandledRejection", exn => { throw exn; });
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
 const SINGLE_TEST_TIMEOUT = 10000;
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
@@ -49,16 +51,6 @@ const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 const FPU_TAG_ALL_INVALID = 0xAAAA;
 const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3 | 1 << 1); // bits that are not correctly implemented by v86
 const FP_COMPARISON_SIGNIFICANT_DIGITS = 7;
-
-try {
-    var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
-}
-catch(e) {
-    console.error(e);
-    console.error("Failed to import build/libv86-debug.js. Run " +
-                  "`make build/libv86-debug.js` first.");
-    process.exit(1);
-}
 
 function float_equal(x, y)
 {
