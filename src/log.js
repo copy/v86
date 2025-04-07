@@ -1,5 +1,10 @@
 "use strict";
 
+if(typeof DEBUG === "undefined")
+{
+    globalThis.DEBUG = true;
+}
+
 import { LOG_NAMES } from "./const.js";
 import { pad0, pads } from "./lib.js";
 import {
