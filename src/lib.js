@@ -532,175 +532,206 @@ Bitmap.prototype.get_buffer = function()
     return this.view.buffer;
 };
 
-
 export var load_file;
+export var get_file_size;
+
 if(typeof XMLHttpRequest === "undefined")
 {
-    load_file = load_file_nodejs;
+    let fs;
+
+    /**
+     * @param {string} filename
+     * @param {Object} options
+     * @param {number=} n_tries
+     */
+    load_file = async function(filename, options, n_tries)
+    {
+        if(!fs)
+        {
+            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
+            fs = await import("node:" + "fs/promises");
+        }
+
+        if(options.range)
+        {
+            dbg_assert(!options.as_json);
+
+            const fd = await fs["open"](filename, "r");
+
+            const length = options.range.length;
+            const buffer = Buffer.allocUnsafe(length);
+
+            try
+            {
+                /** @type {{ bytesRead: Number }} */
+                const result = await fd["read"]({
+                    buffer,
+                    position: options.range.start
+                });
+                dbg_assert(result.bytesRead === length);
+            }
+            finally
+            {
+                await fd["close"]();
+            }
+
+            options.done && options.done(new Uint8Array(buffer));
+        }
+        else
+        {
+            const o = {
+                encoding: options.as_json ? "utf-8" : null,
+            };
+
+            const data = await fs["readFile"](filename, o);
+            const result = options.as_json ? JSON.parse(data) : new Uint8Array(data).buffer;
+
+            options.done(result);
+        }
+    };
+
+    get_file_size = async function(path)
+    {
+        if(!fs)
+        {
+            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
+            fs = await import("node:" + "fs/promises");
+        }
+        const stat = await fs["stat"](path);
+        return stat.size;
+    };
 }
 else
 {
-    load_file = _load_file;
-}
-
-/**
- * @param {string} filename
- * @param {Object} options
- * @param {number=} n_tries
- */
-function _load_file(filename, options, n_tries)
-{
-    var http = new XMLHttpRequest();
-
-    http.open(options.method || "get", filename, true);
-
-    if(options.as_json)
+    /**
+     * @param {string} filename
+     * @param {Object} options
+     * @param {number=} n_tries
+     */
+    load_file = async function(filename, options, n_tries)
     {
-        http.responseType = "json";
-    }
-    else
-    {
-        http.responseType = "arraybuffer";
-    }
+        var http = new XMLHttpRequest();
 
-    if(options.headers)
-    {
-        var header_names = Object.keys(options.headers);
+        http.open(options.method || "get", filename, true);
 
-        for(var i = 0; i < header_names.length; i++)
+        if(options.as_json)
         {
-            var name = header_names[i];
-            http.setRequestHeader(name, options.headers[name]);
+            http.responseType = "json";
         }
-    }
-
-    if(options.range)
-    {
-        const start = options.range.start;
-        const end = start + options.range.length - 1;
-        http.setRequestHeader("Range", "bytes=" + start + "-" + end);
-        http.setRequestHeader("X-Accept-Encoding", "identity");
-
-        // Abort if server responds with complete file in response to range
-        // request, to prevent downloading large files from broken http servers
-        http.onreadystatechange = function()
+        else
         {
-            if(http.status === 200)
+            http.responseType = "arraybuffer";
+        }
+
+        if(options.headers)
+        {
+            var header_names = Object.keys(options.headers);
+
+            for(var i = 0; i < header_names.length; i++)
             {
-                console.error("Server sent full file in response to ranged request, aborting", { filename });
-                http.abort();
+                var name = header_names[i];
+                http.setRequestHeader(name, options.headers[name]);
             }
-        };
-    }
+        }
 
-    http.onload = function(e)
-    {
-        if(http.readyState === 4)
+        if(options.range)
         {
-            if(http.status !== 200 && http.status !== 206)
+            const start = options.range.start;
+            const end = start + options.range.length - 1;
+            http.setRequestHeader("Range", "bytes=" + start + "-" + end);
+            http.setRequestHeader("X-Accept-Encoding", "identity");
+
+            // Abort if server responds with complete file in response to range
+            // request, to prevent downloading large files from broken http servers
+            http.onreadystatechange = function()
             {
-                console.error("Loading the image " + filename + " failed (status %d)", http.status);
-                if(http.status >= 500 && http.status < 600)
+                if(http.status === 200)
                 {
-                    retry();
+                    console.error("Server sent full file in response to ranged request, aborting", { filename });
+                    http.abort();
                 }
-            }
-            else if(http.response)
+            };
+        }
+
+        http.onload = function(e)
+        {
+            if(http.readyState === 4)
             {
-                if(options.range)
+                if(http.status !== 200 && http.status !== 206)
                 {
-                    const enc = http.getResponseHeader("Content-Encoding");
-                    if(enc && enc !== "identity")
+                    console.error("Loading the image " + filename + " failed (status %d)", http.status);
+                    if(http.status >= 500 && http.status < 600)
                     {
-                        console.error("Server sent Content-Encoding in response to ranged request", {filename, enc});
+                        retry();
                     }
                 }
-                options.done && options.done(http.response, http);
+                else if(http.response)
+                {
+                    if(options.range)
+                    {
+                        const enc = http.getResponseHeader("Content-Encoding");
+                        if(enc && enc !== "identity")
+                        {
+                            console.error("Server sent Content-Encoding in response to ranged request", {filename, enc});
+                        }
+                    }
+                    options.done && options.done(http.response, http);
+                }
             }
+        };
+
+        http.onerror = function(e)
+        {
+            console.error("Loading the image " + filename + " failed", e);
+            retry();
+        };
+
+        if(options.progress)
+        {
+            http.onprogress = function(e)
+            {
+                options.progress(e);
+            };
+        }
+
+        http.send(null);
+
+        function retry()
+        {
+            const number_of_tries = n_tries || 0;
+            const timeout = [1, 1, 2, 3, 5, 8, 13, 21][number_of_tries] || 34;
+            setTimeout(() => {
+                load_file(filename, options, number_of_tries + 1);
+            }, 1000 * timeout);
         }
     };
 
-    http.onerror = function(e)
+    get_file_size = async function(url)
     {
-        console.error("Loading the image " + filename + " failed", e);
-        retry();
-    };
-
-    if(options.progress)
-    {
-        http.onprogress = function(e)
-        {
-            options.progress(e);
-        };
-    }
-
-    http.send(null);
-
-    function retry()
-    {
-        const number_of_tries = n_tries || 0;
-        const timeout = [1, 1, 2, 3, 5, 8, 13, 21][number_of_tries] || 34;
-        setTimeout(() => {
-            load_file(filename, options, number_of_tries + 1);
-        }, 1000 * timeout);
-    }
-}
-
-function load_file_nodejs(filename, options)
-{
-    if(options.range)
-    {
-        dbg_assert(!options.as_json);
-
-        import("node:" + "fs").then(fs => fs["open"](filename, "r", (err, fd) =>
-            {
-                if(err) throw err;
-
-                const length = options.range.length;
-                var buffer = Buffer.allocUnsafe(length);
-
-                fs["read"](fd, buffer, 0, length, options.range.start, (err, bytes_read) =>
-                    {
-                        if(err) throw err;
-
-                        dbg_assert(bytes_read === length);
-                        options.done && options.done(new Uint8Array(buffer));
-
-                        fs["close"](fd, (err) => {
-                            if(err) throw err;
-                        });
-                    });
-            }));
-    }
-    else
-    {
-        var o = {
-            encoding: options.as_json ? "utf-8" : null,
-        };
-
-        import("node:" + "fs").then(fs => fs["readFile"](filename, o, function(err, data)
-            {
-                if(err)
+        return new Promise((resolve, reject) => {
+            load_file(url, {
+                done: (buffer, http) =>
                 {
-                    console.log("Could not read file:", filename, err);
-                }
-                else
-                {
-                    var result = data;
+                    var header = http.getResponseHeader("Content-Range") || "";
+                    var match = header.match(/\/(\d+)\s*$/);
 
-                    if(options.as_json)
+                    if(match)
                     {
-                        result = JSON.parse(result);
+                        resolve(+match[1]);
                     }
                     else
                     {
-                        result = new Uint8Array(result).buffer;
+                        const error = new Error("`Range: bytes=...` header not supported (Got `" + header + "`)");
+                        reject(error);
                     }
-
-                    options.done(result);
+                },
+                headers: {
+                    Range: "bytes=0-0",
+                    "X-Accept-Encoding": "identity"
                 }
-            }));
-    }
+            });
+        });
+    };
 }
 
 // Reads len characters at offset from Memory object mem as a JS string
