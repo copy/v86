@@ -1,5 +1,3 @@
-"use strict";
-
 if(typeof DEBUG === "undefined")
 {
     globalThis.DEBUG = true;

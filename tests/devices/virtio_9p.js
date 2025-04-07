@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-"use strict";
+
 import url from "node:url";
 import fs from "node:fs";
 

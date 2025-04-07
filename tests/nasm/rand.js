@@ -1,5 +1,3 @@
-"use strict";
-
 // From http://baagoe.com/en/RandomMusings/javascript/
 // Johannes Baagøe <baagoe@baagoe.com>, 2010
 function Mash() {

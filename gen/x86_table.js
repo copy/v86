@@ -1,5 +1,3 @@
-"use strict";
-
 // http://ref.x86asm.net/coder32.html
 
 const zf = 1 << 6;

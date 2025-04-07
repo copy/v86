@@ -1,5 +1,3 @@
-"use strict";
-
 import { CPU } from "./cpu.js";
 import { load_file, get_file_size } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";

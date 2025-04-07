@@ -1,5 +1,3 @@
-"use strict";
-
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
