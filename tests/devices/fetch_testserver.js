@@ -1,12 +1,11 @@
 "use strict";
 
-/** 
+/**
  * Endpoints:
  * GET / - same as mocked.example.org
  * GET /bench - large file for benchmark (tests/bench/fetch_download.js)
  * GET /redirect - redirect to root endpoint
  * GET /header - gets "x-client-test" header and returns "x-server-test" header
- * 
  * todo: POST endpoints with JSON
 */
 
