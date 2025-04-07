@@ -1,7 +1,7 @@
 "use strict";
 
 import { CPU } from "./cpu.js";
-import { load_file } from "./lib.js";
+import { load_file, get_file_size } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
 // The smallest size the emulated hardware can emit
@@ -108,7 +108,7 @@ function AsyncXHRBuffer(filename, size, fixed_chunk_size)
     this.onprogress = undefined;
 }
 
-AsyncXHRBuffer.prototype.load = function()
+AsyncXHRBuffer.prototype.load = async function()
 {
     if(this.byteLength !== undefined)
     {
@@ -116,21 +116,9 @@ AsyncXHRBuffer.prototype.load = function()
         return;
     }
 
-    // Determine the size using a request
-
-    determine_size(this.filename, (error, size) =>
-    {
-        if(error)
-        {
-            throw new Error("Cannot use: " + this.filename + ". " + error);
-        }
-        else
-        {
-            dbg_assert(size >= 0);
-            this.byteLength = size;
-            this.onload && this.onload(Object.create(null));
-        }
-    });
+    const size = await get_file_size(this.filename);
+    this.byteLength = size;
+    this.onload && this.onload(Object.create(null));
 };
 
 /**
@@ -696,52 +684,6 @@ AsyncFileBuffer.prototype.get_as_file = function(name)
 
     return file;
 };
-
-var determine_size;
-if(typeof XMLHttpRequest === "undefined")
-{
-    determine_size = function(path, cb)
-    {
-        import("node:" + "fs").then(fs => fs["stat"](path, (err, stats) =>
-        {
-            if(err)
-            {
-                cb(err);
-            }
-            else
-            {
-                cb(null, stats.size);
-            }
-        }));
-    };
-}
-else
-{
-    determine_size = function(url, cb)
-    {
-        load_file(url, {
-            done: (buffer, http) =>
-            {
-                var header = http.getResponseHeader("Content-Range") || "";
-                var match = header.match(/\/(\d+)\s*$/);
-
-                if(match)
-                {
-                    cb(null, +match[1]);
-                }
-                else
-                {
-                    const error = "`Range: bytes=...` header not supported (Got `" + header + "`)";
-                    cb(error);
-                }
-            },
-            headers: {
-                Range: "bytes=0-0",
-                "X-Accept-Encoding": "identity"
-            }
-        });
-    };
-}
 
 export function buffer_from_object(obj, zstd_decompress_worker)
 {
