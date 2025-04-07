@@ -145,7 +145,7 @@ async function on_data_http(data)
             resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
             resp_headers.set("x-fetch-resp-url", resp.url);
             resp_headers.set("connection", "closed");
-            ["content-encoding", "connection", "content-length", "transfer-encoding"].forEach(function(header) {
+            ["content-encoding", "content-length", "transfer-encoding"].forEach(function(header) {
                 if(resp_headers.has(header)) {
                     resp_headers.delete(header);
                 }
