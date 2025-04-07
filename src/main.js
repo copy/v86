@@ -1,7 +1,7 @@
 import { CPU } from "./cpu.js";
 import { save_state, restore_state } from "./state.js";
 export { V86 } from "./browser/starter.js";
-export { print_stats } from "./browser/print_stats.js";
+export { stats_to_string } from "./browser/print_stats.js";
 
 /**
  * @constructor

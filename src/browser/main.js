@@ -1,6 +1,6 @@
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
-import { print_stats } from "./print_stats.js";
+import * as print_stats from "./print_stats.js";
 import { SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
