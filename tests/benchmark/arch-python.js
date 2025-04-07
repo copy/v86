@@ -17,7 +17,10 @@ const emulator = new V86({
     autostart: true,
     memory_size: 512 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
-    network_relay_url: "<UNUSED>",
+    net_device: {
+        type: "virtio",
+        relay_url: "<UNUSED>",
+    },
     initial_state: { url: path.join(V86_ROOT, "/images/arch_state.bin") },
     filesystem: { baseurl: path.join(V86_ROOT, "/images/arch/") },
     disable_jit: +process.env.DISABLE_JIT,
