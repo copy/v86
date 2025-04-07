@@ -6,23 +6,14 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import url from "node:url";
 import { spawnSync } from "node:child_process";
-import wabtfactory from "../../build/libwabt.cjs";
+import wabt from "../../build/libwabt.cjs";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-const libwabt = wabtfactory();
-
-try {
-    var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
-}
-catch(e) {
-    console.error(e);
-    console.error("Failed to import build/libv86-debug.js. Run " +
-                  "`make build/libv86-debug.js` first.");
-    process.exit(1);
-}
+const libwabt = wabt();
 
 const TEST_NAME = process.env.TEST_NAME;
 
