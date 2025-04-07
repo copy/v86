@@ -2,9 +2,6 @@
 
 import { pads } from "../lib.js";
 
-/**
- * @export
- */
 export const print_stats = {
     stats_to_string: function(cpu)
     {

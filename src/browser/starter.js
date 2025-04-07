@@ -130,7 +130,6 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
       } | undefined),
     }} options
  * @constructor
- * @export
  */
 export function V86(options)
 {
@@ -822,7 +821,6 @@ V86.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 /**
  * Start emulation. Do nothing if emulator is running already. Can be
  * asynchronous.
- * @export
  */
 V86.prototype.run = async function()
 {
@@ -831,7 +829,6 @@ V86.prototype.run = async function()
 
 /**
  * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
- * @export
  */
 V86.prototype.stop = async function()
 {
@@ -852,7 +849,6 @@ V86.prototype.stop = async function()
 
 /**
  * @ignore
- * @export
  */
 V86.prototype.destroy = async function()
 {
@@ -869,7 +865,6 @@ V86.prototype.destroy = async function()
 
 /**
  * Restart (force a reboot).
- * @export
  */
 V86.prototype.restart = function()
 {
@@ -884,7 +879,6 @@ V86.prototype.restart = function()
  *
  * @param {string} event Name of the event.
  * @param {function(?)} listener The callback function.
- * @export
  */
 V86.prototype.add_listener = function(event, listener)
 {
@@ -896,7 +890,6 @@ V86.prototype.add_listener = function(event, listener)
  *
  * @param {string} event
  * @param {function(*)} listener
- * @export
  */
 V86.prototype.remove_listener = function(event, listener)
 {
@@ -916,7 +909,6 @@ V86.prototype.remove_listener = function(event, listener)
  * state buffer.
  *
  * @param {ArrayBuffer} state
- * @export
  */
 V86.prototype.restore_state = async function(state)
 {
@@ -928,7 +920,6 @@ V86.prototype.restore_state = async function(state)
  * Asynchronously save the current state of the emulator.
  *
  * @return {Promise<ArrayBuffer>}
- * @export
  */
 V86.prototype.save_state = async function()
 {
@@ -939,7 +930,6 @@ V86.prototype.save_state = async function()
 /**
  * @return {number}
  * @ignore
- * @export
  */
 V86.prototype.get_instruction_counter = function()
 {
@@ -956,7 +946,6 @@ V86.prototype.get_instruction_counter = function()
 
 /**
  * @return {boolean}
- * @export
  */
 V86.prototype.is_running = function()
 {
@@ -966,7 +955,6 @@ V86.prototype.is_running = function()
 /**
  * Set the image inserted in the floppy drive. Can be changed at runtime, as
  * when physically changing the floppy disk.
- * @export
  */
 V86.prototype.set_fda = async function(file)
 {
@@ -992,7 +980,6 @@ V86.prototype.set_fda = async function(file)
 
 /**
  * Eject the floppy drive.
- * @export
  */
 V86.prototype.eject_fda = function()
 {
@@ -1005,7 +992,6 @@ V86.prototype.eject_fda = function()
  * Do nothing if there is no keyboard controller.
  *
  * @param {Array.<number>} codes
- * @export
  */
 V86.prototype.keyboard_send_scancodes = function(codes)
 {
@@ -1018,7 +1004,6 @@ V86.prototype.keyboard_send_scancodes = function(codes)
 /**
  * Send translated keys
  * @ignore
- * @export
  */
 V86.prototype.keyboard_send_keys = function(codes)
 {
@@ -1031,7 +1016,6 @@ V86.prototype.keyboard_send_keys = function(codes)
 /**
  * Send text
  * @ignore
- * @export
  */
 V86.prototype.keyboard_send_text = function(string)
 {
@@ -1045,7 +1029,6 @@ V86.prototype.keyboard_send_text = function(string)
  * Download a screenshot.
  *
  * @ignore
- * @export
  */
 V86.prototype.screen_make_screenshot = function()
 {
@@ -1063,7 +1046,6 @@ V86.prototype.screen_make_screenshot = function()
  * @param {number} sy
  *
  * @ignore
- * @export
  */
 V86.prototype.screen_set_scale = function(sx, sy)
 {
@@ -1077,7 +1059,6 @@ V86.prototype.screen_set_scale = function(sx, sy)
  * Go fullscreen.
  *
  * @ignore
- * @export
  */
 V86.prototype.screen_go_fullscreen = function()
 {
@@ -1121,7 +1102,6 @@ V86.prototype.screen_go_fullscreen = function()
  * browser window.
  *
  * @ignore
- * @export
  */
 V86.prototype.lock_mouse = function()
 {
@@ -1154,7 +1134,6 @@ V86.prototype.mouse_set_status = function(enabled)
  * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
- * @export
  */
 V86.prototype.keyboard_set_status = function(enabled)
 {
@@ -1169,7 +1148,6 @@ V86.prototype.keyboard_set_status = function(enabled)
  * Send a string to the first emulated serial terminal.
  *
  * @param {string} data
- * @export
  */
 V86.prototype.serial0_send = function(data)
 {
@@ -1183,7 +1161,6 @@ V86.prototype.serial0_send = function(data)
  * Send bytes to a serial port (to be received by the emulated PC).
  *
  * @param {Uint8Array} data
- * @export
  */
 V86.prototype.serial_send_bytes = function(serial, data)
 {
@@ -1238,7 +1215,6 @@ V86.prototype.serial_set_clear_to_send = function(serial, status)
  * @param {string} path Path for the mount point
  * @param {string|undefined} baseurl
  * @param {string|undefined} basefs As a JSON string
- * @export
  */
 V86.prototype.mount_fs = async function(path, baseurl, basefs)
 {
@@ -1278,7 +1254,6 @@ V86.prototype.mount_fs = async function(path, baseurl, basefs)
  *
  * @param {string} file
  * @param {Uint8Array} data
- * @export
  */
 V86.prototype.create_file = async function(file, data)
 {
@@ -1312,7 +1287,6 @@ V86.prototype.create_file = async function(file, data)
  * initialized.
  *
  * @param {string} file
- * @export
  */
 V86.prototype.read_file = async function(file)
 {
