@@ -14,18 +14,6 @@ export function pad0(str, len)
     return str.padStart(len, "0");
 }
 
-// generates array given size with zeros
-export function zeros(size)
-{
-    return Array(size).fill(0);
-}
-
-// generates [0, 1, 2, ..., size-1]
-export function range(size)
-{
-    return Array.from(Array(size).keys());
-}
-
 export var view = function(constructor, memory, offset, length)
 {
     dbg_assert(offset >= 0);
