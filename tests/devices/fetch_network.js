@@ -2,16 +2,19 @@
 
 import assert from "assert/strict";
 import url from "node:url";
+import { Worker } from "node:worker_threads";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 process.on("unhandledRejection", exn => { throw exn; });
 
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
+const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const SHOW_LOGS = false;
+const server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
 
 function wait(time) {
     return new Promise((res) => setTimeout(res, time));
@@ -134,7 +137,7 @@ const tests =
         },
     },
     {
-        name: "Curl mocked.example.org",
+        name: "GET mocked.example.org",
         allow_failure: true,
         start: () =>
         {
@@ -148,7 +151,7 @@ const tests =
         },
     },
     {
-        name: "Curl example.org",
+        name: "GET example.org",
         allow_failure: true,
         start: () =>
         {
@@ -159,6 +162,49 @@ const tests =
         end: (capture) =>
         {
             assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
+        },
+    },
+    {
+        name: "GET local server",
+        allow_failure: true,
+        start: () =>
+        {
+            emulator.serial0_send(`wget -T 10 -O - ${SERVER_PORT}.v86local.http\n`);
+            emulator.serial0_send("echo -e done\\\\tlocal server\n");
+        },
+        end_trigger: "done\tlocal server",
+        end: (capture) =>
+        {
+            assert(/This text is from the local server/.test(capture), "got local server text");
+        },
+    },
+    {
+        name: "GET local server with custom header",
+        allow_failure: true,
+        start: () =>
+        {
+            emulator.serial0_send(`wget -S -T 10 --header='x-client-test: hello' -O - ${SERVER_PORT}.v86local.http/header\n`);
+            emulator.serial0_send("echo -e done\\\\tlocal server custom header\n");
+        },
+        end_trigger: "done\tlocal server custom header",
+        end: (capture) =>
+        {
+            assert(/x-server-test: {1,}h_e_l_l_o/.test(capture), "got local server custom header");
+        },
+    },
+    {
+        name: "GET local server with redirect",
+        allow_failure: true,
+        start: () =>
+        {
+            emulator.serial0_send(`curl -m 10 -L -v ${SERVER_PORT}.v86local.http/redirect\n`);
+            emulator.serial0_send("echo -e done\\\\tlocal server redirect\n");
+        },
+        end_trigger: "done\tlocal server redirect",
+        end: (capture) =>
+        {
+            assert(/x-was-fetch-redirected: {1,}true/.test(capture), "got local server redirect header");
+            assert(/This text is from the local server/.test(capture), "got actual redirect");
         },
     },
     {
@@ -191,7 +237,7 @@ const tests =
         name: "Header without separator",
         start: () =>
         {
-            emulator.serial0_send("wget --spider --header='testheader' -T 10 -O - test.domain\n");
+            emulator.serial0_send("wget --header='testheader' -T 10 -O - test.domain\n");
             emulator.serial0_send("echo -e done\\\\theader without colon\n");
         },
         end_trigger: "done\theader without colon",
@@ -212,6 +258,7 @@ const emulator = new V86({
     net_device: {
         relay_url: "fetch",
         type: USE_VIRTIO ? "virtio" : "ne2k",
+        local_http: true
     },
     log_level: SHOW_LOGS ? 0x400000 : 0,
 });
@@ -289,6 +336,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
             else
             {
                 console.error("[-] Test #%d failed: %s", test_num, tests[test_num].name);
+                server.terminate();
                 process.exit(1);
             }
         }
@@ -304,7 +352,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
         if(test_num >= tests.length)
         {
             emulator.destroy();
-
+            server.terminate();
             console.log("Tests finished.");
         }
         else
