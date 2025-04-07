@@ -39,6 +39,8 @@ export function FetchNetworkAdapter(bus, config)
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
 
+    this.local_http = !!config.local_http;
+
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
@@ -124,6 +126,27 @@ async function on_data_http(data)
             else req_headers.append(header.key, header.value);
         }
 
+        if(this.net.local_http && !this.net.cors_proxy && (/\d+\.v86local\.http/).test(target.hostname)) {
+            dbg_log("Request to localhost: " + target.href, LOG_FETCH);
+            const localport = parseInt(target.hostname.split(".")[0], 10);
+            if(!isNaN(localport) && localport > 0 && localport < 65536) {
+                target.protocol = "http:";
+                target.hostname = "localhost";
+                target.port = localport.toString(10);
+            } else {
+                console.warn('Unknown port for localhost: "%s"', target.href);
+                const body = new TextEncoder().encode(`Unknown port for localhost: ${target.href}`);
+                const resp_headers = new Headers({
+                    "content-type": "text/plain",
+                    "content-length": body.length.toString(10),
+                    "connection": "close"
+                });
+                this.writev([new TextEncoder().encode(this.net.form_response_head(400, "Bad Request", resp_headers)), body]);
+                this.close();
+                return;
+            }
+        }
+
         dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
         this.name = target.href;
         let opts = {
@@ -141,7 +164,7 @@ async function on_data_http(data)
             let resp_headers = new Headers(resp.headers);
             resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
             resp_headers.set("x-fetch-resp-url", resp.url);
-            resp_headers.set("connection", "closed");
+            resp_headers.set("connection", "close");
             ["content-encoding", "content-length", "transfer-encoding"].forEach(function(header) {
                 if(resp_headers.has(header)) {
                     resp_headers.delete(header);
@@ -178,7 +201,7 @@ async function on_data_http(data)
                 const resp_headers = new Headers({
                     "Content-Type": "text/plain",
                     "Content-Length": body.length.toString(10),
-                    "Connection": "closed"
+                    "Connection": "close"
                 });
                 this.writev([encoder.encode(this.net.form_response_head(502, "Fetch Error", resp_headers)), body]);
             }
