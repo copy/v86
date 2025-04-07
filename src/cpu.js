@@ -1,5 +1,3 @@
-"use strict";
-
 import {
     LOG_CPU, LOG_BIOS,
     FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * @define {boolean}
  * Overridden for production by closure compiler

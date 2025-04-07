@@ -1,5 +1,3 @@
-"use strict";
-
 var global = {};
 var process = { hrtime: function() {} };
 

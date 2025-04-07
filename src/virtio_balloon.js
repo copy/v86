@@ -1,5 +1,3 @@
-"use strict";
-
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
 
 import { LOG_PCI } from "./const.js";

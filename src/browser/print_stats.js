@@ -1,5 +1,3 @@
-"use strict";
-
 import { pads } from "../lib.js";
 
 export const print_stats = {

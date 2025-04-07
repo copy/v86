@@ -1,5 +1,3 @@
-"use strict";
-
 // http://www.uefi.org/sites/default/files/resources/ACPI_6_1.pdf
 
 import { v86 } from "./main.js";

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import { setTimeout as pause } from "timers/promises";
 import url from "node:url";

@@ -1,5 +1,3 @@
-"use strict";
-
 import assert from "node:assert/strict";
 
 function indent(lines, how_much)

@@ -1,5 +1,3 @@
-"use strict";
-
 import {
     LOG_SB16,
     MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,

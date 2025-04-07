@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import assert from "node:assert/strict";
 import cluster from "node:cluster";

@@ -1,5 +1,3 @@
-"use strict";
-
 import { dbg_assert } from "../log.js";
 
 // Draws entire buffer and visualizes the layers that would be drawn

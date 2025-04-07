@@ -1,5 +1,3 @@
-"use strict";
-
 // See Intel's System Programming Guide
 
 import { v86 } from "./main.js";

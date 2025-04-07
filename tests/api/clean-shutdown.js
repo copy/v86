@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));

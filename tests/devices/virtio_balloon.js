@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-"use strict";
+
 import assert from "assert/strict";
 import url from "node:url";
 

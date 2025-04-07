@@ -1,6 +1,3 @@
-"use strict";
-
-
 import { dbg_assert } from "../log.js";
 import { load_file } from "../lib.js";
 

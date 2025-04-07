@@ -1,5 +1,3 @@
-"use strict";
-
 import { dbg_assert, dbg_log } from "../log.js";
 
 // For Types Only

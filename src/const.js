@@ -1,5 +1,3 @@
-"use strict";
-
 export const
 /** @const */ LOG_ALL = -1,
 /** @const */ LOG_NONE = 0,

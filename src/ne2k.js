@@ -1,5 +1,3 @@
-"use strict";
-
 import { LOG_NET } from "./const.js";
 import { h, hex_dump } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
