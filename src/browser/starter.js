@@ -1444,6 +1444,11 @@ V86.prototype.set_serial_container_xtermjs = function(element)
     this.serial_adapter.show();
 };
 
+V86.prototype.get_instruction_stats = function()
+{
+    return print_stats.stats_to_string(this.v86.cpu);
+};
+
 /**
  * @ignore
  * @constructor
@@ -1473,7 +1478,6 @@ FileNotFoundError.prototype = Error.prototype;
 if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["V86"] = V86;
-    module.exports["print_stats"] = print_stats;
 }
 else if(typeof window !== "undefined")
 {
