@@ -1393,6 +1393,16 @@ import { log_data } from "../log.js";
                 },
                 homepage: "https://os64.blogspot.com/",
             },
+            {
+                id: "scupltos",
+                name: "SculptOS",
+                hda: {
+                    url: host + "sculptos.img",
+                    size: 33521664,
+                    async: false,
+                },
+                homepage: "https://genode.org/download/sculpt",
+            },
         ];
 
         if(DEBUG)
