@@ -5,7 +5,7 @@ import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const BENCH_COLLECT_STATS = +process.env.BENCH_COLLECT_STATS;
-const { V86, stats_to_string } = await import(BENCH_COLLECT_STATS ? "../../src/main.js" : "../../build/libv86.mjs");
+const { V86 } = await import(BENCH_COLLECT_STATS ? "../../src/main.js" : "../../build/libv86.mjs");
 
 const V86_ROOT = path.join(__dirname, "../..");
 
@@ -77,8 +77,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
 
         if(BENCH_COLLECT_STATS)
         {
-            const cpu = emulator.v86.cpu;
-            console.log(stats_to_string(cpu));
+            console.log(emulator.get_instruction_stats());
         }
     }
 });

@@ -1,6 +1,5 @@
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
-import * as print_stats from "./print_stats.js";
 import { SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
@@ -2047,8 +2046,7 @@ function start_emulation(profile, query_args)
                         return;
                     }
 
-                    const text = print_stats.stats_to_string(emulator.v86.cpu);
-                    panel.textContent = text;
+                    panel.textContent = emulator.get_instruction_stats();
 
                     CLEAR_STATS && emulator.v86.cpu.clear_opstats();
                 }, CLEAR_STATS ? 5000 : 1000);
