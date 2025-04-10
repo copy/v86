@@ -11,29 +11,10 @@ process.on("unhandledRejection", exn => { throw exn; });
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-function readfile(path)
-{
-    return new Uint8Array(fs.readFileSync(path)).buffer;
-}
-
-function Loader(path)
-{
-    this.buffer = readfile(path);
-    this.byteLength = this.buffer.byteLength;
-}
-
-Loader.prototype.load = function()
-{
-    this.onload && this.onload({});
-};
-
-var bios = readfile(__dirname + "/../../bios/seabios.bin");
-var vga_bios = readfile(__dirname + "/../../bios/vgabios.bin");
-
 var emulator = new V86({
-    bios: { buffer: bios },
-    vga_bios: { buffer: vga_bios },
-    multiboot: new Loader(process.argv[2]),
+    bios: { url: __dirname + "/../../bios/seabios.bin" },
+    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+    multiboot: { url: process.argv[2] },
     autostart: true,
     memory_size: 64 * 1024 * 1024,
     disable_jit: +process.env.DISABLE_JIT,
