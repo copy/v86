@@ -1,20 +1,12 @@
 #!/usr/bin/env node
 
-
 import fs from "node:fs";
 import url from "node:url";
-var V86 = await import("../build/libv86.js").V86;
+import { V86 } from "../build/libv86.mjs";
+
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
-function readfile(path)
-{
-    return new Uint8Array(fs.readFileSync(path)).buffer;
-}
-
 console.log("Use F2 to save the state and F3 to restore.");
-
-var bios = readfile(__dirname + "/../bios/seabios.bin");
-var linux = readfile(__dirname + "/../images/linux4.iso");
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
@@ -23,8 +15,8 @@ process.stdin.setEncoding("utf8");
 console.log("Now booting, please stand by ...");
 
 var emulator = new V86({
-    bios: { buffer: bios },
-    cdrom: { buffer: linux },
+    bios: { url: __dirname + "/../bios/seabios.bin" },
+    cdrom: { url: __dirname + "/../images/linux4.iso" },
     autostart: true,
 });
 
