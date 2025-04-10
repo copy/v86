@@ -20,7 +20,7 @@ const emulator = new V86({
         type: "virtio",
         relay_url: "<UNUSED>",
     },
-    initial_state: { url: path.join(V86_ROOT, "/images/arch_state.bin") },
+    initial_state: { url: path.join(V86_ROOT, "/images/arch_state-v2.bin.zst") },
     filesystem: { baseurl: path.join(V86_ROOT, "/images/arch/") },
     disable_jit: +process.env.DISABLE_JIT,
     log_level: 0,
