@@ -15,6 +15,7 @@ const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
 const { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
 const SHOW_LOGS = false;
 const server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
+server.onerror = (e) => { throw new Error("server: " + e); };
 
 function wait(time) {
     return new Promise((res) => setTimeout(res, time));

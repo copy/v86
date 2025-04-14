@@ -6,17 +6,17 @@ import { Worker } from "node:worker_threads";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
 const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
 const BENCHFILE_SIZE = (parseInt(process.env.BENCHFILE_SIZE_MB, 10) || 32) * 1024 * 1024;
 
-const { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+const { V86 } = await import("../../build/libv86.mjs");
 
 const LOG_SERIAL = true;
 const SHOW_LOGS = false;
 
 const server = new Worker(__dirname + "../devices/fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: BENCHFILE_SIZE } });
+server.onerror = (e) => { throw new Error("server: " + e); };
 
 const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
@@ -28,8 +28,7 @@ const emulator = new V86({
         relay_url: "fetch",
         type: USE_VIRTIO ? "virtio" : "ne2k",
         local_http: true
-    },
-    log_level: SHOW_LOGS ? 0x400000 : 0,
+    }
 });
 
 emulator.bus.register("emulator-started", function()
@@ -52,23 +51,37 @@ emulator.add_listener("serial0-output-byte", function(byte)
     {
         booted = true;
 
-        emulator.serial0_send(`udhcpc;curl -o /dev/null -w '<%{speed_download}>%{exitcode}' ${SERVER_PORT}.v86local.http/bench\n`);
+        emulator.serial0_send(`udhcpc;curl --fail --connect-timeout 10 -s -o /dev/null -w '<%{exitcode}><%{speed_download}>\\t<DONE>' http://${SERVER_PORT}.v86local.http/bench\n`);
     }
 
-    if(serial_text.endsWith(">0"))
+    if(serial_text.endsWith("\t<DONE>"))
     {
+        console.log();
         emulator.destroy();
         server.terminate();
-        const speed = parseInt(/<([0-9]+)>0/.exec(serial_text)[1], 10); // in bytes
 
-        if(isNaN(speed))
+        const regex = /<(\d+)><(\d+)>\t<DONE>/.exec(serial_text);
+        const exitcode = parseInt(regex[1], 10);
+        const speed = parseInt(regex[2], 10); // in bytes
+
+        if(isNaN(exitcode))
         {
-            console.error("Can't parse console log");
+            console.error("Can't parse exit code");
             process.exit(1);
         }
 
-        console.log();
+        if(exitcode !== 0)
+        {
+            console.error("Bench failed, curl returned non-zero exit code %s", exitcode);
+            process.exit(exitcode);
+        }
+
+        if(isNaN(speed))
+        {
+            console.error("Can't parse bench speed");
+            process.exit(1);
+        }
+
         console.log("Average download speed: %s kB/s", (speed / 1024).toFixed(2));
-        process.exit(0);
     }
 });
