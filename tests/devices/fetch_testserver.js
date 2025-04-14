@@ -3,7 +3,7 @@
 /**
  * Endpoints:
  * GET / - same as mocked.example.org
- * GET /bench - large file for benchmark (tests/bench/fetch_download.js)
+ * GET /bench - large file for benchmark (tests/benchmark/fetch-download.js)
  * GET /redirect - redirect to root endpoint
  * GET /header - gets "x-client-test" header and returns "x-server-test" header
  * todo: POST endpoints with JSON
@@ -27,6 +27,7 @@ function get_handler(request, response) {
     } else if(request.url === "/redirect") {
         response.writeHead(307, { "location": "/" });
     } else {
+        response.writeHead(404);
         response.write("Unknown endpoint");
     }
 }
@@ -37,6 +38,7 @@ createServer(function(request, response) {
             get_handler(request, response);
             break;
         default:
+            response.writeHead(405);
             response.write("Unknown method");
             break;
     }
