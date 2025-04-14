@@ -16,7 +16,7 @@ const LOG_SERIAL = true;
 const SHOW_LOGS = false;
 
 const server = new Worker(__dirname + "../devices/fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: BENCHFILE_SIZE } });
-server.onerror = (e) => { throw new Error("server: " + e); };
+server.on("error", (e) => { throw new Error("server: " + e); });
 
 const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
