@@ -112,7 +112,7 @@ async function on_data_http(data)
             const header = this.net.parse_http_header(headers[i]);
             if(!header) {
                 console.warn('The request contains an invalid header: "%s"', headers[i]);
-                this.net.respond_text_and_close(400, "Bad Request", `Invalid header in request: ${headers[i]}`);
+                this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${headers[i]}`);
                 return;
             }
             if( header.key.toLowerCase() === "host" ) target.host = header.value;
@@ -128,7 +128,7 @@ async function on_data_http(data)
                 target.port = localport.toString(10);
             } else {
                 console.warn('Unknown port for localhost: "%s"', target.href);
-                this.net.respond_text_and_close(400, "Bad Request", `Unknown port for localhost: ${target.href}`);
+                this.net.respond_text_and_close(this, 400, "Bad Request", `Unknown port for localhost: ${target.href}`);
                 return;
             }
         }
@@ -183,7 +183,7 @@ async function on_data_http(data)
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
             if(!response_started) {
-                this.net.respond_text_and_close(502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
+                this.net.respond_text_and_close(this, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
             }
             this.close();
         });
@@ -227,18 +227,15 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
     return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
 };
 
-/**
- * @this {TCPConnection}
- */
-FetchNetworkAdapter.prototype.respond_text_and_close = function(status_code, status_text, body)
+FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_code, status_text, body)
 {
     const headers = new Headers({
         "content-type": "text/plain",
         "content-length": body.length.toString(10),
         "connection": "close"
     });
-    this.writev([this.net.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
-    this.close();
+    conn.writev([this.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
+    conn.close();
 };
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
