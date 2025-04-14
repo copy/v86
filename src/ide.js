@@ -7,10 +7,8 @@ import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL } from ".
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 
-/** @const */
-var CDROM_SECTOR_SIZE = 2048;
-/** @const */
-var HD_SECTOR_SIZE = 512;
+const CDROM_SECTOR_SIZE = 2048;
+const HD_SECTOR_SIZE = 512;
 
 /**
  * @constructor

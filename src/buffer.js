@@ -543,8 +543,7 @@ SyncFileBuffer.prototype.load = function()
  */
 SyncFileBuffer.prototype.load_next = function(start)
 {
-    /** @const */
-    var PART_SIZE = 4 << 20;
+    const PART_SIZE = 4 << 20;
 
     var filereader = new FileReader();
 

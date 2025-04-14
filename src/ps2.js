@@ -7,7 +7,6 @@ import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 import { ByteQueue } from "./lib.js";
 
-/** @const */
 const PS2_LOG_VERBOSE = false;
 
 /**

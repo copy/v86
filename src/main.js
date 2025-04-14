@@ -155,8 +155,7 @@ else if(typeof Worker !== "undefined")
 //    // TODO: Make this deactivatable, for other applications
 //    //       using postMessage
 //
-//    /** @const */
-//    let MAGIC_POST_MESSAGE = 0xAA55;
+//    const MAGIC_POST_MESSAGE = 0xAA55;
 //
 //    v86.prototype.yield = function(t)
 //    {

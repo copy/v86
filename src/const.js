@@ -1,36 +1,35 @@
 export const
-/** @const */ LOG_ALL = -1,
-/** @const */ LOG_NONE = 0,
+    LOG_ALL = -1,
+    LOG_NONE = 0,
 
-/** @const */ LOG_OTHER =  0x0000001,
-/** @const */ LOG_CPU =    0x0000002,
-/** @const */ LOG_FPU =    0x0000004,
-/** @const */ LOG_MEM =    0x0000008,
-/** @const */ LOG_DMA =    0x0000010,
-/** @const */ LOG_IO =     0x0000020,
-/** @const */ LOG_PS2 =    0x0000040,
-/** @const */ LOG_PIC =    0x0000080,
-/** @const */ LOG_VGA =    0x0000100,
-/** @const */ LOG_PIT =    0x0000200,
-/** @const */ LOG_MOUSE =  0x0000400,
-/** @const */ LOG_PCI =    0x0000800,
-/** @const */ LOG_BIOS =   0x0001000,
-/** @const */ LOG_FLOPPY = 0x0002000,
-/** @const */ LOG_SERIAL = 0x0004000,
-/** @const */ LOG_DISK =   0x0008000,
-/** @const */ LOG_RTC =    0x0010000,
-// unused                  0x0020000,
-/** @const */ LOG_ACPI =   0x0040000,
-/** @const */ LOG_APIC =   0x0080000,
-/** @const */ LOG_NET =    0x0100000,
-/** @const */ LOG_VIRTIO = 0x0200000,
-/** @const */ LOG_9P =     0x0400000,
-/** @const */ LOG_SB16 =   0x0800000,
-/** @const */ LOG_FETCH =  0x1000000;
+    LOG_OTHER =  0x0000001,
+    LOG_CPU =    0x0000002,
+    LOG_FPU =    0x0000004,
+    LOG_MEM =    0x0000008,
+    LOG_DMA =    0x0000010,
+    LOG_IO =     0x0000020,
+    LOG_PS2 =    0x0000040,
+    LOG_PIC =    0x0000080,
+    LOG_VGA =    0x0000100,
+    LOG_PIT =    0x0000200,
+    LOG_MOUSE =  0x0000400,
+    LOG_PCI =    0x0000800,
+    LOG_BIOS =   0x0001000,
+    LOG_FLOPPY = 0x0002000,
+    LOG_SERIAL = 0x0004000,
+    LOG_DISK =   0x0008000,
+    LOG_RTC =    0x0010000,
+    // unused    0x0020000,
+    LOG_ACPI =   0x0040000,
+    LOG_APIC =   0x0080000,
+    LOG_NET =    0x0100000,
+    LOG_VIRTIO = 0x0200000,
+    LOG_9P =     0x0400000,
+    LOG_SB16 =   0x0800000,
+    LOG_FETCH =  0x1000000;
 
 
 /**
- * @const
  * @type {Array<Array<string|number>>}
  */
 export const LOG_NAMES = [
@@ -61,104 +60,80 @@ export const LOG_NAMES = [
 ];
 
 export const
+    // flags register bitflags
+    FLAG_CARRY = 1,
+    FLAG_PARITY = 4,
+    FLAG_ADJUST = 16,
+    FLAG_ZERO = 64,
+    FLAG_SIGN = 128,
+    FLAG_TRAP = 256,
+    FLAG_INTERRUPT = 512,
+    FLAG_DIRECTION = 1024,
+    FLAG_OVERFLOW = 2048,
+    FLAG_IOPL = 1 << 12 | 1 << 13,
+    FLAG_NT = 1 << 14,
+    FLAG_RF = 1 << 16,
+    FLAG_VM = 1 << 17,
+    FLAG_AC = 1 << 18,
+    FLAG_VIF = 1 << 19,
+    FLAG_VIP = 1 << 20,
+    FLAG_ID = 1 << 21,
 
-// flags register bitflags
-/** @const */ FLAG_CARRY = 1,
-/** @const */ FLAG_PARITY = 4,
-/** @const */ FLAG_ADJUST = 16,
-/** @const */ FLAG_ZERO = 64,
-/** @const */ FLAG_SIGN = 128,
-/** @const */ FLAG_TRAP = 256,
-/** @const */ FLAG_INTERRUPT = 512,
-/** @const */ FLAG_DIRECTION = 1024,
-/** @const */ FLAG_OVERFLOW = 2048,
-/** @const */ FLAG_IOPL = 1 << 12 | 1 << 13,
-/** @const */ FLAG_NT = 1 << 14,
-/** @const */ FLAG_RF = 1 << 16,
-/** @const */ FLAG_VM = 1 << 17,
-/** @const */ FLAG_AC = 1 << 18,
-/** @const */ FLAG_VIF = 1 << 19,
-/** @const */ FLAG_VIP = 1 << 20,
-/** @const */ FLAG_ID = 1 << 21,
+    // default values of reserved flags bits
+    FLAGS_DEFAULT = 1 << 1,
 
-/**
- * default values of reserved flags bits
- * @const
- */
-FLAGS_DEFAULT = 1 << 1,
+    REG_EAX = 0,
+    REG_ECX = 1,
+    REG_EDX = 2,
+    REG_EBX = 3,
+    REG_ESP = 4,
+    REG_EBP = 5,
+    REG_ESI = 6,
+    REG_EDI = 7,
 
+    REG_ES = 0,
+    REG_CS = 1,
+    REG_SS = 2,
+    REG_DS = 3,
+    REG_FS = 4,
+    REG_GS = 5,
 
-/** @const */ REG_EAX = 0,
-/** @const */ REG_ECX = 1,
-/** @const */ REG_EDX = 2,
-/** @const */ REG_EBX = 3,
-/** @const */ REG_ESP = 4,
-/** @const */ REG_EBP = 5,
-/** @const */ REG_ESI = 6,
-/** @const */ REG_EDI = 7,
-
-/** @const */ REG_ES = 0,
-/** @const */ REG_CS = 1,
-/** @const */ REG_SS = 2,
-/** @const */ REG_DS = 3,
-/** @const */ REG_FS = 4,
-/** @const */ REG_GS = 5,
-
-/** @const */ REG_LDTR = 7; // local descriptor table register
+    REG_LDTR = 7; // local descriptor table register
 
 export const
-    /**
-     * The minimum number of bytes that can be memory-mapped
-     * by one device.
-     *
-     * @const
-     */
+    // The minimum number of bytes that can be memory-mapped by one device.
     MMAP_BLOCK_BITS = 17,
-    /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS,
-    /** @const */
     MMAP_MAX = 0x100000000;
 
-/** @const */
 export const CR0_PG = 1 << 31;
-/** @const */
 export const CR4_PAE = 1 << 5;
 
 
 // https://github.com/qemu/seabios/blob/14221cd86eadba82255fdc55ed174d401c7a0a04/src/fw/paravirt.c#L205-L219
 
-/** @const */ export const FW_CFG_SIGNATURE = 0x00;
-/** @const */ export const FW_CFG_ID = 0x01;
-/** @const */ export const FW_CFG_RAM_SIZE = 0x03;
-/** @const */ export const FW_CFG_NB_CPUS = 0x05;
-/** @const */ export const FW_CFG_MAX_CPUS = 0x0F;
-/** @const */ export const FW_CFG_NUMA = 0x0D;
-/** @const */ export const FW_CFG_FILE_DIR = 0x19;
+export const FW_CFG_SIGNATURE = 0x00;
+export const FW_CFG_ID = 0x01;
+export const FW_CFG_RAM_SIZE = 0x03;
+export const FW_CFG_NB_CPUS = 0x05;
+export const FW_CFG_MAX_CPUS = 0x0F;
+export const FW_CFG_NUMA = 0x0D;
+export const FW_CFG_FILE_DIR = 0x19;
 
-/** @const */ export const FW_CFG_CUSTOM_START = 0x8000;
+export const FW_CFG_CUSTOM_START = 0x8000;
 // This value is specific to v86, choosen to hopefully not collide with other indexes
-/** @const */ export const FW_CFG_FILE_START = 0xC000;
-
-/** @const */ export const FW_CFG_SIGNATURE_QEMU = 0x554D4551;
+export const FW_CFG_FILE_START = 0xC000;
+export const FW_CFG_SIGNATURE_QEMU = 0x554D4551;
 
 
 // See same constant in jit.rs
-/** @const */
 export const WASM_TABLE_SIZE = 900;
 
-/** @const */
 export const WASM_TABLE_OFFSET = 1024;
 
-
-/** @const */
 export const MIXER_CHANNEL_LEFT = 0;
-/** @const */
 export const MIXER_CHANNEL_RIGHT = 1;
-/** @const */
 export const MIXER_CHANNEL_BOTH = 2;
-/** @const */
 export const MIXER_SRC_MASTER = 0;
-/** @const */
 export const MIXER_SRC_PCSPEAKER = 1;
-/** @const */
 export const MIXER_SRC_DAC = 2;

@@ -7,8 +7,7 @@ var process = { hrtime: function() {} };
  */
 var registerProcessor = function(name, processor) {};
 
-/** @const */
-var sampleRate = 0;
+const sampleRate = 0;
 
 var WabtModule = {
     readWasm: function(buf, opt) {},
