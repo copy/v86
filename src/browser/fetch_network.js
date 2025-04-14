@@ -115,14 +115,7 @@ async function on_data_http(data)
             const header = this.net.parse_http_header(headers[i]);
             if(!header) {
                 console.warn('The request contains an invalid header: "%s"', headers[i]);
-                const body = new TextEncoder().encode(`Invalid header in request: ${headers[i]}`);
-                const resp_headers = new Headers({
-                    "content-type": "text/plain",
-                    "content-length": body.length.toString(10),
-                    "connection": "close"
-                });
-                this.writev([new TextEncoder().encode(this.net.form_response_head(400, "Bad Request", resp_headers)), body]);
-                this.close();
+                this.net.respond_text_and_close(400, "Bad Request", `Invalid header in request: ${headers[i]}`);
                 return;
             }
             if( header.key.toLowerCase() === "host" ) target.host = header.value;
@@ -138,14 +131,7 @@ async function on_data_http(data)
                 target.port = localport.toString(10);
             } else {
                 console.warn('Unknown port for localhost: "%s"', target.href);
-                const body = new TextEncoder().encode(`Unknown port for localhost: ${target.href}`);
-                const resp_headers = new Headers({
-                    "content-type": "text/plain",
-                    "content-length": body.length.toString(10),
-                    "connection": "close"
-                });
-                this.writev([new TextEncoder().encode(this.net.form_response_head(400, "Bad Request", resp_headers)), body]);
-                this.close();
+                this.net.respond_text_and_close(400, "Bad Request", `Unknown port for localhost: ${target.href}`);
                 return;
             }
         }
@@ -169,12 +155,11 @@ async function on_data_http(data)
             resp_headers.delete("keep-alive");
             resp_headers.delete("content-length");
             resp_headers.delete("transfer-encoding");
-
             resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
             resp_headers.set("x-fetch-resp-url", resp.url);
             resp_headers.set("connection", "close");
 
-            this.write(encoder.encode(this.net.form_response_head(resp.status, resp.statusText, resp_headers)));
+            this.write(this.net.form_response_head(resp.status, resp.statusText, resp_headers));
             response_started = true;
 
             if(resp.body && resp.body.getReader) {
@@ -201,13 +186,7 @@ async function on_data_http(data)
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
             if(!response_started) {
-                const body = encoder.encode(`Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
-                const resp_headers = new Headers({
-                    "Content-Type": "text/plain",
-                    "Content-Length": body.length.toString(10),
-                    "Connection": "close"
-                });
-                this.writev([encoder.encode(this.net.form_response_head(502, "Fetch Error", resp_headers)), body]);
+                this.net.respond_text_and_close(502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
             }
             this.close();
         });
@@ -248,7 +227,18 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
         lines.push(`${key}: ${value}`);
     }
 
-    return lines.join("\r\n") + "\r\n\r\n";
+    return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
+};
+
+FetchNetworkAdapter.prototype.respond_text_and_close = function(status_code, status_text, body)
+{
+    const headers = new Headers({
+        "content-type": "text/plain",
+        "content-length": body.length.toString(10),
+        "connection": "close"
+    });
+    this.write([this.net.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
+    this.close();
 };
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
