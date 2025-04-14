@@ -94,6 +94,7 @@ class GrowableRingbuffer
         const total_length = this.length + src_length;
         let capacity = this.buffer.length;
         if(capacity < total_length) {
+            dbg_assert(capacity > 0);
             while(capacity < total_length) {
                 capacity *= 2;
             }
@@ -221,8 +222,8 @@ function calc_inet_checksum(length, checksum, view, out)
     if(length & 1) {
         checksum += eth_frame[uint16_end] << 8;
     }
-    while(checksum >> 16) {
-        checksum = (checksum & 0xffff) + (checksum >> 16);
+    while(checksum >>> 16) {
+        checksum = (checksum & 0xffff) + (checksum >>> 16);
     }
     return ~checksum & 0xffff;
 }
