@@ -10,7 +10,6 @@ import { log_data } from "../log.js";
 
 
     const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
-    const BIOSPATH = "bios/";
 
     const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost:8080/"];
     const DEFAULT_MEMORY_SIZE = 128;
@@ -1928,6 +1927,8 @@ import { log_data } from "../log.js";
                 settings.acpi = $("acpi").checked;
                 if(settings.acpi) new_query_args.set("acpi", "1");
             }
+
+            const BIOSPATH = "bios/";
 
             if(!settings.bios)
             {
