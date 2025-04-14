@@ -230,6 +230,9 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
     return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
 };
 
+/**
+ * @this {TCPConnection}
+ */
 FetchNetworkAdapter.prototype.respond_text_and_close = function(status_code, status_text, body)
 {
     const headers = new Headers({
@@ -237,7 +240,7 @@ FetchNetworkAdapter.prototype.respond_text_and_close = function(status_code, sta
         "content-length": body.length.toString(10),
         "connection": "close"
     });
-    this.write([this.net.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
+    this.writev([this.net.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
     this.close();
 };
 
