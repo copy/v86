@@ -243,7 +243,7 @@ function handle_fake_tcp(packet, adapter)
 {
     const tuple = `${packet.ipv4.src.join(".")}:${packet.tcp.sport}:${packet.ipv4.dest.join(".")}:${packet.tcp.dport}`;
 
-    if(packet.tcp.syn) {
+    if(packet.tcp.syn && !packet.tcp.ack) {
         if(adapter.tcp_conn[tuple]) {
             dbg_log("SYN to already opened port", LOG_FETCH);
             delete adapter.tcp_conn[tuple];
@@ -1101,7 +1101,9 @@ TCPConnection.prototype.connect = function() {
     this.ack = 1;
     this.start_seq = 0;
     this.winsize = 64240;
-    this.state = TCP_STATE_SYN_SENT;
+    if(this.state !== TCP_STATE_SYN_PROBE) {
+        this.state = TCP_STATE_SYN_SENT;
+    }
 
     let reply = this.ipv4_reply();
     reply.ipv4.id = 2345;

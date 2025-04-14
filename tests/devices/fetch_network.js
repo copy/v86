@@ -241,9 +241,9 @@ if(isMainThread)
             start: () =>
             {
                 emulator.serial0_send("wget --header='testheader' -T 10 -O - test.domain\n");
-                emulator.serial0_send("echo -e done\\\\theader without colon\n");
+                emulator.serial0_send("echo -e done\\\\theader without separator\n");
             },
-            end_trigger: "done\theader without colon",
+            end_trigger: "done\theader without separator",
             end: (capture) =>
             {
                 assert(/400 Bad Request/.test(capture), "got error 400");
