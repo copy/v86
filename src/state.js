@@ -2,26 +2,13 @@ import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
-/** @const */
-var STATE_VERSION = 6;
-
-/** @const */
-var STATE_MAGIC = 0x86768676|0;
-
-/** @const */
-var STATE_INDEX_MAGIC = 0;
-
-/** @const */
-var STATE_INDEX_VERSION = 1;
-
-/** @const */
-var STATE_INDEX_TOTAL_LEN = 2;
-
-/** @const */
-var STATE_INDEX_INFO_LEN = 3;
-
-/** @const */
-var STATE_INFO_BLOCK_START = 16;
+const STATE_VERSION = 6;
+const STATE_MAGIC = 0x86768676|0;
+const STATE_INDEX_MAGIC = 0;
+const STATE_INDEX_VERSION = 1;
+const STATE_INDEX_TOTAL_LEN = 2;
+const STATE_INDEX_INFO_LEN = 3;
+const STATE_INFO_BLOCK_START = 16;
 
 const ZSTD_MAGIC = 0xFD2FB528;
 

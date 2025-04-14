@@ -11,11 +11,9 @@ import { BusConnector } from "../bus.js";
 
 /* global registerProcessor, sampleRate */
 
-/** @const */
-var DAC_QUEUE_RESERVE = 0.2;
+const DAC_QUEUE_RESERVE = 0.2;
 
-/** @const */
-var AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
+const AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
 
 /**
  * @constructor
@@ -473,14 +471,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     function worklet()
     {
-        /** @const */
-        var RENDER_QUANTUM = 128;
-
-        /** @const */
-        var MINIMUM_BUFFER_SIZE = 2 * RENDER_QUANTUM;
-
-        /** @const */
-        var QUEUE_RESERVE = 1024;
+        const RENDER_QUANTUM = 128;
+        const MINIMUM_BUFFER_SIZE = 2 * RENDER_QUANTUM;
+        const QUEUE_RESERVE = 1024;
 
         function sinc(x)
         {

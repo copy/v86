@@ -7,10 +7,7 @@ import { dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
 
-/**
- * @const
- * In kHz
- */
+// In kHz
 export const OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
 
 /**

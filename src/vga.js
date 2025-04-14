@@ -43,7 +43,6 @@ const VGA_HOST_MEMORY_SPACE_START = Uint32Array.from([
 ]);
 
 /**
- * @const
  * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#06}
  */
 const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([

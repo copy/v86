@@ -7,9 +7,8 @@ import { CPU } from "./cpu.js";
 
 // http://wiki.osdev.org/PCI
 
-export const
-/** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
-/** @const */ PCI_CONFIG_DATA = 0xCFC;
+export const PCI_CONFIG_ADDRESS = 0xCF8;
+export const PCI_CONFIG_DATA = 0xCFC;
 
 /**
  * @constructor

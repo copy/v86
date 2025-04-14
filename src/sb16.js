@@ -39,55 +39,54 @@ import { ByteQueue, FloatQueue } from "./lib.js";
 // -> https://www.virtualbox.org/svn/vbox/trunk/src/VBox/Devices/Audio/DevSB16.cpp
 // -> https://github.com/mdaniel/virtualbox-org-svn-vbox-trunk/blob/master/src/VBox/Devices/Audio/DevSB16.cpp
 
-var
-
+const
     // Used for drivers to identify device (DSP command 0xE3).
-/** @const */ DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
+    DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
 
     // Value of the current DSP command that indicates that the
     // next command/data write in port 2xC should be interpreted
     // as a command number.
-/** @const */ DSP_NO_COMMAND = 0,
+    DSP_NO_COMMAND = 0,
 
     // Size (bytes) of the DSP write/read buffers
-/** @const */ DSP_BUFSIZE = 64,
+    DSP_BUFSIZE = 64,
 
     // Size (bytes) of the buffers containing floating point linear PCM audio.
-/** @const */ DSP_DACSIZE = 65536,
+    DSP_DACSIZE = 65536,
 
     // Size (bytes) of the buffer in which DMA transfers are temporarily
     // stored before being processed.
-/** @const */ SB_DMA_BUFSIZE = 65536,
+    SB_DMA_BUFSIZE = 65536,
 
     // Number of samples to attempt to retrieve per transfer.
-/** @const */ SB_DMA_BLOCK_SAMPLES = 1024,
+    SB_DMA_BLOCK_SAMPLES = 1024,
 
     // Usable DMA channels.
-/** @const */ SB_DMA0 = 0,
-/** @const */ SB_DMA1 = 1,
-/** @const */ SB_DMA3 = 3,
-/** @const */ SB_DMA5 = 5,
-/** @const */ SB_DMA6 = 6,
-/** @const */ SB_DMA7 = 7,
+    SB_DMA0 = 0,
+    SB_DMA1 = 1,
+    SB_DMA3 = 3,
+    SB_DMA5 = 5,
+    SB_DMA6 = 6,
+    SB_DMA7 = 7,
 
     // Default DMA channels.
-/** @const */ SB_DMA_CHANNEL_8BIT = SB_DMA1,
-/** @const */ SB_DMA_CHANNEL_16BIT = SB_DMA5,
+    SB_DMA_CHANNEL_8BIT = SB_DMA1,
+    SB_DMA_CHANNEL_16BIT = SB_DMA5,
 
     // Usable IRQ channels.
-/** @const */ SB_IRQ2 = 2,
-/** @const */ SB_IRQ5 = 5,
-/** @const */ SB_IRQ7 = 7,
-/** @const */ SB_IRQ10 = 10,
+    SB_IRQ2 = 2,
+    SB_IRQ5 = 5,
+    SB_IRQ7 = 7,
+    SB_IRQ10 = 10,
 
     // Default IRQ channel.
-/** @const */ SB_IRQ = SB_IRQ5,
+    SB_IRQ = SB_IRQ5,
 
     // Indices to the irq_triggered register.
-/** @const */ SB_IRQ_8BIT = 0x1,
-/** @const */ SB_IRQ_16BIT = 0x2,
-/** @const */ SB_IRQ_MIDI = 0x1,
-/** @const */ SB_IRQ_MPU = 0x4;
+    SB_IRQ_8BIT = 0x1,
+    SB_IRQ_16BIT = 0x2,
+    SB_IRQ_MIDI = 0x1,
+    SB_IRQ_MPU = 0x4;
 
 
 // Probably less efficient, but it's more maintainable, instead
@@ -1540,7 +1539,7 @@ function between(start, end)
     return a;
 }
 
-/** @const */ var SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
+const SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
 SB_FM_OPERATORS_BY_OFFSET[0x00] = 0;
 SB_FM_OPERATORS_BY_OFFSET[0x01] = 1;
 SB_FM_OPERATORS_BY_OFFSET[0x02] = 2;

@@ -8,7 +8,6 @@ import { dbg_log, dbg_assert } from "./log.js";
 // For Types Only
 import { CPU } from "./cpu.js";
 
-/** @const */
 const PMTIMER_FREQ_SECONDS = 3579545;
 
 /**

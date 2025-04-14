@@ -9,29 +9,22 @@ import { IOAPIC_CONFIG_MASKED, IOAPIC_DELIVERY_INIT, IOAPIC_DELIVERY_NMI, IOAPIC
 // For Types Only
 import { CPU } from "./cpu.js";
 
-/** @const */
 export const APIC_LOG_VERBOSE = false;
 
 // should probably be kept in sync with TSC_RATE in cpu.rs
 const APIC_TIMER_FREQ = 1 * 1000 * 1000;
 
-/** @const */
-var APIC_ADDRESS = 0xFEE00000;
+const APIC_ADDRESS = 0xFEE00000;
 
-/** @const */
-var APIC_TIMER_MODE_MASK = 3 << 17;
+const APIC_TIMER_MODE_MASK = 3 << 17;
 
-/** @const */
-var APIC_TIMER_MODE_ONE_SHOT = 0;
+const APIC_TIMER_MODE_ONE_SHOT = 0;
 
-/** @const */
-var APIC_TIMER_MODE_PERIODIC = 1 << 17;
+const APIC_TIMER_MODE_PERIODIC = 1 << 17;
 
-/** @const */
-var APIC_TIMER_MODE_TSC = 2 << 17;
+const APIC_TIMER_MODE_TSC = 2 << 17;
 
 
-/** @const */
 export const DELIVERY_MODES = [
     "Fixed (0)",
     "Lowest Prio (1)",
@@ -43,7 +36,6 @@ export const DELIVERY_MODES = [
     "ExtINT (7)",
 ];
 
-/** @const */
 export const DESTINATION_MODES = ["physical", "logical"];
 
 
