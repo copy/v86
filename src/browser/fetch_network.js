@@ -162,14 +162,15 @@ async function on_data_http(data)
         let response_started = false;
         this.net.fetch(fetch_url, opts).then((resp) => {
             let resp_headers = new Headers(resp.headers);
+            resp_headers.delete("content-encoding");
+            resp_headers.delete("keep-alive");
+            resp_headers.delete("content-length");
+            resp_headers.delete("transfer-encoding");
+
             resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
             resp_headers.set("x-fetch-resp-url", resp.url);
             resp_headers.set("connection", "close");
-            ["content-encoding", "content-length", "transfer-encoding"].forEach(function(header) {
-                if(resp_headers.has(header)) {
-                    resp_headers.delete(header);
-                }
-            });
+
             this.write(encoder.encode(this.net.form_response_head(resp.status, resp.statusText, resp_headers)));
             response_started = true;
 
@@ -240,9 +241,9 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
         `HTTP/1.1 ${status_code} ${status_text}`
     ];
 
-    headers.forEach(function(value, key) {
+    for(const [key, value] of headers.entries()) {
         lines.push(`${key}: ${value}`);
-    });
+    }
 
     return lines.join("\r\n") + "\r\n\r\n";
 };

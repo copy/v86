@@ -15,7 +15,7 @@ const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "..
 
 const SHOW_LOGS = false;
 const server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
-server.onerror = (e) => { throw new Error("server: " + e); };
+server.on("error", (e) => { throw new Error("server: " + e); });
 
 function wait(time) {
     return new Promise((res) => setTimeout(res, time));
