@@ -1893,7 +1893,7 @@ import { log_data } from "../log.js";
                 settings.initrd = { buffer: initrd };
             }
 
-            const title = multiboot?.name || hda?.name || cdrom?.name || hdb?.name || fda?.name || bios?.name || vga_bios?.name;
+            const title = multiboot?.name || hda?.name || cdrom?.name || hdb?.name || fda?.name || bios?.name;
             if(title)
             {
                 set_title(title);
