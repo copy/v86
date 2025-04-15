@@ -1852,6 +1852,11 @@ import { log_data } from "../log.js";
             {
                 settings.bios = { buffer: bios };
             }
+            const vga_bios = $("vga_bios").files[0];
+            if(vga_bios)
+            {
+                settings.vga_bios = { buffer: vga_bios };
+            }
             const fda = $("floppy_image").files[0];
             if(fda)
             {
@@ -1923,23 +1928,20 @@ import { log_data } from "../log.js";
                 if(settings.acpi) new_query_args.set("acpi", "1");
             }
 
+            const BIOSPATH = "bios/";
+
             if(!settings.bios)
             {
-                const BIOSPATH = "bios/";
-
-                if(settings.use_bochs_bios)
-                {
-                    var biosfile = "bochs-bios.bin";
-                    var vgabiosfile = "bochs-vgabios.bin";
-                }
-                else
-                {
-                    var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
-                    var vgabiosfile = DEBUG ? "vgabios-debug.bin" : "vgabios.bin";
-                }
-
-                settings.bios = { url: BIOSPATH + biosfile };
-                settings.vga_bios = { url: BIOSPATH + vgabiosfile };
+                settings.bios = { url: BIOSPATH + (DEBUG ? "seabios-debug.bin" : "seabios.bin") };
+            }
+            if(!settings.vga_bios)
+            {
+                settings.vga_bios = { url: BIOSPATH + (DEBUG ? "vgabios-debug.bin" : "vgabios.bin") };
+            }
+            if(settings.use_bochs_bios)
+            {
+                settings.bios = { url: BIOSPATH + "bochs-bios.bin" };
+                settings.vga_bios = { url: BIOSPATH + "bochs-vgabios.bin" };
             }
         }
 
