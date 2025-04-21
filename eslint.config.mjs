@@ -1,4 +1,3 @@
-
 export default [
     {
         "languageOptions": {
@@ -30,7 +29,6 @@ export default [
                 "Headers": "readonly",
                 "Response": "readonly",
                 "WebSocket": "readonly",
-                "Blob": "readonly",
                 "Blob": "readonly",
                 "File": "readonly",
                 "XMLHttpRequest": "readonly",
@@ -135,7 +133,8 @@ export default [
             "no-with": "error",
             "require-yield": "error",
             "use-isnan": "error",
-            "valid-typeof": "error"
+            "valid-typeof": "error",
+            "strict": "error"
         }
     }
 ];

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
@@ -8,8 +7,7 @@ const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 // listeners, so that the nodejs process cleanly and automatically exits.
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
-
-var { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 process.on("unhandledRejection", exn => { throw exn; });
 

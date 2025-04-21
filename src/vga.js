@@ -1,5 +1,3 @@
-"use strict";
-
 import { LOG_VGA } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
@@ -45,7 +43,6 @@ const VGA_HOST_MEMORY_SPACE_START = Uint32Array.from([
 ]);
 
 /**
- * @const
  * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#06}
  */
 const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([

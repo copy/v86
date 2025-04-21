@@ -1,6 +1,6 @@
-"use strict";
-
 import { CPU } from "./cpu.js";
+import { save_state, restore_state } from "./state.js";
+export { V86 } from "./browser/starter.js";
 
 /**
  * @constructor
@@ -155,8 +155,7 @@ else if(typeof Worker !== "undefined")
 //    // TODO: Make this deactivatable, for other applications
 //    //       using postMessage
 //
-//    /** @const */
-//    let MAGIC_POST_MESSAGE = 0xAA55;
+//    const MAGIC_POST_MESSAGE = 0xAA55;
 //
 //    v86.prototype.yield = function(t)
 //    {
@@ -199,13 +198,13 @@ else
 v86.prototype.save_state = function()
 {
     // TODO: Should be implemented here, not on cpu
-    return this.cpu.save_state();
+    return save_state(this.cpu);
 };
 
 v86.prototype.restore_state = function(state)
 {
     // TODO: Should be implemented here, not on cpu
-    return this.cpu.restore_state(state);
+    return restore_state(this.cpu, state);
 };
 
 /* global require */

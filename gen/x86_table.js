@@ -1,7 +1,3 @@
-"use strict";
-
-const { hex } = await import("./util.js");
-
 // http://ref.x86asm.net/coder32.html
 
 const zf = 1 << 6;

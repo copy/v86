@@ -1,5 +1,3 @@
-"use strict";
-
 import { LOG_PS2 } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_log } from "./log.js";
@@ -9,7 +7,6 @@ import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 import { ByteQueue } from "./lib.js";
 
-/** @const */
 const PS2_LOG_VERBOSE = false;
 
 /**

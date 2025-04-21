@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="description" content="Run KolibriOS, Linux or Windows 98 in your browser">
 
-<script src="build/v86_all.js"></script>
+<script src="build/v86_all.js?98e7110c2"></script>
 <link rel="stylesheet" href="v86.css">
 
 <div>
@@ -127,7 +127,7 @@
 
             <tr>
                 <td><label for="floppy_image">Floppy disk image</label></td>
-                <td> <input type="file" id="floppy_image"><br></td>
+                <td><input type="file" id="floppy_image"><br></td>
             </tr>
 
             <tr>
@@ -153,7 +153,12 @@
 
             <tr>
                 <td><label for="bios">BIOS</label></td>
-                <td> <input type="file" id="bios"><br></td>
+                <td><input type="file" id="bios"><br></td>
+            </tr>
+
+            <tr>
+                <td><label for="vga_bios">VGA BIOS</label></td>
+                <td><input type="file" id="vga_bios"><br></td>
             </tr>
 
             <tr>
@@ -319,7 +324,7 @@
 <div id="terminal"></div>
 
 <br style="clear: both">
-<code>Version: <a href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
+<code>Version: <a id="version" href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
 
 <hr>
 <a href="debug.html">Enable debug</a>

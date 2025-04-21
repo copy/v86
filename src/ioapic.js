@@ -1,5 +1,3 @@
-"use strict";
-
 // http://download.intel.com/design/chipsets/datashts/29056601.pdf
 
 import { LOG_APIC, MMAP_BLOCK_SIZE } from "./const.js";
@@ -11,47 +9,29 @@ import { DELIVERY_MODES, DESTINATION_MODES, APIC_LOG_VERBOSE } from "./apic.js";
 import { CPU } from "./cpu.js";
 
 
-/** @const */
 export const IOAPIC_ADDRESS = 0xFEC00000;
 
-/** @const */
 export const IOREGSEL = 0;
 
-/** @const */
 export const IOWIN = 0x10;
 
-/** @const */
 export const IOAPIC_IRQ_COUNT = 24;
 
-/** @const */
 export const IOAPIC_ID = 0; // must match value in seabios
 
-
-/** @const */
 export const IOAPIC_CONFIG_TRIGGER_MODE_LEVEL = 1 << 15;
 
-/** @const */
 export const IOAPIC_CONFIG_MASKED = 1 << 16;
 
-/** @const */
 export const IOAPIC_CONFIG_DELIVS = 1 << 12;
 
-/** @const */
 export const IOAPIC_CONFIG_REMOTE_IRR = 1 << 14;
 
-/** @const */
 export const IOAPIC_CONFIG_READONLY_MASK = IOAPIC_CONFIG_REMOTE_IRR | IOAPIC_CONFIG_DELIVS | 0xFFFE0000;
 
-/** @const */
 export const IOAPIC_DELIVERY_FIXED = 0;
-
-/** @const */
 export const IOAPIC_DELIVERY_LOWEST_PRIORITY = 1;
-
-/** @const */
 export const IOAPIC_DELIVERY_NMI = 4;
-
-/** @const */
 export const IOAPIC_DELIVERY_INIT = 5;
 
 

@@ -1,5 +1,3 @@
-"use strict";
-
 // http://www.uefi.org/sites/default/files/resources/ACPI_6_1.pdf
 
 import { v86 } from "./main.js";
@@ -10,8 +8,7 @@ import { dbg_log, dbg_assert } from "./log.js";
 // For Types Only
 import { CPU } from "./cpu.js";
 
-/** @const */
-export const PMTIMER_FREQ_SECONDS = 3579545;
+const PMTIMER_FREQ_SECONDS = 3579545;
 
 /**
  * @constructor

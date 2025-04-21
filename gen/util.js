@@ -1,9 +1,6 @@
-"use strict";
-
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-
 
 const CYAN_FMT = "\x1b[36m%s\x1b[0m";
 
@@ -13,11 +10,6 @@ export function hex(n, pad)
     let s = n.toString(16).toUpperCase();
     while(s.length < pad) s = "0" + s;
     return s;
-}
-
-export function mkdirpSync(dir)
-{
-    fs.mkdirSync(dir, { recursive: true });
 }
 
 export function get_switch_value(arg_switch)

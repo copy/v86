@@ -1,11 +1,9 @@
-"use strict";
-
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
 
 import { LOG_PCI } from "./const.js";
 import { dbg_log } from "./log.js";
 import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
-import { marshall } from "../lib/marshall.js";
+import * as marshall from "../lib/marshall.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";

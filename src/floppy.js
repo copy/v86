@@ -1,5 +1,3 @@
-"use strict";
-
 // https://www.isdaman.com/alsos/hardware/fdc/floppy.htm
 // https://wiki.osdev.org/Floppy_Disk_Controller
 

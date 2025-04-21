@@ -1,5 +1,3 @@
-"use strict";
-
 import { LOG_FETCH } from "../const.js";
 import { h } from "../lib.js";
 import { dbg_log } from "../log.js";
@@ -21,7 +19,6 @@ import { BusConnector } from "../bus.js";
  *
  * @param {BusConnector} bus
  * @param {*=} config
- * @export
  */
 export function FetchNetworkAdapter(bus, config)
 {

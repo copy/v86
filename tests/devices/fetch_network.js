@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import assert from "assert/strict";
 import url from "node:url";
@@ -8,11 +7,12 @@ import { Worker } from "node:worker_threads";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 process.on("unhandledRejection", exn => { throw exn; });
 
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
 const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
 
-const { V86 } = await import(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.mjs`);
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+
 const SHOW_LOGS = false;
 const server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
 server.on("error", (e) => { throw new Error("server: " + e); });

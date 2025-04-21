@@ -1,8 +1,24 @@
-"use strict";
+if(typeof DEBUG === "undefined")
+{
+    globalThis.DEBUG = true;
+}
 
 import { LOG_NAMES } from "./const.js";
-import { LOG_TO_FILE, LOG_LEVEL } from "./config.js";
 import { pad0, pads } from "./lib.js";
+import {
+    LOG_ALL, LOG_PS2, LOG_PIT, LOG_9P, LOG_PIC, LOG_DMA, LOG_NET, LOG_FLOPPY, LOG_DISK,
+    LOG_SERIAL, LOG_VGA, LOG_SB16, LOG_VIRTIO
+} from "./const.js";
+
+/** @const */
+export var LOG_TO_FILE = false;
+
+export var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC &
+                          ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK & ~LOG_VGA & ~LOG_SB16;
+
+export function set_log_level(level) {
+    LOG_LEVEL = level;
+}
 
 export var log_data = [];
 
@@ -20,17 +36,16 @@ function do_the_log(message)
 
 /**
  * @type {function((string|number), number=)}
- * @const
  */
-export var dbg_log = (function()
+export const dbg_log = (function()
 {
     if(!DEBUG)
     {
         return function() {};
     }
 
-    /** @const @type {Object.<number, string>} */
-    var dbg_names = LOG_NAMES.reduce(function(a, x)
+    /** @type {Object.<number, string>} */
+    const dbg_names = LOG_NAMES.reduce(function(a, x)
     {
         a[x[0]] = x[1];
         return a;
