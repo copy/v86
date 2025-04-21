@@ -15,30 +15,36 @@ const benchfile = Buffer.alloc(benchsize);
 
 function get_handler(request, response) {
     if(request.url === "/") {
-        response.write("This text is from the local server");
+        response.end("This text is from the local server");
     } else if(request.url === "/bench") {
         response.setHeader("content-type", "application/octet-stream");
         response.setHeader("content-length", benchsize.toString(10));
         response.write(benchfile);
+        response.end();
     } else if(request.url === "/header") {
-        response.setHeader("x-server-test", request.headers["x-client-test"].split("").join("_") || "none");
+        response.writeHead(200, { "x-server-test": request.headers["x-client-test"].split("").join("_") || "none" });
+        response.end();
     } else if(request.url === "/redirect") {
         response.writeHead(307, { "location": "/" });
+        response.end();
     } else {
         response.writeHead(404);
-        response.write("Unknown endpoint");
+        response.end("Unknown endpoint");
     }
 }
 
-createServer(function(request, response) {
+var server = createServer(function(request, response) {
     switch(request.method) {
         case "GET":
             get_handler(request, response);
             break;
         default:
             response.writeHead(405);
-            response.write("Unknown method");
+            response.end("Unknown method");
             break;
     }
-    response.end();
-}).listen(port);
+});
+
+server.listen(port, () => {
+    parentPort.postMessage({ port: server.address().port });
+});
