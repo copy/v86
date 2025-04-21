@@ -6,7 +6,6 @@ import { Worker } from "node:worker_threads";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
-const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
 const BENCHFILE_SIZE = (parseInt(process.env.BENCHFILE_SIZE_MB, 10) || 32) * 1024 * 1024;
 
 const { V86 } = await import("../../build/libv86.mjs");
@@ -14,6 +13,7 @@ const { V86 } = await import("../../build/libv86.mjs");
 const LOG_SERIAL = true;
 const SHOW_LOGS = false;
 
+var SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 0;
 const server = new Worker(__dirname + "../devices/fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: BENCHFILE_SIZE } });
 server.on("error", (e) => { throw new Error("server: " + e); });
 
@@ -28,6 +28,17 @@ const emulator = new V86({
         type: USE_VIRTIO ? "virtio" : "ne2k",
         local_http: true
     }
+});
+
+emulator.bus.register("emulator-ready", function()
+{
+    server.on("message", function(msg) {
+        if(msg.port)
+        {
+            SERVER_PORT = msg.port;
+            console.log("Server started on port " + SERVER_PORT);
+        }
+    });
 });
 
 emulator.bus.register("emulator-started", function()
@@ -55,30 +66,25 @@ emulator.add_listener("serial0-output-byte", function(byte)
 
     if(serial_text.endsWith("\t<DONE>"))
     {
-        console.log();
+        console.log("\n---\n");
         emulator.destroy();
         server.terminate();
 
         const regex = /<(\d+)><(\d+)>\t<DONE>/.exec(serial_text);
-        const exitcode = parseInt(regex[1], 10);
-        const speed = parseInt(regex[2], 10); // in bytes
 
-        if(isNaN(exitcode))
+        if(!regex)
         {
-            console.error("Can't parse exit code");
+            console.error("Can't parse console log");
             process.exit(1);
         }
+
+        const exitcode = parseInt(regex[1], 10);
+        const speed = parseInt(regex[2], 10); // in bytes
 
         if(exitcode !== 0)
         {
             console.error("Bench failed, curl returned non-zero exit code %s", exitcode);
             process.exit(exitcode);
-        }
-
-        if(isNaN(speed))
-        {
-            console.error("Can't parse bench speed");
-            process.exit(1);
         }
 
         console.log("Average download speed: %s kB/s", (speed / 1024).toFixed(2));

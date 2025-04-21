@@ -8,12 +8,12 @@ const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 process.on("unhandledRejection", exn => { throw exn; });
 
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
-const SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 8686;
-
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
-const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const SHOW_LOGS = false;
+
+var SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 0;
 const server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
 server.on("error", (e) => { throw new Error("server: " + e); });
 
@@ -265,6 +265,14 @@ const emulator = new V86({
 });
 
 emulator.add_listener("emulator-ready", function () {
+    server.on("message", function(msg) {
+        if(msg.port)
+        {
+            SERVER_PORT = msg.port;
+            console.log("Server started on port " + SERVER_PORT);
+        }
+    });
+
     let network_adapter = emulator.network_adapter;
     let original_fetch = network_adapter.fetch;
     network_adapter.fetch = (url, opts) => {
