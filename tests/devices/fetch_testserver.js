@@ -8,7 +8,7 @@
 */
 
 import { createServer } from "node:http";
-import { workerData } from "node:worker_threads";
+import { workerData, parentPort } from "node:worker_threads";
 
 const { port, benchsize } = workerData;
 const benchfile = Buffer.alloc(benchsize);
