@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 import url from "node:url";
 import { Worker } from "node:worker_threads";
