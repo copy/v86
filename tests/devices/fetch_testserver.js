@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Endpoints:
  * GET / - same as mocked.example.org
