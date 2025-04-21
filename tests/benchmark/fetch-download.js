@@ -14,8 +14,7 @@ const LOG_SERIAL = true;
 const SHOW_LOGS = false;
 
 var SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 0;
-const server = new Worker(__dirname + "../devices/fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: BENCHFILE_SIZE } });
-server.on("error", (e) => { throw new Error("server: " + e); });
+var server = null;
 
 const emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
@@ -32,6 +31,8 @@ const emulator = new V86({
 
 emulator.bus.register("emulator-ready", function()
 {
+    server = new Worker(__dirname + "../devices/fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: BENCHFILE_SIZE } });
+    server.on("error", (e) => { throw new Error("server: " + e); });
     server.on("message", function(msg) {
         if(msg.port)
         {
