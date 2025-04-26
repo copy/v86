@@ -5,6 +5,7 @@ const SHIFT_SCAN_CODE = 0x2A;
 const SCAN_CODE_RELEASE = 0x80;
 
 const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platform.toString().toLowerCase().search("win") >= 0;
+const PLATFORM_MOBILE = typeof window !== "undefined" && /Mobile|Android|iPad|iPhone/.test(window.navigator.userAgent);
 
 /**
  * @constructor
@@ -251,6 +252,7 @@ export function KeyboardAdapter(bus)
             window.removeEventListener("keyup", keyup_handler, false);
             window.removeEventListener("keydown", keydown_handler, false);
             window.removeEventListener("blur", blur_handler, false);
+            window.removeEventListener("input", input_handler, false);
         }
     };
 
@@ -262,9 +264,16 @@ export function KeyboardAdapter(bus)
         }
         this.destroy();
 
-        window.addEventListener("keyup", keyup_handler, false);
-        window.addEventListener("keydown", keydown_handler, false);
-        window.addEventListener("blur", blur_handler, false);
+        if(PLATFORM_MOBILE)
+        {
+            window.addEventListener("input", input_handler, false);
+        }
+        else
+        {
+            window.addEventListener("keyup", keyup_handler, false);
+            window.addEventListener("keydown", keydown_handler, false);
+            window.addEventListener("blur", blur_handler, false);
+        }
     };
     this.init();
 
@@ -377,8 +386,13 @@ export function KeyboardAdapter(bus)
         keys_pressed = {};
     }
 
+    function input_handler(e)
+    {
+        return handler(e, true);
+    }
+
     /**
-     * @param {KeyboardEvent|Object} e
+     * @param {KeyboardEvent|InputEvent|Object} e
      * @param {boolean} keydown
      */
     function handler(e, keydown)
@@ -433,12 +447,18 @@ export function KeyboardAdapter(bus)
     }
 
     /**
-     * @param {KeyboardEvent|Object} e
+     * @param {KeyboardEvent|InputEvent|Object} e
      * @param {boolean} keydown
      */
     function handle_event(e, keydown)
     {
         var code = translate(e);
+
+        if(e.inputType)
+        {
+            handle_inputevent(e.inputType, e.data);
+            return;
+        }
 
         if(!code)
         {
@@ -489,6 +509,40 @@ export function KeyboardAdapter(bus)
         else
         {
             send_to_controller(code);
+        }
+    }
+
+    /**
+     * @param {string} type
+     * @param {?string} data
+     */
+    function handle_inputevent(type, data)
+    {
+        switch(type)
+        {
+            case "insertText":
+                if(data.length > 1)
+                {
+                    // keyboard autocomplete, paste from clipboard
+                    for(var i = 0; i < data.length; i++)
+                    {
+                        keyboard.simulate_char(data[i]);
+                    }
+                }
+                else
+                {
+                    // single character
+                    keyboard.simulate_char(data);
+                }
+                break;
+
+            case "insertLineBreak":
+                keyboard.simulate_press(13); // enter
+                break;
+
+            case "deleteContentBackward":
+                keyboard.simulate_press(8); // backspace
+                break;
         }
     }
 
