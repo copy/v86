@@ -2724,7 +2724,7 @@ function init_ui(profile, settings, emulator)
         emulator.screen_go_fullscreen();
     };
 
-    $("screen_container").onclick = function()
+    $("screen_container").onclick = function(e)
     {
         if(emulator.is_running() && emulator.speaker_adapter && emulator.speaker_adapter.audio_context.state === "suspended")
         {
@@ -2735,19 +2735,18 @@ function init_ui(profile, settings, emulator)
         {
             emulator.lock_mouse();
         }
-        else
+
+        // allow text selection
+        if(window.getSelection().isCollapsed)
         {
-            // allow text selection
-            if(window.getSelection().isCollapsed)
-            {
-                const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
+            const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
 
-                // stop mobile browser from scrolling into view when the keyboard is shown
-                phone_keyboard.style.top = document.body.scrollTop + 100 + "px";
-                phone_keyboard.style.left = document.body.scrollLeft + 100 + "px";
+            phone_keyboard.style.top = window.scrollY + e.clientY + 20 + "px";
+            phone_keyboard.style.left = window.scrollX + e.clientX + "px";
 
-                phone_keyboard.focus();
-            }
+            // clean after previous input
+            phone_keyboard.value = "";
+            phone_keyboard.focus();
         }
     };
 
@@ -2757,11 +2756,6 @@ function init_ui(profile, settings, emulator)
     phone_keyboard.setAttribute("autocapitalize", "off");
     phone_keyboard.setAttribute("spellcheck", "false");
     phone_keyboard.tabIndex = 0;
-
-    $("screen_container").addEventListener("mousedown", e =>
-    {
-        phone_keyboard.focus();
-    }, false);
 
     $("take_screenshot").onclick = function()
     {
