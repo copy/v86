@@ -1218,12 +1218,18 @@ VGAScreen.prototype.update_vga_size = function()
         // should always 8 pixels per character clock (except for 8 bit PEL width, in which
         // case 4 pixels).
         var virtual_width = this.offset_register << 4;
+        var bpp = 4;
 
         // Pixel Width / PEL Width / Clock Select
         if(this.attribute_mode & 0x40)
         {
             screen_width >>>= 1;
             virtual_width >>>= 1;
+            bpp = 8;
+        }
+        else if(this.attribute_mode & 0x2)
+        {
+            bpp = 1;
         }
 
         var screen_height = this.scan_line_to_screen_row(vertical_scans);
@@ -1239,7 +1245,7 @@ VGAScreen.prototype.update_vga_size = function()
         const bytes_per_line = this.vga_bytes_per_line();
         const virtual_height = bytes_per_line ? Math.ceil(available_bytes / bytes_per_line) : screen_height;
 
-        this.set_size_graphical(screen_width, screen_height, virtual_width, virtual_height, 8);
+        this.set_size_graphical(screen_width, screen_height, virtual_width, virtual_height, bpp);
 
         this.update_vertical_retrace();
         this.update_layers();
