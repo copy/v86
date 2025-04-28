@@ -1419,7 +1419,7 @@ function onload()
         },
         {
             id: "netboot.xyz",
-            name: "iPXE",
+            name: "netboot.xyz",
             cdrom: {
                 url: host + "netboot.xyz.iso",
                 size: 2398208,
