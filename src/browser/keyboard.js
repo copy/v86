@@ -388,11 +388,39 @@ export function KeyboardAdapter(bus)
 
     function input_handler(e)
     {
-        return handler(e, true);
+        if(!keyboard.bus)
+        {
+            return;
+        }
+
+        if(!may_handle(e))
+        {
+            return;
+        }
+
+        e.preventDefault && e.preventDefault();
+
+        switch(e.inputType)
+        {
+            case "insertText":
+                for(var i = 0; i < e.data.length; i++)
+                {
+                    keyboard.simulate_char(e.data[i]);
+                }
+                break;
+
+            case "insertLineBreak":
+                keyboard.simulate_press(13); // enter
+                break;
+
+            case "deleteContentBackward":
+                keyboard.simulate_press(8); // backspace
+                break;
+        }
     }
 
     /**
-     * @param {KeyboardEvent|InputEvent|Object} e
+     * @param {KeyboardEvent|Object} e
      * @param {boolean} keydown
      */
     function handler(e, keydown)
@@ -454,12 +482,6 @@ export function KeyboardAdapter(bus)
     {
         var code = translate(e);
 
-        if(e.inputType)
-        {
-            handle_inputevent(e.inputType, e.data);
-            return;
-        }
-
         if(!code)
         {
             console.log("Missing char in map: keyCode=" + (e.keyCode || -1).toString(16) + " code=" + e.code);
@@ -509,40 +531,6 @@ export function KeyboardAdapter(bus)
         else
         {
             send_to_controller(code);
-        }
-    }
-
-    /**
-     * @param {string} type
-     * @param {?string} data
-     */
-    function handle_inputevent(type, data)
-    {
-        switch(type)
-        {
-            case "insertText":
-                if(data.length > 1)
-                {
-                    // keyboard autocomplete, paste from clipboard
-                    for(var i = 0; i < data.length; i++)
-                    {
-                        keyboard.simulate_char(data[i]);
-                    }
-                }
-                else
-                {
-                    // single character
-                    keyboard.simulate_char(data);
-                }
-                break;
-
-            case "insertLineBreak":
-                keyboard.simulate_press(13); // enter
-                break;
-
-            case "deleteContentBackward":
-                keyboard.simulate_press(8); // backspace
-                break;
         }
     }
 
