@@ -119,6 +119,14 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *   }
  *   ```
  *
+ * In order to create a CD-ROM device with ejected disk use:
+ *
+ *   ```javascript
+ *   cdrom: {
+ *       ejected: true
+ *   }
+ *   ```
+ *
  * @param {{
       disable_mouse: (boolean|undefined),
       disable_keyboard: (boolean|undefined),
@@ -454,6 +462,13 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         if(!file)
         {
+            return;
+        }
+
+        if(name === "cdrom" && file.ejected)
+        {
+            // the "ejected file" is a special CD-ROM file object, pass it to settings.cdrom and let CPU.init() handle it
+            settings.cdrom = file;
             return;
         }
 
@@ -982,6 +997,40 @@ V86.prototype.set_fda = async function(file)
 V86.prototype.eject_fda = function()
 {
     this.v86.cpu.devices.fdc.eject_fda();
+};
+
+/**
+ * Set the image inserted in the CD-ROM drive. Can be changed at runtime, as
+ * when physically changing the CD-ROM.
+ */
+V86.prototype.set_cdrom = async function(file)
+{
+    if(file.url && !file.async)
+    {
+        load_file(file.url, {
+            done: result =>
+            {
+                this.v86.cpu.devices.cdrom.master.set_cdrom(new SyncBuffer(result));
+            },
+        });
+    }
+    else
+    {
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        image.onload = () =>
+        {
+            this.v86.cpu.devices.cdrom.master.set_cdrom(image);
+        };
+        await image.load();
+    }
+};
+
+/**
+ * Eject the CD-ROM.
+ */
+V86.prototype.eject_cdrom = function()
+{
+    this.v86.cpu.devices.cdrom.master.eject();
 };
 
 /**
