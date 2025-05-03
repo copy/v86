@@ -1,7 +1,7 @@
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
-import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL } from "./rtc.js";
+import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DISK_DRIVE2_CYL } from "./rtc.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -19,6 +19,9 @@ const HD_SECTOR_SIZE = 512;
  * */
 export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 {
+    master_buffer = master_buffer && master_buffer.ejected ? undefined : master_buffer;
+    slave_buffer = slave_buffer && slave_buffer.ejected ? undefined : slave_buffer;
+
     this.master = new IDEInterface(this, cpu, master_buffer, is_cd, nr, 0, bus);
     this.slave = new IDEInterface(this, cpu, slave_buffer, false, nr, 1, bus);
 
@@ -51,7 +54,7 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     this.ata_port_high = this.ata_port | 0x204;
 
     /** @type {number} */
-    this.master_port = 0xB400;
+    const master_port = 0xB400 + nr * 0x100;
 
     this.pci_space = [
         0x86, 0x80, 0x10, 0x70, 0x05, 0x00, 0xA0, 0x02,
@@ -60,7 +63,7 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
         this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, // second device
         0x00, 0x00, 0x00, 0x00, // second device
-        this.master_port & 0xFF | 1,   this.master_port >> 8, 0x00, 0x00,
+        master_port & 0xFF | 1,   master_port >> 8, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x43, 0x10, 0xD4, 0x82,
@@ -174,26 +177,38 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     {
         dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
         this.master.bytecount = (this.master.bytecount << 8 | data) & 0xFFFF;
-        this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
+        if(slave_buffer)
+        {
+            this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 3, this, function(data)
     {
         dbg_log("1F3/sector: " + h(data), LOG_DISK);
         this.master.sector = (this.master.sector << 8 | data) & 0xFFFF;
-        this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF;
+        if(slave_buffer)
+        {
+            this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF;
+        }
     });
 
     cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
         dbg_log("1F4/sector low: " + h(data), LOG_DISK);
         this.master.cylinder_low = (this.master.cylinder_low << 8 | data) & 0xFFFF;
-        this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
+        if(slave_buffer)
+        {
+            this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
         dbg_log("1F5/sector high: " + h(data), LOG_DISK);
         this.master.cylinder_high = (this.master.cylinder_high << 8 | data) & 0xFFFF;
-        this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
+        if(slave_buffer)
+        {
+            this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
+        }
     });
     cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
@@ -231,24 +246,26 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     {
         dbg_log("lower irq", LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
+        // clear error and DF bits
+        this.current_interface.status &= ~(1 | (1 << 5));
         this.current_interface.ata_command(data);
     });
 
-    cpu.io.register_read(this.master_port | 4, this, undefined, undefined, this.dma_read_addr);
-    cpu.io.register_write(this.master_port | 4, this, undefined, undefined, this.dma_set_addr);
+    cpu.io.register_read(master_port | 4, this, undefined, undefined, this.dma_read_addr);
+    cpu.io.register_write(master_port | 4, this, undefined, undefined, this.dma_set_addr);
 
-    cpu.io.register_read(this.master_port, this,
+    cpu.io.register_read(master_port, this,
                          this.dma_read_command8, undefined, this.dma_read_command);
-    cpu.io.register_write(this.master_port, this,
+    cpu.io.register_write(master_port, this,
                           this.dma_write_command8, undefined, this.dma_write_command);
 
-    cpu.io.register_read(this.master_port | 2, this, this.dma_read_status);
-    cpu.io.register_write(this.master_port | 2, this, this.dma_write_status);
+    cpu.io.register_read(master_port | 2, this, this.dma_read_status);
+    cpu.io.register_write(master_port | 2, this, this.dma_write_status);
 
-    cpu.io.register_read(this.master_port | 0x8, this, function() {
+    cpu.io.register_read(master_port | 0x8, this, function() {
         dbg_log("DMA read 0x8", LOG_DISK); return 0;
     });
-    cpu.io.register_read(this.master_port | 0xA, this, function() {
+    cpu.io.register_read(master_port | 0xA, this, function() {
         dbg_log("DMA read 0xA", LOG_DISK); return 0;
     });
 
@@ -259,16 +276,9 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
 
 IDEDevice.prototype.read_status = function()
 {
-    if(this.current_interface.buffer)
-    {
-        var ret = this.current_interface.status;
-        dbg_log("ATA read status: " + h(ret, 2), LOG_DISK);
-        return ret;
-    }
-    else
-    {
-        return 0;
-    }
+    const ret = this.current_interface.status;
+    dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
+    return ret;
 };
 
 IDEDevice.prototype.write_control = function(data)
@@ -276,7 +286,7 @@ IDEDevice.prototype.write_control = function(data)
     dbg_log("set device control: " + h(data, 2) + " interrupts " +
             ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
 
-    if(data & 4)
+    if(data & 0x04)
     {
         dbg_log("Reset via control port", LOG_DISK);
 
@@ -337,7 +347,7 @@ IDEDevice.prototype.dma_write_command8 = function(value)
     dbg_log("DMA write command8: " + h(value), LOG_DISK);
 
     const old_command = this.dma_command;
-    this.dma_command = value & 0x9;
+    this.dma_command = value & 0x09;
 
     if((old_command & 1) === (value & 1))
     {
@@ -371,7 +381,11 @@ IDEDevice.prototype.dma_write_command8 = function(value)
         default:
             dbg_log("Spurious dma command write, current command: " +
                     h(this.current_interface.current_command), LOG_DISK);
-            dbg_assert(false);
+            dbg_log("dev "+this.name+" DMA clear status 1 bit, set status 2 bit", LOG_DISK);
+            this.dma_status &= ~1;
+            this.dma_status |= 2;
+            this.push_irq();
+            break;
     }
 };
 
@@ -394,7 +408,7 @@ IDEDevice.prototype.get_state = function()
     state[3] = this.irq;
     state[4] = this.pci_id;
     state[5] = this.ata_port_high;
-    state[6] = this.master_port;
+    // state[6] = this.master_port;
     state[7] = this.name;
     state[8] = this.device_control;
     state[9] = this.prdt_addr;
@@ -412,7 +426,7 @@ IDEDevice.prototype.set_state = function(state)
     this.irq = state[3];
     this.pci_id = state[4];
     this.ata_port_high = state[5];
-    this.master_port = state[6];
+    // this.master_port = state[6];
     this.name = state[7];
     this.device_control = state[8];
     this.prdt_addr = state[9];
@@ -441,7 +455,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.buffer = buffer;
+    this.buffer = null;
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
@@ -453,77 +467,13 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.sector_count = 0;
 
     /** @type {number} */
-    this.head_count = 0;
+    this.head_count = this.is_atapi ? 1 : 0;
 
     /** @type {number} */
     this.sectors_per_track = 0;
 
     /** @type {number} */
     this.cylinder_count = 0;
-
-    if(this.buffer)
-    {
-        this.sector_count = this.buffer.byteLength / this.sector_size;
-
-        if(this.sector_count !== (this.sector_count | 0))
-        {
-            dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
-            this.sector_count = Math.ceil(this.sector_count);
-        }
-
-        if(is_cd)
-        {
-            this.head_count = 1;
-            this.sectors_per_track = 0;
-        }
-        else
-        {
-            // "default" values: 16/63
-            // common: 255, 63
-            this.head_count = 16;
-            this.sectors_per_track = 63;
-        }
-
-
-        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
-
-        if(this.cylinder_count !== (this.cylinder_count | 0))
-        {
-            dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
-            this.cylinder_count = Math.floor(this.cylinder_count);
-            //this.sector_count = this.cylinder_count * this.head_count *
-            //                        this.sectors_per_track * this.sector_size;
-        }
-
-        //if(this.cylinder_count > 16383)
-        //{
-        //    this.cylinder_count = 16383;
-        //}
-
-        // disk translation: lba
-        var rtc = cpu.devices.rtc;
-
-        // master
-        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-            rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
-        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
-
-        var reg = CMOS_DISK_DRIVE1_CYL;
-        rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 2, this.head_count & 0xFF);
-        rtc.cmos_write(reg + 3, 0xFF);
-        rtc.cmos_write(reg + 4, 0xFF);
-        rtc.cmos_write(reg + 5, 0xC8);
-        rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
-        rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
-        rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
-
-        //rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-        //    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << (nr * 4 + 2)); // slave
-    }
-
-    this.buffer = buffer;
 
     /** @type {number} */
     this.is_lba = 0;
@@ -585,8 +535,90 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.in_progress_io_ids = new Set();
     this.cancelled_io_ids = new Set();
 
+    if(buffer)
+    {
+        this.set_cdrom(buffer);
+    }
+
     Object.seal(this);
 }
+
+IDEInterface.prototype.eject = function()
+{
+    if(this.is_atapi && this.buffer)
+    {
+        this.buffer = null;
+        this.status = 0x59;
+        this.error = 0x60;
+        this.push_irq();
+    }
+};
+
+IDEInterface.prototype.set_cdrom = function(buffer)
+{
+    if(!buffer)
+    {
+        this.eject();
+        return;
+    }
+
+    this.buffer = buffer;
+    if(this.is_atapi)   /// TODO: redundant here in set_cdrom()? is_atapi === is_cd === true
+    {
+        this.status = 0x59;
+        this.error = 0x60;
+    }
+    this.sector_count = this.buffer.byteLength / this.sector_size;
+
+    if(this.sector_count !== (this.sector_count | 0))
+    {
+        dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
+        this.sector_count = Math.ceil(this.sector_count);
+    }
+
+    if(this.is_atapi)   /// TODO: redundant here in set_cdrom()? is_atapi === is_cd === true
+    {
+        // default values: 1/2048
+        this.head_count = 1;
+        this.sectors_per_track = 2048;
+    }
+    else                /// TODO: dead code?
+    {
+        // "default" values: 16/63
+        // common: 255, 63
+        this.head_count = 16;
+        this.sectors_per_track = 63;
+    }
+
+    this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+
+    if(this.cylinder_count !== (this.cylinder_count | 0))
+    {
+        dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
+        this.cylinder_count = Math.floor(this.cylinder_count);
+    }
+
+    var rtc = this.cpu.devices.rtc;
+    // master
+    rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+                   rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
+    rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
+
+    var reg = this.nr == 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
+    rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
+    rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
+    rtc.cmos_write(reg + 2, this.head_count & 0xFF);
+    rtc.cmos_write(reg + 3, 0xFF);
+    rtc.cmos_write(reg + 4, 0xFF);
+    rtc.cmos_write(reg + 5, 0xC8);
+    rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
+    rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
+    rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
+
+    if(this.device.cpu) {
+        this.push_irq();
+    }
+};
 
 IDEInterface.prototype.device_reset = function()
 {
@@ -623,7 +655,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if(!this.buffer)
+    if((!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0))
     {
         dbg_log("abort: No buffer", LOG_DISK);
         this.error = 4;
@@ -855,6 +887,21 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
+    if(!this.buffer && (this.current_atapi_command == 0x25 ||
+                        this.current_atapi_command == 0x28 ||
+                        this.current_atapi_command == 0x42 ||
+                        this.current_atapi_command == 0x43 ||
+                        this.current_atapi_command == 0x51))
+    {
+        dbg_log("dev "+this.device.name+" CD read-related action: no buffer", LOG_DISK);
+        this.status = 0x51;
+        this.error = 0x21;
+        this.data_allocate(0);
+        this.data_end = this.data_length;
+        this.bytecount = this.bytecount & ~7 | 2 | 1;
+        this.push_irq();
+        return;
+    }
 
     switch(this.current_atapi_command)
     {
@@ -873,7 +920,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status = 0x58;
 
             this.data[0] = 0x80 | 0x70;
-            this.data[2] = 5; // illegal request
+            this.data[2] = this.error >> 4;
             this.data[7] = 8;
             break;
 
@@ -1146,9 +1193,16 @@ IDEInterface.prototype.atapi_read = function(cmd)
         req_length = byte_count;
     }
 
-    if(start >= this.buffer.byteLength)
+    if(!this.buffer)
     {
-        dbg_assert(false, "CD read: Outside of disk  end=" + h(start + byte_count) +
+        dbg_assert(false, "dev "+this.device.name+" CD read: no buffer", LOG_DISK);
+        this.status = 0xFF;
+        this.error = 0x41;
+        this.push_irq();
+    }
+    else if(start >= this.buffer.byteLength)
+    {
+        dbg_assert(false, "dev "+this.device.name+" CD read: Outside of disk  end=" + h(start + byte_count) +
                           " size=" + h(this.buffer.byteLength), LOG_DISK);
 
         this.status = 0xFF;
@@ -1643,10 +1697,9 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
         this.device.dma_status &= ~1;
         this.current_command = -1;
 
-        this.push_irq();
-
         this.report_read_end(byte_count);
-        //}.bind(this), 10);
+
+        this.push_irq();
     });
 };
 
@@ -1832,13 +1885,6 @@ IDEInterface.prototype.get_count = function(is_lba48)
 IDEInterface.prototype.create_identify_packet = function()
 {
     // http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
-
-    if(this.drive_head & 0x10)
-    {
-        // slave
-        this.data_allocate(0);
-        return;
-    }
 
     for(var i = 0; i < 512; i++)
     {
