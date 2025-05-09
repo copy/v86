@@ -13,63 +13,67 @@ const HD_SECTOR_SIZE = 512;
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {boolean} is_cd
- * @param {number} nr
  * @param {BusConnector} bus
+ *
+ * adapter_config: [ [<primary-master>, <primary-slave>], [<secondary-master>, <secondary-slave>] ]
+ * - Each of the four arguments (primary-master, primary-slave, ...) is either undefined
+ *   or an interface_config object of the form:
+ *       interface_config := { buffer: Uint8Array, is_cdrom: bool }
+ * - is_cdrom: optional
+ *   - if true a CD-ROM device using buffer is created (if buffer is undefined then CD is ejected)
+ *   - else a Hard-Disk device using buffer is created (if buffer is undefined a HD of size 0 is created, that's still TODO)
  * */
-export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
+export function IDEPCIAdapter(cpu, bus, adapter_config)
 {
-    master_buffer = master_buffer && master_buffer.ejected ? undefined : master_buffer;
-    slave_buffer = slave_buffer && slave_buffer.ejected ? undefined : slave_buffer;
-
-    this.master = new IDEInterface(this, cpu, master_buffer, is_cd, nr, 0, bus);
-    this.slave = new IDEInterface(this, cpu, slave_buffer, false, nr, 1, bus);
-
-    this.current_interface = this.master;
+    // Except for bus_master_port, all ports and IRQs are predefined and
+    // cannot be changed in Compatibility mode.
+    // The 16 registers of the Bus Master port are split in two, registers
+    // 0..7 are used for the primary channel, and 8..15 for the secondary.
+    const bus_master_port = 0xB400;
+    const pri = { ata_port: 0x1f0, ata_port_high: 0x3f4, irq: 14, bus_master_port: bus_master_port };
+    const sec = { ata_port: 0x170, ata_port_high: 0x374, irq: 15, bus_master_port: bus_master_port | 0x8 };
 
     this.cpu = cpu;
+    this.bus = bus;
+    this.primary = undefined;
+    this.secondary = undefined;
 
-    // gets set via PCI in seabios, likely doesn't matter
-    if(nr === 0)
-    {
-        this.ata_port = 0x1F0;
-        this.irq = 14;
-
-        this.pci_id = 0x1E << 3;
-    }
-    else if(nr === 1)
-    {
-        this.ata_port = 0x170;
-        this.irq = 15;
-
-        this.pci_id = 0x1F << 3;
-    }
-    else
-    {
-        dbg_assert(false, "IDE device with nr " + nr + " ignored", LOG_DISK);
+    const has_primary = adapter_config && adapter_config[0][0];
+    const has_secondary = adapter_config && adapter_config[1][0];
+    if(!has_primary && !has_secondary) {
+        DEBUG && Object.seal(this);
+        return;
     }
 
-    // alternate status, starting at 3f4/374
-    /** @type {number} */
-    this.ata_port_high = this.ata_port | 0x204;
+    if(has_primary) {
+        this.primary = new IDEDevice(this, adapter_config, 0, pri);
+    }
 
-    /** @type {number} */
-    const master_port = 0xB400 + nr * 0x100;
+    if(has_secondary) {
+        this.secondary = new IDEDevice(this, adapter_config, 1, sec);
+    }
 
+    const vendor_id = 0x8086;    // Intel Corporation
+    const device_id = 0x7010;    // 82371SB PIIX3 IDE [Natoma/Triton II]
+    const class_code = 0x01;     // Mass Storage Controller
+    const subclass = 0x01;       // IDE Controller
+    const prog_if = 0x80;        // ISA Compatibility mode-only controller, supports bus mastering
+    const interrupt_line = 0x00; // IRQs 14 and 15 are predefined in Compatibility mode and this field is ignored
+
+    this.pci_id = 0x1F << 3;
     this.pci_space = [
-        0x86, 0x80, 0x10, 0x70, 0x05, 0x00, 0xA0, 0x02,
-        0x00, 0x80, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
-        this.ata_port & 0xFF | 1, this.ata_port >> 8, 0x00, 0x00,
-        this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, // second device
-        0x00, 0x00, 0x00, 0x00, // second device
-        master_port & 0xFF | 1,   master_port >> 8, 0x00, 0x00,
+        vendor_id & 0xFF, vendor_id >> 8, device_id & 0xFF, device_id >> 8, 0x05, 0x00, 0xA0, 0x02,
+        0x00, prog_if, subclass, class_code, 0x00, 0x00, 0x00, 0x00,
+        pri.ata_port & 0xFF      | 1, pri.ata_port >> 8,      0x00, 0x00,
+        pri.ata_port_high & 0xFF | 1, pri.ata_port_high >> 8, 0x00, 0x00,
+        sec.ata_port & 0xFF      | 1, sec.ata_port >> 8,      0x00, 0x00,
+        sec.ata_port_high & 0xFF | 1, sec.ata_port_high >> 8, 0x00, 0x00,
+        bus_master_port & 0xFF   | 1, bus_master_port >> 8,   0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
         0x43, 0x10, 0xD4, 0x82,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, this.irq, 0x01, 0x00, 0x00,
-
+        0x00, 0x00, 0x00, 0x00, interrupt_line, 0x01, 0x00, 0x00,
         // 0x40
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -87,23 +91,69 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     ];
     this.pci_bars = [
         {
-            size: 8,
+            size: 8,    // BAR0: Command block registers of primary ATA Channel
         },
         {
-            size: 4,
+            size: 4,    // BAR1: Control registers of primary ATA Channel
         },
-        undefined,
-        undefined,
         {
-            size: 0x10,
+            size: 8,    // BAR2: Command block registers of secondary ATA Channel
         },
+        {
+            size: 4,    // BAR3: Control registers of secondary ATA Channel
+        },
+        {
+            size: 16,   // BAR4: ATA Bus Master I/O registers (primary ATA Channel: 0..7, secondary: 8..15)
+        }
     ];
-    this.name = "ide" + nr;
+    cpu.devices.pci.register_device(this);
+
+    DEBUG && Object.seal(this);
+}
+
+/**
+ * @constructor
+ * @param {IDEPCIAdapter} adapter
+ * @param {number} channel_nr
+ * */
+function IDEDevice(adapter, adapter_config, channel_nr, channel_config)
+{
+    this.adapter = adapter;
+    this.cpu = adapter.cpu;
+    this.bus = adapter.bus;
+    this.ata_port = channel_config.ata_port;
+    this.ata_port_high = channel_config.ata_port_high;
+    this.irq = channel_config.irq;
+
+    const create_interface = interface_nr => {
+        const config = adapter_config && adapter_config[channel_nr] ?
+            adapter_config[channel_nr][interface_nr] : undefined;
+        const buffer = config ? config.buffer : undefined;
+        const is_cdrom = config ? !!config.is_cdrom : false;
+        return new IDEInterface(this, this.cpu, buffer, is_cdrom, channel_nr, interface_nr, this.bus);
+    };
+
+    this.master = create_interface(0);
+    this.slave = create_interface(1);
+    this.current_interface = this.master;
+
+    this.name = "ide" + channel_nr;
 
     /** @type {number} */
     this.device_control = 2;
 
-    // status
+    /** @type {number} */
+    this.prdt_addr = 0;
+
+    /** @type {number} */
+    this.dma_status = 0;
+
+    /** @type {number} */
+    this.dma_command = 0;
+
+    // Status Registers (across BAR0-BAR3)
+    const cpu = adapter.cpu;
+
     cpu.io.register_read(this.ata_port | 7, this, function() {
         dbg_log("lower irq", LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
@@ -111,7 +161,12 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     });
     cpu.io.register_read(this.ata_port_high | 2, this, this.read_status);
 
+    // Control Register (BAR1/3)
+
     cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
+
+    // ATA/ATAPI Registers (BAR0/2)
+
     cpu.io.register_read(this.ata_port | 0, this, function()
     {
         return this.current_interface.read_data(1);
@@ -155,6 +210,7 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
         dbg_log("Read 1F6", LOG_DISK);
         return this.current_interface.drive_head & 0xFF;
     });
+    // NOTE: read-handler for Status Register (this.ata_port | 7) is already defined above
 
     cpu.io.register_write(this.ata_port | 0, this, function(data)
     {
@@ -170,45 +226,60 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
     cpu.io.register_write(this.ata_port | 1, this, function(data)
     {
         dbg_log("1F1/lba_count: " + h(data), LOG_DISK);
-        this.master.lba_count = (this.master.lba_count << 8 | data) & 0xFFFF;
-        this.slave.lba_count = (this.slave.lba_count << 8 | data) & 0xFFFF;
+/***
+ *      this.master.lba_count = (this.master.lba_count << 8 | data) & 0xFFFF;
+ *      this.slave.lba_count = (this.slave.lba_count << 8 | data) & 0xFFFF;
+ ***/
+        this.current_interface.lba_count = (this.current_interface.lba_count << 8 | data) & 0xFFFF;
     });
     cpu.io.register_write(this.ata_port | 2, this, function(data)
     {
         dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
-        this.master.bytecount = (this.master.bytecount << 8 | data) & 0xFFFF;
-        if(slave_buffer)
-        {
-            this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
-        }
+/***
+ *      this.master.bytecount = (this.master.bytecount << 8 | data) & 0xFFFF;
+ *      if(slave_buffer)
+ *      {
+ *          this.slave.bytecount = (this.slave.bytecount << 8 | data) & 0xFFFF;
+ *      }
+ ***/
+        this.current_interface.bytecount = (this.current_interface.bytecount << 8 | data) & 0xFFFF;
     });
     cpu.io.register_write(this.ata_port | 3, this, function(data)
     {
         dbg_log("1F3/sector: " + h(data), LOG_DISK);
-        this.master.sector = (this.master.sector << 8 | data) & 0xFFFF;
-        if(slave_buffer)
-        {
-            this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF;
-        }
+/***
+ *      this.master.sector = (this.master.sector << 8 | data) & 0xFFFF;
+ *      if(slave_buffer)
+ *      {
+ *          this.slave.sector = (this.slave.sector << 8 | data) & 0xFFFF;
+ *      }
+ ***/
+        this.current_interface.sector = (this.current_interface.sector << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
         dbg_log("1F4/sector low: " + h(data), LOG_DISK);
-        this.master.cylinder_low = (this.master.cylinder_low << 8 | data) & 0xFFFF;
-        if(slave_buffer)
-        {
-            this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
-        }
+/***
+ *      this.master.cylinder_low = (this.master.cylinder_low << 8 | data) & 0xFFFF;
+ *      if(slave_buffer)
+ *      {
+ *          this.slave.cylinder_low = (this.slave.cylinder_low << 8 | data) & 0xFFFF;
+ *      }
+ ***/
+        this.current_interface.cylinder_low = (this.current_interface.cylinder_low << 8 | data) & 0xFFFF;
     });
     cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
         dbg_log("1F5/sector high: " + h(data), LOG_DISK);
-        this.master.cylinder_high = (this.master.cylinder_high << 8 | data) & 0xFFFF;
-        if(slave_buffer)
-        {
-            this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
-        }
+/***
+ *      this.master.cylinder_high = (this.master.cylinder_high << 8 | data) & 0xFFFF;
+ *      if(slave_buffer)
+ *      {
+ *          this.slave.cylinder_high = (this.slave.cylinder_high << 8 | data) & 0xFFFF;
+ *      }
+ ***/
+        this.current_interface.cylinder_high = (this.current_interface.cylinder_high << 8 | data) & 0xFFFF;
     });
     cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
@@ -226,21 +297,16 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
         {
             this.current_interface = this.master;
         }
-
-        this.master.drive_head = data;
-        this.slave.drive_head = data;
-        this.master.is_lba = this.slave.is_lba = data >> 6 & 1;
-        this.master.head = this.slave.head = data & 0xF;
+/***
+ *      this.master.drive_head = data;
+ *      this.slave.drive_head = data;
+ *      this.master.is_lba = this.slave.is_lba = data >> 6 & 1;
+ *      this.master.head = this.slave.head = data & 0xF;
+ ***/
+        this.current_interface.drive_head = data;
+        this.current_interface.is_lba = data >> 6 & 1;
+        this.current_interface.head = data & 0xF;
     });
-
-    /** @type {number} */
-    this.prdt_addr = 0;
-
-    /** @type {number} */
-    this.dma_status = 0;
-
-    /** @type {number} */
-    this.dma_command = 0;
 
     cpu.io.register_write(this.ata_port | 7, this, function(data)
     {
@@ -251,27 +317,21 @@ export function IDEDevice(cpu, master_buffer, slave_buffer, is_cd, nr, bus)
         this.current_interface.ata_command(data);
     });
 
-    cpu.io.register_read(master_port | 4, this, undefined, undefined, this.dma_read_addr);
-    cpu.io.register_write(master_port | 4, this, undefined, undefined, this.dma_set_addr);
+    // Bus Master Registers (BAR4)
+    const bus_master_port = channel_config.bus_master_port;
 
-    cpu.io.register_read(master_port, this,
+    cpu.io.register_read(bus_master_port, this,
                          this.dma_read_command8, undefined, this.dma_read_command);
-    cpu.io.register_write(master_port, this,
+    cpu.io.register_write(bus_master_port, this,
                           this.dma_write_command8, undefined, this.dma_write_command);
 
-    cpu.io.register_read(master_port | 2, this, this.dma_read_status);
-    cpu.io.register_write(master_port | 2, this, this.dma_write_status);
+    cpu.io.register_read(bus_master_port | 2, this, this.dma_read_status);
+    cpu.io.register_write(bus_master_port | 2, this, this.dma_write_status);
 
-    cpu.io.register_read(master_port | 0x8, this, function() {
-        dbg_log("DMA read 0x8", LOG_DISK); return 0;
-    });
-    cpu.io.register_read(master_port | 0xA, this, function() {
-        dbg_log("DMA read 0xA", LOG_DISK); return 0;
-    });
+    cpu.io.register_read(bus_master_port | 4, this, undefined, undefined, this.dma_read_addr);
+    cpu.io.register_write(bus_master_port | 4, this, undefined, undefined, this.dma_set_addr);
 
-    cpu.devices.pci.register_device(this);
-
-    DEBUG && Object.seal(this);
+    Object.seal(this);
 }
 
 IDEDevice.prototype.read_status = function()
@@ -408,7 +468,7 @@ IDEDevice.prototype.get_state = function()
     state[3] = this.irq;
     state[4] = this.pci_id;
     state[5] = this.ata_port_high;
-    // state[6] = this.master_port;
+    // state[6] = this.bus_master_port;
     state[7] = this.name;
     state[8] = this.device_control;
     state[9] = this.prdt_addr;
@@ -426,7 +486,7 @@ IDEDevice.prototype.set_state = function(state)
     this.irq = state[3];
     this.pci_id = state[4];
     this.ata_port_high = state[5];
-    // this.master_port = state[6];
+    // this.bus_master_port = state[6];
     this.name = state[7];
     this.device_control = state[8];
     this.prdt_addr = state[9];
