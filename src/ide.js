@@ -340,7 +340,7 @@ IDEDevice.prototype.read_status = function()
 {
     /// temporary hack to indicate missing slave drive to host
     /// const ret = this.current_interface.status;
-    const ret = this.current_interface.is_atapi || this.current_interface.buffer ? this.current_interface.status : 0;
+    const ret = this.current_interface.drive_connected ? this.current_interface.status : 0;
     dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
     return ret;
 };
@@ -520,6 +520,9 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.cpu = cpu;
 
     this.buffer = null;
+
+    /** @type {boolean} */
+    this.drive_connected = is_cd || buffer;
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
