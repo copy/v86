@@ -338,7 +338,9 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
 
 IDEDevice.prototype.read_status = function()
 {
-    const ret = this.current_interface.status;
+    /// temporary hack to indicate missing slave drive to host
+    /// const ret = this.current_interface.status;
+    const ret = this.current_interface.is_atapi || this.current_interface.buffer ? this.current_interface.status : 0;
     dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
     return ret;
 };
