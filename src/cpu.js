@@ -29,7 +29,8 @@ import { PS2 } from "./ps2.js";
 import { read_elf } from "./elf.js";
 
 import { FloppyController } from "./floppy.js";
-import { IDEDevice } from "./ide.js";
+/// import { IDEDevice } from "./ide.js";
+import { IDEPCIAdapter } from "./ide.js";
 import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
@@ -1105,16 +1106,30 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
-        var ide_device_count = 0;
+        if(settings.hda || settings.cdrom) {
+            let ide_device_count = 0;
+            const ide_config = [[undefined, undefined], [undefined, undefined]];
+            if(settings.hda) {
+                ide_config[ide_device_count][0] = {buffer: settings.hda};
+                ide_config[ide_device_count][1] = {buffer: settings.hdb};
+                ide_device_count++;
+            }
+            if(settings.cdrom) {
+                ide_config[ide_device_count][0] = {
+                    is_cdrom: true,
+                    buffer: settings.cdrom.ejected ? undefined : settings.cdrom
+                };
+            }
 
-        if(settings.hda)
-        {
-            this.devices.hda = new IDEDevice(this, settings.hda, settings.hdb, false, ide_device_count++, device_bus);
-        }
+            this.devices.ide = new IDEPCIAdapter(this, device_bus, ide_config);
 
-        if(settings.cdrom)
-        {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, undefined, true, ide_device_count++, device_bus);
+            if(settings.hda) {
+                this.devices.hda = this.devices.ide.primary;
+//                this.devices.hdb = ?  // TODO: this.devices.hda/hdb/cdrom should point to IDEInterface, not IDEDevice objects?!
+            }
+            if(settings.cdrom) {
+                this.devices.cdrom = settings.hda ? this.devices.ide.secondary : this.devices.ide.primary;
+            }
         }
 
         this.devices.pit = new PIT(this, device_bus);
