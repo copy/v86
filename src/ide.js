@@ -16,12 +16,18 @@ const HD_SECTOR_SIZE = 512;
  * @param {BusConnector} bus
  *
  * adapter_config: [ [<primary-master>, <primary-slave>], [<secondary-master>, <secondary-slave>] ]
- * - Each of the four arguments (primary-master, primary-slave, ...) is either undefined
- *   or an interface_config object of the form:
+ *
+ *   Each of the four arguments (<primary-master>, <primary-slave>, ...) is
+ *   either undefined or an interface_config object of the form:
+ *
  *       interface_config := { buffer: Uint8Array, is_cdrom: bool }
- * - is_cdrom: optional
- *   - if true a CD-ROM device using buffer is created (if buffer is undefined then CD is ejected)
- *   - else a Hard-Disk device using buffer is created (if buffer is undefined a HD of size 0 is created, that's still TODO)
+ *
+ *   If is_cdrom is defined and true:
+ *   - If buffer is defined: create an ATAPI CD-ROM device using buffer as inserted disk
+ *   - If buffer is undefined: create an ATAPI CD-ROM device with ejectd disk
+ *   If is_cdrom is undfined or false:
+ *   - If buffer is defined: create an ATA Hard-Disk using buffer as disk image
+ *   - If buffer is undefined: create a dummy ATA device representing a missing disk
  * */
 export function IDEPCIAdapter(cpu, bus, adapter_config)
 {
@@ -39,6 +45,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     this.secondary = undefined;
     this.channels = [undefined, undefined];
 
+    // In each channel, a slave drive can only exist if also a master drive exists.
     const has_primary = adapter_config && adapter_config[0][0];
     const has_secondary = adapter_config && adapter_config[1][0];
     if(!has_primary && !has_secondary) {
@@ -48,7 +55,6 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     if(has_primary) {
         this.primary = new IDEDevice(this, adapter_config, 0, pri);
     }
-
     if(has_secondary) {
         this.secondary = new IDEDevice(this, adapter_config, 1, sec);
     }
