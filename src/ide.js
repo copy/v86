@@ -37,6 +37,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     this.bus = bus;
     this.primary = undefined;
     this.secondary = undefined;
+    this.channels = [undefined, undefined];
 
     const has_primary = adapter_config && adapter_config[0][0];
     const has_secondary = adapter_config && adapter_config[1][0];
@@ -44,7 +45,6 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
         DEBUG && Object.seal(this);
         return;
     }
-
     if(has_primary) {
         this.primary = new IDEDevice(this, adapter_config, 0, pri);
     }
@@ -52,6 +52,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     if(has_secondary) {
         this.secondary = new IDEDevice(this, adapter_config, 1, sec);
     }
+    this.channels = [this.primary, this.secondary];
 
     const vendor_id = 0x8086;    // Intel Corporation
     const device_id = 0x7010;    // 82371SB PIIX3 IDE [Natoma/Triton II]
@@ -116,7 +117,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
  * @param {IDEPCIAdapter} adapter
  * @param {number} channel_nr
  * */
-function IDEDevice(adapter, adapter_config, channel_nr, channel_config)
+function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // TODO: rename this class to IDEChannel
 {
     this.adapter = adapter;
     this.cpu = adapter.cpu;
@@ -135,6 +136,7 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)
 
     this.master = create_interface(0);
     this.slave = create_interface(1);
+    this.interfaces = [this.master, this.slave];
     this.current_interface = this.master;
 
     this.name = "ide" + channel_nr;

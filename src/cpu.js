@@ -29,7 +29,6 @@ import { PS2 } from "./ps2.js";
 import { read_elf } from "./elf.js";
 
 import { FloppyController } from "./floppy.js";
-/// import { IDEDevice } from "./ide.js";
 import { IDEPCIAdapter } from "./ide.js";
 import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
@@ -1107,15 +1106,15 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
         if(settings.hda || settings.cdrom) {
-            let ide_device_count = 0;
+            let cdrom_channel = 0;
             const ide_config = [[undefined, undefined], [undefined, undefined]];
             if(settings.hda) {
-                ide_config[ide_device_count][0] = {buffer: settings.hda};
-                ide_config[ide_device_count][1] = {buffer: settings.hdb};
-                ide_device_count++;
+                ide_config[0][0] = {buffer: settings.hda};
+                ide_config[0][1] = {buffer: settings.hdb};
+                cdrom_channel++;
             }
             if(settings.cdrom) {
-                ide_config[ide_device_count][0] = {
+                ide_config[cdrom_channel][0] = {
                     is_cdrom: true,
                     buffer: settings.cdrom.ejected ? undefined : settings.cdrom
                 };
@@ -1124,11 +1123,11 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.ide = new IDEPCIAdapter(this, device_bus, ide_config);
 
             if(settings.hda) {
-                this.devices.hda = this.devices.ide.primary;
+                this.devices.hda = this.devices.ide.channels[0];
 //                this.devices.hdb = ?  // TODO: this.devices.hda/hdb/cdrom should point to IDEInterface, not IDEDevice objects?!
             }
             if(settings.cdrom) {
-                this.devices.cdrom = settings.hda ? this.devices.ide.secondary : this.devices.ide.primary;
+                this.devices.cdrom = this.devices.ide.channels[cdrom_channel];
             }
         }
 
