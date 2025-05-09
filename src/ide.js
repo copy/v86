@@ -597,10 +597,8 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.in_progress_io_ids = new Set();
     this.cancelled_io_ids = new Set();
 
-    if(buffer)
-    {
-        this.set_cdrom(buffer);
-    }
+    // set optional buffer for both ATA and ATAPI
+    this.set_cdrom(buffer);
 
     Object.seal(this);
 }
@@ -620,12 +618,11 @@ IDEInterface.prototype.set_cdrom = function(buffer)
 {
     if(!buffer)
     {
-        this.eject();
         return;
     }
 
     this.buffer = buffer;
-    if(this.is_atapi)   /// TODO: redundant here in set_cdrom()? is_atapi === is_cd === true
+    if(this.is_atapi)
     {
         this.status = 0x59;
         this.error = 0x60;
@@ -638,13 +635,13 @@ IDEInterface.prototype.set_cdrom = function(buffer)
         this.sector_count = Math.ceil(this.sector_count);
     }
 
-    if(this.is_atapi)   /// TODO: redundant here in set_cdrom()? is_atapi === is_cd === true
+    if(this.is_atapi)
     {
         // default values: 1/2048
         this.head_count = 1;
         this.sectors_per_track = 2048;
     }
-    else                /// TODO: dead code?
+    else
     {
         // "default" values: 16/63
         // common: 255, 63
