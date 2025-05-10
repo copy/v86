@@ -25,7 +25,7 @@ const HD_SECTOR_SIZE = 512;
  *   If is_cdrom is defined and true:
  *   - If buffer is defined: create an ATAPI CD-ROM device using buffer as inserted disk
  *   - If buffer is undefined: create an ATAPI CD-ROM device with ejectd disk
- *   If is_cdrom is undfined or false:
+ *   If is_cdrom is undefined or false:
  *   - If buffer is defined: create an ATA Hard-Disk using buffer as disk image
  *   - If buffer is undefined: create a dummy ATA device representing a missing disk
  * */
@@ -159,22 +159,13 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
     /** @type {number} */
     this.dma_command = 0;
 
-    // Status Registers (across BAR0-BAR3)
     const cpu = adapter.cpu;
 
-    cpu.io.register_read(this.ata_port | 7, this, function() {
-        dbg_log("lower irq", LOG_DISK);
-        this.cpu.device_lower_irq(this.irq);
-        return this.read_status();
-    });
-    cpu.io.register_read(this.ata_port_high | 2, this, this.read_status);
+    //
+    // Command Block Registers: ata_port + 0...7 (BAR0: 1F0h, BAR2: 170h)
+    //
 
-    // Control Register (BAR1/3)
-
-    cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
-
-    // ATA/ATAPI Registers (BAR0/2)
-
+    // read Data register
     cpu.io.register_read(this.ata_port | 0, this, function()
     {
         return this.current_interface.read_data(1);
@@ -186,40 +177,57 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
         return this.current_interface.read_data(4);
     });
 
+    // read Error register
     cpu.io.register_read(this.ata_port | 1, this, function()
     {
         dbg_log("Read error: " + h(this.current_interface.error & 0xFF) +
                 " slave=" + (this.current_interface === this.slave), LOG_DISK);
         return this.current_interface.error & 0xFF;
     });
+
+    // read Sector Count register
     cpu.io.register_read(this.ata_port | 2, this, function()
     {
         dbg_log("Read bytecount: " + h(this.current_interface.bytecount & 0xFF), LOG_DISK);
         return this.current_interface.bytecount & 0xFF;
     });
+
+    // read LBA Low register
     cpu.io.register_read(this.ata_port | 3, this, function()
     {
         dbg_log("Read sector: " + h(this.current_interface.sector & 0xFF), LOG_DISK);
         return this.current_interface.sector & 0xFF;
     });
 
+    // read LBA Mid register
     cpu.io.register_read(this.ata_port | 4, this, function()
     {
         dbg_log("Read 1F4: " + h(this.current_interface.cylinder_low & 0xFF), LOG_DISK);
         return this.current_interface.cylinder_low & 0xFF;
     });
+
+    // read LBA High register
     cpu.io.register_read(this.ata_port | 5, this, function()
     {
         dbg_log("Read 1F5: " + h(this.current_interface.cylinder_high & 0xFF), LOG_DISK);
         return this.current_interface.cylinder_high & 0xFF;
     });
+
+    // read Device register
     cpu.io.register_read(this.ata_port | 6, this, function()
     {
         dbg_log("Read 1F6", LOG_DISK);
         return this.current_interface.drive_head & 0xFF;
     });
-    // NOTE: read-handler for Status Register (this.ata_port | 7) is already defined above
 
+    // read Status register
+    cpu.io.register_read(this.ata_port | 7, this, function() {
+        dbg_log("lower irq", LOG_DISK);
+        this.cpu.device_lower_irq(this.irq);
+        return this.read_status();
+    });
+
+    // write Data register
     cpu.io.register_write(this.ata_port | 0, this, function(data)
     {
         this.current_interface.write_data_port8(data);
@@ -231,6 +239,7 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
         this.current_interface.write_data_port32(data);
     });
 
+    // write Features register
     cpu.io.register_write(this.ata_port | 1, this, function(data)
     {
         dbg_log("1F1/lba_count: " + h(data), LOG_DISK);
@@ -240,6 +249,8 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
  ***/
         this.current_interface.lba_count = (this.current_interface.lba_count << 8 | data) & 0xFFFF;
     });
+
+    // write Sector Count register
     cpu.io.register_write(this.ata_port | 2, this, function(data)
     {
         dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
@@ -252,6 +263,8 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
  ***/
         this.current_interface.bytecount = (this.current_interface.bytecount << 8 | data) & 0xFFFF;
     });
+
+    // write LBA Low register
     cpu.io.register_write(this.ata_port | 3, this, function(data)
     {
         dbg_log("1F3/sector: " + h(data), LOG_DISK);
@@ -265,6 +278,7 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
         this.current_interface.sector = (this.current_interface.sector << 8 | data) & 0xFFFF;
     });
 
+    // write LBA Mid register
     cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
         dbg_log("1F4/sector low: " + h(data), LOG_DISK);
@@ -277,6 +291,8 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
  ***/
         this.current_interface.cylinder_low = (this.current_interface.cylinder_low << 8 | data) & 0xFFFF;
     });
+
+    // write LBA High register
     cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
         dbg_log("1F5/sector high: " + h(data), LOG_DISK);
@@ -289,6 +305,8 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
  ***/
         this.current_interface.cylinder_high = (this.current_interface.cylinder_high << 8 | data) & 0xFFFF;
     });
+
+    // write Device register
     cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
         var slave = data & 0x10;
@@ -316,6 +334,7 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
         this.current_interface.head = data & 0xF;
     });
 
+    // write Command register
     cpu.io.register_write(this.ata_port | 7, this, function(data)
     {
         dbg_log("lower irq", LOG_DISK);
@@ -325,7 +344,20 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
         this.current_interface.ata_command(data);
     });
 
-    // Bus Master Registers (BAR4)
+    //
+    // Control Block Register: ata_port_high + 0...3 (BAR1: 3F4h, BAR3: 374h)
+    //
+
+    // read Alternate Status register
+    cpu.io.register_read(this.ata_port_high | 2, this, this.read_status);
+
+    // write Device Control register
+    cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
+
+    //
+    // Bus Master Registers: bus_master_port + 0...16 (BAR4, lower 8 for primary and upper 8 for secondary channel)
+    //
+
     const bus_master_port = channel_config.bus_master_port;
 
     cpu.io.register_read(bus_master_port, this,
@@ -512,6 +544,7 @@ IDEDevice.prototype.set_state = function(state)
 function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
 {
     this.device = device;
+    this.name = device.name + ":" + interface_nr;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -521,6 +554,12 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
      * @type {number}
      */
     this.nr = device_nr;
+
+    /**
+     * @const
+     * @type {number}
+     */
+    this.interface_nr = interface_nr;
 
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -725,12 +764,9 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if((!this.buffer && cmd != 0xA1 && cmd != 0xEC && cmd != 0xA0))
+    if(!this.drive_connected && cmd != 0x90)
     {
-        dbg_log("abort: No buffer", LOG_DISK);
-        this.error = 4;
-        this.status = 0x41;
-        this.push_irq();
+        dbg_log("ignored: No slave drive connected", LOG_DISK);
         return;
     }
 
@@ -801,9 +837,26 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case 0x90:
             // execute device diagnostic
-            this.push_irq();
-            this.error = 0x101;
+            // assign diagnostics code (used to be 0x101?) to error register
+            if(this.interface_nr === 0) {
+                // master drive is currently selected
+                if(this.device.slave.drive_connected) {
+                    this.error = 0x01;  // Master drive passed, slave passed or not present
+                }
+                else {
+                    this.error = 0x81;  // Master drive passed, slave failed
+                }
+            }
+            else {
+                if(this.device.slave.drive_connected) {
+                    this.error = 0x01;  // Slave drive passed
+                }
+                else {
+                    this.error = 0x00;  // Slave drive failed
+                }
+            }
             this.status = 0x50;
+            this.push_irq();
             break;
 
         case 0x91:
