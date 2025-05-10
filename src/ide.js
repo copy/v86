@@ -49,7 +49,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     const has_primary = adapter_config && adapter_config[0][0];
     const has_secondary = adapter_config && adapter_config[1][0];
     if(!has_primary && !has_secondary) {
-        DEBUG && Object.seal(this);
+        Object.seal(this);
         return;
     }
     if(has_primary) {
@@ -115,7 +115,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     ];
     cpu.devices.pci.register_device(this);
 
-    DEBUG && Object.seal(this);
+    Object.seal(this);
 }
 
 /**
@@ -371,7 +371,7 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
     cpu.io.register_read(bus_master_port | 4, this, undefined, undefined, this.dma_read_addr);
     cpu.io.register_write(bus_master_port | 4, this, undefined, undefined, this.dma_set_addr);
 
-    Object.seal(this);
+    DEBUG && Object.seal(this);
 }
 
 IDEDevice.prototype.read_status = function()
@@ -508,7 +508,7 @@ IDEDevice.prototype.get_state = function()
     state[1] = this.slave;
     state[2] = this.ata_port;
     state[3] = this.irq;
-    state[4] = this.pci_id;
+    // state[4] = this.pci_id;
     state[5] = this.ata_port_high;
     // state[6] = this.bus_master_port;
     state[7] = this.name;
@@ -526,7 +526,7 @@ IDEDevice.prototype.set_state = function(state)
     this.slave.set_state(state[1]);
     this.ata_port = state[2];
     this.irq = state[3];
-    this.pci_id = state[4];
+    // this.pci_id = state[4];
     this.ata_port_high = state[5];
     // this.bus_master_port = state[6];
     this.name = state[7];
