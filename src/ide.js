@@ -713,7 +713,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
                    rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
     rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
 
-    var reg = this.nr == 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
+    var reg = this.nr === 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
     rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
     rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
     rtc.cmos_write(reg + 2, this.head_count & 0xFF);
@@ -764,7 +764,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log("ATA Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
-    if(!this.drive_connected && cmd != 0x90)
+    if(!this.drive_connected && cmd !== 0x90)
     {
         dbg_log("ignored: No slave drive connected", LOG_DISK);
         return;
@@ -1010,11 +1010,11 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
-    if(!this.buffer && (this.current_atapi_command == 0x25 ||
-                        this.current_atapi_command == 0x28 ||
-                        this.current_atapi_command == 0x42 ||
-                        this.current_atapi_command == 0x43 ||
-                        this.current_atapi_command == 0x51))
+    if(!this.buffer && (this.current_atapi_command === 0x25 ||
+                        this.current_atapi_command === 0x28 ||
+                        this.current_atapi_command === 0x42 ||
+                        this.current_atapi_command === 0x43 ||
+                        this.current_atapi_command === 0x51))
     {
         dbg_log("dev "+this.device.name+" CD read-related action: no buffer", LOG_DISK);
         this.status = 0x51;
