@@ -26,8 +26,10 @@ const HD_SECTOR_SIZE = 512;
  *   - If buffer is defined: create an ATAPI CD-ROM device using buffer as inserted disk
  *   - If buffer is undefined: create an ATAPI CD-ROM device with ejectd disk
  *   If is_cdrom is undefined or false:
- *   - If buffer is defined: create an ATA Hard-Disk using buffer as disk image
- *   - If buffer is undefined: create a dummy ATA device representing a missing disk
+ *   - If buffer is defined: create an ATA Hard-Disk device using buffer as disk image
+ *   - If buffer is undefined: represents a missing device
+ *
+ *   A slave drive can only exist if a master drive also exists.
  * */
 export function IDEPCIAdapter(cpu, bus, adapter_config)
 {
@@ -45,7 +47,6 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
     this.secondary = undefined;
     this.channels = [undefined, undefined];
 
-    // In each channel, a slave drive can only exist if also a master drive exists.
     const has_primary = adapter_config && adapter_config[0][0];
     const has_secondary = adapter_config && adapter_config[1][0];
     if(!has_primary && !has_secondary) {
@@ -53,10 +54,10 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
         return;
     }
     if(has_primary) {
-        this.primary = new IDEDevice(this, adapter_config, 0, pri);
+        this.primary = new IDEChannel(this, adapter_config, 0, pri);
     }
     if(has_secondary) {
-        this.secondary = new IDEDevice(this, adapter_config, 1, sec);
+        this.secondary = new IDEChannel(this, adapter_config, 1, sec);
     }
     this.channels = [this.primary, this.secondary];
 
@@ -123,7 +124,7 @@ export function IDEPCIAdapter(cpu, bus, adapter_config)
  * @param {IDEPCIAdapter} adapter
  * @param {number} channel_nr
  * */
-function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // TODO: rename this class to IDEChannel
+function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
 {
     this.adapter = adapter;
     this.cpu = adapter.cpu;
@@ -374,16 +375,14 @@ function IDEDevice(adapter, adapter_config, channel_nr, channel_config)     // T
     DEBUG && Object.seal(this);
 }
 
-IDEDevice.prototype.read_status = function()
+IDEChannel.prototype.read_status = function()
 {
-    /// temporary hack to indicate missing slave drive to host
-    /// const ret = this.current_interface.status;
     const ret = this.current_interface.drive_connected ? this.current_interface.status : 0;
     dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
     return ret;
 };
 
-IDEDevice.prototype.write_control = function(data)
+IDEChannel.prototype.write_control = function(data)
 {
     dbg_log("set device control: " + h(data, 2) + " interrupts " +
             ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
@@ -401,42 +400,42 @@ IDEDevice.prototype.write_control = function(data)
     this.device_control = data;
 };
 
-IDEDevice.prototype.dma_read_addr = function()
+IDEChannel.prototype.dma_read_addr = function()
 {
     dbg_log("dma get address: " + h(this.prdt_addr, 8), LOG_DISK);
     return this.prdt_addr;
 };
 
-IDEDevice.prototype.dma_set_addr = function(data)
+IDEChannel.prototype.dma_set_addr = function(data)
 {
     dbg_log("dma set address: " + h(data, 8), LOG_DISK);
     this.prdt_addr = data;
 };
 
-IDEDevice.prototype.dma_read_status = function()
+IDEChannel.prototype.dma_read_status = function()
 {
     dbg_log("DMA read status: " + h(this.dma_status), LOG_DISK);
     return this.dma_status;
 };
 
-IDEDevice.prototype.dma_write_status = function(value)
+IDEChannel.prototype.dma_write_status = function(value)
 {
     dbg_log("DMA set status: " + h(value), LOG_DISK);
     this.dma_status &= ~(value & 6);
 };
 
-IDEDevice.prototype.dma_read_command = function()
+IDEChannel.prototype.dma_read_command = function()
 {
     return this.dma_read_command8() | this.dma_read_status() << 16;
 };
 
-IDEDevice.prototype.dma_read_command8 = function()
+IDEChannel.prototype.dma_read_command8 = function()
 {
     dbg_log("DMA read command: " + h(this.dma_command), LOG_DISK);
     return this.dma_command;
 };
 
-IDEDevice.prototype.dma_write_command = function(value)
+IDEChannel.prototype.dma_write_command = function(value)
 {
     dbg_log("DMA write command: " + h(value), LOG_DISK);
 
@@ -444,7 +443,7 @@ IDEDevice.prototype.dma_write_command = function(value)
     this.dma_write_status(value >> 16 & 0xFF);
 };
 
-IDEDevice.prototype.dma_write_command8 = function(value)
+IDEChannel.prototype.dma_write_command8 = function(value)
 {
     dbg_log("DMA write command8: " + h(value), LOG_DISK);
 
@@ -491,7 +490,7 @@ IDEDevice.prototype.dma_write_command8 = function(value)
     }
 };
 
-IDEDevice.prototype.push_irq = function()
+IDEChannel.prototype.push_irq = function()
 {
     if((this.device_control & 2) === 0)
     {
@@ -501,7 +500,7 @@ IDEDevice.prototype.push_irq = function()
     }
 };
 
-IDEDevice.prototype.get_state = function()
+IDEChannel.prototype.get_state = function()
 {
     var state = [];
     state[0] = this.master;
@@ -520,7 +519,7 @@ IDEDevice.prototype.get_state = function()
     return state;
 };
 
-IDEDevice.prototype.set_state = function(state)
+IDEChannel.prototype.set_state = function(state)
 {
     this.master.set_state(state[0]);
     this.slave.set_state(state[1]);
@@ -541,10 +540,10 @@ IDEDevice.prototype.set_state = function(state)
 /**
  * @constructor
  */
-function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
+function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus)
 {
-    this.device = device;
-    this.name = device.name + ":" + interface_nr;
+    this.channel = channel;
+    this.name = channel.name + ":" + interface_nr;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -553,7 +552,7 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
      * @const
      * @type {number}
      */
-    this.nr = device_nr;
+    this.nr = channel_nr;
 
     /**
      * @const
@@ -724,7 +723,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
     rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
     rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
 
-    if(this.device.cpu) {
+    if(this.channel.cpu) {
         this.push_irq();
     }
 };
@@ -757,7 +756,7 @@ IDEInterface.prototype.device_reset = function()
 
 IDEInterface.prototype.push_irq = function()
 {
-    this.device.push_irq();
+    this.channel.push_irq();
 };
 
 IDEInterface.prototype.ata_command = function(cmd)
@@ -840,7 +839,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             // assign diagnostics code (used to be 0x101?) to error register
             if(this.interface_nr === 0) {
                 // master drive is currently selected
-                if(this.device.slave.drive_connected) {
+                if(this.channel.slave.drive_connected) {
                     this.error = 0x01;  // Master drive passed, slave passed or not present
                 }
                 else {
@@ -848,7 +847,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 }
             }
             else {
-                if(this.device.slave.drive_connected) {
+                if(this.channel.slave.drive_connected) {
                     this.error = 0x01;  // Slave drive passed
                 }
                 else {
@@ -1016,7 +1015,7 @@ IDEInterface.prototype.atapi_handle = function()
                         this.current_atapi_command === 0x43 ||
                         this.current_atapi_command === 0x51))
     {
-        dbg_log("dev "+this.device.name+" CD read-related action: no buffer", LOG_DISK);
+        dbg_log("dev "+this.channel.name+" CD read-related action: no buffer", LOG_DISK);
         this.status = 0x51;
         this.error = 0x21;
         this.data_allocate(0);
@@ -1318,14 +1317,14 @@ IDEInterface.prototype.atapi_read = function(cmd)
 
     if(!this.buffer)
     {
-        dbg_assert(false, "dev "+this.device.name+" CD read: no buffer", LOG_DISK);
+        dbg_assert(false, "dev "+this.channel.name+" CD read: no buffer", LOG_DISK);
         this.status = 0xFF;
         this.error = 0x41;
         this.push_irq();
     }
     else if(start >= this.buffer.byteLength)
     {
-        dbg_assert(false, "dev "+this.device.name+" CD read: Outside of disk  end=" + h(start + byte_count) +
+        dbg_assert(false, "dev "+this.channel.name+" CD read: Outside of disk  end=" + h(start + byte_count) +
                           " size=" + h(this.buffer.byteLength), LOG_DISK);
 
         this.status = 0xFF;
@@ -1412,7 +1411,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
 
 IDEInterface.prototype.do_atapi_dma = function()
 {
-    if((this.device.dma_status & 1) === 0)
+    if((this.channel.dma_status & 1) === 0)
     {
         dbg_log("do_atapi_dma: Status not set", LOG_DISK);
         return;
@@ -1426,7 +1425,7 @@ IDEInterface.prototype.do_atapi_dma = function()
 
     dbg_log("atapi dma transfer len=" + this.data_length, LOG_DISK);
 
-    var prdt_start = this.device.prdt_addr;
+    var prdt_start = this.channel.prdt_addr;
     var offset = 0;
 
     var data = this.data;
@@ -1461,7 +1460,7 @@ IDEInterface.prototype.do_atapi_dma = function()
     dbg_log("end offset=" + offset, LOG_DISK);
 
     this.status = 0x50;
-    this.device.dma_status &= ~1;
+    this.channel.dma_status &= ~1;
     this.bytecount = this.bytecount & ~7 | 3;
     this.push_irq();
 };
@@ -1764,7 +1763,7 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
     }
 
     this.status = 0x58;
-    this.device.dma_status |= 1;
+    this.channel.dma_status |= 1;
 };
 
 IDEInterface.prototype.do_ata_read_sectors_dma = function()
@@ -1782,13 +1781,13 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
     this.report_read_start();
 
-    var orig_prdt_start = this.device.prdt_addr;
+    var orig_prdt_start = this.channel.prdt_addr;
 
     this.read_buffer(start, byte_count, (data) =>
     {
         //setTimeout(function() {
         dbg_log("do_ata_read_sectors_dma: Data arrived", LOG_DISK);
-        var prdt_start = this.device.prdt_addr;
+        var prdt_start = this.channel.prdt_addr;
         var offset = 0;
 
         dbg_assert(orig_prdt_start === prdt_start);
@@ -1817,7 +1816,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
-        this.device.dma_status &= ~1;
+        this.channel.dma_status &= ~1;
         this.current_command = -1;
 
         this.report_read_end(byte_count);
@@ -1881,7 +1880,7 @@ IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
     }
 
     this.status = 0x58;
-    this.device.dma_status |= 1;
+    this.channel.dma_status |= 1;
 };
 
 IDEInterface.prototype.do_ata_write_sectors_dma = function()
@@ -1895,7 +1894,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    var prdt_start = this.device.prdt_addr;
+    var prdt_start = this.channel.prdt_addr;
     var offset = 0;
 
     dbg_log("prdt addr: " + h(prdt_start, 8), LOG_DISK);
@@ -1938,7 +1937,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
         this.push_irq();
-        this.device.dma_status &= ~1;
+        this.channel.dma_status &= ~1;
         this.current_command = -1;
     });
 
