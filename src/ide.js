@@ -132,6 +132,7 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
     this.ata_port = channel_config.ata_port;
     this.ata_port_high = channel_config.ata_port_high;
     this.irq = channel_config.irq;
+    this.name = "ide" + channel_nr;
 
     const create_interface = interface_nr => {
         const config = adapter_config && adapter_config[channel_nr] ?
@@ -146,7 +147,8 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
     this.interfaces = [this.master, this.slave];
     this.current_interface = this.master;
 
-    this.name = "ide" + channel_nr;
+    this.master.init_interface();
+    this.slave.init_interface();
 
     /** @type {number} */
     this.device_control = 2;
@@ -178,57 +180,55 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         return this.current_interface.read_data(4);
     });
 
-    // read Error register
     cpu.io.register_read(this.ata_port | 1, this, function()
     {
-        dbg_log("Read error: " + h(this.current_interface.error & 0xFF) +
-                " slave=" + (this.current_interface === this.slave), LOG_DISK);
+        dbg_log(this.current_interface.name + ": read Error register: " +
+            h(this.current_interface.error & 0xFF) + " slave=" +
+            (this.current_interface === this.slave), LOG_DISK);
         return this.current_interface.error & 0xFF;
     });
 
-    // read Sector Count register
     cpu.io.register_read(this.ata_port | 2, this, function()
     {
-        dbg_log("Read bytecount: " + h(this.current_interface.bytecount & 0xFF), LOG_DISK);
+        dbg_log(this.current_interface.name + ": read Sector Count register: " +
+            h(this.current_interface.bytecount & 0xFF), LOG_DISK);
         return this.current_interface.bytecount & 0xFF;
     });
 
-    // read LBA Low register
     cpu.io.register_read(this.ata_port | 3, this, function()
     {
-        dbg_log("Read sector: " + h(this.current_interface.sector & 0xFF), LOG_DISK);
+        dbg_log(this.current_interface.name + ": read LBA Low register: " +
+            h(this.current_interface.sector & 0xFF), LOG_DISK);
         return this.current_interface.sector & 0xFF;
     });
 
-    // read LBA Mid register
     cpu.io.register_read(this.ata_port | 4, this, function()
     {
-        dbg_log("Read 1F4: " + h(this.current_interface.cylinder_low & 0xFF), LOG_DISK);
+        dbg_log(this.current_interface.name + ": read LBA Mid register: " +
+            h(this.current_interface.cylinder_low & 0xFF), LOG_DISK);
         return this.current_interface.cylinder_low & 0xFF;
     });
 
-    // read LBA High register
     cpu.io.register_read(this.ata_port | 5, this, function()
     {
-        dbg_log("Read 1F5: " + h(this.current_interface.cylinder_high & 0xFF), LOG_DISK);
+        dbg_log(this.current_interface.name + ": read LBA High register: " +
+            h(this.current_interface.cylinder_high & 0xFF), LOG_DISK);
         return this.current_interface.cylinder_high & 0xFF;
     });
 
-    // read Device register
     cpu.io.register_read(this.ata_port | 6, this, function()
     {
-        dbg_log("Read 1F6", LOG_DISK);
+        dbg_log(this.current_interface.name + ": read Device register", LOG_DISK);
         return this.current_interface.drive_head & 0xFF;
     });
 
-    // read Status register
     cpu.io.register_read(this.ata_port | 7, this, function() {
-        dbg_log("lower irq", LOG_DISK);
+        dbg_log(this.current_interface.name + ": read Status register", LOG_DISK);
+        dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
         return this.read_status();
     });
 
-    // write Data register
     cpu.io.register_write(this.ata_port | 0, this, function(data)
     {
         this.current_interface.write_data_port8(data);
@@ -240,10 +240,9 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.write_data_port32(data);
     });
 
-    // write Features register
     cpu.io.register_write(this.ata_port | 1, this, function(data)
     {
-        dbg_log("1F1/lba_count: " + h(data), LOG_DISK);
+        dbg_log(this.current_interface.name + ": write Features register: " + h(data), LOG_DISK);
 /***
  *      this.master.lba_count = (this.master.lba_count << 8 | data) & 0xFFFF;
  *      this.slave.lba_count = (this.slave.lba_count << 8 | data) & 0xFFFF;
@@ -251,10 +250,9 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.lba_count = (this.current_interface.lba_count << 8 | data) & 0xFFFF;
     });
 
-    // write Sector Count register
     cpu.io.register_write(this.ata_port | 2, this, function(data)
     {
-        dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
+        dbg_log(this.current_interface.name + ": write Sector Count register: " + h(data), LOG_DISK);
 /***
  *      this.master.bytecount = (this.master.bytecount << 8 | data) & 0xFFFF;
  *      if(slave_buffer)
@@ -265,10 +263,9 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.bytecount = (this.current_interface.bytecount << 8 | data) & 0xFFFF;
     });
 
-    // write LBA Low register
     cpu.io.register_write(this.ata_port | 3, this, function(data)
     {
-        dbg_log("1F3/sector: " + h(data), LOG_DISK);
+        dbg_log(this.current_interface.name + ": write LBA Low register: " + h(data), LOG_DISK);
 /***
  *      this.master.sector = (this.master.sector << 8 | data) & 0xFFFF;
  *      if(slave_buffer)
@@ -279,10 +276,9 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.sector = (this.current_interface.sector << 8 | data) & 0xFFFF;
     });
 
-    // write LBA Mid register
     cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
-        dbg_log("1F4/sector low: " + h(data), LOG_DISK);
+        dbg_log(this.current_interface.name + ": write LBA Mid register: " + h(data), LOG_DISK);
 /***
  *      this.master.cylinder_low = (this.master.cylinder_low << 8 | data) & 0xFFFF;
  *      if(slave_buffer)
@@ -293,10 +289,9 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.cylinder_low = (this.current_interface.cylinder_low << 8 | data) & 0xFFFF;
     });
 
-    // write LBA High register
     cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
-        dbg_log("1F5/sector high: " + h(data), LOG_DISK);
+        dbg_log(this.current_interface.name + ": write LBA High register: " + h(data), LOG_DISK);
 /***
  *      this.master.cylinder_high = (this.master.cylinder_high << 8 | data) & 0xFFFF;
  *      if(slave_buffer)
@@ -307,22 +302,24 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.cylinder_high = (this.current_interface.cylinder_high << 8 | data) & 0xFFFF;
     });
 
-    // write Device register
     cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
         var slave = data & 0x10;
-        var mode = data & 0xE0;
+        // var mode = data & 0xE0;  // unused
 
-        dbg_log("1F6/drive: " + h(data, 2), LOG_DISK);
-
-        if(slave)
+        dbg_log(this.current_interface.name + ": write Device register: " + h(data, 2), LOG_DISK);
+        if((slave && this.current_interface === this.master) || (!slave && this.current_interface === this.slave))
         {
-            dbg_log("Slave", LOG_DISK);
-            this.current_interface = this.slave;
-        }
-        else
-        {
-            this.current_interface = this.master;
+            if(slave)
+            {
+                dbg_log(this.current_interface.name + ": select slave device", LOG_DISK);
+                this.current_interface = this.slave;
+            }
+            else
+            {
+                dbg_log(this.current_interface.name + ": select master device", LOG_DISK);
+                this.current_interface = this.master;
+            }
         }
 /***
  *      this.master.drive_head = data;
@@ -335,10 +332,10 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
         this.current_interface.head = data & 0xF;
     });
 
-    // write Command register
     cpu.io.register_write(this.ata_port | 7, this, function(data)
     {
-        dbg_log("lower irq", LOG_DISK);
+        dbg_log(this.current_interface.name + ": write Command register", LOG_DISK);
+        dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
         // clear error and DF bits
         this.current_interface.status &= ~(1 | (1 << 5));
@@ -378,19 +375,19 @@ function IDEChannel(adapter, adapter_config, channel_nr, channel_config)
 IDEChannel.prototype.read_status = function()
 {
     const ret = this.current_interface.drive_connected ? this.current_interface.status : 0;
-    dbg_log("dev "+this.name+" ATA read status: " + h(ret, 2), LOG_DISK);
+    dbg_log(this.current_interface.name + ": ATA read status: " + h(ret, 2), LOG_DISK);
     return ret;
 };
 
 IDEChannel.prototype.write_control = function(data)
 {
-    dbg_log("set device control: " + h(data, 2) + " interrupts " +
-            ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
+    dbg_log(this.current_interface.name + ": write Device control register: " +
+        h(data, 2) + " interrupts " + ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
 
     if(data & 0x04)
     {
-        dbg_log("Reset via control port", LOG_DISK);
-
+        dbg_log(this.current_interface.name + ": reset via control port", LOG_DISK);
+        dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
 
         this.master.device_reset();
@@ -402,25 +399,25 @@ IDEChannel.prototype.write_control = function(data)
 
 IDEChannel.prototype.dma_read_addr = function()
 {
-    dbg_log("dma get address: " + h(this.prdt_addr, 8), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA get address: " + h(this.prdt_addr, 8), LOG_DISK);
     return this.prdt_addr;
 };
 
 IDEChannel.prototype.dma_set_addr = function(data)
 {
-    dbg_log("dma set address: " + h(data, 8), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA set address: " + h(data, 8), LOG_DISK);
     this.prdt_addr = data;
 };
 
 IDEChannel.prototype.dma_read_status = function()
 {
-    dbg_log("DMA read status: " + h(this.dma_status), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA read status: " + h(this.dma_status), LOG_DISK);
     return this.dma_status;
 };
 
 IDEChannel.prototype.dma_write_status = function(value)
 {
-    dbg_log("DMA set status: " + h(value), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA write status: " + h(value), LOG_DISK);
     this.dma_status &= ~(value & 6);
 };
 
@@ -431,13 +428,13 @@ IDEChannel.prototype.dma_read_command = function()
 
 IDEChannel.prototype.dma_read_command8 = function()
 {
-    dbg_log("DMA read command: " + h(this.dma_command), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA read command: " + h(this.dma_command), LOG_DISK);
     return this.dma_command;
 };
 
 IDEChannel.prototype.dma_write_command = function(value)
 {
-    dbg_log("DMA write command: " + h(value), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA write command: " + h(value), LOG_DISK);
 
     this.dma_write_command8(value & 0xFF);
     this.dma_write_status(value >> 16 & 0xFF);
@@ -445,7 +442,7 @@ IDEChannel.prototype.dma_write_command = function(value)
 
 IDEChannel.prototype.dma_write_command8 = function(value)
 {
-    dbg_log("DMA write command8: " + h(value), LOG_DISK);
+    dbg_log(this.current_interface.name + ": DMA write command8: " + h(value), LOG_DISK);
 
     const old_command = this.dma_command;
     this.dma_command = value & 0x09;
@@ -480,9 +477,9 @@ IDEChannel.prototype.dma_write_command8 = function(value)
             break;
 
         default:
-            dbg_log("Spurious dma command write, current command: " +
+            dbg_log(this.current_interface.name + ": spurious DMA command write, current command: " +
                     h(this.current_interface.current_command), LOG_DISK);
-            dbg_log("dev "+this.name+" DMA clear status 1 bit, set status 2 bit", LOG_DISK);
+            dbg_log(this.current_interface.name + ": DMA clear status 1 bit, set status 2 bit", LOG_DISK);
             this.dma_status &= ~1;
             this.dma_status |= 2;
             this.push_irq();
@@ -494,7 +491,7 @@ IDEChannel.prototype.push_irq = function()
 {
     if((this.device_control & 2) === 0)
     {
-        dbg_log("push irq", LOG_DISK);
+        dbg_log(this.current_interface.name + ": push IRQ " + this.irq, LOG_DISK);
         this.dma_status |= 4;
         this.cpu.device_raise_irq(this.irq);
     }
@@ -536,14 +533,13 @@ IDEChannel.prototype.set_state = function(state)
     this.dma_command = state[12];
 };
 
-
 /**
  * @constructor
  */
 function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus)
 {
     this.channel = channel;
-    this.name = channel.name + ":" + interface_nr;
+    this.name = channel.name + "." + interface_nr;
 
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -649,11 +645,16 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.in_progress_io_ids = new Set();
     this.cancelled_io_ids = new Set();
 
-    this.set_cdrom(buffer);
-    this.media_changed = false;
-
-    Object.seal(this);
+    // caller must call this.init_interface() to complete object initialization
+    this.inital_buffer = buffer;
 }
+
+IDEInterface.prototype.init_interface = function()
+{
+    this.set_disk_buffer(this.inital_buffer);
+    delete this.inital_buffer;
+    Object.seal(this);
+};
 
 IDEInterface.prototype.eject = function()
 {
@@ -669,12 +670,20 @@ IDEInterface.prototype.eject = function()
 
 IDEInterface.prototype.set_cdrom = function(buffer)
 {
+    if(this.is_atapi && buffer)
+    {
+        this.set_disk_buffer(buffer);
+        this.media_changed = true;
+    }
+};
+
+IDEInterface.prototype.set_disk_buffer = function(buffer)
+{
     if(!buffer)
     {
         return;
     }
 
-    this.media_changed = true;
     this.buffer = buffer;
     if(this.is_atapi)
     {
@@ -685,7 +694,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
 
     if(this.sector_count !== (this.sector_count | 0))
     {
-        dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
+        dbg_log(this.name + ": Warning: disk size not aligned with sector size", LOG_DISK);
         this.sector_count = Math.ceil(this.sector_count);
     }
 
@@ -707,7 +716,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
 
     if(this.cylinder_count !== (this.cylinder_count | 0))
     {
-        dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
+        dbg_log(this.name + ": Warning: rounding up cylinder count, choose different head number", LOG_DISK);
         this.cylinder_count = Math.floor(this.cylinder_count);
     }
 
@@ -766,11 +775,11 @@ IDEInterface.prototype.push_irq = function()
 
 IDEInterface.prototype.ata_command = function(cmd)
 {
-    dbg_log("ATA Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
+    dbg_log(this.name + ": ATA Command: " + h(cmd) + " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
     if(!this.drive_connected && cmd !== 0x90)
     {
-        dbg_log("ignored: No slave drive connected", LOG_DISK);
+        dbg_log(this.name + ": ATA command ignored: No slave drive connected", LOG_DISK);
         return;
     }
 
@@ -780,7 +789,7 @@ IDEInterface.prototype.ata_command = function(cmd)
     switch(cmd)
     {
         case 0x08:
-            dbg_log("ATA device reset", LOG_DISK);
+            dbg_log(this.name + ": ATA device reset", LOG_DISK);
             this.data_pointer = 0;
             this.data_end = 0;
             this.data_length = 0;
@@ -789,14 +798,14 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0x10:
-            // calibrate drive
+            dbg_log(this.name + ": ATA calibrate drive", LOG_DISK);     // ATA/ATAPI-6: obsolete
             this.status = 0x50;
             this.cylinder_low = 0;
             this.push_irq();
             break;
 
         case 0xF8:
-            // read native max address
+            dbg_log(this.name + ": ATA read native max address", LOG_DISK);
             this.status = 0x50;
             var last_sector = this.sector_count - 1;
             this.sector = last_sector & 0xFF;
@@ -807,7 +816,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0x27:
-            // read native max address ext
+            dbg_log(this.name + ": ATA read native max address ext", LOG_DISK);
             this.status = 0x50;
             var last_sector = this.sector_count - 1;
             this.sector = last_sector & 0xFF;
@@ -840,7 +849,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0x90:
-            // execute device diagnostic
+            dbg_log(this.name + ": ATA execute device diagnostic", LOG_DISK);
             // assign diagnostics code (used to be 0x101?) to error register
             if(this.interface_nr === 0) {
                 // master drive is currently selected
@@ -864,7 +873,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0x91:
-            // initialize device parameters
+            // initialize device parameters (not mentioned in ATA/ATAPI-6)
             this.status = 0x50;
             this.push_irq();
             break;
@@ -882,8 +891,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0xA1:
-            dbg_log("ATA identify packet device", LOG_DISK);
-
+            dbg_log(this.name + ": ATA identify packet device", LOG_DISK);
             if(this.is_atapi)
             {
                 this.create_identify_packet();
@@ -902,9 +910,9 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0xC6:
-            // set multiple mode
+            dbg_log(this.name + ": ATA set multiple mode", LOG_DISK);
             // Logical sectors per DRQ Block in word 1
-            dbg_log("Logical sectors per DRQ Block: " + h(this.bytecount & 0xFF), LOG_DISK);
+            dbg_log(this.name + ": logical sectors per DRQ Block: " + h(this.bytecount & 0xFF), LOG_DISK);
             this.sectors_per_drq = this.bytecount & 0xFF;
             this.status = 0x50;
             this.push_irq();
@@ -921,13 +929,13 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0x40:
-            dbg_log("read verify sectors", LOG_DISK);
+            dbg_log(this.name + ": ATA read verify sector(s)", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xDA:
-            dbg_log("ATA get media status", LOG_DISK);
+            dbg_log(this.name + ": ATA get media status", LOG_DISK);
             this.status = 0x50;
             this.error = 0;
             if(this.is_atapi) {
@@ -944,25 +952,25 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0xE0:
-            dbg_log("ATA standby immediate", LOG_DISK);
+            dbg_log(this.name + ": ATA standby immediate", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xE1:
-            dbg_log("ATA idle immediate", LOG_DISK);
+            dbg_log(this.name + ": ATA idle immediate", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xE7:
-            dbg_log("ATA flush cache", LOG_DISK);
+            dbg_log(this.name + ": ATA flush cache", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xEC:
-            dbg_log("ATA identify device", LOG_DISK);
+            dbg_log(this.name + ": ATA identify device", LOG_DISK);
 
             if(this.is_atapi)
             {
@@ -979,37 +987,37 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0xEA:
-            dbg_log("flush cache ext", LOG_DISK);
+            dbg_log(this.name + ": ATA flush cache ext", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xEF:
-            dbg_log("set features: " + h(this.bytecount & 0xFF), LOG_DISK);
+            dbg_log(this.name + ": ATA set features: " + h(this.bytecount & 0xFF), LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xDE:
-            // obsolete
+            dbg_log(this.name + ": ATA media lock", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xF5:
-            dbg_log("security freeze lock", LOG_DISK);
+            dbg_log(this.name + ": ATA security freeze lock", LOG_DISK);
             this.status = 0x50;
             this.push_irq();
             break;
 
         case 0xF9:
-            dbg_log("Unimplemented: set max address", LOG_DISK);
+            dbg_log(this.name + ": ATA set max address (unimplemented)", LOG_DISK);
             this.status = 0x41;
             this.error = 4;
             break;
 
         default:
-            dbg_assert(false, "New ATA cmd on 1F7: " + h(cmd), LOG_DISK);
+            dbg_assert(false, this.name + ": unhandled ATA command: " + h(cmd), LOG_DISK);
 
             this.status = 0x41;
             // abort bit set
@@ -1019,7 +1027,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
 IDEInterface.prototype.atapi_handle = function()
 {
-    dbg_log("ATAPI Command: " + h(this.data[0]) +
+    dbg_log(this.name + ": ATAPI Command: " + h(this.data[0]) +
             " slave=" + (this.drive_head >> 4 & 1), LOG_DISK);
 
     this.data_pointer = 0;
@@ -1030,7 +1038,7 @@ IDEInterface.prototype.atapi_handle = function()
                         this.current_atapi_command === 0x43 ||
                         this.current_atapi_command === 0x51))
     {
-        dbg_log("dev "+this.channel.name+" CD read-related action: no buffer", LOG_DISK);
+        dbg_log(this.name + ": CD read-related action: no buffer", LOG_DISK);
         this.status = 0x51;
         this.error = 0x21;
         this.data_allocate(0);
@@ -1043,7 +1051,7 @@ IDEInterface.prototype.atapi_handle = function()
     switch(this.current_atapi_command)
     {
         case 0x00:
-            dbg_log("test unit ready", LOG_DISK);
+            dbg_log(this.name + ": test unit ready", LOG_DISK);
             // test unit ready
             this.data_allocate(0);
             this.data_end = this.data_length;
@@ -1066,7 +1074,7 @@ IDEInterface.prototype.atapi_handle = function()
             var length = this.data[4];
             this.status = 0x58;
 
-            dbg_log("inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
+            dbg_log(this.name + ": inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
 
             // http://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
             //this.data_allocate(36);
@@ -1139,7 +1147,7 @@ IDEInterface.prototype.atapi_handle = function()
             var length = this.data[8];
             this.data_allocate(Math.min(8, length));
             this.data_end = this.data_length;
-            dbg_log("read q subcode: length=" + length, LOG_DISK);
+            dbg_log(this.name + ": read q subcode: length=" + length, LOG_DISK);
             this.status = 0x58;
             break;
 
@@ -1150,7 +1158,7 @@ IDEInterface.prototype.atapi_handle = function()
 
             this.data_allocate(length);
             this.data_end = this.data_length;
-            dbg_log("read toc: " + h(format, 2) +
+            dbg_log(this.name + ": read toc: " + h(format, 2) +
                     " length=" + length +
                     " " + (this.data[1] & 2) +
                     " " + h(this.data[6]), LOG_DISK);
@@ -1191,7 +1199,7 @@ IDEInterface.prototype.atapi_handle = function()
             }
             else
             {
-                dbg_assert(false, "Unimplemented format: " + format);
+                dbg_assert(false, this.name + ": Unimplemented format: " + format);
             }
 
             this.status = 0x58;
@@ -1220,7 +1228,7 @@ IDEInterface.prototype.atapi_handle = function()
             break;
 
         case 0x52:
-            dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             this.status = 0x51;
             this.data_length = 0;
             this.error = 5 << 4;
@@ -1230,7 +1238,7 @@ IDEInterface.prototype.atapi_handle = function()
             // mode sense
             var length = this.data[8] | this.data[7] << 8;
             var page_code = this.data[2];
-            dbg_log("mode sense: " + h(page_code) + " length=" + length, LOG_DISK);
+            dbg_log(this.name + ": mode sense: " + h(page_code) + " length=" + length, LOG_DISK);
             if(page_code === 0x2A)
             {
                 this.data_allocate(Math.min(30, length));
@@ -1251,12 +1259,12 @@ IDEInterface.prototype.atapi_handle = function()
             this.status = 0x51;
             this.data_length = 0;
             this.error = 5 << 4;
-            dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             break;
 
         case 0xBE:
             // Hiren's boot CD
-            dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status = 0x50;
@@ -1266,7 +1274,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status = 0x51;
             this.data_length = 0;
             this.error = 5 << 4;
-            dbg_log("Unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             dbg_assert(false);
     }
 
@@ -1312,14 +1320,14 @@ IDEInterface.prototype.atapi_read = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("CD read lba=" + h(lba) +
+    dbg_log(this.name + ": CD read lba=" + h(lba) +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count) +
             " flags=" + h(flags), LOG_DISK);
 
     this.data_length = 0;
     var req_length = this.cylinder_high << 8 & 0xFF00 | this.cylinder_low & 0xFF;
-    dbg_log(h(this.cylinder_high, 2) + " " + h(this.cylinder_low, 2), LOG_DISK);
+    dbg_log(this.name + ": " + h(this.cylinder_high, 2) + " " + h(this.cylinder_low, 2), LOG_DISK);
     this.cylinder_low = this.cylinder_high = 0; // oak technology driver (windows 3.0)
 
     if(req_length === 0xFFFF)
@@ -1332,14 +1340,14 @@ IDEInterface.prototype.atapi_read = function(cmd)
 
     if(!this.buffer)
     {
-        dbg_assert(false, "dev "+this.channel.name+" CD read: no buffer", LOG_DISK);
+        dbg_assert(false, this.name + ": CD read: no buffer", LOG_DISK);
         this.status = 0xFF;
         this.error = 0x41;
         this.push_irq();
     }
     else if(start >= this.buffer.byteLength)
     {
-        dbg_assert(false, "dev "+this.channel.name+" CD read: Outside of disk  end=" + h(start + byte_count) +
+        dbg_assert(false, this.name + ": CD read: Outside of disk  end=" + h(start + byte_count) +
                           " size=" + h(this.buffer.byteLength), LOG_DISK);
 
         this.status = 0xFF;
@@ -1361,7 +1369,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
         this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
-            dbg_log("cd read: data arrived", LOG_DISK);
+            dbg_log(this.name + ": CD read: data arrived", LOG_DISK);
             this.data_set(data);
             this.status = 0x58;
             this.bytecount = this.bytecount & ~7 | 2;
@@ -1393,14 +1401,14 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("CD read DMA lba=" + h(lba) +
+    dbg_log(this.name + ": CD read DMA lba=" + h(lba) +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count) +
             " flags=" + h(flags), LOG_DISK);
 
     if(start >= this.buffer.byteLength)
     {
-        dbg_assert(false, "CD read: Outside of disk  end=" + h(start + byte_count) +
+        dbg_assert(false, this.name + ": CD read: Outside of disk  end=" + h(start + byte_count) +
                           " size=" + h(this.buffer.byteLength), LOG_DISK);
 
         this.status = 0xFF;
@@ -1413,7 +1421,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
 
         this.read_buffer(start, byte_count, (data) =>
         {
-            dbg_log("atapi_read_dma: Data arrived");
+            dbg_log(this.name + ": atapi_read_dma: Data arrived");
             this.report_read_end(byte_count);
             this.status = 0x58;
             this.bytecount = this.bytecount & ~7 | 2;
@@ -1428,17 +1436,17 @@ IDEInterface.prototype.do_atapi_dma = function()
 {
     if((this.channel.dma_status & 1) === 0)
     {
-        dbg_log("do_atapi_dma: Status not set", LOG_DISK);
+        dbg_log(this.name + ": do_atapi_dma: Status not set", LOG_DISK);
         return;
     }
 
     if((this.status & 0x8) === 0)
     {
-        dbg_log("do_atapi_dma: DRQ not set", LOG_DISK);
+        dbg_log(this.name + ": do_atapi_dma: DRQ not set", LOG_DISK);
         return;
     }
 
-    dbg_log("atapi dma transfer len=" + this.data_length, LOG_DISK);
+    dbg_log(this.name + ": ATAPI DMA transfer len=" + this.data_length, LOG_DISK);
 
     var prdt_start = this.channel.prdt_addr;
     var offset = 0;
@@ -1455,7 +1463,7 @@ IDEInterface.prototype.do_atapi_dma = function()
             count = 0x10000;
         }
 
-        dbg_log("dma read dest=" + h(addr) + " count=" + h(count) + " datalen=" + h(this.data_length), LOG_DISK);
+        dbg_log(this.name + ": DMA read dest=" + h(addr) + " count=" + h(count) + " datalen=" + h(this.data_length), LOG_DISK);
         this.cpu.write_blob(data.subarray(offset, Math.min(offset + count, this.data_length)), addr);
 
         offset += count;
@@ -1463,7 +1471,7 @@ IDEInterface.prototype.do_atapi_dma = function()
 
         if(offset >= this.data_length && !end)
         {
-            dbg_log("leave early end=" + (+end) +
+            dbg_log(this.name + ": leave early end=" + (+end) +
                     " offset=" + h(offset) +
                     " data_length=" + h(this.data_length) +
                     " cmd=" + h(this.current_command), LOG_DISK);
@@ -1472,7 +1480,7 @@ IDEInterface.prototype.do_atapi_dma = function()
     }
     while(!end);
 
-    dbg_log("end offset=" + offset, LOG_DISK);
+    dbg_log(this.name + ": end offset=" + offset, LOG_DISK);
 
     this.status = 0x50;
     this.channel.dma_status &= ~1;
@@ -1505,7 +1513,7 @@ IDEInterface.prototype.read_data = function(length)
         var align = (this.data_end & 0xFFF) === 0 ? 0xFFF : 0xFF;
         if((this.data_pointer & align) === 0)
         {
-            dbg_log("Read 1F0: " + h(this.data[this.data_pointer], 2) +
+            dbg_log(this.name + ": read 1F0: " + h(this.data[this.data_pointer], 2) +
                         " cur=" + h(this.data_pointer) +
                         " cnt=" + h(this.data_length), LOG_DISK);
         }
@@ -1519,7 +1527,7 @@ IDEInterface.prototype.read_data = function(length)
     }
     else
     {
-        dbg_log("Read 1F0: empty", LOG_DISK);
+        dbg_log(this.name + ": read 1F0: empty", LOG_DISK);
 
         this.data_pointer += length;
         return 0;
@@ -1528,8 +1536,9 @@ IDEInterface.prototype.read_data = function(length)
 
 IDEInterface.prototype.read_end = function()
 {
-    dbg_log("read_end cmd=" + h(this.current_command) + " data_pointer=" + h(this.data_pointer) +
-            " end=" + h(this.data_end) + " length=" + h(this.data_length), LOG_DISK);
+    dbg_log(this.name + ": read_end cmd=" + h(this.current_command) +
+            " data_pointer=" + h(this.data_pointer) + " end=" + h(this.data_end) +
+            " length=" + h(this.data_length), LOG_DISK);
 
     if(this.current_command === 0xA0)
     {
@@ -1556,7 +1565,7 @@ IDEInterface.prototype.read_end = function()
             {
                 this.data_end += byte_count;
             }
-            dbg_log("data_end=" + h(this.data_end), LOG_DISK);
+            dbg_log(this.name + ": data_end=" + h(this.data_end), LOG_DISK);
         }
     }
     else
@@ -1593,16 +1602,16 @@ IDEInterface.prototype.write_data_port = function(data, length)
 
     if(this.data_pointer >= this.data_end)
     {
-        dbg_log("Redundant write to data port: " + h(data) + " count=" + h(this.data_end) +
-                " cur=" + h(this.data_pointer), LOG_DISK);
+        dbg_log(this.name + ": redundant write to data port: " + h(data) + " count=" +
+                h(this.data_end) + " cur=" + h(this.data_pointer), LOG_DISK);
     }
     else
     {
         var align = (this.data_end & 0xFFF) === 0 ? 0xFFF : 0xFF;
         if((this.data_pointer + length & align) === 0 || this.data_end < 20)
         {
-            dbg_log("Data port: " + h(data >>> 0) + " count=" + h(this.data_end) +
-                    " cur=" + h(this.data_pointer), LOG_DISK);
+            dbg_log(this.name + ": data port: " + h(data >>> 0) + " count=" +
+                    h(this.data_end) + " cur=" + h(this.data_pointer), LOG_DISK);
         }
 
         if(length === 1)
@@ -1651,7 +1660,7 @@ IDEInterface.prototype.write_end = function()
     }
     else
     {
-        dbg_log("write_end data_pointer=" + h(this.data_pointer) +
+        dbg_log(this.name + ": write_end data_pointer=" + h(this.data_pointer) +
                 " data_length=" + h(this.data_length), LOG_DISK);
 
         if(this.data_pointer >= this.data_length)
@@ -1676,7 +1685,7 @@ IDEInterface.prototype.write_end = function()
 
 IDEInterface.prototype.ata_advance = function(cmd, sectors)
 {
-    dbg_log("Advance sectors=" + sectors + " old_bytecount=" + this.bytecount, LOG_DISK);
+    dbg_log(this.name + ": advance sectors=" + sectors + " old_bytecount=" + this.bytecount, LOG_DISK);
     this.bytecount -= sectors;
 
     if(cmd === 0x24 || cmd === 0x29 || cmd === 0x34 || cmd === 0x39 ||
@@ -1720,7 +1729,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("ATA read cmd=" + h(cmd) +
+    dbg_log(this.name + ": ATA read cmd=" + h(cmd) +
             " mode=" + (this.is_lba ? "lba" : "chs") +
             " lba=" + h(lba) +
             " lbacount=" + h(count) +
@@ -1728,7 +1737,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
 
     if(start + byte_count > this.buffer.byteLength)
     {
-        dbg_assert(false, "ATA read: Outside of disk", LOG_DISK);
+        dbg_assert(false, this.name + ": ATA read: Outside of disk", LOG_DISK);
 
         this.status = 0xFF;
         this.push_irq();
@@ -1741,7 +1750,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
         this.read_buffer(start, byte_count, (data) =>
         {
             //setTimeout(() => {
-            dbg_log("ata_read: Data arrived", LOG_DISK);
+            dbg_log(this.name + ": ata_read: Data arrived", LOG_DISK);
 
             this.data_set(data);
             this.status = 0x58;
@@ -1764,13 +1773,13 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("ATA DMA read lba=" + h(lba) +
+    dbg_log(this.name + ": ATA DMA read lba=" + h(lba) +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
     if(start + byte_count > this.buffer.byteLength)
     {
-        dbg_assert(false, "ATA read: Outside of disk", LOG_DISK);
+        dbg_assert(false, this.name + ": ATA read: Outside of disk", LOG_DISK);
 
         this.status = 0xFF;
         this.push_irq();
@@ -1801,7 +1810,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
     this.read_buffer(start, byte_count, (data) =>
     {
         //setTimeout(function() {
-        dbg_log("do_ata_read_sectors_dma: Data arrived", LOG_DISK);
+        dbg_log(this.name + ": do_ata_read_sectors_dma: Data arrived", LOG_DISK);
         var prdt_start = this.channel.prdt_addr;
         var offset = 0;
 
@@ -1815,10 +1824,10 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
             if(!prd_count)
             {
                 prd_count = 0x10000;
-                dbg_log("dma: prd count was 0", LOG_DISK);
+                dbg_log(this.name + ": DMA: prd count was 0", LOG_DISK);
             }
 
-            dbg_log("dma read transfer dest=" + h(prd_addr) +
+            dbg_log(this.name + ": DMA read transfer dest=" + h(prd_addr) +
                     " prd_count=" + h(prd_count), LOG_DISK);
             this.cpu.write_blob(data.subarray(offset, offset + prd_count), prd_addr);
 
@@ -1851,14 +1860,14 @@ IDEInterface.prototype.ata_write_sectors = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("ATA write lba=" + h(lba) +
+    dbg_log(this.name + ": ATA write lba=" + h(lba) +
             " mode=" + (this.is_lba ? "lba" : "chs") +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
     if(start + byte_count > this.buffer.byteLength)
     {
-        dbg_assert(false, "ATA write: Outside of disk", LOG_DISK);
+        dbg_assert(false, this.name + ": ATA write: Outside of disk", LOG_DISK);
 
         this.status = 0xFF;
         this.push_irq();
@@ -1881,13 +1890,13 @@ IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log("ATA DMA write lba=" + h(lba) +
+    dbg_log(this.name + ": ATA DMA write lba=" + h(lba) +
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
     if(start + byte_count > this.buffer.byteLength)
     {
-        dbg_assert(false, "ATA DMA write: Outside of disk", LOG_DISK);
+        dbg_assert(false, this.name + ": ATA DMA write: Outside of disk", LOG_DISK);
 
         this.status = 0xFF;
         this.push_irq();
@@ -1912,7 +1921,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
     var prdt_start = this.channel.prdt_addr;
     var offset = 0;
 
-    dbg_log("prdt addr: " + h(prdt_start, 8), LOG_DISK);
+    dbg_log(this.name + ": prdt addr: " + h(prdt_start, 8), LOG_DISK);
 
     const buffer = new Uint8Array(byte_count);
 
@@ -1924,10 +1933,10 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
         if(!prd_count)
         {
             prd_count = 0x10000;
-            dbg_log("dma: prd count was 0", LOG_DISK);
+            dbg_log(this.name + ": DMA: prd count was 0", LOG_DISK);
         }
 
-        dbg_log("dma write transfer dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
+        dbg_log(this.name + ": DMA write transfer dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
 
         var slice = this.cpu.mem8.subarray(prd_addr, prd_addr + prd_count);
         dbg_assert(slice.length === prd_count);
@@ -1948,7 +1957,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
 
     this.buffer.set(start, buffer, () =>
     {
-        dbg_log("dma write completed", LOG_DISK);
+        dbg_log(this.name + ": DMA write completed", LOG_DISK);
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
         this.push_irq();
@@ -1965,7 +1974,7 @@ IDEInterface.prototype.get_chs = function()
     var h = this.head;
     var s = this.sector & 0xFF;
 
-    dbg_log("get_chs: c=" + c + " h=" + h + " s=" + s, LOG_DISK);
+    dbg_log(this.name + ": get_chs: c=" + c + " h=" + h + " s=" + s, LOG_DISK);
 
     return (c * this.head_count + h) * this.sectors_per_track + s - 1;
 };
