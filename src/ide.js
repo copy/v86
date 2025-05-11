@@ -568,6 +568,9 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     /** @type {boolean} */
     this.drive_connected = is_cd || buffer;
 
+    /** @type {boolean} */
+    this.media_changed = false;
+
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
 
@@ -646,8 +649,8 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.in_progress_io_ids = new Set();
     this.cancelled_io_ids = new Set();
 
-    // set optional buffer for both ATA and ATAPI
     this.set_cdrom(buffer);
+    this.media_changed = false;
 
     Object.seal(this);
 }
@@ -656,6 +659,7 @@ IDEInterface.prototype.eject = function()
 {
     if(this.is_atapi && this.buffer)
     {
+        this.media_changed = true;
         this.buffer = null;
         this.status = 0x59;
         this.error = 0x60;
@@ -670,6 +674,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
         return;
     }
 
+    this.media_changed = true;
     this.buffer = buffer;
     if(this.is_atapi)
     {
@@ -922,9 +927,19 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case 0xDA:
-            dbg_log("Unimplemented: get media status", LOG_DISK);
-            this.status = 0x41;
-            this.error = 4;
+            dbg_log("ATA get media status", LOG_DISK);
+            this.status = 0x50;
+            this.error = 0;
+            if(this.is_atapi) {
+                if(!this.buffer) {
+                    this.error |= 0x02; // NM: No Media
+                }
+                if(this.media_changed) {
+                    this.error |= 0x20; // MC: Media Change
+                    this.media_changed = false;
+                }
+                this.error |= 0x40;     // WP: Write Protect
+            }
             this.push_irq();
             break;
 
