@@ -29,7 +29,7 @@ import { PS2 } from "./ps2.js";
 import { read_elf } from "./elf.js";
 
 import { FloppyController } from "./floppy.js";
-import { IDEPCIAdapter } from "./ide.js";
+import { IDEController } from "./ide.js";
 import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
@@ -1120,7 +1120,7 @@ CPU.prototype.init = function(settings, device_bus)
                 };
             }
 
-            this.devices.ide = new IDEPCIAdapter(this, device_bus, ide_config);
+            this.devices.ide = new IDEController(this, device_bus, ide_config);
 
             if(settings.hda) {
                 this.devices.hda = this.devices.ide.channels[0];
