@@ -802,7 +802,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
     switch(cmd)
     {
-        case 0x08:  // DEVICE RESET, see [ATA-6] 8.10 and 9.11
+        case 0x08:  // ATA: DEVICE RESET, see [ATA-6] 8.10 and 9.11
             dbg_log(this.name + ": ATA device reset", LOG_DISK);
             this.data_pointer = 0;
             this.data_end = 0;
@@ -811,32 +811,40 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x10:  // see [ATA-6] Table E.2: obsolete!
+        case 0x10:  // command obsolete, see [ATA-6] Table E.2
             dbg_log(this.name + ": ATA calibrate drive", LOG_DISK);
-            this.status_reg = 0x50;
             this.lba_mid_reg = 0;
+            this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
             this.push_irq();
             break;
 
-        case 0xF8:
+        case 0xF8:  // ATA: READ NATIVE MAX ADDRESS, see [ATA-6] 8.32
             dbg_log(this.name + ": ATA read native max address", LOG_DISK);
-            this.status_reg = 0x50;
             var last_sector = this.sector_count - 1;
             this.lba_low_reg = last_sector & 0xFF;
             this.lba_mid_reg = last_sector >> 8 & 0xFF;
             this.lba_high_reg = last_sector >> 16 & 0xFF;
-            this.device_reg = this.device_reg & 0xF0 | last_sector >> 24 & 0x0F;
+            this.device_reg = this.device_reg & 0x10 | last_sector >> 24 & 0x0F;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0x27:
+        case 0x27:  // ATA: READ NATIVE MAX ADDRESS EXT, see [ATA-6] 8.33
             dbg_log(this.name + ": ATA read native max address ext", LOG_DISK);
-            this.status_reg = 0x50;
             var last_sector = this.sector_count - 1;
-            this.lba_low_reg = last_sector & 0xFF;
-            this.lba_mid_reg = last_sector >> 8 & 0xFF;
-            this.lba_high_reg = last_sector >> 16 & 0xFF;
-            this.lba_low_reg |= last_sector >> 24 << 8 & 0xFF00;
+            if(this.channel.device_control_reg & ATA_CR_HOB === 0)
+            {
+                this.lba_low_reg = last_sector & 0xFF;
+                this.lba_mid_reg = last_sector >> 8 & 0xFF;
+                this.lba_high_reg = last_sector >> 16 & 0xFF;
+            }
+            else
+            {
+                this.lba_low_reg = last_sector >> 24 & 0xFF;
+                this.lba_mid_reg = last_sector >> 32 & 0xFF;
+                this.lba_high_reg = last_sector >> 40 & 0xFF;
+            }
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
@@ -862,23 +870,29 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.ata_write_sectors(cmd);
             break;
 
-        case 0x90:  // EXECUTE DEVICE DIAGNOSTIC, see [ATA-6] 8.11
+        case 0x90:  // ATA: EXECUTE DEVICE DIAGNOSTIC, see [ATA-6] 8.11
             dbg_log(this.name + ": ATA execute device diagnostic", LOG_DISK);
+            // TODO: this code is completely wrong (master device replies if slave does not exist)
             // assign diagnostic code (used to be 0x101?) to error register
-            if(this.interface_nr === 0) {
-                // master drive is currently selected
-                if(this.channel.slave.drive_connected) {
+            if(this.interface_nr === 0)
+            {
+                if(this.channel.slave.drive_connected)
+                {
                     this.error_reg = 0x01;  // Master drive passed, slave passed or not present
                 }
-                else {
+                else
+                {
                     this.error_reg = 0x81;  // Master drive passed, slave failed
                 }
             }
-            else {
-                if(this.channel.slave.drive_connected) {
+            else
+            {
+                if(this.channel.slave.drive_connected)
+                {
                     this.error_reg = 0x01;  // Slave drive passed
                 }
-                else {
+                else
+                {
                     this.error_reg = 0x00;  // Slave drive failed
                 }
             }
@@ -886,49 +900,44 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x91:
-            // initialize device parameters (not mentioned in ATA-6)
-            this.status_reg = 0x50;
+        case 0x91:  // initialize device parameters (not mentioned in [ATA-6])
+            this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
             this.push_irq();
             break;
 
-        case 0xA0:
-            // ATA packet
+        case 0xA0:  // ATA: PACKET, see [ATA-6] 8.23
             if(this.is_atapi)
             {
-                this.status_reg = 0x58;
                 this.data_allocate(12);
                 this.data_end = 12;
-                this.sector_count_reg = 1;
+                this.sector_count_reg = 0x01;                   // 0x01: indicates transfer of a command packet (C/D)
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ|0x10;  // 0x10: another command is ready to be serviced (SERV)
                 this.push_irq();
             }
             break;
 
-        case 0xA1:
+        case 0xA1:  // ATA: IDENTIFY PACKET DEVICE, see [ATA-6] 8.16
             dbg_log(this.name + ": ATA identify packet device", LOG_DISK);
             if(this.is_atapi)
             {
                 this.create_identify_packet();
-                this.status_reg = 0x58;
-
-                this.lba_mid_reg = 0x14;
-                this.lba_high_reg = 0xEB;
-
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ;
                 this.push_irq();
             }
             else
             {
-                this.status_reg = 0x41;
+                this.error_reg = ATA_ER_ABRT;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
                 this.push_irq();
             }
             break;
 
-        case 0xC6:
+        case 0xC6:  // ATA: SET MULTIPLE MODE, see [ATA-6] 8.49
             dbg_log(this.name + ": ATA set multiple mode", LOG_DISK);
             // Logical sectors per DRQ Block in word 1
             dbg_log(this.name + ": logical sectors per DRQ Block: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
             this.sectors_per_drq = this.sector_count_reg & 0xFF;
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
@@ -942,100 +951,103 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.ata_write_sectors_dma(cmd);
             break;
 
-        case 0x40:
+        case 0x40:  // ATA: READ VERIFY SECTOR(S), see [ATA-6] 8.36
             dbg_log(this.name + ": ATA read verify sector(s)", LOG_DISK);
-            this.status_reg = 0x50;
+            // TODO: check that lba_low/mid/high and sector_count regs are within the bounds of the disk's size
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xDA:
+        case 0xDA:  // ATA: GET MEDIA STATUS, see [ATA-6] 8.14
             dbg_log(this.name + ": ATA get media status", LOG_DISK);
-            this.status_reg = 0x50;
             this.error_reg = 0;
-            if(this.is_atapi) {
-                if(!this.buffer) {
+            if(this.is_atapi)
+            {
+                if(!this.buffer)
+                {
                     this.error_reg |= 0x02; // NM: No Media
                 }
-                if(this.media_changed) {
+                if(this.media_changed)
+                {
                     this.error_reg |= 0x20; // MC: Media Change
                     this.media_changed = false;
                 }
                 this.error_reg |= 0x40;     // WP: Write Protect
             }
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xE0:
+        case 0xE0:  // ATA: STANDBY IMMEDIATE, see [ATA-6] 8.53
             dbg_log(this.name + ": ATA standby immediate", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xE1:
+        case 0xE1:  // ATA: IDLE IMMEDIATE, see [ATA-6] 8.18
             dbg_log(this.name + ": ATA idle immediate", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xE7:
+        case 0xE7:  // ATA: FLUSH CACHE, see [ATA-6] 8.12
             dbg_log(this.name + ": ATA flush cache", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xEC:
+        case 0xEC:  // ATA: IDENTIFY DEVICE, see [ATA-6] 8.15
             dbg_log(this.name + ": ATA identify device", LOG_DISK);
-
             if(this.is_atapi)
             {
-                this.status_reg = 0x41;
-                this.error_reg = 4;
-                this.push_irq();
-                return;
+                this.error_reg = ATA_ER_ABRT;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
             }
-
-            this.create_identify_packet();
-            this.status_reg = 0x58;
-
+            else
+            {
+                this.create_identify_packet();
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ;
+            }
             this.push_irq();
             break;
 
-        case 0xEA:
+        case 0xEA:  // ATA: FLUSH CACHE EXT, see [ATA-6] 8.13
             dbg_log(this.name + ": ATA flush cache ext", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xEF:
+        case 0xEF:  // ATA: SET FEATURES, see [ATA-6] 8.46
             dbg_log(this.name + ": ATA set features: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
+            // TODO: this one is important, accept/refuse requested device features
             this.status_reg = 0x50;
             this.push_irq();
             break;
 
-        case 0xDE:
+        case 0xDE:  // ATA: MEDIA LOCK, see [ATA-6] 8.20
             dbg_log(this.name + ": ATA media lock", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xF5:
+        case 0xF5:  // ATA: SECURITY FREEZE LOCK, see [ATA-6] 8.41
             dbg_log(this.name + ": ATA security freeze lock", LOG_DISK);
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xF9:
+        case 0xF9:  // ATA: SET MAX, see [ATA-6] 8.47
             dbg_log(this.name + ": ATA set max address (unimplemented)", LOG_DISK);
-            this.status_reg = 0x41;
-            this.error_reg = 4;
+            this.error_reg = ATA_ER_ABRT;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+            this.push_irq();
             break;
 
         default:
             dbg_assert(false, this.name + ": unhandled ATA command: " + h(cmd), LOG_DISK);
-
-            this.status_reg = 0x41;
-            // abort bit set
-            this.error_reg = 4;
+            this.error_reg = ATA_ER_ABRT;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+            this.push_irq();
     }
 };
 
