@@ -951,6 +951,8 @@ VGAScreen.prototype.update_cursor = function()
 
     dbg_assert(row >= 0 && col >= 0);
 
+    this.bus.send("screen-update-cursor", [row, col]);
+
     // NOTE: is allowed to be out of bounds
     this.screen.update_cursor(row, col);
 };
