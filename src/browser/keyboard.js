@@ -1,11 +1,12 @@
 // For Types Only
 import { BusConnector } from "../bus.js";
 
+import { IS_MOBILE } from "../lib.js";
+
 const SHIFT_SCAN_CODE = 0x2A;
 const SCAN_CODE_RELEASE = 0x80;
 
 const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platform.toString().toLowerCase().search("win") >= 0;
-const PLATFORM_MOBILE = typeof window !== "undefined" && /Mobile|Android|iPad|iPhone/.test(window.navigator.userAgent);
 
 /**
  * @constructor
@@ -264,7 +265,7 @@ export function KeyboardAdapter(bus)
         }
         this.destroy();
 
-        if(PLATFORM_MOBILE)
+        if(IS_MOBILE)
         {
             window.addEventListener("input", input_handler, false);
         }
