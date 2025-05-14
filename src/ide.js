@@ -101,12 +101,12 @@ const ATA_CMD_SET_MAX = 0xF9;                       // see [ATA-6] 8.47
  * @param {CPU} cpu
  * @param {BusConnector} bus
  *
- * ide_config: [ [<primary-master>, <primary-slave>], [<secondary-master>, <secondary-slave>] ]
+ * ide_config: [ [primary-master, primary-slave], [secondary-master, secondary-slave] ]
  *
- *   Each of the four arguments (<primary-master>, <primary-slave>, ...) is
- *   either undefined or an ide_config object of the form:
+ *   Each of the four arguments (primary-master, primary-slave, ...) is either
+ *   undefined or an object of the form:
  *
- *       ide_config := { buffer: Uint8Array, is_cdrom: bool }
+ *       { buffer: Uint8Array, is_cdrom: bool }
  *
  *   If is_cdrom is defined and true:
  *   - If buffer is defined: create an ATAPI CD-ROM device using buffer as inserted disk
@@ -1689,7 +1689,7 @@ IDEInterface.prototype.write_data_port32 = function(data)
 
 IDEInterface.prototype.write_end = function()
 {
-    if(this.current_command === 0xA0)
+    if(this.current_command === ATA_CMD_PACKET)
     {
         this.atapi_handle();
     }
@@ -1704,9 +1704,9 @@ IDEInterface.prototype.write_end = function()
         }
         else
         {
-            dbg_assert(this.current_command === 0x30 ||
-                this.current_command === 0x34 ||
-                this.current_command === 0xC5,
+            dbg_assert(this.current_command === ATA_CMD_WRITE_SECTORS ||
+                this.current_command === ATA_CMD_WRITE_SECTORS_EXT ||
+                this.current_command === ATA_CMD_WRITE_MULTIPLE_EXT,
                 "Unexpected command: " + h(this.current_command));
 
             // XXX: Should advance here, but do_write does all the advancing
@@ -2135,7 +2135,7 @@ IDEInterface.prototype.create_identify_packet = function()
 
         0, 0,
         // 63, dma supported mode, dma selected mode
-        this.current_command === 0xA0 ? 0 : 7, this.current_command === 0xA0 ? 0 : 4,
+        this.current_command === ATA_CMD_PACKET ? 0 : 7, this.current_command === ATA_CMD_PACKET ? 0 : 4,
         //0, 0, // no DMA
 
         0, 0,
