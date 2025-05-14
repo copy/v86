@@ -1,6 +1,8 @@
 // For Types Only
 import { BusConnector } from "../bus.js";
 
+import { IS_MOBILE } from "../lib.js";
+
 const SHIFT_SCAN_CODE = 0x2A;
 const SCAN_CODE_RELEASE = 0x80;
 
@@ -251,6 +253,7 @@ export function KeyboardAdapter(bus)
             window.removeEventListener("keyup", keyup_handler, false);
             window.removeEventListener("keydown", keydown_handler, false);
             window.removeEventListener("blur", blur_handler, false);
+            window.removeEventListener("input", input_handler, false);
         }
     };
 
@@ -262,9 +265,16 @@ export function KeyboardAdapter(bus)
         }
         this.destroy();
 
-        window.addEventListener("keyup", keyup_handler, false);
-        window.addEventListener("keydown", keydown_handler, false);
-        window.addEventListener("blur", blur_handler, false);
+        if(IS_MOBILE)
+        {
+            window.addEventListener("input", input_handler, false);
+        }
+        else
+        {
+            window.addEventListener("keyup", keyup_handler, false);
+            window.addEventListener("keydown", keydown_handler, false);
+            window.addEventListener("blur", blur_handler, false);
+        }
     };
     this.init();
 
@@ -377,6 +387,39 @@ export function KeyboardAdapter(bus)
         keys_pressed = {};
     }
 
+    function input_handler(e)
+    {
+        if(!keyboard.bus)
+        {
+            return;
+        }
+
+        if(!may_handle(e))
+        {
+            return;
+        }
+
+        e.preventDefault && e.preventDefault();
+
+        switch(e.inputType)
+        {
+            case "insertText":
+                for(var i = 0; i < e.data.length; i++)
+                {
+                    keyboard.simulate_char(e.data[i]);
+                }
+                break;
+
+            case "insertLineBreak":
+                keyboard.simulate_press(13); // enter
+                break;
+
+            case "deleteContentBackward":
+                keyboard.simulate_press(8); // backspace
+                break;
+        }
+    }
+
     /**
      * @param {KeyboardEvent|Object} e
      * @param {boolean} keydown
@@ -433,7 +476,7 @@ export function KeyboardAdapter(bus)
     }
 
     /**
-     * @param {KeyboardEvent|Object} e
+     * @param {KeyboardEvent|InputEvent|Object} e
      * @param {boolean} keydown
      */
     function handle_event(e, keydown)
