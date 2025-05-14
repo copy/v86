@@ -729,4 +729,4 @@ export function read_sized_string_from_mem(mem, offset, len)
     return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
 }
 
-export const IS_MOBILE = typeof window !== "undefined" && /Mobile|Android|iPad|iPhone/.test(window.navigator.userAgent);
+export const IS_MOBILE = typeof window !== "undefined" && /Mobile|Android|iP/.test(window.navigator.userAgent);
