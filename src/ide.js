@@ -7,6 +7,11 @@ import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DIS
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 
+// ATA/ATAPI-6 IDE Controller with support for:
+// - up to 4 IDE devices (2 IDE channels with 2 IDE interfaces per channel)
+// - ATA hard-disk devices
+// - ATAPI CD-ROM devices
+//
 // References
 // [ATA-6]
 //   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a, 14 Dec. 2001)
@@ -53,9 +58,43 @@ const ATA_DR_DEV  = 0x10;   // Device select, slave device if set, else master d
 
 // Device Control register bits:
 // - Bits 0 and 3-6 are reserved.
-const ATA_CR_NIEN = 0x02;   // Interrupt disable (Not Interrupt Enable)
+const ATA_CR_nIEN = 0x02;   // Interrupt disable (not Interrupt Enable)
 const ATA_CR_SRST = 0x04;   // Software reset
 const ATA_CR_HOB  = 0x80;   // 48-bit Address feature set
+
+// ATA commands
+const ATA_CMD_DEVICE_RESET = 0x08;                  // see [ATA-6] 8.10 and 9.11
+const ATA_CMD_10h = 0x10;                           // command obsolete, see [ATA-6] Table E.2
+const ATA_CMD_READ_NATIVE_MAX_ADDRESS = 0xF8;       // see [ATA-6] 8.32
+const ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT = 0x27;   // see [ATA-6] 8.33
+const ATA_CMD_READ_SECTORS = 0x20;                  // see [ATA-6] 8.34
+const ATA_CMD_READ_SECTORS_EXT = 0x24;              // see [ATA-6] 8.35
+const ATA_CMD_READ_MULTIPLE = 0x29;                 // see [ATA-6] 8.30
+const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;             // see [ATA-6] 8.31
+const ATA_CMD_WRITE_SECTORS = 0x30;                 // see [ATA-6] 8.62
+const ATA_CMD_WRITE_SECTORS_EXT = 0x34;             // see [ATA-6] 8.63
+const ATA_CMD_WRITE_MULTIPLE = 0x39;                // see [ATA-6] 8.60
+const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;            // see [ATA-6] 8.61
+const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;     // see [ATA-6] 8.11
+const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;  // not mentioned in [ATA-6]
+const ATA_CMD_PACKET = 0xA0;                        // see [ATA-6] 8.23
+const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;        // see [ATA-6] 8.16
+const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;             // see [ATA-6] 8.49
+const ATA_CMD_READ_DMA = 0xC8;                      // see [ATA-6] 8.26
+const ATA_CMD_READ_DMA_EXT = 0x25;                  // see [ATA-6] 8.25
+const ATA_CMD_WRITE_DMA = 0xCA;                     // see [ATA-6] 8.55
+const ATA_CMD_WRITE_DMA_EXT = 0x35;                 // see [ATA-6] 8.56
+const ATA_CMD_READ_VERIFY_SECTORS = 0x40;           // see [ATA-6] 8.36
+const ATA_CMD_GET_MEDIA_STATUS = 0xDA;              // see [ATA-6] 8.14
+const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;             // see [ATA-6] 8.53
+const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                // see [ATA-6] 8.18
+const ATA_CMD_FLUSH_CACHE = 0xE7;                   // see [ATA-6] 8.12
+const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;               // see [ATA-6] 8.13
+const ATA_CMD_IDENTIFY_DEVICE = 0xEC;               // see [ATA-6] 8.15
+const ATA_CMD_SET_FEATURES = 0xEF;                  // see [ATA-6] 8.46
+const ATA_CMD_MEDIA_LOCK = 0xDE;                    // see [ATA-6] 8.20
+const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;          // see [ATA-6] 8.41
+const ATA_CMD_SET_MAX = 0xF9;                       // see [ATA-6] 8.47
 
 /**
  * @constructor
@@ -144,24 +183,15 @@ export function IDEController(cpu, bus, ide_config)
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         this.pci_bars = [
-            {
-                size: 8,    // BAR0: Command block registers of primary ATA Channel
-            },
-            {
-                size: 4,    // BAR1: Control registers of primary ATA Channel
-            },
-            {
-                size: 8,    // BAR2: Command block registers of secondary ATA Channel
-            },
-            {
-                size: 4,    // BAR3: Control registers of secondary ATA Channel
-            },
-            {
-                size: 16,   // BAR4: ATA Bus Master I/O registers (primary ATA Channel: 0..7, secondary: 8..15)
-            }
+            has_primary ? { size: 8 } : undefined,   // BAR0: Command block register address of primary channel
+            has_primary ? { size: 4 } : undefined,   // BAR1: Control block register address of primary channel
+            has_secondary ? { size: 8 } : undefined, // BAR2: Command block register address of secondary channel
+            has_secondary ? { size: 4 } : undefined, // BAR3: Control block register address of secondary channel
+            { size: 16 }                             // BAR4: Bus Master I/O register address of both channels (8+8)
         ];
         cpu.devices.pci.register_device(this);
     }
+
     Object.seal(this);
 }
 
@@ -197,7 +227,7 @@ function IDEChannel(controller, controller_config, channel_nr, channel_config)
     this.slave.init_interface();
 
     /** @type {number} */
-    this.device_control_reg = 2;
+    this.device_control_reg = ATA_CR_nIEN;
 
     /** @type {number} */
     this.prdt_addr = 0;
@@ -318,9 +348,7 @@ function IDEChannel(controller, controller_config, channel_nr, channel_config)
 
     cpu.io.register_write(this.command_base | ATA_REG_DEVICE, this, function(data)
     {
-        var slave = data & 0x10;
-        // var mode = data & 0xE0;  // unused
-
+        const slave = data & 0x10;
         dbg_log(this.current_interface.name + ": write Device register: " + h(data, 2), LOG_DISK);
         if((slave && this.current_interface === this.master) || (!slave && this.current_interface === this.slave))
         {
@@ -335,7 +363,6 @@ function IDEChannel(controller, controller_config, channel_nr, channel_config)
                 this.current_interface = this.master;
             }
         }
-
         this.current_interface.device_reg = data;
         this.current_interface.is_lba = data >> 6 & 1;
         this.current_interface.head = data & 0xF;
@@ -345,10 +372,9 @@ function IDEChannel(controller, controller_config, channel_nr, channel_config)
     {
         dbg_log(this.current_interface.name + ": write Command register", LOG_DISK);
         dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
-        this.cpu.device_lower_irq(this.irq);
-        // clear error and DF bits
-        this.current_interface.status_reg &= ~(1 | (1 << 5));
+        this.current_interface.status_reg &= ~(ATA_SR_ERR | 0x20);  // 0x20: command dependent, used to be Drive write fault (DF)
         this.current_interface.ata_command(data);
+        this.cpu.device_lower_irq(this.irq);
     });
 
     //
@@ -391,18 +417,15 @@ IDEChannel.prototype.read_status = function()
 IDEChannel.prototype.write_control = function(data)
 {
     dbg_log(this.current_interface.name + ": write Device Control register: " +
-        h(data, 2) + " interrupts " + ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
-
-    if(data & 0x04)
+        h(data, 2) + " interrupts " + ((data & ATA_CR_nIEN) ? "disabled" : "enabled"), LOG_DISK);
+    if(data & ATA_CR_SRST)
     {
-        dbg_log(this.current_interface.name + ": reset via control port", LOG_DISK);
+        dbg_log(this.current_interface.name + ": soft reset via control port", LOG_DISK);
         dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
-
         this.master.device_reset();
         this.slave.device_reset();
     }
-
     this.device_control_reg = data;
 };
 
@@ -471,24 +494,21 @@ IDEChannel.prototype.dma_write_command8 = function(value)
 
     switch(this.current_interface.current_command)
     {
-        case 0x25:
-        case 0xC8:
+        case ATA_CMD_READ_DMA:
+        case ATA_CMD_READ_DMA_EXT:
             this.current_interface.do_ata_read_sectors_dma();
             break;
-
-        case 0xCA:
-        case 0x35:
+        case ATA_CMD_WRITE_DMA:
+        case ATA_CMD_WRITE_DMA_EXT:
             this.current_interface.do_ata_write_sectors_dma();
             break;
-
-        case 0xA0:
+        case ATA_CMD_PACKET:
             this.current_interface.do_atapi_dma();
             break;
-
         default:
             dbg_log(this.current_interface.name + ": spurious DMA command write, current command: " +
                     h(this.current_interface.current_command), LOG_DISK);
-            dbg_log(this.current_interface.name + ": DMA clear status 1 bit, set status 2 bit", LOG_DISK);
+            dbg_log(this.current_interface.name + ": DMA clear status bit 1h, set status bit 2h", LOG_DISK);
             this.dma_status &= ~1;
             this.dma_status |= 2;
             this.push_irq();
@@ -498,7 +518,7 @@ IDEChannel.prototype.dma_write_command8 = function(value)
 
 IDEChannel.prototype.push_irq = function()
 {
-    if((this.device_control_reg & 2) === 0)
+    if((this.device_control_reg & ATA_CR_nIEN) === 0)
     {
         dbg_log(this.current_interface.name + ": push IRQ " + this.irq, LOG_DISK);
         this.dma_status |= 4;
@@ -625,7 +645,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.device_reg = 0;
 
     /** @type {number} */
-    this.status_reg = 0x50;
+    this.status_reg = ATA_SR_DRDY;
 
     /** @type {number} */
     this.sectors_per_drq = 0x80;
@@ -677,8 +697,8 @@ IDEInterface.prototype.eject = function()
     {
         this.media_changed = true;
         this.buffer = null;
-        this.status_reg = 0x59;
-        this.error_reg = 0x60;
+        this.status_reg = 0x59; // TODO
+        this.error_reg = 0x60;  // TODO
         this.push_irq();
     }
 };
@@ -702,8 +722,8 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     this.buffer = buffer;
     if(this.is_atapi)
     {
-        this.status_reg = 0x59;
-        this.error_reg = 0x60;
+        this.status_reg = 0x59; // TODO
+        this.error_reg = 0x60;  // TODO
     }
     this.sector_count = this.buffer.byteLength / this.sector_size;
 
@@ -776,9 +796,8 @@ IDEInterface.prototype.device_reset = function()
         this.lba_high_reg = 0;
         this.device_reg = 0;
     }
-    this.error_reg &= ~0x80;        // clear bit 7 only (explicitly, why?)
+    this.error_reg &= ~0x80;        // clear bit 7 only (explicitly)
     this.status_reg &= ~(ATA_SR_ERR|ATA_SR_BSY);
-
     this.cancel_io_operations();
 };
 
@@ -789,9 +808,9 @@ IDEInterface.prototype.push_irq = function()
 
 IDEInterface.prototype.ata_command = function(cmd)
 {
-    dbg_log(this.name + ": ATA Command: " + h(cmd) + " slave=" + (this.device_reg >> 4 & 1), LOG_DISK);
+    dbg_log(this.name + ": ATA Command: " + h(cmd), LOG_DISK);
 
-    if(!this.drive_connected && cmd !== 0x90)
+    if(!this.drive_connected && cmd !== ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC)
     {
         dbg_log(this.name + ": ATA command ignored: No slave drive connected", LOG_DISK);
         return;
@@ -802,7 +821,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
     switch(cmd)
     {
-        case 0x08:  // ATA: DEVICE RESET, see [ATA-6] 8.10 and 9.11
+        case ATA_CMD_DEVICE_RESET:
             dbg_log(this.name + ": ATA device reset", LOG_DISK);
             this.data_pointer = 0;
             this.data_end = 0;
@@ -811,25 +830,25 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x10:  // command obsolete, see [ATA-6] Table E.2
+        case ATA_CMD_10h:
             dbg_log(this.name + ": ATA calibrate drive", LOG_DISK);
             this.lba_mid_reg = 0;
             this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
             this.push_irq();
             break;
 
-        case 0xF8:  // ATA: READ NATIVE MAX ADDRESS, see [ATA-6] 8.32
+        case ATA_CMD_READ_NATIVE_MAX_ADDRESS:
             dbg_log(this.name + ": ATA read native max address", LOG_DISK);
             var last_sector = this.sector_count - 1;
             this.lba_low_reg = last_sector & 0xFF;
             this.lba_mid_reg = last_sector >> 8 & 0xFF;
             this.lba_high_reg = last_sector >> 16 & 0xFF;
-            this.device_reg = this.device_reg & 0x10 | last_sector >> 24 & 0x0F;
+            this.device_reg = this.device_reg & ATA_DR_DEV | last_sector >> 24 & 0x0F;
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0x27:  // ATA: READ NATIVE MAX ADDRESS EXT, see [ATA-6] 8.33
+        case ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT:
             dbg_log(this.name + ": ATA read native max address ext", LOG_DISK);
             var last_sector = this.sector_count - 1;
             if(this.channel.device_control_reg & ATA_CR_HOB === 0)
@@ -848,29 +867,21 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x20:
-        case 0x24:
-        case 0x29:
-        case 0xC4:
-            // 0x20 read sectors
-            // 0x24 read sectors ext
-            // 0xC4 read multiple
-            // 0x29 read multiple ext
+        case ATA_CMD_READ_SECTORS:
+        case ATA_CMD_READ_SECTORS_EXT:
+        case ATA_CMD_READ_MULTIPLE:
+        case ATA_CMD_READ_MULTIPLE_EXT:
             this.ata_read_sectors(cmd);
             break;
 
-        case 0x30:
-        case 0x34:
-        case 0x39:
-        case 0xC5:
-            // 0x30 write sectors
-            // 0x34 write sectors ext
-            // 0xC5 write multiple
-            // 0x39 write multiple ext
+        case ATA_CMD_WRITE_SECTORS:
+        case ATA_CMD_WRITE_SECTORS_EXT:
+        case ATA_CMD_WRITE_MULTIPLE:
+        case ATA_CMD_WRITE_MULTIPLE_EXT:
             this.ata_write_sectors(cmd);
             break;
 
-        case 0x90:  // ATA: EXECUTE DEVICE DIAGNOSTIC, see [ATA-6] 8.11
+        case ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC:
             dbg_log(this.name + ": ATA execute device diagnostic", LOG_DISK);
             // TODO: this code is completely wrong (master device replies if slave does not exist)
             // assign diagnostic code (used to be 0x101?) to error register
@@ -900,12 +911,12 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x91:  // initialize device parameters (not mentioned in [ATA-6])
+        case ATA_CMD_INITIALIZE_DEVICE_PARAMETERS:
             this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
             this.push_irq();
             break;
 
-        case 0xA0:  // ATA: PACKET, see [ATA-6] 8.23
+        case ATA_CMD_PACKET:
             if(this.is_atapi)
             {
                 this.data_allocate(12);
@@ -916,23 +927,22 @@ IDEInterface.prototype.ata_command = function(cmd)
             }
             break;
 
-        case 0xA1:  // ATA: IDENTIFY PACKET DEVICE, see [ATA-6] 8.16
+        case ATA_CMD_IDENTIFY_PACKET_DEVICE:
             dbg_log(this.name + ": ATA identify packet device", LOG_DISK);
             if(this.is_atapi)
             {
                 this.create_identify_packet();
                 this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ;
-                this.push_irq();
             }
             else
             {
                 this.error_reg = ATA_ER_ABRT;
                 this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-                this.push_irq();
             }
+            this.push_irq();
             break;
 
-        case 0xC6:  // ATA: SET MULTIPLE MODE, see [ATA-6] 8.49
+        case ATA_CMD_SET_MULTIPLE_MODE:
             dbg_log(this.name + ": ATA set multiple mode", LOG_DISK);
             // Logical sectors per DRQ Block in word 1
             dbg_log(this.name + ": logical sectors per DRQ Block: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
@@ -941,24 +951,24 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0x25: // read dma ext
-        case 0xC8: // read dma
+        case ATA_CMD_READ_DMA:
+        case ATA_CMD_READ_DMA_EXT:
             this.ata_read_sectors_dma(cmd);
             break;
 
-        case 0x35: // write dma ext
-        case 0xCA: // write dma
+        case ATA_CMD_WRITE_DMA:
+        case ATA_CMD_WRITE_DMA_EXT:
             this.ata_write_sectors_dma(cmd);
             break;
 
-        case 0x40:  // ATA: READ VERIFY SECTOR(S), see [ATA-6] 8.36
+        case ATA_CMD_READ_VERIFY_SECTORS:
             dbg_log(this.name + ": ATA read verify sector(s)", LOG_DISK);
             // TODO: check that lba_low/mid/high and sector_count regs are within the bounds of the disk's size
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xDA:  // ATA: GET MEDIA STATUS, see [ATA-6] 8.14
+        case ATA_CMD_GET_MEDIA_STATUS:
             dbg_log(this.name + ": ATA get media status", LOG_DISK);
             this.error_reg = 0;
             if(this.is_atapi)
@@ -978,25 +988,31 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0xE0:  // ATA: STANDBY IMMEDIATE, see [ATA-6] 8.53
+        case ATA_CMD_STANDBY_IMMEDIATE:
             dbg_log(this.name + ": ATA standby immediate", LOG_DISK);
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xE1:  // ATA: IDLE IMMEDIATE, see [ATA-6] 8.18
+        case ATA_CMD_IDLE_IMMEDIATE:
             dbg_log(this.name + ": ATA idle immediate", LOG_DISK);
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xE7:  // ATA: FLUSH CACHE, see [ATA-6] 8.12
+        case ATA_CMD_FLUSH_CACHE:
             dbg_log(this.name + ": ATA flush cache", LOG_DISK);
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xEC:  // ATA: IDENTIFY DEVICE, see [ATA-6] 8.15
+        case ATA_CMD_FLUSH_CACHE_EXT:
+            dbg_log(this.name + ": ATA flush cache ext", LOG_DISK);
+            this.status_reg = ATA_SR_DRDY;
+            this.push_irq();
+            break;
+
+        case ATA_CMD_IDENTIFY_DEVICE:
             dbg_log(this.name + ": ATA identify device", LOG_DISK);
             if(this.is_atapi)
             {
@@ -1011,32 +1027,26 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
-        case 0xEA:  // ATA: FLUSH CACHE EXT, see [ATA-6] 8.13
-            dbg_log(this.name + ": ATA flush cache ext", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
-            this.push_irq();
-            break;
-
-        case 0xEF:  // ATA: SET FEATURES, see [ATA-6] 8.46
+        case ATA_CMD_SET_FEATURES:
             dbg_log(this.name + ": ATA set features: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
             // TODO: this one is important, accept/refuse requested device features
-            this.status_reg = 0x50;
+            this.status_reg = 0x50; // TODO
             this.push_irq();
             break;
 
-        case 0xDE:  // ATA: MEDIA LOCK, see [ATA-6] 8.20
+        case ATA_CMD_MEDIA_LOCK:
             dbg_log(this.name + ": ATA media lock", LOG_DISK);
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xF5:  // ATA: SECURITY FREEZE LOCK, see [ATA-6] 8.41
+        case ATA_CMD_SECURITY_FREEZE_LOCK:
             dbg_log(this.name + ": ATA security freeze lock", LOG_DISK);
             this.status_reg = ATA_SR_DRDY;
             this.push_irq();
             break;
 
-        case 0xF9:  // ATA: SET MAX, see [ATA-6] 8.47
+        case ATA_CMD_SET_MAX:
             dbg_log(this.name + ": ATA set max address (unimplemented)", LOG_DISK);
             this.error_reg = ATA_ER_ABRT;
             this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
@@ -1053,8 +1063,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
 IDEInterface.prototype.atapi_handle = function()
 {
-    dbg_log(this.name + ": ATAPI Command: " + h(this.data[0]) +
-            " slave=" + (this.device_reg >> 4 & 1), LOG_DISK);
+    dbg_log(this.name + ": ATAPI Command: " + h(this.data[0]), LOG_DISK);
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
@@ -1566,7 +1575,7 @@ IDEInterface.prototype.read_end = function()
             " data_pointer=" + h(this.data_pointer) + " end=" + h(this.data_end) +
             " length=" + h(this.data_length), LOG_DISK);
 
-    if(this.current_command === 0xA0)
+    if(this.current_command === ATA_CMD_PACKET)
     {
         if(this.data_end === this.data_length)
         {
@@ -1603,7 +1612,7 @@ IDEInterface.prototype.read_end = function()
         }
         else
         {
-            if(this.current_command === 0xC4 || this.current_command === 0x29)
+            if(this.current_command === ATA_CMD_READ_MULTIPLE || this.current_command === ATA_CMD_READ_MULTIPLE_EXT)
             {
                 var sector_count = Math.min(this.sectors_per_drq,
                     (this.data_length - this.data_end) / 512);
@@ -1611,7 +1620,7 @@ IDEInterface.prototype.read_end = function()
             }
             else
             {
-                dbg_assert(this.current_command === 0x20 || this.current_command === 0x24);
+                dbg_assert(this.current_command === ATA_CMD_READ_SECTORS || this.current_command === ATA_CMD_READ_SECTORS_EXT);
                 var sector_count = 1;
             }
             this.ata_advance(this.current_command, sector_count);
@@ -1714,8 +1723,12 @@ IDEInterface.prototype.ata_advance = function(cmd, sectors)
     dbg_log(this.name + ": advance sectors=" + sectors + " old_sector_count_reg=" + this.sector_count_reg, LOG_DISK);
     this.sector_count_reg -= sectors;
 
-    if(cmd === 0x24 || cmd === 0x29 || cmd === 0x34 || cmd === 0x39 ||
-       cmd === 0x25 || cmd === 0x35)
+    if(cmd === ATA_CMD_READ_SECTORS_EXT ||
+            cmd === ATA_CMD_READ_MULTIPLE ||
+            cmd === ATA_CMD_READ_DMA_EXT ||
+            cmd === ATA_CMD_WRITE_SECTORS_EXT ||
+            cmd === ATA_CMD_WRITE_MULTIPLE ||
+            cmd === ATA_CMD_WRITE_DMA_EXT)
     {
         var new_sector = sectors + this.get_lba48();
         this.lba_low_reg = new_sector & 0xFF | new_sector >> 16 & 0xFF00;
@@ -1746,11 +1759,11 @@ IDEInterface.prototype.ata_advance = function(cmd, sectors)
 
 IDEInterface.prototype.ata_read_sectors = function(cmd)
 {
-    var is_lba48 = cmd === 0x24 || cmd === 0x29;
+    var is_lba48 = cmd === ATA_CMD_READ_SECTORS_EXT || cmd === ATA_CMD_READ_MULTIPLE;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
-    var is_single = cmd === 0x20 || cmd === 0x24;
+    var is_single = cmd === ATA_CMD_READ_SECTORS || cmd === ATA_CMD_READ_SECTORS_EXT;
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1792,7 +1805,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
 
 IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
 {
-    var is_lba48 = cmd === 0x25;
+    var is_lba48 = cmd === ATA_CMD_READ_DMA_EXT;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
@@ -1820,7 +1833,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 {
     var cmd = this.current_command;
 
-    var is_lba48 = cmd === 0x25;
+    var is_lba48 = cmd === ATA_CMD_READ_DMA_EXT;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
@@ -1877,11 +1890,11 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
 IDEInterface.prototype.ata_write_sectors = function(cmd)
 {
-    var is_lba48 = cmd === 0x34 || cmd === 0x39;
+    var is_lba48 = cmd === ATA_CMD_WRITE_SECTORS_EXT || cmd === ATA_CMD_WRITE_MULTIPLE;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
-    var is_single = cmd === 0x30 || cmd === 0x34;
+    var is_single = cmd === ATA_CMD_WRITE_SECTORS || cmd === ATA_CMD_WRITE_SECTORS_EXT;
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1909,7 +1922,7 @@ IDEInterface.prototype.ata_write_sectors = function(cmd)
 
 IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
 {
-    var is_lba48 = cmd === 0x35;
+    var is_lba48 = cmd === ATA_CMD_WRITE_DMA_EXT;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
@@ -1937,7 +1950,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
 {
     var cmd = this.current_command;
 
-    var is_lba48 = cmd === 0x35;
+    var is_lba48 = cmd === ATA_CMD_WRITE_DMA_EXT;
     var count = this.get_count(is_lba48);
     var lba = this.get_lba(is_lba48);
 
@@ -2252,6 +2265,8 @@ IDEInterface.prototype.get_state = function()
     state[26] = this.data_end;
     state[27] = this.current_atapi_command;
     state[28] = this.buffer;
+    state[29] = this.drive_connected;
+    state[30] = this.media_changed;
     return state;
 };
 
@@ -2288,4 +2303,7 @@ IDEInterface.prototype.set_state = function(state)
     this.data32 = new Int32Array(this.data.buffer);
 
     this.buffer && this.buffer.set_state(state[28]);
+
+    this.drive_connected = state[29] === undefined ? this.is_atapi || this.buffer : state[29];
+    this.media_changed = state[30] === undefined ? false : state[30];
 };
