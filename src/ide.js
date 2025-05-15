@@ -13,9 +13,12 @@ import { BusConnector } from "./bus.js";
 // - ATAPI CD-ROM devices
 //
 // References
-// [ATA-6]
-//   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a, 14 Dec. 2001)
+// - [ATA-6]
+//   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a; Dec. 14, 2001)
 //   https://technion-csl.github.io/ose/readings/hardware/ATA-d1410r3a.pdf
+// - [MMC-3]
+//   SCSI Multimedia Commands - 3 (MMC-3) (Rev. 10g; Nov. 12, 2001)
+//   https://ia902808.us.archive.org/33/items/mmc3r10g/mmc3r10g.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -95,6 +98,25 @@ const ATA_CMD_SET_FEATURES = 0xEF;                  // see [ATA-6] 8.46
 const ATA_CMD_MEDIA_LOCK = 0xDE;                    // see [ATA-6] 8.20
 const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;          // see [ATA-6] 8.41
 const ATA_CMD_SET_MAX = 0xF9;                       // see [ATA-6] 8.47
+
+// ATAPI MMC commands (not all commands have their own chapter):
+const MMC_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-3]
+const MMC_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-3]
+const MMC_CMD_INQUIRY = 0x12;                       // see [MMC-3]
+const MMC_CMD_MODE_SENSE_6 = 0x1A;                  // see [MMC-3]
+const MMC_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-3]
+const MMC_CMD_READ_CAPACITY = 0x25;                 // see [MMC-3] 5.16
+const MMC_CMD_READ = 0x28;                          // see [MMC-3] 5.14
+const MMC_CMD_READ_SUBCHANNEL = 0x42;               // see [MMC-3] 5.22
+const MMC_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [MMC-3] 5.23
+const MMC_CMD_GET_CONFIGURATION = 0x46;             // see [MMC-3] 5.5
+const MMC_CMD_READ_DISK_INFORMATION = 0x51;         // see [MMC-3] 5.19
+const MMC_CMD_READ_TRACK_INFORMATION = 0x52;        // see [MMC-3] 5.24
+const MMC_CMD_MODE_SENSE_10 = 0x5A;                 // see [MMC-3]
+const MMC_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-3] 5.9
+const MMC_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-3] 5.6
+const MMC_CMD_READ_CD = 0xBE;                       // see [MMC-3] 5.17
+//const MMC_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;            // see [MMC-3] 5.8
 
 /**
  * @constructor
@@ -1067,11 +1089,11 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
-    if(!this.buffer && (this.current_atapi_command === 0x25 ||
-                        this.current_atapi_command === 0x28 ||
-                        this.current_atapi_command === 0x42 ||
-                        this.current_atapi_command === 0x43 ||
-                        this.current_atapi_command === 0x51))
+    if(!this.buffer && (this.current_atapi_command === MMC_CMD_READ_CAPACITY ||
+                        this.current_atapi_command === MMC_CMD_READ ||
+                        this.current_atapi_command === MMC_CMD_READ_SUBCHANNEL ||
+                        this.current_atapi_command === MMC_CMD_READ_TOC_PMA_ATIP ||
+                        this.current_atapi_command === MMC_CMD_READ_DISK_INFORMATION))
     {
         dbg_log(this.name + ": CD read-related action: no buffer", LOG_DISK);
         this.status_reg = 0x51;
@@ -1085,31 +1107,28 @@ IDEInterface.prototype.atapi_handle = function()
 
     switch(this.current_atapi_command)
     {
-        case 0x00:
-            dbg_log(this.name + ": test unit ready", LOG_DISK);
-            // test unit ready
+        case MMC_CMD_TEST_UNIT_READY:
+            dbg_log(this.name + ": ATAPI test unit ready", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case 0x03:
-            // request sense
+        case MMC_CMD_REQUEST_SENSE:
+            dbg_log(this.name + ": ATAPI request sense", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
             this.status_reg = 0x58;
-
             this.data[0] = 0x80 | 0x70;
             this.data[2] = this.error_reg >> 4;
             this.data[7] = 8;
             break;
 
-        case 0x12:
-            // inquiry
+        case MMC_CMD_INQUIRY:
             var length = this.data[4];
             this.status_reg = 0x58;
 
-            dbg_log(this.name + ": inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
+            dbg_log(this.name + ": ATAPI inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
 
             // http://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
             //this.data_allocate(36);
@@ -1135,22 +1154,22 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_end = this.data_length = Math.min(36, length);
             break;
 
-        case 0x1A:
-            // mode sense (6)
+        case MMC_CMD_MODE_SENSE_6:
+            dbg_log(this.name + ": ATAPI mode sense (6)", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
             this.status_reg = 0x58;
             break;
 
-        case 0x1E:
-            // prevent/allow medium removal
+        case MMC_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
+            dbg_log(this.name + ": ATAPI prevent allow medium removal", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case 0x25:
-            // read capacity
+        case MMC_CMD_READ_CAPACITY:
+            dbg_log(this.name + ": ATAPI read capacity", LOG_DISK);
             var count = this.sector_count - 1;
             this.data_set(new Uint8Array([
                 count >> 24 & 0xFF,
@@ -1166,8 +1185,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case 0x28:
-            // read
+        case MMC_CMD_READ:
             if(this.features_reg & 1)
             {
                 this.atapi_read_dma(this.data);
@@ -1178,29 +1196,28 @@ IDEInterface.prototype.atapi_handle = function()
             }
             break;
 
-        case 0x42:
+        case MMC_CMD_READ_SUBCHANNEL:
             var length = this.data[8];
             this.data_allocate(Math.min(8, length));
             this.data_end = this.data_length;
-            dbg_log(this.name + ": read q subcode: length=" + length, LOG_DISK);
+            dbg_log(this.name + ": ATAPI read subchannel: length=" + length, LOG_DISK);
             this.status_reg = 0x58;
             break;
 
-        case 0x43:
-            // read toc
+        case MMC_CMD_READ_TOC_PMA_ATIP:
             var length = this.data[8] | this.data[7] << 8;
             var format = this.data[9] >> 6;
 
             this.data_allocate(length);
             this.data_end = this.data_length;
-            dbg_log(this.name + ": read toc: " + h(format, 2) +
+            dbg_log(this.name + ": ATAPI read toc/pma/atip: " + h(format, 2) +
                     " length=" + length +
                     " " + (this.data[1] & 2) +
                     " " + h(this.data[6]), LOG_DISK);
 
             if(format === 0)
             {
-                var sector_count = this.sector_count;
+                const sector_count = this.sector_count;
                 this.data.set(new Uint8Array([
                     0, 18, // length
                     1, 1, // first and last session
@@ -1234,16 +1251,15 @@ IDEInterface.prototype.atapi_handle = function()
             }
             else
             {
-                dbg_assert(false, this.name + ": Unimplemented format: " + format);
+                dbg_assert(false, this.name + ": unimplemented format: " + format);
             }
 
             this.status_reg = 0x58;
             break;
 
-        case 0x46:
-            // get configuration
-            var length = this.data[8] | this.data[7] << 8;
-            length = Math.min(length, 32);
+        case MMC_CMD_GET_CONFIGURATION:
+            var length = Math.min(this.data[8] | this.data[7] << 8, 32);
+            dbg_log(this.name + ": ATAPI get configuration: length=" + length, LOG_DISK);
             this.data_allocate(length);
             this.data_end = this.data_length;
             this.data[0] = length - 4 >> 24 & 0xFF;
@@ -1255,25 +1271,24 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case 0x51:
-            // read disk information
+        case MMC_CMD_READ_DISK_INFORMATION:
+            dbg_log(this.name + ": ATAPI read disk information", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case 0x52:
-            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+        case MMC_CMD_READ_TRACK_INFORMATION:
+            dbg_log(this.name + ": ATAPI read track information (unimplemented)", LOG_DISK);
             this.status_reg = 0x51;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             break;
 
-        case 0x5A:
-            // mode sense
+        case MMC_CMD_MODE_SENSE_10:
             var length = this.data[8] | this.data[7] << 8;
             var page_code = this.data[2];
-            dbg_log(this.name + ": mode sense: " + h(page_code) + " length=" + length, LOG_DISK);
+            dbg_log(this.name + ": ATAPI mode sense (10): page_code=" + h(page_code) + " length=" + length, LOG_DISK);
             if(page_code === 0x2A)
             {
                 this.data_allocate(Math.min(30, length));
@@ -1282,24 +1297,23 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case 0xBD:
-            // mechanism status
+        case MMC_CMD_MECHANISM_STATUS:
+            dbg_log(this.name + ": ATAPI mechanism status", LOG_DISK);
             this.data_allocate(this.data[9] | this.data[8] << 8);
             this.data_end = this.data_length;
             this.data[5] = 1;
             this.status_reg = 0x58;
             break;
 
-        case 0x4A:
+        case MMC_CMD_GET_EVENT_STATUS_NOTIFICATION:
+            dbg_log(this.name + ": ATAPI get event status notification (unimplemented)", LOG_DISK);
             this.status_reg = 0x51;
             this.data_length = 0;
             this.error_reg = 5 << 4;
-            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             break;
 
-        case 0xBE:
-            // Hiren's boot CD
-            dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
+        case MMC_CMD_READ_CD:
+            dbg_log(this.name + ": ATAPI read cd (unimplemented)", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
