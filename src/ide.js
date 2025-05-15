@@ -16,6 +16,9 @@ import { BusConnector } from "./bus.js";
 // - [ATA-6]
 //   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a; Dec. 14, 2001)
 //   https://technion-csl.github.io/ose/readings/hardware/ATA-d1410r3a.pdf
+// - [SPC-3]
+//   SCSI Primary Commands - 3 (SPC-3) (Jul 20, 2008)
+//   https://www.t10.org/ftp/t10/document.08/08-309r0.pdf
 // - [MMC-3]
 //   SCSI Multimedia Commands - 3 (MMC-3) (Rev. 10g; Nov. 12, 2001)
 //   https://ia902808.us.archive.org/33/items/mmc3r10g/mmc3r10g.pdf
@@ -43,80 +46,80 @@ const ATA_REG_COMMAND    = 0x07;  // Command register, see [ATA-6] 7.4
 const ATA_REG_CONTROL    = 0x02;  // (*1*) Device Control register, see [ATA-6] 7.8
 
 // Error register bits:
-// - All remaining bits (except bit 3) are command dependent.
-const ATA_ER_ABRT = 0x04;   // Command aborted
+// All bits except for bit 0x04 are command dependent.
+const ATA_ER_ABRT = 0x04;  // Command aborted
 
 // Status register bits:
-// - Bits 1 and 2 are obsolete, 4 and 5 are command dependent.
-// - Bit 1 used to be called "Index" (IDX), bit 2 "Corrected data" (CORR),
-//   bit 4 "Drive seek complete" (DSC), and bit 5 "Drive write fault" (DF).
-const ATA_SR_ERR  = 0x01;   // Error
-const ATA_SR_DRQ  = 0x08;   // Data request ready
-const ATA_SR_DRDY = 0x40;   // Drive ready
-const ATA_SR_BSY  = 0x80;   // Busy
+// Bits 0x02/0x04 are obsolete and 0x10/0x20 are command dependent.
+// Bit 0x02 used to be called "Index" (IDX), bit 0x04 "Corrected data" (CORR),
+// bit 0x10 "Drive seek complete" (DSC), and bit 0x20 "Drive write fault" (DF).
+const ATA_SR_ERR  = 0x01;  // Error
+const ATA_SR_DRQ  = 0x08;  // Data request ready
+const ATA_SR_DRDY = 0x40;  // Drive ready
+const ATA_SR_BSY  = 0x80;  // Busy
 
 // Device register bits:
-// - Bits 5 and 7 are obsolete, 0-3 and 6 are command dependent.
-const ATA_DR_DEV  = 0x10;   // Device select, slave device if set, else master device
+// Bits 0x20/0x80 are obsolete and 0x01/0x02/0x04/0x08/0x40 are command dependent.
+const ATA_DR_DEV  = 0x10;  // Device select, slave device if set, else master device
 
 // Device Control register bits:
-// - Bits 0 and 3-6 are reserved.
-const ATA_CR_nIEN = 0x02;   // Interrupt disable (not Interrupt Enable)
-const ATA_CR_SRST = 0x04;   // Software reset
-const ATA_CR_HOB  = 0x80;   // 48-bit Address feature set
+// Bits 0x08/0x10/0x20/0x40 are reserved and bit 0x01 is always zero.
+const ATA_CR_nIEN = 0x02;  // Interrupt disable (not Interrupt Enable)
+const ATA_CR_SRST = 0x04;  // Software reset
+const ATA_CR_HOB  = 0x80;  // 48-bit Address feature set
 
 // ATA commands
-const ATA_CMD_DEVICE_RESET = 0x08;                  // see [ATA-6] 8.10 and 9.11
-const ATA_CMD_10h = 0x10;                           // command obsolete, see [ATA-6] Table E.2
-const ATA_CMD_READ_NATIVE_MAX_ADDRESS = 0xF8;       // see [ATA-6] 8.32
-const ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT = 0x27;   // see [ATA-6] 8.33
-const ATA_CMD_READ_SECTORS = 0x20;                  // see [ATA-6] 8.34
-const ATA_CMD_READ_SECTORS_EXT = 0x24;              // see [ATA-6] 8.35
-const ATA_CMD_READ_MULTIPLE = 0x29;                 // see [ATA-6] 8.30
-const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;             // see [ATA-6] 8.31
-const ATA_CMD_WRITE_SECTORS = 0x30;                 // see [ATA-6] 8.62
-const ATA_CMD_WRITE_SECTORS_EXT = 0x34;             // see [ATA-6] 8.63
-const ATA_CMD_WRITE_MULTIPLE = 0x39;                // see [ATA-6] 8.60
-const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;            // see [ATA-6] 8.61
-const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;     // see [ATA-6] 8.11
-const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;  // not mentioned in [ATA-6]
-const ATA_CMD_PACKET = 0xA0;                        // see [ATA-6] 8.23
-const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;        // see [ATA-6] 8.16
-const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;             // see [ATA-6] 8.49
-const ATA_CMD_READ_DMA = 0xC8;                      // see [ATA-6] 8.26
-const ATA_CMD_READ_DMA_EXT = 0x25;                  // see [ATA-6] 8.25
-const ATA_CMD_WRITE_DMA = 0xCA;                     // see [ATA-6] 8.55
-const ATA_CMD_WRITE_DMA_EXT = 0x35;                 // see [ATA-6] 8.56
-const ATA_CMD_READ_VERIFY_SECTORS = 0x40;           // see [ATA-6] 8.36
-const ATA_CMD_GET_MEDIA_STATUS = 0xDA;              // see [ATA-6] 8.14
-const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;             // see [ATA-6] 8.53
-const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                // see [ATA-6] 8.18
-const ATA_CMD_FLUSH_CACHE = 0xE7;                   // see [ATA-6] 8.12
-const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;               // see [ATA-6] 8.13
-const ATA_CMD_IDENTIFY_DEVICE = 0xEC;               // see [ATA-6] 8.15
-const ATA_CMD_SET_FEATURES = 0xEF;                  // see [ATA-6] 8.46
-const ATA_CMD_MEDIA_LOCK = 0xDE;                    // see [ATA-6] 8.20
-const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;          // see [ATA-6] 8.41
-const ATA_CMD_SET_MAX = 0xF9;                       // see [ATA-6] 8.47
+const ATA_CMD_DEVICE_RESET = 0x08;                    // see [ATA-6] 8.10 and 9.11
+const ATA_CMD_10h = 0x10;                             // command obsolete, see [ATA-6] Table E.2
+const ATA_CMD_READ_NATIVE_MAX_ADDRESS = 0xF8;         // see [ATA-6] 8.32
+const ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT = 0x27;     // see [ATA-6] 8.33
+const ATA_CMD_READ_SECTORS = 0x20;                    // see [ATA-6] 8.34
+const ATA_CMD_READ_SECTORS_EXT = 0x24;                // see [ATA-6] 8.35
+const ATA_CMD_READ_MULTIPLE = 0x29;                   // see [ATA-6] 8.30
+const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;               // see [ATA-6] 8.31
+const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA-6] 8.62
+const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA-6] 8.63
+const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA-6] 8.60
+const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA-6] 8.61
+const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;       // see [ATA-6] 8.11
+const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6]
+const ATA_CMD_PACKET = 0xA0;                          // see [ATA-6] 8.23
+const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA-6] 8.16
+const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;               // see [ATA-6] 8.49
+const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA-6] 8.26
+const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA-6] 8.25
+const ATA_CMD_WRITE_DMA = 0xCA;                       // see [ATA-6] 8.55
+const ATA_CMD_WRITE_DMA_EXT = 0x35;                   // see [ATA-6] 8.56
+const ATA_CMD_READ_VERIFY_SECTORS = 0x40;             // see [ATA-6] 8.36
+const ATA_CMD_GET_MEDIA_STATUS = 0xDA;                // see [ATA-6] 8.14
+const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;               // see [ATA-6] 8.53
+const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA-6] 8.18
+const ATA_CMD_FLUSH_CACHE = 0xE7;                     // see [ATA-6] 8.12
+const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;                 // see [ATA-6] 8.13
+const ATA_CMD_IDENTIFY_DEVICE = 0xEC;                 // see [ATA-6] 8.15
+const ATA_CMD_SET_FEATURES = 0xEF;                    // see [ATA-6] 8.46
+const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
+const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA-6] 8.41
+const ATA_CMD_SET_MAX = 0xF9;                         // see [ATA-6] 8.47
 
-// ATAPI MMC commands (not all commands have their own chapter):
-const MMC_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-3]
-const MMC_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-3]
-const MMC_CMD_INQUIRY = 0x12;                       // see [MMC-3]
-const MMC_CMD_MODE_SENSE_6 = 0x1A;                  // see [MMC-3]
-const MMC_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-3]
-const MMC_CMD_READ_CAPACITY = 0x25;                 // see [MMC-3] 5.16
-const MMC_CMD_READ = 0x28;                          // see [MMC-3] 5.14
-const MMC_CMD_READ_SUBCHANNEL = 0x42;               // see [MMC-3] 5.22
-const MMC_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [MMC-3] 5.23
-const MMC_CMD_GET_CONFIGURATION = 0x46;             // see [MMC-3] 5.5
-const MMC_CMD_READ_DISK_INFORMATION = 0x51;         // see [MMC-3] 5.19
-const MMC_CMD_READ_TRACK_INFORMATION = 0x52;        // see [MMC-3] 5.24
-const MMC_CMD_MODE_SENSE_10 = 0x5A;                 // see [MMC-3]
-const MMC_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-3] 5.9
-const MMC_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-3] 5.6
-const MMC_CMD_READ_CD = 0xBE;                       // see [MMC-3] 5.17
-//const MMC_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;            // see [MMC-3] 5.8
+// ATAPI commands
+const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [SPC-3] 6.33
+const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [SPC-3] 6.27
+const ATAPI_CMD_INQUIRY = 0x12;                       // see [SPC-3] 6.4
+const ATAPI_CMD_MODE_SENSE_6 = 0x1A;                  // see [SPC-3] 6.9
+const ATAPI_CMD_MODE_SENSE_10 = 0x5A;                 // see [SPC-3] 6.10
+const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [SPC-3] 6.13
+const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-3] 5.16
+const ATAPI_CMD_READ = 0x28;                          // see [MMC-3] 5.14
+const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [MMC-3] 5.22
+const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [MMC-3] 5.23
+const ATAPI_CMD_GET_CONFIGURATION = 0x46;             // see [MMC-3] 5.5
+const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [MMC-3] 5.19
+const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [MMC-3] 5.24
+const ATAPI_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-3] 5.9
+const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-3] 5.6
+const ATAPI_CMD_READ_CD = 0xBE;                       // see [MMC-3] 5.17
+//const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;          // see [MMC-3] 5.8, TODO: not implemented, might be useful
 
 /**
  * @constructor
@@ -152,13 +155,13 @@ export function IDEController(cpu, bus, ide_config)
     if(has_primary || has_secondary) {
         const bus_master_base = 0xB400;
         if(has_primary) {
-            this.primary = new IDEChannel(this, ide_config, 0, {
+            this.primary = new IDEChannel(this, 0, ide_config[0], {
                 command_base: 0x1f0, control_base: 0x3f4, bus_master_base: bus_master_base, irq: 14
             });
             this.channels[0] = this.primary;
         }
         if(has_secondary) {
-            this.secondary = new IDEChannel(this, ide_config, 1, {
+            this.secondary = new IDEChannel(this, 1, ide_config[1], {
                 command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base | 0x8, irq: 15
             });
             this.channels[1] = this.secondary;
@@ -222,19 +225,18 @@ export function IDEController(cpu, bus, ide_config)
  * @param {IDEController} controller
  * @param {number} channel_nr
  * */
-function IDEChannel(controller, controller_config, channel_nr, channel_config)
+function IDEChannel(controller, channel_nr, channel_config, hw_settings)
 {
     this.controller = controller;
     this.cpu = controller.cpu;
     this.bus = controller.bus;
-    this.command_base = channel_config.command_base;
-    this.control_base = channel_config.control_base;
-    this.irq = channel_config.irq;
+    this.command_base = hw_settings.command_base;
+    this.control_base = hw_settings.control_base;
+    this.irq = hw_settings.irq;
     this.name = "ide" + channel_nr;
 
     const create_interface = interface_nr => {
-        const config = controller_config && controller_config[channel_nr] ?
-            controller_config[channel_nr][interface_nr] : undefined;
+        const config = channel_config ? channel_config[interface_nr] : undefined;
         const buffer = config ? config.buffer : undefined;
         const is_cdrom = config ? !!config.is_cdrom : false;
         return new IDEInterface(this, this.cpu, buffer, is_cdrom, channel_nr, interface_nr, this.bus);
@@ -413,7 +415,7 @@ function IDEChannel(controller, controller_config, channel_nr, channel_config)
     // Bus Master Registers: bus_master_base + 0...15 (BAR4: B400h, lower 8 for primary and upper 8 for secondary channel)
     //
 
-    const bus_master_base = channel_config.bus_master_base;
+    const bus_master_base = hw_settings.bus_master_base;
 
     cpu.io.register_read(bus_master_base, this,
                          this.dma_read_command8, undefined, this.dma_read_command);
@@ -1089,11 +1091,11 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
-    if(!this.buffer && (this.current_atapi_command === MMC_CMD_READ_CAPACITY ||
-                        this.current_atapi_command === MMC_CMD_READ ||
-                        this.current_atapi_command === MMC_CMD_READ_SUBCHANNEL ||
-                        this.current_atapi_command === MMC_CMD_READ_TOC_PMA_ATIP ||
-                        this.current_atapi_command === MMC_CMD_READ_DISK_INFORMATION))
+    if(!this.buffer && (this.current_atapi_command === ATAPI_CMD_READ_CAPACITY ||
+                        this.current_atapi_command === ATAPI_CMD_READ ||
+                        this.current_atapi_command === ATAPI_CMD_READ_SUBCHANNEL ||
+                        this.current_atapi_command === ATAPI_CMD_READ_TOC_PMA_ATIP ||
+                        this.current_atapi_command === ATAPI_CMD_READ_DISK_INFORMATION))
     {
         dbg_log(this.name + ": CD read-related action: no buffer", LOG_DISK);
         this.status_reg = 0x51;
@@ -1107,14 +1109,14 @@ IDEInterface.prototype.atapi_handle = function()
 
     switch(this.current_atapi_command)
     {
-        case MMC_CMD_TEST_UNIT_READY:
+        case ATAPI_CMD_TEST_UNIT_READY:
             dbg_log(this.name + ": ATAPI test unit ready", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case MMC_CMD_REQUEST_SENSE:
+        case ATAPI_CMD_REQUEST_SENSE:
             dbg_log(this.name + ": ATAPI request sense", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
@@ -1124,7 +1126,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.data[7] = 8;
             break;
 
-        case MMC_CMD_INQUIRY:
+        case ATAPI_CMD_INQUIRY:
             var length = this.data[4];
             this.status_reg = 0x58;
 
@@ -1154,21 +1156,21 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_end = this.data_length = Math.min(36, length);
             break;
 
-        case MMC_CMD_MODE_SENSE_6:
+        case ATAPI_CMD_MODE_SENSE_6:
             dbg_log(this.name + ": ATAPI mode sense (6)", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
+        case ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
             dbg_log(this.name + ": ATAPI prevent allow medium removal", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case MMC_CMD_READ_CAPACITY:
+        case ATAPI_CMD_READ_CAPACITY:
             dbg_log(this.name + ": ATAPI read capacity", LOG_DISK);
             var count = this.sector_count - 1;
             this.data_set(new Uint8Array([
@@ -1185,7 +1187,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_READ:
+        case ATAPI_CMD_READ:
             if(this.features_reg & 1)
             {
                 this.atapi_read_dma(this.data);
@@ -1196,7 +1198,7 @@ IDEInterface.prototype.atapi_handle = function()
             }
             break;
 
-        case MMC_CMD_READ_SUBCHANNEL:
+        case ATAPI_CMD_READ_SUBCHANNEL:
             var length = this.data[8];
             this.data_allocate(Math.min(8, length));
             this.data_end = this.data_length;
@@ -1204,7 +1206,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_READ_TOC_PMA_ATIP:
+        case ATAPI_CMD_READ_TOC_PMA_ATIP:
             var length = this.data[8] | this.data[7] << 8;
             var format = this.data[9] >> 6;
 
@@ -1257,7 +1259,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_GET_CONFIGURATION:
+        case ATAPI_CMD_GET_CONFIGURATION:
             var length = Math.min(this.data[8] | this.data[7] << 8, 32);
             dbg_log(this.name + ": ATAPI get configuration: length=" + length, LOG_DISK);
             this.data_allocate(length);
@@ -1271,21 +1273,21 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_READ_DISK_INFORMATION:
+        case ATAPI_CMD_READ_DISK_INFORMATION:
             dbg_log(this.name + ": ATAPI read disk information", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
             this.status_reg = 0x50;
             break;
 
-        case MMC_CMD_READ_TRACK_INFORMATION:
+        case ATAPI_CMD_READ_TRACK_INFORMATION:
             dbg_log(this.name + ": ATAPI read track information (unimplemented)", LOG_DISK);
             this.status_reg = 0x51;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             break;
 
-        case MMC_CMD_MODE_SENSE_10:
+        case ATAPI_CMD_MODE_SENSE_10:
             var length = this.data[8] | this.data[7] << 8;
             var page_code = this.data[2];
             dbg_log(this.name + ": ATAPI mode sense (10): page_code=" + h(page_code) + " length=" + length, LOG_DISK);
@@ -1297,7 +1299,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_MECHANISM_STATUS:
+        case ATAPI_CMD_MECHANISM_STATUS:
             dbg_log(this.name + ": ATAPI mechanism status", LOG_DISK);
             this.data_allocate(this.data[9] | this.data[8] << 8);
             this.data_end = this.data_length;
@@ -1305,14 +1307,14 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = 0x58;
             break;
 
-        case MMC_CMD_GET_EVENT_STATUS_NOTIFICATION:
+        case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
             dbg_log(this.name + ": ATAPI get event status notification (unimplemented)", LOG_DISK);
             this.status_reg = 0x51;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             break;
 
-        case MMC_CMD_READ_CD:
+        case ATAPI_CMD_READ_CD:
             dbg_log(this.name + ": ATAPI read cd (unimplemented)", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
@@ -1329,12 +1331,12 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.sector_count_reg = this.sector_count_reg & ~7 | 2;
 
-    if((this.status_reg & 0x80) === 0)
+    if((this.status_reg & ATA_SR_BSY) === 0)
     {
         this.push_irq();
     }
 
-    if((this.status_reg & 0x80) === 0 && this.data_length === 0)
+    if((this.status_reg & ATA_SR_BSY) === 0 && this.data_length === 0)
     {
         this.sector_count_reg |= 1;
         this.status_reg &= ~8;
