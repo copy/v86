@@ -16,6 +16,9 @@ import { BusConnector } from "./bus.js";
 // - [ATA-6]
 //   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a; Dec. 14, 2001)
 //   https://technion-csl.github.io/ose/readings/hardware/ATA-d1410r3a.pdf
+// - [SAM-3]
+//   SCSI Architecture Model - 3 (SAM-3) (Rev. 14; Sep. 21, 2004)
+//   https://dn790004.ca.archive.org/0/items/SCSISpecificationDocumentsSCSIDocuments/SCSI%20Architecture%20Model/SCSI%20Architecture%20Model%203%20rev%2014.pdf
 // - [SPC-3]
 //   SCSI Primary Commands - 3 (SPC-3) (Jul 20, 2008)
 //   https://www.t10.org/ftp/t10/document.08/08-309r0.pdf
@@ -60,11 +63,11 @@ const ATA_SR_BSY  = 0x80;  // Busy
 
 // Device register bits:
 // Bits 0x20/0x80 are obsolete and 0x01/0x02/0x04/0x08/0x40 are command dependent.
-const ATA_DR_DEV  = 0x10;  // Device select, slave device if set, else master device
+const ATA_DR_DEV  = 0x10;  // Device select; slave device if set, else master device
 
 // Device Control register bits:
 // Bits 0x08/0x10/0x20/0x40 are reserved and bit 0x01 is always zero.
-const ATA_CR_nIEN = 0x02;  // Interrupt disable (not Interrupt Enable)
+const ATA_CR_nIEN = 0x02;  // Interrupt disable (not Interrupt ENable)
 const ATA_CR_SRST = 0x04;  // Software reset
 const ATA_CR_HOB  = 0x80;  // 48-bit Address feature set
 
@@ -121,6 +124,33 @@ const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-3] 5.6
 const ATAPI_CMD_READ_CD = 0xBE;                       // see [MMC-3] 5.17
 //const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;          // see [MMC-3] 5.8, TODO: not implemented, might be useful
 
+// ATAPI Status Code, see [SAM-3] 5.3.1
+const ATAPI_SC_GOOD = 0x00;
+const ATAPI_SC_CHECK_CONDITION = 0x02;
+const ATAPI_SC_CONDITION_MET = 0x04;
+const ATAPI_SC_BUSY = 0x08;
+const ATAPI_SC_INTERMEDIATE = 0x10;
+const ATAPI_SC_INTERMEDIATE_CONDITION_MET = 0x14;
+const ATAPI_SC_RESERVATION_CONFLICT = 0x18;
+const ATAPI_SC_TASK_SET_FULL = 0x28;
+const ATAPI_SC_ACA_ACTIVE = 0x30;
+const ATAPI_SC_TASK_ABORTED = 0x40;
+
+// ATAPI 4-bit Sense Key, see [SPC-3] 4.5.6 (Table 27)
+const ATAPI_SK_NO_SENSE = 0x00;
+const ATAPI_SK_RECOVERED_ERROR = 0x01;
+const ATAPI_SK_NOT_READY = 0x02;
+const ATAPI_SK_MEDIUM_ERROR = 0x03;
+const ATAPI_SK_HARDWARE_ERROR = 0x04;
+const ATAPI_SK_ILLEGAL_REQUEST = 0x05;
+const ATAPI_SK_UNIT_ATTENTION = 0x06;
+const ATAPI_SK_DATA_PROTECT = 0x07;
+const ATAPI_SK_BLANK_CHECK = 0x08;
+const ATAPI_SK_ABORTED_COMMAND = 0x0B;
+
+// ATAPI 8-bit Additional Sense Code, see [SPC-3] 4.5.6 (Table 28)
+const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -152,17 +182,20 @@ export function IDEController(cpu, bus, ide_config)
 
     const has_primary = ide_config && ide_config[0][0];
     const has_secondary = ide_config && ide_config[1][0];
-    if(has_primary || has_secondary) {
+    if(has_primary || has_secondary)
+    {
         const bus_master_base = 0xB400;
-        if(has_primary) {
+        if(has_primary)
+        {
             this.primary = new IDEChannel(this, 0, ide_config[0], {
                 command_base: 0x1f0, control_base: 0x3f4, bus_master_base: bus_master_base, irq: 14
             });
             this.channels[0] = this.primary;
         }
-        if(has_secondary) {
+        if(has_secondary)
+        {
             this.secondary = new IDEChannel(this, 1, ide_config[1], {
-                command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base | 0x8, irq: 15
+                command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base + 8, irq: 15
             });
             this.channels[1] = this.secondary;
         }
@@ -322,7 +355,8 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
         return this.current_interface.device_reg & 0xFF;
     });
 
-    cpu.io.register_read(this.command_base | ATA_REG_STATUS, this, function() {
+    cpu.io.register_read(this.command_base | ATA_REG_STATUS, this, function()
+    {
         dbg_log(this.current_interface.name + ": read Status register", LOG_DISK);
         dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
@@ -624,7 +658,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.drive_connected = is_cd || buffer;
 
     /** @type {boolean} */
-    this.media_changed = false;
+    this.media_changed = false; // TODO
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
@@ -796,7 +830,8 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
     rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
 
-    if(this.channel.cpu) {
+    if(this.channel.cpu)
+    {
         this.push_irq();
     }
 };
@@ -1339,7 +1374,7 @@ IDEInterface.prototype.atapi_handle = function()
     if((this.status_reg & ATA_SR_BSY) === 0 && this.data_length === 0)
     {
         this.sector_count_reg |= 1;
-        this.status_reg &= ~8;
+        this.status_reg &= ~ATA_SR_DRQ;
     }
 };
 
@@ -1491,7 +1526,7 @@ IDEInterface.prototype.do_atapi_dma = function()
         return;
     }
 
-    if((this.status_reg & 0x8) === 0)
+    if((this.status_reg & ATA_SR_DRQ) === 0)
     {
         dbg_log(this.name + ": do_atapi_dma: DRQ not set", LOG_DISK);
         return;
