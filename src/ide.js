@@ -7,24 +7,16 @@ import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DIS
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 
-// ATA/ATAPI-6 IDE Controller with support for:
-// - up to 4 IDE devices (2 IDE channels with 2 IDE interfaces per channel)
-// - ATA hard-disk devices
-// - ATAPI CD-ROM devices
+// ATA/ATAPI-6 IDE Controller
 //
 // References
 // - [ATA-6]
 //   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a; Dec. 14, 2001)
 //   https://technion-csl.github.io/ose/readings/hardware/ATA-d1410r3a.pdf
-// - [SAM-3]
-//   SCSI Architecture Model - 3 (SAM-3) (Rev. 14; Sep. 21, 2004)
-//   https://dn790004.ca.archive.org/0/items/SCSISpecificationDocumentsSCSIDocuments/SCSI%20Architecture%20Model/SCSI%20Architecture%20Model%203%20rev%2014.pdf
-// - [SPC-3]
-//   SCSI Primary Commands - 3 (SPC-3) (Jul 20, 2008)
-//   https://www.t10.org/ftp/t10/document.08/08-309r0.pdf
-// - [MMC-3]
-//   SCSI Multimedia Commands - 3 (MMC-3) (Rev. 10g; Nov. 12, 2001)
-//   https://ia902808.us.archive.org/33/items/mmc3r10g/mmc3r10g.pdf
+// - [CD-SCSI-2]
+//   PROPOSAL FOR CD-ROM IN SCSI-2 (X3T9.2/87) (Rev. 0, Jun. 30, 1987)
+//   https://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
+//   https://www.t10.org/ftp/x3t9.2/document.87/87-106r1.txt (errata to r0)
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -110,51 +102,24 @@ const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
 const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA-6] 8.41
 const ATA_CMD_SET_MAX = 0xF9;                         // see [ATA-6] 8.47
 
-// ATAPI commands
-const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [SPC-3] 6.33
-const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [SPC-3] 6.27
-const ATAPI_CMD_INQUIRY = 0x12;                       // see [SPC-3] 6.4
-const ATAPI_CMD_MODE_SENSE_6 = 0x1A;                  // see [SPC-3] 6.9
-const ATAPI_CMD_MODE_SENSE_10 = 0x5A;                 // see [SPC-3] 6.10
-const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [SPC-3] 6.13
-const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-3] 5.16
-const ATAPI_CMD_READ = 0x28;                          // see [MMC-3] 5.14
-const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [MMC-3] 5.22
-const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [MMC-3] 5.23
-const ATAPI_CMD_GET_CONFIGURATION = 0x46;             // see [MMC-3] 5.5
-const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [MMC-3] 5.19
-const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [MMC-3] 5.24
-const ATAPI_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-3] 5.9
-const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-3] 5.6
-const ATAPI_CMD_READ_CD = 0xBE;                       // see [MMC-3] 5.17
-//const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;          // see [MMC-3] 5.8, TODO: not implemented, might be useful
-
-// ATAPI Status Code, see [SAM-3] 5.3.1
-const ATAPI_SC_GOOD = 0x00;
-const ATAPI_SC_CHECK_CONDITION = 0x02;
-const ATAPI_SC_CONDITION_MET = 0x04;
-const ATAPI_SC_BUSY = 0x08;
-const ATAPI_SC_INTERMEDIATE = 0x10;
-const ATAPI_SC_INTERMEDIATE_CONDITION_MET = 0x14;
-const ATAPI_SC_RESERVATION_CONFLICT = 0x18;
-const ATAPI_SC_TASK_SET_FULL = 0x28;
-const ATAPI_SC_ACA_ACTIVE = 0x30;
-const ATAPI_SC_TASK_ABORTED = 0x40;
-
-// ATAPI 4-bit Sense Key, see [SPC-3] 4.5.6 (Table 27)
-const ATAPI_SK_NO_SENSE = 0x00;
-const ATAPI_SK_RECOVERED_ERROR = 0x01;
-const ATAPI_SK_NOT_READY = 0x02;
-const ATAPI_SK_MEDIUM_ERROR = 0x03;
-const ATAPI_SK_HARDWARE_ERROR = 0x04;
-const ATAPI_SK_ILLEGAL_REQUEST = 0x05;
-const ATAPI_SK_UNIT_ATTENTION = 0x06;
-const ATAPI_SK_DATA_PROTECT = 0x07;
-const ATAPI_SK_BLANK_CHECK = 0x08;
-const ATAPI_SK_ABORTED_COMMAND = 0x0B;
-
-// ATAPI 8-bit Additional Sense Code, see [SPC-3] 4.5.6 (Table 28)
-const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
+// ATAPI (SCSI-2) commands, see [CD-SCSI-2]
+const ATAPI_CMD_TEST_UNIT_READY = 0x00;
+const ATAPI_CMD_REQUEST_SENSE = 0x03;
+const ATAPI_CMD_INQUIRY = 0x12;
+const ATAPI_CMD_MODE_SENSE_6 = 0x1A;
+const ATAPI_CMD_MODE_SENSE_10 = 0x5A;
+const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;
+const ATAPI_CMD_READ_CAPACITY = 0x25;
+const ATAPI_CMD_READ = 0x28;
+const ATAPI_CMD_READ_SUBCHANNEL = 0x42;
+const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;
+const ATAPI_CMD_GET_CONFIGURATION = 0x46;
+const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;
+const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;
+const ATAPI_CMD_MECHANISM_STATUS = 0xBD;
+const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A;
+const ATAPI_CMD_READ_CD = 0xBE;
+//const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;    // TODO: not implemented, might be useful
 
 /**
  * @constructor
@@ -1162,35 +1127,30 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.data[0] = 0x80 | 0x70;             // valid | SCSI error code
             this.data[2] = this.error_reg >> 4;     // SCSI sense key (TODO: always 0, which means no errors or warnings)
-            this.data[7] = 8;                       // SCSI additional sense length, fixed
+            this.data[7] = 8;                       // SCSI additional sense length (fixed 8 for this error code 0x70)
             this.data[12] = 0;                      // SCSI additional sense code
+            this.data[13] = 0;                      // SCSI additional sense code qualifier
             break;
 
         case ATAPI_CMD_INQUIRY:
             var length = this.data[4];
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-
             dbg_log(this.name + ": ATAPI inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
-
-            // http://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
-            //this.data_allocate(36);
+            // for data layout see [CD-SCSI-2] "INQUIRY Command"
             this.data.set([
-                0x05, 0x80, 0x01, 0x31,
-                // additional length
-                31,
-                0, 0, 0,
-
-                // 8
+                // 0: Device-type, Removable, ANSI-Version, Response Format
+                this.drive_connected ? 0x05 : 0x7F, 0x80, 0x01, 0x31,   // TODO: drive_connected likely not needed
+                // 4: Additional length, Reserved, Reserved, Reserved
+                0x31, 0, 0, 0,
+                // 8: Vendor Identification "SONY    "
                 0x53, 0x4F, 0x4E, 0x59,
                 0x20, 0x20, 0x20, 0x20,
-
-                // 16
+                // 16: Product Identification "CD-ROM CDU-1000 "
                 0x43, 0x44, 0x2D, 0x52,
                 0x4F, 0x4D, 0x20, 0x43,
                 0x44, 0x55, 0x2D, 0x31,
                 0x30, 0x30, 0x30, 0x20,
-
-                // 32
+                // 32: Product Revision Level "1.1a"
                 0x31, 0x2E, 0x31, 0x61,
             ]);
             this.data_end = this.data_length = Math.min(36, length);
@@ -1240,9 +1200,9 @@ IDEInterface.prototype.atapi_handle = function()
 
         case ATAPI_CMD_READ_SUBCHANNEL:
             var length = this.data[8];
+            dbg_log(this.name + ": ATAPI read subchannel: length=" + length, LOG_DISK);
             this.data_allocate(Math.min(8, length));
             this.data_end = this.data_length;
-            dbg_log(this.name + ": ATAPI read subchannel: length=" + length, LOG_DISK);
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
