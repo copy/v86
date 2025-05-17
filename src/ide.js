@@ -17,6 +17,9 @@ import { BusConnector } from "./bus.js";
 //   PROPOSAL FOR CD-ROM IN SCSI-2 (X3T9.2/87) (Rev. 0, Jun. 30, 1987)
 //   https://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
 //   https://www.t10.org/ftp/x3t9.2/document.87/87-106r1.txt (errata to r0)
+// - [MMC-2]
+//   Packet Commands for C/DVD Devices (1997)
+//   https://www.t10.org/ftp/t10/document.97/97-108r0.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -70,56 +73,56 @@ const ATA_CR_HOB  = 0x80;  // 48-bit Address feature set
 
 // ATA commands
 const ATA_CMD_DEVICE_RESET = 0x08;                    // see [ATA-6] 8.10 and 9.11
-const ATA_CMD_10h = 0x10;                             // command obsolete, see [ATA-6] Table E.2
+const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;       // see [ATA-6] 8.11
+const ATA_CMD_FLUSH_CACHE = 0xE7;                     // see [ATA-6] 8.12
+const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;                 // see [ATA-6] 8.13
+const ATA_CMD_GET_MEDIA_STATUS = 0xDA;                // see [ATA-6] 8.14
+const ATA_CMD_IDENTIFY_DEVICE = 0xEC;                 // see [ATA-6] 8.15
+const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA-6] 8.16
+const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA-6] 8.18
+const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6]
+const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
+const ATA_CMD_PACKET = 0xA0;                          // see [ATA-6] 8.23
+const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA-6] 8.26
+const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA-6] 8.25
+const ATA_CMD_READ_MULTIPLE = 0x29;                   // see [ATA-6] 8.30
+const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;               // see [ATA-6] 8.31
 const ATA_CMD_READ_NATIVE_MAX_ADDRESS = 0xF8;         // see [ATA-6] 8.32
 const ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT = 0x27;     // see [ATA-6] 8.33
 const ATA_CMD_READ_SECTORS = 0x20;                    // see [ATA-6] 8.34
 const ATA_CMD_READ_SECTORS_EXT = 0x24;                // see [ATA-6] 8.35
-const ATA_CMD_READ_MULTIPLE = 0x29;                   // see [ATA-6] 8.30
-const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;               // see [ATA-6] 8.31
-const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA-6] 8.62
-const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA-6] 8.63
-const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA-6] 8.60
-const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA-6] 8.61
-const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;       // see [ATA-6] 8.11
-const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6]
-const ATA_CMD_PACKET = 0xA0;                          // see [ATA-6] 8.23
-const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA-6] 8.16
+const ATA_CMD_READ_VERIFY_SECTORS = 0x40;             // see [ATA-6] 8.36
+const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA-6] 8.41
+const ATA_CMD_SET_FEATURES = 0xEF;                    // see [ATA-6] 8.46
+const ATA_CMD_SET_MAX = 0xF9;                         // see [ATA-6] 8.47
 const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;               // see [ATA-6] 8.49
-const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA-6] 8.26
-const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA-6] 8.25
+const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;               // see [ATA-6] 8.53
 const ATA_CMD_WRITE_DMA = 0xCA;                       // see [ATA-6] 8.55
 const ATA_CMD_WRITE_DMA_EXT = 0x35;                   // see [ATA-6] 8.56
-const ATA_CMD_READ_VERIFY_SECTORS = 0x40;             // see [ATA-6] 8.36
-const ATA_CMD_GET_MEDIA_STATUS = 0xDA;                // see [ATA-6] 8.14
-const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;               // see [ATA-6] 8.53
-const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA-6] 8.18
-const ATA_CMD_FLUSH_CACHE = 0xE7;                     // see [ATA-6] 8.12
-const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;                 // see [ATA-6] 8.13
-const ATA_CMD_IDENTIFY_DEVICE = 0xEC;                 // see [ATA-6] 8.15
-const ATA_CMD_SET_FEATURES = 0xEF;                    // see [ATA-6] 8.46
-const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
-const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA-6] 8.41
-const ATA_CMD_SET_MAX = 0xF9;                         // see [ATA-6] 8.47
+const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA-6] 8.60
+const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA-6] 8.61
+const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA-6] 8.62
+const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA-6] 8.63
+const ATA_CMD_10h = 0x10;                             // command obsolete/unknown, see [ATA-6] Table E.2
 
-// ATAPI (SCSI-2) commands, see [CD-SCSI-2]
-const ATAPI_CMD_TEST_UNIT_READY = 0x00;
-const ATAPI_CMD_REQUEST_SENSE = 0x03;
-const ATAPI_CMD_INQUIRY = 0x12;
-const ATAPI_CMD_MODE_SENSE_6 = 0x1A;
-const ATAPI_CMD_MODE_SENSE_10 = 0x5A;
-const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;
-const ATAPI_CMD_READ_CAPACITY = 0x25;
-const ATAPI_CMD_READ = 0x28;
-const ATAPI_CMD_READ_SUBCHANNEL = 0x42;
-const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;
-const ATAPI_CMD_GET_CONFIGURATION = 0x46;
-const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;
-const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;
-const ATAPI_CMD_MECHANISM_STATUS = 0xBD;
-const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A;
-const ATAPI_CMD_READ_CD = 0xBE;
-//const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;    // TODO: not implemented, might be useful
+// ATAPI (SCSI-2/MMC-2) commands
+const ATAPI_CMD_GET_CONFIGURATION = 0x46;             // see [CD-SCSI-2]
+const ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION = 0x4A; // see [MMC-2] 9.1.2
+const ATAPI_CMD_INQUIRY = 0x12;                       // see [MMC-2] 9.1.3
+//const ATAPI_CMD_LOAD_UNLOAD_MEDIUM = 0xA6;          // see [MMC-2] 9.1.4 -- TODO: not implemented, might be useful
+const ATAPI_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-2] 9.1.5
+const ATAPI_CMD_MODE_SENSE_6 = 0x1A;                  // see [CD-SCSI-2]
+const ATAPI_CMD_MODE_SENSE_10 = 0x5A;                 // see [MMC-2] 9.1.7
+const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-2] 9.1.9
+const ATAPI_CMD_READ = 0x28;                          // see [CD-SCSI-2]
+const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-2] 9.1.12
+const ATAPI_CMD_READ_CD = 0xBE;                       // see [CD-SCSI-2]
+const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [CD-SCSI-2]
+const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [CD-SCSI-2]
+const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [CD-SCSI-2]
+const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
+const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
+const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
 
 /**
  * @constructor
