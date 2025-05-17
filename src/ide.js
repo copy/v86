@@ -56,8 +56,13 @@ const ATA_ER_ABRT = 0x04;  // Command aborted
 // Bits 0x02/0x04 are obsolete and 0x10/0x20 are command dependent.
 // Bit 0x02 used to be called "Index" (IDX), bit 0x04 "Corrected data" (CORR),
 // bit 0x10 "Drive seek complete" (DSC), and bit 0x20 "Drive write fault" (DF).
+// NOTE:
+//   This code uses ATA_SR_DSC in the old style, this is either unneccessary
+//   or means that this code was originally not based on ATA/ATAPI-6 but an
+//   older release (ATA/ATAPI-4 or even older).
 const ATA_SR_ERR  = 0x01;  // Error
 const ATA_SR_DRQ  = 0x08;  // Data request ready
+const ATA_SR_DSC  = 0x10;  // Drive seek complete
 const ATA_SR_DRDY = 0x40;  // Drive ready
 const ATA_SR_BSY  = 0x80;  // Busy
 
@@ -703,7 +708,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.device_reg = 0;
 
     /** @type {number} */
-    this.status_reg = ATA_SR_DRDY;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
 
     /** @type {number} */
     this.sectors_per_drq = 0x80;
@@ -892,7 +897,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_10h:
             dbg_log(this.name + ": ATA calibrate drive", LOG_DISK);
             this.lba_mid_reg = 0;
-            this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -903,7 +908,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.lba_mid_reg = last_sector >> 8 & 0xFF;
             this.lba_high_reg = last_sector >> 16 & 0xFF;
             this.device_reg = this.device_reg & ATA_DR_DEV | last_sector >> 24 & 0x0F;
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -922,7 +927,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 this.lba_mid_reg = last_sector >> 32 & 0xFF;
                 this.lba_high_reg = last_sector >> 40 & 0xFF;
             }
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -966,12 +971,12 @@ IDEInterface.prototype.ata_command = function(cmd)
                     this.error_reg = 0x00;  // Slave drive failed
                 }
             }
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_INITIALIZE_DEVICE_PARAMETERS:
-            this.status_reg = 0x50; // unknown, likely ATA_SR_DRDY
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -980,8 +985,8 @@ IDEInterface.prototype.ata_command = function(cmd)
             {
                 this.data_allocate(12);
                 this.data_end = 12;
-                this.sector_count_reg = 0x01;                   // 0x01: indicates transfer of a command packet (C/D)
-                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ|0x10;  // 0x10: another command is ready to be serviced (SERV)
+                this.sector_count_reg = 0x01;                           // 0x01: indicates transfer of a command packet (C/D)
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;    // 0x10: another command is ready to be serviced (SERV)
                 this.push_irq();
             }
             break;
@@ -991,7 +996,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             if(this.is_atapi)
             {
                 this.create_identify_packet();
-                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             }
             else
             {
@@ -1006,7 +1011,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             // Logical sectors per DRQ Block in word 1
             dbg_log(this.name + ": logical sectors per DRQ Block: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
             this.sectors_per_drq = this.sector_count_reg & 0xFF;
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -1023,13 +1028,12 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_READ_VERIFY_SECTORS:
             dbg_log(this.name + ": ATA read verify sector(s)", LOG_DISK);
             // TODO: check that lba_low/mid/high and sector_count regs are within the bounds of the disk's size
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_GET_MEDIA_STATUS:
             dbg_log(this.name + ": ATA get media status", LOG_DISK);
-            this.error_reg = 0;
             if(this.is_atapi)
             {
                 if(!this.buffer)
@@ -1043,31 +1047,31 @@ IDEInterface.prototype.ata_command = function(cmd)
                 }
                 this.error_reg |= 0x40;     // WP: Write Protect
             }
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_STANDBY_IMMEDIATE:
             dbg_log(this.name + ": ATA standby immediate", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_IDLE_IMMEDIATE:
             dbg_log(this.name + ": ATA idle immediate", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_FLUSH_CACHE:
             dbg_log(this.name + ": ATA flush cache", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_FLUSH_CACHE_EXT:
             dbg_log(this.name + ": ATA flush cache ext", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -1081,7 +1085,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             else
             {
                 this.create_identify_packet();
-                this.status_reg = ATA_SR_DRDY|ATA_SR_DRQ;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             }
             this.push_irq();
             break;
@@ -1089,7 +1093,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_SET_FEATURES:
             dbg_log(this.name + ": ATA set features: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
             // TODO: this one is important, accept/refuse requested device features
-            this.status_reg = 0x50; // TODO
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -1101,7 +1105,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_SECURITY_FREEZE_LOCK:
             dbg_log(this.name + ": ATA security freeze lock", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -1133,8 +1137,8 @@ IDEInterface.prototype.atapi_handle = function()
                         this.current_atapi_command === ATAPI_CMD_READ_DISK_INFORMATION))
     {
         dbg_log(this.name + ": CD read-related action: no buffer", LOG_DISK);
-        this.status_reg = 0x51;
-        this.error_reg = 0x21;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
+        this.error_reg = 0x21;  // TODO
         this.data_allocate(0);
         this.data_end = this.data_length;
         this.sector_count_reg = this.sector_count_reg & ~7 | 2 | 1;
@@ -1148,22 +1152,23 @@ IDEInterface.prototype.atapi_handle = function()
             dbg_log(this.name + ": ATAPI test unit ready", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             break;
 
         case ATAPI_CMD_REQUEST_SENSE:
             dbg_log(this.name + ": ATAPI request sense", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
-            this.status_reg = 0x58;
-            this.data[0] = 0x80 | 0x70;
-            this.data[2] = this.error_reg >> 4;
-            this.data[7] = 8;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+            this.data[0] = 0x80 | 0x70;             // valid | SCSI error code
+            this.data[2] = this.error_reg >> 4;     // SCSI sense key (TODO: always 0, which means no errors or warnings)
+            this.data[7] = 8;                       // SCSI additional sense length, fixed
+            this.data[12] = 0;                      // SCSI additional sense code
             break;
 
         case ATAPI_CMD_INQUIRY:
             var length = this.data[4];
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
 
             dbg_log(this.name + ": ATAPI inquiry: " + h(this.data[1], 2) + " length=" + length, LOG_DISK);
 
@@ -1195,14 +1200,14 @@ IDEInterface.prototype.atapi_handle = function()
             dbg_log(this.name + ": ATAPI mode sense (6)", LOG_DISK);
             this.data_allocate(this.data[4]);
             this.data_end = this.data_length;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
             dbg_log(this.name + ": ATAPI prevent allow medium removal", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             break;
 
         case ATAPI_CMD_READ_CAPACITY:
@@ -1219,7 +1224,7 @@ IDEInterface.prototype.atapi_handle = function()
                 this.sector_size & 0xFF,
             ]));
             this.data_end = this.data_length;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_READ:
@@ -1238,7 +1243,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_allocate(Math.min(8, length));
             this.data_end = this.data_length;
             dbg_log(this.name + ": ATAPI read subchannel: length=" + length, LOG_DISK);
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_READ_TOC_PMA_ATIP:
@@ -1291,7 +1296,7 @@ IDEInterface.prototype.atapi_handle = function()
                 dbg_assert(false, this.name + ": unimplemented format: " + format);
             }
 
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_GET_CONFIGURATION:
@@ -1305,19 +1310,19 @@ IDEInterface.prototype.atapi_handle = function()
             this.data[3] = length - 4 & 0xFF;
             this.data[6] = 0x08;
             this.data[10] = 3;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_READ_DISK_INFORMATION:
             dbg_log(this.name + ": ATAPI read disk information", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             break;
 
         case ATAPI_CMD_READ_TRACK_INFORMATION:
             dbg_log(this.name + ": ATAPI read track information (unimplemented)", LOG_DISK);
-            this.status_reg = 0x51;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             break;
@@ -1331,7 +1336,7 @@ IDEInterface.prototype.atapi_handle = function()
                 this.data_allocate(Math.min(30, length));
             }
             this.data_end = this.data_length;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_MECHANISM_STATUS:
@@ -1339,12 +1344,12 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_allocate(this.data[9] | this.data[8] << 8);
             this.data_end = this.data_length;
             this.data[5] = 1;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
         case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
             dbg_log(this.name + ": ATAPI get event status notification (unimplemented)", LOG_DISK);
-            this.status_reg = 0x51;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             break;
@@ -1353,11 +1358,11 @@ IDEInterface.prototype.atapi_handle = function()
             dbg_log(this.name + ": ATAPI read cd (unimplemented)", LOG_DISK);
             this.data_allocate(0);
             this.data_end = this.data_length;
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             break;
 
         default:
-            this.status_reg = 0x51;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
             this.data_length = 0;
             this.error_reg = 5 << 4;
             dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
@@ -1380,7 +1385,7 @@ IDEInterface.prototype.atapi_handle = function()
 
 IDEInterface.prototype.do_write = function()
 {
-    this.status_reg = 0x50;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
 
     dbg_assert(this.data_length <= this.data.length);
     var data = this.data.subarray(0, this.data_length);
@@ -1441,7 +1446,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     }
     else if(byte_count === 0)
     {
-        this.status_reg = 0x50;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
 
         this.data_pointer = 0;
         //this.push_irq();
@@ -1449,7 +1454,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     else
     {
         byte_count = Math.min(byte_count, this.buffer.byteLength - start);
-        this.status_reg = 0x50 | 0x80;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: 0x80
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -1457,7 +1462,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
             //setTimeout(() => {
             dbg_log(this.name + ": CD read: data arrived", LOG_DISK);
             this.data_set(data);
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.sector_count_reg = this.sector_count_reg & ~7 | 2;
 
             this.push_irq();
@@ -1502,14 +1507,14 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
     else
     {
-        this.status_reg = 0x50 | 0x80;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: 0x80
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
         {
             dbg_log(this.name + ": atapi_read_dma: Data arrived");
             this.report_read_end(byte_count);
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.sector_count_reg = this.sector_count_reg & ~7 | 2;
             this.data_set(data);
 
@@ -1568,7 +1573,7 @@ IDEInterface.prototype.do_atapi_dma = function()
 
     dbg_log(this.name + ": end offset=" + offset, LOG_DISK);
 
-    this.status_reg = 0x50;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
     this.channel.dma_status &= ~1;
     this.sector_count_reg = this.sector_count_reg & ~7 | 3;
     this.push_irq();
@@ -1630,13 +1635,13 @@ IDEInterface.prototype.read_end = function()
     {
         if(this.data_end === this.data_length)
         {
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.sector_count_reg = this.sector_count_reg & ~7 | 3;
             this.push_irq();
         }
         else
         {
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.sector_count_reg = this.sector_count_reg & ~7 | 2;
             this.push_irq();
             var byte_count = this.lba_high_reg << 8 & 0xFF00 | this.lba_mid_reg & 0xFF;
@@ -1659,7 +1664,7 @@ IDEInterface.prototype.read_end = function()
         this.error_reg = 0;
         if(this.data_pointer >= this.data_length)
         {
-            this.status_reg = 0x50;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
         }
         else
         {
@@ -1676,7 +1681,7 @@ IDEInterface.prototype.read_end = function()
             }
             this.ata_advance(this.current_command, sector_count);
             this.data_end += 512 * sector_count;
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.push_irq();
         }
     }
@@ -1762,7 +1767,7 @@ IDEInterface.prototype.write_end = function()
 
             // XXX: Should advance here, but do_write does all the advancing
             //this.ata_advance(this.current_command, 1);
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.data_end += 512;
             this.push_irq();
         }
@@ -1834,7 +1839,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
     }
     else
     {
-        this.status_reg = 0x80 | 0x40;
+        this.status_reg = 0x80 | 0x40;  // TODO
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -1843,7 +1848,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
             dbg_log(this.name + ": ata_read: Data arrived", LOG_DISK);
 
             this.data_set(data);
-            this.status_reg = 0x58;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.data_end = is_single ? 512 : Math.min(byte_count, this.sectors_per_drq * 512);
             this.ata_advance(cmd, is_single ? 1 : Math.min(count, this.sectors_per_track));
 
@@ -1876,7 +1881,7 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
         return;
     }
 
-    this.status_reg = 0x58;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
     this.channel.dma_status |= 1;
 };
 
@@ -1929,7 +1934,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
         dbg_assert(offset === byte_count);
 
         this.ata_advance(this.current_command, count);
-        this.status_reg = 0x50;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
         this.channel.dma_status &= ~1;
         this.current_command = -1;
 
@@ -1964,7 +1969,7 @@ IDEInterface.prototype.ata_write_sectors = function(cmd)
     }
     else
     {
-        this.status_reg = 0x58;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
         this.data_allocate_noclear(byte_count);
         this.data_end = is_single ? 512 : Math.min(byte_count, this.sectors_per_drq * 512);
         this.write_dest = start;
@@ -1993,7 +1998,7 @@ IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
         return;
     }
 
-    this.status_reg = 0x58;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
     this.channel.dma_status |= 1;
 };
 
@@ -2049,7 +2054,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
     {
         dbg_log(this.name + ": DMA write completed", LOG_DISK);
         this.ata_advance(this.current_command, count);
-        this.status_reg = 0x50;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
         this.push_irq();
         this.channel.dma_status &= ~1;
         this.current_command = -1;
