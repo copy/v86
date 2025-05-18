@@ -124,6 +124,22 @@ const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
 const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
 const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
 
+// ATAPI 4-bit Sense Keys, see [MMC-2] 9.1.18.3, Table 123
+const ATAPI_SK_NO_SENSE = 0;
+const ATAPI_SK_RECOVERED_ERROR = 1;
+const ATAPI_SK_NOT_READY = 2;
+const ATAPI_SK_MEDIUM_ERROR = 3;
+const ATAPI_SK_HARDWARE_ERROR = 4;
+const ATAPI_SK_ILLEGAL_REQUEST = 5;
+const ATAPI_SK_UNIT_ATTENTION = 6;
+const ATAPI_SK_DATA_PROTECT = 7;
+const ATAPI_SK_BLANK_CHECK = 8;
+const ATAPI_SK_ABORTED_COMMAND = 11;
+
+// ATAPI 8-bit Additional Sense Codes, see [MMC-2] 9.1.18.3, Table 124
+const ATAPI_ASC_INV_FIELD_IN_CMD_PACKET = 0x24;
+const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -630,9 +646,6 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     /** @type {boolean} */
     this.drive_connected = is_cd || buffer;
 
-    /** @type {boolean} */
-    this.media_changed = false; // TODO
-
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
 
@@ -701,15 +714,25 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.current_command = -1;
 
     /** @type {number} */
-    this.current_atapi_command = -1;
-
-    /** @type {number} */
     this.write_dest = 0;
 
     // cancellation support
     this.last_io_id = 0;
     this.in_progress_io_ids = new Set();
     this.cancelled_io_ids = new Set();
+
+    // ATAPI-only
+    /** @type {number} */
+    this.current_atapi_command = -1;
+
+    /** @type {number} */
+    this.atapi_sense_key = 0;
+
+    /** @type {number} */
+    this.atapi_add_sense = 0;
+
+    /** @type {boolean} */
+    this.media_changed = false; // TODO
 
     // caller must call this.init_interface() to complete object initialization
     this.inital_buffer = buffer;
@@ -1105,9 +1128,15 @@ IDEInterface.prototype.ata_command = function(cmd)
 IDEInterface.prototype.atapi_handle = function()
 {
     dbg_log(this.name + ": ATAPI Command: " + h(this.data[0]), LOG_DISK);
-
     this.data_pointer = 0;
     this.current_atapi_command = this.data[0];
+
+    if(this.current_atapi_command !== ATAPI_CMD_REQUEST_SENSE)
+    {
+        this.atapi_sense_key = 0;
+        this.atapi_add_sense = 0;
+    }
+
     if(!this.buffer && (this.current_atapi_command === ATAPI_CMD_READ_CAPACITY ||
                         this.current_atapi_command === ATAPI_CMD_READ ||
                         this.current_atapi_command === ATAPI_CMD_READ_SUBCHANNEL ||
@@ -1115,11 +1144,7 @@ IDEInterface.prototype.atapi_handle = function()
                         this.current_atapi_command === ATAPI_CMD_READ_DISK_INFORMATION))
     {
         dbg_log(this.name + ": CD read-related action: no buffer", LOG_DISK);
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
-        this.error_reg = 0x21;  // TODO
-        this.data_allocate(0);
-        this.data_end = this.data_length;
-        this.sector_count_reg = this.sector_count_reg & ~7 | 2 | 1;
+        this.atapi_check_condition_response(ATAPI_SK_NOT_READY, ATAPI_ASC_MEDIUM_NOT_PRESENT);
         this.push_irq();
         return;
     }
@@ -1128,9 +1153,16 @@ IDEInterface.prototype.atapi_handle = function()
     {
         case ATAPI_CMD_TEST_UNIT_READY:
             dbg_log(this.name + ": ATAPI test unit ready", LOG_DISK);
-            this.data_allocate(0);
-            this.data_end = this.data_length;
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
+            if(this.buffer)
+            {
+                this.data_allocate(0);
+                this.data_end = this.data_length;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
+            }
+            else
+            {
+                this.atapi_check_condition_response(ATAPI_SK_NOT_READY, ATAPI_ASC_MEDIUM_NOT_PRESENT);
+            }
             break;
 
         case ATAPI_CMD_REQUEST_SENSE:
@@ -1139,10 +1171,11 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_end = this.data_length;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.data[0] = 0x80 | 0x70;             // valid | SCSI error code
-            this.data[2] = this.error_reg >> 4;     // SCSI sense key (TODO: always 0, which means no errors or warnings)
+            this.data[2] = this.atapi_sense_key;    // SCSI sense key
             this.data[7] = 8;                       // SCSI additional sense length (fixed 8 for this error code 0x70)
-            this.data[12] = 0;                      // SCSI additional sense code
-            this.data[13] = 0;                      // SCSI additional sense code qualifier
+            this.data[12] = this.atapi_add_sense;   // SCSI additional sense code
+            this.atapi_sense_key = 0;
+            this.atapi_add_sense = 0;
             break;
 
         case ATAPI_CMD_INQUIRY:
@@ -1295,9 +1328,7 @@ IDEInterface.prototype.atapi_handle = function()
 
         case ATAPI_CMD_READ_TRACK_INFORMATION:
             dbg_log(this.name + ": ATAPI read track information (unimplemented)", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
-            this.data_length = 0;
-            this.error_reg = 5 << 4;
+            this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
             break;
 
         case ATAPI_CMD_MODE_SENSE_10:
@@ -1322,9 +1353,7 @@ IDEInterface.prototype.atapi_handle = function()
 
         case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
             dbg_log(this.name + ": ATAPI get event status notification (unimplemented)", LOG_DISK);
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
-            this.data_length = 0;
-            this.error_reg = 5 << 4;
+            this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
             break;
 
         case ATAPI_CMD_READ_CD:
@@ -1335,9 +1364,7 @@ IDEInterface.prototype.atapi_handle = function()
             break;
 
         default:
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
-            this.data_length = 0;
-            this.error_reg = 5 << 4;
+            this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
             dbg_log(this.name + ": unimplemented ATAPI command: " + h(this.data[0]), LOG_DISK);
             dbg_assert(false);
     }
@@ -1354,6 +1381,22 @@ IDEInterface.prototype.atapi_handle = function()
         this.sector_count_reg |= 1;
         this.status_reg &= ~ATA_SR_DRQ;
     }
+};
+
+IDEInterface.prototype.atapi_check_condition_response = function(sense_key, additional_sense)
+{
+    // Setup ATA registers to CHECK CONDITION state.
+    // The sense state (sense_key and additional_sense) must be requested
+    // by the host using ATAPI_CMD_REQUEST_SENSE immediately following a
+    // CHECK CONDITION response or else it will be lost.
+    // https://github.com/qemu/qemu/blob/757a34115e7491744a63dfc3d291fd1de5297ee2/hw/ide/atapi.c#L186
+    this.data_allocate(0);
+    this.data_end = this.data_length;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+    this.error_reg = sense_key << 4;
+    this.sector_count_reg = (this.sector_count_reg & ~7) | 2 | 1;
+    this.atapi_sense_key = sense_key;
+    this.atapi_add_sense = additional_sense;
 };
 
 IDEInterface.prototype.do_write = function()
