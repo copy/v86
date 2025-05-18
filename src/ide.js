@@ -614,7 +614,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
      * @const
      * @type {number}
      */
-    this.nr = channel_nr;
+    this.channel_nr = channel_nr;
 
     /**
      * @const
@@ -786,22 +786,32 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
         this.cylinder_count = Math.floor(this.cylinder_count);
     }
 
-    var rtc = this.cpu.devices.rtc;
+    // for CMOS see:
+    //   https://github.com/copy/v86/blob/master/src/rtc.js
+    //   https://github.com/coreboot/seabios/blob/master/src/hw/rtc.h
+    //   https://web.archive.org/web/20240119203005/http://www.bioscentral.com/misc/cmosmap.htm
+    const rtc = this.cpu.devices.rtc;
+
     // master
-    rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
-                   rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.nr * 4);
+    rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,     // TODO: what is this doing, setting LBA translation?
+                   rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.channel_nr * 4);
+
+    // set hard disk type (CMOS_DISK_DATA = 0x12) of C: to 0b1111, keep type of D:
+    //   bits 0-3: hard disk type of D:
+    //   bits 4-7: hard disk type of C:
+    // TODO: should this not also set CMOS_DISK_DRIVE1_TYPE to a hard disk type (see SeaBIOS rtc.h)?
     rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
 
-    var reg = this.nr === 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;
-    rtc.cmos_write(reg + 0, this.cylinder_count & 0xFF);
-    rtc.cmos_write(reg + 1, this.cylinder_count >> 8 & 0xFF);
-    rtc.cmos_write(reg + 2, this.head_count & 0xFF);
-    rtc.cmos_write(reg + 3, 0xFF);
-    rtc.cmos_write(reg + 4, 0xFF);
-    rtc.cmos_write(reg + 5, 0xC8);
-    rtc.cmos_write(reg + 6, this.cylinder_count & 0xFF);
-    rtc.cmos_write(reg + 7, this.cylinder_count >> 8 & 0xFF);
-    rtc.cmos_write(reg + 8, this.sectors_per_track & 0xFF);
+    const drive_reg = this.channel_nr === 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;  // 0x1B : 0x24 (drive C: or D:)
+    rtc.cmos_write(drive_reg + 0, this.cylinder_count & 0xFF);        // number of cylinders least significant byte
+    rtc.cmos_write(drive_reg + 1, this.cylinder_count >> 8 & 0xFF);   // number of cylinders most significant byte
+    rtc.cmos_write(drive_reg + 2, this.head_count & 0xFF);            // number of heads
+    rtc.cmos_write(drive_reg + 3, 0xFF);                              // write precomp cylinder least significant byte
+    rtc.cmos_write(drive_reg + 4, 0xFF);                              // write precomp cylinder most significant byte
+    rtc.cmos_write(drive_reg + 5, 0xC8);                              // control byte
+    rtc.cmos_write(drive_reg + 6, this.cylinder_count & 0xFF);        // landing zone least significant byte
+    rtc.cmos_write(drive_reg + 7, this.cylinder_count >> 8 & 0xFF);   // landing zone most significant byte
+    rtc.cmos_write(drive_reg + 8, this.sectors_per_track & 0xFF);     // number of sectors
 
     if(this.channel.cpu)
     {
@@ -2214,13 +2224,13 @@ IDEInterface.prototype.report_read_start = function()
 IDEInterface.prototype.report_read_end = function(byte_count)
 {
     const sector_count = byte_count / this.sector_size | 0;
-    this.bus.send("ide-read-end", [this.nr, byte_count, sector_count]);
+    this.bus.send("ide-read-end", [this.channel_nr, byte_count, sector_count]);
 };
 
 IDEInterface.prototype.report_write = function(byte_count)
 {
     const sector_count = byte_count / this.sector_size | 0;
-    this.bus.send("ide-write-end", [this.nr, byte_count, sector_count]);
+    this.bus.send("ide-write-end", [this.channel_nr, byte_count, sector_count]);
 };
 
 IDEInterface.prototype.read_buffer = function(start, length, callback)
