@@ -20,13 +20,15 @@ import { BusConnector } from "./bus.js";
 // - [MMC-2]
 //   Packet Commands for C/DVD Devices (1997)
 //   https://www.t10.org/ftp/t10/document.97/97-108r0.pdf
+// - [BMI-1]
+//   Programming Interface for Bus Master IDE Controller, Revision 1.0, 5/16/94
+//   https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/u9proj/idems100.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
 
-// Per-channel PIO register offsets, legend:
+// Per-channel ATA register offsets, legend:
 //   (*1*) Control block register (BAR1/3), else: Command block register (BAR0/2)
-//
 // Read-only registers:
 const ATA_REG_ERROR      = 0x01;  // Error register, see [ATA-6] 7.9
 const ATA_REG_STATUS     = 0x07;  // Status register, see [ATA-6] 7.15
@@ -42,6 +44,12 @@ const ATA_REG_DEVICE     = 0x06;  // Device register, see [ATA-6] 7.7
 const ATA_REG_FEATURES   = 0x01;  // Features register, see [ATA-6] 7.10
 const ATA_REG_COMMAND    = 0x07;  // Command register, see [ATA-6] 7.4
 const ATA_REG_CONTROL    = 0x02;  // (*1*) Device Control register, see [ATA-6] 7.8
+
+// Per-channel Bus Master IDE register offsets (BAR4), see [BMI-1] 2.0
+// these are the primary channel's offsets, add 8 for secondary
+const BMI_REG_COMMAND = 0x00;     // Bus Master IDE Command register
+const BMI_REG_STATUS = 0x02;      // Bus Master IDE Status register
+const BMI_REG_PRDT = 0x04;        // Bus Master IDE PRD Table Address register
 
 // Error register bits:
 // All bits except for bit 0x04 are command dependent.
@@ -184,7 +192,7 @@ export function IDEController(cpu, bus, ide_config)
         if(has_secondary)
         {
             this.secondary = new IDEChannel(this, 1, ide_config[1], {
-                command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base + 8, irq: 15
+                command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base, irq: 15
             });
             this.channels[1] = this.secondary;
         }
@@ -250,6 +258,7 @@ export function IDEController(cpu, bus, ide_config)
 function IDEChannel(controller, channel_nr, channel_config, hw_settings)
 {
     this.controller = controller;
+    this.channel_nr = channel_nr;
     this.cpu = controller.cpu;
     this.bus = controller.bus;
     this.command_base = hw_settings.command_base;
@@ -257,17 +266,25 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     this.irq = hw_settings.irq;
     this.name = "ide" + channel_nr;
 
-    const create_interface = interface_nr => {
+    this.interfaces = [];
+    for(let interface_nr = 0; interface_nr < 2; interface_nr++)
+    {
         const config = channel_config ? channel_config[interface_nr] : undefined;
         const buffer = config ? config.buffer : undefined;
         const is_cdrom = config ? !!config.is_cdrom : false;
-        return new IDEInterface(this, this.cpu, buffer, is_cdrom, channel_nr, interface_nr, this.bus);
-    };
-
-    this.master = create_interface(0);
-    this.slave = create_interface(1);
-    this.interfaces = [this.master, this.slave];
-    this.current_interface = this.master;
+        const ide_interface = new IDEInterface(this, interface_nr, buffer, is_cdrom);
+        if(interface_nr === 0)
+        {
+            dbg_assert(ide_interface.drive_connected, this.name + ": missing master device", LOG_DISK);
+            this.master = ide_interface;
+            this.current_interface = ide_interface;
+        }
+        else
+        {
+            this.slave = ide_interface;
+        }
+        this.interfaces[interface_nr] = ide_interface;
+    }
 
     this.master.init_interface();
     this.slave.init_interface();
@@ -305,8 +322,7 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     cpu.io.register_read(this.command_base | ATA_REG_ERROR, this, function()
     {
         dbg_log(this.current_interface.name + ": read Error register: " +
-            h(this.current_interface.error_reg & 0xFF) + " slave=" +
-            (this.current_interface === this.slave), LOG_DISK);
+            h(this.current_interface.error_reg & 0xFF), LOG_DISK);
         return this.current_interface.error_reg & 0xFF;
     });
 
@@ -395,11 +411,11 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
 
     cpu.io.register_write(this.command_base | ATA_REG_DEVICE, this, function(data)
     {
-        const slave = data & 0x10;
+        const select_slave = data & ATA_DR_DEV;
         dbg_log(this.current_interface.name + ": write Device register: " + h(data, 2), LOG_DISK);
-        if((slave && this.current_interface === this.master) || (!slave && this.current_interface === this.slave))
+        if((select_slave && this.current_interface === this.master) || (!select_slave && this.current_interface === this.slave))
         {
-            if(slave)
+            if(select_slave)
             {
                 dbg_log(this.current_interface.name + ": select slave device", LOG_DISK);
                 this.current_interface = this.slave;
@@ -411,16 +427,16 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
             }
         }
         this.current_interface.device_reg = data;
-        this.current_interface.is_lba = data >> 6 & 1;
-        this.current_interface.head = data & 0xF;
+        this.current_interface.is_lba = data >> 6 & 1; // TODO: where does this definition of bit 6 come from? not in [ATA-6] or [ATA-4]!
+        this.current_interface.head = data & 0xF;      // TODO: same for lower nibble?
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_COMMAND, this, function(data)
     {
         dbg_log(this.current_interface.name + ": write Command register", LOG_DISK);
-        dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
-        this.current_interface.status_reg &= ~(ATA_SR_ERR | 0x20);  // 0x20: command dependent, used to be Drive write fault (DF)
+        this.current_interface.status_reg &= ~(ATA_SR_ERR | 0x20);  // 0x20: command dependent, used to be Drive Write Fault (DF)
         this.current_interface.ata_command(data);
+        dbg_log(this.current_interface.name + ": lower IRQ " + this.irq, LOG_DISK);
         this.cpu.device_lower_irq(this.irq);
     });
 
@@ -435,21 +451,29 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     cpu.io.register_write(this.control_base | ATA_REG_CONTROL, this, this.write_control);
 
     //
-    // Bus Master Registers: bus_master_base + 0...15 (BAR4: B400h, lower 8 for primary and upper 8 for secondary channel)
+    // Bus Master Registers: bus_master_base + 0...15 (BAR4: B400h)
+    // primary channel: bus_master_base + 0...7, secondary: bus_master_base + 8...15
     //
 
-    const bus_master_base = hw_settings.bus_master_base;
+    const bus_master_base = hw_settings.bus_master_base + channel_nr * 8;
 
-    cpu.io.register_read(bus_master_base, this,
-                         this.dma_read_command8, undefined, this.dma_read_command);
-    cpu.io.register_write(bus_master_base, this,
-                          this.dma_write_command8, undefined, this.dma_write_command);
+    // read/write Bus Master IDE Command register
+    cpu.io.register_read(bus_master_base | BMI_REG_COMMAND,
+        this, this.dma_read_command8, undefined, this.dma_read_command);
+    cpu.io.register_write(bus_master_base | BMI_REG_COMMAND,
+        this, this.dma_write_command8, undefined, this.dma_write_command);
 
-    cpu.io.register_read(bus_master_base | 2, this, this.dma_read_status);
-    cpu.io.register_write(bus_master_base | 2, this, this.dma_write_status);
+    // read/write Bus Master IDE Status register
+    cpu.io.register_read(bus_master_base | BMI_REG_STATUS,
+        this, this.dma_read_status);
+    cpu.io.register_write(bus_master_base | BMI_REG_STATUS,
+        this, this.dma_write_status);
 
-    cpu.io.register_read(bus_master_base | 4, this, undefined, undefined, this.dma_read_addr);
-    cpu.io.register_write(bus_master_base | 4, this, undefined, undefined, this.dma_set_addr);
+    // read/write Bus Master IDE PRD Table Address register
+    cpu.io.register_read(bus_master_base | BMI_REG_PRDT,
+        this, undefined, undefined, this.dma_read_addr);
+    cpu.io.register_write(bus_master_base | BMI_REG_PRDT,
+        this, undefined, undefined, this.dma_set_addr);
 
     DEBUG && Object.seal(this);
 }
@@ -612,25 +636,22 @@ IDEChannel.prototype.set_state = function(state)
 /**
  * @constructor
  * @param {IDEChannel} channel
- * @param {CPU} cpu
- * @param {boolean} is_cd
- * @param {number} channel_nr
  * @param {number} interface_nr
- * @param {BusConnector} bus
+ * @param {boolean} is_cd
  */
-function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus)
+function IDEInterface(channel, interface_nr, buffer, is_cd)
 {
     this.channel = channel;
     this.name = channel.name + "." + interface_nr;
 
     /** @const @type {BusConnector} */
-    this.bus = bus;
+    this.bus = channel.bus;
 
     /**
      * @const
      * @type {number}
      */
-    this.channel_nr = channel_nr;
+    this.channel_nr = channel.channel_nr;
 
     /**
      * @const
@@ -639,7 +660,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.interface_nr = interface_nr;
 
     /** @const @type {CPU} */
-    this.cpu = cpu;
+    this.cpu = channel.cpu;
 
     this.buffer = null;
 
@@ -732,7 +753,7 @@ function IDEInterface(channel, cpu, buffer, is_cd, channel_nr, interface_nr, bus
     this.atapi_add_sense = 0;
 
     /** @type {boolean} */
-    this.media_changed = false; // TODO
+    this.medium_changed = false;
 
     // caller must call this.init_interface() to complete object initialization
     this.inital_buffer = buffer;
@@ -749,10 +770,10 @@ IDEInterface.prototype.eject = function()
 {
     if(this.is_atapi && this.buffer)
     {
-        this.media_changed = true;
+        this.medium_changed = true;
         this.buffer = null;
-        this.status_reg = 0x59; // TODO
-        this.error_reg = 0x60;  // TODO
+        this.status_reg = 0x59; // TODO: needs documentation, same in this.set_disk_buffer() below
+        this.error_reg = 0x60;  // TODO: is this perhaps a CHECK CONDITION event for Sense UNIT ATTENTION?
         this.push_irq();
     }
 };
@@ -762,7 +783,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
     if(this.is_atapi && buffer)
     {
         this.set_disk_buffer(buffer);
-        this.media_changed = true;
+        this.medium_changed = true;
     }
 };
 
@@ -776,7 +797,7 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     this.buffer = buffer;
     if(this.is_atapi)
     {
-        this.status_reg = 0x59; // TODO
+        this.status_reg = 0x59; // TODO: see this.eject()
         this.error_reg = 0x60;  // TODO
     }
     this.sector_count = this.buffer.byteLength / this.sector_size;
@@ -877,7 +898,7 @@ IDEInterface.prototype.ata_command = function(cmd)
 
     if(!this.drive_connected && cmd !== ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC)
     {
-        dbg_log(this.name + ": ATA command ignored: No slave drive connected", LOG_DISK);
+        dbg_log(this.name + ": ATA command " + h(cmd) + " ignored: No slave drive connected", LOG_DISK);
         return;
     }
 
@@ -898,7 +919,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_10h:
             dbg_log(this.name + ": ATA calibrate drive", LOG_DISK);
             this.lba_mid_reg = 0;
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DSC;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
@@ -948,32 +969,16 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC:
             dbg_log(this.name + ": ATA execute device diagnostic", LOG_DISK);
-            // TODO: this code is completely wrong (master device replies if slave does not exist)
-            // assign diagnostic code (used to be 0x101?) to error register
-            if(this.interface_nr === 0)
+            // the behaviour of this command is independent of the selected device
+            this.channel.master.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
+            this.channel.master.error_reg = 0x01;    // Master drive passed, slave drive passed or not present
+            this.channel.master.push_irq();
+            if(this.channel.slave.drive_connected)
             {
-                if(this.channel.slave.drive_connected)
-                {
-                    this.error_reg = 0x01;  // Master drive passed, slave passed or not present
-                }
-                else
-                {
-                    this.error_reg = 0x81;  // Master drive passed, slave failed
-                }
+                this.channel.slave.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
+                this.channel.slave.error_reg = 0x01; // Slave drive passed
+                this.channel.slave.push_irq();
             }
-            else
-            {
-                if(this.channel.slave.drive_connected)
-                {
-                    this.error_reg = 0x01;  // Slave drive passed
-                }
-                else
-                {
-                    this.error_reg = 0x00;  // Slave drive failed
-                }
-            }
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
-            this.push_irq();
             break;
 
         case ATA_CMD_INITIALIZE_DEVICE_PARAMETERS:
@@ -1041,10 +1046,10 @@ IDEInterface.prototype.ata_command = function(cmd)
                 {
                     this.error_reg |= 0x02; // NM: No Media
                 }
-                if(this.media_changed)
+                if(this.medium_changed)
                 {
                     this.error_reg |= 0x20; // MC: Media Change
-                    this.media_changed = false;
+                    this.medium_changed = false;
                 }
                 this.error_reg |= 0x40;     // WP: Write Protect
             }
@@ -1093,7 +1098,6 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_SET_FEATURES:
             dbg_log(this.name + ": ATA set features: " + h(this.sector_count_reg & 0xFF), LOG_DISK);
-            // TODO: this one is important, accept/refuse requested device features
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
@@ -1185,7 +1189,7 @@ IDEInterface.prototype.atapi_handle = function()
             // for data layout see [CD-SCSI-2] "INQUIRY Command"
             this.data.set([
                 // 0: Device-type, Removable, ANSI-Version, Response Format
-                this.drive_connected ? 0x05 : 0x7F, 0x80, 0x01, 0x31,   // TODO: drive_connected likely not needed
+                0x05, 0x80, 0x01, 0x31,
                 // 4: Additional length, Reserved, Reserved, Reserved
                 0x31, 0, 0, 0,
                 // 8: Vendor Identification "SONY    "
@@ -1470,7 +1474,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     else
     {
         byte_count = Math.min(byte_count, this.buffer.byteLength - start);
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: 0x80
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: meaning of 0x80?
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -1523,7 +1527,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
     else
     {
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: 0x80
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: meaning of 0x80?
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -1855,7 +1859,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
     }
     else
     {
-        this.status_reg = 0x80 | 0x40;  // TODO
+        this.status_reg = 0x80 | 0x40;  // TODO: meaning?
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -2141,94 +2145,165 @@ IDEInterface.prototype.get_count = function(is_lba48)
 
 IDEInterface.prototype.create_identify_packet = function()
 {
-    // http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
+    const cylinder_count = Math.min(16383, this.cylinder_count);
+    const strcpy_be16 = (out_buffer, ofs16, len16, str) => {
+        let ofs8 = ofs16 << 1;
+        const len8 = len16 << 1;
+        const end8 = ofs8 + len8;
+        out_buffer.fill(32, ofs8, len8); // fill output buffer with ASCII whitespace
+        for(let i_str = 0; i_str < str.length && ofs8 < end8; i_str++) {
+            if(i_str & 1) {
+                out_buffer[ofs8] = str.charCodeAt(i_str);
+                ofs8 += 2;
+            }
+            else {
+                out_buffer[ofs8 + 1] = str.charCodeAt(i_str);
+            }
+        }
+    };
 
-    for(var i = 0; i < 512; i++)
-    {
-        this.data[i] = 0;
-    }
+    // Initialize array of 256 16-bit words (big-endian)
+    // Best source for the lower 64 words of the memory layout used below:
+    // - [ATA-retro]
+    //   AT Attachment Interface for Disk Drives, Revision 4c
+    //   https://dn790009.ca.archive.org/0/items/SCSISpecificationDocumentsATAATAPI/ATA_ATAPI/AT%20Attachment%20Interface%20for%20Disk%20Drives%20Revision%204c.pdf
+    // For the words above 64 see [ATA-6] Table 27.
+    //
+    // dead link: http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
 
-    var cylinder_count = Math.min(16383, this.cylinder_count);
+    // most significant bit indicates ATAPI CD-ROM device
+    const general_cfg = this.is_atapi ? 0x8540 : 0x0040;
+    // multiword DMA transfer mode, meaning of 0x0407:
+    // - 0x0007: Multiword DMA modes 2, 1 and 0 are supported
+    // - 0x0400: Multiword DMA mode 2 is selected
+    const multiword_dma_mode = this.current_command === ATA_CMD_PACKET ? 0 : 0x0407;
+    // Major version number: bits 3/4/5/6 indicate support for ATA/ATAPI-3/4/5/6 (bits 0/1/2 are obsolete in [ATA-6])
+    const major_version = 0b01111110;
 
+    this.data.fill(0, 0, 512);
     this.data_set([
-        0x40, this.is_atapi ? 0x85 : 0,
-        // 1 cylinders
-        cylinder_count, cylinder_count >> 8,
+        // 0: General configuration
+        general_cfg & 0xFF, general_cfg >> 8 & 0xFF,
+        // 1: Number of cylinders
+        cylinder_count & 0xFF, cylinder_count >> 8 & 0xFF,
+        // 2: reserved
         0, 0,
-
-        // 3 heads
-        this.head_count, this.head_count >> 8,
-        this.sectors_per_track / 512, this.sectors_per_track / 512 >> 8,
-        // 5
+        // 3: Number of heads
+        this.head_count & 0xFF, this.head_count >> 8 & 0xFF,
+        // 4: Number of unformatted bytes per track
+        this.sectors_per_track / 512 & 0xFF, this.sectors_per_track / 512 >> 8 & 0xFF,
+        // 5: Number of unformatted bytes per sector
         0, 512 >> 8,
-        // sectors per track
-        this.sectors_per_track, this.sectors_per_track >> 8,
-        0, 0, 0, 0, 0, 0,
-        // 10-19 serial number
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 15
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 20
+        // 6: Number of sectors per track
+        this.sectors_per_track & 0xFF, this.sectors_per_track >> 8 & 0xFF,
+        // 7-9: Vendor-unique
+        0, 0, 0, 0,  0, 0,
+        // 10-19: Serial number (20 ASCII characters)
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,
+        // 20: Buffer type
         3, 0,
+        // 21: Buffer size in 512 byte increments
         0, 2,
+        // 22: Number of ECC bytes avail on read/write long cmds
         4, 0,
-        // 23-26 firmware revision
-        0, 0, 0, 0, 0, 0, 0, 0,
-
-        // 27 model number
-        56, 118, 32, 54, 68, 72, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-        32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
-
-        // 47 max value for set multiple mode
+        // 23-26: Firmware revision (8 ASCII characters)
+        0, 0, 0, 0,  0, 0, 0, 0,
+        // 27-46: Model number (40 ASCII characters)
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,  0, 0, 0, 0,
+        // 47: Max. number of sectors per interrupt on read/write multiple commands (1st byte) and Vendor-unique (2nd)
         0x80, 0,
+        // 48: Indicates whether can perform doubleword I/O (1st byte) [0: no, 1: yes]
         1, 0,
-        //0, 3,  // capabilities, 2: Only LBA / 3: LBA and DMA
-        0, 2,  // capabilities, 2: Only LBA / 3: LBA and DMA
-        // 50
+        // 49: Vendor-unique (1st byte) and Capabilities (2nd) [2: Only LBA, 3: LBA and DMA]
+        0, 2,
+        // 50: reserved
         0, 0,
+        // 51: PIO data transfer cycle timing mode
         0, 2,
+        // 52: DMA data transfer cycle timing mode
         0, 2,
+        // 53: Indicates whether fields 54-58 are valid (1st byte) [0: no, 1: yes]
         7, 0,
-
-        // 54 cylinders
-        cylinder_count, cylinder_count >> 8,
-        // 55 heads
-        this.head_count, this.head_count >> 8,
-        // 56 sectors per track
+        // 54: Number of current cylinders
+        cylinder_count & 0xFF, cylinder_count >> 8 & 0xFF,
+        // 55: Number of current heads
+        this.head_count & 0xFF, this.head_count >> 8 & 0xFF,
+        // 56: Number of current sectors per track
         this.sectors_per_track, 0,
-        // capacity in sectors
+        // 57-58: Current capacity in sectors
         this.sector_count & 0xFF, this.sector_count >> 8 & 0xFF,
         this.sector_count >> 16 & 0xFF, this.sector_count >> 24 & 0xFF,
-
+        // 59:  Multiple sector setting
         0, 0,
-        // 60
+        // 60-61: Total number of user addressable sectors (LBA mode only)
         this.sector_count & 0xFF, this.sector_count >> 8 & 0xFF,
         this.sector_count >> 16 & 0xFF, this.sector_count >> 24 & 0xFF,
-
+        // 62: Single word DMA transfer mode
         0, 0,
-        // 63, dma supported mode, dma selected mode
-        this.current_command === ATA_CMD_PACKET ? 0 : 7, this.current_command === ATA_CMD_PACKET ? 0 : 4,
-        //0, 0, // no DMA
+        // 63: Multiword DMA transfer mode (DMA supported mode, DMA selected mode)
+        multiword_dma_mode & 0xFF, multiword_dma_mode >> 8 & 0xFF,
 
+        // 64: PIO modes supported
         0, 0,
-        // 65
-        30, 0, 30, 0, 30, 0, 30, 0, 0, 0,
-        // 70
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 75
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 80
-        0x7E, 0, 0, 0, 0, 0, 0, 0x74, 0, 0x40,
-        // 85
-        0, 0x40, 0, 0x74, 0, 0x40, 0, 0, 0, 0,
-        // 90
-        0, 0, 0, 0, 0, 0, 1, 0x60, 0, 0,
-        // 95
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // 100
+        // 65-68: fields related to cycle-time
+        30, 0, 30, 0, 30, 0, 30, 0,
+        // 69-74: reserved
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,
+        // 75: Queue depth
+        0, 0,
+        // 76-79: reserved
+        0, 0, 0, 0,  0, 0, 0, 0,
+        // 80: Major version number
+        major_version & 0xFF, major_version >> 8 & 0xFF,
+        // 81: Minor version number
+        0, 0,
+        // 82: Command set supported
+        0, 0,
+        // 83: Command set supported
+        0, 0x74,
+        // 84: Command set/feature supported extension
+        0, 0x40,
+        // 85: Command set/feature enabled
+        0, 0x40,
+        // 86: Command set/feature enabled
+        0, 0x74,
+        // 87: Command set/feature default
+        0, 0x40,
+        // 88: DMA related field
+        0, 0,
+        // 89: Time required for security erase unit completion
+        0, 0,
+        // 90: Time required for Enhanced security erase completion
+        0, 0,
+        // 91: Current advanced power management value
+        0, 0,
+        // 92: Master Password Revision Code
+        0, 0,
+        // 93: Hardware reset result
+        1, 0x60,
+        // 94: Acoustic management value
+        0, 0,
+        // 95-99: reserved
+        0, 0, 0, 0,  0, 0, 0, 0,
+        0, 0,
+        // 100-103: Maximum user LBA for 48-bit Address feature set.
         this.sector_count & 0xFF, this.sector_count >> 8 & 0xFF,
         this.sector_count >> 16 & 0xFF, this.sector_count >> 24 & 0xFF,
     ]);
+
+    // 10-19 serial number
+    strcpy_be16(this.data, 10, 10, "86" + this.channel_nr.toString() + this.interface_nr.toString());
+    // 23-26 firmware revision
+    strcpy_be16(this.data, 23, 4, "1.00");
+    // 27-46 model number
+    strcpy_be16(this.data, 27, 20, this.is_atapi ? "v86 ATAPI CD-ROM" : "v86 ATA HD");
 
     this.data_length = 512;
     this.data_end = 512;
@@ -2337,8 +2412,6 @@ IDEInterface.prototype.get_state = function()
     state[26] = this.data_end;
     state[27] = this.current_atapi_command;
     state[28] = this.buffer;
-    state[29] = this.drive_connected;
-    state[30] = this.media_changed;
     return state;
 };
 
@@ -2376,6 +2449,6 @@ IDEInterface.prototype.set_state = function(state)
 
     this.buffer && this.buffer.set_state(state[28]);
 
-    this.drive_connected = state[29] === undefined ? this.is_atapi || this.buffer : state[29];
-    this.media_changed = state[30] === undefined ? false : state[30];
+    this.drive_connected = this.is_atapi || this.buffer;
+    this.medium_changed = false;
 };
