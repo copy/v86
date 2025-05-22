@@ -307,7 +307,6 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     // Command Block Registers: command_base + 0...7 (BAR0: 1F0h, BAR2: 170h)
     //
 
-    // read Data register
     cpu.io.register_read(this.command_base | ATA_REG_DATA, this, function()
     {
         return this.current_interface.read_data(1);
@@ -865,25 +864,24 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
 
 IDEInterface.prototype.device_reset = function()
 {
-    // for details, see [ATA-6] 9.11 "DEVICE RESET command protocol"
     if(this.is_atapi)
     {
+        this.status_reg = 0;
         this.sector_count_reg = 1;
+        this.error_reg = 1;
         this.lba_low_reg = 1;
         this.lba_mid_reg = 0x14;
         this.lba_high_reg = 0xEB;
-        this.device_reg &= ATA_DR_DEV;
     }
     else
     {
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_ERR;
         this.sector_count_reg = 1;
+        this.error_reg = 1;
         this.lba_low_reg = 1;
         this.lba_mid_reg = 0;
         this.lba_high_reg = 0;
-        this.device_reg = 0;
     }
-    this.error_reg &= ~0x80;        // clear bit 7 only (explicitly)
-    this.status_reg &= ~(ATA_SR_ERR|ATA_SR_BSY);
     this.cancel_io_operations();
 };
 
@@ -2293,7 +2291,7 @@ IDEInterface.prototype.create_identify_packet = function()
         // 95-99: reserved
         0, 0, 0, 0,  0, 0, 0, 0,
         0, 0,
-        // 100-103: Maximum user LBA for 48-bit Address feature set.
+        // 100-101: Maximum user LBA for 48-bit Address feature set.
         this.sector_count & 0xFF, this.sector_count >> 8 & 0xFF,
         this.sector_count >> 16 & 0xFF, this.sector_count >> 24 & 0xFF,
     ]);

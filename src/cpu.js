@@ -1113,12 +1113,7 @@ CPU.prototype.init = function(settings, device_bus)
                 ide_config[0][1] = {buffer: settings.hdb};
                 cdrom_channel++;
             }
-            if(settings.cdrom) {
-                ide_config[cdrom_channel][0] = {
-                    is_cdrom: true,
-                    buffer: settings.cdrom.ejected ? undefined : settings.cdrom
-                };
-            }
+            ide_config[cdrom_channel][0] = {is_cdrom: true, buffer: settings.cdrom};
 
             this.devices.ide = new IDEController(this, device_bus, ide_config);
 
