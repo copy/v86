@@ -119,14 +119,6 @@ import { EEXIST, ENOENT } from "../../lib/9p.js";
  *   }
  *   ```
  *
- * In order to create a CD-ROM device with ejected disk use:
- *
- *   ```javascript
- *   cdrom: {
- *       ejected: true
- *   }
- *   ```
- *
  * @param {{
       disable_mouse: (boolean|undefined),
       disable_keyboard: (boolean|undefined),
