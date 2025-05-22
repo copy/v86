@@ -457,13 +457,6 @@ V86.prototype.continue_init = async function(emulator, options)
             return;
         }
 
-        if(name === "cdrom" && file.ejected)
-        {
-            // the "ejected file" is a special CD-ROM file object, pass it to settings.cdrom and let CPU.init() handle it
-            settings.cdrom = file;
-            return;
-        }
-
         if(file.get && file.set && file.load)
         {
             files_to_load.push({
