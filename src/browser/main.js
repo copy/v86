@@ -2395,6 +2395,32 @@ function init_ui(profile, settings, emulator)
         $("change_fda_image").blur();
     };
 
+    $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
+    $("change_cdrom_image").onclick = function()
+    {
+        if(emulator.v86.cpu.devices.cdrom.master.buffer)
+        {
+            emulator.eject_cdrom();
+            $("change_cdrom_image").value = "Insert CD image";
+        }
+        else
+        {
+            const file_input = document.createElement("input");
+            file_input.type = "file";
+            file_input.onchange = async function(e)
+            {
+                const file = file_input.files[0];
+                if(file)
+                {
+                    await emulator.set_cdrom({ buffer: file });
+                    $("change_cdrom_image").value = "Eject CD image";
+                }
+            };
+            file_input.click();
+        }
+        $("change_cdrom_image").blur();
+    };
+
     $("memory_dump").onclick = function()
     {
         const mem8 = emulator.v86.cpu.mem8;
