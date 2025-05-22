@@ -1121,9 +1121,7 @@ CPU.prototype.init = function(settings, device_bus)
                 this.devices.hda = this.devices.ide.channels[0];
 //                this.devices.hdb = ?  // TODO: this.devices.hda/hdb/cdrom should point to IDEInterface, not IDEDevice objects?!
             }
-            if(settings.cdrom) {
-                this.devices.cdrom = this.devices.ide.channels[cdrom_channel];
-            }
+            this.devices.cdrom = this.devices.ide.channels[cdrom_channel];
         }
 
         this.devices.pit = new PIT(this, device_bus);
