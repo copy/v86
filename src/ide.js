@@ -90,6 +90,7 @@ const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA-6] 8.16
 const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA-6] 8.18
 const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6]
 const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
+const ATA_CMD_NOP = 0x00;                             // see [ATA-6] 8.22
 const ATA_CMD_PACKET = 0xA0;                          // see [ATA-6] 8.23
 const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA-6] 8.26
 const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA-6] 8.25
@@ -1114,6 +1115,13 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_SET_MAX:
             dbg_log(this.name + ": ATA set max address (unimplemented)", LOG_DISK);
+            this.error_reg = ATA_ER_ABRT;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+            this.push_irq();
+            break;
+
+        case ATA_CMD_NOP:
+            dbg_log(this.name + ": ATA nop", LOG_DISK);
             this.error_reg = ATA_ER_ABRT;
             this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
             this.push_irq();
