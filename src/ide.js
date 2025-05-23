@@ -1856,7 +1856,14 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
-    if(start + byte_count > this.buffer.byteLength)
+    if(!this.buffer)
+    {
+        // TODO: Windows 95 treats our (empty) CD-ROM device as an ATA device, maybe a driver issue?
+        this.error_reg = ATA_ER_ABRT;
+        this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+        this.push_irq();
+    }
+    else if(start + byte_count > this.buffer.byteLength)
     {
         dbg_assert(false, this.name + ": ATA read: Outside of disk", LOG_DISK);
 
