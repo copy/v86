@@ -955,14 +955,32 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_READ_SECTORS_EXT:
         case ATA_CMD_READ_MULTIPLE:
         case ATA_CMD_READ_MULTIPLE_EXT:
-            this.ata_read_sectors(cmd);
+            if(this.is_atapi)
+            {
+                this.error_reg = ATA_ER_ABRT;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+                this.push_irq();
+            }
+            else
+            {
+                this.ata_read_sectors(cmd);
+            }
             break;
 
         case ATA_CMD_WRITE_SECTORS:
         case ATA_CMD_WRITE_SECTORS_EXT:
         case ATA_CMD_WRITE_MULTIPLE:
         case ATA_CMD_WRITE_MULTIPLE_EXT:
-            this.ata_write_sectors(cmd);
+            if(this.is_atapi)
+            {
+                this.error_reg = ATA_ER_ABRT;
+                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+                this.push_irq();
+            }
+            else
+            {
+                this.ata_write_sectors(cmd);
+            }
             break;
 
         case ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC:
@@ -1855,14 +1873,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
-    if(!this.buffer)
-    {
-        // TODO: Windows 95 treats our (empty) CD-ROM device as an ATA device, maybe a driver issue?
-        this.error_reg = ATA_ER_ABRT;
-        this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-        this.push_irq();
-    }
-    else if(start + byte_count > this.buffer.byteLength)
+    if(start + byte_count > this.buffer.byteLength)
     {
         dbg_assert(false, this.name + ": ATA read: Outside of disk", LOG_DISK);
 
