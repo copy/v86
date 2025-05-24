@@ -502,13 +502,13 @@ IDEChannel.prototype.write_control = function(data)
 
 IDEChannel.prototype.dma_read_addr = function()
 {
-    dbg_log(this.current_interface.name + ": DMA get address: " + h(this.prdt_addr, 8), LOG_DISK);
+    //dbg_log(this.current_interface.name + ": DMA get address: " + h(this.prdt_addr, 8), LOG_DISK);
     return this.prdt_addr;
 };
 
 IDEChannel.prototype.dma_set_addr = function(data)
 {
-    dbg_log(this.current_interface.name + ": DMA set address: " + h(data, 8), LOG_DISK);
+    //dbg_log(this.current_interface.name + ": DMA set address: " + h(data, 8), LOG_DISK);
     this.prdt_addr = data;
 };
 
@@ -531,21 +531,20 @@ IDEChannel.prototype.dma_read_command = function()
 
 IDEChannel.prototype.dma_read_command8 = function()
 {
-    dbg_log(this.current_interface.name + ": DMA read command: " + h(this.dma_command), LOG_DISK);
+    //dbg_log(this.current_interface.name + ": DMA read command: " + h(this.dma_command), LOG_DISK);
     return this.dma_command;
 };
 
 IDEChannel.prototype.dma_write_command = function(value)
 {
-    dbg_log(this.current_interface.name + ": DMA write command: " + h(value), LOG_DISK);
-
+    //dbg_log(this.current_interface.name + ": DMA write command: " + h(value), LOG_DISK);
     this.dma_write_command8(value & 0xFF);
     this.dma_write_status(value >> 16 & 0xFF);
 };
 
 IDEChannel.prototype.dma_write_command8 = function(value)
 {
-    dbg_log(this.current_interface.name + ": DMA write command8: " + h(value), LOG_DISK);
+    //dbg_log(this.current_interface.name + ": DMA write command8: " + h(value), LOG_DISK);
 
     const old_command = this.dma_command;
     this.dma_command = value & 0x09;
