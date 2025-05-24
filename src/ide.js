@@ -890,6 +890,14 @@ IDEInterface.prototype.push_irq = function()
     this.channel.push_irq();
 };
 
+IDEInterface.prototype.ata_abort_command = function()
+{
+    dbg_log(this.name + ": ATA Command " + h(this.current_command) + " aborted", LOG_DISK);
+    this.error_reg = ATA_ER_ABRT;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+    this.push_irq();
+};
+
 IDEInterface.prototype.ata_command = function(cmd)
 {
     dbg_log(this.name + ": ATA Command: " + h(cmd), LOG_DISK);
@@ -957,9 +965,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_READ_MULTIPLE_EXT:
             if(this.is_atapi)
             {
-                this.error_reg = ATA_ER_ABRT;
-                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-                this.push_irq();
+                this.ata_abort_command();
             }
             else
             {
@@ -973,9 +979,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_WRITE_MULTIPLE_EXT:
             if(this.is_atapi)
             {
-                this.error_reg = ATA_ER_ABRT;
-                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-                this.push_irq();
+                this.ata_abort_command();
             }
             else
             {
@@ -1019,13 +1023,12 @@ IDEInterface.prototype.ata_command = function(cmd)
             {
                 this.create_identify_packet();
                 this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+                this.push_irq();
             }
             else
             {
-                this.error_reg = ATA_ER_ABRT;
-                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+                this.ata_abort_command();
             }
-            this.push_irq();
             break;
 
         case ATA_CMD_SET_MULTIPLE_MODE:
@@ -1101,15 +1104,14 @@ IDEInterface.prototype.ata_command = function(cmd)
             dbg_log(this.name + ": ATA identify device", LOG_DISK);
             if(this.is_atapi)
             {
-                this.error_reg = ATA_ER_ABRT;
-                this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+                this.ata_abort_command();
             }
             else
             {
                 this.create_identify_packet();
                 this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+                this.push_irq();
             }
-            this.push_irq();
             break;
 
         case ATA_CMD_SET_FEATURES:
@@ -1132,23 +1134,18 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_SET_MAX:
             dbg_log(this.name + ": ATA set max address (unimplemented)", LOG_DISK);
-            this.error_reg = ATA_ER_ABRT;
-            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-            this.push_irq();
+            this.ata_abort_command();
             break;
 
         case ATA_CMD_NOP:
             dbg_log(this.name + ": ATA nop", LOG_DISK);
-            this.error_reg = ATA_ER_ABRT;
-            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-            this.push_irq();
+            this.ata_abort_command();
             break;
 
         default:
             dbg_assert(false, this.name + ": unhandled ATA command: " + h(cmd), LOG_DISK);
-            this.error_reg = ATA_ER_ABRT;
-            this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
-            this.push_irq();
+            this.ata_abort_command();
+            break;
     }
 };
 
