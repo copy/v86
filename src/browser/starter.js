@@ -985,6 +985,40 @@ V86.prototype.eject_fda = function()
 };
 
 /**
+ * Set the image inserted in the CD-ROM drive. Can be changed at runtime, as
+ * when physically changing the CD-ROM.
+ */
+V86.prototype.set_cdrom = async function(file)
+{
+    if(file.url && !file.async)
+    {
+        load_file(file.url, {
+            done: result =>
+            {
+                this.v86.cpu.devices.cdrom.master.set_cdrom(new SyncBuffer(result));
+            },
+        });
+    }
+    else
+    {
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        image.onload = () =>
+        {
+            this.v86.cpu.devices.cdrom.master.set_cdrom(image);
+        };
+        await image.load();
+    }
+};
+
+/**
+ * Eject the CD-ROM.
+ */
+V86.prototype.eject_cdrom = function()
+{
+    this.v86.cpu.devices.cdrom.master.eject();
+};
+
+/**
  * Send a sequence of scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
