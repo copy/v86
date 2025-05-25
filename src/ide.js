@@ -886,6 +886,11 @@ IDEInterface.prototype.init_interface = function()
     }
 };
 
+IDEInterface.prototype.has_disk = function()
+{
+    return this.buffer;
+};
+
 IDEInterface.prototype.eject = function()
 {
     if(this.is_atapi && this.buffer)
