@@ -995,7 +995,7 @@ V86.prototype.set_cdrom = async function(file)
         load_file(file.url, {
             done: result =>
             {
-                this.v86.cpu.devices.cdrom.master.set_cdrom(new SyncBuffer(result));
+                this.v86.cpu.devices.cdrom.set_cdrom(new SyncBuffer(result));
             },
         });
     }
@@ -1004,7 +1004,7 @@ V86.prototype.set_cdrom = async function(file)
         const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
         image.onload = () =>
         {
-            this.v86.cpu.devices.cdrom.master.set_cdrom(image);
+            this.v86.cpu.devices.cdrom.set_cdrom(image);
         };
         await image.load();
     }
@@ -1015,7 +1015,7 @@ V86.prototype.set_cdrom = async function(file)
  */
 V86.prototype.eject_cdrom = function()
 {
-    this.v86.cpu.devices.cdrom.master.eject();
+    this.v86.cpu.devices.cdrom.eject();
 };
 
 /**
