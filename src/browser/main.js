@@ -2398,7 +2398,7 @@ function init_ui(profile, settings, emulator)
     $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
     $("change_cdrom_image").onclick = function()
     {
-        if(emulator.v86.cpu.devices.cdrom.master.buffer)
+        if(emulator.v86.cpu.devices.cdrom.has_disk())
         {
             emulator.eject_cdrom();
             $("change_cdrom_image").value = "Insert CD image";
