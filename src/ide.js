@@ -509,12 +509,12 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
         {
             if(select_slave)
             {
-                dbg_log(this.current_interface.name + ": select slave device", LOG_DISK);
+                dbg_log(`${this.current_interface.name}: select slave device (${this.channel_nr ? "secondary" : "primary"})`, LOG_DISK);
                 this.current_interface = this.slave;
             }
             else
             {
-                dbg_log(this.current_interface.name + ": select master device", LOG_DISK);
+                dbg_log(`${this.current_interface.name}: select master device (${this.channel_nr ? "secondary" : "primary"})`, LOG_DISK);
                 this.current_interface = this.master;
             }
         }
@@ -1088,7 +1088,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_READ_SECTORS_EXT:
         case ATA_CMD_READ_MULTIPLE:
         case ATA_CMD_READ_MULTIPLE_EXT:
-            do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW;
+            do_dbg_log = false;
             if(this.is_atapi)
             {
                 this.ata_abort_command();
@@ -1103,7 +1103,7 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_WRITE_SECTORS_EXT:
         case ATA_CMD_WRITE_MULTIPLE:
         case ATA_CMD_WRITE_MULTIPLE_EXT:
-            do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW;
+            do_dbg_log = false;
             if(this.is_atapi)
             {
                 this.ata_abort_command();
@@ -1171,13 +1171,13 @@ IDEInterface.prototype.ata_command = function(cmd)
 
         case ATA_CMD_READ_DMA:
         case ATA_CMD_READ_DMA_EXT:
-            do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW_DMA;
+            do_dbg_log = false;
             this.ata_read_sectors_dma(cmd);
             break;
 
         case ATA_CMD_WRITE_DMA:
         case ATA_CMD_WRITE_DMA_EXT:
-            do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW_DMA;
+            do_dbg_log = false;
             this.ata_write_sectors_dma(cmd);
             break;
 
@@ -1337,13 +1337,13 @@ IDEInterface.prototype.atapi_handle = function()
         case ATAPI_CMD_INQUIRY:
             var length = this.data[4];
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-            dbg_log_extra = h(this.data[1], 2) + " length=" + length;
+            dbg_log_extra = "lun=" + h(this.data[1], 2) + " length=" + length;
             // for data layout see [CD-SCSI-2] "INQUIRY Command"
             this.data.set([
                 // 0: Device-type, Removable, ANSI-Version, Response Format
                 0x05, 0x80, 0x01, 0x31,
                 // 4: Additional length, Reserved, Reserved, Reserved
-                0x31, 0, 0, 0,
+                31, 0, 0, 0,
                 // 8: Vendor Identification "SONY    "
                 0x53, 0x4F, 0x4E, 0x59,
                 0x20, 0x20, 0x20, 0x20,
@@ -1387,14 +1387,13 @@ IDEInterface.prototype.atapi_handle = function()
             break;
 
         case ATAPI_CMD_READ:
+            do_dbg_log = false;
             if(this.features_reg & 1)
             {
-                do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW_DMA;
                 this.atapi_read_dma(this.data);
             }
             else
             {
-                do_dbg_log = LOG_DETAILS & LOG_DETAIL_RW;
                 this.atapi_read(this.data);
             }
             break;
@@ -1584,14 +1583,17 @@ IDEInterface.prototype.atapi_read = function(cmd)
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
 
-    dbg_log(this.name + ": CD read lba=" + h(lba) +
-            " lbacount=" + h(count) +
-            " bytecount=" + h(byte_count) +
-            " flags=" + h(flags), LOG_DISK);
+    if(LOG_DETAILS & LOG_DETAIL_RW)
+    {
+        dbg_log(this.name + ": CD read lba=" + h(lba) +
+                " lbacount=" + h(count) +
+                " bytecount=" + h(byte_count) +
+                " flags=" + h(flags), LOG_DISK);
+    }
 
     this.data_length = 0;
     var req_length = this.lba_high_reg << 8 & 0xFF00 | this.lba_mid_reg & 0xFF;
-    dbg_log(this.name + ": " + h(this.lba_high_reg, 2) + " " + h(this.lba_mid_reg, 2), LOG_DISK);
+    //dbg_log(this.name + ": " + h(this.lba_high_reg, 2) + " " + h(this.lba_mid_reg, 2), LOG_DISK);
     this.lba_mid_reg = this.lba_high_reg = 0; // oak technology driver (windows 3.0)
 
     if(req_length === 0xFFFF)
@@ -1632,7 +1634,10 @@ IDEInterface.prototype.atapi_read = function(cmd)
 
         this.read_buffer(start, byte_count, (data) =>
         {
-            dbg_log(this.name + ": CD read: data arrived", LOG_DISK);
+            if(LOG_DETAILS & LOG_DETAIL_RW)
+            {
+                dbg_log(this.name + ": CD read: data arrived", LOG_DISK);
+            }
             this.data_set(data);
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.sector_count_reg = this.sector_count_reg & ~7 | 2;
