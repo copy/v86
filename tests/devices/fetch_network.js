@@ -2,9 +2,11 @@
 
 import assert from "assert/strict";
 import url from "node:url";
-import { Worker } from "node:worker_threads";
+import { Worker, isMainThread, parentPort } from "node:worker_threads";
+import { createServer } from "node:http";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
+const __filename = url.fileURLToPath(import.meta.url);
 process.on("unhandledRejection", exn => { throw exn; });
 
 const USE_VIRTIO = !!process.env.USE_VIRTIO;
@@ -13,8 +15,8 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const SHOW_LOGS = false;
 
-var SERVER_PORT = parseInt(process.env.SERVER_PORT, 10) || 0;
-var server = null;
+var SERVER_PORT = 0;
+var emulator = null, server = null;
 
 function wait(time) {
     return new Promise((res) => setTimeout(res, time));
@@ -169,7 +171,7 @@ const tests =
         allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send(`wget -T 10 -O - ${SERVER_PORT}.v86local.http\n`);
+            emulator.serial0_send(`wget -T 10 -O - ${SERVER_PORT}.external\n`);
             emulator.serial0_send("echo -e done\\\\tlocal server\n");
         },
         end_trigger: "done\tlocal server",
@@ -183,7 +185,7 @@ const tests =
         allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send(`wget -S -T 10 --header='x-client-test: hello' -O - ${SERVER_PORT}.v86local.http/header\n`);
+            emulator.serial0_send(`wget -S -T 10 --header='x-client-test: hello' -O - ${SERVER_PORT}.external/header\n`);
             emulator.serial0_send("echo -e done\\\\tlocal server custom header\n");
         },
         end_trigger: "done\tlocal server custom header",
@@ -197,7 +199,7 @@ const tests =
         allow_failure: true,
         start: () =>
         {
-            emulator.serial0_send(`curl -m 10 -L -v ${SERVER_PORT}.v86local.http/redirect\n`);
+            emulator.serial0_send(`curl -m 10 -L -v ${SERVER_PORT}.external/redirect\n`);
             emulator.serial0_send("echo -e done\\\\tlocal server redirect\n");
         },
         end_trigger: "done\tlocal server redirect",
@@ -248,32 +250,63 @@ const tests =
     },
 ];
 
-const emulator = new V86({
-    bios: { url: __dirname + "/../../bios/seabios.bin" },
-    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    bzimage: { url: __dirname + "/../../images/buildroot-bzimage68.bin" },
-    autostart: true,
-    memory_size: 64 * 1024 * 1024,
-    disable_jit: +process.env.DISABLE_JIT,
-    net_device: {
-        relay_url: "fetch",
-        type: USE_VIRTIO ? "virtio" : "ne2k",
-        local_http: true
-    },
-    log_level: SHOW_LOGS ? 0x400000 : 0,
-});
+if(isMainThread)
+{
+    emulator = new V86({
+        bios: { url: __dirname + "/../../bios/seabios.bin" },
+        vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+        bzimage: { url: __dirname + "/../../images/buildroot-bzimage68.bin" },
+        autostart: true,
+        memory_size: 64 * 1024 * 1024,
+        disable_jit: +process.env.DISABLE_JIT,
+        net_device: {
+            relay_url: "fetch",
+            type: USE_VIRTIO ? "virtio" : "ne2k",
+            local_http: true
+        },
+        log_level: SHOW_LOGS ? 0x400000 : 0,
+    });
 
-emulator.add_listener("emulator-ready", function () {
-    server = new Worker(__dirname + "fetch_testserver.js", { workerData: { port: SERVER_PORT, benchsize: 0 } });
+    server = new Worker(__filename);
     server.on("error", (e) => { throw new Error("server: " + e); });
     server.on("message", function(msg) {
-        if(msg.port)
-        {
-            SERVER_PORT = msg.port;
-            console.log("Server started on port " + SERVER_PORT);
+        SERVER_PORT = msg;
+        console.log("Server started on port " + SERVER_PORT);
+    });
+}
+else
+{
+    // placeholder for main thread handlers
+    emulator = { bus: {} };
+    emulator.add_listener = emulator.bus.register = () => null;
+
+    server = createServer(function(request, response) {
+        switch(request.method) {
+            case "GET":
+                if(request.url === "/") {
+                    response.end("This text is from the local server");
+                } else if(request.url === "/header") {
+                     response.writeHead(200, { "x-server-test": request.headers["x-client-test"].split("").join("_") || "none" });
+                     response.end();
+                } else if(request.url === "/redirect") {
+                     response.writeHead(307, { "location": "/" });
+                     response.end();
+                } else {
+                     response.writeHead(404);
+                     response.end("Unknown endpoint");
+                }
+                break;
+            default:
+                response.writeHead(405);
+                response.end("Unknown method");
+                break;
         }
     });
 
+    server.listen(0, () => parentPort.postMessage(server.address().port));
+}
+
+emulator.add_listener("emulator-ready", function () {
     let network_adapter = emulator.network_adapter;
     let original_fetch = network_adapter.fetch;
     network_adapter.fetch = (url, opts) => {
