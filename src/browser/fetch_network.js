@@ -119,7 +119,7 @@ async function on_data_http(data)
             else req_headers.append(header.key, header.value);
         }
 
-        if(this.net.local_http && !this.net.cors_proxy && (/\d+\.v86local\.http/).test(target.hostname)) {
+        if(this.net.local_http && !this.net.cors_proxy && (/\d+\.external/).test(target.hostname)) {
             dbg_log("Request to localhost: " + target.href, LOG_FETCH);
             const localport = parseInt(target.hostname.split(".")[0], 10);
             if(!isNaN(localport) && localport > 0 && localport < 65536) {
