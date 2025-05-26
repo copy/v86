@@ -166,24 +166,29 @@ const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
 const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
 const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
 
-const ATAPI_CMD_NAME =
+// ATAPI command flags
+const ATAPI_CF_NONE = 0x00;         // no flags
+const ATAPI_CF_NEEDS_DISK = 0x01;   // command needs inserted disk
+const ATAPI_CF_UNIT_ATTN = 0x02;    // bounce command if unit attention condition is active
+
+const ATAPI_CMD =
 {
-    [ATAPI_CMD_GET_CONFIGURATION]:             "GET CONFIGURATION",
-    [ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION]: "GET EVENT STATUS NOTIFICATION",
-    [ATAPI_CMD_INQUIRY]:                       "INQUIRY",
-    [ATAPI_CMD_MECHANISM_STATUS]:              "MECHANISM STATUS",
-    [ATAPI_CMD_MODE_SENSE_6]:                  "MODE SENSE (6)",
-    [ATAPI_CMD_MODE_SENSE_10]:                 "MODE SENSE (10)",
-    [ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL]:  "PREVENT ALLOW MEDIUM REMOVAL",
-    [ATAPI_CMD_READ]:                          "READ",
-    [ATAPI_CMD_READ_CAPACITY]:                 "READ CAPACITY",
-    [ATAPI_CMD_READ_CD]:                       "READ CD",
-    [ATAPI_CMD_READ_DISK_INFORMATION]:         "READ DISK INFORMATION",
-    [ATAPI_CMD_READ_SUBCHANNEL]:               "READ SUBCHANNEL",
-    [ATAPI_CMD_READ_TOC_PMA_ATIP]:             "READ TOC PMA ATIP",
-    [ATAPI_CMD_READ_TRACK_INFORMATION]:        "READ TRACK INFORMATION",
-    [ATAPI_CMD_REQUEST_SENSE]:                 "REQUEST SENSE",
-    [ATAPI_CMD_TEST_UNIT_READY]:               "TEST UNIT READY",
+    [ATAPI_CMD_GET_CONFIGURATION]:             {name: "GET CONFIGURATION",             flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION]: {name: "GET EVENT STATUS NOTIFICATION", flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_INQUIRY]:                       {name: "INQUIRY",                       flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_MECHANISM_STATUS]:              {name: "MECHANISM STATUS",              flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_MODE_SENSE_6]:                  {name: "MODE SENSE (6)",                flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_MODE_SENSE_10]:                 {name: "MODE SENSE (10)",               flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL]:  {name: "PREVENT ALLOW MEDIUM REMOVAL",  flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ]:                          {name: "READ",                          flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ_DISK_INFORMATION]:         {name: "READ DISK INFORMATION",         flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_SUBCHANNEL]:               {name: "READ SUBCHANNEL",               flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_TOC_PMA_ATIP]:             {name: "READ TOC PMA ATIP",             flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_TRACK_INFORMATION]:        {name: "READ TRACK INFORMATION",        flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NONE},
 };
 
 // ATAPI 4-bit Sense Keys, see [MMC-2] 9.1.18.3, Table 123
@@ -199,7 +204,9 @@ const ATAPI_SK_BLANK_CHECK = 8;
 const ATAPI_SK_ABORTED_COMMAND = 11;
 
 // ATAPI 8-bit Additional Sense Codes, see [MMC-2] 9.1.18.3, Table 124
+// https://github.com/qemu/qemu/blob/3c5a5e213e5f08fbfe70728237f7799ac70f5b99/hw/ide/ide-internal.h#L288
 const ATAPI_ASC_INV_FIELD_IN_CMD_PACKET = 0x24;
+const ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED = 0x28;
 const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
 
 // Debug log detail bits (internal to this module)
@@ -1273,31 +1280,29 @@ IDEInterface.prototype.ata_command = function(cmd)
 IDEInterface.prototype.atapi_handle = function()
 {
     const cmd = this.data[0];
+    const cmd_name = ATAPI_CMD[cmd] ? ATAPI_CMD[cmd].name : "<undefined>";
+    const cmd_flags = ATAPI_CMD[cmd] ? ATAPI_CMD[cmd].flags : ATAPI_CF_NONE;
     const regs_pre = DEBUG ? this.capture_regs() : undefined;
+
     let do_dbg_log = DEBUG;
     let dbg_log_extra;
 
     this.data_pointer = 0;
     this.current_atapi_command = cmd;
 
-    if(cmd !== ATAPI_CMD_REQUEST_SENSE)
+    if(cmd !== ATAPI_CMD_REQUEST_SENSE) // TODO
     {
         this.atapi_sense_key = 0;
         this.atapi_add_sense = 0;
     }
 
-    if(!this.buffer && (cmd === ATAPI_CMD_READ_CAPACITY ||
-                        cmd === ATAPI_CMD_READ ||
-                        cmd === ATAPI_CMD_READ_SUBCHANNEL ||
-                        cmd === ATAPI_CMD_READ_TOC_PMA_ATIP ||
-                        cmd === ATAPI_CMD_READ_DISK_INFORMATION))
+    if(!this.buffer && cmd_flags & ATAPI_CF_NEEDS_DISK)
     {
         this.atapi_check_condition_response(ATAPI_SK_NOT_READY, ATAPI_ASC_MEDIUM_NOT_PRESENT);
         this.push_irq();
         if(DEBUG)
         {
-            const result = this.status_reg & ATA_SR_ERR ? (this.error_reg & ATA_ER_ABRT ? "ABORT" : "ERROR") : "OK";
-            dbg_log(`${this.name}: ATAPI command ${ATAPI_CMD_NAME[cmd]} (${h(cmd)}) without medium: ${result} [${regs_pre}]`, LOG_DISK);
+            dbg_log(`${this.name}: ATAPI command ${cmd_name} (${h(cmd)}) without medium: ERROR [${regs_pre}]`, LOG_DISK);
         }
         return;
     }
@@ -1530,7 +1535,7 @@ IDEInterface.prototype.atapi_handle = function()
         const regs_msg = `[${regs_pre}] -> [${this.capture_regs()}]`;
         const result = this.status_reg & ATA_SR_ERR ? (this.error_reg & ATA_ER_ABRT ? "ABORT" : "ERROR") : "OK";
         dbg_log_extra = dbg_log_extra ? ` ${dbg_log_extra}:` : "";
-        dbg_log(`${this.name}: ATAPI command ${ATAPI_CMD_NAME[cmd]} (${h(cmd)}):${dbg_log_extra} ${result} ${regs_msg}`, LOG_DISK);
+        dbg_log(`${this.name}: ATAPI command ${cmd_name} (${h(cmd)}):${dbg_log_extra} ${result} ${regs_msg}`, LOG_DISK);
     }
 };
 
