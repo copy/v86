@@ -56,17 +56,14 @@ const BMI_REG_PRDT = 0x04;        // Bus Master IDE PRD Table Address register
 const ATA_ER_ABRT = 0x04;  // Command aborted
 
 // Status register bits:
-// Bits 0x02/0x04 are obsolete and 0x10/0x20 are command dependent.
-// Bit 0x02 used to be called "Index" (IDX), bit 0x04 "Corrected data" (CORR),
-// bit 0x10 "Drive seek complete" (DSC), and bit 0x20 "Drive write fault" (DF).
-// NOTE:
-//   This code uses ATA_SR_DSC in the old style, this is either unneccessary
-//   or means that this code was originally not based on ATA/ATAPI-6 but an
-//   older release (ATA/ATAPI-4 or even older).
-const ATA_SR_ERR  = 0x01;  // Error
-const ATA_SR_DRQ  = 0x08;  // Data request ready
-const ATA_SR_DSC  = 0x10;  // Drive seek complete
-const ATA_SR_DRDY = 0x40;  // Drive ready
+const ATA_SR_ERR  = 0x01;  // Error (ATA)
+const ATA_SR_COND = 0x01;  // Check Condition (ATAPI)
+const ATA_SR_SENS = 0x02;  // Sense Available (ATAPI)
+const ATA_SR_AERR = 0x04;  // Alignment Error
+const ATA_SR_DRQ  = 0x08;  // Data Request
+const ATA_SR_DSC  = 0x10;  // Drive Seek Complete / Deferred Write Error
+const ATA_SR_DF   = 0x20;  // Device Fault / Stream Error
+const ATA_SR_DRDY = 0x40;  // Drive Ready
 const ATA_SR_BSY  = 0x80;  // Busy
 
 // Device register bits:
@@ -211,6 +208,7 @@ const LOG_DETAIL_REG_IO = 0x01; // log register read/write access
 const LOG_DETAIL_IRQ = 0x02;    // log IRQ raise/lower events
 const LOG_DETAIL_RW = 0x04;     // log data read/write-related events
 const LOG_DETAIL_RW_DMA = 0x08; // log DMA data read/write-related events
+const LOG_DETAIL_CHS = 0x10;    // log register-CHS to LBA conversions
 const LOG_DETAIL_ALL = 0xFF;    // log all details
 // the bitset of active log details (should be 0 when not in DEBUG mode)
 const LOG_DETAILS = DEBUG ? LOG_DETAIL_NONE : 0;
@@ -529,7 +527,7 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
         {
             dbg_log(this.current_interface.name + ": write Command register", LOG_DISK);
         }
-        this.current_interface.status_reg &= ~(ATA_SR_ERR | 0x20);  // 0x20: command dependent, used to be Drive Write Fault (DF)
+        this.current_interface.status_reg &= ~(ATA_SR_ERR|ATA_SR_DF);
         this.current_interface.ata_command(data);
         if(LOG_DETAILS & LOG_DETAIL_IRQ)
         {
@@ -897,8 +895,8 @@ IDEInterface.prototype.eject = function()
     {
         this.medium_changed = true;
         this.buffer = null;
-        this.status_reg = 0x59; // TODO: needs documentation, same in this.set_disk_buffer() below
-        this.error_reg = 0x60;  // TODO: is this perhaps a CHECK CONDITION event for Sense UNIT ATTENTION?
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
+        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
         this.push_irq();
     }
 };
@@ -922,8 +920,8 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     this.buffer = buffer;
     if(this.is_atapi)
     {
-        this.status_reg = 0x59; // TODO: see this.eject()
-        this.error_reg = 0x60;  // TODO
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
+        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
     }
     this.sector_count = this.buffer.byteLength / this.sector_size;
 
@@ -1066,25 +1064,17 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.lba_low_reg = last_sector & 0xFF;
             this.lba_mid_reg = last_sector >> 8 & 0xFF;
             this.lba_high_reg = last_sector >> 16 & 0xFF;
-            this.device_reg = this.device_reg & ATA_DR_DEV | last_sector >> 24 & 0x0F;
+            this.device_reg = this.device_reg & 0xF0 | last_sector >> 24 & 0x0F;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
 
         case ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT:
             var last_sector = this.sector_count - 1;
-            if(this.channel.device_control_reg & ATA_CR_HOB === 0)
-            {
-                this.lba_low_reg = last_sector & 0xFF;
-                this.lba_mid_reg = last_sector >> 8 & 0xFF;
-                this.lba_high_reg = last_sector >> 16 & 0xFF;
-            }
-            else
-            {
-                this.lba_low_reg = last_sector >> 24 & 0xFF;
-                this.lba_mid_reg = last_sector >> 32 & 0xFF;
-                this.lba_high_reg = last_sector >> 40 & 0xFF;
-            }
+            this.lba_low_reg = last_sector & 0xFF;
+            this.lba_mid_reg = last_sector >> 8 & 0xFF;
+            this.lba_high_reg = last_sector >> 16 & 0xFF;
+            this.lba_low_reg |= last_sector >> 24 << 8 & 0xFF00;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
@@ -1143,8 +1133,8 @@ IDEInterface.prototype.ata_command = function(cmd)
                 do_dbg_log = false;
                 this.data_allocate(12);
                 this.data_end = 12;
-                this.sector_count_reg = 0x01;                           // 0x01: indicates transfer of a command packet (C/D)
-                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;    // 0x10: another command is ready to be serviced (SERV)
+                this.sector_count_reg = 0x01;   // 0x01: indicates transfer of a command packet (C/D)
+                this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
                 this.push_irq();
             }
             else
@@ -1553,7 +1543,7 @@ IDEInterface.prototype.atapi_check_condition_response = function(sense_key, addi
     // https://github.com/qemu/qemu/blob/757a34115e7491744a63dfc3d291fd1de5297ee2/hw/ide/atapi.c#L186
     this.data_allocate(0);
     this.data_end = this.data_length;
-    this.status_reg = ATA_SR_DRDY|ATA_SR_ERR;
+    this.status_reg = ATA_SR_DRDY|ATA_SR_COND;
     this.error_reg = sense_key << 4;
     this.sector_count_reg = (this.sector_count_reg & ~7) | 2 | 1;
     this.atapi_sense_key = sense_key;
@@ -1634,7 +1624,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     else
     {
         byte_count = Math.min(byte_count, this.buffer.byteLength - start);
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: meaning of 0x80?
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_BSY;
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -1688,7 +1678,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
     else
     {
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC | 0x80;    // TODO: meaning of 0x80?
+        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_BSY;
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -2056,7 +2046,7 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
     }
     else
     {
-        this.status_reg = 0x80 | 0x40;  // TODO: meaning?
+        this.status_reg = ATA_SR_DRDY|ATA_SR_BSY;
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
@@ -2313,7 +2303,10 @@ IDEInterface.prototype.get_chs = function()
     var h = this.head;
     var s = this.lba_low_reg & 0xFF;
 
-    dbg_log(this.name + ": get_chs: c=" + c + " h=" + h + " s=" + s, LOG_DISK);
+    if(LOG_DETAILS & LOG_DETAIL_CHS)
+    {
+        dbg_log(this.name + ": get_chs: c=" + c + " h=" + h + " s=" + s, LOG_DISK);
+    }
 
     return (c * this.head_count + h) * this.sectors_per_track + s - 1;
 };
