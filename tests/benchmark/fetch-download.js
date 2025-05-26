@@ -13,7 +13,6 @@ const BENCHFILE_SIZE = (parseInt(process.env.BENCHFILE_SIZE_MB, 10) || 32) * 102
 const { V86 } = await import("../../build/libv86.mjs");
 
 const LOG_SERIAL = true;
-const SHOW_LOGS = false;
 
 if(isMainThread)
 {
@@ -21,7 +20,7 @@ if(isMainThread)
         bios: { url: __dirname + "/../../bios/seabios.bin" },
         vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
         bzimage: { url: __dirname + "/../../images/buildroot-bzimage68.bin" },
-        autostart: true,
+        autostart: false,
         memory_size: 64 * 1024 * 1024,
         net_device: {
             relay_url: "fetch",
@@ -35,6 +34,7 @@ if(isMainThread)
     server.on("message", function(msg) {
         SERVER_PORT = msg;
         console.log("Server started on port " + SERVER_PORT);
+        emulator.run();
     });
 
     var SERVER_PORT = 0;
