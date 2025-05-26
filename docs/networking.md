@@ -162,6 +162,8 @@ Starting with PR [#1233](https://github.com/copy/v86/pull/1233), the TCP guest l
 
 v86 guests are isolated from each other when using the `fetch` backend.
 
+v86 guests have HTTP access to the host's `localhost` using the URL `http://<port>.external` (e.g. `1234.external` -> `localhost:1234`).
+
 **CORS proxy server**
 
 * **[cors-anywhere](https://github.com/Rob--W/cors-anywhere)** -- NodeJS

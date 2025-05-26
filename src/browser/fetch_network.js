@@ -110,11 +110,25 @@ async function on_data_http(data)
             const header = this.net.parse_http_header(headers[i]);
             if(!header) {
                 console.warn('The request contains an invalid header: "%s"', headers[i]);
-                this.write(new TextEncoder().encode("HTTP/1.1 400 Bad Request\r\nContent-Length: 0"));
+                this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${headers[i]}`);
                 return;
             }
             if( header.key.toLowerCase() === "host" ) target.host = header.value;
             else req_headers.append(header.key, header.value);
+        }
+
+        if(!this.net.cors_proxy && /^\d+\.external$/.test(target.hostname)) {
+            dbg_log("Request to localhost: " + target.href, LOG_FETCH);
+            const localport = parseInt(target.hostname.split(".")[0], 10);
+            if(!isNaN(localport) && localport > 0 && localport < 65536) {
+                target.protocol = "http:";
+                target.hostname = "localhost";
+                target.port = localport.toString(10);
+            } else {
+                console.warn('Unknown port for localhost: "%s"', target.href);
+                this.net.respond_text_and_close(this, 400, "Bad Request", `Unknown port for localhost: ${target.href}`);
+                return;
+            }
         }
 
         dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
@@ -131,18 +145,16 @@ async function on_data_http(data)
         const encoder = new TextEncoder();
         let response_started = false;
         this.net.fetch(fetch_url, opts).then((resp) => {
-            const header_lines = [
-                `HTTP/1.1 ${resp.status} ${resp.statusText}`,
-                `x-was-fetch-redirected: ${!!resp.redirected}`,
-                `x-fetch-resp-url: ${resp.url}`,
-                "Connection: closed"
-            ];
-            for(const [key, value] of resp.headers.entries()) {
-                if(!["content-encoding", "connection", "content-length", "transfer-encoding"].includes(key.toLowerCase())) {
-                    header_lines.push(`${key}:  ${value}`);
-                }
-            }
-            this.write(encoder.encode(header_lines.join("\r\n") + "\r\n\r\n"));
+            let resp_headers = new Headers(resp.headers);
+            resp_headers.delete("content-encoding");
+            resp_headers.delete("keep-alive");
+            resp_headers.delete("content-length");
+            resp_headers.delete("transfer-encoding");
+            resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
+            resp_headers.set("x-fetch-resp-url", resp.url);
+            resp_headers.set("connection", "close");
+
+            this.write(this.net.form_response_head(resp.status, resp.statusText, resp_headers));
             response_started = true;
 
             if(resp.body && resp.body.getReader) {
@@ -169,14 +181,7 @@ async function on_data_http(data)
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
             if(!response_started) {
-                const body = encoder.encode(`Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
-                const header_lines = [
-                    "HTTP/1.1 502 Fetch Error",
-                    "Content-Type: text/plain",
-                    `Content-Length: ${body.length}`,
-                    "Connection: closed"
-                ];
-                this.writev([encoder.encode(header_lines.join("\r\n") + "\r\n\r\n"), body]);
+                this.net.respond_text_and_close(this, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
             }
             this.close();
         });
@@ -196,17 +201,39 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
     catch(e)
     {
         console.warn("Fetch Failed: " + url + "\n" + e);
-        let headers = new Headers();
-        headers.set("Content-Type", "text/plain");
         return [
             {
                 status: 502,
                 statusText: "Fetch Error",
-                headers: headers,
+                headers: new Headers({ "Content-Type": "text/plain" }),
             },
             new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
         ];
     }
+};
+
+FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_text, headers)
+{
+    let lines = [
+        `HTTP/1.1 ${status_code} ${status_text}`
+    ];
+
+    for(const [key, value] of headers.entries()) {
+        lines.push(`${key}: ${value}`);
+    }
+
+    return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
+};
+
+FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_code, status_text, body)
+{
+    const headers = new Headers({
+        "content-type": "text/plain",
+        "content-length": body.length.toString(10),
+        "connection": "close"
+    });
+    conn.writev([this.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
+    conn.close();
 };
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
