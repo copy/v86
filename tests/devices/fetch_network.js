@@ -118,7 +118,7 @@ if(isMainThread)
                 let open = await emulator.network_adapter.tcp_probe(80);
                 assert(!open, "Probe shows port not open");
                 emulator.serial0_send("echo -n hello | socat TCP4-LISTEN:80 - && echo -e done\\\\tlisten\n");
-                await wait(5000);
+                await wait(1000);
                 open = await emulator.network_adapter.tcp_probe(80);
                 assert(open, "Probe shows port open, but does not show as a connection");
                 await wait(1000);
@@ -262,7 +262,6 @@ if(isMainThread)
         net_device: {
             relay_url: "fetch",
             type: USE_VIRTIO ? "virtio" : "ne2k",
-            local_http: true
         },
         log_level: SHOW_LOGS ? 0x400000 : 0,
     });
