@@ -25,7 +25,6 @@ if(isMainThread)
         net_device: {
             relay_url: "fetch",
             type: USE_VIRTIO ? "virtio" : "ne2k",
-            local_http: true
         }
     });
 
