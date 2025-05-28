@@ -7,9 +7,12 @@ import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DIS
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 
-// ATA/ATAPI-6 IDE Controller
+// ATA/ATAPI-6/8 IDE Controller
 //
 // References
+// - [ATA8-ACS]
+//   ATA/ATAPI Command Set - 3 (ACS-3) (Rev. 5, Oct. 28, 2013)
+//   https://read.seas.harvard.edu/cs161/2019/pdf/ata-atapi-8.pdf
 // - [ATA-6]
 //   AT Attachment with Packet Interface - 6 (ATA/ATAPI-6) (Rev. 3a; Dec. 14, 2001)
 //   https://technion-csl.github.io/ose/readings/hardware/ATA-d1410r3a.pdf
@@ -17,6 +20,15 @@ import { BusConnector } from "./bus.js";
 //   PROPOSAL FOR CD-ROM IN SCSI-2 (X3T9.2/87) (Rev. 0, Jun. 30, 1987)
 //   https://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
 //   https://www.t10.org/ftp/x3t9.2/document.87/87-106r1.txt (errata to r0)
+// - [SAM-3]
+//   SCSI Architecture Model - 3 (SAM-3) (Sep. 21, 2004)
+//   https://dn790004.ca.archive.org/0/items/SCSISpecificationDocumentsSCSIDocuments/SCSI%20Architecture%20Model/SCSI%20Architecture%20Model%203%20rev%2014.pdf
+// - [SPC-3]
+//   SCSI Primary Commands - 3 (SPC-3) (July 20, 2008)
+//   https://www.t10.org/ftp/t10/document.08/08-309r0.pdf
+// - [MMC-3]
+//   SCSI Multimedia Commands - 3 (MMC-3) (Rev. 10g, Nov. 12, 2001)
+//   https://ia902808.us.archive.org/33/items/mmc3r10g/mmc3r10g.pdf
 // - [MMC-2]
 //   Packet Commands for C/DVD Devices (1997)
 //   https://www.t10.org/ftp/t10/document.97/97-108r0.pdf
@@ -68,47 +80,47 @@ const ATA_SR_BSY  = 0x80;  // Busy
 
 // Device register bits:
 // Bits 0x20/0x80 are obsolete and 0x01/0x02/0x04/0x08/0x40 are command dependent.
-const ATA_DR_DEV  = 0x10;  // Device select; slave device if set, else master device
+const ATA_DR_DEV = 0x10;   // Device select; slave device if set, else master device
 
 // Device Control register bits:
 // Bits 0x08/0x10/0x20/0x40 are reserved and bit 0x01 is always zero.
 const ATA_CR_nIEN = 0x02;  // Interrupt disable (not Interrupt ENable)
 const ATA_CR_SRST = 0x04;  // Software reset
-const ATA_CR_HOB  = 0x80;  // 48-bit Address feature set
+const ATA_CR_HOB = 0x80;   // 48-bit Address feature set
 
 // ATA commands
-const ATA_CMD_DEVICE_RESET = 0x08;                    // see [ATA-6] 8.10 and 9.11
-const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;       // see [ATA-6] 8.11
-const ATA_CMD_FLUSH_CACHE = 0xE7;                     // see [ATA-6] 8.12
-const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;                 // see [ATA-6] 8.13
+const ATA_CMD_DEVICE_RESET = 0x08;                    // see [ATA8-ACS] 7.6
+const ATA_CMD_EXECUTE_DEVICE_DIAGNOSTIC = 0x90;       // see [ATA8-ACS] 7.9
+const ATA_CMD_FLUSH_CACHE = 0xE7;                     // see [ATA8-ACS] 7.10
+const ATA_CMD_FLUSH_CACHE_EXT = 0xEA;                 // see [ATA8-ACS] 7.11
 const ATA_CMD_GET_MEDIA_STATUS = 0xDA;                // see [ATA-6] 8.14
-const ATA_CMD_IDENTIFY_DEVICE = 0xEC;                 // see [ATA-6] 8.15
-const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA-6] 8.16
-const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA-6] 8.18
-const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6]
+const ATA_CMD_IDENTIFY_DEVICE = 0xEC;                 // see [ATA8-ACS] 7.12
+const ATA_CMD_IDENTIFY_PACKET_DEVICE = 0xA1;          // see [ATA8-ACS] 7.13
+const ATA_CMD_IDLE_IMMEDIATE = 0xE1;                  // see [ATA8-ACS] 7.15
+const ATA_CMD_INITIALIZE_DEVICE_PARAMETERS = 0x91;    // not mentioned in [ATA-6] or [ATA8-ACS]
 const ATA_CMD_MEDIA_LOCK = 0xDE;                      // see [ATA-6] 8.20
-const ATA_CMD_NOP = 0x00;                             // see [ATA-6] 8.22
-const ATA_CMD_PACKET = 0xA0;                          // see [ATA-6] 8.23
-const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA-6] 8.26
-const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA-6] 8.25
-const ATA_CMD_READ_MULTIPLE = 0x29;                   // see [ATA-6] 8.30
-const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;               // see [ATA-6] 8.31
+const ATA_CMD_NOP = 0x00;                             // see [ATA8-ACS] 7.17
+const ATA_CMD_PACKET = 0xA0;                          // see [ATA8-ACS] 7.18
+const ATA_CMD_READ_DMA = 0xC8;                        // see [ATA8-ACS] 7.21
+const ATA_CMD_READ_DMA_EXT = 0x25;                    // see [ATA8-ACS] 7.22
+const ATA_CMD_READ_MULTIPLE = 0x29;                   // see [ATA8-ACS] 7.26
+const ATA_CMD_READ_MULTIPLE_EXT = 0xC4;               // see [ATA8-ACS] 7.27
 const ATA_CMD_READ_NATIVE_MAX_ADDRESS = 0xF8;         // see [ATA-6] 8.32
 const ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT = 0x27;     // see [ATA-6] 8.33
-const ATA_CMD_READ_SECTORS = 0x20;                    // see [ATA-6] 8.34
-const ATA_CMD_READ_SECTORS_EXT = 0x24;                // see [ATA-6] 8.35
-const ATA_CMD_READ_VERIFY_SECTORS = 0x40;             // see [ATA-6] 8.36
-const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA-6] 8.41
-const ATA_CMD_SET_FEATURES = 0xEF;                    // see [ATA-6] 8.46
+const ATA_CMD_READ_SECTORS = 0x20;                    // see [ATA8-ACS] 7.28
+const ATA_CMD_READ_SECTORS_EXT = 0x24;                // see [ATA8-ACS] 7.29
+const ATA_CMD_READ_VERIFY_SECTORS = 0x40;             // see [ATA8-ACS] 7.32
+const ATA_CMD_SECURITY_FREEZE_LOCK = 0xF5;            // see [ATA8-ACS] 7.40
+const ATA_CMD_SET_FEATURES = 0xEF;                    // see [ATA8-ACS] 7.45
 const ATA_CMD_SET_MAX = 0xF9;                         // see [ATA-6] 8.47
-const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;               // see [ATA-6] 8.49
-const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;               // see [ATA-6] 8.53
-const ATA_CMD_WRITE_DMA = 0xCA;                       // see [ATA-6] 8.55
-const ATA_CMD_WRITE_DMA_EXT = 0x35;                   // see [ATA-6] 8.56
-const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA-6] 8.60
-const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA-6] 8.61
-const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA-6] 8.62
-const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA-6] 8.63
+const ATA_CMD_SET_MULTIPLE_MODE = 0xC6;               // see [ATA8-ACS] 7.46
+const ATA_CMD_STANDBY_IMMEDIATE = 0xE0;               // see [ATA8-ACS] 7.50
+const ATA_CMD_WRITE_DMA = 0xCA;                       // see [ATA8-ACS] 7.58
+const ATA_CMD_WRITE_DMA_EXT = 0x35;                   // see [ATA8-ACS] 7.59
+const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA8-ACS] 7.64
+const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA8-ACS] 7.65
+const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA8-ACS] 7.67
+const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA8-ACS] 7.68
 const ATA_CMD_10h = 0x10;                             // command obsolete/unknown, see [ATA-6] Table E.2
 
 const ATA_CMD_NAME =
@@ -190,6 +202,10 @@ const ATAPI_CMD =
     [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
     [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NONE},
 };
+
+// ATAPI device signature
+const ATAPI_SIGNATURE_LO = 0x14;
+const ATAPI_SIGNATURE_HI = 0xEB;
 
 // ATAPI 4-bit Sense Keys, see [MMC-2] 9.1.18.3, Table 123
 const ATAPI_SK_NO_SENSE = 0;
@@ -1001,8 +1017,8 @@ IDEInterface.prototype.device_reset = function()
         this.sector_count_reg = 1;
         this.error_reg = 1;
         this.lba_low_reg = 1;
-        this.lba_mid_reg = 0x14;
-        this.lba_high_reg = 0xEB;
+        this.lba_mid_reg = ATAPI_SIGNATURE_LO;  // TODO: missing documentation
+        this.lba_high_reg = ATAPI_SIGNATURE_HI;
     }
     else
     {
@@ -1087,6 +1103,17 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case ATA_CMD_READ_SECTORS:
+            do_dbg_log = false;
+            if(this.is_atapi)
+            {
+                this.ata_abort_command();
+            }
+            else
+            {
+                this.ata_read_sectors(cmd);
+            }
+            break;
+
         case ATA_CMD_READ_SECTORS_EXT:
         case ATA_CMD_READ_MULTIPLE:
         case ATA_CMD_READ_MULTIPLE_EXT:
