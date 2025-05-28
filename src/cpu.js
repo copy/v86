@@ -537,8 +537,8 @@ CPU.prototype.get_state = function()
     state[53] = this.devices.ps2;
     state[54] = this.devices.uart0;
     state[55] = this.devices.fdc;
-    state[56] = this.devices.cdrom.channel;
-    state[57] = this.devices.hda? this.devices.hda.channel : undefined;
+    state[56] = this.devices.ide.secondary;
+    state[57] = this.devices.ide.primary ? this.devices.ide.primary : undefined;
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
     state[60] = this.get_state_pic();
@@ -692,8 +692,8 @@ CPU.prototype.set_state = function(state)
     this.devices.ps2 && this.devices.ps2.set_state(state[53]);
     this.devices.uart0 && this.devices.uart0.set_state(state[54]);
     this.devices.fdc && this.devices.fdc.set_state(state[55]);
-    this.devices.cdrom && this.devices.cdrom.channel.set_state(state[56]);
-    this.devices.hda && this.devices.hda.channel.set_state(state[57]);
+    this.devices.ide.secondary.set_state(state[56]);
+    this.devices.ide.primary && this.devices.ide.primary.set_state(state[57]);
     this.devices.pit && this.devices.pit.set_state(state[58]);
     this.devices.net && this.devices.net.set_state(state[59]);
     this.set_state_pic(state[60]);
@@ -1105,19 +1105,14 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
-        let cdrom_channel = 0;
         const ide_config = [[undefined, undefined], [undefined, undefined]];
         if(settings.hda) {
             ide_config[0][0] = {buffer: settings.hda};
             ide_config[0][1] = {buffer: settings.hdb};
-            cdrom_channel++;
         }
-        ide_config[cdrom_channel][0] = {is_cdrom: true, buffer: settings.cdrom};
+        ide_config[1][0] = {is_cdrom: true, buffer: settings.cdrom};
         this.devices.ide = new IDEController(this, device_bus, ide_config);
-        if(settings.hda) {
-            this.devices.hda = this.devices.ide.primary.master;
-        }
-        this.devices.cdrom = this.devices.ide.channels[cdrom_channel].master;
+        this.devices.cdrom = this.devices.ide.secondary.master;
 
         this.devices.pit = new PIT(this, device_bus);
 
