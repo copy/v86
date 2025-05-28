@@ -1106,6 +1106,8 @@ IDEInterface.prototype.ata_command = function(cmd)
             do_dbg_log = false;
             if(this.is_atapi)
             {
+                this.lba_mid_reg = ATAPI_SIGNATURE_LO;  // see [ATA8-ACS] 4.3
+                this.lba_high_reg = ATAPI_SIGNATURE_HI;
                 this.ata_abort_command();
             }
             else
@@ -1257,6 +1259,8 @@ IDEInterface.prototype.ata_command = function(cmd)
         case ATA_CMD_IDENTIFY_DEVICE:
             if(this.is_atapi)
             {
+                this.lba_mid_reg = ATAPI_SIGNATURE_LO;  // see [ATA8-ACS] 4.3
+                this.lba_high_reg = ATAPI_SIGNATURE_HI;
                 this.ata_abort_command();
             }
             else
