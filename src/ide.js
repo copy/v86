@@ -177,6 +177,7 @@ const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [CD-SCSI-2]
 const ATAPI_CMD_READ_TOC_PMA_ATIP = 0x43;             // see [CD-SCSI-2]
 const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
 const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
+const ATAPI_CMD_START_STOP_UNIT = 0x1B;               // see [CD-SCSI-2]
 const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
 
 // ATAPI command flags
@@ -203,6 +204,7 @@ const ATAPI_CMD =
     [ATAPI_CMD_READ_TOC_PMA_ATIP]:             {name: "READ TOC PMA ATIP",             flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_TRACK_INFORMATION]:        {name: "READ TRACK INFORMATION",        flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_START_STOP_UNIT]:               {name: "START STOP UNIT",               flags: ATAPI_CF_NONE},
     [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NEEDS_DISK},
 };
 
@@ -1531,6 +1533,20 @@ IDEInterface.prototype.atapi_handle = function()
             this.data_end = this.data_length;
             this.data[5] = 1;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+            break;
+
+        case ATAPI_CMD_START_STOP_UNIT:
+            var loej_start = this.data[4] & 0x3;
+            dbg_log_extra = `Immed=${h(this.data[1] & 1)} LoEj/Start=${h(loej_start)}`;
+            if(this.buffer && loej_start === 0x2)
+            {
+                dbg_log_extra += ": disk ejected";
+                this.medium_changed = true;
+                this.buffer = null;
+            }
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
+            this.data_allocate(0);
+            this.data_end = this.data_length;
             break;
 
         case ATAPI_CMD_PAUSE:
