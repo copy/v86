@@ -167,6 +167,7 @@ const ATAPI_CMD_INQUIRY = 0x12;                       // see [MMC-2] 9.1.3
 const ATAPI_CMD_MECHANISM_STATUS = 0xBD;              // see [MMC-2] 9.1.5
 const ATAPI_CMD_MODE_SENSE_6 = 0x1A;                  // see [CD-SCSI-2]
 const ATAPI_CMD_MODE_SENSE_10 = 0x5A;                 // see [MMC-2] 9.1.7
+const ATAPI_CMD_PAUSE = 0x45;                         // see [CD-SCSI-2]
 const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-2] 9.1.9
 const ATAPI_CMD_READ = 0x28;                          // see [CD-SCSI-2]
 const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-2] 9.1.12
@@ -191,6 +192,7 @@ const ATAPI_CMD =
     [ATAPI_CMD_MECHANISM_STATUS]:              {name: "MECHANISM STATUS",              flags: ATAPI_CF_NONE},
     [ATAPI_CMD_MODE_SENSE_6]:                  {name: "MODE SENSE (6)",                flags: ATAPI_CF_NONE},
     [ATAPI_CMD_MODE_SENSE_10]:                 {name: "MODE SENSE (10)",               flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_PAUSE]:                         {name: "PAUSE",                         flags: ATAPI_CF_NONE},
     [ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL]:  {name: "PREVENT ALLOW MEDIUM REMOVAL",  flags: ATAPI_CF_NONE},
     [ATAPI_CMD_READ]:                          {name: "READ",                          flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
@@ -1530,6 +1532,7 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
+        case ATAPI_CMD_PAUSE:
         case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
             dbg_log_extra = "unimplemented";
             this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
