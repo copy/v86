@@ -184,6 +184,7 @@ const ATAPI_CF_NONE = 0x00;         // no flags
 const ATAPI_CF_NEEDS_DISK = 0x01;   // command needs inserted disk
 const ATAPI_CF_UNIT_ATTN = 0x02;    // bounce command if unit attention condition is active
 
+// ATAPI commands, for flags see [MMC-3] 4.2.6
 const ATAPI_CMD =
 {
     [ATAPI_CMD_GET_CONFIGURATION]:             {name: "GET CONFIGURATION",             flags: ATAPI_CF_NONE},
@@ -192,17 +193,17 @@ const ATAPI_CMD =
     [ATAPI_CMD_MECHANISM_STATUS]:              {name: "MECHANISM STATUS",              flags: ATAPI_CF_NONE},
     [ATAPI_CMD_MODE_SENSE_6]:                  {name: "MODE SENSE (6)",                flags: ATAPI_CF_NONE},
     [ATAPI_CMD_MODE_SENSE_10]:                 {name: "MODE SENSE (10)",               flags: ATAPI_CF_NONE},
-    [ATAPI_CMD_PAUSE]:                         {name: "PAUSE",                         flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_PAUSE]:                         {name: "PAUSE",                         flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL]:  {name: "PREVENT ALLOW MEDIUM REMOVAL",  flags: ATAPI_CF_NONE},
     [ATAPI_CMD_READ]:                          {name: "READ",                          flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
-    [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_DISK_INFORMATION]:         {name: "READ DISK INFORMATION",         flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_SUBCHANNEL]:               {name: "READ SUBCHANNEL",               flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_TOC_PMA_ATIP]:             {name: "READ TOC PMA ATIP",             flags: ATAPI_CF_NEEDS_DISK},
-    [ATAPI_CMD_READ_TRACK_INFORMATION]:        {name: "READ TRACK INFORMATION",        flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ_TRACK_INFORMATION]:        {name: "READ TRACK INFORMATION",        flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
-    [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NEEDS_DISK},
 };
 
 // ATAPI device signature
