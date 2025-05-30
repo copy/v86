@@ -1051,10 +1051,10 @@ IDEInterface.prototype.ata_abort_command = function()
 
 IDEInterface.prototype.capture_regs = function()
 {
-    return `ST=${h(this.status_reg)} ER=${h(this.error_reg)} ` +
-        `SC=${h(this.sector_count_reg)} LL=${h(this.lba_low_reg)} ` +
-        `LM=${h(this.lba_mid_reg)} LH=${h(this.lba_high_reg)} ` +
-        `FE=${h(this.features_reg)} DE=${h(this.device_reg)}`;
+    return `ST=${h(this.status_reg & 0xFF)} ER=${h(this.error_reg & 0xFF)} ` +
+        `SC=${h(this.sector_count_reg & 0xFF)} LL=${h(this.lba_low_reg & 0xFF)} ` +
+        `LM=${h(this.lba_mid_reg & 0xFF)} LH=${h(this.lba_high_reg & 0xFF)} ` +
+        `FE=${h(this.features_reg & 0xFF)}`;
 };
 
 IDEInterface.prototype.ata_command = function(cmd)
@@ -2440,7 +2440,7 @@ IDEInterface.prototype.create_identify_packet = function()
     // - [ATA-retro]
     //   AT Attachment Interface for Disk Drives, Revision 4c
     //   https://dn790009.ca.archive.org/0/items/SCSISpecificationDocumentsATAATAPI/ATA_ATAPI/AT%20Attachment%20Interface%20for%20Disk%20Drives%20Revision%204c.pdf
-    // For the words above 64 see [ATA-6] Table 27.
+    // For the words above 64 see [ATA-6] Table 27, [ATA8-ACS] 7.12 and 7.13.
     //
     // dead link: http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
 
@@ -2451,7 +2451,12 @@ IDEInterface.prototype.create_identify_packet = function()
     // - 0x0400: Multiword DMA mode 2 is selected
     const multiword_dma_mode = this.current_command === ATA_CMD_PACKET ? 0 : 0x0407;
     // Major version number: bits 3/4/5/6 indicate support for ATA/ATAPI-3/4/5/6 (bits 0/1/2 are obsolete in [ATA-6])
-    const major_version = 0b01111110;
+    const major_version = 0x0000;   // device does not report version
+    // supported ATA:   NOP, FLUSH CACHE, FLUSH CACHE EXT, 48-bit addr
+    // supported ATAPI: NOP, DEVICE RESET, PACKET and FLUSH CACHE
+    const feat_82 = this.is_atapi ? 1 << 14 | 1 << 9 | 1 << 5 : 1 << 14;
+    const feat_83 = this.is_atapi ? 1 << 14 | 1 << 12 : 1 << 14 | 1 << 13 | 1 << 12 | 1 << 10;
+    const feat_84 = this.is_atapi ? 1 << 14 : 1 << 14;
 
     this.data.fill(0, 0, 512);
     this.data_set([
@@ -2471,7 +2476,7 @@ IDEInterface.prototype.create_identify_packet = function()
         this.sectors_per_track & 0xFF, this.sectors_per_track >> 8 & 0xFF,
         // 7-9: Vendor-unique
         0, 0, 0, 0,  0, 0,
-        // 10-19: Serial number (20 ASCII characters)
+        // 10-19: Serial number (20 ASCII characters, filled below)
         0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,
@@ -2481,9 +2486,9 @@ IDEInterface.prototype.create_identify_packet = function()
         0, 2,
         // 22: Number of ECC bytes avail on read/write long cmds
         4, 0,
-        // 23-26: Firmware revision (8 ASCII characters)
+        // 23-26: Firmware revision (8 ASCII characters, filled below)
         0, 0, 0, 0,  0, 0, 0, 0,
-        // 27-46: Model number (40 ASCII characters)
+        // 27-46: Model number (40 ASCII characters, filled below)
         0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,
         0, 0, 0, 0,  0, 0, 0, 0,
@@ -2538,17 +2543,17 @@ IDEInterface.prototype.create_identify_packet = function()
         // 81: Minor version number
         0, 0,
         // 82: Command set supported
-        0, 0,
+        feat_82 & 0xFF, feat_82 >> 8 & 0xFF,
         // 83: Command set supported
-        0, 0x74,
+        feat_83 & 0xFF, feat_83 >> 8 & 0xFF,
         // 84: Command set/feature supported extension
-        0, 0x40,
-        // 85: Command set/feature enabled
-        0, 0x40,
-        // 86: Command set/feature enabled
-        0, 0x74,
-        // 87: Command set/feature default
-        0, 0x40,
+        feat_84 & 0xFF, feat_84 >> 8 & 0xFF,
+        // 85: Command set/feature enabled (copy of 82)
+        feat_82 & 0xFF, feat_82 >> 8 & 0xFF,
+        // 86: Command set/feature enabled (copy of 83)
+        feat_83 & 0xFF, feat_83 >> 8 & 0xFF,
+        // 87: Command set/feature default (copy of 84)
+        feat_84 & 0xFF, feat_84 >> 8 & 0xFF,
         // 88: DMA related field
         0, 0,
         // 89: Time required for security erase unit completion
@@ -2572,7 +2577,7 @@ IDEInterface.prototype.create_identify_packet = function()
     ]);
 
     // 10-19 serial number
-    strcpy_be16(this.data, 10, 10, "86" + this.channel_nr.toString() + this.interface_nr.toString());
+    strcpy_be16(this.data, 10, 10, `8086-86${this.channel_nr}${this.interface_nr}`);
     // 23-26 firmware revision
     strcpy_be16(this.data, 23, 4, "1.00");
     // 27-46 model number
