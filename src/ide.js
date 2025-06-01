@@ -44,7 +44,7 @@ const HD_SECTOR_SIZE = 512;
 // Read-only registers:
 const ATA_REG_ERROR      = 0x01;  // Error register, see [ATA-6] 7.9
 const ATA_REG_STATUS     = 0x07;  // Status register, see [ATA-6] 7.15
-const ATA_REG_ALT_STATUS = 0x02;  // (*1*) Alternate Status register, see [ATA-6] 7.3
+const ATA_REG_ALT_STATUS = 0x00;  // (*1*) Alternate Status register, see [ATA-6] 7.3
 // Read-/writable registers:
 const ATA_REG_DATA       = 0x00;  // Data register, see [ATA-6] 7.6
 const ATA_REG_SECTOR     = 0x02;  // Sector Count register, see [ATA-6] 7.14
@@ -55,7 +55,7 @@ const ATA_REG_DEVICE     = 0x06;  // Device register, see [ATA-6] 7.7
 // Write-only registers:
 const ATA_REG_FEATURES   = 0x01;  // Features register, see [ATA-6] 7.10
 const ATA_REG_COMMAND    = 0x07;  // Command register, see [ATA-6] 7.4
-const ATA_REG_CONTROL    = 0x02;  // (*1*) Device Control register, see [ATA-6] 7.8
+const ATA_REG_CONTROL    = 0x00;  // (*1*) Device Control register, see [ATA-6] 7.8
 
 // Per-channel Bus Master IDE register offsets (BAR4), see [BMI-1] 2.0
 // these are the primary channel's offsets, add 8 for secondary
@@ -278,14 +278,14 @@ export function IDEController(cpu, bus, ide_config)
         if(has_primary)
         {
             this.primary = new IDEChannel(this, 0, ide_config[0], {
-                command_base: 0x1f0, control_base: 0x3f4, bus_master_base: bus_master_base, irq: 14
+                command_base: 0x1f0, control_base: 0x3f6, bus_master_base: bus_master_base, irq: 14
             });
             this.channels[0] = this.primary;
         }
         if(has_secondary)
         {
             this.secondary = new IDEChannel(this, 1, ide_config[1], {
-                command_base: 0x170, control_base: 0x374, bus_master_base: bus_master_base, irq: 15
+                command_base: 0x170, control_base: 0x376, bus_master_base: bus_master_base, irq: 15
             });
             this.channels[1] = this.secondary;
         }
@@ -332,9 +332,9 @@ export function IDEController(cpu, bus, ide_config)
         ];
         this.pci_bars = [
             has_primary ? { size: 8 } : undefined,   // BAR0: Command block register address of primary channel
-            has_primary ? { size: 4 } : undefined,   // BAR1: Control block register address of primary channel
+            has_primary ? { size: 1 } : undefined,   // BAR1: Control block register address of primary channel
             has_secondary ? { size: 8 } : undefined, // BAR2: Command block register address of secondary channel
-            has_secondary ? { size: 4 } : undefined, // BAR3: Control block register address of secondary channel
+            has_secondary ? { size: 1 } : undefined, // BAR3: Control block register address of secondary channel
             { size: 16 }                             // BAR4: Bus Master I/O register address of both channels (8+8)
         ];
         cpu.devices.pci.register_device(this);
@@ -565,7 +565,7 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     });
 
     //
-    // Control Block Register: control_base + 0...3 (BAR1: 3F4h, BAR3: 374h)
+    // Control Block Register: control_base (BAR1: 3F6h, BAR3: 376h)
     //
 
     // read Alternate Status register
