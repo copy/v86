@@ -1428,6 +1428,17 @@ function onload()
             homepage: "https://netboot.xyz/",
             net_device_type: "virtio",
         },
+        {
+            id: "squeaknos",
+            name: "SqueakNOS",
+            cdrom: {
+                url: host + "SqueakNOS.iso",
+                size: 61171712,
+                async: false,
+            },
+            memory_size: 512 * 1024 * 1024,
+            homepage: "https://squeaknos.blogspot.com/"
+        },
     ];
 
     if(DEBUG)
