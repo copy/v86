@@ -36,9 +36,9 @@ if(isMainThread)
         emulator.run();
     });
 
-    var SERVER_PORT = 0;
-    var serial_text = "";
-    var booted = false;
+    let SERVER_PORT = 0;
+    let serial_text = "";
+    let booted = false;
 
     emulator.bus.register("emulator-started", function()
     {
@@ -73,7 +73,7 @@ else
     const benchsize = workerData;
     const benchfile = Buffer.alloc(benchsize);
 
-    var server = createServer(function(_, response) {
+    const server = createServer(function(_, response) {
         response.setHeader("content-type", "application/octet-stream");
         response.setHeader("content-length", benchsize.toString(10));
         response.write(benchfile);

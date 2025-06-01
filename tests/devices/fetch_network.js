@@ -15,14 +15,14 @@ const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const SHOW_LOGS = false;
 
-var SERVER_PORT = 0;
-
 function wait(time) {
     return new Promise((res) => setTimeout(res, time));
 }
 
 if(isMainThread)
 {
+    let SERVER_PORT = 0;
+
     const tests =
     [
         {
