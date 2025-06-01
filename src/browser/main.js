@@ -1439,6 +1439,19 @@ function onload()
             memory_size: 512 * 1024 * 1024,
             homepage: "https://squeaknos.blogspot.com/"
         },
+        {
+            id: "chokanji4",
+            name: "Chokanji 4",
+            hda: {
+                url: host + "chokanji4/.img.zst",
+                size: 10737418240,
+                async: true,
+                fixed_chunk_size: 256 * 1024,
+                use_parts: true,
+            },
+            memory_size: 512 * 1024 * 1024,
+            homepage: "https://archive.org/details/brightv4000"
+        },
     ];
 
     if(DEBUG)
