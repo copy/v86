@@ -2579,14 +2579,10 @@ function init_ui(profile, settings, emulator)
             const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
             const screen_pos = $("screen_container").getBoundingClientRect();
 
-            var scale = parseFloat($("scale").value);
-            if(!scale || scale === 0)
-            {
-                scale = 1;
-            }
+            const scale = parseFloat($("scale").value) || 1;
 
-            phone_keyboard.style.top = (window.scrollY + screen_pos.y + (row + 1) * 16 * scale) + "px";
-            phone_keyboard.style.left = (window.scrollX + screen_pos.x + (col - 1) * 8 * scale) + "px";
+            phone_keyboard.style.top = Math.floor(window.scrollY + screen_pos.y + row * 16 * scale) + "px";
+            phone_keyboard.style.left = Math.floor(window.scrollX + screen_pos.x + (col - 1) * 8 * scale) + "px";
         }
     });
 
