@@ -1536,15 +1536,7 @@ function onload()
         if(query_args.has("hda.url") || query_args.has("cdrom.url") || query_args.has("fda.url"))
         {
             start_emulation(null, query_args);
-        }
-        else
-        {
-            if(query_args.has("m")) $("memory_size").value = query_args.get("m");
-            if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
-            if(query_args.has("relay_url")) $("relay_url").value = query_args.get("relay_url");
-            if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
-            if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
-            if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
+            return;
         }
     }
     else if(/^[a-zA-Z0-9\-_]+\/[a-zA-Z0-9\-_]+$/g.test(profile))
@@ -1580,6 +1572,13 @@ function onload()
                 start_emulation(profile, query_args);
             });
     }
+
+    if(query_args.has("m")) $("memory_size").value = query_args.get("m");
+    if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
+    if(query_args.has("relay_url")) $("relay_url").value = query_args.get("relay_url");
+    if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
+    if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
+    if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
 
     const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
     {
@@ -2158,7 +2157,9 @@ function init_ui(profile, settings, emulator)
     $("exit").onclick = function()
     {
         emulator.destroy();
-        location.href = location.pathname;
+        const url = new URL(location.href);
+        url.searchParams.delete("profile");
+        location.href = url.pathname + url.search;
     };
 
     $("lock_mouse").onclick = function()
