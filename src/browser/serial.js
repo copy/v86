@@ -230,6 +230,7 @@ export function SerialAdapterXtermJS(element, bus)
 
     var term = this.term = new window["Terminal"]({
         "logLevel": "off",
+        "convertEol": "true",
     });
     term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
