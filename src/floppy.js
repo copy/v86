@@ -286,6 +286,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 this.bytes_expecting = 3;
                 break;
             case 0x04:
+            case 0x14:
                 this.next_command = this.check_drive_status;
                 this.bytes_expecting = 1;
                 break;
