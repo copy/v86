@@ -220,6 +220,9 @@ export function MouseAdapter(bus, screen_container)
 
         delta_y = -delta_y;
 
+        // NOTE: affected by https://issues.chromium.org/issues/40737979
+        //       Causes cursor jumps on multi-monitor and/or 120+ HZ monitors
+
         mouse.bus.send("mouse-delta", [delta_x, delta_y]);
 
         if(screen_container)
