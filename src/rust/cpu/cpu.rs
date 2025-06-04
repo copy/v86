@@ -713,13 +713,13 @@ pub unsafe fn iret(is_16: bool) {
             let executable = access & 8 == 8;
             let conforming = access & 4 == 4;
             if dpl < *cpl && !(executable && conforming) {
-                dbg_log!(
-                    "set segment to null sreg={} dpl={} executable={} conforming={}",
-                    reg,
-                    dpl,
-                    executable,
-                    conforming
-                );
+                //dbg_log!(
+                //    "set segment to null sreg={} dpl={} executable={} conforming={}",
+                //    reg,
+                //    dpl,
+                //    executable,
+                //    conforming
+                //);
                 *segment_is_null.offset(reg as isize) = true;
                 *sreg.offset(reg as isize) = 0;
             }
