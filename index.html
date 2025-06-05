@@ -1,3 +1,4 @@
+
 <!doctype html>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
@@ -5,7 +6,7 @@
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="description" content="Run KolibriOS, Linux or Windows 98 in your browser">
 
-<script src="build/v86_all.js?98e7110c2"></script>
+<script src="build/v86_all.js?b2a2b405"></script>
 <link rel="stylesheet" href="v86.css">
 
 <div>
@@ -74,45 +75,186 @@
                     <th>Notes</th>
                 </tr>
             </thead>
+<tr id="start_android"><td><a href="?profile=android">Android</a> <td>54+ MB</td>
+<td><span class=gui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>CD</td> <td>Android x86 1.6-r2</td></tr>
 <tr id="start_archlinux"><td><a href="?profile=archlinux">Arch Linux</a> <td>15+ MB</td>
-<td><span class=tui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>9pfs</td> <td>Xorg, Firefox, various compilers and more</td></tr>
+<td><span class=tui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>9pfs</td> <td>Various packages, including Xorg, Firefox and more</td></tr>
+<tr id="start_buildroot"><td><a href="?profile=buildroot">Buildroot Linux</a> <td>4.9 MB</td>
+<td><span class=tui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>bzImage</td> <td>Minimal Linux with Lua, ping, curl, telnet</td></tr>
 <tr id="start_dsl"><td><a href="?profile=dsl">Damn Small Linux</a> <td>50 MB</td>
 <td><span class=gui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Historic</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>4.11.rc2 with Firefox 2.0</td></tr>
-<tr id="start_buildroot"><td><a href="?profile=buildroot">Buildroot Linux</a> <td>4.9 MB</td>
-<td><span class=tui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>bzImage</td> <td>Lua, ping, curl, telnet</td></tr>
-
+<tr id="start_elks"><td><a href="?profile=elks">ELKS</a> <td>1.2 MB</td>
+<td><span class=tui_icon></span></td> <td>Linux-like</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>Linux for 8086</td></tr>
+<tr id="start_nodeos"><td><a href="?profile=nodeos">NodeOS</a> <td>14 MB</td>
+<td><span class=tui_icon></span></td> <td>Linux</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>bzImage</td> <td>Linux with nodejs as /bin/init</td></tr>
+<tr id="start_tilck"><td><a href="?profile=tilck">Tilck</a> <td>16 MB</td>
+<td><span class=tui_icon></span></td> <td>Linux-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>Tiny Linux-Compatible Kernel</td></tr>
 <tr id="start_freebsd"><td><a href="?profile=freebsd">FreeBSD</a> <td>16+ MB</td>
 <td><span class=tui_icon></span></td> <td>BSD</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>FreeBSD 12.0</td></tr>
+<tr id="start_netbsd"><td><a href="?profile=netbsd">NetBSD</a> <td>23+ MB</td>
+<td><span class=tui_icon></span></td> <td>BSD</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>NetBSD 4.0 with Xorg</td></tr>
 <tr id="start_openbsd"><td><a href="?profile=openbsd">OpenBSD</a> <td>11+ MB</td>
 <td><span class=tui_icon></span></td> <td>BSD</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>OpenBSD 6.6</td></tr>
-
-<tr id="start_fiwix"><td><a href="?profile=fiwix">FiwixOS</a> <td>15+ MB</td>
+<tr id="start_fiwix"><td><a href="?profile=fiwix">FiwixOS</a> <td>4.2+ MB</td>
 <td><span class=tui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>With Doom</td></tr>
+<tr id="start_minix"><td><a href="?profile=minix">Minix</a> <td>30+ MB</td>
+<td><span class=tui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>Minix 3.3</td></tr>
+<tr id="start_redox"><td><a href="?profile=redox">Redox</a> <td>31+ MB</td>
+<td><span class=gui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>Rust</td> <td>HD</td> <td>A Unix-like microkernel OS written in Rust</td></tr>
 <tr id="start_serenity"><td><a href="?profile=serenity">SerenityOS</a> <td>16+ MB</td>
 <td><span class=gui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>HD</td> <td>Web browser, various games and demos</td></tr>
-
+<tr id="start_sortix"><td><a href="?profile=sortix">Sortix</a> <td>67 MB</td>
+<td><span class=tui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>CD</td> <td>A small self-hosting Unix-like operating system</td></tr>
+<tr id="start_soso"><td><a href="?profile=soso">Soso</a> <td>7.6 MB</td>
+<td><span class=gui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td> A Simple Unix-like operating system</td></tr>
+<tr id="start_syllable"><td><a href="?profile=syllable">Syllable</a> <td>28+ MB</td>
+<td><span class=gui_icon></span></td> <td>Unix-like</td> <td>32-bit</td> <td>Historic</td> <td>Open-source</td> <td>C++</td> <td>HD</td> <td>A user friendly, POSIX compatible OS</td></tr>
+<tr id="start_unix-v7"><td><a href="?profile=unix-v7">Unix V7</a> <td>0.5+ MB</td>
+<td><span class=tui_icon></span></td> <td>Unix</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C</td> <td>HD</td> <td></td></tr>
+<tr id="start_beos"><td><a href="?profile=beos">BeOS 5</a> <td>34+ MB</td>
+<td><span class=gui_icon></span></td> <td>BeOS</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td>With Opera 3.62, NetPositive</td></tr>
 <tr id="start_haiku"><td><a href="?profile=haiku">Haiku</a> <td>41+ MB</td>
 <td><span class=gui_icon></span></td> <td>BeOS</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>HD</td> <td>Networking (WebPositive), OCaml, 2048, NetHack</td></tr>
+<tr id="start_aros-broadway"><td><a href="?profile=aros-broadway">AROS Broadway</a> <td>25+ MB</td>
+<td><span class=gui_icon></span></td> <td>AmigaOS</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>AmigaOS-like graphical OS</td></tr>
+<tr id="start_icaros"><td><a href="?profile=icaros">Icaros Desktop</a> <td>60+ MB</td>
+<td><span class=gui_icon></span></td> <td>AmigaOS</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>AmigaOS-like graphical OS</td></tr>
 <tr id="start_tinyaros"><td><a href="?profile=tinyaros">Tiny Aros</a> <td>17+ MB</td>
 <td><span class=gui_icon></span></td> <td>AmigaOS</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>AmigaOS-like graphical OS</td></tr>
-
+<tr id="start_9front"><td><a href="?profile=9front">9front</a> <td>5.2+ MB</td>
+<td><span class=gui_icon></span></td> <td>Plan 9</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>An actively maintained fork of Plan 9</td></tr>
+<tr id="start_9legacy"><td><a href="?profile=9legacy">9legacy</a> <td>13 MB</td>
+<td><span class=gui_icon></span></td> <td>Plan 9</td> <td>32-bit</td> <td>Historic</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>A set of patches based on the latest release of Plan 9</td></tr>
 <tr id="start_reactos"><td><a href="?profile=reactos">ReactOS</a> <td>17+ MB</td>
 <td><span class=gui_icon></span></td> <td>Windows-like</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>HD</td> <td>QtWeb, LBreakout2, OpenTTD, Bochs, TCC</td></tr>
 <tr id="start_windows1"><td><a href="?profile=windows1">Windows 1.01</a> <td>0.7 MB</td>
 <td><span class=gui_icon></span></td> <td>Windows</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>Floppy</td> <td>Reversi, Paint</td></tr>
+<tr id="start_windows2"><td><a href="?profile=windows2">Windows 2.03</a> <td>1.8 MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>HD</td> <td>Reversi, Paint</td></tr>
+<tr id="start_windows30"><td><a href="?profile=windows30">Windows 3.0</a> <td>6.5 MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>CD</td> <td></td></tr>
+<tr id="start_windows31"><td><a href="?profile=windows31">Windows 3.1</a> <td>17 MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>HD</td> <td>QBasic, Minesweeper, Solitaire</td></tr>
 <tr id="start_windows95"><td><a href="?profile=windows95">Windows 95</a> <td>19+ MB</td>
 <td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>HD</td> <td>Age of Empires, FASM, POV-Ray, Hover!</td></tr>
-<tr id="start_windows2000"><td><a href="?profile=windows2000">Windows 2000</a> <td>23+ MB</td>
-<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td>IE 5, Pinball</td></tr>
-<tr id="start_msdos"><td><a href="?profile=msdos">MS-DOS 6.22</a> <td>2.4+ MB</td>
-<td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM</td> <td>HD</td> <td>Doom, Sim City, OCaml 1.0, Turbo C and more</td></tr>
+<tr id="start_windows98"><td><a href="?profile=windows98">Windows 98</a> <td>11+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>HD</td> <td>FreeCell, Hearts, sheep.exe, IE 5</td></tr>
+<tr id="start_windows-me"><td><a href="?profile=windows-me">Windows ME</a> <td>14+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>HD</td> <td>Visual Basic, Office 97</td></tr>
+<tr id="start_windowsnt3"><td><a href="?profile=windowsnt3">Windows NT 3.1</a> <td>18+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td></td></tr>
+<tr id="start_windowsnt35"><td><a href="?profile=windowsnt35">Windows NT 3.51</a> <td>28+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td>Internet Explorer 3 and Visual FoxPro 3.0</td></tr>
+<tr id="start_windowsnt4"><td><a href="?profile=windowsnt4">Windows NT 4.0</a> <td>16+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td></td></tr>
+<tr id="start_windows2000"><td><a href="?profile=windows2000">Windows 2000</a> <td>21+ MB</td>
+<td><span class=gui_icon></span></td> <td>Windows</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C++</td> <td>HD</td> <td>IE 6, K-Meleon, Winamp, Delphi, NetHack and more</td></tr>
+<tr id="start_86dos"><td><a href="?profile=86dos">86-DOS</a> <td>0.1 MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_ibm-exploring"><td><a href="?profile=ibm-exploring">Exploring IBM</a> <td>0.1 MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM</td> <td>Floppy</td> <td></td></tr>
 <tr id="start_freedos"><td><a href="?profile=freedos">FreeDOS</a> <td>0.6 MB</td>
 <td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM, C</td> <td>Floppy</td> <td>nasm, vim, debug.com, Rogue, various demos</td></tr>
-
+<tr id="start_freegem"><td><a href="?profile=freegem">FreeGEM</a> <td>1.6+ MB</td>
+<td><span class=gui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Open-source</td> <td>ASM, C</td> <td>HD</td> <td>Graphical desktop for FreeDOS</td></tr>
+<tr id="start_xcom"><td><a href="?profile=xcom">Xcom</a> <td>1.3 MB</td>
+<td><span class=gui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Open-source</td> <td>ASM, C</td> <td>Floppy</td> <td>Graphical desktop for FreeDOS</td></tr>
+<tr id="start_msdos4"><td><a href="?profile=msdos4">MS-DOS 4</a> <td>0.5 MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_msdos"><td><a href="?profile=msdos">MS-DOS 6.22</a> <td>2.4+ MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM</td> <td>HD</td> <td>Doom, Sim City, OCaml 1.0, Turbo C and more</td></tr>
+<tr id="start_pcmos"><td><a href="?profile=pcmos">PC-MOS/386</a> <td>0.7 MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>ASM, C</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_psychdos"><td><a href="?profile=psychdos">PsychDOS</a> <td>4.6+ MB</td>
+<td><span class=gui_icon></span></td> <td>DOS</td> <td>16-bit</td> <td>Historic</td> <td>Open-source</td> <td>ASM</td> <td>HD</td> <td></td></tr>
+<tr id="start_leetos"><td><a href="?profile=leetos">lEEt/OS</a> <td>0.5 MB</td>
+<td><span class=tui_icon></span></td> <td>DOS</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM, C</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_bleskos"><td><a href="?profile=bleskos">BleskOS</a> <td>0.2 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_bluejay"><td><a href="?profile=bluejay">Blue Jay</a> <td>83 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_boneos"><td><a href="?profile=boneos">BoneOS</a> <td>3.0 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_bootchess"><td><a href="?profile=bootchess">BootChess</a> <td>4.0 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Floppy</td> <td>Chess in a bootsector</td></tr>
+<tr id="start_catk"><td><a href="?profile=catk">CatK</a> <td>3.2 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_crazierl"><td><a href="?profile=crazierl">Crazierl</a> <td>11 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C, Erlang</td> <td>Multiboot</td> <td>An Erlang Operating System</td></tr>
+<tr id="start_duskos"><td><a href="?profile=duskos">Dusk OS</a> <td>0.4 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>A 32-bit Forth</td></tr>
+<tr id="start_floppybird"><td><a href="?profile=floppybird">Floppy Bird</a> <td>6.5 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_helenos"><td><a href="?profile=helenos">HelenOS</a> <td>7.9 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>A microkernel-based multiserver OS</td></tr>
+<tr id="start_hello-v86"><td><a href="?profile=hello-v86">Hello v86</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td></td></tr>
+<tr id="start_house"><td><a href="?profile=house">House</a> <td>1.1 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>Haskell</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_jx"><td><a href="?profile=jx">JX</a> <td>1.3 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>Java</td> <td>Floppy</td> <td></td></tr>
 <tr id="start_kolibrios"><td><a href="?profile=kolibrios">KolibriOS</a> <td>1.3 MB</td>
 <td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Floppy</td> <td>Various apps, games and demos</td></tr>
+<tr id="start_littlekernel"><td><a href="?profile=littlekernel">Little Kernel</a> <td>0.4 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>Multiboot</td> <td></td></tr>
+<tr id="start_mcp"><td><a href="?profile=mcp">M/CP</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>The Minimal Control Program</td></tr>
+<tr id="start_mikeos"><td><a href="?profile=mikeos">MikeOS</a> <td>0.2 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>CD</td> <td></td></tr>
+<tr id="start_mobius"><td><a href="?profile=mobius">Mobius</a> <td>1.3 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_mu"><td><a href="?profile=mu">Mu</a> <td>0.2 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td></td></tr>
+<tr id="start_nanoshell"><td><a href="?profile=nanoshell">NanoShell</a> <td>3.5 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_newos"><td><a href="?profile=newos">NewOS</a> <td>0.6 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_nopeos"><td><a href="?profile=nopeos">Nope OS</a> <td>92 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_oberon"><td><a href="?profile=oberon">Oberon</a> <td>1.6 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Historic</td> <td>Open-source</td> <td>Oberon</td> <td>HD</td> <td>Native Oberon 2.3.6</td></tr>
 <tr id="start_qnx"><td><a href="?profile=qnx">QNX 4.05</a> <td>1.4 MB</td>
 <td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Historic</td> <td>Proprietary</td> <td>C</td> <td>Floppy</td> <td>1999 demo disk</td></tr>
+<tr id="start_sectorlisp"><td><a href="?profile=sectorlisp">SectorLISP</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>Bootstrapping LISP in a Boot Sector</td></tr>
+<tr id="start_skift"><td><a href="?profile=skift">Skift</a> <td>44 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C++</td> <td>CD</td> <td>A hobby OS built from scratch using C/C++</td></tr>
+<tr id="start_snowdrop"><td><a href="?profile=snowdrop">Snowdrop</a> <td>0.4 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_solos"><td><a href="?profile=solos">Sol OS</a> <td>0.3 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Proprietary</td> <td>ASM</td> <td>Floppy</td> <td>Simple graphical OS</td></tr>
+<tr id="start_stillalive"><td><a href="?profile=stillalive">Still Alive</a> <td>10 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>Floppy</td> <td></td></tr>
+<tr id="start_t3xforth"><td><a href="?profile=t3xforth">T3XFORTH</a> <td>59 KB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Historic</td> <td>Open-source</td> <td>ASM</td> <td>Floppy</td> <td>An old-school, plain vanilla FORTH system</td></tr>
+<tr id="start_tetros"><td><a href="?profile=tetros">TetrOS</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>Tetris that fits into the boot sector</td></tr>
+<tr id="start_toaruos"><td><a href="?profile=toaruos">ToaruOS</a> <td>6.3 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td></td></tr>
+<tr id="start_bootbasic"><td><a href="?profile=bootbasic">bootBASIC</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>A BASIC in 512 bytes of x86 machine code</td></tr>
+<tr id="start_pillman"><td><a href="?profile=pillman">Pillman</a> <td>512 B</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>A yellow thing eats pills and is chased by monsters</td></tr>
+<tr id="start_bootlogo"><td><a href="?profile=bootlogo">bootLogo</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>Logo language in 508 bytes</td></tr>
+<tr id="start_bootrogue"><td><a href="?profile=bootrogue">bootRogue</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>a roguelike game that fits in a boot sector</td></tr>
+<tr id="start_dino"><td><a href="?profile=dino">dino</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>Chrome's t-rex based bootsector game</td></tr>
+<tr id="start_invaders"><td><a href="?profile=invaders">Invaders</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>Invaders in a bootsector</td></tr>
+<tr id="start_sanos"><td><a href="?profile=sanos">Sanos</a> <td>0.5 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td></td></tr>
+<tr id="start_sectorforth"><td><a href="?profile=sectorforth">sectorforth</a> <td>512 B</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>16-bit</td> <td>Modern</td> <td>Open-source</td> <td>ASM</td> <td>Bootsector</td> <td>sectorforth is a 16-bit x86 Forth</td></tr>
+<tr id="start_dancy"><td><a href="?profile=dancy">Dancy</a> <td>1.3 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>Dancy Operating System</td></tr>
+<tr id="start_curios"><td><a href="?profile=curios">CuriOS</a> <td>6.6 MB</td>
+<td><span class=gui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>HD</td> <td>Simple GUI based OS inspired by AmigaOS</td></tr>
+<tr id="start_os64"><td><a href="?profile=os64">OS64</a> <td>2.2 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>Commodore 64 emulator OS for x86 (slow)</td></tr>
+<tr id="start_netboot.xyz"><td><a href="?profile=netboot.xyz">netboot.xyz</a> <td>1.0 MB</td>
+<td><span class=tui_icon></span></td> <td>Custom</td> <td>32-bit</td> <td>Modern</td> <td>Open-source</td> <td>C</td> <td>CD</td> <td>Netboot into various operating systems (slow)</td></tr>
         </table>
 
         <hr>
@@ -324,7 +466,7 @@
 <div id="terminal"></div>
 
 <br style="clear: both">
-<code>Version: <a id="version" href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
+<code>Version: <a id="version" href="https://github.com/copy/v86/commits/b2a2b405">b2a2b405</a> (Apr 16, 2025 22:04)</code>
 
 <hr>
 <a href="debug.html">Enable debug</a>
