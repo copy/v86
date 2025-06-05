@@ -1,0 +1,8 @@
+# Not technically necessary, but significantly reduces the amount of files loaded
+# (prevents glxgears and possibly some other applications from working)
+rm /usr/lib/libLLVM* /usr/lib/dri/swrast_dri.so /usr/lib/dri/kms_swrast_dri.so
+
+/etc/openrc/init.d/udev start && startx
+
+# If booted using systemd:
+#   Xorg -configure && mv xorg.conf.new /etc/X11/ && startx
