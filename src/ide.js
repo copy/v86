@@ -39,6 +39,8 @@ import { BusConnector } from "./bus.js";
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
 
+const BUS_MASTER_BASE = 0xB400;
+
 // Per-channel ATA register offsets, legend:
 //   (*1*) Control block register (BAR1/3), else: Command block register (BAR0/2)
 // Read-only registers:
@@ -84,7 +86,7 @@ const ATA_DR_DEV = 0x10;   // Device select; slave device if set, else master de
 
 // Device Control register bits:
 // Bits 0x08/0x10/0x20/0x40 are reserved and bit 0x01 is always zero.
-const ATA_CR_nIEN = 0x02;  // Interrupt disable (not Interrupt ENable)
+const ATA_CR_NIEN = 0x02;  // Interrupt disable (not Interrupt ENable)
 const ATA_CR_SRST = 0x04;  // Software reset
 const ATA_CR_HOB = 0x80;   // 48-bit Address feature set
 
@@ -266,28 +268,21 @@ export function IDEController(cpu, bus, ide_config)
 {
     this.cpu = cpu;
     this.bus = bus;
+
     this.primary = undefined;
     this.secondary = undefined;
-    this.channels = [undefined, undefined];
 
     const has_primary = ide_config && ide_config[0][0];
     const has_secondary = ide_config && ide_config[1][0];
     if(has_primary || has_secondary)
     {
-        const bus_master_base = 0xB400;
         if(has_primary)
         {
-            this.primary = new IDEChannel(this, 0, ide_config[0], {
-                command_base: 0x1f0, control_base: 0x3f6, bus_master_base: bus_master_base, irq: 14
-            });
-            this.channels[0] = this.primary;
+            this.primary = new IDEChannel(this, 0, ide_config[0], 0x1F0, 0x3F6, 14);
         }
         if(has_secondary)
         {
-            this.secondary = new IDEChannel(this, 1, ide_config[1], {
-                command_base: 0x170, control_base: 0x376, bus_master_base: bus_master_base, irq: 15
-            });
-            this.channels[1] = this.secondary;
+            this.secondary = new IDEChannel(this, 1, ide_config[1], 0x170, 0x376, 15);
         }
 
         const vendor_id = 0x8086;    // Intel Corporation
@@ -310,7 +305,7 @@ export function IDEController(cpu, bus, ide_config)
             control_base0 & 0xFF   | 1, control_base0 >> 8,   0x00, 0x00,
             command_base1 & 0xFF   | 1, command_base1 >> 8,   0x00, 0x00,
             control_base1 & 0xFF   | 1, control_base1 >> 8,   0x00, 0x00,
-            bus_master_base & 0xFF | 1, bus_master_base >> 8, 0x00, 0x00,
+            BUS_MASTER_BASE & 0xFF | 1, BUS_MASTER_BASE >> 8, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x43, 0x10, 0xD4, 0x82,
@@ -363,29 +358,26 @@ IDEController.prototype.set_state = function(state)
  * @param {IDEController} controller
  * @param {number} channel_nr
  * */
-function IDEChannel(controller, channel_nr, channel_config, hw_settings)
+function IDEChannel(controller, channel_nr, channel_config, command_base, control_base, irq)
 {
     this.controller = controller;
     this.channel_nr = channel_nr;
     this.cpu = controller.cpu;
     this.bus = controller.bus;
-    this.command_base = hw_settings.command_base;
-    this.control_base = hw_settings.control_base;
-    this.irq = hw_settings.irq;
+    this.command_base = command_base;
+    this.control_base = control_base;
+    this.irq = irq;
     this.name = "ide" + channel_nr;
 
     const master_cfg = channel_config ? channel_config[0] : undefined;
     const slave_cfg = channel_config ? channel_config[1] : undefined;
-    this.master = new IDEInterface(this, 0, master_cfg ? master_cfg.buffer : undefined, master_cfg ? !!master_cfg.is_cdrom : false);
-    this.slave = new IDEInterface(this, 1, slave_cfg ? slave_cfg.buffer : undefined, slave_cfg ? !!slave_cfg.is_cdrom : false);
+    this.master = new IDEInterface(this, 0, master_cfg?.buffer, master_cfg?.is_cdrom);
+    this.slave = new IDEInterface(this, 1, slave_cfg?.buffer, slave_cfg?.is_cdrom);
 
-    this.interfaces = [this.master, this.slave];
     this.current_interface = this.master;
-    this.master.init_interface();
-    this.slave.init_interface();
 
     /** @type {number} */
-    this.device_control_reg = ATA_CR_nIEN;
+    this.device_control_reg = ATA_CR_NIEN;
 
     /** @type {number} */
     this.prdt_addr = 0;
@@ -594,7 +586,7 @@ function IDEChannel(controller, channel_nr, channel_config, hw_settings)
     // primary channel: bus_master_base + 0...7, secondary: bus_master_base + 8...15
     //
 
-    const bus_master_base = hw_settings.bus_master_base + channel_nr * 8;
+    const bus_master_base = BUS_MASTER_BASE + channel_nr * 8;
 
     // read/write Bus Master IDE Command register
     cpu.io.register_read(bus_master_base | BMI_REG_COMMAND,
@@ -627,7 +619,7 @@ IDEChannel.prototype.write_control = function(data)
     if(LOG_DETAILS & (LOG_DETAIL_REG_IO | LOG_DETAIL_IRQ))
     {
         dbg_log(this.current_interface.name + ": write Device Control register: " +
-            h(data, 2) + " interrupts " + ((data & ATA_CR_nIEN) ? "disabled" : "enabled"), LOG_DISK);
+            h(data, 2) + " interrupts " + ((data & ATA_CR_NIEN) ? "disabled" : "enabled"), LOG_DISK);
     }
     if(data & ATA_CR_SRST)
     {
@@ -748,7 +740,7 @@ IDEChannel.prototype.dma_write_command8 = function(value)
 
 IDEChannel.prototype.push_irq = function()
 {
-    if((this.device_control_reg & ATA_CR_nIEN) === 0)
+    if((this.device_control_reg & ATA_CR_NIEN) === 0)
     {
         if(LOG_DETAILS & LOG_DETAIL_IRQ)
         {
@@ -821,7 +813,7 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
     this.buffer = null;
 
     /** @type {boolean} */
-    this.drive_connected = is_cd || buffer;
+    this.drive_connected = is_cd || !!buffer;
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
@@ -911,21 +903,15 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
     /** @type {boolean} */
     this.medium_changed = false;
 
-    // caller must call this.init_interface() to complete object initialization
-    this.inital_buffer = buffer;
-}
-
-IDEInterface.prototype.init_interface = function()
-{
-    this.set_disk_buffer(this.inital_buffer);
-    delete this.inital_buffer;
-    Object.seal(this);
+    this.set_disk_buffer(buffer);
 
     if(this.drive_connected)
     {
         dbg_log(`${this.name}: ${this.is_atapi ? "ATAPI CD-ROM" : "ATA HD"} device ready`, LOG_DISK);
     }
-};
+
+    Object.seal(this);
+}
 
 IDEInterface.prototype.has_disk = function()
 {
