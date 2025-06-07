@@ -495,7 +495,10 @@ PCI.prototype.register_device = function(device)
 
     dbg_log("PCI register bdf=" + h(device_id) + " (" + device.name + ")", LOG_PCI);
 
-    dbg_assert(!this.devices[device_id]);
+    if(this.devices[device_id])
+    {
+        dbg_log("warning: overwriting device " + this.devices[device_id].name + " with " + device.name, LOG_PCI);
+    }
     dbg_assert(device.pci_space.length >= 64);
     dbg_assert(device_id < this.devices.length);
 

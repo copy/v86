@@ -301,7 +301,8 @@ export function IDEController(cpu, bus, ide_config)
         const command_base1 = has_secondary ? this.secondary.command_base : 0;
         const control_base1 = has_secondary ? this.secondary.control_base : 0;
 
-        this.pci_id = 0x1F << 3;
+        this.name = "ide";
+        this.pci_id = 0x1E << 3;
         this.pci_space = [
             vendor_id & 0xFF, vendor_id >> 8, device_id & 0xFF, device_id >> 8, 0x05, 0x00, 0xA0, 0x02,
             0x00, prog_if, subclass, class_code, 0x00, 0x00, 0x00, 0x00,
@@ -342,6 +343,20 @@ export function IDEController(cpu, bus, ide_config)
 
     Object.seal(this);
 }
+
+IDEController.prototype.get_state = function()
+{
+    const state = [];
+    state[0] = this.primary;
+    state[1] = this.secondary;
+    return state;
+};
+
+IDEController.prototype.set_state = function(state)
+{
+    this.primary && this.primary.set_state(state[0]);
+    this.secondary && this.secondary.set_state(state[1]);
+};
 
 /**
  * @constructor
