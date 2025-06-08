@@ -343,16 +343,23 @@ FloppyController.prototype.port3F2_read = function()
 
 FloppyController.prototype.port3F2_write = function(value)
 {
-    if((value & 4) === 4 && (this.dor & 4) === 0)
+    // write Digital Output Register (DOR), relevant bits here:
+    //   0x4 (nRESET):  0: RESET mode, 1: NORMAL mode
+    //   0x8 (IRQ_DMA): 0: disable IRQ/DMA, 1: enable IRQ/DMA
+    if(!(this.dor & 0x4) && (value & 0x4))
     {
-        // clear reset mode
+        // nRESET bit transition from 0 to 1: exit from RESET state
         this.status_reg0 = 0xC0;
-        this.cpu.device_raise_irq(6);
+        if(value & 0x8)
+        {
+            // raise IRQ only if IRQ_DMA bit is 1 (in new DOR value)
+            this.cpu.device_raise_irq(6);
+        }
     }
 
     dbg_log("start motors: " + h(value >> 4), LOG_FLOPPY);
     dbg_log("enable dma/irq: " + !!(value & 8), LOG_FLOPPY);
-    dbg_log("reset fdc: " + !!(value & 4), LOG_FLOPPY);
+    dbg_log("reset fdc: " + !(value & 4), LOG_FLOPPY);
     dbg_log("drive select: " + (value & 3), LOG_FLOPPY);
     if((value & 3) !== 0)
     {
