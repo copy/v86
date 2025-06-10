@@ -1,6 +1,6 @@
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
-import { SyncFileBuffer } from "../buffer.js";
+import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
 
@@ -1580,6 +1580,26 @@ function onload()
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
 
+    for(const dev of ["hda", "hdb"])
+    {
+        const toggle = $(dev + "_toggle_empty_disk");
+        if(!toggle) continue;
+
+        toggle.onclick = function(e)
+        {
+            e.preventDefault();
+            const input = document.createElement("input");
+            input.id = dev + "_empty_size";
+            input.type = "number";
+            input.min = "1";
+            input.value = "100";
+            // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
+            const parent = toggle.parentNode;
+            parent.innerHTML = "";
+            parent.append("Empty disk of ", input, " MB");
+        };
+    }
+
     const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
     {
         const [_, size_raw, unit] = element.children[1].textContent.match(/([\d\.]+)\+? (\w+)/);
@@ -1770,7 +1790,7 @@ if(document.readyState === "complete")
 }
 
 // we can get here in various ways:
-// - the user clicked on the "start emulation"
+// - the user clicked on the "start emulation" button
 // - the user clicked on a profile
 // - the ?profile= query parameter specified a valid profile
 // - the ?profile= query parameter was set to "custom" and at least one disk image was given
@@ -1797,6 +1817,7 @@ function start_emulation(profile, query_args)
         settings.fda = profile.fda;
         settings.cdrom = profile.cdrom;
         settings.hda = profile.hda;
+        settings.hdb = profile.hdb;
         settings.multiboot = profile.multiboot;
         settings.bzimage = profile.bzimage;
         settings.initrd = profile.initrd;
@@ -1846,6 +1867,33 @@ function start_emulation(profile, query_args)
                     fixed_chunk_size: chunk_size,
                     async: true,
                 };
+            }
+            else if(query_args.has("hda.empty"))
+            {
+                const empty_size = parseInt(query_args.get("hda.empty"), 10);
+                if(empty_size > 0)
+                {
+                    settings.hda = { buffer: new ArrayBuffer(empty_size) };
+                }
+            }
+
+            if(query_args.has("hdb.url"))
+            {
+                settings.hdb = {
+                    size: parseInt(query_args.get("hdb.size"), 10) || undefined,
+                    // TODO: synchronous if small?
+                    url: query_args.get("hdb.url"),
+                    fixed_chunk_size: chunk_size,
+                    async: true,
+                };
+            }
+            else if(query_args.has("hdb.empty"))
+            {
+                const empty_size = parseInt(query_args.get("hdb.empty"), 10);
+                if(empty_size > 0)
+                {
+                    settings.hdb = { buffer: new ArrayBuffer(empty_size) };
+                }
             }
 
             if(query_args.has("cdrom.url"))
@@ -1925,15 +1973,29 @@ function start_emulation(profile, query_args)
         {
             settings.cdrom = { buffer: cdrom };
         }
-        const hda = $("hda_image").files[0];
+        const hda = $("hda_image")?.files[0];
         if(hda)
         {
             settings.hda = { buffer: hda };
+        }
+        const hda_empty_size = +$("hda_empty_size")?.value;
+        if(hda_empty_size)
+        {
+            const size = hda_empty_size * 1024 * 1024;
+            settings.hda = { buffer: new ArrayBuffer(size) };
+            new_query_args.set("hda.empty", String(size));
         }
         const hdb = $("hdb_image")?.files[0];
         if(hdb)
         {
             settings.hdb = { buffer: hdb };
+        }
+        const hdb_empty_size = +$("hdb_empty_size")?.value;
+        if(hdb_empty_size)
+        {
+            const size = hdb_empty_size * 1024 * 1024;
+            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size * 1024 * 1024) };
+            new_query_args.set("hdb.empty", String(size));
         }
         const multiboot = $("multiboot_image")?.files[0];
         if(multiboot)
@@ -2368,6 +2430,7 @@ function init_ui(profile, settings, emulator)
 
         elem.onclick = function(e)
         {
+            // XXX: the filename is a bit confusing for empty disks (it chooses the profile name)
             const filename = buffer.file && buffer.file.name || ((profile?.id || "v86") + (type === "cdrom" ? ".iso" : ".img"));
 
             if(buffer.get_as_file)

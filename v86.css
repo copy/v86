@@ -173,6 +173,9 @@ input[type=checkbox] {
     bottom: 1px;
     margin: 0;
 }
+input[type=number] {
+    width: 75px;
+}
 #filter label {
     background-color: #444;
     padding: 2px 4px;
