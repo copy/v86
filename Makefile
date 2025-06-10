@@ -361,6 +361,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/state.js
 	./tests/api/reset.js
 	#./tests/api/floppy-insert-eject.js # disabled for now, sometimes hangs
+	./tests/api/cdrom-insert-eject.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
 	./tests/api/pic.js
