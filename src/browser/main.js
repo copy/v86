@@ -1978,7 +1978,7 @@ function start_emulation(profile, query_args)
         {
             settings.boot_order = boot_order;
         }
-        if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.set("boot_order", String(settings.boot_order));
+        if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.set("boot_order", settings.boot_order.toString(16));
 
         if(settings.acpi === undefined)
         {
