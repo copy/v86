@@ -1743,7 +1743,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
 
         this.read_buffer(start, byte_count, (data) =>
         {
-            dbg_log(this.name + ": atapi_read_dma: Data arrived");
+            dbg_log(this.name + ": atapi_read_dma: Data arrived", LOG_DISK);
             this.report_read_end(byte_count);
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             this.sector_count_reg = this.sector_count_reg & ~7 | 2;
