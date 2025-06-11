@@ -895,13 +895,14 @@ pub unsafe fn call_interrupt_vector(
             let ss_segment_descriptor =
                 match return_on_pagefault!(lookup_segment_selector(ss_segment_selector)) {
                     Ok((desc, _)) => desc,
-                    Err(_) => {
+                    Err(
+                        SelectorNullOrInvalid::IsNull | SelectorNullOrInvalid::OutsideOfTableLimit,
+                    ) => {
                         panic!("Unimplemented: #TS handler");
                     },
                 };
 
             dbg_assert!(!ss_segment_descriptor.is_dc(), "TODO: Handle direction bit");
-            dbg_assert!(new_esp as u32 <= ss_segment_descriptor.effective_limit());
             dbg_assert!(!ss_segment_descriptor.is_system() && ss_segment_descriptor.is_writable());
 
             if ss_segment_selector.rpl() != cs_segment_descriptor.dpl() {
