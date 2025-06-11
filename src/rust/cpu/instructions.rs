@@ -575,7 +575,6 @@ pub unsafe fn instr_66() {
 }
 pub unsafe fn instr_67() {
     // Address-size override prefix
-    dbg_assert!(is_asize_32() == *is_32);
     *prefixes |= prefix::PREFIX_MASK_ADDRSIZE;
     run_prefix_instruction();
     *prefixes = 0;
