@@ -154,7 +154,7 @@ function onload()
             name: "Arch Linux",
             memory_size: 512 * 1024 * 1024,
             vga_memory_size: 8 * 1024 * 1024,
-            state: { url: host + "arch_state-v2.bin.zst" },
+            state: { url: host + "arch_state-v3.bin.zst" },
             filesystem: {
                 baseurl: host + "arch/",
             },
@@ -584,7 +584,7 @@ function onload()
                 fixed_chunk_size: 1024 * 1024,
                 use_parts: true,
             },
-            state: { url: host + "openbsd_state.bin.zst" },
+            state: { url: host + "openbsd_state-v2.bin.zst" },
             memory_size: 256 * 1024 * 1024,
             name: "OpenBSD",
         },
@@ -786,7 +786,7 @@ function onload()
                 use_parts: true,
             },
             name: "Windows 2000",
-            state: { url: host + "windows2k_state-v3.bin.zst" },
+            state: { url: host + "windows2k_state-v4.bin.zst" },
             mac_address_translation: true,
         },
         {
@@ -862,7 +862,7 @@ function onload()
                 use_parts: true,
             },
             name: "Windows 98",
-            state: { url: host + "windows98_state.bin.zst" },
+            state: { url: host + "windows98_state-v2.bin.zst" },
             mac_address_translation: true,
         },
         {
@@ -973,7 +973,7 @@ function onload()
                 fixed_chunk_size: 1024 * 1024,
                 use_parts: true,
             },
-            state: { url: host + "freebsd_state.bin.zst" },
+            state: { url: host + "freebsd_state-v2.bin.zst" },
             name: "FreeBSD",
         },
         {
