@@ -221,7 +221,7 @@ export const round_up_to_next_power_of_2 = function(x)
     return x <= 1 ? 1 : 1 << 1 + int_log2(x - 1);
 };
 
-if(DEBUG)
+if(typeof DEBUG !== "undefined" && DEBUG)
 {
     dbg_assert(int_log2(1) === 0);
     dbg_assert(int_log2(2) === 1);

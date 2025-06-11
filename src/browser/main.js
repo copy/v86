@@ -3,6 +3,7 @@ import { LOG_NAMES } from "../const.js";
 import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
 import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
+import * as iso9660 from "../iso9660.js";
 
 
 const ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
@@ -46,6 +47,16 @@ function format_timestamp(time)
             pad0((time / 60 | 0) % 60, 2) + "m " +
             pad0(time % 60, 2) + "s";
     }
+}
+
+function read_file(file)
+{
+    return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = e => reject(e);
+        fr.readAsArrayBuffer(file);
+    });
 }
 
 let progress_ticks = 0;
@@ -2495,12 +2506,33 @@ function init_ui(profile, settings, emulator)
         {
             const file_input = document.createElement("input");
             file_input.type = "file";
+            file_input.multiple = "multiple";
             file_input.onchange = async function(e)
             {
-                const file = file_input.files[0];
-                if(file)
+                const files = file_input.files;
+                let buffer;
+
+                if(files.length === 1 && files[0].name.endsWith(".iso"))
                 {
-                    await emulator.set_cdrom({ buffer: file });
+                    buffer = files[0];
+                }
+                else if(files.length)
+                {
+                    const files2 = [];
+                    for(const file of files)
+                    {
+                        files2.push({
+                            name: file.name,
+                            contents: new Uint8Array(await read_file(file)),
+                        });
+
+                    }
+                    buffer = iso9660.generate(files2).buffer;
+                }
+
+                if(buffer)
+                {
+                    await emulator.set_cdrom({ buffer });
                     $("change_cdrom_image").value = "Eject CD image";
                 }
             };
