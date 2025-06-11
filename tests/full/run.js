@@ -280,7 +280,6 @@ if(cluster.isPrimary)
         },
         {
             name: "MS-DOS",
-            skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             timeout: 90,
             expected_texts: [
@@ -289,7 +288,6 @@ if(cluster.isPrimary)
         },
         {
             name: "MS-DOS (hard disk + floppy disk)",
-            skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             fda: root_path + "/images/kolibri.img",
             boot_order: 0x132,
