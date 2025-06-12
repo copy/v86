@@ -2176,6 +2176,14 @@ function start_emulation(profile, query_args)
         }
     });
 
+    emulator.add_listener("emulator-loaded", function()
+    {
+        if(!emulator.v86.cpu.devices.cdrom)
+        {
+            $("change_cdrom_image").style.display = "none";
+        }
+    });
+
     emulator.add_listener("download-progress", function(e)
     {
         show_progress(e);
