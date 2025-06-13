@@ -6,7 +6,7 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
 // Enables logging all IO port reads and writes. Very verbose
-export const LOG_ALL_IO = false;
+const LOG_ALL_IO = false;
 
 /**
  * The ISA IO bus
