@@ -10,7 +10,7 @@ import { BusConnector } from "../bus.js";
  */
 export function MouseAdapter(bus, screen_container)
 {
-    const SPEED_FACTOR = 0.15;
+    const SPEED_FACTOR = 1;
 
     var left_down = false,
         right_down = false,
