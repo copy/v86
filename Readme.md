@@ -25,6 +25,7 @@ list of emulated hardware:
 - A generic VGA card with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
+  - A built-in ISO 9660 CD-ROM generator.
 - An NE2000 (RTL8390) PCI network card.
 - Various virtio devices: Filesystem, network and balloon.
 - A SoundBlaster 16 sound card.
