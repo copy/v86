@@ -1431,6 +1431,11 @@ IDEInterface.prototype.atapi_handle = function()
             if(this.features_reg & 1)
             {
                 this.atapi_read_dma(this.data);
+                if(!(this.status_reg & ATA_SR_DRQ))
+                {
+                    // ATAPI READ response is delayed, do not raise IRQ (yet)
+                    return;
+                }
             }
             else
             {
@@ -1738,7 +1743,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
     else
     {
-        this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_BSY;
+        this.status_reg = ATA_SR_DRDY;
         this.report_read_start();
 
         this.read_buffer(start, byte_count, (data) =>
