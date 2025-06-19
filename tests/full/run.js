@@ -615,6 +615,7 @@ if(cluster.isPrimary)
                 { after: 7 * 60 * 1000, run: "\n" },
                 { after: 8 * 60 * 1000, run: "\n" },
             ],
+            acpi: true,
         },
         {
             name: "9front",

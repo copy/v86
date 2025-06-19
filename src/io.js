@@ -6,7 +6,7 @@ import { dbg_assert, dbg_log } from "./log.js";
 import { CPU } from "./cpu.js";
 
 // Enables logging all IO port reads and writes. Very verbose
-export const LOG_ALL_IO = false;
+const LOG_ALL_IO = false;
 
 /**
  * The ISA IO bus
@@ -364,7 +364,7 @@ IO.prototype.port_read8 = function(port_addr)
     }
     var value = entry.read8.call(entry.device, port_addr);
     dbg_assert(typeof value === "number");
-    dbg_assert(value < 0x100 && value >= 0, "8 bit port returned large value: " + h(port_addr));
+    if(value < 0 || value >= 0x100) dbg_assert(false, "8 bit port returned large value: " + h(port_addr));
     return value;
 };
 
@@ -381,7 +381,7 @@ IO.prototype.port_read16 = function(port_addr)
     }
     var value = entry.read16.call(entry.device, port_addr);
     dbg_assert(typeof value === "number");
-    dbg_assert(value < 0x10000 && value >= 0, "16 bit port returned large value: " + h(port_addr));
+    if(value < 0 || value >= 0x10000) dbg_assert(false, "16 bit port returned large value: " + h(port_addr));
     return value;
 };
 

@@ -297,7 +297,8 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 
     // note: delta_x or delta_y can be floating point numbers
 
-    var factor = this.resolution * this.sample_rate / 80;
+    //const factor = this.resolution * this.sample_rate / 80;
+    const factor = 1;
 
     this.mouse_delta_x += delta_x * factor;
     this.mouse_delta_y += delta_y * factor;
@@ -309,8 +310,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 
         if(change_x || change_y)
         {
-            var now = Date.now();
-
+            //var now = Date.now();
             //if(now - this.last_mouse_packet < 1000 / this.sample_rate)
             //{
             //    // TODO: set timeout

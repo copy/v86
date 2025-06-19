@@ -2261,7 +2261,7 @@ function init_ui(profile, settings, emulator)
     {
         mouse_is_enabled = !mouse_is_enabled;
 
-        emulator.mouse_set_status(mouse_is_enabled);
+        emulator.mouse_set_enabled(mouse_is_enabled);
         $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
     };
@@ -2904,25 +2904,23 @@ function debug_start(emulator)
     }
 
     // called as soon as soon as emulation is started, in debug mode
-    var debug = emulator.v86.cpu.debug;
+    const cpu = emulator.v86.cpu;
 
-    $("dump_gdt").onclick = debug.dump_gdt_ldt.bind(debug);
-    $("dump_idt").onclick = debug.dump_idt.bind(debug);
-    $("dump_regs").onclick = debug.dump_regs.bind(debug);
-    $("dump_pt").onclick = debug.dump_page_structures.bind(debug);
+    $("dump_gdt").onclick = cpu.dump_gdt_ldt.bind(cpu);
+    $("dump_idt").onclick = cpu.dump_idt.bind(cpu);
+    $("dump_regs").onclick = () => { cpu.dump_regs_short(); cpu.dump_state(); };
+    $("dump_pt").onclick = cpu.dump_page_structures.bind(cpu);
 
     $("dump_log").onclick = function()
     {
         dump_file(log_data.join(""), "v86.log");
     };
 
-    var cpu = emulator.v86.cpu;
-
     $("debug_panel").style.display = "block";
     setInterval(function()
     {
         $("debug_panel").textContent =
-            cpu.debug.get_regs_short().join("\n") + "\n" + cpu.debug.get_state();
+            cpu.get_regs_short().join("\n") + "\n" + cpu.debug_get_state();
 
         $("dump_log").value = "Dump log" + (log_data.length ? " (" + log_data.length + " lines)" : "");
     }, 1000);

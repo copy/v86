@@ -275,11 +275,11 @@ pub unsafe fn instr16_0F01_4_reg(r: i32) {
 pub unsafe fn instr32_0F01_4_reg(r: i32) { write_reg32(r, *cr); }
 #[no_mangle]
 pub unsafe fn instr16_0F01_4_mem(addr: i32) {
-    return_on_pagefault!(safe_write16(addr, *cr));
+    return_on_pagefault!(safe_write16(addr, *cr & 0xFFFF));
 }
 #[no_mangle]
 pub unsafe fn instr32_0F01_4_mem(addr: i32) {
-    return_on_pagefault!(safe_write16(addr, *cr));
+    return_on_pagefault!(safe_write16(addr, *cr & 0xFFFF));
 }
 
 #[no_mangle]

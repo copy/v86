@@ -2212,7 +2212,7 @@ VGAScreen.prototype.port1CF_write = function(value)
     }
     else
     {
-        dbg_log("SVGA: disabled");
+        dbg_log("SVGA: disabled", LOG_VGA);
     }
 
     if(this.svga_enabled && !was_enabled)
