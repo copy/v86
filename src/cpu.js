@@ -1170,7 +1170,8 @@ CPU.prototype.init = function(settings, device_bus)
         {
             this.devices.virtio_console = new VirtioConsole(this, device_bus);
         }
-        if(settings.virtio_balloon) {
+        if(settings.virtio_balloon)
+        {
             this.devices.virtio_balloon = new VirtioBalloon(this, device_bus);
         }
 
