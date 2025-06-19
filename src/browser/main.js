@@ -2261,7 +2261,7 @@ function init_ui(profile, settings, emulator)
     {
         mouse_is_enabled = !mouse_is_enabled;
 
-        emulator.mouse_set_status(mouse_is_enabled);
+        emulator.mouse_set_enabled(mouse_is_enabled);
         $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
     };
