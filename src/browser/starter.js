@@ -1154,27 +1154,28 @@ V86.prototype.lock_mouse = function()
  *
  * @param {boolean} enabled
  */
-V86.prototype.mouse_set_status = function(enabled)
+V86.prototype.mouse_set_enabled = function(enabled)
 {
     if(this.mouse_adapter)
     {
         this.mouse_adapter.emu_enabled = enabled;
     }
 };
+V86.prototype.mouse_set_status = V86.prototype.mouse_set_enabled;
 
 /**
  * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
  */
-V86.prototype.keyboard_set_status = function(enabled)
+V86.prototype.keyboard_set_enabled = function(enabled)
 {
     if(this.keyboard_adapter)
     {
         this.keyboard_adapter.emu_enabled = enabled;
     }
 };
-
+V86.prototype.keyboard_set_status = V86.prototype.keyboard_set_enabled;
 
 /**
  * Send a string to the first emulated serial terminal.
