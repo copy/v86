@@ -1030,17 +1030,20 @@ V86.prototype.screen_go_fullscreen = function()
  * Lock the mouse cursor: It becomes invisble and is not moved out of the
  * browser window.
  */
-V86.prototype.lock_mouse = function()
+V86.prototype.lock_mouse = async function()
 {
-    var elem = document.body;
+    const elem = document.body;
 
-    var fn = elem["requestPointerLock"] ||
-                elem["mozRequestPointerLock"] ||
-                elem["webkitRequestPointerLock"];
-
-    if(fn)
+    try
     {
-        fn.call(elem);
+        await elem.requestPointerLock({
+            unadjustedMovement: true,
+        });
+    }
+    catch(e)
+    {
+        // as per MDN, retry without unadjustedMovement option
+        await elem.requestPointerLock();
     }
 };
 
