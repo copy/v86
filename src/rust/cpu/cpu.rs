@@ -3288,7 +3288,7 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
-    Ok(std::mem::transmute(safe_read32s(addr)?))
+    Ok(f32::from_bits(i32::cast_unsigned(safe_read32s(addr)?)))
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {

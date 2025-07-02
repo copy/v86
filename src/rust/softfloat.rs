@@ -112,11 +112,11 @@ impl F80 {
         unsafe { f64_to_extF80M(src, &mut x) };
         x
     }
-    fn of_f64x(src: f64) -> F80 { F80::of_f64(unsafe { std::mem::transmute(src) }) }
+    fn of_f64x(src: f64) -> F80 { F80::of_f64(f64::to_bits(src)) }
 
     pub fn to_f32(&self) -> i32 { unsafe { extF80M_to_f32(self) } }
     pub fn to_f64(&self) -> u64 { unsafe { extF80M_to_f64(self) } }
-    fn to_f64x(&self) -> f64 { unsafe { std::mem::transmute(extF80M_to_f64(self)) } }
+    fn to_f64x(&self) -> f64 { f64::from_bits(self.to_f64()) }
 
     pub fn to_i32(&self) -> i32 { unsafe { extF80M_to_i32(self, softfloat_roundingMode, false) } }
     pub fn to_i64(&self) -> i64 { unsafe { extF80M_to_i64(self, softfloat_roundingMode, false) } }
