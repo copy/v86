@@ -20,7 +20,6 @@ use crate::page::Page;
 use crate::profiler;
 use crate::profiler::stat;
 use crate::state_flags::CachedStateFlags;
-use crate::util::SafeToU16;
 use crate::wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal};
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
@@ -1230,28 +1229,30 @@ fn jit_generate_module(
 
     let mut index_for_addr = HashMap::new();
     for (i, &addr) in entry_blocks.iter().enumerate() {
-        index_for_addr.insert(addr, i as i32);
+        dbg_assert!(i < 0x10000);
+        index_for_addr.insert(addr, i as u16);
     }
     for b in basic_blocks.values() {
         if !index_for_addr.contains_key(&b.addr) {
             let i = index_for_addr.len();
-            index_for_addr.insert(b.addr, i as i32);
+            dbg_assert!(i < 0x10000);
+            index_for_addr.insert(b.addr, i as u16);
         }
     }
 
-    let mut label_for_addr: HashMap<u32, (Label, Option<i32>)> = HashMap::new();
+    let mut label_for_addr: HashMap<u32, (Label, Option<u16>)> = HashMap::new();
 
     enum Work {
         WasmStructure(WasmStructure),
         BlockEnd {
             label: Label,
             targets: Vec<u32>,
-            olds: HashMap<u32, (Label, Option<i32>)>,
+            olds: HashMap<u32, (Label, Option<u16>)>,
         },
         LoopEnd {
             label: Label,
             entries: Vec<u32>,
-            olds: HashMap<u32, (Label, Option<i32>)>,
+            olds: HashMap<u32, (Label, Option<u16>)>,
         },
     }
     let mut work: VecDeque<Work> = structure
@@ -1423,10 +1424,10 @@ fn jit_generate_module(
                             if next_addr.unwrap().len() > 1 {
                                 let target_index = *index_for_addr.get(&next_block_addr).unwrap();
                                 if cfg!(feature = "profiler") {
-                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.const_i32(target_index.into());
                                     ctx.builder.call_fn1("debug_set_dispatcher_target");
                                 }
-                                ctx.builder.const_i32(target_index);
+                                ctx.builder.const_i32(target_index.into());
                                 ctx.builder.set_local(target_block);
                                 codegen::gen_profiler_stat_increment(
                                     ctx.builder,
@@ -1444,10 +1445,10 @@ fn jit_generate_module(
                             let &(br, target_index) = label_for_addr.get(&next_block_addr).unwrap();
                             if let Some(target_index) = target_index {
                                 if cfg!(feature = "profiler") {
-                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.const_i32(target_index.into());
                                     ctx.builder.call_fn1("debug_set_dispatcher_target");
                                 }
-                                ctx.builder.const_i32(target_index);
+                                ctx.builder.const_i32(target_index.into());
                                 ctx.builder.set_local(target_block);
                                 codegen::gen_profiler_stat_increment(
                                     ctx.builder,
@@ -1571,10 +1572,10 @@ fn jit_generate_module(
                                         let target_index =
                                             *index_for_addr.get(&next_block_addr).unwrap();
                                         if cfg!(feature = "profiler") {
-                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.const_i32(target_index.into());
                                             ctx.builder.call_fn1("debug_set_dispatcher_target");
                                         }
-                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.const_i32(target_index.into());
                                         ctx.builder.set_local(target_block);
                                         codegen::gen_profiler_stat_increment(
                                             ctx.builder,
@@ -1595,10 +1596,10 @@ fn jit_generate_module(
                                         if cfg!(feature = "profiler") {
                                             // Note: Currently called unconditionally, even if the
                                             // br_if below doesn't branch
-                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.const_i32(target_index.into());
                                             ctx.builder.call_fn1("debug_set_dispatcher_target");
                                         }
-                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.const_i32(target_index.into());
                                         ctx.builder.set_local(target_block);
                                     }
 
@@ -1751,11 +1752,11 @@ fn jit_generate_module(
                                 let target_index_not_taken =
                                     *index_for_addr.get(&next_block_addr).unwrap();
 
-                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.const_i32(target_index_taken.into());
                                 ctx.builder.set_local(target_block);
 
                                 ctx.builder.else_();
-                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.const_i32(target_index_not_taken.into());
                                 ctx.builder.set_local(target_block);
 
                                 ctx.builder.block_end();
@@ -1768,9 +1769,9 @@ fn jit_generate_module(
 
                                 codegen::gen_condition_fn(ctx, condition);
                                 ctx.builder.if_i32();
-                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.const_i32(target_index_taken.into());
                                 ctx.builder.else_();
-                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.const_i32(target_index_not_taken.into());
                                 ctx.builder.block_end();
                                 ctx.builder.set_local(target_block);
                             }
@@ -1824,7 +1825,7 @@ fn jit_generate_module(
                         let index = *index_for_addr.get(&addr).unwrap();
                         let &(label, _) = label_for_addr.get(&addr).unwrap();
                         ctx.builder.get_local(target_block);
-                        ctx.builder.const_i32(index);
+                        ctx.builder.const_i32(index.into());
                         ctx.builder.eq_i32();
                         ctx.builder.br_if(label);
                     }
@@ -1986,8 +1987,7 @@ fn jit_generate_module(
         // Note: We also insert blocks that weren't originally marked as entries here
         //       This doesn't have any downside, besides making the hash table slightly larger
 
-        let initial_state = index.safe_to_u16();
-        (block.addr, initial_state)
+        (block.addr, index)
     }));
 
     for b in basic_blocks.values() {
