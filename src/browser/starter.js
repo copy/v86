@@ -650,7 +650,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                     env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", initial: 1024 });
                     env["abort"] = () => { throw new Error("zstd worker aborted"); };
                     env["log_from_wasm"] = env["console_log_from_wasm"] = (off, len) => {
-                        console.log(String.fromCharCode(...new Uint8Array(wasm.exports.memory.buffer, off, len)));
+                        console.log(read_sized_string_from_mem(wasm.exports.memory.buffer, off, len));
                     };
                     env["dbg_trace_from_wasm"] = () => console.trace();
 
