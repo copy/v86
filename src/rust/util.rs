@@ -61,10 +61,6 @@ pub const DEBUG: bool = cfg!(debug_assertions);
 extern "C" {
     pub fn log_from_wasm(ptr: *const u8, len: usize);
     pub fn console_log_from_wasm(ptr: *const u8, len: usize);
-    pub fn abort();
-}
-
-extern "C" {
     pub fn dbg_trace_from_wasm();
 }
 
@@ -89,6 +85,7 @@ pub fn console_log_to_js_console<T: ToString>(s: T) {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 pub fn dbg_trace() {
     if DEBUG {
         unsafe {
@@ -96,3 +93,6 @@ pub fn dbg_trace() {
         }
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn dbg_trace() { }
