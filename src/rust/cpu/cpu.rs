@@ -28,6 +28,7 @@ use crate::cpu::misc_instr::{
 };
 use crate::cpu::modrm::{resolve_modrm16, resolve_modrm32};
 use crate::cpu::pic;
+use crate::dbg::dbg_trace;
 use crate::gen;
 use crate::jit;
 use crate::jit::is_near_end_of_page;
@@ -39,7 +40,6 @@ use crate::profiler;
 use crate::profiler::stat;
 use crate::softfloat;
 use crate::state_flags::CachedStateFlags;
-use crate::util::dbg_trace;
 
 use std::collections::HashSet;
 use std::ptr;
