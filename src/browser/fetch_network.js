@@ -35,10 +35,9 @@ export function FetchNetworkAdapter(bus, config)
     this.eth_encoder_buf = create_eth_encoder_buf();
     this.fetch = (...args) => fetch(...args);
 
-    import("../../build/mitm.mjs").then(factory => factory.default()).then(obj => {
+    eval(`import("../../build/mitm.mjs")`).then(factory => factory.default()).then(obj => {
         this.tls = new obj["MITM"]();
         this.tls["generateECCPrivateKey"]();
-        console.log("TLS online");
     }).catch(e => {
         console.log(e);
         dbg_log("No TLS library detected.");

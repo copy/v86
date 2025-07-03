@@ -262,12 +262,12 @@ function handle_fake_tcp(packet, adapter)
         conn.dport = packet.tcp.sport;
         conn.pdest = packet.ipv4.src;
 
-        adapter.bus.pair.send('tcp-connection', conn);
+        adapter.bus.pair.send("tcp-connection", conn);
 
         if(adapter.on_tcp_connection) {
             adapter.on_tcp_connection(conn, packet);
         }
-        if (adapter.tcp_conn[tuple]) return;
+        if(adapter.tcp_conn[tuple]) return;
     }
 
     if(!adapter.tcp_conn[tuple]) {

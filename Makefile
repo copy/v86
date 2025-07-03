@@ -341,7 +341,7 @@ expect-tests: build/v86-debug.wasm build/libwabt.cjs
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/v86-debug.wasm
+devices-test: build/v86-debug.wasm build/mitm.mjs
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
