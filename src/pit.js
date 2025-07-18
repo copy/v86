@@ -308,13 +308,13 @@ PIT.prototype.port43_write = function(reg_byte)
 
     if(read_mode === 1)
     {
-        // msb
-        this.counter_next_low[i] = 0;
+        // lsb
+        this.counter_next_low[i] = 1;
     }
     else if(read_mode === 2)
     {
-        // lsb
-        this.counter_next_low[i] = 1;
+        // msb
+        this.counter_next_low[i] = 0;
     }
     else
     {
