@@ -37,6 +37,16 @@ const CMOS_FDD_TYPE_720      = 0x3; // 720 KB 3"1/2 drive
 const CMOS_FDD_TYPE_1440     = 0x4; // 1.44 MB 3"1/2 drive
 const CMOS_FDD_TYPE_2880     = 0x5; // 2.88 MB 3"1/2 drive
 
+// Physical floppy disk size identifier of each drive type
+const CMOS_FDD_TYPE_MEDIUM = {
+    [CMOS_FDD_TYPE_NO_DRIVE]: 0,    // no disk
+    [CMOS_FDD_TYPE_360]:      525,  // 5"1/4 disk
+    [CMOS_FDD_TYPE_1200]:     525,  // 5"1/4 disk
+    [CMOS_FDD_TYPE_720]:      350,  // 3"1/2 disk
+    [CMOS_FDD_TYPE_1440]:     350,  // 3"1/2 disk
+    [CMOS_FDD_TYPE_2880]:     350,  // 3"1/2 disk
+};
+
 // Floppy Controller PIO Register offsets (base: 0x3F0/0x370, offset 0x6 is reserved for ATA IDE)
 const REG_SRA       = 0x0;  // R,  Status Register A (SRA)
 const REG_SRB       = 0x1;  // R,  Status Register B (SRB)
@@ -249,8 +259,8 @@ export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
     this.eot = 0;                   // see READ/WRITE
 
     this.drives = [
-        new FloppyDrive(this, 0, fdc_config?.fda, fda_image, CMOS_FDD_TYPE_1440),
-        new FloppyDrive(this, 1, fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_2880)     // TODO: change this to 1440
+        new FloppyDrive(this, "fda", fdc_config?.fda, fda_image, CMOS_FDD_TYPE_1440),
+        new FloppyDrive(this, "fdb", fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_2880)     // TODO: change this to 1440
     ];
 
     Object.seal(this);
@@ -915,8 +925,8 @@ FloppyController.prototype.start_read_write = function(args, do_write)
 
     const sect_size = 128 << (ssc > 7 ? 7 : ssc);               // sector size in bytes
     const sect_start = curr_drive.chs2lba(track, head, sect);   // linear start sector
-    const data_offset = sect_start * sect_size;                 // linear data offset
-    let data_length;                                            // linear data length
+    const data_offset = sect_start * sect_size;                 // data offset in bytes
+    let data_length;                                            // data length in bytes
     if(sect_size === 128)
     {
         // if requested data length (dtl) is < 128:
@@ -930,28 +940,22 @@ FloppyController.prototype.start_read_write = function(args, do_write)
     }
     else
     {
-        // TODO: all this works but looks a bit odd, maybe this can be improved
-        let sect_end = eot - sect + 1;
-        if(sect_end < 0 || ((this.cmd_flags & CMD_FLAG_MULTI_TRACK) && (sect_end + eot <= 0)))
+        if(this.cmd_flags & CMD_FLAG_MULTI_TRACK)
         {
-            dbg_log("invalid EOT: eot=" + eot + " sect=" + sect + " sect_end=" + sect_end, LOG_FLOPPY);
+            data_length = (2 * eot - sect + 1) * sect_size;
+        }
+        else
+        {
+            data_length = (eot - sect + 1) * sect_size;
+        }
+        if(data_length <= 0)
+        {
+            dbg_log("invalid data_length: " + data_length + " sect=" + sect + " eot=" + eot, LOG_FLOPPY);
             this.end_read_write(SR0_ABNTERM, SR1_MA, 0);
             this.response_data[3] = track;
             this.response_data[4] = head;
             this.response_data[5] = sect;
             return;
-        }
-        if(this.cmd_flags & CMD_FLAG_MULTI_TRACK)
-        {
-            sect_end += eot;
-        }
-        if(sect_end > sect_start)
-        {
-            data_length = (sect_end - sect_start) * sect_size;
-        }
-        else
-        {
-            data_length = (sect_start - sect_end) * sect_size;
         }
     }
     this.eot = eot;
@@ -1215,40 +1219,36 @@ const DISK_FORMATS = [
     // types defined in earlier v86 releases (not defined in qemu)
     { drive_type: CMOS_FDD_TYPE_360,  sectors: 10, tracks: 40, heads: 1 }, // 400   200 kB
     { drive_type: CMOS_FDD_TYPE_360,  sectors: 10, tracks: 40, heads: 2 }, // 800   400 kB
-    // special v86 type for boot-sectors, not meant to be exposed to regular guests
-    { drive_type:  CMOS_FDD_TYPE_360, sectors:  1, tracks:  1, heads: 1 }, // 1     512 bytes
 ];
 
 /**
  * @constructor
  *
  * @param {FloppyController} fdc
- * @param {number} fdd_nr
+ * @param {string} name
  * @param {Object|undefined} fdd_config
  * @param {SyncBuffer|Uint8Array|null|undefined} img_buffer
  * @param {number} fallback_drive_type
  */
-function FloppyDrive(fdc, fdd_nr, fdd_config, img_buffer, fallback_drive_type)
+function FloppyDrive(fdc, name, fdd_config, img_buffer, fallback_drive_type)
 {
     /** @const */
     this.fdc = fdc;
     /** @const */
     this.cpu = fdc.cpu;
     /** @const */
-    this.fdd_nr = fdd_nr;
-    /** @const */
-    this.name = "fd" + String.fromCharCode(97 + fdd_nr);
+    this.name = name;
 
     // drive state
     this.drive_type = CMOS_FDD_TYPE_NO_DRIVE;
 
     // disk state
     this.max_track = 0;     // disk's max. track, was: FloppyController.number_of_cylinders (qemu: max_track)
-    this.max_head = 0;      // disk's max. head, was: FloppyController.number_of_heads
+    this.max_head = 0;      // disk's max. head (1 or 2), was: FloppyController.number_of_heads
     this.max_sect = 0;      // disk's max. sect, was: FloppyController.sectors_per_track (qemu: last_sect)
-    this.curr_track = 0;    // was: FloppyController.last_cylinder (qemu: track)
-    this.curr_head = 0;     // was: FloppyController.last_head (qemu: head)
-    this.curr_sect = 1;     // was: FloppyController.last_sector (qemu: sect)
+    this.curr_track = 0;    // >= 0, was: FloppyController.last_cylinder (qemu: track)
+    this.curr_head = 0;     // 0 or 1, was: FloppyController.last_head (qemu: head)
+    this.curr_sect = 1;     // > 0, was: FloppyController.last_sector (qemu: sect)
     this.perpendicular = 0;
     this.read_only = false;
     this.media_changed = true;
@@ -1256,7 +1256,7 @@ function FloppyDrive(fdc, fdd_nr, fdd_config, img_buffer, fallback_drive_type)
 
     Object.seal(this);
 
-    // The drive type this.drive_type is either (in this order):
+    // Drive type this.drive_type is either (in this order):
     // - specified in fdd_config.drive_type (if defined),
     // - derived from the image buffer img_buffer (if provided), or
     // - specfied in fallback_drive_type.
@@ -1283,49 +1283,49 @@ function FloppyDrive(fdc, fdd_nr, fdd_config, img_buffer, fallback_drive_type)
  *
  * @param {SyncBuffer|Uint8Array|null|undefined} img_buffer
  * @param {boolean=} read_only
+ * @return {boolean} true if the given img_buffer was accepted
  */
 FloppyDrive.prototype.insert_disk = function(img_buffer, read_only)
 {
     if(!img_buffer)
     {
-        return;
+        return false;
     }
+
     if(img_buffer instanceof Uint8Array)
     {
         img_buffer = new SyncBuffer(img_buffer.buffer);
     }
 
     const [new_img_buffer, disk_format] = this.find_disk_format(img_buffer, this.drive_type);
-    if(new_img_buffer)
-    {
-        this.max_track = disk_format.tracks;
-        this.max_head = disk_format.heads;
-        this.max_sect = disk_format.sectors;
-        this.read_only = !!read_only;
-        this.media_changed = true;
-        this.img_buffer = new_img_buffer;
-        if(this.drive_type === CMOS_FDD_TYPE_NO_DRIVE)
-        {
-            // auto-select drive type once during construction
-            this.drive_type = disk_format.drive_type;
-        }
-
-        if(DEBUG)
-        {
-            const old_size = img_buffer.byteLength;
-            const new_size = new_img_buffer.byteLength;
-            dbg_log("disk inserted into " + this.name + ": type: " + disk_format.drive_type +
-                ", C/H/S: " + disk_format.tracks + "/" + disk_format.heads + "/" +
-                disk_format.sectors + ", size: " + new_size + " (" +
-                (old_size !== new_size ? "resized from " + old_size : "exact match") + ")",
-                LOG_FLOPPY);
-        }
-    }
-    else
+    if(!new_img_buffer)
     {
         dbg_log("WARNING: disk rejected, no suitable disk format found for image of size " +
             img_buffer.byteLength + " bytes", LOG_FLOPPY);
+        return false;
     }
+
+    this.max_track = disk_format.tracks;
+    this.max_head = disk_format.heads;
+    this.max_sect = disk_format.sectors;
+    this.read_only = !!read_only;
+    this.media_changed = true;
+    this.img_buffer = new_img_buffer;
+
+    if(this.drive_type === CMOS_FDD_TYPE_NO_DRIVE)
+    {
+        // auto-select drive type once during construction
+        this.drive_type = disk_format.drive_type;
+    }
+
+    if(DEBUG)
+    {
+        dbg_log("disk inserted into " + this.name + ": type: " + disk_format.drive_type +
+            ", C/H/S: " + disk_format.tracks + "/" + disk_format.heads + "/" +
+            disk_format.sectors + ", size: " + new_img_buffer.byteLength,
+            LOG_FLOPPY);
+    }
+    return true;
 };
 
 /**
@@ -1350,11 +1350,11 @@ FloppyDrive.prototype.get_buffer = function()
 };
 
 /**
- * Map structured C/H/S address to linear block address (LBA)
+ * Map structured C/H/S address to linear block address (LBA).
  * @param {number} track
  * @param {number} head
  * @param {number} sect
- * @return {number} the linear block address
+ * @return {number} lba the linear block address
  */
 FloppyDrive.prototype.chs2lba = function(track, head, sect)
 {
@@ -1362,20 +1362,17 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
 };
 
 /**
- * Find best-matching disk format for given img_buffer.
+ * Find best-matching disk format for the given image buffer img_buffer.
  *
- * If drive_type is CMOS_FDD_TYPE_NO_DRIVE then drive types are ignored,
- * else only the subset of formats with the same drive type are searched.
+ * If the given drive_type is CMOS_FDD_TYPE_NO_DRIVE then drive types are
+ * ignored and the first matching disk format is selected (auto-detection).
  *
- * The smallest of all matching disk formats larger or equal to the image
- * size is selected. The first match takes precedence over later matches.
+ * Returns [null, null] if the size of the given img_buffer exceeds 512 but
+ * does not match any of the known disk formats defined in DISK_FORMATS.
  *
- * If the size of the given image is smaller than the selected disk format
- * then the image is copied into a newly allocated buffer of appropriate
- * size, and the new, upsized buffer is returned.
- *
- * If the size of the given image is larger than any of the searched disk
- * formats then [null, null] is returned.
+ * If the size of the given img_buffer is less than 512 then its content is
+ * copied into a newly allocated SyncBuffer of size 512 which is returned
+ * to the caller.
  *
  * @param {SyncBuffer} img_buffer
  * @param {number} drive_type
@@ -1383,50 +1380,65 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
  */
 FloppyDrive.prototype.find_disk_format = function(img_buffer, drive_type)
 {
+    const autodetect = drive_type === CMOS_FDD_TYPE_NO_DRIVE;
     const img_size = img_buffer.byteLength;
-    let disk_format = null, disk_size = 0;
 
-    for(const i_format of DISK_FORMATS)
+    if(img_size <= SECTOR_SIZE)
     {
-        const i_size = i_format.sectors * i_format.tracks * i_format.heads * SECTOR_SIZE;
-        if(i_size < img_size)
+        // special case bootsector image: single sector pseudo-disk
+        if(img_size < SECTOR_SIZE)
         {
-            // disk format too small for this image
-            continue;
+            // zero-pad end of image up to full sector size
+            const new_image = new Uint8Array(SECTOR_SIZE);
+            new_image.set(new Uint8Array(img_buffer.buffer));
+            img_buffer = new SyncBuffer(new_image.buffer);
         }
-        else if(drive_type !== CMOS_FDD_TYPE_NO_DRIVE && drive_type !== i_format.drive_type)
-        {
-            // disk format belongs to incompatible drive type family
-            continue;
-        }
+        const disk_format = { drive_type: CMOS_FDD_TYPE_360, sectors: 1, tracks: 1, heads: 1 };
+        return [img_buffer, disk_format];
+    }
 
-        const size_diff = i_size - img_size;
-        if(!disk_format || size_diff < disk_size - img_size)
+    let preferred_match=-1, medium_match=-1, size_match=-1;
+    for(let i = 0; i < DISK_FORMATS.length; i++)
+    {
+        const disk_format = DISK_FORMATS[i];
+        const disk_size = disk_format.sectors * disk_format.tracks * disk_format.heads * SECTOR_SIZE;
+        if(img_size === disk_size)
         {
-            disk_format = i_format;
-            disk_size = i_size;
-            if(size_diff === 0)
+            if(autodetect || disk_format.drive_type === drive_type)
             {
-                // perfect match
+                // (1) same size and CMOS drive type
+                preferred_match = i;
                 break;
+            }
+            else if(!autodetect && CMOS_FDD_TYPE_MEDIUM[disk_format.drive_type] === CMOS_FDD_TYPE_MEDIUM[drive_type])
+            {
+                // (2) same size and physical medium size (5"1/4 or 3"1/2)
+                medium_match = (medium_match === -1) ? i : medium_match;
+            }
+            else
+            {
+                // (3) same size
+                size_match = (size_match === -1) ? i : size_match;
             }
         }
     }
 
-    if(!disk_format)
+    if(preferred_match !== -1)
     {
-        // no match
-        img_buffer = null;
+        return [img_buffer, DISK_FORMATS[preferred_match]];
     }
-    else if(disk_size - img_size !== 0)
+    else if(medium_match !== -1)
     {
-        // copy img_buffer into new SyncBuffer to match selected disk geometry
-        const new_image = new Uint8Array(disk_size);
-        new_image.set(new Uint8Array(img_buffer.buffer));
-        img_buffer = new SyncBuffer(new_image.buffer);
+        return [img_buffer, DISK_FORMATS[medium_match]];
     }
-
-    return [img_buffer, disk_format];
+    else if(size_match !== -1)
+    {
+        return [img_buffer, DISK_FORMATS[size_match]];
+    }
+    else
+    {
+        return [null, null];
+    }
 };
 
 /**
@@ -1454,11 +1466,10 @@ FloppyDrive.prototype.seek = function(head, track, sect)
         return 3;
     }
 
-    let ret = 0;
-    const curr_sector = this.chs2lba(this.curr_track, this.curr_head, this.curr_sect);
-    const new_sector = this.chs2lba(track, head, sect);
-
-    if(curr_sector !== new_sector)
+    let result = 0;
+    const curr_lba = this.chs2lba(this.curr_track, this.curr_head, this.curr_sect);
+    const new_lba = this.chs2lba(track, head, sect);
+    if(curr_lba !== new_lba)
     {
         if(this.curr_track !== track)
         {
@@ -1466,7 +1477,7 @@ FloppyDrive.prototype.seek = function(head, track, sect)
             {
                 this.media_changed = false;
             }
-            ret = 1;
+            result = 1;
         }
         this.curr_head = head;
         this.curr_track = track;
@@ -1475,10 +1486,10 @@ FloppyDrive.prototype.seek = function(head, track, sect)
 
     if(!this.img_buffer)
     {
-        ret = 2;
+        result = 2;
     }
 
-    return ret;
+    return result;
 };
 
 FloppyDrive.prototype.get_state = function()
