@@ -1,0 +1,16 @@
+{
+  "name": "v86",
+  "short_name": "v86",
+  "start_url": ".",
+  "background_color": "black",
+  "theme_color": "black",
+  "description": "x86 web virtual machine",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "icons/v86.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
