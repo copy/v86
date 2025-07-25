@@ -260,7 +260,7 @@ export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
 
     this.drives = [
         new FloppyDrive(this, "fda", fdc_config?.fda, fda_image, CMOS_FDD_TYPE_1440),
-        new FloppyDrive(this, "fdb", fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_2880)     // TODO: change this to 1440
+        new FloppyDrive(this, "fdb", fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_1440)
     ];
 
     Object.seal(this);
