@@ -1,5 +1,5 @@
 modules:
-  confluence:macro:
+  macro:
     - key: wasm-emulator
       resource: main
       resolver:
@@ -12,7 +12,7 @@ modules:
       handler: index.handler
 resources:
   - key: main
-    path: static
+    path: static/index.html
 app:
   id: ari:cloud:ecosystem::app-template-id
 permissions:
