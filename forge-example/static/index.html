@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Forge WASM Emulator</title>
+    <style>
+      html, body, #screen_container { height: 100%; margin: 0; }
+    </style>
+    <!-- Pre-built v86 from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/v86@0.5/build/libv86.js"></script>
+  </head>
+  <body>
+    <div id="screen_container"></div>
+    <script>
+      const emulator = new V86({
+        wasm_path: "https://cdn.jsdelivr.net/npm/v86@0.5/build/v86.wasm",
+        bios: { url: "https://copy.sh/v86/bios/seabios.bin" },
+        vga_bios: { url: "https://copy.sh/v86/bios/vgabios.bin" },
+        cdrom: { url: "https://copy.sh/v86/images/linux.iso" },
+        autostart: true,
+        screen_container: document.getElementById('screen_container'),
+      });
+    </script>
+  </body>
+</html>

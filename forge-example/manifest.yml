@@ -1,0 +1,20 @@
+modules:
+  confluence:macro:
+    - key: wasm-emulator
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: WASM Emulator
+      description: Run a PC emulator inside Confluence
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: static
+app:
+  id: ari:cloud:ecosystem::app-template-id
+permissions:
+  scopes:
+    - read:confluence-content.summary

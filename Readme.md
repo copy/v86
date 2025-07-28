@@ -166,6 +166,7 @@ See [tests/Readme.md](tests/Readme.md) for more information.
 - [Networking between browser windows/tabs using the Broadcast Channel API](examples/broadcast-network.html)
 - [TCP Terminal (fetch-based networking)](examples/tcp_terminal.html)
 - [Saving and restoring emulator state](examples/save_restore.html)
+- [Forge app example](forge-example/README.md)
 
 Using v86 for your own purposes is as easy as:
 
