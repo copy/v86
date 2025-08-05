@@ -1,5 +1,7 @@
 // v86 Floppy Disk Controller emulation
 //
+// This file is licensed under both BSD and MIT, see LICENSE and LICENSE.MIT.
+//
 // Links
 // - Intel 82078 44 Pin CHMOS Single-Chip Floppy Disk Controller
 //   https://wiki.qemu.org/images/f/f0/29047403.pdf
