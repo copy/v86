@@ -197,6 +197,7 @@ repository under their own licenses:
 - [`lib/zstd/zstddeclib.c`](lib/zstd/zstddeclib.c)
 - [`tests/kvm-unit-tests/`](tests/kvm-unit-tests)
 - [`tests/qemutests/`](tests/qemutests)
+- [`src/floppy.js/`](src/floppy.js) contains parts ported from qemu under the MIT license, see LICENSE.MIT.
 
 ## Credits
 
