@@ -53,6 +53,9 @@
     background-color: #000;
     touch-action: none;
 }
+#runtime_options {
+    padding-bottom: 1.5em;
+}
 body {
     background-color: #111;
     color: #fff;
@@ -209,6 +212,88 @@ input[type=number] {
 .tui_icon {
 	height: 1em;
 	content: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 55 48"><g style="fill:white"><path d="M91 127h26v5H91z" transform="translate(-64 -85)"/><path d="M118 17h26v5h-26z" transform="rotate(45 70 -120)"/><path d="M-43 139h26v5h-26z" transform="rotate(-45 -134 35)"/></g></svg>');
+}
+
+.theatre_screen_container {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    top: 50vh;
+    left: 50vw;
+    z-index: 2;
+    outline: none !important;
+    margin: 0 !important;
+    float: none;
+}
+.theatre_runtime_options {
+    position: fixed;
+    width: 100vw;
+    top: 0;
+    left: 0;
+    padding: 5px !important;
+    z-index: 3;
+    background-color: black;
+    border-bottom: 2px solid #333;
+    transform: translate(0%, -50%);
+}
+.theatre_runtime_options:hover {
+    transform: translate(0%, 0%);
+}
+.theatre_runtime_infos {
+    position: fixed;
+    bottom: 0;
+    z-index: 4;
+    margin: 0 !important;
+    transform: translate(-10px, calc(100% - 65px));
+    opacity: 40%;
+}
+.theatre_runtime_infos:hover {
+    transform: translate(-10px, -5px);
+}
+.theatre_filesystem_panel {
+    position: fixed;
+    bottom: 0;
+    z-index: 4;
+    margin: 0 !important;
+    transform: translate(0%, 75%);
+    left: 280px;
+}
+.theatre_filesystem_panel:hover {
+    transform: translate(0%, -5px);
+}
+#theatre_background {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    background-color: black;
+    display: none;
+    z-index: 1;
+}
+#toggle_ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    z-index: 5;
+}
+.theatre_filesystem_panel, .theatre_filesystem_panel {
+    opacity: 40%;
+}
+#toggle_ui, .theatre_runtime_options {
+    opacity: 25%;
+}
+#toggle_ui,
+.theatre_runtime_options,
+.theatre_runtime_infos,
+.theatre_filesystem_panel {
+    transition: 0.25s;
+}
+#toggle_ui:hover,
+.theatre_runtime_options:hover,
+.theatre_runtime_infos:hover,
+.theatre_filesystem_panel:hover {
+    opacity: 100%;
 }
 
 /* the code below was copied from xterm.css */

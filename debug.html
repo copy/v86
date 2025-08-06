@@ -228,13 +228,13 @@
         <input type="button" value="Go fullscreen" id="fullscreen">
         <input type="button" value="Take screenshot" id="take_screenshot">
         <input type="button" value="Mute" id="mute">
+        <input type="button" value="Enable theatre mode" id="toggle_theatre">
+        <input type="button" style="display: none" value="Enable zoom to fit" id="toggle_zoom_to_fit">
 
         <label>
             Scale:
             <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
         </label>
-
-        <br>
     </div>
 
     <pre style="margin: 0" id="log_levels"></pre>
@@ -308,3 +308,6 @@
 </textarea>
 
 <div id="terminal"></div>
+
+<input type="button" value="Hide UI" id="toggle_ui" style="display: none">
+<div id="theatre_background" style="display: none"></div>

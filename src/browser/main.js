@@ -2227,6 +2227,11 @@ function start_emulation(profile, query_args)
                 emulator.serial0_send(query_args.get("s") + "\n");
             }, 25);
         }
+
+        if(query_args?.has("theatre") && bool_arg(query_args?.get("theatre")))
+        {
+            $("toggle_theatre").click();
+        }
     });
 
     emulator.add_listener("emulator-loaded", function()
@@ -2261,14 +2266,18 @@ function init_ui(profile, settings, emulator)
     $("runtime_infos").style.display = "block";
     $("screen_container").style.display = "block";
 
+    var filesystem_is_enabled = false;
+
     if(settings.filesystem)
     {
+        filesystem_is_enabled = true;
         init_filesystem_panel(emulator);
     }
     else
     {
         emulator.add_listener("9p-attach", function()
         {
+            filesystem_is_enabled = true;
             init_filesystem_panel(emulator);
         });
     }
@@ -2317,6 +2326,90 @@ function init_ui(profile, settings, emulator)
         emulator.mouse_set_enabled(mouse_is_enabled);
         $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
+    };
+
+    var theatre_mode = false;
+    var theatre_ui = true;
+    var theatre_zoom_to_fit = false;
+
+    function zoom_to_fit()
+    {
+        // reset size
+        emulator.screen_set_scale(1, 1);
+
+        const emulator_screen = $("screen_container").getBoundingClientRect();
+        const emulator_screen_width = emulator_screen.width;
+        const emulator_screen_height = emulator_screen.height;
+
+        const viewport_screen_width = window.innerWidth;
+        const viewport_screen_height = window.innerHeight;
+
+        const n = Math.min(viewport_screen_width / emulator_screen_width, viewport_screen_height / emulator_screen_height);
+        emulator.screen_set_scale(n, n);
+    }
+
+    $("toggle_ui").onclick = function()
+    {
+        theatre_ui = !theatre_ui;
+
+        $("runtime_options").style.display = theatre_ui ? "block" : "none";
+        $("runtime_infos").style.display = theatre_ui ? "block" : "none";
+        $("filesystem_panel").style.display = (filesystem_is_enabled && theatre_ui) ? "block" : "none";
+
+        $("toggle_ui").value = (theatre_ui ? "Hide" : "Show") + " UI";
+        $("toggle_ui").blur();
+    };
+
+    $("toggle_theatre").onclick = function()
+    {
+        theatre_mode = !theatre_mode;
+
+        if(!theatre_ui)
+        {
+            $("toggle_ui").click();
+        }
+
+        if(!theatre_mode && theatre_zoom_to_fit)
+        {
+            $("toggle_zoom_to_fit").click();
+        }
+
+        ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"].forEach(el => $(el).classList.toggle("theatre_" + el));
+
+        $("theatre_background").style.display = theatre_mode ? "block" : "none";
+        $("toggle_zoom_to_fit").style.display = theatre_mode ? "inline" : "none";
+        $("toggle_ui").style.display = theatre_mode ? "block" : "none";
+
+        // hide scrolling
+        document.body.style.overflow = theatre_mode ? "hidden" : "visible";
+
+        $("toggle_theatre").value = (theatre_mode ? "Dis" : "En") + "able theatre mode";
+        $("toggle_theatre").blur();
+    };
+
+    $("toggle_zoom_to_fit").onclick = function()
+    {
+        theatre_zoom_to_fit = !theatre_zoom_to_fit;
+        $("scale").disabled = theatre_zoom_to_fit;
+
+        if(theatre_zoom_to_fit)
+        {
+            window.addEventListener("resize", zoom_to_fit, true);
+            emulator.add_listener("screen-set-size", zoom_to_fit);
+
+            zoom_to_fit();
+        }
+        else
+        {
+            window.removeEventListener("resize", zoom_to_fit, true);
+            emulator.remove_listener("screen-set-size", zoom_to_fit);
+
+            const n = parseFloat($("scale").value) || 1;
+            emulator.screen_set_scale(n, n);
+        }
+
+        $("toggle_zoom_to_fit").value = (theatre_zoom_to_fit ? "Dis" : "En") + "able zoom to fit";
+        $("toggle_zoom_to_fit").blur();
     };
 
     var last_tick = 0;
