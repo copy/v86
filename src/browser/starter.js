@@ -861,12 +861,13 @@ V86.prototype.is_running = function()
  */
 V86.prototype.set_fda = async function(file)
 {
+    const fda = this.v86.cpu.devices.fdc.drives[0];
     if(file.url && !file.async)
     {
         load_file(file.url, {
             done: result =>
             {
-                this.v86.cpu.devices.fdc.set_fda(new SyncBuffer(result));
+                fda.insert_disk(new SyncBuffer(result));
             },
         });
     }
@@ -875,18 +876,70 @@ V86.prototype.set_fda = async function(file)
         const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
         image.onload = () =>
         {
-            this.v86.cpu.devices.fdc.set_fda(image);
+            fda.insert_disk(image);
         };
         await image.load();
     }
 };
 
 /**
- * Eject the floppy drive.
+ * Set the image inserted in the second floppy drive, also at runtime.
+ */
+V86.prototype.set_fdb = async function(file)
+{
+    const fdb = this.v86.cpu.devices.fdc.drives[1];
+    if(file.url && !file.async)
+    {
+        load_file(file.url, {
+            done: result =>
+            {
+                fdb.insert_disk(new SyncBuffer(result));
+            },
+        });
+    }
+    else
+    {
+        const image = buffer_from_object(file, this.zstd_decompress_worker.bind(this));
+        image.onload = () =>
+        {
+            fdb.insert_disk(image);
+        };
+        await image.load();
+    }
+};
+
+/**
+ * Eject floppy drive fda.
  */
 V86.prototype.eject_fda = function()
 {
-    this.v86.cpu.devices.fdc.eject_fda();
+    this.v86.cpu.devices.fdc.drives[0].eject_disk();
+};
+
+/**
+ * Eject second floppy drive fdb.
+ */
+V86.prototype.eject_fdb = function()
+{
+    this.v86.cpu.devices.fdc.drives[1].eject_disk();
+};
+
+/**
+ * Return buffer object of floppy disk of drive fda or null if the drive is empty.
+ * @return {Uint8Array|null}
+ */
+V86.prototype.get_disk_fda = function()
+{
+    return this.v86.cpu.devices.fdc.drives[0].get_buffer();
+};
+
+/**
+ * Return buffer object of second floppy disk of drive fdb or null if the drive is empty.
+ * @return {Uint8Array|null}
+ */
+V86.prototype.get_disk_fdb = function()
+{
+    return this.v86.cpu.devices.fdc.drives[1].get_buffer();
 };
 
 /**

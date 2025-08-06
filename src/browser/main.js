@@ -1592,6 +1592,27 @@ function onload()
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
 
+    for(const dev of ["fda", "fdb"])
+    {
+        const toggle = $(dev + "_toggle_empty_disk");
+        if(!toggle) continue;
+
+        toggle.onclick = function(e)
+        {
+            e.preventDefault();
+            const input = document.createElement("input");
+            input.id = dev + "_empty_size";
+            input.type = "number";
+            input.min = "160";
+            input.max = "3840";
+            input.value = "1440";
+            // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
+            const parent = toggle.parentNode;
+            parent.innerHTML = "";
+            parent.append("Empty disk of ", input, " KB");
+        };
+    }
+
     for(const dev of ["hda", "hdb"])
     {
         const toggle = $(dev + "_toggle_empty_disk");
@@ -1827,6 +1848,7 @@ function start_emulation(profile, query_args)
         settings.initial_state = profile.state;
         settings.filesystem = profile.filesystem;
         settings.fda = profile.fda;
+        settings.fdb = profile.fdb;
         settings.cdrom = profile.cdrom;
         settings.hda = profile.hda;
         settings.hdb = profile.hdb;
@@ -1975,10 +1997,27 @@ function start_emulation(profile, query_args)
         {
             settings.vga_bios = { buffer: vga_bios };
         }
-        const fda = $("floppy_image").files[0];
+        const fda = $("fda_image")?.files[0];
         if(fda)
         {
             settings.fda = { buffer: fda };
+        }
+        const fda_empty_size = +$("fda_empty_size")?.value;
+        if(fda_empty_size)
+        {
+            const size = fda_empty_size * 1024;
+            settings.fda = { buffer: new ArrayBuffer(size) };
+        }
+        const fdb = $("fdb_image")?.files[0];
+        if(fdb)
+        {
+            settings.fdb = { buffer: fdb };
+        }
+        const fdb_empty_size = +$("fdb_empty_size")?.value;
+        if(fdb_empty_size)
+        {
+            const size = fdb_empty_size * 1024;
+            settings.fdb = { buffer: new ArrayBuffer(size) };
         }
         const cdrom = $("cdrom_image").files[0];
         if(cdrom)
@@ -2102,6 +2141,7 @@ function start_emulation(profile, query_args)
         bios: settings.bios,
         vga_bios: settings.vga_bios,
         fda: settings.fda,
+        fdb: settings.fdb,
         hda: settings.hda,
         hdb: settings.hdb,
         cdrom: settings.cdrom,
@@ -2480,7 +2520,7 @@ function init_ui(profile, settings, emulator)
     $("change_fda_image").value = settings.fda ? "Eject floppy image" : "Insert floppy image";
     $("change_fda_image").onclick = function()
     {
-        if(emulator.v86.cpu.devices.fdc.fda_image)
+        if(emulator.get_disk_fda())
         {
             emulator.eject_fda();
             $("change_fda_image").value = "Insert floppy image";
@@ -2501,6 +2541,32 @@ function init_ui(profile, settings, emulator)
             file_input.click();
         }
         $("change_fda_image").blur();
+    };
+
+    $("change_fdb_image").value = settings.fdb ? "Eject second floppy image" : "Insert second floppy image";
+    $("change_fdb_image").onclick = function()
+    {
+        if(emulator.get_disk_fdb())
+        {
+            emulator.eject_fdb();
+            $("change_fdb_image").value = "Insert second floppy image";
+        }
+        else
+        {
+            const file_input = document.createElement("input");
+            file_input.type = "file";
+            file_input.onchange = async function(e)
+            {
+                const file = file_input.files[0];
+                if(file)
+                {
+                    await emulator.set_fdb({ buffer: file });
+                    $("change_fdb_image").value = "Eject second floppy image";
+                }
+            };
+            file_input.click();
+        }
+        $("change_fdb_image").blur();
     };
 
     $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
