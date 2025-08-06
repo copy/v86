@@ -273,10 +273,6 @@ export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
     // usually read only once at startup).
     this.cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, (this.drives[0].drive_type << 4) | this.drives[1].drive_type);
 
-    // TODO: move these to v86 CPU constructor (src/cpu.js)
-    cpu.devices.fda = this.drives[0];
-    cpu.devices.fdb = this.drives[1];
-
     const fdc_io_base = 0x3F0;  // alt: 0x370
 
     this.io.register_read(fdc_io_base | REG_SRA, this, this.read_reg_sra);
@@ -295,25 +291,6 @@ export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
 
     dbg_log("floppy controller ready", LOG_FLOPPY);
 }
-
-/**
- * Eject disk image from fda.
- * @deprecated Use cpu.devices.fda.eject_disk() instead.
- */
-FloppyController.prototype.eject_fda = function()
-{
-    this.drives[0].eject_disk();
-};
-
-/**
- * Insert disk image into fda.
- * @param {SyncBuffer|Uint8Array} fda_image
- * @deprecated Use cpu.devices.fda.insert_disk(img_buffer) instead.
- */
-FloppyController.prototype.set_fda = function(fda_image)
-{
-    this.drives[0].insert_disk(fda_image);
-};
 
 FloppyController.prototype.build_cmd_lookup_table = function()
 {
@@ -402,8 +379,8 @@ FloppyController.prototype.lower_irq = function(reason)
 
 FloppyController.prototype.set_curr_drive_no = function(curr_drive_no)
 {
-    this.curr_drive_no = curr_drive_no;
-    return this.drives[curr_drive_no];
+    this.curr_drive_no = curr_drive_no & 1;
+    return this.drives[this.curr_drive_no];
 };
 
 FloppyController.prototype.enter_command_phase = function()
