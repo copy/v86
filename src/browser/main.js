@@ -1600,16 +1600,31 @@ function onload()
         toggle.onclick = function(e)
         {
             e.preventDefault();
-            const input = document.createElement("input");
-            input.id = dev + "_empty_size";
-            input.type = "number";
-            input.min = "160";
-            input.max = "3840";
-            input.value = "1440";
+            const select = document.createElement("select");
+            select.id = dev + "_empty_size";
+            for(const n_sect of [320, 360, 400, 640, 720, 800, 1440, 2400, 2880, 3444, 5760, 7680])
+            {
+                const n_bytes = n_sect * 512, kB = 1024, MB = kB * 1000;
+                const option = document.createElement("option");
+                if(n_bytes < MB)
+                {
+                    option.innerHTML = parseFloat((n_bytes / kB).toFixed(2)) + " kB";
+                }
+                else
+                {
+                    option.innerHTML = parseFloat((n_bytes / MB).toFixed(2)) + " MB";
+                }
+                if(n_sect === 2880)
+                {
+                    option.selected = true;
+                }
+                option.value = n_bytes;
+                select.appendChild(option);
+            }
             // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
             const parent = toggle.parentNode;
             parent.innerHTML = "";
-            parent.append("Empty disk of ", input, " KB");
+            parent.append("Empty disk of ", select);
         };
     }
 
@@ -2005,8 +2020,7 @@ function start_emulation(profile, query_args)
         const fda_empty_size = +$("fda_empty_size")?.value;
         if(fda_empty_size)
         {
-            const size = fda_empty_size * 1024;
-            settings.fda = { buffer: new ArrayBuffer(size) };
+            settings.fda = { buffer: new ArrayBuffer(fda_empty_size) };
         }
         const fdb = $("fdb_image")?.files[0];
         if(fdb)
@@ -2016,8 +2030,7 @@ function start_emulation(profile, query_args)
         const fdb_empty_size = +$("fdb_empty_size")?.value;
         if(fdb_empty_size)
         {
-            const size = fdb_empty_size * 1024;
-            settings.fdb = { buffer: new ArrayBuffer(size) };
+            settings.fdb = { buffer: new ArrayBuffer(fdb_empty_size) };
         }
         const cdrom = $("cdrom_image").files[0];
         if(cdrom)
