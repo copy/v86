@@ -105,62 +105,65 @@ h4 {
     margin-bottom: 10px;
     outline: 1px solid #555;
 }
-#oses a {
-    font-weight: bold;
-}
 #boot_options td, #boot_options th {
     padding: 1px 7px;
 }
 
-#oses tbody tr {
-    cursor: pointer;
+#oses a {
+    color: #fff;
 }
-#oses {
-    border-spacing: 0;
+#oses a span:nth-child(1) {
+    font-weight: bold;
+    color: wheat;
 }
-#oses tbody tr:hover {
+#oses .th {
+    font-weight: bold;
+}
+#oses a.tr:hover {
     background-color: #311;
 }
-#oses td:nth-child(2) {
+#oses a span:nth-child(2) {
     text-align: right;
 }
-#oses thead {
-    text-align: left;
-}
+
+.table { display: table }
+.th { display: table-header-group }
+.tr { display: table-row }
+.tr > span { display: table-cell; padding: 2px 5px }
 
 /* This is the best I managed to do with my little css experience.
    If you can do better, please send a PR. */
 @media (max-width: 1250px) {
-    #oses td:nth-child(9), #oses th:nth-child(9) {
+    #oses span:nth-child(9), #oses span:nth-child(9) {
         display: none;
     }
 }
 @media (max-width: 1150px) {
-    #oses td:nth-child(8), #oses td:nth-child(7), #oses th:nth-child(8), #oses th:nth-child(7) {
+    #oses span:nth-child(8), #oses span:nth-child(7), #oses span:nth-child(8), #oses span:nth-child(7) {
         display: none;
     }
 }
 @media (max-width: 1050px) {
-    #oses td:nth-child(5), #oses td:nth-child(6), #oses th:nth-child(5), #oses th:nth-child(6) {
+    #oses span:nth-child(5), #oses span:nth-child(6), #oses span:nth-child(5), #oses span:nth-child(6) {
         display: none;
     }
 }
 @media (max-width: 850px) {
-    #oses td:nth-child(4), #oses th:nth-child(4) {
+    #oses span:nth-child(4), #oses span:nth-child(4) {
         display: none;
     }
 }
 @media (max-width: 750px) {
-    #oses th:nth-child(2), #oses th:nth-child(3), #oses th:nth-child(10) {
+    #oses span:nth-child(2), #oses span:nth-child(3), #oses span:nth-child(10) {
         display: none;
     }
-    #oses td:nth-child(1), #oses td:nth-child(2), #oses td:nth-child(3) {
+    #oses span:nth-child(1), #oses span:nth-child(2), #oses span:nth-child(3) {
         display: inline;
     }
-    #oses td:nth-child(2), td:nth-child(3) {
+    #oses span:nth-child(2), #oses span:nth-child(3) {
         font-size: smaller;
     }
-    #oses td:nth-child(10) {
+    #oses span:nth-child(10) {
         display: block;
         padding-bottom: 10px;
     }
