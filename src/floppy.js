@@ -193,29 +193,27 @@ const SECTOR_SIZE_CODE  = 2;    // sector size code 2: 512 bytes/sector
  * Structure and defaults of optional configuration object fdc_config:
  *
  *   fdc_config = {
- *       fda: { drive_type: undefined, img_buffer: undefined, read_only: false },
- *       fdb: { drive_type: undefined, img_buffer: undefined, read_only: false }
+ *       fda: { drive_type: undefined, read_only: false },
+ *       fdb: { drive_type: undefined, read_only: false }
  *   }
  *
  * drive_type:
- *     fixed drive type code whether or not img_buffer is defined:
+ *     Fixed drive type code whether or not a buffer is defined:
  *       0: no floppy drive
  *       1: 360 KB 5"1/4 drive
  *       2: 1.2 MB 5"1/4 drive
  *       3: 720 KB 3"1/2 drive
  *       4: 1.44 MB 3"1/2 drive (default)
  *       5: 2.88 MB 3"1/2 drive
- *     If undefined, the drive type is either derived from img_buffer or,
- *     if img_buffer is undefined, is set to the default of 4.
- * img_buffer:
- *     The inital disk image buffer. Default: undefined.
+ *     If undefined, the drive type is either derived from the given
+ *     buffer or set to the default of 4 if no buffer is specified.
  * read_only:
- *     if true, treat the provided disk image as write-protected.
+ *     If true, treat the given disk image as write-protected.
  *     Ignored if no disk image is provided. Default: false.
  *
  * NOTE: To hide fdb from the guest set its drive_type to 0, i.e.:
  *
- *   { fda: { img_buffer: foo_img_buffer}, fdb: { drive_type: 0 } }
+ *   fdc_config = { fdb: { drive_type: 0 } }
  */
 export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
 {
@@ -963,7 +961,7 @@ FloppyController.prototype.start_read_write = function(args, do_write)
         this.msr &= ~MSR_RQM;
         const do_dma = do_write ? this.dma.do_write : this.dma.do_read;
         do_dma.call(this.dma,
-            curr_drive.img_buffer,
+            curr_drive.buffer,
             data_offset,
             data_length,
             FDC_DMA_CHANNEL,
@@ -1208,10 +1206,10 @@ const MIN_FLOPPY_SIZE = 8 * 40 * 1 * SECTOR_SIZE;   // 5"1/4, 160 kB
  * @param {FloppyController} fdc
  * @param {string} name
  * @param {Object|undefined} fdd_config
- * @param {SyncBuffer|Uint8Array|null|undefined} img_buffer
+ * @param {SyncBuffer|Uint8Array|null|undefined} buffer
  * @param {number} fallback_drive_type
  */
-function FloppyDrive(fdc, name, fdd_config, img_buffer, fallback_drive_type)
+function FloppyDrive(fdc, name, fdd_config, buffer, fallback_drive_type)
 {
     /** @const */
     this.fdc = fdc;
@@ -1233,15 +1231,15 @@ function FloppyDrive(fdc, name, fdd_config, img_buffer, fallback_drive_type)
     this.perpendicular = 0;
     this.read_only = false;
     this.media_changed = true;
-    this.img_buffer = null;
+    this.buffer = null;
 
     Object.seal(this);
 
     // Drive type this.drive_type is either (in this order):
     // - specified in fdd_config.drive_type (if defined),
-    // - derived from the image buffer img_buffer (if provided), or
+    // - derived from given image buffer (if provided), or
     // - specfied in fallback_drive_type.
-    // If img_buffer is undefined and fdd_config.drive_type is
+    // If buffer is undefined and fdd_config.drive_type is
     // CMOS_FDD_TYPE_NO_DRIVE then the drive will be invisible to the guest.
     const cfg_drive_type = fdd_config?.drive_type;
     if(cfg_drive_type !== undefined && cfg_drive_type >= 0 && cfg_drive_type <= 5)
@@ -1249,7 +1247,7 @@ function FloppyDrive(fdc, name, fdd_config, img_buffer, fallback_drive_type)
         this.drive_type = cfg_drive_type;
     }
 
-    this.insert_disk(img_buffer ? img_buffer : fdd_config?.img_buffer, !! fdd_config?.read_only);
+    this.insert_disk(buffer, !! fdd_config?.read_only);
 
     if(this.drive_type === CMOS_FDD_TYPE_NO_DRIVE && cfg_drive_type === undefined)
     {
@@ -1262,27 +1260,27 @@ function FloppyDrive(fdc, name, fdd_config, img_buffer, fallback_drive_type)
 /**
  * Insert disk image into floppy drive.
  *
- * @param {SyncBuffer|Uint8Array|null|undefined} img_buffer
+ * @param {SyncBuffer|Uint8Array|null|undefined} buffer
  * @param {boolean=} read_only
- * @return {boolean} true if the given img_buffer was accepted
+ * @return {boolean} true if the given buffer was accepted
  */
-FloppyDrive.prototype.insert_disk = function(img_buffer, read_only)
+FloppyDrive.prototype.insert_disk = function(buffer, read_only)
 {
-    if(!img_buffer)
+    if(!buffer)
     {
         return false;
     }
 
-    if(img_buffer instanceof Uint8Array)
+    if(buffer instanceof Uint8Array)
     {
-        img_buffer = new SyncBuffer(img_buffer.buffer);
+        buffer = new SyncBuffer(buffer.buffer);
     }
 
-    const [new_img_buffer, disk_format] = this.find_disk_format(img_buffer, this.drive_type);
-    if(!new_img_buffer)
+    const [new_buffer, disk_format] = this.find_disk_format(buffer, this.drive_type);
+    if(!new_buffer)
     {
         dbg_log("WARNING: disk rejected, no suitable disk format found for image of size " +
-            img_buffer.byteLength + " bytes", LOG_FLOPPY);
+            buffer.byteLength + " bytes", LOG_FLOPPY);
         return false;
     }
 
@@ -1291,7 +1289,7 @@ FloppyDrive.prototype.insert_disk = function(img_buffer, read_only)
     this.max_sect = disk_format.sectors;
     this.read_only = !!read_only;
     this.media_changed = true;
-    this.img_buffer = new_img_buffer;
+    this.buffer = new_buffer;
 
     if(this.drive_type === CMOS_FDD_TYPE_NO_DRIVE)
     {
@@ -1303,7 +1301,7 @@ FloppyDrive.prototype.insert_disk = function(img_buffer, read_only)
     {
         dbg_log("disk inserted into " + this.name + ": type: " + disk_format.drive_type +
             ", C/H/S: " + disk_format.tracks + "/" + disk_format.heads + "/" +
-            disk_format.sectors + ", size: " + new_img_buffer.byteLength,
+            disk_format.sectors + ", size: " + new_buffer.byteLength,
             LOG_FLOPPY);
     }
     return true;
@@ -1318,7 +1316,7 @@ FloppyDrive.prototype.eject_disk = function()
     this.max_head = 0;
     this.max_sect = 0;
     this.media_changed = true;
-    this.img_buffer = null;
+    this.buffer = null;
 };
 
 /**
@@ -1327,7 +1325,7 @@ FloppyDrive.prototype.eject_disk = function()
  */
 FloppyDrive.prototype.get_buffer = function()
 {
-    return this.img_buffer ? this.img_buffer.buffer : null;
+    return this.buffer ? this.buffer.buffer : null;
 };
 
 /**
@@ -1343,35 +1341,35 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
 };
 
 /**
- * Find best-matching disk format for the given image buffer img_buffer.
+ * Find best-matching disk format for the given image buffer.
  *
  * If the given drive_type is CMOS_FDD_TYPE_NO_DRIVE then drive types are
  * ignored and the first matching disk format is selected (auto-detection).
  *
- * Returns [null, null] if the size of the given img_buffer exceeds 512 but
+ * Returns [null, null] if the size of the given buffer exceeds 160K but
  * does not match any of the known disk formats defined in DISK_FORMATS.
  *
- * If the size of the given img_buffer is less than 512 then its content is
- * copied into a newly allocated SyncBuffer of size 512 which is returned
+ * If the size of the given buffer is less than 160K then its content is
+ * copied into a newly allocated SyncBuffer of 160K which is returned
  * to the caller.
  *
- * @param {SyncBuffer} img_buffer
+ * @param {SyncBuffer} buffer
  * @param {number} drive_type
- * @return [{SyncBuffer|null}, {Object|null}] [img_buffer, disk_format]
+ * @return [{SyncBuffer|null}, {Object|null}] [buffer, disk_format]
  */
-FloppyDrive.prototype.find_disk_format = function(img_buffer, drive_type)
+FloppyDrive.prototype.find_disk_format = function(buffer, drive_type)
 {
     const autodetect = drive_type === CMOS_FDD_TYPE_NO_DRIVE;
 
-    if(img_buffer.byteLength < MIN_FLOPPY_SIZE)
+    if(buffer.byteLength < MIN_FLOPPY_SIZE)
     {
         // expand image to meet minimum size
-        const new_image = new Uint8Array(MIN_FLOPPY_SIZE);
-        new_image.set(new Uint8Array(img_buffer.buffer));
-        img_buffer = new SyncBuffer(new_image.buffer);
+        const new_buffer = new Uint8Array(MIN_FLOPPY_SIZE);
+        new_buffer.set(new Uint8Array(buffer.buffer));
+        buffer = new SyncBuffer(new_buffer.buffer);
     }
 
-    const img_size = img_buffer.byteLength;
+    const img_size = buffer.byteLength;
     let preferred_match=-1, medium_match=-1, size_match=-1;
     for(let i = 0; i < DISK_FORMATS.length; i++)
     {
@@ -1400,15 +1398,15 @@ FloppyDrive.prototype.find_disk_format = function(img_buffer, drive_type)
 
     if(preferred_match !== -1)
     {
-        return [img_buffer, DISK_FORMATS[preferred_match]];
+        return [buffer, DISK_FORMATS[preferred_match]];
     }
     else if(medium_match !== -1)
     {
-        return [img_buffer, DISK_FORMATS[medium_match]];
+        return [buffer, DISK_FORMATS[medium_match]];
     }
     else if(size_match !== -1)
     {
-        return [img_buffer, DISK_FORMATS[size_match]];
+        return [buffer, DISK_FORMATS[size_match]];
     }
     else
     {
@@ -1448,7 +1446,7 @@ FloppyDrive.prototype.seek = function(head, track, sect)
     {
         if(this.curr_track !== track)
         {
-            if(this.img_buffer)
+            if(this.buffer)
             {
                 this.media_changed = false;
             }
@@ -1459,7 +1457,7 @@ FloppyDrive.prototype.seek = function(head, track, sect)
         this.curr_sect = sect;
     }
 
-    if(!this.img_buffer)
+    if(!this.buffer)
     {
         result = 2;
     }
@@ -1480,7 +1478,7 @@ FloppyDrive.prototype.get_state = function()
     state[7]  = this.perpendicular;
     state[8]  = this.read_only;
     state[9]  = this.media_changed;
-    state[10] = this.img_buffer ? this.img_buffer.get_state() : null;    // SyncBuffer
+    state[10] = this.buffer ? this.buffer.get_state() : null;   // SyncBuffer
     return state;
 };
 
@@ -1498,14 +1496,14 @@ FloppyDrive.prototype.set_state = function(state)
     this.media_changed = state[9];
     if(state[10])
     {
-        if(!this.img_buffer)
+        if(!this.buffer)
         {
-            this.img_buffer = new SyncBuffer(new ArrayBuffer(0));
+            this.buffer = new SyncBuffer(new ArrayBuffer(0));
         }
-        this.img_buffer.set_state(state[10]);
+        this.buffer.set_state(state[10]);
     }
     else
     {
-        this.img_buffer = null;
+        this.buffer = null;
     }
 };
