@@ -1200,6 +1200,8 @@ const DISK_FORMATS = [
     { drive_type: CMOS_FDD_TYPE_360,  sectors: 10, tracks: 40, heads: 2 }, // 800   400 kB
 ];
 
+const MIN_FLOPPY_SIZE = 8 * 40 * 1 * SECTOR_SIZE;   // 5"1/4, 160 kB
+
 /**
  * @constructor
  *
@@ -1360,22 +1362,16 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
 FloppyDrive.prototype.find_disk_format = function(img_buffer, drive_type)
 {
     const autodetect = drive_type === CMOS_FDD_TYPE_NO_DRIVE;
-    const img_size = img_buffer.byteLength;
 
-    if(img_size <= SECTOR_SIZE)
+    if(img_buffer.byteLength < MIN_FLOPPY_SIZE)
     {
-        // special case bootsector image: single sector pseudo-disk
-        if(img_size < SECTOR_SIZE)
-        {
-            // zero-pad end of image up to full sector size
-            const new_image = new Uint8Array(SECTOR_SIZE);
-            new_image.set(new Uint8Array(img_buffer.buffer));
-            img_buffer = new SyncBuffer(new_image.buffer);
-        }
-        const disk_format = { drive_type: CMOS_FDD_TYPE_360, sectors: 1, tracks: 1, heads: 1 };
-        return [img_buffer, disk_format];
+        // expand image to meet minimum size
+        const new_image = new Uint8Array(MIN_FLOPPY_SIZE);
+        new_image.set(new Uint8Array(img_buffer.buffer));
+        img_buffer = new SyncBuffer(new_image.buffer);
     }
 
+    const img_size = img_buffer.byteLength;
     let preferred_match=-1, medium_match=-1, size_match=-1;
     for(let i = 0; i < DISK_FORMATS.length; i++)
     {
