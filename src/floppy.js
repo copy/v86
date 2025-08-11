@@ -1201,8 +1201,6 @@ const DISK_FORMATS = [
     { drive_type: CMOS_FDD_TYPE_360,  sectors: 10, tracks: 40, heads: 2 }, // 800   400 kB
 ];
 
-const MIN_FLOPPY_SIZE = 8 * 40 * 1 * SECTOR_SIZE;   // 5"1/4, 160 kB
-
 /**
  * @constructor
  *
@@ -1343,14 +1341,15 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
  * Find best-matching disk format for the given image buffer.
  *
  * If the given drive_type is CMOS_FDD_TYPE_NO_DRIVE then drive types are
- * ignored and the first matching disk format is selected (auto-detection).
+ * ignored and the first matching disk format is selected (auto-detect).
  *
- * Returns [null, null] if the size of the given buffer exceeds 160K but
- * does not match any of the known disk formats defined in DISK_FORMATS.
+ * If the size of the given buffer does not match any known floppy disk
+ * format then the smallest format larger than the image buffer is
+ * selected, and buffer is copied into a new, format-sized buffer with
+ * trailing zeroes.
  *
- * If the size of the given buffer is less than 160K then its content is
- * copied into a newly allocated SyncBuffer of 160K which is returned
- * to the caller.
+ * Returns [null, null] if the given buffer is larger than any known
+ * floppy disk format.
  *
  * @param {SyncBuffer} buffer
  * @param {number} drive_type
@@ -1359,22 +1358,14 @@ FloppyDrive.prototype.chs2lba = function(track, head, sect)
 FloppyDrive.prototype.find_disk_format = function(buffer, drive_type)
 {
     const autodetect = drive_type === CMOS_FDD_TYPE_NO_DRIVE;
+    const buffer_size = buffer.byteLength;
 
-    if(buffer.byteLength < MIN_FLOPPY_SIZE)
-    {
-        // expand image to meet minimum size
-        const new_buffer = new Uint8Array(MIN_FLOPPY_SIZE);
-        new_buffer.set(new Uint8Array(buffer.buffer));
-        buffer = new SyncBuffer(new_buffer.buffer);
-    }
-
-    const img_size = buffer.byteLength;
-    let preferred_match=-1, medium_match=-1, size_match=-1;
+    let preferred_match=-1, medium_match=-1, size_match=-1, nearest_match=-1, nearest_size=-1;
     for(let i = 0; i < DISK_FORMATS.length; i++)
     {
         const disk_format = DISK_FORMATS[i];
         const disk_size = disk_format.sectors * disk_format.tracks * disk_format.heads * SECTOR_SIZE;
-        if(img_size === disk_size)
+        if(buffer_size === disk_size)
         {
             if(autodetect || disk_format.drive_type === drive_type)
             {
@@ -1393,6 +1384,15 @@ FloppyDrive.prototype.find_disk_format = function(buffer, drive_type)
                 size_match = (size_match === -1) ? i : size_match;
             }
         }
+        else if(buffer_size < disk_size)
+        {
+            if(nearest_size === -1 || disk_size < nearest_size)
+            {
+                // (4) nearest matching size
+                nearest_match = i;
+                nearest_size = disk_size;
+            }
+        }
     }
 
     if(preferred_match !== -1)
@@ -1406,6 +1406,12 @@ FloppyDrive.prototype.find_disk_format = function(buffer, drive_type)
     else if(size_match !== -1)
     {
         return [buffer, DISK_FORMATS[size_match]];
+    }
+    else if(nearest_match !== -1)
+    {
+        const tmp_buffer = new Uint8Array(nearest_size);
+        tmp_buffer.set(new Uint8Array(buffer.buffer));
+        return [new SyncBuffer(tmp_buffer.buffer), DISK_FORMATS[nearest_match]];
     }
     else
     {
