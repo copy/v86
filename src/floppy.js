@@ -625,7 +625,10 @@ FloppyController.prototype.write_reg_fifo = function(fifo_byte)
         if(DEBUG)
         {
             const args_hex = [];
-            args.forEach(arg => args_hex.push(h(arg, 2)));
+            for(const arg of args)
+            {
+                args_hex.push(h(arg, 2));
+            }
             dbg_log("FD command " + h(this.cmd_code) + ": " + cmd_desc.name + "(" + args_hex.join(", ") + ")", LOG_FLOPPY);
         }
         cmd_desc.handler.call(this, args);
@@ -649,7 +652,7 @@ FloppyController.prototype.write_reg_ccr = function(ccr_byte)
 
 FloppyController.prototype.exec_unimplemented = function(args)
 {
-    dbg_assert(false, "Unimplemented floppy command!");
+    dbg_assert(false, "Unimplemented floppy command code " + h(this.cmd_code) + "!");
     this.status0 = SR0_INVCMD;
     this.response_data[0] = this.status0;
 
@@ -1211,10 +1214,6 @@ const MIN_FLOPPY_SIZE = 8 * 40 * 1 * SECTOR_SIZE;   // 5"1/4, 160 kB
  */
 function FloppyDrive(fdc, name, fdd_config, buffer, fallback_drive_type)
 {
-    /** @const */
-    this.fdc = fdc;
-    /** @const */
-    this.cpu = fdc.cpu;
     /** @const */
     this.name = name;
 
