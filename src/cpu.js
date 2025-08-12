@@ -2438,9 +2438,14 @@ CPU.prototype.debug_dump_code = function(is_32, buffer, start)
         ];
     }
 
+    if(buffer instanceof Array)
+    {
+        buffer = new Uint8Array(buffer);
+    }
+
     try
     {
-        const instructions = this.capstone_decoder[is_32].disasm(buffer, start);
+        const instructions = this.capstone_decoder[+is_32].disasm(buffer, start);
 
         instructions.forEach(function (instr) {
             dbg_log(h(instr.address >>> 0) + ": " +
