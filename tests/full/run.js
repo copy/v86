@@ -926,6 +926,26 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "BSD/OS 3",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            cdrom: root_path + "/images/experimental/bsdos-3.0-binary.iso",
+            fda: root_path + "/images/experimental/bsdos3-install-floppy.img",
+            expected_texts: ["\xc9\xcd BSD/OS Installation"],
+            boot_order: 0x321,
+        },
+        {
+            name: "BSD/OS 4",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            cdrom: root_path + "/images/experimental/bsdos-4.3-x86-binary.iso",
+            expected_texts: ["\xc9\xcd BSD/OS Installation"],
+        },
+        {
             name: "Arch Hurd",
             skip_if_disk_image_missing: true,
             net_device: { type: "none" }, // executes 16-bit io instructions
