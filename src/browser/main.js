@@ -2374,7 +2374,10 @@ function init_ui(profile, settings, emulator)
             $("toggle_zoom_to_fit").click();
         }
 
-        ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"].forEach(el => $(el).classList.toggle("theatre_" + el));
+        for(const el of ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"])
+        {
+            $(el).classList.toggle("theatre_" + el);
+        }
 
         $("theatre_background").style.display = theatre_mode ? "block" : "none";
         $("toggle_zoom_to_fit").style.display = theatre_mode ? "inline" : "none";
