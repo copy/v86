@@ -1161,11 +1161,17 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     return;
                 },
                 Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
-                    dbg_log!("#gp invalid cs: {:x}", selector);
-                    trigger_gp(selector & !3);
+                    dbg_log!("#gp invalid cs: {:x}", cs_selector);
+                    trigger_gp(cs_selector & !3);
                     return;
                 },
             };
+
+            if cs_info.is_system() {
+                dbg_log!("#gp non-code cs: {:x}", cs_selector);
+                trigger_gp(cs_selector & !3);
+                return;
+            }
 
             if !cs_info.is_executable() {
                 dbg_log!("#gp non-executable cs: {:x}", cs_selector);
@@ -1228,16 +1234,18 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                         if is_16 { 4 + 2 * parameter_count } else { 8 + 4 * parameter_count };
                 }
                 if ss_info.is_32() {
-                    return_on_pagefault!(writable_or_pagefault(
+                    return_on_pagefault!(writable_or_pagefault_cpl(
+                        cs_info.dpl(),
                         ss_info.base() + new_esp - stack_space,
                         stack_space
-                    )); // , cs_info.dpl
+                    ));
                 }
                 else {
-                    return_on_pagefault!(writable_or_pagefault(
+                    return_on_pagefault!(writable_or_pagefault_cpl(
+                        cs_info.dpl(),
                         ss_info.base() + (new_esp - stack_space & 0xFFFF),
                         stack_space
-                    )); // , cs_info.dpl
+                    ));
                 }
 
                 let old_esp = read_reg32(ESP);
@@ -1251,6 +1259,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
                 update_cs_size(cs_info.is_32());
 
+                dbg_assert!(new_ss & 3 == cs_info.dpl() as i32);
                 // XXX: Should be checked before side effects
                 if !switch_seg(SS, new_ss) {
                     dbg_assert!(false);
@@ -1272,7 +1281,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 if is_call {
                     if is_16 {
                         for i in (0..parameter_count).rev() {
-                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read16(old_stack_pointer + 2 * i).unwrap();
                             push16(parameter).unwrap();
                         }
@@ -1283,7 +1291,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     }
                     else {
                         for i in (0..parameter_count).rev() {
-                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read32s(old_stack_pointer + 4 * i).unwrap();
                             push32(parameter).unwrap();
                         }
@@ -1302,7 +1309,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     cs_info.dpl(),
                     cs_info.is_dc()
                 );
-                // ok
 
                 if is_call {
                     if is_16 {
@@ -1318,6 +1324,8 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                         push32(get_real_eip()).unwrap();
                     }
                 }
+
+                dbg_assert!(*cpl == cs_info.dpl());
             }
 
             // Note: eip from call is ignored
@@ -1347,10 +1355,11 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
             update_state_flags();
         }
+        else if info.system_type() == 1 || info.system_type() == 9 {
+            dbg_assert!(false, "TODO: far call task gate");
+        }
         else {
-            dbg_assert!(false);
-            //let types = { 9: "Available 386 TSS", 0xb: "Busy 386 TSS", 4: "286 Call Gate", 0xc: "386 Call Gate" };
-            //throw debug.unimpl("load system segment descriptor, type = " + (info.access & 15) + " (" + types[info.access & 15] + ")");
+            dbg_assert!(false, "TODO: #gp invalid system type");
         }
     }
     else {
@@ -1809,10 +1818,14 @@ pub unsafe fn readable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
 }
 
 pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
+    writable_or_pagefault_cpl(*cpl, addr, size)
+}
+
+pub unsafe fn writable_or_pagefault_cpl(other_cpl: u8, addr: i32, size: i32) -> OrPageFault<()> {
     dbg_assert!(size < 0x1000);
     dbg_assert!(size > 0);
 
-    let user = *cpl == 3;
+    let user = other_cpl == 3;
     translate_address(addr, true, user, false, true)?;
 
     let end = addr + size - 1 & !0xFFF;
