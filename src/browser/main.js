@@ -1,7 +1,7 @@
 import { V86 } from "./starter.js";
 import { LOG_NAMES } from "../const.js";
 import { SyncBuffer, SyncFileBuffer } from "../buffer.js";
-import { pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
+import { h, pad0, pads, hex_dump, dump_file, download, round_up_to_next_power_of_2 } from "../lib.js";
 import { log_data, LOG_LEVEL, set_log_level } from "../log.js";
 import * as iso9660 from "../iso9660.js";
 
@@ -3120,6 +3120,7 @@ function debug_start(emulator)
 
     // helps debugging
     window.cpu = cpu;
+    window.h = h;
     window.dump_file = dump_file;
 }
 
