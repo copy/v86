@@ -1464,6 +1464,19 @@ function onload()
             memory_size: 512 * 1024 * 1024,
             homepage: "https://archive.org/details/brightv4000"
         },
+        {
+            id: "archhurd",
+            name: "Arch Hurd",
+            hda: {
+                url: host + "archhurd-2018.09.28/.img.zst",
+                size: 4294967296,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            memory_size: 512 * 1024 * 1024,
+            homepage: "https://archhurd.org/",
+        },
     ];
 
     if(DEBUG)

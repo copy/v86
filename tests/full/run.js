@@ -926,6 +926,15 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Arch Hurd",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/archhurd-2018.09.28.img",
+            expected_texts: ["sh-4.4# "],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
