@@ -3241,8 +3241,7 @@ pub unsafe fn instr_0FA2() {
         },
 
         1 => {
-            // pentium
-            eax = 3 | 6 << 4 | 15 << 8;
+            eax = 3 | 7 << 4 | 6 << 8; // pentium3
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
             ecx = 1 << 0 | 1 << 23 | 1 << 30; // sse3, popcnt, rdrand
             let vme = 0 << 1;
