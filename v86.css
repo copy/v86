@@ -217,7 +217,7 @@ input[type=number] {
 .theatre_screen_container {
     position: fixed;
     transform: translate(-50%, -50%);
-    top: 50vh;
+    top: 50dvh;
     left: 50vw;
     z-index: 2;
     outline: none !important;
@@ -263,7 +263,7 @@ input[type=number] {
 #theatre_background {
     position: fixed;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     top: 0;
     left: 0;
     background-color: black;
