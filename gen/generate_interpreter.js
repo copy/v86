@@ -213,8 +213,9 @@ function gen_instruction_body_after_prefix(encodings, size)
                 }),
 
                 default_case: {
+                    varname: "x",
                     body: [
-                        `if DEBUG { panic!("Bad instruction at {:x}", *instruction_pointer); }`,
+                        `dbg_log!("#ud ${encoding.opcode.toString(16).toUpperCase()}/{} at {:x}", x, *instruction_pointer);`,
                         "trigger_ud();",
                     ],
                 }
@@ -413,7 +414,7 @@ function gen_table()
 
             "use crate::cpu::cpu::{after_block_boundary, modrm_resolve};",
             "use crate::cpu::cpu::{read_imm8, read_imm8s, read_imm16, read_imm32s, read_moffs};",
-            "use crate::cpu::cpu::{task_switch_test, trigger_ud, DEBUG};",
+            "use crate::cpu::cpu::{task_switch_test, trigger_ud};",
             "use crate::cpu::instructions;",
             "use crate::cpu::global_pointers::{instruction_pointer, prefixes};",
             "use crate::prefix;",
@@ -478,7 +479,6 @@ function gen_table()
             "use crate::cpu::cpu::{after_block_boundary, modrm_resolve};",
             "use crate::cpu::cpu::{read_imm8, read_imm16, read_imm32s};",
             "use crate::cpu::cpu::{task_switch_test, task_switch_test_mmx, trigger_ud};",
-            "use crate::cpu::cpu::DEBUG;",
             "use crate::cpu::instructions_0f;",
             "use crate::cpu::global_pointers::{instruction_pointer, prefixes};",
             "use crate::prefix;",

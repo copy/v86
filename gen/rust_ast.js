@@ -32,7 +32,8 @@ export function print_syntax_tree(statements)
 
             if(statement.default_case)
             {
-                cases.push(`_ => {`);
+                const varname = statement.default_case.varname || "_";
+                cases.push(`${varname} => {`);
                 cases.push.apply(cases, indent(print_syntax_tree(statement.default_case.body), 4));
                 cases.push(`}`);
             }
