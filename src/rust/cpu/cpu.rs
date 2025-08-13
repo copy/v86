@@ -907,7 +907,12 @@ pub unsafe fn call_interrupt_vector(
                     },
                 };
 
-            dbg_assert!(!ss_segment_descriptor.is_dc(), "TODO: Handle direction bit");
+            if ss_segment_descriptor.is_dc() {
+                dbg_assert!(new_esp as u32 > ss_segment_descriptor.effective_limit());
+            }
+            else {
+                dbg_assert!(new_esp as u32 - 1 <= ss_segment_descriptor.effective_limit());
+            }
             dbg_assert!(!ss_segment_descriptor.is_system() && ss_segment_descriptor.is_writable());
 
             if ss_segment_selector.rpl() != cs_segment_descriptor.dpl() {
@@ -1216,8 +1221,12 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     },
                 };
 
-                dbg_assert!(!ss_info.is_dc(), "TODO: Handle direction bit");
-                dbg_assert!(new_esp as u32 <= ss_info.effective_limit());
+                if ss_info.is_dc() {
+                    dbg_assert!(new_esp as u32 > ss_info.effective_limit());
+                }
+                else {
+                    dbg_assert!(new_esp as u32 - 1 <= ss_info.effective_limit());
+                }
                 dbg_assert!(!ss_info.is_system() && ss_info.is_writable());
 
                 if ss_selector.rpl() != cs_info.dpl()
