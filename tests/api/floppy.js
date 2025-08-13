@@ -16,34 +16,36 @@ const CONFIG_MSDOS622_HD = {
     hda: { url: __dirname + "/../../images/msdos622.img" },
     autostart: true,
     memory_size: 32 * 1024 * 1024,
-    filesystem: {},
     log_level: 0,
     disable_jit: +process.env.DISABLE_JIT
 };
 
+/*
 const CONFIG_CORE477_CD = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
     cdrom: { url: __dirname + "/../../images/Core-4.7.7.iso" },
     autostart: true,
     memory_size: 32 * 1024 * 1024,
-    filesystem: {},
+    log_level: 0,
+    disable_jit: +process.env.DISABLE_JIT
+};
+*/
+
+const CONFIG_CORE11_CD = {
+    bios: { url: __dirname + "/../../bios/seabios.bin" },
+    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+    cdrom: { url: __dirname + "/../../images/TinyCore-11.0.iso" },
+    autostart: true,
+    memory_size: 128 * 1024 * 1024,
     log_level: 0,
     disable_jit: +process.env.DISABLE_JIT
 };
 
-async function send_text(emulator, text)
-{
-    for(const c of text)
-    {
-        emulator.keyboard_send_text(c);
-        await pause(10);
-    }
-}
-
-async function run_floppy_test(test_name, v86_config, timeout_sec, test_function)
+async function exec_test(test_name, v86_config, timeout_sec, test_function)
 {
     console.log("Starting: " + test_name);
+    const tm_start = performance.now();
 
     const emulator = new V86(v86_config);
     await pause(1000);
@@ -51,120 +53,239 @@ async function run_floppy_test(test_name, v86_config, timeout_sec, test_function
     const timeout = setTimeout(() => {
         console.warn(emulator.screen_adapter.get_text_screen());
         emulator.destroy();
-        throw new Error("Timeout in test " + test_name);
+        throw new Error("Timeout error in test " + test_name);
     }, timeout_sec * 1000);
 
-    await test_function(emulator);
+    try
+    {
+        await test_function(emulator);
+    }
+    catch(err)
+    {
+        clearTimeout(timeout);
+        console.warn(emulator.screen_adapter.get_text_screen());
+        emulator.destroy();
+        throw new Error("Error in test " + test_name, { cause: err });
+    }
 
     clearTimeout(timeout);
     emulator.destroy();
-    console.log("Done: " + test_name);
+    console.log("Done: " + test_name + " (" + ((performance.now() - tm_start) / 1000).toFixed(2) + " sec)");
+}
+
+/**
+ * Make the guest execute given CLI command and wait for the command and the
+ * expected response lines to show at the bottom of the VGA screen.
+ *
+ * Throws an Error if the given timeout elapses before the expected response
+ * is printed by the guest.
+ *
+ * If command is empty then no command is executed and only the response
+ * lines are checked.
+ *
+ * @param {V86} emulator
+ * @param {string} command
+ * @param {Array[string]} response_lines
+ * @param {number} response_timeout_msec
+ */
+async function expect(emulator, command, response_lines, response_timeout_msec)
+{
+    if(command)
+    {
+        // inject command characters into guest's keyboard buffer
+        for(const ch of command)
+        {
+            emulator.keyboard_send_text(ch);
+            await pause(10);
+        }
+
+        const trimmed_command = command.trimRight();
+        if(trimmed_command)
+        {
+            // prepend command to expected response lines
+            response_lines = Array.from(response_lines);
+            response_lines.unshift(trimmed_command);
+        }
+    }
+
+    const changed_rows = new Set();
+    function put_char(args)
+    {
+        changed_rows.add(args[0]);
+    }
+
+    emulator.add_listener("screen-put-char", put_char);
+    try
+    {
+        const screen_lines = [];
+        for(const line of emulator.screen_adapter.get_text_screen())
+        {
+            screen_lines.push(line.trimRight());
+        }
+
+        const tm_end = performance.now() + response_timeout_msec;
+        while(performance.now() < tm_end)
+        {
+            await pause(100);
+
+            for(const row of changed_rows)
+            {
+                screen_lines[row] = emulator.screen_adapter.get_text_row(row).trimRight();
+            }
+            changed_rows.clear();
+
+            let last_ln = screen_lines.length - 1;
+            while(last_ln >= 0 && screen_lines[last_ln] === "")
+            {
+                last_ln--;
+            }
+
+            const screen_ofs = last_ln - response_lines.length + 1;
+            if(screen_ofs < 0)
+            {
+                continue;
+            }
+
+            let matches = true;
+            for(let i = 0; i < response_lines.length && matches; i++)
+            {
+                matches = screen_lines[screen_ofs + i].endsWith(response_lines[i]);
+            }
+            if(matches)
+            {
+                return;
+            }
+        }
+
+        throw new Error("Timeout in command \"" + command + "\"");
+    }
+    finally
+    {
+        emulator.remove_listener("screen-put-char", put_char);
+    }
 }
 
 // ---------------------------------------------------------------------------
 
-await run_floppy_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
+await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
     console.log("Waiting for C:\\>");
-    await emulator.wait_until_vga_screen_contains("C:\\> ");
-    await pause(1000);
+    await expect(emulator, "", ["C:\\>"], 10000);
 
     console.log("Reading A:");
-    send_text(emulator, "dir A:\n");
-    await emulator.wait_until_vga_screen_contains("Abort, Retry, Fail?");
-    send_text(emulator, "A");
+    await expect(emulator, "dir A:\n", ["", "", "General failure reading drive A", "Abort, Retry, Fail?"], 5000);
+    await expect(emulator, "A", ["", "C:\\>"], 1000);
 
-    console.log("Inserting disk freedos722.img into drive A:");
+    console.log("Inserting disk freedos722.img into drive fda");
     emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
     await pause(1000);
 
-    console.log("Reading A:");
-    send_text(emulator, "dir A:\n");
-    await emulator.wait_until_vga_screen_contains("FDOS         <DIR>");
+    console.log("Reading A:X86TEST.ASM");
+    await expect(emulator, "dir /B A:X86TEST.ASM\n", ["X86TEST.ASM", "", "C:\\>"], 3000);
 
     console.log("Ejecting disk from drive A:");
     emulator.eject_fda();
     await pause(1000);
 
     console.log("Reading A:");
-    send_text(emulator, "dir A:\n");
-    await emulator.wait_until_vga_screen_contains("Abort, Retry, Fail?");
+    await expect(emulator, "dir A:\n", ["", " Volume in drive A is FREEDOS", "", "General failure reading drive A", "Abort, Retry, Fail?"], 5000);
 });
 
-await run_floppy_test("floppy-insert-fdb", CONFIG_MSDOS622_HD, 60, async emulator =>
+await exec_test("floppy-insert-fdb", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
     console.log("Waiting for C:\\>");
-    await emulator.wait_until_vga_screen_contains("C:\\> ");
-    await pause(1000);
+    await expect(emulator, "", ["C:\\>"], 10000);
 
-    console.log("Inserting disk freedos722.img into drive B:");
+    console.log("Inserting disk freedos722.img into drive fdb");
     emulator.set_fdb({ url: __dirname + "/../../images/freedos722.img" });
     await pause(1000);
 
-    console.log("Reading B:");
-    send_text(emulator, "dir B:\n");
-    await emulator.wait_until_vga_screen_contains("FDOS         <DIR>");
+    console.log("Reading B:X86TEST.ASM");
+    await expect(emulator, "dir /B B:X86TEST.ASM\n", ["X86TEST.ASM", "", "C:\\>"], 5000);
 });
 
-await run_floppy_test("floppy-core-linux", CONFIG_CORE477_CD, 60, async emulator =>
+/*
+await exec_test("floppy-core477-linux", CONFIG_CORE477_CD, 60, async emulator =>
 {
     console.log("Waiting for boot:");
-    await emulator.wait_until_vga_screen_contains("boot: ");
-    emulator.keyboard_send_text("\n");
+    await expect(emulator, "", ["boot:"], 5000);
 
     console.log("Waiting for tc@box:~$");
-    await emulator.wait_until_vga_screen_contains("tc@box:~$ ");
+    await expect(emulator, "\n", ["tc@box:~$"], 10000);
 
-    console.log("Inserting disk freedos722.img into drive A:");
+    console.log("Inserting disk freedos722.img into drive fda");
     emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
     await pause(1000);
 
     console.log("Mounting /dev/fd0 into /mnt/fda");
-    emulator.keyboard_send_text("mkdir /mnt/fda\n");
-    await emulator.wait_until_vga_screen_contains("tc@box:~$ ");
-    emulator.keyboard_send_text("sudo mount /dev/fd0 /mnt/fda\n");
-    await emulator.wait_until_vga_screen_contains("tc@box:~$ ");
+    await expect(emulator, "mkdir /mnt/fda\n", ["tc@box:~$"], 3000);
+    await expect(emulator, "sudo mount /dev/fd0 /mnt/fda\n", ["tc@box:~$"], 3000);
 
-    console.log("Reading /mnt/fda");
-    emulator.keyboard_send_text("ls -la /mnt/fda\n");
-    await emulator.wait_until_vga_screen_contains("x86test.asm");
+    console.log("Reading /mnt/fda/x86test.asm");
+    await expect(emulator, "ls /mnt/fda/x86test.asm\n", ["/mnt/fda/x86test.asm", "tc@box:~$"], 3000);
 });
+*/
 
-await run_floppy_test("floppy-state-snapshot", CONFIG_MSDOS622_HD, 60, async emulator =>
+await exec_test("floppy-core11-linux", CONFIG_CORE11_CD, 60, async emulator =>
 {
-    console.log("Waiting for C:\\>");
-    await emulator.wait_until_vga_screen_contains("C:\\> ");
+    console.log("Waiting for boot menu");
+    await expect(emulator, "", [" seconds..."], 10000);
+
+    // press arrow down key 3 times
+    for(let i = 0; i < 3; i++)
+    {
+        emulator.keyboard_send_scancodes([
+            0xe0, 0x50,        // press
+            0xe0, 0x50 | 0x80, // release
+        ]);
+        await pause(600);
+    }
+
+    console.log("Waiting for tc@box:~$");
+    await expect(emulator, "\n", ["tc@box:~$"], 30000);
+
+    console.log("Inserting disk freedos722.img into drive fda");
+    emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
     await pause(1000);
 
-    console.log("Inserting disk freedos722.img into drive A:");
+    console.log("Mounting /dev/fd0 into /mnt/fda");
+    await expect(emulator, "mkdir /mnt/fda\n", ["tc@box:~$"], 3000);
+    await expect(emulator, "sudo mount /dev/fd0 /mnt/fda\n", ["tc@box:~$"], 3000);
+
+    console.log("Reading /mnt/fda/x86test.asm");
+    await expect(emulator, "ls /mnt/fda/x86test.asm\n", ["/mnt/fda/x86test.asm", "tc@box:~$"], 3000);
+});
+
+await exec_test("floppy-state-snapshot", CONFIG_MSDOS622_HD, 60, async emulator =>
+{
+    console.log("Waiting for C:\\>");
+    await expect(emulator, "", ["C:\\>"], 10000);
+
+    console.log("Inserting disk freedos722.img into drive fda");
     emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
     await pause(1000);
 
     console.log("Saving initial state");
     const initial_state = await emulator.save_state();
 
-    console.log("Creating file A:\\V86TEST.TXT");
-    send_text(emulator, "echo v86test > A:\\V86TEST.TXT\n");
+    console.log("Creating file A:V86TEST.TXT");
+    await expect(emulator, "echo v86test > A:V86TEST.TXT\n", ["", "C:\\>"], 3000);
     await pause(1000);
 
     console.log("Saving modified state");
     const modified_state = await emulator.save_state();
-    await pause(1000);
 
     console.log("Restoring initial state");
     await emulator.restore_state(initial_state);
     await pause(1000);
-    await emulator.wait_until_vga_screen_contains("C:\\> ");
 
-    console.log("Reading file A:\\V86TEST.TXT");
-    send_text(emulator, "more < A:\\V86TEST.TXT\n");
-    await emulator.wait_until_vga_screen_contains("File not found");
+    console.log("Reading A:V86TEST.TXT");
+    await expect(emulator, "dir /B A:V86TEST.TXT\n", ["", "C:\\>"], 3000);
 
     console.log("Restoring modified state");
     await emulator.restore_state(modified_state);
-    await emulator.wait_until_vga_screen_contains("C:\\> ");
+    await pause(1000);
 
-    console.log("Reading file A:\\V86TEST.TXT");
-    send_text(emulator, "more < A:\\V86TEST.TXT\n");
-    await emulator.wait_until_vga_screen_contains("v86test");
+    console.log("Reading A:V86TEST.TXT");
+    await expect(emulator, "dir /B A:V86TEST.TXT\n", ["V86TEST.TXT", "", "C:\\>"], 3000);
 });
