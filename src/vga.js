@@ -2226,6 +2226,16 @@ VGAScreen.prototype.port1CF_write = function(value)
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
     }
 
+    if(was_enabled && !this.svga_enabled)
+    {
+        const is_graphical = (this.attribute_mode & 0x1) !== 0;
+        this.graphical_mode = is_graphical;
+        this.screen.set_mode(is_graphical);
+        this.update_vga_size();
+        this.set_font_bitmap(false);
+        this.complete_redraw();
+    }
+
     if(!this.svga_enabled)
     {
         this.svga_bank_offset = 0;
