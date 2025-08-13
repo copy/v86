@@ -1214,6 +1214,7 @@ pub unsafe fn instr_0F30() {
             *apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
         },
         IA32_TIME_STAMP_COUNTER => set_tsc(low as u32, high as u32),
+        IA32_BIOS_UPDT_TRIG => {}, // windows xp
         IA32_BIOS_SIGN_ID => {},
         MISC_FEATURE_ENABLES => {
             // Linux 4, see: https://patchwork.kernel.org/patch/9528279/
@@ -1226,6 +1227,7 @@ pub unsafe fn instr_0F30() {
             // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
             dbg_log!("GS Base written");
         },
+        IA32_PMC0 | IA32_PMC1 => {}, // linux
         IA32_PAT => {},
         IA32_SPEC_CTRL => {},      // linux 5.19
         IA32_TSX_CTRL => {},       // linux 5.19
@@ -1296,13 +1298,11 @@ pub unsafe fn instr_0F32() {
             // Enable Misc. Processor Features
             low = 1 << 0; // fast string
         },
-        IA32_RTIT_CTL => {
-            // linux4
-        },
+        IA32_RTIT_CTL => {}, // linux4
         MSR_SMI_COUNT => {},
-        IA32_MCG_CAP => {
-            // netbsd
-        },
+        IA32_MCG_CAP => {},                        // netbsd
+        IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux
+        IA32_PMC0 | IA32_PMC1 => {},               // linux
         IA32_PAT => {},
         MSR_PKG_C2_RESIDENCY => {},
         IA32_SPEC_CTRL => {},      // linux 5.19
