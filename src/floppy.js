@@ -1152,6 +1152,7 @@ FloppyController.prototype.set_state = function(state)
  * Matches that are higher up in the table take precedence over later matches.
  *
  * @see {@link https://github.com/qemu/qemu/blob/e240f6cc25917f3138d9e95e0343ae23b63a3f8c/hw/block/fdc.c#L99}
+ * @see {@link https://en.wikipedia.org/wiki/List_of_floppy_disk_formats}
  */
 const DISK_FORMATS = [
     //                                                                 ttl_sect     size     collides
@@ -1171,6 +1172,7 @@ const DISK_FORMATS = [
     { drive_type: CMOS_FDD_TYPE_2880, sectors: 44, tracks: 80, heads: 2 }, // 7040  3.52 MB
     { drive_type: CMOS_FDD_TYPE_2880, sectors: 48, tracks: 80, heads: 2 }, // 7680  3.84 MB
     // 720 kB 3"1/2 floppy disks
+    { drive_type: CMOS_FDD_TYPE_1440, sectors:  8, tracks: 80, heads: 2 }, // 1280  640 kB
     { drive_type: CMOS_FDD_TYPE_1440, sectors:  9, tracks: 80, heads: 2 }, // 1440  720 kB   3.5"
     { drive_type: CMOS_FDD_TYPE_1440, sectors: 10, tracks: 80, heads: 2 }, // 1600  800 kB
     { drive_type: CMOS_FDD_TYPE_1440, sectors: 10, tracks: 82, heads: 2 }, // 1640  820 kB
