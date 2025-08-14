@@ -9,7 +9,6 @@
 // ins    0    0   1/w
 // outs   0    1   0
 
-use crate::cpu;
 use crate::cpu::arith::{cmp16, cmp32, cmp8};
 use crate::cpu::cpu::{
     get_seg, io_port_read16, io_port_read32, io_port_read8, io_port_write16, io_port_write32,
@@ -300,7 +299,6 @@ unsafe fn string_instruction(
                         phys_dst -= (count_until_end_of_page - 1) * size_bytes as u32;
                     }
                     if movs_into_svga_lfb {
-                        cpu::vga::mark_dirty(phys_dst);
                         memory::memcpy_into_svga_lfb(
                             phys_src,
                             phys_dst,

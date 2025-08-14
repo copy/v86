@@ -238,6 +238,8 @@ pub unsafe fn memcpy_no_mmap_or_dirty_check(src_addr: u32, dst_addr: u32, count:
 pub unsafe fn memcpy_into_svga_lfb(src_addr: u32, dst_addr: u32, count: u32) {
     dbg_assert!(src_addr < *memory_size);
     dbg_assert!(in_svga_lfb(dst_addr));
+    dbg_assert!(Page::page_of(dst_addr) == Page::page_of(dst_addr + count - 1));
+    vga::mark_dirty(dst_addr);
     ptr::copy_nonoverlapping(
         mem8.offset(src_addr as isize),
         vga_mem8.offset((dst_addr - VGA_LFB_ADDRESS) as isize),
