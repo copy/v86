@@ -124,6 +124,7 @@ const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA8-ACS] 7.65
 const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA8-ACS] 7.67
 const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA8-ACS] 7.68
 const ATA_CMD_10h = 0x10;                             // command obsolete/unknown, see [ATA-6] Table E.2
+const ATA_CMD_F0h = 0xF0;                             // vendor-specific
 
 const ATA_CMD_NAME =
 {
@@ -159,7 +160,8 @@ const ATA_CMD_NAME =
     [ATA_CMD_WRITE_MULTIPLE_EXT]:           "WRITE MULTIPLE EXT",
     [ATA_CMD_WRITE_SECTORS]:                "WRITE SECTORS",
     [ATA_CMD_WRITE_SECTORS_EXT]:            "WRITE SECTORS EXT",
-    [ATA_CMD_10h]:                          "<UNKWNON 10h>",
+    [ATA_CMD_10h]:                          "<UNKNOWN 10h>",
+    [ATA_CMD_F0h]:                          "<VENDOR-SPECIFIC F0h>",
 };
 
 // ATAPI (SCSI-2/MMC-2) commands
@@ -1300,6 +1302,11 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case ATA_CMD_NOP:
+            this.ata_abort_command();
+            break;
+
+        case ATA_CMD_F0h:
+            dbg_log(`${this.name}: error: unimplemented vendor-specific ATA command ${h(cmd)}: ABORT [${this.capture_regs()}]`, LOG_DISK);
             this.ata_abort_command();
             break;
 
