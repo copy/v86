@@ -167,6 +167,31 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
 
 // ---------------------------------------------------------------------------
 
+/*
+// TODO: this needs the 8 FreeDOS images in images/freedos-fds/ from:
+// https://github.com/codercowboy/freedosbootdisks/tree/master/bootdisks
+//
+for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "1.4MB"])
+{
+    const img_filename = "freedos.boot.disk." + fd_size + ".img";
+    const v86_config = {
+        bios: { url: __dirname + "/../../bios/seabios.bin" },
+        vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+        fda: { url: __dirname + "/../../images/freedos-fds/" + img_filename },
+        autostart: true,
+        memory_size: 32 * 1024 * 1024,
+        log_level: 0,
+        disable_jit: +process.env.DISABLE_JIT
+    };
+
+    await exec_test("floppy-freedos-fda-" + fd_size, v86_config, 60, async emulator =>
+    {
+        console.log("Waiting for A:\\>");
+        await expect(emulator, "", ["A:\\>"], 10000);
+    });
+}
+*/
+
 await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
     console.log("Waiting for C:\\>");
