@@ -276,6 +276,7 @@ await exec_test("floppy-tinycore-linux", CONFIG_TINYCORE_CD, 60, async emulator 
     console.log("Creating empty 1.4M disk for fda");
     await expect(emulator, "sudo umount /dev/fd0\n", ["tc@box:~$"], 3000);
     emulator.set_fda(new Uint8Array(1440*1024));
+    await pause(1000);
 
     console.log("Formatting /dev/fd0");
     await expect(emulator, "sudo mkfs.ext2 -q /dev/fd0\n", ["tc@box:~$"], 3000);
