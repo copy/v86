@@ -422,7 +422,12 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("bzimage", options.bzimage);
     add_file("initrd", options.initrd);
 
-    if(options.filesystem)
+    if(options.filesystem && options.filesystem.handle9p)
+    {
+        settings.handle9p = options.filesystem.handle9p;
+    }
+
+    if(options.filesystem && !options.filesystem.handle9p)
     {
         var fs_url = options.filesystem.basefs;
         var base_url = options.filesystem.baseurl;

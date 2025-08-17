@@ -1162,9 +1162,9 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_net = new VirtioNet(this, device_bus, settings.preserve_mac_from_state_image);
         }
 
-        if(settings.fs9p)
+        if(settings.fs9p || settings.handle9p)
         {
-            this.devices.virtio_9p = new Virtio9p(settings.fs9p, this, device_bus);
+            this.devices.virtio_9p = new Virtio9p(settings.fs9p || settings.handle9p, this, device_bus);
         }
         if(settings.virtio_console)
         {

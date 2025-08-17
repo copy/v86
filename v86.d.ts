@@ -234,6 +234,13 @@ export interface V86Options {
          * For more details, see docs/filesystem.md
          */
         basefs?: string;
+
+        /**
+         * A function that will be called for each 9p request.
+         * If specified, this will back Virtio9p instead of a filesystem.
+         * Use this to connect Virtio9p to a custom 9p server.
+         */
+        handle9p?: (reqbuf: Uint8Array, reply: (replybuf: Uint8Array) => void) => void;
     };
 
     /**
