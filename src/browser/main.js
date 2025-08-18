@@ -1608,11 +1608,11 @@ function onload()
                 const option = document.createElement("option");
                 if(n_bytes < MB)
                 {
-                    option.innerHTML = parseFloat((n_bytes / kB).toFixed(2)) + " kB";
+                    option.innerHTML = (n_bytes / kB) + " kB";
                 }
                 else
                 {
-                    option.innerHTML = parseFloat((n_bytes / MB).toFixed(2)) + " MB";
+                    option.innerHTML = (n_bytes / MB).toFixed(2) + " MB";
                 }
                 if(n_sect === 2880)
                 {
