@@ -864,11 +864,14 @@ V86.prototype.set_fda = async function(file)
     const fda = this.v86.cpu.devices.fdc.drives[0];
     if(file.url && !file.async)
     {
-        load_file(file.url, {
-            done: result =>
-            {
-                fda.insert_disk(new SyncBuffer(result));
-            },
+        await new Promise(resolve => {
+            load_file(file.url, {
+                done: result =>
+                {
+                    fda.insert_disk(new SyncBuffer(result));
+                    resolve();
+                }
+            });
         });
     }
     else
@@ -890,11 +893,14 @@ V86.prototype.set_fdb = async function(file)
     const fdb = this.v86.cpu.devices.fdc.drives[1];
     if(file.url && !file.async)
     {
-        load_file(file.url, {
-            done: result =>
-            {
-                fdb.insert_disk(new SyncBuffer(result));
-            },
+        await new Promise(resolve => {
+            load_file(file.url, {
+                done: result =>
+                {
+                    fdb.insert_disk(new SyncBuffer(result));
+                    resolve();
+                }
+            });
         });
     }
     else
