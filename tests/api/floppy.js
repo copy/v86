@@ -187,16 +187,6 @@ const CONFIG_TINYCORE_CD = {
     disable_jit: +process.env.DISABLE_JIT
 };
 
-const CONFIG_SPACE_INVADERS_FD = {
-    bios: { url: __dirname + "/../../bios/seabios.bin" },
-    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    fda: { url: __dirname + "/../../images/asm-space-invaders.img" },
-    autostart: true,
-    memory_size: 32 * 1024 * 1024,
-    log_level: 0,
-    disable_jit: +process.env.DISABLE_JIT
-};
-
 for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "1.4MB"])
 {
     // Image file source:
@@ -224,17 +214,6 @@ for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "
         console.log("Skipped floppy test due to missing image file " + img_filename);
     }
 }
-
-/*
-await exec_test("floppy-custom-size", CONFIG_SPACE_INVADERS_FD, 60, async emulator =>
-{
-    console.log("Waiting for boot screen");
-    await expect(emulator, "", [/#\s{3}SPACE to start\s{3}#$/, /#\s{20}#$/, /#{22}$/], 5000);
-
-    console.log("Waiting for start screen");
-    await expect(emulator, " ", [/#\s{2}3\s{5}Hard\s{8}#$/, /#\s{20}#$/, /#{22}$/], 3000);
-});
-*/
 
 await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
