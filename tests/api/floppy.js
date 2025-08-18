@@ -92,8 +92,7 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
         if(trimmed_command)
         {
             // prepend command to expected response lines
-            response_lines = Array.from(response_lines);
-            response_lines.unshift(trimmed_command);
+            response_lines = [trimmed_command, ...response_lines];
         }
     }
 
@@ -204,6 +203,10 @@ for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "
             await expect(emulator, "", ["A:\\>"], 10000);
         });
     }
+    else
+    {
+        console.log("Skipped floppy test due to missing image file " + img_filename);
+    }
 }
 
 await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
@@ -273,12 +276,6 @@ await exec_test("floppy-tinycore-linux", CONFIG_TINYCORE_CD, 60, async emulator 
     console.log("Reading /mnt/fd0/COMMAND.COM");
     await expect(emulator, "ls /mnt/fd0/COMMAND.COM\n", ["/mnt/fd0/COMMAND.COM", "tc@box:~$"], 3000);
 
-    // Only on github this fails, log:
-    //   tc@box:~$ sudo umount /dev/fd0
-    //   tc@box:~$ sudo mkfs.ext2 -q /dev/fd0
-    //   Could not open /dev/fd0: No such device or address
-    //   tc@box:~$
-    // TODO: where did /dev/fd0 go?
     console.log("Unmounting fda");
     await expect(emulator, "sudo umount /dev/fd0\n", ["tc@box:~$"], 3000);
 
