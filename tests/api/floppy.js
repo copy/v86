@@ -187,34 +187,6 @@ const CONFIG_TINYCORE_CD = {
     disable_jit: +process.env.DISABLE_JIT
 };
 
-for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "1.4MB"])
-{
-    // Image file source:
-    // https://github.com/codercowboy/freedosbootdisks/tree/master/bootdisks
-    const img_filename = __dirname + "/../../images/freedos-fds/freedos.boot.disk." + fd_size + ".img";
-    if(fs.existsSync(img_filename))
-    {
-        const v86_config = {
-            bios: { url: __dirname + "/../../bios/seabios.bin" },
-            vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-            fda: { url: img_filename },
-            autostart: true,
-            memory_size: 32 * 1024 * 1024,
-            log_level: 0,
-            disable_jit: +process.env.DISABLE_JIT
-        };
-        await exec_test("floppy-freedos-fda-" + fd_size, v86_config, 60, async emulator =>
-        {
-            console.log("Waiting for A:\\>");
-            await expect(emulator, "", ["A:\\>"], 10000);
-        });
-    }
-    else
-    {
-        console.log("Skipped floppy test due to missing image file " + img_filename);
-    }
-}
-
 await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
     console.log("Waiting for C:\\>");

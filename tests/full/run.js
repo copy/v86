@@ -804,6 +804,60 @@ if(cluster.isPrimary)
             expect_mouse_registered: true,
         },
         {
+            name: "FreeDOS boot floppy 160K", // source: https://github.com/codercowboy/freedosbootdisks/tree/master/bootdisks
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.160K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 180K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.180K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 320K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.320K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 360K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.360K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 640K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.640K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 1200K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/freedos-fds/freedos.boot.disk.1200K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
             name: "ASM Space Invaders",
             skip_if_disk_image_missing: true,
             timeout: 10,
