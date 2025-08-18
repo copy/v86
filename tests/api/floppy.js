@@ -79,7 +79,6 @@ async function exec_test(test_name, v86_config, timeout_sec, test_function)
  */
 async function expect(emulator, command, response_lines, response_timeout_msec)
 {
-    let trimmed_command;
     if(command)
     {
         // inject command characters into guest's keyboard buffer
@@ -89,11 +88,12 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
             await pause(10);
         }
 
-        trimmed_command = command.trimRight();
-        if(trimmed_command)
+        // trim trailing newline (and/or whitespace) from command
+        command = command.trimRight();
+        if(command)
         {
             // prepend command to expected response lines
-            response_lines = [trimmed_command, ...response_lines];
+            response_lines = [command, ...response_lines];
         }
     }
 
@@ -135,7 +135,7 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
             let matches = true;
             for(let i = 0; i < response_lines.length && matches; i++)
             {
-                if(i === 0 && trimmed_command)
+                if(i === 0 && command)
                 {
                     // match raw command against end of screen line
                     matches = screen_lines[screen_offset + i].endsWith(response_lines[i]);
