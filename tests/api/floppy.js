@@ -61,9 +61,9 @@ async function exec_test(test_name, v86_config, timeout_sec, test_function)
  *
  * Items in response_lines must be of type string or RegExp. A regular
  * expression is matched against the complete screen line, whereas a string
- * is only partially matched against the end of the screen line. Expected
- * response lines should not contain any trailing whitespace and/or newline
- * characters. Expecting an empty line is valid.
+ * is matched against the entire screen line. Expected response lines should
+ * not contain any trailing whitespace and/or newline characters. Expecting
+ * an empty line is valid.
  *
  * Allowed character set for command and response_lines is the printable
  * subset of 7-bit ASCII, use newline character "\n" to encode ENTER key.
@@ -79,6 +79,7 @@ async function exec_test(test_name, v86_config, timeout_sec, test_function)
  */
 async function expect(emulator, command, response_lines, response_timeout_msec)
 {
+    let trimmed_command;
     if(command)
     {
         // inject command characters into guest's keyboard buffer
@@ -88,7 +89,7 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
             await pause(10);
         }
 
-        const trimmed_command = command.trimRight();
+        trimmed_command = command.trimRight();
         if(trimmed_command)
         {
             // prepend command to expected response lines
@@ -134,15 +135,20 @@ async function expect(emulator, command, response_lines, response_timeout_msec)
             let matches = true;
             for(let i = 0; i < response_lines.length && matches; i++)
             {
-                if(response_lines[i].test)
+                if(i === 0 && trimmed_command)
+                {
+                    // match raw command against end of screen line
+                    matches = screen_lines[screen_offset + i].endsWith(response_lines[i]);
+                }
+                else if(response_lines[i].test)
                 {
                     // match screen line against anything that implements test(), for example a RegExp
                     matches = response_lines[i].test(screen_lines[screen_offset + i]);
                 }
                 else
                 {
-                    // partially match against end of screen line
-                    matches = screen_lines[screen_offset + i].endsWith(response_lines[i]);
+                    // match exact
+                    matches = screen_lines[screen_offset + i] === response_lines[i];
                 }
             }
             if(matches)
