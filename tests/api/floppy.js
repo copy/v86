@@ -263,34 +263,32 @@ await exec_test("floppy-tinycore-linux", CONFIG_TINYCORE_CD, 60, async emulator 
     console.log("Waiting for tc@box:~$");
     await expect(emulator, "\n", ["tc@box:~$"], 30000);
 
-    console.log("Inserting disk freedos722.img into drive fda");
-    await emulator.set_fda({ url: __dirname + "/../../images/freedos722.img" });
+    console.log("Inserting disk windows101.img into drive fda");
+    await emulator.set_fda({ url: __dirname + "/../../images/windows101.img" });
 
-    console.log("Mounting /dev/fd0 into /mnt/fda");
-    await expect(emulator, "mkdir /mnt/fda\n", ["tc@box:~$"], 3000);
-    await expect(emulator, "sudo mount /dev/fd0 /mnt/fda\n", ["tc@box:~$"], 3000);
+    console.log("Mounting /dev/fd0 into /mnt/fd0");
+    await expect(emulator, "mkdir /mnt/fd0\n", ["tc@box:~$"], 3000);
+    await expect(emulator, "sudo mount /dev/fd0 /mnt/fd0\n", ["tc@box:~$"], 3000);
 
-    console.log("Reading /mnt/fda/x86test.asm");
-    await expect(emulator, "ls /mnt/fda/x86test.asm\n", ["/mnt/fda/x86test.asm", "tc@box:~$"], 3000);
+    console.log("Reading /mnt/fd0/COMMAND.COM");
+    await expect(emulator, "ls /mnt/fd0/COMMAND.COM\n", ["/mnt/fd0/COMMAND.COM", "tc@box:~$"], 3000);
 
-/*
     // Only on github this fails, log:
     //   tc@box:~$ sudo umount /dev/fd0
     //   tc@box:~$ sudo mkfs.ext2 -q /dev/fd0
     //   Could not open /dev/fd0: No such device or address
     //   tc@box:~$
     // TODO: where did /dev/fd0 go?
-    console.log("Creating empty 1.4M disk for fda");
+    console.log("Unmounting fda");
     await expect(emulator, "sudo umount /dev/fd0\n", ["tc@box:~$"], 3000);
-    await emulator.set_fda(new ArrayBuffer(720*1024));
 
     console.log("Formatting /dev/fd0");
-    await expect(emulator, "sudo mkfs.ext2 -q /dev/fd0\n", ["tc@box:~$"], 3000);
-    await expect(emulator, "sudo mount /dev/fd0 /mnt/fda\n", ["tc@box:~$"], 3000);
+    await expect(emulator, "sudo mke2fs -q /dev/fd0\n", ["/dev/fd0 contains a vfat file system labelled 'WIN101'", "Proceed anyway? (y,N)"], 3000);
+    await expect(emulator, "y\n", ["tc@box:~$"], 5000);
 
-    console.log("Reading /mnt/fda");
-    await expect(emulator, "ls /mnt/fda\n", ["lost+found/", "tc@box:~$"], 3000);
-*/
+    console.log("Reading /mnt/fd0");
+    await expect(emulator, "sudo mount /dev/fd0 /mnt/fd0\n", ["tc@box:~$"], 3000);
+    await expect(emulator, "ls /mnt/fd0\n", ["lost+found/", "tc@box:~$"], 3000);
 });
 
 await exec_test("floppy-state-snapshot", CONFIG_MSDOS622_HD, 60, async emulator =>
