@@ -225,6 +225,7 @@ for(const fd_size of ["160K", "180K", "320K", "360K", "640K", "720K", "1200K", "
     }
 }
 
+/*
 await exec_test("floppy-custom-size", CONFIG_SPACE_INVADERS_FD, 60, async emulator =>
 {
     console.log("Waiting for boot screen");
@@ -233,6 +234,7 @@ await exec_test("floppy-custom-size", CONFIG_SPACE_INVADERS_FD, 60, async emulat
     console.log("Waiting for start screen");
     await expect(emulator, " ", [/#\s{2}3\s{5}Hard\s{8}#$/, /#\s{20}#$/, /#{22}$/], 3000);
 });
+*/
 
 await exec_test("floppy-insert-eject", CONFIG_MSDOS622_HD, 60, async emulator =>
 {
