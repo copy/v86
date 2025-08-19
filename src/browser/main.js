@@ -13,6 +13,8 @@ const DEFAULT_MEMORY_SIZE = 128;
 const DEFAULT_VGA_MEMORY_SIZE = 8;
 const DEFAULT_BOOT_ORDER = 0;
 
+const MAX_ARRAY_BUFFER_SIZE_MB = 2000;
+
 function query_append()
 {
     const version = $("version");
@@ -1652,7 +1654,9 @@ function onload()
             const input = document.createElement("input");
             input.id = dev + "_empty_size";
             input.type = "number";
-            input.min = "1";
+            input.min = "0";
+            input.max = String(MAX_ARRAY_BUFFER_SIZE_MB);
+            input.step = "100";
             input.value = "100";
             // TODO (when closure compiler supports it): parent.parentNode.replaceChildren(...);
             const parent = toggle.parentNode;
@@ -2058,7 +2062,7 @@ function start_emulation(profile, query_args)
         const hda_empty_size = +$("hda_empty_size")?.value;
         if(hda_empty_size)
         {
-            const size = hda_empty_size * 1024 * 1024;
+            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hda_empty_size)) * 1024 * 1024;
             settings.hda = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hda.empty", String(size));
         }
@@ -2070,8 +2074,8 @@ function start_emulation(profile, query_args)
         const hdb_empty_size = +$("hdb_empty_size")?.value;
         if(hdb_empty_size)
         {
-            const size = hdb_empty_size * 1024 * 1024;
-            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size * 1024 * 1024) };
+            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hdb_empty_size)) * 1024 * 1024;
+            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size) };
             new_query_args.set("hdb.empty", String(size));
         }
         const multiboot = $("multiboot_image")?.files[0];
