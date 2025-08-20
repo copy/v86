@@ -1358,52 +1358,126 @@ V86.prototype.automatically = function(steps)
     run(steps);
 };
 
-V86.prototype.wait_until_vga_screen_contains = function(text)
+/**
+ * Wait until expected text is present on the VGA text screen.
+ *
+ * Returns immediately if the expected text is already present on screen
+ * at the time this funtion is called.
+ *
+ * An optional timeout may be specified in `options.timeout_msec`, an Error
+ * is thrown if the timeout expires before the expected text could be
+ * detected. If no timeout is specified then this function only unblocks
+ * once text detection succeeds.
+ *
+ * Expected text (or texts, see below) must be of type string or RegExp.
+ *
+ * Two methods of text detection are supported depending on the type of the
+ * argument `expected`:
+ *
+ * 1. If `expected` is a string or RegExp then the given text string or
+ *    regular expression must partially or fully match any line on screen.
+ *
+ * 2. If `expected` is an array of strings and/or RegExp objects then the
+ *    list of expected lines must match exactly at "the bottom" of the
+ *    screen. The "bottom" line is the first non-empty line starting from
+ *    the screen's end.
+ *    Expected lines specified as strings must match the entire line on
+ *    screen, and regular expressions are matched against full screen
+ *    lines but may match partially and use wildcards.
+ *    Expected lines should not contain any trailing whitespace and/or
+ *    newline characters. Expecting an empty line is valid.
+ *
+ * Returns the array of lines that matched on screen for both methods.
+ *
+ * @param {string|RegExp|Array<string|RegExp>} expected
+ * @param {{timeout_msec:(number|undefined)}=} options
+ */
+V86.prototype.wait_until_vga_screen_contains = async function(expected, options)
 {
-    return new Promise(resolve =>
-    {
-        function test_line(line)
-        {
-            return typeof text === "string" ? line.includes(text) : text.test(line);
-        }
+    const match_multi = Array.isArray(expected);
+    const timeout_msec = options?.timeout_msec ? options.timeout_msec : 0;
+    const changed_rows = new Set();
+    const screen_put_char = args => changed_rows.add(args[0]);
+    const contains_expected = expected.test ? expected.test : line => line.includes(expected);
 
-        for(const line of this.screen_adapter.get_text_screen())
+    this.add_listener("screen-put-char", screen_put_char);
+    try
+    {
+        const screen_lines = [];
+        for(const screen_line of this.screen_adapter.get_text_screen())
         {
-            if(test_line(line))
+            if(match_multi)
             {
-                resolve(true);
-                return;
+                screen_lines.push(screen_line.trimRight());
+            }
+            else if(contains_expected(screen_line))
+            {
+                return [screen_line];
             }
         }
 
-        const changed_rows = new Set();
-
-        function put_char(args)
+        const tm_end = timeout_msec ? performance.now() + timeout_msec : 0;
+        while(true)
         {
-            const [row, col, char] = args;
-            changed_rows.add(row);
-        }
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-        const check = () =>
-        {
+            if(tm_end && performance.now() >= tm_end)
+            {
+                throw new Error("Timeout of " + timeout_msec + " msec expired");
+            }
+
             for(const row of changed_rows)
             {
-                const line = this.screen_adapter.get_text_row(row);
-                if(test_line(line))
+                const screen_line = this.screen_adapter.get_text_row(row);
+                if(match_multi)
                 {
-                    this.remove_listener("screen-put-char", put_char);
-                    resolve();
-                    return;
+                    screen_lines[row] = screen_line.trimRight();
+                }
+                else if(contains_expected(screen_line))
+                {
+                    return [screen_line];
                 }
             }
-
             changed_rows.clear();
-            setTimeout(check, 100);
-        };
-        check();
 
-        this.add_listener("screen-put-char", put_char);
-    });
+            if(!match_multi)
+            {
+                continue;
+            }
+
+            let screen_height = screen_lines.length;
+            while(screen_height > 0 && screen_lines[screen_height - 1] === "")
+            {
+                screen_height--;
+            }
+            const screen_offset = screen_height - expected.length;
+            if(screen_offset < 0)
+            {
+                continue;
+            }
+
+            let matches = true;
+            for(let i = 0; i < expected.length && matches; i++)
+            {
+                if(expected[i].test)
+                {
+                    matches = expected[i].test(screen_lines[screen_offset + i]);
+                }
+                else
+                {
+                    matches = screen_lines[screen_offset + i] === expected[i];
+                }
+            }
+            if(matches)
+            {
+                return screen_lines.slice(screen_offset, screen_height);
+            }
+        }
+    }
+    finally
+    {
+        this.remove_listener("screen-put-char", screen_put_char);
+    }
 };
 
 /**
