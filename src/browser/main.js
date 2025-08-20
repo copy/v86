@@ -461,6 +461,7 @@ function onload()
             name: "Buildroot Linux",
             filesystem: {},
             cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+            mouse_disabled_default: true,
         },
         {
             id: "buildroot6",
@@ -2344,6 +2345,11 @@ function init_ui(profile, settings, emulator)
         $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
     };
+
+    if(profile?.mouse_disabled_default)
+    {
+        $("toggle_mouse").onclick();
+    }
 
     var theatre_mode = false;
     var theatre_ui = true;
