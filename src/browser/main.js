@@ -2942,7 +2942,7 @@ function init_ui(profile, settings, emulator)
 
     $("screen_container").onclick = function(e)
     {
-        if(emulator.is_running() && emulator.speaker_adapter && emulator.speaker_adapter.audio_context.state === "suspended")
+        if(emulator.is_running() && emulator.speaker_adapter?.audio_context?.state === "suspended")
         {
             emulator.speaker_adapter.audio_context.resume();
         }
