@@ -2348,51 +2348,26 @@ function init_ui(profile, settings, emulator)
         emulator.screen_set_scale(n, n);
     }
 
-    $("toggle_ui").onclick = function()
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_theatre_ui(enabled)
     {
-        theatre_ui = !theatre_ui;
+        theatre_ui = enabled;
 
         $("runtime_options").style.display = theatre_ui ? "block" : "none";
         $("runtime_infos").style.display = theatre_ui ? "block" : "none";
         $("filesystem_panel").style.display = (filesystem_is_enabled && theatre_ui) ? "block" : "none";
 
         $("toggle_ui").value = (theatre_ui ? "Hide" : "Show") + " UI";
-        $("toggle_ui").blur();
-    };
+    }
 
-    $("toggle_theatre").onclick = function()
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_zoom_to_fit(enabled)
     {
-        theatre_mode = !theatre_mode;
-
-        if(!theatre_ui)
-        {
-            $("toggle_ui").click();
-        }
-
-        if(!theatre_mode && theatre_zoom_to_fit)
-        {
-            $("toggle_zoom_to_fit").click();
-        }
-
-        for(const el of ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"])
-        {
-            $(el).classList.toggle("theatre_" + el);
-        }
-
-        $("theatre_background").style.display = theatre_mode ? "block" : "none";
-        $("toggle_zoom_to_fit").style.display = theatre_mode ? "inline" : "none";
-        $("toggle_ui").style.display = theatre_mode ? "block" : "none";
-
-        // hide scrolling
-        document.body.style.overflow = theatre_mode ? "hidden" : "visible";
-
-        $("toggle_theatre").value = (theatre_mode ? "Dis" : "En") + "able theatre mode";
-        $("toggle_theatre").blur();
-    };
-
-    $("toggle_zoom_to_fit").onclick = function()
-    {
-        theatre_zoom_to_fit = !theatre_zoom_to_fit;
+        theatre_zoom_to_fit = enabled;
         $("scale").disabled = theatre_zoom_to_fit;
 
         if(theatre_zoom_to_fit)
@@ -2412,6 +2387,55 @@ function init_ui(profile, settings, emulator)
         }
 
         $("toggle_zoom_to_fit").value = (theatre_zoom_to_fit ? "Dis" : "En") + "able zoom to fit";
+    }
+
+    /**
+     * @param {boolean} enabled
+     */
+    function enable_theatre_mode(enabled)
+    {
+        theatre_mode = enabled;
+
+        if(!theatre_ui)
+        {
+            enable_theatre_ui(true);
+        }
+
+        if(!theatre_mode && theatre_zoom_to_fit)
+        {
+            enable_zoom_to_fit(false);
+        }
+
+        for(const el of ["screen_container", "runtime_options", "runtime_infos", "filesystem_panel"])
+        {
+            $(el).classList.toggle("theatre_" + el);
+        }
+
+        $("theatre_background").style.display = theatre_mode ? "block" : "none";
+        $("toggle_zoom_to_fit").style.display = theatre_mode ? "inline" : "none";
+        $("toggle_ui").style.display = theatre_mode ? "block" : "none";
+
+        // hide scrolling
+        document.body.style.overflow = theatre_mode ? "hidden" : "visible";
+
+        $("toggle_theatre").value = (theatre_mode ? "Dis" : "En") + "able theatre mode";
+    }
+
+    $("toggle_ui").onclick = function()
+    {
+        enable_theatre_ui(!theatre_ui);
+        $("toggle_ui").blur();
+    };
+
+    $("toggle_theatre").onclick = function()
+    {
+        enable_theatre_mode(!theatre_mode);
+        $("toggle_theatre").blur();
+    };
+
+    $("toggle_zoom_to_fit").onclick = function()
+    {
+        enable_zoom_to_fit(!theatre_zoom_to_fit);
         $("toggle_zoom_to_fit").blur();
     };
 
