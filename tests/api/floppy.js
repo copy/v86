@@ -11,7 +11,7 @@ const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "..
 
 process.on("unhandledRejection", exn => { throw exn; });
 
-async function exec_test(test_name, v86_config, timeout_sec, test_function)
+export async function exec_test(test_name, v86_config, timeout_sec, test_function)
 {
     console.log("Starting: " + test_name);
     const tm_start = performance.now();
@@ -26,7 +26,7 @@ async function exec_test(test_name, v86_config, timeout_sec, test_function)
         }, timeout_sec * 1000);
         try
         {
-            await new Promise(resolve => { emulator.bus.register("emulator-started", () => { resolve(); }); });
+            await new Promise(resolve => emulator.bus.register("emulator-started", () => resolve()));
             await test_function(emulator);
             console.log("Done: " + test_name + " (" + ((performance.now() - tm_start) / 1000).toFixed(2) + " sec)");
         }
@@ -50,122 +50,42 @@ async function exec_test(test_name, v86_config, timeout_sec, test_function)
  * Execute given CLI command and wait for its completion.
  *
  * Injects command into the guest's keyboard buffer, then waits for both the
- * command and the expected response lines to show at "the bottom" of the
- * VGA screen. The "bottom" line is the first non-empty line from the VGA
- * text screen's bottom.
+ * command and the expected response lines to show at the bottom of the VGA
+ * screen.
  *
  * If command is empty then no command is executed and only the expected
  * response lines are waited for. If command contains only whitespace and/or
  * newline characters then it is send to the guest, but it does not become
  * part of the expected response.
  *
- * Items in response_lines must be of type string or RegExp. A regular
- * expression is matched against the complete screen line, whereas a string
- * is matched against the entire screen line. Expected response lines should
- * not contain any trailing whitespace and/or newline characters. Expecting
- * an empty line is valid.
- *
- * Allowed character set for command and response_lines is the printable
- * subset of 7-bit ASCII, use newline character "\n" to encode ENTER key.
+ * Allowed character set for command and expected is the printable subset
+ * of 7-bit ASCII, use newline character "\n" to encode ENTER key.
  *
  * Returns the matched response lines. Throws an Error if the given timeout
  * elapsed before the expected response could be detected.
  *
  * @param {V86} emulator
  * @param {string} command
- * @param {Array[string|RegExp]} response_lines
- * @param {number} response_timeout_msec
- * @return {Array[string]}
+ * @param {Array<string|RegExp>} expected
+ * @param {number} timeout_msec
  */
-async function expect(emulator, command, response_lines, response_timeout_msec)
+export async function expect(emulator, command, expected, timeout_msec)
 {
     if(command)
     {
-        // inject command characters into guest's keyboard buffer
         for(const ch of command)
         {
             emulator.keyboard_send_text(ch);
             await pause(10);
         }
-
-        // trim trailing newline (and/or whitespace) from command
         command = command.trimRight();
         if(command)
         {
-            // prepend command to expected response lines
-            response_lines = [command, ...response_lines];
+            expected = [new RegExp(RegExp.escape(command) + "$"), ...expected];
         }
     }
-
-    const changed_rows = new Set();
-    const screen_put_char = args => { changed_rows.add(args[0]); };
-    emulator.add_listener("screen-put-char", screen_put_char);
-    try
-    {
-        // initialize VGA screen buffer
-        const screen_lines = [];
-        for(const line of emulator.screen_adapter.get_text_screen())
-        {
-            screen_lines.push(line.trimRight());
-        }
-
-        const tm_end = performance.now() + response_timeout_msec;
-        while(performance.now() < tm_end)
-        {
-            await pause(100);
-
-            // update VGA screen buffer
-            for(const row of changed_rows)
-            {
-                screen_lines[row] = emulator.screen_adapter.get_text_row(row).trimRight();
-            }
-            changed_rows.clear();
-
-            let screen_bottom = screen_lines.length;
-            while(screen_bottom > 0 && screen_lines[screen_bottom - 1] === "")
-            {
-                screen_bottom--;
-            }
-            const screen_offset = screen_bottom - response_lines.length;
-            if(screen_offset < 0)
-            {
-                continue;
-            }
-
-            let matches = true;
-            for(let i = 0; i < response_lines.length && matches; i++)
-            {
-                if(i === 0 && command)
-                {
-                    // match raw command against end of screen line
-                    matches = screen_lines[screen_offset + i].endsWith(response_lines[i]);
-                }
-                else if(response_lines[i].test)
-                {
-                    // match screen line against anything that implements test(), for example a RegExp
-                    matches = response_lines[i].test(screen_lines[screen_offset + i]);
-                }
-                else
-                {
-                    // match exact
-                    matches = screen_lines[screen_offset + i] === response_lines[i];
-                }
-            }
-            if(matches)
-            {
-                return screen_lines.slice(screen_offset, screen_bottom);
-            }
-        }
-
-        throw new Error("Timeout in command \"" + command + "\"");
-    }
-    finally
-    {
-        emulator.remove_listener("screen-put-char", screen_put_char);
-    }
+    return await emulator.wait_until_vga_screen_contains(expected, {timeout_msec: timeout_msec});
 }
-
-// ---------------------------------------------------------------------------
 
 const CONFIG_MSDOS622_HD = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
