@@ -11,6 +11,14 @@ const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "..
 
 process.on("unhandledRejection", exn => { throw exn; });
 
+function regexp_escape(text)
+{
+    // TODO: The official RegExp.escape() would be prefarrable to this,
+    // but currently (Aug 2025) the May 2025 Baseline is not yet available
+    // at github CI.
+    return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+
 export async function exec_test(test_name, v86_config, timeout_sec, test_function)
 {
     console.log("Starting: " + test_name);
@@ -81,7 +89,7 @@ export async function expect(emulator, command, expected, timeout_msec)
         command = command.trimRight();
         if(command)
         {
-            expected = [new RegExp(RegExp.escape(command) + "$"), ...expected];
+            expected = [new RegExp(regexp_escape(command) + "$"), ...expected];
         }
     }
     return await emulator.wait_until_vga_screen_contains(expected, {timeout_msec: timeout_msec});
