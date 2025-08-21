@@ -1,5 +1,3 @@
-#![allow(const_item_mutation)]
-
 #[macro_use]
 mod dbg;
 
