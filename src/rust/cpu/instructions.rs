@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use crate::cpu::arith::*;
+use crate::cpu::cpu::js;
 use crate::cpu::cpu::*;
 use crate::cpu::fpu::*;
 use crate::cpu::global_pointers::*;
@@ -2162,12 +2163,12 @@ pub unsafe fn instr_F4() {
     // due it will immediately call call_interrupt_vector and continue
     // execution without an unnecessary cycle through do_run
     if *flags & FLAG_INTERRUPT != 0 {
-        run_hardware_timers(*acpi_enabled, microtick());
+        js::run_hardware_timers(*acpi_enabled, js::microtick());
         handle_irqs();
     }
     else {
         // execution can never resume (until NMIs are supported)
-        cpu_event_halt();
+        js::cpu_event_halt();
     }
 }
 #[no_mangle]

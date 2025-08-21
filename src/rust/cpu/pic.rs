@@ -3,15 +3,15 @@
 // Programmable Interrupt Controller
 // http://stanislavs.org/helppc/8259.html
 
+use std::sync::{Mutex, MutexGuard};
+
 pub const PIC_LOG: bool = false;
 pub const PIC_LOG_VERBOSE: bool = false;
 
-use crate::cpu::cpu;
-use std::sync::{Mutex, MutexGuard};
-
 // Note: This layout is deliberately chosen to match the old JavaScript pic state
 // (cpu.get_state_pic depens on this layout)
-#[repr(C, packed)]
+const _: () = assert!(std::mem::offset_of!(Pic0, special_mask_mode) == 12);
+#[repr(C)]
 struct Pic0 {
     irq_mask: u8,
 
@@ -39,7 +39,7 @@ struct Pic0 {
     special_mask_mode: bool,
 }
 
-pub struct Pic {
+struct Pic {
     master: Pic0,
     slave: Pic0,
 }
@@ -91,14 +91,13 @@ static PIC: Mutex<Pic> = Mutex::new(Pic {
     },
 });
 
-pub fn get_pic() -> MutexGuard<'static, Pic> { PIC.try_lock().unwrap() }
+fn get_pic() -> MutexGuard<'static, Pic> { PIC.try_lock().unwrap() }
 
-// Checking for callable interrupts:
-// (cpu changes interrupt flag) -> cpu.handle_irqs -> pic_acknowledge_irq
-// (pic changes isr/irr) -> pic.check_irqs -> cpu.handle_irqs -> ...
-
-// triggering irqs:
-// (io device has irq) -> cpu.device_raise_irq -> pic.set_irq -> pic.check_irqs -> cpu.handle_irqs -> (see above)
+// called from javascript for saving/restoring state
+#[no_mangle]
+pub unsafe fn get_pic_addr_master() -> u32 { &raw mut get_pic().master as u32 }
+#[no_mangle]
+pub unsafe fn get_pic_addr_slave() -> u32 { &raw mut get_pic().slave as u32 }
 
 impl Pic0 {
     unsafe fn get_irq(&mut self) -> Option<u8> {
@@ -157,10 +156,7 @@ impl Pic {
         if dev.irq_value & mask == 0 || dev.elcr & mask != 0 {
             dev.irr |= mask;
             dev.irq_value |= mask;
-            if i < 8 {
-                self.check_irqs_master()
-            }
-            else {
+            if i >= 8 {
                 self.check_irqs_slave()
             }
         }
@@ -172,10 +168,7 @@ impl Pic {
         dev.irq_value &= !mask;
         if dev.elcr & mask != 0 {
             dev.irr &= !mask;
-            if i < 8 {
-                self.check_irqs_master()
-            }
-            else {
+            if i >= 8 {
                 self.check_irqs_slave()
             }
         }
@@ -245,10 +238,7 @@ impl Pic {
                 dev.isr &= dev.isr - 1;
             }
 
-            if index == 0 {
-                self.check_irqs_master()
-            }
-            else {
+            if index == 1 {
                 self.check_irqs_slave()
             }
         }
@@ -273,10 +263,7 @@ impl Pic {
                     dbg_log!("interrupt mask: {:x}", dev.irq_mask);
                 }
 
-                if index == 0 {
-                    self.check_irqs_master()
-                }
-                else {
+                if index == 1 {
                     self.check_irqs_slave()
                 }
             }
@@ -294,12 +281,6 @@ impl Pic {
         }
     }
 
-    unsafe fn check_irqs_master(&mut self) {
-        let is_set = self.master.get_irq().is_some();
-        if is_set {
-            cpu::handle_irqs_internal(self);
-        }
-    }
     unsafe fn check_irqs_slave(&mut self) {
         let is_set = self.slave.get_irq().is_some();
         if is_set {
@@ -312,7 +293,8 @@ impl Pic {
 }
 
 // called by the cpu
-pub unsafe fn pic_acknowledge_irq(pic: &mut Pic) -> Option<u8> {
+pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
+    let mut pic = get_pic();
     let irq = match pic.master.get_irq() {
         Some(i) => i,
         None => return None,
@@ -343,7 +325,7 @@ pub unsafe fn pic_acknowledge_irq(pic: &mut Pic) -> Option<u8> {
     dbg_assert!(pic.master.get_irq().is_none());
 
     if irq == 2 {
-        acknowledge_irq_slave(pic)
+        acknowledge_irq_slave(&mut pic)
     }
     else {
         Some(pic.master.irq_map | irq)
@@ -384,9 +366,7 @@ unsafe fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
     Some(pic.slave.irq_map | irq)
 }
 
-// called by javascript
-#[no_mangle]
-pub unsafe fn pic_set_irq(i: u8) {
+pub unsafe fn set_irq(i: u8) {
     dbg_assert!(i < 16);
 
     if PIC_LOG_VERBOSE {
@@ -396,9 +376,7 @@ pub unsafe fn pic_set_irq(i: u8) {
     get_pic().set_irq(i)
 }
 
-// called by javascript
-#[no_mangle]
-pub unsafe fn pic_clear_irq(i: u8) {
+pub unsafe fn clear_irq(i: u8) {
     dbg_assert!(i < 16);
 
     if PIC_LOG_VERBOSE {
@@ -408,36 +386,19 @@ pub unsafe fn pic_clear_irq(i: u8) {
     get_pic().clear_irq(i)
 }
 
-#[no_mangle]
 pub unsafe fn port20_read() -> u32 { get_pic().master.port0_read() }
-#[no_mangle]
 pub unsafe fn port21_read() -> u32 { get_pic().master.port1_read() }
 
-#[no_mangle]
 pub unsafe fn portA0_read() -> u32 { get_pic().slave.port0_read() }
-#[no_mangle]
 pub unsafe fn portA1_read() -> u32 { get_pic().slave.port1_read() }
 
-#[no_mangle]
 pub unsafe fn port20_write(v: u8) { get_pic().port0_write(0, v) }
-#[no_mangle]
 pub unsafe fn port21_write(v: u8) { get_pic().port1_write(0, v) }
 
-#[no_mangle]
 pub unsafe fn portA0_write(v: u8) { get_pic().port0_write(1, v) }
-#[no_mangle]
 pub unsafe fn portA1_write(v: u8) { get_pic().port1_write(1, v) }
 
-#[no_mangle]
 pub unsafe fn port4D0_read() -> u32 { get_pic().master.elcr as u32 }
-#[no_mangle]
 pub unsafe fn port4D1_read() -> u32 { get_pic().slave.elcr as u32 }
-#[no_mangle]
 pub unsafe fn port4D0_write(v: u8) { get_pic().master.elcr = v }
-#[no_mangle]
 pub unsafe fn port4D1_write(v: u8) { get_pic().slave.elcr = v }
-
-#[no_mangle]
-pub unsafe fn get_pic_addr_master() -> u32 { &raw const get_pic().master as u32 }
-#[no_mangle]
-pub unsafe fn get_pic_addr_slave() -> u32 { &raw const get_pic().slave as u32 }

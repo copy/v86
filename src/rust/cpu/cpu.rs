@@ -1,23 +1,5 @@
 #![allow(non_upper_case_globals)]
 
-extern "C" {
-    fn cpu_exception_hook(interrupt: i32) -> bool;
-    fn call_indirect1(f: i32, x: u16);
-    pub fn microtick() -> f64;
-    pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
-    pub fn cpu_event_halt();
-    pub fn apic_acknowledge_irq() -> i32;
-    pub fn stop_idling();
-
-    pub fn io_port_read8(port: i32) -> i32;
-    pub fn io_port_read16(port: i32) -> i32;
-    pub fn io_port_read32(port: i32) -> i32;
-
-    pub fn io_port_write8(port: i32, value: i32);
-    pub fn io_port_write16(port: i32, value: i32);
-    pub fn io_port_write32(port: i32, value: i32);
-}
-
 use crate::config;
 use crate::cpu::fpu::fpu_set_tag_word;
 use crate::cpu::global_pointers::*;
@@ -27,7 +9,7 @@ use crate::cpu::misc_instr::{
     push16, push32,
 };
 use crate::cpu::modrm::{resolve_modrm16, resolve_modrm32};
-use crate::cpu::pic;
+use crate::cpu::{apic, ioapic, pic};
 use crate::dbg::dbg_trace;
 use crate::gen;
 use crate::jit;
@@ -43,6 +25,32 @@ use crate::state_flags::CachedStateFlags;
 
 use std::collections::HashSet;
 use std::ptr;
+
+mod wasm {
+    extern "C" {
+        pub fn call_indirect1(f: i32, x: u16);
+    }
+}
+
+pub mod js {
+    extern "C" {
+        pub fn cpu_exception_hook(interrupt: i32) -> bool;
+        pub fn microtick() -> f64;
+        pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
+        pub fn cpu_event_halt();
+        pub fn stop_idling();
+
+        pub fn io_port_read8(port: i32) -> i32;
+        pub fn io_port_read16(port: i32) -> i32;
+        pub fn io_port_read32(port: i32) -> i32;
+
+        pub fn io_port_write8(port: i32, value: i32);
+        pub fn io_port_write16(port: i32, value: i32);
+        pub fn io_port_write32(port: i32, value: i32);
+
+        pub fn get_rand_int() -> i32;
+    }
+}
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -235,7 +243,10 @@ pub const IA32_APIC_BASE_BSP: i32 = 1 << 8;
 pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
 pub const IA32_APIC_BASE_EN: i32 = 1 << 11;
 
-pub const APIC_ADDRESS: i32 = 0xFEE00000u32 as i32;
+pub const IOAPIC_MEM_ADDRESS: u32 = 0xFEC00000;
+pub const IOAPIC_MEM_SIZE: u32 = 32;
+pub const APIC_MEM_ADDRESS: u32 = 0xFEE00000;
+pub const APIC_MEM_SIZE: u32 = 0x1000;
 
 pub const MXCSR_MASK: i32 = 0xffff;
 pub const MXCSR_FZ: i32 = 1 << 15;
@@ -2226,7 +2237,7 @@ pub unsafe fn trigger_fault_end_jit() {
     #[allow(static_mut_refs)]
     let (code, error_code) = jit_fault.take().unwrap();
     if DEBUG {
-        if cpu_exception_hook(code) {
+        if js::cpu_exception_hook(code) {
             return;
         }
     }
@@ -2950,7 +2961,7 @@ pub unsafe fn cycle_internal() {
         {
             in_jit = true;
         }
-        call_indirect1(
+        wasm::call_indirect1(
             wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
             initial_state,
         );
@@ -3135,11 +3146,11 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 pub unsafe fn main_loop() -> f64 {
     profiler::stat_increment(stat::MAIN_LOOP);
 
-    let start = microtick();
+    let start = js::microtick();
 
     if *in_hlt {
         if *flags & FLAG_INTERRUPT != 0 {
-            let t = run_hardware_timers(*acpi_enabled, start);
+            let t = js::run_hardware_timers(*acpi_enabled, start);
             handle_irqs();
             if *in_hlt {
                 profiler::stat_increment(stat::MAIN_LOOP_IDLE);
@@ -3155,8 +3166,8 @@ pub unsafe fn main_loop() -> f64 {
     loop {
         do_many_cycles_native();
 
-        let now = microtick();
-        let t = run_hardware_timers(*acpi_enabled, now);
+        let now = js::microtick();
+        let t = js::run_hardware_timers(*acpi_enabled, now);
         handle_irqs();
         if *in_hlt {
             return t;
@@ -3185,7 +3196,7 @@ pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_DE) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_DE) {
             return;
         }
     }
@@ -3198,7 +3209,7 @@ pub unsafe fn trigger_ud() {
     dbg_trace();
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_UD) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_UD) {
             return;
         }
     }
@@ -3211,7 +3222,7 @@ pub unsafe fn trigger_nm() {
     dbg_trace();
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_NM) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_NM) {
             return;
         }
     }
@@ -3223,7 +3234,7 @@ pub unsafe fn trigger_gp(code: i32) {
     dbg_log!("#gp");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_GP) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;
         }
     }
@@ -4093,7 +4104,7 @@ pub unsafe fn set_tsc(low: u32, high: u32) {
 
 #[no_mangle]
 pub unsafe fn read_tsc() -> u64 {
-    let value = (microtick() * TSC_RATE) as u64 - tsc_offset;
+    let value = (js::microtick() * TSC_RATE) as u64 - tsc_offset;
 
     if !TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND {
         return value;
@@ -4278,7 +4289,7 @@ pub unsafe fn trigger_np(code: i32) {
     dbg_log!("#np");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_NP) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_NP) {
             return;
         }
     }
@@ -4290,7 +4301,7 @@ pub unsafe fn trigger_ss(code: i32) {
     dbg_log!("#ss");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_SS) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_SS) {
             return;
         }
     }
@@ -4301,17 +4312,14 @@ pub unsafe fn trigger_ss(code: i32) {
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
 #[no_mangle]
-pub unsafe fn handle_irqs() { handle_irqs_internal(&mut pic::get_pic()) }
-
-pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
+pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
-        if let Some(irq) = pic::pic_acknowledge_irq(pic) {
+        if let Some(irq) = pic::pic_acknowledge_irq() {
             pic_call_irq(irq)
         }
         else if *acpi_enabled {
-            let irq = apic_acknowledge_irq();
-            if irq >= 0 {
-                pic_call_irq(irq as u8)
+            if let Some(irq) = apic::acknowledge_irq() {
+                pic_call_irq(irq)
             }
         }
     }
@@ -4320,11 +4328,67 @@ pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
 unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
     if *in_hlt {
-        stop_idling();
+        js::stop_idling();
         *in_hlt = false;
     }
     call_interrupt_vector(interrupt_nr as i32, false, None);
 }
+
+#[no_mangle]
+unsafe fn device_raise_irq(i: u8) {
+    pic::set_irq(i);
+    if *acpi_enabled {
+        ioapic::set_irq(i);
+    }
+    handle_irqs()
+}
+
+#[no_mangle]
+unsafe fn device_lower_irq(i: u8) {
+    pic::clear_irq(i);
+    if *acpi_enabled {
+        ioapic::clear_irq(i);
+    }
+    handle_irqs()
+}
+
+pub fn io_port_read8(port: i32) -> i32 {
+    unsafe {
+        match port {
+            0x20 => pic::port20_read() as i32,
+            0x21 => pic::port21_read() as i32,
+            0xA0 => pic::portA0_read() as i32,
+            0xA1 => pic::portA1_read() as i32,
+            0x4D0 => pic::port4D0_read() as i32,
+            0x4D1 => pic::port4D1_read() as i32,
+            _ => js::io_port_read8(port),
+        }
+    }
+}
+pub fn io_port_read16(port: i32) -> i32 { unsafe { js::io_port_read16(port) } }
+pub fn io_port_read32(port: i32) -> i32 { unsafe { js::io_port_read32(port) } }
+
+pub fn io_port_write8(port: i32, value: i32) {
+    unsafe {
+        match port {
+            0x20 | 0x21 | 0xA0 | 0xA1 | 0x4D0 | 0x4D1 => {
+                match port {
+                    0x20 => pic::port20_write(value as u8),
+                    0x21 => pic::port21_write(value as u8),
+                    0xA0 => pic::portA0_write(value as u8),
+                    0xA1 => pic::portA1_write(value as u8),
+                    0x4D0 => pic::port4D0_write(value as u8),
+                    0x4D1 => pic::port4D1_write(value as u8),
+                    _ => dbg_assert!(false),
+                };
+                handle_irqs()
+            },
+            _ => js::io_port_write8(port, value),
+        }
+    }
+}
+pub fn io_port_write16(port: i32, value: i32) { unsafe { js::io_port_write16(port, value) } }
+pub fn io_port_write32(port: i32, value: i32) { unsafe { js::io_port_write32(port, value) } }
 
 #[no_mangle]
 #[cfg(debug_assertions)]

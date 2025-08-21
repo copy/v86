@@ -15,8 +15,6 @@ import { h, view, pads, Bitmap, dump_file } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
 import { SB16 } from "./sb16.js";
-import { IOAPIC } from "./ioapic.js";
-import { APIC } from "./apic.js";
 import { ACPI } from "./acpi.js";
 import { PIT } from "./pit.js";
 import { DMA } from "./dma.js";
@@ -407,8 +405,10 @@ CPU.prototype.wasm_patch = function()
 
     this.set_cpuid_level = get_import("set_cpuid_level");
 
-    this.pic_set_irq = get_import("pic_set_irq");
-    this.pic_clear_irq = get_import("pic_clear_irq");
+    this.device_raise_irq = get_import("device_raise_irq");
+    this.device_lower_irq = get_import("device_lower_irq");
+
+    this.apic_timer = get_import("apic_timer");
 
     if(DEBUG)
     {
@@ -430,27 +430,14 @@ CPU.prototype.wasm_patch = function()
 
     this.get_pic_addr_master = get_import("get_pic_addr_master");
     this.get_pic_addr_slave = get_import("get_pic_addr_slave");
+    this.get_apic_addr = get_import("get_apic_addr");
+    this.get_ioapic_addr = get_import("get_ioapic_addr");
 
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
     this.zstd_free_ctx = get_import("zstd_free_ctx");
     this.zstd_read = get_import("zstd_read");
     this.zstd_read_free = get_import("zstd_read_free");
-
-    this.port20_read = get_import("port20_read");
-    this.port21_read = get_import("port21_read");
-    this.portA0_read = get_import("portA0_read");
-    this.portA1_read = get_import("portA1_read");
-
-    this.port20_write = get_import("port20_write");
-    this.port21_write = get_import("port21_write");
-    this.portA0_write = get_import("portA0_write");
-    this.portA1_write = get_import("portA1_write");
-
-    this.port4D0_read = get_import("port4D0_read");
-    this.port4D1_read = get_import("port4D1_read");
-    this.port4D0_write = get_import("port4D0_write");
-    this.port4D1_write = get_import("port4D1_write");
 };
 
 CPU.prototype.jit_force_generate = function(addr)
@@ -525,7 +512,7 @@ CPU.prototype.get_state = function()
     state[43] = this.current_tsc;
 
     state[45] = this.devices.virtio_9p;
-    state[46] = this.devices.apic;
+    state[46] = this.get_state_apic();
     state[47] = this.devices.rtc;
     state[48] = this.devices.pci;
     state[49] = this.devices.dma;
@@ -559,7 +546,7 @@ CPU.prototype.get_state = function()
 
     state[62] = this.fw_value;
 
-    state[63] = this.devices.ioapic;
+    state[63] = this.get_state_ioapic();
 
     state[64] = this.tss_size_32[0];
 
@@ -629,6 +616,18 @@ CPU.prototype.get_state_pic = function()
     return state;
 };
 
+CPU.prototype.get_state_apic = function()
+{
+    const APIC_STRUCT_SIZE = 4 * 46; // keep in sync with apic.rs
+    return new Uint8Array(this.wasm_memory.buffer, this.get_apic_addr(), APIC_STRUCT_SIZE);
+};
+
+CPU.prototype.get_state_ioapic = function()
+{
+    const IOAPIC_STRUCT_SIZE = 4 * 52; // keep in sync with ioapic.rs
+    return new Uint8Array(this.wasm_memory.buffer, this.get_ioapic_addr(), IOAPIC_STRUCT_SIZE);
+};
+
 CPU.prototype.set_state = function(state)
 {
     this.memory_size[0] = state[0];
@@ -695,7 +694,7 @@ CPU.prototype.set_state = function(state)
     this.set_tsc(state[43][0], state[43][1]);
 
     this.devices.virtio_9p && this.devices.virtio_9p.set_state(state[45]);
-    this.devices.apic && this.devices.apic.set_state(state[46]);
+    state[46] && this.set_state_apic(state[46]);
     this.devices.rtc && this.devices.rtc.set_state(state[47]);
     this.devices.dma && this.devices.dma.set_state(state[49]);
     this.devices.acpi && this.devices.acpi.set_state(state[50]);
@@ -744,7 +743,7 @@ CPU.prototype.set_state = function(state)
 
     this.fw_value = state[62];
 
-    this.devices.ioapic && this.devices.ioapic.set_state(state[63]);
+    state[63] && this.set_state_ioapic(state[63]);
 
     this.tss_size_32[0] = state[64];
 
@@ -807,6 +806,75 @@ CPU.prototype.set_state_pic = function(state)
     pic_slave[10] = state_slave[10]; // elcr
     pic_slave[11] = state_slave[11]; // irq_value (undefined in old state images)
     pic_slave[12] = state_slave[12]; // special_mask_mode (undefined in old state images)
+};
+
+CPU.prototype.set_state_apic = function(state)
+{
+    const APIC_STRUCT_SIZE = 4 * 46; // keep in sync with apic.rs
+    const IOAPIC_CONFIG_MASKED = 1 << 16;
+
+    if(state instanceof Array)
+    {
+        // old js state image; delete this code path when the state version changes
+        const apic = new Int32Array(this.wasm_memory.buffer, this.get_apic_addr(), APIC_STRUCT_SIZE >> 2);
+        apic[0] = state[0]; // apic_id
+        apic[1] = state[1]; // timer_divier
+        apic[2] = state[2]; // timer_divider_shift
+        apic[3] = state[3]; // timer_initial_count
+        apic[4] = state[4]; // timer_current_count
+        // skip next_tick (in js: state[4]; in rust: apic[5] and apic[6])
+        apic[7] = state[6]; // lvt_timer
+        apic[8] = state[7]; // lvt_perf_counter
+        apic[9] = state[8]; // lvt_int0
+        apic[10] = state[9]; // lvt_int1
+        apic[11] = state[10]; // lvt_error
+        apic[12] = state[11]; // tpr
+        apic[13] = state[12]; // icr0
+        apic[14] = state[13]; // icr1
+        apic.set(state[15], 16); // irr
+        apic.set(state[15], 24); // isr
+        apic.set(state[16], 32); // tmr
+        apic[40] = state[17]; // spurious_vector
+        apic[41] = state[18]; // destination_format
+        apic[42] = state[19]; // local_destination
+        apic[43] = state[20]; // error
+        apic[44] = state[21]; // read_error
+        apic[45] = state[22] || IOAPIC_CONFIG_MASKED; // lvt_thermal_sensor
+    }
+    else
+    {
+        const apic = new Uint8Array(this.wasm_memory.buffer, this.get_apic_addr(), APIC_STRUCT_SIZE);
+        dbg_assert(state instanceof Uint8Array);
+        dbg_assert(state.length === apic.length); // later versions might need to handle state upgrades here
+        apic.set(state);
+    }
+};
+
+CPU.prototype.set_state_ioapic = function(state)
+{
+    const IOAPIC_STRUCT_SIZE = 4 * 52; // keep in sync with ioapic.rs
+
+    if(state instanceof Array)
+    {
+        // old js state image; delete this code path when the state version changes
+        dbg_assert(state[0].length === 24);
+        dbg_assert(state[1].length === 24);
+        dbg_assert(state.length === 6);
+        const ioapic = new Int32Array(this.wasm_memory.buffer, this.get_ioapic_addr(), IOAPIC_STRUCT_SIZE >> 2);
+        ioapic.set(state[0], 0); // ioredtbl_config
+        ioapic.set(state[1], 24); // ioredtbl_destination
+        ioapic[48] = state[2]; // ioregsel
+        ioapic[49] = state[3]; // ioapic_id
+        ioapic[50] = state[4]; // irr
+        ioapic[51] = state[5]; // irq_value
+    }
+    else
+    {
+        const ioapic = new Uint8Array(this.wasm_memory.buffer, this.get_ioapic_addr(), IOAPIC_STRUCT_SIZE);
+        dbg_assert(state instanceof Uint8Array);
+        dbg_assert(state.length === ioapic.length); // later versions might need to handle state upgrades here
+        ioapic.set(state);
+    }
 };
 
 CPU.prototype.pack_memory = function()
@@ -1086,21 +1154,6 @@ CPU.prototype.init = function(settings, device_bus)
         io.register_write(0xE9, this, function(out_byte) {});
     }
 
-    io.register_read(0x20, this, this.port20_read);
-    io.register_read(0x21, this, this.port21_read);
-    io.register_read(0xA0, this, this.portA0_read);
-    io.register_read(0xA1, this, this.portA1_read);
-
-    io.register_write(0x20, this, this.port20_write);
-    io.register_write(0x21, this, this.port21_write);
-    io.register_write(0xA0, this, this.portA0_write);
-    io.register_write(0xA1, this, this.portA1_write);
-
-    io.register_read(0x4D0, this, this.port4D0_read);
-    io.register_read(0x4D1, this, this.port4D1_read);
-    io.register_write(0x4D0, this, this.port4D0_write);
-    io.register_write(0x4D1, this, this.port4D1_write);
-
     this.devices = {};
 
     // TODO: Make this more configurable
@@ -1110,8 +1163,6 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(this.acpi_enabled[0])
         {
-            this.devices.ioapic = new IOAPIC(this);
-            this.devices.apic = new APIC(this);
             this.devices.acpi = new ACPI(this);
         }
 
@@ -1854,31 +1905,10 @@ CPU.prototype.run_hardware_timers = function(acpi_enabled, now)
     if(acpi_enabled)
     {
         acpi_time = this.devices.acpi.timer(now);
-        apic_time = this.devices.apic.timer(now);
+        apic_time = this.apic_timer(now);
     }
 
     return Math.min(pit_time, rtc_time, acpi_time, apic_time);
-};
-
-CPU.prototype.device_raise_irq = function(i)
-{
-    dbg_assert(arguments.length === 1);
-    this.pic_set_irq(i);
-
-    if(this.devices.ioapic)
-    {
-        this.devices.ioapic.set_irq(i);
-    }
-};
-
-CPU.prototype.device_lower_irq = function(i)
-{
-    this.pic_clear_irq(i);
-
-    if(this.devices.ioapic)
-    {
-        this.devices.ioapic.clear_irq(i);
-    }
 };
 
 CPU.prototype.debug_init = function()

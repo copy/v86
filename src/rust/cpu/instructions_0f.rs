@@ -1,9 +1,5 @@
 #![allow(non_snake_case)]
 
-extern "C" {
-    fn get_rand_int() -> i32;
-}
-
 unsafe fn undefined_instruction() {
     dbg_assert!(false, "Undefined instructions");
     trigger_ud()
@@ -1207,7 +1203,7 @@ pub unsafe fn instr_0F30() {
             );
             let address = low & !(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
             dbg_assert!(
-                address == APIC_ADDRESS,
+                address == APIC_MEM_ADDRESS as i32,
                 "Changing APIC address not supported"
             );
             dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
@@ -1285,7 +1281,7 @@ pub unsafe fn instr_0F32() {
         IA32_PLATFORM_ID => {},
         IA32_APIC_BASE => {
             if *acpi_enabled {
-                low = APIC_ADDRESS;
+                low = APIC_MEM_ADDRESS as i32;
                 if *apic_enabled {
                     low |= IA32_APIC_BASE_EN
                 }
@@ -3943,7 +3939,7 @@ pub unsafe fn instr32_0FC7_1_mem(addr: i32) { instr16_0FC7_1_mem(addr) }
 #[no_mangle]
 pub unsafe fn instr16_0FC7_6_reg(r: i32) {
     // rdrand
-    let rand = get_rand_int();
+    let rand = js::get_rand_int();
     write_reg16(r, rand);
     *flags &= !FLAGS_ALL;
     *flags |= 1;
@@ -3952,7 +3948,7 @@ pub unsafe fn instr16_0FC7_6_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr32_0FC7_6_reg(r: i32) {
     // rdrand
-    let rand = get_rand_int();
+    let rand = js::get_rand_int();
     write_reg32(r, rand);
     *flags &= !FLAGS_ALL;
     *flags |= 1;
