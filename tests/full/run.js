@@ -6,17 +6,20 @@ import os from "node:os";
 import fs from "node:fs";
 import url from "node:url";
 
+// config variables
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
+const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
+const TEST_NAME = process.env.TEST_NAME;
+const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
+const LOG_LEVEL = +process.env.LOG_LEVEL || 0;
+const DISABLE_JIT = +process.env.DISABLE_JIT;
+
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
-
-var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
-var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
-var TEST_NAME = process.env.TEST_NAME;
-const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
 const VERBOSE = false;
 const LOG_SCREEN = false;
@@ -1175,7 +1178,7 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: +process.env.LOG_LEVEL || 0,
+        log_level: LOG_LEVEL,
     };
 
     if(test.cdrom)
@@ -1216,7 +1219,7 @@ function run_test(test, done)
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
     settings.net_device = test.net_device;
-    settings.disable_jit = +process.env.DISABLE_JIT;
+    settings.disable_jit = DISABLE_JIT;
 
     if(test.expected_texts)
     {
