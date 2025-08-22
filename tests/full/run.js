@@ -14,6 +14,7 @@ const TEST_NAME = process.env.TEST_NAME;
 const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 const LOG_LEVEL = +process.env.LOG_LEVEL || 0;
 const DISABLE_JIT = +process.env.DISABLE_JIT;
+const TEST_ACPI = +process.env.TEST_ACPI;
 
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
@@ -156,6 +157,7 @@ if(cluster.isPrimary)
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
+            acpi: false, // XXX: fails with acpi on
         },
         {
             name: "Windows XP HD",
@@ -731,6 +733,7 @@ if(cluster.isPrimary)
                     run: "\n",
                 },
             ],
+            acpi: false, // segfaults with acpi on (also in other emulators)
         },
         {
             name: "FreeNOS",
@@ -1061,6 +1064,7 @@ if(cluster.isPrimary)
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
+            acpi: false, // XXX: fails with acpi on (needs more precise apic timer impl)
         },
     ];
 
@@ -1215,7 +1219,7 @@ function run_test(test, done)
     }
     settings.cmdline = test.cmdline;
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
-    settings.acpi = test.acpi;
+    settings.acpi = test.acpi === undefined ? TEST_ACPI : test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
     settings.net_device = test.net_device;
