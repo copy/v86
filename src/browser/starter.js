@@ -427,7 +427,12 @@ V86.prototype.continue_init = async function(emulator, options)
         settings.handle9p = options.filesystem.handle9p;
     }
 
-    if(options.filesystem && !options.filesystem.handle9p)
+    if(options.filesystem && options.filesystem.proxy_url)
+    {
+        settings.proxy9p = options.filesystem.proxy_url;
+    }
+
+    if(options.filesystem && !options.filesystem.handle9p && !options.filesystem.proxy_url)
     {
         var fs_url = options.filesystem.basefs;
         var base_url = options.filesystem.baseurl;

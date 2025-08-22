@@ -33,7 +33,7 @@ import { IDEController } from "./ide.js";
 import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
-import { Virtio9p } from "../lib/9p.js";
+import { Virtio9p, Virtio9pHandler, Virtio9pProxy } from "../lib/9p.js";
 
 import { load_kernel } from "./kernel.js";
 
@@ -1162,9 +1162,17 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.virtio_net = new VirtioNet(this, device_bus, settings.preserve_mac_from_state_image);
         }
 
-        if(settings.fs9p || settings.handle9p)
+        if(settings.fs9p)
         {
-            this.devices.virtio_9p = new Virtio9p(settings.fs9p || settings.handle9p, this, device_bus);
+            this.devices.virtio_9p = new Virtio9p(settings.fs9p, this, device_bus);
+        }
+        else if(settings.handle9p)
+        {
+            this.devices.virtio_9p = new Virtio9pHandler(settings.handle9p, this);
+        }
+        else if(settings.proxy9p)
+        {
+            this.devices.virtio_9p = new Virtio9pProxy(settings.proxy9p, this);
         }
         if(settings.virtio_console)
         {

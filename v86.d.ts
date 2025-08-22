@@ -238,9 +238,16 @@ export interface V86Options {
         /**
          * A function that will be called for each 9p request.
          * If specified, this will back Virtio9p instead of a filesystem.
-         * Use this to connect Virtio9p to a custom 9p server.
+         * Use this to build or connect to a custom 9p server.
          */
         handle9p?: (reqbuf: Uint8Array, reply: (replybuf: Uint8Array) => void) => void;
+
+        /**
+         * A URL to a websocket proxy for 9p.
+         * If specified, this will back Virtio9p instead of a filesystem.
+         * Use this to connect to a custom 9p server over websocket.
+         */
+        proxy_url?: string;
     };
 
     /**
