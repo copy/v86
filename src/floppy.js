@@ -259,8 +259,8 @@ export function FloppyController(cpu, fda_image, fdb_image, fdc_config)
     this.eot = 0;                   // see READ/WRITE
 
     this.drives = [
-        new FloppyDrive(this, "fda", fdc_config?.fda, fda_image, CMOS_FDD_TYPE_1440),
-        new FloppyDrive(this, "fdb", fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_1440)
+        new FloppyDrive("fda", fdc_config?.fda, fda_image, CMOS_FDD_TYPE_1440),
+        new FloppyDrive("fdb", fdc_config?.fdb, fdb_image, CMOS_FDD_TYPE_1440)
     ];
 
     Object.seal(this);
@@ -1206,13 +1206,12 @@ const DISK_FORMATS = [
 /**
  * @constructor
  *
- * @param {FloppyController} fdc
  * @param {string} name
  * @param {Object|undefined} fdd_config
  * @param {SyncBuffer|Uint8Array|null|undefined} buffer
  * @param {number} fallback_drive_type
  */
-function FloppyDrive(fdc, name, fdd_config, buffer, fallback_drive_type)
+function FloppyDrive(name, fdd_config, buffer, fallback_drive_type)
 {
     /** @const */
     this.name = name;

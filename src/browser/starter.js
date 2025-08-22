@@ -1364,30 +1364,29 @@ V86.prototype.automatically = function(steps)
  * Returns immediately if the expected text is already present on screen
  * at the time this funtion is called.
  *
- * An optional timeout may be specified in `options.timeout_msec`, an Error
- * is thrown if the timeout expires before the expected text could be
- * detected. If no timeout is specified then this function only unblocks
- * once text detection succeeds.
+ * An optional timeout may be specified in `options.timeout_msec`, returns
+ * false if the timeout expires before the expected text could be detected.
  *
- * Expected text (or texts, see below) must be of type string or RegExp.
+ * Expected text (or texts, see below) must be of type string or RegExp,
+ * strings are tested against the beginning of a screen line, regular
+ * expressions against the full line but may use wildcards for partial
+ * matching.
  *
  * Two methods of text detection are supported depending on the type of the
  * argument `expected`:
  *
  * 1. If `expected` is a string or RegExp then the given text string or
- *    regular expression must partially or fully match any line on screen.
+ *    regular expression may match any line on screen for this function
+ *    to succeed.
  *
  * 2. If `expected` is an array of strings and/or RegExp objects then the
  *    list of expected lines must match exactly at "the bottom" of the
  *    screen. The "bottom" line is the first non-empty line starting from
  *    the screen's end.
- *    Expected lines specified as strings must match the entire line on
- *    screen, and regular expressions are matched against full screen
- *    lines but may match partially and use wildcards.
  *    Expected lines should not contain any trailing whitespace and/or
  *    newline characters. Expecting an empty line is valid.
  *
- * Returns the array of lines that matched on screen for both methods.
+ * Returns `true` on success and `false` when the timeout has expired.
  *
  * @param {string|RegExp|Array<string|RegExp>} expected
  * @param {{timeout_msec:(number|undefined)}=} options
@@ -1395,89 +1394,91 @@ V86.prototype.automatically = function(steps)
 V86.prototype.wait_until_vga_screen_contains = async function(expected, options)
 {
     const match_multi = Array.isArray(expected);
-    const timeout_msec = options?.timeout_msec ? options.timeout_msec : 0;
+    const timeout_msec = options?.timeout_msec || 0;
     const changed_rows = new Set();
     const screen_put_char = args => changed_rows.add(args[0]);
-    const contains_expected = expected.test ? expected.test : line => line.includes(expected);
+    const contains_expected = expected.test ? expected.test : line => line.startsWith(expected);
 
     this.add_listener("screen-put-char", screen_put_char);
-    try
+
+    const screen_lines = [];
+    for(const screen_line of this.screen_adapter.get_text_screen())
     {
-        const screen_lines = [];
-        for(const screen_line of this.screen_adapter.get_text_screen())
+        if(match_multi)
         {
+            screen_lines.push(screen_line.trimRight());
+        }
+        else if(contains_expected(screen_line))
+        {
+            this.remove_listener("screen-put-char", screen_put_char);
+            return true;
+        }
+    }
+
+    let succeeded;
+    const end = timeout_msec ? performance.now() + timeout_msec : 0;
+    loop: while(true)
+    {
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if(end && performance.now() >= end)
+        {
+            succeeded = false;
+            break;
+        }
+
+        for(const row of changed_rows)
+        {
+            const screen_line = this.screen_adapter.get_text_row(row);
             if(match_multi)
             {
-                screen_lines.push(screen_line.trimRight());
+                screen_lines[row] = screen_line.trimRight();
             }
             else if(contains_expected(screen_line))
             {
-                return [screen_line];
+                succeeded = true;
+                break loop;
             }
         }
+        changed_rows.clear();
 
-        const tm_end = timeout_msec ? performance.now() + timeout_msec : 0;
-        while(true)
+        if(!match_multi)
         {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            continue;
+        }
 
-            if(tm_end && performance.now() >= tm_end)
-            {
-                throw new Error("Timeout of " + timeout_msec + " msec expired");
-            }
+        let screen_height = screen_lines.length;
+        while(screen_height > 0 && screen_lines[screen_height - 1] === "")
+        {
+            screen_height--;
+        }
+        const screen_offset = screen_height - expected.length;
+        if(screen_offset < 0)
+        {
+            continue;
+        }
 
-            for(const row of changed_rows)
+        let matches = true;
+        for(let i = 0; i < expected.length && matches; i++)
+        {
+            if(expected[i].test)
             {
-                const screen_line = this.screen_adapter.get_text_row(row);
-                if(match_multi)
-                {
-                    screen_lines[row] = screen_line.trimRight();
-                }
-                else if(contains_expected(screen_line))
-                {
-                    return [screen_line];
-                }
+                matches = expected[i].test(screen_lines[screen_offset + i]);
             }
-            changed_rows.clear();
-
-            if(!match_multi)
+            else
             {
-                continue;
-            }
-
-            let screen_height = screen_lines.length;
-            while(screen_height > 0 && screen_lines[screen_height - 1] === "")
-            {
-                screen_height--;
-            }
-            const screen_offset = screen_height - expected.length;
-            if(screen_offset < 0)
-            {
-                continue;
-            }
-
-            let matches = true;
-            for(let i = 0; i < expected.length && matches; i++)
-            {
-                if(expected[i].test)
-                {
-                    matches = expected[i].test(screen_lines[screen_offset + i]);
-                }
-                else
-                {
-                    matches = screen_lines[screen_offset + i] === expected[i];
-                }
-            }
-            if(matches)
-            {
-                return screen_lines.slice(screen_offset, screen_height);
+                matches = screen_lines[screen_offset + i].startsWith(expected[i]);
             }
         }
+        if(matches)
+        {
+            succeeded = true;
+            break;
+        }
     }
-    finally
-    {
-        this.remove_listener("screen-put-char", screen_put_char);
-    }
+
+    this.remove_listener("screen-put-char", screen_put_char);
+    return succeeded;
 };
 
 /**
