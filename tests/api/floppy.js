@@ -19,39 +19,29 @@ function regexp_escape(text)
     return text.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
-export async function exec_test(test_name, v86_config, timeout_sec, test_function)
+async function exec_test(test_name, v86_config, timeout_sec, test_function)
 {
     console.log("Starting: " + test_name);
     const tm_start = performance.now();
     const emulator = new V86(v86_config);
+    const timeout = setTimeout(async () => {
+        console.warn(emulator.screen_adapter.get_text_screen());
+        await emulator.destroy();
+        throw new Error("Timeout error in test " + test_name);
+    }, timeout_sec * 1000);
+    await new Promise(resolve => emulator.bus.register("emulator-started", () => resolve()));
     try
     {
-        const timeout = setTimeout(async () =>
-        {
-            console.warn(emulator.screen_adapter.get_text_screen());
-            await emulator.destroy();
-            throw new Error("Timeout error in test " + test_name);
-        }, timeout_sec * 1000);
-        try
-        {
-            await new Promise(resolve => emulator.bus.register("emulator-started", () => resolve()));
-            await test_function(emulator);
-            console.log("Done: " + test_name + " (" + ((performance.now() - tm_start) / 1000).toFixed(2) + " sec)");
-        }
-        finally
-        {
-            clearTimeout(timeout);
-        }
+        await test_function(emulator);
     }
     catch(err)
     {
         console.warn(emulator.screen_adapter.get_text_screen());
         throw new Error("Error in test " + test_name, { cause: err });
     }
-    finally
-    {
-        await emulator.destroy();
-    }
+    clearTimeout(timeout);
+    await emulator.destroy();
+    console.log("Done: " + test_name + " (" + ((performance.now() - tm_start) / 1000).toFixed(2) + " sec)");
 }
 
 /**
@@ -69,15 +59,15 @@ export async function exec_test(test_name, v86_config, timeout_sec, test_functio
  * Allowed character set for command and expected is the printable subset
  * of 7-bit ASCII, use newline character "\n" to encode ENTER key.
  *
- * Returns the matched response lines. Throws an Error if the given timeout
- * elapsed before the expected response could be detected.
+ * Throws an Error if the given timeout elapsed before the expected response
+ * could be detected.
  *
  * @param {V86} emulator
  * @param {string} command
  * @param {Array<string|RegExp>} expected
  * @param {number} timeout_msec
  */
-export async function expect(emulator, command, expected, timeout_msec)
+async function expect(emulator, command, expected, timeout_msec)
 {
     if(command)
     {
@@ -86,13 +76,12 @@ export async function expect(emulator, command, expected, timeout_msec)
             emulator.keyboard_send_text(ch);
             await pause(10);
         }
-        command = command.trimRight();
-        if(command)
-        {
-            expected = [new RegExp(regexp_escape(command) + "$"), ...expected];
-        }
+        expected = [new RegExp(regexp_escape(command.trimRight()) + "$"), ...expected];
     }
-    return await emulator.wait_until_vga_screen_contains(expected, {timeout_msec: timeout_msec});
+    if(!await emulator.wait_until_vga_screen_contains(expected, {timeout_msec: timeout_msec}))
+    {
+        throw new Error("Timeout of " + timeout_msec + " msec expired");
+    }
 }
 
 const CONFIG_MSDOS622_HD = {
