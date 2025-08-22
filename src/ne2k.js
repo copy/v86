@@ -396,7 +396,12 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
     {
         dbg_log("Read cmd", LOG_NET);
         return this.cr;
-    });
+    }, function()
+    {
+        dbg_log("Read16 cmd", LOG_NET);
+        return this.cr;
+    }
+    );
 
     io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {

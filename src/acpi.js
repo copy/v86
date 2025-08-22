@@ -69,7 +69,11 @@ export function ACPI(cpu)
     });
 
     // ACPI status
-    io.register_read(0xB004, this, undefined, function()
+    io.register_read(0xB004, this, function()
+    {
+        dbg_log("ACPI status read8", LOG_ACPI);
+        return this.status & 0xFF;
+    }, function()
     {
         dbg_log("ACPI status read", LOG_ACPI);
         return this.status;

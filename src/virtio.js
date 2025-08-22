@@ -825,6 +825,13 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                     return read(addr & ~3) >> ((addr & 3) << 3) & 0xFF;
                 };
 
+                // archhurd does these reads
+                const shim_read32_on_16 = function(addr)
+                {
+                    dbg_log("Warning: 32-bit read from 16-bit virtio port", LOG_VIRTIO);
+                    return read(addr);
+                };
+
                 switch(field.bytes)
                 {
                     case 4:
@@ -835,7 +842,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                         this.cpu.io.register_write(port, this, undefined, undefined, write);
                         break;
                     case 2:
-                        this.cpu.io.register_read(port, this, shim_read8_on_16, read);
+                        this.cpu.io.register_read(port, this, shim_read8_on_16, read, shim_read32_on_16);
                         this.cpu.io.register_read(port + 1, this, shim_read8_on_16);
                         this.cpu.io.register_write(port, this, undefined, write);
                         break;

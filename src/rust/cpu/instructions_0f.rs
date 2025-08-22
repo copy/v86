@@ -1224,7 +1224,7 @@ pub unsafe fn instr_0F30() {
             dbg_log!("GS Base written");
         },
         IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux/9legacy
-        IA32_PMC0 | IA32_PMC1 => {}, // linux
+        IA32_PMC0 | IA32_PMC1 => {},               // linux
         IA32_PAT => {},
         IA32_SPEC_CTRL => {},      // linux 5.19
         IA32_TSX_CTRL => {},       // linux 5.19
