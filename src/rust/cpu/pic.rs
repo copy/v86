@@ -95,12 +95,12 @@ fn get_pic() -> MutexGuard<'static, Pic> { PIC.try_lock().unwrap() }
 
 // called from javascript for saving/restoring state
 #[no_mangle]
-pub unsafe fn get_pic_addr_master() -> u32 { &raw mut get_pic().master as u32 }
+pub fn get_pic_addr_master() -> u32 { &raw mut get_pic().master as u32 }
 #[no_mangle]
-pub unsafe fn get_pic_addr_slave() -> u32 { &raw mut get_pic().slave as u32 }
+pub fn get_pic_addr_slave() -> u32 { &raw mut get_pic().slave as u32 }
 
 impl Pic0 {
-    unsafe fn get_irq(&mut self) -> Option<u8> {
+    fn get_irq(&mut self) -> Option<u8> {
         let enabled_irr = self.irr & self.irq_mask;
 
         if enabled_irr == 0 {
@@ -143,14 +143,12 @@ impl Pic0 {
         Some(irq_number)
     }
 
-    unsafe fn port0_read(self: &Pic0) -> u32 {
-        (if self.read_isr { self.isr } else { self.irr }) as u32
-    }
-    unsafe fn port1_read(self: &Pic0) -> u32 { !self.irq_mask as u32 }
+    fn port0_read(self: &Pic0) -> u32 { (if self.read_isr { self.isr } else { self.irr }) as u32 }
+    fn port1_read(self: &Pic0) -> u32 { !self.irq_mask as u32 }
 }
 
 impl Pic {
-    unsafe fn set_irq(self: &mut Pic, i: u8) {
+    fn set_irq(self: &mut Pic, i: u8) {
         let mask = 1 << (i & 7);
         let dev = if i < 8 { &mut self.master } else { &mut self.slave };
         if dev.irq_value & mask == 0 || dev.elcr & mask != 0 {
@@ -162,7 +160,7 @@ impl Pic {
         }
     }
 
-    unsafe fn clear_irq(self: &mut Pic, i: u8) {
+    fn clear_irq(self: &mut Pic, i: u8) {
         let mask = 1 << (i & 7);
         let dev = if i < 8 { &mut self.master } else { &mut self.slave };
         dev.irq_value &= !mask;
@@ -174,7 +172,7 @@ impl Pic {
         }
     }
 
-    unsafe fn port0_write(&mut self, index: u8, v: u8) {
+    fn port0_write(&mut self, index: u8, v: u8) {
         let dev = if index == 0 { &mut self.master } else { &mut self.slave };
         if v & 0x10 != 0 {
             // xxxx1xxx
@@ -244,7 +242,7 @@ impl Pic {
         }
     }
 
-    unsafe fn port1_write(&mut self, index: u8, v: u8) {
+    fn port1_write(&mut self, index: u8, v: u8) {
         let dev = if index == 0 { &mut self.master } else { &mut self.slave };
         if dev.state == 0 {
             if dev.expect_icw4 {
@@ -281,7 +279,7 @@ impl Pic {
         }
     }
 
-    unsafe fn check_irqs_slave(&mut self) {
+    fn check_irqs_slave(&mut self) {
         let is_set = self.slave.get_irq().is_some();
         if is_set {
             self.set_irq(2)
@@ -293,7 +291,7 @@ impl Pic {
 }
 
 // called by the cpu
-pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
+pub fn pic_acknowledge_irq() -> Option<u8> {
     let mut pic = get_pic();
     let irq = match pic.master.get_irq() {
         Some(i) => i,
@@ -332,7 +330,7 @@ pub unsafe fn pic_acknowledge_irq() -> Option<u8> {
     }
 }
 
-unsafe fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
+fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
     let irq = match pic.slave.get_irq() {
         Some(i) => i,
         None => return None,
@@ -366,7 +364,7 @@ unsafe fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
     Some(pic.slave.irq_map | irq)
 }
 
-pub unsafe fn set_irq(i: u8) {
+pub fn set_irq(i: u8) {
     dbg_assert!(i < 16);
 
     if PIC_LOG_VERBOSE {
@@ -376,7 +374,7 @@ pub unsafe fn set_irq(i: u8) {
     get_pic().set_irq(i)
 }
 
-pub unsafe fn clear_irq(i: u8) {
+pub fn clear_irq(i: u8) {
     dbg_assert!(i < 16);
 
     if PIC_LOG_VERBOSE {
@@ -386,19 +384,19 @@ pub unsafe fn clear_irq(i: u8) {
     get_pic().clear_irq(i)
 }
 
-pub unsafe fn port20_read() -> u32 { get_pic().master.port0_read() }
-pub unsafe fn port21_read() -> u32 { get_pic().master.port1_read() }
+pub fn port20_read() -> u32 { get_pic().master.port0_read() }
+pub fn port21_read() -> u32 { get_pic().master.port1_read() }
 
-pub unsafe fn portA0_read() -> u32 { get_pic().slave.port0_read() }
-pub unsafe fn portA1_read() -> u32 { get_pic().slave.port1_read() }
+pub fn portA0_read() -> u32 { get_pic().slave.port0_read() }
+pub fn portA1_read() -> u32 { get_pic().slave.port1_read() }
 
-pub unsafe fn port20_write(v: u8) { get_pic().port0_write(0, v) }
-pub unsafe fn port21_write(v: u8) { get_pic().port1_write(0, v) }
+pub fn port20_write(v: u8) { get_pic().port0_write(0, v) }
+pub fn port21_write(v: u8) { get_pic().port1_write(0, v) }
 
-pub unsafe fn portA0_write(v: u8) { get_pic().port0_write(1, v) }
-pub unsafe fn portA1_write(v: u8) { get_pic().port1_write(1, v) }
+pub fn portA0_write(v: u8) { get_pic().port0_write(1, v) }
+pub fn portA1_write(v: u8) { get_pic().port1_write(1, v) }
 
-pub unsafe fn port4D0_read() -> u32 { get_pic().master.elcr as u32 }
-pub unsafe fn port4D1_read() -> u32 { get_pic().slave.elcr as u32 }
-pub unsafe fn port4D0_write(v: u8) { get_pic().master.elcr = v }
-pub unsafe fn port4D1_write(v: u8) { get_pic().slave.elcr = v }
+pub fn port4D0_read() -> u32 { get_pic().master.elcr as u32 }
+pub fn port4D1_read() -> u32 { get_pic().slave.elcr as u32 }
+pub fn port4D0_write(v: u8) { get_pic().master.elcr = v }
+pub fn port4D1_write(v: u8) { get_pic().slave.elcr = v }
