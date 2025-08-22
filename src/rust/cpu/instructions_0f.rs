@@ -1223,6 +1223,7 @@ pub unsafe fn instr_0F30() {
             // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
             dbg_log!("GS Base written");
         },
+        IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux/9legacy
         IA32_PMC0 | IA32_PMC1 => {}, // linux
         IA32_PAT => {},
         IA32_SPEC_CTRL => {},      // linux 5.19
@@ -1297,7 +1298,7 @@ pub unsafe fn instr_0F32() {
         IA32_RTIT_CTL => {}, // linux4
         MSR_SMI_COUNT => {},
         IA32_MCG_CAP => {},                        // netbsd
-        IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux
+        IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux/9legacy
         IA32_PMC0 | IA32_PMC1 => {},               // linux
         IA32_PAT => {},
         MSR_PKG_C2_RESIDENCY => {},
