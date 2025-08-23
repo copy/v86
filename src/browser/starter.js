@@ -994,34 +994,42 @@ V86.prototype.eject_cdrom = function()
  * Do nothing if there is no keyboard controller.
  *
  * @param {Array.<number>} codes
+ * @param {number=} delay
  */
-V86.prototype.keyboard_send_scancodes = function(codes)
+V86.prototype.keyboard_send_scancodes = async function(codes, delay)
 {
     for(var i = 0; i < codes.length; i++)
     {
         this.bus.send("keyboard-code", codes[i]);
+        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
     }
 };
 
 /**
  * Send translated keys
+ * @param {Array.<number>} codes
+ * @param {number=} delay
  */
-V86.prototype.keyboard_send_keys = function(codes)
+V86.prototype.keyboard_send_keys = async function(codes, delay)
 {
     for(var i = 0; i < codes.length; i++)
     {
         this.keyboard_adapter.simulate_press(codes[i]);
+        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
     }
 };
 
 /**
  * Send text, assuming the guest OS uses a US keyboard layout
+ * @param {string} string
+ * @param {number=} delay
  */
-V86.prototype.keyboard_send_text = function(string)
+V86.prototype.keyboard_send_text = async function(string, delay)
 {
     for(var i = 0; i < string.length; i++)
     {
         this.keyboard_adapter.simulate_char(string[i]);
+        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
     }
 };
 
