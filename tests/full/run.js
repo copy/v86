@@ -397,6 +397,23 @@ if(cluster.isPrimary)
             expected_texts: ["nyu# "],
         },
         {
+            name: "OpenBSD state image",
+            timeout: 60,
+            memory_size: 256 * 1024 * 1024,
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/openbsd.img",
+            state: root_path + "/images/openbsd_state-v2.bin.zst",
+            actions: [
+                {
+                    after: 1 * 1000,
+                    run: `echo 'main(){printf("it");puts(" works");}' > a.c; clang a.c; ./a.out\n`,
+                }
+            ],
+            expected_texts: [
+                "it works",
+            ],
+        },
+        {
             name: "Windows 3.0",
             slow: 1,
             skip_if_disk_image_missing: true,
@@ -550,6 +567,27 @@ if(cluster.isPrimary)
             expect_mouse_registered: true,
         },
         {
+            name: "Arch Linux state image",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            filesystem: {
+                basefs: "images/fs.json",
+                baseurl: "images/arch/",
+            },
+            state: "images/arch_state-v3.bin.zst",
+            net_device: { type: "virtio" },
+            actions: [
+                { after: 1000, run: "ls --color=never /dev/ /usr/bin/ > /dev/ttyS0\n" },
+                { after: 2000, run: `python -c 'print(100 * "a")' > /dev/ttyS0\n` },
+            ],
+            expected_serial_text: [
+                "ttyS0",
+                "syslinux-install_update",
+                "aaaaaaaaaaaaaaaaaaaa",
+            ],
+        },
+        {
             name: "Arch Linux (with fda, cdrom, hda and hdb)",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
@@ -621,6 +659,23 @@ if(cluster.isPrimary)
                 { after: 8 * 60 * 1000, run: "\n" },
             ],
             acpi: true,
+        },
+        {
+            name: "Haiku state image",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/haiku-v4.img",
+            state: root_path + "/images/haiku_state-v4.bin.zst",
+            actions: [
+                {
+                    after: 2 * 1000,
+                    run: `echo 'let rec f=function 0|1->1|x->f(x-1)+f(x-2)in Printf.printf"%d\n"(f 25)' | ocaml -stdin > /dev/ports/pc_serial0\n`
+                },
+            ],
+            expected_serial_text: [
+                "121393",
+            ],
         },
         {
             name: "9front",
@@ -1201,6 +1256,10 @@ function run_test(test, done)
     {
         settings.hdb = { url: test.hdb, async: true };
     }
+    if(test.state)
+    {
+        settings.initial_state = { url: test.state };
+    }
     if(test.bzimage)
     {
         settings.bzimage = { url: test.bzimage };
@@ -1219,7 +1278,7 @@ function run_test(test, done)
     }
     settings.cmdline = test.cmdline;
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
-    settings.acpi = test.acpi === undefined ? TEST_ACPI : test.acpi;
+    settings.acpi = test.acpi === undefined && !test.state ? TEST_ACPI : test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
     settings.net_device = test.net_device;
@@ -1413,7 +1472,7 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        emulator.keyboard_send_text(action.run);
+                        emulator.keyboard_send_text(action.run, 5);
                     }, action.after || 0)
                 );
             }
@@ -1468,7 +1527,7 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    emulator.keyboard_send_text(action.run);
+                    emulator.keyboard_send_text(action.run, 5);
                 }, action.after || 0)
             );
         }
