@@ -328,6 +328,7 @@ function onload()
                 use_parts: true,
             },
             name: "BeOS 5",
+            // NOTE: segfaults if 256k bios is used
         },
         {
             id: "msdos",
