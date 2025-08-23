@@ -728,6 +728,24 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "ReactOS state image",
+            skip_if_disk_image_missing: true,
+            memory_size: 512 * 1024 * 1024,
+            acpi: true,
+            net_device: { type: "virtio" },
+            timeout: 60,
+            hda: root_path + "/images/reactos-v3.img",
+            state: root_path + "/images/reactos_state-v3.bin.zst",
+            actions: [
+                { after: 5 * 1000, run: [0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB] }, // meta+r
+                { after: 10 * 1000, run: "cmd\n" },
+                { after: 15 * 1000, run: "echo it works > COM1\n" },
+            ],
+            expected_serial_text: [
+                "it works",
+            ],
+        },
+        {
             name: "ReactOS CD",
             skip_if_disk_image_missing: true,
             timeout: 10 * 60,
@@ -1472,7 +1490,8 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        emulator.keyboard_send_text(action.run, 5);
+                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
+                        else emulator.keyboard_send_scancodes(action.run, 5);
                     }, action.after || 0)
                 );
             }
@@ -1527,7 +1546,8 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    emulator.keyboard_send_text(action.run, 5);
+                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
+                    else emulator.keyboard_send_scancodes(action.run, 5);
                 }, action.after || 0)
             );
         }
