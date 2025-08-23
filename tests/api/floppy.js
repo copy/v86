@@ -77,6 +77,7 @@ async function expect(emulator, command, expected, timeout_msec)
             await pause(10);
         }
         expected = [new RegExp(regexp_escape(command.trimRight()) + "$"), ...expected];
+        await pause(100);
     }
     if(!await emulator.wait_until_vga_screen_contains(expected, {timeout_msec: timeout_msec}))
     {

@@ -1397,35 +1397,52 @@ V86.prototype.wait_until_vga_screen_contains = async function(expected, options)
     const timeout_msec = options?.timeout_msec || 0;
     const changed_rows = new Set();
     const screen_put_char = args => changed_rows.add(args[0]);
-    const contains_expected = expected.test ? expected.test : line => line.startsWith(expected);
+    const contains_expected = (screen_line, pattern) => pattern.test ? pattern.test(screen_line) : screen_line.startsWith(pattern);
+    const screen_lines = [];
 
     this.add_listener("screen-put-char", screen_put_char);
 
-    const screen_lines = [];
     for(const screen_line of this.screen_adapter.get_text_screen())
     {
         if(match_multi)
         {
             screen_lines.push(screen_line.trimRight());
         }
-        else if(contains_expected(screen_line))
+        else if(contains_expected(screen_line, expected))
         {
             this.remove_listener("screen-put-char", screen_put_char);
             return true;
         }
     }
 
-    let succeeded;
+    let succeeded = false;
     const end = timeout_msec ? performance.now() + timeout_msec : 0;
-    loop: while(true)
+    loop: while(!end || performance.now() < end)
     {
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        if(end && performance.now() >= end)
+        if(match_multi)
         {
-            succeeded = false;
-            break;
+            let screen_height = screen_lines.length;
+            while(screen_height > 0 && screen_lines[screen_height - 1] === "")
+            {
+                screen_height--;
+            }
+            const screen_offset = screen_height - expected.length;
+            if(screen_offset >= 0)
+            {
+                let matches = true;
+                for(let i = 0; i < expected.length && matches; i++)
+                {
+                    matches = contains_expected(screen_lines[screen_offset + i], expected[i]);
+                }
+                if(matches)
+                {
+                    succeeded = true;
+                    break;
+                }
+            }
         }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         for(const row of changed_rows)
         {
@@ -1434,47 +1451,13 @@ V86.prototype.wait_until_vga_screen_contains = async function(expected, options)
             {
                 screen_lines[row] = screen_line.trimRight();
             }
-            else if(contains_expected(screen_line))
+            else if(contains_expected(screen_line, expected))
             {
                 succeeded = true;
                 break loop;
             }
         }
         changed_rows.clear();
-
-        if(!match_multi)
-        {
-            continue;
-        }
-
-        let screen_height = screen_lines.length;
-        while(screen_height > 0 && screen_lines[screen_height - 1] === "")
-        {
-            screen_height--;
-        }
-        const screen_offset = screen_height - expected.length;
-        if(screen_offset < 0)
-        {
-            continue;
-        }
-
-        let matches = true;
-        for(let i = 0; i < expected.length && matches; i++)
-        {
-            if(expected[i].test)
-            {
-                matches = expected[i].test(screen_lines[screen_offset + i]);
-            }
-            else
-            {
-                matches = screen_lines[screen_offset + i].startsWith(expected[i]);
-            }
-        }
-        if(matches)
-        {
-            succeeded = true;
-            break;
-        }
     }
 
     this.remove_listener("screen-put-char", screen_put_char);
