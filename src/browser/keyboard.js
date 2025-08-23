@@ -237,7 +237,9 @@ export function KeyboardAdapter(bus)
         "Insert": 0xe052,
         "Delete": 0xe053,
 
+        "MetaLeft": 0xe05b,
         "OSLeft": 0xe05b,
+        "MetaRight": 0xe05c,
         "OSRight": 0xe05c,
         "ContextMenu": 0xe05d,
     };
