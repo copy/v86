@@ -885,7 +885,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 160K", // source: https://github.com/codercowboy/freedosbootdisks/tree/master/bootdisks
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.160K.img",
+            fda: root_path + "/images/experimental/freedos-fds/freedos.boot.disk.160K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
@@ -894,7 +894,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 180K",
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.180K.img",
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.180K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
@@ -903,7 +903,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 320K",
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.320K.img",
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.320K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
@@ -912,7 +912,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 360K",
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.360K.img",
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.360K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
@@ -921,7 +921,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 640K",
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.640K.img",
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.640K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
@@ -930,7 +930,7 @@ if(cluster.isPrimary)
         {
             name: "FreeDOS boot floppy 1200K",
             skip_if_disk_image_missing: true,
-            fda: root_path + "/images/freedos-fds/freedos.boot.disk.1200K.img",
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.1200K.img",
             timeout: 10,
             expected_texts: [
                 "A:\\>",
