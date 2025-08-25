@@ -53,7 +53,7 @@ pub struct Apic {
     timer_divider_shift: u32,
     timer_initial_count: u32,
     timer_current_count: u32,
-    next_tick: f64,
+    timer_last_tick: f64,
     lvt_timer: u32,
     lvt_perf_counter: u32,
     lvt_int0: u32,
@@ -79,7 +79,7 @@ static APIC: Mutex<Apic> = Mutex::new(Apic {
     timer_divider_shift: 1,
     timer_initial_count: 0,
     timer_current_count: 0,
-    next_tick: 0.0,
+    timer_last_tick: 0.0,
     lvt_timer: IOAPIC_CONFIG_MASKED,
     lvt_thermal_sensor: IOAPIC_CONFIG_MASKED,
     lvt_perf_counter: IOAPIC_CONFIG_MASKED,
@@ -133,7 +133,9 @@ fn read32_internal(apic: &mut Apic, addr: u32) -> u32 {
 
         0xB0 => {
             // write-only (written by DSL)
-            dbg_log!("APIC read eio register");
+            if APIC_LOG_VERBOSE {
+                dbg_log!("APIC read eoi register");
+            }
             0
         },
 
@@ -226,8 +228,37 @@ fn read32_internal(apic: &mut Apic, addr: u32) -> u32 {
         },
 
         0x390 => {
-            dbg_log!("read timer current count: {:08x}", apic.timer_current_count);
-            apic.timer_current_count
+            let now = unsafe { js::microtick() };
+            if apic.timer_last_tick > now {
+                // should only happen after restore_state
+                dbg_log!("warning: APIC last_tick is in the future, resetting");
+                apic.timer_last_tick = now;
+            }
+            let diff = now - apic.timer_last_tick;
+            let diff_in_ticks = diff * APIC_TIMER_FREQ / (1 << apic.timer_divider_shift) as f64;
+            dbg_assert!(diff_in_ticks >= 0.0);
+            let diff_in_ticks = diff_in_ticks as u64;
+            let result = if diff_in_ticks < apic.timer_initial_count as u64 {
+                apic.timer_initial_count - diff_in_ticks as u32
+            }
+            else {
+                let mode = apic.lvt_timer & APIC_TIMER_MODE_MASK;
+                if mode == APIC_TIMER_MODE_PERIODIC {
+                    apic.timer_initial_count
+                        - (diff_in_ticks % (apic.timer_initial_count as u64 + 1)) as u32
+                }
+                else if mode == APIC_TIMER_MODE_ONE_SHOT {
+                    0
+                }
+                else {
+                    dbg_assert!(false, "apic unimplemented timer mode: {:x}", mode);
+                    0
+                }
+            };
+            if APIC_LOG_VERBOSE {
+                dbg_log!("read timer current count: {}", result);
+            }
+            result
         },
 
         _ => {
@@ -357,6 +388,7 @@ fn write32_internal(apic: &mut Apic, addr: u32, value: u32) {
 
         0x320 => {
             dbg_log!("timer lvt: {:08x}", value);
+            // TODO: check if unmasking and if this should trigger an interrupt immediately
             apic.lvt_timer = value;
         },
 
@@ -386,25 +418,33 @@ fn write32_internal(apic: &mut Apic, addr: u32, value: u32) {
         },
 
         0x3E0 => {
-            dbg_log!("timer divider: {:08x}", value);
             apic.timer_divider = value;
 
             let divide_shift = (value & 0b11) | ((value & 0b1000) >> 1);
             apic.timer_divider_shift = if divide_shift == 0b111 { 0 } else { divide_shift + 1 };
+            dbg_log!(
+                "APIC timer divider: {:08x} shift={} tick={:.6}ms",
+                apic.timer_divider,
+                apic.timer_divider_shift,
+                (1 << apic.timer_divider_shift) as f64 / APIC_TIMER_FREQ
+            );
         },
 
         0x380 => {
             if APIC_LOG_VERBOSE {
-                dbg_log!("timer initial: {:08x}", value);
+                dbg_log!(
+                    "APIC timer initial: {} next_interrupt={:.2}ms",
+                    value,
+                    value as f64 * (1 << apic.timer_divider_shift) as f64 / APIC_TIMER_FREQ,
+                );
             }
             apic.timer_initial_count = value;
             apic.timer_current_count = value;
-
-            apic.next_tick = unsafe { js::microtick() };
+            apic.timer_last_tick = unsafe { js::microtick() };
         },
 
         0x390 => {
-            dbg_log!("timer current: {:08x}", value);
+            dbg_log!("write timer current: {:08x}", value);
             dbg_assert!(false, "read-only register");
         },
 
@@ -419,58 +459,69 @@ fn write32_internal(apic: &mut Apic, addr: u32, value: u32) {
 pub fn apic_timer(now: f64) -> f64 { timer(&mut get_apic(), now) }
 
 fn timer(apic: &mut Apic, now: f64) -> f64 {
-    if apic.timer_current_count == 0 {
+    if apic.timer_initial_count == 0 || apic.timer_current_count == 0 {
         return 100.0;
     }
 
-    let freq = APIC_TIMER_FREQ / (1 << apic.timer_divider_shift) as f64;
-    let steps = ((now - apic.next_tick) * freq).trunc() as u32;
-    apic.next_tick += steps as f64 / freq;
+    if apic.timer_last_tick > now {
+        // should only happen after restore_state
+        dbg_log!("warning: APIC last_tick is in the future, resetting");
+        apic.timer_last_tick = now;
+    }
 
-    match apic.timer_current_count.checked_sub(steps) {
-        Some(t) => apic.timer_current_count = if t == 0 { 1 } else { t },
-        None => {
-            let mode = apic.lvt_timer & APIC_TIMER_MODE_MASK;
+    let diff = now - apic.timer_last_tick;
+    let diff_in_ticks = diff * APIC_TIMER_FREQ / (1 << apic.timer_divider_shift) as f64;
+    dbg_assert!(diff_in_ticks >= 0.0);
+    let diff_in_ticks = diff_in_ticks as u64;
 
-            if mode == APIC_TIMER_MODE_PERIODIC {
-                apic.timer_current_count = apic.timer_initial_count; // XXX
+    let time_per_interrupt =
+        apic.timer_initial_count as f64 * (1 << apic.timer_divider_shift) as f64 / APIC_TIMER_FREQ;
 
-                if apic.timer_current_count == 0 {
-                    apic.timer_current_count += apic.timer_initial_count;
-                }
-                dbg_assert!(apic.timer_current_count != 0);
-
-                if apic.lvt_timer & IOAPIC_CONFIG_MASKED == 0 {
-                    deliver(
-                        apic,
-                        (apic.lvt_timer & 0xFF) as u8,
-                        IOAPIC_DELIVERY_FIXED,
-                        false,
-                    );
-                }
+    if diff_in_ticks >= apic.timer_initial_count as u64 {
+        let mode = apic.lvt_timer & APIC_TIMER_MODE_MASK;
+        if mode == APIC_TIMER_MODE_PERIODIC {
+            if APIC_LOG_VERBOSE {
+                dbg_log!("APIC timer periodic interrupt");
             }
-            else if mode == APIC_TIMER_MODE_ONE_SHOT {
-                apic.timer_current_count = 0;
-                if APIC_LOG_VERBOSE {
-                    dbg_log!("APIC timer one shot end");
-                }
 
-                if apic.lvt_timer & IOAPIC_CONFIG_MASKED == 0 {
-                    deliver(
-                        apic,
-                        (apic.lvt_timer & 0xFF) as u8,
-                        IOAPIC_DELIVERY_FIXED,
-                        false,
-                    );
-                }
+            if diff_in_ticks >= 2 * apic.timer_initial_count as u64 {
+                dbg_log!(
+                    "warning: APIC skipping {} interrupts initial={} ticks={} last_tick={:.1}ms now={:.1}ms d={:.1}ms",
+                    diff_in_ticks / apic.timer_initial_count as u64 - 1,
+                    apic.timer_initial_count,
+                    diff_in_ticks,
+                    apic.timer_last_tick,
+                    now,
+                    diff,
+                );
+                apic.timer_last_tick = now;
             }
             else {
-                dbg_assert!(false, "apic unimplemented timer mode: {:x}", mode);
+                apic.timer_last_tick += time_per_interrupt;
+                dbg_assert!(apic.timer_last_tick <= now);
             }
+        }
+        else if mode == APIC_TIMER_MODE_ONE_SHOT {
+            if APIC_LOG_VERBOSE {
+                dbg_log!("APIC timer one shot end");
+            }
+            apic.timer_current_count = 0;
+        }
+        else {
+            dbg_assert!(false, "apic unimplemented timer mode: {:x}", mode);
+        }
+
+        if apic.lvt_timer & IOAPIC_CONFIG_MASKED == 0 {
+            deliver(
+                apic,
+                (apic.lvt_timer & 0xFF) as u8,
+                IOAPIC_DELIVERY_FIXED,
+                false,
+            );
         }
     }
 
-    (apic.timer_current_count as f64 / freq).max(0.0)
+    apic.timer_last_tick + time_per_interrupt - now
 }
 
 pub fn route(

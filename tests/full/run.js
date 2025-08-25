@@ -1137,7 +1137,6 @@ if(cluster.isPrimary)
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
-            acpi: false, // XXX: fails with acpi on (needs more precise apic timer impl)
         },
     ];
 
