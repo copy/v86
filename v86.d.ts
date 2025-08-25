@@ -230,7 +230,7 @@ export interface V86Options {
         baseurl?: string;
 
         /**
-         * A directory of 9p files, as created by [fs2json](https://github.com/copy/v86/blob/master/tools/fs2json.py).
+         * A directory of 9p files, as created by [copy-to-sha256.py](https://github.com/copy/v86/blob/master/tools/copy-to-sha256.py).
          * For more details, see docs/filesystem.md
          */
         basefs?: string;

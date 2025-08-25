@@ -38,10 +38,8 @@ filesystem: {
 ```
 
 Here, `basefs` is a json file created using
-[fs2json](https://github.com/copy/fs2json). The base url is the prefix of a url
-from which the files are available. For instance, if the 9p filesystem has a
-file `/bin/sh`, that file must be accessible from
-`http://localhost/9p/base/bin/sh`.
+[fs2json.py](tools/fs2json.py) and the `baseurl` directory is created using
+[copy-to-sha256.py](tools/copy-to-sha256.py).
 
 If `basefs` and `baseurl` are omitted, an empty 9p filesystem is created. Unless
 you configure one of the alternative modes.
