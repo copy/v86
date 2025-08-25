@@ -1,9 +1,9 @@
 A 9p filesystem is supported by v86, using a virtio transport. There are several
-ways it can be set up. 
+ways it can be set up.
 
 ### Guest mount
 
-In all cases, the filesystem is mounted in the guest system using the `9p` 
+In all cases, the filesystem is mounted in the guest system using the `9p`
 filesystem type and the `host9p` device tag. Typically you want to be specific
 with the version and transport options:
 
@@ -17,7 +17,7 @@ Here are kernel arguments you can use to boot directly off the 9p filesystem:
 rw root=host9p rootfstype=9p rootflags=trans=virtio,version=9p2000.L
 ```
 
-The `aname` option can be used to pick the directory from 9p to mount. The `rw` 
+The `aname` option can be used to pick the directory from 9p to mount. The `rw`
 argument makes this a read-write root filesystem.
 
 
@@ -25,7 +25,7 @@ argument makes this a read-write root filesystem.
 
 This is the standard way to setup the 9p filesystem. It loads files over
 HTTP on-demand into an in-memory filesystem in JS. This allows files to be
-exchanged with the guest OS. See `create_file` and `read_file` in 
+exchanged with the guest OS. See `create_file` and `read_file` in
 [`starter.js`](https://github.com/copy/v86/blob/master/src/browser/starter.js).
 
 This mode is enabled by passing the following options to `V86`:
@@ -41,7 +41,7 @@ Here, `basefs` is a json file created using
 [fs2json](https://github.com/copy/fs2json). The base url is the prefix of a url
 from which the files are available. For instance, if the 9p filesystem has a
 file `/bin/sh`, that file must be accessible from
-`http://localhost/9p/base/bin/sh`. 
+`http://localhost/9p/base/bin/sh`.
 
 If `basefs` and `baseurl` are omitted, an empty 9p filesystem is created. Unless
 you configure one of the alternative modes.
@@ -84,13 +84,13 @@ Simlar to using `handle9p`, this filesystem will not be available in JS and
 will need to be re-mounted after restoring state.
 
 The WS proxy just needs to hand off messages with a connection to a normal 9p
-server. Each binary WebSocket message is the full buffer of a request or a 
-reply. 
+server. Each binary WebSocket message is the full buffer of a request or a
+reply.
 
-To implement, request message bytes can just be sent directly to the 9p 
+To implement, request message bytes can just be sent directly to the 9p
 connection, but the 9p reply stream needs to be buffered into a single binary
-WebSocket message. The proxy must at least parse the first 4 bytes to get the 
-message size and use it to buffer a full message before sending over WebSocket. 
+WebSocket message. The proxy must at least parse the first 4 bytes to get the
+message size and use it to buffer a full message before sending over WebSocket.
 
 The [wanix](https://github.com/tractordev/wanix) CLI has a `serve` command that
 not only serves a directory over HTTP, but also over 9P via WebSocket. You can
