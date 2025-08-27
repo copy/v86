@@ -341,7 +341,7 @@ expect-tests: build/v86-debug.wasm build/libwabt.cjs
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/v86-debug.wasm
+devices-test: build/v86-debug.wasm build/mitm.mjs
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
@@ -379,6 +379,10 @@ rustfmt: $(RUST_FILES)
 build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
+
+build/mitm.mjs:
+	mkdir -p build
+	wget -nv -P build https://github.com/basicer/mitm.js/releases/download/latest/mitm.mjs
 
 build/libwabt.cjs:
 	mkdir -p build
