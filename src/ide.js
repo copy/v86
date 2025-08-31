@@ -35,6 +35,9 @@ import { BusConnector } from "./bus.js";
 // - [BMI-1]
 //   Programming Interface for Bus Master IDE Controller, Revision 1.0, 5/16/94
 //   https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/u9proj/idems100.pdf
+// - [SFF-8020]
+//   ATA Packet Interface for CD-ROMs (Rev. 1.2, Feb. 12, 1994)
+//   https://dn790009.ca.archive.org/0/items/SCSISpecificationDocumentsATAATAPI/SFF-8020_%20ATA%20Packet%20Interface%20for%20CD-ROMs%20-%20SFF.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -173,7 +176,8 @@ const ATAPI_CMD_MODE_SENSE_6 = 0x1A;                  // see [CD-SCSI-2]
 const ATAPI_CMD_MODE_SENSE_10 = 0x5A;                 // see [MMC-2] 9.1.7
 const ATAPI_CMD_PAUSE = 0x45;                         // see [CD-SCSI-2]
 const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-2] 9.1.9
-const ATAPI_CMD_READ = 0x28;                          // see [CD-SCSI-2]
+const ATAPI_CMD_READ_10 = 0x28;                       // see [CD-SCSI-2]
+const ATAPI_CMD_READ_12 = 0xA8;                       // see [SFF-8020] 9.8.14
 const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-2] 9.1.12
 const ATAPI_CMD_READ_CD = 0xBE;                       // see [CD-SCSI-2]
 const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [CD-SCSI-2]
@@ -200,7 +204,8 @@ const ATAPI_CMD =
     [ATAPI_CMD_MODE_SENSE_10]:                 {name: "MODE SENSE (10)",               flags: ATAPI_CF_NONE},
     [ATAPI_CMD_PAUSE]:                         {name: "PAUSE",                         flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL]:  {name: "PREVENT ALLOW MEDIUM REMOVAL",  flags: ATAPI_CF_NONE},
-    [ATAPI_CMD_READ]:                          {name: "READ",                          flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_10]:                       {name: "READ (10)",                     flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_12]:                       {name: "READ (12)",                     flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_DISK_INFORMATION]:         {name: "READ DISK INFORMATION",         flags: ATAPI_CF_NEEDS_DISK},
@@ -1433,7 +1438,8 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
-        case ATAPI_CMD_READ:
+        case ATAPI_CMD_READ_10:
+        case ATAPI_CMD_READ_12:
             do_dbg_log = false;
             if(this.features_reg & 1)
             {
@@ -1640,7 +1646,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
 {
     // Note: Big Endian
     var lba = cmd[2] << 24 | cmd[3] << 16 | cmd[4] << 8 | cmd[5];
-    var count = cmd[7] << 8 | cmd[8];
+    var count = cmd[0] === ATAPI_CMD_READ_12 ? (cmd[6] << 24 | cmd[7] << 16 | cmd[8] << 8 | cmd[9]) : (cmd[7] << 8 | cmd[8]);
     var flags = cmd[1];
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1725,7 +1731,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
 {
     // Note: Big Endian
     var lba = cmd[2] << 24 | cmd[3] << 16 | cmd[4] << 8 | cmd[5];
-    var count = cmd[7] << 8 | cmd[8];
+    var count = cmd[0] === ATAPI_CMD_READ_12 ? (cmd[6] << 24 | cmd[7] << 16 | cmd[8] << 8 | cmd[9]) : (cmd[7] << 8 | cmd[8]);
     var flags = cmd[1];
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
