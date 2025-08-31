@@ -1,407 +1,51 @@
-<!doctype html>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Windows 98 in the Browser</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #ddd;
+      font-family: sans-serif;
+    }
+    canvas {
+      border: 2px solid #555;
+      image-rendering: pixelated;
+      max-width: 95vw;
+      max-height: 85vh;
+    }
+    #controls { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Windows 98 (Browser Edition)</h2>
+  <canvas id="screen"></canvas>
+  <div id="controls">
+    <button onclick="emulator.restart()">🔄 Restart</button>
+  </div>
 
-<title>v86</title>
-<meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no,interactive-widget=resizes-content">
-<meta name="description" content="Run KolibriOS, Linux or Windows 98 in your browser">
+  <script src="libv86.js"></script>
+  <script>
+    const emulator = new V86({
+      wasm_path: "v86.wasm",
 
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="192.png">
+      bios: { url: "bios/seabios.bin" },
+      vga_bios: { url: "bios/vgabios.bin" },
 
-<script src="build/v86_all.js?98e7110c2"></script>
-<link rel="stylesheet" href="v86.css">
+      hda: { url: "images/win98.img.gz" }, // <- Use .img.gz for smaller file
 
-<div>
-    <div id="boot_options">
-        <div id="filter">
-            Family:
-            <label><input id=filter_linux type=checkbox> Linux</label>
-            <label><input id=filter_bsd type=checkbox> BSD</label>
-            <label title="Microsoft Windows"><input id=filter_windows type=checkbox> Windows</label>
-            <label><input id=filter_unix type=checkbox> Unix-like</label>
-            <label><input id=filter_dos type=checkbox> DOS</label>
-            <label><input id=filter_custom type=checkbox> Custom</label>
-            <!--<label><input type=checkbox> Hobby OS</label>-->
-            UI:
-            <label title="Graphical desktop"><input id=filter_graphical type=checkbox> Graphical</label>
-            <label title="Text-based or serial console only"><input id=filter_text type=checkbox> Text</label>
-            Medium:
-            <label title="Boots from floppy disk"><input id=filter_floppy type=checkbox> Floppy</label>
-            <label title="Boots from CD-ROM"><input id=filter_cd type=checkbox> CD</label>
-            <label title="Boots from hard disk"><input id=filter_hd type=checkbox> HD</label>
-            Size:
-            <label title="Fits it bootsector"><input id=filter_bootsector type=checkbox> 512 B</label>
-            <label><input id=filter_lt5mb type=checkbox> &lt;5 MB</label>
-            <label><input id=filter_gt5mb type=checkbox> &gt;5 MB</label>
-            Status:
-            <label title="Most recent release is younger than 10 years"><input id=filter_modern type=checkbox> Modern</label>
-            <label title="No release in 10 years"><input id=filter_historic type=checkbox> Historic</label>
-            License:
-            <label><input id=filter_opensource type=checkbox> Open-Source</label>
-            <label><input id=filter_proprietary type=checkbox> Proprietary</label>
-            Arch:
-            <label><input id=filter_16bit type=checkbox> 16-bit</label>
-            <label><input id=filter_32bit type=checkbox> 32-bit</label>
-            <!--<label><input type=checkbox> Microkernel</label>-->
-            <!--<label title="Uses a saved memory dump to skip the boot process"><input type=checkbox> skip boot process</label>-->
-            <!--<label title="Supports networking (in v86)"><input type=checkbox> networking</label>
-            <label title="Supports audio output (in v86)"><input type=checkbox> audio</label>
-            <label title="Supports the serial console (in v86)"><input type=checkbox> serial</label>
-            <label title="Supports filesharing using virtio-9p (in v86)"><input type=checkbox> 9pfs</label>-->
-            Lang:
-            <label title="Written in assembly language"><input id=filter_asm type=checkbox> ASM</label>
-            <label title="Written in C"><input id=filter_c type=checkbox> C</label>
-            <label title="Written in C++"><input id=filter_cpp type=checkbox> C++</label>
-            <label title="Written in other languages"><input id=filter_other_lang type=checkbox> Other</label>
-            <!--<label><input type=checkbox> contains: games</label>
-            <label><input type=checkbox> contains: demos</label>
-            <label><input type=checkbox> contains: compilers</label>
-            <label><input type=checkbox> contains: web browsers</label>-->
-            <div style="text-align: right; float: right"><a href="#setup">Skip to custom settings</a></div>
-            <br style="clear: both">
-        </div>
-        <hr>
-
-        <div class="table" id="oses">
-            <div class="th">
-                <div class="tr">
-                    <span>Name</span>
-                    <span>Size</span>
-                    <span>UI</span>
-                    <span>Family</span>
-                    <span>Arch</span>
-                    <span>Status</span>
-                    <span>Source</span>
-                    <span>Lang</span>
-                    <span>Medium</span>
-                    <span>Notes</span>
-                </div>
-            </div>
-<a class="tr" href="?profile=android" id="start_android"><span>Android</span> <span>54+ MB</span> <span><div class=gui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>CD</span> <span>Android x86 1.6-r2</span></a>
-<a class="tr" href="?profile=archlinux" id="start_archlinux"><span>Arch Linux</span> <span>15+ MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>9pfs</span> <span>Various packages, including Xorg, Firefox and more</span></a>
-<a class="tr" href="?profile=buildroot" id="start_buildroot"><span>Buildroot Linux</span> <span>4.9 MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>bzImage</span> <span>Minimal Linux with Lua, ping, curl, telnet</span></a>
-<a class="tr" href="?profile=dsl" id="start_dsl"><span>Damn Small Linux</span> <span>50 MB</span> <span><div class=gui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Historic</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>4.11.rc2 with Firefox 2.0</span></a>
-<a class="tr" href="?profile=elks" id="start_elks"><span>ELKS</span> <span>1.2 MB</span> <span><div class=tui_icon></div></span> <span>Linux-like</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Linux for 8086</span></a>
-<a class="tr" href="?profile=nodeos" id="start_nodeos"><span>NodeOS</span> <span>14 MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>bzImage</span> <span>Linux with nodejs as /bin/init</span></a>
-<a class="tr" href="?profile=tilck" id="start_tilck"><span>Tilck</span> <span>16 MB</span> <span><div class=tui_icon></div></span> <span>Linux-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Tiny Linux-Compatible Kernel</span></a>
-<a class="tr" href="?profile=freebsd" id="start_freebsd"><span>FreeBSD</span> <span>16+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>FreeBSD 12.0</span></a>
-<a class="tr" href="?profile=netbsd" id="start_netbsd"><span>NetBSD</span> <span>23+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>NetBSD 4.0 with Xorg</span></a>
-<a class="tr" href="?profile=openbsd" id="start_openbsd"><span>OpenBSD</span> <span>11+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>OpenBSD 6.6</span></a>
-<a class="tr" href="?profile=fiwix" id="start_fiwix"><span>FiwixOS</span> <span>4.2+ MB</span> <span><div class=tui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>With Doom</span></a>
-<a class="tr" href="?profile=minix" id="start_minix"><span>Minix</span> <span>30+ MB</span> <span><div class=tui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Minix 3.3</span></a>
-<a class="tr" href="?profile=redox" id="start_redox"><span>Redox</span> <span>31+ MB</span> <span><div class=gui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>Rust</span> <span>HD</span> <span>A Unix-like microkernel OS written in Rust</span></a>
-<a class="tr" href="?profile=serenity" id="start_serenity"><span>SerenityOS</span> <span>16+ MB</span> <span><div class=gui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>HD</span> <span>Web browser, various games and demos</span></a>
-<a class="tr" href="?profile=sortix" id="start_sortix"><span>Sortix</span> <span>67 MB</span> <span><div class=tui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>CD</span> <span>A small self-hosting Unix-like operating system</span></a>
-<a class="tr" href="?profile=soso" id="start_soso"><span>Soso</span> <span>7.6 MB</span> <span><div class=gui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span> A Simple Unix-like operating system</span></a>
-<a class="tr" href="?profile=syllable" id="start_syllable"><span>Syllable</span> <span>28+ MB</span> <span><div class=gui_icon></div></span> <span>Unix-like</span> <span>32-bit</span> <span>Historic</span> <span>Open-source</span> <span>C++</span> <span>HD</span> <span>A user friendly, POSIX compatible OS</span></a>
-<a class="tr" href="?profile=unix-v7" id="start_unix-v7"><span>Unix V7</span> <span>0.5+ MB</span> <span><div class=tui_icon></div></span> <span>Unix</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C</span> <span>HD</span> <span>Unix V7 port for x86, including Amsterdam Compiler Kit</span></a>
-<a class="tr" href="?profile=beos" id="start_beos"><span>BeOS 5</span> <span>34+ MB</span> <span><div class=gui_icon></div></span> <span>BeOS</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C++</span> <span>HD</span> <span>With Opera 3.62, NetPositive</span></a>
-<a class="tr" href="?profile=haiku" id="start_haiku"><span>Haiku</span> <span>41+ MB</span> <span><div class=gui_icon></div></span> <span>BeOS</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>HD</span> <span>Networking (WebPositive), OCaml, 2048, NetHack</span></a>
-<a class="tr" href="?profile=aros-broadway" id="start_aros-broadway"><span>AROS Broadway</span> <span>25+ MB</span> <span><div class=gui_icon></div></span> <span>AmigaOS</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>AmigaOS-like graphical OS</span></a>
-<a class="tr" href="?profile=icaros" id="start_icaros"><span>Icaros Desktop</span> <span>60+ MB</span> <span><div class=gui_icon></div></span> <span>AmigaOS</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>AmigaOS-like graphical OS</span></a>
-<a class="tr" href="?profile=tinyaros" id="start_tinyaros"><span>Tiny Aros</span> <span>17+ MB</span> <span><div class=gui_icon></div></span> <span>AmigaOS</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>AmigaOS-like graphical OS</span></a>
-<a class="tr" href="?profile=9front" id="start_9front"><span>9front</span> <span>5.2+ MB</span> <span><div class=gui_icon></div></span> <span>Plan 9</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>An actively maintained fork of Plan 9</span></a>
-<a class="tr" href="?profile=9legacy" id="start_9legacy"><span>9legacy</span> <span>13 MB</span> <span><div class=gui_icon></div></span> <span>Plan 9</span> <span>32-bit</span> <span>Historic</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>A set of patches based on the latest release of Plan 9</span></a>
-<a class="tr" href="?profile=reactos" id="start_reactos"><span>ReactOS</span> <span>17+ MB</span> <span><div class=gui_icon></div></span> <span>Windows-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>HD</span> <span>QtWeb, LBreakout2, OpenTTD, Bochs, TCC</span></a>
-<a class="tr" href="?profile=windows1" id="start_windows1"><span>Windows 1.01</span> <span>0.7 MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>Floppy</span> <span>The first release version of Windows</span></a>
-<a class="tr" href="?profile=windows2" id="start_windows2"><span>Windows 2.03</span> <span>1.8 MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>HD</span> <span>Reversi, Paint</span></a>
-<a class="tr" href="?profile=windows30" id="start_windows30"><span>Windows 3.0</span> <span>6.5 MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>CD</span> <span>CorelDRAW! 2.0, Reversi</span></a>
-<a class="tr" href="?profile=windows31" id="start_windows31"><span>Windows 3.1</span> <span>17 MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>HD</span> <span>QBasic, Minesweeper, Solitaire</span></a>
-<a class="tr" href="?profile=windows95" id="start_windows95"><span>Windows 95</span> <span>19+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>HD</span> <span>Age of Empires, FASM, POV-Ray, Hover!</span></a>
-<a class="tr" href="?profile=windows98" id="start_windows98"><span>Windows 98</span> <span>13+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>HD</span> <span>FreeCell, Hearts, sheep.exe, IE 5</span></a>
-<a class="tr" href="?profile=windows-me" id="start_windows-me"><span>Windows ME</span> <span>14+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>HD</span> <span>Visual Basic, Office 97</span></a>
-<a class="tr" href="?profile=windowsnt3" id="start_windowsnt3"><span>Windows NT 3.1</span> <span>18+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C++</span> <span>HD</span> <span>The first retail version of Windows NT</span></a>
-<a class="tr" href="?profile=windowsnt35" id="start_windowsnt35"><span>Windows NT 3.51</span> <span>28+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C++</span> <span>HD</span> <span>Internet Explorer 3 and Visual FoxPro 3.0</span></a>
-<a class="tr" href="?profile=windowsnt4" id="start_windowsnt4"><span>Windows NT 4.0</span> <span>16+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C++</span> <span>HD</span> <span>Windows NT 4.0 Service Pack 1</span></a>
-<a class="tr" href="?profile=windows2000" id="start_windows2000"><span>Windows 2000</span> <span>28+ MB</span> <span><div class=gui_icon></div></span> <span>Windows</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C++</span> <span>HD</span> <span>IE 6, K-Meleon, Winamp, Delphi, NetHack and more</span></a>
-<a class="tr" href="?profile=86dos" id="start_86dos"><span>86-DOS</span> <span>0.1 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM</span> <span>Floppy</span> <span>86-DOS version 1.0</span></a>
-<a class="tr" href="?profile=ibm-exploring" id="start_ibm-exploring"><span>Exploring IBM</span> <span>0.1 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM</span> <span>Floppy</span> <span>Learning program on how to use a computer</span></a>
-<a class="tr" href="?profile=freedos" id="start_freedos"><span>FreeDOS</span> <span>0.6 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM, C</span> <span>Floppy</span> <span>nasm, vim, debug.com, Rogue, various demos</span></a>
-<a class="tr" href="?profile=freegem" id="start_freegem"><span>FreeGEM</span> <span>1.6+ MB</span> <span><div class=gui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Open-source</span> <span>ASM, C</span> <span>HD</span> <span>Graphical desktop for FreeDOS</span></a>
-<a class="tr" href="?profile=xcom" id="start_xcom"><span>Xcom</span> <span>1.3 MB</span> <span><div class=gui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Open-source</span> <span>ASM, C</span> <span>Floppy</span> <span>Graphical desktop for FreeDOS</span></a>
-<a class="tr" href="?profile=msdos4" id="start_msdos4"><span>MS-DOS 4</span> <span>0.5 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM</span> <span>Floppy</span> <span>Contains EDLIN</span></a>
-<a class="tr" href="?profile=msdos" id="start_msdos"><span>MS-DOS 6.22</span> <span>2.4+ MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM</span> <span>HD</span> <span>Doom, Sim City, OCaml 1.0, Turbo C and more</span></a>
-<a class="tr" href="?profile=pcmos" id="start_pcmos"><span>PC-MOS/386</span> <span>0.7 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>ASM, C</span> <span>Floppy</span> <span>Multi-user and multi-tasking OS</span></a>
-<a class="tr" href="?profile=psychdos" id="start_psychdos"><span>PsychDOS</span> <span>4.6+ MB</span> <span><div class=gui_icon></div></span> <span>DOS</span> <span>16-bit</span> <span>Historic</span> <span>Open-source</span> <span>ASM</span> <span>HD</span> <span>ANSI-like graphical desktop for FreeDOS</span></a>
-<a class="tr" href="?profile=leetos" id="start_leetos"><span>lEEt/OS</span> <span>0.5 MB</span> <span><div class=tui_icon></div></span> <span>DOS</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM, C</span> <span>Floppy</span> <span>Graphical desktop for ST-DOS</span></a>
-<a class="tr" href="?profile=bleskos" id="start_bleskos"><span>BleskOS</span> <span>0.2 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Alternative OS for older PCs</span></a>
-<a class="tr" href="?profile=bluejay" id="start_bluejay"><span>Blue Jay</span> <span>83 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Floppy</span> <span>Based on MikeOS</span></a>
-<a class="tr" href="?profile=boneos" id="start_boneos"><span>BoneOS</span> <span>3.0 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Simple hobby OS</span></a>
-<a class="tr" href="?profile=bootchess" id="start_bootchess"><span>BootChess</span> <span>4.0 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Floppy</span> <span>Chess in a bootsector</span></a>
-<a class="tr" href="?profile=catk" id="start_catk"><span>CatK</span> <span>3.2 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Simple Unix-like kernel</span></a>
-<a class="tr" href="?profile=crazierl" id="start_crazierl"><span>Crazierl</span> <span>11 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C, Erlang</span> <span>Multiboot</span> <span>An Erlang Operating System</span></a>
-<a class="tr" href="?profile=duskos" id="start_duskos"><span>Dusk OS</span> <span>0.4 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>A 32-bit Forth</span></a>
-<a class="tr" href="?profile=floppybird" id="start_floppybird"><span>Floppy Bird</span> <span>6.5 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>Floppy</span> <span>Flappy Bird game in a bootsector</span></a>
-<a class="tr" href="?profile=helenos" id="start_helenos"><span>HelenOS</span> <span>7.9 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>A microkernel-based multiserver OS</span></a>
-<a class="tr" href="?profile=hello-v86" id="start_hello-v86"><span>Hello v86</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Small bootsector demo for v86</span></a>
-<a class="tr" href="?profile=house" id="start_house"><span>House</span> <span>1.1 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>Haskell</span> <span>Floppy</span> <span>Haskell User's Operating System and Environment</span></a>
-<a class="tr" href="?profile=jx" id="start_jx"><span>JX</span> <span>1.3 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>Java</span> <span>Floppy</span> <span>Java-based operating system</span></a>
-<a class="tr" href="?profile=kolibrios" id="start_kolibrios"><span>KolibriOS</span> <span>1.3 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Floppy</span> <span>Various apps, games and demos</span></a>
-<a class="tr" href="?profile=littlekernel" id="start_littlekernel"><span>Little Kernel</span> <span>0.4 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>Multiboot</span> <span>An embedded kernel designed for small systems</span></a>
-<a class="tr" href="?profile=mcp" id="start_mcp"><span>M/CP</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>The Minimal Control Program</span></a>
-<a class="tr" href="?profile=mikeos" id="start_mikeos"><span>MikeOS</span> <span>0.2 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>CD</span> <span>Contains a FORTH and BASIC interpreter and several games</span></a>
-<a class="tr" href="?profile=mobius" id="start_mobius"><span>Mobius</span> <span>1.3 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>Floppy</span> <span>POSIX and Win32 compatible OS</span></a>
-<a class="tr" href="?profile=mu" id="start_mu"><span>Mu</span> <span>0.2 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Minimal-dependency hobbyist computing stack</span></a>
-<a class="tr" href="?profile=nanoshell" id="start_nanoshell"><span>NanoShell</span> <span>3.5 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Multi-tasked 32-bit OS with Win9x-like GUI</span></a>
-<a class="tr" href="?profile=newos" id="start_newos"><span>NewOS</span> <span>0.6 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>Floppy</span> <span>Cross-platform portable OS</span></a>
-<a class="tr" href="?profile=nopeos" id="start_nopeos"><span>Nope OS</span> <span>92 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Simple OS with BASIC interpreter</span></a>
-<a class="tr" href="?profile=oberon" id="start_oberon"><span>Oberon</span> <span>1.6 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Historic</span> <span>Open-source</span> <span>Oberon</span> <span>HD</span> <span>Native Oberon 2.3.6</span></a>
-<a class="tr" href="?profile=qnx" id="start_qnx"><span>QNX 4.05</span> <span>1.4 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C</span> <span>Floppy</span> <span>1999 demo disk</span></a>
-<a class="tr" href="?profile=sectorlisp" id="start_sectorlisp"><span>SectorLISP</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Bootstrapping LISP in a Boot Sector</span></a>
-<a class="tr" href="?profile=skift" id="start_skift"><span>Skift</span> <span>44 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C++</span> <span>CD</span> <span>A hobby OS built from scratch using C/C++</span></a>
-<a class="tr" href="?profile=snowdrop" id="start_snowdrop"><span>Snowdrop</span> <span>0.4 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Floppy</span> <span>16-bit hobby OS with GUI</span></a>
-<a class="tr" href="?profile=solos" id="start_solos"><span>Sol OS</span> <span>0.3 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Proprietary</span> <span>ASM</span> <span>Floppy</span> <span>Simple graphical OS</span></a>
-<a class="tr" href="?profile=stillalive" id="start_stillalive"><span>Still Alive</span> <span>10 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>Floppy</span> <span>Bootable demo that plays "Still Alive" from Portal</span></a>
-<a class="tr" href="?profile=t3xforth" id="start_t3xforth"><span>T3XFORTH</span> <span>59 KB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Historic</span> <span>Open-source</span> <span>ASM</span> <span>Floppy</span> <span>An old-school, plain vanilla FORTH system</span></a>
-<a class="tr" href="?profile=tetros" id="start_tetros"><span>TetrOS</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Tetris that fits into the boot sector</span></a>
-<a class="tr" href="?profile=toaruos" id="start_toaruos"><span>ToaruOS</span> <span>6.3 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>A hobby OS written from scratch</span></a>
-<a class="tr" href="?profile=bootbasic" id="start_bootbasic"><span>bootBASIC</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>A BASIC in 512 bytes of x86 machine code</span></a>
-<a class="tr" href="?profile=pillman" id="start_pillman"><span>Pillman</span> <span>512 B</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>A yellow thing eats pills and is chased by monsters</span></a>
-<a class="tr" href="?profile=bootlogo" id="start_bootlogo"><span>bootLogo</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Logo language in 508 bytes</span></a>
-<a class="tr" href="?profile=bootrogue" id="start_bootrogue"><span>bootRogue</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>A roguelike game that fits in a boot sector</span></a>
-<a class="tr" href="?profile=dino" id="start_dino"><span>dino</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Chrome's t-rex based bootsector game</span></a>
-<a class="tr" href="?profile=invaders" id="start_invaders"><span>Invaders</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>Invaders in a bootsector</span></a>
-<a class="tr" href="?profile=sanos" id="start_sanos"><span>Sanos</span> <span>0.5 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Minimalistic 32-bit x86 OS</span></a>
-<a class="tr" href="?profile=sectorforth" id="start_sectorforth"><span>sectorforth</span> <span>512 B</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>ASM</span> <span>Bootsector</span> <span>16-bit x86 Forth in a bootsector</span></a>
-<a class="tr" href="?profile=dancy" id="start_dancy"><span>Dancy</span> <span>1.3 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Dancy Operating System</span></a>
-<a class="tr" href="?profile=curios" id="start_curios"><span>CuriOS</span> <span>6.6 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Simple GUI based OS inspired by AmigaOS</span></a>
-<a class="tr" href="?profile=os64" id="start_os64"><span>OS64</span> <span>2.2 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Commodore 64 emulator OS for x86 (slow)</span></a>
-<a class="tr" href="?profile=netboot.xyz" id="start_netboot.xyz"><span>netboot.xyz</span> <span>1.0 MB</span> <span><div class=tui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Netboot into various operating systems (slow)</span></a>
-<a class="tr" href="?profile=squeaknos" id="start_squeaknos"><span>SqueakNOS</span> <span>20 MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C, Smalltalk</span> <span>CD</span> <span>Smalltalk as a Standalone OS</span></a>
-<a class="tr" href="?profile=chokanji4" id="start_chokanji4"><span>Chokanji 4</span> <span>13+ MB</span> <span><div class=gui_icon></div></span> <span>Custom</span> <span>32-bit</span> <span>Historic</span> <span>Proprietary</span> <span>C</span> <span>HD</span> <span>A Japanese OS based on the TRON project</span></a>
-        </div>
-
-        <hr>
-        <h4 id="setup">Setup</h4>
-        <table>
-            <tr>
-                <td width="350"><label for="cdrom_image">CD image</label></td>
-                <td>
-                    <input type="file" id="cdrom_image">
-                </td>
-            </tr>
-
-            <tr>
-                <td><label for="floppy_image">Floppy disk image</label></td>
-                <td><input type="file" id="fda_image"> or <a id="fda_toggle_empty_disk">create empty floppy disk</a><br></td>
-            </tr>
-
-            <tr>
-                <td><label for="floppy_image">Second floppy disk image</label></td>
-                <td><input type="file" id="fdb_image"> or <a id="fdb_toggle_empty_disk">create empty floppy disk</a><br></td>
-            </tr>
-
-            <tr>
-                <td><label for="hda_image">Hard disk image</label></td>
-                <td><input type="file" id="hda_image"> or <a id="hda_toggle_empty_disk">create empty hard disk</a><br></td>
-            </tr>
-
-            <tr>
-                <td><label for="hdb_image">Second hard disk image</label></td>
-                <td><input type="file" id="hdb_image"> or <a id="hdb_toggle_empty_disk">create empty hard disk</a><br></td>
-            </tr>
-
-            <!--
-            <tr>
-                <td><label for="multiboot_image">Multiboot kernel image (experimental)</td>
-                <td><input type="file" id="multiboot_image"><br></td>
-            </tr>
-            -->
-
-            <tr>
-                <td><label for="bzimage">Kernel image (bzimage)</label></td>
-                <td><input type="file" id="bzimage"><br></td>
-            </tr>
-            <tr>
-                <td><label for="initrd">initrd</label></td>
-                <td><input type="file" id="initrd"><br></td>
-            </tr>
-
-            <tr>
-                <td><label for="bios">BIOS</label></td>
-                <td><input type="file" id="bios"><br></td>
-            </tr>
-
-            <tr>
-                <td><label for="vga_bios">VGA BIOS</label></td>
-                <td><input type="file" id="vga_bios"><br></td>
-            </tr>
-
-            <tr>
-                <td colspan="2"><small>Disk images are not uploaded to the server</small><hr></td>
-            </tr>
-
-            <tr>
-                <td><label for="memory_size">Memory size</label></td>
-                <td>
-                    <input id="memory_size" type="number" value="128" min="16" max="2048" step="16"> MB<br>
-                </td>
-            </tr>
-
-            <tr>
-                <td><label for="vga_memory_size">Video Memory size</label></td>
-                <td>
-                    <input id="vga_memory_size" type="number" value="8" min="1" max="128" step="1"> MB<br>
-                </td>
-            </tr>
-
-            <tr>
-                <td><label for="relay_url">Networking proxy</label><br>
-                    Presets: <a id="network_none">none</a>, <a id="network_inbrowser">inbrowser</a>, <a id="network_relay">public relay</a>, <a id="network_wisp">wisp</a>, <a id="network_fetch">fetch</a></td>
-                <td>
-                    <input id="relay_url" type="text" value="wss://relay.widgetry.org/">
-                </td>
-            </tr>
-
-            <tr>
-                <td colspan="2"><hr></td>
-            </tr>
-
-            <tr>
-                <td><label for="disable_audio">Disable audio</label></td>
-                <td>
-                    <input id="disable_audio" type="checkbox"><br>
-                </td>
-            </tr>
-
-            <tr>
-                <td><label for="acpi">Enable ACPI (experimental)</label></td>
-                <td>
-                    <input id="acpi" type="checkbox"><br>
-                </td>
-            </tr>
-
-            <tr>
-                <td colspan="2"><hr></td>
-            </tr>
-
-            <tr>
-                <td><label for="boot_order">Boot order</label></td>
-                <td>
-                    <select id="boot_order">
-                        <option value="0">Auto</option>
-                        <option value="213">CD / Floppy / Hard Disk</option>
-                        <option value="123">CD / Hard Disk / Floppy</option>
-                        <option value="231">Floppy / CD / Hard Disk</option>
-                        <option value="321">Floppy / Hard Disk / CD</option>
-                        <option value="312">Hard Disk / Floppy / CD</option>
-                        <option value="132">Hard Disk / CD / Floppy</option>
-                    </select>
-                 </td>
-            </tr>
-        </table>
-
-        <br>
-        <button id="start_emulation">Start Emulation</button>
-    </div>
-
-    <div id="runtime_options" style="display: none">
-        <input type="button" value="Pause" id="run">
-        <input type="button" value="Reset" id="reset">
-        <input type="button" value="Exit" id="exit">
-        <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
-        <input type="button" value="Send Alt-Tab" id="alttab">
-        <input type="button" value="Get floppy image" id="get_fda_image">
-        <input type="button" value="Get second floppy image" id="get_fdb_image">
-        <input type="button" value="Get hard disk image" id="get_hda_image">
-        <input type="button" value="Get second hard disk image" id="get_hdb_image">
-        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
-        <input type="button" value="Insert floppy image" id="change_fda_image">
-        <input type="button" value="Insert second floppy image" id="change_fdb_image">
-        <input type="button" value="Insert CD image" id="change_cdrom_image" title="Either a single .iso file or multiple files of any type">
-        <input type="button" value="Save State" id="save_state">
-        <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
-        <input type="button" value="Memory Dump" id="memory_dump">
-        <input type="button" value="Capture network traffic" id="capture_network_traffic" title="In wireshark: file -> import from hex -> tick direction indication, timestamp %s.%f">
-        <input type="button" value="Disable mouse" id="toggle_mouse">
-        <input type="button" value="Lock mouse" id="lock_mouse">
-        <input type="button" value="Go fullscreen" id="fullscreen">
-        <input type="button" value="Take screenshot" id="take_screenshot">
-        <input type="button" value="Mute" id="mute">
-        <input type="button" value="Enable theatre mode" id="toggle_theatre">
-        <input type="button" style="display: none" value="Enable zoom to fit" id="toggle_zoom_to_fit">
-
-        <label>
-            Scale:
-            <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
-        </label>
-    </div>
-    <pre style="display: none" id="loading"></pre>
-</div>
-
-<div id="screen_container" style="display: none">
-    <div id="screen"></div>
-    <canvas id="vga"></canvas>
-    <div style="position: absolute; top: 0; z-index: 10">
-        <textarea class="phone_keyboard"></textarea>
-    </div>
-</div>
-
-
-<div id="runtime_infos" style="display: none">
-    Running: <span id="running_time">0s</span> <br>
-    Speed: <span id="speed">0</span> mIPS<br>
-    Avg speed: <span id="avg_speed">0</span> mIPS<br>
-    <br>
-    <div id="info_storage" style="display: none">
-        <b>IDE device<span id="ide_type"></span></b><br>
-        Sectors read: <span id="info_storage_sectors_read">0</span><br>
-        Bytes read: <span id="info_storage_bytes_read">0</span><br>
-        Sectors written: <span id="info_storage_sectors_written">0</span><br>
-        Bytes written: <span id="info_storage_bytes_written">0</span><br>
-        Status: <span id="info_storage_status"></span><br>
-        <br>
-    </div>
-    <div id="info_filesystem" style="display: none">
-        <b>9p Filesystem</b><br>
-        Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
-        Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
-        <div style="white-space: nowrap; overflow-x: hidden">Last file: <span id="info_filesystem_last_file"></span></div>
-        Status: <span id="info_filesystem_status"></span><br>
-        <br>
-    </div>
-    <div id="info_network" style="display: none">
-        <b>Network</b><br>
-        Bytes received: <span id="info_network_bytes_received">0</span><br>
-        Bytes transmitted: <span id="info_network_bytes_transmitted">0</span><br>
-        <br>
-    </div>
-    <b>VGA</b><br>
-    Mode: <span id="info_vga_mode"></span><br>
-    Resolution: <span id="info_res">-</span><br>
-    <br>
-    Mouse: <span id="info_mouse_enabled">No</span><br>
-
-    <div id="description" style="display: none"><br></div>
-</div>
-
-<div id="filesystem_panel" style="display: none">
-    <label>
-        Send files to emulator<br>
-        <input type="file" id="filesystem_send_file" multiple>
-    </label>
-    <br><br>
-    <label>
-        Get file from emulator<br>
-        <input type="text" id="filesystem_get_file" placeholder="Absolute path">
-    </label>
-</div>
-
-<br style="clear: both"><br>
-
-<div id="terminal"></div>
-
-<input type="button" value="Hide UI" id="toggle_ui" style="display: none">
-<div id="theatre_background" style="display: none"></div>
-
-<br style="clear: both">
-<code>Version: <a id="version" href="https://github.com/copy/v86/commits/98e7110c2">98e7110c2</a> (Feb 16, 2021 12:02)</code>
-
-<hr>
-<a href="debug.html">Enable debug</a>
-&mdash;
-<a href="https://github.com/copy/v86/blob/master/Readme.md">Readme</a>
-&mdash;
-<a href="https://github.com/copy/v86">Project on Github</a>
-&mdash;
-<a href="https://github.com/copy/v86#compatibility">Compatibility</a>
+      autostart: true,
+      memory_size: 128 * 1024 * 1024,
+      vga_memory_size: 8 * 1024 * 1024,
+      screen_container: document.getElementById("screen"),
+    });
+  </script>
+</body>
+</html>
