@@ -22,6 +22,7 @@ export const CMOS_STATUS_A = 0x0a;
 export const CMOS_STATUS_B = 0x0b;
 export const CMOS_STATUS_C = 0x0c;
 export const CMOS_STATUS_D = 0x0d;
+export const CMOS_DIAG_STATUS = 0x0e;
 export const CMOS_RESET_CODE = 0x0f;
 
 export const CMOS_FLOPPY_DRIVE_TYPE = 0x10;
@@ -86,6 +87,8 @@ export function RTC(cpu)
     this.cmos_b = 2;
     this.cmos_c = 0;
 
+    this.cmos_diag_status = 0;
+
     this.nmi_disabled = 0;
 
     this.update_interrupt = false;
@@ -119,6 +122,7 @@ RTC.prototype.get_state = function()
     state[11] = this.nmi_disabled;
     state[12] = this.update_interrupt;
     state[13] = this.update_interrupt_time;
+    state[14] = this.cmos_diag_status;
 
     return state;
 };
@@ -139,6 +143,7 @@ RTC.prototype.set_state = function(state)
     this.nmi_disabled = state[11];
     this.update_interrupt = state[12] || false;
     this.update_interrupt_time = state[13] || 0;
+    this.cmos_diag_status = state[14] || 0;
 };
 
 RTC.prototype.timer = function(time, legacy_mode)
@@ -311,7 +316,11 @@ RTC.prototype.cmos_port_read = function()
             return c;
 
         case CMOS_STATUS_D:
-            return 0;
+            return 1 << 7; // CMOS battery charged
+
+        case CMOS_DIAG_STATUS:
+            dbg_log("cmos diagnostic status read", LOG_RTC);
+            return this.cmos_diag_status;
 
         case CMOS_CENTURY:
         case CMOS_CENTURY2:
@@ -374,6 +383,10 @@ RTC.prototype.cmos_port_write = function(data_byte)
             }
 
             dbg_log("cmos b=" + h(this.cmos_b, 2), LOG_RTC);
+            break;
+
+        case CMOS_DIAG_STATUS:
+            this.cmos_diag_status = data_byte;
             break;
 
         case CMOS_RTC_SECONDS_ALARM:
