@@ -10,7 +10,6 @@ closure-compiler/
 *.wasm
 *.o
 *.bin
-*.img
 *.fixture
 *.fuse_hidden*
 *.DS_Store
