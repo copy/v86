@@ -5,7 +5,6 @@ tests/jit-paging/test-jit
 *.map
 build/
 closure-compiler/
-images/
 *.bak
 *.orig
 *.wasm
