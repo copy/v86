@@ -235,7 +235,6 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_balloon = options.virtio_balloon;
     settings.virtio_console = options.virtio_console;
-    settings.screen_options = options.screen_options;
 
     const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
     if(relay_url)
@@ -285,7 +284,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     else
     {
-        this.screen_adapter = new DummyScreenAdapter();
+        this.screen_adapter = new DummyScreenAdapter(screen_options);
     }
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
