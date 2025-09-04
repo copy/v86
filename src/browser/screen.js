@@ -1,4 +1,5 @@
 import { dbg_assert } from "../log.js";
+import { get_charmap, to_unicode } from "../lib.js";
 
 // Draws entire buffer and visualizes the layers that would be drawn
 export const DEBUG_SCREEN_LAYERS = DEBUG && false;
@@ -7,6 +8,7 @@ export const DEBUG_SCREEN_LAYERS = DEBUG && false;
  * Adapter to use visual screen in browsers (in contrast to node)
  * @constructor
  * @param {Object} options
+ * @param {function()} screen_fill_buffer
  */
 export function ScreenAdapter(options, screen_fill_buffer)
 {
@@ -95,9 +97,9 @@ export function ScreenAdapter(options, screen_fill_buffer)
         cursor_end,
         cursor_enabled,
 
-        // 8-bit Unicode character maps
-        charmap_default = [],
-        charmap = charmap_default,
+        // 8-bit-text to Unicode character map
+        /** @type {!Array<number>} */
+        charmap = get_charmap(options.encoding || "cp437"),
 
         // render loop state
         timer_id = 0,
@@ -317,52 +319,6 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
     this.init = function()
     {
-        // map 8-bit DOS codepage 437 character range 0-31 to 16-bit Unicode codepoints
-        const charmap_low = new Uint16Array([
-            0x20,   0x263A, 0x263B, 0x2665, 0x2666, 0x2663, 0x2660, 0x2022,
-            0x25D8, 0x25CB, 0x25D9, 0x2642, 0x2640, 0x266A, 0x266B, 0x263C,
-            0x25BA, 0x25C4, 0x2195, 0x203C, 0xB6,   0xA7,   0x25AC, 0x21A8,
-            0x2191, 0x2193, 0x2192, 0x2190, 0x221F, 0x2194, 0x25B2, 0x25BC
-        ]);
-        // map 8-bit DOS codepage 437 character range 127-255 to 16-bit Unicode codepoints
-        const charmap_high = new Uint16Array([
-            0x2302,
-            0xC7, 0xFC, 0xE9, 0xE2, 0xE4, 0xE0, 0xE5, 0xE7,
-            0xEA, 0xEB, 0xE8, 0xEF, 0xEE, 0xEC, 0xC4, 0xC5,
-            0xC9, 0xE6, 0xC6, 0xF4, 0xF6, 0xF2, 0xFB, 0xF9,
-            0xFF, 0xD6, 0xDC, 0xA2, 0xA3, 0xA5, 0x20A7, 0x192,
-            0xE1, 0xED, 0xF3, 0xFA, 0xF1, 0xD1, 0xAA, 0xBA,
-            0xBF, 0x2310, 0xAC, 0xBD, 0xBC, 0xA1, 0xAB, 0xBB,
-            0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556,
-            0x2555, 0x2563, 0x2551, 0x2557, 0x255D, 0x255C, 0x255B, 0x2510,
-            0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x255E, 0x255F,
-            0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x2567,
-            0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256B,
-            0x256A, 0x2518, 0x250C, 0x2588, 0x2584, 0x258C, 0x2590, 0x2580,
-            0x3B1, 0xDF, 0x393, 0x3C0, 0x3A3, 0x3C3, 0xB5, 0x3C4,
-            0x3A6, 0x398, 0x3A9, 0x3B4, 0x221E, 0x3C6, 0x3B5, 0x2229,
-            0x2261, 0xB1, 0x2265, 0x2264, 0x2320, 0x2321, 0xF7,
-            0x2248, 0xB0, 0x2219, 0xB7, 0x221A, 0x207F, 0xB2, 0x25A0, 0xA0
-        ]);
-
-        // initialize 8-bit DOS codepage 437 map charmap[256] (Uint8 -> String[1])
-        for(var i = 0, chr; i < 256; i++)
-        {
-            if(i > 126)
-            {
-                chr = charmap_high[i - 0x7F];
-            }
-            else if(i < 32)
-            {
-                chr = charmap_low[i];
-            }
-            else
-            {
-                chr = i;
-            }
-            charmap_default.push(String.fromCharCode(chr));
-        }
-
         // setup text mode cursor DOM element
         cursor_element.classList.add("cursor");
         cursor_element.style.position = "absolute";
@@ -417,7 +373,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                     context.fillStyle = number_as_color(bg_color);
                     context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
                     context.fillStyle = number_as_color(fg_color);
-                    context.fillText(charmap[character], x * char_size[0], y * char_size[1]);
+                    context.fillText(to_unicode(character, charmap), x * char_size[0], y * char_size[1]);
                 }
             }
 
@@ -716,11 +672,6 @@ export function ScreenAdapter(options, screen_fill_buffer)
         update_scale_graphic();
     };
 
-    this.set_charmap = function(text_charmap)
-    {
-        charmap = text_charmap || charmap_default;
-    };
-
     this.set_scale = function(s_x, s_y)
     {
         scale_x = s_x;
@@ -858,8 +809,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         var blinking,
             bg_color,
-            fg_color,
-            text;
+            fg_color;
 
         row_element = text_screen.childNodes[row];
         fragment = document.createElement("div");
@@ -880,7 +830,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
             color_element.style.backgroundColor = number_as_color(bg_color);
             color_element.style.color = number_as_color(fg_color);
 
-            text = "";
+            const text = [];
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
@@ -888,10 +838,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
-                var ascii = text_mode_data[offset + CHARACTER_INDEX];
-
-                text += charmap[ascii];
-                dbg_assert(charmap[ascii]);
+                text.push(text_mode_data[offset + CHARACTER_INDEX]);
 
                 i++;
                 offset += TEXT_BUF_COMPONENT_SIZE;
@@ -914,7 +861,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 }
             }
 
-            color_element.textContent = text;
+            color_element.textContent = to_unicode(text, charmap);
             fragment.appendChild(color_element);
         }
 
@@ -971,16 +918,14 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
     this.get_text_row = function(y)
     {
-        let result = "";
-
-        for(let x = 0; x < text_mode_width; x++)
+        const start = y * text_mode_width * TEXT_BUF_COMPONENT_SIZE + CHARACTER_INDEX;
+        const end = start + text_mode_width * TEXT_BUF_COMPONENT_SIZE;
+        const row = [];
+        for(let i = start; i < end; i += TEXT_BUF_COMPONENT_SIZE)
         {
-            const index = (y * text_mode_width + x) * TEXT_BUF_COMPONENT_SIZE;
-            const character = text_mode_data[index + CHARACTER_INDEX];
-            result += charmap[character];
+            row.push(text_mode_data[i]);
         }
-
-        return result;
+        return to_unicode(row, charmap);
     };
 
     this.init();

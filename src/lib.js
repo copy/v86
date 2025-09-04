@@ -728,3 +728,60 @@ export function read_sized_string_from_mem(mem, offset, len)
     len >>>= 0;
     return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
 }
+
+/**
+ * Unicode mappings of supported 8-bit code pages.
+ *
+ * Supported encodings:
+ * - "cp437": DOS Latin US (default)
+ * - "cp858": ISO 8859-1 (the lower 128 characters are identical to "cp437")
+ * - "ascii": same as "cp437" with lower 32 and upper 128 characters mapped to "."
+ */
+const CP437 = "\u0000☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+const CP858 = "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈ€ÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´­±‗¾¶§÷¸°¨·¹³²■ ";
+
+/**
+ * @type {Object<string, Array<number>>}
+ */
+const CHARMAPS =
+{
+    cp437: CP437.split("").map(ch_str => ch_str.charCodeAt(0)),
+    cp858: CP858.split("").map(ch_str => ch_str.charCodeAt(0))
+};
+
+CHARMAPS.cp858 = CHARMAPS.cp437.slice(0, 128) + CHARMAPS.cp858;
+CHARMAPS.ascii = CHARMAPS.cp437.map((c, i) => i > 31 && i < 128 ? c : 0x2E);
+
+/**
+ * Return charmap for given case-insensitve encoding id.
+ *
+ * @param {!string} encoding
+ * @return {!Array<number>}
+ */
+export function get_charmap(encoding)
+{
+    return CHARMAPS[encoding.toLowerCase()] || CHARMAPS.cp437;
+}
+
+/**
+ * Decode 8-bit encoded text into its Unicode string.
+ *
+ * @param {!Array<number>|!Uint8Array|number} text_8bit
+ * @param {!Array<number>} charmap
+ * @return {!string}
+ */
+export function to_unicode(text_8bit, charmap)
+{
+    if(Array.isArray(text_8bit))
+    {
+        return String.fromCharCode(...text_8bit.map(ch_byte => charmap[ch_byte]));
+    }
+    else if(text_8bit instanceof Uint8Array)
+    {
+        return String.fromCharCode(...new Uint16Array(text_8bit).map(ch_byte => charmap[ch_byte]));
+    }
+    else
+    {
+        return String.fromCharCode(charmap[text_8bit]);
+    }
+}

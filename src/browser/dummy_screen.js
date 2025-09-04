@@ -1,9 +1,11 @@
 import { dbg_assert } from "../log.js";
+import { get_charmap, to_unicode } from "../lib.js";
 
 /**
  * @constructor
+ * @param {Object=} options
  */
-export function DummyScreenAdapter()
+export function DummyScreenAdapter(options)
 {
     var
         graphic_image_data,
@@ -30,7 +32,11 @@ export function DummyScreenAdapter()
         text_mode_width = 0,
 
         // number of rows
-        text_mode_height = 0;
+        text_mode_height = 0,
+
+        // 8-bit-text to Unicode character map
+        /** @type {!Array<number>} */
+        charmap = get_charmap(options?.encoding || "cp437");
 
     this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {
@@ -115,7 +121,7 @@ export function DummyScreenAdapter()
     this.get_text_row = function(i)
     {
         const offset = i * text_mode_width;
-        return String.fromCharCode.apply(String, text_mode_data.subarray(offset, offset + text_mode_width));
+        return to_unicode(text_mode_data.subarray(offset, offset + text_mode_width), charmap);
     };
 
     this.set_size_text(80, 25);
