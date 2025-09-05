@@ -35,8 +35,7 @@ export function DummyScreenAdapter(options)
         text_mode_height = 0,
 
         // 8-bit-text to Unicode character map
-        /** @type {!Array<number>} */
-        charmap = get_charmap(options?.encoding || "cp437");
+        charmap = get_charmap(options?.encoding);
 
     this.put_char = function(row, col, chr, blinking, bg_color, fg_color)
     {

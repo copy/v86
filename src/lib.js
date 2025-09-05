@@ -753,14 +753,14 @@ CHARMAPS.cp858 = CHARMAPS.cp437.slice(0, 128) + CHARMAPS.cp858;
 CHARMAPS.ascii = CHARMAPS.cp437.map((c, i) => i > 31 && i < 128 ? c : 0x2E);
 
 /**
- * Return charmap for given case-insensitve encoding id.
+ * Return charmap for given encoding.
  *
- * @param {!string} encoding
+ * @param {string} encoding
  * @return {!Array<number>}
  */
 export function get_charmap(encoding)
 {
-    return CHARMAPS[encoding.toLowerCase()] || CHARMAPS.cp437;
+    return encoding && CHARMAPS[encoding] ? CHARMAPS[encoding] : CHARMAPS.cp437;
 }
 
 /**

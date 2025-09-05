@@ -98,8 +98,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         cursor_enabled,
 
         // 8-bit-text to Unicode character map
-        /** @type {!Array<number>} */
-        charmap = get_charmap(options.encoding || "cp437"),
+        charmap = get_charmap(options.encoding),
 
         // render loop state
         timer_id = 0,
