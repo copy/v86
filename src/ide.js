@@ -1647,6 +1647,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     // Note: Big Endian
     var lba = cmd[2] << 24 | cmd[3] << 16 | cmd[4] << 8 | cmd[5];
     var count = cmd[0] === ATAPI_CMD_READ_12 ? (cmd[6] << 24 | cmd[7] << 16 | cmd[8] << 8 | cmd[9]) : (cmd[7] << 8 | cmd[8]);
+    count >>>= 0;
     var flags = cmd[1];
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1732,6 +1733,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     // Note: Big Endian
     var lba = cmd[2] << 24 | cmd[3] << 16 | cmd[4] << 8 | cmd[5];
     var count = cmd[0] === ATAPI_CMD_READ_12 ? (cmd[6] << 24 | cmd[7] << 16 | cmd[8] << 8 | cmd[9]) : (cmd[7] << 8 | cmd[8]);
+    count >>>= 0;
     var flags = cmd[1];
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
