@@ -107,11 +107,9 @@ export function VirtioConsole(cpu, bus)
                     {
                         dbg_assert(false, "VirtioConsole Notified for wrong queue: " + queue_id +
                             " (expected queue_id of 2)");
-                        return;
+
                     }
-                    const queue = this.virtio.queues[queue_id];
-                    // Full buffer looks like an empty buffer so prevent it from filling
-                    while(queue.count_requests() > queue.size - 2) queue.pop_request();
+
                 },
                 (queue_id) =>
                 {

@@ -243,13 +243,31 @@ function handle_fake_tcp(packet, adapter)
 {
     const tuple = `${packet.ipv4.src.join(".")}:${packet.tcp.sport}:${packet.ipv4.dest.join(".")}:${packet.tcp.dport}`;
 
-    if(packet.tcp.syn) {
+    if(packet.tcp.syn && !packet.tcp.ack) {
         if(adapter.tcp_conn[tuple]) {
             dbg_log("SYN to already opened port", LOG_FETCH);
+            delete adapter.tcp_conn[tuple];
         }
-        if(adapter.on_tcp_connection(packet, tuple)) {
-            return;
+
+        let conn = new TCPConnection();
+        conn.state = TCP_STATE_SYN_RECEIVED;
+        conn.net = adapter;
+        conn.tuple = tuple;
+        conn.last = packet;
+
+        conn.hsrc = packet.eth.dest;
+        conn.psrc = packet.ipv4.dest;
+        conn.sport = packet.tcp.dport;
+        conn.hdest = packet.eth.src;
+        conn.dport = packet.tcp.sport;
+        conn.pdest = packet.ipv4.src;
+
+        adapter.bus.pair.send("tcp-connection", conn);
+
+        if(adapter.on_tcp_connection) {
+            adapter.on_tcp_connection(conn, packet);
         }
+        if(adapter.tcp_conn[tuple]) return;
     }
 
     if(!adapter.tcp_conn[tuple]) {
@@ -1083,7 +1101,9 @@ TCPConnection.prototype.connect = function() {
     this.ack = 1;
     this.start_seq = 0;
     this.winsize = 64240;
-    this.state = TCP_STATE_SYN_SENT;
+    if(this.state !== TCP_STATE_SYN_PROBE) {
+        this.state = TCP_STATE_SYN_SENT;
+    }
 
     let reply = this.ipv4_reply();
     reply.ipv4.id = 2345;
@@ -1099,16 +1119,12 @@ TCPConnection.prototype.connect = function() {
 };
 
 
-TCPConnection.prototype.accept = function(packet) {
+TCPConnection.prototype.accept = function(packet=undefined) {
+    packet = packet || this.last;
+    this.net.tcp_conn[this.tuple] = this;
     this.seq = 1338;
     this.ack = packet.tcp.seq + 1;
     this.start_seq = packet.tcp.seq;
-    this.hsrc = this.net.router_mac;
-    this.psrc = packet.ipv4.dest;
-    this.sport = packet.tcp.dport;
-    this.hdest = packet.eth.src;
-    this.dport = packet.tcp.sport;
-    this.pdest = packet.ipv4.src;
     this.winsize = packet.tcp.winsize;
 
     let reply = this.ipv4_reply();
@@ -1127,6 +1143,7 @@ TCPConnection.prototype.accept = function(packet) {
 };
 
 TCPConnection.prototype.process = function(packet) {
+    this.last = packet;
     if(this.state === TCP_STATE_CLOSED) {
         // dbg_log(`TCP[${this.tuple}]: WARNING: connection already closed, packet dropped`, LOG_FETCH);
         const reply = this.packet_reply(packet, {rst: true});

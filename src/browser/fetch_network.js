@@ -1,5 +1,4 @@
 import { LOG_FETCH } from "../const.js";
-import { h } from "../lib.js";
 import { dbg_log } from "../log.js";
 
 import {
@@ -36,6 +35,14 @@ export function FetchNetworkAdapter(bus, config)
     this.eth_encoder_buf = create_eth_encoder_buf();
     this.fetch = (...args) => fetch(...args);
 
+    eval(`import("../../build/mitm.mjs")`).then(factory => factory.default()).then(obj => {
+        this.tls = new obj["MITM"]();
+        this.tls["generateECCPrivateKey"]();
+    }).catch(e => {
+        console.log(e);
+        dbg_log("No TLS library detected.");
+    });
+
     // Ex: 'https://corsproxy.io/?'
     this.cors_proxy = config.cors_proxy;
 
@@ -46,25 +53,20 @@ export function FetchNetworkAdapter(bus, config)
     {
         this.send(data);
     }, this);
+    this.bus.register("tcp-connection", (conn) => {
+        if(conn.sport === 80) {
+            conn.on("data", on_data_http);
+            conn.accept();
+        }
+        if(conn.sport === 443 && this.tls) {
+            conn.on("data", on_data_tls.bind(conn, {net: this}));
+            conn.accept();
+        }
+    }, this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
 {
-};
-
-FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
-{
-    if(packet.tcp.dport === 80) {
-        let conn = new TCPConnection();
-        conn.state = TCP_STATE_SYN_RECEIVED;
-        conn.net = this;
-        conn.on("data", on_data_http);
-        conn.tuple = tuple;
-        conn.accept(packet);
-        this.tcp_conn[tuple] = conn;
-        return true;
-    }
-    return false;
 };
 
 FetchNetworkAdapter.prototype.connect = function(port)
@@ -102,6 +104,9 @@ async function on_data_http(data)
         }
         if(typeof window !== "undefined" && target.protocol === "http:" && window.location.protocol === "https:") {
             // fix "Mixed Content" errors
+            target.protocol = "https:";
+        }
+        else if(this.tls) {
             target.protocol = "https:";
         }
 
@@ -144,7 +149,7 @@ async function on_data_http(data)
         const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
         const encoder = new TextEncoder();
         let response_started = false;
-        this.net.fetch(fetch_url, opts).then((resp) => {
+        let handler = (resp) => {
             let resp_headers = new Headers(resp.headers);
             resp_headers.delete("content-encoding");
             resp_headers.delete("keep-alive");
@@ -177,7 +182,13 @@ async function on_data_http(data)
                     this.close();
                 });
             }
-        })
+        };
+
+        if(this.net.tls && /^https?:[/][/]mitm[.]it[/](ca|cert)[/.]pem/.test(target.href)) {
+            return handler(new Response(this.net.tls["getCACertificate"]()));
+        }
+
+        this.net.fetch(fetch_url, opts).then(handler)
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
             if(!response_started) {
@@ -186,6 +197,36 @@ async function on_data_http(data)
             this.close();
         });
     }
+}
+
+
+async function on_data_tls(ctx, data)
+{
+    let packet = this;
+    if(!ctx.tls) {
+        ctx.tls = packet.net.tls["ssl"]();
+        ctx.write = d => {
+            let r = ctx.tls["dataIn"](d);
+        };
+        ctx.writev = v => {
+            for(const data of v) {
+                let r = ctx.tls["dataIn"](data);
+            }
+        };
+        ctx.close = () => {
+            ctx.tls["close"]();
+            setTimeout(()=> packet.close(), 100);
+        };
+
+        ctx.tls["setPacketOutCallback"](d => {
+            let r = packet.write(d);
+        });
+
+        ctx.tls["setDataOutCallback"](d => {
+            on_data_http.call(ctx, d);
+        });
+    }
+    ctx.tls["packetIn"](data);
 }
 
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
