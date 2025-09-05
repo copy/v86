@@ -850,6 +850,7 @@ const tests =
             emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo2 >> /mnt/file' &\n");
             emulator.serial0_send("flock -x /mnt/file -c 'echo lock-exclusive-3 >> /mnt/file' &\n");
             emulator.serial0_send("echo lock-shared-4 > /mnt/fifo2\n");
+            emulator.serial0_send("sleep 0.1\n");
             emulator.serial0_send("echo lock-shared-3 > /mnt/fifo1\n");
 
             emulator.serial0_send("echo start-capture;\\\n");
