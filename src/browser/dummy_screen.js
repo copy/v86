@@ -1,5 +1,5 @@
 import { dbg_assert } from "../log.js";
-import { get_charmap, to_unicode } from "../lib.js";
+import { get_charmap } from "../lib.js";
 
 /**
  * @constructor
@@ -117,10 +117,16 @@ export function DummyScreenAdapter(options)
         return screen;
     };
 
-    this.get_text_row = function(i)
+    this.get_text_row = function(y)
     {
-        const offset = i * text_mode_width;
-        return to_unicode(text_mode_data.subarray(offset, offset + text_mode_width), charmap);
+        const start = y * text_mode_width;
+        const end = start + text_mode_width;
+        const row = [];
+        for(let i = start; i < end; i++)
+        {
+            row.push(charmap[text_mode_data[i]]);
+        }
+        return row.join("");
     };
 
     this.set_size_text(80, 25);

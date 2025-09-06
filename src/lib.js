@@ -731,11 +731,12 @@ export function read_sized_string_from_mem(mem, offset, len)
 
 /**
  * Unicode mappings of supported 8-bit code pages.
+ * Each mapping is a string of 256 Unicode symbols used as a lookup table for 8-bit character codes.
  *
- * Supported encodings:
- * - "cp437": DOS Latin US (default)
- * - "cp858": ISO 8859-1 (the lower 128 characters are identical to "cp437")
- * - "ascii": same as "cp437" with lower 32 and upper 128 characters mapped to "."
+ * Supported mappings and their encoding labels:
+ * - "cp437": CP437 (MS-DOS Latin US), default
+ * - "cp858": CP858 (Western Europe), the lower 128 bytes are identical to CP437
+ * - "ascii": ASCII (7-Bit), same as CP437 with lower 32 and upper 128 bytes mapped to "."
  *
  * @type {Object<string, string>}
  */
@@ -749,7 +750,7 @@ CHARMAPS.cp858 = CHARMAPS.cp437.slice(0, 128) + CHARMAPS.cp858;
 CHARMAPS.ascii = CHARMAPS.cp437.split("").map((c, i) => i > 31 && i < 128 ? c : ".").join("");
 
 /**
- * Return charmap for given encoding.
+ * Return charmap for given encoding, default to CP437 if encoding is falsey or not defined in CHARMAPS.
  *
  * @param {string} encoding
  * @return {!string}
@@ -757,27 +758,4 @@ CHARMAPS.ascii = CHARMAPS.cp437.split("").map((c, i) => i > 31 && i < 128 ? c : 
 export function get_charmap(encoding)
 {
     return encoding && CHARMAPS[encoding] ? CHARMAPS[encoding] : CHARMAPS.cp437;
-}
-
-/**
- * Decode 8-bit encoded text into its Unicode string.
- *
- * @param {!Array<number>|!Uint8Array|number} text_8bit
- * @param {!string} charmap
- * @return {!string}
- */
-export function to_unicode(text_8bit, charmap)
-{
-    if(Array.isArray(text_8bit))
-    {
-        return String.fromCharCode(...text_8bit.map(ch_byte => charmap.charCodeAt(ch_byte)));
-    }
-    else if(text_8bit instanceof Uint8Array)
-    {
-        return String.fromCharCode(...new Uint16Array(text_8bit).map(ch_byte => charmap.charCodeAt(ch_byte)));
-    }
-    else
-    {
-        return String.fromCharCode(charmap.charCodeAt(text_8bit));
-    }
 }
