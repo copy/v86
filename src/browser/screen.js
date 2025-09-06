@@ -1,5 +1,5 @@
 import { dbg_assert } from "../log.js";
-import { get_charmap, to_unicode } from "../lib.js";
+import { get_charmap } from "../lib.js";
 
 // Draws entire buffer and visualizes the layers that would be drawn
 export const DEBUG_SCREEN_LAYERS = DEBUG && false;
@@ -372,7 +372,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                     context.fillStyle = number_as_color(bg_color);
                     context.fillRect(x * char_size[0], y * char_size[1], char_size[0], char_size[1]);
                     context.fillStyle = number_as_color(fg_color);
-                    context.fillText(to_unicode(character, charmap), x * char_size[0], y * char_size[1]);
+                    context.fillText(charmap[character], x * char_size[0], y * char_size[1]);
                 }
             }
 
@@ -837,7 +837,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
-                text.push(text_mode_data[offset + CHARACTER_INDEX]);
+                text.push(charmap[text_mode_data[offset + CHARACTER_INDEX]]);
 
                 i++;
                 offset += TEXT_BUF_COMPONENT_SIZE;
@@ -860,7 +860,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 }
             }
 
-            color_element.textContent = to_unicode(text, charmap);
+            color_element.textContent = text.join("");
             fragment.appendChild(color_element);
         }
 
@@ -922,9 +922,9 @@ export function ScreenAdapter(options, screen_fill_buffer)
         const row = [];
         for(let i = start; i < end; i += TEXT_BUF_COMPONENT_SIZE)
         {
-            row.push(text_mode_data[i]);
+            row.push(charmap[text_mode_data[i]]);
         }
-        return to_unicode(row, charmap);
+        return row.join("");
     };
 
     this.init();
