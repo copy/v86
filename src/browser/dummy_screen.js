@@ -121,12 +121,7 @@ export function DummyScreenAdapter(options)
     {
         const begin = y * text_mode_width;
         const end = begin + text_mode_width;
-        let row = "";
-        for(let i = begin; i < end; i++)
-        {
-            row += charmap[text_mode_data[i]];
-        }
-        return row;
+        return Array.from(text_mode_data.subarray(begin, end), chr => charmap[chr]).join("");
     };
 
     this.set_size_text(80, 25);
