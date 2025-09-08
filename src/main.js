@@ -114,6 +114,17 @@ if(typeof process !== "undefined")
     v86.prototype.register_yield = function() {};
     v86.prototype.unregister_yield = function() {};
 }
+else if(window["scheduler"] && typeof window["scheduler"]["postTask"] === "function" && !location.href.includes("dont-use-scheduling-api"))
+{
+    v86.prototype.yield = function(t, tick)
+    {
+        t = Math.max(0, t);
+        window["scheduler"]["postTask"](() => this.yield_callback(tick), { delay: t });
+    };
+
+    v86.prototype.register_yield = function() {};
+    v86.prototype.unregister_yield = function() {};
+}
 else if(typeof Worker !== "undefined")
 {
     // XXX: This has a slightly lower throughput compared to window.postMessage
