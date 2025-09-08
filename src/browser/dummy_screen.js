@@ -119,14 +119,14 @@ export function DummyScreenAdapter(options)
 
     this.get_text_row = function(y)
     {
-        const start = y * text_mode_width;
-        const end = start + text_mode_width;
-        const row = [];
-        for(let i = start; i < end; i++)
+        const begin = y * text_mode_width;
+        const end = begin + text_mode_width;
+        let row = "";
+        for(let i = begin; i < end; i++)
         {
-            row.push(charmap[text_mode_data[i]]);
+            row += charmap[text_mode_data[i]];
         }
-        return row.join("");
+        return row;
     };
 
     this.set_size_text(80, 25);

@@ -808,7 +808,8 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         var blinking,
             bg_color,
-            fg_color;
+            fg_color,
+            text;
 
         row_element = text_screen.childNodes[row];
         fragment = document.createElement("div");
@@ -829,7 +830,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
             color_element.style.backgroundColor = number_as_color(bg_color);
             color_element.style.color = number_as_color(fg_color);
 
-            const text = [];
+            text = "";
 
             // put characters of the same color in one element
             while(i < text_mode_width &&
@@ -837,7 +838,10 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 text_mode_data[offset + BG_COLOR_INDEX] === bg_color &&
                 text_mode_data[offset + FG_COLOR_INDEX] === fg_color)
             {
-                text.push(charmap[text_mode_data[offset + CHARACTER_INDEX]]);
+                const chr = charmap[text_mode_data[offset + CHARACTER_INDEX]];
+
+                text += chr;
+                dbg_assert(chr);
 
                 i++;
                 offset += TEXT_BUF_COMPONENT_SIZE;
@@ -860,7 +864,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 }
             }
 
-            color_element.textContent = text.join("");
+            color_element.textContent = text;
             fragment.appendChild(color_element);
         }
 
@@ -917,14 +921,14 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
     this.get_text_row = function(y)
     {
-        const start = y * text_mode_width * TEXT_BUF_COMPONENT_SIZE + CHARACTER_INDEX;
-        const end = start + text_mode_width * TEXT_BUF_COMPONENT_SIZE;
-        const row = [];
-        for(let i = start; i < end; i += TEXT_BUF_COMPONENT_SIZE)
+        const begin = y * text_mode_width * TEXT_BUF_COMPONENT_SIZE + CHARACTER_INDEX;
+        const end = begin + text_mode_width * TEXT_BUF_COMPONENT_SIZE;
+        let row = "";
+        for(let i = begin; i < end; i += TEXT_BUF_COMPONENT_SIZE)
         {
-            row.push(charmap[text_mode_data[i]]);
+            row += charmap[text_mode_data[i]];
         }
-        return row.join("");
+        return row;
     };
 
     this.init();
