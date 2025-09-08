@@ -1481,6 +1481,83 @@ function onload()
             memory_size: 512 * 1024 * 1024,
             homepage: "https://archhurd.org/",
         },
+        {
+            id: "prettyos",
+            name: "PrettyOS",
+            fda: {
+                url: host + "prettyos.img",
+                size: 1474560,
+                async: false,
+            },
+            homepage: "https://www.prettyos.de/Image.html",
+        },
+        {
+            id: "vanadium",
+            name: "Vanadium OS",
+            cdrom: {
+                url: host + "vanadiumos.iso",
+                size: 8388608,
+                async: false,
+            },
+            homepage: "https://www.durlej.net/software.html",
+        },
+        {
+            id: "xenus",
+            name: "XENUS",
+            hda: {
+                url: host + "xenushdd.img",
+                size: 52428800,
+                async: false,
+            },
+            homepage: "https://www.durlej.net/xenus/",
+        },
+        {
+            id: "mojo",
+            name: "Mojo OS",
+            cdrom: {
+                url: host + "mojo-0.2.2.iso",
+                size: 4048896,
+                async: false,
+            },
+            homepage: "https://archiveos.org/mojoos/",
+        },
+        {
+            id: "bsdos",
+            memory_size: 128 * 1024 * 1024,
+            name: "BSD/OS",
+            hda: {
+                url: host + "bsdos43/.img.zst",
+                size: 1024 * 1024 * 1024,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            state: { url: host + "bsdos43_state.bin" },
+            homepage: "https://en.wikipedia.org/wiki/BSD/OS",
+        },
+        {
+            id: "bsdos-boot",
+            memory_size: 128 * 1024 * 1024,
+            name: "BSD/OS",
+            hda: {
+                url: host + "bsdos43/.img.zst",
+                size: 1024 * 1024 * 1024,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            homepage: "https://en.wikipedia.org/wiki/BSD/OS",
+        },
+        {
+            id: "asuro",
+            name: "Asuro",
+            cdrom: {
+                url: host + "asuro.iso",
+                size: 5361664,
+                async: false,
+            },
+            homepage: "https://asuro.xyz/",
+        },
     ];
 
     if(DEBUG)
