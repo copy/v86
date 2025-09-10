@@ -21,7 +21,7 @@ qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off -cdrom InstallCD
 ```
 
 4. Run `xcopy /v <CD-ROM letter>:\I386\ C:\install\` in a VM to copy all files, disable the CD-ROM driver.
-5. Run QEMU with the following settings: 
+5. Run QEMU with the following settings:
 
 ```sh
 qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off
@@ -33,7 +33,7 @@ qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off
 
 ## Windows NT 3.51
 
-### Installing 
+### Installing
 
 > [!NOTE]
 > In newer versions of QEMU, the Windows Setup may not work, you can use an older version of QEMU, PCem, 86Box or PCBox instead.
@@ -64,7 +64,7 @@ Recommended version: Windows NT 4.0 SP1
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
 qemu-system-i386 -m 64 -hda hdd.img -cdrom InstallCD.iso -cpu pentium -M pc,acpi=off
@@ -90,7 +90,7 @@ var emulator = new V86({
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
 qemu-system-i386 -m 512 -hda hdd.img -cdrom InstallCD.iso
@@ -107,7 +107,7 @@ After installation, change the computer type to "Standard PC" as described [here
 1. Open Start menu, right-click on "My Computer", select "Manage"
 2. Open Device Manager, open Computer, right-click on "ACPI Uniprocessor PC"
 3. Select "Update Driver..." > "No, not this time"
-4. Select "Install from a list or specific location (Advanced)" > Next > "Don't search. I will choose the driver to install." 
+4. Select "Install from a list or specific location (Advanced)" > Next > "Don't search. I will choose the driver to install."
 5. Choose "Standard PC", press Next > Finish.
 6. Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
 
@@ -145,7 +145,7 @@ Models: Sound Blaster 16 or AWE32 or compatible (WDM)
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
 qemu-system-i386 -m 1024 -hda hdd.img -cdrom InstallCD.iso

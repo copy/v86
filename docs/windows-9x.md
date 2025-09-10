@@ -6,7 +6,7 @@ Recommended versions:
 
 -------------
 
-1. Create a disk image (up to 2 GB): 
+1. Create a disk image (up to 2 GB):
 ```sh
 qemu-img create -f raw hdd.img <size in megabytes>M
 ```
@@ -32,7 +32,7 @@ qemu-system-i386 -m 128 -M pc,acpi=off -hda hdd.img
 
 Currently, the floppy drive in v86 works only with MS-DOS compatibility mode.
 
-To check this: open the Start menu, click on "Control Panel" and "System", select "Performance" tab. 
+To check this: open the Start menu, click on "Control Panel" and "System", select "Performance" tab.
 If it says *"Drive A is using MS-DOS compatibility mode file system"*, the floppy drive should work properly in v86. If not, try this solution:
 
 1. Click on "Device Manager" in "System Properties".
@@ -44,7 +44,7 @@ If it says *"Drive A is using MS-DOS compatibility mode file system"*, the flopp
 The default VGA display driver only supports 640x480x8 video mode, to fix this, install **Universal VBE9x Video Display Driver**.
 
 > [!WARNING]
-> After installing, DOS Mode (and other programs and games that require it) may not work properly. 
+> After installing, DOS Mode (and other programs and games that require it) may not work properly.
 > This is a problem in VBE9x, not v86, see [#110](https://github.com/copy/v86/issues/110).
 > Also, this driver doesn't support DirectX, DirectDraw and OpenGL.
 
