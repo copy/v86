@@ -12,7 +12,7 @@ qemu-img create -f raw hdd.img <size in megabytes>M
 ```
 2. Run QEMU with the following settings:
 ```sh
-qemu-system-i386 -m 128 -M pc,acpi=off -hda hdd.img
+qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 ```
  - add `-cdrom /path/to/installCD.iso`, if you use a CD version.
  - add `-fda /path/to/boot_floppy.img -boot a`, if you use a floppy version or your install CD is non-bootable.
