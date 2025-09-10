@@ -822,15 +822,15 @@ CPU.prototype.set_state_apic = function(state)
         apic[2] = state[2]; // timer_divider_shift
         apic[3] = state[3]; // timer_initial_count
         apic[4] = state[4]; // timer_current_count
-        // skip next_tick (in js: state[4]; in rust: apic[5] and apic[6])
-        apic[7] = state[6]; // lvt_timer
-        apic[8] = state[7]; // lvt_perf_counter
-        apic[9] = state[8]; // lvt_int0
-        apic[10] = state[9]; // lvt_int1
-        apic[11] = state[10]; // lvt_error
-        apic[12] = state[11]; // tpr
-        apic[13] = state[12]; // icr0
-        apic[14] = state[13]; // icr1
+        // skip next_tick (in js: state[4]; in rust: apic[6] and apic[7])
+        apic[8] = state[6]; // lvt_timer
+        apic[9] = state[7]; // lvt_perf_counter
+        apic[10] = state[8]; // lvt_int0
+        apic[11] = state[9]; // lvt_int1
+        apic[12] = state[10]; // lvt_error
+        apic[13] = state[11]; // tpr
+        apic[14] = state[12]; // icr0
+        apic[15] = state[13]; // icr1
         apic.set(state[15], 16); // irr
         apic.set(state[15], 24); // isr
         apic.set(state[16], 32); // tmr

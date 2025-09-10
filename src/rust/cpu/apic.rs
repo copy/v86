@@ -39,7 +39,11 @@ const IOAPIC_DELIVERY_FIXED: u8 = 0;
 const APIC_STRUCT_SIZE: usize = 4 * 46;
 
 // Note: JavaScript (cpu.get_state_apic) depens on this layout
+const _: () = assert!(std::mem::offset_of!(Apic, timer_last_tick) == 6 * 4);
+const _: () = assert!(std::mem::offset_of!(Apic, lvt_timer) == 8 * 4);
+const _: () = assert!(std::mem::offset_of!(Apic, lvt_perf_counter) == 9 * 4);
 const _: () = assert!(std::mem::offset_of!(Apic, icr0) == 14 * 4);
+const _: () = assert!(std::mem::offset_of!(Apic, icr1) == 15 * 4);
 const _: () = assert!(std::mem::offset_of!(Apic, irr) == 16 * 4);
 const _: () = assert!(std::mem::offset_of!(Apic, isr) == 24 * 4);
 const _: () = assert!(std::mem::offset_of!(Apic, tmr) == 32 * 4);
@@ -552,7 +556,7 @@ fn deliver(apic: &mut Apic, vector: u8, mode: u8, is_level: bool) {
     }
 
     if vector < 0x10 || vector == 0xFF {
-        dbg_assert!(false, "TODO: Invalid vector");
+        dbg_assert!(false, "TODO: Invalid vector: {:x}", vector);
     }
 
     if register_get_bit(&apic.irr, vector) {
