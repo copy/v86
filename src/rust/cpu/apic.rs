@@ -191,7 +191,9 @@ fn read32_internal(apic: &mut Apic, addr: u32) -> u32 {
         },
 
         0x320 => {
-            dbg_log!("read timer lvt");
+            if APIC_LOG_VERBOSE {
+                dbg_log!("read timer lvt");
+            }
             apic.lvt_timer
         },
 
@@ -391,7 +393,9 @@ fn write32_internal(apic: &mut Apic, addr: u32, value: u32) {
         },
 
         0x320 => {
-            dbg_log!("timer lvt: {:08x}", value);
+            if APIC_LOG_VERBOSE {
+                dbg_log!("timer lvt: {:08x}", value);
+            }
             // TODO: check if unmasking and if this should trigger an interrupt immediately
             apic.lvt_timer = value;
         },
