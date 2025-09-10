@@ -665,8 +665,8 @@ if(cluster.isPrimary)
             skip_if_disk_image_missing: true,
             timeout: 60,
             memory_size: 512 * 1024 * 1024,
-            hda: root_path + "/images/haiku-v4.img",
-            state: root_path + "/images/haiku_state-v4.bin.zst",
+            hda: root_path + "/images/haiku-v5.img",
+            state: root_path + "/images/haiku_state-v5.bin.zst",
             actions: [
                 {
                     after: 2 * 1000,
@@ -676,6 +676,7 @@ if(cluster.isPrimary)
             expected_serial_text: [
                 "121393",
             ],
+            acpi: true,
         },
         {
             name: "9front",
