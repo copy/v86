@@ -553,9 +553,9 @@ if(cluster.isPrimary)
                     on_text: "Compress okay",
                     run:
                         RUN_SLOW_TESTS ?
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo v86-in-v86 okay\n"
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo; echo v86-in-v86 okay\n"
                         :
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo v86-in-v86 okay\n",
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo; echo v86-in-v86 okay\n",
                 },
                 {
                     on_text: "v86-in-v86 okay",
@@ -1533,8 +1533,8 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
-                        else emulator.keyboard_send_scancodes(action.run, 5);
+                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                        else emulator.keyboard_send_scancodes(action.run, 10);
                     }, action.after || 0)
                 );
             }
@@ -1589,8 +1589,8 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 5);
-                    else emulator.keyboard_send_scancodes(action.run, 5);
+                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                    else emulator.keyboard_send_scancodes(action.run, 10);
                 }, action.after || 0)
             );
         }
