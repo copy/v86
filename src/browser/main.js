@@ -1667,7 +1667,7 @@ function onload()
         };
     }
 
-    const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
+    const os_info = Array.from(document.querySelectorAll("#oses a.tr")).map(element =>
     {
         const [_, size_raw, unit] = element.children[1].textContent.match(/([\d\.]+)\+? (\w+)/);
         let size = +size_raw;
