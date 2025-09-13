@@ -1766,9 +1766,10 @@ function onload()
 
     $("reset_filters").onclick = function()
     {
-        Array.from(document.querySelectorAll("#filter input[type=checkbox]")).forEach(element => {
+        for(const element of document.querySelectorAll("#filter input[type=checkbox]"))
+        {
             element.checked = false;
-        });
+        }
         update_filters();
     };
 
