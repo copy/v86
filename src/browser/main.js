@@ -1764,6 +1764,14 @@ function onload()
         }
     }
 
+    $("reset_filters").onclick = function()
+    {
+        Array.from(document.querySelectorAll("#filter input[type=checkbox]")).forEach(element => {
+            element.checked = false;
+        });
+        update_filters();
+    };
+
     function set_proxy_value(id, value)
     {
         const elem = $(id);
