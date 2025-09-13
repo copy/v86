@@ -1667,7 +1667,7 @@ function onload()
         };
     }
 
-    const os_info = Array.from(document.querySelectorAll("#oses tbody tr")).map(element =>
+    const os_info = Array.from(document.querySelectorAll("#oses a.tr")).map(element =>
     {
         const [_, size_raw, unit] = element.children[1].textContent.match(/([\d\.]+)\+? (\w+)/);
         let size = +size_raw;
@@ -1763,6 +1763,15 @@ function onload()
             os.element.style.display = conjunction.every(disjunction => disjunction.some(filter => filter.condition(os))) ? "" : "none";
         }
     }
+
+    $("reset_filters").onclick = function()
+    {
+        for(const element of document.querySelectorAll("#filter input[type=checkbox]"))
+        {
+            element.checked = false;
+        }
+        update_filters();
+    };
 
     function set_proxy_value(id, value)
     {
