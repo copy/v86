@@ -115,6 +115,11 @@ export const SCANCODE =
 };
 
 /**
+ * Reserved scancode bit 8: signals keyup event if set, else keydown.
+ */
+export const SCANCODE_RELEASE = 0x80;
+
+/**
  * Set of modifier keys.
  * @type !Set<!number>
  */
@@ -176,7 +181,6 @@ class DesktopKeyboard
     mute(do_mute)
     {
         this.muted = do_mute;
-console.log("keyboard mute:", this.muted);
     }
 
     release_pressed_keys()
@@ -285,7 +289,7 @@ console.log("keyboard mute:", this.muted);
                 return;
             }
             this.keys_pressed.delete(scancode);
-            scancode |= 0x80;
+            scancode |= SCANCODE_RELEASE;
         }
 
         if(!this.muted)
@@ -296,7 +300,7 @@ console.log("keyboard mute:", this.muted);
             }
             this.bus.send("keyboard-code", scancode & 0xff);
         }
-        else if(scancode === (SCANCODE.Escape | 0x80))
+        else if(scancode === (SCANCODE.Escape | SCANCODE_RELEASE))
         {
             this.string_keyboard.abort();
         }
@@ -597,9 +601,9 @@ class StringKeyboard
             {
                 const [release_mod_keys, release_alnum_keys] = set_split_group(release_keys, MODIFIER_SCANCODES);
                 // 1. release alphanumeric keys
-                await this.send_scancode(...[...release_alnum_keys].map(scancode => scancode | 0x80));
+                await this.send_scancode(...[...release_alnum_keys].map(scancode => scancode | SCANCODE_RELEASE));
                 // 2. release modifier keys
-                await this.send_scancode(...[...release_mod_keys].map(scancode => scancode | 0x80));
+                await this.send_scancode(...[...release_mod_keys].map(scancode => scancode | SCANCODE_RELEASE));
             }
             // find, group and send scancodes of keys that need to be pressed
             const press_keys = set_difference(new_keys, curr_keys);
@@ -631,14 +635,14 @@ class StringKeyboard
                     if(!!(modifier & MODIFIER_SHIFT) !== shift_pressed)
                     {
                         shift_pressed = !shift_pressed;
-                        await this.send_scancode(SCANCODE.ShiftLeft | (shift_pressed ? 0 : 0x80));
+                        await this.send_scancode(SCANCODE.ShiftLeft | (shift_pressed ? 0 : SCANCODE_RELEASE));
                     }
                     if(!!(modifier & MODIFIER_ALTGR) !== altgr_pressed)
                     {
                         altgr_pressed = !altgr_pressed;
-                        await this.send_scancode(SCANCODE.AltRight | (altgr_pressed ? 0 : 0x80));
+                        await this.send_scancode(SCANCODE.AltRight | (altgr_pressed ? 0 : SCANCODE_RELEASE));
                     }
-                    await this.send_scancode(scancode, scancode | 0x80);
+                    await this.send_scancode(scancode, scancode | SCANCODE_RELEASE);
                 }
             }
         }
@@ -674,9 +678,9 @@ class StringKeyboard
             this.bytes_sent += n_bytes;
 
             // update keyboard state
-            if(scancode & 0x80)
+            if(scancode & SCANCODE_RELEASE)
             {
-                this.keys_pressed.delete(scancode & ~0x80);
+                this.keys_pressed.delete(scancode & ~SCANCODE_RELEASE);
             }
             else
             {
