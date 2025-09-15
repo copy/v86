@@ -176,6 +176,7 @@ class DesktopKeyboard
     mute(do_mute)
     {
         this.muted = do_mute;
+console.log("keyboard mute:", this.muted);
     }
 
     release_pressed_keys()
@@ -192,7 +193,7 @@ class DesktopKeyboard
      */
     handle_event(e, keydown)
     {
-        if(e.code === "" || e.key === "Process" || e.key === "Unidentified" || e.keyCode === 229)
+        if(e.code === "" || e.key === "Process" || e.key === "Unidentified" || e.keyCode === 229)   // TODO: which key has keyCode 229?
         {
             // Handling mobile browsers and virtual keyboards
             return;
@@ -294,6 +295,10 @@ class DesktopKeyboard
                 this.bus.send("keyboard-code", scancode >> 8);
             }
             this.bus.send("keyboard-code", scancode & 0xff);
+        }
+        else if(scancode === (SCANCODE.Escape | 0x80))
+        {
+            this.string_keyboard.abort();
         }
     }
 }
@@ -533,6 +538,14 @@ class StringKeyboard
         this.bytes_sent = 0;                      // number of bytes sent in the current burst
     }
 
+    abort()
+    {
+        if(this.state === STRKBD_STATE_BUSY)
+        {
+            this.state = STRKBD_STATE_ABORTED;
+        }
+    }
+
     /**
      * @param {!string} plaintext
      */
@@ -567,14 +580,6 @@ class StringKeyboard
 
             this.state = STRKBD_STATE_IDLE;
             this.desktop_keyboard.mute(false);
-        }
-    }
-
-    abort()
-    {
-        if(this.state === STRKBD_STATE_BUSY)
-        {
-            this.state = STRKBD_STATE_ABORTED;
         }
     }
 
