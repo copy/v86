@@ -271,7 +271,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     if(!options.disable_keyboard)
     {
-        this.keyboard_adapter = new KeyboardAdapter(this.bus);
+        this.keyboard_adapter = new KeyboardAdapter(this.bus, options?.keyboard);
     }
     if(!options.disable_mouse)
     {

@@ -532,6 +532,10 @@ class StringKeyboard
      */
     constructor(bus, desktop_keyboard, kbdid, burst_size, burst_delay)
     {
+        kbdid = kbdid !== undefined ? kbdid : "";
+        burst_size = burst_size !== undefined ? burst_size : 8;
+        burst_delay = burst_delay !== undefined ? burst_delay : 100;
+
         this.bus = bus;                           // system bus
         this.desktop_keyboard = desktop_keyboard; // DesktopKeyboard
         this.keymap = get_keymap(kbdid);          // keyboard layout map, maps characters to scancode sequences
@@ -698,8 +702,9 @@ class StringKeyboard
  * @constructor
  *
  * @param {BusConnector} bus
+ * @param {Object=} options
  */
-export function KeyboardAdapter(bus)
+export function KeyboardAdapter(bus, options)
 {
     this.bus = bus;
 
@@ -711,7 +716,7 @@ export function KeyboardAdapter(bus)
 
     const keyboard = this;
     const desktop_keyboard = new DesktopKeyboard(bus);
-    const string_keyboard = new StringKeyboard(bus, desktop_keyboard, "", 8, 100);
+    const string_keyboard = new StringKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
 
     desktop_keyboard.init(string_keyboard);
 
