@@ -1019,17 +1019,13 @@ V86.prototype.keyboard_send_keys = async function(codes, delay)
 };
 
 /**
- * Send text, assuming the guest OS uses a US keyboard layout
+ * Send text
  * @param {string} string
- * @param {number=} delay
+ * @param {number=} delay -- TODO: deprecated, no longer used
  */
 V86.prototype.keyboard_send_text = async function(string, delay)
 {
-    for(var i = 0; i < string.length; i++)
-    {
-        this.keyboard_adapter.simulate_char(string[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
+    await this.keyboard_adapter.simulate_text(string);
 };
 
 /**
