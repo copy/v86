@@ -481,7 +481,7 @@ function get_keymap(kbdid)
             for(const [codepoint_str, us_keys] of Object.entries(KEYMAPS.kbdus.charset))
             {
                 const codepoint = codepoint_str.codePointAt(0);
-                if(charset.codepoint_str === undefined && !charset_missing.includes(codepoint))
+                if(charset[codepoint_str] === undefined && !charset_missing.includes(codepoint))
                 {
                     // deep copy us_keys: array(array(scancode, modifier), ...)
                     charset[codepoint_str] = JSON.parse(JSON.stringify(us_keys));
