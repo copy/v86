@@ -144,7 +144,7 @@ class DesktopKeyboard
     constructor(bus)
     {
         this.bus = bus;                // system bus
-        this.string_keyboard = null;   // StringKeyboard, assigned in init()
+        this.data_keyboard = null;     // DataKeyboard, assigned in init()
         this.keys_pressed = new Set(); // Set<number>, the set of pressed key scancodes
         this.muted = false;            // boolean, do not send any scancodes to bus if true
 
@@ -168,11 +168,11 @@ class DesktopKeyboard
     }
 
     /**
-     * @param {StringKeyboard} string_keyboard
+     * @param {DataKeyboard} data_keyboard
      */
-    init(string_keyboard)
+    init(data_keyboard)
     {
-        this.string_keyboard = string_keyboard;
+        this.data_keyboard = data_keyboard;
     }
 
     /**
@@ -302,13 +302,13 @@ class DesktopKeyboard
         }
         else if(scancode === (SCANCODE.Escape | SCANCODE_RELEASE))
         {
-            this.string_keyboard.abort();
+            this.data_keyboard.abort();
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// class StringKeyboard
+// class DataKeyboard
 // ---------------------------------------------------------------------------
 
 class Aborted extends Error
@@ -515,13 +515,13 @@ function get_keymap(kbdid)
     return keyboard.charset;
 }
 
-// StringKeyboard.state values
+// DataKeyboard.state values
 const STRKBD_STATE_IDLE = 0;
 const STRKBD_STATE_BUSY = 1;
 const STRKBD_STATE_ABORTED = 2;
 const STRKBD_STATE_FINISHING = 3;
 
-class StringKeyboard
+class DataKeyboard
 {
     /**
      * @param {Object} bus
@@ -741,9 +741,9 @@ export function KeyboardAdapter(bus, options)
 
     const keyboard = this;
     const desktop_keyboard = new DesktopKeyboard(bus);
-    const string_keyboard = new StringKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
+    const data_keyboard = new DataKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
 
-    desktop_keyboard.init(string_keyboard);
+    desktop_keyboard.init(data_keyboard);
 
     this.destroy = function()
     {
@@ -772,19 +772,19 @@ export function KeyboardAdapter(bus, options)
     this.init();
 
     /**
-     * @param {string} text
-     */
-    this.simulate_text = async function(text)
-    {
-        await string_keyboard.send_plaintext(text);
-    };
-
-    /**
      * @param {!Array<number>} scancodes
      */
     this.simulate_scancodes = async function(scancodes)
     {
-        await string_keyboard.send_raw_scancodes(scancodes);
+        await data_keyboard.send_raw_scancodes(scancodes);
+    };
+
+    /**
+     * @param {string} text
+     */
+    this.simulate_text = async function(text)
+    {
+        await data_keyboard.send_plaintext(text);
     };
 
     function may_handle(e)
@@ -846,13 +846,13 @@ export function KeyboardAdapter(bus, options)
             switch(e.inputType)
             {
                 case "insertText":
-                    string_keyboard.send_plaintext(e.data);
+                    data_keyboard.send_plaintext(e.data);
                     break;
                 case "insertLineBreak":
-                    this.simulate_scancodes([SCANCODE.Enter]);
+                    data_keyboard.send_raw_scancodes([SCANCODE.Enter, SCANCODE.Enter | SCANCODE_RELEASE]);
                     break;
                 case "deleteContentBackward":
-                    this.simulate_scancodes([SCANCODE.Backspace]);
+                    data_keyboard.send_raw_scancodes([SCANCODE.Backspace, SCANCODE.Backspace | SCANCODE_RELEASE]);
                     break;
             }
         }
