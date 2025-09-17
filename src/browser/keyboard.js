@@ -124,12 +124,12 @@ export const SCANCODE_RELEASE = 0x80;
  * @type !Set<!number>
  */
 const MODIFIER_SCANCODES = new Set([
-    SCANCODE.ShiftLeft,
-    SCANCODE.ShiftRight,
-    SCANCODE.ControlLeft,
-    SCANCODE.ControlRight,
-    SCANCODE.AltLeft,
-    SCANCODE.AltRight
+    SCANCODE["ShiftLeft"],
+    SCANCODE["ShiftRight"],
+    SCANCODE["ControlLeft"],
+    SCANCODE["ControlRight"],
+    SCANCODE["AltLeft"],
+    SCANCODE["AltRight"]
 ]);
 
 // ---------------------------------------------------------------------------
@@ -205,11 +205,11 @@ class DesktopKeyboard
 
         e.preventDefault && e.preventDefault();
 
-        if(!e.altKey && this.keys_pressed.has(SCANCODE.AltLeft))
+        if(!e.altKey && this.keys_pressed.has(SCANCODE["AltLeft"]))
         {
             // trigger ALT keyup manually - some browsers don't
             // see issue #165
-            this.send_scancode(SCANCODE.AltLeft, false);
+            this.send_scancode(SCANCODE["AltLeft"], false);
         }
 
         if(PLATFOM_WINDOWS)
@@ -300,7 +300,7 @@ class DesktopKeyboard
             }
             this.bus.send("keyboard-code", scancode & 0xff);
         }
-        else if(scancode === (SCANCODE.Escape | SCANCODE_RELEASE))
+        else if(scancode === (SCANCODE["Escape"] | SCANCODE_RELEASE))
         {
             this.data_keyboard.abort();
         }
@@ -505,8 +505,8 @@ function get_keymap(kbdid)
         }
 
         // Add scancodes of universal non-visible characters below 0x20
-        keyboard.charset["\t"] = [[SCANCODE.Tab, MODIFIER_NONE]];
-        keyboard.charset["\n"] = [[SCANCODE.Enter, MODIFIER_NONE]];
+        keyboard.charset["\t"] = [[SCANCODE["Tab"], MODIFIER_NONE]];
+        keyboard.charset["\n"] = [[SCANCODE["Enter"], MODIFIER_NONE]];
 
         keyboard.kbdid = kbdid;
         keyboard.keyboard_initialized = true;
@@ -652,8 +652,8 @@ class DataKeyboard
      */
     async send_plaintext_scancodes(plaintext)
     {
-        let shift_pressed = this.keys_pressed.has(SCANCODE.ShiftLeft);
-        let altgr_pressed = this.keys_pressed.has(SCANCODE.AltRight);
+        let shift_pressed = this.keys_pressed.has(SCANCODE["ShiftLeft"]);
+        let altgr_pressed = this.keys_pressed.has(SCANCODE["AltRight"]);
         for(const ch of plaintext)
         {
             const ch_keys = this.keymap[ch];
@@ -664,12 +664,12 @@ class DataKeyboard
                     if(!!(modifier & MODIFIER_SHIFT) !== shift_pressed)
                     {
                         shift_pressed = !shift_pressed;
-                        await this.send_scancode(SCANCODE.ShiftLeft | (shift_pressed ? 0 : SCANCODE_RELEASE));
+                        await this.send_scancode(SCANCODE["ShiftLeft"] | (shift_pressed ? 0 : SCANCODE_RELEASE));
                     }
                     if(!!(modifier & MODIFIER_ALTGR) !== altgr_pressed)
                     {
                         altgr_pressed = !altgr_pressed;
-                        await this.send_scancode(SCANCODE.AltRight | (altgr_pressed ? 0 : SCANCODE_RELEASE));
+                        await this.send_scancode(SCANCODE["AltRight"] | (altgr_pressed ? 0 : SCANCODE_RELEASE));
                     }
                     await this.send_scancode(scancode, scancode | SCANCODE_RELEASE);
                 }
@@ -849,10 +849,10 @@ export function KeyboardAdapter(bus, options)
                     data_keyboard.send_plaintext(e.data);
                     break;
                 case "insertLineBreak":
-                    data_keyboard.send_raw_scancodes([SCANCODE.Enter, SCANCODE.Enter | SCANCODE_RELEASE]);
+                    data_keyboard.send_raw_scancodes([SCANCODE["Enter"], SCANCODE["Enter"] | SCANCODE_RELEASE]);
                     break;
                 case "deleteContentBackward":
-                    data_keyboard.send_raw_scancodes([SCANCODE.Backspace, SCANCODE.Backspace | SCANCODE_RELEASE]);
+                    data_keyboard.send_raw_scancodes([SCANCODE["Backspace"], SCANCODE["Backspace"] | SCANCODE_RELEASE]);
                     break;
             }
         }
