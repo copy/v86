@@ -516,10 +516,10 @@ function get_keymap(kbdid)
 }
 
 // DataKeyboard.state values
-const STRKBD_STATE_IDLE = 0;
-const STRKBD_STATE_BUSY = 1;
-const STRKBD_STATE_ABORTED = 2;
-const STRKBD_STATE_FINISHING = 3;
+const DK_STATE_IDLE = 0;
+const DK_STATE_BUSY = 1;
+const DK_STATE_ABORTED = 2;
+const DK_STATE_FINISHING = 3;
 
 class DataKeyboard
 {
@@ -540,16 +540,16 @@ class DataKeyboard
         this.keymap = get_keymap(kbdid);          // keyboard layout map, maps characters to scancode sequences
         this.burst_size = burst_size;             // burst size in bytes (ignored of burst_delay is 0)
         this.burst_delay = burst_delay;           // inter-burst delay in milliseconds or 0 to send unthrottled
-        this.state = STRKBD_STATE_IDLE;           // main state
+        this.state = DK_STATE_IDLE;               // main state
         this.keys_pressed = new Set();            // Set<number>, the set of pressed key scancodes
         this.bytes_sent = 0;                      // number of bytes sent in the current burst
     }
 
     abort()
     {
-        if(this.state === STRKBD_STATE_BUSY)
+        if(this.state === DK_STATE_BUSY)
         {
-            this.state = STRKBD_STATE_ABORTED;
+            this.state = DK_STATE_ABORTED;
         }
     }
 
@@ -584,12 +584,12 @@ class DataKeyboard
      */
     async send_content(content_function)
     {
-        if(this.state === STRKBD_STATE_IDLE)
+        if(this.state === DK_STATE_IDLE)
         {
             // initial keyboard state is a copy of desktop_keyboard
             this.desktop_keyboard.mute(true);
             this.keys_pressed = new Set(this.desktop_keyboard.keys_pressed);
-            this.state = STRKBD_STATE_BUSY;
+            this.state = DK_STATE_BUSY;
             this.bytes_sent = 0;
 
             try
@@ -608,10 +608,10 @@ class DataKeyboard
             }
 
             // bring keyboard into the current state of desktop_keyboard
-            this.state = STRKBD_STATE_FINISHING;
+            this.state = DK_STATE_FINISHING;
             await this.send_sync_scancodes(this.desktop_keyboard.keys_pressed);
 
-            this.state = STRKBD_STATE_IDLE;
+            this.state = DK_STATE_IDLE;
             this.desktop_keyboard.mute(false);
         }
     }
@@ -693,7 +693,7 @@ class DataKeyboard
             }
 
             // if aborted, throw an exception to unwind stack, caught by send_plaintext()
-            if(this.state === STRKBD_STATE_ABORTED)
+            if(this.state === DK_STATE_ABORTED)
             {
                 throw new Aborted();
             }
