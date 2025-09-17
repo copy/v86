@@ -992,40 +992,20 @@ V86.prototype.eject_cdrom = function()
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
  *
- * @param {Array.<number>} codes
- * @param {number=} delay
+ * @param {Array.<number>} scancodes
  */
-V86.prototype.keyboard_send_scancodes = async function(codes, delay)
+V86.prototype.keyboard_send_scancodes = async function(scancodes)
 {
-    for(var i = 0; i < codes.length; i++)
-    {
-        this.bus.send("keyboard-code", codes[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
-};
-
-/**
- * Send translated keys
- * @param {Array.<number>} codes
- * @param {number=} delay
- */
-V86.prototype.keyboard_send_keys = async function(codes, delay)
-{
-    for(var i = 0; i < codes.length; i++)
-    {
-        this.keyboard_adapter.simulate_press(codes[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
+    await this.keyboard_adapter.simulate_scancodes(scancodes);
 };
 
 /**
  * Send text
- * @param {string} string
- * @param {number=} delay -- TODO: deprecated, no longer used
+ * @param {string} text
  */
-V86.prototype.keyboard_send_text = async function(string, delay)
+V86.prototype.keyboard_send_text = async function(text)
 {
-    await this.keyboard_adapter.simulate_text(string);
+    await this.keyboard_adapter.simulate_text(text);
 };
 
 /**

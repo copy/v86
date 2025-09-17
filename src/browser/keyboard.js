@@ -558,7 +558,33 @@ class StringKeyboard
      */
     async send_plaintext(plaintext)
     {
-        if(this.state === STRKBD_STATE_IDLE && plaintext.length)
+        if(plaintext.length)
+        {
+            await this.send_content(async () => {
+                await this.send_plaintext_scancodes(plaintext);
+            });
+        }
+    }
+
+    /**
+     * @param {!Array<number>} scancodes
+     */
+    async send_raw_scancodes(scancodes)
+    {
+        if(scancodes.length)
+        {
+            await this.send_content(async () => {
+                await this.send_scancode(...scancodes);
+            });
+        }
+    }
+
+    /**
+     * @param {!function()} content_function
+     */
+    async send_content(content_function)
+    {
+        if(this.state === STRKBD_STATE_IDLE)
         {
             // initial keyboard state is a copy of desktop_keyboard
             this.desktop_keyboard.mute(true);
@@ -570,8 +596,8 @@ class StringKeyboard
             {
                 // bring keyboard into the idle state
                 await this.send_sync_scancodes(new Set());
-                // send plaintext
-                await this.send_plaintext_scancodes(plaintext);
+                // send content
+                await content_function();
             }
             catch(e)
             {
@@ -746,37 +772,19 @@ export function KeyboardAdapter(bus, options)
     this.init();
 
     /**
-     * Press given scancodes in given order, then release them again in reverse order.
-     * @param {...number} scancodes
-     */
-    this.simulate_press = function(...scancodes)
-    {
-        const n = scancodes.length;
-        for(let i = 0; i < n; i++)
-        {
-            desktop_keyboard.send_scancode(scancodes[i], true);
-        }
-        for(let i = n-1; i >= 0; i--)
-        {
-            desktop_keyboard.send_scancode(scancodes[i], false);
-        }
-    };
-
-    /**
-     * @param {string} chr
-     * TODO: deprecated, use simulate_text() instead
-     */
-    this.simulate_char = async function(chr)
-    {
-        await string_keyboard.send_plaintext(chr);
-    };
-
-    /**
      * @param {string} text
      */
     this.simulate_text = async function(text)
     {
         await string_keyboard.send_plaintext(text);
+    };
+
+    /**
+     * @param {!Array<number>} scancodes
+     */
+    this.simulate_scancodes = async function(scancodes)
+    {
+        await string_keyboard.send_raw_scancodes(scancodes);
     };
 
     function may_handle(e)
@@ -841,10 +849,10 @@ export function KeyboardAdapter(bus, options)
                     string_keyboard.send_plaintext(e.data);
                     break;
                 case "insertLineBreak":
-                    this.simulate_press(SCANCODE.Enter);
+                    this.simulate_scancodes([SCANCODE.Enter]);
                     break;
                 case "deleteContentBackward":
-                    this.simulate_press(SCANCODE.Backspace);
+                    this.simulate_scancodes([SCANCODE.Backspace]);
                     break;
             }
         }

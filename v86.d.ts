@@ -433,11 +433,6 @@ export class V86 {
     keyboard_send_scancodes(codes: number[]): void;
 
     /**
-     * Send translated keys
-     */
-    keyboard_send_keys(codes: number[]): void;
-
-    /**
      * Send text, assuming the guest OS uses a US keyboard layout
      */
     keyboard_send_text(string: string): void;
