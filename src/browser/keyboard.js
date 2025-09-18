@@ -6,7 +6,7 @@ const PLATFOM_WINDOWS = typeof window !== "undefined" && window.navigator.platfo
  * Map of KeyboardEvent.code strings to scancode numbers.
  * @type !Object<!string,!number>
  */
-export const SCANCODE =
+const SCANCODE =
 {
    "KeyA": 0x001E,
    "KeyB": 0x0030,
@@ -117,7 +117,7 @@ export const SCANCODE =
 /**
  * Reserved scancode bit 8: signals keyup event if set, else keydown.
  */
-export const SCANCODE_RELEASE = 0x80;
+const SCANCODE_RELEASE = 0x80;
 
 /**
  * Set of modifier keys.
@@ -465,7 +465,7 @@ const KEYMAPS =
  */
 function get_keymap(kbdid)
 {
-    const keyboard = kbdid && KEYMAPS[kbdid] ? KEYMAPS[kbdid] : KEYMAPS.kbdus;
+    const keyboard = kbdid && KEYMAPS[kbdid] ? KEYMAPS[kbdid] : KEYMAPS["kbdus"];
 
     if(!keyboard.keyboard_initialized)
     {
@@ -478,7 +478,7 @@ function get_keymap(kbdid)
             //       for example the Italian keyboard "kbdit" lacks "~" and "`".
             const charset = keyboard.charset;
             const charset_missing = keyboard.charset_missing ? keyboard.charset_missing : [];
-            for(const [codepoint_str, us_keys] of Object.entries(KEYMAPS.kbdus.charset))
+            for(const [codepoint_str, us_keys] of Object.entries(KEYMAPS["kbdus"].charset))
             {
                 const codepoint = codepoint_str.codePointAt(0);
                 if(charset[codepoint_str] === undefined && !charset_missing.includes(codepoint))
@@ -652,8 +652,7 @@ class DataKeyboard
      */
     async send_plaintext_scancodes(plaintext)
     {
-        let shift_pressed = this.keys_pressed.has(SCANCODE["ShiftLeft"]);
-        let altgr_pressed = this.keys_pressed.has(SCANCODE["AltRight"]);
+        let shift_pressed = false, altgr_pressed = false;
         for(const ch of plaintext)
         {
             const ch_keys = this.keymap[ch];
