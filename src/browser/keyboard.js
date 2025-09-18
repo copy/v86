@@ -567,6 +567,34 @@ class DataKeyboard
     }
 
     /**
+     * @param {...!string|!Array<!string>} key_names
+     */
+    async send_keypress(...key_names)
+    {
+        const scancodes = [];
+        for(const scancode of key_names)
+        {
+            if(typeof scancode === "string")
+            {
+                scancodes.push(SCANCODE[scancode]);
+            }
+            else
+            {
+                const n = scancode.length;
+                for(let i = 0; i < n; i++)
+                {
+                    scancodes.push(SCANCODE[scancode[i]]);
+                }
+                for(let i = n-1; i >= 0; i--)
+                {
+                    scancodes.push(SCANCODE[scancode[i]]);
+                }
+            }
+        }
+        await this.send_raw_scancodes(scancodes);
+    }
+
+    /**
      * @param {!Array<number>} scancodes
      */
     async send_raw_scancodes(scancodes)
@@ -779,6 +807,14 @@ export function KeyboardAdapter(bus, options)
     };
 
     /**
+     * @param {...!string|!Array<!string>} key_names
+     */
+    this.simulate_keypress = async function(...key_names)
+    {
+        await data_keyboard.send_keypress(...key_names);
+    };
+
+    /**
      * @param {string} text
      */
     this.simulate_text = async function(text)
@@ -848,10 +884,10 @@ export function KeyboardAdapter(bus, options)
                     data_keyboard.send_plaintext(e.data);
                     break;
                 case "insertLineBreak":
-                    data_keyboard.send_raw_scancodes([SCANCODE["Enter"], SCANCODE["Enter"] | SCANCODE_RELEASE]);
+                    data_keyboard.send_keypress("Enter");
                     break;
                 case "deleteContentBackward":
-                    data_keyboard.send_raw_scancodes([SCANCODE["Backspace"], SCANCODE["Backspace"] | SCANCODE_RELEASE]);
+                    data_keyboard.send_keypress("Backspace");
                     break;
             }
         }
