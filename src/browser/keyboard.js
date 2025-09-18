@@ -576,7 +576,7 @@ class DataKeyboard
         {
             if(typeof scancode === "string")
             {
-                scancodes.push(SCANCODE[scancode]);
+                scancodes.push(SCANCODE[scancode], SCANCODE[scancode] | SCANCODE_RELEASE);
             }
             else
             {
@@ -587,7 +587,7 @@ class DataKeyboard
                 }
                 for(let i = n-1; i >= 0; i--)
                 {
-                    scancodes.push(SCANCODE[scancode[i]]);
+                    scancodes.push(SCANCODE[scancode[i]] | SCANCODE_RELEASE);
                 }
             }
         }
