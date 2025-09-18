@@ -258,7 +258,7 @@ class DesktopKeyboard
         const scancode = SCANCODE[e.code];
         if(scancode === undefined)
         {
-            console.log("Missing char in map: keyCode=" + (e.keyCode || -1).toString(16) + " code=" + e.code);
+            console.log("Missing char in scancode map: key=" + e.key + " code=" + e.code + " keyCode=" + (e.keyCode || -1).toString(16));
         }
         else
         {
@@ -326,7 +326,7 @@ class Aborted extends Error
  * @param {!Set} set_b
  * @return {boolean}
  */
-function set_identical(set_a, set_b)
+function set_is_identical(set_a, set_b)
 {
     if(set_a.size !== set_b.size)
     {
@@ -393,7 +393,7 @@ const MODIFIER_CTRL_ALT = MODIFIER_CTRL | MODIFIER_ALT;
 
 const KEYMAPS =
 {
-    kbdus: {description: "United States Keyboard Layout", locale:
+    "kbdus": {description: "United States Keyboard Layout", locale:
         "bg-BG", has_altgr: false, charset: {" ": [[57, 0]], "!": [[2,
         1]], "\"": [[40, 1]], "#": [[4, 1]], "$": [[5, 1]], "%": [[6,
         1]], "&": [[8, 1]], "'": [[40, 0]], "(": [[10, 1]], ")": [[11,
@@ -421,7 +421,7 @@ const KEYMAPS =
         [[45, 0]], "y": [[21, 0]], "z": [[44, 0]], "{": [[26, 1]],
         "|": [[43, 1]], "}": [[27, 1]], "~": [[41, 1]]}},
 
-    kbdgr: {description: "German Keyboard Layout", locale: "de-DE",
+    "kbdgr": {description: "German Keyboard Layout", locale: "de-DE",
         has_altgr: true, charset: {"\"": [[3, 1]], "#": [[43, 0]],
         "&": [[7, 1]], "'": [[43, 1]], "(": [[9, 1]], ")": [[10, 1]],
         "*": [[27, 1]], "+": [[27, 0]], "-": [[53, 0]], "/": [[8, 1]],
@@ -450,7 +450,7 @@ const KEYMAPS =
         [[26, 0]], "ý": [[13, 0], [44, 0]], "ẞ": [[12, 7]], "€": [[18,
         6]]}},
 
-    kbduk: {description: "United Kingdom Keyboard Layout", locale:
+    "kbduk": {description: "United Kingdom Keyboard Layout", locale:
         "en-GB", has_altgr: true, charset: {"\"": [[3, 1]], "#": [[43,
         0]], "@": [[40, 1]], "\\": [[86, 0]], "|": [[86, 1]], "~":
         [[43, 1]], "£": [[4, 1]], "¦": [[41, 6]], "¬": [[41, 1]], "Á":
@@ -554,63 +554,35 @@ class DataKeyboard
     }
 
     /**
-     * @param {!string} plaintext
+     * @param {!Array<!number>} scancodes
      */
-    async send_plaintext(plaintext)
-    {
-        if(plaintext.length)
-        {
-            await this.send_content(async () => {
-                await this.send_plaintext_scancodes(plaintext);
-            });
-        }
-    }
-
-    /**
-     * @param {...!string|!Array<!string>} key_names
-     */
-    async send_keypress(...key_names)
-    {
-        const scancodes = [];
-        for(const scancode of key_names)
-        {
-            if(typeof scancode === "string")
-            {
-                scancodes.push(SCANCODE[scancode], SCANCODE[scancode] | SCANCODE_RELEASE);
-            }
-            else
-            {
-                const n = scancode.length;
-                for(let i = 0; i < n; i++)
-                {
-                    scancodes.push(SCANCODE[scancode[i]]);
-                }
-                for(let i = n-1; i >= 0; i--)
-                {
-                    scancodes.push(SCANCODE[scancode[i]] | SCANCODE_RELEASE);
-                }
-            }
-        }
-        await this.send_raw_scancodes(scancodes);
-    }
-
-    /**
-     * @param {!Array<number>} scancodes
-     */
-    async send_raw_scancodes(scancodes)
+    async send_scancodes(scancodes)
     {
         if(scancodes.length)
         {
-            await this.send_content(async () => {
+            await this.send_data(async () => {
                 await this.send_scancode(...scancodes);
             });
         }
     }
 
     /**
-     * @param {!function()} content_function
+     * @param {!string} text
      */
-    async send_content(content_function)
+    async send_text(text)
+    {
+        if(text.length)
+        {
+            await this.send_data(async () => {
+                await this.send_text_scancodes(text);
+            });
+        }
+    }
+
+    /**
+     * @param {!function()} data_function
+     */
+    async send_data(data_function)
     {
         if(this.state === DK_STATE_IDLE)
         {
@@ -624,8 +596,8 @@ class DataKeyboard
             {
                 // bring keyboard into the idle state
                 await this.send_sync_scancodes(new Set());
-                // send content
-                await content_function();
+                // send data
+                await data_function();
             }
             catch(e)
             {
@@ -650,7 +622,7 @@ class DataKeyboard
     async send_sync_scancodes(new_keys)
     {
         const curr_keys = new Set(this.keys_pressed);
-        if(!set_identical(curr_keys, new_keys))
+        if(!set_is_identical(curr_keys, new_keys))
         {
             // find, group and send scancodes of keys that need to be released
             const release_keys = set_difference(curr_keys, new_keys);
@@ -676,12 +648,12 @@ class DataKeyboard
     }
 
     /**
-     * @param {string} plaintext
+     * @param {string} text
      */
-    async send_plaintext_scancodes(plaintext)
+    async send_text_scancodes(text)
     {
         let shift_pressed = false, altgr_pressed = false;
-        for(const ch of plaintext)
+        for(const ch of text)
         {
             const ch_keys = this.keymap[ch];
             if(ch_keys !== undefined)
@@ -719,7 +691,7 @@ class DataKeyboard
                 this.bytes_sent = 0;
             }
 
-            // if aborted, throw an exception to unwind stack, caught by send_plaintext()
+            // if aborted, throw an exception to unwind stack, caught by send_data()
             if(this.state === DK_STATE_ABORTED)
             {
                 throw new Aborted();
@@ -799,32 +771,45 @@ export function KeyboardAdapter(bus, options)
     this.init();
 
     /**
-     * @param {!Array<number>} scancodes
+     * @param {!Array<!number>} scancodes
      */
     this.simulate_scancodes = async function(scancodes)
     {
-        await data_keyboard.send_raw_scancodes(scancodes);
+        await data_keyboard.send_scancodes(scancodes);
     };
 
     /**
-     * @param {...!string|!Array<!string>} key_names
+     * @param {...!string} keys
      */
-    this.simulate_keypress = async function(...key_names)
+    this.simulate_keypress = async function(...keys)
     {
-        await data_keyboard.send_keypress(...key_names);
+        const scancodes_down = [], scancodes_up = [];
+        for(const key of keys)
+        {
+            const scancode = SCANCODE[key];
+            if(scancode !== undefined)
+            {
+                scancodes_down.push(scancode);
+                scancodes_up.unshift(scancode | SCANCODE_RELEASE);
+            }
+        }
+        await data_keyboard.send_scancodes([...scancodes_down, ...scancodes_up]);
     };
 
     /**
-     * @param {string} text
+     * @param {!string} text
      */
     this.simulate_text = async function(text)
     {
-        await data_keyboard.send_plaintext(text);
+        await data_keyboard.send_text(text);
     };
 
+    /**
+     * @param {!Event} e
+     */
     function may_handle(e)
     {
-        if(e.shiftKey && e.ctrlKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 75))
+        if(e.shiftKey && e.ctrlKey && (e.key === "I" || e.key === "J" || e.key === "K"))
         {
             // don't prevent opening chromium dev tools
             // maybe add other important combinations here, too
@@ -853,6 +838,9 @@ export function KeyboardAdapter(bus, options)
         }
     }
 
+    /**
+     * @param {!Event} e
+     */
     function keydown_handler(e)
     {
         if(may_handle(e))
@@ -861,6 +849,9 @@ export function KeyboardAdapter(bus, options)
         }
     }
 
+    /**
+     * @param {!Event} e
+     */
     function keyup_handler(e)
     {
         if(may_handle(e))
@@ -869,11 +860,17 @@ export function KeyboardAdapter(bus, options)
         }
     }
 
+    /**
+     * @param {!Event} e
+     */
     function blur_handler(e)
     {
         desktop_keyboard.release_pressed_keys();
     }
 
+    /**
+     * @param {!Event} e
+     */
     function input_handler(e)
     {
         if(may_handle(e))
@@ -881,13 +878,13 @@ export function KeyboardAdapter(bus, options)
             switch(e.inputType)
             {
                 case "insertText":
-                    data_keyboard.send_plaintext(e.data);
+                    data_keyboard.send_text(e.data);
                     break;
                 case "insertLineBreak":
-                    data_keyboard.send_keypress("Enter");
+                    this.simulate_keypress("Enter");
                     break;
                 case "deleteContentBackward":
-                    data_keyboard.send_keypress("Backspace");
+                    this.simulate_keypress("Backspace");
                     break;
             }
         }
