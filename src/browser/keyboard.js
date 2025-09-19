@@ -507,6 +507,7 @@ function get_keymap(kbdid)
         // Add scancodes of universal non-visible characters below 0x20
         keyboard.charset["\t"] = [[SCANCODE["Tab"], MODIFIER_NONE]];
         keyboard.charset["\n"] = [[SCANCODE["Enter"], MODIFIER_NONE]];
+        keyboard.charset["\b"] = [[SCANCODE["Backspace"], MODIFIER_NONE]];
 
         keyboard.kbdid = kbdid;
         keyboard.keyboard_initialized = true;
