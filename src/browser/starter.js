@@ -263,15 +263,32 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     settings.net_device = options.net_device || { type: "ne2k" };
 
+    const langmap = {
+        "us": ["kbdus", "cp437"],
+        "uk": ["kbduk", "cp858"],
+        "de": ["kbdgr", "cp858"]
+    };
+    const [kbdid, encoding] = options.lang && langmap[options.lang] ? langmap[options.lang] : [undefined, undefined];
+
     const screen_options = options.screen || {};
     if(options.screen_container)
     {
         screen_options.container = options.screen_container;
     }
+    if(encoding)
+    {
+        screen_options.encoding = encoding;
+    }
+
+    const keyboard_options = options.keyboard || {};
+    if(kbdid)
+    {
+        keyboard_options.kbdid = kbdid;
+    }
 
     if(!options.disable_keyboard)
     {
-        this.keyboard_adapter = new KeyboardAdapter(this.bus, options?.keyboard);
+        this.keyboard_adapter = new KeyboardAdapter(this.bus, keyboard_options);
     }
     if(!options.disable_mouse)
     {
