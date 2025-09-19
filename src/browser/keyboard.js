@@ -258,7 +258,7 @@ class DesktopKeyboard
         const scancode = SCANCODE[e.code];
         if(scancode === undefined)
         {
-            console.log("Missing char in scancode map: key=" + e.key + " code=" + e.code + " keyCode=" + (e.keyCode || -1).toString(16));
+            console.log("Missing code in scancode map: code=" + e.code + " key=" + e.key + " keyCode=" + (e.keyCode || -1).toString(16));
         }
         else
         {
@@ -554,15 +554,13 @@ class DataKeyboard
     }
 
     /**
-     * @param {!Array<!number>} scancodes
+     * @param {...!Array<!number>} scancodes
      */
-    async send_scancodes(scancodes)
+    async send_scancodes(...scancodes)
     {
         if(scancodes.length)
         {
-            await this.send_data(async () => {
-                await this.send_scancode(...scancodes);
-            });
+            await this.send_data(async () => await this.send_scancode(...scancodes));
         }
     }
 
@@ -573,9 +571,7 @@ class DataKeyboard
     {
         if(text.length)
         {
-            await this.send_data(async () => {
-                await this.send_text_scancodes(text);
-            });
+            await this.send_data(async () => await this.send_text_scancodes(text));
         }
     }
 
@@ -596,7 +592,6 @@ class DataKeyboard
             {
                 // bring keyboard into the idle state
                 await this.send_sync_scancodes(new Set());
-                // send data
                 await data_function();
             }
             catch(e)
@@ -610,9 +605,9 @@ class DataKeyboard
             // bring keyboard into the current state of desktop_keyboard
             this.state = DK_STATE_FINISHING;
             await this.send_sync_scancodes(this.desktop_keyboard.keys_pressed);
+            this.desktop_keyboard.mute(false);
 
             this.state = DK_STATE_IDLE;
-            this.desktop_keyboard.mute(false);
         }
     }
 
@@ -672,6 +667,10 @@ class DataKeyboard
                     }
                     await this.send_scancode(scancode, scancode | SCANCODE_RELEASE);
                 }
+            }
+            else
+            {
+                console.log("Missing char in keyboard layout map: char=\"" + ch + "\"");
             }
         }
     }
@@ -742,7 +741,7 @@ export function KeyboardAdapter(bus, options)
     const desktop_keyboard = new DesktopKeyboard(bus);
     const data_keyboard = new DataKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
 
-    desktop_keyboard.init(data_keyboard);
+    desktop_keyboard && desktop_keyboard.init(data_keyboard);
 
     this.destroy = function()
     {
@@ -775,25 +774,29 @@ export function KeyboardAdapter(bus, options)
      */
     this.simulate_scancodes = async function(scancodes)
     {
-        await data_keyboard.send_scancodes(scancodes);
+        await data_keyboard.send_scancodes(...scancodes);
     };
 
     /**
-     * @param {...!string} keys
+     * @param {!Array<!string>} keys
      */
-    this.simulate_keypress = async function(...keys)
+    this.simulate_keypress = async function(keys)
     {
         const scancodes_down = [], scancodes_up = [];
-        for(const key of keys)
+        for(const code of keys)
         {
-            const scancode = SCANCODE[key];
+            const scancode = SCANCODE[code];
             if(scancode !== undefined)
             {
                 scancodes_down.push(scancode);
                 scancodes_up.unshift(scancode | SCANCODE_RELEASE);
             }
+            else
+            {
+                console.log("Missing code in scancode map: code=" + code);
+            }
         }
-        await data_keyboard.send_scancodes([...scancodes_down, ...scancodes_up]);
+        await data_keyboard.send_scancodes(...scancodes_down, ...scancodes_up);
     };
 
     /**
@@ -881,10 +884,10 @@ export function KeyboardAdapter(bus, options)
                     data_keyboard.send_text(e.data);
                     break;
                 case "insertLineBreak":
-                    this.simulate_keypress("Enter");
+                    this.simulate_keypress(["Enter"]);
                     break;
                 case "deleteContentBackward":
-                    this.simulate_keypress("Backspace");
+                    this.simulate_keypress(["Backspace"]);
                     break;
             }
         }
