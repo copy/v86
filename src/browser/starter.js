@@ -263,12 +263,12 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     settings.net_device = options.net_device || { type: "ne2k" };
 
-    const langmap = {
+    const localemap = {
         "us": ["kbdus", "cp437"],
         "uk": ["kbduk", "cp858"],
         "de": ["kbdgr", "cp858"]
     };
-    const [kbdid, encoding] = options.lang && langmap[options.lang] ? langmap[options.lang] : [undefined, undefined];
+    const [kbdid, encoding] = options.locale && localemap[options.locale] ? localemap[options.locale] : [undefined, undefined];
 
     const screen_options = options.screen || {};
     if(options.screen_container)
