@@ -393,8 +393,8 @@ const MODIFIER_CTRL_ALT = MODIFIER_CTRL | MODIFIER_ALT;
 
 const KEYMAPS =
 {
-    "kbdus": {description: "United States Keyboard Layout", locale:
-        "bg-BG", has_altgr: false, charset: {" ": [[57, 0]], "!": [[2,
+    "kbdus": {
+        has_altgr: false, charset: {" ": [[57, 0]], "!": [[2,
         1]], "\"": [[40, 1]], "#": [[4, 1]], "$": [[5, 1]], "%": [[6,
         1]], "&": [[8, 1]], "'": [[40, 0]], "(": [[10, 1]], ")": [[11,
         1]], "*": [[9, 1]], "+": [[13, 1]], ",": [[51, 0]], "-": [[12,
@@ -421,7 +421,7 @@ const KEYMAPS =
         [[45, 0]], "y": [[21, 0]], "z": [[44, 0]], "{": [[26, 1]],
         "|": [[43, 1]], "}": [[27, 1]], "~": [[41, 1]]}},
 
-    "kbdgr": {description: "German Keyboard Layout", locale: "de-DE",
+    "kbdgr": {
         has_altgr: true, charset: {"\"": [[3, 1]], "#": [[43, 0]],
         "&": [[7, 1]], "'": [[43, 1]], "(": [[9, 1]], ")": [[10, 1]],
         "*": [[27, 1]], "+": [[27, 0]], "-": [[53, 0]], "/": [[8, 1]],
@@ -450,8 +450,8 @@ const KEYMAPS =
         [[26, 0]], "ý": [[13, 0], [44, 0]], "ẞ": [[12, 7]], "€": [[18,
         6]]}},
 
-    "kbduk": {description: "United Kingdom Keyboard Layout", locale:
-        "en-GB", has_altgr: true, charset: {"\"": [[3, 1]], "#": [[43,
+    "kbduk": {
+        has_altgr: true, charset: {"\"": [[3, 1]], "#": [[43,
         0]], "@": [[40, 1]], "\\": [[86, 0]], "|": [[86, 1]], "~":
         [[43, 1]], "£": [[4, 1]], "¦": [[41, 6]], "¬": [[41, 1]], "Á":
         [[30, 7]], "É": [[18, 7]], "Í": [[23, 7]], "Ó": [[24, 7]],
@@ -535,6 +535,10 @@ class DataKeyboard
     {
         burst_size = burst_size !== undefined ? burst_size : 8;
         burst_delay = burst_delay !== undefined ? burst_delay : 100;
+        if(!burst_size || !burst_delay)
+        {
+            burst_size = burst_delay = 0;
+        }
 
         this.bus = bus;                           // system bus
         this.desktop_keyboard = desktop_keyboard; // DesktopKeyboard
@@ -742,7 +746,7 @@ export function KeyboardAdapter(bus, options)
     const desktop_keyboard = new DesktopKeyboard(bus);
     const data_keyboard = new DataKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
 
-    desktop_keyboard && desktop_keyboard.init(data_keyboard);
+    desktop_keyboard.init(data_keyboard);
 
     this.destroy = function()
     {
