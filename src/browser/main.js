@@ -1985,6 +1985,7 @@ function start_emulation(profile, query_args)
         settings.memory_size = profile.memory_size;
         settings.vga_memory_size = profile.vga_memory_size;
         settings.boot_order = profile.boot_order;
+        settings.locale = profile.locale;
         settings.net_device_type = profile.net_device_type;
 
         if(!DEBUG && profile.homepage)
@@ -2213,6 +2214,12 @@ function start_emulation(profile, query_args)
         }
         if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.set("boot_order", settings.boot_order.toString(16));
 
+        const locale = $("locale").value;
+        if(!settings.locale || locale !== "us")
+        {
+            settings.locale = locale;
+        }
+
         if(settings.acpi === undefined)
         {
             settings.acpi = $("acpi").checked;
@@ -2257,6 +2264,7 @@ function start_emulation(profile, query_args)
         memory_size: settings.memory_size,
         vga_memory_size: settings.vga_memory_size,
         boot_order: settings.boot_order,
+        locale: settings.locale,
 
         bios: settings.bios,
         vga_bios: settings.vga_bios,
