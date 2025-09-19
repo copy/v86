@@ -988,7 +988,7 @@ V86.prototype.eject_cdrom = function()
 };
 
 /**
- * Send a sequence of scan codes to the emulated PS2 controller. A list of
+ * Send a sequence of raw scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
  *
@@ -1000,7 +1000,24 @@ V86.prototype.keyboard_send_scancodes = async function(scancodes)
 };
 
 /**
- * Send text
+ * Send a sequence of scan codes derived from the given combination of keys.
+ * Keys are pressed and released together, not in sequence.
+ * Keys are defined by name using the naming convention from KeyboardEvent.code
+ * which identifies keys by their physical location on the keyboard.
+ *
+ * @param {Array<string>} keys
+ */
+V86.prototype.keyboard_send_keypress = async function(keys)
+{
+    await this.keyboard_adapter.simulate_keypress(keys);
+};
+
+/**
+ * Send a sequence of scan codes derived from given text.
+ * Supported character set for text depends on the configured keyboard
+ * layout mapping, characters not defined in the mapping are dropped.
+ * Use "\n" to encode the ENTER key.
+ *
  * @param {string} text
  */
 V86.prototype.keyboard_send_text = async function(text)

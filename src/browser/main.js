@@ -2985,16 +2985,7 @@ function init_ui(profile, settings, emulator)
 
     $("ctrlaltdel").onclick = function()
     {
-        emulator.keyboard_send_scancodes([
-            0x1D, // ctrl
-            0x38, // alt
-            0x53, // delete
-
-            // break codes
-            0x1D | 0x80,
-            0x38 | 0x80,
-            0x53 | 0x80,
-        ]);
+        emulator.keyboard_send_keypress(["ControlLeft", "AltLeft", "Delete"]);
 
         $("ctrlaltdel").blur();
     };
