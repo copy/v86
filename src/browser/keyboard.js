@@ -555,9 +555,9 @@ class DataKeyboard
     }
 
     /**
-     * @param {...!Array<!number>} scancodes
+     * @param {!Array<!number>} scancodes
      */
-    async send_scancodes(...scancodes)
+    async send_scancodes(scancodes)
     {
         if(scancodes.length)
         {
@@ -775,7 +775,7 @@ export function KeyboardAdapter(bus, options)
      */
     this.simulate_scancodes = async function(scancodes)
     {
-        await data_keyboard.send_scancodes(...scancodes);
+        await data_keyboard.send_scancodes(scancodes);
     };
 
     /**
@@ -797,7 +797,7 @@ export function KeyboardAdapter(bus, options)
                 console.log("Missing code in scancode map: code=" + code);
             }
         }
-        await data_keyboard.send_scancodes(...scancodes_down, ...scancodes_up);
+        await data_keyboard.send_scancodes([...scancodes_down, ...scancodes_up]);
     };
 
     /**
@@ -885,10 +885,10 @@ export function KeyboardAdapter(bus, options)
                     data_keyboard.send_text(e.data);
                     break;
                 case "insertLineBreak":
-                    this.simulate_keypress(["Enter"]);
+                    data_keyboard.send_scancodes([SCANCODE["Enter"], SCANCODE["Enter"] | SCANCODE_RELEASE]);
                     break;
                 case "deleteContentBackward":
-                    this.simulate_keypress(["Backspace"]);
+                    data_keyboard.send_scancodes([SCANCODE["Backspace"], SCANCODE["Backspace"] | SCANCODE_RELEASE]);
                     break;
             }
         }
