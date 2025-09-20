@@ -578,33 +578,24 @@ class DataKeyboard
      */
     async send_keypress(keys, hold_time)
     {
-        const scancodes = [];
-        for(const code of keys)
-        {
-            const scancode = SCANCODE[code];
-            if(scancode !== undefined)
-            {
-                scancodes.push(scancode);
-            }
-            else
-            {
-                console.log("Missing code in scancode map: code=" + code);
-            }
-        }
-        if(scancodes.length)
+        if(keys.length)
         {
             await this.send_data(async () => {
-                for(let i = 0; i < scancodes.length; i++)
+                for(const code of keys)
                 {
-                    await this.send_scancode(scancodes[i]);
+                    const scancode = SCANCODE[code];
+                    if(scancode !== undefined)
+                    {
+                        await this.send_scancode(scancode);
+                    }
+                    else
+                    {
+                        console.log("Missing code in scancode map: code=" + code);
+                    }
                 }
                 if(hold_time)
                 {
                     await new Promise(resolve => setTimeout(resolve, hold_time));
-                }
-                for(let i = scancodes.length-1; i >= 0; i--)
-                {
-                    await this.send_scancode(scancodes[i] | SCANCODE_RELEASE);
                 }
             });
         }
