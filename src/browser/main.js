@@ -1843,14 +1843,17 @@ function onload()
         }
     }
 
-    $("reset_filters").onclick = function()
+    if($("reset_filters"))
     {
-        for(const element of document.querySelectorAll("#filter input[type=checkbox]"))
+        $("reset_filters").onclick = function()
         {
-            element.checked = false;
-        }
-        update_filters();
-    };
+            for(const element of document.querySelectorAll("#filter input[type=checkbox]"))
+            {
+                element.checked = false;
+            }
+            update_filters();
+        };
+    }
 
     function set_proxy_value(id, value)
     {
