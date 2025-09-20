@@ -3016,6 +3016,14 @@ function init_ui(profile, settings, emulator)
         $("alttab").blur();
     };
 
+    $("paste_clipboard").onclick = async function()
+    {
+        const text = await navigator.clipboard.readText();
+        await emulator.keyboard_send_text(text);
+
+        $("paste_clipboard").blur();
+    };
+
     /**
      * @this HTMLElement
      */
