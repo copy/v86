@@ -570,6 +570,44 @@ class DataKeyboard
     }
 
     /**
+     * @param {!Array<!string>} keys
+     * @param {number=} hold_time
+     */
+    async send_keypress(keys, hold_time)
+    {
+        const scancodes = [];
+        for(const code of keys)
+        {
+            const scancode = SCANCODE[code];
+            if(scancode !== undefined)
+            {
+                scancodes.push(scancode);
+            }
+            else
+            {
+                console.log("Missing code in scancode map: code=" + code);
+            }
+        }
+        if(scancodes.length)
+        {
+            await this.send_data(async () => {
+                for(let i = 0; i < scancodes.length; i++)
+                {
+                    await this.send_scancode(scancodes[i]);
+                }
+                if(hold_time)
+                {
+                    await new Promise(resolve => setTimeout(resolve, hold_time));
+                }
+                for(let i = scancodes.length-1; i >= 0; i--)
+                {
+                    await this.send_scancode(scancodes[i] | SCANCODE_RELEASE);
+                }
+            });
+        }
+    }
+
+    /**
      * @param {!string} text
      */
     async send_text(text)
@@ -784,24 +822,11 @@ export function KeyboardAdapter(bus, options)
 
     /**
      * @param {!Array<!string>} keys
+     * @param {number=} hold_time
      */
-    this.simulate_keypress = async function(keys)
+    this.simulate_keypress = async function(keys, hold_time)
     {
-        const scancodes_down = [], scancodes_up = [];
-        for(const code of keys)
-        {
-            const scancode = SCANCODE[code];
-            if(scancode !== undefined)
-            {
-                scancodes_down.push(scancode);
-                scancodes_up.unshift(scancode | SCANCODE_RELEASE);
-            }
-            else
-            {
-                console.log("Missing code in scancode map: code=" + code);
-            }
-        }
-        await data_keyboard.send_scancodes([...scancodes_down, ...scancodes_up]);
+        await data_keyboard.send_keypress(keys, hold_time);
     };
 
     /**
@@ -889,10 +914,10 @@ export function KeyboardAdapter(bus, options)
                     data_keyboard.send_text(e.data);
                     break;
                 case "insertLineBreak":
-                    data_keyboard.send_scancodes([SCANCODE["Enter"], SCANCODE["Enter"] | SCANCODE_RELEASE]);
+                    data_keyboard.send_keypress(["Enter"]);
                     break;
                 case "deleteContentBackward":
-                    data_keyboard.send_scancodes([SCANCODE["Backspace"], SCANCODE["Backspace"] | SCANCODE_RELEASE]);
+                    data_keyboard.send_keypress(["Backspace"]);
                     break;
             }
         }

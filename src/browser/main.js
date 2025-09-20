@@ -3000,26 +3000,14 @@ function init_ui(profile, settings, emulator)
 
     $("alttab").onclick = function()
     {
-        emulator.keyboard_send_scancodes([
-            0x38, // alt
-            0x0F, // tab
-        ]);
-
-        setTimeout(function()
-        {
-            emulator.keyboard_send_scancodes([
-                0x38 | 0x80,
-                0x0F | 0x80,
-            ]);
-        }, 100);
+        emulator.keyboard_send_keypress(["AltLeft", "Tab"], 100);
 
         $("alttab").blur();
     };
 
     $("paste_clipboard").onclick = async function()
     {
-        const text = await navigator.clipboard.readText();
-        await emulator.keyboard_send_text(text);
+        emulator.keyboard_send_text(await navigator.clipboard.readText());
 
         $("paste_clipboard").blur();
     };

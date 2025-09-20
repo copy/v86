@@ -1018,22 +1018,25 @@ V86.prototype.keyboard_send_scancodes = async function(scancodes)
 
 /**
  * Send a sequence of scan codes derived from the given combination of keys.
- * Keys are pressed and released together, not in sequence.
+ * Keys are pressed and released together in given order (not separately).
  * Keys are defined by name using the naming convention from KeyboardEvent.code
  * which identifies keys by their physical location on the keyboard.
+ * Optional hold_time specifies the time in milliseconds to hold keys down
+ * before releasing them again (default: 0).
  *
  * @param {Array<string>} keys
+ * @param {number=} hold_time
  */
-V86.prototype.keyboard_send_keypress = async function(keys)
+V86.prototype.keyboard_send_keypress = async function(keys, hold_time)
 {
-    await this.keyboard_adapter.simulate_keypress(keys);
+    await this.keyboard_adapter.simulate_keypress(keys, hold_time);
 };
 
 /**
  * Send a sequence of scan codes derived from given text.
  * Supported character set for text depends on the configured keyboard
  * layout mapping, characters not defined in the mapping are dropped.
- * Use "\n" to encode the ENTER key.
+ * Use "\n" to encode the Enter key, "\t" for Tab and "\b" for Backspace.
  *
  * @param {string} text
  */
