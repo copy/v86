@@ -68,9 +68,11 @@ function show_progress(e)
     const el = $("loading");
     el.style.display = "block";
 
-    if(e.file_name.endsWith(".wasm"))
+    const file_name = e.file_name.split("?", 1)[0];
+
+    if(file_name.endsWith(".wasm"))
     {
-        const parts = e.file_name.split("/");
+        const parts = file_name.split("/");
         el.textContent = "Fetching " + parts[parts.length - 1] + " ...";
         return;
     }
