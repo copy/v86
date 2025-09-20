@@ -791,6 +791,7 @@ export function KeyboardAdapter(bus, options)
 
     this.destroy = function()
     {
+        data_keyboard.abort();
         if(typeof window !== "undefined")
         {
             window.removeEventListener("keydown", keydown_handler, false);
