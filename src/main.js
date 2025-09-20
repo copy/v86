@@ -114,7 +114,7 @@ if(typeof process !== "undefined")
     v86.prototype.register_yield = function() {};
     v86.prototype.unregister_yield = function() {};
 }
-else if(window["scheduler"] && typeof window["scheduler"]["postTask"] === "function" && !location.href.includes("dont-use-scheduling-api"))
+else if(window["scheduler"] && typeof window["scheduler"]["postTask"] === "function" && location.href.includes("use-scheduling-api"))
 {
     v86.prototype.yield = function(t, tick)
     {
