@@ -707,7 +707,7 @@ fn jit_find_basic_blocks(
         let previous_block = basic_blocks
             .range(..current_block.addr)
             .next_back()
-            .filter(|(_, previous_block)| (!previous_block.has_sti))
+            .filter(|(_, previous_block)| !previous_block.has_sti)
             .map(|(_, previous_block)| previous_block);
 
         if let Some(previous_block) = previous_block {
