@@ -583,14 +583,29 @@ class DataKeyboard
             await this.send_data(async () => {
                 for(const code of keys)
                 {
-                    const scancode = SCANCODE[code];
-                    if(scancode !== undefined)
+                    if(code.length === 1)
                     {
-                        await this.send_scancode(scancode);
+                        const ch_keys = this.keymap[code];
+                        if(ch_keys !== undefined)
+                        {
+                            await this.send_scancode(ch_keys[0][0]);
+                        }
+                        else
+                        {
+                            console.log("Missing char in keyboard layout map: char=\"" + code + "\"");
+                        }
                     }
                     else
                     {
-                        console.log("Missing code in scancode map: code=" + code);
+                        const scancode = SCANCODE[code];
+                        if(scancode !== undefined)
+                        {
+                            await this.send_scancode(scancode);
+                        }
+                        else
+                        {
+                            console.log("Missing code in scancode map: code=" + code);
+                        }
                     }
                 }
                 if(hold_time)
