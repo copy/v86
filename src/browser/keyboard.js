@@ -59,7 +59,6 @@ const SCANCODE =
     "Minus": 0x000C,
     "Period": 0x0034,
     "Slash": 0x0035,
-    "IntlRo": 0x0035,
     "Semicolon": 0x0027,
     "Equal": 0x000D,
     "BracketLeft": 0x001A,
@@ -109,12 +108,13 @@ const SCANCODE =
     "ControlRight": 0xE01D,
     "Pause": 0xE11D,
     "MetaLeft": 0xE05B,
-    "OSLeft": 0xE05B,
     "MetaRight": 0xE05C,
-    "OSRight": 0xE05C,
     "ContextMenu": 0xE05D,
     "Backslash": 0x002B,
-    "IntlBackslash": 0x0056
+    "IntlBackslash": 0x0056,
+    "IntlRo": 0x0035,   // equal to "Slash"
+    "OSLeft": 0xE05B,   // equal to "MetaLeft"
+    "OSRight": 0xE05C,  // equal to "MetaRight"
 };
 
 /**
