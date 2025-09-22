@@ -240,9 +240,11 @@ V86.prototype.continue_init = async function(emulator, options)
     if(relay_url)
     {
         // TODO: remove bus, use direct calls instead
-        if(relay_url === "fetch")
+        if(relay_url.startsWith("fetch"))
         {
             this.network_adapter = new FetchNetworkAdapter(this.bus, options.net_device);
+            let parts = relay_url.split(";");
+            if(parts[1]) this.network_adapter.cors_proxy = parts[1];
         }
         else if(relay_url === "inbrowser")
         {
