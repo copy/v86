@@ -546,7 +546,7 @@ class DataKeyboard
      */
     constructor(bus, desktop_keyboard, kbdid, burst_size, burst_delay)
     {
-        burst_size = burst_size !== undefined ? burst_size : 8;
+        burst_size = burst_size !== undefined ? burst_size : 15;
         burst_delay = burst_delay !== undefined ? burst_delay : 100;
         if(!burst_size || !burst_delay)
         {
@@ -850,31 +850,6 @@ export function KeyboardAdapter(bus, options)
     this.init();
 
     /**
-     * @param {!Array<!number>} scancodes
-     */
-    this.simulate_scancodes = async function(scancodes)
-    {
-        await data_keyboard.send_scancodes(scancodes);
-    };
-
-    /**
-     * @param {!Array<!string>} keys
-     * @param {number=} hold_time
-     */
-    this.simulate_keypress = async function(keys, hold_time)
-    {
-        await data_keyboard.send_keypress(keys, hold_time);
-    };
-
-    /**
-     * @param {!string} text
-     */
-    this.simulate_text = async function(text)
-    {
-        await data_keyboard.send_text(text);
-    };
-
-    /**
      * @param {!Event} e
      */
     function may_handle(e)
@@ -959,4 +934,29 @@ export function KeyboardAdapter(bus, options)
             }
         }
     }
+
+    /**
+     * @param {!Array<!number>} scancodes
+     */
+    this.simulate_scancodes = async function(scancodes)
+    {
+        await data_keyboard.send_scancodes(scancodes);
+    };
+
+    /**
+     * @param {!Array<!string>} keys
+     * @param {number=} hold_time
+     */
+    this.simulate_keypress = async function(keys, hold_time)
+    {
+        await data_keyboard.send_keypress(keys, hold_time);
+    };
+
+    /**
+     * @param {!string} text
+     */
+    this.simulate_text = async function(text)
+    {
+        await data_keyboard.send_text(text);
+    };
 }
