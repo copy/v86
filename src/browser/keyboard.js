@@ -147,7 +147,7 @@ class DesktopKeyboard
     constructor(bus)
     {
         this.bus = bus;                // system bus
-        this.data_keyboard = null;     // DataKeyboard, assigned in init()
+        this.data_keyboard = null;     // DataKeyboard, assigned in KeyboardAdapter()
         this.keys_pressed = new Set(); // Set<number>, the set of pressed key scancodes
         this.muted = false;            // boolean, do not send any scancodes to bus if true
 
@@ -170,12 +170,22 @@ class DesktopKeyboard
         this.deferred_timeout_id = 0;
     }
 
-    /**
-     * @param {DataKeyboard} data_keyboard
-     */
-    init(data_keyboard)
+    reset()
     {
-        this.data_keyboard = data_keyboard;
+        this.keys_pressed.clear();
+        this.muted = false;
+        this.deferred_event = null;
+        this.deferred_keydown = false;
+        this.deferred_timeout_id = 0;
+    }
+
+    shutdown()
+    {
+        if(this.deferred_event)
+        {
+            clearTimeout(this.deferred_timeout_id);
+            this.deferred_event = null;
+        }
     }
 
     /**
@@ -548,9 +558,27 @@ class DataKeyboard
         this.keymap = get_keymap(kbdid);          // keyboard layout map, maps characters to scancode sequences
         this.burst_size = burst_size;             // burst size in bytes (ignored of burst_delay is 0)
         this.burst_delay = burst_delay;           // inter-burst delay in milliseconds or 0 to send unthrottled
+        this.destroyed = false;                   // if true, shutdown() has been called
         this.state = DK_STATE_IDLE;               // main state
         this.keys_pressed = new Set();            // Set<number>, the set of pressed key scancodes
         this.bytes_sent = 0;                      // number of bytes sent in the current burst
+    }
+
+    reset()
+    {
+        this.destroyed = false;
+        this.state = DK_STATE_IDLE;
+        this.keys_pressed.clear();
+        this.bytes_sent = 0;
+    }
+
+    shutdown()
+    {
+        if(!this.destroyed && this.state !== DK_STATE_IDLE)
+        {
+            this.destroyed = true;
+            this.state = DK_STATE_ABORTED;
+        }
     }
 
     abort()
@@ -681,11 +709,14 @@ class DataKeyboard
                 }
             }
 
-            // bring keyboard into the current state of desktop_keyboard
-            this.state = DK_STATE_FINISHING;
-            await this.send_sync_scancodes(this.desktop_keyboard.keys_pressed);
-            this.desktop_keyboard.mute(false);
+            if(!this.destroyed)
+            {
+                // bring keyboard into the current state of desktop_keyboard
+                this.state = DK_STATE_FINISHING;
+                await this.send_sync_scancodes(this.desktop_keyboard.keys_pressed);
+            }
 
+            this.desktop_keyboard.mute(false);
             this.state = DK_STATE_IDLE;
         }
     }
@@ -787,11 +818,12 @@ export function KeyboardAdapter(bus, options)
     const desktop_keyboard = new DesktopKeyboard(bus);
     const data_keyboard = new DataKeyboard(bus, desktop_keyboard, options?.kbdid, options?.burst_size, options?.burst_delay);
 
-    desktop_keyboard.init(data_keyboard);
+    desktop_keyboard.data_keyboard = data_keyboard;
 
     this.destroy = function()
     {
-        data_keyboard.abort();
+        desktop_keyboard.shutdown();
+        data_keyboard.shutdown();
         if(typeof window !== "undefined")
         {
             window.removeEventListener("keydown", keydown_handler, false);
@@ -803,16 +835,17 @@ export function KeyboardAdapter(bus, options)
 
     this.init = function()
     {
-        if(typeof window === "undefined")
-        {
-            return;
-        }
         this.destroy();
 
-        window.addEventListener("keydown", keydown_handler, false);
-        window.addEventListener("keyup", keyup_handler, false);
-        window.addEventListener("blur", blur_handler, false);
-        window.addEventListener("input", input_handler, false);
+        desktop_keyboard.reset();
+        data_keyboard.reset();
+        if(typeof window !== "undefined")
+        {
+            window.addEventListener("keydown", keydown_handler, false);
+            window.addEventListener("keyup", keyup_handler, false);
+            window.addEventListener("blur", blur_handler, false);
+            window.addEventListener("input", input_handler, false);
+        }
     };
     this.init();
 
