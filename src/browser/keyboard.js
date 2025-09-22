@@ -623,7 +623,34 @@ class DataKeyboard
     {
         if(text.length)
         {
-            await this.send_data(async () => await this.send_text_scancodes(text));
+            await this.send_data(async () => {
+                let shift_pressed = false, altgr_pressed = false;
+                for(const ch of text)
+                {
+                    const ch_keys = this.keymap[ch];
+                    if(ch_keys !== undefined)
+                    {
+                        for(const [scancode, modifier] of ch_keys)
+                        {
+                            if(!!(modifier & MODIFIER_SHIFT) !== shift_pressed)
+                            {
+                                shift_pressed = !shift_pressed;
+                                await this.send_scancode(SCANCODE["ShiftLeft"] | (shift_pressed ? 0 : SCANCODE_RELEASE));
+                            }
+                            if(!!(modifier & MODIFIER_ALTGR) !== altgr_pressed)
+                            {
+                                altgr_pressed = !altgr_pressed;
+                                await this.send_scancode(SCANCODE["AltRight"] | (altgr_pressed ? 0 : SCANCODE_RELEASE));
+                            }
+                            await this.send_scancode(scancode, scancode | SCANCODE_RELEASE);
+                        }
+                    }
+                    else
+                    {
+                        console.log("Missing char in keyboard layout map: char=\"" + ch + "\"");
+                    }
+                }
+            });
         }
     }
 
@@ -690,39 +717,6 @@ class DataKeyboard
                 await this.send_scancode(...press_mod_keys);
                 // 4. press alphanumeric keys
                 await this.send_scancode(...press_alnum_keys);
-            }
-        }
-    }
-
-    /**
-     * @param {string} text
-     */
-    async send_text_scancodes(text)
-    {
-        let shift_pressed = false, altgr_pressed = false;
-        for(const ch of text)
-        {
-            const ch_keys = this.keymap[ch];
-            if(ch_keys !== undefined)
-            {
-                for(const [scancode, modifier] of ch_keys)
-                {
-                    if(!!(modifier & MODIFIER_SHIFT) !== shift_pressed)
-                    {
-                        shift_pressed = !shift_pressed;
-                        await this.send_scancode(SCANCODE["ShiftLeft"] | (shift_pressed ? 0 : SCANCODE_RELEASE));
-                    }
-                    if(!!(modifier & MODIFIER_ALTGR) !== altgr_pressed)
-                    {
-                        altgr_pressed = !altgr_pressed;
-                        await this.send_scancode(SCANCODE["AltRight"] | (altgr_pressed ? 0 : SCANCODE_RELEASE));
-                    }
-                    await this.send_scancode(scancode, scancode | SCANCODE_RELEASE);
-                }
-            }
-            else
-            {
-                console.log("Missing char in keyboard layout map: char=\"" + ch + "\"");
             }
         }
     }
