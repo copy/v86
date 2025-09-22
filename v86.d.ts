@@ -434,9 +434,10 @@ export class V86 {
 
     /**
      * Send a sequence of scan codes derived from the given combination of keys.
-     * Keys are pressed and released together in given order (not separately).
-     * Keys are defined by name using the naming convention from KeyboardEvent.code
-     * which identifies keys by their physical location on the keyboard.
+     * Keys are pressed and released together in the given order (not separately).
+     * Single-character keys identify physical keys by using the locale-dependent
+     * keyboard layout map, whereas multiple-character keys identify keys using
+     * the physical key names following the KeyboardEvent.code naming convention.
      * Optional hold_time specifies the time in milliseconds to hold keys down
      * before releasing them again (default: 0).
      *
