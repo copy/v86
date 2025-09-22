@@ -424,23 +424,37 @@ export class V86 {
     eject_cdrom(): void;
 
     /**
-     * Send a sequence of scan codes to the emulated PS2 controller. A list of
+     * Send a sequence of raw scan codes to the emulated PS2 controller. A list of
      * codes can be found at http://stanislavs.org/helppc/make_codes.html.
      * Do nothing if there is no keyboard controller.
      *
-     * @param codes
+     * @param scancodes
      */
-    keyboard_send_scancodes(codes: number[]): void;
+    keyboard_send_scancodes(scancodes: number[]): void;
 
     /**
-     * Send translated keys
+     * Send a sequence of scan codes derived from the given combination of keys.
+     * Keys are pressed and released together in the given order (not separately).
+     * Single-character keys identify physical keys by using the locale-dependent
+     * keyboard layout map, whereas multiple-character keys identify keys using
+     * the physical key names following the KeyboardEvent.code naming convention.
+     * Optional hold_time specifies the time in milliseconds to hold keys down
+     * before releasing them again (default: 0).
+     *
+     * @param keys
+     * @param hold_time
      */
-    keyboard_send_keys(codes: number[]): void;
+    keyboard_send_keypress(keys: string[], hold_time: number): void;
 
     /**
-     * Send text, assuming the guest OS uses a US keyboard layout
+     * Send a sequence of scan codes derived from given text.
+     * Supported character set for text depends on the configured keyboard
+     * layout mapping, characters not defined in the mapping are dropped.
+     * Use "\n" to encode the Enter key, "\t" for Tab and "\b" for Backspace.
+     *
+     * @param text
      */
-    keyboard_send_text(string: string): void;
+    keyboard_send_text(text: string): void;
 
     /**
      * Download a screenshot (returns an <img> element, only works in browsers)

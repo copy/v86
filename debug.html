@@ -190,6 +190,17 @@
                     </select>
                  </td>
             </tr>
+
+            <tr>
+                <td><label for="locale">Locale (region)</label></td>
+                <td>
+                    <select id="locale">
+                        <option value="us">United States (KBDUS, CP437)</option>
+                        <option value="uk">United Kingdom (KBDUK, CP858)</option>
+                        <option value="de">German (KBDGR, CP858)</option>
+                    </select>
+                 </td>
+            </tr>
         </table>
 
         <br>
@@ -211,6 +222,7 @@
         <input type="button" value="Exit" id="exit">
         <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
         <input type="button" value="Send Alt-Tab" id="alttab">
+        <input type="button" value="Send clipboard" id="paste_clipboard">
         <input type="button" value="Get floppy image" id="get_fda_image">
         <input type="button" value="Get second floppy image" id="get_fdb_image">
         <input type="button" value="Get hard disk image" id="get_hda_image">
