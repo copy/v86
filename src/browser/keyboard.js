@@ -588,7 +588,7 @@ class DataKeyboard
                         const ch_keys = this.keymap[code];
                         if(ch_keys !== undefined)
                         {
-                            await this.send_scancode(ch_keys[0][0]);
+                            await this.send_scancode(ch_keys[ch_keys.length-1][0]);
                         }
                         else
                         {
