@@ -26,6 +26,9 @@ const UART_IIR_RDI = 0x04; /* Receiver data interrupt */
 const UART_IIR_RLSI = 0x06; /* Receiver line status interrupt (High p.) */
 const UART_IIR_CTI = 0x0c; /* Character timeout */
 
+// Modem control register
+const UART_MCR_LOOPBACK = 0x10;
+
 const UART_LSR_DATA_READY        = 0x1;  // data available
 const UART_LSR_TX_EMPTY        = 0x20; // TX (THR) buffer is empty
 const UART_LSR_TRANSMITTER_EMPTY = 0x40; // TX empty and line is idle
@@ -399,7 +402,11 @@ UART.prototype.write_data = function(out_byte)
 
     this.ThrowInterrupt(UART_IIR_THRI);
 
-    this.bus.send("serial" + this.com + "-output-byte", out_byte);
+    if(this.modem_control & UART_MCR_LOOPBACK) {
+        this.data_received(out_byte);
+    } else {
+        this.bus.send("serial" + this.com + "-output-byte", out_byte);
+    }
 
     if(DEBUG)
     {
