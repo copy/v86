@@ -28,7 +28,7 @@ export type V86Image =
     | {
           url: string;
           async?: boolean;
-          size: number;
+          size?: number;
           use_parts?: boolean;
           fixed_chunk_size?: number;
       }
