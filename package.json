@@ -7,12 +7,14 @@
   "files": [
     "Readme.md",
     "LICENSE",
+    "v86.d.ts",
     "build/libv86*.js",
     "build/libv86*.js.map",
     "build/*.mjs",
     "build/v86*.wasm"
   ],
   "main": "build/libv86.mjs",
+  "types": "v86.d.ts",
   "repository": "github:copy/v86",
   "type": "module"
 }
