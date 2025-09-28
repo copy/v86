@@ -13,6 +13,9 @@
     "build/*.mjs",
     "build/v86*.wasm"
   ],
+  "scripts": {
+    "prepack": "make all"
+  },
   "main": "build/libv86.mjs",
   "types": "v86.d.ts",
   "repository": "github:copy/v86",
