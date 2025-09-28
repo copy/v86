@@ -35,7 +35,7 @@ export type V86Image =
     //| { buffer: File; async?: boolean; }; // only in browsers: https://developer.mozilla.org/en-US/docs/Web/API/File
     | { buffer: ArrayBuffer };
 
-export enum LogLevel {
+export const enum LogLevel {
     LOG_ALL = -1,
     LOG_NONE = 0,
     LOG_OTHER = 0x000001,
@@ -64,7 +64,7 @@ export enum LogLevel {
     LOG_SB16 = 0x800000,
 }
 
-export enum BootOrder {
+export const enum BootOrder {
     AUTO = 0,
     CD_FLOPPY_HARDDISK = 0x213,
     CD_HARDDISK_FLOPPY = 0x123,
@@ -73,7 +73,7 @@ export enum BootOrder {
     HARDDISK_CD_FLOPPY = 0x132,
 }
 
-export enum Event {
+export const enum Event {
     FS_ATTACH = "9p-attach",
     FS_READ_END = "9p-read-end",
     FS_READ_START = "9p-read-start",
