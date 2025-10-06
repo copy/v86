@@ -1689,6 +1689,7 @@ function onload()
     if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
+    if(query_args.has("serial_websocket_url")) $("serial_websocket_url").value = query_args.get("serial_websocket_url");
 
     for(const dev of ["fda", "fdb"])
     {
@@ -2110,6 +2111,7 @@ function start_emulation(profile, query_args)
     }
     settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
     if(settings.disable_audio) new_query_args.set("mute", "1");
+    settings.serial_websocket_url = $("serial_websocket_url").value;
 
     // some settings cannot be overridden when a state image is used
     if(!settings.initial_state)
@@ -2283,6 +2285,7 @@ function start_emulation(profile, query_args)
         disable_speaker: settings.disable_audio,
         mac_address_translation: settings.mac_address_translation,
         cpuid_level: settings.cpuid_level,
+        serial_websocket_url: settings.serial_websocket_url,
     });
 
     if(DEBUG) window.emulator = emulator;
