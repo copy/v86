@@ -23,10 +23,40 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 
 4. To change floppy disk, press *Ctrl+Alt+2* to switch to the QEMU Monitor, run `change floppy0 /path/to/new_floppy_image` and press *Ctrl+Alt+1* to switch to VGA.
 5. Follow the installation guide on the screen.
-6. (optionally) If "Windows protection" errors appears on startup, apply [FIX95CPU](http://lonecrusader.x10host.com/fix95cpu.html) or [patcher9x](https://github.com/JHRobotics/patcher9x#installation).
 
 > [!TIP]
 > For transfer files from host to guest, use [genisoimage](https://wiki.debian.org/genisoimage) ([UltraISO](https://www.ultraiso.com/) and [PowerISO](https://www.poweriso.com/) for Windows and Mac) for creating CD-ISO image or [dosfstools](https://github.com/dosfstools/dosfstools) ([WinImage](https://www.winimage.com/download.htm) for Windows) for creating floppy disk images, then mount the created image to QEMU.
+
+## Troubleshooting
+
+### "Windows protection" errors during startup
+
+Apply [FIX95CPU](http://lonecrusader.x10host.com/fix95cpu.html) or [patcher9x](https://github.com/JHRobotics/patcher9x#installation).
+
+### "VFBACKUP could no load VFD.VXD" on startup (Windows 95)
+
+**Workaround #1**:
+*Source: [#1185](https://github.com/copy/v86/issues/1185)*
+
+1. Mount the installation CD (or `Disk 3` for the RTM version on floppy disks).
+2. Open the "MS-DOS prompt" and run:
+
+For the CD version:
+```bat
+extract /a /l C:\Windows\System <cd-rom letter>:\WIN95\WIN95_02.CAB vfd.vxd
+```
+
+For the floppy version:
+```bat
+extract /a /l C:\Windows\System <floppy drive letter>:\WIN95_03.CAB vfd.vxd
+```
+
+**Workaround #2**:
+*Source: [#289](https://github.com/copy/v86/issues/289)*
+
+1. Open the Start menu, click on "Run" and run `sysedit`.
+2. Find `C:\AUTOEXEC.BAT` and add `smartdrv` to the top of the file.
+3. Press File -> Save.
 
 ## Floppy disk support
 
