@@ -122,7 +122,7 @@ See about [installing AmnHLT](cpu-idling.md#windows-9x-using-amnhlt).
 ## Enabling sound manually
 
 > [!NOTE]
-> If you don't have an install CD, use the Sound Blaster 16 driver from https://www.claunia.com/qemu/drivers/index.html.
+> If you don't have an install CD, use the Sound Blaster 16 driver from https://web.archive.org/web/20210814023225/https://www.claunia.com/qemu/drivers/index.html (unpack `sbw9xup.exe` as a zip archive).
 
 1. Open "Start" menu, click on "Control Panel" and "Add New Hardware".
 2. Press "Next", select "No" and select the following options:
