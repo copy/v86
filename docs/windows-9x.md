@@ -71,7 +71,9 @@ If it says *"Drive A is using MS-DOS compatibility mode file system"*, the flopp
 
 ## Enabling True Color (32 bpp)
 
-The default VGA display driver only supports 640x480x8 video mode, to fix this, install **Universal VBE9x Video Display Driver**.
+The default VGA display driver only supports 640x480x4 video mode, to fix this, you can install **Universal VBE9x Video Display Driver** or **VMDisp9x**.
+
+### Universal VBE9x Video Display Driver
 
 > [!WARNING]
 > After installing, DOS Mode (and other programs and games that require it) may not work properly.
@@ -85,6 +87,19 @@ The default VGA display driver only supports 640x480x8 video mode, to fix this, 
 5. Press "Have Disk...", click "Browse" and go to folder with unpacked driver. Inside the folder with driver, should be folders like `032mb`, `064mb`, `128mb`. Choose a version based on needed video memory size (for example, `032mb`), then select `vbemp.inf` inside.
 6. Select "VBE Miniport" adapter, press "OK" and "Next".
 7. After installing, restart Windows.
+
+### VMDisp9x (Windows 95)
+
+> [!WARNING]
+> This driver can run DOS Mode with some graphical glitches. However, DirectX and/or DirectDraw may not work properly with this driver.
+> Also, this driver doesn't support OpenGL.
+
+1. Download `vmdisp9x-<...>-driver-2d.img` from https://github.com/JHRobotics/vmdisp9x/releases.
+2. Mount as floppy image, right-click on the Desktop, click on "Properties".
+3. Click "Advanced" > "Adapter" > "Change".
+4. Press "Have Disk...", click "Browse" and go to the floppy.
+5. Select "VESA ISA" adapter and press "OK".
+6. After installing, restart Windows.
 
 ## CPU idling on Windows 95
 See about [installing AmnHLT](cpu-idling.md#windows-9x-using-amnhlt).
