@@ -94,28 +94,28 @@ See about [installing AmnHLT](cpu-idling.md#windows-9x-using-amnhlt).
 1. Open the Start menu, click on "Control Panel" and "Add New Hardware".
 2. Press "Next", select "No" and select next options:
 
-```
-Hardware type: Network adapters
-Manufacturers: Novell
-Models: NE2000 Compatible
-```
+| Option        | Value             |
+|:--------------|:------------------|
+| Hardware type | Network adapters  |
+| Manufacturers | Novell            |
+| Models        | NE2000 Compatible |
 
 3. Press "Next" and restart Windows.
 4. After restarting, right-click on "My computer", select "Propeties".
 5. Open "Device Manager" tab, select "NE2000 Compatible" (in "Network adapters") and press "Properties"
 6. Open "Resources", change values by selecting the properties and click on "Change Setting":
 
-```
-Interrupt Request: 10
-Input/Output Range: 0300 - 031F
-```
+| Option             | Value       |
+|:-------------------|:------------|
+| Interrupt Request  | 10          |
+| Input/Output Range | 0300 - 031F |
 
 7. In "Control Panel", open "Network", click on "Add", choose "Protocol" and select the following options:
 
-```
-Manufacturers: Microsoft
-Network Protocols: TCP/IP
-```
+| Option            | Value     |
+|:------------------|:----------|
+| Manufacturers     | Microsoft |
+| Network Protocols | TCP/IP    |
 
 8. (optionally) Set "Primary Network Logon" to `Windows Logon`.
 
@@ -127,10 +127,10 @@ Network Protocols: TCP/IP
 1. Open "Start" menu, click on "Control Panel" and "Add New Hardware".
 2. Press "Next", select "No" and select the following options:
 
-```
-Hardware type: Sound, video and game cotrollers
-Manufacturers: Creative Labs
-Models: Creative Labs Sound Blaster 16 or AWE-32
-```
+| Option        | Value                                    |
+|:--------------|:-----------------------------------------|
+| Hardware type | Sound, video and game cotrollers         |
+| Manufacturers | Creative Labs                            |
+| Models        | Creative Labs Sound Blaster 16 or AWE-32 |
 
 3. Restart Windows.
