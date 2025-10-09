@@ -1,0 +1,11 @@
+Comandos de Linux
+ls: Lista los archivos y directorios en el directorio actual. Se puede usar con opciones para mostrar más detalles (como -l para una lista larga con permisos, tamaño, etc., o -a para mostrar archivos ocultos).
+pwd: Imprime el directorio de trabajo actual (Print Working Directory). Muestra la ruta completa del directorio en el que te encuentras.
+cd: Cambia el directorio actual (Change Directory). Por ejemplo, cd /home/usuario te lleva al directorio /home/usuario. cd .. te lleva al directorio padre.
+cat: Concatena e imprime archivos. Se usa para mostrar el contenido de un archivo en la terminal. Por ejemplo, cat archivo.txt mostrará el contenido de archivo.txt.
+mkdir: Crea un nuevo directorio (Make Directory). Por ejemplo, mkdir nuevo_directorio crea un directorio llamado nuevo_directorio en el directorio actual.
+rm: Elimina archivos o directorios (Remove). rm archivo.txt elimina el archivo archivo.txt. Para eliminar un directorio, se usa rm -r directorio (la opción -r significa recursivo, para eliminar el directorio y todo su contenido). ¡Ten cuidado al usar rm, ya que los archivos eliminados generalmente no se pueden recuperar!
+Diferencias entre directorios raíz (/), /home y /etc
+/ (Raíz): Es el directorio principal de todo el sistema de archivos. Todos los demás directorios y archivos cuelgan de este directorio. Contiene directorios esenciales para el funcionamiento del sistema.
+/home: Contiene los directorios personales de los usuarios. Cada usuario tiene un directorio dentro de /home donde guarda sus documentos, configuraciones, etc. Solo el usuario y el administrador (root) tienen acceso completo a este directorio.
+/etc: Contiene archivos de configuración del sistema y de las aplicaciones instaladas. Estos archivos controlan cómo se comportan el sistema y las aplicaciones. Requiere privilegios de administrador (root) para modificar la mayoría de los archivos.
