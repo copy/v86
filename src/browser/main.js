@@ -2157,7 +2157,7 @@ function start_emulation(profile, query_args)
         const hda_empty_size = +$("hda_empty_size")?.value;
         if(hda_empty_size)
         {
-            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hda_empty_size)) * 1024 * 1024;
+            const size = Math.max(1, Math.min(MAX_ARRAY_BUFFER_SIZE_MB, hda_empty_size)) * 1024 * 1024;
             settings.hda = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hda.empty", String(size));
         }
@@ -2169,7 +2169,7 @@ function start_emulation(profile, query_args)
         const hdb_empty_size = +$("hdb_empty_size")?.value;
         if(hdb_empty_size)
         {
-            const size = Math.min(1, Math.max(MAX_ARRAY_BUFFER_SIZE_MB, hdb_empty_size)) * 1024 * 1024;
+            const size = Math.max(1, Math.min(MAX_ARRAY_BUFFER_SIZE_MB, hdb_empty_size)) * 1024 * 1024;
             settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size) };
             new_query_args.set("hdb.empty", String(size));
         }
