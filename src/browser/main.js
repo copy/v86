@@ -2170,7 +2170,7 @@ function start_emulation(profile, query_args)
         if(hdb_empty_size)
         {
             const size = Math.max(1, Math.min(MAX_ARRAY_BUFFER_SIZE_MB, hdb_empty_size)) * 1024 * 1024;
-            settings.hdb = { buffer: new ArrayBuffer(hdb_empty_size) };
+            settings.hdb = { buffer: new ArrayBuffer(size) };
             new_query_args.set("hdb.empty", String(size));
         }
         const multiboot = $("multiboot_image")?.files[0];
