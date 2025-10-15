@@ -3134,14 +3134,16 @@ function init_ui(profile, settings, emulator)
         }
     }
 
-    const script = document.createElement("script");
-    script.src = "build/xterm.js";
-    script.async = true;
-    script.onload = function()
-    {
-        emulator.set_serial_container_xtermjs($("terminal"));
-    };
-    document.body.appendChild(script);
+    if(!settings.serial_websocket_url) {
+        const script = document.createElement("script");
+        script.src = "build/xterm.js";
+        script.async = true;
+        script.onload = function()
+        {
+            emulator.set_serial_container_xtermjs($("terminal"));
+        };
+        document.body.appendChild(script);
+    }
 }
 
 function init_filesystem_panel(emulator)
