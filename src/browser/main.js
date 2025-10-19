@@ -2111,7 +2111,7 @@ function start_emulation(profile, query_args)
     }
     settings.disable_audio = $("disable_audio").checked || settings.disable_audio;
     if(settings.disable_audio) new_query_args.set("mute", "1");
-    settings.serial_websocket_url = $("serial_websocket_url").value;
+    settings.serial_websocket_url = $("serial_websocket_url").value || settings.serial_websocket_url;
 
     // some settings cannot be overridden when a state image is used
     if(!settings.initial_state)
