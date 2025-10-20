@@ -234,16 +234,17 @@ export function SerialAdapterXtermJS(element, bus)
     });
     term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
-    const on_data_disposable = term["onData"](function(data) {
-        for(let i = 0; i < data.length; i++)
+    const utf8_encoder = new TextEncoder();
+    const on_data_disposable = term["onData"](function(data_str) {
+        for(const utf8_byte of utf8_encoder.encode(data_str))
         {
-            bus.send("serial0-input", data.charCodeAt(i));
+            bus.send("serial0-input", utf8_byte);
         }
     });
 
-    bus.register("serial0-output-byte", function(byte)
+    bus.register("serial0-output-byte", function(utf8_byte)
     {
-        term.write(Uint8Array.of(byte));
+        term.write(Uint8Array.of(utf8_byte));
     }, this);
 
     this.destroy = function() {
