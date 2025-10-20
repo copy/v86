@@ -221,27 +221,18 @@ function SerialRecordingAdapter(bus)
  */
 export function SerialAdapterXtermJS(xterm_element, bus)
 {
+    this.element = element;
+
     if(!window["Terminal"])
     {
         return;
     }
 
-    let term, element;
-    if(xterm_element instanceof Function)
-    {
-        [term, element] = xterm_element();
-    }
-    else
-    {
-        term = new window["Terminal"]({
-            "logLevel": "off",
-            "convertEol": "true",
-        });
-        term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
-        element = xterm_element;
-    }
-    this.term = term;
-    this.element = element;
+    var term = this.term = new window["Terminal"]({
+        "logLevel": "off",
+        "convertEol": "true",
+    });
+    term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
     const utf8_encoder = new TextEncoder();
     const on_data_disposable = term["onData"](function(data_str) {
