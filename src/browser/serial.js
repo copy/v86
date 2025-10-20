@@ -219,7 +219,7 @@ function SerialRecordingAdapter(bus)
  * @constructor
  * @param {BusConnector} bus
  */
-export function SerialAdapterXtermJS(xterm_element, bus)
+export function SerialAdapterXtermJS(element, bus)
 {
     this.element = element;
 
