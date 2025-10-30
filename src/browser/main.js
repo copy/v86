@@ -2837,7 +2837,7 @@ function init_ui(profile, settings, emulator)
                 const files = file_input.files;
                 let buffer;
 
-                if(files.length === 1 && files[0].name.endsWith(".iso"))
+                if(files.length === 1 && /\.(iso(9660|img)?|cdr)$/i.test(files[0].name))
                 {
                     buffer = files[0];
                 }
