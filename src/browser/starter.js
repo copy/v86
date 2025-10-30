@@ -289,15 +289,14 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
 
-    if(options.serial_container)
-    {
-        this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
-        //this.recording_adapter = new SerialRecordingAdapter(this.bus);
-    }
-
     if(options.serial_container_xtermjs)
     {
         this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus);
+    }
+    else if(options.serial_container)
+    {
+        this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
+        //this.recording_adapter = new SerialRecordingAdapter(this.bus);
     }
 
     if(!options.disable_speaker)
