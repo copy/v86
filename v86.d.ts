@@ -333,6 +333,7 @@ export interface V86Options {
         dns_method?: "static" | "doh";
         doh_server?: string;
         cors_proxy?: string;
+        mtu?: number;
     };
 }
 

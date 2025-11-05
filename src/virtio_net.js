@@ -24,8 +24,9 @@ const VIRTIO_NET_CTRL_MAC_ADDR_SET = 1;
  * @param {CPU} cpu
  * @param {BusConnector} bus
  * @param {Boolean} preserve_mac_from_state_image
+ * @param {Number} mtu
  */
-export function VirtioNet(cpu, bus, preserve_mac_from_state_image)
+export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = 1500)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -177,7 +178,7 @@ export function VirtioNet(cpu, bus, preserve_mac_from_state_image)
                 {
                     bytes: 2,
                     name: "mtu",
-                    read: () => 1500,
+                    read: () => mtu,
                     write: data => {},
                 }
            ])

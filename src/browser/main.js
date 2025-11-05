@@ -2096,6 +2096,7 @@ function start_emulation(profile, query_args)
         settings.relay_url = query_args.get("relay_url");
         settings.disable_jit = bool_arg(query_args.get("disable_jit"));
         settings.disable_audio = bool_arg(query_args.get("mute"));
+        settings.mtu = parseInt(query_args.get("mtu"), 10) || undefined;
     }
 
     if(!settings.relay_url)
@@ -2255,7 +2256,8 @@ function start_emulation(profile, query_args)
         net_device: {
             type: settings.net_device_type || "ne2k",
             relay_url: settings.relay_url,
-            cors_proxy: settings.cors_proxy
+            cors_proxy: settings.cors_proxy,
+            mtu: settings.mtu
         },
         autostart: true,
 
