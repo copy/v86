@@ -62,6 +62,7 @@ Backends `fetch` and `wisp` support a couple of special settings in `config.net_
 | **dns_method** | str  | DNS method to use, either `static` or `doh`. `static`: use built-in DNS server, `doh`: use [DNS-over-HTTPS](https://en.wikipedia.org/wiki/DNS_over_HTTPS) (DoH). Defaults to `static` for `fetch` and to `doh` for `wisp` backend. |
 | **doh_server** | str  | Host name or IP address (and optional port number) of the DoH server if `dns_method` is `doh`. The value is expanded to the URL `https://DOH_SERVER/dns-query`. Default: `cloudflare-dns.com`. |
 | **cors_proxy** | str  | CORS proxy server URL, do not use a proxy if undefined. Default: undefined (`fetch` backend only). |
+| **mtu**        | int  | The MTU used for the virtual network. Increasing it can improve performance. This only works if the NIC type is `virtio`. Default: `1500` |
 
 #### Example `net_device` settings
 

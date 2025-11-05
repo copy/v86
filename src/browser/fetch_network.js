@@ -33,7 +33,8 @@ export function FetchNetworkAdapter(bus, config)
     this.dns_method = config.dns_method || "static";
     this.doh_server = config.doh_server;
     this.tcp_conn = {};
-    this.eth_encoder_buf = create_eth_encoder_buf();
+    this.mtu = config.mtu;
+    this.eth_encoder_buf = create_eth_encoder_buf(this.mtu);
     this.fetch = (...args) => fetch(...args);
 
     // Ex: 'https://corsproxy.io/?'
@@ -55,9 +56,8 @@ FetchNetworkAdapter.prototype.destroy = function()
 FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
 {
     if(packet.tcp.dport === 80) {
-        let conn = new TCPConnection();
+        let conn = new TCPConnection(this);
         conn.state = TCP_STATE_SYN_RECEIVED;
-        conn.net = this;
         conn.on("data", on_data_http);
         conn.tuple = tuple;
         conn.accept(packet);
