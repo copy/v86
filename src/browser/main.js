@@ -12,6 +12,8 @@ const DEFAULT_NETWORKING_PROXIES = ["wss://relay.widgetry.org/", "ws://localhost
 const DEFAULT_MEMORY_SIZE = 128;
 const DEFAULT_VGA_MEMORY_SIZE = 8;
 const DEFAULT_BOOT_ORDER = 0;
+const DEFAULT_MTU = 1500;
+const DEFAULT_NIC_TYPE = "ne2k";
 
 const MAX_ARRAY_BUFFER_SIZE_MB = 2000;
 
@@ -1689,6 +1691,8 @@ function onload()
     if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
+    if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
+    if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
 
     for(const dev of ["fda", "fdb"])
     {
@@ -2091,12 +2095,12 @@ function start_emulation(profile, query_args)
             settings.acpi = query_args.has("acpi") ? bool_arg(query_args.get("acpi")) : settings.acpi;
             settings.use_bochs_bios = query_args.get("bios") === "bochs";
             settings.net_device_type = query_args.get("net_device_type") || settings.net_device_type;
+            settings.mtu = parseInt(query_args.get("mtu"), 10) || undefined;
         }
 
         settings.relay_url = query_args.get("relay_url");
         settings.disable_jit = bool_arg(query_args.get("disable_jit"));
         settings.disable_audio = bool_arg(query_args.get("mute"));
-        settings.mtu = parseInt(query_args.get("mtu"), 10) || undefined;
     }
 
     if(!settings.relay_url)
@@ -2240,6 +2244,21 @@ function start_emulation(profile, query_args)
             settings.bios = { url: BIOSPATH + "bochs-bios.bin" };
             settings.vga_bios = { url: BIOSPATH + "bochs-vgabios.bin" };
         }
+
+        const nic_type = $("net_device_type").value || DEFAULT_NIC_TYPE;
+        if(!settings.net_device_type || nic_type !== DEFAULT_NIC_TYPE)
+        {
+            settings.net_device_type = nic_type;
+        }
+        if(settings.net_device_type !== DEFAULT_NIC_TYPE) new_query_args.set("net_device_type", settings.net_device_type);
+
+        const mtu = parseInt($("mtu").value, 10) || DEFAULT_MTU;
+        if(!settings.mtu || mtu !== DEFAULT_MTU)
+        {
+            settings.mtu = mtu;
+        }
+        if(settings.mtu !== DEFAULT_MTU) new_query_args.set("mtu", settings.mtu.toString());
+
     }
 
     if(!query_args)
@@ -2254,7 +2273,7 @@ function start_emulation(profile, query_args)
             use_graphical_text: false,
         },
         net_device: {
-            type: settings.net_device_type || "ne2k",
+            type: settings.net_device_type || DEFAULT_NIC_TYPE,
             relay_url: settings.relay_url,
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
