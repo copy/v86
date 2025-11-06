@@ -148,11 +148,33 @@
             </tr>
 
             <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
                 <td><label for="relay_url">Networking proxy (leave blank to disable)</label></td>
                 <td>
                     <input id="relay_url" type="text" value="wss://relay.widgetry.org/">
                 </td>
             </tr>
+
+            <tr>
+                <td><label for="net_device_type">Network Device Type</label></td>
+                <td>
+                    <select id="net_device_type">
+                        <option value="ne2k">ne2k</option>
+                        <option value="virtio">virtio</option>
+                    </select>
+                 </td>
+            </tr>
+
+            <tr>
+                <td><label for="mtu">Network MTU (only used for virtio)</label></td>
+                <td>
+                    <input id="mtu" type="number" value="1500" min="68" max="65535" step="1"> B<br>
+                 </td>
+            </tr>
+
 
             <tr>
                 <td colspan="2"><hr></td>
