@@ -94,10 +94,12 @@ WispNetworkAdapter.prototype.process_incoming_wisp_frame = function(frame) {
             }
 
             if(this.connections[stream_id].congested) {
-                for(const packet of this.congested_buffer) {
+                const buffer = this.congested_buffer.slice(0);
+                this.congested_buffer.length = 0;
+                this.connections[stream_id].congested = false;
+                for(const packet of buffer) {
                     this.send_packet(packet.data, packet.type, stream_id);
                 }
-                this.connections[stream_id].congested = false;
             }
             break;
         case 4: // CLOSE
