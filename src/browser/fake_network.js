@@ -193,6 +193,17 @@ function view_set_array(offset, data, view, out)
 }
 
 /**
+ * Write zeros into the view starting at offset
+ * @param {number} offset 
+ * @param {number} length 
+ * @param {DataView} view
+ */
+function view_set_zeros(offset, length, view, out) 
+{
+    out.eth_frame.fill(0, view.byteOffset + offset, view.byteOffset + offset + length);
+}
+
+/**
  * UTF8-encode given string into view starting at offset, return number of bytes written.
  *
  * @param {number} offset
@@ -951,19 +962,31 @@ function write_tcp(spec, out) {
     if(tcp.ece) flags |= 0x40;
     if(tcp.cwr) flags |= 0x80;
 
-    const doff = TCP_HEADER_SIZE >> 2;  // header length in 32-bit words
+    let doff = TCP_HEADER_SIZE;
+    if (tcp.options) {
+        if (tcp.options.mss) {
+            view.setUint8(doff, 0x02) //mss option type
+            view.setUint8(doff + 1, 0x04) //option length
+            view.setUint16(doff + 2, tcp.options.mss);
+            doff += 4;
+        }
+    }
+
+    let total_length = Math.ceil(doff / 4) * 4; // needs to a multiple of 4 bytes
+    if (tcp.options && total_length - doff > 0) {
+        view_set_zeros(doff, total_length - doff, view, out); //write zeros into remaining space for options
+    }
 
     view.setUint16(0, tcp.sport);
     view.setUint16(2, tcp.dport);
     view.setUint32(4, tcp.seq);
     view.setUint32(8, tcp.ackn);
-    view.setUint8(12, doff << 4);
+    view.setUint8(12, (total_length >> 2) << 4); // header length in 32-bit words
     view.setUint8(13, flags);
     view.setUint16(14, tcp.winsize);
     view.setUint16(16, 0); // checksum initially zero before calculation
     view.setUint16(18, tcp.urgent || 0);
 
-    let total_length = TCP_HEADER_SIZE;
     if(spec.tcp_data) {
         total_length += view_set_array(TCP_HEADER_SIZE, spec.tcp_data, view, out);
     }
@@ -1020,7 +1043,8 @@ export function fake_tcp_probe(dport, adapter) {
  */
 export function TCPConnection(adapter)
 {
-    const IPV4_PAYLOAD_SIZE = (adapter.mtu || MTU_DEFAULT) - IPV4_HEADER_SIZE;
+    this.mtu = (adapter.mtu || MTU_DEFAULT);
+    const IPV4_PAYLOAD_SIZE = this.mtu - IPV4_HEADER_SIZE;
     const TCP_PAYLOAD_SIZE = IPV4_PAYLOAD_SIZE - TCP_HEADER_SIZE;
 
     this.state = TCP_STATE_CLOSED;
@@ -1123,7 +1147,10 @@ TCPConnection.prototype.accept = function(packet) {
         ackn: this.ack,
         winsize: packet.tcp.winsize,
         syn: true,
-        ack: true
+        ack: true,
+        options: {
+            mss: (this.mtu - TCP_HEADER_SIZE - IPV4_HEADER_SIZE)
+        }
     };
     // dbg_log(`TCP[${this.tuple}]: accept(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
     this.state = TCP_STATE_ESTABLISHED;
