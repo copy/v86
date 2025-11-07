@@ -9,7 +9,7 @@ import * as marshall from "../lib/marshall.js";
 import { CPU } from "./cpu.js";
 import { BusConnector } from "./bus.js";
 
-const DEFAULT_MTU = 1500;
+const MTU_DEFAULT = 1500;
 
 const VIRTIO_NET_F_MAC = 5;
 const VIRTIO_NET_F_CTRL_VQ = 17;
@@ -28,7 +28,7 @@ const VIRTIO_NET_CTRL_MAC_ADDR_SET = 1;
  * @param {Boolean} preserve_mac_from_state_image
  * @param {number} mtu
  */
-export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = DEFAULT_MTU)
+export function VirtioNet(cpu, bus, preserve_mac_from_state_image, mtu = MTU_DEFAULT)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
