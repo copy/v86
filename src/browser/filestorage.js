@@ -132,7 +132,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum, file_s
  */
 ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count, file_size)
 {
-    const data = await this.storage.read(sha256sum, offset, count);
+    const data = await this.storage.read(sha256sum, offset, count, file_size);
     if(!data)
     {
         const full_file = await this.load_from_server(sha256sum, file_size);
