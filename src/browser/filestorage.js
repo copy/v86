@@ -112,7 +112,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum, file_s
         load_file(this.baseurl + sha256sum, { done: async buffer =>
         {
             let data = new Uint8Array(buffer);
-            if (sha256sum.endsWith(".zst"))
+            if(sha256sum.endsWith(".zst"))
             {
                 data = new Uint8Array(
                     this.zstd_decompress(file_size, data)
