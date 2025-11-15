@@ -436,7 +436,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(base_url)
         {
-            file_storage = new ServerFileStorageWrapper(file_storage, base_url);
+            file_storage = new ServerFileStorageWrapper(file_storage, base_url, this.zstd_decompress);
         }
         settings.fs9p = this.fs9p = new FS(file_storage);
 
