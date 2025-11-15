@@ -9,9 +9,10 @@ export function FileStorageInterface() {}
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
+ * @param {number} file_size
  * @return {!Promise<Uint8Array>} null if file does not exist.
  */
-FileStorageInterface.prototype.read = function(sha256sum, offset, count) {};
+FileStorageInterface.prototype.read = function(sha256sum, offset, count, file_size) {};
 
 /**
  * Add a read-only file to the filestorage.
@@ -83,8 +84,9 @@ MemoryFileStorage.prototype.uncache = function(sha256sum)
  * @implements {FileStorageInterface}
  * @param {FileStorageInterface} file_storage
  * @param {string} baseurl
+ * @param {function(number,Uint8Array):ArrayBuffer} zstd_decompress
  */
-export function ServerFileStorageWrapper(file_storage, baseurl)
+export function ServerFileStorageWrapper(file_storage, baseurl, zstd_decompress)
 {
     dbg_assert(baseurl, "ServerMemoryFileStorage: baseurl should not be empty");
 
@@ -95,19 +97,26 @@ export function ServerFileStorageWrapper(file_storage, baseurl)
 
     this.storage = file_storage;
     this.baseurl = baseurl;
+    this.zstd_decompress = zstd_decompress;
 }
 
 /**
  * @param {string} sha256sum
+ * @param {number} file_size
  * @return {!Promise<Uint8Array>}
  */
-ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
+ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum, file_size)
 {
     return new Promise((resolve, reject) =>
     {
         load_file(this.baseurl + sha256sum, { done: async buffer =>
         {
-            const data = new Uint8Array(buffer);
+            let data = new Uint8Array(buffer);
+            if (sha256sum.endsWith('.zst')) {
+                data = new Uint8Array(
+                    this.zstd_decompress(file_size, data)
+                );
+            }
             await this.cache(sha256sum, data);
             resolve(data);
         }});
@@ -118,14 +127,15 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
+ * @param {number} file_size
  * @return {!Promise<Uint8Array>}
  */
-ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count)
+ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count, file_size)
 {
     const data = await this.storage.read(sha256sum, offset, count);
     if(!data)
     {
-        const full_file = await this.load_from_server(sha256sum);
+        const full_file = await this.load_from_server(sha256sum, file_size);
         return full_file.subarray(offset, offset + count);
     }
     return data;
