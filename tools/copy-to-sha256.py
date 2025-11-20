@@ -7,8 +7,22 @@ import argparse
 import hashlib
 import shutil
 import tarfile
+import sys
+import io
 
 HASH_LENGTH = 8
+USE_COMPRESSION = True
+
+if USE_COMPRESSION:
+    if sys.version_info >= (3, 14):
+        from compression import zstd
+    else:
+        try:
+            import zstandard as zstd
+        except ImportError:
+            print("Error: zstandard module required when USE_COMPRESSION = True")
+            print("Install with: pip install zstandard")
+            sys.exit(1)
 
 def hash_file(filename) -> str:
     with open(filename, "rb", buffering=0) as f:
@@ -64,30 +78,42 @@ def handle_dir(logger, from_path: str, to_path: str):
                 continue
 
             file_hash = hash_file(absname)
-            filename = file_hash[0:HASH_LENGTH] + ".bin"
+            filename = file_hash[0:HASH_LENGTH] + (".bin.zst" if USE_COMPRESSION else ".bin")
             to_abs = os.path.join(to_path, filename)
 
             if os.path.exists(to_abs):
                 logger.info("Exists, skipped {} ({})".format(to_abs, absname))
             else:
-                logger.info("cp {} {}".format(absname, to_abs))
-                shutil.copyfile(absname, to_abs)
+                if USE_COMPRESSION:
+                    logger.info("Compressing {} {}".format(absname, to_abs))
+                    with open(absname, 'rb') as src_file:
+                        with open(to_abs, 'wb') as dst_file:
+                            zstd.ZstdCompressor(level=3).copy_stream(src_file, dst_file)
+                else:
+                    logger.info("cp {} {}".format(absname, to_abs))
+                    shutil.copyfile(absname, to_abs)
 
 def handle_tar(logger, tar, to_path: str):
     for member in tar.getmembers():
         if member.isfile() or member.islnk():
             f = tar.extractfile(member)
             file_hash = hash_fileobj(f)
-            filename = file_hash[0:HASH_LENGTH] + ".bin"
+            filename = file_hash[0:HASH_LENGTH] + (".bin.zst" if USE_COMPRESSION else ".bin")
             to_abs = os.path.join(to_path, filename)
 
             if os.path.exists(to_abs):
                 logger.info("Exists, skipped {} ({})".format(to_abs, member.name))
             else:
-                logger.info("Extracted {} ({})".format(to_abs, member.name))
-                to_file = open(to_abs, "wb")
-                f.seek(0)
-                shutil.copyfileobj(f, to_file)
+                if USE_COMPRESSION:
+                    logger.info("Extracted and compressing {} ({})".format(to_abs, member.name))
+                    f.seek(0)
+                    with open(to_abs, 'wb') as dst_file:
+                        zstd.ZstdCompressor(level=3).copy_stream(f, dst_file)
+                else:
+                    logger.info("Extracted {} ({})".format(to_abs, member.name))
+                    to_file = open(to_abs, "wb")
+                    f.seek(0)
+                    shutil.copyfileobj(f, to_file)
 
 
 if __name__ == "__main__":
