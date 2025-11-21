@@ -38,7 +38,7 @@ export function WispNetworkAdapter(wisp_url, bus, config)
     this.tcp_conn = {};
     this.mtu = config.mtu;
     this.eth_encoder_buf = create_eth_encoder_buf(this.mtu);
-    
+
     this.bus.register("net" + this.id + "-mac", function(mac) {
         this.vm_mac = new Uint8Array(mac.split(":").map(function(x) { return parseInt(x, 16); }));
     }, this);
