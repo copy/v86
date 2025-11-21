@@ -192,11 +192,11 @@ function view_set_array(offset, data, view, out)
 
 /**
  * Write zeros into the view starting at offset
- * @param {number} offset 
- * @param {number} length 
+ * @param {number} offset
+ * @param {number} length
  * @param {DataView} view
  */
-function view_set_zeros(offset, length, view, out) 
+function view_set_zeros(offset, length, view, out)
 {
     out.eth_frame.fill(0, view.byteOffset + offset, view.byteOffset + offset + length);
 }
@@ -961,17 +961,17 @@ function write_tcp(spec, out) {
     if(tcp.cwr) flags |= 0x80;
 
     let doff = TCP_HEADER_SIZE;
-    if (tcp.options) {
-        if (tcp.options.mss) {
-            view.setUint8(doff, 0x02) //mss option type
-            view.setUint8(doff + 1, 0x04) //option length
+    if(tcp.options) {
+        if(tcp.options.mss) {
+            view.setUint8(doff, 0x02); //mss option type
+            view.setUint8(doff + 1, 0x04); //option length
             view.setUint16(doff + 2, tcp.options.mss);
             doff += 4;
         }
     }
 
     let total_length = Math.ceil(doff / 4) * 4; // needs to a multiple of 4 bytes
-    if (tcp.options && total_length - doff > 0) {
+    if(tcp.options && total_length - doff > 0) {
         view_set_zeros(doff, total_length - doff, view, out); //write zeros into remaining space for options
     }
 
