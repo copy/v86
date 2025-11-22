@@ -114,12 +114,12 @@ if(typeof process !== "undefined")
     v86.prototype.register_yield = function() {};
     v86.prototype.unregister_yield = function() {};
 }
-else if(window["scheduler"] && typeof window["scheduler"]["postTask"] === "function" && location.href.includes("use-scheduling-api"))
+else if(globalThis["scheduler"] && typeof globalThis["scheduler"]["postTask"] === "function" && location.href.includes("use-scheduling-api"))
 {
     v86.prototype.yield = function(t, tick)
     {
         t = Math.max(0, t);
-        window["scheduler"]["postTask"](() => this.yield_callback(tick), { delay: t });
+        globalThis["scheduler"]["postTask"](() => this.yield_callback(tick), { delay: t });
     };
 
     v86.prototype.register_yield = function() {};
