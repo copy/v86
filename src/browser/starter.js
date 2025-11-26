@@ -17,6 +17,7 @@ import { ScreenAdapter } from "./screen.js";
 import { DummyScreenAdapter } from "./dummy_screen.js";
 import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
+import { SerialAdapterWebSocket } from "./serial_websocket.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
@@ -297,6 +298,11 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
+    }
+
+    if(options.serial_websocket_url)
+    {
+        this.serial_adapter = new SerialAdapterWebSocket(options.serial_websocket_url, this.bus);
     }
 
     if(!options.disable_speaker)
