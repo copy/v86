@@ -172,6 +172,7 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+	ls -lh build/libv86-debug.js
 
 build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
@@ -179,6 +180,7 @@ build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js_output_file build/libv86-debug.mjs\
 		--define=DEBUG=true\
 		$(CLOSURE_FLAGS)\
+		$(CLOSURE_READABLE)\
 		--compilation_level SIMPLE\
 		--jscomp_off=missingProperties\
 		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
