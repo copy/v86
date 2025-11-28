@@ -20,6 +20,7 @@ function StateLoadError(msg)
 StateLoadError.prototype = new Error;
 
 const CONSTRUCTOR_TABLE = {
+    "Map": Map,
     "Uint8Array": Uint8Array,
     "Int8Array": Int8Array,
     "Uint16Array": Uint16Array,
@@ -41,6 +42,17 @@ function save_object(obj, saved_buffers)
     if(Array.isArray(obj))
     {
         return obj.map(x => save_object(x, saved_buffers));
+    }
+
+    if(obj instanceof Map)
+    {
+        return {
+            "__state_type__": "Map",
+            "args": Array.from(obj.entries()).map(([k, v]) => [
+                save_object(k, saved_buffers),
+                save_object(v, saved_buffers),
+            ]),
+        };
     }
 
     if(obj.constructor === Object)
@@ -107,6 +119,10 @@ function restore_buffers(obj, buffers)
 
     const constructor = CONSTRUCTOR_TABLE[type];
     dbg_assert(constructor, "Unkown type: " + type);
+
+    if(obj["args"] !== undefined) {
+        return new constructor(obj["args"]);
+    }
 
     const buffer = buffers[obj["buffer_id"]];
     return new constructor(buffer);
