@@ -129,6 +129,7 @@ Since this backend (including its proxy server) only forwards unmodified etherne
 * **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- one TAP device for all clients, written in Go, without integraded DHCP but with integrated TLS support
 * **[node-relay](https://github.com/krishenriksen/node-relay)** -- like websockproxy but written for NodeJS (dnsmasq/no TLS), see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
 * **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS
+* **[RootlessRelay](https://github.com/obegron/rootlessRelay)** -- uses its own network stack that doesn't require TUN/TAP devices, has a built-in reverse proxy and admin interface, see [RootlessRelay #1442](https://github.com/copy/v86/discussions/1442)
 
 [See here](https://github.com/copy/v86/discussions/1199#discussioncomment-12026845) for a benchmark comparing the download performance of these proxy servers.
 
