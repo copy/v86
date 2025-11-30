@@ -1,5 +1,4 @@
 import { LOG_FETCH } from "../const.js";
-import { h } from "../lib.js";
 import { dbg_log } from "../log.js";
 
 import {
@@ -47,24 +46,16 @@ export function FetchNetworkAdapter(bus, config)
     {
         this.send(data);
     }, this);
+    this.bus.register("tcp-connection", (conn) => {
+        if(conn.sport === 80) {
+            conn.on("data", on_data_http);
+            conn.accept();
+        }
+    }, this);
 }
 
 FetchNetworkAdapter.prototype.destroy = function()
 {
-};
-
-FetchNetworkAdapter.prototype.on_tcp_connection = function(packet, tuple)
-{
-    if(packet.tcp.dport === 80) {
-        let conn = new TCPConnection(this);
-        conn.state = TCP_STATE_SYN_RECEIVED;
-        conn.on("data", on_data_http);
-        conn.tuple = tuple;
-        conn.accept(packet);
-        this.tcp_conn[tuple] = conn;
-        return true;
-    }
-    return false;
 };
 
 FetchNetworkAdapter.prototype.connect = function(port)
@@ -144,7 +135,7 @@ async function on_data_http(data)
         const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
         const encoder = new TextEncoder();
         let response_started = false;
-        this.net.fetch(fetch_url, opts).then((resp) => {
+        let handler = (resp) => {
             let resp_headers = new Headers(resp.headers);
             resp_headers.delete("content-encoding");
             resp_headers.delete("keep-alive");
@@ -177,7 +168,9 @@ async function on_data_http(data)
                     this.close();
                 });
             }
-        })
+        };
+
+        this.net.fetch(fetch_url, opts).then(handler)
         .catch((e) => {
             console.warn("Fetch Failed: " + fetch_url + "\n" + e);
             if(!response_started) {
