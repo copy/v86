@@ -55,6 +55,8 @@ export function V86(options)
     this.bus = bus[0];
     this.emulator_bus = bus[1];
 
+    this.destroyed = false;
+
     var cpu;
     var wasm_memory;
 
@@ -177,6 +179,8 @@ export function V86(options)
         .then((exports) => {
             wasm_memory = exports.memory;
             exports["rust_init"]();
+
+            if (this.destroyed) return;
 
             const emulator = this.v86 = new v86(this.emulator_bus, { exports, wasm_table });
             cpu = emulator.cpu;
@@ -762,7 +766,9 @@ V86.prototype.destroy = async function()
 {
     await this.stop();
 
-    this.v86.destroy();
+    this.destroyed = true;
+
+    this.v86 && this.v86.destroy();
     this.keyboard_adapter && this.keyboard_adapter.destroy();
     this.network_adapter && this.network_adapter.destroy();
     this.mouse_adapter && this.mouse_adapter.destroy();
