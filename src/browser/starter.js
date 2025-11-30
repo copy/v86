@@ -263,15 +263,32 @@ V86.prototype.continue_init = async function(emulator, options)
     // TODO: Should be properly fixed in restore_state
     settings.net_device = options.net_device || { type: "ne2k" };
 
+    const localemap = {
+        "us": ["kbdus", "cp437"],
+        "uk": ["kbduk", "cp858"],
+        "de": ["kbdgr", "cp858"]
+    };
+    const [kbdid, encoding] = options.locale && localemap[options.locale] ? localemap[options.locale] : [undefined, undefined];
+
     const screen_options = options.screen || {};
     if(options.screen_container)
     {
         screen_options.container = options.screen_container;
     }
+    if(encoding)
+    {
+        screen_options.encoding = encoding;
+    }
+
+    const keyboard_options = options.keyboard || {};
+    if(kbdid)
+    {
+        keyboard_options.kbdid = kbdid;
+    }
 
     if(!options.disable_keyboard)
     {
-        this.keyboard_adapter = new KeyboardAdapter(this.bus);
+        this.keyboard_adapter = new KeyboardAdapter(this.bus, keyboard_options);
     }
     if(!options.disable_mouse)
     {
@@ -987,48 +1004,45 @@ V86.prototype.eject_cdrom = function()
 };
 
 /**
- * Send a sequence of scan codes to the emulated PS2 controller. A list of
+ * Send a sequence of raw scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
  *
- * @param {Array.<number>} codes
- * @param {number=} delay
+ * @param {Array.<number>} scancodes
  */
-V86.prototype.keyboard_send_scancodes = async function(codes, delay)
+V86.prototype.keyboard_send_scancodes = async function(scancodes)
 {
-    for(var i = 0; i < codes.length; i++)
-    {
-        this.bus.send("keyboard-code", codes[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
+    await this.keyboard_adapter.simulate_scancodes(scancodes);
 };
 
 /**
- * Send translated keys
- * @param {Array.<number>} codes
- * @param {number=} delay
+ * Send a sequence of scan codes derived from the given combination of keys.
+ * Keys are pressed and released together in the given order (not separately).
+ * Single-character keys identify physical keys by using the locale-dependent
+ * keyboard layout map, whereas multiple-character keys identify keys using
+ * the physical key names following the KeyboardEvent.code naming convention.
+ * Optional hold_time specifies the time in milliseconds to hold keys down
+ * before releasing them again (default: 0).
+ *
+ * @param {Array<string>} keys
+ * @param {number=} hold_time
  */
-V86.prototype.keyboard_send_keys = async function(codes, delay)
+V86.prototype.keyboard_send_keypress = async function(keys, hold_time)
 {
-    for(var i = 0; i < codes.length; i++)
-    {
-        this.keyboard_adapter.simulate_press(codes[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
+    await this.keyboard_adapter.simulate_keypress(keys, hold_time);
 };
 
 /**
- * Send text, assuming the guest OS uses a US keyboard layout
- * @param {string} string
- * @param {number=} delay
+ * Send a sequence of scan codes derived from given text.
+ * Supported character set for text depends on the configured keyboard
+ * layout mapping, characters not defined in the mapping are dropped.
+ * Use "\n" to encode the Enter key, "\t" for Tab and "\b" for Backspace.
+ *
+ * @param {string} text
  */
-V86.prototype.keyboard_send_text = async function(string, delay)
+V86.prototype.keyboard_send_text = async function(text)
 {
-    for(var i = 0; i < string.length; i++)
-    {
-        this.keyboard_adapter.simulate_char(string[i]);
-        if(delay) await new Promise(resolve => setTimeout(resolve, delay));
-    }
+    await this.keyboard_adapter.simulate_text(text);
 };
 
 /**

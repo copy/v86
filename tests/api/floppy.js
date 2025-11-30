@@ -149,13 +149,9 @@ await exec_test("floppy-tinycore-linux", CONFIG_TINYCORE_CD, 60, async emulator 
     console.log("Waiting for boot menu");
     await expect(emulator, "", [/BIOS default device boot in \d+ seconds\.\.\./], 10000);
 
-    // press arrow down key 3 times
     for(let i = 0; i < 3; i++)
     {
-        emulator.keyboard_send_scancodes([
-            0xe0, 0x50,        // press
-            0xe0, 0x50 | 0x80, // release
-        ]);
+        await emulator.keyboard_send_keypress(["ArrowDown"]);
         await pause(600);
     }
 

@@ -1533,8 +1533,8 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
-                        else emulator.keyboard_send_scancodes(action.run, 10);
+                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run);
+                        else emulator.keyboard_send_scancodes(action.run);
                     }, action.after || 0)
                 );
             }
@@ -1589,8 +1589,8 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
-                    else emulator.keyboard_send_scancodes(action.run, 10);
+                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run);
+                    else emulator.keyboard_send_scancodes(action.run);
                 }, action.after || 0)
             );
         }
