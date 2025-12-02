@@ -1196,6 +1196,20 @@ pub unsafe fn instr_0F30() {
         IA32_SYSENTER_ESP => *sysenter_esp = low,
         IA32_FEAT_CTL => {}, // linux 5.x
         MSR_TEST_CTRL => {}, // linux 5.x
+        IA32_EFER => {
+            let supported_bits = EFER_NXE as i32;
+            
+            if (low & !supported_bits) != 0 {
+                dbg_log!("Writing unsupported bits to EFER: {:x}", low & !supported_bits);
+                dbg_assert!(false);
+            }
+            
+            if (low & EFER_NXE) != (*efer & EFER_NXE) {
+                full_clear_tlb();
+            }
+            
+            *efer = (low & supported_bits) as i32;
+        },
         IA32_APIC_BASE => {
             dbg_assert!(
                 high == 0,
@@ -1277,6 +1291,7 @@ pub unsafe fn instr_0F32() {
             low = tsc as i32;
             high = (tsc >> 32) as i32
         },
+        IA32_EFER => low = *efer,
         IA32_FEAT_CTL => {}, // linux 5.x
         MSR_TEST_CTRL => {}, // linux 5.x
         IA32_PLATFORM_ID => {},
@@ -3309,8 +3324,16 @@ pub unsafe fn instr_0FA2() {
 
         0x80000000 => {
             // maximum supported extended level
-            eax = 5;
+            eax = 0x80000001u32 as i32;
             // other registers are reserved
+        },
+
+        0x80000001 => {
+            let vme = 0 << 1;
+            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
+                    vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 20 | // cx8, sep, pge, cmov, nx
+                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
         },
 
         0x40000000 => {
