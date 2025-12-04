@@ -15,7 +15,7 @@ import { KeyboardAdapter } from "./keyboard.js";
 import { MouseAdapter } from "./mouse.js";
 import { ScreenAdapter } from "./screen.js";
 import { DummyScreenAdapter } from "./dummy_screen.js";
-import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
+import { SerialAdapter, VirtioConsoleAdapter, SerialAdapterXtermJS, VirtioConsoleAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
@@ -299,6 +299,15 @@ V86.prototype.continue_init = async function(emulator, options)
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
     }
 
+    if(options.virtio_console && options.virtio_console_container_xtermjs)
+    {
+        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(options.virtio_console_container_xtermjs, this.bus);
+    }
+    else if(options.virtio_console && options.virtio_console_container)
+    {
+        this.virtio_console_adapter = new VirtioConsoleAdapter(options.virtio_console_container, this.bus);
+    }
+
     if(!options.disable_speaker)
     {
         this.speaker_adapter = new SpeakerAdapter(this.bus);
@@ -569,6 +578,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
 
         this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
+        this.virtio_console_adapter && this.virtio_console_adapter.show && this.virtio_console_adapter.show();
 
         this.v86.init(settings);
 
@@ -769,6 +779,7 @@ V86.prototype.destroy = async function()
     this.screen_adapter && this.screen_adapter.destroy();
     this.serial_adapter && this.serial_adapter.destroy();
     this.speaker_adapter && this.speaker_adapter.destroy();
+    this.virtio_console_adapter && this.virtio_console_adapter.destroy();
 };
 
 /**
@@ -1466,6 +1477,13 @@ V86.prototype.set_serial_container_xtermjs = function(element)
     this.serial_adapter && this.serial_adapter.destroy && this.serial_adapter.destroy();
     this.serial_adapter = new SerialAdapterXtermJS(element, this.bus);
     this.serial_adapter.show();
+};
+
+V86.prototype.set_virtio_console_container_xtermjs = function(element)
+{
+    this.virtio_console_adapter && this.virtio_console_adapter.destroy && this.virtio_console_adapter.destroy();
+    this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(element, this.bus);
+    this.virtio_console_adapter.show();
 };
 
 V86.prototype.get_instruction_stats = function()

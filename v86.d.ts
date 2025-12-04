@@ -262,6 +262,16 @@ export interface V86Options {
     serial_container_xtermjs?: HTMLElement;
 
     /**
+     * A textarea that will receive and send data to the emulated virtio console.
+     */
+    virtio_console_container?: HTMLTextAreaElement;
+
+    /**
+     * Xtermjs virtio console terminal container. When set, virtio_console_container option is ignored.
+     */
+    virtio_console_container_xtermjs?: HTMLElement;
+
+    /**
      * An HTMLElement. This should have a certain structure, see [basic.html](../examples/basic.html).
      */
     screen_container?: HTMLElement | null;
