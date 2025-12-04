@@ -6,29 +6,22 @@ import { BusConnector } from "../bus.js";
 /**
  * @constructor
  *
- * @param {BusConnector} bus
+ * @param {HTMLTextAreaElement} element
  */
-export function SerialAdapter(element, bus)
+function TextAreaAdapter(element)
 {
     var serial = this;
 
     this.enabled = true;
-    this.bus = bus;
     this.text = "";
     this.text_new_line = false;
 
     this.last_update = 0;
 
-
-    this.bus.register("serial0-output-byte", function(byte)
-    {
-        var chr = String.fromCharCode(byte);
-        this.show_char(chr);
-    }, this);
-
-
     this.destroy = function()
     {
+        this.enabled = false;
+
         element.removeEventListener("keypress", keypress_handler, false);
         element.removeEventListener("keydown", keydown_handler, false);
         element.removeEventListener("paste", paste_handler, false);
@@ -38,6 +31,7 @@ export function SerialAdapter(element, bus)
     this.init = function()
     {
         this.destroy();
+        this.enabled = true;
 
         element.style.display = "block";
         element.addEventListener("keypress", keypress_handler, false);
@@ -46,7 +40,6 @@ export function SerialAdapter(element, bus)
         window.addEventListener("mousedown", window_click_handler, false);
     };
     this.init();
-
 
     this.show_char = function(chr)
     {
@@ -119,10 +112,7 @@ export function SerialAdapter(element, bus)
      */
     this.send_char = function(chr_code)
     {
-        if(serial.bus)
-        {
-            serial.bus.send("serial0-input", chr_code);
-        }
+        // placeholder
     };
 
     function may_handle(e)
@@ -139,10 +129,6 @@ export function SerialAdapter(element, bus)
 
     function keypress_handler(e)
     {
-        if(!serial.bus)
-        {
-            return;
-        }
         if(!may_handle(e))
         {
             return;
@@ -201,6 +187,63 @@ export function SerialAdapter(element, bus)
 /**
  * @constructor
  *
+ * @param {HTMLTextAreaElement} element
+ * @param {BusConnector} bus
+ */
+export function SerialAdapter(element, bus)
+{
+    var adapter = Reflect.construct(TextAreaAdapter, [element], SerialAdapter);
+
+    adapter.send_char = function(chr_code)
+    {
+        bus.send("serial0-input", chr_code);
+    };
+
+    bus.register("serial0-output-byte", function(byte)
+    {
+        var chr = String.fromCharCode(byte);
+        adapter.show_char && adapter.show_char(chr);
+    }, adapter);
+
+    return adapter;
+}
+
+Reflect.setPrototypeOf(SerialAdapter.prototype, TextAreaAdapter.prototype);
+Reflect.setPrototypeOf(SerialAdapter, TextAreaAdapter);
+
+/**
+ * @constructor
+ *
+ * @param {HTMLTextAreaElement} element
+ * @param {BusConnector} bus
+ */
+export function VirtioConsoleAdapter(element, bus)
+{
+    var adapter = Reflect.construct(TextAreaAdapter, [element], VirtioConsoleAdapter);
+
+    adapter.send_char = function(chr_code)
+    {
+        bus.send("virtio-console0-input-bytes", new Uint8Array([chr_code]));
+    };
+
+    const decoder = new TextDecoder();
+    bus.register("virtio-console0-output-bytes", function(bytes)
+    {
+        for(const chr of decoder.decode(bytes))
+        {
+            adapter.show_char && adapter.show_char(chr);
+        }
+    }, adapter);
+
+    return adapter;
+}
+
+Reflect.setPrototypeOf(VirtioConsoleAdapter.prototype, TextAreaAdapter.prototype);
+Reflect.setPrototypeOf(VirtioConsoleAdapter, TextAreaAdapter);
+
+/**
+ * @constructor
+ *
  * @param {BusConnector} bus
  */
 function SerialRecordingAdapter(bus)
@@ -217,9 +260,10 @@ function SerialRecordingAdapter(bus)
 
 /**
  * @constructor
- * @param {BusConnector} bus
+ *
+ * @param {HTMLElement} element
  */
-export function SerialAdapterXtermJS(element, bus)
+function XtermJSAdapter(element)
 {
     this.element = element;
 
@@ -234,26 +278,70 @@ export function SerialAdapterXtermJS(element, bus)
     });
     term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
+    this.destroy = function() {
+        this.on_data_disposable && this.on_data_disposable["dispose"]();
+        term["dispose"]();
+    };
+}
+
+XtermJSAdapter.prototype.show = function()
+{
+    this.term && this.term.open(this.element);
+};
+
+/**
+ * @constructor
+ *
+ * @extends XtermJSAdapter
+ * @param {HTMLElement} element
+ * @param {BusConnector} bus
+ */
+export function SerialAdapterXtermJS(element, bus)
+{
+    var adapter = Reflect.construct(XtermJSAdapter, [element], SerialAdapterXtermJS);
+
+    bus.register("serial0-output-byte", function(utf8_byte)
+    {
+        adapter.term.write(Uint8Array.of(utf8_byte));
+    }, adapter);
+
     const utf8_encoder = new TextEncoder();
-    const on_data_disposable = term["onData"](function(data_str) {
+    adapter.on_data_disposable = adapter.term["onData"](function(data_str) {
         for(const utf8_byte of utf8_encoder.encode(data_str))
         {
             bus.send("serial0-input", utf8_byte);
         }
     });
 
-    bus.register("serial0-output-byte", function(utf8_byte)
-    {
-        term.write(Uint8Array.of(utf8_byte));
-    }, this);
-
-    this.destroy = function() {
-        on_data_disposable["dispose"]();
-        term["dispose"]();
-    };
+    return adapter;
 }
 
-SerialAdapterXtermJS.prototype.show = function()
+Reflect.setPrototypeOf(SerialAdapterXtermJS.prototype, XtermJSAdapter.prototype);
+Reflect.setPrototypeOf(SerialAdapterXtermJS, XtermJSAdapter);
+
+/**
+ * @constructor
+ *
+ * @extends XtermJSAdapter
+ * @param {HTMLElement} element
+ * @param {BusConnector} bus
+ */
+export function VirtioConsoleAdapterXtermJS(element, bus)
 {
-    this.term && this.term.open(this.element);
-};
+    var adapter = Reflect.construct(XtermJSAdapter, [element], VirtioConsoleAdapterXtermJS);
+
+    bus.register("virtio-console0-output-bytes", function(utf8_bytes)
+    {
+        adapter.term.write(utf8_bytes);
+    }, adapter);
+
+    const utf8_encoder = new TextEncoder();
+    adapter.on_data_disposable = adapter.term["onData"](function(data_str) {
+        bus.send("virtio-console0-input-bytes", utf8_encoder.encode(data_str));
+    });
+
+    return adapter;
+}
+
+Reflect.setPrototypeOf(VirtioConsoleAdapterXtermJS.prototype, XtermJSAdapter.prototype);
+Reflect.setPrototypeOf(VirtioConsoleAdapterXtermJS, XtermJSAdapter);
