@@ -3158,6 +3158,7 @@ function init_ui(profile, settings, emulator)
     script.onload = function()
     {
         emulator.set_serial_container_xtermjs($("terminal"));
+        emulator.serial_adapter.term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
     };
     document.body.appendChild(script);
 }

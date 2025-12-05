@@ -289,9 +289,10 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
 
+    const xterm_lib = options.xterm_lib || window["Terminal"];
     if(options.serial_container_xtermjs)
     {
-        this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus);
+        this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus, xterm_lib);
     }
     else if(options.serial_container)
     {
@@ -301,7 +302,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     if(options.virtio_console && options.virtio_console_container_xtermjs)
     {
-        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(options.virtio_console_container_xtermjs, this.bus);
+        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(options.virtio_console_container_xtermjs, this.bus, xterm_lib);
     }
     else if(options.virtio_console && options.virtio_console_container)
     {
@@ -1472,17 +1473,25 @@ V86.prototype.write_memory = function(blob, offset)
     this.v86.cpu.write_blob(blob, offset);
 };
 
-V86.prototype.set_serial_container_xtermjs = function(element)
+/*
+ * @param {HTMLElement} element
+ * @param {Function} [xterm_lib]
+ */
+V86.prototype.set_serial_container_xtermjs = function(element, xterm_lib = window["Terminal"])
 {
     this.serial_adapter && this.serial_adapter.destroy && this.serial_adapter.destroy();
-    this.serial_adapter = new SerialAdapterXtermJS(element, this.bus);
+    this.serial_adapter = new SerialAdapterXtermJS(element, this.bus, xterm_lib);
     this.serial_adapter.show();
 };
 
-V86.prototype.set_virtio_console_container_xtermjs = function(element)
+/*
+ * @param {HTMLElement} element
+ * @param {Function} [xterm_lib]
+ */
+V86.prototype.set_virtio_console_container_xtermjs = function(element, xterm_lib = window["Terminal"])
 {
     this.virtio_console_adapter && this.virtio_console_adapter.destroy && this.virtio_console_adapter.destroy();
-    this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(element, this.bus);
+    this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(element, this.bus, xterm_lib);
     this.virtio_console_adapter.show();
 };
 

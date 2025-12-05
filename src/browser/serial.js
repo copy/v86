@@ -262,21 +262,16 @@ function SerialRecordingAdapter(bus)
  * @constructor
  *
  * @param {HTMLElement} element
+ * @param {Function} xterm_lib
  */
-function XtermJSAdapter(element)
+function XtermJSAdapter(element, xterm_lib)
 {
     this.element = element;
 
-    if(!window["Terminal"])
-    {
-        return;
-    }
-
-    var term = this.term = new window["Terminal"]({
+    var term = this.term = new xterm_lib({
         "logLevel": "off",
         "convertEol": "true",
     });
-    term.write("This is the serial console. Whatever you type or paste here will be sent to COM1");
 
     this.destroy = function() {
         this.on_data_disposable && this.on_data_disposable["dispose"]();
@@ -295,10 +290,16 @@ XtermJSAdapter.prototype.show = function()
  * @extends XtermJSAdapter
  * @param {HTMLElement} element
  * @param {BusConnector} bus
+ * @param {Function} xterm_lib
  */
-export function SerialAdapterXtermJS(element, bus)
+export function SerialAdapterXtermJS(element, bus, xterm_lib)
 {
-    var adapter = Reflect.construct(XtermJSAdapter, [element], SerialAdapterXtermJS);
+    if(!xterm_lib)
+    {
+        return;
+    }
+
+    var adapter = Reflect.construct(XtermJSAdapter, [element, xterm_lib], SerialAdapterXtermJS);
 
     bus.register("serial0-output-byte", function(utf8_byte)
     {
@@ -325,10 +326,16 @@ Reflect.setPrototypeOf(SerialAdapterXtermJS, XtermJSAdapter);
  * @extends XtermJSAdapter
  * @param {HTMLElement} element
  * @param {BusConnector} bus
+ * @param {Function} xterm_lib
  */
-export function VirtioConsoleAdapterXtermJS(element, bus)
+export function VirtioConsoleAdapterXtermJS(element, bus, xterm_lib)
 {
-    var adapter = Reflect.construct(XtermJSAdapter, [element], VirtioConsoleAdapterXtermJS);
+    if(!xterm_lib)
+    {
+        return;
+    }
+
+    var adapter = Reflect.construct(XtermJSAdapter, [element, xterm_lib], VirtioConsoleAdapterXtermJS);
 
     bus.register("virtio-console0-output-bytes", function(utf8_bytes)
     {

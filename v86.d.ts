@@ -272,6 +272,11 @@ export interface V86Options {
     virtio_console_container_xtermjs?: HTMLElement;
 
     /**
+     * Xtermjs constructor, useful for ESM users. When not set, `window["Terminal"]` is used.
+     */
+    xterm_lib?: function;
+
+    /**
      * An HTMLElement. This should have a certain structure, see [basic.html](../examples/basic.html).
      */
     screen_container?: HTMLElement | null;
