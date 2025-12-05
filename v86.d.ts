@@ -274,7 +274,7 @@ export interface V86Options {
     /**
      * Xtermjs constructor, useful for ESM users. When not set, `window["Terminal"]` is used.
      */
-    xterm_lib?: function;
+    xterm_lib?: Function;
 
     /**
      * An HTMLElement. This should have a certain structure, see [basic.html](../examples/basic.html).
