@@ -289,9 +289,9 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
 
-    const xterm_lib = options.xterm_lib || window["Terminal"];
     if(options.serial_container_xtermjs)
     {
+        const xterm_lib = options.xterm_lib || window["Terminal"];
         this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus, xterm_lib);
     }
     else if(options.serial_container)
@@ -302,6 +302,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     if(options.virtio_console && options.virtio_console_container_xtermjs)
     {
+        const xterm_lib = options.xterm_lib || window["Terminal"];
         this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(options.virtio_console_container_xtermjs, this.bus, xterm_lib);
     }
     else if(options.virtio_console && options.virtio_console_container)
