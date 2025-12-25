@@ -485,7 +485,7 @@ fn jit_find_basic_blocks(
     let mut pages: HashSet<Page> = HashSet::new();
     let mut page_blacklist = HashSet::new();
 
-    // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
+    // 16-bit doesn't work correctly, most likely due to instruction pointer wrap-around
     let max_pages = if cpu.state_flags.is_32() { unsafe { MAX_PAGES } } else { 1 };
 
     for virt_addr in entry_points {
@@ -539,12 +539,21 @@ fn jit_find_basic_blocks(
                 ..cpu
             };
             let analysis = analysis::analyze_step(&mut cpu);
-            current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;
 
             dbg_assert!(Page::page_of(current_address) == Page::page_of(addr_before_instruction));
             let current_virt_addr = to_visit & !0xFFF | current_address as i32 & 0xFFF;
+
+            if analysis.ty == AnalysisType::STI && is_near_end_of_page(current_address) {
+                // cut off before the STI so that it is handled by interpreted mode
+                profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
+                break;
+            }
+
+            current_block.number_of_instructions += 1;
+            current_block.last_instruction_addr = addr_before_instruction;
+            current_block.end_addr = current_address;
 
             match analysis.ty {
                 AnalysisType::Normal | AnalysisType::STI => {
@@ -557,26 +566,22 @@ fn jit_find_basic_blocks(
                         marked_as_entry.insert(current_virt_addr);
                         to_visit_stack.push(current_virt_addr);
 
-                        current_block.last_instruction_addr = addr_before_instruction;
-                        current_block.end_addr = current_address;
                         break;
                     }
 
                     if analysis.ty == AnalysisType::STI {
-                        current_block.has_sti = true;
-
                         dbg_assert!(
                             !is_near_end_of_page(current_address),
-                            "TODO: Handle STI instruction near end of page"
+                            "should be handled above"
                         );
+
+                        current_block.has_sti = true;
                     }
                     else {
                         // Only split non-STI blocks (one instruction needs to run after STI before
                         // handle_irqs may be called)
 
                         if basic_blocks.contains_key(&current_address) {
-                            current_block.last_instruction_addr = addr_before_instruction;
-                            current_block.end_addr = current_address;
                             dbg_assert!(!is_near_end_of_page(current_address));
                             current_block.ty = BasicBlockType::Normal {
                                 next_block_addr: Some(current_address),
@@ -629,9 +634,6 @@ fn jit_find_basic_blocks(
                         jump_offset_is_32: is_32,
                     };
 
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
-
                     break;
                 },
                 AnalysisType::Jump {
@@ -669,8 +671,6 @@ fn jit_find_basic_blocks(
                         jump_offset: offset,
                         jump_offset_is_32: is_32,
                     };
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
 
                     break;
                 },
@@ -690,18 +690,19 @@ fn jit_find_basic_blocks(
                         current_block.ty = BasicBlockType::AbsoluteEip;
                     }
 
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
                     break;
                 },
             }
 
             if is_near_end_of_page(current_address) {
-                current_block.last_instruction_addr = addr_before_instruction;
-                current_block.end_addr = current_address;
                 profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
                 break;
             }
+        }
+
+        if current_block.number_of_instructions == 0 {
+            // Empty basic block, don't insert (only happens when STI is found near end of page)
+            continue;
         }
 
         let previous_block = basic_blocks
