@@ -716,6 +716,15 @@ function onload()
             homepage: "https://github.com/nanochess/Invaders",
         },
         {
+            id: "bootos",
+            fda: {
+                url: host + "bootos-all.img",
+                size: 368640,
+            },
+            name: "bootOS",
+            homepage: "https://github.com/nanochess/bootOS",
+        },
+        {
             id: "sectorlisp",
             fda: {
                 url: host + "sectorlisp-friendly.bin",
