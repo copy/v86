@@ -573,6 +573,12 @@ CPU.prototype.get_state = function()
     state[83] = this.devices.virtio_net;
     state[84] = this.devices.virtio_balloon;
 
+    // state[85] new ide set above
+
+    state[86] = this.last_result;
+    state[87] = this.fpu_status_word;
+    state[88] = this.mxcsr;
+
     return state;
 };
 
@@ -758,6 +764,10 @@ CPU.prototype.set_state = function(state)
     this.fpu_dp[0] = state[73];
     this.fpu_dp_selector[0] = state[74];
     this.fpu_opcode[0] = state[75];
+
+    if(state[86] !== undefined) this.last_result = state[86];
+    if(state[87] !== undefined) this.fpu_status_word = state[87];
+    if(state[88] !== undefined) this.mxcsr = state[88];
 
     const bitmap = new Bitmap(state[78].buffer);
     const packed_memory = state[77];
