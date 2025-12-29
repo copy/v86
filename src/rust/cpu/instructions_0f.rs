@@ -3247,18 +3247,21 @@ pub unsafe fn instr_0FA2() {
             ecx = 0x6C65746E | 0; // ntel
         },
 
-        1 => {
+        1 | 0x80000001 => {
+            let is_feature_bits = level == 0x80000001;
+
             eax = 3 | 7 << 4 | 6 << 8; // pentium3
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
-            ecx = 1 << 0 | 1 << 23 | 1 << 30; // sse3, popcnt, rdrand
+            ecx = if !is_feature_bits { 1 << 0 | 1 << 23 | 1 << 30 } else { 0 }; // sse3, popcnt, rdrand
             let vme = 0 << 1;
             if config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
             }; // hypervisor
-            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
-                    vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
-                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
-                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
+            edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
+                (if is_feature_bits { 1 << 20 } else { 0 }) | // nx bit
+                1 << 23 | 1 << 24 | (if !is_feature_bits { 1 << 25 | 1 << 26 } else { 0 }); // mmx, fxsr, sse1, sse2
 
             if *acpi_enabled
             //&& this.apic_enabled[0])
@@ -3319,7 +3322,7 @@ pub unsafe fn instr_0FA2() {
 
         0x80000000 => {
             // maximum supported extended level
-            eax = 5;
+            eax = 0x80000001u32 as i32;
             // other registers are reserved
         },
 
