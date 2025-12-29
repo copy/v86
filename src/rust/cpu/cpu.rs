@@ -238,6 +238,8 @@ pub const MSR_PKG_C2_RESIDENCY: i32 = 0x60D;
 pub const IA32_KERNEL_GS_BASE: i32 = 0xC0000101u32 as i32;
 pub const MSR_AMD64_LS_CFG: i32 = 0xC0011020u32 as i32;
 pub const MSR_AMD64_DE_CFG: i32 = 0xC0011029u32 as i32;
+pub const MSR_EFER: i32 = 0xC0000080u32 as i32;
+pub const EFER_NXE: u64 = 1 << 11;
 
 pub const IA32_APIC_BASE_BSP: i32 = 1 << 8;
 pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
@@ -1953,6 +1955,7 @@ pub unsafe fn do_page_walk(
 
     let cr0 = *cr;
     let cr4 = *cr.offset(4);
+    let nxe = *efer & EFER_NXE != 0;
 
     if cr0 & CR0_PG == 0 {
         // paging disabled
@@ -1980,10 +1983,15 @@ pub unsafe fn do_page_walk(
                 page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
                 "Unsupported: Page directory entry larger than 32 bits"
             );
-            dbg_assert!(
-                page_dir_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
-                "Unsupported: NX bit"
-            );
+            if page_dir_entry & 0x8000_0000_0000_0000u64 as i64 != 0 {
+                dbg_assert!(nxe, "Unsupported: NX bit without EFER.NXE");
+                if jit {
+                    if side_effects {
+                        trigger_pagefault(addr, true, for_writing, user, jit);
+                    }
+                    return Err(());
+                }
+            }
 
             (page_dir_addr, page_dir_entry as i32)
         }
@@ -2041,10 +2049,15 @@ pub unsafe fn do_page_walk(
                     page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
                     "Unsupported: Page table entry larger than 32 bits"
                 );
-                dbg_assert!(
-                    page_table_entry & 0x8000_0000_0000_0000u64 as i64 == 0,
-                    "Unsupported: NX bit"
-                );
+                if page_table_entry & 0x8000_0000_0000_0000u64 as i64 != 0 {
+                    dbg_assert!(nxe, "Unsupported: NX bit without EFER.NXE");
+                    if jit {
+                        if side_effects {
+                            trigger_pagefault(addr, true, for_writing, user, jit);
+                        }
+                        return Err(());
+                    }
+                }
 
                 (page_table_addr, page_table_entry as i32)
             }
@@ -3326,7 +3339,7 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
-    Ok(f32::from_bits(i32::cast_unsigned(safe_read32s(addr)?)))
+    Ok(f32::from_bits(safe_read32s(addr)? as u32))
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
