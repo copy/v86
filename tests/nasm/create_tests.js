@@ -20,6 +20,10 @@ const NUMBER_ARITH_TESTS = 100;
 
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
 
+const test_name_index = process.argv.indexOf("--test-name");
+const test_name_arg = test_name_index !== -1 ? process.argv[test_name_index + 1] : "";
+const TEST_NAME = new RegExp(process.env.TEST_NAME || test_name_arg || "", "i");
+
 const FLAGS_IGNORE = 0xFFFF3200;
 const CF = 1 << 0;
 const PF = 1 << 2;
@@ -139,8 +143,13 @@ function create_tests()
 {
     const tests = [];
 
-    const asm_files = fs.readdirSync(__dirname).filter(f => f.endsWith(".asm"));
+    const asm_files = fs.readdirSync(__dirname).filter(f => f.endsWith(".asm") && TEST_NAME.test(f));
     tests.push.apply(tests, asm_files.map(file => ({ file })));
+
+    if(TEST_NAME.source !== "" && !TEST_NAME.test("gen_"))
+    {
+        return tests;
+    }
 
     for(const op of encodings)
     {

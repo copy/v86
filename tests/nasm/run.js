@@ -27,7 +27,9 @@ process.on("unhandledRejection", exn => { throw exn; });
 // A #UD might indicate a bug in the test generation
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
-const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
+const test_name_index = process.argv.indexOf("--test-name");
+const test_name_arg = test_name_index !== -1 ? process.argv[test_name_index + 1] : "";
+const TEST_NAME = new RegExp(process.env.TEST_NAME || test_name_arg || "", "i");
 const SINGLE_TEST_TIMEOUT = 10000;
 
 const TEST_DIR = __dirname + "/build/";
@@ -65,6 +67,97 @@ function float_equal(x, y)
     return Math.abs(x - y) < epsilon;
 }
 
+const dir_files = fs.readdirSync(TEST_DIR);
+const files = dir_files.filter((name) => {
+    return name.endsWith(".img");
+}).map(name => {
+    return name.slice(0, -4);
+}).filter(name => {
+    return TEST_NAME.test(name + ".img");
+});
+
+function extract_json(name, fixture_text)
+{
+    let exception;
+
+    if(fixture_text.includes("(signal SIGFPE)"))
+    {
+        exception = "DE";
+    }
+
+    if(fixture_text.includes("(signal SIGILL)"))
+    {
+    {
+        exception = "UD";
+    }
+
+    if(fixture_text.includes("(signal SIGSEGV)"))
+    {
+        exception = name === "nx" ? "PF" : "GP";
+    }
+
+    if(fixture_text.includes("(signal SIGBUS)"))
+    {
+        exception = "PF";
+    }
+
+    if(!exception && fixture_text.includes("Program received signal"))
+    {
+        throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
+    }
+
+    fixture_text = fixture_text.toString()
+        .replace(/-inf\b/g, JSON.stringify(JSON_NEG_INFINITY))
+        .replace(/\binf\b/g, JSON.stringify(JSON_POS_INFINITY))
+        .replace(/-nan\b/g, JSON.stringify(JSON_NEG_NAN))
+        .replace(/\binf\b/g, JSON.stringify(JSON_POS_NAN));
+
+    const json_regex = /---BEGIN JSON---([\s\[\]\.\+\w":\-,]*)---END JSON---/;
+    const regex_match = json_regex.exec(fixture_text);
+    if(!regex_match || regex_match.length < 2)
+    {
+        throw new Error("Could not find JSON in fixture text: " + fixture_text + "\nTest: " + name);
+    }
+
+    let array = JSON.parse(regex_match[1]);
+    return {
+        array: array,
+        exception,
+    };
+}
+
+const tests = files.map(name => {
+    let fixture_name = name + ".fixture";
+    let img_name = name + ".img";
+    if(!fs.existsSync(TEST_DIR + fixture_name))
+    {
+        console.warn("Warning: Missing fixture for " + name);
+        return null;
+    }
+    let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
+    let fixture;
+    try
+    {
+        fixture = extract_json(name, fixture_text);
+    }
+    catch (e)
+    {
+        console.warn("Warning: Failed to extract JSON from fixture " + name + ": " + e.message);
+        return null;
+    }
+
+    return {
+        img_name: img_name,
+        fixture: fixture,
+    };
+}).filter(t => t !== null);
+
+const nr_of_cpus = Math.min(
+    os.cpus().length || 1,
+    tests.length,
+    MAX_PARALLEL_TESTS
+);
+
 function format_value(v)
 {
     if(typeof v === "number")
@@ -84,7 +177,9 @@ function format_value(v)
     }
 }
 
-if(cluster.isMaster)
+const USE_CLUSTER = !test_name_arg && nr_of_cpus > 1;
+
+if(cluster.isMaster && USE_CLUSTER)
 {
     function extract_json(name, fixture_text)
     {
@@ -102,7 +197,7 @@ if(cluster.isMaster)
 
         if(fixture_text.includes("(signal SIGSEGV)"))
         {
-            exception = "GP";
+            exception = name === "nx" ? "PF" : "GP";
         }
 
         if(fixture_text.includes("(signal SIGBUS)"))
@@ -159,34 +254,6 @@ if(cluster.isMaster)
         }
     }
 
-    const dir_files = fs.readdirSync(TEST_DIR);
-    const files = dir_files.filter((name) => {
-        return name.endsWith(".img");
-    }).map(name => {
-        return name.slice(0, -4);
-    }).filter(name => {
-        return TEST_NAME.test(name + ".img");
-    });
-
-    const tests = files.map(name => {
-        let fixture_name = name + ".fixture";
-        let img_name = name + ".img";
-        let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
-        let fixture = extract_json(name, fixture_text);
-
-        return {
-            img_name: img_name,
-            fixture: fixture,
-        };
-    });
-
-    const nr_of_cpus = Math.min(
-        os.cpus().length || 1,
-        tests.length,
-        MAX_PARALLEL_TESTS
-    );
-    console.log("Using %d cpus", nr_of_cpus);
-
     let current_test = 0;
 
     let failed_tests = [];
@@ -204,7 +271,7 @@ if(cluster.isMaster)
         });
 
         worker.on("exit", function(code, signal) {
-            if(code !== 0 &&  code !== null) {
+            if(code !== 0 && code !== null) {
                 console.log("Worker error code:", code);
                 process.exit(code);
             }
@@ -223,13 +290,16 @@ if(cluster.isMaster)
             tests.length - failed_tests.length,
             tests.length
         );
-        if(failed_tests.length > 0) {
+        if(failed_tests.length > 0)
+        {
             console.log("[-] Failed %d test(s).", failed_tests.length);
-            failed_tests.forEach(function(test_failure) {
+            failed_tests.forEach(function(test_failure)
+            {
 
                 console.error("\n[-] %s:", test_failure.img_name);
 
-                test_failure.failures.forEach(function(failure) {
+                test_failure.failures.forEach(function(failure)
+                {
                     console.error("\n\t" + failure.name);
                     console.error("\tActual:   " + failure.actual);
                     console.error("\tExpected: " + failure.expected);
@@ -239,7 +309,8 @@ if(cluster.isMaster)
         }
     }
 }
-else {
+
+if(!USE_CLUSTER || cluster.isWorker) {
     function run_test(test)
     {
         if(!loaded)
@@ -309,19 +380,25 @@ else {
         memory_size: 2 * 1024 * 1024,
         disable_jit: +process.env.DISABLE_JIT,
         log_level: 0,
+        wasm_path: path.join(__dirname, "../../build/v86-debug.wasm"),
     });
 
-    emulator.add_listener("emulator-loaded", function()
+    emulator.add_listener("emulator-loaded", function ()
+    {
+        loaded = true;
+
+        if(first_test)
         {
-            loaded = true;
+            run_test(first_test);
+        }
 
-            if(first_test)
-            {
-                run_test(first_test);
-            }
-        });
+        if(!USE_CLUSTER && tests.length > 0)
+        {
+            run_test(tests[0]);
+        }
+    });
 
-    emulator.cpu_exception_hook = function(n)
+    emulator.cpu_exception_hook = function (n)
     {
         emulator.v86.cpu.instruction_counter[0] += 100000; // always make progress
 
@@ -334,6 +411,7 @@ else {
             0: "DE",
             6: "UD",
             13: "GP",
+            14: "PF",
         };
 
         const exception = exceptions[n];
@@ -519,28 +597,55 @@ else {
 
         recorded_exceptions = [];
 
-        if(individual_failures.length > 0) {
-            process.send({
-                failures: individual_failures,
-                img_name: current_test.img_name
-            });
-        }
-        else {
-            process.send(DONE_MSG);
-        }
-    }
-
-    cluster.worker.on("message", function(message) {
-        if(message === TERMINATE_MSG)
+        if(cluster.isWorker)
         {
-            emulator.stop();
-            emulator = null;
+            if(individual_failures.length > 0) {
+                process.send({
+                    failures: individual_failures,
+                    img_name: current_test.img_name
+                });
+            }
+            else
+            {
+                process.send(DONE_MSG);
+            }
         }
         else
         {
-            run_test(message);
+            if(individual_failures.length > 0)
+            {
+                console.error("\n[-] %s:", current_test.img_name);
+                individual_failures.forEach(function (failure)
+                {
+                    console.error("\n\t" + failure.name);
+                    console.error("\tActual:   " + failure.actual);
+                    console.error("\tExpected: " + failure.expected);
+                });
+                process.exit(1);
+            }
+            else
+            {
+                console.log("\n[+] Passed %s", current_test.img_name);
+                process.exit(0);
+            }
         }
-    });
+    }
 
-    process.send(READY_MSG);
+    if(cluster.isWorker)
+    {
+        cluster.worker.on("message", function (message)
+        {
+            if(message === TERMINATE_MSG)
+            {
+                emulator.stop();
+                emulator = null;
+            }
+            else
+            {
+                run_test(message);
+            }
+        });
+
+        process.send(READY_MSG);
+    }
 }
