@@ -2808,6 +2808,7 @@ function init_ui(profile, settings, emulator)
         {
             await emulator.set_fda({ buffer: file });
             $("change_fda_image").value = "Eject floppy image";
+            $("get_fda_image").style.display = "block";
         }
     }
     $("change_fda_image").ondrop = function(e)
@@ -2825,6 +2826,7 @@ function init_ui(profile, settings, emulator)
         {
             emulator.eject_fda();
             $("change_fda_image").value = "Insert floppy image";
+            $("get_fda_image").style.display = "none";
         }
         else
         {
@@ -2851,6 +2853,7 @@ function init_ui(profile, settings, emulator)
         {
             await emulator.set_fdb({ buffer: file });
             $("change_fdb_image").value = "Eject second floppy image";
+            $("get_fdb_image").style.display = "block";
         }
     }
     $("change_fdb_image").ondrop = function(e)
@@ -2868,6 +2871,7 @@ function init_ui(profile, settings, emulator)
         {
             emulator.eject_fdb();
             $("change_fdb_image").value = "Insert second floppy image";
+            $("get_fdb_image").style.display = "none";
         }
         else
         {
@@ -2913,6 +2917,7 @@ function init_ui(profile, settings, emulator)
         {
             await emulator.set_cdrom({ buffer });
             $("change_cdrom_image").value = "Eject CD image";
+            $("get_cdrom_image").style.display = "block";
         }
     }
     $("change_cdrom_image").ondrop = function(e)
@@ -2930,6 +2935,7 @@ function init_ui(profile, settings, emulator)
         {
             emulator.eject_cdrom();
             $("change_cdrom_image").value = "Insert CD image";
+            $("get_cdrom_image").style.display = "none";
         }
         else
         {
