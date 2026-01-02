@@ -1323,7 +1323,7 @@ FloppyDrive.prototype.eject_disk = function()
  */
 FloppyDrive.prototype.get_buffer = function()
 {
-    return this.buffer ? this.buffer.buffer : null;
+    return this.buffer ? new Uint8Array(this.buffer.buffer) : null;
 };
 
 /**
