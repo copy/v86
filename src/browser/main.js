@@ -2686,7 +2686,7 @@ function init_ui(profile, settings, emulator)
         write_sectors: 0,
     };
 
-    $("ide_type").textContent = emulator.disk_images.cdrom ? " (CD-ROM)" : " (hard disk)";
+    $("ide_type").textContent = settings.cdrom ? " (CD-ROM)" : " (hard disk)";
 
     emulator.add_listener("ide-read-start", function()
     {
@@ -2752,26 +2752,25 @@ function init_ui(profile, settings, emulator)
         $("reset").blur();
     };
 
-    add_image_download_button(settings.hda, emulator.disk_images.hda, "hda");
-    add_image_download_button(settings.hdb, emulator.disk_images.hdb, "hdb");
-    add_image_download_button(settings.fda, emulator.disk_images.fda, "fda");
-    add_image_download_button(settings.fdb, emulator.disk_images.fdb, "fdb");
-    add_image_download_button(settings.cdrom, emulator.disk_images.cdrom, "cdrom");
+    add_image_download_button(settings.hda, () => emulator.v86.cpu.devices.ide.primary.master.buffer, "hda");
+    add_image_download_button(settings.hdb, () => emulator.v86.cpu.devices.ide.primary.slave.buffer, "hdb");
+    add_image_download_button(settings.fda, () => emulator.v86.cpu.devices.fdc.drives[0].buffer, "fda");
+    add_image_download_button(settings.fdb, () => emulator.v86.cpu.devices.fdc.drives[1].buffer, "fdb");
+    add_image_download_button(settings.cdrom, () => emulator.v86.cpu.devices.cdrom.buffer, "cdrom");
 
-    function add_image_download_button(obj, buffer, type)
+    function add_image_download_button(obj, get_buffer, type)
     {
         var elem = $("get_" + type + "_image");
 
         if(!obj || obj.async)
         {
             elem.style.display = "none";
-            return;
         }
 
         elem.onclick = function(e)
         {
-            // XXX: the filename is a bit confusing for empty disks (it chooses the profile name)
-            const filename = buffer.file && buffer.file.name || ((profile?.id || "v86") + (type === "cdrom" ? ".iso" : ".img"));
+            const buffer = get_buffer();
+            const filename = buffer.file && buffer.file.name || ((profile?.id || "v86") + "-" + type + (type === "cdrom" ? ".iso" : ".img"));
 
             if(buffer.get_as_file)
             {

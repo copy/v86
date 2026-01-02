@@ -204,14 +204,6 @@ V86.prototype.continue_init = async function(emulator, options)
 
     var settings = {};
 
-    this.disk_images = {
-        fda: undefined,
-        fdb: undefined,
-        hda: undefined,
-        hdb: undefined,
-        cdrom: undefined,
-    };
-
     const boot_order =
         options.boot_order ? options.boot_order :
         options.fda ? BOOT_ORDER_FD_FIRST :
@@ -337,29 +329,29 @@ V86.prototype.continue_init = async function(emulator, options)
         switch(name)
         {
             case "hda":
-                settings.hda = this.disk_images.hda = buffer;
+                settings.hda = buffer;
                 break;
             case "hdb":
-                settings.hdb = this.disk_images.hdb = buffer;
+                settings.hdb = buffer;
                 break;
             case "cdrom":
-                settings.cdrom = this.disk_images.cdrom = buffer;
+                settings.cdrom = buffer;
                 break;
             case "fda":
-                settings.fda = this.disk_images.fda = buffer;
+                settings.fda = buffer;
                 break;
             case "fdb":
-                settings.fdb = this.disk_images.fdb = buffer;
+                settings.fdb = buffer;
                 break;
 
             case "multiboot":
-                settings.multiboot = this.disk_images.multiboot = buffer.buffer;
+                settings.multiboot = buffer.buffer;
                 break;
             case "bzimage":
-                settings.bzimage = this.disk_images.bzimage = buffer.buffer;
+                settings.bzimage = buffer.buffer;
                 break;
             case "initrd":
-                settings.initrd = this.disk_images.initrd = buffer.buffer;
+                settings.initrd = buffer.buffer;
                 break;
 
             case "bios":
