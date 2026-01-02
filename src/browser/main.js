@@ -364,6 +364,55 @@ function onload()
             name: "FreeDOS",
         },
         {
+            id: "doof",
+            fda: {
+                url: host + "doof-1440.img",
+                size: 1474560,
+            },
+            name: "Doom On One Floppy",
+            homepage: "https://github.com/fragglet/squashware",
+        },
+        {
+            id: "quantixos",
+            cdrom: {
+                url: host + "quantixos.iso",
+                size: 11784192,
+                async: false,
+            },
+            name: "QuantixOS",
+            homepage: "https://github.com/MrGilli/QuantixOS",
+        },
+        {
+            id: "chip4504",
+            fda: {
+                url: host + "chip4504.img",
+                size: 1474560,
+            },
+            name: "Chip4504",
+            homepage: "https://github.com/RelativisticMechanic/chip4504",
+        },
+        {
+            id: "forthos",
+            hda: {
+                url: host + "forthos20.img.zst",
+                size: 95420416,
+                async: false,
+            },
+            memory_size: 128 * 1024 * 1024,
+            name: "ForthOS",
+            homepage: "http://sources.vsta.org/forthos/",
+        },
+        {
+            id: "chimaeraos",
+            hda: {
+                url: host + "chimaeraos.img",
+                size: 34120704,
+                async: false,
+            },
+            name: "Chimaera OS",
+            homepage: "https://chimaeraos.org/",
+        },
+        {
             id: "freegem",
             hda: {
                 url: host + "freegem/.bin",
@@ -1367,6 +1416,17 @@ function onload()
                 async: false,
             },
             homepage: "https://newos.org/",
+        },
+        {
+            id: "newos-notion",
+            hda: {
+                url: host + "newos-notion.img",
+                size: 4128768,
+                async: false,
+            },
+            memory_size: 128 * 1024 * 1024,
+            name: "NewOS Notion",
+            homepage: "http://notion.muelln-kommune.net/newos.html",
         },
         {
             id: "aros-broadway",
