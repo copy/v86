@@ -234,7 +234,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_balloon = options.virtio_balloon;
-    settings.virtio_console = options.virtio_console;
+    settings.virtio_console = !!options.virtio_console;
 
     const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
     if(relay_url)
@@ -289,25 +289,41 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
 
+    settings.serial_console = options.serial_console || { type: "none" };
+
+    // NOTE: serial_container_xtermjs and serial_container are deprecated
     if(options.serial_container_xtermjs)
     {
-        const xterm_lib = options.xterm_lib || window["Terminal"];
-        this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus, xterm_lib);
+        settings.serial_console.type = "xtermjs";
+        settings.serial_console.container = options.serial_container_xtermjs;
     }
     else if(options.serial_container)
     {
-        this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
+        settings.serial_console.type = "textarea";
+        settings.serial_console.container = options.serial_container;
+    }
+
+    if(settings.serial_console?.type === "xtermjs")
+    {
+        const xterm_lib = settings.serial_console.xterm_lib || window["Terminal"];
+        this.serial_adapter = new SerialAdapterXtermJS(settings.serial_console.container, this.bus, xterm_lib);
+    }
+    else if(settings.serial_console?.type === "textarea")
+    {
+        this.serial_adapter = new SerialAdapter(settings.serial_console.container, this.bus);
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
     }
 
-    if(options.virtio_console && options.virtio_console_container_xtermjs)
+    const virtio_console_settings = (options.virtio_console && typeof options.virtio_console === "boolean") ? { type: "none" } : options.virtio_console;
+
+    if(virtio_console_settings?.type === "xtermjs")
     {
-        const xterm_lib = options.xterm_lib || window["Terminal"];
-        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(options.virtio_console_container_xtermjs, this.bus, xterm_lib);
+        const xterm_lib = virtio_console_settings.xterm_lib || window["Terminal"];
+        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(virtio_console_settings.container, this.bus, xterm_lib);
     }
-    else if(options.virtio_console && options.virtio_console_container)
+    else if(virtio_console_settings?.type === "textarea")
     {
-        this.virtio_console_adapter = new VirtioConsoleAdapter(options.virtio_console_container, this.bus);
+        this.virtio_console_adapter = new VirtioConsoleAdapter(virtio_console_settings.container, this.bus);
     }
 
     if(!options.disable_speaker)

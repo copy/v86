@@ -7,7 +7,7 @@
  * `async` defaults to false, but this is subject to change. If true, the file
  * is downloaded completely, otherwise in chunks (see below for the chunking
  * method). BIOS, multiboot, bzimage and state files are always downloaded
- * completely, as they’re required before emulation can start.
+ * completely, as they're required before emulation can start.
  *
  * Files with `async: true` and `use_parts: false` are downloaded using HTTP
  * Range requests. Note that not all web servers support this header correctly,
@@ -34,6 +34,23 @@ export type V86Image =
       }
     //| { buffer: File; async?: boolean; }; // only in browsers: https://developer.mozilla.org/en-US/docs/Web/API/File
     | { buffer: ArrayBuffer };
+
+/**
+ * Console types:
+ * `textarea` - using TextArea HTML element, doesn't support ESC codes
+ * `xtermjs` - using XtermJS-compatible terminal
+ *
+ * `xterm_lib` - XtermJS constructor, useful for ESM users. When not set,
+ * `window["Terminal"]` is used
+ *
+ * `container` - HTML container for console
+ */
+export type ConsoleConfig =
+    {
+        type: "textarea" | "xtermjs" | "none";
+        xterm_lib?: Function;
+        container?: HTMLElement | HTMLTextAreaElement;
+    };
 
 export enum LogLevel {
     LOG_ALL = -1,
@@ -253,28 +270,26 @@ export interface V86Options {
     /**
      * A textarea that will receive and send data to the emulated serial terminal.
      * Alternatively the serial terminal can also be accessed programatically, see [serial.html](../examples/serial.html).
+     * Deprecated in favor of the serial_console config below
      */
     serial_container?: HTMLTextAreaElement;
 
     /**
      * Xtermjs serial terminal container. When set, serial_container option is ignored.
+     * Deprecated in favor of the serial_console config below
      */
     serial_container_xtermjs?: HTMLElement;
 
     /**
-     * A textarea that will receive and send data to the emulated virtio console.
+     * Console adapter for serial console
      */
-    virtio_console_container?: HTMLTextAreaElement;
+    serial_console: ConsoleConfig;
 
     /**
-     * Xtermjs virtio console terminal container. When set, virtio_console_container option is ignored.
+     * Console adapter for virtio console.
+     * Setting to true, creates virtio console device without adapter
      */
-    virtio_console_container_xtermjs?: HTMLElement;
-
-    /**
-     * Xtermjs constructor, useful for ESM users. When not set, `window["Terminal"]` is used.
-     */
-    xterm_lib?: Function;
+    virtio_console: ConsoleConfig;
 
     /**
      * An HTMLElement. This should have a certain structure, see [basic.html](../examples/basic.html).
@@ -309,12 +324,6 @@ export interface V86Options {
      * @default false
      */
     virtio_balloon?: boolean;
-
-    /**
-     * create a virtio console device
-     * @default false
-     */
-    virtio_console?: boolean;
 
     /**
      * override the maximum supported cpuid level
