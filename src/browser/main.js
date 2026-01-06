@@ -2798,6 +2798,28 @@ function init_ui(profile, settings, emulator)
     }
 
     $("change_fda_image").value = settings.fda ? "Eject floppy image" : "Insert floppy image";
+    $("change_fda_image").ondragover = function(e)
+    {
+        e.preventDefault();
+    };
+    async function insert_fda(files)
+    {
+        const file = files[0];
+        if(file)
+        {
+            await emulator.set_fda({ buffer: file });
+            $("change_fda_image").value = "Eject floppy image";
+        }
+    }
+    $("change_fda_image").ondrop = function(e)
+    {
+        e.preventDefault();
+        if(emulator.get_disk_fda())
+        {
+            emulator.eject_fda();
+        }
+        insert_fda(e.dataTransfer.files);
+    };
     $("change_fda_image").onclick = function()
     {
         if(emulator.get_disk_fda())
@@ -2809,14 +2831,9 @@ function init_ui(profile, settings, emulator)
         {
             const file_input = document.createElement("input");
             file_input.type = "file";
-            file_input.onchange = async function(e)
+            file_input.onchange = function(e)
             {
-                const file = file_input.files[0];
-                if(file)
-                {
-                    await emulator.set_fda({ buffer: file });
-                    $("change_fda_image").value = "Eject floppy image";
-                }
+                insert_fda(file_input.files);
             };
             file_input.click();
         }
@@ -2824,6 +2841,28 @@ function init_ui(profile, settings, emulator)
     };
 
     $("change_fdb_image").value = settings.fdb ? "Eject second floppy image" : "Insert second floppy image";
+    $("change_fdb_image").ondragover = function(e)
+    {
+        e.preventDefault();
+    };
+    async function insert_fdb(files)
+    {
+        const file = files[0];
+        if(file)
+        {
+            await emulator.set_fdb({ buffer: file });
+            $("change_fdb_image").value = "Eject second floppy image";
+        }
+    }
+    $("change_fdb_image").ondrop = function(e)
+    {
+        e.preventDefault();
+        if(emulator.get_disk_fdb())
+        {
+            emulator.eject_fdb();
+        }
+        insert_fdb(e.dataTransfer.files);
+    };
     $("change_fdb_image").onclick = function()
     {
         if(emulator.get_disk_fdb())
@@ -2835,14 +2874,9 @@ function init_ui(profile, settings, emulator)
         {
             const file_input = document.createElement("input");
             file_input.type = "file";
-            file_input.onchange = async function(e)
+            file_input.onchange = function(e)
             {
-                const file = file_input.files[0];
-                if(file)
-                {
-                    await emulator.set_fdb({ buffer: file });
-                    $("change_fdb_image").value = "Eject second floppy image";
-                }
+                insert_fdb(file_input.files);
             };
             file_input.click();
         }
@@ -2850,6 +2884,47 @@ function init_ui(profile, settings, emulator)
     };
 
     $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
+    $("change_cdrom_image").ondragover = function(e)
+    {
+        e.preventDefault();
+    };
+    async function insert_cdrom(files)
+    {
+        let buffer;
+
+        if(files.length === 1 && /\.(iso(9660|img)?|cdr)$/i.test(files[0].name))
+        {
+            buffer = files[0];
+        }
+        else if(files.length)
+        {
+            const files2 = [];
+            for(const file of files)
+            {
+                files2.push({
+                    name: file.name,
+                    contents: new Uint8Array(await read_file(file)),
+                });
+
+            }
+            buffer = iso9660.generate(files2).buffer;
+        }
+
+        if(buffer)
+        {
+            await emulator.set_cdrom({ buffer });
+            $("change_cdrom_image").value = "Eject CD image";
+        }
+    }
+    $("change_cdrom_image").ondrop = function(e)
+    {
+        e.preventDefault();
+        if(emulator.v86.cpu.devices.cdrom.has_disk())
+        {
+            emulator.eject_cdrom();
+        }
+        insert_cdrom(e.dataTransfer.files);
+    };
     $("change_cdrom_image").onclick = function()
     {
         if(emulator.v86.cpu.devices.cdrom.has_disk())
@@ -2862,34 +2937,9 @@ function init_ui(profile, settings, emulator)
             const file_input = document.createElement("input");
             file_input.type = "file";
             file_input.multiple = "multiple";
-            file_input.onchange = async function(e)
+            file_input.onchange = function(e)
             {
-                const files = file_input.files;
-                let buffer;
-
-                if(files.length === 1 && /\.(iso(9660|img)?|cdr)$/i.test(files[0].name))
-                {
-                    buffer = files[0];
-                }
-                else if(files.length)
-                {
-                    const files2 = [];
-                    for(const file of files)
-                    {
-                        files2.push({
-                            name: file.name,
-                            contents: new Uint8Array(await read_file(file)),
-                        });
-
-                    }
-                    buffer = iso9660.generate(files2).buffer;
-                }
-
-                if(buffer)
-                {
-                    await emulator.set_cdrom({ buffer });
-                    $("change_cdrom_image").value = "Eject CD image";
-                }
+                insert_cdrom(file_input.files);
             };
             file_input.click();
         }
