@@ -128,7 +128,7 @@ for a full setup on Debian or
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's http module.
 - If you only want to embed v86 in a webpage you can use libv86.js. For usage,
-  check out the [examples](examples/). You can download it from the release section.
+  check out the [examples](examples/). You can download it from the [release section](releases/).
 
 ### Alternatively, to build using Docker
 
