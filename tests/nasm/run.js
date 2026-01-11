@@ -87,7 +87,6 @@ function extract_json(name, fixture_text)
 
     if(fixture_text.includes("(signal SIGILL)"))
     {
-    {
         exception = "UD";
     }
 
