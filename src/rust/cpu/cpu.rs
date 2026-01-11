@@ -1918,8 +1918,15 @@ pub unsafe fn translate_address(
             | if is_instruction_fetch { TLB_NO_EXEC } else { 0 })
         != TLB_VALID
     {
-        entry = do_page_walk(address, for_writing, user, jit, is_instruction_fetch, side_effects)?
-            .get();
+        entry = do_page_walk(
+            address,
+            for_writing,
+            user,
+            jit,
+            is_instruction_fetch,
+            side_effects,
+        )?
+        .get();
     }
     Ok((entry & !0xFFF ^ address) as u32 - memory::mem8 as u32)
 }
