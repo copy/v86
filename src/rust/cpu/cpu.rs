@@ -4623,6 +4623,8 @@ pub unsafe fn reset_cpu() {
     *last_op1 = 0;
     *last_op_size = 0;
 
+    *efer = 0;
+
     set_tsc(0, 0);
 
     *instruction_pointer = 0xFFFF0;
