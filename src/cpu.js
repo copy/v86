@@ -433,6 +433,14 @@ CPU.prototype.wasm_patch = function()
     this.get_apic_addr = get_import("get_apic_addr");
     this.get_ioapic_addr = get_import("get_ioapic_addr");
 
+    this.rtc_new = get_import("rtc_new");
+    this.port_70_write = get_import("port_70_write");
+    this.port_71_read = get_import("port_71_read");
+    this.port_71_write = get_import("port_71_write");
+    this.cmos_read = get_import("cmos_read");
+    this.cmos_write = get_import("cmos_write");
+    this.rtc_timer = get_import("rtc_timer");
+
     this.zstd_create_ctx = get_import("zstd_create_ctx");
     this.zstd_get_src_ptr = get_import("zstd_get_src_ptr");
     this.zstd_free_ctx = get_import("zstd_free_ctx");
