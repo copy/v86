@@ -1193,8 +1193,10 @@ pub unsafe fn instr_0F30() {
     match index {
         MSR_EFER => {
             let value = (high as u64) << 32 | (low as u32) as u64;
+            if value != *efer {
+                full_clear_tlb();
+            }
             *efer = value;
-            full_clear_tlb();
         },
         IA32_SYSENTER_CS => *sysenter_cs = low & 0xFFFF,
         IA32_SYSENTER_EIP => *sysenter_eip = low,
