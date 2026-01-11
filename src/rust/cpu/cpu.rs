@@ -164,6 +164,7 @@ pub const PAGE_TABLE_ACCESSED_MASK: i32 = 1 << 5;
 pub const PAGE_TABLE_DIRTY_MASK: i32 = 1 << 6;
 pub const PAGE_TABLE_PSE_MASK: i32 = 1 << 7;
 pub const PAGE_TABLE_GLOBAL_MASK: i32 = 1 << 8;
+pub const PAGE_TABLE_NX_MASK: u64 = 1 << 63;
 pub const MMAP_BLOCK_BITS: i32 = 17;
 pub const MMAP_BLOCK_SIZE: i32 = 1 << MMAP_BLOCK_BITS;
 pub const CR0_PE: i32 = 1;
@@ -1990,7 +1991,15 @@ pub unsafe fn do_page_walk(
             let pdpt_entry = *reg_pdpte.offset(((addr as u32) >> 30) as isize);
             if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK == 0 {
                 if side_effects {
-                    trigger_pagefault(addr, false, for_writing, user, jit, is_instruction_fetch);
+                    trigger_pagefault(
+                        addr,
+                        false,
+                        for_writing,
+                        user,
+                        jit,
+                        is_instruction_fetch,
+                        false,
+                    );
                 }
                 return Err(());
             }
@@ -1998,18 +2007,44 @@ pub unsafe fn do_page_walk(
             let page_dir_addr =
                 (pdpt_entry as u32 & 0xFFFFF000) + ((((addr as u32) >> 21) & 0x1FF) << 3);
             let page_dir_entry = memory::read64s(page_dir_addr);
-            dbg_assert!(
-                page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
-                "Unsupported: Page directory entry larger than 32 bits"
-            );
-            if page_dir_entry & 0x8000_0000_0000_0000u64 as i64 != 0 {
-                dbg_assert!(nxe, "Unsupported: NX bit without EFER.NXE");
-                no_exec = true;
-                if is_instruction_fetch {
+            if page_dir_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
+                if page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 != 0 {
                     if side_effects {
-                        trigger_pagefault(addr, true, for_writing, user, jit, true);
+                        trigger_pagefault(
+                            addr,
+                            true,
+                            for_writing,
+                            user,
+                            jit,
+                            is_instruction_fetch,
+                            true,
+                        );
                     }
                     return Err(());
+                }
+
+                if page_dir_entry & PAGE_TABLE_NX_MASK as i64 != 0 {
+                    if !nxe {
+                        if side_effects {
+                            trigger_pagefault(
+                                addr,
+                                true,
+                                for_writing,
+                                user,
+                                jit,
+                                is_instruction_fetch,
+                                true,
+                            );
+                        }
+                        return Err(());
+                    }
+                    no_exec = true;
+                    if is_instruction_fetch {
+                        if side_effects {
+                            trigger_pagefault(addr, true, for_writing, user, jit, true, false);
+                        }
+                        return Err(());
+                    }
                 }
             }
 
@@ -2023,7 +2058,15 @@ pub unsafe fn do_page_walk(
 
         if page_dir_entry & PAGE_TABLE_PRESENT_MASK == 0 {
             if side_effects {
-                trigger_pagefault(addr, false, for_writing, user, jit, is_instruction_fetch);
+                trigger_pagefault(
+                    addr,
+                    false,
+                    for_writing,
+                    user,
+                    jit,
+                    is_instruction_fetch,
+                    false,
+                );
             }
             return Err(());
         }
@@ -2037,7 +2080,15 @@ pub unsafe fn do_page_walk(
 
             if for_writing && !allow_write && !kernel_write_override || user && !allow_user {
                 if side_effects {
-                    trigger_pagefault(addr, true, for_writing, user, jit, is_instruction_fetch);
+                    trigger_pagefault(
+                        addr,
+                        true,
+                        for_writing,
+                        user,
+                        jit,
+                        is_instruction_fetch,
+                        false,
+                    );
                 }
                 return Err(());
             }
@@ -2065,18 +2116,44 @@ pub unsafe fn do_page_walk(
                 let page_table_addr =
                     (page_dir_entry as u32 & 0xFFFFF000) + (((addr as u32 >> 12) & 0x1FF) << 3);
                 let page_table_entry = memory::read64s(page_table_addr);
-                dbg_assert!(
-                    page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 == 0,
-                    "Unsupported: Page table entry larger than 32 bits"
-                );
-                if page_table_entry & 0x8000_0000_0000_0000u64 as i64 != 0 {
-                    dbg_assert!(nxe, "Unsupported: NX bit without EFER.NXE");
-                    no_exec = true;
-                    if is_instruction_fetch {
+                if page_table_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
+                    if page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 != 0 {
                         if side_effects {
-                            trigger_pagefault(addr, true, for_writing, user, jit, true);
+                            trigger_pagefault(
+                                addr,
+                                true,
+                                for_writing,
+                                user,
+                                jit,
+                                is_instruction_fetch,
+                                true,
+                            );
                         }
                         return Err(());
+                    }
+
+                    if page_table_entry & PAGE_TABLE_NX_MASK as i64 != 0 {
+                        if !nxe {
+                            if side_effects {
+                                trigger_pagefault(
+                                    addr,
+                                    true,
+                                    for_writing,
+                                    user,
+                                    jit,
+                                    is_instruction_fetch,
+                                    true,
+                                );
+                            }
+                            return Err(());
+                        }
+                        no_exec = true;
+                        if is_instruction_fetch {
+                            if side_effects {
+                                trigger_pagefault(addr, true, for_writing, user, jit, true, false);
+                            }
+                            return Err(());
+                        }
                     }
                 }
 
@@ -2098,7 +2175,15 @@ pub unsafe fn do_page_walk(
                 || user && !allow_user
             {
                 if side_effects {
-                    trigger_pagefault(addr, present, for_writing, user, jit, is_instruction_fetch);
+                    trigger_pagefault(
+                        addr,
+                        present,
+                        for_writing,
+                        user,
+                        jit,
+                        is_instruction_fetch,
+                        false,
+                    );
                 }
                 return Err(());
             }
@@ -2298,15 +2383,17 @@ pub unsafe fn trigger_pagefault(
     user: bool,
     jit: bool,
     is_instruction_fetch: bool,
+    rsvd: bool,
 ) {
     if config::LOG_PAGE_FAULTS {
         dbg_log!(
-            "page fault{} w={}, x={}, u={} p={} eip={:x} cr2={:x}",
+            "page fault{} w={}, x={}, u={} p={} r={} eip={:x} cr2={:x}",
             if jit { "jit" } else { "" },
             write as i32,
             is_instruction_fetch as i32,
             user as i32,
             present as i32,
+            rsvd as i32,
             *previous_ip,
             addr
         );
@@ -2319,6 +2406,7 @@ pub unsafe fn trigger_pagefault(
     clear_tlb_code(page);
     tlb_data[page as usize] = 0;
     let error_code = (is_instruction_fetch as i32) << 4
+        | (rsvd as i32) << 3
         | (user as i32) << 2
         | (write as i32) << 1
         | present as i32;

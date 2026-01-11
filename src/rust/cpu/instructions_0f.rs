@@ -3247,12 +3247,10 @@ pub unsafe fn instr_0FA2() {
             ecx = 0x6C65746E | 0; // ntel
         },
 
-        1 | 0x80000001 => {
-            let is_feature_bits = level == 0x80000001;
-
+        1 => {
             eax = 3 | 7 << 4 | 6 << 8; // pentium3
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
-            ecx = if !is_feature_bits { 1 << 0 | 1 << 23 | 1 << 30 } else { 0 }; // sse3, popcnt, rdrand
+            ecx = 1 << 0 | 1 << 23 | 1 << 30; // sse3, popcnt, rdrand
             let vme = 0 << 1;
             if config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
@@ -3260,8 +3258,7 @@ pub unsafe fn instr_0FA2() {
             edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
                 vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
                 1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
-                (if is_feature_bits { 1 << 20 } else { 0 }) | // nx bit
-                1 << 23 | 1 << 24 | (if !is_feature_bits { 1 << 25 | 1 << 26 } else { 0 }); // mmx, fxsr, sse1, sse2
+                1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
 
             if *acpi_enabled
             //&& this.apic_enabled[0])
@@ -3326,6 +3323,14 @@ pub unsafe fn instr_0FA2() {
             // other registers are reserved
         },
 
+        0x80000001 => {
+            let vme = 0 << 1;
+            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 20 | // cx8, sep, pge, cmov, nx
+                1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
+        },
+
         0x40000000 => {
             // hypervisor
             if config::VMWARE_HYPERVISOR_PORT {
@@ -3334,6 +3339,13 @@ pub unsafe fn instr_0FA2() {
                 ecx = 0x4D566572 | 0; // reVM
                 edx = 0x65726177 | 0; // ware
             }
+        },
+
+        0x80000008 => {
+            eax = 32; // physical address width
+            ebx = 0;
+            ecx = 0;
+            edx = 0;
         },
 
         0x15 => {
