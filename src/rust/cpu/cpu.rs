@@ -1876,6 +1876,9 @@ pub unsafe fn translate_address_fetch(address: i32) -> OrPageFault<u32> {
 pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, true, true, true)
 }
+pub unsafe fn translate_address_data_read_jit(address: i32) -> OrPageFault<u32> {
+    translate_address(address, false, *cpl == 3, true, true, false)
+}
 
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
     translate_address(address, true, *cpl == 3, false, true, false)
@@ -3495,7 +3498,7 @@ pub unsafe fn safe_read_slow_jit(
         translate_address_write_jit_and_can_skip_dirty(addr).map(|x| x.0)
     }
     else {
-        translate_address_read_jit(addr)
+        translate_address_data_read_jit(addr)
     } {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
@@ -3509,7 +3512,7 @@ pub unsafe fn safe_read_slow_jit(
             translate_address_write_jit_and_can_skip_dirty(boundary_addr).map(|x| x.0)
         }
         else {
-            translate_address_read_jit(boundary_addr)
+            translate_address_data_read_jit(boundary_addr)
         } {
             Err(()) => {
                 *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
