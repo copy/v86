@@ -13,60 +13,60 @@
 <div>
     <div id="boot_options">
         <h4>Debugger</h4>
-        <input type="button" value="ReactOS" id="start_reactos">
-        <input type="button" value="ReactOS (boot)" id="start_reactos-boot">
+        <button id="start_reactos">ReactOS</button>
+        <button id="start_reactos-boot">ReactOS (boot)</button>
         <br>
 
-        <input type="button" value="MS-DOS" id="start_msdos">
-        <input type="button" value="FreeDOS" id="start_freedos">
-        <input type="button" value="FreeDOS with FreeGEM" id="start_freegem">
+        <button id="start_msdos">MS-DOS</button>
+        <button id="start_freedos">FreeDOS</button>
+        <button id="start_freegem">FreeDOS with FreeGEM</button>
         <br>
 
-        <input type="button" value="Windows 1.01" id="start_windows1">
-        <input type="button" value="Windows 3.0" id="start_windows30">
-        <input type="button" value="Windows 3.1" id="start_windows31">
-        <input type="button" value="Windows 95" id="start_windows95">
-        <input type="button" value="Windows 95 (boot)" id="start_windows95-boot">
+        <button id="start_windows1">Windows 1.01</button>
+        <button id="start_windows30">Windows 3.0</button>
+        <button id="start_windows31">Windows 3.1</button>
+        <button id="start_windows95">Windows 95</button>
+        <button id="start_windows95-boot">Windows 95 (boot)</button>
         <br>
-        <input type="button" value="Windows 98" id="start_windows98">
-        <input type="button" value="Windows 98 (boot)" id="start_windows98-boot">
-        <input type="button" value="Windows NT 3.1" id="start_windowsnt3">
-        <input type="button" value="Windows NT 4.0" id="start_windowsnt4">
-        <input type="button" value="Windows 2000" id="start_windows2000">
-        <input type="button" value="Windows 2000 (boot)" id="start_windows2000-boot">
-        <br>
-
-        <input type="button" value="Linux 2.6 (Buildroot)" id="start_linux26">
-        <input type="button" value="Linux 3.18 (Buildroot)" id="start_linux3">
-        <input type="button" value="Linux 4.16 (Buildroot)" id="start_linux4">
-        <input type="button" value="Linux 5.6 (Buildroot)" id="start_buildroot">
-        <input type="button" value="Tiny Core" id="start_tinycore">
-        <input type="button" value="OpenWRT" id="start_openwrt">
-        <br>
-        <input type="button" value="Arch Linux" id="start_archlinux">
-        <input type="button" value="Arch Linux (boot)" id="start_archlinux-boot">
-        <input type="button" value="Damn Small Linux" id="start_dsl">
+        <button id="start_windows98">Windows 98</button>
+        <button id="start_windows98-boot">Windows 98 (boot)</button>
+        <button id="start_windowsnt3">Windows NT 3.1</button>
+        <button id="start_windowsnt4">Windows NT 4.0</button>
+        <button id="start_windows2000">Windows 2000</button>
+        <button id="start_windows2000-boot">Windows 2000 (boot)</button>
         <br>
 
-        <input type="button" value="FreeBSD" id="start_freebsd">
-        <input type="button" value="FreeBSD (boot)" id="start_freebsd-boot">
-        <input type="button" value="OpenBSD" id="start_openbsd">
-        <input type="button" value="NetBSD" id="start_netbsd">
+        <button id="start_linux26">Linux 2.6 (Buildroot)</button>
+        <button id="start_linux3">Linux 3.18 (Buildroot)</button>
+        <button id="start_linux4">Linux 4.16 (Buildroot)</button>
+        <button id="start_buildroot">Linux 5.6 (Buildroot)</button>
+        <button id="start_tinycore">Tiny Core</button>
+        <button id="start_openwrt">OpenWRT</button>
+        <br>
+        <button id="start_archlinux">Arch Linux</button>
+        <button id="start_archlinux-boot">Arch Linux (boot)</button>
+        <button id="start_dsl">Damn Small Linux</button>
         <br>
 
-        <input type="button" value="Haiku" id="start_haiku">
-        <input type="button" value="Haiku (boot)" id="start_haiku-boot">
-        <input type="button" value="Minix" id="start_minix">
-        <input type="button" value="SerenityOS" id="start_serenity">
-        <input type="button" value="QNX" id="start_qnx">
-        <input type="button" value="9front" id="start_9front">
+        <button id="start_freebsd">FreeBSD</button>
+        <button id="start_freebsd-boot">FreeBSD (boot)</button>
+        <button id="start_openbsd">OpenBSD</button>
+        <button id="start_netbsd">NetBSD</button>
         <br>
 
-        <input type="button" value="Oberon" id="start_oberon">
-        <input type="button" value="KolibriOS" id="start_kolibrios">
-        <input type="button" value="Solar OS" id="start_solos">
-        <input type="button" value="Bootchess" id="start_bootchess">
-        <input type="button" value="HelenOS" id="start_helenos">
+        <button id="start_haiku">Haiku</button>
+        <button id="start_haiku-boot">Haiku (boot)</button>
+        <button id="start_minix">Minix</button>
+        <button id="start_serenity">SerenityOS</button>
+        <button id="start_qnx">QNX</button>
+        <button id="start_9front">9front</button>
+        <br>
+
+        <button id="start_oberon">Oberon</button>
+        <button id="start_kolibrios">KolibriOS</button>
+        <button id="start_solos">Solar OS</button>
+        <button id="start_bootchess">Bootchess</button>
+        <button id="start_helenos">HelenOS</button>
         <br>
 
         <!--
@@ -221,37 +221,37 @@
     </div>
 
     <div id="runtime_options" style="display: none">
-        <input type="button" value="Dump Registers" id="dump_regs">
-        <input type="button" value="Dump GDT/LDT" id="dump_gdt">
-        <input type="button" value="Dump IDT" id="dump_idt">
-        <input type="button" value="Dump page tables" id="dump_pt">
-        <input type="button" value="Dump log" id="dump_log">
+        <button id="dump_regs">Dump Registers</button>
+        <button id="dump_gdt">Dump GDT/LDT</button>
+        <button id="dump_idt">Dump IDT</button>
+        <button id="dump_pt">Dump page tables</button>
+        <button id="dump_log">Dump log</button>
         <br>
 
-        <input type="button" value="Pause" id="run">
-        <input type="button" value="Reset" id="reset">
-        <input type="button" value="Exit" id="exit">
-        <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
-        <input type="button" value="Send Alt-Tab" id="alttab">
-        <input type="button" value="Get floppy image" id="get_fda_image">
-        <input type="button" value="Get second floppy image" id="get_fdb_image">
-        <input type="button" value="Get hard disk image" id="get_hda_image">
-        <input type="button" value="Get second hard disk image" id="get_hdb_image">
-        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
-        <input type="button" value="Insert floppy image" id="change_fda_image">
-        <input type="button" value="Insert second floppy image" id="change_fdb_image">
-        <input type="button" value="Insert CD image" id="change_cdrom_image">
-        <input type="button" value="Save State" id="save_state">
-        <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
-        <input type="button" value="Memory Dump" id="memory_dump">
-        <input type="button" value="Capture network traffic" id="capture_network_traffic">
-        <input type="button" value="Disable mouse" id="toggle_mouse">
-        <input type="button" value="Lock mouse" id="lock_mouse">
-        <input type="button" value="Go fullscreen" id="fullscreen">
-        <input type="button" value="Take screenshot" id="take_screenshot">
-        <input type="button" value="Mute" id="mute">
-        <input type="button" value="Enable theatre mode" id="toggle_theatre">
-        <input type="button" style="display: none" value="Enable zoom to fit" id="toggle_zoom_to_fit">
+        <button id="run">Pause</button>
+        <button id="reset">Reset</button>
+        <button id="exit">Exit</button>
+        <button id="ctrlaltdel">Send Ctrl-Alt-Del</button>
+        <button id="alttab">Send Alt-Tab</button>
+        <button id="get_fda_image">Get floppy image</button>
+        <button id="get_fdb_image">Get second floppy image</button>
+        <button id="get_hda_image">Get hard disk image</button>
+        <button id="get_hdb_image">Get second hard disk image</button>
+        <button id="get_cdrom_image">Get CD-ROM image</button>
+        <button id="change_fda_image">Insert floppy image</button>
+        <button id="change_fdb_image">Insert second floppy image</button>
+        <button id="change_cdrom_image">Insert CD image</button>
+        <button id="save_state">Save State</button>
+        <button id="load_state">Load State</button> <input type="file" style="display: none" id="load_state_input">
+        <button id="memory_dump">Memory Dump</button>
+        <button id="capture_network_traffic">Capture network traffic</button>
+        <button id="toggle_mouse">Disable mouse</button>
+        <button id="lock_mouse">Lock mouse</button>
+        <button id="fullscreen">Go fullscreen</button>
+        <button id="take_screenshot">Take screenshot</button>
+        <button id="mute">Mute</button>
+        <button id="toggle_theatre">Enable theatre mode</button>
+        <button style="display: none" id="toggle_zoom_to_fit">Enable zoom to fit</button>
 
         <label>
             Scale:
@@ -331,5 +331,5 @@
 
 <div id="terminal"></div>
 
-<input type="button" value="Hide UI" id="toggle_ui" style="display: none">
+<button id="toggle_ui" style="display: none">Hide UI</button>
 <div id="theatre_background" style="display: none"></div>

@@ -2489,12 +2489,12 @@ function init_ui(profile, settings, emulator)
     {
         if(emulator.is_running())
         {
-            $("run").value = "Run";
+            $("run").textContent = "Run";
             emulator.stop();
         }
         else
         {
-            $("run").value = "Pause";
+            $("run").textContent = "Pause";
             emulator.run();
         }
 
@@ -2527,7 +2527,7 @@ function init_ui(profile, settings, emulator)
         mouse_is_enabled = !mouse_is_enabled;
 
         emulator.mouse_set_enabled(mouse_is_enabled);
-        $("toggle_mouse").value = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
+        $("toggle_mouse").textContent = (mouse_is_enabled ? "Dis" : "En") + "able mouse";
         $("toggle_mouse").blur();
     };
 
@@ -2567,7 +2567,7 @@ function init_ui(profile, settings, emulator)
         $("runtime_infos").style.display = theatre_ui ? "block" : "none";
         $("filesystem_panel").style.display = (filesystem_is_enabled && theatre_ui) ? "block" : "none";
 
-        $("toggle_ui").value = (theatre_ui ? "Hide" : "Show") + " UI";
+        $("toggle_ui").textContent = (theatre_ui ? "Hide" : "Show") + " UI";
     }
 
     /**
@@ -2594,7 +2594,7 @@ function init_ui(profile, settings, emulator)
             emulator.screen_set_scale(n, n);
         }
 
-        $("toggle_zoom_to_fit").value = (theatre_zoom_to_fit ? "Dis" : "En") + "able zoom to fit";
+        $("toggle_zoom_to_fit").textContent = (theatre_zoom_to_fit ? "Dis" : "En") + "able zoom to fit";
     }
 
     /**
@@ -2626,7 +2626,7 @@ function init_ui(profile, settings, emulator)
         // hide scrolling
         document.body.style.overflow = theatre_mode ? "hidden" : "visible";
 
-        $("toggle_theatre").value = (theatre_mode ? "Dis" : "En") + "able theatre mode";
+        $("toggle_theatre").textContent = (theatre_mode ? "Dis" : "En") + "able theatre mode";
     }
 
     $("toggle_ui").onclick = function()
@@ -2857,7 +2857,7 @@ function init_ui(profile, settings, emulator)
         };
     }
 
-    $("change_fda_image").value = settings.fda ? "Eject floppy image" : "Insert floppy image";
+    $("change_fda_image").textContent = settings.fda ? "Eject floppy image" : "Insert floppy image";
     $("change_fda_image").ondragover = function(e)
     {
         e.preventDefault();
@@ -2868,7 +2868,7 @@ function init_ui(profile, settings, emulator)
         if(file)
         {
             await emulator.set_fda({ buffer: file });
-            $("change_fda_image").value = "Eject floppy image";
+            $("change_fda_image").textContent = "Eject floppy image";
             $("get_fda_image").style.display = "block";
         }
     }
@@ -2886,7 +2886,7 @@ function init_ui(profile, settings, emulator)
         if(emulator.get_disk_fda())
         {
             emulator.eject_fda();
-            $("change_fda_image").value = "Insert floppy image";
+            $("change_fda_image").textContent = "Insert floppy image";
             $("get_fda_image").style.display = "none";
         }
         else
@@ -2902,7 +2902,7 @@ function init_ui(profile, settings, emulator)
         $("change_fda_image").blur();
     };
 
-    $("change_fdb_image").value = settings.fdb ? "Eject second floppy image" : "Insert second floppy image";
+    $("change_fdb_image").textContent = settings.fdb ? "Eject second floppy image" : "Insert second floppy image";
     $("change_fdb_image").ondragover = function(e)
     {
         e.preventDefault();
@@ -2913,7 +2913,7 @@ function init_ui(profile, settings, emulator)
         if(file)
         {
             await emulator.set_fdb({ buffer: file });
-            $("change_fdb_image").value = "Eject second floppy image";
+            $("change_fdb_image").textContent = "Eject second floppy image";
             $("get_fdb_image").style.display = "block";
         }
     }
@@ -2931,7 +2931,7 @@ function init_ui(profile, settings, emulator)
         if(emulator.get_disk_fdb())
         {
             emulator.eject_fdb();
-            $("change_fdb_image").value = "Insert second floppy image";
+            $("change_fdb_image").textContent = "Insert second floppy image";
             $("get_fdb_image").style.display = "none";
         }
         else
@@ -2947,7 +2947,7 @@ function init_ui(profile, settings, emulator)
         $("change_fdb_image").blur();
     };
 
-    $("change_cdrom_image").value = settings.cdrom ? "Eject CD image" : "Insert CD image";
+    $("change_cdrom_image").textContent = settings.cdrom ? "Eject CD image" : "Insert CD image";
     $("change_cdrom_image").ondragover = function(e)
     {
         e.preventDefault();
@@ -2977,7 +2977,7 @@ function init_ui(profile, settings, emulator)
         if(buffer)
         {
             await emulator.set_cdrom({ buffer });
-            $("change_cdrom_image").value = "Eject CD image";
+            $("change_cdrom_image").textContent = "Eject CD image";
             $("get_cdrom_image").style.display = "block";
         }
     }
@@ -2995,7 +2995,7 @@ function init_ui(profile, settings, emulator)
         if(emulator.v86.cpu.devices.cdrom.has_disk())
         {
             emulator.eject_cdrom();
-            $("change_cdrom_image").value = "Insert CD image";
+            $("change_cdrom_image").textContent = "Insert CD image";
             $("get_cdrom_image").style.display = "none";
         }
         else
@@ -3050,14 +3050,14 @@ function init_ui(profile, settings, emulator)
      */
     $("capture_network_traffic").onclick = function()
     {
-        this.value = "0 packets";
+        this.textContent = "0 packets";
 
         let capture = [];
 
         function do_capture(direction, data)
         {
             capture.push({ direction, time: performance.now() / 1000, hex_dump: hex_dump(data) });
-            $("capture_network_traffic").value = capture.length + " packets";
+            $("capture_network_traffic").textContent = capture.length + " packets";
         }
 
         emulator.emulator_bus.register("net0-receive", do_capture.bind(this, "I"));
@@ -3072,7 +3072,7 @@ function init_ui(profile, settings, emulator)
             }).join("");
             dump_file(capture_raw, "traffic.hex");
             capture = [];
-            this.value = "0 packets";
+            this.textContent = "0 packets";
         };
     };
 
@@ -3240,13 +3240,13 @@ function init_ui(profile, settings, emulator)
             {
                 emulator.speaker_adapter.mixer.set_volume(1, undefined);
                 is_muted = false;
-                $("mute").value = "Mute";
+                $("mute").textContent = "Mute";
             }
             else
             {
                 emulator.speaker_adapter.mixer.set_volume(0, undefined);
                 is_muted = true;
-                $("mute").value = "Unmute";
+                $("mute").textContent = "Unmute";
             }
 
             $("mute").blur();
@@ -3379,7 +3379,7 @@ function debug_start(emulator)
         $("debug_panel").textContent =
             cpu.get_regs_short().join("\n") + "\n" + cpu.debug_get_state();
 
-        $("dump_log").value = "Dump log" + (log_data.length ? " (" + log_data.length + " lines)" : "");
+        $("dump_log").textContent = "Dump log" + (log_data.length ? " (" + log_data.length + " lines)" : "");
     }, 1000);
 
     // helps debugging

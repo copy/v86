@@ -319,30 +319,30 @@
     </div>
 
     <div id="runtime_options" style="display: none">
-        <input type="button" value="Pause" id="run">
-        <input type="button" value="Reset" id="reset">
-        <input type="button" value="Exit" id="exit">
-        <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
-        <input type="button" value="Send Alt-Tab" id="alttab">
-        <input type="button" value="Get floppy image" id="get_fda_image">
-        <input type="button" value="Get second floppy image" id="get_fdb_image">
-        <input type="button" value="Get hard disk image" id="get_hda_image">
-        <input type="button" value="Get second hard disk image" id="get_hdb_image">
-        <input type="button" value="Get CD-ROM image" id="get_cdrom_image">
-        <input type="button" value="Insert floppy image" id="change_fda_image">
-        <input type="button" value="Insert second floppy image" id="change_fdb_image">
-        <input type="button" value="Insert CD image" id="change_cdrom_image" title="Either a single .iso file or multiple files of any type">
-        <input type="button" value="Save State" id="save_state">
-        <input type="button" value="Load State" id="load_state"> <input type="file" style="display: none" id="load_state_input">
-        <input type="button" value="Memory Dump" id="memory_dump">
-        <input type="button" value="Capture network traffic" id="capture_network_traffic" title="In wireshark: file -> import from hex -> tick direction indication, timestamp %s.%f">
-        <input type="button" value="Disable mouse" id="toggle_mouse">
-        <input type="button" value="Lock mouse" id="lock_mouse">
-        <input type="button" value="Go fullscreen" id="fullscreen">
-        <input type="button" value="Take screenshot" id="take_screenshot">
-        <input type="button" value="Mute" id="mute">
-        <input type="button" value="Enable theatre mode" id="toggle_theatre">
-        <input type="button" style="display: none" value="Enable zoom to fit" id="toggle_zoom_to_fit">
+        <button id="run">Pause</button>
+        <button id="reset">Reset</button>
+        <button id="exit">Exit</button>
+        <button id="ctrlaltdel">Send Ctrl-Alt-Del</button>
+        <button id="alttab">Send Alt-Tab</button>
+        <button id="get_fda_image">Get floppy image</button>
+        <button id="get_fdb_image">Get second floppy image</button>
+        <button id="get_hda_image">Get hard disk image</button>
+        <button id="get_hdb_image">Get second hard disk image</button>
+        <button id="get_cdrom_image">Get CD-ROM image</button>
+        <button id="change_fda_image">Insert floppy image</button>
+        <button id="change_fdb_image">Insert second floppy image</button>
+        <button id="change_cdrom_image" title="Either a single .iso file or multiple files of any type">Insert CD image</button>
+        <button id="save_state">Save State</button>
+        <button id="load_state">Load State</button> <input type="file" style="display: none" id="load_state_input">
+        <button id="memory_dump">Memory Dump</button>
+        <button id="capture_network_traffic" title="In wireshark: file -> import from hex -> tick direction indication, timestamp %s.%f">Capture network traffic</button>
+        <button id="toggle_mouse">Disable mouse</button>
+        <button id="lock_mouse">Lock mouse</button>
+        <button id="fullscreen">Go fullscreen</button>
+        <button id="take_screenshot">Take screenshot</button>
+        <button id="mute">Mute</button>
+        <button id="toggle_theatre">Enable theatre mode</button>
+        <button style="display: none" id="toggle_zoom_to_fit">Enable zoom to fit</button>
 
         <label>
             Scale:
@@ -414,7 +414,7 @@
 
 <div id="terminal"></div>
 
-<input type="button" value="Hide UI" id="toggle_ui" style="display: none">
+<button id="toggle_ui" style="display: none">Hide UI</button>
 <div id="theatre_background" style="display: none"></div>
 
 <br style="clear: both">
