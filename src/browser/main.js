@@ -644,6 +644,7 @@ function onload()
             memory_size: 256 * 1024 * 1024,
             name: "Mu",
             homepage: "https://github.com/akkartik/mu",
+            mouse_disabled_default: true, // https://github.com/akkartik/mu/issues/52
         },
         {
             id: "openbsd",
