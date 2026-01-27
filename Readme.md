@@ -129,6 +129,13 @@ for a full setup on Debian or
   to serve the files using Python's http module.
 - If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
   check out the [examples](examples/). You can download it from the [release section](https://github.com/copy/v86/releases).
+- For bundler-based setups (Vite/React/Next/Webpack), there is also an official npm package:
+https://www.npmjs.com/package/v86
+
+  This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
+  It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
+  
+  Install: `npm install v86`
 
 ### Alternatively, to build using Docker
 
