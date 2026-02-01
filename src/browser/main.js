@@ -2857,6 +2857,24 @@ function init_ui(profile, settings, emulator)
         };
     }
 
+    function pick_file(multiple)
+    {
+        return new Promise(resolve => {
+            const file_input = document.createElement("input");
+            file_input.type = "file";
+            file_input.multiple = multiple;
+            file_input.onchange = function()
+            {
+                resolve(file_input.files);
+            };
+            file_input.oncancel = function()
+            {
+                resolve([]);
+            };
+            file_input.click();
+        });
+    }
+
     $("change_fda_image").textContent = settings.fda ? "Eject floppy image" : "Insert floppy image";
     $("change_fda_image").ondragover = function(e)
     {
@@ -2881,7 +2899,7 @@ function init_ui(profile, settings, emulator)
         }
         insert_fda(e.dataTransfer.files);
     };
-    $("change_fda_image").onclick = function()
+    $("change_fda_image").onclick = async function()
     {
         if(emulator.get_disk_fda())
         {
@@ -2891,13 +2909,8 @@ function init_ui(profile, settings, emulator)
         }
         else
         {
-            const file_input = document.createElement("input");
-            file_input.type = "file";
-            file_input.onchange = function(e)
-            {
-                insert_fda(file_input.files);
-            };
-            file_input.click();
+            const files = await pick_file(false);
+            insert_fda(files);
         }
         $("change_fda_image").blur();
     };
@@ -2926,7 +2939,7 @@ function init_ui(profile, settings, emulator)
         }
         insert_fdb(e.dataTransfer.files);
     };
-    $("change_fdb_image").onclick = function()
+    $("change_fdb_image").onclick = async function()
     {
         if(emulator.get_disk_fdb())
         {
@@ -2936,13 +2949,8 @@ function init_ui(profile, settings, emulator)
         }
         else
         {
-            const file_input = document.createElement("input");
-            file_input.type = "file";
-            file_input.onchange = function(e)
-            {
-                insert_fdb(file_input.files);
-            };
-            file_input.click();
+            const files = await pick_file(false);
+            insert_fdb(files);
         }
         $("change_fdb_image").blur();
     };
@@ -2990,7 +2998,7 @@ function init_ui(profile, settings, emulator)
         }
         insert_cdrom(e.dataTransfer.files);
     };
-    $("change_cdrom_image").onclick = function()
+    $("change_cdrom_image").onclick = async function()
     {
         if(emulator.v86.cpu.devices.cdrom.has_disk())
         {
@@ -3000,14 +3008,8 @@ function init_ui(profile, settings, emulator)
         }
         else
         {
-            const file_input = document.createElement("input");
-            file_input.type = "file";
-            file_input.multiple = "multiple";
-            file_input.onchange = function(e)
-            {
-                insert_cdrom(file_input.files);
-            };
-            file_input.click();
+            const files = await pick_file(true);
+            insert_cdrom(files);
         }
         $("change_cdrom_image").blur();
     };
@@ -3085,32 +3087,26 @@ function init_ui(profile, settings, emulator)
         $("save_state").blur();
     };
 
-    $("load_state").onclick = function()
+    $("load_state").onclick = async function()
     {
-        $("load_state_input").click();
         $("load_state").blur();
-    };
 
-    /**
-     * @this HTMLElement
-     */
-    $("load_state_input").onchange = async function()
-    {
-        var file = this.files[0];
+        const files = await pick_file(false);
+        const file = files[0];
 
         if(!file)
         {
             return;
         }
 
-        var was_running = emulator.is_running();
+        const was_running = emulator.is_running();
 
         if(was_running)
         {
             await emulator.stop();
         }
 
-        var filereader = new FileReader();
+        const filereader = new FileReader();
         filereader.onload = async function(e)
         {
             try
@@ -3130,8 +3126,6 @@ function init_ui(profile, settings, emulator)
             }
         };
         filereader.readAsArrayBuffer(file);
-
-        this.value = "";
     };
 
     $("ctrlaltdel").onclick = function()
