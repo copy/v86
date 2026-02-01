@@ -813,18 +813,18 @@ if(cluster.isPrimary)
         {
             name: "Vanadium OS",
             skip_if_disk_image_missing: true,
-            timeout: 60,
+            timeout: 180,
             cdrom: root_path + "/images/vanadiumos.iso",
             actions: [
-                { after: 2000, run: " " },
-                { after: 2100, run: " " },
-                { after: 2200, run: " " },
-                { after: 2300, run: " " },
-                { after: 2400, run: " " },
-                { after: 2500, run: " " },
-                { after: 2600, run: " " },
-                { after: 2700, run: " " },
-                { after: 2800, run: "c" },
+                { after: 5000, run: " " },
+                { after: 5100, run: " " },
+                { after: 5200, run: " " },
+                { after: 5300, run: " " },
+                { after: 5400, run: " " },
+                { after: 5500, run: " " },
+                { after: 5600, run: " " },
+                { after: 5700, run: " " },
+                { after: 5800, run: "c" },
             ],
             expect_mouse_registered: true,
             expect_graphical_mode: true,
@@ -1303,7 +1303,7 @@ function run_test(test, done)
 
     if(test.cdrom)
     {
-        settings.cdrom = { url: test.cdrom };
+        settings.cdrom = { url: test.cdrom, async: true };
     }
     if(test.fda)
     {
