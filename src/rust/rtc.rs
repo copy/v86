@@ -139,12 +139,14 @@ impl RTC {
             self.next_interrupt += (self.periodic_interrupt_time
                 * f64::ceil((time_f - self.next_interrupt as f64) / self.periodic_interrupt_time))
                 as u64;
-        } else if self.next_interrupt_alarm_enabled {
+        }
+        else if self.next_interrupt_alarm_enabled {
             unsafe { device_raise_irq(8) };
             self.cmos_c |= 1 << 5 | 1 << 7;
 
             self.next_interrupt_alarm_enabled = false;
-        } else if self.update_interrupt && self.update_interrupt_time < time {
+        }
+        else if self.update_interrupt && self.update_interrupt_time < time {
             unsafe { device_raise_irq(8) };
             self.cmos_c |= 1 << 4 | 1 << 7;
 
@@ -171,7 +173,8 @@ impl RTC {
         if self.cmos_b & 4 != 0 {
             // binary mode
             t
-        } else {
+        }
+        else {
             bcd_pack(t)
         }
     }
@@ -180,7 +183,8 @@ impl RTC {
         if self.cmos_b & 4 != 0 {
             // binary mode
             t
-        } else {
+        }
+        else {
             bcd_unpack(t)
         }
     }
@@ -191,13 +195,9 @@ impl RTC {
     // - letting bios/os set values
     // (none of these are used by seabios or the OSes we're
     // currently testing)
-    pub fn port_read(&mut self) -> u8 {
-        self.cmos_port_read(self.cmos_index)
-    }
+    pub fn port_read(&mut self) -> u8 { self.cmos_port_read(self.cmos_index) }
 
-    pub fn port_write(&mut self, value: u8) {
-        self.cmos_port_write(self.cmos_index, value)
-    }
+    pub fn port_write(&mut self, value: u8) { self.cmos_port_write(self.cmos_index, value) }
 
     pub fn cmos_port_read(&mut self, cmos_index: usize) -> u8 {
         match cmos_index {
@@ -346,7 +346,8 @@ impl RTC {
                 if second > 59 {
                     dbg_log!("RTC invalid alarm second {:#X}", second);
                     self.interrupt_alarm_second = 0;
-                } else {
+                }
+                else {
                     self.interrupt_alarm_second = second;
                 }
             },
@@ -355,7 +356,8 @@ impl RTC {
                 if minute > 59 {
                     dbg_log!("RTC invalid alarm minute {:#X}", minute);
                     self.interrupt_alarm_minute = 0;
-                } else {
+                }
+                else {
                     self.interrupt_alarm_minute = minute;
                 }
             },
@@ -365,7 +367,8 @@ impl RTC {
                 if hour > 23 {
                     dbg_log!("RTC invalid alarm hour {:#X}", hour);
                     self.interrupt_alarm_hour = 0;
-                } else {
+                }
+                else {
                     self.interrupt_alarm_hour = hour;
                 }
             },
@@ -388,7 +391,8 @@ impl RTC {
 
     pub fn cmos_write(&mut self, index: usize, value: u8) {
         dbg_log!("RTC cmos write {:#X} <- {:#X}", index, value);
-        let Some(mem) = self.cmos_data.get_mut(index) else {
+        let Some(mem) = self.cmos_data.get_mut(index)
+        else {
             dbg_log!("RTC cmos write out-of-memory");
             return;
         };
@@ -423,9 +427,7 @@ const fn bcd_unpack(n: u8) -> u8 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rtc_new() -> RTC {
-    RTC::new()
-}
+pub unsafe extern "C" fn rtc_new() -> RTC { RTC::new() }
 
 #[no_mangle]
 pub extern "C" fn port_70_write(rtc: &mut RTC, value: usize) {
@@ -434,19 +436,13 @@ pub extern "C" fn port_70_write(rtc: &mut RTC, value: usize) {
 }
 
 #[no_mangle]
-pub extern "C" fn port_71_read(rtc: &mut RTC) -> u8 {
-    rtc.port_read()
-}
+pub extern "C" fn port_71_read(rtc: &mut RTC) -> u8 { rtc.port_read() }
 
 #[no_mangle]
-pub extern "C" fn port_71_write(rtc: &mut RTC, value: u8) {
-    rtc.port_write(value)
-}
+pub extern "C" fn port_71_write(rtc: &mut RTC, value: u8) { rtc.port_write(value) }
 
 #[no_mangle]
-pub extern "C" fn cmos_read(rtc: &RTC, index: usize) -> u8 {
-    rtc.cmos_read(index)
-}
+pub extern "C" fn cmos_read(rtc: &RTC, index: usize) -> u8 { rtc.cmos_read(index) }
 
 #[no_mangle]
 pub extern "C" fn cmos_write(rtc: &mut RTC, index: usize, value: u8) {
@@ -454,6 +450,4 @@ pub extern "C" fn cmos_write(rtc: &mut RTC, index: usize, value: u8) {
 }
 
 #[no_mangle]
-pub extern "C" fn rtc_timer(rtc: &mut RTC) -> u64 {
-    rtc.timer()
-}
+pub extern "C" fn rtc_timer(rtc: &mut RTC) -> u64 { rtc.timer() }
