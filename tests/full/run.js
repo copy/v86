@@ -149,6 +149,17 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Windows Vista installer",
+            skip_if_disk_image_missing: true,
+            cdrom: root_path + "/images/experimental/en_windows_vista_sp2_x86_dvd_342266.iso",
+            memory_size: 512 * 1024 * 1024,
+            timeout: 300,
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+            acpi: true,
+        },
+        {
             name: "Windows XP CD",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/experimental/VirtualXP.iso",
