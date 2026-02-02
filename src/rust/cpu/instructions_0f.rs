@@ -1203,7 +1203,8 @@ pub unsafe fn instr_0F30() {
             );
             let address = low & !(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
             dbg_assert!(
-                address == APIC_MEM_ADDRESS as i32,
+                (address == 0 && !*acpi_enabled) // windows me
+                || address == APIC_MEM_ADDRESS as i32,
                 "Changing APIC address not supported"
             );
             dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
