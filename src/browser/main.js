@@ -2003,6 +2003,7 @@ function start_emulation(profile, query_args)
         settings.memory_size = profile.memory_size;
         settings.vga_memory_size = profile.vga_memory_size;
         settings.boot_order = profile.boot_order;
+        settings.locale = profile.locale;
         settings.net_device_type = profile.net_device_type;
 
         if(!DEBUG && profile.homepage)
@@ -2232,6 +2233,12 @@ function start_emulation(profile, query_args)
         }
         if(settings.boot_order !== DEFAULT_BOOT_ORDER) new_query_args.set("boot_order", settings.boot_order.toString(16));
 
+        const locale = $("locale").value;
+        if(!settings.locale || locale !== "us")
+        {
+            settings.locale = locale;
+        }
+
         if(settings.acpi === undefined)
         {
             settings.acpi = $("acpi").checked;
@@ -2292,6 +2299,7 @@ function start_emulation(profile, query_args)
         memory_size: settings.memory_size,
         vga_memory_size: settings.vga_memory_size,
         boot_order: settings.boot_order,
+        locale: settings.locale,
 
         bios: settings.bios,
         vga_bios: settings.vga_bios,
@@ -3070,36 +3078,23 @@ function init_ui(profile, settings, emulator)
 
     $("ctrlaltdel").onclick = function()
     {
-        emulator.keyboard_send_scancodes([
-            0x1D, // ctrl
-            0x38, // alt
-            0x53, // delete
-
-            // break codes
-            0x1D | 0x80,
-            0x38 | 0x80,
-            0x53 | 0x80,
-        ]);
+        emulator.keyboard_send_keypress(["ControlLeft", "AltLeft", "Delete"]);
 
         $("ctrlaltdel").blur();
     };
 
     $("alttab").onclick = function()
     {
-        emulator.keyboard_send_scancodes([
-            0x38, // alt
-            0x0F, // tab
-        ]);
-
-        setTimeout(function()
-        {
-            emulator.keyboard_send_scancodes([
-                0x38 | 0x80,
-                0x0F | 0x80,
-            ]);
-        }, 100);
+        emulator.keyboard_send_keypress(["AltLeft", "Tab"], 100);
 
         $("alttab").blur();
+    };
+
+    $("paste_clipboard").onclick = async function()
+    {
+        emulator.keyboard_send_text(await navigator.clipboard.readText());
+
+        $("paste_clipboard").blur();
     };
 
     /**
