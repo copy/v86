@@ -33,12 +33,22 @@ export function ScreenAdapter(options, screen_fill_buffer)
     this.FLAG_BLINKING = FLAG_BLINKING;
     this.FLAG_FONT_PAGE_B = FLAG_FONT_PAGE_B;
 
-    var
-        graphic_screen = screen_container.getElementsByTagName("canvas")[0],
-        graphic_context = graphic_screen.getContext("2d", { alpha: false }),
+    let graphic_screen = screen_container.getElementsByTagName("canvas")[0];
+    if(!graphic_screen)
+    {
+        graphic_screen = document.createElement("canvas");
+        screen_container.appendChild(graphic_screen);
+    }
+    const graphic_context = graphic_screen.getContext("2d", { alpha: false });
 
-        text_screen = screen_container.getElementsByTagName("div")[0],
-        cursor_element = document.createElement("div");
+    let text_screen = screen_container.getElementsByTagName("div")[0];
+    if(!text_screen)
+    {
+        text_screen = document.createElement("div");
+        screen_container.appendChild(text_screen);
+    }
+
+    const cursor_element = document.createElement("div");
 
     var
         /** @type {number} */
