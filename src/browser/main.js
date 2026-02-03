@@ -885,13 +885,13 @@ function onload()
             id: "windows-me",
             memory_size: 256 * 1024 * 1024,
             hda: {
-                url: host + "windowsme-v2/.img",
-                size: 834666496,
+                url: host + "windowsme-v3/.img",
+                size: 1073741824,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
                 use_parts: true,
             },
-            state: { url: host + "windows-me_state-v2.bin.zst" },
+            state: { url: host + "windows-me_state-v3.bin.zst" },
             name: "Windows ME",
         },
         {
@@ -911,7 +911,7 @@ function onload()
             id: "windowsnt35",
             memory_size: 256 * 1024 * 1024,
             hda: {
-                url: host + "windowsnt351/.img",
+                url: host + "windowsnt351-v2/.img",
                 size: 163577856,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
@@ -992,11 +992,21 @@ function onload()
             name: "Windows 95",
         },
         {
-            id: "windows30",
+            id: "windows30-old",
             memory_size: 64 * 1024 * 1024,
             cdrom: {
                 url: host + "Win30.iso",
                 size: 7774208,
+                async: false,
+            },
+            name: "Windows 3.0",
+        },
+        {
+            id: "windows30",
+            memory_size: 128 * 1024 * 1024,
+            hda: {
+                url: host + "windows30.img",
+                size: 25165824,
                 async: false,
             },
             name: "Windows 3.0",
