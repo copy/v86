@@ -57,59 +57,91 @@ extern "C" {
     fn getHours(_: f64) -> u8;
     fn getMinutes(_: f64) -> u8;
     fn getSeconds(_: f64) -> u8;
+    fn newDate(_: u32, _: u8, _: u8, _: u8, _: u8, _: u8) -> f64;
 }
 
-/// RTC (real time clock) and CMOS
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct RTC {
-    cmos_index: usize,
-    cmos_data: [u8; 128],
+macro_rules! define_struct {
+    ($($field_name:ident $(, $get_fun:ident, $set_fun:ident: $field_js_type:ty)?: $field_type:ty);* $(;)?) => {
+        /// RTC (real time clock) and CMOS
+        #[derive(Debug, Clone, Copy)]
+        pub struct RTC {
+            $($field_name: $field_type),*
+        }
+
+        $($(
+            // getter function
+            #[no_mangle]
+            pub unsafe extern "C" fn $set_fun(rtc: &mut RTC, value: $field_js_type) {
+                let value = value as $field_type;
+                dbg_log!("RTC {}: {:?}", stringify!($set_fun), value);
+                rtc.$field_name = value;
+            }
+            // setter function
+            #[no_mangle]
+            pub unsafe extern "C" fn $get_fun(rtc: &RTC) -> $field_js_type {
+                let value = rtc.$field_name as $field_js_type;
+                dbg_log!("RTC {}: {:?}", stringify!($get_fun), value);
+                value
+            }
+        )*)*
+    };
+}
+
+// NOTE the f64 <-> f64 conversion is used to maintain compatibility with states saved from before the rust migration
+define_struct!(
+    cmos_index, get_cmos_index, set_cmos_index: u8: usize;
+
+    // the javascript <-> rust translation is acting strangely with [u8; 128],
+    // even tho &[u8; 128] is FFI complient, maybe the translation is done incorrectly.
+    // TODO investigate if this is a bug.
+    // meanwhile use the manually implemented versions bellow
+    cmos_data: [u8; 128];
 
     // used for cmos entries
-    rtc_time: u64,
-    last_update: u64,
+    rtc_time, get_rtc_time, set_rtc_time: f64: f64;
+    last_update, get_last_update, set_last_update: f64: f64;
 
     // used for periodic interrupt
-    next_interrupt: u64,
+    next_interrupt, get_next_interrupt, set_next_interrupt: f64: f64;
 
     // next alarm interrupt
-    next_interrupt_alarm_enabled: bool,
-    interrupt_alarm_hour: u8,
-    interrupt_alarm_minute: u8,
-    interrupt_alarm_second: u8,
+    next_interrupt_alarm, get_next_interrupt_alarm, set_next_interrupt_alarm: f64: f64;
 
-    periodic_interrupt: bool,
+    periodic_interrupt, get_periodic_interrupt, set_periodic_interrupt: bool: bool;
 
     // corresponds to default value for cmos_a
-    periodic_interrupt_time: f64,
+    periodic_interrupt_time, get_periodic_interrupt_time, set_periodic_interrupt_time: f64: f64;
 
-    cmos_a: u8,
-    cmos_b: u8,
-    cmos_c: u8,
+    cmos_a, get_cmos_a, set_cmos_a: u8: u8;
+    cmos_b, get_cmos_b, set_cmos_b: u8: u8;
+    cmos_c, get_cmos_c, set_cmos_c: u8: u8;
 
-    cmos_diag_status: u8,
+    cmos_diag_status, get_cmos_diag_status, set_cmos_diag_status: u8: u8;
 
-    nmi_disabled: bool,
+    nmi_disabled, get_nmi_disabled, set_nmi_disabled: bool: bool;
 
-    update_interrupt: bool,
-    update_interrupt_time: u64,
+    update_interrupt, get_update_interrupt, set_update_interrupt: bool: bool;
+    update_interrupt_time, get_update_interrupt_time, set_update_interrupt_time: f64: f64;
+);
+
+#[no_mangle]
+pub unsafe extern "C" fn set_cmos_data_byte(rtc: &mut RTC, index: usize, value: u8) {
+    rtc.cmos_data[index] = value;
 }
+#[no_mangle]
+pub unsafe extern "C" fn get_cmos_data_byte(rtc: &RTC, index: usize) -> u8 { rtc.cmos_data[index] }
 
 impl RTC {
     pub fn new() -> Self {
-        let rtc_time = unsafe { get_epoch_milis() } as u64;
+        let rtc_time = unsafe { get_epoch_milis() } as f64;
         Self {
             cmos_index: 0,
             cmos_data: [0; 128],
             rtc_time,
             last_update: rtc_time,
-            next_interrupt: 0,
-            next_interrupt_alarm_enabled: false,
+            next_interrupt: 0.0,
             periodic_interrupt: false,
-            interrupt_alarm_hour: 0,
-            interrupt_alarm_minute: 0,
-            interrupt_alarm_second: 0,
+            next_interrupt_alarm: 0.0,
             periodic_interrupt_time: 1000.0 / 1024.0,
             cmos_a: 0x26,
             cmos_b: 2,
@@ -117,20 +149,16 @@ impl RTC {
             cmos_diag_status: 0,
             nmi_disabled: false,
             update_interrupt: false,
-            update_interrupt_time: 0,
+            update_interrupt_time: 0.0,
         }
     }
 
-    pub fn timer(&mut self) -> u64 {
+    pub fn timer(&mut self) -> f64 {
         let time_f = unsafe { get_epoch_milis() };
-        let time = time_f as u64;
+        let time = time_f as f64;
         // note time is not garantied to be monolitic.
-        self.rtc_time += time.saturating_sub(self.last_update);
+        self.rtc_time += time - self.last_update;
         self.last_update = time;
-
-        let second = unsafe { getSeconds(self.rtc_time as f64) };
-        let minute = unsafe { getMinutes(self.rtc_time as f64) };
-        let hour = unsafe { getHours(self.rtc_time as f64) };
 
         if self.periodic_interrupt && self.next_interrupt < time {
             unsafe { device_raise_irq(8) };
@@ -138,33 +166,31 @@ impl RTC {
 
             self.next_interrupt += (self.periodic_interrupt_time
                 * f64::ceil((time_f - self.next_interrupt as f64) / self.periodic_interrupt_time))
-                as u64;
+                as f64;
         }
-        else if self.next_interrupt_alarm_enabled {
+        else if self.next_interrupt_alarm != 0.0 && self.next_interrupt_alarm < time {
             unsafe { device_raise_irq(8) };
             self.cmos_c |= 1 << 5 | 1 << 7;
 
-            self.next_interrupt_alarm_enabled = false;
+            self.next_interrupt_alarm = 0.0;
         }
         else if self.update_interrupt && self.update_interrupt_time < time {
             unsafe { device_raise_irq(8) };
             self.cmos_c |= 1 << 4 | 1 << 7;
 
-            self.update_interrupt_time = time + 1000; // 1 second
+            self.update_interrupt_time = time + 1000.0; // 1 second
         }
 
-        let mut t = 100;
+        let mut t = 100f64;
 
-        if self.periodic_interrupt && self.next_interrupt != 0 {
-            t = t.min(self.next_interrupt.saturating_sub(time));
+        if self.periodic_interrupt && self.next_interrupt != 0.0 {
+            t = t.min(0f64.max(self.next_interrupt - time));
         }
-        if self.next_interrupt_alarm_enabled {
-            if hour == self.interrupt_alarm_hour && minute == self.interrupt_alarm_minute {
-                t = t.min(u64::from(self.interrupt_alarm_second.saturating_sub(second)) * 1000);
-            }
+        if self.next_interrupt_alarm != 0.0 {
+            t = t.min(0f64.max(self.next_interrupt_alarm - time));
         }
         if self.update_interrupt {
-            t = t.min(self.update_interrupt_time.saturating_sub(time));
+            t = t.min(0f64.max(self.update_interrupt_time - time));
         }
 
         t
@@ -283,10 +309,6 @@ impl RTC {
                 self.cmos_diag_status
             },
 
-            CMOS_RTC_HOURS_ALARM => self.encode_time(self.interrupt_alarm_hour),
-            CMOS_RTC_MINUTES_ALARM => self.encode_time(self.interrupt_alarm_minute),
-            CMOS_RTC_SECONDS_ALARM => self.encode_time(self.interrupt_alarm_second),
-
             index => {
                 dbg_log!("RTC cmos read from index {:#X}", index);
                 cmos_read(self, index.into())
@@ -318,20 +340,29 @@ impl RTC {
                     // remove update interrupt flag
                     self.cmos_b &= 0xEF;
                 }
-                let now = unsafe { get_epoch_milis() } as u64;
+                let now = unsafe { get_epoch_milis() } as f64;
                 if self.cmos_b & 0x40 != 0 {
                     self.next_interrupt = now;
                 }
 
                 if self.cmos_b & 0x20 != 0 {
+                    let second = self.decode_time(self.cmos_data[CMOS_RTC_SECONDS_ALARM]);
+                    let minute = self.decode_time(self.cmos_data[CMOS_RTC_MINUTES_ALARM]);
+                    let hour = self.decode_time(self.cmos_data[CMOS_RTC_HOURS_ALARM]);
                     dbg_log!(
                         "RTC alarm scheduled hh:mm:ss={:02}:{:02}:{:02}",
-                        self.interrupt_alarm_hour,
-                        self.interrupt_alarm_minute,
-                        self.interrupt_alarm_second,
+                        hour,
+                        minute,
+                        second,
                     );
 
-                    self.next_interrupt_alarm_enabled = true;
+                    let current_time = unsafe { get_epoch_milis() };
+                    let year = unsafe { getFullYear(current_time) };
+                    let month = unsafe { getMonth(current_time) };
+                    let day = unsafe { getDay(current_time) };
+
+                    self.next_interrupt_alarm =
+                        unsafe { newDate(year, month, day, hour, minute, second) };
                 }
 
                 if self.cmos_b & 0x10 != 0 {
@@ -341,36 +372,8 @@ impl RTC {
             },
             CMOS_DIAG_STATUS => self.cmos_diag_status = data_byte,
 
-            CMOS_RTC_SECONDS_ALARM => {
-                let second = self.decode_time(data_byte);
-                if second > 59 {
-                    dbg_log!("RTC invalid alarm second {:#X}", second);
-                    self.interrupt_alarm_second = 0;
-                }
-                else {
-                    self.interrupt_alarm_second = second;
-                }
-            },
-            CMOS_RTC_MINUTES_ALARM => {
-                let minute = self.decode_time(data_byte);
-                if minute > 59 {
-                    dbg_log!("RTC invalid alarm minute {:#X}", minute);
-                    self.interrupt_alarm_minute = 0;
-                }
-                else {
-                    self.interrupt_alarm_minute = minute;
-                }
-            },
-            CMOS_RTC_HOURS_ALARM => {
-                // TODO what about 12hours?
-                let hour = self.decode_time(data_byte);
-                if hour > 23 {
-                    dbg_log!("RTC invalid alarm hour {:#X}", hour);
-                    self.interrupt_alarm_hour = 0;
-                }
-                else {
-                    self.interrupt_alarm_hour = hour;
-                }
+            CMOS_RTC_SECONDS_ALARM | CMOS_RTC_MINUTES_ALARM | CMOS_RTC_HOURS_ALARM => {
+                self.cmos_write(cmos_index, data_byte);
             },
 
             index => {
@@ -427,11 +430,16 @@ const fn bcd_unpack(n: u8) -> u8 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rtc_new() -> RTC { RTC::new() }
+pub unsafe extern "C" fn rtc_new() -> Box<RTC> {
+    // NOTE javascript don't handle big structs very well, use
+    // Box here instead to avoid problems.
+    // If you remove the box, javascript will write garbage to it sometimes.
+    Box::new(RTC::new())
+}
 
 #[no_mangle]
 pub extern "C" fn port_70_write(rtc: &mut RTC, value: usize) {
-    rtc.nmi_disabled |= value & 0x80 != 0;
+    rtc.nmi_disabled = value & 0x80 != 0;
     rtc.cmos_index = value & 0x7F;
 }
 
@@ -450,4 +458,4 @@ pub extern "C" fn cmos_write(rtc: &mut RTC, index: usize, value: u8) {
 }
 
 #[no_mangle]
-pub extern "C" fn rtc_timer(rtc: &mut RTC) -> u64 { rtc.timer() }
+pub extern "C" fn rtc_timer(rtc: &mut RTC) -> f64 { rtc.timer() }

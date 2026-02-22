@@ -74,6 +74,9 @@ export function V86(options)
         "getHours": function (date) { return (new Date(date)).getUTCHours(); },
         "getMinutes": function (date) { return (new Date(date)).getUTCMinutes(); },
         "getSeconds": function (date) { return (new Date(date)).getUTCSeconds(); },
+        "newDate": function (year, month, day, hour, minute, second) {
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+        },
         "get_rand_int": function() { return get_rand_int(); },
         "stop_idling": function() { return cpu.stop_idling(); },
 

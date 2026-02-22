@@ -83,14 +83,48 @@ RTC.prototype.get_state = function()
 {
     var state = [];
 
-    state[0] = this.rtc;
+    state[0] =  Number(this.cpu.get_cmos_index(this.rtc));
+    var cmos_data = [];
+    for(var i = 0; i < 128; i++) {
+        cmos_data[i] = this.cpu.get_cmos_data_byte(this.rtc, i);
+    }
+    state[1] =  cmos_data;
+    state[2] =  this.cpu.get_rtc_time(this.rtc);
+    state[3] =  this.cpu.get_last_update(this.rtc);
+    state[4] =  this.cpu.get_next_interrupt(this.rtc);
+    state[5] =  this.cpu.get_next_interrupt_alarm(this.rtc);
+    state[6] =  this.cpu.get_periodic_interrupt(this.rtc);
+    state[7] =  this.cpu.get_periodic_interrupt_time(this.rtc);
+    state[8] =  this.cpu.get_cmos_a(this.rtc);
+    state[9] =  this.cpu.get_cmos_b(this.rtc);
+    state[10] = this.cpu.get_cmos_c(this.rtc);
+    state[11] = this.cpu.get_nmi_disabled(this.rtc);
+    state[12] = this.cpu.get_update_interrupt(this.rtc);
+    state[13] = this.cpu.get_update_interrupt_time(this.rtc);
+    state[14] = this.cpu.get_cmos_diag_status(this.rtc);
 
     return state;
 };
 
 RTC.prototype.set_state = function(state)
 {
-    this.rtc = state[0];
+    this.cpu.set_cmos_index(this.rtc, state[0]);
+    for(var i = 0; i < 128; i++) {
+        this.cpu.set_cmos_data_byte(this.rtc, i, state[1][i]);
+    }
+    this.cpu.set_rtc_time(this.rtc, state[2]);
+    this.cpu.set_last_update(this.rtc, state[3]);
+    this.cpu.set_next_interrupt(this.rtc, state[4]);
+    this.cpu.set_next_interrupt_alarm(this.rtc, state[5]);
+    this.cpu.set_periodic_interrupt(this.rtc, state[6]);
+    this.cpu.set_periodic_interrupt_time(this.rtc, state[7]);
+    this.cpu.set_cmos_a(this.rtc, state[8]);
+    this.cpu.set_cmos_b(this.rtc, state[9]);
+    this.cpu.set_cmos_c(this.rtc, state[10]);
+    this.cpu.set_nmi_disabled(this.rtc, state[11]);
+    this.cpu.set_update_interrupt(this.rtc, state[12] || false);
+    this.cpu.set_update_interrupt_time(this.rtc, state[13] || 0);
+    this.cpu.set_cmos_diag_status(this.rtc, state[14] || 0);
 };
 
 RTC.prototype.timer = function (time, legacy_mode) {
