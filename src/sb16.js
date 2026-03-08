@@ -209,6 +209,8 @@ export function SB16(cpu, bus)
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
+    // Pending 8-bit single-cycle ADC (0x24) byte count; 0 = no transfer pending.
+    this.dma_adc_left = 0;
     this.sampling_rate = 22050;
     bus.send("dac-tell-sampling-rate", this.sampling_rate);
     this.bytes_per_sample = 1;
@@ -219,6 +221,8 @@ export function SB16(cpu, bus)
 
     // ASP data: not understood by me.
     this.asp_registers = new Uint8Array(256);
+    // Whether ASP chip initialisation sequence is in progress (used by 0x0F reg-toggle).
+    this.asp_init_in_progress = false;
 
     // MPU.
     this.mpu_read_buffer = new ByteQueue(DSP_BUFSIZE);
@@ -363,6 +367,7 @@ SB16.prototype.dsp_reset = function()
     this.asp_registers.fill(0);
     this.asp_registers[5] = 0x01;
     this.asp_registers[9] = 0xF8;
+    this.asp_init_in_progress = false;
 };
 
 SB16.prototype.get_state = function()
@@ -415,7 +420,7 @@ SB16.prototype.get_state = function()
 
     state[34] = this.irq;
     state[35] = this.irq_triggered;
-    //state[36]
+    state[36] = this.dma_adc_left;
 
     return state;
 };
@@ -469,7 +474,7 @@ SB16.prototype.set_state = function(state)
 
     this.irq = state[34];
     this.irq_triggered = state[35];
-    //state[36];
+    this.dma_adc_left = state[36] || 0;
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
@@ -520,8 +525,11 @@ SB16.prototype.port2x1_read = function()
 
 SB16.prototype.port2x2_read = function()
 {
-    dbg_log("222 read: advanced fm music status port (unimplemented)", LOG_SB16);
-    return 0xFF;
+    dbg_log("222 read: advanced fm music status port (OPL3 bank1)", LOG_SB16);
+    // OPL3 (YMF262): bank-1 address port read returns 0x00.
+    // Bits 1-2 are always LOW on OPL3 (vs HIGH on OPL2), used for chip detection.
+    // verified on real YMF262 hardware.
+    return 0x00;
 };
 
 SB16.prototype.port2x3_read = function()
@@ -558,8 +566,11 @@ SB16.prototype.port2x7_read = function()
 
 SB16.prototype.port2x8_read = function()
 {
-    dbg_log("228 read: fm music status port (unimplemented)", LOG_SB16);
-    return 0xFF;
+    dbg_log("228 read: fm music status port (OPL2 AdLib compat)", LOG_SB16);
+    // 0x228 is the OPL2-compatible status port on SB16 (base+8).
+    // DOSBox adlib.cpp: PortRead, MODE_OPL3, port & 3 == 0 => chip[0].Read().
+    // Shares the same timer state as 0x220.
+    return this.port2x0_read();
 };
 
 SB16.prototype.port2x9_read = function()
@@ -706,12 +717,23 @@ SB16.prototype.port2x7_write = function(value)
 
 SB16.prototype.port2x8_write = function(value)
 {
-    dbg_log("228 write: fm music register port (unimplemented)", LOG_SB16);
+    // OPL2 AdLib compatible address register (base+8), mirrors bank-0 address.
+    // DOSBox adlib.cpp PortWrite: reg.normal = handler->WriteAddr(port, val) & 0xff
+    dbg_log("228 write: fm register 0 address (AdLib compat) = " + h(value), LOG_SB16);
+    this.fm_current_address0 = value;
 };
 
 SB16.prototype.port2x9_write = function(value)
 {
-    dbg_log("229 write: fm music data port (unimplemented)", LOG_SB16);
+    // OPL2 AdLib compatible data register (base+9), mirrors bank-0 data.
+    // DOSBox adlib.cpp PortWrite: handler->WriteReg(reg.normal, val)
+    dbg_log("229 write: fm register 0 data (AdLib compat) = " + h(value), LOG_SB16);
+    var handler = FM_HANDLERS[this.fm_current_address0];
+    if(!handler)
+    {
+        handler = this.fm_default_write;
+    }
+    handler.call(this, value, 0, this.fm_current_address0);
 };
 
 SB16.prototype.port2xA_write = function(value)
@@ -876,6 +898,36 @@ function any_first_digit(base)
     return commands;
 }
 
+// SB16 ASP set mode register.
+// Controls whether the ASP chip initialisation sequence is in progress.
+register_dsp_command([0x04], 1, function()
+{
+    var data = this.write_buffer.shift();
+    this.asp_init_in_progress = (data & 0xF1) === 0xF1;
+    dbg_log("DSP 0x04: ASP set mode register 0x" + h(data), LOG_SB16);
+});
+
+// SB16 ASP set codec parameter (no-op, as in DOSBox).
+register_dsp_command([0x05], 2, function()
+{
+    this.write_buffer.shift();
+    this.write_buffer.shift();
+    dbg_log("DSP 0x05: ASP set codec parameter (unimplemented)", LOG_SB16);
+});
+
+// SB16 ASP get version.
+// Sub-command 0x03 returns version ID 0x18 (as in DOSBox).
+register_dsp_command([0x08], 1, function()
+{
+    var sub = this.write_buffer.shift();
+    dbg_log("DSP 0x08: ASP get version sub=0x" + h(sub), LOG_SB16);
+    if(sub === 0x03)
+    {
+        this.read_buffer.clear();
+        this.read_buffer.push(0x18);
+    }
+});
+
 // ASP set register
 register_dsp_command([0x0E], 2, function()
 {
@@ -883,10 +935,16 @@ register_dsp_command([0x0E], 2, function()
 });
 
 // ASP get register
+// When initialisation is in progress, reading register 0x83 toggles its value (DOSBox behaviour).
 register_dsp_command([0x0F], 1, function()
 {
+    var reg = this.write_buffer.shift();
+    if(this.asp_init_in_progress && reg === 0x83)
+    {
+        this.asp_registers[0x83] = (~this.asp_registers[0x83]) & 0xFF;
+    }
     this.read_buffer.clear();
-    this.read_buffer.push(this.asp_registers[this.write_buffer.shift()]);
+    this.read_buffer.push(this.asp_registers[reg]);
 });
 
 // 8-bit direct mode single byte digitized sound output.
@@ -978,10 +1036,29 @@ register_dsp_command([0x20], 0, function()
 });
 
 // 8-bit single-cycle DMA mode digitized sound input.
-register_dsp_command([0x24], 2);
+// Faked: fills the DMA buffer with silence (0x80) then raises the 8-bit IRQ.
+// Mirrors DOSBox DSP_ADC_CallBack: wait for the DMA8 channel to be unmasked,
+// then write 0x80 for dma.left bytes and fire SB_IRQ_8.
+register_dsp_command([0x24], 2, function()
+{
+    var low = this.write_buffer.shift();
+    var high = this.write_buffer.shift();
+    this.dma_adc_left = 1 + low + (high << 8);
+    dbg_log("DSP 0x24: Faked 8-bit DMA ADC for " + this.dma_adc_left + " bytes", LOG_SB16);
+    if(!this.dma.channel_mask[this.dma_channel_8bit])
+    {
+        // DMA channel already unmasked — transfer immediately.
+        this.dma_adc_do_transfer();
+    }
+    // else: dma_on_unmask fires dma_adc_do_transfer when the channel is unmasked.
+});
 
 // 8-bit auto-init DMA mode digitized sound input.
-register_dsp_command([0x2C], 0);
+// DOSBox logs "DSP:Unimplemented input command" and does nothing; same here.
+register_dsp_command([0x2C], 0, function()
+{
+    dbg_log("DSP 0x2C: Unimplemented input command", LOG_SB16);
+});
 
 // Polling mode MIDI input.
 register_dsp_command([0x30], 0);
@@ -1001,8 +1078,16 @@ register_dsp_command([0x36], 0);
 // UART interrupt mode MIDI I/O with time stamping.
 register_dsp_command([0x37], 0);
 
-// MIDI output.
-register_dsp_command([0x38], 0);
+// MIDI output single byte.
+// DOSBox: MIDI_RawOutByte(data) when sb.midi == true.
+// TODO: implement real MIDI output via Web MIDI API (navigator.requestMIDIAccess)
+// — skipped to avoid the permission popup and because Web MIDI is not universally
+// available. Data is silently discarded.
+register_dsp_command([0x38], 1, function()
+{
+    this.write_buffer.shift();
+    dbg_log("DSP 0x38: MIDI output byte discarded (no MIDI support)", LOG_SB16);
+});
 
 // Set digitized sound transfer Time Constant.
 register_dsp_command([0x40], 1, function()
@@ -1117,7 +1202,16 @@ register_dsp_command([0x7F], 0, function()
 });
 
 // Pause DAC for a duration.
-register_dsp_command([0x80], 2);
+// Raises the 8-bit IRQ after the silence period expires, matching DOSBox behaviour.
+register_dsp_command([0x80], 2, function()
+{
+    var low = this.write_buffer.shift();
+    var high = this.write_buffer.shift();
+    var count = 1 + low + (high << 8);
+    var delay_ms = count * 1000 / this.sampling_rate;
+    dbg_log("DSP 0x80: Silence DAC for " + count + " samples (" + delay_ms.toFixed(2) + " ms)", LOG_SB16);
+    setTimeout(() => { this.raise_irq(SB_IRQ_8BIT); }, delay_ms);
+});
 
 // 8-bit high-speed auto-init DMA mode digitized sound output.
 register_dsp_command([0x90], 0, function()
@@ -1292,6 +1386,13 @@ register_dsp_command([0xF2, 0xF3], 0, function()
     this.raise_irq();
 });
 
+// Undocumented pre-SB16 command: returns 0x00 (matches DOSBox).
+register_dsp_command([0xF8], 0, function()
+{
+    this.read_buffer.clear();
+    this.read_buffer.push(0x00);
+});
+
 // ASP - unknown function
 var SB_F9 = new Uint8Array(256);
 SB_F9[0x0E] = 0xFF;
@@ -1361,7 +1462,8 @@ SB16.prototype.mixer_reset = function()
     this.mixer_registers[0x26] = 12 << 4 | 12;
     this.mixer_registers[0x28] = 0;
     this.mixer_registers[0x2E] = 0;
-    this.mixer_registers[0x0A] = 0;
+    // 0x0A and 0x3A share the same internal mic field (mixer_registers[0x3A] stores 0-31 raw value)
+    // DOSBox CTMIXER_Reset() does NOT reset mic, so we leave it as-is during reset.
     this.mixer_registers[0x30] = 31 << 3;
     this.mixer_registers[0x31] = 31 << 3;
     this.mixer_registers[0x32] = 31 << 3;
@@ -1372,6 +1474,7 @@ SB16.prototype.mixer_reset = function()
     this.mixer_registers[0x37] = 0;
     this.mixer_registers[0x38] = 0;
     this.mixer_registers[0x39] = 0;
+    this.mixer_registers[0x3A] = 0;
     this.mixer_registers[0x3B] = 0;
     this.mixer_registers[0x3C] = 0x1F;
     this.mixer_registers[0x3D] = 0x15;
@@ -1494,14 +1597,31 @@ register_mixer_write(0x00);
 // Legacy Voice Volume Left/Right.
 register_mixer_legacy(0x04, 0x32, 0x33);
 
-// Legacy Mic Volume. TODO.
-//register_mixer_read(0x0A);
-//register_mixer_write(0x0A, function(data)
-//{
-//    this.mixer_registers[0x0A] = data;
-//    var prev = this.mixer_registers[0x3A];
-//    this.mixer_write(0x3A, data << 5 | (prev & 0x0F));
-//});
+// Mic Level (SBPro, 3-bit at bits 2:0; SB16 uses 3-bit too but shares storage with 0x3A).
+// DOSBox: mic = (val & 0x7)<<2 | 1 [SB16]; read: (mic>>2) & 7.
+// mixer_registers[0x3A] stores the raw 5-bit mic value (same as DOSBox sb.mixer.mic).
+register_mixer_read(0x0A, function()
+{
+    return (this.mixer_registers[0x3A] >> 2) & 7;
+});
+register_mixer_write(0x0A, function(data)
+{
+    // SB16 mode: mic = (val & 0x7)<<2 | 1  (low bit = 1 for SB16, 3 for SBPro)
+    this.mixer_registers[0x3A] = ((data & 0x7) << 2) | 1;
+});
+
+// Stereo/Filter Select (SBPro). Bit 1 = stereo output; bit 5 = filter (not applied in v86).
+// On SB16 stereo is set per-command, but this register is honoured for SBPro compatibility.
+// DOSBox: stereo=(val&0x2)>0; filtered=(val&0x20)>0; read: 0x11|(stereo?0x02:0)|(filtered?0x20:0).
+register_mixer_read(0x0E, function()
+{
+    return 0x11 | (this.dsp_stereo ? 0x02 : 0x00) | (this.mixer_registers[0x0E] & 0x20);
+});
+register_mixer_write(0x0E, function(data)
+{
+    this.mixer_registers[0x0E] = data;
+    this.dsp_stereo = (data & 0x02) !== 0;
+});
 
 // Legacy Master Volume Left/Right.
 register_mixer_legacy(0x22, 0x30, 0x31);
@@ -1524,16 +1644,43 @@ register_mixer_volume(0x33, MIXER_SRC_DAC, MIXER_CHANNEL_RIGHT);
 register_mixer_volume(0x34, MIXER_SRC_OPL, MIXER_CHANNEL_LEFT);
 // MIDI/FM Volume Right.
 register_mixer_volume(0x35, MIXER_SRC_OPL, MIXER_CHANNEL_RIGHT);
-// CD Volume Left. TODO.
-//register_mixer_volume(0x36, MIXER_SRC_CD, MIXER_CHANNEL_LEFT);
-// CD Volume Right. TODO.
-//register_mixer_volume(0x37, MIXER_SRC_CD, MIXER_CHANNEL_RIGHT);
-// Line Volume Left. TODO.
-//register_mixer_volume(0x38, MIXER_SRC_LINE, MIXER_CHANNEL_LEFT);
-// Line Volume Right. TODO.
-//register_mixer_volume(0x39, MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT);
-// Mic Volume. TODO.
-//register_mixer_volume(0x3A, MIXER_SRC_MIC, MIXER_CHANNEL_BOTH);
+// CD Volume Left (SB16). Bits 7:3. No CD audio source in v86; stored for read-back.
+// DOSBox: cda[0] = val>>3; read: cda[0]<<3 (bits 2:0 always zero).
+register_mixer_read(0x36);
+register_mixer_write(0x36, function(data)
+{
+    this.mixer_registers[0x36] = data & 0xF8;
+});
+// CD Volume Right (SB16). Bits 7:3.
+register_mixer_read(0x37);
+register_mixer_write(0x37, function(data)
+{
+    this.mixer_registers[0x37] = data & 0xF8;
+});
+// Line-in Volume Left (SB16). Bits 7:3. No line-in source in v86; stored for read-back.
+// DOSBox: lin[0] = val>>3; read: lin[0]<<3.
+register_mixer_read(0x38);
+register_mixer_write(0x38, function(data)
+{
+    this.mixer_registers[0x38] = data & 0xF8;
+});
+// Line-in Volume Right (SB16). Bits 7:3.
+register_mixer_read(0x39);
+register_mixer_write(0x39, function(data)
+{
+    this.mixer_registers[0x39] = data & 0xF8;
+});
+// Mic Volume (SB16). Bits 7:3. No mic input in v86; stored for read-back.
+// DOSBox: mic = val>>3; read: mic<<3.
+// mixer_registers[0x3A] stores the raw 5-bit value (same field as 0x0A above).
+register_mixer_read(0x3A, function()
+{
+    return this.mixer_registers[0x3A] << 3;
+});
+register_mixer_write(0x3A, function(data)
+{
+    this.mixer_registers[0x3A] = data >> 3;
+});
 
 // PC Speaker Volume.
 register_mixer_read(0x3B);
@@ -1543,43 +1690,43 @@ register_mixer_write(0x3B, function(data)
     this.bus.send("mixer-volume", [MIXER_SRC_PCSPEAKER, MIXER_CHANNEL_BOTH, (data >>> 6) * 6 - 18]);
 });
 
-// Output Mixer Switches. TODO.
-//register_mixer_read(0x3C);
-//register_mixer_write(0x3C, function(data)
-//{
-//    this.mixer_registers[0x3C] = data;
-//
-//    if(data & 0x01) this.bus.send("mixer-connect", [MIXER_SRC_MIC, MIXER_CHANNEL_BOTH]);
-//    else this.bus.send("mixer-disconnect", [MIXER_SRC_MIC, MIXER_CHANNEL_BOTH]);
-//
-//    if(data & 0x02) this.bus.send("mixer-connect", [MIXER_SRC_CD, MIXER_CHANNEL_RIGHT]);
-//    else this.bus.send("mixer-disconnect", [MIXER_SRC_CD, MIXER_CHANNEL_RIGHT]);
-//
-//    if(data & 0x04) this.bus.send("mixer-connect", [MIXER_SRC_CD, MIXER_CHANNEL_LEFT]);
-//    else this.bus.send("mixer-disconnect", [MIXER_SRC_CD, MIXER_CHANNEL_LEFT]);
-//
-//    if(data & 0x08) this.bus.send("mixer-connect", [MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT]);
-//    else this.bus.send("mixer-disconnect", [MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT]);
-//
-//    if(data & 0x10) this.bus.send("mixer-connect", [MIXER_SRC_LINE, MIXER_CHANNEL_LEFT]);
-//    else this.bus.send("mixer-disconnect", [MIXER_SRC_LINE, MIXER_CHANNEL_LEFT]);
-//});
+// Output Mixer Switches (SB16). Bits 4:0: bit0=Mic, bit1=CD-R, bit2=CD-L, bit3=Line-R, bit4=Line-L.
+// DOSBox stores to unhandled[0x3C]; v86 has no CD/Line/Mic sources, stored for read-back.
+register_mixer_read(0x3C);
+register_mixer_write(0x3C, function(data)
+{
+    this.mixer_registers[0x3C] = data;
+});
 
-// Input Mixer Left Switches. TODO.
-//register_mixer_read(0x3D);
-//register_mixer_write(0x3D);
+// Input Mixer Left Switches (SB16). Bits 5:0: bit0=Mic, bit1=CD-R, bit2=CD-L, bit3=Line-R, bit4=Line-L, bit5=MIDI.
+// DOSBox stores to unhandled[0x3D]; stored for read-back.
+register_mixer_read(0x3D);
+register_mixer_write(0x3D, function(data)
+{
+    this.mixer_registers[0x3D] = data;
+});
 
-// Input Mixer Right Switches. TODO.
-//register_mixer_read(0x3E);
-//register_mixer_write(0x3E);
+// Input Mixer Right Switches (SB16). Bits 5:0 (same layout as 0x3D).
+register_mixer_read(0x3E);
+register_mixer_write(0x3E, function(data)
+{
+    this.mixer_registers[0x3E] = data;
+});
 
-// Input Gain Left. TODO.
-//register_mixer_read(0x3F);
-//register_mixer_write(0x3F);
+// Input Gain Left (SB16). Bits 7:6: 0=0 dB, 1=+1.5 dB, 2=+3 dB, 3=+4.5 dB.
+// DOSBox stores to unhandled[0x3F]; stored for read-back.
+register_mixer_read(0x3F);
+register_mixer_write(0x3F, function(data)
+{
+    this.mixer_registers[0x3F] = data;
+});
 
-// Input Gain Right. TODO.
-//register_mixer_read(0x40);
-//register_mixer_write(0x40);
+// Input Gain Right (SB16). Bits 7:6.
+register_mixer_read(0x40);
+register_mixer_write(0x40, function(data)
+{
+    this.mixer_registers[0x40] = data;
+});
 
 // Output Gain Left.
 register_mixer_read(0x41);
@@ -1597,9 +1744,13 @@ register_mixer_write(0x42, function(data)
     this.bus.send("mixer-gain-right", (data >>> 6) * 6);
 });
 
-// Mic AGC. TODO.
-//register_mixer_read(0x43);
-//register_mixer_write(0x43);
+// Mic AGC (SB16). Bit 0: 0 = AGC enabled, 1 = fixed gain.
+// DOSBox stores to unhandled[0x43]; stored for read-back.
+register_mixer_read(0x43);
+register_mixer_write(0x43, function(data)
+{
+    this.mixer_registers[0x43] = data;
+});
 
 // Treble Left.
 register_mixer_read(0x44);
@@ -1933,6 +2084,14 @@ SB16.prototype.dma_transfer_start = function()
 
 SB16.prototype.dma_on_unmask = function(channel)
 {
+    // Handle pending single-cycle ADC transfer (0x24), mirroring DOSBox DSP_ADC_CallBack.
+    if(channel === this.dma_channel_8bit && this.dma_adc_left > 0)
+    {
+        this.dma_adc_do_transfer();
+        // ADC and DAC cannot be active simultaneously; skip DAC path.
+        return;
+    }
+
     if(channel !== this.dma_channel || !this.dma_waiting_transfer)
     {
         return;
@@ -1944,6 +2103,19 @@ SB16.prototype.dma_on_unmask = function(channel)
     this.dma_bytes_left = this.dma_bytes_count;
     this.dma_paused = false;
     this.bus.send("dac-enable");
+};
+
+// Perform a faked single-cycle ADC DMA transfer: fill memory with silence (0x80)
+// for dma_adc_left bytes and raise SB_IRQ_8BIT, matching DOSBox DSP_ADC_CallBack.
+SB16.prototype.dma_adc_do_transfer = function()
+{
+    var left = this.dma_adc_left;
+    this.dma_adc_left = 0;
+    this.dma_buffer_uint8.fill(0x80, 0, Math.min(left, SB_DMA_BUFSIZE));
+    this.dma.do_read(this.dma_syncbuffer, 0, left, this.dma_channel_8bit, (error) =>
+    {
+        if(!error) this.raise_irq(SB_IRQ_8BIT);
+    });
 };
 
 SB16.prototype.dma_transfer_next = function()
