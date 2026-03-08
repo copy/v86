@@ -1,7 +1,7 @@
 import {
     LOG_SB16,
     MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
-    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER, MIXER_SRC_OPL,
 } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_log } from "./log.js";
@@ -88,6 +88,49 @@ const
     SB_IRQ_MIDI = 0x1,
     SB_IRQ_MPU = 0x4;
 
+// Creative ADPCM lookup tables
+// ADPCM 4-bit (nybble compressed): each byte → 2 output samples
+const ADPCM4_SCALE_MAP = new Int8Array([
+     0,  1,  2,  3,  4,  5,  6,  7,  0, -1, -2, -3, -4, -5, -6, -7,
+     1,  3,  5,  7,  9, 11, 13, 15, -1, -3, -5, -7, -9,-11,-13,-15,
+     2,  6, 10, 14, 18, 22, 26, 30, -2, -6,-10,-14,-18,-22,-26,-30,
+     4, 12, 20, 28, 36, 44, 52, 60, -4,-12,-20,-28,-36,-44,-52,-60
+]);
+const ADPCM4_ADJUST_MAP = new Uint8Array([
+      0,  0,  0,  0,  0, 16, 16, 16,   0,  0,  0,  0,  0, 16, 16, 16,
+    240,  0,  0,  0,  0, 16, 16, 16, 240,  0,  0,  0,  0, 16, 16, 16,
+    240,  0,  0,  0,  0, 16, 16, 16, 240,  0,  0,  0,  0, 16, 16, 16,
+    240,  0,  0,  0,  0,  0,  0,  0, 240,  0,  0,  0,  0,  0,  0,  0
+]);
+
+// ADPCM 2-bit (pairs packed 4 per byte): each byte → 4 output samples
+const ADPCM2_SCALE_MAP = new Int8Array([
+     0,  1,  0, -1,  1,  3, -1, -3,
+     2,  6, -2, -6,  4, 12, -4,-12,
+     8, 24, -8,-24,  6, 48,-16,-48
+]);
+const ADPCM2_ADJUST_MAP = new Uint8Array([
+      0,  4,   0,  4,
+    252,  4, 252,  4, 252,  4, 252,  4,
+    252,  4, 252,  4, 252,  4, 252,  4,
+    252,  0, 252,  0
+]);
+
+// ADPCM 3-bit (packed 3 per byte, 2.6-bit resolution): each byte → 3 output samples
+const ADPCM3_SCALE_MAP = new Int8Array([
+     0,  1,  2,  3,  0, -1, -2, -3,
+     1,  3,  5,  7, -1, -3, -5, -7,
+     2,  6, 10, 14, -2, -6,-10,-14,
+     4, 12, 20, 28, -4,-12,-20,-28,
+     5, 15, 25, 35, -5,-15,-25,-35
+]);
+const ADPCM3_ADJUST_MAP = new Uint8Array([
+      0,  0,  0,  8,   0,  0,  0,  8,
+    248,  0,  0,  8, 248,  0,  0,  8,
+    248,  0,  0,  8, 248,  0,  0,  8,
+    248,  0,  0,  8, 248,  0,  0,  8,
+    248,  0,  0,  0, 248,  0,  0,  0
+]);
 
 // Probably less efficient, but it's more maintainable, instead
 // of having a single large unorganised and decoupled table.
@@ -180,11 +223,26 @@ export function SB16(cpu, bus)
     // MPU.
     this.mpu_read_buffer = new ByteQueue(DSP_BUFSIZE);
     this.mpu_read_buffer_lastvalue = 0;
+    // MPU-401 mode: 0=intelligent, 1=UART
+    this.mpu_uart_mode = false;
+
+    // Creative ADPCM decoder state.
+    // dma_transfer_type: 0=PCM, 2=ADPCM-2bit, 3=ADPCM-3bit, 4=ADPCM-4bit
+    this.dma_transfer_type = 0;
+    this.adpcm_reference = 0;
+    this.adpcm_stepsize = 0;
+    this.adpcm_haveref = false;
 
     // FM Synthesizer.
     this.fm_current_address0 = 0;
     this.fm_current_address1 = 0;
-    this.fm_waveform_select_enable = false;
+    this.fm_waveform_select_enable = [false, false];
+
+    // OPL Timer state (needed for OPL detection).
+    this.fm_timer1_expired = false;
+    this.fm_timer2_expired = false;
+    this.fm_timer1_counter = -1;
+    this.fm_timer2_counter = -1;
 
     // Interrupts.
     this.irq = SB_IRQ;
@@ -293,6 +351,11 @@ SB16.prototype.dsp_reset = function()
 
     this.sampling_rate = 22050;
     this.bytes_per_sample = 1;
+
+    this.dma_transfer_type = 0;
+    this.adpcm_reference = 0;
+    this.adpcm_stepsize = 0;
+    this.adpcm_haveref = false;
 
     this.lower_irq(SB_IRQ_8BIT);
     this.irq_triggered.fill(0);
@@ -430,8 +493,23 @@ SB16.prototype.set_state = function(state)
 
 SB16.prototype.port2x0_read = function()
 {
-    dbg_log("220 read: fm music status port (unimplemented)", LOG_SB16);
-    return 0xFF;
+    dbg_log("220 read: fm music status port", LOG_SB16);
+    // Decrement timer counters on each status read
+    if(this.fm_timer1_counter > 0)
+    {
+        this.fm_timer1_counter--;
+        if(this.fm_timer1_counter === 0) this.fm_timer1_expired = true;
+    }
+    if(this.fm_timer2_counter > 0)
+    {
+        this.fm_timer2_counter--;
+        if(this.fm_timer2_counter === 0) this.fm_timer2_expired = true;
+    }
+    // OPL status register: bit 7 = IRQ, bit 6 = Timer 1, bit 5 = Timer 2
+    var status = 0;
+    if(this.fm_timer1_expired) status |= 0xC0;
+    if(this.fm_timer2_expired) status |= 0xA0;
+    return status;
 };
 
 SB16.prototype.port2x1_read = function()
@@ -550,8 +628,8 @@ SB16.prototype.port2xF_read = function()
 // FM Address Port - primary register.
 SB16.prototype.port2x0_write = function(value)
 {
-    dbg_log("220 write: (unimplemented) fm register 0 address = " + h(value), LOG_SB16);
-    this.fm_current_address0 = 0;
+    dbg_log("220 write: fm register 0 address = " + h(value), LOG_SB16);
+    this.fm_current_address0 = value;
 };
 
 // FM Data Port - primary register.
@@ -569,8 +647,8 @@ SB16.prototype.port2x1_write = function(value)
 // FM Address Port - secondary register.
 SB16.prototype.port2x2_write = function(value)
 {
-    dbg_log("222 write: (unimplemented) fm register 1 address = " + h(value), LOG_SB16);
-    this.fm_current_address1 = 0;
+    dbg_log("222 write: fm register 1 address = " + h(value), LOG_SB16);
+    this.fm_current_address1 = value;
 };
 
 // FM Data Port - secondary register.
@@ -705,7 +783,8 @@ SB16.prototype.port3x0_read = function()
 };
 SB16.prototype.port3x0_write = function(value)
 {
-    dbg_log("330 write: mpu data (unimplemented) : " + h(value), LOG_SB16);
+    dbg_log("330 write: mpu data " + h(value), LOG_SB16);
+    // MIDI data discarded (no external MIDI output supported).
 };
 
 // MPU UART Mode - Status Port
@@ -713,10 +792,11 @@ SB16.prototype.port3x1_read = function()
 {
     dbg_log("331 read: mpu status", LOG_SB16);
 
-    var status = 0;
-    status |= 0x40 * 0; // Output Ready
-    status |= 0x80 * !this.mpu_read_buffer.length; // Input Ready
-
+    // Bits 0-5 always set per hardware spec.
+    // Bit 6: 0 = output ready, 1 = not ready.
+    // Bit 7: 0 = input data available, 1 = no data.
+    var status = 0x3F;
+    status |= 0x80 * !this.mpu_read_buffer.length;
     return status;
 };
 
@@ -726,8 +806,20 @@ SB16.prototype.port3x1_write = function(value)
     dbg_log("331 write: mpu command: " + h(value), LOG_SB16);
     if(value === 0xFF)
     {
-        // Command acknowledge.
+        // Reset: clear buffer, send ACK.
         this.mpu_read_buffer.clear();
+        this.mpu_uart_mode = false;
+        this.mpu_read_buffer.push(0xFE);
+    }
+    else if(value === 0x3F)
+    {
+        // Switch to UART mode (most programs use this).
+        this.mpu_uart_mode = true;
+        this.mpu_read_buffer.push(0xFE);
+    }
+    else
+    {
+        // Send ACK for any other command to avoid hanging programs.
         this.mpu_read_buffer.push(0xFE);
     }
 };
@@ -816,16 +908,39 @@ register_dsp_command([0x14, 0x15], 2, function()
     this.dsp_signed = false;
     this.dsp_16bit = false;
     this.dsp_highspeed = false;
+    this.dma_transfer_type = 0;
     this.dma_transfer_size_set();
     this.dma_transfer_start();
 });
 
 // Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitized sound output.
-register_dsp_command([0x16], 2);
+register_dsp_command([0x16], 2, function()
+{
+    this.adpcm_haveref = false;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 2;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
-// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitzed sound output
+// Creative 8-bit to 2-bit ADPCM single-cycle DMA mode digitized sound output
 // with reference byte.
-register_dsp_command([0x17], 2);
+register_dsp_command([0x17], 2, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 2;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
 // 8-bit auto-init DMA mode digitized sound output.
 register_dsp_command([0x1C], 0, function()
@@ -836,12 +951,23 @@ register_dsp_command([0x1C], 0, function()
     this.dsp_signed = false;
     this.dsp_16bit = false;
     this.dsp_highspeed = false;
+    this.dma_transfer_type = 0;
     this.dma_transfer_start();
 });
 
 // Creative 8-bit to 2-bit ADPCM auto-init DMA mode digitized sound output
 // with reference byte.
-register_dsp_command([0x1F], 0);
+register_dsp_command([0x1F], 0, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = true;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 2;
+    this.dma_transfer_start();
+});
 
 // 8-bit direct mode single byte digitized sound input.
 register_dsp_command([0x20], 0, function()
@@ -905,26 +1031,90 @@ register_dsp_command([0x48], 2, function()
 });
 
 // Creative 8-bit to 4-bit ADPCM single-cycle DMA mode digitized sound output.
-register_dsp_command([0x74], 2);
+register_dsp_command([0x74], 2, function()
+{
+    this.adpcm_haveref = false;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 4;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
 // Creative 8-bit to 4-bit ADPCM single-cycle DMA mode digitized sound output
-// with referene byte.
-register_dsp_command([0x75], 2);
+// with reference byte.
+register_dsp_command([0x75], 2, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 4;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
 // Creative 8-bit to 3-bit ADPCM single-cycle DMA mode digitized sound output.
-register_dsp_command([0x76], 2);
+register_dsp_command([0x76], 2, function()
+{
+    this.adpcm_haveref = false;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 3;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
 // Creative 8-bit to 3-bit ADPCM single-cycle DMA mode digitized sound output
-// with referene byte.
-register_dsp_command([0x77], 2);
+// with reference byte.
+register_dsp_command([0x77], 2, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 3;
+    this.dma_transfer_size_set();
+    this.dma_transfer_start();
+});
 
 // Creative 8-bit to 4-bit ADPCM auto-init DMA mode digitized sound output
 // with reference byte.
-register_dsp_command([0x7D], 0);
+register_dsp_command([0x7D], 0, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = true;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 4;
+    this.dma_transfer_start();
+});
 
 // Creative 8-bit to 3-bit ADPCM auto-init DMA mode digitized sound output
 // with reference byte.
-register_dsp_command([0x7F], 0);
+register_dsp_command([0x7F], 0, function()
+{
+    this.adpcm_haveref = true;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = true;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 3;
+    this.dma_transfer_start();
+});
 
 // Pause DAC for a duration.
 register_dsp_command([0x80], 2);
@@ -938,6 +1128,7 @@ register_dsp_command([0x90], 0, function()
     this.dsp_signed = false;
     this.dsp_highspeed = true;
     this.dsp_16bit = false;
+    this.dma_transfer_type = 0;
     this.dma_transfer_start();
 });
 
@@ -1171,12 +1362,12 @@ SB16.prototype.mixer_reset = function()
     this.mixer_registers[0x28] = 0;
     this.mixer_registers[0x2E] = 0;
     this.mixer_registers[0x0A] = 0;
-    this.mixer_registers[0x30] = 24 << 3;
-    this.mixer_registers[0x31] = 24 << 3;
-    this.mixer_registers[0x32] = 24 << 3;
-    this.mixer_registers[0x33] = 24 << 3;
-    this.mixer_registers[0x34] = 24 << 3;
-    this.mixer_registers[0x35] = 24 << 3;
+    this.mixer_registers[0x30] = 31 << 3;
+    this.mixer_registers[0x31] = 31 << 3;
+    this.mixer_registers[0x32] = 31 << 3;
+    this.mixer_registers[0x33] = 31 << 3;
+    this.mixer_registers[0x34] = 31 << 3;
+    this.mixer_registers[0x35] = 31 << 3;
     this.mixer_registers[0x36] = 0;
     this.mixer_registers[0x37] = 0;
     this.mixer_registers[0x38] = 0;
@@ -1279,11 +1470,15 @@ function register_mixer_volume(address, mixer_source, channel)
     MIXER_WRITE_HANDLERS[address] = function(data)
     {
         this.mixer_registers[address] = data;
+        // Volume formula: amount = data>>3, count = 31-amount, db = count*2 - (count>20?1:0)
+        var amount = data >>> 3;
+        var count = 31 - amount;
+        var db = count * 2 - (count > 20 ? 1 : 0);
         this.bus.send("mixer-volume",
         [
             mixer_source,
             channel,
-            (data >>> 2) - 62
+            -db
         ]);
     };
 }
@@ -1325,10 +1520,10 @@ register_mixer_volume(0x31, MIXER_SRC_MASTER, MIXER_CHANNEL_RIGHT);
 register_mixer_volume(0x32, MIXER_SRC_DAC, MIXER_CHANNEL_LEFT);
 // Voice Volume Right.
 register_mixer_volume(0x33, MIXER_SRC_DAC, MIXER_CHANNEL_RIGHT);
-// MIDI Volume Left. TODO.
-//register_mixer_volume(0x34, MIXER_SRC_SYNTH, MIXER_CHANNEL_LEFT);
-// MIDI Volume Right. TODO.
-//register_mixer_volume(0x35, MIXER_SRC_SYNTH, MIXER_CHANNEL_RIGHT);
+// MIDI/FM Volume Left.
+register_mixer_volume(0x34, MIXER_SRC_OPL, MIXER_CHANNEL_LEFT);
+// MIDI/FM Volume Right.
+register_mixer_volume(0x35, MIXER_SRC_OPL, MIXER_CHANNEL_RIGHT);
 // CD Volume Left. TODO.
 //register_mixer_volume(0x36, MIXER_SRC_CD, MIXER_CHANNEL_LEFT);
 // CD Volume Right. TODO.
@@ -1566,8 +1761,8 @@ function get_fm_operator(register, offset)
 
 register_fm_write([0x01], function(bits, register, address)
 {
-    this.fm_waveform_select_enable[register] = bits & 0x20 > 0;
-    this.fm_update_waveforms();
+    this.fm_waveform_select_enable[register] = (bits & 0x20) > 0;
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 // Timer 1 Count.
@@ -1581,14 +1776,26 @@ register_fm_write([0x04], function(bits, register, address)
     switch(register)
     {
         case 0:
-            // if(bits & 0x80)
-            // {
-            //     // IQR Reset
-            // }
-            // else
-            // {
-            //     // Timer masks and on/off
-            // }
+            if(bits & 0x80)
+            {
+                // IRQ Reset / Timer flag reset
+                this.fm_timer1_expired = false;
+                this.fm_timer2_expired = false;
+                this.fm_timer1_counter = -1;
+                this.fm_timer2_counter = -1;
+            }
+            // Timer 1 start (bit 0), masked by bit 6
+            if((bits & 0x01) && !(bits & 0x40))
+            {
+                // Start countdown: expire after ~10 status reads
+                this.fm_timer1_counter = 10;
+            }
+            // Timer 2 start (bit 1), masked by bit 5
+            if((bits & 0x02) && !(bits & 0x20))
+            {
+                // Start countdown: expire after ~40 status reads
+                this.fm_timer2_counter = 40;
+            }
             break;
         case 1:
             // Four-operator enable
@@ -1611,78 +1818,58 @@ register_fm_write([0x05], function(bits, register, address)
 
 register_fm_write([0x08], function(bits, register, address)
 {
-    // Composite sine wave on/off
-    // Note select (keyboard split selection method)
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0x20, 0x35), function(bits, register, address)
 {
-    var operator = get_fm_operator(register, address - 0x20);
-    // Tremolo
-    // Vibrato
-    // Sustain
-    // KSR Envelope Scaling
-    // Frequency Multiplication Factor
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0x40, 0x55), function(bits, register, address)
 {
-    var operator = get_fm_operator(register, address - 0x40);
-    // Key Scale Level
-    // Output Level
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0x60, 0x75), function(bits, register, address)
 {
-    var operator = get_fm_operator(register, address - 0x60);
-    // Attack Rate
-    // Decay Rate
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0x80, 0x95), function(bits, register, address)
 {
-    var operator = get_fm_operator(register, address - 0x80);
-    // Sustain Level
-    // Release Rate
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0xA0, 0xA8), function(bits, register, address)
 {
-    var channel = address - 0xA0;
-    // Frequency Number (Lower 8 bits)
+    if(register === 0)
+    {
+        this.bus.send("opl2-reg-write", [address, bits]);
+    }
 });
 
 register_fm_write(between(0xB0, 0xB8), function(bits, register, address)
 {
-    // Key-On
-    // Block Number
-    // Frequency Number (Higher 2 bits)
+    if(register === 0)
+    {
+        this.bus.send("opl2-reg-write", [address, bits]);
+    }
 });
 
 register_fm_write([0xBD], function(bits, register, address)
 {
-    // Tremelo Depth
-    // Vibrato Depth
-    // Percussion Mode
-    // Bass Drum Key-On
-    // Snare Drum Key-On
-    // Tom-Tom Key-On
-    // Cymbal Key-On
-    // Hi-Hat Key-On
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0xC0, 0xC8), function(bits, register, address)
 {
-    // Right Speaker Enable
-    // Left Speaker Enable
-    // Feedback Modulation Factor
-    // Synthesis Type
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
 {
-    var operator = get_fm_operator(register, address - 0xE0);
-    // Waveform Select
+    this.bus.send("opl2-reg-write", [address, bits]);
 });
 
 //
@@ -1691,7 +1878,7 @@ register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
 
 SB16.prototype.fm_update_waveforms = function()
 {
-    // To be implemented.
+    // Waveform select enable changed; no action needed for current synthesis.
 };
 
 //
@@ -1790,6 +1977,13 @@ SB16.prototype.dma_transfer_next = function()
 
 SB16.prototype.dma_to_dac = function(sample_count)
 {
+    // Route ADPCM modes to dedicated decoder.
+    if(this.dma_transfer_type !== 0)
+    {
+        this.dma_to_dac_adpcm(sample_count);
+        return;
+    }
+
     var amplitude = this.dsp_16bit ? 32767.5 : 127.5;
     var offset = this.dsp_signed ? 0 : -1;
     var repeats = this.dsp_stereo ? 1 : 2;
@@ -1816,6 +2010,123 @@ SB16.prototype.dma_to_dac = function(sample_count)
     }
 
     this.dac_send();
+};
+
+/**
+ * Decode Creative ADPCM compressed DMA data into the DAC buffers.
+ * sample_count = number of compressed bytes read from DMA.
+ * All ADPCM modes are mono; each compressed byte expands to 2/3/4 PCM samples.
+ */
+SB16.prototype.dma_to_dac_adpcm = function(byte_count)
+{
+    var i, b, s;
+    var start = 0;
+
+    // Handle reference byte (first byte of a "with reference" transfer).
+    if(this.adpcm_haveref && byte_count > 0)
+    {
+        this.adpcm_haveref = false;
+        this.adpcm_reference = this.dma_buffer_uint8[0];
+        this.adpcm_stepsize = 0; // MIN_ADAPTIVE_STEP_SIZE = 0
+        start = 1;
+    }
+
+    if(this.dma_transfer_type === 4)
+    {
+        // 4-bit ADPCM: each byte → 2 samples (high nybble first).
+        for(i = start; i < byte_count; i++)
+        {
+            b = this.dma_buffer_uint8[i];
+            s = audio_normalize(this.decode_adpcm_4(b >> 4), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_4(b & 0xF), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+        }
+    }
+    else if(this.dma_transfer_type === 3)
+    {
+        // 3-bit (2.6-bit) ADPCM: each byte → 3 samples.
+        // bits [7:5], bits [4:2], then bits [1:0] left-shifted to form 3-bit value.
+        for(i = start; i < byte_count; i++)
+        {
+            b = this.dma_buffer_uint8[i];
+            s = audio_normalize(this.decode_adpcm_3((b >> 5) & 0x7), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_3((b >> 2) & 0x7), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_3((b & 0x3) << 1), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+        }
+    }
+    else if(this.dma_transfer_type === 2)
+    {
+        // 2-bit ADPCM: each byte → 4 samples (bits 7:6, 5:4, 3:2, 1:0).
+        for(i = start; i < byte_count; i++)
+        {
+            b = this.dma_buffer_uint8[i];
+            s = audio_normalize(this.decode_adpcm_2((b >> 6) & 0x3), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_2((b >> 4) & 0x3), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_2((b >> 2) & 0x3), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+            s = audio_normalize(this.decode_adpcm_2((b >> 0) & 0x3), 127.5, -1);
+            this.dac_buffers[0].push(s);
+            this.dac_buffers[1].push(s);
+        }
+    }
+
+    this.dac_send();
+};
+
+/** Creative ADPCM 4-bit sample decoder. */
+SB16.prototype.decode_adpcm_4 = function(sample)
+{
+    var samp = sample + this.adpcm_stepsize;
+    if(samp < 0) samp = 0;
+    else if(samp > 63) samp = 63;
+    var ref = this.adpcm_reference + ADPCM4_SCALE_MAP[samp];
+    if(ref > 0xFF) this.adpcm_reference = 0xFF;
+    else if(ref < 0) this.adpcm_reference = 0;
+    else this.adpcm_reference = ref & 0xFF;
+    this.adpcm_stepsize = (this.adpcm_stepsize + ADPCM4_ADJUST_MAP[samp]) & 0xFF;
+    return this.adpcm_reference;
+};
+
+/** Creative ADPCM 2-bit sample decoder. */
+SB16.prototype.decode_adpcm_2 = function(sample)
+{
+    var samp = sample + this.adpcm_stepsize;
+    if(samp < 0) samp = 0;
+    else if(samp > 23) samp = 23;
+    var ref = this.adpcm_reference + ADPCM2_SCALE_MAP[samp];
+    if(ref > 0xFF) this.adpcm_reference = 0xFF;
+    else if(ref < 0) this.adpcm_reference = 0;
+    else this.adpcm_reference = ref & 0xFF;
+    this.adpcm_stepsize = (this.adpcm_stepsize + ADPCM2_ADJUST_MAP[samp]) & 0xFF;
+    return this.adpcm_reference;
+};
+
+/** Creative ADPCM 3-bit (2.6-bit) sample decoder. */
+SB16.prototype.decode_adpcm_3 = function(sample)
+{
+    var samp = sample + this.adpcm_stepsize;
+    if(samp < 0) samp = 0;
+    else if(samp > 39) samp = 39;
+    var ref = this.adpcm_reference + ADPCM3_SCALE_MAP[samp];
+    if(ref > 0xFF) this.adpcm_reference = 0xFF;
+    else if(ref < 0) this.adpcm_reference = 0;
+    else this.adpcm_reference = ref & 0xFF;
+    this.adpcm_stepsize = (this.adpcm_stepsize + ADPCM3_ADJUST_MAP[samp]) & 0xFF;
+    return this.adpcm_reference;
 };
 
 SB16.prototype.dac_handle_request = function()

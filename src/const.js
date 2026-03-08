@@ -137,3 +137,4 @@ export const MIXER_CHANNEL_BOTH = 2;
 export const MIXER_SRC_MASTER = 0;
 export const MIXER_SRC_PCSPEAKER = 1;
 export const MIXER_SRC_DAC = 2;
+export const MIXER_SRC_OPL = 3;

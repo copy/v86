@@ -1,6 +1,6 @@
 import {
     MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
-    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER, MIXER_SRC_OPL,
 } from "../const.js";
 import { dbg_assert, dbg_log } from "../log.js";
 import { OSCILLATOR_FREQ } from "../pit.js";
@@ -45,6 +45,8 @@ export function SpeakerAdapter(bus)
     this.pcspeaker = new PCSpeaker(bus, this.audio_context, this.mixer);
 
     this.dac = new SpeakerDAC(bus, this.audio_context, this.mixer);
+
+    this.opl2 = new OPL2Source(bus, this.audio_context, this.mixer);
 
     this.pcspeaker.start();
 
@@ -393,6 +395,7 @@ SpeakerMixerSource.prototype.set_volume = function(value, channel)
 SpeakerMixerSource.prototype.set_gain_hidden = function(value)
 {
     this.gain_hidden = value;
+    this.update();
 };
 
 /**
@@ -447,6 +450,57 @@ PCSpeaker.prototype.start = function()
 {
     this.node_oscillator.start();
 };
+
+/**
+ * OPL2/OPL3 FM synthesizer source wired through the SpeakerMixer.
+ * Receives OPL register writes from SB16 via the bus and forwards
+ * them to the AudioWorklet running in opl2-worklet.js.
+ *
+ * @constructor
+ * @param {!BusConnector} bus
+ * @param {!AudioContext} audio_context
+ * @param {!SpeakerMixer} mixer
+ */
+function OPL2Source(bus, audio_context, mixer)
+{
+    var _port = null;
+    var _queue = [];
+
+    function send(msg)
+    {
+        if(_port) _port.postMessage(msg);
+        else _queue.push(msg);
+    }
+
+    // Placeholder pass-through node; registered synchronously so mixer-volume
+    // events from mixer_full_update() find the source immediately.
+    var node_output = audio_context.createGain();
+    var mixer_connection = mixer.add_source(node_output, MIXER_SRC_OPL);
+    // OPL output amplitude is ~2/3 of full-scale PCM; scale up to match.
+    mixer_connection.set_gain_hidden(1.5);
+
+    var worklet_url = new URL("../opl2-worklet.js", import.meta.url).href;
+
+    if(window.AudioWorklet)
+    {
+        audio_context.audioWorklet.addModule(worklet_url).then(function()
+        {
+            var node = new AudioWorkletNode(audio_context, "opl2", { outputChannelCount: [2] });
+            node.connect(node_output);
+            _port = node.port;
+            for(var i = 0; i < _queue.length; i++) _port.postMessage(_queue[i]);
+            _queue.length = 0;
+        }).catch(function(e)
+        {
+            console.error("[OPL2] AudioWorklet load failed:", e);
+        });
+    }
+
+    bus.register("opl2-reg-write", function(data)
+    {
+        send({ t: "w", r: data[0], v: data[1] });
+    });
+}
 
 /**
  * @constructor
@@ -809,7 +863,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
     // Interface
 
     this.mixer_connection = mixer.add_source(this.node_output, MIXER_SRC_DAC);
-    this.mixer_connection.set_gain_hidden(3);
+    this.mixer_connection.set_gain_hidden(1);
 
     bus.register("dac-send-data", function(data)
     {
@@ -908,7 +962,7 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
     this.node_output = this.node_lowpass;
 
     this.mixer_connection = mixer.add_source(this.node_output, MIXER_SRC_DAC);
-    this.mixer_connection.set_gain_hidden(3);
+    this.mixer_connection.set_gain_hidden(1);
 
     bus.register("dac-send-data", function(data)
     {
