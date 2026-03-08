@@ -507,9 +507,9 @@ function OPL2Source(bus, audio_context, mixer, worklet_url)
     // OPL output amplitude is ~2/3 of full-scale PCM; scale up to match.
     mixer_connection.set_gain_hidden(1.5);
 
-    if(window.AudioWorklet)
+    if(window.AudioWorklet && worklet_url)
     {
-        audio_context.audioWorklet.addModule(worklet_url).then(function()
+        audio_context.audioWorklet.addModule(/** @type{string} */ (worklet_url)).then(function()
         {
             var node = new AudioWorkletNode(audio_context, "opl2", { outputChannelCount: [2] });
             node.connect(node_output);
@@ -525,7 +525,7 @@ function OPL2Source(bus, audio_context, mixer, worklet_url)
     bus.register("opl2-reg-write", function(data)
     {
         send({ t: "w", r: data[0], v: data[1] });
-    });
+    }, null);
 }
 
 /**
