@@ -2,7 +2,8 @@
  * DBOPL OPL2/OPL3 FM Synthesizer — JavaScript port of DOSBox DBOPL (GPL v2+)
  * DBOPL_WAVE = WAVE_TABLEMUL, no WAVE_PRECISION
  */
-"use strict";
+/* global sampleRate, registerProcessor, AudioWorkletProcessor */
+
 
 // ============ Constants ============
 const WAVE_BITS = 10;
@@ -57,24 +58,24 @@ const chanLookup = new Int8Array(32).fill(-1);
 const opLookup = new Array(64).fill(null);
 
 function envelopeSelect(val) {
-    if (val < 52) return [val & 3, 12 - (val >> 2)];
-    if (val < 60) return [val - 48, 0];
+    if(val < 52) return [val & 3, 12 - (val >> 2)];
+    if(val < 60) return [val - 48, 0];
     return [12, 0];
 }
 
 function initTables() {
-    for (let i = 0; i < 384; i++) {
+    for(let i = 0; i < 384; i++) {
         MulTable[i] = 0.5 + Math.pow(2, -1 + (255 - i * 8) / 256) * (1 << MUL_SH);
     }
-    for (let i = 0; i < 512; i++) {
+    for(let i = 0; i < 512; i++) {
         WaveTable[0x200 + i] = Math.trunc(Math.sin((i + 0.5) * Math.PI / 512) * 4084);
         WaveTable[0x000 + i] = -WaveTable[0x200 + i];
     }
-    for (let i = 0; i < 256; i++) {
+    for(let i = 0; i < 256; i++) {
         WaveTable[0x700 + i] = Math.trunc(0.5 + Math.pow(2, -1 + (255 - i * 8) / 256) * 4085);
         WaveTable[0x6ff - i] = -WaveTable[0x700 + i];
     }
-    for (let i = 0; i < 256; i++) {
+    for(let i = 0; i < 256; i++) {
         WaveTable[0x400 + i] = WaveTable[0];
         WaveTable[0x500 + i] = WaveTable[0];
         WaveTable[0x900 + i] = WaveTable[0];
@@ -86,29 +87,29 @@ function initTables() {
         WaveTable[0xe00 + i] = WaveTable[0x200 + i * 2];
         WaveTable[0xf00 + i] = WaveTable[0x200 + i * 2];
     }
-    for (let oct = 0; oct < 8; oct++) {
+    for(let oct = 0; oct < 8; oct++) {
         const base = oct * 8;
-        for (let i = 0; i < 16; i++) {
+        for(let i = 0; i < 16; i++) {
             let val = base - KslCreateTable[i];
-            if (val < 0) val = 0;
+            if(val < 0) val = 0;
             KslTable[oct * 16 + i] = val * 4;
         }
     }
-    for (let i = 0; i < (TREMOLO_TABLE >> 1); i++) {
+    for(let i = 0; i < (TREMOLO_TABLE >> 1); i++) {
         TremoloTable[i] = i << ENV_EXTRA;
         TremoloTable[TREMOLO_TABLE - 1 - i] = i << ENV_EXTRA;
     }
-    for (let i = 0; i < 32; i++) {
+    for(let i = 0; i < 32; i++) {
         let idx = i & 0xf;
-        if (idx >= 9) { chanLookup[i] = -1; continue; }
-        if (idx < 6) idx = (idx % 3) * 2 + ((idx / 3) | 0);
-        if (i >= 16) idx += 9;
+        if(idx >= 9) { chanLookup[i] = -1; continue; }
+        if(idx < 6) idx = (idx % 3) * 2 + ((idx / 3) | 0);
+        if(i >= 16) idx += 9;
         chanLookup[i] = idx;
     }
-    for (let i = 0; i < 64; i++) {
-        if (i % 8 >= 6 || ((i / 8 | 0) % 4 === 3)) { opLookup[i] = null; continue; }
+    for(let i = 0; i < 64; i++) {
+        if(i % 8 >= 6 || ((i / 8 | 0) % 4 === 3)) { opLookup[i] = null; continue; }
         let chNum = ((i / 8) | 0) * 3 + (i % 8) % 3;
-        if (chNum >= 12) chNum += 4;
+        if(chNum >= 12) chNum += 4;
         const opNum = ((i % 8) / 3) | 0;
         const chanIdx = chanLookup[chNum];
         opLookup[i] = chanIdx >= 0 ? [chanIdx, opNum] : null;
@@ -150,7 +151,7 @@ class Operator {
 
     updateAttack(chip) {
         const rate = this.reg60 >> 4;
-        if (rate) {
+        if(rate) {
             this.attackAdd = chip.attackRates[(rate << 2) + this.ksr];
             this.rateZero &= ~(1 << ATTACK);
         } else {
@@ -161,7 +162,7 @@ class Operator {
 
     updateDecay(chip) {
         const rate = this.reg60 & 0xf;
-        if (rate) {
+        if(rate) {
             this.decayAdd = chip.linearRates[(rate << 2) + this.ksr];
             this.rateZero &= ~(1 << DECAY);
         } else {
@@ -172,14 +173,14 @@ class Operator {
 
     updateRelease(chip) {
         const rate = this.reg80 & 0xf;
-        if (rate) {
+        if(rate) {
             this.releaseAdd = chip.linearRates[(rate << 2) + this.ksr];
             this.rateZero &= ~(1 << RELEASE);
-            if (!(this.reg20 & MASK_SUSTAIN)) this.rateZero &= ~(1 << SUSTAIN);
+            if(!(this.reg20 & MASK_SUSTAIN)) this.rateZero &= ~(1 << SUSTAIN);
         } else {
             this.releaseAdd = 0;
             this.rateZero |= 1 << RELEASE;
-            if (!(this.reg20 & MASK_SUSTAIN)) this.rateZero |= 1 << SUSTAIN;
+            if(!(this.reg20 & MASK_SUSTAIN)) this.rateZero |= 1 << SUSTAIN;
         }
     }
 
@@ -195,7 +196,7 @@ class Operator {
         const freq = this.chanData & 0x3ff;
         const block = (this.chanData >> 10) & 0xff;
         this.waveAdd = ((freq << block) * this.freqMul) >>> 0;
-        if (this.reg20 & MASK_VIBRATO) {
+        if(this.reg20 & MASK_VIBRATO) {
             this.vibStrength = (freq >> 7) & 0xff;
             this.vibrato = ((this.vibStrength << block) * this.freqMul) >>> 0;
         } else {
@@ -206,8 +207,8 @@ class Operator {
 
     updateRates(chip) {
         let newKsr = (this.chanData >>> SHIFT_KEYCODE) & 0xff;
-        if (!(this.reg20 & MASK_KSR)) newKsr >>= 2;
-        if (this.ksr === newKsr) return;
+        if(!(this.reg20 & MASK_KSR)) newKsr >>= 2;
+        if(this.ksr === newKsr) return;
         this.ksr = newKsr;
         this.updateAttack(chip);
         this.updateDecay(chip);
@@ -223,13 +224,13 @@ class Operator {
 
     templateVolume() {
         let vol = this.volume;
-        switch (this.state) {
+        switch(this.state) {
             case OFF: return ENV_MAX;
             case ATTACK: {
                 const change = this.rateForward(this.attackAdd);
-                if (!change) return vol;
+                if(!change) return vol;
                 vol += ((~vol) * change) >> 3;
-                if (vol < 0) {
+                if(vol < 0) {
                     this.volume = 0;
                     this.rateIndex = 0;
                     this.state = DECAY;
@@ -239,8 +240,8 @@ class Operator {
             }
             case DECAY:
                 vol += this.rateForward(this.decayAdd);
-                if (vol >= this.sustainLevel) {
-                    if (vol >= ENV_MAX) {
+                if(vol >= this.sustainLevel) {
+                    if(vol >= ENV_MAX) {
                         this.volume = ENV_MAX;
                         this.state = OFF;
                         return ENV_MAX;
@@ -250,11 +251,11 @@ class Operator {
                 }
                 break;
             case SUSTAIN:
-                if (this.reg20 & MASK_SUSTAIN) return vol;
+                if(this.reg20 & MASK_SUSTAIN) return vol;
                 // fall through to release
             case RELEASE:
                 vol += this.rateForward(this.releaseAdd);
-                if (vol >= ENV_MAX) {
+                if(vol >= ENV_MAX) {
                     this.volume = ENV_MAX;
                     this.state = OFF;
                     return ENV_MAX;
@@ -280,7 +281,7 @@ class Operator {
 
     getSample(modulation) {
         const vol = this.forwardVolume();
-        if (vol >= ENV_LIMIT) {
+        if(vol >= ENV_LIMIT) {
             this.waveIndex = (this.waveIndex + this.waveCurrent) >>> 0;
             return 0;
         }
@@ -289,15 +290,15 @@ class Operator {
     }
 
     silent() {
-        if (this.totalLevel + this.volume < ENV_LIMIT) return false;
-        if (!(this.rateZero & (1 << this.state))) return false;
+        if(this.totalLevel + this.volume < ENV_LIMIT) return false;
+        if(!(this.rateZero & (1 << this.state))) return false;
         return true;
     }
 
     prepare(chip) {
         this.currentLevel = this.totalLevel + (chip.tremoloValue & this.tremoloMask);
         this.waveCurrent = this.waveAdd;
-        if ((this.vibStrength >>> chip.vibratoShift) !== 0) {
+        if((this.vibStrength >>> chip.vibratoShift) !== 0) {
             let add = (this.vibrato >>> chip.vibratoShift) | 0;
             const neg = chip.vibratoSign;
             add = (add ^ neg) - neg;
@@ -306,7 +307,7 @@ class Operator {
     }
 
     keyOnAction(mask) {
-        if (!this.keyOn) {
+        if(!this.keyOn) {
             this.waveIndex = this.waveStart;
             this.rateIndex = 0;
             this.state = ATTACK;
@@ -316,31 +317,31 @@ class Operator {
 
     keyOffAction(mask) {
         this.keyOn &= ~mask;
-        if (!this.keyOn && this.state !== OFF) {
+        if(!this.keyOn && this.state !== OFF) {
             this.state = RELEASE;
         }
     }
 
     write20(chip, val) {
         const change = this.reg20 ^ val;
-        if (!change) return;
+        if(!change) return;
         this.reg20 = val;
         this.tremoloMask = (val << 24) >> 31;
         this.tremoloMask &= ~((1 << ENV_EXTRA) - 1);
-        if (change & MASK_KSR) this.updateRates(chip);
-        if ((this.reg20 & MASK_SUSTAIN) || !this.releaseAdd) {
+        if(change & MASK_KSR) this.updateRates(chip);
+        if((this.reg20 & MASK_SUSTAIN) || !this.releaseAdd) {
             this.rateZero |= 1 << SUSTAIN;
         } else {
             this.rateZero &= ~(1 << SUSTAIN);
         }
-        if (change & (0xf | MASK_VIBRATO)) {
+        if(change & (0xf | MASK_VIBRATO)) {
             this.freqMul = chip.freqMul[val & 0xf];
             this.updateFrequency();
         }
     }
 
     write40(chip, val) {
-        if (this.reg40 === val) return;
+        if(this.reg40 === val) return;
         this.reg40 = val;
         this.updateAttenuation();
     }
@@ -348,22 +349,22 @@ class Operator {
     write60(chip, val) {
         const change = this.reg60 ^ val;
         this.reg60 = val;
-        if (change & 0x0f) this.updateDecay(chip);
-        if (change & 0xf0) this.updateAttack(chip);
+        if(change & 0x0f) this.updateDecay(chip);
+        if(change & 0xf0) this.updateAttack(chip);
     }
 
     write80(chip, val) {
         const change = this.reg80 ^ val;
-        if (!change) return;
+        if(!change) return;
         this.reg80 = val;
         let sustain = val >> 4;
         sustain |= (sustain + 1) & 0x10;
         this.sustainLevel = sustain << (ENV_BITS - 5);
-        if (change & 0x0f) this.updateRelease(chip);
+        if(change & 0x0f) this.updateRelease(chip);
     }
 
     writeE0(chip, val) {
-        if (this.regE0 === val) return;
+        if(this.regE0 === val) return;
         const waveForm = val & ((0x3 & chip.waveFormMask) | (0x7 & chip.opl3Active));
         this.regE0 = val;
         this.waveBaseIdx = WaveBaseTable[waveForm];
@@ -400,11 +401,11 @@ class Channel {
         this.op[1].chanData = data;
         this.op[0].updateFrequency();
         this.op[1].updateFrequency();
-        if (change & (0xff << SHIFT_KSLBASE)) {
+        if(change & (0xff << SHIFT_KSLBASE)) {
             this.op[0].updateAttenuation();
             this.op[1].updateAttenuation();
         }
-        if (change & (0xff << SHIFT_KEYCODE)) {
+        if(change & (0xff << SHIFT_KEYCODE)) {
             this.op[0].updateRates(chip);
             this.op[1].updateRates(chip);
         }
@@ -414,23 +415,23 @@ class Channel {
         let data = this.chanData & 0xffff;
         const kslBase = KslTable[data >> 6];
         let keyCode = (data & 0x1c00) >> 9;
-        if (chip.reg08 & 0x40) {
+        if(chip.reg08 & 0x40) {
             keyCode |= (data & 0x100) >> 8;
         } else {
             keyCode |= (data & 0x200) >> 9;
         }
         data |= (keyCode << SHIFT_KEYCODE) | (kslBase << SHIFT_KSLBASE);
         this.setChanData(chip, data);
-        if (fourOp & 0x3f) {
+        if(fourOp & 0x3f) {
             this.chip.chan[this.index + 1].setChanData(chip, data);
         }
     }
 
     writeA0(chip, val) {
         const fourOp = chip.reg104 & chip.opl3Active & this.fourMask;
-        if (fourOp > 0x80) return;
+        if(fourOp > 0x80) return;
         const change = (this.chanData ^ val) & 0xff;
-        if (change) {
+        if(change) {
             this.chanData ^= change;
             this.updateFrequency(chip, fourOp);
         }
@@ -438,25 +439,25 @@ class Channel {
 
     writeB0(chip, val) {
         const fourOp = chip.reg104 & chip.opl3Active & this.fourMask;
-        if (fourOp > 0x80) return;
+        if(fourOp > 0x80) return;
         const change = (this.chanData ^ (val << 8)) & 0x1f00;
-        if (change) {
+        if(change) {
             this.chanData ^= change;
             this.updateFrequency(chip, fourOp);
         }
-        if (!((val ^ this.regB0) & 0x20)) return;
+        if(!((val ^ this.regB0) & 0x20)) return;
         this.regB0 = val;
-        if (val & 0x20) {
+        if(val & 0x20) {
             this.op[0].keyOnAction(0x1);
             this.op[1].keyOnAction(0x1);
-            if (fourOp & 0x3f) {
+            if(fourOp & 0x3f) {
                 this.chip.chan[this.index + 1].op[0].keyOnAction(1);
                 this.chip.chan[this.index + 1].op[1].keyOnAction(1);
             }
         } else {
             this.op[0].keyOffAction(0x1);
             this.op[1].keyOffAction(0x1);
-            if (fourOp & 0x3f) {
+            if(fourOp & 0x3f) {
                 this.chip.chan[this.index + 1].op[0].keyOffAction(1);
                 this.chip.chan[this.index + 1].op[1].keyOffAction(1);
             }
@@ -464,7 +465,7 @@ class Channel {
     }
 
     writeC0(chip, val) {
-        if (!(val ^ this.regC0)) return;
+        if(!(val ^ this.regC0)) return;
         this.regC0 = val;
         this.feedback = (this.regC0 >> 1) & 7;
         this.feedback = this.feedback ? 9 - this.feedback : 31;
@@ -472,10 +473,10 @@ class Channel {
     }
 
     updateSynth(chip) {
-        if (chip.opl3Active) {
-            if ((chip.reg104 & this.fourMask) & 0x3f) {
+        if(chip.opl3Active) {
+            if((chip.reg104 & this.fourMask) & 0x3f) {
                 let chan0, chan1;
-                if (!(this.fourMask & 0x80)) {
+                if(!(this.fourMask & 0x80)) {
                     chan0 = this;
                     chan1 = chip.chan[this.index + 1];
                 } else {
@@ -483,15 +484,15 @@ class Channel {
                     chan1 = this;
                 }
                 const synth = ((chan0.regC0 & 1) << 0) | ((chan1.regC0 & 1) << 1);
-                switch (synth) {
+                switch(synth) {
                 case 0: chan0.synthMode = sm3FMFM; break;
                 case 1: chan0.synthMode = sm3AMFM; break;
                 case 2: chan0.synthMode = sm3FMAM; break;
                 case 3: chan0.synthMode = sm3AMAM; break;
                 }
-            } else if ((this.fourMask & 0x40) && (chip.regBD & 0x20)) {
+            } else if((this.fourMask & 0x40) && (chip.regBD & 0x20)) {
                 // Percussion - don't update
-            } else if (this.regC0 & 1) {
+            } else if(this.regC0 & 1) {
                 this.synthMode = sm3AM;
             } else {
                 this.synthMode = sm3FM;
@@ -499,9 +500,9 @@ class Channel {
             this.maskLeft = (this.regC0 & 0x10) ? -1 : 0;
             this.maskRight = (this.regC0 & 0x20) ? -1 : 0;
         } else {
-            if ((this.fourMask & 0x40) && (chip.regBD & 0x20)) {
+            if((this.fourMask & 0x40) && (chip.regBD & 0x20)) {
                 // Percussion - don't update
-            } else if (this.regC0 & 1) {
+            } else if(this.regC0 & 1) {
                 this.synthMode = sm2AM;
             } else {
                 this.synthMode = sm2FM;
@@ -514,7 +515,7 @@ class Channel {
         this.old[0] = this.old[1];
         this.old[1] = this.Op(0).getSample(mod);
 
-        if (this.regC0 & 1) { mod = 0; } else { mod = this.old[0]; }
+        if(this.regC0 & 1) { mod = 0; } else { mod = this.old[0]; }
         let sample = this.Op(1).getSample(mod);
 
         const noiseBit = chip.forwardNoise() & 0x1;
@@ -523,21 +524,21 @@ class Channel {
         const phaseBit = (((c2 & 0x88) ^ ((c2 << 5) & 0x80)) | ((c5 ^ (c5 << 2)) & 0x20)) ? 0x02 : 0x00;
 
         const hhVol = this.Op(2).forwardVolume();
-        if (hhVol < ENV_LIMIT) {
+        if(hhVol < ENV_LIMIT) {
             sample += this.Op(2).getWave((phaseBit << 8) | (0x34 << (phaseBit ^ (noiseBit << 1))), hhVol);
         }
         const sdVol = this.Op(3).forwardVolume();
-        if (sdVol < ENV_LIMIT) {
+        if(sdVol < ENV_LIMIT) {
             sample += this.Op(3).getWave((0x100 + (c2 & 0x100)) ^ (noiseBit << 8), sdVol);
         }
         sample += this.Op(4).getSample(0);
         const tcVol = this.Op(5).forwardVolume();
-        if (tcVol < ENV_LIMIT) {
+        if(tcVol < ENV_LIMIT) {
             sample += this.Op(5).getWave((1 + phaseBit) << 8, tcVol);
         }
 
         sample <<= 1;
-        if (opl3Mode) {
+        if(opl3Mode) {
             output[outIdx] += sample;
             output[outIdx + 1] += sample;
         } else {
@@ -547,41 +548,41 @@ class Channel {
 
     blockTemplate(chip, samples, output, outIdx) {
         const mode = this.synthMode;
-        switch (mode) {
+        switch(mode) {
         case sm2AM:
         case sm3AM:
-            if (this.Op(0).silent() && this.Op(1).silent()) {
+            if(this.Op(0).silent() && this.Op(1).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 1;
             }
             break;
         case sm2FM:
         case sm3FM:
-            if (this.Op(1).silent()) {
+            if(this.Op(1).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 1;
             }
             break;
         case sm3FMFM:
-            if (this.Op(3).silent()) {
+            if(this.Op(3).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 2;
             }
             break;
         case sm3AMFM:
-            if (this.Op(0).silent() && this.Op(3).silent()) {
+            if(this.Op(0).silent() && this.Op(3).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 2;
             }
             break;
         case sm3FMAM:
-            if (this.Op(1).silent() && this.Op(3).silent()) {
+            if(this.Op(1).silent() && this.Op(3).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 2;
             }
             break;
         case sm3AMAM:
-            if (this.Op(0).silent() && this.Op(2).silent() && this.Op(3).silent()) {
+            if(this.Op(0).silent() && this.Op(2).silent() && this.Op(3).silent()) {
                 this.old[0] = this.old[1] = 0;
                 return this.index + 2;
             }
@@ -590,20 +591,20 @@ class Channel {
 
         this.Op(0).prepare(chip);
         this.Op(1).prepare(chip);
-        if (mode > sm4Start) {
+        if(mode > sm4Start) {
             this.Op(2).prepare(chip);
             this.Op(3).prepare(chip);
         }
-        if (mode > sm6Start) {
+        if(mode > sm6Start) {
             this.Op(4).prepare(chip);
             this.Op(5).prepare(chip);
         }
 
-        for (let i = 0; i < samples; i++) {
-            if (mode === sm2Percussion) {
+        for(let i = 0; i < samples; i++) {
+            if(mode === sm2Percussion) {
                 this.generatePercussion(chip, output, outIdx + i, false);
                 continue;
-            } else if (mode === sm3Percussion) {
+            } else if(mode === sm3Percussion) {
                 this.generatePercussion(chip, output, outIdx + i * 2, true);
                 continue;
             }
@@ -613,31 +614,31 @@ class Channel {
             let sample;
             const out0 = this.old[0];
 
-            if (mode === sm2AM || mode === sm3AM) {
+            if(mode === sm2AM || mode === sm3AM) {
                 sample = out0 + this.Op(1).getSample(0);
-            } else if (mode === sm2FM || mode === sm3FM) {
+            } else if(mode === sm2FM || mode === sm3FM) {
                 sample = this.Op(1).getSample(out0);
-            } else if (mode === sm3FMFM) {
+            } else if(mode === sm3FMFM) {
                 let next = this.Op(1).getSample(out0);
                 next = this.Op(2).getSample(next);
                 sample = this.Op(3).getSample(next);
-            } else if (mode === sm3AMFM) {
+            } else if(mode === sm3AMFM) {
                 sample = out0;
                 let next = this.Op(1).getSample(0);
                 next = this.Op(2).getSample(next);
                 sample += this.Op(3).getSample(next);
-            } else if (mode === sm3FMAM) {
+            } else if(mode === sm3FMAM) {
                 sample = this.Op(1).getSample(out0);
                 const next = this.Op(2).getSample(0);
                 sample += this.Op(3).getSample(next);
-            } else if (mode === sm3AMAM) {
+            } else if(mode === sm3AMAM) {
                 sample = out0;
                 const next = this.Op(1).getSample(0);
                 sample += this.Op(2).getSample(next);
                 sample += this.Op(3).getSample(0);
             }
 
-            switch (mode) {
+            switch(mode) {
             case sm2AM:
             case sm2FM:
                 output[outIdx + i] += sample;
@@ -654,7 +655,7 @@ class Channel {
             }
         }
 
-        switch (mode) {
+        switch(mode) {
         case sm2AM:
         case sm2FM:
         case sm3AM:
@@ -677,7 +678,7 @@ class Channel {
 class Chip {
     constructor() {
         this.chan = [];
-        for (let i = 0; i < 18; i++) this.chan[i] = new Channel(i, this);
+        for(let i = 0; i < 18; i++) this.chan[i] = new Channel(i, this);
 
         this.lfoCounter = 0;
         this.lfoAdd = 0;
@@ -708,7 +709,7 @@ class Chip {
         this.noiseCounter += this.noiseAdd;
         let count = this.noiseCounter >>> LFO_SH;
         this.noiseCounter &= WAVE_MASK;
-        for (; count > 0; --count) {
+        for(; count > 0; --count) {
             this.noiseValue ^= 0x800302 & (0 - (this.noiseValue & 1));
             this.noiseValue >>>= 1;
         }
@@ -722,14 +723,14 @@ class Chip {
 
         const todo = LFO_MAX - this.lfoCounter;
         let count = ((todo + this.lfoAdd - 1) / this.lfoAdd) | 0;
-        if (count > samples) {
+        if(count > samples) {
             count = samples;
             this.lfoCounter += count * this.lfoAdd;
         } else {
             this.lfoCounter += count * this.lfoAdd;
             this.lfoCounter &= LFO_MAX - 1;
             this.vibratoIndex = (this.vibratoIndex + 1) & 31;
-            if (this.tremoloIndex + 1 < TREMOLO_TABLE) ++this.tremoloIndex;
+            if(this.tremoloIndex + 1 < TREMOLO_TABLE) ++this.tremoloIndex;
             else this.tremoloIndex = 0;
         }
         return count;
@@ -737,30 +738,30 @@ class Chip {
 
     writeBD(val) {
         const change = this.regBD ^ val;
-        if (!change) return;
+        if(!change) return;
         this.regBD = val;
         this.vibratoStrength = (val & 0x40) ? 0x00 : 0x01;
         this.tremoloStrength = (val & 0x80) ? 0x00 : 0x02;
 
-        if (val & 0x20) {
-            if (change & 0x20) {
-                if (this.opl3Active) {
+        if(val & 0x20) {
+            if(change & 0x20) {
+                if(this.opl3Active) {
                     this.chan[6].synthMode = sm3Percussion;
                 } else {
                     this.chan[6].synthMode = sm2Percussion;
                 }
             }
-            if (val & 0x10) { this.chan[6].op[0].keyOnAction(0x2); this.chan[6].op[1].keyOnAction(0x2); }
+            if(val & 0x10) { this.chan[6].op[0].keyOnAction(0x2); this.chan[6].op[1].keyOnAction(0x2); }
             else { this.chan[6].op[0].keyOffAction(0x2); this.chan[6].op[1].keyOffAction(0x2); }
-            if (val & 0x01) this.chan[7].op[0].keyOnAction(0x2);
+            if(val & 0x01) this.chan[7].op[0].keyOnAction(0x2);
             else this.chan[7].op[0].keyOffAction(0x2);
-            if (val & 0x08) this.chan[7].op[1].keyOnAction(0x2);
+            if(val & 0x08) this.chan[7].op[1].keyOnAction(0x2);
             else this.chan[7].op[1].keyOffAction(0x2);
-            if (val & 0x04) this.chan[8].op[0].keyOnAction(0x2);
+            if(val & 0x04) this.chan[8].op[0].keyOnAction(0x2);
             else this.chan[8].op[0].keyOffAction(0x2);
-            if (val & 0x02) this.chan[8].op[1].keyOnAction(0x2);
+            if(val & 0x02) this.chan[8].op[1].keyOnAction(0x2);
             else this.chan[8].op[1].keyOffAction(0x2);
-        } else if (change & 0x20) {
+        } else if(change & 0x20) {
             this.chan[6].updateSynth(this);
             this.chan[6].op[0].keyOffAction(0x2);
             this.chan[6].op[1].keyOffAction(0x2);
@@ -772,78 +773,78 @@ class Chip {
     }
 
     updateSynths() {
-        for (let i = 0; i < 18; i++) this.chan[i].updateSynth(this);
+        for(let i = 0; i < 18; i++) this.chan[i].updateSynth(this);
     }
 
     writeReg(reg, val) {
-        switch ((reg & 0xf0) >> 4) {
+        switch((reg & 0xf0) >> 4) {
             case 0:
-                if (reg === 0x01) this.waveFormMask = (val & 0x20) ? 0x7 : 0x0;
-                else if (reg === 0x104) {
-                    if (!((this.reg104 ^ val) & 0x3f)) return;
+                if(reg === 0x01) this.waveFormMask = (val & 0x20) ? 0x7 : 0x0;
+                else if(reg === 0x104) {
+                    if(!((this.reg104 ^ val) & 0x3f)) return;
                     this.reg104 = 0x80 | (val & 0x3f);
                     this.updateSynths();
                 }
-                else if (reg === 0x105) {
-                    if (!((this.opl3Active ^ val) & 1)) return;
+                else if(reg === 0x105) {
+                    if(!((this.opl3Active ^ val) & 1)) return;
                     this.opl3Active = (val & 1) ? 0xff : 0;
                     this.updateSynths();
                 }
-                else if (reg === 0x08) this.reg08 = val;
+                else if(reg === 0x08) this.reg08 = val;
                 // fall through
             case 1: break;
             case 2: case 3: {
                 const e = opLookup[((reg >> 3) & 0x20) | (reg & 0x1f)];
-                if (e) this.chan[e[0]].op[e[1]].write20(this, val);
+                if(e) this.chan[e[0]].op[e[1]].write20(this, val);
                 break;
             }
             case 4: case 5: {
                 const e = opLookup[((reg >> 3) & 0x20) | (reg & 0x1f)];
-                if (e) this.chan[e[0]].op[e[1]].write40(this, val);
+                if(e) this.chan[e[0]].op[e[1]].write40(this, val);
                 break;
             }
             case 6: case 7: {
                 const e = opLookup[((reg >> 3) & 0x20) | (reg & 0x1f)];
-                if (e) this.chan[e[0]].op[e[1]].write60(this, val);
+                if(e) this.chan[e[0]].op[e[1]].write60(this, val);
                 break;
             }
             case 8: case 9: {
                 const e = opLookup[((reg >> 3) & 0x20) | (reg & 0x1f)];
-                if (e) this.chan[e[0]].op[e[1]].write80(this, val);
+                if(e) this.chan[e[0]].op[e[1]].write80(this, val);
                 break;
             }
             case 0xa: {
                 const ch = chanLookup[((reg >> 4) & 0x10) | (reg & 0xf)];
-                if (ch >= 0) this.chan[ch].writeA0(this, val);
+                if(ch >= 0) this.chan[ch].writeA0(this, val);
                 break;
             }
             case 0xb:
-                if (reg === 0xbd) this.writeBD(val);
+                if(reg === 0xbd) this.writeBD(val);
                 else {
                     const ch = chanLookup[((reg >> 4) & 0x10) | (reg & 0xf)];
-                    if (ch >= 0) this.chan[ch].writeB0(this, val);
+                    if(ch >= 0) this.chan[ch].writeB0(this, val);
                 }
                 break;
             case 0xc: {
                 const ch = chanLookup[((reg >> 4) & 0x10) | (reg & 0xf)];
-                if (ch >= 0) this.chan[ch].writeC0(this, val);
+                if(ch >= 0) this.chan[ch].writeC0(this, val);
                 break;
             }
             case 0xd: break;
             case 0xe: case 0xf: {
                 const e = opLookup[((reg >> 3) & 0x20) | (reg & 0x1f)];
-                if (e) this.chan[e[0]].op[e[1]].writeE0(this, val);
+                if(e) this.chan[e[0]].op[e[1]].writeE0(this, val);
                 break;
             }
         }
     }
 
     writeAddr(port, val) {
-        switch (port & 3) {
+        switch(port & 3) {
         case 0:
             return val;
         case 2:
-            if (this.opl3Active || (val === 0x05))
+            if(this.opl3Active || (val === 0x05))
                 return 0x100 | val;
             else
                 return val;
@@ -853,11 +854,11 @@ class Chip {
 
     generateBlock2(total, output) {
         let outIdx = 0;
-        while (total > 0) {
+        while(total > 0) {
             const samples = this.forwardLFO(total);
-            for (let i = outIdx; i < outIdx + samples; i++) output[i] = 0;
+            for(let i = outIdx; i < outIdx + samples; i++) output[i] = 0;
             let chIdx = 0;
-            while (chIdx < 9) {
+            while(chIdx < 9) {
                 chIdx = this.chan[chIdx].blockTemplate(this, samples, output, outIdx);
             }
             total -= samples;
@@ -867,11 +868,11 @@ class Chip {
 
     generateBlock3(total, output) {
         let outIdx = 0;
-        while (total > 0) {
+        while(total > 0) {
             const samples = this.forwardLFO(total);
-            for (let i = outIdx; i < outIdx + samples * 2; i++) output[i] = 0;
+            for(let i = outIdx; i < outIdx + samples * 2; i++) output[i] = 0;
             let chIdx = 0;
-            while (chIdx < 18) {
+            while(chIdx < 18) {
                 chIdx = this.chan[chIdx].blockTemplate(this, samples, output, outIdx);
             }
             total -= samples;
@@ -891,40 +892,40 @@ class Chip {
         this.tremoloIndex = 0;
 
         const freqScale = Math.round(scale * (1 << (WAVE_SH - 1 - 10)));
-        for (let i = 0; i < 16; i++) this.freqMul[i] = freqScale * FreqCreateTable[i];
+        for(let i = 0; i < 16; i++) this.freqMul[i] = freqScale * FreqCreateTable[i];
 
-        for (let i = 0; i < 76; i++) {
+        for(let i = 0; i < 76; i++) {
             const [index, shift] = envelopeSelect(i);
             this.linearRates[i] = Math.trunc(scale * (EnvelopeIncreaseTable[index] << (RATE_SH + ENV_EXTRA - shift - 3)));
         }
 
-        for (let i = 0; i < 62; i++) {
+        for(let i = 0; i < 62; i++) {
             const [index, shift] = envelopeSelect(i);
             const origSamples = Math.trunc((AttackSamplesTable[index] << shift) / scale);
             let guessAdd = Math.trunc(scale * (EnvelopeIncreaseTable[index] << (RATE_SH - shift - 3)));
             let bestAdd = guessAdd, bestDiff = 1 << 30;
-            for (let passes = 0; passes < 16; passes++) {
+            for(let passes = 0; passes < 16; passes++) {
                 let volume = ENV_MAX, samples = 0, count = 0;
-                while (volume > 0 && samples < origSamples * 2) {
+                while(volume > 0 && samples < origSamples * 2) {
                     count += guessAdd;
                     const change = count >> RATE_SH;
                     count &= RATE_MASK;
-                    if (change) volume += ((~volume) * change) >> 3;
+                    if(change) volume += ((~volume) * change) >> 3;
                     samples++;
                 }
                 const diff = origSamples - samples;
                 const lDiff = Math.abs(diff);
-                if (lDiff < bestDiff) {
+                if(lDiff < bestDiff) {
                     bestDiff = lDiff;
                     bestAdd = guessAdd;
-                    if (!bestDiff) break;
+                    if(!bestDiff) break;
                 }
                 guessAdd = Math.trunc(guessAdd * ((origSamples - diff) / origSamples));
-                if (diff < 0) guessAdd++;
+                if(diff < 0) guessAdd++;
             }
             this.attackRates[i] = bestAdd;
         }
-        for (let i = 62; i < 76; i++) this.attackRates[i] = 8 << RATE_SH;
+        for(let i = 62; i < 76; i++) this.attackRates[i] = 8 << RATE_SH;
 
         this.chan[0].fourMask = 0x00 | (1 << 0);
         this.chan[1].fourMask = 0x80 | (1 << 0);
@@ -943,13 +944,13 @@ class Chip {
         this.chan[8].fourMask = 0x40;
 
         this.writeReg(0x105, 0x1);
-        for (let i = 0; i < 512; i++) {
-            if (i === 0x105) continue;
+        for(let i = 0; i < 512; i++) {
+            if(i === 0x105) continue;
             this.writeReg(i, 0xff);
             this.writeReg(i, 0x0);
         }
         this.writeReg(0x105, 0x0);
-        for (let i = 0; i < 255; i++) {
+        for(let i = 0; i < 255; i++) {
             this.writeReg(i, 0xff);
             this.writeReg(i, 0x0);
         }
@@ -965,27 +966,27 @@ class OPL2Processor extends AudioWorkletProcessor {
         this.buf = new Int32Array(128);
         this.port.onmessage = (e) => {
             const msg = e.data;
-            if (msg.t === "w") this.chip.writeReg(msg.r, msg.v);
+            if(msg.t === "w") this.chip.writeReg(msg.r, msg.v);
         };
     }
 
     process(inputs, outputs) {
         const outL = outputs[0][0];
-        if (!outL) return true;
+        if(!outL) return true;
         const outR = outputs[0][1];
         const len = outL.length;
-        if (!this.chip.opl3Active) {
-            if (this.buf.length < len) this.buf = new Int32Array(len);
+        if(!this.chip.opl3Active) {
+            if(this.buf.length < len) this.buf = new Int32Array(len);
             this.chip.generateBlock2(len, this.buf);
-            for (let i = 0; i < len; i++) outL[i] = this.buf[i] / 32768;
+            for(let i = 0; i < len; i++) outL[i] = this.buf[i] / 32768;
             // OPL2 is mono: copy left to right so both speakers get audio.
-            if (outR) for (let i = 0; i < len; i++) outR[i] = outL[i];
+            if(outR) for(let i = 0; i < len; i++) outR[i] = outL[i];
         } else {
-            if (this.buf.length < len * 2) this.buf = new Int32Array(len * 2);
+            if(this.buf.length < len * 2) this.buf = new Int32Array(len * 2);
             this.chip.generateBlock3(len, this.buf);
-            for (let i = 0; i < len; i++) {
+            for(let i = 0; i < len; i++) {
                 outL[i] = this.buf[i * 2] / 32768;
-                if (outR) outR[i] = this.buf[i * 2 + 1] / 32768;
+                if(outR) outR[i] = this.buf[i * 2 + 1] / 32768;
             }
         }
         return true;
