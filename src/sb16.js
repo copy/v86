@@ -671,7 +671,7 @@ SB16.prototype.port2x3_write = function(value)
     {
         handler = this.fm_default_write;
     }
-    handler.call(this, value, 1, this.fm_current_address1);
+    handler.call(this, value, 1, 0x100 | this.fm_current_address1);
 };
 
 // Mixer Address Port.
@@ -1949,7 +1949,8 @@ register_fm_write([0x04], function(bits, register, address)
             }
             break;
         case 1:
-            // Four-operator enable
+            // Four-operator enable (OPL3 reg 0x104)
+            this.bus.send("opl2-reg-write", [address, bits]);
             break;
     }
 });
@@ -1963,7 +1964,8 @@ register_fm_write([0x05], function(bits, register, address)
     }
     else
     {
-        // OPL3 Mode Enable
+        // OPL3 Mode Enable (OPL3 reg 0x105)
+        this.bus.send("opl2-reg-write", [address, bits]);
     }
 });
 
