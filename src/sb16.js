@@ -209,8 +209,12 @@ export function SB16(cpu, bus)
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
-    // Pending 8-bit single-cycle ADC (0x24) byte count; 0 = no transfer pending.
+    // Pending 8-bit ADC DMA byte count; 0 = no transfer pending.
     this.dma_adc_left = 0;
+    // Block count for 8-bit auto-init ADC (0x2C) restart; 0 = single-cycle.
+    this.dma_adc_count = 0;
+    // Whether currently running in auto-init ADC mode.
+    this.dma_adc_autoinit = false;
     this.sampling_rate = 22050;
     bus.send("dac-tell-sampling-rate", this.sampling_rate);
     this.bytes_per_sample = 1;
@@ -349,6 +353,9 @@ SB16.prototype.dsp_reset = function()
     this.dma_buffer_uint8.fill(0);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
+    this.dma_adc_left = 0;
+    this.dma_adc_count = 0;
+    this.dma_adc_autoinit = false;
 
     this.e2_value = 0xAA;
     this.e2_count = 0;
@@ -421,6 +428,8 @@ SB16.prototype.get_state = function()
     state[34] = this.irq;
     state[35] = this.irq_triggered;
     state[36] = this.dma_adc_left;
+    state[37] = this.dma_adc_count;
+    state[38] = this.dma_adc_autoinit;
 
     return state;
 };
@@ -475,6 +484,8 @@ SB16.prototype.set_state = function(state)
     this.irq = state[34];
     this.irq_triggered = state[35];
     this.dma_adc_left = state[36] || 0;
+    this.dma_adc_count = state[37] || 0;
+    this.dma_adc_autoinit = state[38] || false;
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
@@ -1054,10 +1065,21 @@ register_dsp_command([0x24], 2, function()
 });
 
 // 8-bit auto-init DMA mode digitized sound input.
-// DOSBox logs "DSP:Unimplemented input command" and does nothing; same here.
-register_dsp_command([0x2C], 0, function()
+// Takes 2 bytes: low then high of (block_count - 1).
+// Mirrors 0x24 but auto-restarts after each block until 0xDA is issued.
+register_dsp_command([0x2C], 2, function()
 {
-    dbg_log("DSP 0x2C: Unimplemented input command", LOG_SB16);
+    var low = this.write_buffer.shift();
+    var high = this.write_buffer.shift();
+    this.dma_adc_count = 1 + low + (high << 8);
+    this.dma_adc_left = this.dma_adc_count;
+    this.dma_adc_autoinit = true;
+    dbg_log("DSP 0x2C: 8-bit auto-init DMA ADC, block=" + this.dma_adc_count + " bytes", LOG_SB16);
+    if(!this.dma.channel_mask[this.dma_channel_8bit])
+    {
+        this.dma_adc_do_transfer();
+    }
+    // else: dma_on_unmask fires dma_adc_do_transfer when channel is unmasked.
 });
 
 // Polling mode MIDI input.
@@ -1226,8 +1248,20 @@ register_dsp_command([0x90], 0, function()
     this.dma_transfer_start();
 });
 
-// 8-bit high-speed single-cycle DMA mode digitized sound input.
-register_dsp_command([0x91], 0);
+// 8-bit high-speed single-cycle DMA mode digitized sound output (DAC).
+// Like 0x90 but single-cycle (dma_autoinit = false).  DOSBox: "High speed
+// single cycle DMA DAC, 8-bit".
+register_dsp_command([0x91], 0, function()
+{
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
+    this.dma_autoinit = false;
+    this.dsp_signed = false;
+    this.dsp_highspeed = true;
+    this.dsp_16bit = false;
+    this.dma_transfer_type = 0;
+    this.dma_transfer_start();
+});
 
 // 8-bit high-speed auto-init DMA mode digitized sound input.
 register_dsp_command([0x98], 0);
@@ -1335,6 +1369,7 @@ register_dsp_command([0xD8], 0, function()
 register_dsp_command([0xD9, 0xDA], 0, function()
 {
     this.dma_autoinit = false;
+    this.dma_adc_autoinit = false;
 });
 
 // DSP identification
@@ -2107,8 +2142,10 @@ SB16.prototype.dma_on_unmask = function(channel)
     this.bus.send("dac-enable");
 };
 
-// Perform a faked single-cycle ADC DMA transfer: fill memory with silence (0x80)
-// for dma_adc_left bytes and raise SB_IRQ_8BIT, matching DOSBox DSP_ADC_CallBack.
+// Perform a faked ADC DMA transfer: fill memory with silence (0x80) for
+// dma_adc_left bytes and raise SB_IRQ_8BIT.  In auto-init mode (0x2C) the
+// transfer is rescheduled at the sampling rate after each block, mirroring
+// real hardware behaviour.  Single-cycle (0x24) stops after one block.
 SB16.prototype.dma_adc_do_transfer = function()
 {
     var left = this.dma_adc_left;
@@ -2116,7 +2153,22 @@ SB16.prototype.dma_adc_do_transfer = function()
     this.dma_buffer_uint8.fill(0x80, 0, Math.min(left, SB_DMA_BUFSIZE));
     this.dma.do_read(this.dma_syncbuffer, 0, left, this.dma_channel_8bit, (error) =>
     {
-        if(!error) this.raise_irq(SB_IRQ_8BIT);
+        if(error) return;
+        this.raise_irq(SB_IRQ_8BIT);
+        if(this.dma_adc_autoinit)
+        {
+            // Schedule next block at the sampling rate to avoid a synchronous
+            // infinite loop (SyncBuffer fires the callback immediately).
+            var delay_ms = Math.max(1, Math.round(this.dma_adc_count / this.sampling_rate * 1000));
+            setTimeout(() =>
+            {
+                if(this.dma_adc_autoinit)
+                {
+                    this.dma_adc_left = this.dma_adc_count;
+                    this.dma_adc_do_transfer();
+                }
+            }, delay_ms);
+        }
     });
 };
 
