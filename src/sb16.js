@@ -1497,6 +1497,10 @@ SB16.prototype.mixer_reset = function()
     this.mixer_registers[0x26] = 12 << 4 | 12;
     this.mixer_registers[0x28] = 0;
     this.mixer_registers[0x2E] = 0;
+    // 0x0E Output/Stereo Select (SBPro): bit 5 is active-low filter enable.
+    // DOSBox never applies this filter; default to bit 5=1 (filter bypass) so
+    // mixer_full_update() does not engage the 3.2 kHz low-pass at startup.
+    this.mixer_registers[0x0E] = 0x20;
     // 0x0A and 0x3A share the same internal mic field (mixer_registers[0x3A] stores 0-31 raw value)
     // DOSBox CTMIXER_Reset() does NOT reset mic, so we leave it as-is during reset.
     this.mixer_registers[0x30] = 31 << 3;
@@ -1814,7 +1818,7 @@ register_mixer_write(0x46, function(data)
 {
     this.mixer_registers[0x46] = data;
     data >>>= 3;
-    this.bus.send("mixer-bass-right", data - (data < 16 ? 14 : 16));
+    this.bus.send("mixer-bass-left", data - (data < 16 ? 14 : 16));
 });
 
 // Bass Right.
