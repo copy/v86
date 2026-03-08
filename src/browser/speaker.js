@@ -115,6 +115,20 @@ function SpeakerMixer(bus, audio_context)
     this.node_gain_left = this.audio_context.createGain();
     this.node_gain_right = this.audio_context.createGain();
 
+    // SBPro analogue output filter (mixer 0x0E bit 5, active-low).
+    // Mono cutoff ~3.2 kHz, stereo cutoff ~8 kHz; disabled = Nyquist (passthrough).
+    this.node_sbpro_filter_left = this.audio_context.createBiquadFilter();
+    this.node_sbpro_filter_right = this.audio_context.createBiquadFilter();
+    this.node_sbpro_filter_left.type = "lowpass";
+    this.node_sbpro_filter_right.type = "lowpass";
+    // Default: filter disabled — use Nyquist so the node is transparent.
+    var nyquist = this.audio_context.sampleRate / 2;
+    this.node_sbpro_filter_left.frequency.setValueAtTime(nyquist, this.audio_context.currentTime);
+    this.node_sbpro_filter_right.frequency.setValueAtTime(nyquist, this.audio_context.currentTime);
+    // Q ≈ 0.5 approximates the first-order RC slope of the real hardware filter.
+    this.node_sbpro_filter_left.Q.setValueAtTime(0.5, this.audio_context.currentTime);
+    this.node_sbpro_filter_right.Q.setValueAtTime(0.5, this.audio_context.currentTime);
+
     this.node_merger = this.audio_context.createChannelMerger(2);
 
     // Graph
@@ -124,11 +138,13 @@ function SpeakerMixer(bus, audio_context)
 
     this.node_treble_left.connect(this.node_bass_left);
     this.node_bass_left.connect(this.node_gain_left);
-    this.node_gain_left.connect(this.node_merger, 0, 0);
+    this.node_gain_left.connect(this.node_sbpro_filter_left);
+    this.node_sbpro_filter_left.connect(this.node_merger, 0, 0);
 
     this.node_treble_right.connect(this.node_bass_right);
     this.node_bass_right.connect(this.node_gain_right);
-    this.node_gain_right.connect(this.node_merger, 0, 1);
+    this.node_gain_right.connect(this.node_sbpro_filter_right);
+    this.node_sbpro_filter_right.connect(this.node_merger, 0, 1);
 
     this.node_merger.connect(this.audio_context.destination);
 
@@ -190,6 +206,16 @@ function SpeakerMixer(bus, audio_context)
     bus.register("mixer-treble-right", create_gain_handler(this.node_treble_right), this);
     bus.register("mixer-bass-left", create_gain_handler(this.node_bass_left), this);
     bus.register("mixer-bass-right", create_gain_handler(this.node_bass_right), this);
+
+    bus.register("mixer-sbpro-filter", function(data)
+    {
+        // data[0]: filter enabled (bit 5 = 0), data[1]: stereo
+        var enabled = data[0];
+        var stereo  = data[1];
+        var cutoff  = enabled ? (stereo ? 8000 : 3200) : this.audio_context.sampleRate / 2;
+        this.node_sbpro_filter_left.frequency.setValueAtTime(cutoff, this.audio_context.currentTime);
+        this.node_sbpro_filter_right.frequency.setValueAtTime(cutoff, this.audio_context.currentTime);
+    }, this);
 }
 
 /**

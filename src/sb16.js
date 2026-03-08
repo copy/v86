@@ -1645,9 +1645,10 @@ register_mixer_write(0x0A, function(data)
     this.mixer_registers[0x3A] = ((data & 0x7) << 2) | 1;
 });
 
-// Stereo/Filter Select (SBPro). Bit 1 = stereo output; bit 5 = filter (not applied in v86).
+// Stereo/Filter Select (SBPro). Bit 1 = stereo output; bit 5 = analogue output filter (active-low).
 // On SB16 stereo is set per-command, but this register is honoured for SBPro compatibility.
 // DOSBox: stereo=(val&0x2)>0; filtered=(val&0x20)>0; read: 0x11|(stereo?0x02:0)|(filtered?0x20:0).
+// Hardware filter cutoff: ~3.2 kHz mono, ~8 kHz stereo (first-order RC lowpass, modelled as BiquadFilter).
 register_mixer_read(0x0E, function()
 {
     return 0x11 | (this.dsp_stereo ? 0x02 : 0x00) | (this.mixer_registers[0x0E] & 0x20);
@@ -1656,6 +1657,8 @@ register_mixer_write(0x0E, function(data)
 {
     this.mixer_registers[0x0E] = data;
     this.dsp_stereo = (data & 0x02) !== 0;
+    // Bit 5=0 → filter ON (active-low), bit 5=1 → filter OFF.
+    this.bus.send("mixer-sbpro-filter", [(data & 0x20) === 0, this.dsp_stereo]);
 });
 
 // Legacy Master Volume Left/Right.
