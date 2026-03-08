@@ -18,8 +18,9 @@ const AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
 /**
  * @constructor
  * @param {!BusConnector} bus
+ * @param {Object=} options
  */
-export function SpeakerAdapter(bus)
+export function SpeakerAdapter(bus, options)
 {
     if(typeof window === "undefined")
     {
@@ -46,7 +47,7 @@ export function SpeakerAdapter(bus)
 
     this.dac = new SpeakerDAC(bus, this.audio_context, this.mixer);
 
-    this.opl2 = new OPL2Source(bus, this.audio_context, this.mixer);
+    this.opl2 = new OPL2Source(bus, this.audio_context, this.mixer, options && options["opl2_worklet_url"]);
 
     this.pcspeaker.start();
 
@@ -486,8 +487,9 @@ PCSpeaker.prototype.start = function()
  * @param {!BusConnector} bus
  * @param {!AudioContext} audio_context
  * @param {!SpeakerMixer} mixer
+ * @param {string=} worklet_url
  */
-function OPL2Source(bus, audio_context, mixer)
+function OPL2Source(bus, audio_context, mixer, worklet_url)
 {
     var _port = null;
     var _queue = [];
@@ -504,8 +506,6 @@ function OPL2Source(bus, audio_context, mixer)
     var mixer_connection = mixer.add_source(node_output, MIXER_SRC_OPL);
     // OPL output amplitude is ~2/3 of full-scale PCM; scale up to match.
     mixer_connection.set_gain_hidden(1.5);
-
-    var worklet_url = new URL("../opl2-worklet.js", import.meta.url).href;
 
     if(window.AudioWorklet)
     {

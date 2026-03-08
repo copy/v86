@@ -319,7 +319,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     if(!options.disable_speaker)
     {
-        this.speaker_adapter = new SpeakerAdapter(this.bus);
+        this.speaker_adapter = new SpeakerAdapter(this.bus, options);
     }
 
     // ugly, but required for closure compiler compilation
