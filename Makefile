@@ -398,3 +398,6 @@ update-package-json-version:
 	git describe --tags --exclude latest | sed 's/-/./' | tr - + | tee build/version
 	jq --arg version "$$(cat build/version)" '.version = $$version' package.json > package.json.tmp
 	mv package.json.tmp package.json
+
+doc:
+	npx typedoc --readme none --out ./docs/api ./v86.d.ts
