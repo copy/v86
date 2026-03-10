@@ -595,7 +595,7 @@ export class V86 {
     /**
      * Start emulation. Do nothing if emulator is running already. Can be asynchronous.
      */
-    run(): void;
+    run(): Promise<void>;
 
     /**
      * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
@@ -632,8 +632,7 @@ export class V86 {
 
     /**
      * Restore the emulator state from the given state, which must be an
-     * ArrayBuffer returned by
-     * [`save_state`](#save_statefunctionobject-arraybuffer-callback).
+     * ArrayBuffer returned by {@link V86.prototype.save_state}.
      *
      * Note that the state can only be restored correctly if this constructor has
      * been created with the same options as the original instance (e.g., same disk
@@ -651,7 +650,14 @@ export class V86 {
      */
     save_state(): Promise<ArrayBuffer>;
 
+    /**
+     * Get current instruction counter
+     */
     get_instruction_counter(): number;
+
+    /**
+     * Get emulator running status
+     */
     is_running(): boolean;
 
     /**
