@@ -573,15 +573,26 @@ export class V86 {
     is_running(): boolean;
 
     /**
-     * Set the image inserted in the floppy drive. Can be changed at runtime, as
-     * when physically changing the floppy disk.
+     * Set the image inserted in the first floppy drive. Can be changed at runtime,
+     * as when physically changing the floppy disk.
      */
     set_fda(image: V86Image): Promise<void>;
 
     /**
-     * Eject the floppy drive.
+     * Eject the first floppy drive.
      */
     eject_fda(): void;
+
+    /**
+     * Set the image inserted in the second floppy drive. Can be changed at runtime,
+     * as when physically changing the floppy disk.
+     */
+    set_fdb(image: V86Image): Promise<void>;
+
+    /**
+     * Eject the second floppy drive.
+     */
+    eject_fdb(): void;
 
     /**
      * Set the image inserted in the CD-ROM drive. Can be changed at runtime, as
