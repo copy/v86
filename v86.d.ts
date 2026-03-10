@@ -146,7 +146,14 @@ export type Event =
     | "net0-send"
     | "screen-put-char"
     | "screen-set-size"
+    | "serial0-input"
     | "serial0-output-byte"
+    | "serial1-input"
+    | "serial1-output-byte"
+    | "serial2-input"
+    | "serial2-output-byte"
+    | "serial3-input"
+    | "serial3-output-byte"
     | "virtio-console0-output-bytes";
 
 /**
@@ -480,6 +487,24 @@ export interface V86Options {
      * Network device configuration.
      */
     net_device?: V86NetworkDevice;
+
+    /**
+     * enable serial port 1
+     * @default false
+     */
+    uart1?: boolean;
+
+    /**
+     * enable serial port 2
+     * @default false
+     */
+    uart2?: boolean;
+
+    /**
+     * enable serial port 3
+     * @default false
+     */
+    uart3?: boolean;
 }
 
 export class V86 {
@@ -635,6 +660,46 @@ export class V86 {
      * @param data
      */
     serial_send_bytes(serial: number, data: Uint8Array): void;
+
+    /**
+     * Set the modem status of a serial port.
+     *
+     * @param serial the index of the serial port
+     * @param status
+     */
+    serial_set_modem_status(serial: number, status: number): void;
+
+    /**
+     * Set the carrier detect status of a serial port.
+     *
+     * @param serial the index of the serial port
+     * @param status
+     */
+    serial_set_carrier_detect(serial: number, status: number): void;
+
+    /**
+     * Set the ring indicator status of a serial port.
+     *
+     * @param serial the index of the serial port
+     * @param status
+     */
+    serial_set_ring_indicator(serial: number, status: number): void;
+
+    /**
+     * Set the data set ready status of a serial port.
+     *
+     * @param serial the index of the serial port
+     * @param status
+     */
+    serial_set_data_set_ready(serial: number, status: number): void;
+
+    /**
+     * Set the clear to send status of a serial port.
+     *
+     * @param serial the index of the serial port
+     * @param status
+     */
+    serial_set_clear_to_send(serial: number, status: number): void;
 
     /**
      * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
