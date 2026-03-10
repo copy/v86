@@ -157,6 +157,26 @@ export type Event =
     | "virtio-console0-output-bytes";
 
 /**
+ * @ignore
+ * @constructor
+ *
+ * @param {string=} message
+ */
+declare class FileExistsError extends Error {
+    constructor(message: string);
+}
+
+/**
+ * @ignore
+ * @constructor
+ *
+ * @param {string=} message
+ */
+declare class FileNotFoundError extends Error {
+    constructor(message: string);
+}
+
+/**
  * Network device configuration
  * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md} for more infos
  */
@@ -719,6 +739,7 @@ export class V86 {
      * @param file
      * @param data
      * @param callback
+     * @throws {FileNotFoundError}
      */
     create_file(file: string, data: Uint8Array): Promise<void>;
 
@@ -726,6 +747,7 @@ export class V86 {
      * Read a file in the 9p filesystem.
      *
      * @param {string} file
+     * @throws {FileNotFoundError}
      */
     read_file(file: string): Promise<Uint8Array>;
 }
