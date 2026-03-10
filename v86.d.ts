@@ -13,6 +13,9 @@
  * .zst are automatically decompressed using a built-in zstd decompressor. This
  * has a performance overhead compared to HTTP compression, but will result in
  * better compression ration.
+ *
+ * Note that bios, initial state, bzimage, initrd, multiboot and floppy disk
+ * images are always loaded synchronously.
  */
 type V86FileImage =
     {
