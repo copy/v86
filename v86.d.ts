@@ -750,4 +750,47 @@ export class V86 {
      * @throws {FileNotFoundError}
      */
     read_file(file: string): Promise<Uint8Array>;
+
+    /**
+     * Reads data from memory at specified offset.
+     *
+     * @param offset
+     * @param length
+     */
+    read_memory(offset: number, length: number): Uint8Array;
+
+    /**
+     * Writes data to memory at specified offset.
+     *
+     * @param blob
+     * @param offset
+     */
+    write_memory(blob: number[] | Uint8Array, offset: number): void;
+
+    /**
+     * Wait until expected text is present on the VGA text screen.
+     *
+     * Returns immediately if the expected text is already present on screen
+     * at the time this funtion is called.
+     *
+     * @param expected
+     * @param options
+     */
+    wait_until_vga_screen_contains(expected: string|RegExp|Array<string|RegExp>, options?: {timeout_msec?: number}): Promise<boolean>;
+
+    /**
+     * Set Xtermjs serial port console
+     *
+     * @param element
+     * @param xterm_lib
+     */
+    set_serial_container_xtermjs(element: HTMLElement, xterm_lib?: Function): void;
+
+    /**
+     * Set Xtermjs virtio console
+     *
+     * @param element
+     * @param xterm_lib
+     */
+    set_virtio_console_container_xtermjs(element: HTMLElement, xterm_lib?: Function): void;
 }
