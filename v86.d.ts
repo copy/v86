@@ -855,4 +855,13 @@ export class V86 {
      * @param xterm_lib
      */
     set_virtio_console_container_xtermjs(element: HTMLElement, xterm_lib?: Function): void;
+
+    /**
+     * Run steps automatically
+     *
+     * @param steps
+     * @deprecated
+     * @see {@link V86.prototype.wait_until_vga_screen_contains}
+     */
+    automatically(steps: Array<{ sleep?: number, vga_text?: string, keyboard_send?: string | number[], call?: Function }>): void;
 }
