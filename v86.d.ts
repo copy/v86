@@ -188,35 +188,106 @@ export enum BootOrder {
     HARDDISK_CD_FLOPPY = 0x132,
 }
 
-export type Event =
-    | "9p-attach"
-    | "9p-read-end"
-    | "9p-read-start"
-    | "9p-write-end"
-    | "download-error"
-    | "download-progress"
-    | "emulator-loaded"
-    | "emulator-ready"
-    | "emulator-started"
-    | "emulator-stopped"
-    | "eth-receive-end"
-    | "eth-transmit-end"
-    | "ide-read-end"
-    | "ide-read-start"
-    | "ide-write-end"
-    | "mouse-enable"
-    | "net0-send"
-    | "screen-put-char"
-    | "screen-set-size"
-    | "serial0-input"
-    | "serial0-output-byte"
-    | "serial1-input"
-    | "serial1-output-byte"
-    | "serial2-input"
-    | "serial2-output-byte"
-    | "serial3-input"
-    | "serial3-output-byte"
-    | "virtio-console0-output-bytes";
+/**
+ * Emulator events.
+ */
+export interface Event {
+    /** Attaching 9p filesystem */
+    "9p-attach": void;
+
+    /** End of reading from 9p filesystem */
+    "9p-read-end": [filename: string, byte_count: number];
+
+    /** Start of reading from 9p filesystem */
+    "9p-read-start": [filename: string];
+
+    /** End of writing to 9p filesystem */
+    "9p-write-end": [filename: string, byte_count: number];
+
+    /** Download error */
+    "download-error": {
+        file_index: number,
+        file_count: number,
+        file_name: string,
+        request: any,
+    };
+
+    /** Download progress */
+    "download-progress": {
+        file_index: number,
+        file_count: number,
+        file_name: string,
+        lengthComputable: boolean,
+        total: number,
+        loaded: number,
+    };
+
+    /** Emulator loaded */
+    "emulator-loaded": void;
+
+    /** Emulator ready */
+    "emulator-ready": void;
+
+    /** Emulator started */
+    "emulator-started": void;
+
+    /** Emulator stopped */
+    "emulator-stopped": void;
+
+    /** End of network receive */
+    "eth-receive-end": [byte_count: number];
+
+    /** End of network transmit */
+    "eth-transmit-end": [byte_count: number];
+
+    /** End of IDE device reading */
+    "ide-read-end": [channel_nr: number, byte_count: number, sector_count: number];
+
+    /** Start of IDE device reading */
+    "ide-read-start": void;
+
+    /** Start of IDE device writing */
+    "ide-write-end": [channel_nr: number, byte_count: number, sector_count: number];
+
+    /** Mouse status */
+    "mouse-enable": boolean;
+
+    /** Network card 0: sending */
+    "net0-send": Uint8Array;
+
+    /** Put character on text mode screen */
+    "screen-put-char": [row: number, col: number, chr: string];
+
+    /** Set screen size. If `bpp` is undefined, guest OS uses text mode */
+    "screen-set-size": [width: number, height: number, bpp?: number];
+
+    /** Serial port 0: input */
+    "serial0-input": number;
+
+    /** Serial port 0: output */
+    "serial0-output-byte": number;
+
+    /** Serial port 1: input */
+    "serial1-input": number;
+
+    /** Serial port 1: output */
+    "serial1-output-byte": number;
+
+    /** Serial port 2: input */
+    "serial2-input": number;
+
+    /** Serial port 2: output */
+    "serial2-output-byte": number;
+
+    /** Serial port 3: input */
+    "serial3-input": number;
+
+    /** Serial port 3: output */
+    "serial3-output-byte": number;
+
+    /** Virtio console 0: output */
+    "virtio-console0-output-bytes": Uint8Array;
+}
 
 /**
  * @ignore
@@ -501,13 +572,13 @@ export interface V86Options {
     /**
      * Console adapter for serial console
      */
-    serial_console: ConsoleConfig;
+    serial_console?: ConsoleConfig;
 
     /**
      * Console adapter for virtio console.
      * Setting to true, creates virtio console device without adapter
      */
-    virtio_console: ConsoleConfig;
+    virtio_console?: ConsoleConfig;
 
     /**
      * Emulator screen element (only browsers).
@@ -620,15 +691,17 @@ export class V86 {
      * @param event Name of the event.
      * @param listener The callback function.
      */
-    add_listener(event: Event, listener: Function): void;
+    add_listener<T extends keyof Event>(event: T, listener: (argument: Event[T]) => void): void;
 
     /**
      * Remove an event listener.
      *
-     * @param event
-     * @param listener
+     * The callback function gets a single argument which depends on the event.
+     *
+     * @param event Name of the event.
+     * @param listener The callback function.
      */
-    remove_listener(event: Event, listener: Function): void;
+    remove_listener<T extends keyof Event>(event: T, listener: (argument: Event[T]) => void): void;
 
     /**
      * Restore the emulator state from the given state, which must be an
