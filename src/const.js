@@ -26,7 +26,8 @@ export const
     LOG_VIRTIO = 0x0200000,
     LOG_9P =     0x0400000,
     LOG_SB16 =   0x0800000,
-    LOG_FETCH =  0x1000000;
+    LOG_FETCH =  0x1000000,
+    LOG_MODEM =  0x2000000;
 
 
 /**
@@ -57,6 +58,7 @@ export const LOG_NAMES = [
     [LOG_9P, "9P"],
     [LOG_SB16, "SB16"],
     [LOG_FETCH, "FETC"],
+    [LOG_MODEM, "MODM"],
 ];
 
 export const

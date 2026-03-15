@@ -79,6 +79,8 @@ export enum LogLevel {
     LOG_VIRTIO = 0x200000,
     LOG_9P = 0x400000,
     LOG_SB16 = 0x800000,
+    LOG_FETCH = 0x1000000,
+    LOG_MODEM = 0x2000000,
 }
 
 export enum BootOrder {
