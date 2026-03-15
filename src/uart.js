@@ -28,6 +28,8 @@ const UART_IIR_CTI = 0x0c; /* Character timeout */
 
 // Modem control register
 const UART_MCR_LOOPBACK = 0x10;
+const UART_MCR_RTS = 0x2;
+const UART_MCR_DTR = 0x1;
 
 const UART_LSR_DATA_READY        = 0x1;  // data available
 const UART_LSR_TX_EMPTY        = 0x20; // TX (THR) buffer is empty
@@ -268,7 +270,16 @@ export function UART(cpu, port, bus)
     io.register_write(port | 4, this, function(out_byte)
     {
         dbg_log("modem control: " + h(out_byte), LOG_SERIAL);
+        const bits_changed = this.modem_control ^ out_byte;
         this.modem_control = out_byte;
+        if(bits_changed & UART_MCR_DTR)
+        {
+            this.bus.send("serial" + this.com + "-data-terminal-ready-output", !!(out_byte & UART_MCR_DTR));
+        }
+        if(bits_changed & UART_MCR_RTS)
+        {
+            this.bus.send("serial" + this.com + "-request-to-send-output", !!(out_byte & UART_MCR_RTS));
+        }
     });
 
     io.register_read(port | 5, this, function()
