@@ -18,6 +18,7 @@ import { DummyScreenAdapter } from "./dummy_screen.js";
 import { ANSIScreenAdapter } from "./ansi_screen.js";
 import { SerialAdapter, VirtioConsoleAdapter, SerialAdapterXtermJS, VirtioConsoleAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
+import { Modem } from "./modem.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
 import { SyncBuffer, buffer_from_object } from "../buffer.js";
@@ -209,6 +210,23 @@ V86.prototype.continue_init = async function(emulator, options)
         options.fda ? BOOT_ORDER_FD_FIRST :
         options.hda ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
 
+    if(options.modem && options.modem.uart !== undefined)
+    {
+        settings.modem = options.modem;
+        switch(options.modem.uart)
+        {
+            case 1:
+                options.uart1 = true;
+                break;
+            case 2:
+                options.uart2 = true;
+                break;
+            case 3:
+                options.uart3 = true;
+                break;
+        }
+    }
+
     settings.acpi = options.acpi;
     settings.disable_jit = options.disable_jit;
     settings.load_devices = true;
@@ -320,6 +338,11 @@ V86.prototype.continue_init = async function(emulator, options)
     else if(virtio_console_settings?.type === "textarea")
     {
         this.virtio_console_adapter = new VirtioConsoleAdapter(virtio_console_settings.container, this.bus);
+    }
+
+    if(settings.modem)
+    {
+        this.modem = new Modem(this.bus, settings.modem);
     }
 
     if(!options.disable_speaker)

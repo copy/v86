@@ -2076,6 +2076,7 @@ function start_emulation(profile, query_args)
         settings.vga_memory_size = profile.vga_memory_size;
         settings.boot_order = profile.boot_order;
         settings.net_device_type = profile.net_device_type;
+        settings.modem = profile.modem;
 
         if(!DEBUG && profile.homepage)
         {
@@ -2340,6 +2341,11 @@ function start_emulation(profile, query_args)
         }
         if(settings.mtu !== DEFAULT_MTU) new_query_args.set("mtu", settings.mtu.toString());
 
+        const modem_uart = parseInt($("modem").value, 10) || -1;
+        if(modem_uart >= 0 && modem_uart < 4)
+        {
+            settings.modem = {uart: modem_uart};
+        }
     }
 
     if(!query_args)
@@ -2359,6 +2365,7 @@ function start_emulation(profile, query_args)
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
         },
+        modem: settings.modem,
         autostart: true,
 
         memory_size: settings.memory_size,
