@@ -88,6 +88,33 @@ export type ConsoleConfig =
         container?: HTMLElement | HTMLTextAreaElement;
     };
 
+/**
+ * Config for emulator screen.
+ */
+export type ScreenConfig =
+    {
+        /** HTML container for screen */
+        container?: HTMLElement | null;
+
+        /**
+         * Encoding for text mode screen
+         * @default "cp437"
+         */
+        encoding?: "ascii" | "cp437" | "cp858";
+
+        /**
+         * Screen scaling
+         * @default 1
+         */
+        scaling?: number;
+
+        /**
+         * Use canvas for text mode (browser only) with VGA fonts.
+         * @default false
+         */
+        use_graphical_text?: boolean;
+    };
+
 export enum LogLevel {
     /** All devices */
     LOG_ALL = -1,
@@ -255,11 +282,11 @@ export interface Event {
     /** Network card 0: sending */
     "net0-send": Uint8Array;
 
-    /** Put character on text mode screen */
-    "screen-put-char": [row: number, col: number, chr: string];
+    /** Put character on text mode screen. Note: `chr` is an index in the character map */
+    "screen-put-char": [row: number, col: number, chr: number];
 
-    /** Set screen size. If `bpp` is undefined, guest OS uses text mode */
-    "screen-set-size": [width: number, height: number, bpp?: number];
+    /** Set screen size. If `bpp` is 0, guest OS uses text mode */
+    "screen-set-size": [width: number, height: number, bpp: number];
 
     /** Serial port 0: input */
     "serial0-input": number;
@@ -582,9 +609,16 @@ export interface V86Options {
 
     /**
      * Emulator screen element (only browsers).
+     * Only provided for backwards compatibility, use {@link V86Options.screen} instead.
+     * @deprecated
      * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html|exmaples/basic.html} for example
      */
     screen_container?: HTMLElement | null;
+
+    /**
+     * Emulator screen config
+     */
+    screen?: ScreenConfig;
 
     /**
      * Enable ACPI (also enables APIC). Experimental and only partially implemented.
