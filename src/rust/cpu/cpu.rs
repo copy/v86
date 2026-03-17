@@ -2363,7 +2363,14 @@ pub unsafe fn read_imm8() -> OrPageFault<i32> {
     }
     dbg_assert!(!memory::in_mapped_range((*eip_phys ^ eip) as u32));
     let data8 = *memory::mem8.offset((*eip_phys ^ eip) as isize) as i32;
-    *instruction_pointer = eip + 1;
+    // In real mode, IP wraps at 16 bits
+    if *protected_mode {
+        *instruction_pointer = eip + 1;
+    } else {
+        let seg_base = get_seg_cs();
+        let new_ip = (eip - seg_base + 1) & 0xFFFF;
+        *instruction_pointer = seg_base + new_ip;
+    }
     return Ok(data8);
 }
 
@@ -2380,7 +2387,14 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
     }
     else {
         let data16 = memory::read16((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = *instruction_pointer + 2;
+        // In real mode, IP wraps at 16 bits
+        if *protected_mode {
+            *instruction_pointer = *instruction_pointer + 2;
+        } else {
+            let seg_base = get_seg_cs();
+            let new_ip = (*instruction_pointer - seg_base + 2) & 0xFFFF;
+            *instruction_pointer = seg_base + new_ip;
+        }
         return Ok(data16);
     };
 }
@@ -2394,7 +2408,14 @@ pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     }
     else {
         let data32 = memory::read32s((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = *instruction_pointer + 4;
+        // In real mode, IP wraps at 16 bits
+        if *protected_mode {
+            *instruction_pointer = *instruction_pointer + 4;
+        } else {
+            let seg_base = get_seg_cs();
+            let new_ip = (*instruction_pointer - seg_base + 4) & 0xFFFF;
+            *instruction_pointer = seg_base + new_ip;
+        }
         return Ok(data32);
     };
 }
