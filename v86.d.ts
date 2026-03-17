@@ -322,6 +322,12 @@ export interface Event {
 
     /** Virtio console 0: output */
     "virtio-console0-output-bytes": Uint8Array;
+
+    /** Virtio console 0: input */
+    "virtio-console0-input-bytes": Uint8Array;
+
+    /** Virtio console 0: resize */
+    "virtio-console0-resize": [cols: number, rows: number];
 }
 
 /**
