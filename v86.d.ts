@@ -2,22 +2,14 @@
 // if you find problems, please send a pull request
 
 /**
- * The type for images as a file.
+ * The type for images as a file, loaded asynchronously.
  *
  * Files with `async: true` and `use_parts: false` are downloaded using HTTP
  * Range requests. Note that not all web servers support this header correctly,
  * and it inherently disables HTTP compression. The `url` fields points
  * directly to the disk images.
- *
- * State images and fixed-size chunks (but not other image types) that end with
- * .zst are automatically decompressed using a built-in zstd decompressor. This
- * has a performance overhead compared to HTTP compression, but will result in
- * better compression ration.
- *
- * Note that bios, initial state, bzimage, initrd, multiboot and floppy disk
- * images are always loaded synchronously.
  */
-type V86FileImage =
+type V86AsyncFileImage =
     {
         /** The URL to the image */
         url: string;
@@ -25,14 +17,10 @@ type V86FileImage =
         /**
          * Async loading.
          *
-         * If true, the file is downloaded completely, otherwise in chunks (see 
-         * below for the chunking method). BIOS, multiboot, bzimage and state 
-         * files are always downloaded completely, as they're required before 
-         * emulation can start.
-         *
-         * @default false
+         * If true, the file is downloaded completely, otherwise in chunks
+         * (see {@link V86AsyncFileImage.use_parts} for the chunking method).
          */
-        async?: boolean;
+        async: true;
 
         /** Image size, required for async loading */
         size: number;
@@ -53,6 +41,18 @@ type V86FileImage =
     };
 
 /**
+ * The type for images as a file, loaded synchronously.
+ */
+type V86SyncFileImage =
+    {
+        /** The URL to the image */
+        url: string;
+
+        /** @ignore */
+        async?: false;
+    };
+
+/**
  * The type for images as a buffer.
  */
 type V86BufferImage =
@@ -64,8 +64,16 @@ type V86BufferImage =
 
 /**
  * The type of disk/bios/state images.
+ * 
+ * Note that bios, initial state, bzimage, initrd, multiboot and floppy disk
+ * images are always loaded synchronously.
+ * 
+ * State images and fixed-size chunks (but not other image types) that end with
+ * .zst are automatically decompressed using a built-in zstd decompressor. This
+ * has a performance overhead compared to HTTP compression, but will result in
+ * better compression ration.
  */
-export type V86Image = V86FileImage | V86BufferImage;
+export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
 
 /**
  * Config for virtio/serial console.
