@@ -991,4 +991,11 @@ export class V86 {
      * @see {@link V86.prototype.wait_until_vga_screen_contains}
      */
     automatically(steps: Array<{ sleep?: number, vga_text?: string, keyboard_send?: string | number[], call?: Function }>): void;
+
+    /**
+     * Get instruction stats
+     *
+     * @see {@link https://github.com/copy/v86/blob/master/docs/profiling.md} for more infos
+     */
+    get_instruction_stats(): string;
 }
