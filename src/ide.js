@@ -820,7 +820,7 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
     this.buffer = null;
 
     /** @type {boolean} */
-    this.drive_connected = is_cd || !!buffer;
+    this.drive_connected = !!buffer;
 
     /** @type {number} */
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
@@ -954,6 +954,7 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     }
 
     this.buffer = buffer;
+    this.drive_connected = true;
     if(this.is_atapi)
     {
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
@@ -2746,6 +2747,6 @@ IDEInterface.prototype.set_state = function(state)
 
     this.buffer && this.buffer.set_state(state[28]);
 
-    this.drive_connected = this.is_atapi || this.buffer;
+    this.drive_connected = !!this.buffer;
     this.medium_changed = false;
 };
