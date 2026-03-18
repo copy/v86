@@ -598,15 +598,17 @@ export interface V86Options {
      * A textarea that will receive and send data to the emulated serial terminal (only browsers).
      * Alternatively the serial terminal can also be accessed programatically, see 
      * [examples/serial.html](https://github.com/copy/v86/blob/master/examples/serial.html) for example.
-     * Deprecated in favor of the serial_console config below
+     * Deprecated in favor of {@link V86Options.serial_console}.
      * @deprecated
+     * @see {@link V86Options.serial_console}
      */
     serial_container?: HTMLTextAreaElement;
 
     /**
      * Xtermjs serial terminal container (only browsers). When set, serial_container option is ignored.
-     * Deprecated in favor of the serial_console config below.
+     * Deprecated in favor of {@link V86Options.serial_console}.
      * @deprecated
+     * @see {@link V86Options.serial_console}
      */
     serial_container_xtermjs?: HTMLElement;
 
@@ -625,7 +627,7 @@ export interface V86Options {
      * Emulator screen element (only browsers).
      * Only provided for backwards compatibility, use {@link V86Options.screen} instead.
      * @deprecated
-     * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html|exmaples/basic.html} for example
+     * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html} for example
      */
     screen_container?: HTMLElement | null;
 
@@ -678,7 +680,7 @@ export interface V86Options {
 
     /**
      * The URL of a server running network relay.
-     * Deprecated in favor of the net_device config.
+     * Deprecated in favor of {@link V86Options.net_device}.
      * @deprecated
      * @see {@link V86Options.net_device}
      */
