@@ -15,7 +15,7 @@ import { KeyboardAdapter } from "./keyboard.js";
 import { MouseAdapter } from "./mouse.js";
 import { ScreenAdapter } from "./screen.js";
 import { DummyScreenAdapter } from "./dummy_screen.js";
-import { SerialAdapter, SerialAdapterXtermJS } from "./serial.js";
+import { SerialAdapter, VirtioConsoleAdapter, SerialAdapterXtermJS, VirtioConsoleAdapterXtermJS } from "./serial.js";
 import { InBrowserNetworkAdapter } from "./inbrowser_network.js";
 
 import { MemoryFileStorage, ServerFileStorageWrapper } from "./filestorage.js";
@@ -77,7 +77,6 @@ export function V86(options)
         "io_port_write32": function(addr, value) { cpu.io.port_write32(addr, value); },
 
         "mmap_read8": function(addr) { return cpu.mmap_read8(addr); },
-        "mmap_read16": function(addr) { return cpu.mmap_read16(addr); },
         "mmap_read32": function(addr) { return cpu.mmap_read32(addr); },
         "mmap_write8": function(addr, value) { cpu.mmap_write8(addr, value); },
         "mmap_write16": function(addr, value) { cpu.mmap_write16(addr, value); },
@@ -204,14 +203,6 @@ V86.prototype.continue_init = async function(emulator, options)
 
     var settings = {};
 
-    this.disk_images = {
-        fda: undefined,
-        fdb: undefined,
-        hda: undefined,
-        hdb: undefined,
-        cdrom: undefined,
-    };
-
     const boot_order =
         options.boot_order ? options.boot_order :
         options.fda ? BOOT_ORDER_FD_FIRST :
@@ -234,7 +225,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
     settings.virtio_balloon = options.virtio_balloon;
-    settings.virtio_console = options.virtio_console;
+    settings.virtio_console = !!options.virtio_console;
 
     const relay_url = options.network_relay_url || options.net_device && options.net_device.relay_url;
     if(relay_url)
@@ -289,14 +280,41 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.screen = this.screen_adapter;
     settings.screen_options = screen_options;
 
+    settings.serial_console = options.serial_console || { type: "none" };
+
+    // NOTE: serial_container_xtermjs and serial_container are deprecated
     if(options.serial_container_xtermjs)
     {
-        this.serial_adapter = new SerialAdapterXtermJS(options.serial_container_xtermjs, this.bus);
+        settings.serial_console.type = "xtermjs";
+        settings.serial_console.container = options.serial_container_xtermjs;
     }
     else if(options.serial_container)
     {
-        this.serial_adapter = new SerialAdapter(options.serial_container, this.bus);
+        settings.serial_console.type = "textarea";
+        settings.serial_console.container = options.serial_container;
+    }
+
+    if(settings.serial_console?.type === "xtermjs")
+    {
+        const xterm_lib = settings.serial_console.xterm_lib || window["Terminal"];
+        this.serial_adapter = new SerialAdapterXtermJS(settings.serial_console.container, this.bus, xterm_lib);
+    }
+    else if(settings.serial_console?.type === "textarea")
+    {
+        this.serial_adapter = new SerialAdapter(settings.serial_console.container, this.bus);
         //this.recording_adapter = new SerialRecordingAdapter(this.bus);
+    }
+
+    const virtio_console_settings = (options.virtio_console && typeof options.virtio_console === "boolean") ? { type: "none" } : options.virtio_console;
+
+    if(virtio_console_settings?.type === "xtermjs")
+    {
+        const xterm_lib = virtio_console_settings.xterm_lib || window["Terminal"];
+        this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(virtio_console_settings.container, this.bus, xterm_lib);
+    }
+    else if(virtio_console_settings?.type === "textarea")
+    {
+        this.virtio_console_adapter = new VirtioConsoleAdapter(virtio_console_settings.container, this.bus);
     }
 
     if(!options.disable_speaker)
@@ -310,29 +328,29 @@ V86.prototype.continue_init = async function(emulator, options)
         switch(name)
         {
             case "hda":
-                settings.hda = this.disk_images.hda = buffer;
+                settings.hda = buffer;
                 break;
             case "hdb":
-                settings.hdb = this.disk_images.hdb = buffer;
+                settings.hdb = buffer;
                 break;
             case "cdrom":
-                settings.cdrom = this.disk_images.cdrom = buffer;
+                settings.cdrom = buffer;
                 break;
             case "fda":
-                settings.fda = this.disk_images.fda = buffer;
+                settings.fda = buffer;
                 break;
             case "fdb":
-                settings.fdb = this.disk_images.fdb = buffer;
+                settings.fdb = buffer;
                 break;
 
             case "multiboot":
-                settings.multiboot = this.disk_images.multiboot = buffer.buffer;
+                settings.multiboot = buffer.buffer;
                 break;
             case "bzimage":
-                settings.bzimage = this.disk_images.bzimage = buffer.buffer;
+                settings.bzimage = buffer.buffer;
                 break;
             case "initrd":
-                settings.initrd = this.disk_images.initrd = buffer.buffer;
+                settings.initrd = buffer.buffer;
                 break;
 
             case "bios":
@@ -569,6 +587,7 @@ V86.prototype.continue_init = async function(emulator, options)
         }
 
         this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
+        this.virtio_console_adapter && this.virtio_console_adapter.show && this.virtio_console_adapter.show();
 
         this.v86.init(settings);
 
@@ -637,7 +656,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                         "cpu_event_halt", "microtick", "get_rand_int", "stop_idling",
                         "io_port_read8", "io_port_read16", "io_port_read32",
                         "io_port_write8", "io_port_write16", "io_port_write32",
-                        "mmap_read8", "mmap_read16", "mmap_read32",
+                        "mmap_read8", "mmap_read32",
                         "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
                         "codegen_finalize",
                         "jit_clear_func", "jit_clear_all_funcs",
@@ -769,6 +788,7 @@ V86.prototype.destroy = async function()
     this.screen_adapter && this.screen_adapter.destroy();
     this.serial_adapter && this.serial_adapter.destroy();
     this.speaker_adapter && this.speaker_adapter.destroy();
+    this.virtio_console_adapter && this.virtio_console_adapter.destroy();
 };
 
 /**
@@ -1461,11 +1481,26 @@ V86.prototype.write_memory = function(blob, offset)
     this.v86.cpu.write_blob(blob, offset);
 };
 
-V86.prototype.set_serial_container_xtermjs = function(element)
+/*
+ * @param {HTMLElement} element
+ * @param {Function} [xterm_lib]
+ */
+V86.prototype.set_serial_container_xtermjs = function(element, xterm_lib = window["Terminal"])
 {
     this.serial_adapter && this.serial_adapter.destroy && this.serial_adapter.destroy();
-    this.serial_adapter = new SerialAdapterXtermJS(element, this.bus);
+    this.serial_adapter = new SerialAdapterXtermJS(element, this.bus, xterm_lib);
     this.serial_adapter.show();
+};
+
+/*
+ * @param {HTMLElement} element
+ * @param {Function} [xterm_lib]
+ */
+V86.prototype.set_virtio_console_container_xtermjs = function(element, xterm_lib = window["Terminal"])
+{
+    this.virtio_console_adapter && this.virtio_console_adapter.destroy && this.virtio_console_adapter.destroy();
+    this.virtio_console_adapter = new VirtioConsoleAdapterXtermJS(element, this.bus, xterm_lib);
+    this.virtio_console_adapter.show();
 };
 
 V86.prototype.get_instruction_stats = function()

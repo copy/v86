@@ -37,6 +37,8 @@ export default [
                 "Image": "readonly",
                 "OffscreenCanvas": "readonly",
                 "BroadcastChannel": "readonly",
+                "HTMLElement": "readonly",
+                "HTMLTextAreaElement": "readonly",
 
                 "AudioContext": "readonly",
                 "AudioWorkletProcessor": "readonly",

@@ -246,14 +246,6 @@ CPU.prototype.mmap_write8 = function(addr, value)
     this.memory_map_write8[addr >>> MMAP_BLOCK_BITS](addr, value);
 };
 
-CPU.prototype.mmap_read16 = function(addr)
-{
-    var fn = this.memory_map_read8[addr >>> MMAP_BLOCK_BITS];
-    const value = fn(addr) | fn(addr + 1 | 0) << 8;
-    dbg_assert(value >= 0 && value <= 0xFFFF);
-    return value;
-};
-
 CPU.prototype.mmap_write16 = function(addr, value)
 {
     var fn = this.memory_map_write8[addr >>> MMAP_BLOCK_BITS];
@@ -1302,6 +1294,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
     const MULTIBOOT_SEARCH_BYTES = 8192;
     const MULTIBOOT_INFO_STRUCT_LEN = 116;
     const MULTIBOOT_INFO_CMDLINE = 0x4;
+    const MULTIBOOT_INFO_MODS = 0x8;
     const MULTIBOOT_INFO_MEM_MAP = 0x40;
 
     if(buffer.byteLength < MULTIBOOT_SEARCH_BYTES)
@@ -1396,8 +1389,6 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 dbg_assert (!was_memory, "top of 4GB shouldn't have memory");
                 cpu.write32(multiboot_info_addr + 44, multiboot_mmap_count);
             }
-
-            cpu.write32(multiboot_info_addr, info);
 
             let entrypoint = 0;
             let top_of_load = 0;
@@ -1508,6 +1499,8 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
             if(initrd)
             {
+                info |= MULTIBOOT_INFO_MODS;
+
                 cpu.write32(multiboot_info_addr + 20, 1); // mods_count
                 cpu.write32(multiboot_info_addr + 24, multiboot_data); // mods_addr;
 
@@ -1529,6 +1522,8 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
 
                 cpu.write_blob(new Uint8Array(initrd), ramdisk_address);
             }
+
+            cpu.write32(multiboot_info_addr, info);
 
             // set state for multiboot
 

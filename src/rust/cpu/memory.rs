@@ -1,7 +1,6 @@
 mod ext {
     extern "C" {
         pub fn mmap_read8(addr: u32) -> i32;
-        pub fn mmap_read16(addr: u32) -> i32;
         pub fn mmap_read32(addr: u32) -> i32;
 
         pub fn mmap_write8(addr: u32, value: i32);
@@ -87,6 +86,12 @@ pub fn read8(addr: u32) -> i32 {
         if in_svga_lfb(addr) {
             unsafe { *vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as i32 }
         }
+        else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+            apic::read32((addr - APIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
+        }
+        else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+            ioapic::read32((addr - IOAPIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
+        }
         else {
             unsafe { ext::mmap_read8(addr) }
         }
@@ -107,7 +112,7 @@ pub fn read16(addr: u32) -> i32 {
             }
         }
         else {
-            unsafe { ext::mmap_read16(addr) }
+            read8(addr) | read8(addr + 1) << 8
         }
     }
     else {
@@ -150,7 +155,7 @@ pub unsafe fn read64s(addr: u32) -> i64 {
             ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i64)
         }
         else {
-            ext::mmap_read32(addr) as i64 | (ext::mmap_read32(addr + 4) as i64) << 32
+            read32s(addr) as i64 | (read32s(addr + 4) as i64) << 32
         }
     }
     else {
@@ -166,10 +171,10 @@ pub unsafe fn read128(addr: u32) -> reg128 {
         else {
             reg128 {
                 i32: [
-                    ext::mmap_read32(addr + 0),
-                    ext::mmap_read32(addr + 4),
-                    ext::mmap_read32(addr + 8),
-                    ext::mmap_read32(addr + 12),
+                    read32s(addr + 0),
+                    read32s(addr + 4),
+                    read32s(addr + 8),
+                    read32s(addr + 12),
                 ],
             }
         }

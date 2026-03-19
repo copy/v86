@@ -75,7 +75,7 @@ list of emulated hardware:
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well. 64-bit kernels are not supported.
-  - [Buildroot](https://buildroot.uclibc.org) can be used to build a minimal image.
+  - [Buildroot](https://buildroot.org/) can be used to build a minimal image.
     [humphd/browser-vm](https://github.com/humphd/browser-vm) and
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
@@ -127,8 +127,15 @@ for a full setup on Debian or
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's http module.
-- If you only want to embed v86 in a webpage you can use libv86.js. For usage,
-  check out the [examples](examples/). You can download it from the release section.
+- If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
+  check out the [examples](examples/). You can download it from the [release section](https://github.com/copy/v86/releases).
+- For bundler-based setups (Vite/React/Next/Webpack), there is also an official npm package:
+https://www.npmjs.com/package/v86
+
+  This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
+  It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
+  
+  Install: `npm install v86`
 
 ### Alternatively, to build using Docker
 
