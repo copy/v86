@@ -697,16 +697,17 @@ function onload()
         {
             id: "crazierl",
             multiboot: {
-                url: host + "crazierl-elf.img",
-                size: 896592,
+                url: host + "crazierl-elf-2026.img",
+                size: 919492,
                 async: false,
             },
             initrd: {
-                url: host + "crazierl-initrd.img",
-                size: 18448316,
+                url: host + "crazierl-initrd-2026.img",
+                size: 20960021,
                 async: false,
             },
             acpi: true,
+            net_device_type: "virtio",
             cmdline: "kernel /libexec/ld-elf32.so.1",
             memory_size: 128 * 1024 * 1024,
             name: "Crazierl",
