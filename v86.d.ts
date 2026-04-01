@@ -28,7 +28,7 @@ type V86AsyncFileImage =
         /**
          * Use parts instead of Range header, useful for static hostings.
          *
-         * If true, v86 expects the image to be split in files of `fixed_chunk_size` 
+         * If true, v86 expects the image to be split in files of `fixed_chunk_size`
          * bytes. You can use [split-image.py](https://github.com/copy/v86/blob/master/tools/split-image.py)
          * to split an image. V86 appends `-<start-byte>-<end-byte>` to the url.
          */
@@ -64,10 +64,10 @@ type V86BufferImage =
 
 /**
  * The type of disk/bios/state images.
- * 
+ *
  * Note that bios, initial state, bzimage, initrd, multiboot and floppy disk
  * images are always loaded synchronously.
- * 
+ *
  * State images and fixed-size chunks (but not other image types) that end with
  * .zst are automatically decompressed using a built-in zstd decompressor. This
  * has a performance overhead compared to HTTP compression, but will result in
@@ -82,7 +82,7 @@ export type ConsoleConfig =
     {
         /**
          * Console type
-         * 
+         *
          * Available types:
          *  - `textarea` - using TextArea HTML element, doesn't support ESC codes
          *  - `xtermjs` - using XtermJS-compatible terminal
@@ -91,7 +91,7 @@ export type ConsoleConfig =
 
         /** XtermJS constructor, useful for ESM users. When not set, `window["Terminal"]` is used */
         xterm_lib?: Function;
-        
+
         /** HTML container for console */
         container?: HTMLElement | HTMLTextAreaElement;
     };
@@ -132,7 +132,7 @@ export type ScreenConfig =
 export enum LogLevel {
     /** All devices */
     LOG_ALL = -1,
-    
+
     /** None */
     LOG_NONE = 0,
 
@@ -212,7 +212,7 @@ export enum LogLevel {
 export enum BootOrder {
     /** Auto */
     AUTO = 0,
-    
+
     /** CD -> Floppy -> HDD */
     CD_FLOPPY_HARDDISK = 0x213,
 
@@ -370,7 +370,7 @@ type V86NetworkDevice =
         type?: "ne2k" | "virtio";
 
         /**
-         * The network backend URL. 
+         * The network backend URL.
          * Note that the CORS proxy server of the fetch backend is defined in field `cors_proxy` below.
          * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md#backend-url-schemes} for backend URL schemes
          */
@@ -404,7 +404,7 @@ type V86NetworkDevice =
 
         /**
          * Network masquerade (fetch/wisp only).
-         * 
+         *
          * If true, announce `router_ip` as the router's and DNS server's IP addresses in generated
          * DHCP replies, and also generate ARP replies to IPs outside the router's subnet `255.255.255.0`.
          * @default true
@@ -412,8 +412,8 @@ type V86NetworkDevice =
         masquerade?: boolean;
 
         /**
-         * DNS method to use (fetch/wisp only). 
-         * 
+         * DNS method to use (fetch/wisp only).
+         *
          * Available methods:
          * - `static`: use built-in DNS server
          * - `doh`: use DNS-over-HTTPS (DoH)
@@ -424,7 +424,7 @@ type V86NetworkDevice =
 
         /**
          * Host name or IP address (and optional port number) of the DoH server if `dns_method` is `doh`.
-         * 
+         *
          * The value is expanded to the URL `https://DOH_SERVER/dns-query`.
          * @default "cloudflare-dns.com"
          */
@@ -602,7 +602,7 @@ export interface V86Options {
 
     /**
      * A textarea that will receive and send data to the emulated serial terminal (only browsers).
-     * Alternatively the serial terminal can also be accessed programatically, see 
+     * Alternatively the serial terminal can also be accessed programatically, see
      * [examples/serial.html](https://github.com/copy/v86/blob/master/examples/serial.html) for example.
      * Deprecated in favor of {@link V86Options.serial_console}.
      * @deprecated
