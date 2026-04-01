@@ -400,4 +400,6 @@ update-package-json-version:
 	mv package.json.tmp package.json
 
 doc:
-	npx typedoc --readme none --out ./docs/api ./v86.d.ts
+	set -e ;\
+	COMMIT=`git log --format="%h" -n 1` ;\
+	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
