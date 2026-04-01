@@ -121,6 +121,12 @@ export type ScreenConfig =
          * @default false
          */
         use_graphical_text?: boolean;
+
+        /**
+         * Use ANSI Truecolor codes for text mode output.
+         * @default false
+         */
+        ansi?: boolean;
     };
 
 export enum LogLevel {
