@@ -354,10 +354,11 @@ export function VGAScreen(cpu, bus, screen, vga_memory_size)
 
     // Bochs VBE Extensions
     // http://wiki.osdev.org/Bochs_VBE_Extensions
-    this.dispi_index = -1;
+    this.dispi_index = 0;
     this.dispi_enable_value = 0;
 
     io.register_write(0x1CE, this, undefined, this.port1CE_write);
+    io.register_read(0x1CE, this, undefined, this.port1CE_read);
 
     io.register_write(0x1CF, this, undefined, this.port1CF_write);
     io.register_read(0x1CF, this, undefined, this.port1CF_read);
@@ -2113,6 +2114,11 @@ VGAScreen.prototype.port3DA_read = function()
     }
     this.attribute_controller_index = -1;
     return value;
+};
+
+VGAScreen.prototype.port1CE_read = function()
+{
+    return this.dispi_index;
 };
 
 VGAScreen.prototype.port1CE_write = function(value)
