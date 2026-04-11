@@ -526,6 +526,18 @@ if(typeof XMLHttpRequest === "undefined" ||
 {
     let fs;
 
+    const get_fs = async function()
+    {
+        // Electron renderers with nodeIntegration have process.versions.node but
+        // a browser module loader, so dynamic import of node: URLs fails. require() works.
+        if(typeof require !== "undefined")
+        {
+            return require("fs")["promises"];
+        }
+        // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
+        return import("node:" + "fs/promises");
+    };
+
     /**
      * @param {string} filename
      * @param {Object} options
@@ -535,8 +547,7 @@ if(typeof XMLHttpRequest === "undefined" ||
     {
         if(!fs)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
+            fs = await get_fs();
         }
 
         if(options.range)
@@ -581,8 +592,7 @@ if(typeof XMLHttpRequest === "undefined" ||
     {
         if(!fs)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
+            fs = await get_fs();
         }
         const stat = await fs["stat"](path);
         return stat.size;
