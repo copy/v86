@@ -24,6 +24,7 @@ import { IO } from "./io.js";
 import { VirtioConsole } from "./virtio_console.js";
 import { PCI } from "./pci.js";
 import { PS2 } from "./ps2.js";
+import { VMwareMouse } from "./vmware.js";
 import { read_elf } from "./elf.js";
 
 import { FloppyController } from "./floppy.js";
@@ -570,6 +571,7 @@ CPU.prototype.get_state = function()
     state[86] = this.last_result;
     state[87] = this.fpu_status_word;
     state[88] = this.mxcsr;
+    state[89] = this.devices.vmware;
 
     return state;
 };
@@ -738,6 +740,7 @@ CPU.prototype.set_state = function(state)
     this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
     this.devices.virtio_net && this.devices.virtio_net.set_state(state[83]);
     this.devices.virtio_balloon && this.devices.virtio_balloon.set_state(state[84]);
+    this.devices.vmware && state[89] && this.devices.vmware.set_state(state[89]);
 
     this.fw_value = state[62];
 
@@ -1176,6 +1179,7 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.vga = new VGAScreen(this, device_bus, settings.screen, settings.vga_memory_size || 8 * 1024 * 1024);
 
         this.devices.ps2 = new PS2(this, device_bus);
+        this.devices.vmware = new VMwareMouse(this, device_bus);
 
         this.devices.uart0 = new UART(this, 0x3F8, device_bus);
 
