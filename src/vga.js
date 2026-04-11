@@ -1417,6 +1417,13 @@ VGAScreen.prototype.port3C0_write = function(value)
                     var previous_mode = this.attribute_mode;
                     this.attribute_mode = value;
 
+                    if(this.svga_enabled && !(this.dispi_enable_value & 1))
+                    {
+                        // Commit the deferred VBE disable (see port1CF_write case 4)
+                        this.svga_enabled = false;
+                        this.svga_bank_offset = 0;
+                    }
+
                     const is_graphical = (value & 0x1) !== 0;
                     if(!this.svga_enabled && this.graphical_mode !== is_graphical)
                     {
@@ -2159,6 +2166,17 @@ VGAScreen.prototype.port1CF_write = function(value)
             break;
         case 4:
             // enable, options
+            if(!(value & 1) && this.svga_enabled && (this.cpu.flags[0] & (1 << 17)))
+            {
+                // Win9x's VDD virtualises the legacy VGA ports for a windowed
+                // DOS VM but not the dispi ports, so vgabios's VBE disable
+                // leaks through while the rest of its mode-set is virtualised.
+                // Defer the actual disable until a legacy mode register write
+                // reaches us (see port3C0_write); if it never does, the
+                // protected-mode display driver still owns the framebuffer.
+                this.dispi_enable_value = value;
+                break;
+            }
             this.svga_enabled = (value & 1) === 1;
             if(this.svga_enabled && (value & 0x80) === 0)
             {
@@ -2215,11 +2233,14 @@ VGAScreen.prototype.port1CF_write = function(value)
         dbg_log("SVGA: disabled", LOG_VGA);
     }
 
-    if(this.svga_enabled && !was_enabled)
+    if(this.svga_enabled && this.dispi_index === 4)
     {
-        this.svga_offset = 0;
-        this.svga_offset_x = 0;
-        this.svga_offset_y = 0;
+        if(!was_enabled)
+        {
+            this.svga_offset = 0;
+            this.svga_offset_x = 0;
+            this.svga_offset_y = 0;
+        }
 
         this.graphical_mode = true;
         this.screen.set_mode(this.graphical_mode);
