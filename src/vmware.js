@@ -85,8 +85,12 @@ export function VMwareMouse(cpu, bus)
         this.push_packet(-data[0] | 0, false);
     }, this);
 
-    cpu.io.register_read(VMWARE_PORT, this, undefined, undefined, this.port_read32);
-    cpu.io.register_write(VMWARE_PORT, this, undefined, undefined, this.port_write32);
+    // The backdoor protocol is 32-bit only, but guests probe the port at
+    // narrower widths during detection — answer those as an empty port.
+    const nop = function() {};
+    cpu.io.register_read(VMWARE_PORT, this,
+        function() { return 0xFF; }, function() { return 0xFFFF; }, this.port_read32);
+    cpu.io.register_write(VMWARE_PORT, this, nop, nop, nop);
 }
 
 VMwareMouse.prototype.push_packet = function(wheel, move_only)
@@ -120,7 +124,7 @@ VMwareMouse.prototype.push_packet = function(wheel, move_only)
 VMwareMouse.prototype.port_read32 = function()
 {
     const reg32 = this.cpu.reg32;
-    if((reg32[REG_EAX] | 0) !== (VMWARE_MAGIC | 0))
+    if(reg32[REG_EAX] !== VMWARE_MAGIC)
     {
         return 0xFFFFFFFF | 0;
     }
@@ -149,9 +153,9 @@ VMwareMouse.prototype.port_read32 = function()
         }
 
         case CMD_ABSPOINTER_COMMAND:
-            switch(reg32[REG_EBX] | 0)
+            switch(reg32[REG_EBX])
             {
-                case ABSPOINTER_ENABLE | 0:
+                case ABSPOINTER_ENABLE:
                     this.enabled = true;
                     this.queue.length = 0;
                     this.tail_is_move = false;
@@ -163,11 +167,11 @@ VMwareMouse.prototype.port_read32 = function()
                     this.queue.length = 0;
                     this.bus.send("vmware-absolute-mouse", false);
                     break;
-                case ABSPOINTER_ABSOLUTE | 0:
+                case ABSPOINTER_ABSOLUTE:
                     this.absolute = true;
                     this.bus.send("vmware-absolute-mouse", true);
                     break;
-                case ABSPOINTER_RELATIVE | 0:
+                case ABSPOINTER_RELATIVE:
                     this.absolute = false;
                     this.bus.send("vmware-absolute-mouse", false);
                     break;
@@ -177,8 +181,6 @@ VMwareMouse.prototype.port_read32 = function()
 
     return 0xFFFFFFFF | 0;
 };
-
-VMwareMouse.prototype.port_write32 = function() {};
 
 VMwareMouse.prototype.get_state = function()
 {
