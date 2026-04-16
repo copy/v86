@@ -403,3 +403,6 @@ doc:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
 	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
+
+denodoc:
+	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts
