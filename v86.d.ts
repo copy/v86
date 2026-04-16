@@ -72,11 +72,13 @@ type V86BufferImage =
  * .zst are automatically decompressed using a built-in zstd decompressor. This
  * has a performance overhead compared to HTTP compression, but will result in
  * better compression ration.
+ * @category V86Config
  */
 export type V86Image = V86AsyncFileImage | V86SyncFileImage | V86BufferImage;
 
 /**
  * Config for virtio/serial console.
+ * @category V86Config
  */
 export type ConsoleConfig =
     {
@@ -98,6 +100,7 @@ export type ConsoleConfig =
 
 /**
  * Config for emulator screen.
+ * @category V86Config
  */
 export type ScreenConfig =
     {
@@ -129,6 +132,10 @@ export type ScreenConfig =
         ansi?: boolean;
     };
 
+/**
+ * Debug log levels.
+ * @category V86Config
+ */
 export enum LogLevel {
     /** All devices */
     LOG_ALL = -1,
@@ -209,6 +216,10 @@ export enum LogLevel {
     LOG_SB16 = 0x800000,
 }
 
+/**
+ * Boot order.
+ * @category V86Config
+ */
 export enum BootOrder {
     /** Auto */
     AUTO = 0,
@@ -357,7 +368,8 @@ declare class FileNotFoundError extends Error {
 }
 
 /**
- * Network device configuration
+ * Network device configuration.
+ * @category V86Config
  * @see {@link https://github.com/copy/v86/blob/master/docs/networking.md} for more infos
  */
 type V86NetworkDevice =
@@ -443,7 +455,8 @@ type V86NetworkDevice =
     };
 
 /**
- * emulator instance constructor options.
+ * Emulator instance constructor options.
+ * @category V86Config
  */
 export interface V86Options {
     /**
