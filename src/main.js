@@ -88,6 +88,16 @@ v86.prototype.restart = function()
 {
     this.cpu.reset_cpu();
     this.cpu.load_bios();
+
+    const devices = this.cpu.devices;
+    for(const key in devices) {
+        if(Object.prototype.hasOwnProperty.call(devices, key)) {
+            const device = devices[key];
+            if(typeof device.reset === "function") {
+                device.reset();
+            }
+        }
+    }
 };
 
 v86.prototype.init = function(settings)
