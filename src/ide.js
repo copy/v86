@@ -563,9 +563,12 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
                 this.current_interface = this.master;
             }
         }
-        this.current_interface.device_reg = data;
-        this.current_interface.is_lba = data >> 6 & 1; // TODO: where does this definition of bit 6 come from? not in [ATA-6] or [ATA-4]!
-        this.current_interface.head = data & 0xF;      // TODO: same for lower nibble?
+        this.master.device_reg = data;
+        this.slave.device_reg = data;
+        this.master.is_lba = data >> 6 & 1; // TODO: where does this definition of bit 6 come from? not in [ATA-6] or [ATA-4]!
+        this.slave.is_lba = data >> 6 & 1;
+        this.master.head = data & 0xF;      // TODO: same for lower nibble?
+        this.slave.head = data & 0xF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_COMMAND, this, function(data)
