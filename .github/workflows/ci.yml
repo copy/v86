@@ -45,7 +45,9 @@ jobs:
           sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
 
       - name: Build all-debug
-        run: make all-debug
+        run: |
+          rustc --version
+          make all-debug
 
       - name: Build all
         run: make all
