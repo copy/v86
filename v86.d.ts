@@ -104,7 +104,10 @@ export type ConsoleConfig =
  */
 export type ScreenConfig =
     {
-        /** HTML container for screen */
+        /**
+         * HTML container for emulator screen. This should have a certain structure.
+         * @see {@link https://github.com/copy/v86/blob/master/examples/basic.html} for example
+         */
         container?: HTMLElement | null;
 
         /**
