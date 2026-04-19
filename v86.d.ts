@@ -662,37 +662,37 @@ export interface V86Options {
     acpi?: boolean;
 
     /**
-     * log level (for debug builds)
+     * Log level (for debug builds)
      * @default LogLevel.LOG_NONE
      */
     log_level?: LogLevel;
 
     /**
-     * boot order
+     * Boot order
      * @default BootOrder.AUTO
      */
     boot_order?: BootOrder;
 
     /**
-     * fast boot, skips boot menu in bochs bios
+     * Fast boot, skips boot menu in bochs bios
      * @default false
      */
     fastboot?: boolean;
 
     /**
-     * create a virtio balloon device
+     * Create a virtio balloon device
      * @default false
      */
     virtio_balloon?: boolean;
 
     /**
-     * override the maximum supported cpuid level
-     * used for some versions of Windows, see [docs/windows-nt.md](https://github.com/copy/v86/blob/master/docs/windows-nt.md)
+     * Override the maximum supported cpuid level
+     * Used for some versions of Windows, see [docs/windows-nt.md](https://github.com/copy/v86/blob/master/docs/windows-nt.md)
      */
     cpuid_level?: number;
 
     /**
-     * turn off the x86-to-wasm jit
+     * Turn off the x86-to-wasm jit
      * @default false
      */
     disable_jit?: boolean;
@@ -711,19 +711,19 @@ export interface V86Options {
     net_device?: V86NetworkDevice;
 
     /**
-     * enable serial port 1
+     * Enable serial port 1
      * @default false
      */
     uart1?: boolean;
 
     /**
-     * enable serial port 2
+     * Enable serial port 2
      * @default false
      */
     uart2?: boolean;
 
     /**
-     * enable serial port 3
+     * Enable serial port 3
      * @default false
      */
     uart3?: boolean;
@@ -981,7 +981,7 @@ export class V86 {
      * Wait until expected text is present on the VGA text screen.
      *
      * Returns immediately if the expected text is already present on screen
-     * at the time this funtion is called.
+     * at the time this function is called.
      *
      * @param expected
      * @param options
