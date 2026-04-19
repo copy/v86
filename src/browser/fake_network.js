@@ -265,12 +265,14 @@ function handle_fake_tcp(packet, adapter)
         conn.tuple = tuple;
         conn.last = packet;
 
-        conn.hsrc = packet.eth.dest;
-        conn.psrc = packet.ipv4.dest;
+        // packet.* address fields are subarrays of the NIC TX buffer; copy
+        // them so later guest TX doesn't silently retarget our replies.
+        conn.hsrc = new Uint8Array(packet.eth.dest);
+        conn.psrc = new Uint8Array(packet.ipv4.dest);
         conn.sport = packet.tcp.dport;
-        conn.hdest = packet.eth.src;
+        conn.hdest = new Uint8Array(packet.eth.src);
         conn.dport = packet.tcp.sport;
-        conn.pdest = packet.ipv4.src;
+        conn.pdest = new Uint8Array(packet.ipv4.src);
 
         adapter.bus.pair.send("tcp-connection", conn);
 

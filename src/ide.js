@@ -499,7 +499,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write Features register: " + h(data), LOG_DISK);
         }
-        this.current_interface.features_reg = (this.current_interface.features_reg << 8 | data) & 0xFFFF;
+        this.master.features_reg = (this.master.features_reg << 8 | data) & 0xFFFF;
+        this.slave.features_reg = (this.slave.features_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_SECTOR, this, function(data)
@@ -508,7 +509,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write Sector Count register: " + h(data), LOG_DISK);
         }
-        this.current_interface.sector_count_reg = (this.current_interface.sector_count_reg << 8 | data) & 0xFFFF;
+        this.master.sector_count_reg = (this.master.sector_count_reg << 8 | data) & 0xFFFF;
+        this.slave.sector_count_reg = (this.slave.sector_count_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_LOW, this, function(data)
@@ -517,7 +519,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA Low register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_low_reg = (this.current_interface.lba_low_reg << 8 | data) & 0xFFFF;
+        this.master.lba_low_reg = (this.master.lba_low_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_low_reg = (this.slave.lba_low_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_MID, this, function(data)
@@ -526,7 +529,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA Mid register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_mid_reg = (this.current_interface.lba_mid_reg << 8 | data) & 0xFFFF;
+        this.master.lba_mid_reg = (this.master.lba_mid_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_mid_reg = (this.slave.lba_mid_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_HIGH, this, function(data)
@@ -535,7 +539,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA High register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_high_reg = (this.current_interface.lba_high_reg << 8 | data) & 0xFFFF;
+        this.master.lba_high_reg = (this.master.lba_high_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_high_reg = (this.slave.lba_high_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_DEVICE, this, function(data)
