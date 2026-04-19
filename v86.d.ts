@@ -137,82 +137,31 @@ export type ScreenConfig =
  * @category V86Config
  */
 export enum LogLevel {
-    /** All devices */
     LOG_ALL = -1,
-
-    /** None */
     LOG_NONE = 0,
-
-    /** Other devices */
     LOG_OTHER = 0x000001,
-
-    /** CPU */
     LOG_CPU = 0x000002,
-
-    /** FPU */
     LOG_FPU = 0x000004,
-
-    /** Memory */
     LOG_MEM = 0x000008,
-
-    /** DMA */
     LOG_DMA = 0x000010,
-
-    /** I/O ports */
     LOG_IO = 0x000020,
-
-    /** PS2 */
     LOG_PS2 = 0x000040,
-
-    /** PIC */
     LOG_PIC = 0x000080,
-
-    /** VGA */
     LOG_VGA = 0x000100,
-
-    /** PIT */
     LOG_PIT = 0x000200,
-
-    /** Mouse */
     LOG_MOUSE = 0x000400,
-
-    /** PCI bus */
     LOG_PCI = 0x000800,
-
-    /** BIOS */
     LOG_BIOS = 0x001000,
-
-    /** Floppy controller */
     LOG_FLOPPY = 0x002000,
-
-    /** Serial port */
     LOG_SERIAL = 0x004000,
-
-    /** IDE */
     LOG_DISK = 0x008000,
-
-    /** RTC */
     LOG_RTC = 0x010000,
-
-    /** HPET */
     LOG_HPET = 0x020000,
-
-    /** ACPI */
     LOG_ACPI = 0x040000,
-
-    /** ACPI */
     LOG_APIC = 0x080000,
-
-    /** Network card */
     LOG_NET = 0x100000,
-
-    /** Virtio bus */
     LOG_VIRTIO = 0x200000,
-
-    /** Virtio 9p */
     LOG_9P = 0x400000,
-
-    /** Soundblaster 16 (sound card) */
     LOG_SB16 = 0x800000,
 }
 
@@ -221,22 +170,11 @@ export enum LogLevel {
  * @category V86Config
  */
 export enum BootOrder {
-    /** Auto */
     AUTO = 0,
-
-    /** CD -> Floppy -> HDD */
     CD_FLOPPY_HARDDISK = 0x213,
-
-    /** CD -> HDD -> Floppy */
     CD_HARDDISK_FLOPPY = 0x123,
-
-    /** Floppy -> CD -> HDD */
     FLOPPY_CD_HARDDISK = 0x231,
-
-    /** Floppy -> HDD -> CD */
     FLOPPY_HARDDISK_CD = 0x321,
-
-    /** HDD -> CD -> Floppy */
     HARDDISK_CD_FLOPPY = 0x132,
 }
 
@@ -244,27 +182,16 @@ export enum BootOrder {
  * Emulator events.
  */
 export interface Event {
-    /** Attaching 9p filesystem */
     "9p-attach": void;
-
-    /** End of reading from 9p filesystem */
     "9p-read-end": [filename: string, byte_count: number];
-
-    /** Start of reading from 9p filesystem */
     "9p-read-start": [filename: string];
-
-    /** End of writing to 9p filesystem */
     "9p-write-end": [filename: string, byte_count: number];
-
-    /** Download error */
     "download-error": {
         file_index: number,
         file_count: number,
         file_name: string,
         request: any,
     };
-
-    /** Download progress */
     "download-progress": {
         file_index: number,
         file_count: number,
@@ -273,77 +200,29 @@ export interface Event {
         total: number,
         loaded: number,
     };
-
-    /** Emulator loaded */
     "emulator-loaded": void;
-
-    /** Emulator ready */
     "emulator-ready": void;
-
-    /** Emulator started */
     "emulator-started": void;
-
-    /** Emulator stopped */
     "emulator-stopped": void;
-
-    /** End of network receive */
     "eth-receive-end": [byte_count: number];
-
-    /** End of network transmit */
     "eth-transmit-end": [byte_count: number];
-
-    /** End of IDE device reading */
     "ide-read-end": [channel_nr: number, byte_count: number, sector_count: number];
-
-    /** Start of IDE device reading */
     "ide-read-start": void;
-
-    /** Start of IDE device writing */
     "ide-write-end": [channel_nr: number, byte_count: number, sector_count: number];
-
-    /** Mouse status */
     "mouse-enable": boolean;
-
-    /** Network card 0: sending */
     "net0-send": Uint8Array;
-
-    /** Put character on text mode screen. Note: `chr` is an index in the character map */
     "screen-put-char": [row: number, col: number, chr: number];
-
-    /** Set screen size. If `bpp` is 0, guest OS uses text mode */
     "screen-set-size": [width: number, height: number, bpp: number];
-
-    /** Serial port 0: input */
     "serial0-input": number;
-
-    /** Serial port 0: output */
     "serial0-output-byte": number;
-
-    /** Serial port 1: input */
     "serial1-input": number;
-
-    /** Serial port 1: output */
     "serial1-output-byte": number;
-
-    /** Serial port 2: input */
     "serial2-input": number;
-
-    /** Serial port 2: output */
     "serial2-output-byte": number;
-
-    /** Serial port 3: input */
     "serial3-input": number;
-
-    /** Serial port 3: output */
     "serial3-output-byte": number;
-
-    /** Virtio console 0: output */
     "virtio-console0-output-bytes": Uint8Array;
-
-    /** Virtio console 0: input */
     "virtio-console0-input-bytes": Uint8Array;
-
-    /** Virtio console 0: resize */
     "virtio-console0-resize": [cols: number, rows: number];
 }
 
