@@ -482,16 +482,23 @@ Modem.prototype.cli_translate_dial_address = function(dial_address, use_wss_prot
     }
     else if(dial_address.length)
     {
-        const m = dial_address.match(/(\d{3})(\d{3})(\d{3})(\d{3})(\d{0,5})$/);
+        const m = dial_address.match(/(\d{1,3})[^\d]*(\d{1,3})[^\d]*(\d{1,3})[^\d]*(\d{1,3})[^\d]*(\d{0,5})/);
         if(m)
         {
-            ws_address = Number(m[1]) + "." + Number(m[2]) + "." + Number(m[3]) + "." + Number(m[4]);
-            if(m[5].length)
+            const num = (index, limit) => {
+                if(m[index].length) {
+                    const n = Number(m[index]);
+                    return n < limit ? n : -1;
+                }
+                return undefined;
+            };
+            const n1 = num(1, 256), n2 = num(2, 256), n3 = num(3, 256), n4 = num(4, 256), n5 = num(5, 65536);
+            if(n1 >= 0 && n2 >= 0 && n3 >= 0 && n4 >= 0 && (n5 === undefined || n5 >= 0))
             {
-                ws_address += ":" + Number(m[5]);
+                ws_address = n5 === undefined ? `${n1}.${n2}.${n3}.${n4}` : `${n1}.${n2}.${n3}.${n4}:${n5}`;
             }
         }
-        else
+        if(ws_address === undefined)
         {
             ws_address = dial_address;
         }

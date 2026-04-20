@@ -20,8 +20,6 @@ Limitations:
 
 At **https://copy.sh/v86/**, enable the Modem by selecting a COM-Port (UART) from its menu (default: `None`).
 
-`UART0` should be avoided as it is used for the serial console, only use it if you're sure that it is available in your configuration.
-
 ### Code-based setup
 
 Use the optional `modem` field in the v86 `options` Object to enable the Modem:
@@ -30,18 +28,18 @@ Use the optional `modem` field in the v86 `options` Object to enable the Modem:
 const options = {
     // ...
     modem: {
-        uart: 1
+        uart: 2
     },
     // ...
 };
-let emulator = new V86(options);
+const emulator = new V86(options);
 ```
 
 The `modem` field defines an Object with the supported Modem settings:
 
 | Setting                     | Type    | Description |
 | :-------------------------- | :------ | :---------- |
-| **uart**                    | number  | Required, selects the UART that the Modem is connected to: 0, 1, 2 or 3. The selected UART is automatically enabled in the v86 device tree. |
+| **uart**                    | number  | Required, selects the UART that the Modem is connected to: 1, 2, 3 or 4 (for UART0 to UART3, respectively). The selected UART is automatically enabled in the v86 device tree. |
 | **phonebook**               | Object  | Optional, maps address strings received in dial commands to WebSocket address strings. |
 
 #### Example `modem` settings
@@ -49,10 +47,10 @@ The `modem` field defines an Object with the supported Modem settings:
 Install Modem on UART1 and map dial address `123` to WebSocket address `wss://example.com:5678`:
 
 ```javascript
-let example_1 = new V86({
+const emulator = new V86({
    // ...
    modem: {
-       uart: 1,
+       uart: 2,
        phonebook: {"123": "wss://example.com:5678"}
    }
 });
@@ -62,7 +60,7 @@ let example_1 = new V86({
 
 The v86 Modem behaves as described in V.250 when decoding command lines, executing commmands or when generating informational and result code messages.
 
-All command lines have the common basic syntax
+All command lines share the common basic syntax:
 
 * **AT &lt;CMD&gt;[&lt;ARG&gt;] [&lt;CMD&gt;[&lt;ARG&gt;] ...] &lt;CR&gt;**
 
@@ -72,7 +70,7 @@ Maximum accepted command line length is 256 characters.
 
 ### AT command set
 
-This Modem emulation implements all V.250 **base** commands plus a few from the Telit command set (in order to simplify the command syntax).
+This Modem emulation implements all V.250 **baseline** commands plus a few from the Telit command set (in order to simplify the command syntax).
 
 Some commands (like **L**, **M** and **X**) have no effect in this emulation.
 
@@ -121,7 +119,7 @@ If the optional **;** is present at the end of the dial command then the Modem w
 The Modem follows these rules to translate **&lt;dial-address&gt;** into a WebSocket address string:
 
 * It first checks whether its phonebook contains a matching entry for **&lt;dial-address&gt;** and, if it exists, uses that entry's mapped value as the WebSocket address string.
-* Otherwise, if **&lt;dial-address&gt;** is a sequence of 12 to 17 digits then it is interpreted as a digit-encoded IPv4 address with an optional port number. The first 12 digits are split into 4 groups of 3 digits each, each group represents one of the 4 tuples of the IPv4 address (zero-padded, left to right). The remaining 0 to 5 digits represent the optional port number. For example, `1921680330022345` is decoded into IPv4 address and port `192.168.33.2:2345`.
+* Otherwise, if **&lt;dial-address&gt;** is an IPv4/Port-address in either dotted-IP:Port or zero-padded IP/Port notation then it is translated into an equivalent WebSocket address (the Port number is always optional). Note that in **dotted-IP:Port notation**, any non-digit and non-whitespace characters may be used as separator characters for the four IPv4 octets and the Port number. A **zero-padded IP/Port-number** is a sequence of 12 to 17 digits where the four IPv4 octets are encoded as 3-digit, zero-padded numbers followed by an optional Port number (for example, `1921680330021111` is translated into IPv4 address and Port `192.168.33.2:1111`).
 * If **&lt;dial-address&gt;** is not defined in the phonebook and it is also not a digit-encoded IPv4 address, then **&lt;dial-address&gt;** is directly used as the WebSocket address string.
 
 If the translated WebSocket address string does not already start with `ws://` or `wss://`, then
@@ -141,6 +139,7 @@ then all of these dial commands will connect to same WebSocket server:
 
 ```
 AT D 111.22.3.44:56789
+AT D 111-22-3-44-56789
 AT D example.com:56789
 AT D "example.com:56789"        # NOTE: use quotes if your address starts with a "P", "T, "p" or a "t"
 AT D ws://example.com:56789
@@ -189,17 +188,19 @@ Of course, any suitable application can be passed to `websocketd` to execute, in
 Demonstrates a WebSocket-PPP concentrator for up to 4 simultaneously connected Modems using `pppd`.
 
 > [!NOTE]
-> The limit of 4 is arbitrary, this example supports any limit in the range of 1 to 253 connections, though the method used to manage the pool gets unpractical for larger pool sizes.
+> The limit of 4 connections is arbitrary, this example supports any limit in the range of 1 to 253 connections, though the method used to manage the pool gets unpractical for larger pool sizes.
 
 Create a script file `wsppp.sh` with the following content, note the variables at the top which you will likely have to adjust to your host's environment:
 
 ```bash
 #!/bin/bash
 
+# WS_PORT: WebSocket server port number
 # ETH_IF: your host's ethernet interface name, for example: "eth0"
 # SUBNET: any private /24 address space that is not used on your host's network
 # LOCAL_IP: should be the first IP in SUBNET (ending on ".1"), must not be used in the pool
 # REMOTE_IP_POOL: pool of client IPs, any subset of the remaining IPs in SUBNET (ending on ".2" ... ".254")
+WS_PORT=23456
 ETH_IF=enp0s3
 SUBNET=192.168.100.0/24
 LOCAL_IP=192.168.100.1
@@ -222,7 +223,9 @@ if [[ $# -gt 0 ]]; then
             break
         fi
     done
-    [ -z "$REMOTE_IP" ] && exit 1
+    if [[ -z "$REMOTE_IP" ]]; then
+        exit 1
+    fi
     # exec pppd (exec never returns), arguments:
     # - nodetach, notty, local: do not fork into background, transport is a raw stream
     # - noauth: do not require the peer to authenticate itself
@@ -253,11 +256,12 @@ iptables -t nat -A POSTROUTING -o "$ETH_IF" -s "$SUBNET" -j MASQUERADE
 iptables -A FORWARD -i ppp+ -o "$ETH_IF" -j ACCEPT
 iptables -A FORWARD -i "$ETH_IF" -o ppp+ -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-# call websocketd, limit number of simultaneous WebSocket connections to tbe size of the pool
-websocketd -binary --maxforks ${#REMOTE_IP_POOL[@]} --port 23456 "$0" --exec-pppd
+# execute websocketd, limit number of simultaneous WebSocket connections to tbe pool size
+# for each accepted WebSocket connection, execute this script again but with command line option "--exec-pppd"
+websocketd -binary --maxforks ${#REMOTE_IP_POOL[@]} --port $WS_PORT "$0" --exec-pppd
 ```
 
-Make the script executable using `chmod +x wsppp.sh`, then start the WebSocket server using:
+Make the script executable using `chmod +x wsppp.sh`, then start the WebSocket server as root using:
 
 ```bash
 sudo ./wsppp.sh
