@@ -209,18 +209,18 @@ V86.prototype.continue_init = async function(emulator, options)
         options.fda ? BOOT_ORDER_FD_FIRST :
         options.hda ? BOOT_ORDER_HD_FIRST : BOOT_ORDER_CD_FIRST;
 
-    if(options.modem && options.modem.uart !== undefined)
+    if(options.modem && options.modem.uart)
     {
         settings.modem = options.modem;
         switch(options.modem.uart)
         {
-            case 1:
+            case 2:
                 options.uart1 = true;
                 break;
-            case 2:
+            case 3:
                 options.uart2 = true;
                 break;
-            case 3:
+            case 4:
                 options.uart3 = true;
                 break;
         }
@@ -335,7 +335,7 @@ V86.prototype.continue_init = async function(emulator, options)
         this.virtio_console_adapter = new VirtioConsoleAdapter(virtio_console_settings.container, this.bus);
     }
 
-    if(settings.modem)
+    if(settings.modem?.uart)
     {
         this.modem = new Modem(this.bus, settings.modem);
     }

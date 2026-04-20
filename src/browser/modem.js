@@ -105,7 +105,7 @@ export function Modem(bus, options)
     this.bus = bus;
 
     /** @const @type {number} */
-    this.uart = options.uart;
+    this.uart = options.uart - 1;
 
     /** @const @type {TextDecoder} */
     this.decoder = new TextDecoder();
