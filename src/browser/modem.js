@@ -94,6 +94,9 @@ const SEND_BUF_MAX_IDLE_TIME_MS = 5;
 // matches all strings that start with "ws://" or "wss://" (case-insensitive)
 const RE_WS_ADDR = /^ws[s]?:\/\//i;
 
+const text_encoder = new TextEncoder();
+const text_decoder = new TextDecoder();
+
 /**
  * @constructor
  * @param {BusConnector} bus
@@ -106,12 +109,6 @@ export function Modem(bus, options)
 
     /** @const @type {number} */
     this.uart = options.uart - 1;
-
-    /** @const @type {TextDecoder} */
-    this.decoder = new TextDecoder();
-
-    /** @const @type {TextEncoder} */
-    this.encoder = new TextEncoder();
 
     /** @const @type {Uint8Array} */
     this.cli_buffer = new Uint8Array(CMDLINE_BUF_SIZE);
@@ -267,7 +264,7 @@ Modem.prototype.uart_write_byte = function(data)
  */
 Modem.prototype.uart_write = function(str)
 {
-    for(const ch of this.encoder.encode(str))
+    for(const ch of text_encoder.encode(str))
     {
         this.uart_write_byte(ch);
     }
@@ -425,7 +422,7 @@ Modem.prototype.cli_mode_uart_recv = function(uart_byte)
             }
             else
             {
-                this.cli_exec(this.decoder.decode(this.cli_buffer.slice(0, this.cli_cursor)).replace(/\s/g, ""));
+                this.cli_exec(text_decoder.decode(this.cli_buffer.slice(0, this.cli_cursor)).replace(/\s/g, ""));
             }
             this.cli_cursor = 0;
             break;
