@@ -578,10 +578,10 @@ Modem.prototype.cli_exec_dial = function(dial_address, offset)
     this.socket.addEventListener("message", (event) => {
         if(this.in_data_mode && (!this.use_rtscts_flowctrl || this.rts_state))
         {
-            const view = new DataView(event.data);
+            const bytes = new Uint8Array(event.data);
             for(let i=0; i<event.data.byteLength; i++)
             {
-                this.uart_write_byte(view.getUint8(i));
+                this.uart_write_byte(bytes[i]);
             }
         }
     });
