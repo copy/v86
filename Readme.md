@@ -192,7 +192,7 @@ var emulator = new V86({
 });
 ```
 
-See [starter.js](src/browser/starter.js).
+See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
 
 ## License
 
