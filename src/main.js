@@ -86,8 +86,7 @@ v86.prototype.destroy = function()
 
 v86.prototype.restart = function()
 {
-    this.cpu.reset_cpu();
-    this.cpu.load_bios();
+    this.cpu.reboot_internal();
 };
 
 v86.prototype.init = function(settings)
