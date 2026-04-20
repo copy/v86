@@ -740,6 +740,33 @@ fn jit_find_basic_blocks(
         }
     }
 
+    // delete edges pointing to blocks that were dropped (currently only due to STI near the end of a page)
+    let known_addresses: HashSet<u32> = basic_blocks.keys().copied().collect();
+    for block in basic_blocks.values_mut() {
+        match &mut block.ty {
+            BasicBlockType::Normal {
+                next_block_addr, ..
+            } => {
+                if next_block_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_addr = None;
+                }
+            },
+            BasicBlockType::ConditionalJump {
+                next_block_addr,
+                next_block_branch_taken_addr,
+                ..
+            } => {
+                if next_block_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_addr = None;
+                }
+                if next_block_branch_taken_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_branch_taken_addr = None;
+                }
+            },
+            BasicBlockType::Exit | BasicBlockType::AbsoluteEip => {},
+        }
+    }
+
     let basic_blocks: Vec<BasicBlock> = basic_blocks.into_iter().map(|(_, block)| block).collect();
 
     for i in 0..basic_blocks.len() - 1 {
