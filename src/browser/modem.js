@@ -610,8 +610,7 @@ Modem.prototype.cli_exec = function(cmdline)
     let offset = cmdline.search(/(at|AT)/);
     if(offset < 0)
     {
-        dbg_log(`error: missing AT in command line "${cmdline}"`, LOG_MODEM);
-        this.cli_write_response_code(AT_RESP_ERROR);
+        this.cli_write_response_code(AT_RESP_OK);
         return;
     }
     offset += 2;
