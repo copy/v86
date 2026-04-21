@@ -14,6 +14,9 @@ const DEBUG = process.env.DEBUG || false;
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
 // Default to true for now. It's slower, but async execution occasionally gets stuck
 const SYNC_GDB_EXECUTION = process.env.SYNC_GDB_EXECUTION || true;
+const test_name_index = process.argv.indexOf("--test-name");
+const test_name_arg = test_name_index !== -1 ? process.argv[test_name_index + 1] : "";
+const TEST_NAME = new RegExp(process.env.TEST_NAME || test_name_arg || "", "i");
 
 // Usage: console.log(CYAN_FMT, "This shows up in cyan!")
 const CYAN_FMT = "\x1b[36m%s\x1b[0m";
@@ -61,13 +64,18 @@ assert(
 
 const dir_files = fs.readdirSync(BUILD_DIR);
 const test_files = dir_files.filter(name => {
-    return name.endsWith(".img");
+    return name.endsWith(".img") && TEST_NAME.test(name);
 }).map(name => {
     return name.slice(0, -4);
 }).filter(name => {
     const bin_file = path.join(BUILD_DIR, `${name}.img`);
     const fixture_file = path.join(BUILD_DIR, `${name}.fixture`);
     if(!fs.existsSync(fixture_file))
+    {
+        return true;
+    }
+    const fixture_content = fs.readFileSync(fixture_file, "utf8");
+    if(!fixture_content.includes("---BEGIN JSON---"))
     {
         return true;
     }

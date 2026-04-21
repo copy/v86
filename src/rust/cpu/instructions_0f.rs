@@ -1191,6 +1191,13 @@ pub unsafe fn instr_0F30() {
     }
 
     match index {
+        MSR_EFER => {
+            let value = (high as u64) << 32 | (low as u32) as u64;
+            if value != *efer {
+                full_clear_tlb();
+            }
+            *efer = value;
+        },
         IA32_SYSENTER_CS => *sysenter_cs = low & 0xFFFF,
         IA32_SYSENTER_EIP => *sysenter_eip = low,
         IA32_SYSENTER_ESP => *sysenter_esp = low,
@@ -1270,6 +1277,11 @@ pub unsafe fn instr_0F32() {
     let mut high = 0;
 
     match index {
+        MSR_EFER => {
+            let val = *efer;
+            low = val as i32;
+            high = (val >> 32) as i32;
+        },
         IA32_SYSENTER_CS => low = *sysenter_cs,
         IA32_SYSENTER_EIP => low = *sysenter_eip,
         IA32_SYSENTER_ESP => low = *sysenter_esp,
@@ -3246,10 +3258,10 @@ pub unsafe fn instr_0FA2() {
             if config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
             }; // hypervisor
-            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
-                    vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
-                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
-                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
+            edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
+                1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
 
             if *acpi_enabled
             //&& this.apic_enabled[0])
@@ -3310,8 +3322,16 @@ pub unsafe fn instr_0FA2() {
 
         0x80000000 => {
             // maximum supported extended level
-            eax = 5;
+            eax = 0x80000001u32 as i32;
             // other registers are reserved
+        },
+
+        0x80000001 => {
+            let vme = 0 << 1;
+            edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 20 | // cx8, sep, pge, cmov, nx
+                1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
         },
 
         0x40000000 => {
@@ -3322,6 +3342,13 @@ pub unsafe fn instr_0FA2() {
                 ecx = 0x4D566572 | 0; // reVM
                 edx = 0x65726177 | 0; // ware
             }
+        },
+
+        0x80000008 => {
+            eax = 32; // physical address width
+            ebx = 0;
+            ecx = 0;
+            edx = 0;
         },
 
         0x15 => {
@@ -3817,7 +3844,7 @@ pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
 pub unsafe fn instr_F30FC2(source: i32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
-    let source: f32 = f32::from_bits(i32::cast_unsigned(source));
+    let source: f32 = f32::from_bits(source as u32);
     let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
     write_xmm32(r, result);
 }
