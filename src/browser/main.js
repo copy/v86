@@ -1775,6 +1775,7 @@ function onload()
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
     if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
+    if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
     for(const dev of ["fda", "fdb"])
     {
@@ -2186,7 +2187,7 @@ function start_emulation(profile, query_args)
         settings.disable_audio = bool_arg(query_args.get("mute"));
         if(query_args.has("modem"))
         {
-            settings.modem = { modem_uart: parseInt(query_args.get("modem"), 10) || 0 };
+            settings.modem = { uart: parseInt(query_args.get("modem"), 10) || 0 };
         }
     }
 
