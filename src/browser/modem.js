@@ -682,16 +682,13 @@ Modem.prototype.cli_exec = function(cmdline)
             }
         }
 
-        if(DEBUG)
+        if(arg !== undefined)
         {
-            if(arg !== undefined)
-            {
-                dbg_log(`AT command: "${cmd}${arg}"`, LOG_MODEM);
-            }
-            else
-            {
-                dbg_log(`AT command: "${cmd}"`, LOG_MODEM);
-            }
+            dbg_log(`AT command: "${cmd}${arg}"`, LOG_MODEM);
+        }
+        else
+        {
+            dbg_log(`AT command: "${cmd}"`, LOG_MODEM);
         }
 
         switch(cmd)
