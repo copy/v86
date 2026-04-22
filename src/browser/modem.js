@@ -417,8 +417,10 @@ Modem.prototype.cli_mode_uart_recv = function(uart_byte)
         case this.sreg[SREG_CR]:
             if(this.cli_overflow)
             {
+                const data = text_decoder.decode(this.cli_buffer.buffer);
+                dbg_log(`error: AT command buffer overflow: "${data}"`, LOG_MODEM);
                 this.cli_overflow = false;
-                this.cli_write_response_code(AT_RESP_ERROR);
+                // do NOT send any response when clearing buffer after overflow
             }
             else
             {
@@ -502,7 +504,7 @@ Modem.prototype.cli_translate_dial_address = function(dial_address, use_wss_prot
         {
             ws_address = dial_address;
         }
-        if(ws_address && !RE_WS_ADDR.test(ws_address))
+        if(!RE_WS_ADDR.test(ws_address))
         {
             ws_address = (use_wss_protocol ? "wss://" : "ws://") + ws_address;
         }
@@ -569,6 +571,7 @@ Modem.prototype.cli_exec_dial = function(dial_address, offset)
 
     this.socket.binaryType = "arraybuffer";
     this.socket.addEventListener("open", (event) => {
+        this.data_mode_send_cursor = 0;
         if(enter_data_mode)
         {
             this.enter_data_mode();
@@ -607,10 +610,25 @@ Modem.prototype.cli_exec_dial = function(dial_address, offset)
 Modem.prototype.cli_exec = function(cmdline)
 {
     const length = cmdline.length;
+    if(length === 0)
+    {
+        dbg_log(`received empty AT command line`, LOG_MODEM);
+        if(this.socket && this.socket.readyState === WebSocket.CONNECTING)
+        {
+            // abort dial command, exit parser without response (delayed in "close" socket event)
+            this.socket.close();
+        }
+        else
+        {
+            this.cli_write_response_code(AT_RESP_OK);
+        }
+        return;
+    }
     let offset = cmdline.search(/(at|AT)/);
     if(offset < 0)
     {
-        this.cli_write_response_code(AT_RESP_OK);
+        // do NOT send any response for non-empty lines without AT command (Trumpet Winsock trips over this)
+        dbg_log(`error: missing AT command in "${cmdline}"`, LOG_MODEM);
         return;
     }
     offset += 2;
@@ -760,7 +778,7 @@ Modem.prototype.cli_exec = function(cmdline)
             case "X":   // X[0..4]: Result code selection
                 break;
             case "Z":   // Z[0]: Reset to default configuration
-            case "&F":  // &F[0]: Set to factory-defined configuration (same as Z)
+            case "&F":  // &F[0]: Set to factory-defined configuration (same as Z, but continue command line evaluation)
                 if(this.socket)
                 {
                     this.reset_on_disconnect = true;
@@ -770,7 +788,6 @@ Modem.prototype.cli_exec = function(cmdline)
                 else
                 {
                     this.reset();
-                    response_code = AT_RESP_OK;
                 }
                 break;
             case "&C":  // &C[0..1]: Received line signal (DCD) detector behaviour
