@@ -28,20 +28,40 @@ const emulator = new V86(config);
 let did_restart = false;
 let serial_text = "";
 
-emulator.add_listener("serial0-output-byte", function(byte)
+const timeout = setTimeout(() => {
+    console.log(serial_text);
+    throw new Error("Timeout");
+}, 60 * 1000);
+
+emulator.add_listener("serial0-output-byte", async function(byte)
 {
     var chr = String.fromCharCode(byte);
+    process.stdout.write(chr);
     serial_text += chr;
 
-    if(serial_text.includes("Files send via emulator appear in /mnt/")) {
-        serial_text = "";
-        if(did_restart) {
+    if(did_restart)
+    {
+        if(serial_text.endsWith("Files send via emulator appear in /mnt/"))
+        {
+            console.log("running echo");
+            emulator.keyboard_send_text("echo fini''shed\n");
+
+            await emulator.wait_until_vga_screen_contains("finished");
             console.log("Ok");
             emulator.destroy();
+            clearTimeout(timeout);
         }
-        else {
-            console.log("Calling restart()");
-            emulator.restart();
+    }
+    else
+    {
+        if(serial_text.endsWith("~% "))
+        {
+            emulator.keyboard_send_text("abc");
+            setTimeout(() => {
+                console.log("Calling restart()");
+                emulator.restart();
+            }, 500);
+            serial_text = "";
             did_restart = true;
         }
     }
