@@ -67,6 +67,17 @@ export function V86(options)
         "cpu_event_halt": () => { this.emulator_bus.send("cpu-event-halt"); },
         "abort": function() { dbg_assert(false); },
         "microtick": v86.microtick,
+        "get_epoch_milis": function () { return Date.now(); },
+        "getDate": function (date) { return (new Date(date)).getUTCDate(); },
+        "getDay": function (date) { return (new Date(date)).getUTCDay(); },
+        "getFullYear": function (date) { return (new Date(date)).getUTCFullYear(); },
+        "getMonth": function (date) { return (new Date(date)).getUTCMonth(); },
+        "getHours": function (date) { return (new Date(date)).getUTCHours(); },
+        "getMinutes": function (date) { return (new Date(date)).getUTCMinutes(); },
+        "getSeconds": function (date) { return (new Date(date)).getUTCSeconds(); },
+        "newDate": function (year, month, day, hour, minute, second) {
+            return new Date(Date.UTC(year, month, day, hour, minute, second));
+        },
         "get_rand_int": function() { return get_rand_int(); },
         "stop_idling": function() { return cpu.stop_idling(); },
 
