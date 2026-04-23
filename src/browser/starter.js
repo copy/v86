@@ -1221,14 +1221,6 @@ V86.prototype.serial_send_bytes = function(serial, data)
 };
 
 /**
- * Set the modem status of a serial port.
- */
-V86.prototype.serial_set_modem_status = function(serial, status)
-{
-    this.bus.send("serial" + serial + "-modem-status-input", status);
-};
-
-/**
  * Set the carrier detect status of a serial port.
  */
 V86.prototype.serial_set_carrier_detect = function(serial, status)
