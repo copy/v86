@@ -619,6 +619,8 @@ V86.prototype.continue_init = async function(emulator, options)
 
         this.v86.init(settings);
 
+        this.modem && this.modem.initialize();
+
         if(settings.initial_state)
         {
             emulator.restore_state(settings.initial_state);
@@ -817,6 +819,7 @@ V86.prototype.destroy = async function()
     this.serial_adapter && this.serial_adapter.destroy();
     this.speaker_adapter && this.speaker_adapter.destroy();
     this.virtio_console_adapter && this.virtio_console_adapter.destroy();
+    this.modem && this.modem.destroy();
 };
 
 /**

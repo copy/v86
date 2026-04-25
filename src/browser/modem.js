@@ -114,6 +114,7 @@ export function Modem(bus, options)
     this.cli_buffer = new Uint8Array(CMDLINE_BUF_SIZE);
 
     // state that is not defined in this.reset():
+    this.destroyed = false;
     this.dtr_state = false;
     this.rts_state = false;
     this.sreg = new Uint8Array(6);
@@ -130,66 +131,41 @@ export function Modem(bus, options)
 
     this.reset();
 
-    this.bus.register("serial" + this.uart + "-data-terminal-ready-output", function(dtr_state)
-    {
-        dtr_state = !!dtr_state;
-        if(this.dtr_state !== dtr_state)
-        {
-            dbg_log(`DTR=${dtr_state}`, LOG_MODEM);
-            this.dtr_state = dtr_state;
-            if(this.socket && !dtr_state)
-            {
-                if(this.dtr_low_behaviour === DTR_LOW_KEEP_CONN)
-                {
-                    this.enter_cli_mode();
-                    this.cli_write_response_code(AT_RESP_OK);
-                }
-                else if(this.dtr_low_behaviour === DTR_LOW_DROP_CONN)
-                {
-                    this.socket.close();
-                }
-            }
-        }
-    }, this);
-
-    this.bus.register("serial" + this.uart + "-request-to-send-output", function(rts_state)
-    {
-        rts_state = !!rts_state;
-        if(this.rts_state !== rts_state)
-        {
-            dbg_log(`RTS=${rts_state}`, LOG_MODEM);
-            this.rts_state = rts_state;
-        }
-    }, this);
-
-    this.bus.register("serial" + this.uart + "-output-byte", function(data)
-    {
-        if(this.data_mode_esc_timer !== null)
-        {
-            clearTimeout(this.data_mode_esc_timer);
-            this.data_mode_esc_timer = null;
-        }
-        if(this.in_data_mode)
-        {
-            this.data_mode_uart_recv(data);
-        }
-        else
-        {
-            this.cli_mode_uart_recv(data);
-        }
-    }, this);
-
-    // must wait for CPU to be initialized before we can use the bus
-    this.bus.register("emulator-ready", function()
-    {
-        this.uart_set_dsr(true);
-        this.uart_set_cts(true);
-        this.uart_set_ring(false);
-        this.uart_set_dcd(false);
-    }, this);
-
-    dbg_log(`Modem at UART${this.uart} ready`, LOG_MODEM);
+    this.bus.register("serial" + this.uart + "-data-terminal-ready-output", this.uart_dtr_changed, this);
+    this.bus.register("serial" + this.uart + "-request-to-send-output", this.uart_rts_changed, this);
+    this.bus.register("serial" + this.uart + "-output-byte", this.uart_byte_received, this);
 }
+
+Modem.prototype.initialize = function()
+{
+    this.uart_set_dsr(true);
+    this.uart_set_cts(true);
+    this.uart_set_ring(false);
+    this.uart_set_dcd(false);
+    dbg_log(`Modem at UART${this.uart} ready`, LOG_MODEM);
+};
+
+Modem.prototype.destroy = function()
+{
+    this.destroyed = true;
+    this.bus.unregister("serial" + this.uart + "-data-terminal-ready-output", this.uart_dtr_changed);
+    this.bus.unregister("serial" + this.uart + "-request-to-send-output", this.uart_rts_changed);
+    this.bus.unregister("serial" + this.uart + "-output-byte", this.uart_byte_received);
+    if(this.data_mode_send_inverval !== null)
+    {
+        clearInterval(this.data_mode_send_inverval);
+        this.data_mode_send_inverval = null;
+    }
+    if(this.data_mode_esc_timer !== null)
+    {
+        clearTimeout(this.data_mode_esc_timer);
+        this.data_mode_esc_timer = null;
+    }
+    if(this.socket)
+    {
+        this.socket.close();
+    }
+};
 
 Modem.prototype.reset = function()
 {
@@ -267,6 +243,64 @@ Modem.prototype.uart_write = function(str)
     for(const ch of text_encoder.encode(str))
     {
         this.uart_write_byte(ch);
+    }
+};
+
+/**
+ * @param {boolean} dtr_state
+ */
+Modem.prototype.uart_dtr_changed = function(dtr_state)
+{
+    dtr_state = !!dtr_state;
+    if(this.dtr_state !== dtr_state)
+    {
+        dbg_log(`DTR=${dtr_state}`, LOG_MODEM);
+        this.dtr_state = dtr_state;
+        if(this.socket && !dtr_state)
+        {
+            if(this.dtr_low_behaviour === DTR_LOW_KEEP_CONN)
+            {
+                this.enter_cli_mode();
+                this.cli_write_response_code(AT_RESP_OK);
+            }
+            else if(this.dtr_low_behaviour === DTR_LOW_DROP_CONN)
+            {
+                this.socket.close();
+            }
+        }
+    }
+};
+
+/**
+ * @param {boolean} rts_state
+ */
+Modem.prototype.uart_rts_changed = function(rts_state)
+{
+    rts_state = !!rts_state;
+    if(this.rts_state !== rts_state)
+    {
+        dbg_log(`RTS=${rts_state}`, LOG_MODEM);
+        this.rts_state = rts_state;
+    }
+};
+
+/**
+ * @param {number} data
+ */
+Modem.prototype.uart_byte_received = function(data)
+{
+    if(this.data_mode_esc_timer !== null)
+    {
+        clearTimeout(this.data_mode_esc_timer);
+        this.data_mode_esc_timer = null;
+    }
+    if(this.in_data_mode)
+    {
+        this.data_mode_uart_recv(data);
+    }
+    else
+    {
+        this.cli_mode_uart_recv(data);
     }
 };
 
@@ -594,13 +628,16 @@ Modem.prototype.cli_exec_dial = function(dial_address, offset)
     });
     this.socket.addEventListener("close", (event) => {
         this.socket = null;
-        this.enter_cli_mode();
-        if(this.reset_on_disconnect)
+        if(!this.destroyed)
         {
-            this.reset();
-            this.reset_on_disconnect = false;
+            this.enter_cli_mode();
+            if(this.reset_on_disconnect)
+            {
+                this.reset();
+                this.reset_on_disconnect = false;
+            }
+            this.cli_write_response_code(AT_RESP_NO_CARRIER);
         }
-        this.cli_write_response_code(AT_RESP_NO_CARRIER);
     });
 };
 
