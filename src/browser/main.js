@@ -14,6 +14,7 @@ const DEFAULT_VGA_MEMORY_SIZE = 8;
 const DEFAULT_BOOT_ORDER = 0;
 const DEFAULT_MTU = 1500;
 const DEFAULT_NIC_TYPE = "ne2k";
+const DEFAULT_MODEM_UART = 0;
 
 const MAX_ARRAY_BUFFER_SIZE_MB = 2000;
 
@@ -1774,6 +1775,7 @@ function onload()
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
     if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
+    if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
     for(const dev of ["fda", "fdb"])
     {
@@ -2076,6 +2078,7 @@ function start_emulation(profile, query_args)
         settings.vga_memory_size = profile.vga_memory_size;
         settings.boot_order = profile.boot_order;
         settings.net_device_type = profile.net_device_type;
+        settings.modem = profile.modem;
 
         if(!DEBUG && profile.homepage)
         {
@@ -2182,6 +2185,10 @@ function start_emulation(profile, query_args)
         settings.relay_url = query_args.get("relay_url");
         settings.disable_jit = bool_arg(query_args.get("disable_jit"));
         settings.disable_audio = bool_arg(query_args.get("mute"));
+        if(query_args.has("modem"))
+        {
+            settings.modem = { uart: parseInt(query_args.get("modem"), 10) || 0 };
+        }
     }
 
     if(!settings.relay_url)
@@ -2340,6 +2347,12 @@ function start_emulation(profile, query_args)
         }
         if(settings.mtu !== DEFAULT_MTU) new_query_args.set("mtu", settings.mtu.toString());
 
+        const modem_uart = parseInt($("modem").value, 10) || DEFAULT_MODEM_UART;
+        if(!settings.modem || modem_uart !== DEFAULT_MODEM_UART)
+        {
+            settings.modem = {uart: modem_uart};
+        }
+        if(settings.modem.uart !== DEFAULT_MODEM_UART) new_query_args.set("modem", modem_uart.toString());
     }
 
     if(!query_args)
@@ -2359,6 +2372,7 @@ function start_emulation(profile, query_args)
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
         },
+        modem: settings.modem,
         autostart: true,
 
         memory_size: settings.memory_size,
