@@ -88,7 +88,6 @@ const ESC_MAX_DELAY_MS = 200;
 const CMDLINE_BUF_SIZE = 256;
 
 const SEND_BUF_SIZE = 512;
-const SEND_BUF_SAMPLE_INTERVAL_MS = 10;
 const SEND_BUF_MAX_IDLE_TIME_MS = 5;
 
 // matches all strings that start with "ws://" or "wss://" (case-insensitive)
@@ -122,7 +121,7 @@ export function Modem(bus, options)
     this.in_data_mode = false;
     this.data_mode_send_buffer = new Uint8Array(SEND_BUF_SIZE);
     this.data_mode_send_cursor = 0;
-    this.data_mode_send_inverval = null;
+    this.data_mode_send_timer = null;
     this.data_mode_esc_timer = null;
 
     this.phonebook = options.phonebook || {};
@@ -131,9 +130,9 @@ export function Modem(bus, options)
 
     this.reset();
 
-    this.bus.register("serial" + this.uart + "-data-terminal-ready-output", this.uart_dtr_changed, this);
-    this.bus.register("serial" + this.uart + "-request-to-send-output", this.uart_rts_changed, this);
-    this.bus.register("serial" + this.uart + "-output-byte", this.uart_byte_received, this);
+    this.bus.register(`serial${this.uart}-data-terminal-ready-output`, this.uart_dtr_changed, this);
+    this.bus.register(`serial${this.uart}-request-to-send-output`, this.uart_rts_changed, this);
+    this.bus.register(`serial${this.uart}-output-byte`, this.uart_byte_received, this);
 }
 
 Modem.prototype.initialize = function()
@@ -148,22 +147,32 @@ Modem.prototype.initialize = function()
 Modem.prototype.destroy = function()
 {
     this.destroyed = true;
-    this.bus.unregister("serial" + this.uart + "-data-terminal-ready-output", this.uart_dtr_changed);
-    this.bus.unregister("serial" + this.uart + "-request-to-send-output", this.uart_rts_changed);
-    this.bus.unregister("serial" + this.uart + "-output-byte", this.uart_byte_received);
-    if(this.data_mode_send_inverval !== null)
+    this.bus.unregister(`serial${this.uart}-data-terminal-ready-output`, this.uart_dtr_changed);
+    this.bus.unregister(`serial${this.uart}-request-to-send-output`, this.uart_rts_changed);
+    this.bus.unregister(`serial${this.uart}-output-byte`, this.uart_byte_received);
+    this.cancel_data_mode_send_timer();
+    this.cancel_data_mode_esc_timer();
+    if(this.socket)
     {
-        clearInterval(this.data_mode_send_inverval);
-        this.data_mode_send_inverval = null;
+        this.socket.close();
     }
+};
+
+Modem.prototype.cancel_data_mode_send_timer = function()
+{
+    if(this.data_mode_send_timer !== null)
+    {
+        clearTimeout(this.data_mode_send_timer);
+        this.data_mode_send_timer = null;
+    }
+};
+
+Modem.prototype.cancel_data_mode_esc_timer = function()
+{
     if(this.data_mode_esc_timer !== null)
     {
         clearTimeout(this.data_mode_esc_timer);
         this.data_mode_esc_timer = null;
-    }
-    if(this.socket)
-    {
-        this.socket.close();
     }
 };
 
@@ -289,11 +298,7 @@ Modem.prototype.uart_rts_changed = function(rts_state)
  */
 Modem.prototype.uart_byte_received = function(data)
 {
-    if(this.data_mode_esc_timer !== null)
-    {
-        clearTimeout(this.data_mode_esc_timer);
-        this.data_mode_esc_timer = null;
-    }
+    this.cancel_data_mode_esc_timer();
     if(this.in_data_mode)
     {
         this.data_mode_uart_recv(data);
@@ -310,13 +315,9 @@ Modem.prototype.enter_cli_mode = function()
     {
         dbg_log(`switching to command mode`, LOG_MODEM);
         this.in_data_mode = false;
+        this.cancel_data_mode_esc_timer();
+        this.cancel_data_mode_send_timer();
         this.data_mode_flush();
-        if(this.data_mode_send_inverval !== null)
-        {
-            clearInterval(this.data_mode_send_inverval);
-            this.data_mode_send_inverval = null;
-        }
-
         this.uart_set_dsr(true);
         this.uart_set_cts(true);
         this.uart_set_ring(false);
@@ -333,13 +334,7 @@ Modem.prototype.enter_data_mode = function()
     {
         dbg_log(`switching to data mode`, LOG_MODEM);
         this.in_data_mode = true;
-        this.data_mode_send_inverval = setInterval(() => {
-            if(this.data_mode_send_cursor && (performance.now() - this.uart_recv_tm) > SEND_BUF_MAX_IDLE_TIME_MS)
-            {
-                this.data_mode_flush();
-            }
-        }, SEND_BUF_SAMPLE_INTERVAL_MS);
-
+        this.data_mode_send_cursor = 0;
         this.uart_set_ring(false);
         if(!this.dcd_always_on)
         {
@@ -370,21 +365,35 @@ Modem.prototype.data_mode_send = function(data)
 {
     if(this.socket)
     {
+        this.cancel_data_mode_send_timer();
         this.data_mode_send_buffer[this.data_mode_send_cursor++] = data;
         if(this.data_mode_send_cursor === this.data_mode_send_buffer.byteLength)
         {
             this.data_mode_flush();
+        }
+        else
+        {
+            this.data_mode_send_timer = setTimeout(() => {
+                this.data_mode_flush();
+            }, SEND_BUF_MAX_IDLE_TIME_MS);
         }
     }
 };
 
 Modem.prototype.data_mode_flush = function()
 {
-    if(this.data_mode_send_cursor && this.socket)
+    if(this.data_mode_send_cursor && this.socket && this.socket.readyState === WebSocket.OPEN)
     {
-        this.socket.send(this.data_mode_send_buffer.slice(0, this.data_mode_send_cursor));
-        this.data_mode_send_cursor = 0;
+        if(this.data_mode_send_cursor === this.data_mode_send_buffer.byteLength)
+        {
+            this.socket.send(this.data_mode_send_buffer);
+        }
+        else
+        {
+            this.socket.send(this.data_mode_send_buffer.subarray(0, this.data_mode_send_cursor));
+        }
     }
+    this.data_mode_send_cursor = 0;
 };
 
 /**
@@ -605,7 +614,6 @@ Modem.prototype.cli_exec_dial = function(dial_address, offset)
 
     this.socket.binaryType = "arraybuffer";
     this.socket.addEventListener("open", (event) => {
-        this.data_mode_send_cursor = 0;
         if(enter_data_mode)
         {
             this.enter_data_mode();
