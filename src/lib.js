@@ -609,6 +609,14 @@ else
     {
         var http = new XMLHttpRequest();
 
+        const abort = () => http.abort();
+
+        if(options.signal)
+        {
+            if(options.signal.aborted) return;
+            options.signal.addEventListener("abort", abort, { once: true });
+        }
+
         http.open(options.method || "get", filename, true);
 
         if(options.as_json)
@@ -652,6 +660,8 @@ else
 
         http.onload = function(e)
         {
+            if(options.signal) options.signal.removeEventListener("abort", abort);
+
             if(http.readyState === 4)
             {
                 if(http.status !== 200 && http.status !== 206)
@@ -679,6 +689,8 @@ else
 
         http.onerror = function(e)
         {
+            if(options.signal) options.signal.removeEventListener("abort", abort);
+
             console.error("Loading the image " + filename + " failed", e);
             retry();
         };

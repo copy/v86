@@ -159,7 +159,7 @@ AsyncXHRBuffer.prototype.get_from_cache = function(offset, len)
  * @param {number} len
  * @param {function(!Uint8Array)} fn
  */
-AsyncXHRBuffer.prototype.get = function(offset, len, fn)
+AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
 {
     dbg_assert(offset + len <= this.byteLength);
     dbg_assert(offset % BLOCK_SIZE === 0);
@@ -203,6 +203,7 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn)
             }
         }.bind(this),
         range: { start: requested_start, length: requested_length },
+        signal: options?.signal,
     });
 };
 
@@ -407,7 +408,7 @@ AsyncXHRPartfileBuffer.prototype.load = function()
  * @param {number} len
  * @param {function(!Uint8Array)} fn
  */
-AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn)
+AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
 {
     dbg_assert(offset + len <= this.byteLength);
     dbg_assert(offset % BLOCK_SIZE === 0);
@@ -484,6 +485,7 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn)
                             fn(blocks.subarray(m_offset, m_offset + len));
                         }
                     }.bind(this),
+                    signal: options?.signal,
                 });
             }
         }
@@ -500,6 +502,7 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn)
                 this.handle_read(offset, len, block);
                 fn(block);
             }.bind(this),
+            signal: options?.signal,
         });
     }
 };
