@@ -902,7 +902,7 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
 
     // cancellation support
     this.last_io_id = 0;
-    this.in_progress_io_ids = new Set();
+    this.in_progress_io_ids = new Map();
     this.cancelled_io_ids = new Set();
 
     // ATAPI-only
@@ -2659,7 +2659,8 @@ IDEInterface.prototype.report_write = function(byte_count)
 IDEInterface.prototype.read_buffer = function(start, length, callback)
 {
     const id = this.last_io_id++;
-    this.in_progress_io_ids.add(id);
+    const abort = new AbortController();
+    this.in_progress_io_ids.set(id, abort);
 
     this.buffer.get(start, length, data =>
     {
@@ -2673,14 +2674,15 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
         dbg_assert(removed);
 
         callback(data);
-    });
+    }, { signal: abort.signal });
 };
 
 IDEInterface.prototype.cancel_io_operations = function()
 {
-    for(const id of this.in_progress_io_ids)
+    for(const [id, abort] of this.in_progress_io_ids)
     {
         this.cancelled_io_ids.add(id);
+        abort.abort();
     }
     this.in_progress_io_ids.clear();
 };
