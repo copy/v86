@@ -28,7 +28,7 @@ Use the optional `modem` field in the v86 `options` Object to enable the Modem:
 const options = {
     // ...
     modem: {
-        uart: 2
+        uart: 1
     },
     // ...
 };
@@ -39,7 +39,7 @@ The `modem` field defines an Object with the supported Modem settings:
 
 | Setting                     | Type    | Description |
 | :-------------------------- | :------ | :---------- |
-| **uart**                    | number  | Required, selects the UART that the Modem is connected to: 1, 2, 3 or 4 (for UART0 to UART3, respectively). The selected UART is automatically enabled in the v86 device tree. |
+| **uart**                    | number  | Required, selects the UART that the Modem is connected to: 0, 1, 2 or 3 (for UART0 to UART3, respectively). The selected UART is automatically enabled in the v86 device tree. |
 | **phonebook**               | Object  | Optional, maps address strings received in dial commands to WebSocket address strings. |
 
 #### Example `modem` settings
@@ -50,7 +50,7 @@ Install Modem on UART1 and map dial address `123` to WebSocket address `wss://ex
 const emulator = new V86({
    // ...
    modem: {
-       uart: 2,
+       uart: 1,
        phonebook: {"123": "wss://example.com:5678"}
    }
 });
