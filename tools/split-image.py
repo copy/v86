@@ -15,7 +15,7 @@ if len(args) != 4:
     print("Usage: split-image.py [--zstd|--gzip] partsize filename-in filename-out-with-%d-%d")
     exit(1)
 
-(_, partsize_raw, infile, outfile) = sys.argv
+(_, partsize_raw, infile, outfile) = args
 partsize_raw = partsize_raw.lower()
 if partsize_raw.endswith("m") or partsize_raw.endswith("mb"):
     partsize_base = 1024 * 1024
