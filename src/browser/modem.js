@@ -107,7 +107,7 @@ export function Modem(bus, options)
     this.bus = bus;
 
     /** @const @type {number} */
-    this.uart = options.uart - 1;
+    this.uart = options.uart;
 
     /** @const @type {Uint8Array} */
     this.cli_buffer = new Uint8Array(CMDLINE_BUF_SIZE);
