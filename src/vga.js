@@ -1,4 +1,4 @@
-import { LOG_VGA } from "./const.js";
+import { LOG_VGA, FLAG_VM } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
 
@@ -2172,23 +2172,25 @@ VGAScreen.prototype.port1CF_write = function(value)
             break;
         case 4:
             // enable, options
-            if(!(value & 1) && this.svga_enabled && (this.cpu.flags[0] & (1 << 17)))
+            this.dispi_enable_value = value;
+            if(!(value & 1) && this.svga_enabled && (this.cpu.flags[0] & FLAG_VM))
             {
+                // XXX: hack to make cmd.exe work on Win9x with vbemp driver:
                 // Win9x's VDD virtualises the legacy VGA ports for a windowed
                 // DOS VM but not the dispi ports, so vgabios's VBE disable
                 // leaks through while the rest of its mode-set is virtualised.
                 // Defer the actual disable until a legacy mode register write
                 // reaches us (see port3C0_write); if it never does, the
                 // protected-mode display driver still owns the framebuffer.
-                this.dispi_enable_value = value;
-                break;
             }
-            this.svga_enabled = (value & 1) === 1;
-            if(this.svga_enabled && (value & 0x80) === 0)
+            else
             {
-                this.svga_memory.fill(0);
+                this.svga_enabled = (value & 1) === 1;
+                if(this.svga_enabled && (value & 0x80) === 0)
+                {
+                    this.svga_memory.fill(0);
+                }
             }
-            this.dispi_enable_value = value;
             break;
         case 5:
             dbg_log("SVGA bank offset: " + h(value << 16), LOG_VGA);
