@@ -1224,7 +1224,10 @@ V86.prototype.serial_send_bytes = function(serial, data)
 };
 
 /**
- * Set the carrier detect status of a serial port.
+ * Set or clear the data carrier detect (DCD) status of a serial port.
+ *
+ * @param {number} serial
+ * @param {boolean} status
  */
 V86.prototype.serial_set_carrier_detect = function(serial, status)
 {
@@ -1232,7 +1235,10 @@ V86.prototype.serial_set_carrier_detect = function(serial, status)
 };
 
 /**
- * Set the ring indicator status of a serial port.
+ * Set or clear the ring indicator (RING) status of a serial port.
+ *
+ * @param {number} serial
+ * @param {boolean} status
  */
 V86.prototype.serial_set_ring_indicator = function(serial, status)
 {
@@ -1240,7 +1246,10 @@ V86.prototype.serial_set_ring_indicator = function(serial, status)
 };
 
 /**
- * Set the data set ready status of a serial port.
+ * Set or clear the data set ready (DSR) status of a serial port.
+ *
+ * @param {number} serial
+ * @param {boolean} status
  */
 V86.prototype.serial_set_data_set_ready = function(serial, status)
 {
@@ -1248,7 +1257,10 @@ V86.prototype.serial_set_data_set_ready = function(serial, status)
 };
 
 /**
- * Set the clear to send status of a serial port.
+ * Set or clear the clear to send (CTS) status of a serial port.
+ *
+ * @param {number} serial
+ * @param {boolean} status
  */
 V86.prototype.serial_set_clear_to_send = function(serial, status)
 {

@@ -780,44 +780,36 @@ export class V86 {
     serial_send_bytes(serial: number, data: Uint8Array): void;
 
     /**
-     * Set the modem status of a serial port.
+     * Set or clear the data carrier detect (DCD) status of a serial port.
      *
      * @param serial the index of the serial port
-     * @param status
+     * @param status the new DCD signal status
      */
-    serial_set_modem_status(serial: number, status: number): void;
+    serial_set_carrier_detect(serial: number, status: boolean): void;
 
     /**
-     * Set the carrier detect status of a serial port.
+     * Set or clear the ring indicator (RING) status of a serial port.
      *
      * @param serial the index of the serial port
-     * @param status
+     * @param status the new RING signal status
      */
-    serial_set_carrier_detect(serial: number, status: number): void;
+    serial_set_ring_indicator(serial: number, status: boolean): void;
 
     /**
-     * Set the ring indicator status of a serial port.
+     * Set or clear the data set ready (DSR) status of a serial port.
      *
      * @param serial the index of the serial port
-     * @param status
+     * @param status the new DSR signal status
      */
-    serial_set_ring_indicator(serial: number, status: number): void;
+    serial_set_data_set_ready(serial: number, status: boolean): void;
 
     /**
-     * Set the data set ready status of a serial port.
+     * Set or clear the clear to send (CTS) status of a serial port.
      *
      * @param serial the index of the serial port
-     * @param status
+     * @param status the new CTS signal status
      */
-    serial_set_data_set_ready(serial: number, status: number): void;
-
-    /**
-     * Set the clear to send status of a serial port.
-     *
-     * @param serial the index of the serial port
-     * @param status
-     */
-    serial_set_clear_to_send(serial: number, status: number): void;
+    serial_set_clear_to_send(serial: number, status: boolean): void;
 
     /**
      * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
