@@ -294,6 +294,15 @@ pub static mut cpuid_level: u32 = 0x16;
 
 pub static mut jit_block_boundary: bool = false;
 
+// Tracks how deep we are in nested call_interrupt_vector. Used to detect
+// the triple-fault condition: real hardware shuts down (which on a real PC
+// means reset) when an exception happens while delivering #DF. Without a
+// guard the same recursion stack-overflows the wasm interpreter, which
+// surfaces to JS as the unhelpful "Unimplemented: #GP handler" panic this
+// counter exists to escape from.
+pub static mut interrupt_recursion_depth: i32 = 0;
+const INTERRUPT_RECURSION_LIMIT: i32 = 8;
+
 const TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND: bool = true;
 
 #[cfg(debug_assertions)]
@@ -452,6 +461,18 @@ impl InterruptDescriptor {
     const TASK_GATE: u8 = 0b101;
     const INTERRUPT_GATE: u8 = 0b110;
     const TRAP_GATE: u8 = 0b111;
+}
+
+// Bookkeeping for interrupt_recursion_depth: pairs an increment at the top
+// of call_interrupt_vector with an automatic decrement on every return path
+// (including early returns from `return_on_pagefault!`). Without this, an
+// errored delivery would leave the counter elevated and the next clean
+// interrupt would falsely look like a triple fault.
+struct InterruptRecursionGuard;
+impl Drop for InterruptRecursionGuard {
+    fn drop(&mut self) {
+        unsafe { interrupt_recursion_depth -= 1; }
+    }
 }
 
 pub unsafe fn switch_cs_real_mode(selector: i32) {
@@ -785,6 +806,25 @@ pub unsafe fn call_interrupt_vector(
     is_software_int: bool,
     error_code: Option<i32>,
 ) {
+    // Guard against runaway recursion: every malformed-descriptor branch
+    // below now delivers #GP via trigger_gp, which re-enters this function
+    // with vector 13. If the kernel's #GP IDT entry is also broken we'd
+    // recurse forever (and stack-overflow the wasm side); a real CPU
+    // shuts down on the third nested fault. INTERRUPT_RECURSION_LIMIT
+    // cuts the loop and resets the CPU, which matches what real hardware
+    // ends up doing on a triple fault on a typical PC.
+    interrupt_recursion_depth += 1;
+    let _depth_guard = InterruptRecursionGuard;
+    if interrupt_recursion_depth > INTERRUPT_RECURSION_LIMIT {
+        dbg_log!(
+            "triple fault: nested exception depth exceeded delivering int={:x}",
+            interrupt_nr
+        );
+        interrupt_recursion_depth = 0;
+        reset_cpu();
+        return;
+    }
+
     if *protected_mode {
         if vm86_mode() && *cr.offset(4) & CR4_VME != 0 {
             panic!("Unimplemented: VME");
@@ -800,7 +840,8 @@ pub unsafe fn call_interrupt_vector(
         if interrupt_nr << 3 | 7 > *idtr_size {
             dbg_log!("interrupt_nr={:x} idtr_size={:x}", interrupt_nr, *idtr_size);
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(interrupt_nr << 3 | 2);
+            return;
         }
 
         let descriptor_address = return_on_pagefault!(translate_address_system_read(
@@ -832,7 +873,8 @@ pub unsafe fn call_interrupt_vector(
                 descriptor.raw
             );
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(interrupt_nr << 3 | 2);
+            return;
         }
 
         if !descriptor.reserved_zeros_are_valid() {
@@ -842,7 +884,8 @@ pub unsafe fn call_interrupt_vector(
                 descriptor.raw
             );
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(interrupt_nr << 3 | 2);
+            return;
         }
 
         if !descriptor.is_present() {
@@ -873,11 +916,13 @@ pub unsafe fn call_interrupt_vector(
             Ok((desc, _)) => desc,
             Err(SelectorNullOrInvalid::IsNull) => {
                 dbg_log!("is null");
-                panic!("Unimplemented: #GP handler");
+                trigger_gp(interrupt_nr << 3 | 2);
+                return;
             },
             Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
                 dbg_log!("is invalid");
-                panic!("Unimplemented: #GP handler (error code)");
+                trigger_gp(selector & !3);
+                return;
             },
         };
 
@@ -885,7 +930,8 @@ pub unsafe fn call_interrupt_vector(
 
         if !cs_segment_descriptor.is_executable() || cs_segment_descriptor.dpl() > *cpl {
             dbg_log!("not exec");
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(selector & !3);
+            return;
         }
         if !cs_segment_descriptor.is_present() {
             // kvm-unit-test
@@ -1024,7 +1070,9 @@ pub unsafe fn call_interrupt_vector(
         // no exceptions below
         }
         else {
-            panic!("Unimplemented: #GP handler");
+            dbg_log!("inter-privilege-level interrupt fallthrough");
+            trigger_gp(selector & !3);
+            return;
         }
 
         // XXX: #SS if stack would cross stack limit
@@ -4463,6 +4511,7 @@ pub unsafe fn reset_cpu() {
     *dreg.offset(6) = 0xFFFF0FF0u32 as i32;
     *dreg.offset(7) = 0x400;
     *cpl = 0;
+    interrupt_recursion_depth = 0;
 
     *is_32 = false;
     *stack_size_32 = false;
@@ -4499,3 +4548,104 @@ pub unsafe fn reset_cpu() {
 
 #[no_mangle]
 pub unsafe fn set_cpuid_level(level: u32) { cpuid_level = level }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        interrupt_recursion_depth, InterruptDescriptor, InterruptRecursionGuard,
+        INTERRUPT_RECURSION_LIMIT,
+    };
+
+    // Helper: serialize tests that touch the interrupt_recursion_depth
+    // static. Cargo runs tests in parallel by default, so without this two
+    // tests racing on the same global produce flaky results.
+    use std::sync::Mutex;
+    static DEPTH_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// A 32-bit interrupt gate with present=1, dpl=0. access_byte = 0x8E.
+    /// This is the canonical shape Linux installs for vectors it cares about.
+    const VALID_INT_GATE: u64 = 0x0000_8E00_0000_0000;
+
+    /// The same descriptor with bit 4 of the type field set, which violates
+    /// the reserved-zeros invariant for non-task gates. cpu.rs:845 panics
+    /// when this is encountered during interrupt delivery; the fix delivers
+    /// #GP instead.
+    const RESERVED_BIT_VIOLATING_GATE: u64 = 0x0000_9E00_0000_0000;
+
+    /// access_byte = 0x82: present=1, dpl=0, type=0b010 (data segment).
+    /// Not a valid gate type for an IDT entry.
+    const INVALID_GATE_TYPE: u64 = 0x0000_8200_0000_0000;
+
+    #[test]
+    fn descriptor_validates_reserved_zeros() {
+        let valid = InterruptDescriptor::of_u64(VALID_INT_GATE);
+        assert!(valid.reserved_zeros_are_valid());
+        assert!(valid.is_present());
+        assert_eq!(valid.gate_type(), InterruptDescriptor::INTERRUPT_GATE);
+
+        let bad = InterruptDescriptor::of_u64(RESERVED_BIT_VIOLATING_GATE);
+        assert!(
+            !bad.reserved_zeros_are_valid(),
+            "bit 4 of the access byte must be flagged as a reserved-zeros violation"
+        );
+    }
+
+    #[test]
+    fn descriptor_recognizes_invalid_gate_type() {
+        let d = InterruptDescriptor::of_u64(INVALID_GATE_TYPE);
+        let gt = d.gate_type();
+        assert_ne!(gt, InterruptDescriptor::INTERRUPT_GATE);
+        assert_ne!(gt, InterruptDescriptor::TRAP_GATE);
+        assert_ne!(gt, InterruptDescriptor::TASK_GATE);
+    }
+
+    #[test]
+    fn recursion_guard_decrements_on_drop() {
+        let _lock = DEPTH_TEST_LOCK.lock().unwrap();
+        unsafe {
+            interrupt_recursion_depth = 0;
+            {
+                interrupt_recursion_depth += 1;
+                let _g = InterruptRecursionGuard;
+                assert_eq!(interrupt_recursion_depth, 1);
+            }
+            assert_eq!(
+                interrupt_recursion_depth, 0,
+                "guard must decrement the counter on scope exit"
+            );
+        }
+    }
+
+    #[test]
+    fn recursion_guard_decrements_on_panic_unwind() {
+        // call_interrupt_vector has many early-return paths (return_on_pagefault!,
+        // explicit returns after trigger_gp, etc.). The Drop guard exists so all
+        // of them decrement the counter. Verify that even an unwind path triggers
+        // the decrement.
+        let _lock = DEPTH_TEST_LOCK.lock().unwrap();
+        unsafe {
+            interrupt_recursion_depth = 0;
+            let result = std::panic::catch_unwind(|| {
+                interrupt_recursion_depth += 1;
+                let _g = InterruptRecursionGuard;
+                panic!("simulated early return via unwind");
+            });
+            assert!(result.is_err());
+            assert_eq!(
+                interrupt_recursion_depth, 0,
+                "guard must decrement even when unwinding past it"
+            );
+        }
+    }
+
+    #[test]
+    fn recursion_limit_is_above_typical_fault_chain() {
+        // Real hardware tops out at #DF (depth 2: original fault -> #GP -> #DF)
+        // before triple-faulting. The limit needs to be strictly greater so
+        // legitimate nested faults don't trip the triple-fault backstop.
+        assert!(
+            INTERRUPT_RECURSION_LIMIT > 2,
+            "limit must allow at least the original fault, #GP delivery, and #DF delivery"
+        );
+    }
+}
