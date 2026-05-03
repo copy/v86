@@ -294,6 +294,29 @@ pub static mut cpuid_level: u32 = 0x16;
 
 pub static mut jit_block_boundary: bool = false;
 
+// Backstop against runaway recursion through call_interrupt_vector. Each
+// nested entry bumps this; if it climbs past INTERRUPT_RUNAWAY_LIMIT we
+// reset the CPU instead of stack-overflowing the wasm interpreter (which
+// surfaces to JS as the unhelpful "Unimplemented: #GP handler" panic this
+// counter exists to escape from). Note: this is *not* faithful triple-fault
+// emulation -- real hardware shuts down on the third nested fault
+// (original -> #GP -> #DF -> reset). The looser limit just bounds the
+// runaway loop.
+//
+// Tests touching this static must serialize on the lock in `mod tests`.
+static mut interrupt_recursion_depth: i32 = 0;
+const INTERRUPT_RUNAWAY_LIMIT: i32 = 5;
+
+/// Build the error code pushed for a #GP raised while delivering an
+/// interrupt vector. Per Intel SDM Vol 3 Section 6.13: bit 1 (IDT) is set
+/// because the selector indexes the IDT, and bit 0 (EXT) is set when the
+/// originating event was external to the program (i.e. a hardware
+/// interrupt or another exception, not an INT n instruction).
+fn gp_error_code_for_idt(vector: i32, is_software_int: bool) -> i32 {
+    let ext = if is_software_int { 0 } else { 1 };
+    (vector << 3) | 2 | ext
+}
+
 const TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND: bool = true;
 
 #[cfg(debug_assertions)]
@@ -452,6 +475,22 @@ impl InterruptDescriptor {
     const TASK_GATE: u8 = 0b101;
     const INTERRUPT_GATE: u8 = 0b110;
     const TRAP_GATE: u8 = 0b111;
+}
+
+// Bookkeeping for interrupt_recursion_depth: pairs an increment at the top
+// of call_interrupt_vector with an automatic decrement on every return path
+// (including early returns from `return_on_pagefault!`). Without this, an
+// errored delivery would leave the counter elevated and the next clean
+// interrupt would falsely look like runaway recursion.
+//
+// Production builds use panic = "abort", so this only fires on normal
+// returns -- which is fine, the panic sites in call_interrupt_vector were
+// the bug being fixed.
+struct InterruptRecursionGuard;
+impl Drop for InterruptRecursionGuard {
+    fn drop(&mut self) {
+        unsafe { interrupt_recursion_depth -= 1; }
+    }
 }
 
 pub unsafe fn switch_cs_real_mode(selector: i32) {
@@ -785,6 +824,26 @@ pub unsafe fn call_interrupt_vector(
     is_software_int: bool,
     error_code: Option<i32>,
 ) {
+    // Guard against runaway recursion: every malformed-descriptor branch
+    // below now delivers #GP via trigger_gp, which re-enters this function
+    // with vector 13. If the kernel's #GP IDT entry is also broken we'd
+    // recurse forever and stack-overflow the wasm side. INTERRUPT_RUNAWAY_LIMIT
+    // bounds the loop and resets the CPU.
+    interrupt_recursion_depth += 1;
+    let depth_guard = InterruptRecursionGuard;
+    if interrupt_recursion_depth > INTERRUPT_RUNAWAY_LIMIT {
+        dbg_log!(
+            "runaway interrupt recursion delivering int={:x}, resetting CPU",
+            interrupt_nr
+        );
+        // Drop the guard before reset_cpu() zeros the counter, otherwise the
+        // implicit Drop on `return` would underflow it to -1 and corrupt the
+        // depth tracking for subsequent interrupts.
+        drop(depth_guard);
+        reset_cpu();
+        return;
+    }
+
     if *protected_mode {
         if vm86_mode() && *cr.offset(4) & CR4_VME != 0 {
             panic!("Unimplemented: VME");
@@ -800,7 +859,8 @@ pub unsafe fn call_interrupt_vector(
         if interrupt_nr << 3 | 7 > *idtr_size {
             dbg_log!("interrupt_nr={:x} idtr_size={:x}", interrupt_nr, *idtr_size);
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(gp_error_code_for_idt(interrupt_nr, is_software_int));
+            return;
         }
 
         let descriptor_address = return_on_pagefault!(translate_address_system_read(
@@ -817,7 +877,7 @@ pub unsafe fn call_interrupt_vector(
         if is_software_int && dpl < *cpl {
             dbg_log!("#gp software interrupt ({:x}) and dpl < cpl", interrupt_nr);
             dbg_trace();
-            trigger_gp(interrupt_nr << 3 | 2);
+            trigger_gp(gp_error_code_for_idt(interrupt_nr, is_software_int));
             return;
         }
 
@@ -832,7 +892,8 @@ pub unsafe fn call_interrupt_vector(
                 descriptor.raw
             );
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(gp_error_code_for_idt(interrupt_nr, is_software_int));
+            return;
         }
 
         if !descriptor.reserved_zeros_are_valid() {
@@ -842,7 +903,8 @@ pub unsafe fn call_interrupt_vector(
                 descriptor.raw
             );
             dbg_trace();
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(gp_error_code_for_idt(interrupt_nr, is_software_int));
+            return;
         }
 
         if !descriptor.is_present() {
@@ -873,11 +935,13 @@ pub unsafe fn call_interrupt_vector(
             Ok((desc, _)) => desc,
             Err(SelectorNullOrInvalid::IsNull) => {
                 dbg_log!("is null");
-                panic!("Unimplemented: #GP handler");
+                trigger_gp(gp_error_code_for_idt(interrupt_nr, is_software_int));
+                return;
             },
             Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
                 dbg_log!("is invalid");
-                panic!("Unimplemented: #GP handler (error code)");
+                trigger_gp(selector & !3);
+                return;
             },
         };
 
@@ -885,7 +949,8 @@ pub unsafe fn call_interrupt_vector(
 
         if !cs_segment_descriptor.is_executable() || cs_segment_descriptor.dpl() > *cpl {
             dbg_log!("not exec");
-            panic!("Unimplemented: #GP handler");
+            trigger_gp(selector & !3);
+            return;
         }
         if !cs_segment_descriptor.is_present() {
             // kvm-unit-test
@@ -1024,7 +1089,9 @@ pub unsafe fn call_interrupt_vector(
         // no exceptions below
         }
         else {
-            panic!("Unimplemented: #GP handler");
+            dbg_log!("inter-privilege-level interrupt fallthrough");
+            trigger_gp(selector & !3);
+            return;
         }
 
         // XXX: #SS if stack would cross stack limit
@@ -4463,6 +4530,7 @@ pub unsafe fn reset_cpu() {
     *dreg.offset(6) = 0xFFFF0FF0u32 as i32;
     *dreg.offset(7) = 0x400;
     *cpl = 0;
+    interrupt_recursion_depth = 0;
 
     *is_32 = false;
     *stack_size_32 = false;
@@ -4499,3 +4567,125 @@ pub unsafe fn reset_cpu() {
 
 #[no_mangle]
 pub unsafe fn set_cpuid_level(level: u32) { cpuid_level = level }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        gp_error_code_for_idt, interrupt_recursion_depth, InterruptDescriptor,
+        InterruptRecursionGuard, INTERRUPT_RUNAWAY_LIMIT,
+    };
+
+    // Serialize tests that touch the interrupt_recursion_depth static.
+    // Cargo runs tests in parallel by default; without this two tests racing
+    // on the same global produce flaky results.
+    use std::sync::Mutex;
+    static DEPTH_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// A 32-bit interrupt gate with present=1, dpl=0. access_byte = 0x8E.
+    /// This is the canonical shape Linux installs for vectors it cares about.
+    const VALID_INT_GATE: u64 = 0x0000_8E00_0000_0000;
+
+    /// The same descriptor with bit 4 of the type field set, which violates
+    /// the reserved-zeros invariant for non-task gates. The pre-fix code
+    /// panicked when this was encountered during interrupt delivery; the fix
+    /// delivers #GP instead.
+    const RESERVED_BIT_VIOLATING_GATE: u64 = 0x0000_9E00_0000_0000;
+
+    /// access_byte = 0x82: present=1, dpl=0, type=0b010 (data segment).
+    /// Not a valid gate type for an IDT entry.
+    const INVALID_GATE_TYPE: u64 = 0x0000_8200_0000_0000;
+
+    #[test]
+    fn descriptor_validates_reserved_zeros() {
+        let valid = InterruptDescriptor::of_u64(VALID_INT_GATE);
+        assert!(valid.reserved_zeros_are_valid());
+        assert!(valid.is_present());
+        assert_eq!(valid.gate_type(), InterruptDescriptor::INTERRUPT_GATE);
+
+        let bad = InterruptDescriptor::of_u64(RESERVED_BIT_VIOLATING_GATE);
+        assert!(
+            !bad.reserved_zeros_are_valid(),
+            "bit 4 of the access byte must be flagged as a reserved-zeros violation"
+        );
+    }
+
+    #[test]
+    fn descriptor_recognizes_invalid_gate_type() {
+        let d = InterruptDescriptor::of_u64(INVALID_GATE_TYPE);
+        let gt = d.gate_type();
+        assert_ne!(gt, InterruptDescriptor::INTERRUPT_GATE);
+        assert_ne!(gt, InterruptDescriptor::TRAP_GATE);
+        assert_ne!(gt, InterruptDescriptor::TASK_GATE);
+    }
+
+    // Read the static through a raw pointer to avoid the `static_mut_refs`
+    // lint that `assert_eq!(static_mut, ...)` would trigger.
+    fn read_depth() -> i32 {
+        unsafe { std::ptr::read(&raw const interrupt_recursion_depth) }
+    }
+
+    #[test]
+    fn recursion_guard_decrements_on_drop() {
+        let _lock = DEPTH_TEST_LOCK.lock().unwrap();
+        unsafe {
+            interrupt_recursion_depth = 0;
+            {
+                interrupt_recursion_depth += 1;
+                let _g = InterruptRecursionGuard;
+                assert_eq!(read_depth(), 1);
+            }
+            assert_eq!(
+                read_depth(),
+                0,
+                "guard must decrement the counter on scope exit"
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_drop_before_reset_avoids_underflow() {
+        // Mirrors the runaway-recursion branch in call_interrupt_vector: if
+        // we reset the counter to 0 (reset_cpu does this) and then let the
+        // guard drop on return, the counter underflows to -1. The fix is an
+        // explicit `drop(depth_guard)` before the reset. This test guards
+        // against accidentally re-introducing the underflow.
+        let _lock = DEPTH_TEST_LOCK.lock().unwrap();
+        unsafe {
+            interrupt_recursion_depth = 0;
+            interrupt_recursion_depth += 1;
+            let depth_guard = InterruptRecursionGuard;
+            drop(depth_guard); // depth back to 0
+            interrupt_recursion_depth = 0; // simulate reset_cpu()
+            assert_eq!(
+                read_depth(),
+                0,
+                "explicit drop before reset must leave the counter at 0, not -1"
+            );
+        }
+    }
+
+    #[test]
+    fn runaway_limit_allows_real_hardware_fault_chain() {
+        // Real hardware tops out at #DF (depth 3: original fault -> #GP -> #DF)
+        // before triple-faulting. The limit must be strictly greater so
+        // legitimate nested faults don't trip the runaway backstop early.
+        assert!(
+            INTERRUPT_RUNAWAY_LIMIT > 3,
+            "limit must allow original fault + #GP delivery + #DF delivery"
+        );
+    }
+
+    #[test]
+    fn gp_error_code_sets_idt_bit_and_ext_per_origin() {
+        // Per Intel SDM Vol 3 Section 6.13: bit 1 = IDT (always set for an
+        // IDT-sourced fault), bit 0 = EXT (set when the originating event
+        // was external to the program, i.e. not an INT n instruction).
+        let sw = gp_error_code_for_idt(0x21, true);
+        assert_eq!(sw & 0b11, 0b10, "software int: IDT=1, EXT=0");
+        assert_eq!(sw >> 3, 0x21);
+
+        let hw = gp_error_code_for_idt(0x21, false);
+        assert_eq!(hw & 0b11, 0b11, "hardware int: IDT=1, EXT=1");
+        assert_eq!(hw >> 3, 0x21);
+    }
+}

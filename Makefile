@@ -358,7 +358,10 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-api-tests: build/v86-debug.wasm
+tests/api/%.bin: tests/api/%.asm
+	nasm -f bin $< -o $@
+
+api-tests: build/v86-debug.wasm tests/api/repro-636-malformed-idt.bin
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
@@ -368,6 +371,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/reboot.js
 	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
 	./tests/api/pic.js
+	./tests/api/repro-636-malformed-idt.js
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
 	# Skipping:
