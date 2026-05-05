@@ -54,15 +54,15 @@ let serial_text = "";
 let test_done = false;
 
 function finish(code, msg) {
-    if (test_done) return;
+    if(test_done) return;
     test_done = true;
-    if (code !== 0) {
+    if(code !== 0) {
         console.log("---SERIAL---");
         console.log(serial_text);
         console.log("---END---");
     }
     console.log(msg);
-    try { emulator.destroy(); } catch (_) {}
+    try { emulator.destroy(); } catch(_) {}
     process.exit(code);
 }
 
@@ -75,12 +75,12 @@ const timeout = setTimeout(() => {
 const orig_uncaught = process.listeners("uncaughtException").slice();
 process.on("uncaughtException", (err) => {
     const msg = String(err && (err.message || err));
-    if (/Unimplemented: #GP handler|panicked|unreachable/.test(msg)) {
+    if(/Unimplemented: #GP handler|panicked|unreachable/.test(msg)) {
         clearTimeout(timeout);
         finish(1, `Wasm panic during #GP delivery: ${msg.slice(0, 200)}`);
         return;
     }
-    for (const fn of orig_uncaught) fn(err);
+    for(const fn of orig_uncaught) fn(err);
     throw err;
 });
 
@@ -89,13 +89,13 @@ emulator.add_listener("serial0-output-byte", (byte) => {
     process.stdout.write(ch);
     serial_text += ch;
 
-    if (test_done) return;
-    if (serial_text.includes(EXPECTED)) {
+    if(test_done) return;
+    if(serial_text.includes(EXPECTED)) {
         clearTimeout(timeout);
         finish(0, "Ok");
         return;
     }
-    if (serial_text.includes("BAD\n")) {
+    if(serial_text.includes("BAD\n")) {
         clearTimeout(timeout);
         finish(1, "Guest INT 0x80 returned without faulting -- malformed descriptor was not detected");
     }

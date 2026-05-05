@@ -489,7 +489,9 @@ impl InterruptDescriptor {
 struct InterruptRecursionGuard;
 impl Drop for InterruptRecursionGuard {
     fn drop(&mut self) {
-        unsafe { interrupt_recursion_depth -= 1; }
+        unsafe {
+            interrupt_recursion_depth -= 1;
+        }
     }
 }
 
@@ -4620,9 +4622,7 @@ mod tests {
 
     // Read the static through a raw pointer to avoid the `static_mut_refs`
     // lint that `assert_eq!(static_mut, ...)` would trigger.
-    fn read_depth() -> i32 {
-        unsafe { std::ptr::read(&raw const interrupt_recursion_depth) }
-    }
+    fn read_depth() -> i32 { unsafe { std::ptr::read(&raw const interrupt_recursion_depth) } }
 
     #[test]
     fn recursion_guard_decrements_on_drop() {
