@@ -14,3 +14,4 @@ pub mod pic;
 pub mod sse_instr;
 pub mod string;
 pub mod vga;
+pub mod eip_increment;
