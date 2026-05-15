@@ -1,4 +1,5 @@
 use crate::cpu::memory;
+use crate::cpu::eip_increment::increment_instruction_pointer;
 use crate::prefix::{PREFIX_MASK_ADDRSIZE, PREFIX_MASK_OPSIZE};
 use crate::state_flags::CachedStateFlags;
 
@@ -13,11 +14,11 @@ pub struct CpuContext {
 impl CpuContext {
     pub fn advance16(&mut self) {
         dbg_assert!(self.eip & 0xFFF < 0xFFE);
-        self.eip += 2;
+        self.eip = increment_instruction_pointer(self.eip as i32, 2, self.asize_32()) as u32;
     }
     pub fn advance32(&mut self) {
         dbg_assert!(self.eip & 0xFFF < 0xFFC);
-        self.eip += 4;
+        self.eip = increment_instruction_pointer(self.eip as i32, 4, self.asize_32()) as u32;
     }
     #[allow(unused)]
     pub fn advance_moffs(&mut self) {
@@ -32,20 +33,20 @@ impl CpuContext {
     pub fn read_imm8(&mut self) -> u8 {
         dbg_assert!(self.eip & 0xFFF < 0xFFF);
         let v = memory::read8(self.eip) as u8;
-        self.eip += 1;
+        self.eip = increment_instruction_pointer(self.eip as i32, 1, self.asize_32()) as u32;
         v
     }
     pub fn read_imm8s(&mut self) -> i8 { self.read_imm8() as i8 }
     pub fn read_imm16(&mut self) -> u16 {
         dbg_assert!(self.eip & 0xFFF < 0xFFE);
         let v = memory::read16(self.eip) as u16;
-        self.eip += 2;
+        self.eip = increment_instruction_pointer(self.eip as i32, 2, self.asize_32()) as u32;
         v
     }
     pub fn read_imm32(&mut self) -> u32 {
         dbg_assert!(self.eip & 0xFFF < 0xFFC);
         let v = memory::read32s(self.eip) as u32;
-        self.eip += 4;
+        self.eip = increment_instruction_pointer(self.eip as i32, 4, self.asize_32()) as u32;
         v
     }
     pub fn read_moffs(&mut self) -> u32 {
