@@ -94,7 +94,7 @@ pub unsafe fn test_nle() -> bool { return !test_le(); }
 
 pub unsafe fn jmp_rel16(rel16: i32) {
     *instruction_pointer =
-        increment_instruction_pointer(*instruction_pointer, rel16, is_asize_32(), get_seg_cs());
+        increment_instruction_pointer(*instruction_pointer, rel16, false, get_seg_cs());
 }
 pub unsafe fn jmpcc16(condition: bool, imm16: i32) {
     if condition {
