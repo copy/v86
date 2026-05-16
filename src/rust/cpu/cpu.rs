@@ -1,6 +1,7 @@
 #![allow(non_upper_case_globals)]
 
 use crate::config;
+use crate::cpu::eip_increment::increment_instruction_pointer;
 use crate::cpu::fpu::fpu_set_tag_word;
 use crate::cpu::global_pointers::*;
 use crate::cpu::memory;
@@ -10,7 +11,6 @@ use crate::cpu::misc_instr::{
 };
 use crate::cpu::modrm::{resolve_modrm16, resolve_modrm32};
 use crate::cpu::{apic, ioapic, pic};
-use crate::cpu::eip_increment::increment_instruction_pointer;
 use crate::dbg::dbg_trace;
 use crate::gen;
 use crate::jit;
@@ -2381,7 +2381,8 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
     }
     else {
         let data16 = memory::read16((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = increment_instruction_pointer(*instruction_pointer, 2, is_asize_32(), get_seg_cs());
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 2, is_asize_32(), get_seg_cs());
         return Ok(data16);
     };
 }
@@ -2395,7 +2396,8 @@ pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     }
     else {
         let data32 = memory::read32s((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = increment_instruction_pointer(*instruction_pointer, 4, is_asize_32(), get_seg_cs());
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 4, is_asize_32(), get_seg_cs());
         return Ok(data32);
     };
 }
@@ -3085,7 +3087,8 @@ unsafe fn jit_run_interpreted(mut phys_addr: u32) {
         i += 1;
         let start_eip = *instruction_pointer;
         let opcode = *memory::mem8.offset(phys_addr as isize) as i32;
-        *instruction_pointer = increment_instruction_pointer(*instruction_pointer, 1, is_asize_32(), get_seg_cs());
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 1, is_asize_32(), get_seg_cs());
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
         dbg_assert!(*prefixes == 0);
