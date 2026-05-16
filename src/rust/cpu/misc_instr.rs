@@ -1,4 +1,5 @@
 use crate::cpu::cpu::*;
+use crate::cpu::eip_increment::increment_instruction_pointer;
 use crate::cpu::fpu::{
     fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80, set_control_word,
 };
@@ -92,9 +93,8 @@ pub unsafe fn test_nl() -> bool { return !test_l(); }
 pub unsafe fn test_nle() -> bool { return !test_le(); }
 
 pub unsafe fn jmp_rel16(rel16: i32) {
-    let cs_offset = get_seg_cs();
-    // limit ip to 16 bit
-    *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 0xFFFF);
+    *instruction_pointer =
+        increment_instruction_pointer(*instruction_pointer, rel16, is_asize_32(), get_seg_cs());
 }
 pub unsafe fn jmpcc16(condition: bool, imm16: i32) {
     if condition {
