@@ -1859,7 +1859,7 @@ pub unsafe fn writable_or_pagefault_cpl(other_cpl: u8, addr: i32, size: i32) -> 
 
     let end = addr + size - 1 & !0xFFF;
     if addr & !0xFFF != end & !0xFFF {
-        translate_address(end, true, user, false, false, true)?;
+        translate_address(end, true, user, false, true, false)?;
     }
 
     return Ok(());
