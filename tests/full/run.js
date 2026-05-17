@@ -467,6 +467,15 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Windows 95 big",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            hda: root_path + "/images/experimental/windows95-felixrieseberg.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+        },
+        {
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
             timeout: 15 * 60,

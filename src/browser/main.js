@@ -697,16 +697,17 @@ function onload()
         {
             id: "crazierl",
             multiboot: {
-                url: host + "crazierl-elf.img",
-                size: 896592,
+                url: host + "crazierl-elf-2026.img",
+                size: 919492,
                 async: false,
             },
             initrd: {
-                url: host + "crazierl-initrd.img",
-                size: 18448316,
+                url: host + "crazierl-initrd-2026.img",
+                size: 20960021,
                 async: false,
             },
             acpi: true,
+            net_device_type: "virtio",
             cmdline: "kernel /libexec/ld-elf32.so.1",
             memory_size: 128 * 1024 * 1024,
             name: "Crazierl",
@@ -1773,6 +1774,7 @@ function onload()
     if(query_args.has("boot_order")) $("boot_order").value = query_args.get("boot_order");
     if(query_args.has("net_device_type")) $("net_device_type").value = query_args.get("net_device_type");
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
+    if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
     for(const dev of ["fda", "fdb"])
     {
@@ -2075,6 +2077,7 @@ function start_emulation(profile, query_args)
         settings.vga_memory_size = profile.vga_memory_size;
         settings.boot_order = profile.boot_order;
         settings.net_device_type = profile.net_device_type;
+        settings.modem = profile.modem;
 
         if(!DEBUG && profile.homepage)
         {
@@ -2181,6 +2184,15 @@ function start_emulation(profile, query_args)
         settings.relay_url = query_args.get("relay_url");
         settings.disable_jit = bool_arg(query_args.get("disable_jit"));
         settings.disable_audio = bool_arg(query_args.get("mute"));
+
+        if(query_args.has("modem"))
+        {
+            const modem = parseInt(query_args.get("modem"), 10);
+            if(!Number.isNaN(modem) && modem >= 0 && modem < 4)
+            {
+                settings.modem = {uart: modem};
+            }
+        }
     }
 
     if(!settings.relay_url)
@@ -2339,6 +2351,12 @@ function start_emulation(profile, query_args)
         }
         if(settings.mtu !== DEFAULT_MTU) new_query_args.set("mtu", settings.mtu.toString());
 
+        const modem = parseInt($("modem").value, 10);
+        if(!Number.isNaN(modem) && modem >= 0 && modem < 4)
+        {
+            settings.modem = {uart: modem};
+            new_query_args.set("modem", modem.toString());
+        }
     }
 
     if(!query_args)
@@ -2358,6 +2376,7 @@ function start_emulation(profile, query_args)
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
         },
+        modem: settings.modem,
         autostart: true,
 
         memory_size: settings.memory_size,

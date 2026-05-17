@@ -526,6 +526,18 @@ if(typeof XMLHttpRequest === "undefined" ||
 {
     let fs;
 
+    const get_fs = async function()
+    {
+        // Electron renderers with nodeIntegration have process.versions.node but
+        // a browser module loader, so dynamic import of node: URLs fails. require() works.
+        if(typeof require !== "undefined")
+        {
+            return require("fs")["promises"];
+        }
+        // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
+        return import("node:" + "fs/promises");
+    };
+
     /**
      * @param {string} filename
      * @param {Object} options
@@ -535,8 +547,7 @@ if(typeof XMLHttpRequest === "undefined" ||
     {
         if(!fs)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
+            fs = await get_fs();
         }
 
         if(options.range)
@@ -581,8 +592,7 @@ if(typeof XMLHttpRequest === "undefined" ||
     {
         if(!fs)
         {
-            // string concat to work around closure compiler 'Invalid module path "node:fs/promises" for resolution mode'
-            fs = await import("node:" + "fs/promises");
+            fs = await get_fs();
         }
         const stat = await fs["stat"](path);
         return stat.size;
@@ -598,6 +608,14 @@ else
     load_file = async function(filename, options, n_tries)
     {
         var http = new XMLHttpRequest();
+
+        const abort = () => http.abort();
+
+        if(options.signal)
+        {
+            if(options.signal.aborted) return;
+            options.signal.addEventListener("abort", abort, { once: true });
+        }
 
         http.open(options.method || "get", filename, true);
 
@@ -642,6 +660,8 @@ else
 
         http.onload = function(e)
         {
+            if(options.signal) options.signal.removeEventListener("abort", abort);
+
             if(http.readyState === 4)
             {
                 if(http.status !== 200 && http.status !== 206)
@@ -669,6 +689,8 @@ else
 
         http.onerror = function(e)
         {
+            if(options.signal) options.signal.removeEventListener("abort", abort);
+
             console.error("Loading the image " + filename + " failed", e);
             retry();
         };

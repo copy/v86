@@ -45,7 +45,9 @@ jobs:
           sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
 
       - name: Build all-debug
-        run: make all-debug
+        run: |
+          rustc --version
+          make all-debug
 
       - name: Build all
         run: make all
@@ -129,6 +131,7 @@ jobs:
             package.json
             LICENSE
             Readme.md
+            v86.d.ts
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
@@ -162,7 +165,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Release to GitHub
@@ -176,5 +179,3 @@ jobs:
           prerelease: true
 
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}

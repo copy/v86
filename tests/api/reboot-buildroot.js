@@ -12,11 +12,12 @@ process.on("unhandledRejection", exn => { throw exn; });
 const config = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux4.iso", async: true },
+    bzimage: { url: __dirname + "/../../images/buildroot-bzimage.bin" },
     net_device: {
         relay_url: "fetch",
-        type: "virtio",
+        type: "ne2k",
     },
+    cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
@@ -40,7 +41,7 @@ const timeout = setTimeout(() => {
 emulator.add_listener("serial0-output-byte", function(byte)
 {
     var chr = String.fromCharCode(byte);
-    //process.stdout.write(chr);
+    process.stdout.write(chr);
     serial_text += chr;
 
     if(did_reboot)

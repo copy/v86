@@ -77,7 +77,7 @@ const tests =
         end_trigger: "done\texample.org",
         end: (capture) =>
         {
-            assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
+            assert(/This domain is for use in documentation examples without needing permission/.test(capture), "got example.org text");
         },
     },
 

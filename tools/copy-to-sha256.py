@@ -9,6 +9,7 @@ import shutil
 import tarfile
 import sys
 import io
+import importlib
 
 HASH_LENGTH = 8
 
@@ -21,6 +22,31 @@ def hash_fileobj(f) -> str:
     for b in iter(lambda: f.read(128*1024), b""):
         h.update(b)
     return h.hexdigest()
+
+class ZstdCompress():
+    def __init__(self):
+        self.zstd_lib = None
+        self.zstd_builtin = False
+
+        if sys.version_info >= (3, 14):
+            self.zstd_lib = importlib.import_module("compression").zstd
+            self.zstd_builtin = True
+        else:
+            try:
+                self.zstd_lib = importlib.import_module("zstandard")
+                self.zstd_builtin = False
+            except ImportError:
+                print("Error: zstandard module required when using --zstd flag")
+                print("Install with: pip install zstandard")
+                sys.exit(1)
+
+    def compress(self, src, dst_path):
+        if self.zstd_builtin:
+            with src as src_file, self.zstd_lib.open(dst_path, 'wb', level=19) as dst_file:
+                shutil.copyfileobj(src_file, dst_file)
+        else:
+            with src as src_file, open(dst_path, 'wb') as dst_file:
+                self.zstd_lib.ZstdCompressor(level=19).copy_stream(src_file, dst_file)
 
 def main():
     logging.basicConfig(format="%(message)s")
@@ -39,19 +65,10 @@ def main():
     to_path = os.path.normpath(args.to_path)
 
     # Import zstd only if compression is requested
-    zstd_module = None
     if args.zstd:
-        if sys.version_info >= (3, 14):
-            from compression import zstd
-            zstd_module = zstd
-        else:
-            try:
-                import zstandard as zstd
-                zstd_module = zstd
-            except ImportError:
-                print("Error: zstandard module required when using --zstd flag")
-                print("Install with: pip install zstandard")
-                sys.exit(1)
+        zstd_module = ZstdCompress()
+    else:
+        zstd_module = None
 
     if os.path.isfile(from_path):
         tar = tarfile.open(from_path, "r")
@@ -90,9 +107,7 @@ def handle_dir(logger, from_path: str, to_path: str, use_compression: bool, zstd
             else:
                 if use_compression:
                     logger.info("Compressing {} {}".format(absname, to_abs))
-                    with open(absname, 'rb') as src_file:
-                        with open(to_abs, 'wb') as dst_file:
-                            zstd_module.ZstdCompressor(level=19).copy_stream(src_file, dst_file)
+                    zstd_module.compress(open(absname, 'rb'), to_abs)
                 else:
                     logger.info("cp {} {}".format(absname, to_abs))
                     shutil.copyfile(absname, to_abs)
@@ -111,8 +126,7 @@ def handle_tar(logger, tar, to_path: str, use_compression: bool, zstd_module):
                 if use_compression:
                     logger.info("Extracted and compressing {} ({})".format(to_abs, member.name))
                     f.seek(0)
-                    with open(to_abs, 'wb') as dst_file:
-                        zstd_module.ZstdCompressor(level=19).copy_stream(f, dst_file)
+                    zstd_module.compress(f, to_abs)
                 else:
                     logger.info("Extracted {} ({})".format(to_abs, member.name))
                     to_file = open(to_abs, "wb")

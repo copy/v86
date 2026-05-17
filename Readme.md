@@ -29,6 +29,7 @@ list of emulated hardware:
 - An NE2000 (RTL8390) PCI network card.
 - Various virtio devices: Filesystem, network and balloon.
 - A SoundBlaster 16 sound card.
+- A hayes-compatible dial-up Modem.
 
 ## Demos
 
@@ -61,6 +62,7 @@ list of emulated hardware:
 
 [How it works](docs/how-it-works.md) —
 [Networking](docs/networking.md) —
+[Dial-up modem networking](docs/modem.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
 [Windows NT guest setup](docs/windows-nt.md) —
@@ -192,7 +194,7 @@ var emulator = new V86({
 });
 ```
 
-See [starter.js](src/browser/starter.js).
+See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
 
 ## License
 

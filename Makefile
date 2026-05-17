@@ -86,9 +86,9 @@ CORE_FILES=cjs.js const.js io.js main.js lib.js buffer.js ide.js pci.js floppy.j
 	   elf.js kernel.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
-	      network.js starter.js worker_bus.js dummy_screen.js \
+	      network.js starter.js worker_bus.js dummy_screen.js ansi_screen.js \
 	      inbrowser_network.js fake_network.js wisp_network.js fetch_network.js \
-          print_stats.js filestorage.js
+          print_stats.js filestorage.js modem.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -366,6 +366,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/cdrom-insert-eject.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
+	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
 	./tests/api/pic.js
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
@@ -398,3 +399,11 @@ update-package-json-version:
 	git describe --tags --exclude latest | sed 's/-/./' | tr - + | tee build/version
 	jq --arg version "$$(cat build/version)" '.version = $$version' package.json > package.json.tmp
 	mv package.json.tmp package.json
+
+doc:
+	set -e ;\
+	COMMIT=`git log --format="%h" -n 1` ;\
+	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
+
+denodoc:
+	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts

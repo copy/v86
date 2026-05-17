@@ -499,7 +499,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write Features register: " + h(data), LOG_DISK);
         }
-        this.current_interface.features_reg = (this.current_interface.features_reg << 8 | data) & 0xFFFF;
+        this.master.features_reg = (this.master.features_reg << 8 | data) & 0xFFFF;
+        this.slave.features_reg = (this.slave.features_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_SECTOR, this, function(data)
@@ -508,7 +509,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write Sector Count register: " + h(data), LOG_DISK);
         }
-        this.current_interface.sector_count_reg = (this.current_interface.sector_count_reg << 8 | data) & 0xFFFF;
+        this.master.sector_count_reg = (this.master.sector_count_reg << 8 | data) & 0xFFFF;
+        this.slave.sector_count_reg = (this.slave.sector_count_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_LOW, this, function(data)
@@ -517,7 +519,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA Low register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_low_reg = (this.current_interface.lba_low_reg << 8 | data) & 0xFFFF;
+        this.master.lba_low_reg = (this.master.lba_low_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_low_reg = (this.slave.lba_low_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_MID, this, function(data)
@@ -526,7 +529,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA Mid register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_mid_reg = (this.current_interface.lba_mid_reg << 8 | data) & 0xFFFF;
+        this.master.lba_mid_reg = (this.master.lba_mid_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_mid_reg = (this.slave.lba_mid_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_LBA_HIGH, this, function(data)
@@ -535,7 +539,8 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
         {
             dbg_log(this.current_interface.name + ": write LBA High register: " + h(data), LOG_DISK);
         }
-        this.current_interface.lba_high_reg = (this.current_interface.lba_high_reg << 8 | data) & 0xFFFF;
+        this.master.lba_high_reg = (this.master.lba_high_reg << 8 | data) & 0xFFFF;
+        this.slave.lba_high_reg = (this.slave.lba_high_reg << 8 | data) & 0xFFFF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_DEVICE, this, function(data)
@@ -558,9 +563,12 @@ function IDEChannel(controller, channel_nr, channel_config, command_base, contro
                 this.current_interface = this.master;
             }
         }
-        this.current_interface.device_reg = data;
-        this.current_interface.is_lba = data >> 6 & 1; // TODO: where does this definition of bit 6 come from? not in [ATA-6] or [ATA-4]!
-        this.current_interface.head = data & 0xF;      // TODO: same for lower nibble?
+        this.master.device_reg = data;
+        this.slave.device_reg = data;
+        this.master.is_lba = data >> 6 & 1; // TODO: where does this definition of bit 6 come from? not in [ATA-6] or [ATA-4]!
+        this.slave.is_lba = data >> 6 & 1;
+        this.master.head = data & 0xF;      // TODO: same for lower nibble?
+        this.slave.head = data & 0xF;
     });
 
     cpu.io.register_write(this.command_base | ATA_REG_COMMAND, this, function(data)
@@ -894,7 +902,7 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
 
     // cancellation support
     this.last_io_id = 0;
-    this.in_progress_io_ids = new Set();
+    this.in_progress_io_ids = new Map();
     this.cancelled_io_ids = new Set();
 
     // ATAPI-only
@@ -2651,7 +2659,8 @@ IDEInterface.prototype.report_write = function(byte_count)
 IDEInterface.prototype.read_buffer = function(start, length, callback)
 {
     const id = this.last_io_id++;
-    this.in_progress_io_ids.add(id);
+    const abort = new AbortController();
+    this.in_progress_io_ids.set(id, abort);
 
     this.buffer.get(start, length, data =>
     {
@@ -2665,14 +2674,15 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
         dbg_assert(removed);
 
         callback(data);
-    });
+    }, { signal: abort.signal });
 };
 
 IDEInterface.prototype.cancel_io_operations = function()
 {
-    for(const id of this.in_progress_io_ids)
+    for(const [id, abort] of this.in_progress_io_ids)
     {
         this.cancelled_io_ids.add(id);
+        abort.abort();
     }
     this.in_progress_io_ids.clear();
 };

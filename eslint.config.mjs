@@ -39,6 +39,7 @@ export default [
                 "BroadcastChannel": "readonly",
                 "HTMLElement": "readonly",
                 "HTMLTextAreaElement": "readonly",
+                "AbortController": "readonly",
 
                 "AudioContext": "readonly",
                 "AudioWorkletProcessor": "readonly",
