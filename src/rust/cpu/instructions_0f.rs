@@ -811,12 +811,11 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_PAE) {
                     full_clear_tlb();
                 }
-                if data & CR4_PAE != 0
-                    && 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_SMEP)
-                {
+                let old_cr4 = *cr.offset(4);
+                *cr.offset(4) = data;
+                if data & CR4_PAE != 0 && 0 != (old_cr4 ^ data) & CR4_PAE {
                     load_pdpte(*cr.offset(3));
                 }
-                *cr.offset(4) = data;
             }
         },
         _ => {

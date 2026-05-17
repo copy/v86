@@ -2075,7 +2075,7 @@ pub unsafe fn do_page_walk(
         let mut allow_write = page_dir_entry & PAGE_TABLE_RW_MASK != 0;
         allow_user &= page_dir_entry & PAGE_TABLE_USER_MASK != 0;
 
-        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != cr4 & CR4_PSE {
+        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && (pae || 0 != cr4 & CR4_PSE) {
             // size bit is set
 
             if for_writing && !allow_write && !kernel_write_override || user && !allow_user {
@@ -2260,7 +2260,13 @@ pub unsafe fn do_page_walk(
         // of memory accesses
         tlb_data[page as usize] = tlb_entry;
 
-        jit::update_tlb_code(Page::page_of(addr as u32), Page::page_of(high));
+        let virt_page = Page::page_of(addr as u32);
+        if no_exec {
+            clear_tlb_code(virt_page.to_u32() as i32);
+        }
+        else {
+            jit::update_tlb_code(virt_page, Page::page_of(high));
+        }
     }
 
     Ok(if DEBUG {
