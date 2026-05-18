@@ -1095,10 +1095,16 @@ register_dsp_command([0xE8], 0, function()
     this.read_buffer.push(this.test_register);
 });
 
-// Trigger IRQ
-register_dsp_command([0xF2, 0xF3], 0, function()
+// Trigger IRQ - 8-bit
+register_dsp_command([0xF2], 0, function()
 {
-    this.raise_irq();
+    this.raise_irq(SB_IRQ_8BIT);
+});
+
+// Trigger IRQ - 16-bit
+register_dsp_command([0xF3], 0, function()
+{
+    this.raise_irq(SB_IRQ_16BIT);
 });
 
 // ASP - unknown function
