@@ -74,6 +74,23 @@ FetchNetworkAdapter.prototype.tcp_probe = function(port)
  */
 async function on_data_http(data)
 {
+    // If we're buffering a partial request body, accumulate chunks until
+    // Content-Length is satisfied, then fire the deferred fetch.
+    if(this._xb) {
+        const chunk = data instanceof Uint8Array ? data : new Uint8Array(data);
+        const combined = new Uint8Array(this._xb.buf.length + chunk.length);
+        combined.set(this._xb.buf);
+        combined.set(chunk, this._xb.buf.length);
+        this._xb.buf = combined;
+        if(this._xb.buf.length >= this._xb.cl) {
+            const body = new TextDecoder().decode(this._xb.buf);
+            const done = this._xb.done;
+            this._xb = null;
+            done(body);
+        }
+        return;
+    }
+
     this.read = this.read || "";
     this.read += new TextDecoder().decode(data);
     if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
@@ -129,57 +146,84 @@ async function on_data_http(data)
             headers: req_headers,
         };
         if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
+            // Check if the body might be split across multiple TCP segments.
+            // If Content-Length is present and larger than what we have,
+            // buffer and wait for the remaining chunks.
+            const content_length = parseInt(req_headers.get("content-length") || "0", 10);
+            const body_bytes = (data instanceof Uint8Array) ? data : new TextEncoder().encode(data);
+            if(content_length > 0 && body_bytes.length < content_length) {
+                const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
+                this._xb = {
+                    buf: body_bytes,
+                    cl: content_length,
+                    done: (body) => {
+                        opts.body = body;
+                        this._dispatch_fetch(fetch_url, opts);
+                    },
+                };
+                return;
+            }
             opts.body = data;
         }
 
         const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
-        const encoder = new TextEncoder();
-        let response_started = false;
-        let handler = (resp) => {
-            let resp_headers = new Headers(resp.headers);
-            resp_headers.delete("content-encoding");
-            resp_headers.delete("keep-alive");
-            resp_headers.delete("content-length");
-            resp_headers.delete("transfer-encoding");
-            resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
-            resp_headers.set("x-fetch-resp-url", resp.url);
-            resp_headers.set("connection", "close");
-
-            this.write(this.net.form_response_head(resp.status, resp.statusText, resp_headers));
-            response_started = true;
-
-            if(resp.body && resp.body.getReader) {
-                const resp_reader = resp.body.getReader();
-                const pump = ({ value, done }) => {
-                    if(value) {
-                        this.write(value);
-                    }
-                    if(done) {
-                        this.close();
-                    }
-                    else {
-                        return resp_reader.read().then(pump);
-                    }
-                };
-                resp_reader.read().then(pump);
-            } else {
-                resp.arrayBuffer().then(buffer => {
-                    this.write(new Uint8Array(buffer));
-                    this.close();
-                });
-            }
-        };
-
-        this.net.fetch(fetch_url, opts).then(handler)
-        .catch((e) => {
-            console.warn("Fetch Failed: " + fetch_url + "\n" + e);
-            if(!response_started) {
-                this.net.respond_text_and_close(this, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
-            }
-            this.close();
-        });
+        this._dispatch_fetch(fetch_url, opts);
     }
 }
+
+/**
+ * @this {TCPConnection}
+ * @param {string} fetch_url
+ * @param {!Object} opts
+ */
+FetchNetworkAdapter.prototype._dispatch_fetch = function(fetch_url, opts)
+{
+    const encoder = new TextEncoder();
+    let response_started = false;
+    let handler = (resp) => {
+        let resp_headers = new Headers(resp.headers);
+        resp_headers.delete("content-encoding");
+        resp_headers.delete("keep-alive");
+        resp_headers.delete("content-length");
+        resp_headers.delete("transfer-encoding");
+        resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
+        resp_headers.set("x-fetch-resp-url", resp.url);
+        resp_headers.set("connection", "close");
+
+        this.write(this.net.form_response_head(resp.status, resp.statusText, resp_headers));
+        response_started = true;
+
+        if(resp.body && resp.body.getReader) {
+            const resp_reader = resp.body.getReader();
+            const pump = ({ value, done }) => {
+                if(value) {
+                    this.write(value);
+                }
+                if(done) {
+                    this.close();
+                }
+                else {
+                    return resp_reader.read().then(pump);
+                }
+            };
+            resp_reader.read().then(pump);
+        } else {
+            resp.arrayBuffer().then(buffer => {
+                this.write(new Uint8Array(buffer));
+                this.close();
+            });
+        }
+    };
+
+    this.net.fetch(fetch_url, opts).then(handler)
+    .catch((e) => {
+        console.warn("Fetch Failed: " + fetch_url + "\n" + e);
+        if(!response_started) {
+            this.net.respond_text_and_close(this, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
+        }
+        this.close();
+    });
+};
 
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
 {
