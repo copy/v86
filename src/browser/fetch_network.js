@@ -13,6 +13,28 @@ import {
 // For Types Only
 import { BusConnector } from "../bus.js";
 
+// Module-scoped encoder/decoder singletons (avoids repeated allocations).
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+/** Find the first occurrence of `needle` bytes in `haystack`. Returns -1 if not found. */
+function indexOfBytes(haystack, needle)
+{
+    outer:
+    for(let i = 0; i <= haystack.length - needle.length; i++)
+    {
+        for(let j = 0; j < needle.length; j++)
+        {
+            if(haystack[i + j] !== needle[j]) continue outer;
+        }
+        return i;
+    }
+    return -1;
+}
+
+// Pre-encoded \r\n\r\n separator for binary header/body split.
+const CRLFCRLF = textEncoder.encode("\r\n\r\n");
+
 /**
  * @constructor
  *
@@ -69,116 +91,215 @@ FetchNetworkAdapter.prototype.tcp_probe = function(port)
 };
 
 /**
+ * HTTP data handler for port-80 TCP connections.
+ *
+ * Incoming TCP segments are buffered as raw bytes and searched for the
+ * \r\n\r\n header/body separator.  Once found the header portion alone is
+ * text-decoded and parsed; the body stays as a binary Uint8Array.
+ *
+ * When a POST/PUT body spans multiple TCP segments the partial body is
+ * stored in this._xb and subsequent segments are accumulated there until
+ * Content-Length is satisfied, at which point the deferred fetch is fired.
+ *
+ * NOTE: Transfer-Encoding: chunked is not supported.  Requests using it
+ * will not be dispatched.
+ *
  * @this {TCPConnection}
  * @param {!ArrayBuffer} data
  */
 async function on_data_http(data)
 {
-    this.read = this.read || "";
-    this.read += new TextDecoder().decode(data);
-    if(this.read && this.read.indexOf("\r\n\r\n") !== -1) {
-        let offset = this.read.indexOf("\r\n\r\n");
-        let headers = this.read.substring(0, offset).split(/\r\n/);
-        let data = this.read.substring(offset + 4);
-        this.read = "";
-
-        let first_line = headers[0].split(" ");
-        let target;
-        if(/^https?:/.test(first_line[1])) {
-            // HTTP proxy
-            target = new URL(first_line[1]);
+    // If we're buffering a partial request body, accumulate chunks until
+    // Content-Length is satisfied, then fire the deferred fetch.
+    if(this._xb)
+    {
+        const chunk = data instanceof Uint8Array ? data : new Uint8Array(data);
+        const combined = new Uint8Array(this._xb.buf.length + chunk.length);
+        combined.set(this._xb.buf);
+        combined.set(chunk, this._xb.buf.length);
+        this._xb.buf = combined;
+        if(this._xb.buf.length >= this._xb.cl)
+        {
+            const body = this._xb.buf;
+            const done = this._xb.done;
+            this._xb = null;
+            done(body);
         }
-        else {
-            target = new URL("http://host" + first_line[1]);
-        }
-        if(typeof window !== "undefined" && target.protocol === "http:" && window.location.protocol === "https:") {
-            // fix "Mixed Content" errors
-            target.protocol = "https:";
-        }
-
-        let req_headers = new Headers();
-        for(let i = 1; i < headers.length; ++i) {
-            const header = this.net.parse_http_header(headers[i]);
-            if(!header) {
-                console.warn('The request contains an invalid header: "%s"', headers[i]);
-                this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${headers[i]}`);
-                return;
-            }
-            if( header.key.toLowerCase() === "host" ) target.host = header.value;
-            else req_headers.append(header.key, header.value);
-        }
-
-        if(!this.net.cors_proxy && /^\d+\.external$/.test(target.hostname)) {
-            dbg_log("Request to localhost: " + target.href, LOG_FETCH);
-            const localport = parseInt(target.hostname.split(".")[0], 10);
-            if(!isNaN(localport) && localport > 0 && localport < 65536) {
-                target.protocol = "http:";
-                target.hostname = "localhost";
-                target.port = localport.toString(10);
-            } else {
-                console.warn('Unknown port for localhost: "%s"', target.href);
-                this.net.respond_text_and_close(this, 400, "Bad Request", `Unknown port for localhost: ${target.href}`);
-                return;
-            }
-        }
-
-        dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
-        this.name = target.href;
-        let opts = {
-            method: first_line[0],
-            headers: req_headers,
-        };
-        if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1) {
-            opts.body = data;
-        }
-
-        const fetch_url = this.net.cors_proxy ? this.net.cors_proxy + encodeURIComponent(target.href) : target.href;
-        const encoder = new TextEncoder();
-        let response_started = false;
-        let handler = (resp) => {
-            let resp_headers = new Headers(resp.headers);
-            resp_headers.delete("content-encoding");
-            resp_headers.delete("keep-alive");
-            resp_headers.delete("content-length");
-            resp_headers.delete("transfer-encoding");
-            resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
-            resp_headers.set("x-fetch-resp-url", resp.url);
-            resp_headers.set("connection", "close");
-
-            this.write(this.net.form_response_head(resp.status, resp.statusText, resp_headers));
-            response_started = true;
-
-            if(resp.body && resp.body.getReader) {
-                const resp_reader = resp.body.getReader();
-                const pump = ({ value, done }) => {
-                    if(value) {
-                        this.write(value);
-                    }
-                    if(done) {
-                        this.close();
-                    }
-                    else {
-                        return resp_reader.read().then(pump);
-                    }
-                };
-                resp_reader.read().then(pump);
-            } else {
-                resp.arrayBuffer().then(buffer => {
-                    this.write(new Uint8Array(buffer));
-                    this.close();
-                });
-            }
-        };
-
-        this.net.fetch(fetch_url, opts).then(handler)
-        .catch((e) => {
-            console.warn("Fetch Failed: " + fetch_url + "\n" + e);
-            if(!response_started) {
-                this.net.respond_text_and_close(this, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
-            }
-            this.close();
-        });
+        return;
     }
+
+    // Accumulate raw bytes (not text) so binary body data is preserved.
+    const chunk = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if(this._raw)
+    {
+        const combined = new Uint8Array(this._raw.length + chunk.length);
+        combined.set(this._raw);
+        combined.set(chunk, this._raw.length);
+        this._raw = combined;
+    }
+    else
+    {
+        this._raw = chunk;
+    }
+
+    const sep_index = indexOfBytes(this._raw, CRLFCRLF);
+    if(sep_index === -1) return;
+
+    // Split into header (text) and body (binary).
+    const headerBytes = this._raw.slice(0, sep_index);
+    const bodyBytes = this._raw.slice(sep_index + CRLFCRLF.length);
+    this._raw = null;
+
+    const headerText = textDecoder.decode(headerBytes);
+    const headerLines = headerText.split(/\r\n/);
+
+    const first_line = headerLines[0].split(" ");
+    let target;
+    if(/^https?:/.test(first_line[1]))
+    {
+        // HTTP proxy
+        target = new URL(first_line[1]);
+    }
+    else
+    {
+        target = new URL("http://host" + first_line[1]);
+    }
+    if(typeof window !== "undefined" && target.protocol === "http:" && window.location.protocol === "https:")
+    {
+        // fix "Mixed Content" errors
+        target.protocol = "https:";
+    }
+
+    const req_headers = new Headers();
+    for(let i = 1; i < headerLines.length; ++i)
+    {
+        const header = this.net.parse_http_header(headerLines[i]);
+        if(!header)
+        {
+            console.warn('The request contains an invalid header: "%s"', headerLines[i]);
+            this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${headerLines[i]}`);
+            return;
+        }
+        if(header.key.toLowerCase() === "host") target.host = header.value;
+        else req_headers.append(header.key, header.value);
+    }
+
+    if(!this.net.cors_proxy && /^\d+\.external$/.test(target.hostname))
+    {
+        dbg_log("Request to localhost: " + target.href, LOG_FETCH);
+        const localport = parseInt(target.hostname.split(".")[0], 10);
+        if(!isNaN(localport) && localport > 0 && localport < 65536)
+        {
+            target.protocol = "http:";
+            target.hostname = "localhost";
+            target.port = localport.toString(10);
+        }
+        else
+        {
+            console.warn('Unknown port for localhost: "%s"', target.href);
+            this.net.respond_text_and_close(this, 400, "Bad Request", `Unknown port for localhost: ${target.href}`);
+            return;
+        }
+    }
+
+    dbg_log("HTTP Dispatch: " + target.href, LOG_FETCH);
+    this.name = target.href;
+
+    const opts = {
+        method: first_line[0],
+        headers: req_headers,
+    };
+
+    if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1)
+    {
+        // The body may span multiple TCP segments.
+        // If Content-Length is present and larger than what we have so far,
+        // buffer the partial body and wait for remaining chunks.
+        const content_length = parseInt(req_headers.get("content-length") || "0", 10);
+        if(content_length > 0 && bodyBytes.length < content_length)
+        {
+            const fetch_url = this.net.cors_proxy
+                ? this.net.cors_proxy + encodeURIComponent(target.href)
+                : target.href;
+            this._xb = {
+                buf: bodyBytes,
+                cl: content_length,
+                done: (body) => {
+                    opts.body = body;
+                    dispatch_fetch(this, fetch_url, opts);
+                },
+            };
+            return;
+        }
+        opts.body = bodyBytes;
+    }
+
+    const fetch_url = this.net.cors_proxy
+        ? this.net.cors_proxy + encodeURIComponent(target.href)
+        : target.href;
+    dispatch_fetch(this, fetch_url, opts);
+}
+
+/**
+ * Execute the HTTP fetch and pipe the response back to the guest.
+ *
+ * @param {TCPConnection} conn
+ * @param {string} fetch_url
+ * @param {!Object} opts
+ */
+function dispatch_fetch(conn, fetch_url, opts)
+{
+    let response_started = false;
+    let handler = (resp) => {
+        let resp_headers = new Headers(resp.headers);
+        resp_headers.delete("content-encoding");
+        resp_headers.delete("keep-alive");
+        resp_headers.delete("content-length");
+        resp_headers.delete("transfer-encoding");
+        resp_headers.set("x-was-fetch-redirected", `${!!resp.redirected}`);
+        resp_headers.set("x-fetch-resp-url", resp.url);
+        resp_headers.set("connection", "close");
+
+        conn.write(conn.net.form_response_head(resp.status, resp.statusText, resp_headers));
+        response_started = true;
+
+        if(resp.body && resp.body.getReader)
+        {
+            const resp_reader = resp.body.getReader();
+            const pump = ({ value, done }) => {
+                if(value)
+                {
+                    conn.write(value);
+                }
+                if(done)
+                {
+                    conn.close();
+                }
+                else
+                {
+                    return resp_reader.read().then(pump);
+                }
+            };
+            resp_reader.read().then(pump);
+        }
+        else
+        {
+            resp.arrayBuffer().then(buffer => {
+                conn.write(new Uint8Array(buffer));
+                conn.close();
+            });
+        }
+    };
+
+    conn.net.fetch(fetch_url, opts).then(handler)
+    .catch((e) => {
+        console.warn("Fetch Failed: " + fetch_url + "\n" + e);
+        if(!response_started)
+        {
+            conn.net.respond_text_and_close(conn, 502, "Fetch Error", `Fetch ${fetch_url} failed:\n\n${e.stack || e.message}`);
+        }
+        conn.close();
+    });
 }
 
 FetchNetworkAdapter.prototype.fetch = async function(url, options)
@@ -200,7 +321,7 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
                 statusText: "Fetch Error",
                 headers: new Headers({ "Content-Type": "text/plain" }),
             },
-            new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
+            textEncoder.encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
         ];
     }
 };
@@ -211,11 +332,12 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
         `HTTP/1.1 ${status_code} ${status_text}`
     ];
 
-    for(const [key, value] of headers.entries()) {
+    for(const [key, value] of headers.entries())
+    {
         lines.push(`${key}: ${value}`);
     }
 
-    return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
+    return textEncoder.encode(lines.join("\r\n") + "\r\n\r\n");
 };
 
 FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_code, status_text, body)
@@ -225,14 +347,15 @@ FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_cod
         "content-length": body.length.toString(10),
         "connection": "close"
     });
-    conn.writev([this.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
+    conn.writev([this.form_response_head(status_code, status_text, headers), textEncoder.encode(body)]);
     conn.close();
 };
 
 FetchNetworkAdapter.prototype.parse_http_header = function(header)
 {
     const parts = header.match(/^([^:]*):(.*)$/);
-    if(!parts) {
+    if(!parts)
+    {
         dbg_log("Unable to parse HTTP header", LOG_FETCH);
         return;
     }
