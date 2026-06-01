@@ -101,14 +101,17 @@ The default VGA display driver only supports 640x480x4 video mode, to fix this, 
 5. Select "VESA ISA" adapter and press "OK".
 6. After installing, restart Windows.
 
-## Enabling absolute mouse positioning (VMware Tools)
+## Enabling absolute mouse positioning (VBMOUSE)
 
-v86 emulates the VMware absolute pointing device. With the VMware Tools mouse driver installed, the guest cursor follows the host cursor directly, without having to lock the mouse.
+v86 emulates the VMware absolute pointing device. With an absolute mouse driver installed in the guest, the guest cursor follows the host cursor directly, without having to lock the mouse.
 
-1. Get a VMware Tools ISO that still supports Windows 9x (`winPre2k.iso`, shipped with older VMware Workstation releases).
-2. Mount the ISO as a CD-ROM image and run the VMware Tools installer.
-3. Select the "Custom" setup and install only the mouse driver — the other components are for hardware that v86 doesn't emulate.
-4. Restart Windows.
+[VBADOS](https://git.javispedro.com/cgit/vbados.git/about/) provides VBMOUSE, an open-source DOS mouse driver with VMware mouse support, together with a 16-bit Windows mouse driver on top of it that Windows 9x can use.
+
+1. Download [vbados.flp](https://depot.javispedro.com/vbox/vbados/vbados.flp) and mount it as a floppy image (or copy its contents into the guest in some other way).
+2. Copy `VBMOUSE.EXE` from the floppy to the hard disk (for example to `C:\VBADOS`) and `VBMOUSE.DRV` to `C:\WINDOWS\SYSTEM`.
+3. Add `C:\VBADOS\VBMOUSE.EXE` to `C:\AUTOEXEC.BAT`, so the DOS part of the driver is loaded before Windows starts.
+4. In `C:\WINDOWS\SYSTEM.INI`, change the `mouse.drv` line in the `[boot]` section to `mouse.drv=vbmouse.drv`.
+5. Restart Windows.
 
 ## CPU idling on Windows 95
 See about [installing AmnHLT](cpu-idling.md#windows-9x-using-amnhlt).
