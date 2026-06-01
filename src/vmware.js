@@ -24,13 +24,21 @@ const BUTTON_LEFT = 0x20;
 const BUTTON_RIGHT = 0x10;
 const BUTTON_MIDDLE = 0x08;
 
+// Flag in the status dword marking a packet whose x/y are signed deltas
+// rather than absolute positions (VMMOUSE_RELATIVE_PACKET in the guest
+// drivers). Used while the host pointer is locked and no meaningful absolute
+// position exists.
+const RELATIVE_PACKET = 0x00010000;
+
 const QUEUE_MAX = 1024;
 
 /**
  * VMware mouse backdoor (port 0x5658). Lets a guest driver read absolute
  * pointer position so the guest cursor can track the host cursor 1:1 without
  * pointer lock. PS/2 still supplies the IRQ; the driver reads this port on
- * each IRQ12.
+ * each IRQ12. While the host pointer is locked (e.g. for games), movement is
+ * reported as relative packets instead, since no meaningful absolute position
+ * exists.
  *
  * @constructor
  * @param {CPU} cpu
@@ -58,6 +66,18 @@ export function VMwareMouse(cpu, bus)
     this.last_y = -1;
     this.tail_is_move = false;
 
+    /**
+     * Whether the host pointer is currently locked (browser pointer lock).
+     * While locked, the host cursor position is meaningless, so movement is
+     * reported as relative packets instead of absolute ones.
+     * @type {boolean}
+     */
+    this.host_pointer_locked = false;
+
+    // sub-pixel remainders of relative movement
+    this.rel_dx = 0;
+    this.rel_dy = 0;
+
     this.bus.register("mouse-absolute", function(data)
     {
         const x = Math.max(0, Math.min(0xFFFF, Math.round(data[0] / data[2] * 0xFFFF)));
@@ -68,7 +88,33 @@ export function VMwareMouse(cpu, bus)
         }
         this.last_x = x;
         this.last_y = y;
-        this.push_packet(0, true);
+        this.push_absolute(0, true);
+    }, this);
+
+    this.bus.register("mouse-delta", function(data)
+    {
+        if(!this.host_pointer_locked)
+        {
+            return;
+        }
+        this.rel_dx += data[0];
+        this.rel_dy += data[1];
+        const dx = this.rel_dx | 0;
+        const dy = this.rel_dy | 0;
+        if(!dx && !dy)
+        {
+            return;
+        }
+        this.rel_dx -= dx;
+        this.rel_dy -= dy;
+        this.push_relative(dx, dy, 0, true);
+    }, this);
+
+    this.bus.register("mouse-pointer-lock", function(locked)
+    {
+        this.host_pointer_locked = locked;
+        this.rel_dx = 0;
+        this.rel_dy = 0;
     }, this);
 
     this.bus.register("mouse-click", function(data)
@@ -77,12 +123,26 @@ export function VMwareMouse(cpu, bus)
             (data[0] ? BUTTON_LEFT : 0) |
             (data[1] ? BUTTON_MIDDLE : 0) |
             (data[2] ? BUTTON_RIGHT : 0);
-        this.push_packet(0, false);
+        if(this.host_pointer_locked)
+        {
+            this.push_relative(0, 0, 0, false);
+        }
+        else
+        {
+            this.push_absolute(0, false);
+        }
     }, this);
 
     this.bus.register("mouse-wheel", function(data)
     {
-        this.push_packet(-data[0] | 0, false);
+        if(this.host_pointer_locked)
+        {
+            this.push_relative(0, 0, -data[0] | 0, false);
+        }
+        else
+        {
+            this.push_absolute(-data[0] | 0, false);
+        }
     }, this);
 
     // The backdoor protocol is 32-bit only, but guests probe the port at
@@ -93,7 +153,7 @@ export function VMwareMouse(cpu, bus)
     cpu.io.register_write(VMWARE_PORT, this, nop, nop, nop);
 }
 
-VMwareMouse.prototype.push_packet = function(wheel, move_only)
+VMwareMouse.prototype.push_absolute = function(wheel, move_only)
 {
     if(!this.enabled || !this.absolute || this.last_x < 0)
     {
@@ -104,12 +164,39 @@ VMwareMouse.prototype.push_packet = function(wheel, move_only)
     // are never coalesced. This keeps the guest cursor at most one frame
     // behind regardless of how slowly it drains, and makes overflow
     // unreachable in practice.
-    if(move_only && this.tail_is_move && this.queue.length >= 4)
+    if(move_only && this.tail_is_move && this.queue.length >= 4 &&
+        !(this.queue[this.queue.length - 4] & RELATIVE_PACKET))
     {
         this.queue[this.queue.length - 3] = this.last_x;
         this.queue[this.queue.length - 2] = this.last_y;
         return;
     }
+    this.push_packet(this.buttons, this.last_x, this.last_y, wheel, move_only);
+};
+
+// Relative fallback, used while the host pointer is locked (e.g. for games).
+// The sign convention follows the Linux vmmouse driver: positive x is right,
+// positive y is up, like PS/2.
+VMwareMouse.prototype.push_relative = function(dx, dy, wheel, move_only)
+{
+    if(!this.enabled)
+    {
+        return;
+    }
+    // Same idea as in push_absolute, but pending deltas accumulate instead of
+    // being overwritten.
+    if(move_only && this.tail_is_move && this.queue.length >= 4 &&
+        (this.queue[this.queue.length - 4] & RELATIVE_PACKET))
+    {
+        this.queue[this.queue.length - 3] += dx;
+        this.queue[this.queue.length - 2] += dy;
+        return;
+    }
+    this.push_packet(this.buttons | RELATIVE_PACKET, dx, dy, wheel, move_only);
+};
+
+VMwareMouse.prototype.push_packet = function(status, x, y, wheel, move_only)
+{
     if(this.queue.length + 4 > QUEUE_MAX)
     {
         this.enabled = false;
@@ -117,7 +204,7 @@ VMwareMouse.prototype.push_packet = function(wheel, move_only)
         dbg_log("vmware mouse: queue overflow, disabling", LOG_OTHER);
         return;
     }
-    this.queue.push(this.buttons, this.last_x, this.last_y, wheel);
+    this.queue.push(status, x, y, wheel);
     this.tail_is_move = move_only;
 };
 

@@ -58,6 +58,7 @@ export function MouseAdapter(bus, screen_container)
         window.removeEventListener("mousedown", mousedown_handler, false);
         window.removeEventListener("mouseup", mouseup_handler, false);
         window.removeEventListener("wheel", mousewheel_handler, { passive: false });
+        document.removeEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
 
     this.init = function()
@@ -75,8 +76,14 @@ export function MouseAdapter(bus, screen_container)
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
         window.addEventListener("wheel", mousewheel_handler, { passive: false });
+        document.addEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
     this.init();
+
+    function pointerlockchange_handler()
+    {
+        mouse.bus.send("mouse-pointer-lock", !!document.pointerLockElement);
+    }
 
     function is_child(child, parent)
     {
@@ -225,7 +232,9 @@ export function MouseAdapter(bus, screen_container)
 
         mouse.bus.send("mouse-delta", [delta_x, delta_y]);
 
-        if(screen_container)
+        // Under pointer lock the page coordinates don't change, so no
+        // meaningful absolute position can be reported
+        if(screen_container && !document.pointerLockElement)
         {
             const absolute_x = e.pageX - screen_container.offsetLeft;
             const absolute_y = e.pageY - screen_container.offsetTop;

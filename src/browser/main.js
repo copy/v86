@@ -2681,6 +2681,7 @@ function init_ui(profile, settings, emulator)
     var last_instr_counter = 0;
     var interval = null;
     var os_uses_mouse = false;
+    var os_uses_absolute_mouse = false;
     var total_instructions = 0;
 
     function update_info()
@@ -2826,6 +2827,11 @@ function init_ui(profile, settings, emulator)
     {
         os_uses_mouse = is_enabled;
         $("info_mouse_enabled").textContent = is_enabled ? "Yes" : "No";
+    });
+
+    emulator.add_listener("vmware-absolute-mouse", function(is_enabled)
+    {
+        os_uses_absolute_mouse = is_enabled;
     });
 
     emulator.add_listener("screen-set-size", function(args)
@@ -3216,7 +3222,11 @@ function init_ui(profile, settings, emulator)
             emulator.speaker_adapter.audio_context.resume();
         }
 
-        if(mouse_is_enabled && os_uses_mouse)
+        // No need to lock the mouse if the guest tracks the host cursor
+        // through the absolute pointing device. The "Lock mouse" button can
+        // still be used, e.g. for games (movement is then sent as relative
+        // deltas).
+        if(mouse_is_enabled && os_uses_mouse && !os_uses_absolute_mouse)
         {
             emulator.lock_mouse();
         }
