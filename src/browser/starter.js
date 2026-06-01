@@ -288,6 +288,20 @@ V86.prototype.continue_init = async function(emulator, options)
         this.mouse_adapter = new MouseAdapter(this.bus, screen_options.container);
     }
 
+    // Pointer lock is not needed while the guest uses absolute pointer
+    // positions (the guest cursor follows the host cursor), so release it
+    // when the guest driver enables absolute positioning
+    this.absolute_pointer_enabled = false;
+    this.bus.register("vmware-absolute-mouse", function(enabled)
+    {
+        if(enabled && !this.absolute_pointer_enabled &&
+            typeof document !== "undefined" && document.pointerLockElement)
+        {
+            document.exitPointerLock();
+        }
+        this.absolute_pointer_enabled = enabled;
+    }, this);
+
     if(screen_options.container)
     {
         this.screen_adapter = new ScreenAdapter(screen_options, () => this.v86.cpu.devices.vga && this.v86.cpu.devices.vga.screen_fill_buffer());

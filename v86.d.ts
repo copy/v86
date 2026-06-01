@@ -224,6 +224,7 @@ export interface Event {
     "virtio-console0-output-bytes": Uint8Array;
     "virtio-console0-input-bytes": Uint8Array;
     "virtio-console0-resize": [cols: number, rows: number];
+    "vmware-absolute-mouse": boolean;
 }
 
 /**
