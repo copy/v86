@@ -125,15 +125,6 @@ After installation, change the computer type to "Standard PC" as described [here
 6. Select "VBE Miniport" adapter, press "Yes" and "Next".
 7. After installing, restart the VM.
 
-### Enabling absolute mouse positioning (VMware Tools)
-
-v86 emulates the VMware absolute pointing device. With the VMware Tools mouse driver installed, the guest cursor follows the host cursor directly, without having to lock the mouse.
-
-1. Get a VMware Tools ISO that supports Windows 2000/XP (`windows.iso` from an older VMware Workstation release).
-2. Mount the ISO as a CD-ROM image and run the VMware Tools installer.
-3. Select the "Custom" setup and install only the mouse driver — the other components are for hardware that v86 doesn't emulate.
-4. Restart Windows.
-
 ### Enabling sound
 
 *Source: [#1049](https://github.com/copy/v86/issues/1049)*
