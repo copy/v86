@@ -2900,8 +2900,34 @@ pub unsafe fn run_instruction(opcode: i32) { gen::interpreter::run(opcode as u32
 pub unsafe fn run_instruction0f_16(opcode: i32) { gen::interpreter0f::run(opcode as u32) }
 pub unsafe fn run_instruction0f_32(opcode: i32) { gen::interpreter0f::run(opcode as u32 | 0x100) }
 
+// Interprets a single instruction when the trap flag is set and raises #DB.
+unsafe fn single_step_with_trap() {
+    profiler::stat_increment(stat::RUN_INTERPRETED);
+    *previous_ip = *instruction_pointer;
+    let phys_addr = return_on_pagefault!(get_phys_eip());
+    let opcode = *memory::mem8.offset(phys_addr as isize) as i32;
+    *instruction_pointer += 1;
+    dbg_assert!(*prefixes == 0);
+    run_instruction(opcode | (*is_32 as i32) << 8);
+    dbg_assert!(*prefixes == 0);
+    *instruction_counter += 1;
+    // A fault or int3 in the instruction enters an interrupt that already clears
+    // TF, so #DB is only raised when TF survived. eip now points at the next
+    // instruction, which is the trap's return address.
+    if *flags & FLAG_TRAP != 0 {
+        // DR6.BS marks this #DB as single-step. A guest kernel reads it to tell
+        // single-step apart from a hardware breakpoint.
+        *dreg.offset(6) |= 0x4000;
+        call_interrupt_vector(CPU_EXCEPTION_DB, false, None);
+    }
+}
+
 pub unsafe fn cycle_internal() {
     profiler::stat_increment(stat::CYCLE_INTERNAL);
+    if *flags & FLAG_TRAP != 0 {
+        single_step_with_trap();
+        return;
+    }
     let mut jit_entry = None;
     let initial_eip = *instruction_pointer;
     let initial_state_flags = *state_flags;
@@ -4245,11 +4271,6 @@ pub unsafe fn update_eflags(new_flags: i32) {
     }
     *flags = (new_flags ^ (*flags ^ new_flags) & dont_update) & clear | FLAGS_DEFAULT;
     *flags_changed = 0;
-
-    if *flags & FLAG_TRAP != 0 {
-        dbg_log!("Not supported: trap flag");
-    }
-    *flags &= !FLAG_TRAP;
 }
 
 #[no_mangle]
