@@ -2880,7 +2880,9 @@ pub unsafe fn set_cr3(mut cr3: i32) {
     }
     if *cr.offset(4) & CR4_PAE != 0 {
         cr3 &= !0b1111;
-        load_pdpte(cr3);
+        if *cr.offset(0) & CR0_PG != 0 {
+            load_pdpte(cr3);
+        }
     }
     else {
         cr3 &= !0b111111100111;
@@ -2892,13 +2894,15 @@ pub unsafe fn set_cr3(mut cr3: i32) {
 
 pub unsafe fn load_pdpte(cr3: i32) {
     dbg_assert!(cr3 & 0b1111 == 0);
+    // dbg_log!("load_pdpte cr3={:#010x}", cr3 as u32);
     for i in 0..4 {
         let mut pdpt_entry = memory::read64s(cr3 as u32 + 8 * i as u32) as u64;
         pdpt_entry &= !0b1110_0000_0000;
-        dbg_assert!(pdpt_entry & 0b11000 == 0, "TODO");
+        // bits 3 (PWT) and 4 (PCD) are valid in PDPTE; ignore them (no cache emulation)
+        pdpt_entry &= !0b11000;
         dbg_assert!(
             pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
-            "Unsupported: PDPT entry larger than 32 bits"
+            "Unsupported: PDPT entry larger than 32 bits: {:#018x}", pdpt_entry
         );
         if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
             dbg_assert!(

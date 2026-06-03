@@ -813,7 +813,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 }
                 let old_cr4 = *cr.offset(4);
                 *cr.offset(4) = data;
-                if data & CR4_PAE != 0 && 0 != (old_cr4 ^ data) & CR4_PAE {
+                if data & CR4_PAE != 0 && 0 != (old_cr4 ^ data) & CR4_PAE && *cr.offset(0) & CR0_PG != 0 {
                     load_pdpte(*cr.offset(3));
                 }
             }
