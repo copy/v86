@@ -2902,7 +2902,8 @@ pub unsafe fn load_pdpte(cr3: i32) {
         pdpt_entry &= !0b11000;
         dbg_assert!(
             pdpt_entry as u64 & 0xFFFF_FFFF_0000_0000 == 0,
-            "Unsupported: PDPT entry larger than 32 bits: {:#018x}", pdpt_entry
+            "Unsupported: PDPT entry larger than 32 bits: {:#018x}",
+            pdpt_entry
         );
         if pdpt_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
             dbg_assert!(
