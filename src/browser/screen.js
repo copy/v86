@@ -337,7 +337,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         // initialize display mode and size to 80x25 text with 9x16 font
         this.set_mode(false);
-        this.set_size_text(80, 25);
+        this.set_size_text(80, 25, true);
         if(mode === MODE_GRAPHICAL_TEXT)
         {
             this.set_size_graphical(720, 400, 720, 400);
@@ -545,7 +545,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 changed_rows.fill(1);
                 if(size_changed)
                 {
-                    this.set_size_graphical_text();
+                    this.set_size_graphical_text(true);
                 }
             }
         }
@@ -567,7 +567,10 @@ export function ScreenAdapter(options, screen_fill_buffer)
         graphic_context.fillRect(0, 0, graphic_screen.width, graphic_screen.height);
     };
 
-    this.set_size_graphical_text = function()
+    /**
+     * @param {boolean} force
+     */
+    this.set_size_graphical_text = function(force)
     {
         if(!font_context)
         {
@@ -578,7 +581,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         const gfx_height = font_height * text_mode_height;
         const offscreen_extra_height = font_height * 2;
 
-        if(!offscreen_context || offscreen_context.canvas.width !== gfx_width ||
+        if(force || !offscreen_context || offscreen_context.canvas.width !== gfx_width ||
             offscreen_context.canvas.height !== gfx_height ||
             offscreen_extra_context.canvas.height !== offscreen_extra_height)
         {
@@ -608,10 +611,11 @@ export function ScreenAdapter(options, screen_fill_buffer)
     /**
      * @param {number} cols
      * @param {number} rows
+     * @param {boolean} force
      */
-    this.set_size_text = function(cols, rows)
+    this.set_size_text = function(cols, rows, force)
     {
-        if(cols === text_mode_width && rows === text_mode_height)
+        if(!force && cols === text_mode_width && rows === text_mode_height)
         {
             return;
         }
@@ -643,7 +647,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         }
         else if(mode === MODE_GRAPHICAL_TEXT)
         {
-            this.set_size_graphical_text();
+            this.set_size_graphical_text(force);
         }
     };
 

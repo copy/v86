@@ -532,12 +532,12 @@ VGAScreen.prototype.set_state = function(state)
 
     this.screen.set_mode(this.graphical_mode);
 
+    // Ensure set_size_graphical/set_size_graphical_text will update
+    this.screen_width = 0;
+    this.screen_height = 0;
+
     if(this.graphical_mode)
     {
-        // Ensure set_size_graphical will update
-        this.screen_width = 0;
-        this.screen_height = 0;
-
         if(this.svga_enabled)
         {
             this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
@@ -553,7 +553,7 @@ VGAScreen.prototype.set_state = function(state)
     else
     {
         this.set_font_bitmap(true);
-        this.set_size_text(this.max_cols, this.max_rows);
+        this.set_size_text(this.max_cols, this.max_rows, true);
         this.set_font_page();
         this.update_cursor_scanline();
         this.update_cursor();
@@ -1139,14 +1139,15 @@ VGAScreen.prototype.scan_line_to_screen_row = function(scan_line)
 /**
  * @param {number} cols_count
  * @param {number} rows_count
+ * @param {boolean} force
  */
-VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
+VGAScreen.prototype.set_size_text = function(cols_count, rows_count, force)
 {
     dbg_assert(!this.graphical_mode);
     this.max_cols = cols_count;
     this.max_rows = rows_count;
 
-    this.screen.set_size_text(cols_count, rows_count);
+    this.screen.set_size_text(cols_count, rows_count, force);
     this.bus.send("screen-set-size", [cols_count, rows_count, 0]);
 };
 
@@ -1264,7 +1265,7 @@ VGAScreen.prototype.update_vga_size = function()
 
         if(horizontal_characters && height)
         {
-            this.set_size_text(horizontal_characters, height);
+            this.set_size_text(horizontal_characters, height, false);
         }
     }
 };
