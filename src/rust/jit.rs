@@ -32,6 +32,7 @@ impl WasmTableIndex {
 mod unsafe_jit {
     use super::{CachedStateFlags, WasmTableIndex};
 
+    #[link(wasm_import_module = "env")]
     extern "C" {
         pub fn codegen_finalize(
             wasm_table_index: WasmTableIndex,
