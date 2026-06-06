@@ -136,7 +136,7 @@ https://www.npmjs.com/package/v86
 
   This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
   It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
-  
+
   Install: `npm install v86`
 
 ### Alternatively, to build using Docker
@@ -195,6 +195,11 @@ var emulator = new V86({
 ```
 
 See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
+
+## Generative AI
+
+At this time, v86 does not accept pull requests or issues written partially or entirely by generative AI tools.
+Exceptions may be made on a case-by-case basis.
 
 ## License
 
