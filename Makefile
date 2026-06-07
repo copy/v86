@@ -78,17 +78,17 @@ CARGO_FLAGS_SAFE=\
 
 CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
 
-CORE_FILES=const.js config.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
-	   memory.js dma.js pit.js vga.js ps2.js rtc.js uart.js \
-	   acpi.js apic.js ioapic.js \
+CORE_FILES=cjs.js const.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
+	   dma.js pit.js vga.js ps2.js rtc.js uart.js \
+	   acpi.js iso9660.js \
 	   state.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
-	   bus.js log.js cpu.js debug.js \
+	   bus.js log.js cpu.js \
 	   elf.js kernel.js
-LIB_FILES=9p-filer.js filesystem.js jor1k.js marshall.js
+LIB_FILES=9p.js 9p-filer.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
-	      network.js starter.js worker_bus.js dummy_screen.js \
+	      network.js starter.js worker_bus.js dummy_screen.js ansi_screen.js \
 	      inbrowser_network.js fake_network.js wisp_network.js fetch_network.js \
-          print_stats.js filestorage.js
+          print_stats.js filestorage.js modem.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
 	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f.rs \
@@ -152,7 +152,7 @@ build/libv86.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
 		--jscomp_off=missingProperties\
-		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86;'\
+		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)\
@@ -173,6 +173,7 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+	ls -lh build/libv86-debug.js
 
 build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
@@ -180,6 +181,7 @@ build/libv86-debug.mjs: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js_output_file build/libv86-debug.mjs\
 		--define=DEBUG=true\
 		$(CLOSURE_FLAGS)\
+		$(CLOSURE_READABLE)\
 		--compilation_level SIMPLE\
 		--jscomp_off=missingProperties\
 		--output_wrapper ';let module = {exports:{}}; %output%; export default module.exports.V86; export let {V86, CPU} = module.exports;'\
@@ -258,6 +260,7 @@ clean:
 	-rm build/libv86.js
 	-rm build/libv86.mjs
 	-rm build/libv86-debug.js
+	-rm build/libv86-debug.mjs
 	-rm build/v86_all.js
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
@@ -274,8 +277,11 @@ update_version:
 	set -e ;\
 	COMMIT=`git log --format="%h" -n 1` ;\
 	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
-	SEARCH='<code>Version: <a href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
-	REPLACE='<code>Version: <a href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	SEARCH='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</code>' ;\
+	REPLACE='<code>Version: <a id="version" href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</code>' ;\
+	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
+	SEARCH='<script src="build/v86_all.js?[a-f0-9]\+"></script>' ;\
+	REPLACE='<script src="build/v86_all.js?'$$COMMIT'"></script>' ;\
 	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
 	grep $$COMMIT index.html
 
@@ -294,51 +300,51 @@ build/integration-test-fs/fs.json: images/buildroot-bzimage68.bin
 	./tools/copy-to-sha256.py build/integration-test-fs/fs.tar build/integration-test-fs/flat
 	rm build/integration-test-fs/fs.tar build/integration-test-fs/bzImage build/integration-test-fs/initrd
 
-tests: build/libv86-debug.js build/v86-debug.wasm build/integration-test-fs/fs.json
+tests: build/v86-debug.wasm build/integration-test-fs/fs.json
 	LOG_LEVEL=3 ./tests/full/run.js
 
 tests-release: build/libv86.js build/v86.wasm build/integration-test-fs/fs.json
 	TEST_RELEASE_BUILD=1 ./tests/full/run.js
 
-nasmtests: build/libv86-debug.js build/v86-debug.wasm
+nasmtests: build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm
+nasmtests-force-jit: build/v86-debug.wasm
 	$(NASM_TEST_DIR)/create_tests.js
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
-jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
+jitpagingtests: build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: build/libv86-debug.js build/v86-debug.wasm
+qemutests: build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
 	LOG_LEVEL=3 ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-qemutests-release: build/libv86.js build/v86.wasm
+qemutests-release: build/libv86.mjs build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
 	TEST_RELEASE_BUILD=1 time ./tests/qemu/run.js build/qemu-test-result
 	./tests/qemu/run-qemu.js > build/qemu-test-reference
 	diff build/qemu-test-result build/qemu-test-reference
 
-kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
+kvm-unit-test: build/v86-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
-	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
-kvm-unit-test-release: build/libv86.js build/v86.wasm
+kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
-	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
-expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
+expect-tests: build/v86-debug.wasm build/libwabt.cjs
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/libv86-debug.js build/v86-debug.wasm
+devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
@@ -353,13 +359,15 @@ rust-test: $(RUST_FILES)
 rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
-api-tests: build/libv86-debug.js build/v86-debug.wasm
+api-tests: build/v86-debug.wasm
 	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 	./tests/api/reset.js
-	#./tests/api/floppy-insert-eject.js # disabled for now, sometimes hangs
+	./tests/api/floppy.js
+	./tests/api/cdrom-insert-eject.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
+	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
 	./tests/api/pic.js
 
 all-tests: eslint kvm-unit-test qemutests qemutests-release jitpagingtests api-tests nasmtests nasmtests-force-jit rust-test tests expect-tests
@@ -376,13 +384,27 @@ build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
 
-build/libwabt.js:
+build/libwabt.cjs:
 	mkdir -p build
 	wget -nv -P build https://github.com/WebAssembly/wabt/archive/1.0.6.zip
 	unzip -j -d build/ build/1.0.6.zip wabt-1.0.6/demo/libwabt.js
+	mv build/libwabt.js build/libwabt.cjs
 	rm build/1.0.6.zip
 
 build/xterm.js:
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.min.js > build/xterm.js
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/lib/xterm.js.map > build/xterm.js.map
 	curl https://cdn.jsdelivr.net/npm/xterm@5.2.1/css/xterm.css > build/xterm.css
+
+update-package-json-version:
+	git describe --tags --exclude latest | sed 's/-/./' | tr - + | tee build/version
+	jq --arg version "$$(cat build/version)" '.version = $$version' package.json > package.json.tmp
+	mv package.json.tmp package.json
+
+doc:
+	set -e ;\
+	COMMIT=`git log --format="%h" -n 1` ;\
+	npx typedoc --readme none --customFooterHtml "Commit: <a href='https://github.com/copy/v86/commits/$$COMMIT'><code>$$COMMIT</code></a>" --out ./docs/api ./v86.d.ts
+
+denodoc:
+	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts

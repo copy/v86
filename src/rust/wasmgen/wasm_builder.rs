@@ -4,8 +4,27 @@ use std::mem::transmute;
 use crate::leb::{
     write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_i64, write_leb_u32,
 };
-use crate::util::{SafeToU16, SafeToU8};
 use crate::wasmgen::wasm_opcodes as op;
+
+pub trait SafeToU8 {
+    fn safe_to_u8(self) -> u8;
+}
+impl SafeToU8 for usize {
+    fn safe_to_u8(self) -> u8 {
+        dbg_assert!(self <= ::std::u8::MAX as usize);
+        self as u8
+    }
+}
+
+pub trait SafeToU16 {
+    fn safe_to_u16(self) -> u16;
+}
+impl SafeToU16 for usize {
+    fn safe_to_u16(self) -> u16 {
+        dbg_assert!(self <= ::std::u16::MAX as usize);
+        self as u16
+    }
+}
 
 #[derive(PartialEq)]
 #[allow(non_camel_case_types)]

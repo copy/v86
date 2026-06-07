@@ -1,57 +1,66 @@
-"use strict";
+import { v86 } from "./main.js";
+import { LOG_RTC } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
 
-/** @const */ var CMOS_RTC_SECONDS = 0x00;
-/** @const */ var CMOS_RTC_SECONDS_ALARM = 0x01;
-/** @const */ var CMOS_RTC_MINUTES = 0x02;
-/** @const */ var CMOS_RTC_MINUTES_ALARM = 0x03;
-/** @const */ var CMOS_RTC_HOURS = 0x04;
-/** @const */ var CMOS_RTC_HOURS_ALARM = 0x05;
-/** @const */ var CMOS_RTC_DAY_WEEK = 0x06;
-/** @const */ var CMOS_RTC_DAY_MONTH = 0x07;
-/** @const */ var CMOS_RTC_MONTH = 0x08;
-/** @const */ var CMOS_RTC_YEAR = 0x09;
-/** @const */ var CMOS_STATUS_A = 0x0a;
-/** @const */ var CMOS_STATUS_B = 0x0b;
-/** @const */ var CMOS_STATUS_C = 0x0c;
-/** @const */ var CMOS_STATUS_D = 0x0d;
-/** @const */ var CMOS_RESET_CODE = 0x0f;
+// For Types Only
+import { CPU } from "./cpu.js";
+import { DMA } from "./dma.js";
 
-/** @const */ var CMOS_FLOPPY_DRIVE_TYPE = 0x10;
-/** @const */ var CMOS_DISK_DATA = 0x12;
-/** @const */ var CMOS_EQUIPMENT_INFO = 0x14;
-/** @const */ var CMOS_MEM_BASE_LOW = 0x15;
-/** @const */ var CMOS_MEM_BASE_HIGH = 0x16;
-/** @const */ var CMOS_MEM_OLD_EXT_LOW = 0x17;
-/** @const */ var CMOS_MEM_OLD_EXT_HIGH = 0x18;
-/** @const */ var CMOS_DISK_DRIVE1_TYPE = 0x19;
-/** @const */ var CMOS_DISK_DRIVE2_TYPE = 0x1a;
-/** @const */ var CMOS_DISK_DRIVE1_CYL = 0x1b;
-/** @const */ var CMOS_DISK_DRIVE2_CYL = 0x24;
-/** @const */ var CMOS_MEM_EXTMEM_LOW = 0x30;
-/** @const */ var CMOS_MEM_EXTMEM_HIGH = 0x31;
-/** @const */ var CMOS_CENTURY = 0x32;
-/** @const */ var CMOS_MEM_EXTMEM2_LOW = 0x34;
-/** @const */ var CMOS_MEM_EXTMEM2_HIGH = 0x35;
-/** @const */ var CMOS_CENTURY2 = 0x37;
-/** @const */ var CMOS_BIOS_BOOTFLAG1 = 0x38;
-/** @const */ var CMOS_BIOS_DISKTRANSFLAG = 0x39;
-/** @const */ var CMOS_BIOS_BOOTFLAG2 = 0x3d;
-/** @const */ var CMOS_MEM_HIGHMEM_LOW = 0x5b;
-/** @const */ var CMOS_MEM_HIGHMEM_MID = 0x5c;
-/** @const */ var CMOS_MEM_HIGHMEM_HIGH = 0x5d;
-/** @const */ var CMOS_BIOS_SMP_COUNT = 0x5f;
+
+export const CMOS_RTC_SECONDS = 0x00;
+export const CMOS_RTC_SECONDS_ALARM = 0x01;
+export const CMOS_RTC_MINUTES = 0x02;
+export const CMOS_RTC_MINUTES_ALARM = 0x03;
+export const CMOS_RTC_HOURS = 0x04;
+export const CMOS_RTC_HOURS_ALARM = 0x05;
+export const CMOS_RTC_DAY_WEEK = 0x06;
+export const CMOS_RTC_DAY_MONTH = 0x07;
+export const CMOS_RTC_MONTH = 0x08;
+export const CMOS_RTC_YEAR = 0x09;
+export const CMOS_STATUS_A = 0x0a;
+export const CMOS_STATUS_B = 0x0b;
+export const CMOS_STATUS_C = 0x0c;
+export const CMOS_STATUS_D = 0x0d;
+export const CMOS_DIAG_STATUS = 0x0e;
+export const CMOS_RESET_CODE = 0x0f;
+
+export const CMOS_FLOPPY_DRIVE_TYPE = 0x10;
+export const CMOS_DISK_DATA = 0x12;
+export const CMOS_EQUIPMENT_INFO = 0x14;
+export const CMOS_MEM_BASE_LOW = 0x15;
+export const CMOS_MEM_BASE_HIGH = 0x16;
+export const CMOS_MEM_OLD_EXT_LOW = 0x17;
+export const CMOS_MEM_OLD_EXT_HIGH = 0x18;
+export const CMOS_DISK_DRIVE1_TYPE = 0x19;
+export const CMOS_DISK_DRIVE2_TYPE = 0x1a;
+export const CMOS_DISK_DRIVE1_CYL = 0x1b;
+export const CMOS_DISK_DRIVE2_CYL = 0x24;
+export const CMOS_MEM_EXTMEM_LOW = 0x30;
+export const CMOS_MEM_EXTMEM_HIGH = 0x31;
+export const CMOS_CENTURY = 0x32;
+export const CMOS_MEM_EXTMEM2_LOW = 0x34;
+export const CMOS_MEM_EXTMEM2_HIGH = 0x35;
+export const CMOS_CENTURY2 = 0x37;
+export const CMOS_BIOS_BOOTFLAG1 = 0x38;
+export const CMOS_BIOS_DISKTRANSFLAG = 0x39;
+export const CMOS_BIOS_BOOTFLAG2 = 0x3d;
+export const CMOS_MEM_HIGHMEM_LOW = 0x5b;
+export const CMOS_MEM_HIGHMEM_MID = 0x5c;
+export const CMOS_MEM_HIGHMEM_HIGH = 0x5d;
+export const CMOS_BIOS_SMP_COUNT = 0x5f;
 
 // see CPU.prototype.fill_cmos
-const BOOT_ORDER_CD_FIRST = 0x123;
-const BOOT_ORDER_HD_FIRST = 0x312;
-const BOOT_ORDER_FD_FIRST = 0x321;
+export const BOOT_ORDER_CD_FIRST = 0x123;
+export const BOOT_ORDER_HD_FIRST = 0x312;
+export const BOOT_ORDER_FD_FIRST = 0x321;
 
 /**
  * RTC (real time clock) and CMOS
  * @constructor
  * @param {CPU} cpu
  */
-function RTC(cpu)
+export function RTC(cpu)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -78,7 +87,12 @@ function RTC(cpu)
     this.cmos_b = 2;
     this.cmos_c = 0;
 
+    this.cmos_diag_status = 0;
+
     this.nmi_disabled = 0;
+
+    this.update_interrupt = false;
+    this.update_interrupt_time = 0;
 
     cpu.io.register_write(0x70, this, function(out_byte)
     {
@@ -106,6 +120,9 @@ RTC.prototype.get_state = function()
     state[9] = this.cmos_b;
     state[10] = this.cmos_c;
     state[11] = this.nmi_disabled;
+    state[12] = this.update_interrupt;
+    state[13] = this.update_interrupt_time;
+    state[14] = this.cmos_diag_status;
 
     return state;
 };
@@ -124,6 +141,9 @@ RTC.prototype.set_state = function(state)
     this.cmos_b = state[9];
     this.cmos_c = state[10];
     this.nmi_disabled = state[11];
+    this.update_interrupt = state[12] || false;
+    this.update_interrupt_time = state[13] || 0;
+    this.cmos_diag_status = state[14] || 0;
 };
 
 RTC.prototype.timer = function(time, legacy_mode)
@@ -147,6 +167,13 @@ RTC.prototype.timer = function(time, legacy_mode)
 
         this.next_interrupt_alarm = 0;
     }
+    else if(this.update_interrupt && this.update_interrupt_time < time)
+    {
+        this.cpu.device_raise_irq(8);
+        this.cmos_c |= 1 << 4 | 1 << 7;
+
+        this.update_interrupt_time = time + 1000; // 1 second
+    }
 
     let t = 100;
 
@@ -157,6 +184,10 @@ RTC.prototype.timer = function(time, legacy_mode)
     if(this.next_interrupt_alarm)
     {
         t = Math.min(t, Math.max(0, this.next_interrupt_alarm - time));
+    }
+    if(this.update_interrupt)
+    {
+        t = Math.min(t, Math.max(0, this.update_interrupt_time - time));
     }
 
     return t;
@@ -285,7 +316,11 @@ RTC.prototype.cmos_port_read = function()
             return c;
 
         case CMOS_STATUS_D:
-            return 0;
+            return 1 << 7; // CMOS battery charged
+
+        case CMOS_DIAG_STATUS:
+            dbg_log("cmos diagnostic status read", LOG_RTC);
+            return this.cmos_diag_status;
 
         case CMOS_CENTURY:
         case CMOS_CENTURY2:
@@ -310,6 +345,11 @@ RTC.prototype.cmos_port_write = function(data_byte)
             break;
         case 0xB:
             this.cmos_b = data_byte;
+            if(this.cmos_b & 0x80)
+            {
+                // remove update interrupt flag
+                this.cmos_b &= 0xEF;
+            }
             if(this.cmos_b & 0x40)
             {
                 this.next_interrupt = Date.now();
@@ -336,9 +376,17 @@ RTC.prototype.cmos_port_write = function(data_byte)
                 this.next_interrupt_alarm = +alarm_date;
             }
 
-            if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt", LOG_RTC);
+            if(this.cmos_b & 0x10)
+            {
+                dbg_log("update interrupt", LOG_RTC);
+                this.update_interrupt_time = Date.now();
+            }
 
             dbg_log("cmos b=" + h(this.cmos_b, 2), LOG_RTC);
+            break;
+
+        case CMOS_DIAG_STATUS:
+            this.cmos_diag_status = data_byte;
             break;
 
         case CMOS_RTC_SECONDS_ALARM:
@@ -351,6 +399,7 @@ RTC.prototype.cmos_port_write = function(data_byte)
             dbg_log("cmos write index " + h(this.cmos_index) + ": " + h(data_byte), LOG_RTC);
     }
 
+    this.update_interrupt = (this.cmos_b & 0x10) === 0x10 && (this.cmos_a & 0xF) > 0;
     this.periodic_interrupt = (this.cmos_b & 0x40) === 0x40 && (this.cmos_a & 0xF) > 0;
 };
 

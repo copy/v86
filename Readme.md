@@ -25,9 +25,11 @@ list of emulated hardware:
 - A generic VGA card with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
+  - A built-in ISO 9660 CD-ROM generator.
 - An NE2000 (RTL8390) PCI network card.
 - Various virtio devices: Filesystem, network and balloon.
 - A SoundBlaster 16 sound card.
+- A hayes-compatible dial-up Modem.
 
 ## Demos
 
@@ -60,6 +62,7 @@ list of emulated hardware:
 
 [How it works](docs/how-it-works.md) —
 [Networking](docs/networking.md) —
+[Dial-up modem networking](docs/modem.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
 [Windows NT guest setup](docs/windows-nt.md) —
@@ -74,7 +77,7 @@ list of emulated hardware:
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well. 64-bit kernels are not supported.
-  - [Buildroot](https://buildroot.uclibc.org) can be used to build a minimal image.
+  - [Buildroot](https://buildroot.org/) can be used to build a minimal image.
     [humphd/browser-vm](https://github.com/humphd/browser-vm) and
     [darin755/browser-buildroot](https://github.com/Darin755/browser-buildroot) have some useful scripts for building one.
   - [SkiffOS](https://github.com/skiffos/SkiffOS/tree/master/configs/browser/v86) (based on Buildroot) can cross-compile a custom image.
@@ -126,8 +129,15 @@ for a full setup on Debian or
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's http module.
-- If you only want to embed v86 in a webpage you can use libv86.js. For usage,
-  check out the [examples](examples/). You can download it from the release section.
+- If you only want to embed v86 in a webpage you can use `libv86.js`. For usage,
+  check out the [examples](examples/). You can download it from the [release section](https://github.com/copy/v86/releases).
+- For bundler-based setups (Vite/React/Next/Webpack), there is also an official npm package:
+https://www.npmjs.com/package/v86
+
+  This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
+  It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
+  
+  Install: `npm install v86`
 
 ### Alternatively, to build using Docker
 
@@ -148,7 +158,7 @@ for a full setup on Debian or
 The disk images for testing are not included in this repository. You can
 download them directly from the website using:
 
-`wget -P images/ https://i.copy.sh/{linux3.iso,linux.iso,linux4.iso,buildroot-bzimage68.bin,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img}`
+`curl --compressed --output-dir images/ --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}`
 
 Run integration tests: `make tests`
 
@@ -184,7 +194,7 @@ var emulator = new V86({
 });
 ```
 
-See [starter.js](src/browser/starter.js).
+See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
 
 ## License
 
@@ -196,6 +206,7 @@ repository under their own licenses:
 - [`lib/zstd/zstddeclib.c`](lib/zstd/zstddeclib.c)
 - [`tests/kvm-unit-tests/`](tests/kvm-unit-tests)
 - [`tests/qemutests/`](tests/qemutests)
+- [`src/floppy.js/`](src/floppy.js) contains parts ported from qemu under the MIT license, see LICENSE.MIT.
 
 ## Credits
 

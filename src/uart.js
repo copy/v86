@@ -1,4 +1,10 @@
-"use strict";
+import { LOG_SERIAL } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 /*
  * Serial ports
@@ -7,35 +13,38 @@
  * https://www.freebsd.org/doc/en/articles/serial-uart/
  */
 
-/** @const */
-var DLAB = 0x80;
+const DLAB = 0x80;
 
+const UART_IER_MSI  = 0x08; /* Modem Status Changed int. */
+const UART_IER_THRI = 0x02; /* Enable Transmitter holding register int. */
+const UART_IER_RDI = 0x01; /* Enable receiver data interrupt */
 
-/** @const */ var UART_IER_MSI  = 0x08; /* Modem Status Changed int. */
-/** @const */ var UART_IER_THRI = 0x02; /* Enable Transmitter holding register int. */
-/** @const */ var UART_IER_RDI = 0x01; /* Enable receiver data interrupt */
+const UART_IIR_MSI = 0x00; /* Modem status interrupt (Low priority) */
+const UART_IIR_NO_INT = 0x01;
+const UART_IIR_THRI = 0x02; /* Transmitter holding register empty */
+const UART_IIR_RDI = 0x04; /* Receiver data interrupt */
+const UART_IIR_RLSI = 0x06; /* Receiver line status interrupt (High p.) */
+const UART_IIR_CTI = 0x0c; /* Character timeout */
 
-/** @const */var UART_IIR_MSI = 0x00; /* Modem status interrupt (Low priority) */
-/** @const */var UART_IIR_NO_INT = 0x01;
-/** @const */var UART_IIR_THRI = 0x02; /* Transmitter holding register empty */
-/** @const */var UART_IIR_RDI = 0x04; /* Receiver data interrupt */
-/** @const */var UART_IIR_RLSI = 0x06; /* Receiver line status interrupt (High p.) */
-/** @const */var UART_IIR_CTI = 0x0c; /* Character timeout */
+// Modem control register
+const UART_MCR_LOOPBACK = 0x10;
+const UART_MCR_RTS = 0x2;
+const UART_MCR_DTR = 0x1;
 
-/** @const */ var UART_LSR_DATA_READY        = 0x1;  // data available
-/** @const */ var UART_LSR_TX_EMPTY        = 0x20; // TX (THR) buffer is empty
-/** @const */ var UART_LSR_TRANSMITTER_EMPTY = 0x40; // TX empty and line is idle
+const UART_LSR_DATA_READY        = 0x1;  // data available
+const UART_LSR_TX_EMPTY        = 0x20; // TX (THR) buffer is empty
+const UART_LSR_TRANSMITTER_EMPTY = 0x40; // TX empty and line is idle
 
 // Modem status register
-/** @const */ var UART_MSR_DCD = 0x7; // Data Carrier Detect
-/** @const */ var UART_MSR_RI = 0x6; // Ring Indicator
-/** @const */ var UART_MSR_DSR = 0x5; // Data Set Ready
-/** @const */ var UART_MSR_CTS = 0x4; // Clear To Send
+const UART_MSR_DCD = 0x7; // Data Carrier Detect
+const UART_MSR_RI = 0x6; // Ring Indicator
+const UART_MSR_DSR = 0x5; // Data Set Ready
+const UART_MSR_CTS = 0x4; // Clear To Send
 // Delta bits
-/** @const */ var UART_MSR_DDCD = 0x3; // Delta DCD
-/** @const */ var UART_MSR_TERI = 0x2; // Trailing Edge RI
-/** @const */ var UART_MSR_DDSR = 0x1; // Delta DSR
-/** @const */ var UART_MSR_DCTS = 0x0; // Delta CTS
+const UART_MSR_DDCD = 0x3; // Delta DCD
+const UART_MSR_TERI = 0x2; // Trailing Edge RI
+const UART_MSR_DDSR = 0x1; // Delta DSR
+const UART_MSR_DCTS = 0x0; // Delta CTS
 
 
 /**
@@ -44,7 +53,7 @@ var DLAB = 0x80;
  * @param {number} port
  * @param {BusConnector} bus
  */
-function UART(cpu, port, bus)
+export function UART(cpu, port, bus)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;
@@ -109,43 +118,26 @@ function UART(cpu, port, bus)
         this.data_received(data);
     }, this);
 
-    this.bus.register("serial" + this.com + "-modem-status-input", function(data)
-    {
-        this.set_modem_status(data);
-    }, this);
-
     // Set individual modem status bits
 
     this.bus.register("serial" + this.com + "-carrier-detect-input", function(data)
     {
-        const status = data ?
-            this.modem_status | (1 << UART_MSR_DCD) | (1 << UART_MSR_DDCD) :
-            this.modem_status & ~(1 << UART_MSR_DCD) & ~(1 << UART_MSR_DDCD);
-        this.set_modem_status(status);
+        this.set_modem_status_bit(UART_MSR_DCD, data);
     }, this);
 
     this.bus.register("serial" + this.com + "-ring-indicator-input", function(data)
     {
-        const status = data ?
-            this.modem_status | (1 << UART_MSR_RI) | (1 << UART_MSR_TERI) :
-            this.modem_status & ~(1 << UART_MSR_RI) & ~(1 << UART_MSR_TERI);
-        this.set_modem_status(status);
+        this.set_modem_status_bit(UART_MSR_RI, data);
     }, this);
 
     this.bus.register("serial" + this.com + "-data-set-ready-input", function(data)
     {
-        const status = data ?
-            this.modem_status | (1 << UART_MSR_DSR) | (1 << UART_MSR_DDSR) :
-            this.modem_status & ~(1 << UART_MSR_DSR) & ~(1 << UART_MSR_DDSR);
-        this.set_modem_status(status);
+        this.set_modem_status_bit(UART_MSR_DSR, data);
     }, this);
 
     this.bus.register("serial" + this.com + "-clear-to-send-input", function(data)
     {
-        const status = data ?
-            this.modem_status | (1 << UART_MSR_CTS) | (1 << UART_MSR_DCTS) :
-            this.modem_status & ~(1 << UART_MSR_CTS) & ~(1 << UART_MSR_DCTS);
-        this.set_modem_status(status);
+        this.set_modem_status_bit(UART_MSR_CTS, data);
     }, this);
 
     var io = cpu.io;
@@ -261,7 +253,16 @@ function UART(cpu, port, bus)
     io.register_write(port | 4, this, function(out_byte)
     {
         dbg_log("modem control: " + h(out_byte), LOG_SERIAL);
+        const bits_changed = this.modem_control ^ out_byte;
         this.modem_control = out_byte;
+        if(bits_changed & UART_MCR_DTR)
+        {
+            this.bus.send("serial" + this.com + "-data-terminal-ready-output", !!(out_byte & UART_MCR_DTR));
+        }
+        if(bits_changed & UART_MCR_RTS)
+        {
+            this.bus.send("serial" + this.com + "-request-to-send-output", !!(out_byte & UART_MCR_RTS));
+        }
     });
 
     io.register_read(port | 5, this, function()
@@ -277,14 +278,11 @@ function UART(cpu, port, bus)
     io.register_read(port | 6, this, function()
     {
         dbg_log("read modem status: " + h(this.modem_status), LOG_SERIAL);
-        // Clear delta bits
+        const result = this.modem_status;
+        // clear MSR delta bits and interrupt flag
         this.modem_status &= 0xF0;
-        return this.modem_status;
-    });
-    io.register_write(port | 6, this, function(out_byte)
-    {
-        dbg_log("write modem status: " + h(out_byte), LOG_SERIAL);
-        this.set_modem_status(out_byte);
+        this.ClearInterrupt(UART_IIR_MSI);
+        return result;
     });
 
     io.register_read(port | 7, this, function()
@@ -331,34 +329,43 @@ UART.prototype.set_state = function(state)
     this.irq = state[10];
 };
 
-UART.prototype.CheckInterrupt = function() {
-    if((this.ints & (1 << UART_IIR_CTI))  && (this.ier & UART_IER_RDI)) {
+UART.prototype.CheckInterrupt = function()
+{
+    if((this.ints & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI))
+    {
         this.iir = UART_IIR_CTI;
         this.cpu.device_raise_irq(this.irq);
-    } else
-    if((this.ints & (1 << UART_IIR_RDI))  && (this.ier & UART_IER_RDI)) {
+    }
+    else if((this.ints & (1 << UART_IIR_RDI)) && (this.ier & UART_IER_RDI))
+    {
         this.iir = UART_IIR_RDI;
         this.cpu.device_raise_irq(this.irq);
-    } else
-    if((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
+    }
+    else if((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI))
+    {
         this.iir = UART_IIR_THRI;
         this.cpu.device_raise_irq(this.irq);
-    } else
-    if((this.ints & (1 << UART_IIR_MSI))  && (this.ier & UART_IER_MSI)) {
+    }
+    else if((this.ints & (1 << UART_IIR_MSI)) && (this.ier & UART_IER_MSI))
+    {
         this.iir = UART_IIR_MSI;
         this.cpu.device_raise_irq(this.irq);
-    } else {
+    }
+    else
+    {
         this.iir = UART_IIR_NO_INT;
         this.cpu.device_lower_irq(this.irq);
     }
 };
 
-UART.prototype.ThrowInterrupt = function(line) {
+UART.prototype.ThrowInterrupt = function(line)
+{
     this.ints |= (1 << line);
     this.CheckInterrupt();
 };
 
-UART.prototype.ClearInterrupt = function(line) {
+UART.prototype.ClearInterrupt = function(line)
+{
     this.ints &= ~(1 << line);
     this.CheckInterrupt();
 };
@@ -395,7 +402,11 @@ UART.prototype.write_data = function(out_byte)
 
     this.ThrowInterrupt(UART_IIR_THRI);
 
-    this.bus.send("serial" + this.com + "-output-byte", out_byte);
+    if(this.modem_control & UART_MCR_LOOPBACK) {
+        this.data_received(out_byte);
+    } else {
+        this.bus.send("serial" + this.com + "-output-byte", out_byte);
+    }
 
     if(DEBUG)
     {
@@ -411,19 +422,34 @@ UART.prototype.write_data = function(out_byte)
     }
 };
 
-UART.prototype.set_modem_status = function(status)
+/**
+ * Set or clear bit "msr_bit" in the Modem Status Register (MSR).
+ *
+ * The upper nibble of the MSR reflects the current status of the 4
+ * control lines (CTS/DSR/RI/DCD), the lower nibble (the delta bits)
+ * indicates which of of these have changed since the last time the
+ * MSR was read.
+ *
+ * If any delta bit is set at the end of this operation and interrupts
+ * are enabled, raise a Modem Status Register interrupt.
+ *
+ * The MSR is a read-only register for the PC, its upper nibble is
+ * controlled by the Modem, and its lower nibble by the UART. The UART
+ * clears all delta bits (and lowers the interrupt) after the MSR has
+ * been read by the PC.
+ *
+ * @param {number} msr_bit
+ * @param {boolean} set_bit
+ */
+UART.prototype.set_modem_status_bit = function(msr_bit, set_bit)
 {
-    dbg_log("modem status: " + h(status), LOG_SERIAL);
-    const prev_delta_bits = this.modem_status & 0x0F;
-    // compare the bits that have changed and shift them into the delta bits
-    let delta = (this.modem_status ^ status) >> 4;
-    // The delta should stay set if they were previously set
-    delta |= prev_delta_bits;
-
-    // update the current modem status
-    this.modem_status = status;
-    // update the delta bits based on the changes and previous
-    // values, but also leave the delta bits set if they were
-    // passed in as part of the status
-    this.modem_status |= delta;
+    const new_modem_status = set_bit ?
+        this.modem_status | (1 << msr_bit) :
+        this.modem_status & ~(1 << msr_bit);
+    const new_delta_bits = (this.modem_status ^ new_modem_status) >> 4;
+    this.modem_status = new_modem_status | new_delta_bits;
+    if(this.modem_status & 0x0F)
+    {
+        this.ThrowInterrupt(UART_IIR_MSI);
+    }
 };

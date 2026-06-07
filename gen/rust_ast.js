@@ -1,13 +1,11 @@
-"use strict";
-
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
 function indent(lines, how_much)
 {
     return lines.map(line => " ".repeat(how_much) + line);
 }
 
-function print_syntax_tree(statements)
+export function print_syntax_tree(statements)
 {
     let code = [];
 
@@ -34,7 +32,8 @@ function print_syntax_tree(statements)
 
             if(statement.default_case)
             {
-                cases.push(`_ => {`);
+                const varname = statement.default_case.varname || "_";
+                cases.push(`${varname} => {`);
                 cases.push.apply(cases, indent(print_syntax_tree(statement.default_case.body), 4));
                 cases.push(`}`);
             }
@@ -77,7 +76,3 @@ function print_syntax_tree(statements)
 
     return code;
 }
-
-module.exports = {
-    print_syntax_tree,
-};

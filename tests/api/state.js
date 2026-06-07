@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-"use strict";
+
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
-
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-const assert = require("assert").strict;
-var fs = require("fs");
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const config_async_cdrom = {
     bios: { url: __dirname + "/../../bios/seabios.bin" },

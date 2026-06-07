@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-"use strict";
+
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 // This test checks that reset works
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
-
-const fs = require("fs");
-var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 process.on("unhandledRejection", exn => { throw exn; });
 
@@ -27,20 +28,40 @@ const emulator = new V86(config);
 let did_restart = false;
 let serial_text = "";
 
-emulator.add_listener("serial0-output-byte", function(byte)
+const timeout = setTimeout(() => {
+    console.log(serial_text);
+    throw new Error("Timeout");
+}, 60 * 1000);
+
+emulator.add_listener("serial0-output-byte", async function(byte)
 {
     var chr = String.fromCharCode(byte);
+    process.stdout.write(chr);
     serial_text += chr;
 
-    if(serial_text.includes("Files send via emulator appear in /mnt/")) {
-        serial_text = "";
-        if(did_restart) {
+    if(did_restart)
+    {
+        if(serial_text.endsWith("Files send via emulator appear in /mnt/"))
+        {
+            console.log("running echo");
+            emulator.keyboard_send_text("echo fini''shed\n");
+
+            await emulator.wait_until_vga_screen_contains("finished");
             console.log("Ok");
             emulator.destroy();
+            clearTimeout(timeout);
         }
-        else {
-            console.log("Calling restart()");
-            emulator.restart();
+    }
+    else
+    {
+        if(serial_text.endsWith("~% "))
+        {
+            emulator.keyboard_send_text("abc");
+            setTimeout(() => {
+                console.log("Calling restart()");
+                emulator.restart();
+            }, 500);
+            serial_text = "";
             did_restart = true;
         }
     }

@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-"use strict";
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
-const x86_table = require("./x86_table");
-const rust_ast = require("./rust_ast");
-const { hex, mkdirpSync, get_switch_value, get_switch_exist, finalize_table_rust } = require("./util");
 
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+
+import x86_table from "./x86_table.js";
+import * as rust_ast from "./rust_ast.js";
+import { hex, get_switch_value, get_switch_exist, finalize_table_rust } from "./util.js";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const OUT_DIR = path.join(__dirname, "..", "src/rust/gen/");
 
-mkdirpSync(OUT_DIR);
+fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const table_arg = get_switch_value("--table");
 const gen_all = get_switch_exist("--all");

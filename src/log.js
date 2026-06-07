@@ -1,6 +1,26 @@
-"use strict";
+if(typeof DEBUG === "undefined")
+{
+    globalThis.DEBUG = true;
+}
 
-var log_data = [];
+import { LOG_NAMES } from "./const.js";
+import { pad0, pads } from "./lib.js";
+import {
+    LOG_ALL, LOG_PS2, LOG_PIT, LOG_9P, LOG_PIC, LOG_DMA, LOG_NET, LOG_FLOPPY, LOG_DISK,
+    LOG_SERIAL, LOG_VGA, LOG_SB16, LOG_VIRTIO
+} from "./const.js";
+
+/** @const */
+export var LOG_TO_FILE = false;
+
+export var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC &
+                          ~LOG_DMA & ~LOG_SERIAL & ~LOG_NET & ~LOG_FLOPPY & ~LOG_DISK & ~LOG_VGA & ~LOG_SB16;
+
+export function set_log_level(level) {
+    LOG_LEVEL = level;
+}
+
+export var log_data = [];
 
 function do_the_log(message)
 {
@@ -16,17 +36,16 @@ function do_the_log(message)
 
 /**
  * @type {function((string|number), number=)}
- * @const
  */
-var dbg_log = (function()
+export const dbg_log = (function()
 {
     if(!DEBUG)
     {
         return function() {};
     }
 
-    /** @const @type {Object.<number, string>} */
-    var dbg_names = LOG_NAMES.reduce(function(a, x)
+    /** @type {Object.<number, string>} */
+    const dbg_names = LOG_NAMES.reduce(function(a, x)
     {
         a[x[0]] = x[1];
         return a;
@@ -47,7 +66,7 @@ var dbg_log = (function()
         if(level & LOG_LEVEL)
         {
             var level_name = dbg_names[level] || "",
-                message = "[" + v86util.pads(level_name, 4) + "] " + stuff;
+                message = "[" + pads(level_name, 4) + "] " + stuff;
 
             if(message === log_last_message)
             {
@@ -60,10 +79,10 @@ var dbg_log = (function()
             }
 
             var now = new Date();
-            var time_str = v86util.pad0(now.getHours(), 2) + ":" +
-                           v86util.pad0(now.getMinutes(), 2) + ":" +
-                           v86util.pad0(now.getSeconds(), 2) + "+" +
-                           v86util.pad0(now.getMilliseconds(), 3) + " ";
+            var time_str = pad0(now.getHours(), 2) + ":" +
+                           pad0(now.getMinutes(), 2) + ":" +
+                           pad0(now.getSeconds(), 2) + "+" +
+                           pad0(now.getMilliseconds(), 3) + " ";
 
             if(log_message_repetitions)
             {
@@ -90,7 +109,7 @@ var dbg_log = (function()
 /**
  * @param {number=} level
  */
-function dbg_trace(level)
+export function dbg_trace(level)
 {
     if(!DEBUG) return;
 
@@ -102,7 +121,7 @@ function dbg_trace(level)
  * @param {string=} msg
  * @param {number=} level
  */
-function dbg_assert(cond, msg, level)
+export function dbg_assert(cond, msg, level)
 {
     if(!DEBUG) return;
 
@@ -113,7 +132,7 @@ function dbg_assert(cond, msg, level)
 }
 
 
-function dbg_assert_failed(msg)
+export function dbg_assert_failed(msg)
 {
     debugger;
     console.trace();

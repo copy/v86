@@ -1,6 +1,60 @@
 export default [
     {
         ignores: ["examples/xterm.js"],
+    },
+    {
+        "languageOptions": {
+            "globals": {
+                "process": "readonly",
+                "window": "writable",
+                "navigator": "writable",
+                "location": "writable",
+                "document": "readonly",
+                "console": "readonly",
+                "crypto": "readonly",
+                "alert": "readonly",
+                "performance": "readonly",
+                "URL": "readonly",
+                "WebAssembly": "readonly",
+
+                "setTimeout": "readonly",
+                "setInterval": "readonly",
+                "clearTimeout": "readonly",
+                "clearInterval": "readonly",
+                "requestAnimationFrame": "readonly",
+                "cancelAnimationFrame": "readonly",
+
+                "Buffer": "readonly",
+                "FileReader": "readonly",
+                "TextEncoder": "readonly",
+                "TextDecoder": "readonly",
+                "fetch": "readonly",
+                "Headers": "readonly",
+                "Response": "readonly",
+                "WebSocket": "readonly",
+                "Blob": "readonly",
+                "File": "readonly",
+                "XMLHttpRequest": "readonly",
+                "URLSearchParams": "readonly",
+                "ImageData": "readonly",
+                "Image": "readonly",
+                "OffscreenCanvas": "readonly",
+                "BroadcastChannel": "readonly",
+                "HTMLElement": "readonly",
+                "HTMLTextAreaElement": "readonly",
+                "AbortController": "readonly",
+
+                "AudioContext": "readonly",
+                "AudioWorkletProcessor": "readonly",
+                "webkitAudioContext": "readonly",
+                "AudioWorkletNode": "readonly",
+                "Worker": "readonly",
+                "postMessage": "readonly",
+                "importScripts": "readonly",
+
+                "DEBUG": "writable"
+            }
+        },
         rules: {
             "eol-last": "error",
             //"no-extra-parens": "error",
@@ -70,7 +124,7 @@ export default [
             "no-shadow-restricted-names": "error",
             "no-sparse-arrays": "error",
             "no-this-before-super": "error",
-            //"no-undef": "error",
+            "no-undef": "error",
             "no-unexpected-multiline": "error",
             //"no-unreachable": "error",
             "no-unsafe-finally": "error",
@@ -85,7 +139,8 @@ export default [
             "no-with": "error",
             "require-yield": "error",
             "use-isnan": "error",
-            "valid-typeof": "error"
+            "valid-typeof": "error",
+            "strict": "error"
         }
     }
 ];

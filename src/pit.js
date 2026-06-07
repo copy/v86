@@ -1,17 +1,21 @@
-"use strict";
+import { v86 } from "./main.js";
+import { LOG_PIT } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_log } from "./log.js";
 
-/**
- * @const
- * In kHz
- */
-var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
+// For Types Only
+import { CPU } from "./cpu.js";
+
+
+// In kHz
+export const OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
 
 /**
  * @constructor
  *
  * Programmable Interval Timer
  */
-function PIT(cpu, bus)
+export function PIT(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -304,13 +308,13 @@ PIT.prototype.port43_write = function(reg_byte)
 
     if(read_mode === 1)
     {
-        // msb
-        this.counter_next_low[i] = 0;
+        // lsb
+        this.counter_next_low[i] = 1;
     }
     else if(read_mode === 2)
     {
-        // lsb
-        this.counter_next_low[i] = 1;
+        // msb
+        this.counter_next_low[i] = 0;
     }
     else
     {

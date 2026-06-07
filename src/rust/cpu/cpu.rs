@@ -1,23 +1,5 @@
 #![allow(non_upper_case_globals)]
 
-extern "C" {
-    fn cpu_exception_hook(interrupt: i32) -> bool;
-    fn call_indirect1(f: i32, x: u16);
-    pub fn microtick() -> f64;
-    pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
-    pub fn cpu_event_halt();
-    pub fn apic_acknowledge_irq() -> i32;
-    pub fn stop_idling();
-
-    pub fn io_port_read8(port: i32) -> i32;
-    pub fn io_port_read16(port: i32) -> i32;
-    pub fn io_port_read32(port: i32) -> i32;
-
-    pub fn io_port_write8(port: i32, value: i32);
-    pub fn io_port_write16(port: i32, value: i32);
-    pub fn io_port_write32(port: i32, value: i32);
-}
-
 use crate::config;
 use crate::cpu::fpu::fpu_set_tag_word;
 use crate::cpu::global_pointers::*;
@@ -27,7 +9,8 @@ use crate::cpu::misc_instr::{
     push16, push32,
 };
 use crate::cpu::modrm::{resolve_modrm16, resolve_modrm32};
-use crate::cpu::pic;
+use crate::cpu::{apic, ioapic, pic};
+use crate::dbg::dbg_trace;
 use crate::gen;
 use crate::jit;
 use crate::jit::is_near_end_of_page;
@@ -39,10 +22,36 @@ use crate::profiler;
 use crate::profiler::stat;
 use crate::softfloat;
 use crate::state_flags::CachedStateFlags;
-use crate::util::dbg_trace;
 
 use std::collections::HashSet;
 use std::ptr;
+
+mod wasm {
+    extern "C" {
+        pub fn call_indirect1(f: i32, x: u16);
+    }
+}
+
+pub mod js {
+    #[link(wasm_import_module = "env")]
+    extern "C" {
+        pub fn cpu_exception_hook(interrupt: i32) -> bool;
+        pub fn microtick() -> f64;
+        pub fn run_hardware_timers(acpi_enabled: bool, t: f64) -> f64;
+        pub fn cpu_event_halt();
+        pub fn stop_idling();
+
+        pub fn io_port_read8(port: i32) -> i32;
+        pub fn io_port_read16(port: i32) -> i32;
+        pub fn io_port_read32(port: i32) -> i32;
+
+        pub fn io_port_write8(port: i32, value: i32);
+        pub fn io_port_write16(port: i32, value: i32);
+        pub fn io_port_write32(port: i32, value: i32);
+
+        pub fn get_rand_int() -> i32;
+    }
+}
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -208,7 +217,10 @@ pub const MSR_TEST_CTRL: i32 = 0x33;
 pub const MSR_SMI_COUNT: i32 = 0x34;
 pub const IA32_FEAT_CTL: i32 = 0x3A;
 pub const IA32_SPEC_CTRL: i32 = 0x48;
+pub const IA32_BIOS_UPDT_TRIG: i32 = 0x79;
 pub const IA32_BIOS_SIGN_ID: i32 = 0x8B;
+pub const IA32_PMC0: i32 = 0xC1;
+pub const IA32_PMC1: i32 = 0xC2;
 pub const MSR_PLATFORM_INFO: i32 = 0xCE;
 pub const MSR_TSX_FORCE_ABORT: i32 = 0x10F;
 pub const IA32_TSX_CTRL: i32 = 0x122;
@@ -218,6 +230,8 @@ pub const IA32_SYSENTER_CS: i32 = 0x174;
 pub const IA32_SYSENTER_ESP: i32 = 0x175;
 pub const IA32_SYSENTER_EIP: i32 = 0x176;
 pub const IA32_MCG_CAP: i32 = 0x179;
+pub const IA32_PERFEVTSEL0: i32 = 0x186;
+pub const IA32_PERFEVTSEL1: i32 = 0x187;
 pub const IA32_MISC_ENABLE: i32 = 0x1A0;
 pub const IA32_PAT: i32 = 0x277;
 pub const IA32_RTIT_CTL: i32 = 0x570;
@@ -230,7 +244,10 @@ pub const IA32_APIC_BASE_BSP: i32 = 1 << 8;
 pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
 pub const IA32_APIC_BASE_EN: i32 = 1 << 11;
 
-pub const APIC_ADDRESS: i32 = 0xFEE00000u32 as i32;
+pub const IOAPIC_MEM_ADDRESS: u32 = 0xFEC00000;
+pub const IOAPIC_MEM_SIZE: u32 = 32;
+pub const APIC_MEM_ADDRESS: u32 = 0xFEE00000;
+pub const APIC_MEM_SIZE: u32 = 0x1000;
 
 pub const MXCSR_MASK: i32 = 0xffff;
 pub const MXCSR_FZ: i32 = 1 << 15;
@@ -270,6 +287,8 @@ pub const CHECK_TLB_INVARIANTS: bool = false;
 pub const DEBUG: bool = cfg!(debug_assertions);
 
 pub const LOOP_COUNTER: i32 = 100_003;
+
+// should probably be kept in sync with APIC_TIMER_FREQ in apic.js
 pub const TSC_RATE: f64 = 1_000_000.0;
 
 pub static mut cpuid_level: u32 = 0x16;
@@ -711,13 +730,13 @@ pub unsafe fn iret(is_16: bool) {
             let executable = access & 8 == 8;
             let conforming = access & 4 == 4;
             if dpl < *cpl && !(executable && conforming) {
-                dbg_log!(
-                    "set segment to null sreg={} dpl={} executable={} conforming={}",
-                    reg,
-                    dpl,
-                    executable,
-                    conforming
-                );
+                //dbg_log!(
+                //    "set segment to null sreg={} dpl={} executable={} conforming={}",
+                //    reg,
+                //    dpl,
+                //    executable,
+                //    conforming
+                //);
                 *segment_is_null.offset(reg as isize) = true;
                 *sreg.offset(reg as isize) = 0;
             }
@@ -893,13 +912,19 @@ pub unsafe fn call_interrupt_vector(
             let ss_segment_descriptor =
                 match return_on_pagefault!(lookup_segment_selector(ss_segment_selector)) {
                     Ok((desc, _)) => desc,
-                    Err(_) => {
+                    Err(
+                        SelectorNullOrInvalid::IsNull | SelectorNullOrInvalid::OutsideOfTableLimit,
+                    ) => {
                         panic!("Unimplemented: #TS handler");
                     },
                 };
 
-            dbg_assert!(!ss_segment_descriptor.is_dc(), "TODO: Handle direction bit");
-            dbg_assert!(new_esp as u32 <= ss_segment_descriptor.effective_limit());
+            if ss_segment_descriptor.is_dc() {
+                dbg_assert!(new_esp as u32 > ss_segment_descriptor.effective_limit());
+            }
+            else {
+                dbg_assert!(new_esp as u32 - 1 <= ss_segment_descriptor.effective_limit());
+            }
             dbg_assert!(!ss_segment_descriptor.is_system() && ss_segment_descriptor.is_writable());
 
             if ss_segment_selector.rpl() != cs_segment_descriptor.dpl() {
@@ -969,7 +994,7 @@ pub unsafe fn call_interrupt_vector(
             }
             else {
                 push16(old_ss).unwrap();
-                push16(old_esp).unwrap();
+                push16(old_esp & 0xFFFF).unwrap();
             }
         }
         else if cs_segment_descriptor.is_dc() || cs_segment_descriptor.dpl() == *cpl {
@@ -1014,11 +1039,12 @@ pub unsafe fn call_interrupt_vector(
             }
         }
         else {
-            push16(old_flags).unwrap();
+            push16(old_flags & 0xFFFF).unwrap();
             push16(*sreg.offset(CS as isize) as i32).unwrap();
-            push16(get_real_eip()).unwrap();
+            push16(get_real_eip() & 0xFFFF).unwrap();
 
             if let Some(ec) = error_code {
+                dbg_assert!(ec >= 0 && ec < 0x10000);
                 push16(ec).unwrap();
             }
 
@@ -1073,9 +1099,9 @@ pub unsafe fn call_interrupt_vector(
         // XXX: #SS if stack would cross stack limit
 
         // push flags, cs:ip
-        push16(get_eflags()).unwrap();
+        push16(get_eflags() & 0xFFFF).unwrap();
         push16(*sreg.offset(CS as isize) as i32).unwrap();
-        push16(get_real_eip()).unwrap();
+        push16(get_real_eip() & 0xFFFF).unwrap();
 
         *flags &= !FLAG_INTERRUPT & !FLAG_AC & !FLAG_TRAP;
 
@@ -1157,11 +1183,17 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     return;
                 },
                 Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
-                    dbg_log!("#gp invalid cs: {:x}", selector);
-                    trigger_gp(selector & !3);
+                    dbg_log!("#gp invalid cs: {:x}", cs_selector);
+                    trigger_gp(cs_selector & !3);
                     return;
                 },
             };
+
+            if cs_info.is_system() {
+                dbg_log!("#gp non-code cs: {:x}", cs_selector);
+                trigger_gp(cs_selector & !3);
+                return;
+            }
 
             if !cs_info.is_executable() {
                 dbg_log!("#gp non-executable cs: {:x}", cs_selector);
@@ -1201,8 +1233,12 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     },
                 };
 
-                dbg_assert!(!ss_info.is_dc(), "TODO: Handle direction bit");
-                dbg_assert!(new_esp as u32 <= ss_info.effective_limit());
+                if ss_info.is_dc() {
+                    dbg_assert!(new_esp as u32 > ss_info.effective_limit());
+                }
+                else {
+                    dbg_assert!(new_esp as u32 - 1 <= ss_info.effective_limit());
+                }
                 dbg_assert!(!ss_info.is_system() && ss_info.is_writable());
 
                 if ss_selector.rpl() != cs_info.dpl()
@@ -1224,16 +1260,18 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                         if is_16 { 4 + 2 * parameter_count } else { 8 + 4 * parameter_count };
                 }
                 if ss_info.is_32() {
-                    return_on_pagefault!(writable_or_pagefault(
+                    return_on_pagefault!(writable_or_pagefault_cpl(
+                        cs_info.dpl(),
                         ss_info.base() + new_esp - stack_space,
                         stack_space
-                    )); // , cs_info.dpl
+                    ));
                 }
                 else {
-                    return_on_pagefault!(writable_or_pagefault(
+                    return_on_pagefault!(writable_or_pagefault_cpl(
+                        cs_info.dpl(),
                         ss_info.base() + (new_esp - stack_space & 0xFFFF),
                         stack_space
-                    )); // , cs_info.dpl
+                    ));
                 }
 
                 let old_esp = read_reg32(ESP);
@@ -1247,6 +1285,7 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
                 update_cs_size(cs_info.is_32());
 
+                dbg_assert!(new_ss & 3 == cs_info.dpl() as i32);
                 // XXX: Should be checked before side effects
                 if !switch_seg(SS, new_ss) {
                     dbg_assert!(false);
@@ -1268,7 +1307,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 if is_call {
                     if is_16 {
                         for i in (0..parameter_count).rev() {
-                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read16(old_stack_pointer + 2 * i).unwrap();
                             push16(parameter).unwrap();
                         }
@@ -1279,7 +1317,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     }
                     else {
                         for i in (0..parameter_count).rev() {
-                            //for(let i = parameter_count - 1; i >= 0; i--)
                             let parameter = safe_read32s(old_stack_pointer + 4 * i).unwrap();
                             push32(parameter).unwrap();
                         }
@@ -1298,7 +1335,6 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                     cs_info.dpl(),
                     cs_info.is_dc()
                 );
-                // ok
 
                 if is_call {
                     if is_16 {
@@ -1314,6 +1350,8 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                         push32(get_real_eip()).unwrap();
                     }
                 }
+
+                dbg_assert!(*cpl == cs_info.dpl());
             }
 
             // Note: eip from call is ignored
@@ -1343,10 +1381,11 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
 
             update_state_flags();
         }
+        else if info.system_type() == 1 || info.system_type() == 9 {
+            dbg_assert!(false, "TODO: far call task gate");
+        }
         else {
-            dbg_assert!(false);
-            //let types = { 9: "Available 386 TSS", 0xb: "Busy 386 TSS", 4: "286 Call Gate", 0xc: "386 Call Gate" };
-            //throw debug.unimpl("load system segment descriptor, type = " + (info.access & 15) + " (" + types[info.access & 15] + ")");
+            dbg_assert!(false, "TODO: #gp invalid system type");
         }
     }
     else {
@@ -1805,10 +1844,14 @@ pub unsafe fn readable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
 }
 
 pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
+    writable_or_pagefault_cpl(*cpl, addr, size)
+}
+
+pub unsafe fn writable_or_pagefault_cpl(other_cpl: u8, addr: i32, size: i32) -> OrPageFault<()> {
     dbg_assert!(size < 0x1000);
     dbg_assert!(size > 0);
 
-    let user = *cpl == 3;
+    let user = other_cpl == 3;
     translate_address(addr, true, user, false, true)?;
 
     let end = addr + size - 1 & !0xFFF;
@@ -2195,7 +2238,7 @@ pub unsafe fn trigger_fault_end_jit() {
     #[allow(static_mut_refs)]
     let (code, error_code) = jit_fault.take().unwrap();
     if DEBUG {
-        if cpu_exception_hook(code) {
+        if js::cpu_exception_hook(code) {
             return;
         }
     }
@@ -2919,7 +2962,7 @@ pub unsafe fn cycle_internal() {
         {
             in_jit = true;
         }
-        call_indirect1(
+        wasm::call_indirect1(
             wasm_table_index as i32 + WASM_TABLE_OFFSET as i32,
             initial_state,
         );
@@ -3104,11 +3147,11 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 pub unsafe fn main_loop() -> f64 {
     profiler::stat_increment(stat::MAIN_LOOP);
 
-    let start = microtick();
+    let start = js::microtick();
 
     if *in_hlt {
         if *flags & FLAG_INTERRUPT != 0 {
-            let t = run_hardware_timers(*acpi_enabled, start);
+            let t = js::run_hardware_timers(*acpi_enabled, start);
             handle_irqs();
             if *in_hlt {
                 profiler::stat_increment(stat::MAIN_LOOP_IDLE);
@@ -3124,8 +3167,8 @@ pub unsafe fn main_loop() -> f64 {
     loop {
         do_many_cycles_native();
 
-        let now = microtick();
-        let t = run_hardware_timers(*acpi_enabled, now);
+        let now = js::microtick();
+        let t = js::run_hardware_timers(*acpi_enabled, now);
         handle_irqs();
         if *in_hlt {
             return t;
@@ -3154,7 +3197,7 @@ pub unsafe fn trigger_de() {
     dbg_log!("#de");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_DE) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_DE) {
             return;
         }
     }
@@ -3167,7 +3210,7 @@ pub unsafe fn trigger_ud() {
     dbg_trace();
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_UD) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_UD) {
             return;
         }
     }
@@ -3180,7 +3223,7 @@ pub unsafe fn trigger_nm() {
     dbg_trace();
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_NM) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_NM) {
             return;
         }
     }
@@ -3192,7 +3235,7 @@ pub unsafe fn trigger_gp(code: i32) {
     dbg_log!("#gp");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_GP) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;
         }
     }
@@ -3284,7 +3327,7 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
-    Ok(std::mem::transmute(safe_read32s(addr)?))
+    Ok(f32::from_bits(i32::cast_unsigned(safe_read32s(addr)?)))
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
@@ -3538,10 +3581,11 @@ pub unsafe fn safe_write_slow_jit(
     if Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
         // XXX: Check based on virtual address
         dbg_log!(
-            "SMC: bits={} eip={:x} writeaddr={:x}",
+            "SMC: bits={} eip={:x} writeaddr={:x} value={:x}",
             bitsize,
             (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
-            addr as u32
+            addr as u32,
+            value_low,
         );
     }
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
@@ -3662,6 +3706,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
 
 pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
+    dbg_assert!(value >= 0 && value < 0x10000);
     if addr & 0xFFF == 0xFFF {
         virt_boundary_write16(phys_addr, translate_address_write(addr + 1)?, value);
     }
@@ -3758,6 +3803,7 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         return_on_pagefault!(translate_address_write_and_can_skip_dirty(addr));
     let x = memory::read8(phys_addr);
     let value = instruction(x);
+    dbg_assert!(value >= 0 && value < 0x100);
     if memory::in_mapped_range(phys_addr) {
         memory::mmap_write8(phys_addr, value);
     }
@@ -3784,6 +3830,7 @@ pub unsafe fn safe_read_write16(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     else {
         let x = memory::read16(phys_addr);
         let value = instruction(x);
+        dbg_assert!(value >= 0 && value < 0x10000);
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write16(phys_addr, value);
         }
@@ -4058,7 +4105,7 @@ pub unsafe fn set_tsc(low: u32, high: u32) {
 
 #[no_mangle]
 pub unsafe fn read_tsc() -> u64 {
-    let value = (microtick() * TSC_RATE) as u64 - tsc_offset;
+    let value = (js::microtick() * TSC_RATE) as u64 - tsc_offset;
 
     if !TSC_ENABLE_IMPRECISE_BROWSER_WORKAROUND {
         return value;
@@ -4243,7 +4290,7 @@ pub unsafe fn trigger_np(code: i32) {
     dbg_log!("#np");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_NP) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_NP) {
             return;
         }
     }
@@ -4255,7 +4302,7 @@ pub unsafe fn trigger_ss(code: i32) {
     dbg_log!("#ss");
     *instruction_pointer = *previous_ip;
     if DEBUG {
-        if cpu_exception_hook(CPU_EXCEPTION_SS) {
+        if js::cpu_exception_hook(CPU_EXCEPTION_SS) {
             return;
         }
     }
@@ -4266,17 +4313,14 @@ pub unsafe fn trigger_ss(code: i32) {
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
 #[no_mangle]
-pub unsafe fn handle_irqs() { handle_irqs_internal(&mut pic::get_pic()) }
-
-pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
+pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
-        if let Some(irq) = pic::pic_acknowledge_irq(pic) {
+        if let Some(irq) = pic::pic_acknowledge_irq() {
             pic_call_irq(irq)
         }
         else if *acpi_enabled {
-            let irq = apic_acknowledge_irq();
-            if irq >= 0 {
-                pic_call_irq(irq as u8)
+            if let Some(irq) = apic::acknowledge_irq() {
+                pic_call_irq(irq)
             }
         }
     }
@@ -4285,11 +4329,67 @@ pub unsafe fn handle_irqs_internal(pic: &mut pic::Pic) {
 unsafe fn pic_call_irq(interrupt_nr: u8) {
     *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
     if *in_hlt {
-        stop_idling();
+        js::stop_idling();
         *in_hlt = false;
     }
     call_interrupt_vector(interrupt_nr as i32, false, None);
 }
+
+#[no_mangle]
+unsafe fn device_raise_irq(i: u8) {
+    pic::set_irq(i);
+    if *acpi_enabled {
+        ioapic::set_irq(i);
+    }
+    handle_irqs()
+}
+
+#[no_mangle]
+unsafe fn device_lower_irq(i: u8) {
+    pic::clear_irq(i);
+    if *acpi_enabled {
+        ioapic::clear_irq(i);
+    }
+    handle_irqs()
+}
+
+pub fn io_port_read8(port: i32) -> i32 {
+    unsafe {
+        match port {
+            0x20 => pic::port20_read() as i32,
+            0x21 => pic::port21_read() as i32,
+            0xA0 => pic::portA0_read() as i32,
+            0xA1 => pic::portA1_read() as i32,
+            0x4D0 => pic::port4D0_read() as i32,
+            0x4D1 => pic::port4D1_read() as i32,
+            _ => js::io_port_read8(port),
+        }
+    }
+}
+pub fn io_port_read16(port: i32) -> i32 { unsafe { js::io_port_read16(port) } }
+pub fn io_port_read32(port: i32) -> i32 { unsafe { js::io_port_read32(port) } }
+
+pub fn io_port_write8(port: i32, value: i32) {
+    unsafe {
+        match port {
+            0x20 | 0x21 | 0xA0 | 0xA1 | 0x4D0 | 0x4D1 => {
+                match port {
+                    0x20 => pic::port20_write(value as u8),
+                    0x21 => pic::port21_write(value as u8),
+                    0xA0 => pic::portA0_write(value as u8),
+                    0xA1 => pic::portA1_write(value as u8),
+                    0x4D0 => pic::port4D0_write(value as u8),
+                    0x4D1 => pic::port4D1_write(value as u8),
+                    _ => dbg_assert!(false),
+                };
+                handle_irqs()
+            },
+            _ => js::io_port_write8(port, value),
+        }
+    }
+}
+pub fn io_port_write16(port: i32, value: i32) { unsafe { js::io_port_write16(port, value) } }
+pub fn io_port_write32(port: i32, value: i32) { unsafe { js::io_port_write32(port, value) } }
 
 #[no_mangle]
 #[cfg(debug_assertions)]

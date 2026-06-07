@@ -1,4 +1,6 @@
-"use strict";
+import { LOG_FETCH } from "../const.js";
+import { h } from "../lib.js";
+import { dbg_assert, dbg_log } from "../log.js";
 
 // https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
 const ETHERTYPE_IPV4 = 0x0800;
@@ -23,17 +25,17 @@ const V86_ASCII = [118, 56, 54];
  *
  * State TIME_WAIT is not needed, we can skip it and transition directly to CLOSED instead.
  */
-const TCP_STATE_CLOSED = "closed";
-const TCP_STATE_SYN_RECEIVED = "syn-received";
-const TCP_STATE_SYN_SENT = "syn-sent";
-const TCP_STATE_SYN_PROBE = "syn-probe";
+export const TCP_STATE_CLOSED = "closed";
+export const TCP_STATE_SYN_RECEIVED = "syn-received";
+export const TCP_STATE_SYN_SENT = "syn-sent";
+export const TCP_STATE_SYN_PROBE = "syn-probe";
 //const TCP_STATE_LISTEN = "listen";
-const TCP_STATE_ESTABLISHED = "established";
-const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
-const TCP_STATE_CLOSE_WAIT = "close-wait";
-const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
-const TCP_STATE_LAST_ACK = "last-ack";
-const TCP_STATE_CLOSING = "closing";
+export const TCP_STATE_ESTABLISHED = "established";
+export const TCP_STATE_FIN_WAIT_1 = "fin-wait-1";
+export const TCP_STATE_CLOSE_WAIT = "close-wait";
+export const TCP_STATE_FIN_WAIT_2 = "fin-wait-2";
+export const TCP_STATE_LAST_ACK = "last-ack";
+export const TCP_STATE_CLOSING = "closing";
 //const TCP_STATE_TIME_WAIT = "time-wait";
 
 // source: RFC6335, 6. Port Number Ranges
@@ -43,18 +45,14 @@ const TCP_DYNAMIC_PORT_RANGE = TCP_DYNAMIC_PORT_END - TCP_DYNAMIC_PORT_START;
 
 const ETH_HEADER_SIZE     = 14;
 const ETH_PAYLOAD_OFFSET  = ETH_HEADER_SIZE;
-const ETH_PAYLOAD_SIZE    = 1500;
+const MTU_DEFAULT         = 1500;
 const ETH_TRAILER_SIZE    = 4;
-const ETH_FRAME_SIZE      = ETH_HEADER_SIZE + ETH_PAYLOAD_SIZE + ETH_TRAILER_SIZE;
 const IPV4_HEADER_SIZE    = 20;
 const IPV4_PAYLOAD_OFFSET = ETH_PAYLOAD_OFFSET + IPV4_HEADER_SIZE;
-const IPV4_PAYLOAD_SIZE   = ETH_PAYLOAD_SIZE - IPV4_HEADER_SIZE;
 const UDP_HEADER_SIZE     = 8;
 const UDP_PAYLOAD_OFFSET  = IPV4_PAYLOAD_OFFSET + UDP_HEADER_SIZE;
-const UDP_PAYLOAD_SIZE    = IPV4_PAYLOAD_SIZE - UDP_HEADER_SIZE;
 const TCP_HEADER_SIZE     = 20;
 const TCP_PAYLOAD_OFFSET  = IPV4_PAYLOAD_OFFSET + TCP_HEADER_SIZE;
-const TCP_PAYLOAD_SIZE    = IPV4_PAYLOAD_SIZE - TCP_HEADER_SIZE;
 const ICMP_HEADER_SIZE    = 4;
 
 const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
@@ -92,6 +90,7 @@ class GrowableRingbuffer
         const total_length = this.length + src_length;
         let capacity = this.buffer.length;
         if(capacity < total_length) {
+            dbg_assert(capacity > 0);
             while(capacity < total_length) {
                 capacity *= 2;
             }
@@ -158,15 +157,19 @@ class GrowableRingbuffer
     }
 }
 
-function create_eth_encoder_buf()
+export function create_eth_encoder_buf(mtu = MTU_DEFAULT)
 {
+    const ETH_FRAME_SIZE = ETH_HEADER_SIZE + mtu + ETH_TRAILER_SIZE;
+    const IPV4_PAYLOAD_SIZE = mtu - IPV4_HEADER_SIZE;
+    const UDP_PAYLOAD_SIZE = IPV4_PAYLOAD_SIZE - UDP_HEADER_SIZE;
+
     const eth_frame = new Uint8Array(ETH_FRAME_SIZE);
     const buffer = eth_frame.buffer;
     const offset = eth_frame.byteOffset;
     return {
         eth_frame: eth_frame,
         eth_frame_view: new DataView(buffer),
-        eth_payload_view: new DataView(buffer, offset + ETH_PAYLOAD_OFFSET, ETH_PAYLOAD_SIZE),
+        eth_payload_view: new DataView(buffer, offset + ETH_PAYLOAD_OFFSET, mtu),
         ipv4_payload_view: new DataView(buffer, offset + IPV4_PAYLOAD_OFFSET, IPV4_PAYLOAD_SIZE),
         udp_payload_view: new DataView(buffer, offset + UDP_PAYLOAD_OFFSET, UDP_PAYLOAD_SIZE),
         text_encoder: new TextEncoder()
@@ -185,6 +188,17 @@ function view_set_array(offset, data, view, out)
 {
     out.eth_frame.set(data, view.byteOffset + offset);
     return data.length;
+}
+
+/**
+ * Write zeros into the view starting at offset
+ * @param {number} offset
+ * @param {number} length
+ * @param {DataView} view
+ */
+function view_set_zeros(offset, length, view, out)
+{
+    out.eth_frame.fill(0, view.byteOffset + offset, view.byteOffset + offset + length);
 }
 
 /**
@@ -219,8 +233,8 @@ function calc_inet_checksum(length, checksum, view, out)
     if(length & 1) {
         checksum += eth_frame[uint16_end] << 8;
     }
-    while(checksum >> 16) {
-        checksum = (checksum & 0xffff) + (checksum >> 16);
+    while(checksum >>> 16) {
+        checksum = (checksum & 0xffff) + (checksum >>> 16);
     }
     return ~checksum & 0xffff;
 }
@@ -240,13 +254,32 @@ function handle_fake_tcp(packet, adapter)
 {
     const tuple = `${packet.ipv4.src.join(".")}:${packet.tcp.sport}:${packet.ipv4.dest.join(".")}:${packet.tcp.dport}`;
 
-    if(packet.tcp.syn) {
+    if(packet.tcp.syn && !packet.tcp.ack) {
         if(adapter.tcp_conn[tuple]) {
             dbg_log("SYN to already opened port", LOG_FETCH);
+            delete adapter.tcp_conn[tuple];
         }
-        if(adapter.on_tcp_connection(packet, tuple)) {
-            return;
+
+        let conn = new TCPConnection(adapter);
+        conn.state = TCP_STATE_SYN_RECEIVED;
+        conn.tuple = tuple;
+        conn.last = packet;
+
+        // packet.* address fields are subarrays of the NIC TX buffer; copy
+        // them so later guest TX doesn't silently retarget our replies.
+        conn.hsrc = new Uint8Array(packet.eth.dest);
+        conn.psrc = new Uint8Array(packet.ipv4.dest);
+        conn.sport = packet.tcp.dport;
+        conn.hdest = new Uint8Array(packet.eth.src);
+        conn.dport = packet.tcp.sport;
+        conn.pdest = new Uint8Array(packet.ipv4.src);
+
+        adapter.bus.pair.send("tcp-connection", conn);
+
+        if(adapter.on_tcp_connection) {
+            adapter.on_tcp_connection(conn, packet);
         }
+        if(adapter.tcp_conn[tuple]) return;
     }
 
     if(!adapter.tcp_conn[tuple]) {
@@ -445,7 +478,7 @@ function handle_fake_dhcp(packet, adapter) {
     adapter.receive(make_packet(adapter.eth_encoder_buf, reply));
 }
 
-function handle_fake_networking(data, adapter) {
+export function handle_fake_networking(data, adapter) {
     let packet = {};
     parse_eth(data, packet);
 
@@ -946,19 +979,31 @@ function write_tcp(spec, out) {
     if(tcp.ece) flags |= 0x40;
     if(tcp.cwr) flags |= 0x80;
 
-    const doff = TCP_HEADER_SIZE >> 2;  // header length in 32-bit words
+    let doff = TCP_HEADER_SIZE;
+    if(tcp.options) {
+        if(tcp.options.mss) {
+            view.setUint8(doff, 0x02); //mss option type
+            view.setUint8(doff + 1, 0x04); //option length
+            view.setUint16(doff + 2, tcp.options.mss);
+            doff += 4;
+        }
+    }
+
+    let total_length = Math.ceil(doff / 4) * 4; // needs to a multiple of 4 bytes
+    if(tcp.options && total_length - doff > 0) {
+        view_set_zeros(doff, total_length - doff, view, out); //write zeros into remaining space for options
+    }
 
     view.setUint16(0, tcp.sport);
     view.setUint16(2, tcp.dport);
     view.setUint32(4, tcp.seq);
     view.setUint32(8, tcp.ackn);
-    view.setUint8(12, doff << 4);
+    view.setUint8(12, (total_length >> 2) << 4); // header length in 32-bit words
     view.setUint8(13, flags);
     view.setUint16(14, tcp.winsize);
     view.setUint16(16, 0); // checksum initially zero before calculation
     view.setUint16(18, tcp.urgent || 0);
 
-    let total_length = TCP_HEADER_SIZE;
     if(spec.tcp_data) {
         total_length += view_set_array(TCP_HEADER_SIZE, spec.tcp_data, view, out);
     }
@@ -974,7 +1019,7 @@ function write_tcp(spec, out) {
     return total_length;
 }
 
-function fake_tcp_connect(dport, adapter)
+export function fake_tcp_connect(dport, adapter)
 {
     const vm_ip_str = adapter.vm_ip.join(".");
     const router_ip_str = adapter.router_ip.join(".");
@@ -988,7 +1033,7 @@ function fake_tcp_connect(dport, adapter)
         throw new Error("pool of dynamic TCP port numbers exhausted, connection aborted");
     }
 
-    let conn = new TCPConnection();
+    let conn = new TCPConnection(adapter);
 
     conn.tuple = tuple;
     conn.hsrc = adapter.router_mac;
@@ -997,13 +1042,12 @@ function fake_tcp_connect(dport, adapter)
     conn.hdest = adapter.vm_mac;
     conn.dport = dport;
     conn.pdest = adapter.vm_ip;
-    conn.net = adapter;
     adapter.tcp_conn[tuple] = conn;
     conn.connect();
     return conn;
 }
 
-function fake_tcp_probe(dport, adapter) {
+export function fake_tcp_probe(dport, adapter) {
     return new Promise((res, rej) => {
         let handle = fake_tcp_connect(dport, adapter);
         handle.state = TCP_STATE_SYN_PROBE;
@@ -1014,10 +1058,14 @@ function fake_tcp_probe(dport, adapter) {
 /**
  * @constructor
  */
-function TCPConnection()
+export function TCPConnection(adapter)
 {
+    this.mtu = (adapter.mtu || MTU_DEFAULT);
+    const IPV4_PAYLOAD_SIZE = this.mtu - IPV4_HEADER_SIZE;
+    const TCP_PAYLOAD_SIZE = IPV4_PAYLOAD_SIZE - TCP_HEADER_SIZE;
+
     this.state = TCP_STATE_CLOSED;
-    this.net = null; // The adapter is stored here
+    this.net = adapter; // The adapter is stored here
     this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
     this.in_active_close = false;
@@ -1080,7 +1128,9 @@ TCPConnection.prototype.connect = function() {
     this.ack = 1;
     this.start_seq = 0;
     this.winsize = 64240;
-    this.state = TCP_STATE_SYN_SENT;
+    if(this.state !== TCP_STATE_SYN_PROBE) {
+        this.state = TCP_STATE_SYN_SENT;
+    }
 
     let reply = this.ipv4_reply();
     reply.ipv4.id = 2345;
@@ -1096,16 +1146,12 @@ TCPConnection.prototype.connect = function() {
 };
 
 
-TCPConnection.prototype.accept = function(packet) {
+TCPConnection.prototype.accept = function(packet=undefined) {
+    packet = packet || this.last;
+    this.net.tcp_conn[this.tuple] = this;
     this.seq = 1338;
     this.ack = packet.tcp.seq + 1;
     this.start_seq = packet.tcp.seq;
-    this.hsrc = this.net.router_mac;
-    this.psrc = packet.ipv4.dest;
-    this.sport = packet.tcp.dport;
-    this.hdest = packet.eth.src;
-    this.dport = packet.tcp.sport;
-    this.pdest = packet.ipv4.src;
     this.winsize = packet.tcp.winsize;
 
     let reply = this.ipv4_reply();
@@ -1116,7 +1162,10 @@ TCPConnection.prototype.accept = function(packet) {
         ackn: this.ack,
         winsize: packet.tcp.winsize,
         syn: true,
-        ack: true
+        ack: true,
+        options: {
+            mss: (this.mtu - TCP_HEADER_SIZE - IPV4_HEADER_SIZE)
+        }
     };
     // dbg_log(`TCP[${this.tuple}]: accept(): sending SYN+ACK in state "${this.state}", next "${TCP_STATE_ESTABLISHED}"`, LOG_FETCH);
     this.state = TCP_STATE_ESTABLISHED;
@@ -1124,6 +1173,7 @@ TCPConnection.prototype.accept = function(packet) {
 };
 
 TCPConnection.prototype.process = function(packet) {
+    this.last = packet;
     if(this.state === TCP_STATE_CLOSED) {
         // dbg_log(`TCP[${this.tuple}]: WARNING: connection already closed, packet dropped`, LOG_FETCH);
         const reply = this.packet_reply(packet, {rst: true});

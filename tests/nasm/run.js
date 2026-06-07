@@ -1,5 +1,16 @@
 #!/usr/bin/env node
-"use strict";
+
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+import assert from "node:assert/strict";
+import os from "node:os";
+import cluster from "node:cluster";
+
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
 
@@ -15,20 +26,14 @@ process.on("unhandledRejection", exn => { throw exn; });
 
 // A #UD might indicate a bug in the test generation
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const cluster = require("cluster");
-
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
 const SINGLE_TEST_TIMEOUT = 10000;
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
 const TERMINATE_MSG = "DONE";
+const READY_MSG = "READY";
 
 const BSS = 0x100000;
 const STACK_TOP = 0x102000;
@@ -45,16 +50,6 @@ const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 const FPU_TAG_ALL_INVALID = 0xAAAA;
 const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3 | 1 << 1); // bits that are not correctly implemented by v86
 const FP_COMPARISON_SIGNIFICANT_DIGITS = 7;
-
-try {
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-}
-catch(e) {
-    console.error(e);
-    console.error("Failed to import build/libv86-debug.js. Run " +
-                  "`make build/libv86-debug.js` first.");
-    process.exit(1);
-}
 
 function float_equal(x, y)
 {
@@ -202,13 +197,11 @@ if(cluster.isMaster)
         let worker = cluster.fork();
 
         worker.on("message", function(message) {
-            if(message !== DONE_MSG) {
+            if(message !== DONE_MSG && message !== READY_MSG) {
                 failed_tests.push(message);
             }
             send_work_to_worker(this);
         });
-
-        worker.on("online", send_work_to_worker.bind(null, worker));
 
         worker.on("exit", function(code, signal) {
             if(code !== 0 &&  code !== null) {
@@ -548,4 +541,6 @@ else {
             run_test(message);
         }
     });
+
+    process.send(READY_MSG);
 }

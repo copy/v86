@@ -1,24 +1,18 @@
 #!/usr/bin/env node
-"use strict";
+
+import fs from "node:fs";
+import path from "node:path";
+import assert from "node:assert/strict";
+import url from "node:url";
+import { spawnSync } from "node:child_process";
+import wabt from "../../build/libwabt.cjs";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const path = require("path");
-const { spawnSync } = require("child_process");
-
-const libwabt = require("../../build/libwabt.js")();
-
-try {
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-}
-catch(e) {
-    console.error(e);
-    console.error("Failed to import build/libv86-debug.js. Run " +
-                  "`make build/libv86-debug.js` first.");
-    process.exit(1);
-}
+const libwabt = wabt();
 
 const TEST_NAME = process.env.TEST_NAME;
 

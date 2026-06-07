@@ -1,5 +1,17 @@
 #!/usr/bin/env node
-"use strict";
+
+import fs from "node:fs";
+import fse from "node:fs/promises";
+import path from "node:path";
+import assert from "node:assert/strict";
+import util from "node:util";
+import url from "node:url";
+import { execFile as execFileAsync } from "node:child_process";
+
+import encodings from "../../gen/x86_table.js";
+import Rand from "./rand.js";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 // number of tests per instruction
 const NUMBER_TESTS = 5;
@@ -19,14 +31,7 @@ const OF = 1 << 11;
 const BUILD_DIR = __dirname + "/build/";
 const LOG_VERBOSE = false;
 
-const assert = require("assert").strict;
-const fs = require("fs");
-const fse = require("fs/promises");
-const path = require("path");
-const encodings = require("../../gen/x86_table.js");
-const util = require("util");
-const execFile = util.promisify(require("child_process").execFile);
-const Rand = require("./rand.js");
+const execFile = util.promisify(execFileAsync);
 
 const header = fs.readFileSync(path.join(__dirname, "header.inc"));
 const footer = fs.readFileSync(path.join(__dirname, "footer.inc"));

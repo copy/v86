@@ -22,12 +22,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: tree:0
 
       - name: Setup Node.js version
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           check-latest: true
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup toolchain
         run: |
@@ -41,7 +45,9 @@ jobs:
           sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
 
       - name: Build all-debug
-        run: make all-debug
+        run: |
+          rustc --version
+          make all-debug
 
       - name: Build all
         run: make all
@@ -64,7 +70,7 @@ jobs:
         run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
 
       - name: Run kvm-unit-test
-        run: tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+        run: tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v4
@@ -91,7 +97,7 @@ jobs:
 
       - name: Download uncached images
         if: steps.cache-images.outputs.cache-hit != 'true'
-        run: wget -nv -P images/ https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img}
+        run: mkdir -p images && curl --compressed --output-dir images --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}
 
       - name: Run api-tests
         run: make api-tests
@@ -114,11 +120,18 @@ jobs:
       - name: Run expect tests
         run: make expect-tests
 
+      - name: Update package.json version
+        run: make update-package-json-version
+
       - name: Upload the artifact
         uses: actions/upload-artifact@v4
         with:
           name: v86
           path: |
+            package.json
+            LICENSE
+            Readme.md
+            v86.d.ts
             build/libv86*.js
             build/libv86*.js.map
             build/v86*.wasm
@@ -129,6 +142,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/master'
+
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
       - name: Delete old release and tag
@@ -142,10 +159,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: v86
-          path: build
 
       - name: Display structure of downloaded files
         run: ls -R
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Release to GitHub
         uses: ncipollo/release-action@v1
@@ -156,3 +177,5 @@ jobs:
           body: ${{ github.event.head_commit.message }}
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
+
+      - run: npm publish --provenance --access public

@@ -1,7 +1,7 @@
 mod ext {
+    #[link(wasm_import_module = "env")]
     extern "C" {
         pub fn mmap_read8(addr: u32) -> i32;
-        pub fn mmap_read16(addr: u32) -> i32;
         pub fn mmap_read32(addr: u32) -> i32;
 
         pub fn mmap_write8(addr: u32, value: i32);
@@ -12,8 +12,12 @@ mod ext {
     }
 }
 
-use crate::cpu::cpu::reg128;
+use crate::cpu::apic;
+use crate::cpu::cpu::{
+    handle_irqs, reg128, APIC_MEM_ADDRESS, APIC_MEM_SIZE, IOAPIC_MEM_ADDRESS, IOAPIC_MEM_SIZE,
+};
 use crate::cpu::global_pointers::memory_size;
+use crate::cpu::ioapic;
 use crate::cpu::vga;
 use crate::jit;
 use crate::page::Page;
@@ -83,6 +87,12 @@ pub fn read8(addr: u32) -> i32 {
         if in_svga_lfb(addr) {
             unsafe { *vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as i32 }
         }
+        else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+            apic::read32((addr - APIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
+        }
+        else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+            ioapic::read32((addr - IOAPIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
+        }
         else {
             unsafe { ext::mmap_read8(addr) }
         }
@@ -103,7 +113,7 @@ pub fn read16(addr: u32) -> i32 {
             }
         }
         else {
-            unsafe { ext::mmap_read16(addr) }
+            read8(addr) | read8(addr + 1) << 8
         }
     }
     else {
@@ -121,6 +131,12 @@ pub fn read32s(addr: u32) -> i32 {
             unsafe {
                 ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i32)
             } // XXX
+        }
+        else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+            apic::read32(addr - APIC_MEM_ADDRESS) as i32
+        }
+        else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+            ioapic::read32(addr - IOAPIC_MEM_ADDRESS) as i32
         }
         else {
             unsafe { ext::mmap_read32(addr) }
@@ -140,7 +156,7 @@ pub unsafe fn read64s(addr: u32) -> i64 {
             ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i64)
         }
         else {
-            ext::mmap_read32(addr) as i64 | (ext::mmap_read32(addr + 4) as i64) << 32
+            read32s(addr) as i64 | (read32s(addr + 4) as i64) << 32
         }
     }
     else {
@@ -156,10 +172,10 @@ pub unsafe fn read128(addr: u32) -> reg128 {
         else {
             reg128 {
                 i32: [
-                    ext::mmap_read32(addr + 0),
-                    ext::mmap_read32(addr + 4),
-                    ext::mmap_read32(addr + 8),
-                    ext::mmap_read32(addr + 12),
+                    read32s(addr + 0),
+                    read32s(addr + 4),
+                    read32s(addr + 8),
+                    read32s(addr + 12),
                 ],
             }
         }
@@ -206,7 +222,7 @@ pub unsafe fn write32(addr: u32, value: i32) {
     else {
         jit::jit_dirty_cache_small(addr, addr + 4);
         write32_no_mmap_or_dirty_check(addr, value);
-    };
+    }
 }
 
 pub unsafe fn write32_no_mmap_or_dirty_check(addr: u32, value: i32) {
@@ -238,6 +254,8 @@ pub unsafe fn memcpy_no_mmap_or_dirty_check(src_addr: u32, dst_addr: u32, count:
 pub unsafe fn memcpy_into_svga_lfb(src_addr: u32, dst_addr: u32, count: u32) {
     dbg_assert!(src_addr < *memory_size);
     dbg_assert!(in_svga_lfb(dst_addr));
+    dbg_assert!(Page::page_of(dst_addr) == Page::page_of(dst_addr + count - 1));
+    vga::mark_dirty(dst_addr);
     ptr::copy_nonoverlapping(
         mem8.offset(src_addr as isize),
         vga_mem8.offset((dst_addr - VGA_LFB_ADDRESS) as isize),
@@ -273,6 +291,14 @@ pub unsafe fn mmap_write32(addr: u32, value: i32) {
             vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *mut i32,
             value,
         )
+    }
+    else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+        apic::write32(addr - APIC_MEM_ADDRESS, value as u32);
+        handle_irqs();
+    }
+    else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+        ioapic::write32(addr - IOAPIC_MEM_ADDRESS, value as u32);
+        handle_irqs();
     }
     else {
         ext::mmap_write32(addr, value)

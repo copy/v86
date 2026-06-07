@@ -1,13 +1,15 @@
 #!/usr/bin/env -S node --experimental-websocket
-"use strict";
+
+import assert from "assert/strict";
+import url from "node:url";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-const V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-
-const assert = require("assert").strict;
 const SHOW_LOGS = false;
 
 const tests =
@@ -75,7 +77,7 @@ const tests =
         end_trigger: "done\texample.org",
         end: (capture) =>
         {
-            assert(/This domain is for use in illustrative examples in documents/.test(capture), "got example.org text");
+            assert(/This domain is for use in documentation examples without needing permission/.test(capture), "got example.org text");
         },
     },
 

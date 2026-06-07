@@ -1,5 +1,3 @@
-#![allow(const_item_mutation)]
-
 #[macro_use]
 mod dbg;
 
@@ -27,6 +25,5 @@ mod prefix;
 mod regs;
 mod softfloat;
 mod state_flags;
-mod util;
 mod wasmgen;
 mod zstd;

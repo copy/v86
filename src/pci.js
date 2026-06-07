@@ -1,16 +1,20 @@
-"use strict";
+import { LOG_PCI } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
 
 // http://wiki.osdev.org/PCI
 
-var
-/** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
-/** @const */ PCI_CONFIG_DATA = 0xCFC;
+export const PCI_CONFIG_ADDRESS = 0xCF8;
+export const PCI_CONFIG_DATA = 0xCFC;
 
 /**
  * @constructor
  * @param {CPU} cpu
  */
-function PCI(cpu)
+export function PCI(cpu)
 {
     this.pci_addr = new Uint8Array(4);
     this.pci_value = new Uint8Array(4);
@@ -390,7 +394,7 @@ PCI.prototype.pci_write32 = function(address, written)
         var bar_nr = addr - 0x10 >> 2;
         var bar = device.pci_bars[bar_nr];
 
-        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed to " +
+        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed from " + h(space[addr >> 2]) + " to " +
                 h(written >>> 0) + " dev=" + h(bdf >> 3, 2) + " (" + device.name + ") ", LOG_PCI);
 
         if(bar)
@@ -491,7 +495,10 @@ PCI.prototype.register_device = function(device)
 
     dbg_log("PCI register bdf=" + h(device_id) + " (" + device.name + ")", LOG_PCI);
 
-    dbg_assert(!this.devices[device_id]);
+    if(this.devices[device_id])
+    {
+        dbg_log("warning: overwriting device " + this.devices[device_id].name + " with " + device.name, LOG_PCI);
+    }
     dbg_assert(device.pci_space.length >= 64);
     dbg_assert(device_id < this.devices.length);
 
@@ -514,6 +521,7 @@ PCI.prototype.register_device = function(device)
 
         var bar_base = bar_space[i];
         var type = bar_base & 1;
+        dbg_log("device "+ device.name +" register bar of size "+bar.size +" at " + h(bar_base), LOG_PCI);
 
         bar.original_bar = bar_base;
         bar.entries = [];
@@ -553,17 +561,6 @@ PCI.prototype.set_io_bars = function(bar, from, to)
             ports[from + i] = this.io.create_empty_entry();
         }
 
-        if(old_entry.read8 === this.io.empty_port_read8 &&
-           old_entry.read16 === this.io.empty_port_read16 &&
-           old_entry.read32 === this.io.empty_port_read32 &&
-           old_entry.write8 === this.io.empty_port_write &&
-           old_entry.write16 === this.io.empty_port_write &&
-           old_entry.write32 === this.io.empty_port_write)
-        {
-            // happens when a device doesn't register its full range (currently ne2k and virtio)
-            dbg_log("Warning: Bad IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
-        }
-
         var entry = bar.entries[i];
         var empty_entry = ports[to + i];
         dbg_assert(entry && empty_entry);
@@ -571,18 +568,6 @@ PCI.prototype.set_io_bars = function(bar, from, to)
         if(to + i >= 0x1000)
         {
             ports[to + i] = entry;
-        }
-
-        if(empty_entry.read8 === this.io.empty_port_read8 ||
-            empty_entry.read16 === this.io.empty_port_read16 ||
-            empty_entry.read32 === this.io.empty_port_read32 ||
-            empty_entry.write8 === this.io.empty_port_write ||
-            empty_entry.write16 === this.io.empty_port_write ||
-            empty_entry.write32 === this.io.empty_port_write)
-        {
-            // These can fail if the os maps an io port in multiple bars (indicating a bug)
-            // XXX: Fails during restore_state
-            dbg_log("Warning: Bad IO bar: Target already mapped, port=" + h(to + i, 4), LOG_PCI);
         }
     }
 };

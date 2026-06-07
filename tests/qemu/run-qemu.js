@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-"use strict";
+
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const QEMU = "qemu-system-x86_64";
-
-const assert = require("assert").strict;
-const fs = require("fs");
-const { spawn, spawnSync } = require("child_process");
-const path = require("path");
 
 const share_dir_9p = fs.mkdtempSync("/tmp/v86-test-qemu-9p");
 

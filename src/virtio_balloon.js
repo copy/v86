@@ -1,6 +1,13 @@
-"use strict";
-
 // https://docs.oasis-open.org/virtio/virtio/v1.2/csd01/virtio-v1.2-csd01.html#x1-2900003
+
+import { LOG_PCI } from "./const.js";
+import { dbg_log } from "./log.js";
+import { VirtIO, VIRTIO_F_VERSION_1 } from "./virtio.js";
+import * as marshall from "../lib/marshall.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { BusConnector } from "./bus.js";
 
 const VIRTIO_BALLOON_F_MUST_TELL_HOST = 0;
 const VIRTIO_BALLOON_F_STATS_VQ = 1;
@@ -25,7 +32,7 @@ const STAT_NAMES = [
  * @param {CPU} cpu
  * @param {BusConnector} bus
  */
-function VirtioBalloon(cpu, bus)
+export function VirtioBalloon(cpu, bus)
 {
     /** @const @type {BusConnector} */
     this.bus = bus;

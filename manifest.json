@@ -1,0 +1,13 @@
+{
+    "name": "v86",
+    "short_name": "v86",
+    "start_url": "/v86/",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+}

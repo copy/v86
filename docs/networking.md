@@ -37,31 +37,7 @@ Network setup in the v86 web interface at **https://copy.sh/v86/** is straightfo
 
 ### Embedded v86 setup
 
-JavaScript applications that do not use the v86 web interface (but instead embed V86 into their architecture) setup their network by using the common `config` object that they pass to the V86 constructor. Network settings are members of the object **`config.net_device`**, all settings are optional except for `relay_url`.
-
-#### General `net_device` settings
-
-Common options in `config.net_device`:
-
-| net_device    | type | description |
-| :------------ | :--- | :--- |
-| **type**      | str  | The type of emulated NIC provided to the guest OS, either `ne2k` or `virtio`. Default: `ne2k`. |
-| **relay_url** | str  | The network backend URL, see [Backend URL schemes](#backend-url-schemes) for details. Note that the CORS proxy server of the `fetch` backend is defined in field `cors_proxy` below. This option is required. |
-| **id**        | int  | Network id, all v86 network instances with the same id share the same network namespace. Default: `0`.<br>*(TODO: class `NetworkAdapter` should also get options.net_device as an argument, at least options.net_device.id).* |
-
-#### Special `net_device` settings
-
-Backends `fetch` and `wisp` support a couple of special settings in `config.net_device` to control virtual network components emulated by the backend:
-
-| net_device     | type | description |
-| :------------- | :--- | :--- |
-| **router_mac** | str  | MAC address of virtual network peers (ARP, PING, DHCP, DNS, NTP, UDP echo and TCP peers) in common MAC address notation. Default `52:54:0:1:2:3`. |
-| **router_ip**  | str  | IP address of virtual network peers (ARP, PING, DHCP, DNS and TCP peers) in dotted IP notation. Default `192.168.86.1`. |
-| **vm_ip**      | str  | IP address to be assigned to the guest by DHCP in dotted IP notation. Default `192.168.86.100`. |
-| **masquerade** | bool | If `True`, announce `router_ip` as the router's and DNS server's IP addresses in generated DHCP replies, and also generate ARP replies to IPs outside the router's subnet `255.255.255.0`. Default: `True`. |
-| **dns_method** | str  | DNS method to use, either `static` or `doh`. `static`: use built-in DNS server, `doh`: use [DNS-over-HTTPS](https://en.wikipedia.org/wiki/DNS_over_HTTPS) (DoH). Defaults to `static` for `fetch` and to `doh` for `wisp` backend. |
-| **doh_server** | str  | Host name or IP address (and optional port number) of the DoH server if `dns_method` is `doh`. The value is expanded to the URL `https://DOH_SERVER/dns-query`. Default: `cloudflare-dns.com`. |
-| **cors_proxy** | str  | CORS proxy server URL, do not use a proxy if undefined. Default: undefined (`fetch` backend only). |
+JavaScript applications that do not use the v86 web interface (but instead embed V86 into their architecture) setup their network by using the common `config` object that they pass to the V86 constructor. Network settings are members of the object **`config.net_device`**, all settings are optional except for `relay_url`, see [v86.d.ts](../v86.d.ts).
 
 #### Example `net_device` settings
 
@@ -128,6 +104,7 @@ Since this backend (including its proxy server) only forwards unmodified etherne
 * **[go-websockproxy](https://github.com/gdm85/go-websockproxy)** -- one TAP device for all clients, written in Go, without integraded DHCP but with integrated TLS support
 * **[node-relay](https://github.com/krishenriksen/node-relay)** -- like websockproxy but written for NodeJS (dnsmasq/no TLS), see [New websocket ethernet switch built using Node.js #777](https://github.com/copy/v86/discussions/777)
 * **[wsnic](https://github.com/chschnell/wsnic)** -- uses a single bridge and one TAP device per client, integrates dnsmasq for DHCP/DNS and stunnel for TLS
+* **[RootlessRelay](https://github.com/obegron/rootlessRelay)** -- uses its own network stack that doesn't require TUN/TAP devices, has a built-in reverse proxy and admin interface, see [RootlessRelay #1442](https://github.com/copy/v86/discussions/1442)
 
 [See here](https://github.com/copy/v86/discussions/1199#discussioncomment-12026845) for a benchmark comparing the download performance of these proxy servers.
 
@@ -161,6 +138,8 @@ Like the [`wisp`](#the-wisp-backend) backend, the `fetch` backend handles DHCP a
 Starting with PR [#1233](https://github.com/copy/v86/pull/1233), the TCP guest listener can be accessed from JS API, see the [examples/tcp_terminal.html](../examples/tcp_terminal.html) example.
 
 v86 guests are isolated from each other when using the `fetch` backend.
+
+v86 guests have HTTP access to the host's `localhost` using the URL `http://<port>.external` (e.g. `1234.external` -> `localhost:1234`).
 
 **CORS proxy server**
 

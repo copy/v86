@@ -1,31 +1,31 @@
 #!/usr/bin/env node
-"use strict";
+
+import assert from "node:assert/strict";
+import cluster from "node:cluster";
+import os from "node:os";
+import fs from "node:fs";
+import url from "node:url";
+
+// config variables
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
+const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
+const TEST_NAME = process.env.TEST_NAME;
+const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
+const LOG_LEVEL = +process.env.LOG_LEVEL || 0;
+const DISABLE_JIT = +process.env.DISABLE_JIT;
+const TEST_ACPI = +process.env.TEST_ACPI;
+
+const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+
+const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 process.on("unhandledRejection", exn => { throw exn; });
-
-var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
-var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
-var TEST_NAME = process.env.TEST_NAME;
-const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
-const RUN_SLOW_TESTS = +process.env.RUN_SLOW_TESTS;
 
 const VERBOSE = false;
 const LOG_SCREEN = false;
 
-try
-{
-    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
-}
-catch(e)
-{
-    console.error("Failed to import build/libv86-debug.js. Run `make build/libv86-debug.js first.");
-    process.exit(1);
-}
 
-const assert = require("assert").strict;
-var cluster = require("cluster");
-var os = require("os");
-var fs = require("fs");
 var root_path = __dirname + "/../..";
 
 var SCREEN_WIDTH = 80;
@@ -79,7 +79,7 @@ function send_work_to_worker(worker, message)
     }
 }
 
-if(cluster.isMaster)
+if(cluster.isPrimary)
 {
     var tests = [
         {
@@ -149,6 +149,17 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Windows Vista installer",
+            skip_if_disk_image_missing: true,
+            cdrom: root_path + "/images/experimental/en_windows_vista_sp2_x86_dvd_342266.iso",
+            memory_size: 512 * 1024 * 1024,
+            timeout: 300,
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+            acpi: true,
+        },
+        {
             name: "Windows XP CD",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/experimental/VirtualXP.iso",
@@ -157,6 +168,7 @@ if(cluster.isMaster)
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
+            acpi: false, // XXX: fails with acpi on
         },
         {
             name: "Windows XP HD",
@@ -284,7 +296,6 @@ if(cluster.isMaster)
         },
         {
             name: "MS-DOS",
-            skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             timeout: 90,
             expected_texts: [
@@ -293,7 +304,6 @@ if(cluster.isMaster)
         },
         {
             name: "MS-DOS (hard disk + floppy disk)",
-            skip_if_disk_image_missing: true,
             hda: root_path + "/images/msdos.img",
             fda: root_path + "/images/kolibri.img",
             boot_order: 0x132,
@@ -398,6 +408,23 @@ if(cluster.isMaster)
             expected_texts: ["nyu# "],
         },
         {
+            name: "OpenBSD state image",
+            timeout: 60,
+            memory_size: 256 * 1024 * 1024,
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/openbsd.img",
+            state: root_path + "/images/openbsd_state-v2.bin.zst",
+            actions: [
+                {
+                    after: 1 * 1000,
+                    run: `echo 'main(){printf("it");puts(" works");}' > a.c; clang a.c; ./a.out\n`,
+                }
+            ],
+            expected_texts: [
+                "it works",
+            ],
+        },
+        {
             name: "Windows 3.0",
             slow: 1,
             skip_if_disk_image_missing: true,
@@ -438,6 +465,15 @@ if(cluster.isMaster)
             expected_texts: [
                 "MODE prepare code page function completed",
             ],
+        },
+        {
+            name: "Windows 95 big",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            hda: root_path + "/images/experimental/windows95-felixrieseberg.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
         },
         {
             name: "FreeBSD",
@@ -537,9 +573,9 @@ if(cluster.isMaster)
                     on_text: "Compress okay",
                     run:
                         RUN_SLOW_TESTS ?
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo v86-in-v86 okay\n"
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Files send via emulator appear in' ; sleep 2; echo; echo v86-in-v86 okay\n"
                         :
-                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo v86-in-v86 okay\n",
+                            "./v86-in-v86.js | tee /dev/stderr | grep -m1 'Kernel command line:' ; sleep 2; echo; echo v86-in-v86 okay\n",
                 },
                 {
                     on_text: "v86-in-v86 okay",
@@ -549,6 +585,59 @@ if(cluster.isMaster)
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
+        },
+        {
+            name: "Arch Linux state image",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            filesystem: {
+                basefs: "images/fs.json",
+                baseurl: "images/arch/",
+            },
+            state: "images/arch_state-v3.bin.zst",
+            net_device: { type: "virtio" },
+            actions: [
+                { after: 1000, run: "ls --color=never /dev/ /usr/bin/ > /dev/ttyS0\n" },
+                { after: 2000, run: `python -c 'print(100 * "a")' > /dev/ttyS0\n` },
+            ],
+            expected_serial_text: [
+                "ttyS0",
+                "syslinux-install_update",
+                "aaaaaaaaaaaaaaaaaaaa",
+            ],
+        },
+        {
+            name: "Arch Linux (with fda, cdrom, hda and hdb)",
+            skip_if_disk_image_missing: true,
+            timeout: 5 * 60,
+            bzimage_initrd_from_filesystem: true,
+            memory_size: 512 * 1024 * 1024,
+            cmdline: [
+                "rw apm=off vga=0x344 video=vesafb:ypan,vremap:8",
+                "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose mitigations=off",
+                "audit=0 init=/usr/bin/init-openrc net.ifnames=0 biosdevname=0",
+            ].join(" "),
+            filesystem: {
+                basefs: "images/fs.json",
+                baseurl: "images/arch/",
+            },
+            hda: root_path + "/images/w95.img",
+            hdb: root_path + "/images/FiwixOS-3.4-i386.img",
+            cdrom: root_path + "/images/dsl-4.11.rc2.iso",
+            fda: root_path + "/images/freedos722.img",
+            actions: [
+                {
+                    on_text: "root@localhost",
+                    run: "modprobe floppy && mkdir /mnt/{a,b,c,f} && mount /dev/sda1 /mnt/a && mount /dev/sdb2 /mnt/b && mount /dev/sr0 /mnt/c && mount /dev/fd0 /mnt/f && ls /mnt/*\n",
+                },
+            ],
+            expected_texts: [
+                "bin   dev  home",                          // fiwix
+                " AUTOEXEC.BAT   CONFIG.WIN   MSDOS.SYS",   // w95
+                "KNOPPIX  boot  index.html",                // DSL
+                "FDOS          README      debug.com",      // freedos
+            ],
         },
         {
             name: "FreeGEM",
@@ -589,6 +678,25 @@ if(cluster.isMaster)
                 { after: 7 * 60 * 1000, run: "\n" },
                 { after: 8 * 60 * 1000, run: "\n" },
             ],
+            acpi: true,
+        },
+        {
+            name: "Haiku state image",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/haiku-v5.img",
+            state: root_path + "/images/haiku_state-v5.bin.zst",
+            actions: [
+                {
+                    after: 2 * 1000,
+                    run: `echo 'let rec f=function 0|1->1|x->f(x-1)+f(x-2)in Printf.printf"%d\n"(f 25)' | ocaml -stdin > /dev/ports/pc_serial0\n`
+                },
+            ],
+            expected_serial_text: [
+                "121393",
+            ],
+            acpi: true,
         },
         {
             name: "9front",
@@ -641,6 +749,24 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "ReactOS state image",
+            skip_if_disk_image_missing: true,
+            memory_size: 512 * 1024 * 1024,
+            acpi: true,
+            net_device: { type: "virtio" },
+            timeout: 60,
+            hda: root_path + "/images/reactos-v3.img",
+            state: root_path + "/images/reactos_state-v3.bin.zst",
+            actions: [
+                { after: 5 * 1000, run: [0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB] }, // meta+r
+                { after: 10 * 1000, run: "cmd\n" },
+                { after: 15 * 1000, run: "echo it works > COM1\n" },
+            ],
+            expected_serial_text: [
+                "it works",
+            ],
+        },
+        {
             name: "ReactOS CD",
             skip_if_disk_image_missing: true,
             timeout: 10 * 60,
@@ -690,6 +816,49 @@ if(cluster.isMaster)
             expected_texts: ["login:", "We'd like your feedback", "# "],
         },
         {
+            name: "Mojo OS",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            cdrom: root_path + "/images/mojo-0.2.2.iso",
+            actions: [
+                {
+                    on_text: "/> ",
+                    run: "help\n",
+                },
+            ],
+            expected_texts: ["Mojo test shell", "See manual pages for more information"],
+            expected_serial_text: [" ===> Shell loaded"],
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Vanadium OS",
+            skip_if_disk_image_missing: true,
+            timeout: 180,
+            cdrom: root_path + "/images/vanadiumos.iso",
+            actions: [
+                { after: 5000, run: " " },
+                { after: 5100, run: " " },
+                { after: 5200, run: " " },
+                { after: 5300, run: " " },
+                { after: 5400, run: " " },
+                { after: 5500, run: " " },
+                { after: 5600, run: " " },
+                { after: 5700, run: " " },
+                { after: 5800, run: "c" },
+            ],
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+        },
+        {
+            name: "Asuro",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            cdrom: root_path + "/images/asuro.iso",
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+            expected_serial_text: ["Asuro Booted Correctly!"],
+        },
+        {
             name: "Mobius",
             skip_if_disk_image_missing: true,
             timeout: 2 * 60,
@@ -701,6 +870,7 @@ if(cluster.isMaster)
                     run: "\n",
                 },
             ],
+            acpi: false, // segfaults with acpi on (also in other emulators)
         },
         {
             name: "FreeNOS",
@@ -777,6 +947,60 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "FreeDOS boot floppy 160K", // source: https://github.com/codercowboy/freedosbootdisks/tree/master/bootdisks
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/experimental/freedos-fds/freedos.boot.disk.160K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 180K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.180K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 320K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.320K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 360K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.360K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 640K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.640K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
+            name: "FreeDOS boot floppy 1200K",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/image/experimentals/freedos-fds/freedos.boot.disk.1200K.img",
+            timeout: 10,
+            expected_texts: [
+                "A:\\>",
+            ],
+        },
+        {
             name: "ASM Space Invaders",
             skip_if_disk_image_missing: true,
             timeout: 10,
@@ -810,6 +1034,70 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "Fiwix",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/FiwixOS-3.4-i386.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "(root):~#",
+            ],
+            actions: [
+                { on_text: "(root):~#", run: "/usr/games/lsdoom\n" },
+            ],
+        },
+        {
+            name: "9legacy",
+            use_small_bios: true, // has issues with 256k bios
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // if netdevice is found, waits for dhcp before starting desktop
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/9legacy.img",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            expected_texts: [
+                "Selection:",
+            ],
+            actions: [
+                { on_text: "Selection:", run: "1\n" },
+            ],
+            expected_serial_text: [
+                "init: starting",
+            ],
+        },
+        {
+            name: "BSD/OS 3",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            cdrom: root_path + "/images/experimental/bsdos-3.0-binary.iso",
+            fda: root_path + "/images/experimental/bsdos3-install-floppy.img",
+            expected_texts: ["\xc9\xcd BSD/OS Installation"],
+            boot_order: 0x321,
+        },
+        {
+            name: "BSD/OS 4",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            cdrom: root_path + "/images/experimental/bsdos-4.3-x86-binary.iso",
+            expected_texts: ["\xc9\xcd BSD/OS Installation"],
+        },
+        {
+            name: "Arch Hurd",
+            skip_if_disk_image_missing: true,
+            net_device: { type: "none" }, // executes 16-bit io instructions
+            timeout: 5 * 60,
+            memory_size: 512 * 1024 * 1024,
+            hda: root_path + "/images/archhurd-2018.09.28.img",
+            expected_texts: ["sh-4.4# "],
+        },
+        {
             name: "Linux with Postgres",
             skip_if_disk_image_missing: true,
             timeout: 5 * 60,
@@ -840,17 +1128,30 @@ if(cluster.isMaster)
             actions: [{ on_text: "                   BIOS default device boot in", run: "\n", after: 5000 }],
         },
         {
-            name: "Core 9 (with floppy disk)",
+            name: "Core 9 (with hard disk)",
             skip_if_disk_image_missing: 1,
             timeout: 5 * 60,
             cdrom: root_path + "/images/experimental/os/Core-9.0.iso",
             fda: root_path + "/images/freedos722.img",
-            boot_order: 0x132,
+            boot_order: 0x213,
             actions: [
                 { on_text: "boot:", run: "\n" },
                 { on_text: "tc@box", run: "sudo mount /dev/fd0 /mnt && ls /mnt\n" },
             ],
             expected_texts: ["AUTOEXEC.BAT"],
+        },
+        {
+            name: "Core 9 (with hard disk)",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/images/experimental/os/Core-9.0.iso",
+            hda: root_path + "/images/TinyCore-11.0.iso",
+            boot_order: 0x213,
+            actions: [
+                { on_text: "boot:", run: "\n" },
+                { on_text: "tc@box", run: "sudo mount /dev/sda1 /mnt && ls /mnt\n" },
+            ],
+            expected_texts: ["boot/ cde/"],
         },
         {
             name: "Core 8",
@@ -918,7 +1219,6 @@ if(cluster.isMaster)
         var worker = cluster.fork();
 
         worker.on("message", send_work_to_worker.bind(null, worker));
-        worker.on("online", send_work_to_worker.bind(null, worker));
 
         worker.on("exit", function(code, signal)
         {
@@ -949,6 +1249,7 @@ else
             process.send("I'm done");
         });
     });
+    process.send("up");
 }
 
 function bytearray_starts_with(arr, search)
@@ -1017,13 +1318,12 @@ function run_test(test, done)
         vga_bios: { url: vga_bios },
         autostart: true,
         memory_size: test.memory_size || 128 * 1024 * 1024,
-        log_level: +process.env.LOG_LEVEL || 0,
-        cmdline: test.cmdline,
+        log_level: LOG_LEVEL,
     };
 
     if(test.cdrom)
     {
-        settings.cdrom = { url: test.cdrom };
+        settings.cdrom = { url: test.cdrom, async: true };
     }
     if(test.fda)
     {
@@ -1032,6 +1332,14 @@ function run_test(test, done)
     if(test.hda)
     {
         settings.hda = { url: test.hda, async: true };
+    }
+    if(test.hdb)
+    {
+        settings.hdb = { url: test.hdb, async: true };
+    }
+    if(test.state)
+    {
+        settings.initial_state = { url: test.state };
     }
     if(test.bzimage)
     {
@@ -1051,10 +1359,11 @@ function run_test(test, done)
     }
     settings.cmdline = test.cmdline;
     settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
-    settings.acpi = test.acpi;
+    settings.acpi = test.acpi === undefined && !test.state ? TEST_ACPI : test.acpi;
     settings.boot_order = test.boot_order;
     settings.cpuid_level = test.cpuid_level;
-    settings.disable_jit = +process.env.DISABLE_JIT;
+    settings.net_device = test.net_device;
+    settings.disable_jit = DISABLE_JIT;
 
     if(test.expected_texts)
     {
@@ -1244,7 +1553,8 @@ function run_test(test, done)
                 timeouts.push(
                     setTimeout(() => {
                         if(VERBOSE) console.error("Sending '%s'", action.run);
-                        emulator.keyboard_send_text(action.run);
+                        if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                        else emulator.keyboard_send_scancodes(action.run, 10);
                     }, action.after || 0)
                 );
             }
@@ -1299,7 +1609,8 @@ function run_test(test, done)
             timeouts.push(
                 setTimeout(() => {
                     if(VERBOSE) console.error("Sending '%s'", action.run);
-                    emulator.keyboard_send_text(action.run);
+                    if(typeof action.run[0] === "string") emulator.keyboard_send_text(action.run, 10);
+                    else emulator.keyboard_send_scancodes(action.run, 10);
                 }, action.after || 0)
             );
         }

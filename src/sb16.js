@@ -1,4 +1,18 @@
-"use strict";
+import {
+    LOG_SB16,
+    MIXER_CHANNEL_BOTH, MIXER_CHANNEL_LEFT, MIXER_CHANNEL_RIGHT,
+    MIXER_SRC_PCSPEAKER, MIXER_SRC_DAC, MIXER_SRC_MASTER,
+} from "./const.js";
+import { h } from "./lib.js";
+import { dbg_log } from "./log.js";
+import { SyncBuffer } from "./buffer.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { DMA } from "./dma.js";
+import { IO } from "./io.js";
+import { BusConnector } from "./bus.js";
+import { ByteQueue, FloatQueue } from "./lib.js";
 
 // Useful documentation, articles, and source codes for reference:
 // ===============================================================
@@ -25,55 +39,54 @@
 // -> https://www.virtualbox.org/svn/vbox/trunk/src/VBox/Devices/Audio/DevSB16.cpp
 // -> https://github.com/mdaniel/virtualbox-org-svn-vbox-trunk/blob/master/src/VBox/Devices/Audio/DevSB16.cpp
 
-var
-
+const
     // Used for drivers to identify device (DSP command 0xE3).
-/** @const */ DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
+    DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
 
     // Value of the current DSP command that indicates that the
     // next command/data write in port 2xC should be interpreted
     // as a command number.
-/** @const */ DSP_NO_COMMAND = 0,
+    DSP_NO_COMMAND = 0,
 
     // Size (bytes) of the DSP write/read buffers
-/** @const */ DSP_BUFSIZE = 64,
+    DSP_BUFSIZE = 64,
 
     // Size (bytes) of the buffers containing floating point linear PCM audio.
-/** @const */ DSP_DACSIZE = 65536,
+    DSP_DACSIZE = 65536,
 
     // Size (bytes) of the buffer in which DMA transfers are temporarily
     // stored before being processed.
-/** @const */ SB_DMA_BUFSIZE = 65536,
+    SB_DMA_BUFSIZE = 65536,
 
     // Number of samples to attempt to retrieve per transfer.
-/** @const */ SB_DMA_BLOCK_SAMPLES = 1024,
+    SB_DMA_BLOCK_SAMPLES = 1024,
 
     // Usable DMA channels.
-/** @const */ SB_DMA0 = 0,
-/** @const */ SB_DMA1 = 1,
-/** @const */ SB_DMA3 = 3,
-/** @const */ SB_DMA5 = 5,
-/** @const */ SB_DMA6 = 6,
-/** @const */ SB_DMA7 = 7,
+    SB_DMA0 = 0,
+    SB_DMA1 = 1,
+    SB_DMA3 = 3,
+    SB_DMA5 = 5,
+    SB_DMA6 = 6,
+    SB_DMA7 = 7,
 
     // Default DMA channels.
-/** @const */ SB_DMA_CHANNEL_8BIT = SB_DMA1,
-/** @const */ SB_DMA_CHANNEL_16BIT = SB_DMA5,
+    SB_DMA_CHANNEL_8BIT = SB_DMA1,
+    SB_DMA_CHANNEL_16BIT = SB_DMA5,
 
     // Usable IRQ channels.
-/** @const */ SB_IRQ2 = 2,
-/** @const */ SB_IRQ5 = 5,
-/** @const */ SB_IRQ7 = 7,
-/** @const */ SB_IRQ10 = 10,
+    SB_IRQ2 = 2,
+    SB_IRQ5 = 5,
+    SB_IRQ7 = 7,
+    SB_IRQ10 = 10,
 
     // Default IRQ channel.
-/** @const */ SB_IRQ = SB_IRQ5,
+    SB_IRQ = SB_IRQ5,
 
     // Indices to the irq_triggered register.
-/** @const */ SB_IRQ_8BIT = 0x1,
-/** @const */ SB_IRQ_16BIT = 0x2,
-/** @const */ SB_IRQ_MIDI = 0x1,
-/** @const */ SB_IRQ_MPU = 0x4;
+    SB_IRQ_8BIT = 0x1,
+    SB_IRQ_16BIT = 0x2,
+    SB_IRQ_MIDI = 0x1,
+    SB_IRQ_MPU = 0x4;
 
 
 // Probably less efficient, but it's more maintainable, instead
@@ -92,7 +105,7 @@ var FM_HANDLERS = [];
  * @param {CPU} cpu
  * @param {BusConnector} bus
  */
-function SB16(cpu, bus)
+export function SB16(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -150,7 +163,7 @@ function SB16(cpu, bus)
     this.dma_buffer_uint8 = new Uint8Array(this.dma_buffer);
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
-    this.dma_syncbuffer = new v86util.SyncBuffer(this.dma_buffer);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
     this.sampling_rate = 22050;
@@ -399,7 +412,7 @@ SB16.prototype.set_state = function(state)
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
-    this.dma_syncbuffer = new v86util.SyncBuffer(this.dma_buffer);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
 
     if(this.dma_paused)
     {
@@ -1082,10 +1095,16 @@ register_dsp_command([0xE8], 0, function()
     this.read_buffer.push(this.test_register);
 });
 
-// Trigger IRQ
-register_dsp_command([0xF2, 0xF3], 0, function()
+// Trigger IRQ - 8-bit
+register_dsp_command([0xF2], 0, function()
 {
-    this.raise_irq();
+    this.raise_irq(SB_IRQ_8BIT);
+});
+
+// Trigger IRQ - 16-bit
+register_dsp_command([0xF3], 0, function()
+{
+    this.raise_irq(SB_IRQ_16BIT);
 });
 
 // ASP - unknown function
@@ -1526,7 +1545,7 @@ function between(start, end)
     return a;
 }
 
-/** @const */ var SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
+const SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
 SB_FM_OPERATORS_BY_OFFSET[0x00] = 0;
 SB_FM_OPERATORS_BY_OFFSET[0x01] = 1;
 SB_FM_OPERATORS_BY_OFFSET[0x02] = 2;

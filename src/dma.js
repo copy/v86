@@ -1,10 +1,15 @@
-"use strict";
+import { LOG_DMA } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
 
 /**
  * @constructor
  * @param {CPU} cpu
  */
-function DMA(cpu)
+export function DMA(cpu)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;

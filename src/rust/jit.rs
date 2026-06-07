@@ -20,7 +20,6 @@ use crate::page::Page;
 use crate::profiler;
 use crate::profiler::stat;
 use crate::state_flags::CachedStateFlags;
-use crate::util::SafeToU16;
 use crate::wasmgen::wasm_builder::{Label, WasmBuilder, WasmLocal};
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
@@ -33,6 +32,7 @@ impl WasmTableIndex {
 mod unsafe_jit {
     use super::{CachedStateFlags, WasmTableIndex};
 
+    #[link(wasm_import_module = "env")]
     extern "C" {
         pub fn codegen_finalize(
             wasm_table_index: WasmTableIndex,
@@ -486,7 +486,7 @@ fn jit_find_basic_blocks(
     let mut pages: HashSet<Page> = HashSet::new();
     let mut page_blacklist = HashSet::new();
 
-    // 16-bit doesn't not work correctly, most likely due to instruction pointer wrap-around
+    // 16-bit doesn't work correctly, most likely due to instruction pointer wrap-around
     let max_pages = if cpu.state_flags.is_32() { unsafe { MAX_PAGES } } else { 1 };
 
     for virt_addr in entry_points {
@@ -540,12 +540,21 @@ fn jit_find_basic_blocks(
                 ..cpu
             };
             let analysis = analysis::analyze_step(&mut cpu);
-            current_block.number_of_instructions += 1;
             let has_next_instruction = !analysis.no_next_instruction;
             current_address = cpu.eip;
 
             dbg_assert!(Page::page_of(current_address) == Page::page_of(addr_before_instruction));
             let current_virt_addr = to_visit & !0xFFF | current_address as i32 & 0xFFF;
+
+            if analysis.ty == AnalysisType::STI && is_near_end_of_page(current_address) {
+                // cut off before the STI so that it is handled by interpreted mode
+                profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
+                break;
+            }
+
+            current_block.number_of_instructions += 1;
+            current_block.last_instruction_addr = addr_before_instruction;
+            current_block.end_addr = current_address;
 
             match analysis.ty {
                 AnalysisType::Normal | AnalysisType::STI => {
@@ -558,26 +567,22 @@ fn jit_find_basic_blocks(
                         marked_as_entry.insert(current_virt_addr);
                         to_visit_stack.push(current_virt_addr);
 
-                        current_block.last_instruction_addr = addr_before_instruction;
-                        current_block.end_addr = current_address;
                         break;
                     }
 
                     if analysis.ty == AnalysisType::STI {
-                        current_block.has_sti = true;
-
                         dbg_assert!(
                             !is_near_end_of_page(current_address),
-                            "TODO: Handle STI instruction near end of page"
+                            "should be handled above"
                         );
+
+                        current_block.has_sti = true;
                     }
                     else {
                         // Only split non-STI blocks (one instruction needs to run after STI before
                         // handle_irqs may be called)
 
                         if basic_blocks.contains_key(&current_address) {
-                            current_block.last_instruction_addr = addr_before_instruction;
-                            current_block.end_addr = current_address;
                             dbg_assert!(!is_near_end_of_page(current_address));
                             current_block.ty = BasicBlockType::Normal {
                                 next_block_addr: Some(current_address),
@@ -630,9 +635,6 @@ fn jit_find_basic_blocks(
                         jump_offset_is_32: is_32,
                     };
 
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
-
                     break;
                 },
                 AnalysisType::Jump {
@@ -670,8 +672,6 @@ fn jit_find_basic_blocks(
                         jump_offset: offset,
                         jump_offset_is_32: is_32,
                     };
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
 
                     break;
                 },
@@ -691,24 +691,25 @@ fn jit_find_basic_blocks(
                         current_block.ty = BasicBlockType::AbsoluteEip;
                     }
 
-                    current_block.last_instruction_addr = addr_before_instruction;
-                    current_block.end_addr = current_address;
                     break;
                 },
             }
 
             if is_near_end_of_page(current_address) {
-                current_block.last_instruction_addr = addr_before_instruction;
-                current_block.end_addr = current_address;
                 profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
                 break;
             }
         }
 
+        if current_block.number_of_instructions == 0 {
+            // Empty basic block, don't insert (only happens when STI is found near end of page)
+            continue;
+        }
+
         let previous_block = basic_blocks
             .range(..current_block.addr)
             .next_back()
-            .filter(|(_, previous_block)| (!previous_block.has_sti))
+            .filter(|(_, previous_block)| !previous_block.has_sti)
             .map(|(_, previous_block)| previous_block);
 
         if let Some(previous_block) = previous_block {
@@ -737,6 +738,33 @@ fn jit_find_basic_blocks(
     for block in basic_blocks.values_mut() {
         if marked_as_entry.contains(&block.virt_addr) {
             block.is_entry_block = true;
+        }
+    }
+
+    // delete edges pointing to blocks that were dropped (currently only due to STI near the end of a page)
+    let known_addresses: HashSet<u32> = basic_blocks.keys().copied().collect();
+    for block in basic_blocks.values_mut() {
+        match &mut block.ty {
+            BasicBlockType::Normal {
+                next_block_addr, ..
+            } => {
+                if next_block_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_addr = None;
+                }
+            },
+            BasicBlockType::ConditionalJump {
+                next_block_addr,
+                next_block_branch_taken_addr,
+                ..
+            } => {
+                if next_block_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_addr = None;
+                }
+                if next_block_branch_taken_addr.map_or(false, |a| !known_addresses.contains(&a)) {
+                    *next_block_branch_taken_addr = None;
+                }
+            },
+            BasicBlockType::Exit | BasicBlockType::AbsoluteEip => {},
         }
     }
 
@@ -1230,28 +1258,30 @@ fn jit_generate_module(
 
     let mut index_for_addr = HashMap::new();
     for (i, &addr) in entry_blocks.iter().enumerate() {
-        index_for_addr.insert(addr, i as i32);
+        dbg_assert!(i < 0x10000);
+        index_for_addr.insert(addr, i as u16);
     }
     for b in basic_blocks.values() {
         if !index_for_addr.contains_key(&b.addr) {
             let i = index_for_addr.len();
-            index_for_addr.insert(b.addr, i as i32);
+            dbg_assert!(i < 0x10000);
+            index_for_addr.insert(b.addr, i as u16);
         }
     }
 
-    let mut label_for_addr: HashMap<u32, (Label, Option<i32>)> = HashMap::new();
+    let mut label_for_addr: HashMap<u32, (Label, Option<u16>)> = HashMap::new();
 
     enum Work {
         WasmStructure(WasmStructure),
         BlockEnd {
             label: Label,
             targets: Vec<u32>,
-            olds: HashMap<u32, (Label, Option<i32>)>,
+            olds: HashMap<u32, (Label, Option<u16>)>,
         },
         LoopEnd {
             label: Label,
             entries: Vec<u32>,
-            olds: HashMap<u32, (Label, Option<i32>)>,
+            olds: HashMap<u32, (Label, Option<u16>)>,
         },
     }
     let mut work: VecDeque<Work> = structure
@@ -1423,10 +1453,10 @@ fn jit_generate_module(
                             if next_addr.unwrap().len() > 1 {
                                 let target_index = *index_for_addr.get(&next_block_addr).unwrap();
                                 if cfg!(feature = "profiler") {
-                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.const_i32(target_index.into());
                                     ctx.builder.call_fn1("debug_set_dispatcher_target");
                                 }
-                                ctx.builder.const_i32(target_index);
+                                ctx.builder.const_i32(target_index.into());
                                 ctx.builder.set_local(target_block);
                                 codegen::gen_profiler_stat_increment(
                                     ctx.builder,
@@ -1444,10 +1474,10 @@ fn jit_generate_module(
                             let &(br, target_index) = label_for_addr.get(&next_block_addr).unwrap();
                             if let Some(target_index) = target_index {
                                 if cfg!(feature = "profiler") {
-                                    ctx.builder.const_i32(target_index);
+                                    ctx.builder.const_i32(target_index.into());
                                     ctx.builder.call_fn1("debug_set_dispatcher_target");
                                 }
-                                ctx.builder.const_i32(target_index);
+                                ctx.builder.const_i32(target_index.into());
                                 ctx.builder.set_local(target_block);
                                 codegen::gen_profiler_stat_increment(
                                     ctx.builder,
@@ -1571,10 +1601,10 @@ fn jit_generate_module(
                                         let target_index =
                                             *index_for_addr.get(&next_block_addr).unwrap();
                                         if cfg!(feature = "profiler") {
-                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.const_i32(target_index.into());
                                             ctx.builder.call_fn1("debug_set_dispatcher_target");
                                         }
-                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.const_i32(target_index.into());
                                         ctx.builder.set_local(target_block);
                                         codegen::gen_profiler_stat_increment(
                                             ctx.builder,
@@ -1595,10 +1625,10 @@ fn jit_generate_module(
                                         if cfg!(feature = "profiler") {
                                             // Note: Currently called unconditionally, even if the
                                             // br_if below doesn't branch
-                                            ctx.builder.const_i32(target_index);
+                                            ctx.builder.const_i32(target_index.into());
                                             ctx.builder.call_fn1("debug_set_dispatcher_target");
                                         }
-                                        ctx.builder.const_i32(target_index);
+                                        ctx.builder.const_i32(target_index.into());
                                         ctx.builder.set_local(target_block);
                                     }
 
@@ -1751,11 +1781,11 @@ fn jit_generate_module(
                                 let target_index_not_taken =
                                     *index_for_addr.get(&next_block_addr).unwrap();
 
-                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.const_i32(target_index_taken.into());
                                 ctx.builder.set_local(target_block);
 
                                 ctx.builder.else_();
-                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.const_i32(target_index_not_taken.into());
                                 ctx.builder.set_local(target_block);
 
                                 ctx.builder.block_end();
@@ -1768,9 +1798,9 @@ fn jit_generate_module(
 
                                 codegen::gen_condition_fn(ctx, condition);
                                 ctx.builder.if_i32();
-                                ctx.builder.const_i32(target_index_taken);
+                                ctx.builder.const_i32(target_index_taken.into());
                                 ctx.builder.else_();
-                                ctx.builder.const_i32(target_index_not_taken);
+                                ctx.builder.const_i32(target_index_not_taken.into());
                                 ctx.builder.block_end();
                                 ctx.builder.set_local(target_block);
                             }
@@ -1824,7 +1854,7 @@ fn jit_generate_module(
                         let index = *index_for_addr.get(&addr).unwrap();
                         let &(label, _) = label_for_addr.get(&addr).unwrap();
                         ctx.builder.get_local(target_block);
-                        ctx.builder.const_i32(index);
+                        ctx.builder.const_i32(index.into());
                         ctx.builder.eq_i32();
                         ctx.builder.br_if(label);
                     }
@@ -1986,8 +2016,7 @@ fn jit_generate_module(
         // Note: We also insert blocks that weren't originally marked as entries here
         //       This doesn't have any downside, besides making the hash table slightly larger
 
-        let initial_state = index.safe_to_u16();
-        (block.addr, initial_state)
+        (block.addr, index)
     }));
 
     for b in basic_blocks.values() {

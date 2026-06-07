@@ -17,14 +17,14 @@
 3. Run QEMU with the following settings for installation:
 
 ```sh
-qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off -cdrom InstallCD.iso
+qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cpu pentium -M pc,acpi=off -cdrom InstallCD.iso
 ```
 
 4. Run `xcopy /v <CD-ROM letter>:\I386\ C:\install\` in a VM to copy all files, disable the CD-ROM driver.
-5. Run QEMU with the following settings: 
+5. Run QEMU with the following settings:
 
 ```sh
-qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off
+qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cpu pentium -M pc,acpi=off
 ```
 
 6. Run `C:\install\winnt /F /C` in a VM.
@@ -33,7 +33,7 @@ qemu-system-i386 -m 64 -hda hdd.img -cpu pentium -M pc,acpi=off
 
 ## Windows NT 3.51
 
-### Installing 
+### Installing
 
 > [!NOTE]
 > In newer versions of QEMU, the Windows Setup may not work, you can use an older version of QEMU, PCem, 86Box or PCBox instead.
@@ -64,10 +64,10 @@ Recommended version: Windows NT 4.0 SP1
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
-qemu-system-i386 -m 64 -hda hdd.img -cdrom InstallCD.iso -cpu pentium -M pc,acpi=off
+qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cdrom InstallCD.iso -cpu pentium -M pc,acpi=off
 ```
 
 2. On setup startup, press F5 and select "Standard PC".
@@ -90,10 +90,10 @@ var emulator = new V86({
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
-qemu-system-i386 -m 512 -hda hdd.img -cdrom InstallCD.iso
+qemu-system-i386 -m 512 -drive file=hdd.img,format=raw -cdrom InstallCD.iso
 ```
 
 Optional:
@@ -107,7 +107,7 @@ After installation, change the computer type to "Standard PC" as described [here
 1. Open Start menu, right-click on "My Computer", select "Manage"
 2. Open Device Manager, open Computer, right-click on "ACPI Uniprocessor PC"
 3. Select "Update Driver..." > "No, not this time"
-4. Select "Install from a list or specific location (Advanced)" > Next > "Don't search. I will choose the driver to install." 
+4. Select "Install from a list or specific location (Advanced)" > Next > "Don't search. I will choose the driver to install."
 5. Choose "Standard PC", press Next > Finish.
 6. Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
 
@@ -145,10 +145,10 @@ Models: Sound Blaster 16 or AWE32 or compatible (WDM)
 
 ### Installing using QEMU
 
-1. Run QEMU with the following settings for installation: 
+1. Run QEMU with the following settings for installation:
 
 ```sh
-qemu-system-i386 -m 1024 -hda hdd.img -cdrom InstallCD.iso
+qemu-system-i386 -m 1024 -drive file=hdd.img,format=raw -cdrom InstallCD.iso
 ```
 
 Optionally add `-accel kvm` (for Linux host), `-accel whpx` (for Windows host) or `-accel hvf` (for MacOS host) to use hypervisor acceleration.

@@ -1,4 +1,13 @@
-"use strict";
+import { LOG_VGA, FLAG_VM } from "./const.js";
+import { h } from "./lib.js";
+import { dbg_assert, dbg_log } from "./log.js";
+
+// For Types Only
+import { CPU } from "./cpu.js";
+import { ScreenAdapter } from "./browser/screen.js";
+import { BusConnector } from "./bus.js";
+import { DummyScreenAdapter } from "./browser/dummy_screen.js";
+import { round_up_to_next_power_of_2, view } from "./lib.js";
 
 // Always 64k
 const VGA_BANK_SIZE = 64 * 1024;
@@ -34,7 +43,6 @@ const VGA_HOST_MEMORY_SPACE_START = Uint32Array.from([
 ]);
 
 /**
- * @const
  * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#06}
  */
 const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
@@ -51,7 +59,7 @@ const VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
  * @param {ScreenAdapter|DummyScreenAdapter} screen
  * @param {number} vga_memory_size
  */
-function VGAScreen(cpu, bus, screen, vga_memory_size)
+export function VGAScreen(cpu, bus, screen, vga_memory_size)
 {
     this.cpu = cpu;
 
@@ -216,7 +224,7 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
     else
     {
         // required for pci code
-        this.vga_memory_size = v86util.round_up_to_next_power_of_2(this.vga_memory_size);
+        this.vga_memory_size = round_up_to_next_power_of_2(this.vga_memory_size);
     }
     dbg_log("effective vga memory size: " + this.vga_memory_size, LOG_VGA);
 
@@ -346,17 +354,18 @@ function VGAScreen(cpu, bus, screen, vga_memory_size)
 
     // Bochs VBE Extensions
     // http://wiki.osdev.org/Bochs_VBE_Extensions
-    this.dispi_index = -1;
+    this.dispi_index = 0;
     this.dispi_enable_value = 0;
 
     io.register_write(0x1CE, this, undefined, this.port1CE_write);
+    io.register_read(0x1CE, this, undefined, this.port1CE_read);
 
     io.register_write(0x1CF, this, undefined, this.port1CF_write);
     io.register_read(0x1CF, this, undefined, this.port1CF_read);
 
 
     const vga_offset = cpu.svga_allocate_memory(this.vga_memory_size) >>> 0;
-    this.svga_memory = v86util.view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
+    this.svga_memory = view(Uint8Array, cpu.wasm_memory, vga_offset, this.vga_memory_size);
 
     this.diff_addr_min = this.vga_memory_size;
     this.diff_addr_max = 0;
@@ -566,7 +575,7 @@ VGAScreen.prototype.vga_memory_read = function(addr)
     // VGA chip only decodes addresses within the selected memory space.
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log("vga read outside memory space: addr:" + h(addr), LOG_VGA);
+        dbg_log("vga read outside memory space: addr:" + h(addr >>> 0), LOG_VGA);
         return 0;
     }
 
@@ -640,7 +649,7 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
 
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log("vga write outside memory space: addr:" + h(addr) + ", value:" + h(value), LOG_VGA);
+        dbg_log("vga write outside memory space: addr:" + h(addr >>> 0) + ", value:" + h(value), LOG_VGA);
         return;
     }
 
@@ -1210,12 +1219,18 @@ VGAScreen.prototype.update_vga_size = function()
         // should always 8 pixels per character clock (except for 8 bit PEL width, in which
         // case 4 pixels).
         var virtual_width = this.offset_register << 4;
+        var bpp = 4;
 
         // Pixel Width / PEL Width / Clock Select
         if(this.attribute_mode & 0x40)
         {
             screen_width >>>= 1;
             virtual_width >>>= 1;
+            bpp = 8;
+        }
+        else if(this.attribute_mode & 0x2)
+        {
+            bpp = 1;
         }
 
         var screen_height = this.scan_line_to_screen_row(vertical_scans);
@@ -1231,7 +1246,7 @@ VGAScreen.prototype.update_vga_size = function()
         const bytes_per_line = this.vga_bytes_per_line();
         const virtual_height = bytes_per_line ? Math.ceil(available_bytes / bytes_per_line) : screen_height;
 
-        this.set_size_graphical(screen_width, screen_height, virtual_width, virtual_height, 8);
+        this.set_size_graphical(screen_width, screen_height, virtual_width, virtual_height, bpp);
 
         this.update_vertical_retrace();
         this.update_layers();
@@ -1402,6 +1417,13 @@ VGAScreen.prototype.port3C0_write = function(value)
                 {
                     var previous_mode = this.attribute_mode;
                     this.attribute_mode = value;
+
+                    if(this.svga_enabled && !(this.dispi_enable_value & 1))
+                    {
+                        // Commit the deferred VBE disable (see port1CF_write case 4)
+                        this.svga_enabled = false;
+                        this.svga_bank_offset = 0;
+                    }
 
                     const is_graphical = (value & 0x1) !== 0;
                     if(!this.svga_enabled && this.graphical_mode !== is_graphical)
@@ -2101,6 +2123,11 @@ VGAScreen.prototype.port3DA_read = function()
     return value;
 };
 
+VGAScreen.prototype.port1CE_read = function()
+{
+    return this.dispi_index;
+};
+
 VGAScreen.prototype.port1CE_write = function(value)
 {
     this.dispi_index = value;
@@ -2145,12 +2172,25 @@ VGAScreen.prototype.port1CF_write = function(value)
             break;
         case 4:
             // enable, options
-            this.svga_enabled = (value & 1) === 1;
-            if(this.svga_enabled && (value & 0x80) === 0)
-            {
-                this.svga_memory.fill(0);
-            }
             this.dispi_enable_value = value;
+            if(!(value & 1) && this.svga_enabled && (this.cpu.flags[0] & FLAG_VM))
+            {
+                // XXX: hack to make cmd.exe work on Win9x with vbemp driver:
+                // Win9x's VDD virtualises the legacy VGA ports for a windowed
+                // DOS VM but not the dispi ports, so vgabios's VBE disable
+                // leaks through while the rest of its mode-set is virtualised.
+                // Defer the actual disable until a legacy mode register write
+                // reaches us (see port3C0_write); if it never does, the
+                // protected-mode display driver still owns the framebuffer.
+            }
+            else
+            {
+                this.svga_enabled = (value & 1) === 1;
+                if(this.svga_enabled && (value & 0x80) === 0)
+                {
+                    this.svga_memory.fill(0);
+                }
+            }
             break;
         case 5:
             dbg_log("SVGA bank offset: " + h(value << 16), LOG_VGA);
@@ -2198,18 +2238,31 @@ VGAScreen.prototype.port1CF_write = function(value)
     }
     else
     {
-        dbg_log("SVGA: disabled");
+        dbg_log("SVGA: disabled", LOG_VGA);
     }
 
-    if(this.svga_enabled && !was_enabled)
+    if(this.svga_enabled && this.dispi_index === 4)
     {
-        this.svga_offset = 0;
-        this.svga_offset_x = 0;
-        this.svga_offset_y = 0;
+        if(!was_enabled)
+        {
+            this.svga_offset = 0;
+            this.svga_offset_x = 0;
+            this.svga_offset_y = 0;
+        }
 
         this.graphical_mode = true;
         this.screen.set_mode(this.graphical_mode);
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
+    }
+
+    if(was_enabled && !this.svga_enabled)
+    {
+        const is_graphical = (this.attribute_mode & 0x1) !== 0;
+        this.graphical_mode = is_graphical;
+        this.screen.set_mode(is_graphical);
+        this.update_vga_size();
+        this.set_font_bitmap(false);
+        this.complete_redraw();
     }
 
     if(!this.svga_enabled)

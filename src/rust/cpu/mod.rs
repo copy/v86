@@ -1,3 +1,4 @@
+pub mod apic;
 pub mod arith;
 pub mod call_indirect;
 pub mod cpu;
@@ -5,6 +6,7 @@ pub mod fpu;
 pub mod global_pointers;
 pub mod instructions;
 pub mod instructions_0f;
+pub mod ioapic;
 pub mod memory;
 pub mod misc_instr;
 pub mod modrm;

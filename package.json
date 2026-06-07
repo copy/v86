@@ -1,5 +1,20 @@
 {
   "name": "v86",
-  "version": "0",
-  "license": "BSD-2-Clause"
+  "version": "0.5",
+  "license": "BSD-2-Clause",
+  "description": "x86 PC emulator and x86-to-wasm JIT, running in the browser",
+  "homepage": "https://copy.sh/v86/",
+  "files": [
+    "Readme.md",
+    "LICENSE",
+    "v86.d.ts",
+    "build/libv86*.js",
+    "build/libv86*.js.map",
+    "build/*.mjs",
+    "build/v86*.wasm"
+  ],
+  "main": "build/libv86.mjs",
+  "types": "v86.d.ts",
+  "repository": "github:copy/v86",
+  "type": "module"
 }

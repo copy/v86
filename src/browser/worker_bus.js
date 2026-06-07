@@ -1,9 +1,7 @@
-"use strict";
-
-var WorkerBus = {};
+import { dbg_assert } from "../log.js";
 
 /** @constructor */
-WorkerBus.Connector = function(pair)
+export var Connector = function(pair)
 {
     this.listeners = {};
     this.pair = pair;
@@ -22,7 +20,7 @@ WorkerBus.Connector = function(pair)
 
 };
 
-WorkerBus.Connector.prototype.register = function(name, fn, this_value)
+Connector.prototype.register = function(name, fn, this_value)
 {
     var listeners = this.listeners[name];
 
@@ -44,7 +42,7 @@ WorkerBus.Connector.prototype.register = function(name, fn, this_value)
  * @param {*=} value
  * @param {*=} transfer_list
  */
-WorkerBus.Connector.prototype.send = function(name, value, transfer_list)
+Connector.prototype.send = function(name, value, transfer_list)
 {
     dbg_assert(arguments.length >= 1);
 
@@ -57,7 +55,7 @@ WorkerBus.Connector.prototype.send = function(name, value, transfer_list)
 };
 
 
-WorkerBus.init = function(worker)
+export var init = function(worker)
 {
-    return new WorkerBus.Connector(worker);
+    return new Connector(worker);
 };
