@@ -32,6 +32,7 @@ import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
 import { Virtio9p, Virtio9pHandler, Virtio9pProxy } from "../lib/9p.js";
+import { Virtio9pFiler } from "../lib/9p-filer.js";
 
 import { load_kernel } from "./kernel.js";
 
@@ -1217,7 +1218,17 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.fs9p)
         {
-            this.devices.virtio_9p = new Virtio9p(settings.fs9p, this, device_bus);
+            // anuraOS: when a Filer-backed filesystem ({ fs, sh, Path, Buffer })
+            // is passed, use the Filer-wrapping 9p implementation. Otherwise use
+            // the stock in-memory FS-backed implementation from lib/9p.js.
+            if(settings.fs9p.fs)
+            {
+                this.devices.virtio_9p = new Virtio9pFiler(settings.fs9p, this, device_bus);
+            }
+            else
+            {
+                this.devices.virtio_9p = new Virtio9p(settings.fs9p, this, device_bus);
+            }
         }
         else if(settings.handle9p)
         {
