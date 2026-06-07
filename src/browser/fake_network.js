@@ -354,13 +354,14 @@ function handle_fake_dns_static(packet, adapter)
 
 function handle_fake_dns_doh(packet, adapter)
 {
+    const preferred_fetch = (window.anura?.net?.fetch) || fetch;
     const fetch_url = `https://${adapter.doh_server || DEFAULT_DOH_SERVER}/dns-query`;
     const fetch_opts = {
         method: "POST",
         headers: [["content-type", "application/dns-message"]],
         body: packet.udp.data
     };
-    fetch(fetch_url, fetch_opts).then(async (resp) => {
+    preferred_fetch(fetch_url, fetch_opts).then(async (resp) => {
         const reply = {
             eth: {
                 ethertype: ETHERTYPE_IPV4,
