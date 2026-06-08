@@ -6,7 +6,7 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import util from "node:util";
 import url from "node:url";
-import { execFile as execFileAsync } from "node:child_process";
+import { execFile } from "node:child_process";
 
 import encodings from "../../gen/x86_table.js";
 import Rand from "./rand.js";
@@ -31,7 +31,7 @@ const OF = 1 << 11;
 const BUILD_DIR = __dirname + "/build/";
 const LOG_VERBOSE = false;
 
-const execFile = util.promisify(execFileAsync);
+const exec_file = util.promisify(execFile);
 
 const header = fs.readFileSync(path.join(__dirname, "header.inc"));
 const footer = fs.readFileSync(path.join(__dirname, "footer.inc"));
@@ -127,9 +127,9 @@ async function make_test(test)
     };
 
     LOG_VERBOSE && console.log("nasm", ["-w+error", "-felf32", "-o", tmp_file, asm_file].join(" "));
-    await execFile("nasm", ["-w+error", "-felf32", "-o", tmp_file, asm_file], options);
+    await exec_file("nasm", ["-w+error", "-felf32", "-o", tmp_file, asm_file], options);
     LOG_VERBOSE && console.log("ld", ["-g", tmp_file, "-m", "elf_i386", "--section-start=.bss=0x100000", "--section-start=.text=0x80000", "--section-start=.multiboot=0x20000", "-o", img_file].join(" "));
-    await execFile("ld", ["-g", tmp_file, "-m", "elf_i386", "--section-start=.bss=0x100000", "--section-start=.text=0x80000", "--section-start=.multiboot=0x20000", "-o", img_file], options);
+    await exec_file("ld", ["-g", tmp_file, "-m", "elf_i386", "--section-start=.bss=0x100000", "--section-start=.text=0x80000", "--section-start=.multiboot=0x20000", "-o", img_file], options);
     await fse.unlink(tmp_file);
 
     console.log(test.name || test.file);

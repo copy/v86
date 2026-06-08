@@ -2595,9 +2595,9 @@ VGAScreen.prototype.set_font_page = function()
     // bits 0, 1 and 4: VGA font page index of font B
     // linear_index_map[] maps VGA's non-liner font page index to linear index
     const linear_index_map = [0, 2, 4, 6, 1, 3, 5, 7];
-    const vga_index_A = ((this.character_map_select & 0b1100) >> 2) | ((this.character_map_select & 0b100000) >> 3);
-    const vga_index_B = (this.character_map_select & 0b11) | ((this.character_map_select & 0b10000) >> 2);
-    this.font_page_ab_enabled = vga_index_A !== vga_index_B;
-    this.screen.set_font_page(linear_index_map[vga_index_A], linear_index_map[vga_index_B]);
+    const vga_index_a = ((this.character_map_select & 0b1100) >> 2) | ((this.character_map_select & 0b100000) >> 3);
+    const vga_index_b = (this.character_map_select & 0b11) | ((this.character_map_select & 0b10000) >> 2);
+    this.font_page_ab_enabled = vga_index_a !== vga_index_b;
+    this.screen.set_font_page(linear_index_map[vga_index_a], linear_index_map[vga_index_b]);
     this.complete_redraw();
 };

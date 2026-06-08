@@ -1788,11 +1788,11 @@ function onload()
             select.id = dev + "_empty_size";
             for(const n_sect of [320, 360, 400, 640, 720, 800, 1440, 2400, 2880, 3444, 5760, 7680])
             {
-                const n_bytes = n_sect * 512, kB = 1024, MB = kB * 1000;
+                const n_bytes = n_sect * 512, kb = 1024, MB = kb * 1000;
                 const option = document.createElement("option");
                 if(n_bytes < MB)
                 {
-                    option.textContent = (n_bytes / kB) + " kB";
+                    option.textContent = (n_bytes / kb) + " kB";
                 }
                 else
                 {
