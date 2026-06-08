@@ -29,6 +29,10 @@ def main():
 
     result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    if b"--global-base cannot be less than stack size when --stack-first is used" in result.stderr:
+        args += ["--no-stack-first"]
+        result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     print(result.stderr, file=sys.stderr)
     print(result.stdout)
 
