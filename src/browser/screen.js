@@ -337,7 +337,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         // initialize display mode and size to 80x25 text with 9x16 font
         this.set_mode(false);
-        this.set_size_text(80, 25, true);
+        this.set_size_text(80, 25);
         if(mode === MODE_GRAPHICAL_TEXT)
         {
             this.set_size_graphical(720, 400, 720, 400);
@@ -505,6 +505,21 @@ export function ScreenAdapter(options, screen_fill_buffer)
         cursor_element.classList.add("blinking-cursor");
     };
 
+    /**
+     * Invalidates text rendering state.  This means the next set of
+     * calls to set_font_bitmap, set_size_text, etc will be working
+     * from a fresh slate even if the dimensions of the loaded state
+     * differ from the current dimensions.
+     */
+    this.clear_text_state = function() {
+        font_width = null;
+        font_height = null;
+        text_mode_width = null;
+        text_mode_height = null;
+        font_page_a = null;
+        font_page_b = null;
+    };
+
     this.set_mode = function(graphical)
     {
         mode = graphical ? MODE_GRAPHICAL : (options.use_graphical_text ? MODE_GRAPHICAL_TEXT : MODE_TEXT);
@@ -545,7 +560,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
                 changed_rows.fill(1);
                 if(size_changed)
                 {
-                    this.set_size_graphical_text(true);
+                    this.set_size_graphical_text();
                 }
             }
         }
@@ -567,10 +582,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         graphic_context.fillRect(0, 0, graphic_screen.width, graphic_screen.height);
     };
 
-    /**
-     * @param {boolean} force
-     */
-    this.set_size_graphical_text = function(force)
+    this.set_size_graphical_text = function()
     {
         if(!font_context)
         {
@@ -581,7 +593,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         const gfx_height = font_height * text_mode_height;
         const offscreen_extra_height = font_height * 2;
 
-        if(force || !offscreen_context || offscreen_context.canvas.width !== gfx_width ||
+        if(!offscreen_context || offscreen_context.canvas.width !== gfx_width ||
             offscreen_context.canvas.height !== gfx_height ||
             offscreen_extra_context.canvas.height !== offscreen_extra_height)
         {
@@ -611,16 +623,16 @@ export function ScreenAdapter(options, screen_fill_buffer)
     /**
      * @param {number} cols
      * @param {number} rows
-     * @param {boolean} force
      */
-    this.set_size_text = function(cols, rows, force)
+    this.set_size_text = function(cols, rows)
     {
-        if(!force && cols === text_mode_width && rows === text_mode_height)
+        if(cols === text_mode_width && rows === text_mode_height)
         {
             return;
         }
 
         changed_rows = new Int8Array(rows);
+        changed_rows.fill(1);
         text_mode_data = new Int32Array(cols * rows * TEXT_BUF_COMPONENT_SIZE);
 
         text_mode_width = cols;
@@ -647,7 +659,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         }
         else if(mode === MODE_GRAPHICAL_TEXT)
         {
-            this.set_size_graphical_text(force);
+            this.set_size_graphical_text();
         }
     };
 
