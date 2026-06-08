@@ -27,11 +27,21 @@ export function MouseAdapter(bus, screen_container)
     // set by emulator
     this.emu_enabled = true;
 
+    // set by the guest's absolute pointing device driver
+    this.absolute_mouse = false;
+
     this.bus = bus;
 
     this.bus.register("mouse-enable", function(enabled)
     {
         this.enabled = enabled;
+        this.update_cursor();
+    }, this);
+
+    this.bus.register("vmware-absolute-mouse", function(enabled)
+    {
+        this.absolute_mouse = enabled;
+        this.update_cursor();
     }, this);
 
     // TODO: Should probably not use bus for this
@@ -44,6 +54,15 @@ export function MouseAdapter(bus, screen_container)
     {
         this.is_running = true;
     }, this);
+
+    this.update_cursor = function()
+    {
+        if(screen_container)
+        {
+            const hide = this.absolute_mouse && this.enabled && this.emu_enabled;
+            screen_container.style.cursor = hide ? "none" : "";
+        }
+    };
 
     this.destroy = function()
     {
@@ -58,6 +77,7 @@ export function MouseAdapter(bus, screen_container)
         window.removeEventListener("mousedown", mousedown_handler, false);
         window.removeEventListener("mouseup", mouseup_handler, false);
         window.removeEventListener("wheel", mousewheel_handler, { passive: false });
+        window.removeEventListener("contextmenu", contextmenu_handler, false);
         document.removeEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
 
@@ -76,6 +96,7 @@ export function MouseAdapter(bus, screen_container)
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
         window.addEventListener("wheel", mousewheel_handler, { passive: false });
+        window.addEventListener("contextmenu", contextmenu_handler, false);
         document.addEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
     this.init();
@@ -83,6 +104,14 @@ export function MouseAdapter(bus, screen_container)
     function pointerlockchange_handler()
     {
         mouse.bus.send("mouse-pointer-lock", !!document.pointerLockElement);
+    }
+
+    function contextmenu_handler(e)
+    {
+        if(may_handle(e))
+        {
+            e.preventDefault();
+        }
     }
 
     function is_child(child, parent)

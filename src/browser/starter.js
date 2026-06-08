@@ -1193,6 +1193,7 @@ V86.prototype.mouse_set_enabled = function(enabled)
     if(this.mouse_adapter)
     {
         this.mouse_adapter.emu_enabled = enabled;
+        this.mouse_adapter.update_cursor();
     }
 };
 V86.prototype.mouse_set_status = V86.prototype.mouse_set_enabled;
