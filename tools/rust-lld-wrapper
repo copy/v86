@@ -20,9 +20,7 @@ def main():
         "--strip-debug",
         "--v86-strip-debug",
     }
-    args = filter_linker_args(args, TO_REMOVE)
-    if "--no-stack-first" not in args:
-        args += ["--no-stack-first"]
+    args = list(filter(lambda arg: arg not in TO_REMOVE, args))
 
     if strip_debug:
         args += ["--strip-debug"]
@@ -31,39 +29,10 @@ def main():
 
     result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    if b"--global-base cannot be less than stack size when --stack-first is used" in result.stderr:
-        args += ["--no-stack-first"]
-        result = subprocess.run([lld] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
     print(result.stderr, file=sys.stderr)
     print(result.stdout)
 
     result.check_returncode()
-
-def filter_linker_args(args, to_remove):
-    result = []
-    skip_next = False
-
-    for i, arg in enumerate(args):
-        if skip_next:
-            skip_next = False
-            continue
-
-        if arg in to_remove:
-            continue
-
-        # Newer rustc/rust-lld can pass wasm linker options in "-z value" form.
-        # Keep overriding rustc's stack placement, regardless of spelling.
-        if arg == "-z" and i + 1 < len(args) and args[i + 1] == "stack-first":
-            skip_next = True
-            continue
-
-        if arg == "-zstack-first":
-            continue
-
-        result.append(arg)
-
-    return result
 
 def find_host_triplet():
     rustc = subprocess.run(["rustc", "--version", "--verbose"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
