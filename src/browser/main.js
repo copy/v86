@@ -1776,6 +1776,13 @@ function onload()
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
     if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
+    $("mtu_ui").style.display = $("net_device_type").value === "virtio" ? "table-row" : "none";
+    $("net_device_type").onchange = function()
+    {
+        $("mtu_ui").style.display = $("net_device_type").value === "virtio" ? "table-row" : "none";
+        $("net_device_type").blur();
+    };
+
     for(const dev of ["fda", "fdb"])
     {
         const toggle = $(dev + "_toggle_empty_disk");
