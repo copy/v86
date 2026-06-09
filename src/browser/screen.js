@@ -505,6 +505,21 @@ export function ScreenAdapter(options, screen_fill_buffer)
         cursor_element.classList.add("blinking-cursor");
     };
 
+    /**
+     * Invalidates text rendering state.  This means the next set of
+     * calls to set_font_bitmap, set_size_text, etc will be working
+     * from a fresh slate even if the dimensions of the loaded state
+     * differ from the current dimensions.
+     */
+    this.clear_text_state = function() {
+        font_width = null;
+        font_height = null;
+        text_mode_width = null;
+        text_mode_height = null;
+        font_page_a = null;
+        font_page_b = null;
+    };
+
     this.set_mode = function(graphical)
     {
         mode = graphical ? MODE_GRAPHICAL : (options.use_graphical_text ? MODE_GRAPHICAL_TEXT : MODE_TEXT);
@@ -617,6 +632,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         }
 
         changed_rows = new Int8Array(rows);
+        changed_rows.fill(1);
         text_mode_data = new Int32Array(cols * rows * TEXT_BUF_COMPONENT_SIZE);
 
         text_mode_width = cols;

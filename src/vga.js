@@ -532,12 +532,12 @@ VGAScreen.prototype.set_state = function(state)
 
     this.screen.set_mode(this.graphical_mode);
 
+    // Ensure set_size_graphical/set_size_graphical_text will update
+    this.screen_width = 0;
+    this.screen_height = 0;
+
     if(this.graphical_mode)
     {
-        // Ensure set_size_graphical will update
-        this.screen_width = 0;
-        this.screen_height = 0;
-
         if(this.svga_enabled)
         {
             this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
@@ -552,6 +552,7 @@ VGAScreen.prototype.set_state = function(state)
     }
     else
     {
+        this.screen.clear_text_state();
         this.set_font_bitmap(true);
         this.set_size_text(this.max_cols, this.max_rows);
         this.set_font_page();
