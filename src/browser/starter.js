@@ -525,68 +525,62 @@ V86.prototype.continue_init = async function(emulator, options)
     var starter = this;
     var total = files_to_load.length;
 
-    var cont = function(index)
+    Promise.all(files_to_load.map(function(f, index)
     {
-        if(index === total)
+        return new Promise(function(resolve)
         {
-            setTimeout(done.bind(this), 0);
-            return;
-        }
-
-        var f = files_to_load[index];
-
-        if(f.loadable)
-        {
-            f.loadable.onload = function(e)
+            if(f.loadable)
             {
-                put_on_settings.call(this, f.name, f.loadable);
-                cont(index + 1);
-            }.bind(this);
-            f.loadable.load();
-        }
-        else
-        {
-            load_file(f.url, {
-                done: function(result)
+                f.loadable.onload = function(e)
                 {
-                    if(f.url.endsWith(".zst") && f.name !== "initial_state")
+                    put_on_settings.call(this, f.name, f.loadable);
+                    resolve();
+                }.bind(this);
+                f.loadable.load();
+            }
+            else
+            {
+                load_file(f.url, {
+                    done: function(result)
                     {
-                        dbg_assert(f.size, "A size must be provided for compressed images");
-                        result = this.zstd_decompress(f.size, new Uint8Array(result));
-                    }
+                        if(f.url.endsWith(".zst") && f.name !== "initial_state")
+                        {
+                            dbg_assert(f.size, "A size must be provided for compressed images");
+                            result = this.zstd_decompress(f.size, new Uint8Array(result));
+                        }
 
-                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
-                    cont(index + 1);
-                }.bind(this),
-                progress: function progress(e)
-                {
-                    if(e.target.status === 200)
+                        put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
+                        resolve();
+                    }.bind(this),
+                    progress: function progress(e)
                     {
-                        starter.emulator_bus.send("download-progress", {
-                            file_index: index,
-                            file_count: total,
-                            file_name: f.url,
+                        if(e.target.status === 200)
+                        {
+                            starter.emulator_bus.send("download-progress", {
+                                file_index: index,
+                                file_count: total,
+                                file_name: f.url,
 
-                            lengthComputable: e.lengthComputable,
-                            total: e.total || f.size,
-                            loaded: e.loaded,
-                        });
-                    }
-                    else
-                    {
-                        starter.emulator_bus.send("download-error", {
-                            file_index: index,
-                            file_count: total,
-                            file_name: f.url,
-                            request: e.target,
-                        });
-                    }
-                },
-                as_json: f.as_json,
-            });
-        }
-    }.bind(this);
-    cont(0);
+                                lengthComputable: e.lengthComputable,
+                                total: e.total || f.size,
+                                loaded: e.loaded,
+                            });
+                        }
+                        else
+                        {
+                            starter.emulator_bus.send("download-error", {
+                                file_index: index,
+                                file_count: total,
+                                file_name: f.url,
+                                request: e.target,
+                            });
+                        }
+                    },
+                    as_json: f.as_json,
+                });
+            }
+        }.bind(this));
+    }.bind(this))).then(done.bind(this));
 
     async function done()
     {
