@@ -428,6 +428,11 @@ impl SegmentDescriptor {
             raw: self.raw | 2 << 40,
         }
     }
+    pub fn clear_busy(&self) -> SegmentDescriptor {
+        SegmentDescriptor {
+            raw: self.raw & !(2 << 40),
+        }
+    }
     pub fn set_accessed(&self) -> SegmentDescriptor {
         SegmentDescriptor {
             raw: self.raw | 1 << 40,
@@ -864,7 +869,7 @@ pub unsafe fn call_interrupt_vector(
             dbg_trace();
             dbg_assert!(descriptor.is_32(), "TODO: Check this (likely #GP)");
             dbg_assert!(offset == 0, "TODO: Check this (likely #GP)");
-            do_task_switch(selector, error_code);
+            do_task_switch(selector, error_code, TaskSwitchSource::CallOrInt);
             return;
         }
 
@@ -1151,12 +1156,12 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
     };
 
     if info.is_system() {
-        dbg_assert!(is_call, "TODO: Jump");
-
         dbg_log!("system type cs: {:x}", selector);
 
         if info.system_type() == 0xC || info.system_type() == 4 {
             // call gate
+            dbg_assert!(is_call, "TODO: Jump through call gate");
+
             let is_16 = info.system_type() == 4;
 
             if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
@@ -1382,7 +1387,24 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
             update_state_flags();
         }
         else if info.system_type() == 1 || info.system_type() == 9 {
-            dbg_assert!(false, "TODO: far call task gate");
+            // available tss
+            if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
+                dbg_log!("#gp tss dpl < cpl or dpl < rpl: {:x}", selector);
+                trigger_gp(selector & !3);
+                return;
+            }
+
+            if !info.is_present() {
+                dbg_log!("#NP for loading not-present tss sel={:x}", selector);
+                trigger_np(selector & !3);
+                return;
+            }
+
+            do_task_switch(
+                selector,
+                None,
+                if is_call { TaskSwitchSource::CallOrInt } else { TaskSwitchSource::Jump },
+            );
         }
         else {
             dbg_assert!(false, "TODO: #gp invalid system type");
@@ -1593,7 +1615,13 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
     update_state_flags();
 }
 
-pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
+#[derive(Copy, Clone, PartialEq)]
+pub enum TaskSwitchSource {
+    Jump,
+    CallOrInt,
+}
+
+pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: TaskSwitchSource) {
     dbg_log!("do_task_switch sel={:x}", selector);
 
     dbg_assert!(*tss_size_32, "TODO: 16-bit TSS in task switch");
@@ -1661,20 +1689,28 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     //safe_write32(tsr_offset + TSR_LDT, *sreg.offset(reg_ldtr));
 
-    if true
-    /* is jump or call or int */
-    {
-        safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
+    if source == TaskSwitchSource::Jump {
+        // mark the old task as not busy
+        let tr_selector = SegmentSelector::of_u16(*sreg.offset(TR as isize));
+        let (tr_descriptor, tr_descriptor_address) =
+            match lookup_segment_selector(tr_selector).expect("TODO: handle pagefault") {
+                Ok(desc) => desc,
+                Err(_) => {
+                    panic!("#TS handler");
+                },
+            };
+        safe_write64(tr_descriptor_address, tr_descriptor.clear_busy().raw).unwrap();
     }
+
+    // jump, call and int mark the new task as busy (iret would not)
+    safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
 
     //let new_tsr_size = descriptor.effective_limit;
     let new_tsr_offset = descriptor.base();
 
     dbg_assert!(!tss_is_16, "unimplemented");
 
-    if true
-    /* is call or int */
-    {
+    if source == TaskSwitchSource::CallOrInt {
         safe_write16(
             new_tsr_offset + TSR_BACKLINK,
             *sreg.offset(TR as isize) as i32,
@@ -1744,9 +1780,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     let mut new_eflags = safe_read32s(new_tsr_offset + TSR_EFLAGS).unwrap();
 
-    if true
-    /* is call or int */
-    {
+    if source == TaskSwitchSource::CallOrInt {
         safe_write32(tsr_offset + TSR_BACKLINK, selector.raw as i32).unwrap();
         new_eflags |= FLAG_NT;
     }
@@ -1757,9 +1791,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     update_eflags(new_eflags);
 
-    if true
-    /* call or int */
-    {
+    if source == TaskSwitchSource::CallOrInt {
         *flags |= FLAG_NT;
     }
 
