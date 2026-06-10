@@ -476,6 +476,30 @@ if(cluster.isPrimary)
             expect_mouse_registered: true,
         },
         {
+            name: "386BSD",
+            skip_if_disk_image_missing: true,
+            timeout: 5 * 60,
+            memory_size: 64 * 1024 * 1024,
+            hda: root_path + "/images/386bsd.img", // https://archive.org/details/386bsd-1.0-qemu
+            expected_texts: [
+                "386BSD Release 1.0",
+                "login:",
+                "erase ^?, kill ^U, intr ^C",
+            ],
+            actions: [
+                {
+                    on_text: "login:",
+                    after: 1000,
+                    run: "root\n",
+                },
+                {
+                    on_text: "Password:",
+                    after: 1000,
+                    run: "welcome\n",
+                },
+            ],
+        },
+        {
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
             timeout: 15 * 60,

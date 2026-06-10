@@ -1055,6 +1055,19 @@ function onload()
             homepage: "http://www.jbox.dk/sanos/",
         },
         {
+            id: "386bsd",
+            memory_size: 64 * 1024 * 1024,
+            hda: {
+                url: host + "386bsd/.img",
+                size: 536870912,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            name: "386BSD",
+            homepage: "https://en.wikipedia.org/wiki/386BSD",
+        },
+        {
             id: "freebsd",
             memory_size: 256 * 1024 * 1024,
             hda: {
