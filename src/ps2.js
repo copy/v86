@@ -765,6 +765,13 @@ PS2.prototype.port64_write = function(write_byte)
     case 0x60:
         this.read_command_register = true;
         break;
+    case 0xD0:
+        // read controller output port
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(this.controller_output_port);
+        this.kbd_irq();
+        break;
     case 0xD1:
         this.read_controller_output_port = true;
         break;
