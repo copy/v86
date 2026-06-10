@@ -18,7 +18,7 @@ Downloads:
     Windows for Workgroups 3.11a Setup floppy images, unpack to folder **`win311/`**
 * **[DOS-Drivers.zip](https://web.archive.org/web/20260430201544/https://www.kirsle.net/download?project=DOS&file=DOS-Drivers.zip)** [4.04 MB]  
   Windows 3.1x driver bundle from [kirsle.net](https://web.archive.org/web/20260430225845/https://www.kirsle.net/ms-dos-and-windows-3-1), unpack floppy image **``wqghlt.img``**
-* **[wg0974.exe](https://web.archive.org/web/20240517212221/https://www.vogons.org/download/file.php?id=13145)** [27.1 KB]  
+* **[wg0974.exe](https://www.vogons.org/download/file.php?id=13145)** [27.1 KB]  
   Windows for Workgroups 3.11 keyboard driver, unpack **`vkda.386`** and copy to floppy image `wg0974.img`
 
 ## 2. Installation
@@ -97,7 +97,7 @@ keyboard=c:\windows\system\vkda.386
 
 Save and exit, then eject the floppy disk image.
 
-Source: [vogons.org](https://web.archive.org/web/20240926210717/https://www.vogons.org/viewtopic.php?t=37380)
+Source: [vogons.org](https://www.vogons.org/viewtopic.php?t=37380)
 
 ### 2.6 Autostart Windows
 
@@ -282,6 +282,29 @@ To connect to a WebSocket PPP server, select ***Dialler -> Profile...*** from th
 
 * **[cc16d408.zip](https://archive.org/download/cc16d408)** [17 MB]  
   Netscape Communicator 4.08 (last release with support for Win3.1x), copy to HD or ISO image
+
+### 3.5 Absolute mouse positioning
+
+Part of the DOS virtualization tools [VBADOS](https://git.javispedro.com/cgit/vbados.git/about/) is a mouse driver that supports absolute mouse cursor positioning (the host's mouse position is then always identical with the guest's). Download:
+
+* **[vbados.flp](https://depot.javispedro.com/vbox/vbados/vbados.flp) [1.40 MB]**  
+  VBADOS DOS utilities
+
+To install the DOS driver, createa folder `C:\MOUSE` and copy `VBMOUSE.EXE` from `vbados.flp` to `C:\MOUSE`. Open `C:\AUTOEXEC.BAT` and append these two lines (note that Windows 3.1x instantly freezes when using the mouse wheel, so we deactivate it):
+
+```
+C:\MOUSE\VBMOUSE.EXE
+C:\MOUSE\VBMOUSE.EXE wheel off
+```
+
+Reboot the emulator, start Windows and then install the Windows driver (which requires the DOS driver) from `vbados.flp`:
+
+* open the **Main** folder on the Windows Desktop, then open icon **Windows Setup**
+* open menu item **Options** and select **Change Sytem Settings...**
+* select **Other mouse (Requires disk from OEM)** in Dropdown **Mouse** and set the path to `A:`
+* select **VBMOUSE int33 absolute mouse driver** (if the selection box is blank afterwards just re-select it)
+
+When finished, eject the floppy disk image, and export your v86 HD image in the MS-DOS console.
 
 ## 4. Links
 
