@@ -39,6 +39,7 @@ export function ScreenAdapter(options, screen_fill_buffer)
         graphic_screen = document.createElement("canvas");
         screen_container.appendChild(graphic_screen);
     }
+    graphic_screen.addEventListener("contextmenu", (e) => { e.preventDefault(); });
     const graphic_context = graphic_screen.getContext("2d", { alpha: false });
 
     let text_screen = screen_container.getElementsByTagName("div")[0];
