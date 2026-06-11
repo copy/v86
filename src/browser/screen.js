@@ -265,8 +265,12 @@ export function ScreenAdapter(options, screen_fill_buffer)
             }
 
             // draw rightmost block of foreground color into extra row 1
-            offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
-            offscreen_extra_context.fillRect(fg_x, row_extra_1_y, gfx_width - fg_x, font_height);
+            // (fg_rgba is undefined when the row had no cells, e.g. mid resize)
+            if(fg_rgba !== undefined)
+            {
+                offscreen_extra_context.fillStyle = number_as_color(fg_rgba);
+                offscreen_extra_context.fillRect(fg_x, row_extra_1_y, gfx_width - fg_x, font_height);
+            }
 
             // combine extra row 1 (colors) and 2 (glyphs) into extra row 1 (colored glyphs)
             offscreen_extra_context.globalCompositeOperation = "destination-in";
@@ -276,8 +280,11 @@ export function ScreenAdapter(options, screen_fill_buffer)
             offscreen_extra_context.globalCompositeOperation = "source-over";
 
             // draw rightmost block of background color into offscreen_context
-            offscreen_context.fillStyle = number_as_color(bg_rgba);
-            offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
+            if(bg_rgba !== undefined)
+            {
+                offscreen_context.fillStyle = number_as_color(bg_rgba);
+                offscreen_context.fillRect(bg_x, row_y, gfx_width - bg_x, font_height);
+            }
 
             // copy colored glyphs from extra row 1 into offscreen_context (on top of background colors)
             offscreen_context.drawImage(offscreen_extra_canvas,
@@ -291,12 +298,15 @@ export function ScreenAdapter(options, screen_fill_buffer)
             {
                 const cursor_txt_i = (cursor_row * text_mode_width + cursor_col) * TEXT_BUF_COMPONENT_SIZE;
                 const cursor_rgba = text_mode_data[cursor_txt_i + FG_COLOR_INDEX];
-                offscreen_context.fillStyle = number_as_color(cursor_rgba);
-                offscreen_context.fillRect(
-                    cursor_col * font_width,
-                    cursor_row * font_height + cursor_start,
-                    font_width,
-                    cursor_end - cursor_start + 1);
+                if(cursor_rgba !== undefined)
+                {
+                    offscreen_context.fillStyle = number_as_color(cursor_rgba);
+                    offscreen_context.fillRect(
+                        cursor_col * font_width,
+                        cursor_row * font_height + cursor_start,
+                        font_width,
+                        cursor_end - cursor_start + 1);
+                }
             }
             changed_rows.fill(0);
         }
