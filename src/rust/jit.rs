@@ -1157,7 +1157,6 @@ pub fn update_tlb_code(virt_page: Page, phys_page: Page) {
             state_flags,
             hidden_wasm_table_indices: _,
         }) => set_tlb_code(virt_page, *wasm_table_index, entry_points, *state_flags),
-        // Note: tlb_code is indexed by virtual page
         None => cpu::clear_tlb_code(virt_page.to_u32() as i32),
     };
 }
