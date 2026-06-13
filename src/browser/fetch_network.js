@@ -13,9 +13,6 @@ import {
 // For Types Only
 import { BusConnector } from "../bus.js";
 
-// Module-scoped encoder/decoder singletons (avoids repeated allocations).
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
 const CR = 0x0D;
 const LF = 0x0A;
@@ -147,7 +144,7 @@ async function on_data_http(data)
     const bodyBytes = this.rawBuffer.slice(sep_index + 4);
     this.rawBuffer = null;
 
-    const headerText = textDecoder.decode(headerBytes);
+    const headerText = new TextDecoder().decode(headerBytes);
     const headerLines = headerText.split(/\r\n/);
 
     const first_line = headerLines[0].split(" ");
@@ -316,7 +313,7 @@ FetchNetworkAdapter.prototype.fetch = async function(url, options)
                 statusText: "Fetch Error",
                 headers: new Headers({ "Content-Type": "text/plain" }),
             },
-            textEncoder.encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
+            new TextEncoder().encode(`Fetch ${url} failed:\n\n${e.stack}`).buffer
         ];
     }
 };
@@ -332,7 +329,7 @@ FetchNetworkAdapter.prototype.form_response_head = function(status_code, status_
         lines.push(`${key}: ${value}`);
     }
 
-    return textEncoder.encode(lines.join("\r\n") + "\r\n\r\n");
+    return new TextEncoder().encode(lines.join("\r\n") + "\r\n\r\n");
 };
 
 FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_code, status_text, body)
@@ -342,7 +339,7 @@ FetchNetworkAdapter.prototype.respond_text_and_close = function(conn, status_cod
         "content-length": body.length.toString(10),
         "connection": "close"
     });
-    conn.writev([this.form_response_head(status_code, status_text, headers), textEncoder.encode(body)]);
+    conn.writev([this.form_response_head(status_code, status_text, headers), new TextEncoder().encode(body)]);
     conn.close();
 };
 
