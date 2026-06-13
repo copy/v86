@@ -95,7 +95,7 @@ FetchNetworkAdapter.prototype.tcp_probe = function(port)
  * text-decoded and parsed; the body stays as a binary Uint8Array.
  *
  * When a POST/PUT body spans multiple TCP segments the partial body is
- * stored in this._xb and subsequent segments are accumulated there until
+ * stored in this.pendingBody and subsequent segments are accumulated there until
  * Content-Length is satisfied, at which point the deferred fetch is fired.
  *
  * NOTE: Transfer-Encoding: chunked is not supported.  Requests using it
@@ -108,18 +108,18 @@ async function on_data_http(data)
 {
     // If we're buffering a partial request body, accumulate chunks until
     // Content-Length is satisfied, then fire the deferred fetch.
-    if(this._xb)
+    if(this.pendingBody)
     {
         const chunk = data instanceof Uint8Array ? data : new Uint8Array(data);
-        const combined = new Uint8Array(this._xb.buf.length + chunk.length);
-        combined.set(this._xb.buf);
-        combined.set(chunk, this._xb.buf.length);
-        this._xb.buf = combined;
-        if(this._xb.buf.length >= this._xb.cl)
+        const combined = new Uint8Array(this.pendingBody.buf.length + chunk.length);
+        combined.set(this.pendingBody.buf);
+        combined.set(chunk, this.pendingBody.buf.length);
+        this.pendingBody.buf = combined;
+        if(this.pendingBody.buf.length >= this.pendingBody.cl)
         {
-            const body = this._xb.buf;
-            const done = this._xb.done;
-            this._xb = null;
+            const body = this.pendingBody.buf;
+            const done = this.pendingBody.done;
+            this.pendingBody = null;
             done(body);
         }
         return;
@@ -127,25 +127,25 @@ async function on_data_http(data)
 
     // Accumulate raw bytes (not text) so binary body data is preserved.
     const chunk = data instanceof Uint8Array ? data : new Uint8Array(data);
-    if(this._raw)
+    if(this.rawBuffer)
     {
-        const combined = new Uint8Array(this._raw.length + chunk.length);
-        combined.set(this._raw);
-        combined.set(chunk, this._raw.length);
-        this._raw = combined;
+        const combined = new Uint8Array(this.rawBuffer.length + chunk.length);
+        combined.set(this.rawBuffer);
+        combined.set(chunk, this.rawBuffer.length);
+        this.rawBuffer = combined;
     }
     else
     {
-        this._raw = chunk;
+        this.rawBuffer = chunk;
     }
 
-    const sep_index = findCrLfCrLf(this._raw);
+    const sep_index = findCrLfCrLf(this.rawBuffer);
     if(sep_index === -1) return;
 
     // Split into header (text) and body (binary).
-    const headerBytes = this._raw.slice(0, sep_index);
-    const bodyBytes = this._raw.slice(sep_index + 4);
-    this._raw = null;
+    const headerBytes = this.rawBuffer.slice(0, sep_index);
+    const bodyBytes = this.rawBuffer.slice(sep_index + 4);
+    this.rawBuffer = null;
 
     const headerText = textDecoder.decode(headerBytes);
     const headerLines = headerText.split(/\r\n/);
@@ -218,7 +218,7 @@ async function on_data_http(data)
             const fetch_url = this.net.cors_proxy
                 ? this.net.cors_proxy + encodeURIComponent(target.href)
                 : target.href;
-            this._xb = {
+            this.pendingBody = {
                 buf: bodyBytes,
                 cl: content_length,
                 done: (body) => {
