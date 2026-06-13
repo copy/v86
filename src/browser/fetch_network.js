@@ -207,6 +207,10 @@ async function on_data_http(data)
         headers: req_headers,
     };
 
+    const fetch_url = this.net.cors_proxy
+        ? this.net.cors_proxy + encodeURIComponent(target.href)
+        : target.href;
+
     if(["put", "post"].indexOf(opts.method.toLowerCase()) !== -1)
     {
         // The body may span multiple TCP segments.
@@ -215,9 +219,6 @@ async function on_data_http(data)
         const content_length = parseInt(req_headers.get("content-length") || "0", 10);
         if(content_length > 0 && bodyBytes.length < content_length)
         {
-            const fetch_url = this.net.cors_proxy
-                ? this.net.cors_proxy + encodeURIComponent(target.href)
-                : target.href;
             this.pendingBody = {
                 buf: bodyBytes,
                 cl: content_length,
@@ -231,9 +232,6 @@ async function on_data_http(data)
         opts.body = bodyBytes;
     }
 
-    const fetch_url = this.net.cors_proxy
-        ? this.net.cors_proxy + encodeURIComponent(target.href)
-        : target.href;
     dispatch_fetch(this, fetch_url, opts);
 }
 
