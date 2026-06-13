@@ -249,6 +249,23 @@ if(isMainThread)
                 assert(/400 Bad Request/.test(capture), "got error 400");
             },
         },
+        {
+            name: "POST large body to local server",
+            allow_failure: true,
+            timeout: 30,
+            start: () =>
+            {
+                // POST a 3000-byte body — larger than one TCP segment (~1460 bytes).
+                // This exercises the multi-segment body buffering fix.
+                emulator.serial0_send(`dd if=/dev/zero bs=3000 count=1 2>/dev/null | curl -m 10 -s -X POST --data-binary @- ${SERVER_PORT}.external/post\n`);
+                emulator.serial0_send("echo -e done\\\\tpost large body\n");
+            },
+            end_trigger: "done\tpost large body",
+            end: (capture) =>
+            {
+                assert(/Received 3000 bytes/.test(capture), "server received full 3000 byte body");
+            },
+        },
     ];
 
 
@@ -393,6 +410,19 @@ else
                 } else {
                      response.writeHead(404);
                      response.end("Unknown endpoint");
+                }
+                break;
+            case "POST":
+                if(request.url === "/post") {
+                    let chunks = [];
+                    request.on("data", chunk => chunks.push(chunk));
+                    request.on("end", () => {
+                        const full = Buffer.concat(chunks);
+                        response.end(`Received ${full.length} bytes`);
+                    });
+                } else {
+                    response.writeHead(404);
+                    response.end("Unknown POST endpoint");
                 }
                 break;
             default:
