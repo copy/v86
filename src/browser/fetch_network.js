@@ -17,23 +17,20 @@ import { BusConnector } from "../bus.js";
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-/** Find the first occurrence of `needle` bytes in `haystack`. Returns -1 if not found. */
-function indexOfBytes(haystack, needle)
+const CR = 0x0D;
+const LF = 0x0A;
+
+function findCrLfCrLf(haystack)
 {
-    outer:
-    for(let i = 0; i <= haystack.length - needle.length; i++)
+    for(let i = 0; i + 3 < haystack.length; i++)
     {
-        for(let j = 0; j < needle.length; j++)
+        if(haystack[i] === CR && haystack[i + 1] === LF && haystack[i + 2] === CR && haystack[i + 3] === LF)
         {
-            if(haystack[i + j] !== needle[j]) continue outer;
+            return i;
         }
-        return i;
     }
     return -1;
 }
-
-// Pre-encoded \r\n\r\n separator for binary header/body split.
-const CRLFCRLF = textEncoder.encode("\r\n\r\n");
 
 /**
  * @constructor
@@ -142,12 +139,12 @@ async function on_data_http(data)
         this._raw = chunk;
     }
 
-    const sep_index = indexOfBytes(this._raw, CRLFCRLF);
+    const sep_index = findCrLfCrLf(this._raw);
     if(sep_index === -1) return;
 
     // Split into header (text) and body (binary).
     const headerBytes = this._raw.slice(0, sep_index);
-    const bodyBytes = this._raw.slice(sep_index + CRLFCRLF.length);
+    const bodyBytes = this._raw.slice(sep_index + 4);
     this._raw = null;
 
     const headerText = textDecoder.decode(headerBytes);
