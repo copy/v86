@@ -239,6 +239,11 @@ const ATAPI_ASC_INV_FIELD_IN_CMD_PACKET = 0x24;
 const ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED = 0x28;
 const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
 
+// Pending media-change state, reported to the guest in order on a swap.
+const MEDIUM_CHANGED_NONE = 0;
+const MEDIUM_CHANGED_UNIT_ATTENTION = 1;
+const MEDIUM_CHANGED_NOT_PRESENT = 2;
+
 // Debug log detail bits (internal to this module)
 const LOG_DETAIL_NONE = 0x00;   // disable debug logging of details
 const LOG_DETAIL_REG_IO = 0x01; // log register read/write access
@@ -915,8 +920,8 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
     /** @type {number} */
     this.atapi_add_sense = 0;
 
-    /** @type {boolean} */
-    this.medium_changed = false;
+    /** @type {number} */
+    this.medium_changed = MEDIUM_CHANGED_NONE;
 
     this.set_disk_buffer(buffer);
 
@@ -937,10 +942,9 @@ IDEInterface.prototype.eject = function()
 {
     if(this.is_atapi && this.buffer)
     {
-        this.medium_changed = true;
+        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
         this.buffer = null;
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
-        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
         this.push_irq();
     }
 };
@@ -950,7 +954,7 @@ IDEInterface.prototype.set_cdrom = function(buffer)
     if(this.is_atapi && buffer)
     {
         this.set_disk_buffer(buffer);
-        this.medium_changed = true;
+        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
     }
 };
 
@@ -965,7 +969,8 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     if(this.is_atapi)
     {
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
-        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
+        // Reported via the sense path in atapi_handle
+        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
     }
     this.sector_count = this.buffer.byteLength / this.sector_size;
 
@@ -1252,7 +1257,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 if(this.medium_changed)
                 {
                     this.error_reg |= 0x20; // MC: Media Change
-                    this.medium_changed = false;
+                    this.medium_changed = MEDIUM_CHANGED_NONE;
                 }
                 this.error_reg |= 0x40;     // WP: Write Protect
             }
@@ -1349,6 +1354,26 @@ IDEInterface.prototype.atapi_handle = function()
 
     this.data_pointer = 0;
     this.current_atapi_command = cmd;
+
+    // Report a media change before the sense-clear, over two commands each
+    // pending until REQUEST SENSE: NOT PRESENT then UNIT ATTENTION. Polling
+    // guests need this absent->changed order to drop the cached volume.
+    if(this.medium_changed && this.buffer &&
+        cmd !== ATAPI_CMD_REQUEST_SENSE && cmd !== ATAPI_CMD_INQUIRY)
+    {
+        if(this.medium_changed === MEDIUM_CHANGED_NOT_PRESENT)
+        {
+            this.medium_changed = MEDIUM_CHANGED_UNIT_ATTENTION;
+            this.atapi_check_condition_response(ATAPI_SK_NOT_READY, ATAPI_ASC_MEDIUM_NOT_PRESENT);
+        }
+        else
+        {
+            this.medium_changed = MEDIUM_CHANGED_NONE;
+            this.atapi_check_condition_response(ATAPI_SK_UNIT_ATTENTION, ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED);
+        }
+        this.push_irq();
+        return;
+    }
 
     if(cmd !== ATAPI_CMD_REQUEST_SENSE) // TODO
     {
@@ -1470,13 +1495,21 @@ IDEInterface.prototype.atapi_handle = function()
         case ATAPI_CMD_READ_TOC_PMA_ATIP:
             var length = this.data[8] | this.data[7] << 8;
             var format = this.data[9] >> 6;
-            dbg_log_extra = `${h(format, 2)} length=${length} ${!!(this.data[1] & 2)} ${h(this.data[6])}`;
+            // Read the MSF flag before data_allocate() overwrites this.data.
+            const toc_msf = (this.data[1] & 2) !== 0;
+            dbg_log_extra = `${h(format, 2)} length=${length} ${toc_msf} ${h(this.data[6])}`;
 
             this.data_allocate(length);
             this.data_end = this.data_length;
             if(format === 0)
             {
-                const sector_count = this.sector_count;
+                // Track 1 start and lead-out, in MSF when requested. Win9x sizes
+                // the disc from the lead-out MSF; raw LBA mis-sizes >~256 MB discs.
+                const addr = (lba) => toc_msf
+                    ? [0, (lba + 150) / (75 * 60) | 0, ((lba + 150) / 75 | 0) % 60, (lba + 150) % 75]
+                    : [lba >> 24 & 0xFF, lba >> 16 & 0xFF, lba >> 8 & 0xFF, lba & 0xFF];
+                const start = addr(0);
+                const leadout = addr(this.sector_count);
                 this.data.set(new Uint8Array([
                     0, 18, // length
                     1, 1, // first and last session
@@ -1485,16 +1518,13 @@ IDEInterface.prototype.atapi_handle = function()
                     0x14,
                     1, // track number
                     0,
-                    0, 0, 0, 0,
+                    start[0], start[1], start[2], start[3],
 
                     0,
                     0x16,
                     0xAA, // track number
                     0,
-                    sector_count >> 24,
-                    sector_count >> 16 & 0xFF,
-                    sector_count >> 8 & 0xFF,
-                    sector_count & 0xFF,
+                    leadout[0], leadout[1], leadout[2], leadout[3],
                 ]));
             }
             else if(format === 1)
@@ -1566,7 +1596,7 @@ IDEInterface.prototype.atapi_handle = function()
             if(this.buffer && loej_start === 0x2)
             {
                 dbg_log_extra += ": disk ejected";
-                this.medium_changed = true;
+                this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
                 this.buffer = null;
             }
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
@@ -2757,5 +2787,5 @@ IDEInterface.prototype.set_state = function(state)
     this.buffer && this.buffer.set_state(state[28]);
 
     this.drive_connected = this.is_atapi || this.buffer;
-    this.medium_changed = false;
+    this.medium_changed = MEDIUM_CHANGED_NONE;
 };
