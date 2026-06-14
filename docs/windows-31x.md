@@ -1,4 +1,4 @@
-# How to install Microsoft Windows 3.1x in v86
+# Microsoft Windows 3.1x guest setuo
 
 This guide leads through the process of creating v86 guest images for:
 
@@ -7,32 +7,16 @@ This guide leads through the process of creating v86 guest images for:
 
 ## 1. Prerequisites
 
-Downloads:
+Download a set of Setup floppy disk images, either:
 
-* **[Microsoft DOS 6.22.zip](https://archive.org/download/MS_DOS_6.22_MICROSOFT)** [3.5 MB]  
-  MS-DOS 6.22 Setup floppy images, unpack to folder **`dos622/`**
-* Microsoft Windows 3.1x Setup floppy images, one of:
-  * **[Microsoft Windows 3.11 (Retail Full) (3.5).zip](https://archive.org/download/win-311-disk)** [9.8 MB]  
-    Windows 3.1 Setup floppy images, unpack to folder **`win311/`**
-  * **[Microsoft Windows for Workgroups 3.11a (OEM) (3.5-1.44mb).zip](https://archive.org/download/wfw311-disk)** [13.9 MB]  
-    Windows for Workgroups 3.11a Setup floppy images, unpack to folder **`win311/`**
-* **[DOS-Drivers.zip](https://web.archive.org/web/20260430201544/https://www.kirsle.net/download?project=DOS&file=DOS-Drivers.zip)** [4.04 MB]  
-  Windows 3.1x driver bundle from [kirsle.net](https://web.archive.org/web/20260430225845/https://www.kirsle.net/ms-dos-and-windows-3-1), unpack floppy image **``wqghlt.img``**
-* **[wg0974.exe](https://www.vogons.org/download/file.php?id=13145)** [27.1 KB]  
-  Windows for Workgroups 3.11 keyboard driver, unpack **`vkda.386`** and copy to floppy image `wg0974.img`
+* **[Microsoft Windows 3.11 (Retail Full) (3.5).zip](https://archive.org/download/win-311-disk)** [9.8 MB]  
+Windows 3.1 Setup floppy images, unpack to folder **`win311/`**
+* **[Microsoft Windows for Workgroups 3.11a (OEM) (3.5-1.44mb).zip](https://archive.org/download/wfw311-disk)** [13.9 MB]  
+Windows for Workgroups 3.11a Setup floppy images, unpack to folder **`win311/`**
 
 ## 2. Installation
 
-### 2.1 Install MS-DOS 6.22
-
-Go to https://copy.sh/v86/
-
-* **Floppy disk image:** `dos622/Disk 1.img`
-* **Hard disk image:** create an empty disk of 128 MB (for example)
-
-Boot v86, follow the instructions and select defaults. Use the v86 **Eject floppy image** / **Insert floppy image** button to swap floppies `dos622/Disk 2.img` and `dos622/Disk 3.img` when the installer asks for it.
-
-### 2.2 Install Windows 3.1x
+Windows 3.1x is a DOS-based Operating System, so start by following the instructions in **[Installing MS-DOS 6.22](docs/dos.md)** to create a DOS installation with a suggested disk size of 128 MB.
 
 Once MS-DOS is installed and has rebooted from HD, insert floppy disk image `win311/DISK1.IMG`, then enter:
 
@@ -40,29 +24,20 @@ Once MS-DOS is installed and has rebooted from HD, insert floppy disk image `win
 a:setup
 ```
 
-Again, follw the instructions, select defaults and swap the floppy images `win311/DISK2.IMG`, ..., `win311/DISK5.IMG` when being asked by the installer.
+Follw the instructions, select defaults and swap the floppy images `win311/DISK2.IMG`, ..., `win311/DISK5.IMG` when being asked by the installer.
 
 Once Win 3.1x is installed, eject the floppy disk image, reboot from HD and stay in the MS-DOS console.
 
-### 2.3 Increase DMA buffer size
+### 2.1 CPU Idling
 
-Increase the amount of memory (in kilobytes) to be reserved for the DMA buffer to 64 (default: 16, range: 1-256). Open file `system.ini` in the text editor:
-
-```
-edit C:\WINDOWS\SYSTEM.INI
-```
-
-and add this line in section `[386Enh]`:
-
-```
-dmabuffersize=64
-```
-
-Save and exit the editor.
-
-### 2.4 Install idle handler WQGHLT
+#### 2.1.1 WQGHLT
 
 The WQGHLT Virtual Device Driver is a CPU load reduction tool for Windows 3.1x. It installs an idle handler that issues the HLT instruction.
+
+Download:
+
+* **[DOS-Drivers.zip](https://web.archive.org/web/20260430201544/https://www.kirsle.net/download?project=DOS&file=DOS-Drivers.zip)** [4.04 MB]  
+  Windows 3.1x driver bundle from [kirsle.net](https://web.archive.org/web/20260430225845/https://www.kirsle.net/ms-dos-and-windows-3-1), unpack floppy image **``wqghlt.img``**
 
 Insert floppy disk image `wqghlt.img` and copy `WQGHLT.386` into the system directory:
 
@@ -78,12 +53,40 @@ device=WQGHLT.386
 
 Save and exit, then eject the floppy disk image.
 
-### 2.5 Replace Windows for Workgroups 3.11 keyboard driver
+#### 2.1.2 Amn Refrigerator (AmnHLT)
+
+Download:
+
+* **[refr32.zip](https://www.softpedia.com/get/System/System-Info/Amn-Refrigerator.shtml)** [102 KB]  
+  Amn Refrigerator (formerly AmnHLT) archive, unpack to floppy disk `amnhlt.img`
+
+### 2.2 Increase DMA buffer size
+
+Increase the amount of memory (in kilobytes) to be reserved for the DMA buffer to 64 (default: 16, range: 1-256). Open file `system.ini` in the text editor:
+
+```
+edit C:\WINDOWS\SYSTEM.INI
+```
+
+and add this line in section `[386Enh]`:
+
+```
+dmabuffersize=64
+```
+
+Save and exit the editor.
+
+### 2.3 Replace Windows for Workgroups 3.11 keyboard driver
 
 > [!NOTE]
 > This step is required for Windows for Workgroups 3.11 only, skip it if you're installing Windows 3.1.
 
-Keyboard and mouse freeze with the default keyboard driver. To fix this, insert floppy disk image `wg0974.img` and copy `VKDA.386` into the system directory:
+Fixes freezing of keyboard and mouse devices under v86. Download:
+
+* **[wg0974.exe](https://www.vogons.org/download/file.php?id=13145)** [27.1 KB]  
+  Windows for Workgroups 3.11 keyboard driver, unpack **`vkda.386`** and copy to floppy image `wg0974.img`
+
+Insert floppy disk image `wg0974.img` and copy `VKDA.386` into the system directory:
 
 ```
 copy A:VKDA.386 C:\WINDOWS\SYSTEM
@@ -99,23 +102,7 @@ Save and exit, then eject the floppy disk image.
 
 Source: [vogons.org](https://www.vogons.org/viewtopic.php?t=37380)
 
-### 2.6 Autostart Windows
-
-At this point the installation boots into MS-DOS and Windows needs to be started manually by entering `win`. In you prefer to boot directly into Windows, edit `autoexec.bat`:
-
-```
-edit C:\AUTOEXEC.BAT
-```
-
-and append new line:
-
-```
-win
-```
-
-Save and exit. Note that whenever you exit Windows you will fall back into the MS-DOS console.
-
-### 2.7 Cleanup system files
+### 2.4 Cleanup system files
 
 Make sure that `C:\AUTOEXEC.BAT` looks like this:
 
@@ -258,7 +245,7 @@ So far all attempts to use the v86 NIC with Windows 3.1 have failed, but SLIP/PP
 * **[twsk30d.zip](https://web.archive.org/web/20240830084459/https://www.steptail.com/_media/guides:files:twsk30d.zip)** [555 KB]  
   Trumpet Winsock 3.0 revision D, unpack **`twsk30d.exe`** and copy to floppy image `twsk30d.img`
 
-Boot v86 with the Modem device enabled (at `UART1`), insert floppy disk image `twsk30d.img`, and run `twsk30d.exe` from the Windows File Explorer. After installation has completed, open Trumpet Winsock and apply these settings to make Trumpet Winsock compatible with the example minimal PPP WebSocket server in the v86 Modem guide:
+Boot v86 with the Modem device enabled (at `UART1`), insert floppy disk image `twsk30d.img`, and run `twsk30d.exe` from the Windows File Explorer. After installation has completed, open Trumpet Winsock and apply these settings to make Trumpet Winsock compatible with the example [minimal PPP WebSocket server](modem.md#example-2-ppp) in the v86 Modem guide:
 
 * Menu: ***File -> Setup...***
   - **IP address:** "" (empty)
@@ -287,7 +274,7 @@ To connect to a WebSocket PPP server, select ***Dialler -> Profile...*** from th
 
 Part of the DOS virtualization tools [VBADOS](https://git.javispedro.com/cgit/vbados.git/about/) is a mouse driver that supports absolute mouse cursor positioning (the host's mouse position is then always identical with the guest's). Download:
 
-* **[vbados.flp](https://depot.javispedro.com/vbox/vbados/vbados.flp) [1.40 MB]**  
+* **[vbados.flp](https://depot.javispedro.com/vbox/vbados/vbados.flp)** [1.40 MB]  
   VBADOS DOS utilities
 
 To install the DOS driver, createa folder `C:\MOUSE` and copy `VBMOUSE.EXE` from `vbados.flp` to `C:\MOUSE`. Open `C:\AUTOEXEC.BAT` and append these two lines (note that Windows 3.1x instantly freezes when using the mouse wheel, so we deactivate it):
