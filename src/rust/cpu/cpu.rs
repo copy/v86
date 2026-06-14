@@ -322,6 +322,16 @@ pub struct Code {
     pub state_table: [u16; 0x1000],
 }
 
+pub fn increment_instruction_pointer(eip: i32, delta: i32, is_asize_32: bool) -> i32 {
+    if !is_asize_32 {
+        let offset = eip.wrapping_sub(get_seg_cs()) & 0xFFFF;
+        eip.wrapping_add((offset.wrapping_add(delta) & 0xFFFF) - offset)
+    }
+    else {
+        eip.wrapping_add(delta)
+    }
+}
+
 pub static mut tlb_data: [i32; 0x100000] = [0; 0x100000];
 pub static mut tlb_code: [Option<ptr::NonNull<Code>>; 0x100000] = [None; 0x100000];
 
@@ -2364,7 +2374,7 @@ pub unsafe fn read_imm8() -> OrPageFault<i32> {
     }
     dbg_assert!(!memory::in_mapped_range((*eip_phys ^ eip) as u32));
     let data8 = *memory::mem8.offset((*eip_phys ^ eip) as isize) as i32;
-    *instruction_pointer = eip + 1;
+    *instruction_pointer = increment_instruction_pointer(eip, 1, is_asize_32());
     return Ok(data8);
 }
 
@@ -2381,7 +2391,8 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
     }
     else {
         let data16 = memory::read16((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = *instruction_pointer + 2;
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 2, is_asize_32());
         return Ok(data16);
     };
 }
@@ -2395,7 +2406,8 @@ pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     }
     else {
         let data32 = memory::read32s((*eip_phys ^ *instruction_pointer) as u32);
-        *instruction_pointer = *instruction_pointer + 4;
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 4, is_asize_32());
         return Ok(data32);
     };
 }
@@ -3085,7 +3097,8 @@ unsafe fn jit_run_interpreted(mut phys_addr: u32) {
         i += 1;
         let start_eip = *instruction_pointer;
         let opcode = *memory::mem8.offset(phys_addr as isize) as i32;
-        *instruction_pointer += 1;
+        *instruction_pointer =
+            increment_instruction_pointer(*instruction_pointer, 1, is_asize_32());
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
         dbg_assert!(*prefixes == 0);
