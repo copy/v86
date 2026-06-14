@@ -784,11 +784,28 @@ function any_first_digit(base)
     return commands;
 }
 
-// ASP set register
-register_dsp_command([0x0E], 2, function()
+// The CSP/ASP coprocessor is reported absent (as on most real SB16 cards);
+// drivers that detect one (e.g. Win9x CSPMAN.DLL) crash programming it.
+
+// ASP set mode register
+register_dsp_command([0x04], 1);
+
+// ASP set codec parameter
+register_dsp_command([0x05], 2);
+
+// ASP get version
+register_dsp_command([0x08], 1, function()
 {
-    this.asp_registers[this.write_buffer.shift()] = this.write_buffer.shift();
+    var sub_command = this.write_buffer.shift();
+    if(sub_command === 0x03)
+    {
+        this.read_buffer.clear();
+        this.read_buffer.push(0xFF); // no chip installed
+    }
 });
+
+// ASP set register
+register_dsp_command([0x0E], 2);
 
 // ASP get register
 register_dsp_command([0x0F], 1, function()
