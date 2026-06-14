@@ -9,6 +9,7 @@ const VMWARE_PORT = 0x5658;
 const VMWARE_MAGIC = 0x564D5868;
 
 const CMD_GETVERSION = 10;
+const CMD_GETTIME = 23;
 const CMD_ABSPOINTER_DATA = 39;
 const CMD_ABSPOINTER_STATUS = 40;
 const CMD_ABSPOINTER_COMMAND = 41;
@@ -33,12 +34,14 @@ const RELATIVE_PACKET = 0x00010000;
 const QUEUE_MAX = 1024;
 
 /**
- * VMware mouse backdoor (port 0x5658). Lets a guest driver read absolute
- * pointer position so the guest cursor can track the host cursor 1:1 without
- * pointer lock. PS/2 still supplies the IRQ; the driver reads this port on
- * each IRQ12. While the host pointer is locked (e.g. for games), movement is
- * reported as relative packets instead, since no meaningful absolute position
- * exists.
+ * VMware backdoor (port 0x5658). Lets a guest driver read absolute pointer
+ * position so the guest cursor can track the host cursor 1:1 without pointer
+ * lock, and implements GETTIME (23) so a guest agent can keep the guest clock
+ * in sync with the host (guests only read the RTC at boot, so a restored
+ * state resumes with a stale clock). PS/2 still supplies the mouse IRQ; the
+ * driver reads this port on each IRQ12. While the host pointer is locked
+ * (e.g. for games), movement is reported as relative packets instead, since
+ * no meaningful absolute position exists.
  *
  * @constructor
  * @param {CPU} cpu
@@ -221,6 +224,22 @@ VMwareMouse.prototype.port_read32 = function()
         case CMD_GETVERSION:
             reg32[REG_EBX] = VMWARE_MAGIC;
             return 6;
+
+        case CMD_GETTIME:
+        {
+            // EAX = host time in seconds since the Unix epoch (UTC),
+            // EBX = remaining microseconds, ECX = maximum time lag in
+            // microseconds, EDX = host's offset from UTC in minutes (east
+            // positive). Deprecated upstream in favour of GETTIMEFULL because
+            // EAX overflows as a signed value in 2038, but it's the simplest
+            // command a 32-bit guest agent can consume — read unsigned it's
+            // good until 2106.
+            const now = Date.now();
+            reg32[REG_EBX] = now % 1000 * 1000;
+            reg32[REG_ECX] = 1000000;
+            reg32[REG_EDX] = -new Date(now).getTimezoneOffset();
+            return now / 1000 >>> 0;
+        }
 
         case CMD_ABSPOINTER_STATUS:
             return this.enabled ? this.queue.length : 0xFFFF0000 | 0;
