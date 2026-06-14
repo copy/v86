@@ -137,6 +137,12 @@ struct JitState {
     pages: HashMap<Page, PageInfo>,
     wasm_table_index_free_list: Vec<WasmTableIndex>,
     compiling: Option<(WasmTableIndex, CompilingPageState)>,
+
+    // pages each module was compiled from + reverse index. used to clean up JIT
+    // code from written pages: `pages` alone loses track of multi-page modules
+    // when a sibling page is invalidated, which can leave stale modules executable
+    module_coverage: HashMap<WasmTableIndex, HashSet<Page>>,
+    coverage_by_page: HashMap<Page, Vec<WasmTableIndex>>,
 }
 
 fn check_jit_state_invariants(ctx: &mut JitState) {
@@ -201,6 +207,9 @@ impl JitState {
 
             wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
             compiling: None,
+
+            module_coverage: HashMap::new(),
+            coverage_by_page: HashMap::new(),
         }
     }
 }
@@ -1023,6 +1032,15 @@ fn jit_analyze_and_generate(
             .or_insert_with(|| (0, HashSet::new()));
     }
 
+    ctx.module_coverage
+        .insert(wasm_table_index, pages.iter().copied().collect());
+    for &p in &pages {
+        ctx.coverage_by_page
+            .entry(p)
+            .or_insert_with(Vec::new)
+            .push(wasm_table_index);
+    }
+
     cpu::tlb_set_has_code_multiple(&pages, true);
 
     dbg_assert!(ctx.compiling.is_none());
@@ -1139,7 +1157,7 @@ pub fn update_tlb_code(virt_page: Page, phys_page: Page) {
             state_flags,
             hidden_wasm_table_indices: _,
         }) => set_tlb_code(virt_page, *wasm_table_index, entry_points, *state_flags),
-        None => cpu::clear_tlb_code(phys_page.to_u32() as i32),
+        None => cpu::clear_tlb_code(virt_page.to_u32() as i32),
     };
 }
 
@@ -2198,6 +2216,17 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
         }
     }
 
+    if let Some(pages) = ctx.module_coverage.remove(&wasm_table_index) {
+        for p in pages {
+            if let Some(indices) = ctx.coverage_by_page.get_mut(&p) {
+                indices.retain(|&w| w != wasm_table_index);
+                if indices.is_empty() {
+                    ctx.coverage_by_page.remove(&p);
+                }
+            }
+        }
+    }
+
     ctx.wasm_table_index_free_list.push(wasm_table_index);
 
     // It is not strictly necessary to clear the function, but it will fail more predictably if we
@@ -2209,19 +2238,21 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
 fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
     let mut did_have_code = false;
 
-    if let Some(PageInfo {
-        wasm_table_index,
-        hidden_wasm_table_indices,
-        state_flags: _,
-        entry_points: _,
-    }) = ctx.pages.remove(&page)
-    {
-        profiler::stat_increment(stat::INVALIDATE_PAGE_HAD_CODE);
-        did_have_code = true;
-
-        free(ctx, wasm_table_index);
-        for wasm_table_index in hidden_wasm_table_indices {
-            free(ctx, wasm_table_index);
+    // Free every module containing code from this page, not just those recorded in this
+    // page's own PageInfo (see module_coverage)
+    if let Some(indices) = ctx.coverage_by_page.get(&page) {
+        let indices = indices.clone();
+        let compiling_index = ctx.compiling.as_ref().map(|&(index, _)| index);
+        for index in indices {
+            // an in-progress compilation can't be freed; mark it to be discarded in
+            // codegen_finalize_finished
+            if compiling_index == Some(index) {
+                ctx.compiling = Some((index, CompilingPageState::CompilingWritten));
+                continue;
+            }
+            profiler::stat_increment(stat::INVALIDATE_PAGE_HAD_CODE);
+            did_have_code = true;
+            free(ctx, index);
         }
 
         fn free(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
