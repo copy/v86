@@ -102,7 +102,7 @@ if(cluster.isMaster)
 
         if(fixture_text.includes("(signal SIGSEGV)"))
         {
-            exception = "GP";
+            exception = name === "nx" ? "PF" : "GP";
         }
 
         if(fixture_text.includes("(signal SIGBUS)"))
@@ -334,6 +334,7 @@ else {
             0: "DE",
             6: "UD",
             13: "GP",
+            14: "PF",
         };
 
         const exception = exceptions[n];
