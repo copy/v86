@@ -8,6 +8,10 @@ import { BusConnector } from "./bus.js";
 const VMWARE_PORT = 0x5658;
 const VMWARE_MAGIC = 0x564D5868;
 
+const CMD_GETSELLENGTH = 6;
+const CMD_GETNEXTPIECE = 7;
+const CMD_SETSELLENGTH = 8;
+const CMD_SETNEXTPIECE = 9;
 const CMD_GETVERSION = 10;
 const CMD_ABSPOINTER_DATA = 39;
 const CMD_ABSPOINTER_STATUS = 40;
@@ -31,14 +35,16 @@ const BUTTON_MIDDLE = 0x08;
 const RELATIVE_PACKET = 0x00010000;
 
 const QUEUE_MAX = 1024;
+const CLIP_MAX = 0x10000;
 
 /**
- * VMware mouse backdoor (port 0x5658). Lets a guest driver read absolute
- * pointer position so the guest cursor can track the host cursor 1:1 without
- * pointer lock. PS/2 still supplies the IRQ; the driver reads this port on
- * each IRQ12. While the host pointer is locked (e.g. for games), movement is
- * reported as relative packets instead, since no meaningful absolute position
- * exists.
+ * VMware backdoor (port 0x5658). Lets a guest driver read absolute pointer
+ * position so the guest cursor can track the host cursor 1:1 without pointer
+ * lock, and lets a guest agent sync the clipboard with the host using the
+ * legacy text commands (6–9). PS/2 still supplies the mouse IRQ; the driver
+ * reads this port on each IRQ12. While the host pointer is locked
+ * (e.g. for games), movement is reported as relative packets instead, since
+ * no meaningful absolute position exists.
  *
  * @constructor
  * @param {CPU} cpu
@@ -65,6 +71,22 @@ export function VMwareMouse(cpu, bus)
     this.last_x = -1;
     this.last_y = -1;
     this.tail_is_move = false;
+
+    /** @type {Uint8Array} host→guest text staged for the guest to read */
+    this.clip_out = new Uint8Array(0);
+    this.clip_out_cursor = 0;
+    this.clip_out_fresh = false;
+
+    /** @type {Uint8Array} guest→host text being received */
+    this.clip_in = new Uint8Array(0);
+    this.clip_in_cursor = 0;
+
+    this.bus.register("vmware-clipboard-host", function(data)
+    {
+        this.clip_out = data.length > CLIP_MAX ? data.subarray(0, CLIP_MAX) : data;
+        this.clip_out_cursor = 0;
+        this.clip_out_fresh = true;
+    }, this);
 
     /**
      * Whether the host pointer is currently locked (browser pointer lock).
@@ -221,6 +243,56 @@ VMwareMouse.prototype.port_read32 = function()
         case CMD_GETVERSION:
             reg32[REG_EBX] = VMWARE_MAGIC;
             return 6;
+
+        case CMD_GETSELLENGTH:
+            if(!this.clip_out_fresh)
+            {
+                return 0xFFFFFFFF | 0;
+            }
+            this.clip_out_fresh = false;
+            this.clip_out_cursor = 0;
+            return this.clip_out.length;
+
+        case CMD_GETNEXTPIECE:
+        {
+            const c = this.clip_out;
+            let i = this.clip_out_cursor;
+            const v = (c[i] | 0) | (c[i + 1] | 0) << 8 |
+                      (c[i + 2] | 0) << 16 | (c[i + 3] | 0) << 24;
+            this.clip_out_cursor = i + 4;
+            return v;
+        }
+
+        case CMD_SETSELLENGTH:
+        {
+            const n = Math.min(reg32[REG_EBX] >>> 0, CLIP_MAX);
+            this.clip_in = new Uint8Array(n);
+            this.clip_in_cursor = 0;
+            if(n === 0)
+            {
+                this.bus.send("vmware-clipboard-guest", this.clip_in);
+            }
+            return 0;
+        }
+
+        case CMD_SETNEXTPIECE:
+        {
+            const c = this.clip_in;
+            const v = reg32[REG_EBX] >>> 0;
+            let i = this.clip_in_cursor;
+            if(i < c.length) c[i++] = v;
+            if(i < c.length) c[i++] = v >>> 8;
+            if(i < c.length) c[i++] = v >>> 16;
+            if(i < c.length) c[i++] = v >>> 24;
+            this.clip_in_cursor = i;
+            if(i >= c.length)
+            {
+                this.bus.send("vmware-clipboard-guest", c);
+                this.clip_in = new Uint8Array(0);
+                this.clip_in_cursor = 0;
+            }
+            return 0;
+        }
 
         case CMD_ABSPOINTER_STATUS:
             return this.enabled ? this.queue.length : 0xFFFF0000 | 0;
