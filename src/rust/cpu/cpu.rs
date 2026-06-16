@@ -3912,7 +3912,9 @@ pub unsafe fn read_mmx32s(r: i32) -> i32 { (*fpu_st.offset(r as isize)).mantissa
 
 pub unsafe fn read_mmx64s(r: i32) -> u64 { (*fpu_st.offset(r as isize)).mantissa }
 
-pub unsafe fn write_mmx_reg64(r: i32, data: u64) { (*fpu_st.offset(r as isize)).mantissa = data; }
+pub unsafe fn write_mmx_reg64(r: i32, data: u64) {
+    *fpu_st.offset(r as isize) = softfloat::F80 { mantissa: data, sign_exponent: 0xFFFF };
+}
 
 pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32[0]; }
 
