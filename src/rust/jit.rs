@@ -999,15 +999,19 @@ fn jit_analyze_and_generate(
     dbg_assert!(!entries.is_empty());
 
     let mut page_info = HashMap::new();
+    for &p in &pages {
+        page_info.entry(p).or_insert_with(|| PageInfo {
+            wasm_table_index,
+            state_flags,
+            entry_points: Vec::new(),
+            hidden_wasm_table_indices: Vec::new(),
+        });
+        ctx.entry_points
+            .entry(p)
+            .or_insert_with(|| (0, HashSet::new()));
+    }
     for &(addr, state) in &entries {
-        let code = page_info
-            .entry(Page::page_of(addr))
-            .or_insert_with(|| PageInfo {
-                wasm_table_index,
-                state_flags,
-                entry_points: Vec::new(),
-                hidden_wasm_table_indices: Vec::new(),
-            });
+        let code = page_info.get_mut(&Page::page_of(addr)).unwrap();
         code.entry_points.push((addr as u16 & 0xFFF, state));
     }
 
@@ -1016,12 +1020,6 @@ fn jit_analyze_and_generate(
         ctx.wasm_builder.get_output_len() as u64,
     );
     profiler::stat_increment_by(stat::COMPILE_PAGE, pages.len() as u64);
-
-    for &p in &pages {
-        ctx.entry_points
-            .entry(p)
-            .or_insert_with(|| (0, HashSet::new()));
-    }
 
     cpu::tlb_set_has_code_multiple(&pages, true);
 
