@@ -924,9 +924,12 @@ pub unsafe fn instr_660F2A(source: u64, r: i32) {
         f64: [source[0] as f64, source[1] as f64],
     };
     write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) {
+    instr_660F2A(read_mmx64s(r1), r2);
     transition_fpu_to_mmx();
 }
-pub unsafe fn instr_660F2A_reg(r1: i32, r2: i32) { instr_660F2A(read_mmx64s(r1), r2); }
 pub unsafe fn instr_660F2A_mem(addr: i32, r: i32) {
     instr_660F2A(return_on_pagefault!(safe_read64s(addr)), r);
 }
@@ -3059,13 +3062,15 @@ pub unsafe fn instr_F20F7D_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F7E(r: i32) -> i32 {
     // movd r/m32, mm
-    let data = read_mmx64s(r);
-    transition_fpu_to_mmx();
-    return data as i32;
+    return read_mmx64s(r) as i32;
 }
-pub unsafe fn instr_0F7E_reg(r1: i32, r2: i32) { write_reg32(r1, instr_0F7E(r2)); }
+pub unsafe fn instr_0F7E_reg(r1: i32, r2: i32) {
+    write_reg32(r1, instr_0F7E(r2));
+    transition_fpu_to_mmx();
+}
 pub unsafe fn instr_0F7E_mem(addr: i32, r: i32) {
     return_on_pagefault!(safe_write32(addr, instr_0F7E(r)));
+    transition_fpu_to_mmx();
 }
 pub unsafe fn instr_660F7E(r: i32) -> i32 {
     // movd r/m32, xmm
@@ -3089,7 +3094,6 @@ pub unsafe fn instr_F30F7E_reg(r1: i32, r2: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F7F(r: i32) -> u64 {
     // movq mm/m64, mm
-    transition_fpu_to_mmx();
     read_mmx64s(r)
 }
 pub unsafe fn instr_0F7F_mem(addr: i32, r: i32) {

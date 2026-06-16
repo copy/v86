@@ -3977,6 +3977,7 @@ pub unsafe fn write_xmm128_2(r: i32, i0: u64, i1: u64) {
 pub unsafe fn write_xmm_reg128(r: i32, data: reg128) { *reg_xmm.offset(r as isize) = data; }
 
 /// Set the fpu tag word to valid and the top-of-stack to 0 on mmx instructions
+#[no_mangle]
 pub fn transition_fpu_to_mmx() {
     unsafe {
         fpu_set_tag_word(0);

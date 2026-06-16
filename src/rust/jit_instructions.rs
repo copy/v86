@@ -5921,7 +5921,9 @@ pub fn instr_660F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32)
     mmx_read64_mm_mem(ctx, "instr_660F2A", modrm_byte, r);
 }
 pub fn instr_660F2A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    mmx_read64_mm_mm(ctx, "instr_660F2A", r1, r2);
+    ctx.builder.const_i32(r1 as i32);
+    ctx.builder.const_i32(r2 as i32);
+    ctx.builder.call_fn2("instr_660F2A_reg")
 }
 pub fn instr_F20F2A_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_modrm_resolve_safe_read32(ctx, modrm_byte);
@@ -6859,11 +6861,13 @@ pub fn instr_0F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
     ctx.builder.free_local(value_local);
+    ctx.builder.call_fn0("transition_fpu_to_mmx");
 }
 pub fn instr_0F7E_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.call_fn1_ret("instr_0F7E");
     codegen::gen_set_reg32(ctx, r1);
+    ctx.builder.call_fn0("transition_fpu_to_mmx");
 }
 
 pub fn instr_660F7E_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
@@ -6891,6 +6895,7 @@ pub fn instr_0F7F_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte, r: u32) {
     codegen::gen_safe_write64(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
     ctx.builder.free_local_i64(value_local);
+    ctx.builder.call_fn0("transition_fpu_to_mmx");
 }
 pub fn instr_0F7F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder.const_i32(r1 as i32);
