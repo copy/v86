@@ -316,8 +316,9 @@ nasmtests-force-jit: build/v86-debug.wasm
 	$(NASM_TEST_DIR)/run.js --force-jit
 
 jitpagingtests: build/v86-debug.wasm
-	$(MAKE) -C tests/jit-paging test-jit
+	$(MAKE) -C tests/jit-paging test-jit test-jit-smc
 	./tests/jit-paging/run.js
+	./tests/jit-paging/run-smc.js
 
 qemutests: build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
