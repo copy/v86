@@ -137,6 +137,8 @@ struct JitState {
     pages: HashMap<Page, PageInfo>,
     wasm_table_index_free_list: Vec<WasmTableIndex>,
     compiling: Option<(WasmTableIndex, CompilingPageState)>,
+    #[cfg(debug_assertions)]
+    wasm_table_index_to_page: HashMap<WasmTableIndex, HashSet<Page>>,
 }
 
 fn check_jit_state_invariants(ctx: &mut JitState) {
@@ -152,12 +154,33 @@ fn check_jit_state_invariants(ctx: &mut JitState) {
     }
 
     let free: HashSet<WasmTableIndex> =
-        HashSet::from_iter(ctx.wasm_table_index_free_list.iter().cloned());
+        HashSet::from_iter(ctx.wasm_table_index_free_list.iter().copied());
     let used = HashSet::from_iter(ctx.pages.values().map(|info| info.wasm_table_index));
     let compiling = HashSet::from_iter(ctx.compiling.as_ref().map(|&(index, _)| index));
     dbg_assert!(free.intersection(&used).next().is_none());
     dbg_assert!(used.intersection(&compiling).next().is_none());
     dbg_assert!(free.len() + used.len() + compiling.len() == (WASM_TABLE_SIZE - 1) as usize);
+
+    let hidden: HashSet<WasmTableIndex> = ctx
+        .pages
+        .values()
+        .flat_map(|info| info.hidden_wasm_table_indices.iter().copied())
+        .collect();
+    dbg_assert!(free.intersection(&hidden).next().is_none());
+    dbg_assert!(hidden.is_subset(&used));
+
+    #[cfg(debug_assertions)]
+    for (wasm_table_index, pages) in &ctx.wasm_table_index_to_page {
+        for page in pages {
+            match ctx.pages.get(page) {
+                Some(info) => dbg_assert!(
+                    info.wasm_table_index == *wasm_table_index
+                        || info.hidden_wasm_table_indices.contains(wasm_table_index)
+                ),
+                None => dbg_assert!(false),
+            }
+        }
+    }
 
     match &ctx.compiling {
         Some((_, CompilingPageState::Compiling { pages })) => {
@@ -201,6 +224,9 @@ impl JitState {
 
             wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
             compiling: None,
+
+            #[cfg(debug_assertions)]
+            wasm_table_index_to_page: HashMap::new(),
         }
     }
 }
@@ -1094,6 +1120,12 @@ pub fn codegen_finalize_finished(
                 );
             }
         }
+    }
+
+    #[cfg(debug_assertions)]
+    if CHECK_JIT_STATE_INVARIANTS {
+        ctx.wasm_table_index_to_page
+            .insert(wasm_table_index, pages.keys().copied().collect());
     }
 
     let mut check_for_unused_wasm_table_index = HashSet::new();
@@ -2195,6 +2227,9 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
             }
         }
     }
+
+    #[cfg(debug_assertions)]
+    ctx.wasm_table_index_to_page.remove(&wasm_table_index);
 
     ctx.wasm_table_index_free_list.push(wasm_table_index);
 
