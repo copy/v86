@@ -2258,6 +2258,25 @@ fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
         }
 
         fn free(ctx: &mut JitState, wasm_table_index: WasmTableIndex) {
+            ctx.pages.retain(|_, info| {
+                if info.wasm_table_index != wasm_table_index {
+                    return true;
+                }
+                match info.hidden_wasm_table_indices.pop() {
+                    Some(new_primary) => {
+                        info.wasm_table_index = new_primary;
+                        info.entry_points.clear();
+                        true
+                    },
+                    None => false,
+                }
+            });
+
+            for info in ctx.pages.values_mut() {
+                info.hidden_wasm_table_indices
+                    .retain(|&w| w != wasm_table_index)
+            }
+
             for i in 0..unsafe { cpu::valid_tlb_entries_count } {
                 let page = unsafe { cpu::valid_tlb_entries[i as usize] };
                 let entry = unsafe { cpu::tlb_data[page as usize] };
@@ -2272,27 +2291,15 @@ fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
                             if wasm_table_index == w {
                                 drop(Box::from_raw(c.as_ptr()));
                                 cpu::tlb_code[page as usize] = None;
-                                if !ctx.entry_points.contains_key(&tlb_physical_page) {
-                                    // XXX
+                                if !ctx.entry_points.contains_key(&tlb_physical_page)
+                                    && !ctx.pages.contains_key(&tlb_physical_page)
+                                {
                                     cpu::tlb_data[page as usize] &= !cpu::TLB_HAS_CODE;
                                 }
                             }
                         },
                     }
                 }
-            }
-
-            ctx.pages.retain(
-                |_,
-                 &mut PageInfo {
-                     wasm_table_index: w,
-                     ..
-                 }| w != wasm_table_index,
-            );
-
-            for info in ctx.pages.values_mut() {
-                info.hidden_wasm_table_indices
-                    .retain(|&w| w != wasm_table_index)
             }
 
             free_wasm_table_index(ctx, wasm_table_index);
