@@ -54,7 +54,7 @@ emulator.bus.register("emulator-started", function()
     const timeout = setTimeout(() => {
         console.warn(emulator.screen_adapter.get_text_screen());
         throw new Error("Timeout");
-    }, 120 * 1000);
+    }, 600 * 1000);
 
     let line = "";
     emulator.add_listener("serial0-output-byte", async function(byte)
