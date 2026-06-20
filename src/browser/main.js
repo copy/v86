@@ -463,6 +463,25 @@ function onload()
             name: "Oberon",
         },
         {
+            id: "gentleos16",
+            fda: {
+                url: host + "gentleos16-fd1440.img",
+                size: 1474560,
+            },
+            name: "GentleOS/16",
+            homepage: "https://github.com/luke8086/gentleos",
+        },
+        {
+            id: "gentleos32",
+            hda: {
+                url: host + "gentleos32-disk.img",
+                size: 8388608,
+                async: false,
+            },
+            name: "GentleOS/32",
+            homepage: "https://github.com/luke8086/gentleos32",
+        },
+        {
             id: "windows1",
             fda: {
                 url: host + "windows101.img",

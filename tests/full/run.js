@@ -134,6 +134,23 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "GentleOS/16",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/gentleos16-fd1440.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_graphical_size: [320, 200],
+        },
+        {
+            name: "GentleOS/32",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/gentleos32-disk.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+        },
+        {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
             timeout: 90,
