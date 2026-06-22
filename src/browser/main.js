@@ -980,18 +980,8 @@ function onload()
         {
             id: "windows95",
             memory_size: 64 * 1024 * 1024,
-            // old image:
-            //memory_size: 32 * 1024 * 1024,
-            //hda: {
-            //    url: host + "w95/.img",
-            //    size: 242049024,
-            //    async: true,
-            //    fixed_chunk_size: 256 * 1024,
-            //    use_parts: true,
-            //},
-            //state: { url: host + "windows95_state.bin.zst" },
             hda: {
-                url: host + "windows95-v2/.img",
+                url: host + "windows95-v3/.img",
                 size: 471859200,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
@@ -1003,7 +993,7 @@ function onload()
             id: "windows95-boot",
             memory_size: 64 * 1024 * 1024,
             hda: {
-                url: host + "windows95-v2/.img",
+                url: host + "windows95-v3/.img",
                 size: 471859200,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
