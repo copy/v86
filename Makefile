@@ -408,3 +408,5 @@ doc:
 
 denodoc:
 	deno doc --html --name="v86 API" --output=./docs/api ./v86.d.ts
+
+.PHONY: tests
