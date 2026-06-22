@@ -369,7 +369,7 @@ function onload()
                 url: host + "doof-1440.img",
                 size: 1474560,
             },
-            name: "Doom On One Floppy",
+            name: "DOOF",
             homepage: "https://github.com/fragglet/squashware",
         },
         {
