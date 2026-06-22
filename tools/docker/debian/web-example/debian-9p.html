@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>debian example</title>
+  <script src="build/libv86.js"></script>
+</head>
+
+<body>
+<div id="screen_container" tabindex="0" style="outline: none;">
+  <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+  <canvas style="display: none"></canvas>
+</div>
+
+<script>
+"use strict";
+
+async function createStateBlobUrl(baseName) {
+    const concurrency = 6;
+    let currentIndex = 1;
+    let maxIndex = Infinity; 
+    const buffers = [];
+
+    async function fetchWorker() {
+        while (true) {
+            const index = currentIndex++;
+
+            if (index > maxIndex) break;
+
+            const url = `${baseName}.part${index}`;
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) {
+                    maxIndex = Math.min(maxIndex, index - 1);
+                    break;
+                }
+                buffers[index - 1] = await resp.arrayBuffer();
+            } catch (e) {
+                maxIndex = Math.min(maxIndex, index - 1);
+                break;
+            }
+        }
+    }
+
+    const workers = [];
+    for (let i = 0; i < concurrency; i++) {
+        workers.push(fetchWorker());
+    }
+    
+    await Promise.all(workers);
+
+    const validParts = [];
+    for (let i = 0; i < buffers.length; i++) {
+        if (buffers[i]) {
+            validParts.push(buffers[i]);
+        } else {
+            break;
+        }
+    }
+
+    const blob = new Blob(validParts, { type: "application/octet-stream" });
+    return URL.createObjectURL(blob);
+}
+
+window.onload = async function () {
+    try {
+        const screen = document.getElementById("screen_container");
+        screen.addEventListener("mousedown", function() {
+            screen.focus();
+        });
+
+        const stateUrl = await createStateBlobUrl("images/debian-state-base.bin.zst");
+
+        const emulator = new V86({
+            wasm_path: "build/v86.wasm",
+            memory_size: 1636 * 1024 * 1024,
+            vga_memory_size: 5 * 1024 * 1024,
+            screen_container: screen,
+            initial_state: { url: stateUrl },
+            filesystem: { baseurl: "images/debian-9p-rootfs-flat/" },
+            network_relay_url: "wss://relay.widgetry.org/",
+            autostart: true,
+        });
+
+        function runCommandWithSentinel(cmd) {
+            return new Promise((resolve) => {
+                const sentinel = "V86_CMD_DONE";
+                let buffer = "";
+                
+                const listener = (byte) => {
+                    const char = String.fromCharCode(byte);
+                    buffer += char;
+                    if (buffer.includes(sentinel)) {
+                        emulator.remove_listener("serial0-output-byte", listener);
+                        resolve();
+                    }
+                };
+
+                emulator.add_listener("serial0-output-byte", listener);
+                emulator.serial0_send(`${cmd}; echo "${sentinel}"\n`);
+            });
+        }
+
+        const canvas = document.querySelector("canvas");
+        canvas.addEventListener("click", function() {
+            canvas.requestPointerLock();
+        });
+
+    } catch (e) {
+        console.error(e);
+        alert("Failed to load: " + e.message);
+    }
+};
+</script>
+</body>
+</html>
