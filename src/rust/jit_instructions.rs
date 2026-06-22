@@ -3557,10 +3557,8 @@ pub fn instr16_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_readable_or_pagefault(ctx, &address_local, 14);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fldenv16");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 pub fn instr16_D9_4_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3577,10 +3575,8 @@ pub fn instr32_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_readable_or_pagefault(ctx, &address_local, 28);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fldenv32");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 
@@ -3605,10 +3601,8 @@ pub fn instr16_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_writable_or_pagefault(ctx, &address_local, 14);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fstenv16");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 pub fn instr16_D9_6_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -3619,10 +3613,8 @@ pub fn instr32_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_writable_or_pagefault(ctx, &address_local, 28);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fstenv32");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 
@@ -3756,10 +3748,8 @@ pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_readable_or_pagefault(ctx, &address_local, 10);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fldm80_without_fault");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -4062,10 +4052,8 @@ pub fn instr_DF_6_mem_jit(ctx: &mut JitContext, modrm_byte: ModrmByte) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_writable_or_pagefault(ctx, &address_local, 10);
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn1("fpu_fbstp");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 pub fn instr_DF_6_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -7699,13 +7687,10 @@ pub fn instr_0FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_writable_or_pagefault(ctx, &address_local, 8);
-
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.const_i32(r1 as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn3("maskmovq");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 
@@ -7802,13 +7787,10 @@ pub fn instr_660FF7_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     jit_add_seg_offset(ctx, regs::DS);
     let address_local = ctx.builder.set_new_local();
     codegen::gen_writable_or_pagefault(ctx, &address_local, 16);
-
-    codegen::gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.const_i32(r1 as i32);
     ctx.builder.const_i32(r2 as i32);
     ctx.builder.get_local(&address_local);
     ctx.builder.call_fn3("maskmovdqu");
-    codegen::gen_move_registers_from_memory_to_locals(ctx);
     ctx.builder.free_local(address_local);
 }
 
