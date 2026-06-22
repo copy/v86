@@ -346,6 +346,7 @@ pub struct JitContext<'a> {
     pub current_instruction: Instruction,
     pub previous_instruction: Instruction,
     pub instruction_counter: WasmLocal,
+    pub wasm_table_index: WasmTableIndex,
 }
 impl<'a> JitContext<'a> {
     pub fn reg(&self, i: u32) -> WasmLocal {
@@ -1256,6 +1257,7 @@ fn jit_generate_module(
         current_instruction: Instruction::Other,
         previous_instruction: Instruction::Other,
         instruction_counter,
+        wasm_table_index,
     };
 
     let entry_blocks = {
@@ -2014,10 +2016,10 @@ fn jit_generate_module(
         ctx.builder.block_end(); // main loop
     }
     {
-        // exit-with-fault case
+        // exit with exception or due to smc
         ctx.builder.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
-        codegen::gen_fn0_const(ctx.builder, "trigger_fault_end_jit");
+        codegen::gen_fn0_const(ctx.builder, "exit_jit");
         codegen::gen_update_instruction_counter(ctx);
         ctx.builder.return_();
     }
@@ -2398,6 +2400,20 @@ pub fn jit_page_has_code(page: Page) -> bool { jit_page_has_code_ctx(&mut get_ji
 
 fn jit_page_has_code_ctx(ctx: &mut JitState, page: Page) -> bool {
     ctx.pages.contains_key(&page) || ctx.entry_points.contains_key(&page)
+}
+
+pub fn jit_page_has_wasm_table_index(page: Page, wasm_table_index: u16) -> bool {
+    let ctx = get_jit_state();
+    match ctx.pages.get(&page) {
+        Some(info) => {
+            info.wasm_table_index.to_u16() == wasm_table_index
+                || info
+                    .hidden_wasm_table_indices
+                    .iter()
+                    .any(|w| w.to_u16() == wasm_table_index)
+        },
+        None => false,
+    }
 }
 
 #[no_mangle]

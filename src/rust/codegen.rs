@@ -883,8 +883,13 @@ fn gen_safe_write(
             ctx.builder.get_local_i64(local2)
         },
     }
-    ctx.builder
-        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+
+    // packed lower bits of eip and wasm table index
+    ctx.builder.const_i32(
+        ctx.start_of_current_instruction as i32 & 0xFFF
+            | (ctx.wasm_table_index.to_u16() as i32) << 16,
+    );
+
     match bits {
         BitSize::BYTE => {
             ctx.builder.call_fn3_ret("safe_write8_slow_jit");
@@ -1023,8 +1028,12 @@ pub fn gen_safe_read_write(
     }
 
     ctx.builder.get_local(&address_local);
-    ctx.builder
-        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+
+    // packed lower bits of eip and wasm table index
+    ctx.builder.const_i32(
+        ctx.start_of_current_instruction as i32 & 0xFFF
+            | (ctx.wasm_table_index.to_u16() as i32) << 16,
+    );
 
     match bits {
         BitSize::BYTE => {
@@ -1112,8 +1121,11 @@ pub fn gen_safe_read_write(
             GenSafeReadWriteValue::I64(l) => ctx.builder.get_local_i64(l),
         }
 
-        ctx.builder
-            .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+        // packed lower bits of eip and wasm table index
+        ctx.builder.const_i32(
+            ctx.start_of_current_instruction as i32 & 0xFFF
+                | (ctx.wasm_table_index.to_u16() as i32) << 16,
+        );
 
         match bits {
             BitSize::BYTE => {
