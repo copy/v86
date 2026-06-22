@@ -395,8 +395,41 @@ fn gen_get_last_op1(builder: &mut WasmBuilder, previous_instruction: &Instructio
     }
 }
 
-pub fn gen_get_page_fault(builder: &mut WasmBuilder) {
-    builder.load_fixed_u8(global_pointers::page_fault as u32);
+pub fn gen_readable_or_pagefault(ctx: &mut JitContext, address_local: &WasmLocal, size: i32) {
+    ctx.builder.get_local(address_local);
+    ctx.builder.const_i32(size);
+    ctx.builder
+        .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+    ctx.builder.call_fn3_ret("readable_or_pagefault_jit");
+    if cfg!(feature = "profiler") {
+        ctx.builder.if_void();
+        gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+        ctx.builder.br(ctx.exit_with_fault_label);
+        ctx.builder.block_end();
+    }
+    else {
+        ctx.builder.br_if(ctx.exit_with_fault_label);
+    }
+}
+
+pub fn gen_writable_or_pagefault(ctx: &mut JitContext, address_local: &WasmLocal, size: i32) {
+    ctx.builder.get_local(address_local);
+    ctx.builder.const_i32(size);
+    // packed lower bits of eip and wasm table index
+    ctx.builder.const_i32(
+        ctx.start_of_current_instruction as i32 & 0xFFF
+            | (ctx.wasm_table_index.to_u16() as i32) << 16,
+    );
+    ctx.builder.call_fn3_ret("writable_or_pagefault_jit");
+    if cfg!(feature = "profiler") {
+        ctx.builder.if_void();
+        gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+        ctx.builder.br(ctx.exit_with_fault_label);
+        ctx.builder.block_end();
+    }
+    else {
+        ctx.builder.br_if(ctx.exit_with_fault_label);
+    }
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack

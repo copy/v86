@@ -4996,15 +4996,9 @@ pub unsafe fn instr_0FF7_mem(_addr: i32, _r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn maskmovq(r1: i32, r2: i32, addr: i32) {
     // maskmovq mm, mm
+    // the caller must have called writable_or_pagefault
     let source: [u8; 8] = u64::to_le_bytes(read_mmx64s(r2));
     let mask: [u8; 8] = u64::to_le_bytes(read_mmx64s(r1));
-    match writable_or_pagefault(addr, 8) {
-        Ok(()) => *page_fault = false,
-        Err(()) => {
-            *page_fault = true;
-            return;
-        },
-    }
     for i in 0..8 {
         if 0 != mask[i] & 0x80 {
             safe_write8(addr + i as i32, source[i] as i32).unwrap();
@@ -5013,26 +5007,18 @@ pub unsafe fn maskmovq(r1: i32, r2: i32, addr: i32) {
     transition_fpu_to_mmx();
 }
 pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
-    maskmovq(
-        r1,
-        r2,
-        return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI))),
-    )
+    let addr = return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI)));
+    return_on_pagefault!(writable_or_pagefault(addr, 8));
+    maskmovq(r1, r2, addr)
 }
 
 pub unsafe fn instr_660FF7_mem(_addr: i32, _r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn maskmovdqu(r1: i32, r2: i32, addr: i32) {
     // maskmovdqu xmm, xmm
+    // the caller must have called writable_or_pagefault
     let source = read_xmm128s(r2);
     let mask = read_xmm128s(r1);
-    match writable_or_pagefault(addr, 16) {
-        Ok(()) => *page_fault = false,
-        Err(()) => {
-            *page_fault = true;
-            return;
-        },
-    }
     for i in 0..16 {
         if 0 != mask.u8[i] & 0x80 {
             safe_write8(addr + i as i32, source.u8[i] as i32).unwrap();
@@ -5040,11 +5026,9 @@ pub unsafe fn maskmovdqu(r1: i32, r2: i32, addr: i32) {
     }
 }
 pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
-    maskmovdqu(
-        r1,
-        r2,
-        return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI))),
-    )
+    let addr = return_on_pagefault!(get_seg_prefix_ds(get_reg_asize(EDI)));
+    return_on_pagefault!(writable_or_pagefault(addr, 16));
+    maskmovdqu(r1, r2, addr)
 }
 #[no_mangle]
 pub unsafe fn instr_0FF8(source: u64, r: i32) {

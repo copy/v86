@@ -98,11 +98,6 @@ export function CPU(bus, wm, stop_idling)
 
     this.tss_size_32 = view(Int32Array, memory, 1128, 1);
 
-    /*
-     * whether or not a page fault occured
-     */
-    this.page_fault = view(Uint32Array, memory, 540, 8);
-
     this.cr = view(Int32Array, memory, 580, 8);
 
     // current privilege level
@@ -473,7 +468,7 @@ CPU.prototype.get_state = function()
     state[6] = this.idtr_size[0];
     state[7] = this.gdtr_offset[0];
     state[8] = this.gdtr_size[0];
-    state[9] = this.page_fault[0];
+    // 9 (formerly page_fault)
     state[10] = this.cr;
     state[11] = this.cpl[0];
 
@@ -661,7 +656,6 @@ CPU.prototype.set_state = function(state)
     this.idtr_size[0] = state[6];
     this.gdtr_offset[0] = state[7];
     this.gdtr_size[0] = state[8];
-    this.page_fault[0] = state[9];
     this.cr.set(state[10]);
     this.cpl[0] = state[11];
 

@@ -17,8 +17,6 @@ pub const flags: *mut i32 = 120 as *mut i32;
 
 pub const segment_access_bytes: *mut u8 = 512 as *mut u8; // TODO: reorder below segment_limits
 
-pub const page_fault: *mut bool = 540 as *mut bool;
-
 pub const apic_enabled: *mut bool = 548 as *mut bool;
 pub const acpi_enabled: *mut bool = 552 as *mut bool;
 

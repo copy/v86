@@ -3638,6 +3638,20 @@ pub unsafe fn safe_read_write64_slow_jit(addr: i32, eip_and_wasm_table_index: i3
     safe_read_slow_jit(addr, 64, true, eip_and_wasm_table_index)
 }
 
+#[no_mangle]
+pub unsafe fn readable_or_pagefault_jit(addr: i32, size: i32, eip_offset_in_page: i32) -> i32 {
+    dbg_assert!(size > 0 && size < 0x1000);
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    let crosses_page = (addr & 0xFFF) + size > 0x1000;
+    if translate_address_read_jit(addr).is_err()
+        || crosses_page && translate_address_read_jit((addr | 0xFFF) + 1).is_err()
+    {
+        *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+        return 1;
+    }
+    0
+}
+
 pub unsafe fn safe_write_slow_jit(
     addr: i32,
     bitsize: i32,
@@ -3742,6 +3756,28 @@ pub unsafe fn safe_write128_slow_jit(
     eip_and_wasm_table_index: i32,
 ) -> i32 {
     safe_write_slow_jit(addr, 128, low, high, eip_and_wasm_table_index)
+}
+
+#[no_mangle]
+pub unsafe fn writable_or_pagefault_jit(
+    addr: i32,
+    size: i32,
+    eip_offset_in_page_and_wasm_table_index: i32,
+) -> i32 {
+    let wasm_table_index = (eip_offset_in_page_and_wasm_table_index >> 16) as u16;
+    let eip_offset_in_page = eip_offset_in_page_and_wasm_table_index & 0xFFFF;
+    dbg_assert!(size > 0 && size < 0x1000);
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    dbg_assert!(u32::from(wasm_table_index) < jit::WASM_TABLE_SIZE);
+    let crosses_page = (addr & 0xFFF) + size > 0x1000;
+    if translate_address_write_jit(addr, wasm_table_index).is_err()
+        || crosses_page
+            && translate_address_write_jit((addr | 0xFFF) + 1, wasm_table_index).is_err()
+    {
+        *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+        return 1;
+    }
+    0
 }
 
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
@@ -3970,7 +4006,10 @@ pub unsafe fn read_mmx32s(r: i32) -> i32 { (*fpu_st.offset(r as isize)).mantissa
 pub unsafe fn read_mmx64s(r: i32) -> u64 { (*fpu_st.offset(r as isize)).mantissa }
 
 pub unsafe fn write_mmx_reg64(r: i32, data: u64) {
-    *fpu_st.offset(r as isize) = softfloat::F80 { mantissa: data, sign_exponent: 0xFFFF };
+    *fpu_st.offset(r as isize) = softfloat::F80 {
+        mantissa: data,
+        sign_exponent: 0xFFFF,
+    };
 }
 
 pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32[0]; }
@@ -4516,7 +4555,6 @@ pub unsafe fn reset_cpu() {
     *gdtr_size = 0;
     *gdtr_offset = 0;
 
-    *page_fault = false;
     *cr = 1 << 30 | 1 << 29 | 1 << 4;
     *cr.offset(2) = 0;
     *cr.offset(3) = 0;
