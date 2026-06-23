@@ -13,7 +13,7 @@ mkdir -p "$IMAGES"
 
 echo "Building Docker image..."
 # &> redirects all output to a log file to keep your terminal clean
-docker build . --platform linux/386 --rm --tag "$IMAGE_NAME" &> build.log
+docker build . -f Dockerfile-9p --platform linux/386 --rm --tag "$IMAGE_NAME" &> build.log
 
 echo "Exporting filesystem..."
 docker rm "$CONTAINER_NAME" || true
