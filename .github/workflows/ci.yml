@@ -66,10 +66,13 @@ jobs:
 
       - name: Build kvm-unit-test
         if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
-        run: (cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
+        run: tests/kvm-unit-tests/build.sh
 
       - name: Run kvm-unit-test
-        run: tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
+        run: |
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v5

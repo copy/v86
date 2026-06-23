@@ -333,11 +333,15 @@ qemutests-release: build/libv86.mjs build/v86.wasm
 	diff build/qemu-test-result build/qemu-test-reference
 
 kvm-unit-test: build/v86-debug.wasm
-	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
+	tests/kvm-unit-tests/build.sh
+	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
+	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
 kvm-unit-test-release: build/libv86.mjs build/v86.wasm
-	(cd tests/kvm-unit-tests && ./configure && make x86/realmode.flat)
+	tests/kvm-unit-tests/build.sh
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
 expect-tests: build/v86-debug.wasm build/libwabt.cjs

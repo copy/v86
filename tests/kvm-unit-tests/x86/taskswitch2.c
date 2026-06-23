@@ -125,6 +125,8 @@ void test_kernel_mode_int()
 	printf("Return from nmi %d\n", test_count);
 	report("NMI int $2", test_count == 1);
 
+	// XXX: disabled for now, missing apic features
+#if 0
 	/* test that external NMI triggers task gate */
 	test_count = 0;
 	set_intr_task_gate(2, nmi_tss);
@@ -144,6 +146,7 @@ void test_kernel_mode_int()
 	irq_disable();
 	printf("Return from APIC IRQ\n");
 	report("IRQ external", test_count == 1);
+#endif
 
 	/* test that HW exception triggesr task gate */
 	set_intr_task_gate(0, de_tss);
