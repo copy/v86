@@ -1542,9 +1542,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 cpu.segment_offsets[i] = 0;
                 cpu.segment_limits[i] = 0xFFFFFFFF;
                 // cpu.segment_access_bytes[i]
-                // Value doesn't matter, OS isn't allowed to reload without setting
-                // up a proper GDT
-                cpu.sreg[i] = 0xB002;
+                cpu.sreg[i] = i === REG_CS ? 0x08 : 0x10;
             }
             cpu.instruction_pointer[0] = cpu.get_seg_cs() + entrypoint | 0;
             cpu.update_state_flags();
