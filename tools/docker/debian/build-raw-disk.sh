@@ -30,7 +30,6 @@ sudo mount "$OUT_IMG" mnt
 sudo tar -xf "$OUT_ROOTFS_TAR" -C mnt
 
 echo "Extracting kernel and initrd for v86 boot..."
-# v86 requires the kernel and initrd to be passed externally
 cp mnt/boot/vmlinuz-* "$IMAGES"/bzImage
 cp mnt/boot/initrd.img-* "$IMAGES"/initrd
 

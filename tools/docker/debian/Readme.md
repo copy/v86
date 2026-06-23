@@ -18,3 +18,16 @@ For setting up website:
 1. Either build v86 or downloading the release and place `v86.wasm` and `libv86.js` in `build` directory
 2. If you use raw disk, move `web-example/debian-raw-disk.html` to the root of this repository; if you use 9p filesystem, move `web-example/debian-9p.html` to the root of this repository.
 3. Launch a server at the root of this repository, e.g. `python3 -m http.server 8000`
+
+Network:
+
+Enable network by typing the following command in the xfce terminal:
+
+```
+sudo dhclient enp0s5
+```
+
+Credit:
+
+v86 debian config from sandbox-bio: https://github.com/sandbox-bio/v86/tree/master/tools/docker/debian
+
