@@ -1593,7 +1593,16 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
 
         //adjust_stack_reg(stack_adjust);
 
-        // TODO: invalidate segments that are not accessible at this cpl (see iret)
+        for reg in [ES, DS, FS, GS] {
+            let access = *segment_access_bytes.offset(reg as isize);
+            let dpl = access >> 5 & 3;
+            let executable = access & 8 == 8;
+            let conforming = access & 4 == 4;
+            if dpl < *cpl && !(executable && conforming) {
+                *segment_is_null.offset(reg as isize) = true;
+                *sreg.offset(reg as isize) = 0;
+            }
+        }
     }
     else {
         if is_osize_32 {
