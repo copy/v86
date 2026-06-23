@@ -556,10 +556,10 @@ pub unsafe fn iret(is_16: bool) {
     dbg_assert!(!vm86_mode());
 
     if *flags & FLAG_NT != 0 {
-        if DEBUG {
-            panic!("NT");
-        }
-        trigger_gp(0);
+        // nested task: return to the task linked through the back-link field of the current tss
+        let tss_offset = *segment_offsets.offset(TR as isize);
+        let backlink = return_on_pagefault!(safe_read16(tss_offset + TSR_BACKLINK));
+        do_task_switch(backlink, None, TaskSwitchSource::Iret);
         return;
     }
 
@@ -873,7 +873,6 @@ pub unsafe fn call_interrupt_vector(
                 dpl
             );
             dbg_trace();
-            dbg_assert!(descriptor.is_32(), "TODO: Check this (likely #GP)");
             dbg_assert!(offset == 0, "TODO: Check this (likely #GP)");
             do_task_switch(selector, error_code, TaskSwitchSource::CallOrInt);
             return;
@@ -1412,6 +1411,27 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
                 if is_call { TaskSwitchSource::CallOrInt } else { TaskSwitchSource::Jump },
             );
         }
+        else if info.system_type() == 5 {
+            // task gate
+            if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
+                dbg_log!("#gp task gate dpl < cpl or dpl < rpl: {:x}", selector);
+                trigger_gp(selector & !3);
+                return;
+            }
+
+            if !info.is_present() {
+                dbg_log!("#NP for loading not-present task gate sel={:x}", selector);
+                trigger_np(selector & !3);
+                return;
+            }
+
+            let tss_selector = (info.raw >> 16) as i32 & 0xFFFF;
+            do_task_switch(
+                tss_selector,
+                None,
+                if is_call { TaskSwitchSource::CallOrInt } else { TaskSwitchSource::Jump },
+            );
+        }
         else {
             dbg_assert!(false, "TODO: #gp invalid system type");
         }
@@ -1634,6 +1654,7 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
 pub enum TaskSwitchSource {
     Jump,
     CallOrInt,
+    Iret,
 }
 
 pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: TaskSwitchSource) {
@@ -1655,8 +1676,14 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
     let tss_is_16 = descriptor.system_type() <= 3;
     let tss_is_busy = (descriptor.system_type() & 2) == 2;
 
-    if (descriptor.system_type() & 2) == 2 {
-        // is busy
+    if source == TaskSwitchSource::Iret {
+        if !tss_is_busy {
+            // a task return must target a busy task
+            panic!("#TS handler");
+        }
+    }
+    else if tss_is_busy {
+        // jump, call or int to a busy task
         panic!("#GP handler");
     }
 
@@ -1704,7 +1731,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
 
     //safe_write32(tsr_offset + TSR_LDT, *sreg.offset(reg_ldtr));
 
-    if source == TaskSwitchSource::Jump {
+    if source == TaskSwitchSource::Jump || source == TaskSwitchSource::Iret {
         // mark the old task as not busy
         let tr_selector = SegmentSelector::of_u16(*sreg.offset(TR as isize));
         let (tr_descriptor, tr_descriptor_address) =
@@ -1717,8 +1744,10 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
         safe_write64(tr_descriptor_address, tr_descriptor.clear_busy().raw).unwrap();
     }
 
-    // jump, call and int mark the new task as busy (iret would not)
-    safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
+    if source != TaskSwitchSource::Iret {
+        // jump, call and int mark the new task as busy (iret would not)
+        safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
+    }
 
     //let new_tsr_size = descriptor.effective_limit;
     let new_tsr_offset = descriptor.base();
@@ -1739,72 +1768,80 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
 
     let new_eip = safe_read32s(new_tsr_offset + TSR_EIP).unwrap();
     let new_cs = safe_read16(new_tsr_offset + TSR_CS).unwrap();
-    let new_cs_selector = SegmentSelector::of_u16(new_cs as u16);
-    let new_cs_descriptor =
-        match lookup_segment_selector(new_cs_selector).expect("TODO: handle pagefault") {
-            Ok((desc, _)) => desc,
-            Err(SelectorNullOrInvalid::IsNull) => {
-                dbg_log!("null cs");
-                panic!("#TS handler");
-            },
-            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
-                dbg_log!("invalid cs: {:x}", new_cs);
-                panic!("#TS handler");
-            },
-        };
-
-    if new_cs_descriptor.is_system() {
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_executable() {
-        panic!("#TS handler");
-    }
-
-    if new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() > new_cs_selector.rpl() {
-        dbg_log!("cs conforming and dpl > rpl: {:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() != new_cs_selector.rpl() {
-        dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_present() {
-        dbg_log!("#NP for loading not-present in cs sel={:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    *segment_is_null.offset(CS as isize) = false;
-    *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
-    *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
-    *segment_access_bytes.offset(CS as isize) = new_cs_descriptor.access_byte();
-    *sreg.offset(CS as isize) = new_cs as u16;
-
-    *cpl = new_cs_descriptor.dpl();
-    cpl_changed();
-
-    dbg_assert!((*sreg.offset(CS as isize) & 3) as u8 == *cpl);
-
-    dbg_assert!(
-        new_eip as u32 <= new_cs_descriptor.effective_limit(),
-        "todo: #gp"
-    );
-    update_cs_size(new_cs_descriptor.is_32());
 
     let mut new_eflags = safe_read32s(new_tsr_offset + TSR_EFLAGS).unwrap();
-
     if source == TaskSwitchSource::CallOrInt {
-        safe_write32(tsr_offset + TSR_BACKLINK, selector.raw as i32).unwrap();
         new_eflags |= FLAG_NT;
     }
-
+    let new_cpl;
     if new_eflags & FLAG_VM != 0 {
-        panic!("task switch to VM mode");
+        *segment_is_null.offset(CS as isize) = false;
+        *segment_offsets.offset(CS as isize) = new_cs << 4;
+        *sreg.offset(CS as isize) = new_cs as u16;
+        update_cs_size(false);
+        new_cpl = 3;
+    }
+    else {
+        let new_cs_selector = SegmentSelector::of_u16(new_cs as u16);
+        let new_cs_descriptor =
+            match lookup_segment_selector(new_cs_selector).expect("TODO: handle pagefault") {
+                Ok((desc, _)) => desc,
+                Err(SelectorNullOrInvalid::IsNull) => {
+                    dbg_log!("null cs");
+                    panic!("#TS handler");
+                },
+                Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                    dbg_log!("invalid cs: {:x}", new_cs);
+                    panic!("#TS handler");
+                },
+            };
+
+        if new_cs_descriptor.is_system() {
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_executable() {
+            panic!("#TS handler");
+        }
+
+        if new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() > new_cs_selector.rpl() {
+            dbg_log!("cs conforming and dpl > rpl: {:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() != new_cs_selector.rpl() {
+            dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_present() {
+            dbg_log!("#NP for loading not-present in cs sel={:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        *segment_is_null.offset(CS as isize) = false;
+        *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
+        *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
+        *segment_access_bytes.offset(CS as isize) = new_cs_descriptor.access_byte();
+        *sreg.offset(CS as isize) = new_cs as u16;
+
+        dbg_assert!(
+            new_eip as u32 <= new_cs_descriptor.effective_limit(),
+            "todo: #gp"
+        );
+        update_cs_size(new_cs_descriptor.is_32());
+
+        new_cpl = new_cs_selector.rpl();
     }
 
+    *cpl = 0; // run update_eflags at cpl 0
     update_eflags(new_eflags);
+
+    if new_eflags & FLAG_VM != 0 {
+        *flags |= FLAG_VM;
+    }
+    *cpl = new_cpl;
+    cpl_changed();
 
     if source == TaskSwitchSource::CallOrInt {
         *flags |= FLAG_NT;
@@ -1833,7 +1870,8 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
         dbg_assert!(false);
     }
 
-    *instruction_pointer = get_seg_cs() + new_eip;
+    *instruction_pointer =
+        get_seg_cs() + if new_eflags & FLAG_VM != 0 { new_eip & 0xFFFF } else { new_eip };
 
     *segment_offsets.offset(TR as isize) = descriptor.base();
     *segment_limits.offset(TR as isize) = descriptor.effective_limit();
