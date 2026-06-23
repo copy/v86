@@ -1064,6 +1064,10 @@ CPU.prototype.init = function(settings, device_bus)
         {
             return new Uint8Array(Int32Array.of(x).buffer);
         }
+        function i64(low, high)
+        {
+            return new Uint8Array(Int32Array.of(low, high).buffer);
+        }
 
         function to_be16(x)
         {
@@ -1088,7 +1092,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_RAM_SIZE)
         {
-            this.fw_value = i32(this.memory_size[0]);
+            this.fw_value = i64(this.memory_size[0], 0);
         }
         else if(value === FW_CFG_NB_CPUS)
         {
