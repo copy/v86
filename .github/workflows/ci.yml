@@ -178,4 +178,6 @@ jobs:
           artifacts: "build/libv86*.js,build/libv86*.js.map,build/*.mjs,build/v86*.wasm"
           prerelease: true
 
-      - run: npm publish --provenance --access public
+      - name: Release to NPM
+        run: npm publish --provenance --access public
+        if: github.repository == 'copy/v86'
