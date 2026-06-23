@@ -325,7 +325,7 @@ export function VGAScreen(cpu, bus, screen, vga_memory_size)
     io.register_write(0x3C6, this, this.port3C6_write);
     io.register_write(0x3C7, this, this.port3C7_write);
     io.register_read(0x3C7, this, this.port3C7_read);
-    io.register_write(0x3C8, this, this.port3C8_write);
+    io.register_write(0x3C8, this, this.port3C8_write, this.port3C8_write16);
     io.register_read(0x3C8, this, this.port3C8_read);
     io.register_write(0x3C9, this, this.port3C9_write);
     io.register_read(0x3C9, this, this.port3C9_read);
@@ -1643,6 +1643,12 @@ VGAScreen.prototype.port3C8_write = function(index)
 {
     this.dac_color_index_write = (index & 0xFF) * 3;
     this.dac_state |= 0x3;
+};
+
+VGAScreen.prototype.port3C8_write16 = function(data)
+{
+    this.port3C8_write(data & 0xFF);
+    this.port3C9_write(data >> 8 & 0xFF);
 };
 
 VGAScreen.prototype.port3C8_read = function()
