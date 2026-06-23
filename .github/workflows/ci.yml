@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run eslint
         run: sudo npm install -g eslint; make eslint
@@ -21,15 +21,15 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           filter: tree:0
 
       - name: Setup Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24.x'
           check-latest: true
           registry-url: 'https://registry.npmjs.org'
 
@@ -59,7 +59,7 @@ jobs:
         run: make rustfmt
 
       - name: Fetch kvm-unit-test cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-kvm-unit-test
         with:
           path: tests/kvm-unit-tests/
@@ -73,7 +73,7 @@ jobs:
         run: tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 
       - name: Fetch namsmtests cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-nasmtests
         with:
           path: tests/nasm/build/
@@ -89,7 +89,7 @@ jobs:
         run: make rust-test
 
       - name: Fetch image cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-images
         with:
           path: images/
@@ -124,7 +124,7 @@ jobs:
         run: make update-package-json-version
 
       - name: Upload the artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: v86
           path: |
@@ -156,14 +156,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: v86
 
       - name: Display structure of downloaded files
         run: ls -R
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
