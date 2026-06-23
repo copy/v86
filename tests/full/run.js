@@ -166,6 +166,22 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Linux 0.11",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/linux-0.11-devel-060625.img",
+            timeout: 60,
+            expected_texts: [
+                "[/usr/root]#",
+                "test passed",
+            ],
+            actions: [
+                {
+                    on_text: "[/usr/root]#",
+                    run: "echo test pas''sed\n",
+                },
+            ],
+        },
+        {
             name: "Windows Vista installer",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/experimental/en_windows_vista_sp2_x86_dvd_342266.iso",
