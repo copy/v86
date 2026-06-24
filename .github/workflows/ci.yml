@@ -29,8 +29,7 @@ jobs:
       - name: Setup Node.js version
         uses: actions/setup-node@v6
         with:
-          node-version: '24.x'
-          check-latest: true
+          node-version: '24.17.0'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Setup toolchain
@@ -165,7 +164,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24.x'
+          node-version: '24.17.0'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Release to GitHub
