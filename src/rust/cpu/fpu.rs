@@ -605,7 +605,13 @@ pub unsafe fn fpu_load_tag_word() -> i32 {
     return tag_word;
 }
 #[no_mangle]
-pub unsafe fn fpu_fst(r: i32) { fpu_write_st(*fpu_stack_ptr as i32 + r & 7, fpu_get_st0()); }
+pub unsafe fn fpu_fst(r: i32) {
+    let index: i32 = *fpu_stack_ptr as i32 + r & 7;
+    fpu_write_st(index, fpu_get_st0());
+    if 0 == ((*fpu_stack_empty >> *fpu_stack_ptr) & 1) {
+        *fpu_stack_empty &= !(1 << index);
+    }
+}
 pub unsafe fn fpu_fst80p(addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 10));
     fpu_store_m80(addr, fpu_get_st0());
