@@ -117,7 +117,7 @@ You need:
 - Rust with the wasm32-unknown-unknown target
 - A version of clang compatible with Rust
 - java (for Closure Compiler, not necessary when using `debug.html`)
-- nodejs (a recent version is required, v16.11.1 is known to be working)
+- nodejs (a recent version is required, v24.16 is known to be working)
 - To run tests: nasm, gdb, qemu-system, gcc, libc-i386 and rustfmt
 
 See [tools/docker/test-image/Dockerfile](tools/docker/test-image/Dockerfile)
