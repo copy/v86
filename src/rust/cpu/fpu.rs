@@ -498,9 +498,9 @@ pub unsafe fn fpu_fprem(ieee: bool) {
     let exp1 = st1.log2();
     let d = (exp0 - exp1).abs();
     if !intel_compatibility || d < F80::of_f64(f64::to_bits(64.0)) {
-        let fprem_quotient =
-            (if ieee { (st0 / st1).round() } else { (st0 / st1).trunc() }).to_i32();
-        fpu_write_st(*fpu_stack_ptr as i32, st0 % st1);
+        let fprem_quotient = if ieee { (st0 / st1).round() } else { (st0 / st1).trunc() };
+        fpu_write_st(*fpu_stack_ptr as i32, st0 - st1 * fprem_quotient);
+        let fprem_quotient = fprem_quotient.to_i32();
         *fpu_status_word &= !(FPU_C0 | FPU_C1 | FPU_C3);
         if 0 != fprem_quotient & 1 {
             *fpu_status_word |= FPU_C1
