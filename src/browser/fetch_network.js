@@ -17,7 +17,7 @@ import { BusConnector } from "../bus.js";
 const CR = 0x0D;
 const LF = 0x0A;
 
-function findCrLfCrLf(haystack)
+function find_crlfcrlf(haystack)
 {
     for(let i = 0; i + 3 < haystack.length; i++)
     {
@@ -136,18 +136,18 @@ async function on_data_http(data)
         this.rawBuffer = chunk;
     }
 
-    const sep_index = findCrLfCrLf(this.rawBuffer);
+    const sep_index = find_crlfcrlf(this.rawBuffer);
     if(sep_index === -1) return;
 
     // Split into header (text) and body (binary).
-    const headerBytes = this.rawBuffer.slice(0, sep_index);
-    const bodyBytes = this.rawBuffer.slice(sep_index + 4);
+    const header_bytes = this.rawBuffer.slice(0, sep_index);
+    const body_bytes = this.rawBuffer.slice(sep_index + 4);
     this.rawBuffer = null;
 
-    const headerText = new TextDecoder().decode(headerBytes);
-    const headerLines = headerText.split(/\r\n/);
+    const header_text = new TextDecoder().decode(header_bytes);
+    const header_lines = header_text.split(/\r\n/);
 
-    const first_line = headerLines[0].split(" ");
+    const first_line = header_lines[0].split(" ");
     let target;
     if(/^https?:/.test(first_line[1]))
     {
@@ -165,13 +165,13 @@ async function on_data_http(data)
     }
 
     const req_headers = new Headers();
-    for(let i = 1; i < headerLines.length; ++i)
+    for(let i = 1; i < header_lines.length; ++i)
     {
-        const header = this.net.parse_http_header(headerLines[i]);
+        const header = this.net.parse_http_header(header_lines[i]);
         if(!header)
         {
-            console.warn('The request contains an invalid header: "%s"', headerLines[i]);
-            this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${headerLines[i]}`);
+            console.warn('The request contains an invalid header: "%s"', header_lines[i]);
+            this.net.respond_text_and_close(this, 400, "Bad Request", `Invalid header in request: ${header_lines[i]}`);
             return;
         }
         if(header.key.toLowerCase() === "host") target.host = header.value;
@@ -214,10 +214,10 @@ async function on_data_http(data)
         // If Content-Length is present and larger than what we have so far,
         // buffer the partial body and wait for remaining chunks.
         const content_length = parseInt(req_headers.get("content-length") || "0", 10);
-        if(content_length > 0 && bodyBytes.length < content_length)
+        if(content_length > 0 && body_bytes.length < content_length)
         {
             this.pendingBody = {
-                buf: bodyBytes,
+                buf: body_bytes,
                 cl: content_length,
                 done: (body) => {
                     opts.body = body;
@@ -226,7 +226,7 @@ async function on_data_http(data)
             };
             return;
         }
-        opts.body = bodyBytes;
+        opts.body = body_bytes;
     }
 
     dispatch_fetch(this, fetch_url, opts);
