@@ -348,6 +348,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
 	USE_VIRTIO=1 ./tests/devices/fetch_network.js
+	./tests/devices/fetch_network_post.js
 	./tests/devices/wisp_network.js
 	./tests/devices/virtio_balloon.js
 
