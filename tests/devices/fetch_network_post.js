@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { FetchNetworkAdapter } from "../../src/browser/fetch_network.js";
 
-const textEncoder = new TextEncoder();
+const text_encoder = new TextEncoder();
 
 let tests_passed = 0;
 let tests_failed = 0;
@@ -93,7 +93,7 @@ test("Small POST body fits in one segment", () => {
 
     const body = "hello world";
     const request = "POST /api HTTP/1.1\r\nHost: example.com\r\nContent-Length: 11\r\n\r\n" + body;
-    dispatch(textEncoder.encode(request).buffer);
+    dispatch(text_encoder.encode(request).buffer);
 
     assert.equal(fetch_calls.length, 1, "fetch should be called once");
     const { opts } = fetch_calls[0];
@@ -104,25 +104,25 @@ test("Small POST body fits in one segment", () => {
 test("Large POST body split across three segments", () => {
     const { dispatch, fetch_calls } = setup();
 
-    const bigBody = new Uint8Array(4000);
-    bigBody.fill(0x42); // 'B'
+    const big_body = new Uint8Array(4000);
+    big_body.fill(0x42); // 'B'
 
     const headers = "POST /api HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4000\r\n\r\n";
-    const hdrBytes = textEncoder.encode(headers);
+    const hdr_bytes = text_encoder.encode(headers);
 
     // Segment 1: headers + first 1000 bytes of body
-    const seg1 = new Uint8Array(hdrBytes.length + 1000);
-    seg1.set(hdrBytes);
-    seg1.set(bigBody.slice(0, 1000), hdrBytes.length);
+    const seg1 = new Uint8Array(hdr_bytes.length + 1000);
+    seg1.set(hdr_bytes);
+    seg1.set(big_body.slice(0, 1000), hdr_bytes.length);
     dispatch(seg1.buffer);
     assert.equal(fetch_calls.length, 0, "no fetch yet — body incomplete");
 
     // Segment 2: next 1500 bytes
-    dispatch(bigBody.slice(1000, 2500).buffer);
+    dispatch(big_body.slice(1000, 2500).buffer);
     assert.equal(fetch_calls.length, 0, "still no fetch");
 
     // Segment 3: final 1500 bytes
-    dispatch(bigBody.slice(2500, 4000).buffer);
+    dispatch(big_body.slice(2500, 4000).buffer);
     assert.equal(fetch_calls.length, 1, "fetch called now");
 
     const body = fetch_calls[0].opts.body;
@@ -136,13 +136,13 @@ test("Binary body with embedded CRLFCRLF is not corrupted", () => {
     const { dispatch, fetch_calls } = setup();
 
     // Body contains the byte sequence 0x0D 0x0A 0x0D 0x0A (\r\n\r\n) inside it
-    const binBody = new Uint8Array([0xAA, 0x0D, 0x0A, 0x0D, 0x0A, 0xBB]);
+    const bin_body = new Uint8Array([0xAA, 0x0D, 0x0A, 0x0D, 0x0A, 0xBB]);
     const headers = "POST /api HTTP/1.1\r\nHost: example.com\r\nContent-Length: 6\r\n\r\n";
-    const hdrBytes = textEncoder.encode(headers);
+    const hdr_bytes = text_encoder.encode(headers);
 
-    const full = new Uint8Array(hdrBytes.length + binBody.length);
-    full.set(hdrBytes);
-    full.set(binBody, hdrBytes.length);
+    const full = new Uint8Array(hdr_bytes.length + bin_body.length);
+    full.set(hdr_bytes);
+    full.set(bin_body, hdr_bytes.length);
     dispatch(full.buffer);
 
     assert.equal(fetch_calls.length, 1);
@@ -157,7 +157,7 @@ test("GET request (no body) is dispatched immediately", () => {
     const { dispatch, fetch_calls } = setup();
 
     const request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-    dispatch(textEncoder.encode(request).buffer);
+    dispatch(text_encoder.encode(request).buffer);
 
     assert.equal(fetch_calls.length, 1, "fetch called once");
     assert.equal(fetch_calls[0].opts.method, "GET");
@@ -170,7 +170,7 @@ test("Headers split across two segments", () => {
     const request = "POST /api HTTP/1.1\r\nHost: example.com\r\nContent-Length: 2\r\n\r\n" + body;
 
     // Split in the middle of a header line
-    const bytes = textEncoder.encode(request);
+    const bytes = text_encoder.encode(request);
     const mid = Math.floor(bytes.length * 0.4);
 
     dispatch(bytes.slice(0, mid).buffer);
