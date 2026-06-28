@@ -4482,7 +4482,7 @@ unsafe fn pic_call_irq(interrupt_nr: u8) {
 }
 
 #[no_mangle]
-unsafe fn device_raise_irq(i: u8) {
+pub unsafe fn device_raise_irq(i: u8) {
     pic::set_irq(i);
     if *acpi_enabled {
         ioapic::set_irq(i);
@@ -4491,7 +4491,7 @@ unsafe fn device_raise_irq(i: u8) {
 }
 
 #[no_mangle]
-unsafe fn device_lower_irq(i: u8) {
+pub unsafe fn device_lower_irq(i: u8) {
     pic::clear_irq(i);
     if *acpi_enabled {
         ioapic::clear_irq(i);
