@@ -65,8 +65,10 @@ list of emulated hardware:
 [Dial-up modem networking](docs/modem.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
-[Windows NT guest setup](docs/windows-nt.md) —
+[MS-DOS/FreeDOS guest setup](docs/dos.md) —
+[Windows 3.1x guest setup](docs/windows-31x.md) —
 [Windows 9x guest setup](docs/windows-9x.md) —
+[Windows NT guest setup](docs/windows-nt.md) —
 [9p filesystem](docs/filesystem.md) —
 [Linux rootfs on 9p](docs/linux-9p-image.md) —
 [Profiling](docs/profiling.md) —
