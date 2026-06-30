@@ -1768,11 +1768,15 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
 
     let new_eip = safe_read32s(new_tsr_offset + TSR_EIP).unwrap();
     let new_cs = safe_read16(new_tsr_offset + TSR_CS).unwrap();
+    let new_ldt = safe_read16(new_tsr_offset + TSR_LDT).unwrap();
 
     let mut new_eflags = safe_read32s(new_tsr_offset + TSR_EFLAGS).unwrap();
     if source == TaskSwitchSource::CallOrInt {
         new_eflags |= FLAG_NT;
     }
+
+    load_ldt(new_ldt).unwrap();
+
     let new_cpl;
     if new_eflags & FLAG_VM != 0 {
         *segment_is_null.offset(CS as isize) = false;
@@ -1846,9 +1850,6 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: Tas
     if source == TaskSwitchSource::CallOrInt {
         *flags |= FLAG_NT;
     }
-
-    let new_ldt = safe_read16(new_tsr_offset + TSR_LDT).unwrap();
-    load_ldt(new_ldt).unwrap();
 
     write_reg32(EAX, safe_read32s(new_tsr_offset + TSR_EAX).unwrap());
     write_reg32(ECX, safe_read32s(new_tsr_offset + TSR_ECX).unwrap());
