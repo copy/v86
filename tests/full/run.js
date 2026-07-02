@@ -168,7 +168,8 @@ if(cluster.isPrimary)
         {
             name: "Linux 0.11",
             skip_if_disk_image_missing: true,
-            hda: root_path + "/images/linux-0.11-devel-060625.img",
+            fda: root_path + "/images/experimental/linux-0.11/bootfloppy.img",
+            hda: root_path + "/images/experimental/linux-0.11/hdc-0.11.img",
             timeout: 60,
             expected_texts: [
                 "[/usr/root]#",
