@@ -41,6 +41,11 @@ export function PS2(cpu, bus)
 
     this.bus.register("mouse-wheel", function(data)
     {
+        if(!this.have_mouse || !this.use_mouse || !this.mouse_stream_active())
+        {
+            return;
+        }
+
         this.wheel_movement -= data[0];
         this.wheel_movement -= data[1] * 2; // X Wheel Movement
         this.wheel_movement = Math.min(7, Math.max(-8, this.wheel_movement));
