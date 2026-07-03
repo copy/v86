@@ -900,6 +900,40 @@ V86.prototype.save_state = async function()
 };
 
 /**
+ * Flush any pending write-back for hda/hdb's disk-image block cache (see
+ * `max_cache_bytes` in the hda/hdb options and AsyncXHRBuffer.flush in
+ * buffer.js). Only meaningful for disks backed by a local, writable file
+ * (i.e. `{ url, async: true, max_cache_bytes }` on a non-browser/Node
+ * host) — a no-op otherwise, including if `max_cache_bytes` was never
+ * configured (in which case there is nothing pending to flush) or the
+ * drive has no attached buffer.
+ *
+ * Bounded caches also evict on their own as they grow past
+ * max_cache_bytes, so calling this is optional; it's useful to proactively
+ * reclaim memory at a known idle point (e.g. after a bulk write/hydration
+ * completes) instead of waiting for the next write to trigger eviction.
+ *
+ * @return {!Promise}
+ */
+V86.prototype.flush_disks = async function()
+{
+    const ide = this.v86 && this.v86.cpu.devices.ide;
+    if(!ide)
+    {
+        return;
+    }
+
+    const buffers = [
+        ide.primary?.master?.buffer,
+        ide.primary?.slave?.buffer,
+        ide.secondary?.master?.buffer,
+        ide.secondary?.slave?.buffer,
+    ].filter((buffer) => buffer && typeof buffer.flush === "function");
+
+    await Promise.all(buffers.map((buffer) => buffer.flush()));
+};
+
+/**
  * @return {number}
  * @ignore
  */

@@ -521,6 +521,21 @@ Bitmap.prototype.get_buffer = function()
 export var load_file;
 export var get_file_size;
 
+/**
+ * Write a batch of byte ranges back into `filename` on the local
+ * filesystem, if the current platform supports it (Node.js/Electron main
+ * process only; undefined in the browser). Used to persist dirty disk-image
+ * blocks that are evicted from an AsyncXHRBuffer's in-memory block_cache,
+ * so the cache can be bounded without losing writes. All ranges are written
+ * under a single open file handle for efficiency, since a cache-eviction
+ * pass may flush many small, non-contiguous blocks at once.
+ *
+ * @param {string} filename
+ * @param {!Array<{start: number, data: !Uint8Array}>} writes
+ * @return {!Promise}
+ */
+export var write_file_ranges;
+
 if(typeof XMLHttpRequest === "undefined" ||
     typeof process !== "undefined" && process.versions && process.versions.node)
 {
@@ -596,6 +611,33 @@ if(typeof XMLHttpRequest === "undefined" ||
         }
         const stat = await fs["stat"](path);
         return stat.size;
+    };
+
+    write_file_ranges = async function(filename, writes)
+    {
+        if(!writes.length)
+        {
+            return;
+        }
+
+        if(!fs)
+        {
+            fs = await get_fs();
+        }
+
+        const fd = await fs["open"](filename, "r+");
+
+        try
+        {
+            for(const { start, data } of writes)
+            {
+                await fd["write"](data, 0, data.length, start);
+            }
+        }
+        finally
+        {
+            await fd["close"]();
+        }
     };
 }
 else

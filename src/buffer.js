@@ -1,6 +1,7 @@
 import { CPU } from "./cpu.js";
-import { load_file, get_file_size } from "./lib.js";
+import { load_file, get_file_size, write_file_ranges } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
+import { LOG_DISK } from "./const.js";
 
 // The smallest size the emulated hardware can emit
 const BLOCK_SIZE = 256;
@@ -89,8 +90,17 @@ SyncBuffer.prototype.set_state = function(state)
  * @param {string} filename Name of the file to download
  * @param {number|undefined} size
  * @param {number|undefined} fixed_chunk_size
+ * @param {number|undefined} max_cache_bytes Optional cap on the total bytes
+ *   held in block_cache. When set, the cache evicts least-recently-used
+ *   entries once the cap is exceeded: clean entries are dropped for free,
+ *   dirty entries are first written back to `filename` on disk (Node/
+ *   Electron only, see write_file_ranges in lib.js) so a subsequent cache
+ *   miss still reads correct data. Left undefined, block_cache is
+ *   unbounded (original behaviour) — this matters for callers where
+ *   `filename` isn't a writable local path (e.g. a remote URL in the
+ *   browser).
  */
-function AsyncXHRBuffer(filename, size, fixed_chunk_size)
+function AsyncXHRBuffer(filename, size, fixed_chunk_size, max_cache_bytes)
 {
     this.filename = filename;
 
@@ -101,6 +111,20 @@ function AsyncXHRBuffer(filename, size, fixed_chunk_size)
 
     this.fixed_chunk_size = fixed_chunk_size;
     this.cache_reads = !!fixed_chunk_size; // TODO: could also be useful in other cases (needs testing)
+
+    // Bounded-cache support (see max_cache_bytes doc above). block_cache's
+    // Map iteration order is insertion order; we delete-then-re-set an
+    // entry on every access to keep that order equal to LRU order, so the
+    // first entries of the Map are always the least recently used ones.
+    // Every entry is exactly BLOCK_SIZE bytes, so the cache's byte size is
+    // always block_cache.size * BLOCK_SIZE — no separate byte counter to
+    // keep in sync.
+    this.max_cache_bytes = max_cache_bytes;
+
+    // Coalesces concurrent eviction-triggered write-backs: at most one
+    // fs write batch is in flight per buffer at a time (see
+    // maybe_schedule_eviction/run_eviction_pass).
+    this.flush_in_progress = null;
 
     this.onload = undefined;
     this.onprogress = undefined;
@@ -117,6 +141,35 @@ AsyncXHRBuffer.prototype.load = async function()
     const size = await get_file_size(this.filename);
     this.byteLength = size;
     this.onload && this.onload(Object.create(null));
+};
+
+/**
+ * Move an existing block_cache entry to the most-recently-used position.
+ * block_cache is a Map, whose iteration order is insertion order; deleting
+ * and re-inserting a key moves it to the end, which we treat as "most
+ * recently used". Combined with insertion-at-end for new entries, the
+ * front of the Map is always the least-recently-used entry.
+ *
+ * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
+ * @param {number} index
+ */
+AsyncXHRBuffer.prototype.touch_cache_entry = function(index)
+{
+    if(this.max_cache_bytes === undefined)
+    {
+        // No bound configured: skip the bookkeeping overhead entirely,
+        // preserving original (unbounded) behaviour and performance.
+        return;
+    }
+
+    const block = this.block_cache.get(index);
+    if(block === undefined)
+    {
+        return;
+    }
+
+    this.block_cache.delete(index);
+    this.block_cache.set(index, block);
 };
 
 /**
@@ -137,6 +190,11 @@ AsyncXHRBuffer.prototype.get_from_cache = function(offset, len)
         {
             return;
         }
+    }
+
+    for(var i = 0; i < number_of_blocks; i++)
+    {
+        this.touch_cache_entry(block_index + i);
     }
 
     if(number_of_blocks === 1)
@@ -241,12 +299,15 @@ AsyncXHRBuffer.prototype.set = function(start, data, fn)
             const data_slice = data.subarray(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE);
             dbg_assert(block.byteLength === data_slice.length);
             block.set(data_slice);
+            this.touch_cache_entry(start_block + i);
         }
 
         this.block_cache_is_write.add(start_block + i);
     }
 
     fn();
+
+    this.maybe_schedule_eviction();
 };
 
 /**
@@ -270,10 +331,221 @@ AsyncXHRBuffer.prototype.handle_read = function(offset, len, block)
         if(cached_block)
         {
             block.set(cached_block, i * BLOCK_SIZE);
+            this.touch_cache_entry(start_block + i);
         }
         else if(this.cache_reads)
         {
             this.block_cache.set(start_block + i, block.slice(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE));
+        }
+    }
+
+    this.maybe_schedule_eviction();
+};
+
+/**
+ * Whether this buffer instance is able to write evicted dirty blocks back
+ * to a real backing file (as opposed to a browser File object or a set of
+ * remote/part-file URLs, neither of which support in-place writes).
+ *
+ * @this {AsyncXHRBuffer}
+ * @return {boolean}
+ */
+AsyncXHRBuffer.prototype.supports_writeback = function()
+{
+    return typeof this.filename === "string" && !!write_file_ranges;
+};
+
+/**
+ * If a byte cap is configured and currently exceeded, kick off a background
+ * eviction pass. Never blocks the caller (set/handle_read keep their
+ * original synchronous contract) and never runs more than one eviction
+ * pass concurrently per buffer — if one is already running, this is a
+ * no-op; the cache may temporarily stay above the cap until that pass (or
+ * a subsequent one) catches up, which is an acceptable soft-bound given
+ * typical guest disk write throughput.
+ *
+ * @this {AsyncXHRBuffer}
+ */
+AsyncXHRBuffer.prototype.maybe_schedule_eviction = function()
+{
+    if(this.max_cache_bytes === undefined)
+    {
+        return;
+    }
+
+    if(this.block_cache.size * BLOCK_SIZE <= this.max_cache_bytes)
+    {
+        return;
+    }
+
+    if(this.flush_in_progress)
+    {
+        return;
+    }
+
+    this.flush_in_progress = this.run_eviction_pass().catch(function(e)
+    {
+        dbg_log("AsyncXHRBuffer: eviction pass failed: " + e, LOG_DISK);
+    }).then(function()
+    {
+        this.flush_in_progress = null;
+        // More may have accumulated while this pass was running/writing.
+        this.maybe_schedule_eviction();
+    }.bind(this));
+};
+
+/**
+ * Evict least-recently-used entries until the cache is back under
+ * max_cache_bytes (with a little slack removed too, to avoid evicting
+ * again almost immediately). Clean entries are dropped for free; dirty
+ * entries are written back to the backing file first.
+ *
+ * @this {AsyncXHRBuffer}
+ * @return {!Promise}
+ */
+AsyncXHRBuffer.prototype.run_eviction_pass = async function()
+{
+    // Aim a bit below the cap so we don't immediately re-trigger on the
+    // next write.
+    const target_bytes = Math.floor(this.max_cache_bytes * 0.9);
+    const can_writeback = this.supports_writeback();
+
+    const dirty_writes = [];
+    const dirty_indices = [];
+    const clean_indices = [];
+
+    // block_cache.keys() iterates in insertion/LRU order (see
+    // touch_cache_entry); walk from the front (least recently used) and
+    // keep marking entries for eviction until our *projected* size (after
+    // all currently-planned evictions) is back under target_bytes. We
+    // can't rely on the live block_cache.size here since nothing is
+    // actually deleted until after this loop.
+    let projected_size = this.block_cache.size * BLOCK_SIZE;
+
+    for(const index of this.block_cache.keys())
+    {
+        if(projected_size <= target_bytes)
+        {
+            break;
+        }
+
+        if(this.block_cache_is_write.has(index))
+        {
+            if(!can_writeback)
+            {
+                // Can't safely drop a dirty block without persisting it
+                // anywhere: leave it cached. (E.g. AsyncFileBuffer backed
+                // by an in-browser File, or a remote XHR source.)
+                continue;
+            }
+
+            const block = this.block_cache.get(index);
+            dirty_writes.push({ start: index * BLOCK_SIZE, data: block.slice() });
+            dirty_indices.push(index);
+
+            // Un-mark as dirty *before* the write completes: if a new
+            // write() lands on this index while our flush is in flight,
+            // `set()` will re-add it to block_cache_is_write, correctly
+            // making it dirty again (our in-flight write would otherwise
+            // persist stale data and we'd wrongly treat the block as clean).
+            this.block_cache_is_write.delete(index);
+        }
+        else
+        {
+            clean_indices.push(index);
+        }
+
+        projected_size -= BLOCK_SIZE;
+    }
+
+    // Clean entries need no I/O: drop them immediately.
+    for(const index of clean_indices)
+    {
+        this.block_cache.delete(index);
+    }
+
+    if(dirty_writes.length)
+    {
+        await write_file_ranges(this.filename, dirty_writes);
+
+        for(const index of dirty_indices)
+        {
+            // Only safe to evict now if nothing re-dirtied this block while
+            // our write was in flight (see comment above).
+            if(!this.block_cache_is_write.has(index))
+            {
+                this.block_cache.delete(index);
+            }
+        }
+    }
+};
+
+/**
+ * Force a full flush: write back every dirty block and drop it from the
+ * cache (along with any clean entries), regardless of max_cache_bytes.
+ * Useful for proactively reclaiming memory at a known-good point in time
+ * (e.g. after a bulk write operation completes) rather than waiting for
+ * the size-triggered eviction in set()/handle_read() to catch up.
+ *
+ * No-op if this buffer can't write back (see supports_writeback) or has
+ * nothing cached.
+ *
+ * @this {AsyncXHRBuffer}
+ * @return {!Promise}
+ */
+AsyncXHRBuffer.prototype.flush = async function()
+{
+    // Let any eviction pass already in flight finish first, so we don't
+    // race two concurrent write batches against each other.
+    if(this.flush_in_progress)
+    {
+        await this.flush_in_progress;
+    }
+
+    if(!this.supports_writeback())
+    {
+        return;
+    }
+
+    const dirty_writes = [];
+    const dirty_indices = [];
+
+    for(const index of this.block_cache_is_write)
+    {
+        const block = this.block_cache.get(index);
+        if(block === undefined)
+        {
+            continue;
+        }
+        dirty_writes.push({ start: index * BLOCK_SIZE, data: block.slice() });
+        dirty_indices.push(index);
+    }
+
+    this.block_cache_is_write.clear();
+
+    if(dirty_writes.length)
+    {
+        await write_file_ranges(this.filename, dirty_writes);
+    }
+
+    for(const index of dirty_indices)
+    {
+        // Only drop if nothing re-dirtied this block while our write was
+        // in flight (a concurrent set() would have re-added it to
+        // block_cache_is_write).
+        if(!this.block_cache_is_write.has(index))
+        {
+            this.block_cache.delete(index);
+        }
+    }
+
+    // Clean (never-written, read-cached) entries carry no durability
+    // requirement — the backing file already has correct data for them.
+    for(const index of this.block_cache.keys())
+    {
+        if(!this.block_cache_is_write.has(index))
+        {
+            this.block_cache.delete(index);
         }
     }
 };
@@ -730,7 +1002,7 @@ export function buffer_from_object(obj, zstd_decompress_worker)
         }
         else
         {
-            return new AsyncXHRBuffer(obj.url, obj.size, obj.fixed_chunk_size);
+            return new AsyncXHRBuffer(obj.url, obj.size, obj.fixed_chunk_size, obj.max_cache_bytes);
         }
     }
     else
