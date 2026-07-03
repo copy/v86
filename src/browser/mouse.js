@@ -265,10 +265,9 @@ export function MouseAdapter(bus, screen_container)
         // meaningful absolute position can be reported
         if(screen_container && !document.pointerLockElement)
         {
-            const absolute_x = e.pageX - screen_container.offsetLeft;
-            const absolute_y = e.pageY - screen_container.offsetTop;
+            const rect = screen_container.getBoundingClientRect();
             mouse.bus.send("mouse-absolute", [
-                absolute_x, absolute_y, screen_container.offsetWidth, screen_container.offsetHeight]);
+                e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height]);
         }
     }
 
