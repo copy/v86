@@ -679,16 +679,6 @@ function onload()
             name: "OpenBSD",
         },
         {
-            id: "sortix",
-            cdrom: {
-                url: host + "sortix-1.0-i686.iso",
-                size: 71075840,
-                async: false,
-            },
-            memory_size: 512 * 1024 * 1024,
-            name: "Sortix",
-        },
-        {
             id: "openbsd-boot",
             hda: {
                 url: host + "openbsd/.img",
@@ -712,6 +702,16 @@ function onload()
             },
             memory_size: 256 * 1024 * 1024,
             name: "NetBSD",
+        },
+        {
+            id: "sortix",
+            cdrom: {
+                url: host + "sortix-1.0-i686.iso",
+                size: 71075840,
+                async: false,
+            },
+            memory_size: 512 * 1024 * 1024,
+            name: "Sortix",
         },
         {
             id: "crazierl",
