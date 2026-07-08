@@ -356,6 +356,75 @@ AsyncXHRBuffer.prototype.supports_writeback = function()
 };
 
 /**
+ * Coalesce a list of (sorted or unsorted) BLOCK_SIZE-aligned block indices
+ * into the smallest number of contiguous byte-range writes. Writing one
+ * block at a time (256 bytes/syscall) does not scale — a single large
+ * write/eviction pass can easily touch hundreds of thousands of blocks
+ * (e.g. hydrating a large workspace onto hdb), and issuing that many
+ * sequential awaited fs writes would dominate wall-clock time and let the
+ * cache overshoot its bound long before eviction catches up. Adjacent
+ * indices (index, index+1, index+2, ...) are merged into one
+ * `{ start, data }` write covering their concatenated bytes.
+ *
+ * @param {!Array<number>} indices Not required to be sorted.
+ * @param {!Map<number, !Uint8Array>} block_cache
+ * @return {!Array<{start: number, data: !Uint8Array}>}
+ */
+function coalesce_writes(indices, block_cache)
+{
+    if(!indices.length)
+    {
+        return [];
+    }
+
+    const sorted = indices.slice().sort((a, b) => a - b);
+    const writes = [];
+
+    let run_start = sorted[0];
+    let run_blocks = [block_cache.get(sorted[0])];
+
+    for(let i = 1; i < sorted.length; i++)
+    {
+        const index = sorted[i];
+        const prev = sorted[i - 1];
+
+        if(index === prev + 1)
+        {
+            run_blocks.push(block_cache.get(index));
+        }
+        else
+        {
+            writes.push(finish_run(run_start, run_blocks));
+            run_start = index;
+            run_blocks = [block_cache.get(index)];
+        }
+    }
+    writes.push(finish_run(run_start, run_blocks));
+
+    return writes;
+}
+
+/**
+ * @param {number} run_start
+ * @param {!Array<!Uint8Array>} run_blocks
+ * @return {{start: number, data: !Uint8Array}}
+ */
+function finish_run(run_start, run_blocks)
+{
+    if(run_blocks.length === 1)
+    {
+        return { start: run_start * BLOCK_SIZE, data: run_blocks[0] };
+    }
+
+    const data = new Uint8Array(run_blocks.length * BLOCK_SIZE);
+    for(let i = 0; i < run_blocks.length; i++)
+    {
+        data.set(run_blocks[i], i * BLOCK_SIZE);
+    }
+    return { start: run_start * BLOCK_SIZE, data };
+}
+
+/**
  * If a byte cap is configured and currently exceeded, kick off a background
  * eviction pass. Never blocks the caller (set/handle_read keep their
  * original synchronous contract) and never runs more than one eviction
@@ -410,7 +479,6 @@ AsyncXHRBuffer.prototype.run_eviction_pass = async function()
     const target_bytes = Math.floor(this.max_cache_bytes * 0.9);
     const can_writeback = this.supports_writeback();
 
-    const dirty_writes = [];
     const dirty_indices = [];
     const clean_indices = [];
 
@@ -439,16 +507,7 @@ AsyncXHRBuffer.prototype.run_eviction_pass = async function()
                 continue;
             }
 
-            const block = this.block_cache.get(index);
-            dirty_writes.push({ start: index * BLOCK_SIZE, data: block.slice() });
             dirty_indices.push(index);
-
-            // Un-mark as dirty *before* the write completes: if a new
-            // write() lands on this index while our flush is in flight,
-            // `set()` will re-add it to block_cache_is_write, correctly
-            // making it dirty again (our in-flight write would otherwise
-            // persist stale data and we'd wrongly treat the block as clean).
-            this.block_cache_is_write.delete(index);
         }
         else
         {
@@ -464,9 +523,26 @@ AsyncXHRBuffer.prototype.run_eviction_pass = async function()
         this.block_cache.delete(index);
     }
 
-    if(dirty_writes.length)
+    if(dirty_indices.length)
     {
-        await write_file_ranges(this.filename, dirty_writes);
+        // Coalesce before un-marking dirty: coalesce_writes reads the live
+        // cached Uint8Arrays (copying them into merged buffers for
+        // multi-block runs, or handing back the array itself for
+        // single-block runs), so build the write list from data that's
+        // still guaranteed correct.
+        const writes = coalesce_writes(dirty_indices, this.block_cache);
+
+        // Un-mark as dirty *before* the write completes: if a new write()
+        // lands on one of these indices while our write is in flight,
+        // set() will re-add it to block_cache_is_write, correctly making
+        // it dirty again (our in-flight write would otherwise persist
+        // stale data and we'd wrongly treat the block as clean).
+        for(const index of dirty_indices)
+        {
+            this.block_cache_is_write.delete(index);
+        }
+
+        await write_file_ranges(this.filename, writes);
 
         for(const index of dirty_indices)
         {
@@ -507,25 +583,24 @@ AsyncXHRBuffer.prototype.flush = async function()
         return;
     }
 
-    const dirty_writes = [];
     const dirty_indices = [];
 
     for(const index of this.block_cache_is_write)
     {
-        const block = this.block_cache.get(index);
-        if(block === undefined)
+        if(this.block_cache.get(index) === undefined)
         {
             continue;
         }
-        dirty_writes.push({ start: index * BLOCK_SIZE, data: block.slice() });
         dirty_indices.push(index);
     }
 
+    const writes = coalesce_writes(dirty_indices, this.block_cache);
+
     this.block_cache_is_write.clear();
 
-    if(dirty_writes.length)
+    if(writes.length)
     {
-        await write_file_ranges(this.filename, dirty_writes);
+        await write_file_ranges(this.filename, writes);
     }
 
     for(const index of dirty_indices)

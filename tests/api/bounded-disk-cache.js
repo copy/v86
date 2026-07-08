@@ -152,10 +152,72 @@ async function test_bounded_cache_evicts_and_persists()
     }
 }
 
+async function test_large_flush_is_fast()
+{
+    // Regression test: writing/evicting many BLOCK_SIZE-granularity entries
+    // must not issue one fs write syscall per 256-byte block — that does
+    // not scale (e.g. hydrating a real workspace onto hdb can touch
+    // hundreds of thousands of blocks) and made an early version of this
+    // patch's flush() take 20+ seconds for a 200MB write burst instead of
+    // a few hundred milliseconds. Writes are coalesced into contiguous
+    // ranges (see coalesce_writes in buffer.js) wherever possible.
+    const name = "large sequential write + flush completes quickly (writes are coalesced)";
+    const file = path.join(os.tmpdir(), "v86-test-perf-" + process.pid + ".img");
+    const DISK_SIZE = 8 * 1024 * 1024; // 8 MiB
+    const MAX_CACHE_BYTES = 1 * 1024 * 1024;
+
+    const fd = fs.openSync(file, "w");
+    fs.ftruncateSync(fd, DISK_SIZE);
+    fs.closeSync(fd);
+
+    try
+    {
+        const buf = buffer_from_object({
+            url: file,
+            size: DISK_SIZE,
+            async: true,
+            max_cache_bytes: MAX_CACHE_BYTES,
+        });
+
+        const CHUNK = 64 * 1024;
+        const t0 = Date.now();
+        for(let off = 0; off < DISK_SIZE; off += CHUNK)
+        {
+            await write(buf, off, (off / CHUNK) & 0xff, CHUNK);
+        }
+        await settle(buf);
+        await buf.flush();
+        const elapsed_ms = Date.now() - t0;
+
+        // Generous bound: this should take well under a second; 5s gives
+        // ample headroom on slow/loaded CI machines while still catching
+        // an accidental regression back to per-block syscalls (which took
+        // >20s for a 200MB write in manual testing, i.e. orders of
+        // magnitude slower than this bound for even this smaller size).
+        if(elapsed_ms > 5000)
+        {
+            throw new Error("write+evict+flush of " + (DISK_SIZE / 1024 / 1024) +
+                "MB took " + elapsed_ms + "ms — coalescing regression?");
+        }
+
+        if(buf.block_cache.size !== 0)
+        {
+            throw new Error("flush() left " + buf.block_cache.size + " entries cached");
+        }
+
+        console.log("Done: " + name + " (" + elapsed_ms + "ms)");
+    }
+    finally
+    {
+        fs.unlinkSync(file);
+    }
+}
+
 (async function()
 {
     await test_default_is_unbounded();
     await test_bounded_cache_evicts_and_persists();
+    await test_large_flush_is_fast();
     console.log("All bounded-disk-cache tests passed.");
 })().catch(e =>
 {
