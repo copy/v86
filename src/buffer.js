@@ -860,6 +860,18 @@ AsyncXHRPartfileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_r
 //AsyncXHRPartfileBuffer.prototype.get_block_cache = AsyncXHRBuffer.prototype.get_block_cache;
 AsyncXHRPartfileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
 AsyncXHRPartfileBuffer.prototype.set_state = AsyncXHRBuffer.prototype.set_state;
+// set/handle_read (above) call these on `this` -- must be shared too, or any
+// set()/handle_read() call throws. max_cache_bytes is never set on this
+// class's instances (see buffer_from_object), so touch_cache_entry/
+// maybe_schedule_eviction always early-return; supports_writeback() also
+// always returns false since this.filename doesn't exist here (it's
+// this.basename/this.extension instead), so flush()/run_eviction_pass()
+// remain safe no-ops if ever called.
+AsyncXHRPartfileBuffer.prototype.touch_cache_entry = AsyncXHRBuffer.prototype.touch_cache_entry;
+AsyncXHRPartfileBuffer.prototype.maybe_schedule_eviction = AsyncXHRBuffer.prototype.maybe_schedule_eviction;
+AsyncXHRPartfileBuffer.prototype.run_eviction_pass = AsyncXHRBuffer.prototype.run_eviction_pass;
+AsyncXHRPartfileBuffer.prototype.supports_writeback = AsyncXHRBuffer.prototype.supports_writeback;
+AsyncXHRPartfileBuffer.prototype.flush = AsyncXHRBuffer.prototype.flush;
 
 /**
  * Synchronous access to File, loading blocks from the input type=file
@@ -990,6 +1002,18 @@ AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
 AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 AsyncFileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;
 AsyncFileBuffer.prototype.set_state = AsyncXHRBuffer.prototype.set_state;
+// set/handle_read (above) call these on `this` -- must be shared too, or any
+// set()/handle_read() call throws. max_cache_bytes is never set on this
+// class's instances (see buffer_from_object), so touch_cache_entry/
+// maybe_schedule_eviction always early-return; supports_writeback() also
+// always returns false since this.filename doesn't exist here (it's
+// this.file, a browser File object), so flush()/run_eviction_pass() remain
+// safe no-ops if ever called.
+AsyncFileBuffer.prototype.touch_cache_entry = AsyncXHRBuffer.prototype.touch_cache_entry;
+AsyncFileBuffer.prototype.maybe_schedule_eviction = AsyncXHRBuffer.prototype.maybe_schedule_eviction;
+AsyncFileBuffer.prototype.run_eviction_pass = AsyncXHRBuffer.prototype.run_eviction_pass;
+AsyncFileBuffer.prototype.supports_writeback = AsyncXHRBuffer.prototype.supports_writeback;
+AsyncFileBuffer.prototype.flush = AsyncXHRBuffer.prototype.flush;
 
 AsyncFileBuffer.prototype.get_buffer = function(fn)
 {

@@ -213,11 +213,66 @@ async function test_large_flush_is_fast()
     }
 }
 
+async function test_other_buffer_classes_dont_crash()
+{
+    // Regression test: touch_cache_entry/maybe_schedule_eviction (added for
+    // the max_cache_bytes feature) must be reachable on every class that
+    // shares AsyncXHRBuffer.prototype.set/handle_read via direct prototype
+    // assignment (see the bottom of this file for the sharing pattern) --
+    // AsyncFileBuffer (File input, e.g. drag-and-drop disk images) and
+    // AsyncXHRPartfileBuffer (use_parts: true, sharded disk images). Both
+    // classes never set max_cache_bytes on their instances, so these calls
+    // must be safe unconditional no-ops rather than missing entirely; an
+    // earlier version of this patch only assigned the new methods onto
+    // AsyncXHRBuffer.prototype, so calling set()/handle_read() on the other
+    // two classes threw `this.maybe_schedule_eviction is not a function`
+    // the moment a guest touched the disk (any write, or any read that
+    // misses the cache).
+    const name = "AsyncFileBuffer / AsyncXHRPartfileBuffer set()/handle_read() don't crash";
+
+    // AsyncFileBuffer: buffer_from_object() selects it for a File-backed
+    // disk when `async` is true (or the file is large enough to default to
+    // async). Node has a global File constructor (v20+) that satisfies the
+    // `obj.buffer instanceof File` check in buffer_from_object without
+    // needing a real filesystem file or FileReader (which set()/
+    // handle_read() don't touch -- only get()/load() do).
+    {
+        const file = new File([new Uint8Array(4096)], "disk.img");
+        const buf = buffer_from_object({ buffer: file, async: true });
+        if(buf.constructor.name !== "AsyncFileBuffer")
+        {
+            throw new Error("expected AsyncFileBuffer, got " + buf.constructor.name);
+        }
+
+        await write(buf, 0, 0xaa, 256);
+        buf.handle_read(256, 256, new Uint8Array(256));
+    }
+
+    // AsyncXHRPartfileBuffer: selected via use_parts: true.
+    {
+        const buf = buffer_from_object({
+            url: path.join(os.tmpdir(), "v86-test-partfile-" + process.pid + ".img"),
+            size: 4096,
+            use_parts: true,
+        });
+        if(buf.constructor.name !== "AsyncXHRPartfileBuffer")
+        {
+            throw new Error("expected AsyncXHRPartfileBuffer, got " + buf.constructor.name);
+        }
+
+        await write(buf, 0, 0xbb, 256);
+        buf.handle_read(256, 256, new Uint8Array(256));
+    }
+
+    console.log("Done: " + name);
+}
+
 (async function()
 {
     await test_default_is_unbounded();
     await test_bounded_cache_evicts_and_persists();
     await test_large_flush_is_fast();
+    await test_other_buffer_classes_dont_crash();
     console.log("All bounded-disk-cache tests passed.");
 })().catch(e =>
 {
