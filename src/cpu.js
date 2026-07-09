@@ -144,6 +144,7 @@ export function CPU(bus, wm, stop_idling)
 
     /** @type {!Object} */
     this.devices = {};
+    this.ide_read_async = false;
 
     this.instruction_pointer = view(Int32Array, memory, 556, 1);
     this.previous_ip = view(Int32Array, memory, 560, 1);
@@ -996,6 +997,8 @@ CPU.prototype.init = function(settings, device_bus)
     {
         this.set_jit_config(0, 1);
     }
+
+    this.ide_read_async = !!settings.ide_read_async;
 
     settings.cpuid_level && this.set_cpuid_level(settings.cpuid_level);
 

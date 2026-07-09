@@ -41,6 +41,7 @@ import { BusConnector } from "./bus.js";
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
+const READ_DMA_MIN_MS = 2; /* 2ms delay for a 4kB block is roughly 2.1MB/s */
 
 const BUS_MASTER_BASE = 0xB400;
 
@@ -275,6 +276,7 @@ export function IDEController(cpu, bus, ide_config)
 {
     this.cpu = cpu;
     this.bus = bus;
+    this.ide_read_async = !!cpu.ide_read_async;
 
     this.primary = undefined;
     this.secondary = undefined;
@@ -2243,7 +2245,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
         this.report_read_end(byte_count);
 
         this.push_irq();
-    });
+    }, { read_async: this.channel.controller.ide_read_async });
 };
 
 IDEInterface.prototype.ata_write_sectors = function(cmd)
@@ -2656,13 +2658,13 @@ IDEInterface.prototype.report_write = function(byte_count)
     this.bus.send("ide-write-end", [this.channel_nr, byte_count, sector_count]);
 };
 
-IDEInterface.prototype.read_buffer = function(start, length, callback)
+IDEInterface.prototype.read_buffer = function(start, length, callback, options = undefined)
 {
     const id = this.last_io_id++;
     const abort = new AbortController();
     this.in_progress_io_ids.set(id, abort);
 
-    this.buffer.get(start, length, data =>
+    const finish = (data) =>
     {
         if(this.cancelled_io_ids.delete(id))
         {
@@ -2674,7 +2676,23 @@ IDEInterface.prototype.read_buffer = function(start, length, callback)
         dbg_assert(removed);
 
         callback(data);
+    };
+
+    const service_start = options?.read_async ? performance.now() : 0;
+    let fetchedSynchronously = true;
+    this.buffer.get(start, length, data =>
+    {
+        if(fetchedSynchronously && options?.read_async)
+        {
+            const elapsed = performance.now() - service_start;
+            setTimeout(() => finish(data), Math.max(0, READ_DMA_MIN_MS - elapsed));
+        }
+        else
+        {
+            finish(data);
+        }
     }, { signal: abort.signal });
+    fetchedSynchronously = false;
 };
 
 IDEInterface.prototype.cancel_io_operations = function()

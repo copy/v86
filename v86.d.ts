@@ -406,6 +406,11 @@ export interface V86Options {
     hdb?: V86Image;
 
     /**
+     * Simulate ATA READ DMA latency.
+     */
+    ide_read_async?: boolean;
+
+    /**
      * First floppy disk
      */
     fda?: V86Image;
