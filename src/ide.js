@@ -2679,10 +2679,10 @@ IDEInterface.prototype.read_buffer = function(start, length, callback, options =
     };
 
     const service_start = options?.read_async ? performance.now() : 0;
-    let fetchedSynchronously = true;
+    let fetched_synchronously = true;
     this.buffer.get(start, length, data =>
     {
-        if(fetchedSynchronously && options?.read_async)
+        if(fetched_synchronously && options?.read_async)
         {
             const elapsed = performance.now() - service_start;
             setTimeout(() => finish(data), Math.max(0, READ_DMA_MIN_MS - elapsed));
@@ -2692,7 +2692,7 @@ IDEInterface.prototype.read_buffer = function(start, length, callback, options =
             finish(data);
         }
     }, { signal: abort.signal });
-    fetchedSynchronously = false;
+    fetched_synchronously = false;
 };
 
 IDEInterface.prototype.cancel_io_operations = function()
