@@ -135,6 +135,17 @@ fn read32_internal(apic: &mut Apic, addr: u32) -> u32 {
             apic.tpr
         },
 
+        0xA0 => {
+            dbg_log!("APIC read ppr");
+            let isrv = highest_isr(apic).unwrap_or(0) as u32 & 0xF0;
+            if apic.tpr & 0xF0 >= isrv {
+                apic.tpr
+            }
+            else {
+                isrv
+            }
+        },
+
         0xB0 => {
             // write-only (written by DSL)
             if APIC_LOG_VERBOSE {
