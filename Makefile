@@ -339,6 +339,7 @@ kvm-unit-test: build/v86-debug.wasm
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
+	TEST_ACPI=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/jit-apic-irq.flat
 
 kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	tests/kvm-unit-tests/build.sh
@@ -347,6 +348,7 @@ kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
+	TEST_RELEASE_BUILD=1 TEST_ACPI=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/jit-apic-irq.flat
 
 expect-tests: build/v86-debug.wasm build/libwabt.cjs
 	make -C tests/expect/tests

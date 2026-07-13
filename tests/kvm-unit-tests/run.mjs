@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
-import path from "node:path";
 import url from "node:url";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
@@ -17,6 +15,7 @@ var emulator = new V86({
     multiboot: { url: process.argv[2] },
     autostart: true,
     memory_size: 64 * 1024 * 1024,
+    acpi: +process.env.TEST_ACPI,
     disable_jit: +process.env.DISABLE_JIT,
     log_level: 0,
 });

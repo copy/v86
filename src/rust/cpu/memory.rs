@@ -14,7 +14,8 @@ mod ext {
 
 use crate::cpu::apic;
 use crate::cpu::cpu::{
-    handle_irqs, reg128, APIC_MEM_ADDRESS, APIC_MEM_SIZE, IOAPIC_MEM_ADDRESS, IOAPIC_MEM_SIZE,
+    handle_irqs_not_in_jit, reg128, APIC_MEM_ADDRESS, APIC_MEM_SIZE, IOAPIC_MEM_ADDRESS,
+    IOAPIC_MEM_SIZE,
 };
 use crate::cpu::global_pointers::memory_size;
 use crate::cpu::ioapic;
@@ -81,16 +82,28 @@ pub fn in_svga_lfb(addr: u32) -> bool {
     addr >= VGA_LFB_ADDRESS && addr <= unsafe { VGA_LFB_ADDRESS + (vga_memory_size - 1) }
 }
 
+fn in_apic_mmio_range(addr: u32) -> bool {
+    addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE
+}
+
+fn in_ioapic_mmio_range(addr: u32) -> bool {
+    addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE
+}
+
+pub fn in_apic_or_ioapic_mmio_range(addr: u32) -> bool {
+    in_apic_mmio_range(addr) || in_ioapic_mmio_range(addr)
+}
+
 #[no_mangle]
 pub fn read8(addr: u32) -> i32 {
     if in_mapped_range(addr) {
         if in_svga_lfb(addr) {
             unsafe { *vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as i32 }
         }
-        else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+        else if in_apic_mmio_range(addr) {
             apic::read32((addr - APIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
         }
-        else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+        else if in_ioapic_mmio_range(addr) {
             ioapic::read32((addr - IOAPIC_MEM_ADDRESS) & !3) as i32 >> 8 * (addr & 3) & 0xFF
         }
         else {
@@ -132,10 +145,10 @@ pub fn read32s(addr: u32) -> i32 {
                 ptr::read_unaligned(vga_mem8.offset((addr - VGA_LFB_ADDRESS) as isize) as *const i32)
             } // XXX
         }
-        else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+        else if in_apic_mmio_range(addr) {
             apic::read32(addr - APIC_MEM_ADDRESS) as i32
         }
-        else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+        else if in_ioapic_mmio_range(addr) {
             ioapic::read32(addr - IOAPIC_MEM_ADDRESS) as i32
         }
         else {
@@ -292,13 +305,13 @@ pub unsafe fn mmap_write32(addr: u32, value: i32) {
             value,
         )
     }
-    else if addr >= APIC_MEM_ADDRESS && addr < APIC_MEM_ADDRESS + APIC_MEM_SIZE {
+    else if in_apic_mmio_range(addr) {
         apic::write32(addr - APIC_MEM_ADDRESS, value as u32);
-        handle_irqs();
+        handle_irqs_not_in_jit()
     }
-    else if addr >= IOAPIC_MEM_ADDRESS && addr < IOAPIC_MEM_ADDRESS + IOAPIC_MEM_SIZE {
+    else if in_ioapic_mmio_range(addr) {
         ioapic::write32(addr - IOAPIC_MEM_ADDRESS, value as u32);
-        handle_irqs();
+        handle_irqs_not_in_jit()
     }
     else {
         ext::mmap_write32(addr, value)

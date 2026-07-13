@@ -497,6 +497,24 @@ if(cluster.isPrimary)
             expected_texts: ["nyu# "],
         },
         {
+            name: "OpenBSD with APIC",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/openbsd.img",
+            acpi: true,
+            timeout: 300,
+            actions: [
+                {
+                    on_text: "login:",
+                    run: "root\n",
+                },
+                {
+                    on_text: "Password:",
+                    run: "root\n",
+                },
+            ],
+            expected_texts: ["nyu# "],
+        },
+        {
             name: "OpenBSD state image",
             timeout: 60,
             memory_size: 256 * 1024 * 1024,

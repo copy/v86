@@ -338,6 +338,7 @@ pub enum JitExitReason {
     None,
     CpuException { code: i32, error_code: Option<i32> },
     SelfModifyingCodeBail,
+    ApicWriteBail,
 }
 
 pub static mut jit_exit_reason: JitExitReason = JitExitReason::None;
@@ -2433,6 +2434,7 @@ pub unsafe fn exit_jit() {
     let (code, error_code) = match std::mem::replace(&mut jit_exit_reason, JitExitReason::None) {
         JitExitReason::CpuException { code, error_code } => (code, error_code),
         JitExitReason::SelfModifyingCodeBail => return,
+        JitExitReason::ApicWriteBail => return,
         JitExitReason::None => {
             dbg_assert!(false, "exit_jit without exit reason");
             return;
@@ -3581,6 +3583,17 @@ pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
     }
 }
 
+unsafe fn jit_apic_write_bail(eip_offset_in_page: i32) {
+    let eip = *instruction_pointer & !0xFFF | eip_offset_in_page;
+    *instruction_pointer = eip;
+    if let Some(c) = tlb_code[(eip as u32 >> 12) as usize] {
+        // prevent re-entering the same instruction
+        profiler::stat_increment(stat::SAFE_WRITE_APIC_BAIL_INVALIDATE_ENTRY);
+        (*c.as_ptr()).state_table[eip as usize & 0xFFF] = u16::MAX;
+    }
+    jit_exit_reason = JitExitReason::ApicWriteBail;
+}
+
 #[no_mangle]
 #[cfg(feature = "profiler")]
 pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
@@ -3712,6 +3725,14 @@ pub unsafe fn safe_read_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else if memory::in_mapped_range(addr_low) {
+        if is_write
+            && *flags & FLAG_INTERRUPT != 0
+            && memory::in_apic_or_ioapic_mmio_range(addr_low)
+        {
+            jit_apic_write_bail(eip_offset_in_page);
+            return 1;
+        }
+
         let scratch = &raw mut jit_paging_scratch_buffer.0[0];
 
         match bitsize {
@@ -3870,6 +3891,11 @@ pub unsafe fn safe_write_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else if memory::in_mapped_range(addr_low) {
+        if *flags & FLAG_INTERRUPT != 0 && memory::in_apic_or_ioapic_mmio_range(addr_low) {
+            jit_apic_write_bail(eip_offset_in_page);
+            return 1;
+        }
+
         match bitsize {
             128 => memory::mmap_write128(addr_low, value_low, value_high),
             64 => memory::mmap_write64(addr_low, value_low),
@@ -3928,13 +3954,35 @@ pub unsafe fn writable_or_pagefault_jit(
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     dbg_assert!(u32::from(wasm_table_index) < jit::WASM_TABLE_SIZE);
     let crosses_page = (addr & 0xFFF) + size > 0x1000;
-    if translate_address_write_jit(addr, wasm_table_index).is_err()
-        || crosses_page
-            && translate_address_write_jit((addr | 0xFFF) + 1, wasm_table_index).is_err()
-    {
-        *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-        return 1;
-    }
+
+    match translate_address_write_jit(addr, wasm_table_index) {
+        Err(()) => {
+            *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+            return 1;
+        },
+        Ok(addr) if *flags & FLAG_INTERRUPT != 0 && memory::in_apic_or_ioapic_mmio_range(addr) => {
+            jit_apic_write_bail(eip_offset_in_page);
+            return 1;
+        },
+        Ok(_) => {},
+    };
+
+    if crosses_page {
+        match translate_address_write_jit((addr | 0xFFF) + 1, wasm_table_index) {
+            Err(()) => {
+                *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+                return 1;
+            },
+            Ok(addr)
+                if *flags & FLAG_INTERRUPT != 0 && memory::in_apic_or_ioapic_mmio_range(addr) =>
+            {
+                jit_apic_write_bail(eip_offset_in_page);
+                return 1;
+            },
+            Ok(_) => {},
+        }
+    };
+
     0
 }
 
@@ -4581,6 +4629,19 @@ pub unsafe fn handle_irqs() {
             }
         }
     }
+}
+
+pub unsafe fn handle_irqs_not_in_jit() {
+    #[cfg(debug_assertions)]
+    if in_jit && *flags & FLAG_INTERRUPT != 0 {
+        // NOTE: this assertion can be hit:
+        // - block boundary memory writes, e.g. fpu, rep string (false positive)
+        // - cross-page write
+        dbg_assert!(pic::pic_acknowledge_irq().is_none());
+        dbg_assert!(apic::acknowledge_irq().is_none());
+    }
+
+    handle_irqs();
 }
 
 unsafe fn pic_call_irq(interrupt_nr: u8) {

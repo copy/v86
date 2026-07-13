@@ -689,7 +689,7 @@ function onload()
             },
             memory_size: 256 * 1024 * 1024,
             name: "OpenBSD",
-            //acpi: true, // doesn't seem to work
+            acpi: true,
         },
         {
             id: "netbsd",
