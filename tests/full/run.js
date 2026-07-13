@@ -385,6 +385,19 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "DR DOS",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/drdos9_boot16_en.img",
+            timeout: 90,
+            actions: [
+                { on_text: "C:\\>", run: "dir\n" },
+            ],
+            expected_texts: [
+                "DR DOS (R) 9.0",
+                "DRDOS.SYS",
+            ],
+        },
+        {
             name: "Linux 4",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/linux4.iso",

@@ -356,6 +356,16 @@ function onload()
             name: "MS-DOS 4",
         },
         {
+            id: "drdos",
+            hda: {
+                url: host + "drdos9_boot16_en.img",
+                size: 125829120,
+                async: false,
+            },
+            name: "DR DOS 9.0",
+            homepage: "https://www.dr-dos.com/",
+        },
+        {
             id: "freedos",
             fda: {
                 url: host + "freedos722.img",
