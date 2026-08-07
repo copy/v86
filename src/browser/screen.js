@@ -208,6 +208,11 @@ export function ScreenAdapter(options, screen_fill_buffer)
         const row_extra_1_y = 0;
         const row_extra_2_y = font_height;
 
+        if(gfx_width === 0)
+        {
+            return 0;
+        }
+
         let n_rows_rendered = 0;
         for(let row_i = 0, row_y = 0, txt_i = 0; row_i < text_mode_height; ++row_i, row_y += font_height)
         {
