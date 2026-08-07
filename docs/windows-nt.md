@@ -85,6 +85,17 @@ var emulator = new V86({
 });
 ```
 
+### Enable True Color
+
+*Source: https://computernewb.com/wiki/QEMU/Guests/Windows_NT_4.0*
+
+1. Download driver (version `2010.07.09`) from https://bearwindows.zcm.com.au/vbemp.htm and unpack into Windows.
+2. Right-click on the Desktop, click on "Properties".
+3. Click "Settings" > "Display Type" > "Change".
+4. Press "Have disk", click "Browse" and go to folder with unpacked driver. Go to `VBE20\NT4`, then select `vbemp4.inf` inside.
+5. Select "AnaPa Corp VBE Miniport" adapter, press "Yes" and "OK".
+6. After installing, restart the VM.
+
 
 ## Windows 2000/XP
 
