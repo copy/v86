@@ -96,6 +96,14 @@ var emulator = new V86({
 5. Select "AnaPa Corp VBE Miniport" adapter, press "Yes" and "OK".
 6. After installing, restart the VM.
 
+### Enabling absolute mouse positioning
+
+1. Download [VMware Tools 6.0](https://archive.org/download/vmware-tools-collection/vmware-tools-600-win.iso) and mount the ISO to the VM.
+2. Open Start menu, select "Settings" -> "Control Panel".
+3. Open "Mouse", press "General" -> "Change"
+4. Press "Have disk" and "Browse". Go to `<CD letter>:\program files\VMware\VMware Tools\Drivers\mouse\winnt` and select `vmmouse.inf`.
+5. Press "OK" and restart the VM.
+
 
 ## Windows 2000/XP
 
