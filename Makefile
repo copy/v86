@@ -349,7 +349,6 @@ expect-tests: build/v86-debug.wasm build/libwabt.cjs
 	./tests/expect/run.js
 
 devices-test: build/v86-debug.wasm
-	./tests/devices/parallel.js
 	./tests/devices/virtio_9p.js
 	./tests/devices/virtio_console.js
 	./tests/devices/fetch_network.js
@@ -370,6 +369,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/state.js
 	./tests/api/reset.js
 	./tests/api/floppy.js
+	./tests/api/parallel.js
 	./tests/api/cdrom-insert-eject.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
