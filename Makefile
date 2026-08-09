@@ -79,7 +79,7 @@ CARGO_FLAGS_SAFE=\
 CARGO_FLAGS=$(CARGO_FLAGS_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
 
 CORE_FILES=cjs.js const.js io.js main.js lib.js buffer.js ide.js pci.js floppy.js \
-	   dma.js pit.js vga.js ps2.js rtc.js uart.js vmware.js \
+	   dma.js pit.js vga.js ps2.js rtc.js uart.js parallel.js vmware.js \
 	   acpi.js iso9660.js \
 	   state.js ne2k.js sb16.js virtio.js virtio_console.js virtio_net.js virtio_balloon.js \
 	   bus.js log.js cpu.js \
@@ -369,6 +369,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/state.js
 	./tests/api/reset.js
 	./tests/api/floppy.js
+	./tests/api/parallel.js
 	./tests/api/cdrom-insert-eject.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
