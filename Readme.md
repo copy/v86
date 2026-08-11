@@ -71,8 +71,7 @@ list of emulated hardware:
 [Windows NT guest setup](docs/windows-nt.md) —
 [9p filesystem](docs/filesystem.md) —
 [Linux rootfs on 9p](docs/linux-9p-image.md) —
-[Profiling](docs/profiling.md) —
-[CPU Idling](docs/cpu-idling.md)
+[Profiling](docs/profiling.md)
 
 ## Compatibility
 

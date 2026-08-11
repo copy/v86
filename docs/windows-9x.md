@@ -114,7 +114,14 @@ v86 emulates the VMware absolute pointing device. With an absolute mouse driver 
 5. Restart Windows.
 
 ## CPU idling on Windows 95
-See about [installing AmnHLT](cpu-idling.md#windows-9x-using-amnhlt).
+
+1. Download [`amnhltm.zip`](https://web.archive.org/web/20060212132151/http://www.user.cityline.ru/~maxamn/amnhltm.zip) and unzip the archive in any location.
+
+> [!NOTE]
+> If you have installed VBE9x, restart Windows, press F8 on boot, select *Command prompt only*, run `cd C:\path\to\amnhlt\`, and follow to the next step.
+
+2. Run `AMNHLT.BAT`.
+3. Restart Windows, and AmnHLT will start automatically on next boot (you can safely delete archive and unpacked folder).
 
 ## Enabling networking on Windows 95 (requires install CD)
 
