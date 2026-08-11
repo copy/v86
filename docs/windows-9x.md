@@ -1,15 +1,20 @@
-## Installing using QEMU
+# Microsoft Windows 9x guest setup
+
+This guide leads through the process of creating v86 guest images for Windows 9x branch (Windows 95, 98, ME).
+
+## 1. Installing
 
 Recommended versions:
  - Windows 95 OSR2(.5)
  - Windows 98 Second Edition (SE)
 
--------------
+### 1.1 Installing using QEMU
 
 1. Create a disk image (up to 2 GB):
 ```sh
 qemu-img create -f raw hdd.img <size in megabytes>M
 ```
+
 2. Run QEMU with the following settings:
 ```sh
 qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
@@ -22,18 +27,19 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 3. For Windows 98: select "Start Windows 98 Setup from CD-ROM". For Windows 95: select "Load NEC IDE CDROM driver" and run `fdisk` to create partition, restart emulator, run `format c:` and `D:\WIN95\SETUP`.
 
 4. To change floppy disk, press *Ctrl+Alt+2* to switch to the QEMU Monitor, run `change floppy0 /path/to/new_floppy_image` and press *Ctrl+Alt+1* to switch to VGA.
+
 5. Follow the installation guide on the screen.
 
 > [!TIP]
 > For transfer files from host to guest, use [genisoimage](https://wiki.debian.org/genisoimage) ([UltraISO](https://www.ultraiso.com/) and [PowerISO](https://www.poweriso.com/) for Windows and Mac) for creating CD-ISO image or [dosfstools](https://github.com/dosfstools/dosfstools) ([WinImage](https://www.winimage.com/download.htm) for Windows) for creating floppy disk images, then mount the created image to QEMU.
 
-## Troubleshooting
+## 2. Troubleshooting
 
-### "Windows protection" errors during startup
+### 2.1 "Windows protection" errors during startup
 
 Apply [FIX95CPU](http://lonecrusader.x10host.com/fix95cpu.html) or [patcher9x](https://github.com/JHRobotics/patcher9x#installation).
 
-### "VFBACKUP could no load VFD.VXD" on startup (Windows 95)
+### 2.2 "VFBACKUP could no load VFD.VXD" on startup (Windows 95)
 
 **Workaround #1**:
 *Source: [#1185](https://github.com/copy/v86/issues/1185)*
@@ -58,7 +64,9 @@ extract /a /l C:\Windows\System <floppy drive letter>:\WIN95_03.CAB vfd.vxd
 2. Find `C:\AUTOEXEC.BAT` and add `smartdrv` to the top of the file.
 3. Press File -> Save.
 
-## Floppy disk support
+## 3. Install optional components
+
+### 3.1 Floppy disk support
 
 Currently, the floppy drive in v86 works only with MS-DOS compatibility mode.
 
@@ -69,11 +77,11 @@ If it says *"Drive A is using MS-DOS compatibility mode file system"*, the flopp
 2. Open "Floppy disk controllers", select "Standard Floppy Disk Controller" and press "Remove" at the bottom.
 3. Restart Windows.
 
-## Enabling True Color (32 bpp)
+### 3.2 Enabling True Color (32 bpp)
 
 The default VGA display driver only supports 640x480x4 video mode, to fix this, you can install **Universal VBE9x Video Display Driver** or **VMDisp9x**.
 
-### Universal VBE9x Video Display Driver
+#### 3.2.1 Universal VBE9x Video Display Driver
 
 > [!WARNING]
 > After installing, DOS Mode (and other programs and games that require it) may not work properly.
@@ -88,7 +96,7 @@ The default VGA display driver only supports 640x480x4 video mode, to fix this, 
 6. Select "VBE Miniport" adapter, press "OK" and "Next".
 7. After installing, restart Windows.
 
-### VMDisp9x (Windows 95)
+#### 3.2.2 VMDisp9x (Windows 95)
 
 > [!WARNING]
 > This driver can run DOS Mode with some graphical glitches. However, DirectX and/or DirectDraw may not work properly with this driver.
@@ -101,7 +109,7 @@ The default VGA display driver only supports 640x480x4 video mode, to fix this, 
 5. Select "VESA ISA" adapter and press "OK".
 6. After installing, restart Windows.
 
-## Enabling absolute mouse positioning (VBMOUSE)
+### 3.3 Enabling absolute mouse positioning (VBMOUSE)
 
 v86 emulates the VMware absolute pointing device. With an absolute mouse driver installed in the guest, the guest cursor follows the host cursor directly, without having to lock the mouse.
 
@@ -113,7 +121,7 @@ v86 emulates the VMware absolute pointing device. With an absolute mouse driver 
 4. In `C:\WINDOWS\SYSTEM.INI`, change the `mouse.drv` line in the `[boot]` section to `mouse.drv=vbmouse.drv`.
 5. Restart Windows.
 
-## CPU idling on Windows 95
+### 3.4 CPU idling on Windows 95
 
 1. Download [`amnhltm.zip`](https://web.archive.org/web/20060212132151/http://www.user.cityline.ru/~maxamn/amnhltm.zip) and unzip the archive in any location.
 
@@ -123,7 +131,7 @@ v86 emulates the VMware absolute pointing device. With an absolute mouse driver 
 2. Run `AMNHLT.BAT`.
 3. Restart Windows, and AmnHLT will start automatically on next boot (you can safely delete archive and unpacked folder).
 
-## Enabling networking on Windows 95 (requires install CD)
+### 3.5 Enabling networking on Windows 95 (requires install CD)
 
 1. Open the Start menu, click on "Control Panel" and "Add New Hardware".
 2. Press "Next", select "No" and select next options:
@@ -153,7 +161,7 @@ v86 emulates the VMware absolute pointing device. With an absolute mouse driver 
 
 8. (optionally) Set "Primary Network Logon" to `Windows Logon`.
 
-## Enabling sound manually
+### 3.6 Enabling sound manually
 
 > [!NOTE]
 > If you don't have an install CD, use the Sound Blaster 16 driver from https://web.archive.org/web/20210814023225/https://www.claunia.com/qemu/drivers/index.html (unpack `sbw9xup.exe` as a zip archive).
