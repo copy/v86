@@ -107,7 +107,13 @@ var emulator = new V86({
 
 ## 4. Windows 2000/XP
 
-### 4.1 Installing using QEMU
+### 4.1 Installing
+
+Recommended versions:
+ - Windows 2000 SP4
+ - Windows XP SP3
+
+#### 4.1.1 Installing using QEMU
 
 1. Run QEMU with the following settings for installation:
 
@@ -129,6 +135,20 @@ After installation, change the computer type to "Standard PC" as described [here
 4. Select "Install from a list or specific location (Advanced)" > Next > "Don't search. I will choose the driver to install."
 5. Choose "Standard PC", press Next > Finish.
 6. Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
+
+#### 4.1.2 Installing using v86
+
+1. Go to https://copy.sh/v86/ and set the following settings:
+
+| Option          | Value/File                                              |
+|:----------------|:--------------------------------------------------------|
+| Memory size     | 256 - 1024 MB                                           |
+| CD image        | Installation CD                                         |
+| Hard disk image | Create an empty disk (recommended size: 1024 - 2048 MB) |
+
+2. Boot the emulator, press F5 and select "Standard PC".
+3. Follow the setup instructions.
+4. Shut down Windows and export the HD image (press the "Get hard disk image" button at the top).
 
 ### 4.2 Enabling True Color (for Windows 2000)
 
