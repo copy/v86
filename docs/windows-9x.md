@@ -1,6 +1,6 @@
 # Microsoft Windows 9x guest setup
 
-This guide leads through the process of creating v86 guest images for Windows 9x branch (Windows 95, 98, ME).
+This guide leads through the process of creating v86 guest images for Windows 9x branch (Windows 95, 98 and ME).
 
 ## 1. Installing
 
@@ -24,7 +24,7 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
  - (optionally) add `-device sb16` to enable sound
  - (optionally) add `-nic user,model=ne2k_pci` or `-device ne2k_pci,netdev=<...>` to enable networking
 
-3. For Windows 98: select "Start Windows 98 Setup from CD-ROM". For Windows 95: select "Load NEC IDE CDROM driver" and run `fdisk` to create partition, restart emulator, run `format c:` and `D:\WIN95\SETUP`.
+3. For Windows 98: select "Start Windows 98 Setup from CD-ROM". For Windows 95: select "Load NEC IDE CDROM driver" and run `fdisk` to create partition, restart the emulator, run `format c:` and `D:\WIN95\SETUP`.
 
 4. To change floppy disk, press *Ctrl+Alt+2* to switch to the QEMU Monitor, run `change floppy0 /path/to/new_floppy_image` and press *Ctrl+Alt+1* to switch to VGA.
 
@@ -49,7 +49,7 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 | Hard disk image             | Create an empty disk (recommended size: 256 - 2048 MB)            |
 | Second hard disk image / CD | Installation CD/HD                                                |
 
-2. Boot the emualtor, select `1 - FreeDOS EMS/XMS with CD-ROM (default)` (or `2 - FreeDOS EMS/CMS without CD-ROM` if you use installation HD) and run `fdisk` to create partition. Restart emulator (press the "Send Ctrl + Alt + Del" button at the top) and run `D:\SETUP`.
+2. Boot the emulator, select `1 - FreeDOS EMS/XMS with CD-ROM (default)` (or `2 - FreeDOS EMS/CMS without CD-ROM` if you use installation HD) and run `fdisk` to create partition. Restart the emulator (press the "Send Ctrl + Alt + Del" button at the top) and run `D:\SETUP`.
 
 3. Follow the installation guide on the screen. On the "Analyzing Your Computer" screen, uncheck all devices. Before reboot, do not remove the floppy disk.
 
@@ -60,7 +60,7 @@ DEVICE=c:\windows\himem.sys
 LASTDRIVE=F
 ```
 
-5. Save and exit, export the HD image (press the "Get hard disk image" button at the top). Restart emulator and finish the setup procedure.
+5. Save and exit, export the HD image (press the "Get hard disk image" button at the top). Restart the emulator and finish the setup procedure.
 
 ## 2. Troubleshooting
 
