@@ -1,4 +1,4 @@
-# Microsoft Windows 3.1x guest setuo
+# Microsoft Windows 3.1x guest setup
 
 This guide leads through the process of creating v86 guest images for:
 
