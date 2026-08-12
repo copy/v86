@@ -1,12 +1,12 @@
+# Microsoft Windows NT guest setup
 
- - [Windows NT 3.1](#windows-nt-31) / [3.51](#windows-nt-351) / [4.0](#windows-nt-40)
- - [Windows 2000/XP](#windows-2000xp)
- - [Windows Vista and newer](#windows-vista-and-newer)
+ - [Windows NT 3.1](#1-windows-nt-31) / [3.51](#2-windows-nt-351) / [4.0](#3-windows-nt-40)
+ - [Windows 2000/XP](#4-windows-2000xp)
+ - [Windows Vista and newer](#5-windows-vista-and-newer)
 
-------------------------
-## Windows NT 3.1
+## 1. Windows NT 3.1
 
-### Installing using QEMU
+### 1.1 Installing using QEMU
 
 1. Install MS-DOS and [Oak CD-ROM Driver](https://www.dosdays.co.uk/topics/Software/optical_downloads.php).
 2. Create 4 blank floppy disk images:
@@ -31,9 +31,9 @@ qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cpu pentium -M pc,acpi=of
 7. Follow the setup instructions. To change floppy disk, press *Ctrl+Alt+2* to switch to the QEMU Monitor, run `change floppy0 /path/to/new_floppy_image` and press *Ctrl+Alt+1* to switch to VGA.
 
 
-## Windows NT 3.51
+## 2. Windows NT 3.51
 
-### Installing
+### 2.1 Installing
 
 > [!NOTE]
 > In newer versions of QEMU, the Windows Setup may not work, you can use an older version of QEMU, PCem, 86Box or PCBox instead.
@@ -42,7 +42,7 @@ qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cpu pentium -M pc,acpi=of
 2. Follow the setup instructions.
 3. After installing, download NT 3.51 SuperPack ([here](https://bearwindows.zcm.com.au/winnt351.htm#4) or [here](https://alter.org.ua/en/soft/nt_spack/nt3/)), unpack the archive into a Windows and copy files from `FAT32` (`SYS\FAT32`) and `RENEW` (`SYS\RENEW`) folders in `C:\WINNT35\system32\drivers` with replacing.
 
-### Enabling networking
+### 2.2 Enabling networking
 
 1. Open "Control Panel" > "Network", install Windows NT Networking (installation CD required).
 2. In "Network Adapter Card Detection", press Continue three times, set `Network Adapter Card: Novell NE2000 Compatible Adapter`.
@@ -58,11 +58,11 @@ I/O Port Address: 0x300
 6. Restart the VM.
 
 
-## Windows NT 4.0
+## 3. Windows NT 4.0
 
 Recommended version: Windows NT 4.0 SP1
 
-### Installing using QEMU
+### 3.1 Installing using QEMU
 
 1. Run QEMU with the following settings for installation:
 
@@ -73,7 +73,7 @@ qemu-system-i386 -m 64 -drive file=hdd.img,format=raw -cdrom InstallCD.iso -cpu 
 2. On setup startup, press F5 and select "Standard PC".
 3. Follow the setup instructions.
 
-### Running in v86
+### 3.2 Running in v86
 
 Due to a problem with CPUID, you need to add `cpuid_level: 2` and `acpi: false` to the V86 constructor (not supported in the UI):
 
@@ -85,7 +85,7 @@ var emulator = new V86({
 });
 ```
 
-### Enable True Color
+### 3.3 Enable True Color
 
 *Source: https://computernewb.com/wiki/QEMU/Guests/Windows_NT_4.0*
 
@@ -96,7 +96,7 @@ var emulator = new V86({
 5. Select "AnaPa Corp VBE Miniport" adapter, press "Yes" and "OK".
 6. After installing, restart the VM.
 
-### Enabling absolute mouse positioning
+### 3.4 Enabling absolute mouse positioning
 
 1. Download [VMware Tools 6.0](https://archive.org/download/vmware-tools-collection/vmware-tools-600-win.iso) and mount the ISO to the VM.
 2. Open Start menu, select "Settings" -> "Control Panel".
@@ -105,9 +105,9 @@ var emulator = new V86({
 5. Press "OK" and restart the VM.
 
 
-## Windows 2000/XP
+## 4. Windows 2000/XP
 
-### Installing using QEMU
+### 4.1 Installing using QEMU
 
 1. Run QEMU with the following settings for installation:
 
@@ -130,7 +130,7 @@ After installation, change the computer type to "Standard PC" as described [here
 5. Choose "Standard PC", press Next > Finish.
 6. Restart the VM, follow multiple "Found New Hardware Wizard" dialogs with default options.
 
-### Enabling True Color (for Windows 2000)
+### 4.2 Enabling True Color (for Windows 2000)
 
 > [!NOTE]
 > This driver doesn't support DirectX, DirectDraw and OpenGL.
@@ -144,7 +144,7 @@ After installation, change the computer type to "Standard PC" as described [here
 6. Select "VBE Miniport" adapter, press "Yes" and "Next".
 7. After installing, restart the VM.
 
-### Enabling sound
+### 4.3 Enabling sound
 
 *Source: [#1049](https://github.com/copy/v86/issues/1049)*
 
@@ -160,9 +160,9 @@ Models: Sound Blaster 16 or AWE32 or compatible (WDM)
 ```
 
 
-## Windows Vista and newer
+## 5. Windows Vista and newer
 
-### Installing using QEMU
+### 5.1 Installing using QEMU
 
 1. Run QEMU with the following settings for installation:
 
@@ -174,11 +174,11 @@ Optionally add `-accel kvm` (for Linux host), `-accel whpx` (for Windows host) o
 
 2. Follow the setup instructions.
 
-### Running in v86
+### 5.2 Running in v86
 
 Enable ACPI and set the memory size to 512 MB or more.
 
-### Enabling networking (ne2k)
+### 5.3 Enabling networking (ne2k)
 
 *Source: https://phaq.phunsites.net/2007/05/21/vista-on-xen-using-ne2000-in-favor-to-rtl8139/*
 
