@@ -64,6 +64,15 @@ extract /a /l C:\Windows\System <floppy drive letter>:\WIN95_03.CAB vfd.vxd
 2. Find `C:\AUTOEXEC.BAT` and add `smartdrv` to the top of the file.
 3. Press File -> Save.
 
+### 2.3 "It is now safe to turn off your computer" on startup (disabling ScanDisk)
+
+*Source: https://www.pro-face.com/otasuke/qa/can/pl/scandisk.htm*
+
+1. Open Explorer, click "View" -> "Folder Options" -> "View", select "Show all files" in "Hidden files".
+2. Go to `C:`, right-click on `MSDOS.SYS`, select "Properties", untick "Archive" and "Read-only", press "OK".
+3. Right-click on `MSDOS.SYS` again, select "Open With..." -> "Notepad".
+4. Add (or change) `AutoScan=0` in `[Options]` and save the changes.
+
 ## 3. Install optional components
 
 ### 3.1 Floppy disk support
