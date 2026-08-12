@@ -8,7 +8,7 @@ Recommended versions:
  - Windows 95 OSR2(.5)
  - Windows 98 Second Edition (SE)
 
-### 1.1 Installing using QEMU
+### 1.1 Installing using QEMU (recommended)
 
 1. Create a disk image (up to 2 GB):
 ```sh
@@ -32,6 +32,35 @@ qemu-system-i386 -m 128 -M pc,acpi=off -drive file=hdd.img,format=raw
 
 > [!TIP]
 > For transfer files from host to guest, use [genisoimage](https://wiki.debian.org/genisoimage) ([UltraISO](https://www.ultraiso.com/) and [PowerISO](https://www.poweriso.com/) for Windows and Mac) for creating CD-ISO image or [dosfstools](https://github.com/dosfstools/dosfstools) ([WinImage](https://www.winimage.com/download.htm) for Windows) for creating floppy disk images, then mount the created image to QEMU.
+
+### 1.2 Installing using v86
+
+*Source: [#1553](https://github.com/copy/v86/discussions/1553#discussioncomment-16893976)*
+
+> [!NOTE]
+> Due to [#1556](https://github.com/copy/v86/issues/1556), you will have problems with original Retail CD images.
+> You can modify your CD image (delete the `ADMIN`, `DATALINK`, `DEMOS`, `FUNSTUFF`, `HELP`, `OTHER` and `SAMPLER` folders to reduce the size, and apply Pather9x) or use [ready converted HD images](https://github.com/copy/v86/discussions/1553#discussioncomment-16893976).
+
+1. Go to https://copy.sh/v86/ and set the following settings:
+
+| Option                      | File                                                              |
+|:----------------------------|:------------------------------------------------------------------|
+| Floppy disk image           | [Patcher9x boot floppy](https://github.com/JHRobotics/patcher9x/) |
+| Hard disk image             | Create an empty disk (recommended size: 256 - 2048 MB)            |
+| Second hard disk image / CD | Installation CD/HD                                                |
+
+2. Boot the emualtor, select `1 - FreeDOS EMS/XMS with CD-ROM (default)` (or `2 - FreeDOS EMS/CMS without CD-ROM` if you use installation HD) and run `fdisk` to create partition. Restart emulator (press the "Send Ctrl + Alt + Del" button at the top) and run `D:\SETUP`.
+
+3. Follow the installation guide on the screen. On the "Analyzing Your Computer" screen, uncheck all devices. Before reboot, do not remove the floppy disk.
+
+4. Run `edit C:CONFIG.SYS` and add the following lines:
+
+```
+DEVICE=c:\windows\himem.sys
+LASTDRIVE=F
+```
+
+5. Save and exit, export the HD image (press the "Get hard disk image" button at the top). Restart emulator and finish the setup procedure.
 
 ## 2. Troubleshooting
 
