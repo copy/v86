@@ -179,6 +179,9 @@ Manufacturers: Creative Technology Ltd.
 Models: Sound Blaster 16 or AWE32 or compatible (WDM)
 ```
 
+> [!NOTE]
+> For Windows Server 2003: you will need to [extract](https://www.betaarchive.com/forum/viewtopic.php?t=37969) the `ctlsb16.sys` and `wdma_ctl.inf` files from the Windows XP installation CD (or download them [here](https://github.com/copy/v86/issues/1358#issuecomment-3014178756)), then press "Have disk" and select the `wdma_ctl.inf` file. After installation, enable the Windows Audio service.
+
 
 ## 5. Windows Vista and newer
 
