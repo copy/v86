@@ -2536,10 +2536,14 @@ VGAScreen.prototype.screen_fill_buffer = function()
             // XXX: Doesn't take svga_offset into account
             const buffer = new Int32Array(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, this.screen_width * this.screen_height);
             const svga_memory = new Uint8Array(this.cpu.wasm_memory.buffer, this.svga_memory.byteOffset, this.vga_memory_size);
+            // svga_offset selects which region of svga_memory is actually being shown, which programs use for double buffering / page flipping 
+            // This has to be applied here too to avoid the displayed image freezing on whatever was last written at offset 0 when a program flips away
+            // from it. (Master of Orion 2 640x480x256 VESA mode).
+            const base = this.svga_offset % this.vga_memory_size;
 
             for(var i = 0; i < buffer.length; i++)
             {
-                var color = this.vga256_palette[svga_memory[i]];
+                var color = this.vga256_palette[svga_memory[(base + i) % this.vga_memory_size]];
                 buffer[i] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
             }
         }
