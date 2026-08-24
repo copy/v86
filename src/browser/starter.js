@@ -234,6 +234,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.vga_memory_size = options.vga_memory_size || 8 * 1024 * 1024;
     settings.boot_order = boot_order;
     settings.fastboot = options.fastboot || false;
+    settings.bootmenu = options.bootmenu || false;
     settings.fda = undefined;
     settings.fdb = undefined;
     settings.uart1 = options.uart1;

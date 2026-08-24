@@ -564,6 +564,12 @@ export interface V86Options {
     fastboot?: boolean;
 
     /**
+     * Enable the boot menu (seabios)
+     * @default false
+     */
+    bootmenu?: boolean;
+
+    /**
      * Create a virtio balloon device
      * @default false
      */
