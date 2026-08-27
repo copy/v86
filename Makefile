@@ -371,6 +371,7 @@ api-tests: build/v86-debug.wasm
 	./tests/api/floppy.js
 	./tests/api/parallel.js
 	./tests/api/cdrom-insert-eject.js
+	./tests/api/iso9660.js
 	./tests/api/serial.js
 	./tests/api/reboot.js
 	#./tests/api/reboot-buildroot.js # https://github.com/copy/v86/issues/636
