@@ -2533,17 +2533,15 @@ VGAScreen.prototype.screen_fill_buffer = function()
         if(this.svga_bpp === 8)
         {
             // XXX: Slow, should be ported to rust, but it doesn't have access to vga256_palette
-            // XXX: Doesn't take svga_offset into account
             const buffer = new Int32Array(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, this.screen_width * this.screen_height);
             const svga_memory = new Uint8Array(this.cpu.wasm_memory.buffer, this.svga_memory.byteOffset, this.vga_memory_size);
-            // svga_offset selects which region of svga_memory is actually being shown, which programs use for double buffering / page flipping 
-            // This has to be applied here too to avoid the displayed image freezing on whatever was last written at offset 0 when a program flips away
-            // from it. (Master of Orion 2 640x480x256 VESA mode).
-            const base = this.svga_offset % this.vga_memory_size;
+            // svga_offset selects the visible part of svga_memory, used for page flipping (e.g. Master of Orion 2)
+            const base = this.svga_offset;
+            const end = Math.min(buffer.length, this.vga_memory_size - base);
 
-            for(var i = 0; i < buffer.length; i++)
+            for(var i = 0; i < end; i++)
             {
-                var color = this.vga256_palette[svga_memory[(base + i) % this.vga_memory_size]];
+                var color = this.vga256_palette[svga_memory[base + i]];
                 buffer[i] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
             }
         }
