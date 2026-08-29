@@ -216,7 +216,7 @@ Install the Modern Generic SVGA driver for Windows 3.1 **[vbesvga](https://githu
 Insert floppy disk image `vbesvga.img`, then
 
 * open the **Main** folder on the Windows Desktop, then open icon **Windows Setup**
-* open menu item **Options** and select **Change Sytem Settings...**
+* open menu item **Options** and select **Change System Settings...**
 * select **Other display (Requires disk from OEM)** in Dropdown **Display** and set the path to `A:`
 * select any resolution, for example **Modern SVGA 1024x768 16M Small**
 
@@ -287,7 +287,7 @@ C:\MOUSE\VBMOUSE.EXE wheel off
 Reboot the emulator, start Windows and then install the Windows driver (which requires the DOS driver) from `vbados.flp`:
 
 * open the **Main** folder on the Windows Desktop, then open icon **Windows Setup**
-* open menu item **Options** and select **Change Sytem Settings...**
+* open menu item **Options** and select **Change System Settings...**
 * select **Other mouse (Requires disk from OEM)** in Dropdown **Mouse** and set the path to `A:`
 * select **VBMOUSE int33 absolute mouse driver** (if the selection box is blank afterwards just re-select it)
 
