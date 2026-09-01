@@ -2562,9 +2562,9 @@ function init_ui(profile, settings, emulator)
     $("exit").onclick = function()
     {
         emulator.destroy();
-        const url = new URL(location.href);
-        url.searchParams.delete("profile");
-        location.href = url.pathname + url.search;
+        const params = new URLSearchParams(location.search);
+        params.delete("profile");
+        location.href = location.pathname + format_query_args(params);
     };
 
     $("lock_mouse").onclick = function()
@@ -3455,11 +3455,24 @@ function onpopstate(e)
     location.reload();
 }
 
+function format_query_args(params)
+{
+    const entries = Array.from(params.entries());
+    if(entries.length)
+    {
+        return "?" + entries.map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
+    }
+    else
+    {
+        return "";
+    }
+}
+
 function push_state(params)
 {
     if(window.history.pushState)
     {
-        let search = "?" + Array.from(params.entries()).map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
+        const search = format_query_args(params);
         window.history.pushState({ search }, "", search);
     }
 }
