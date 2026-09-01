@@ -1,7 +1,7 @@
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
-import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DISK_DRIVE2_CYL } from "./rtc.js";
+import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DISK_DRIVE1_TYPE, CMOS_DISK_DRIVE2_CYL, CMOS_DISK_DRIVE2_TYPE } from "./rtc.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -954,6 +954,93 @@ IDEInterface.prototype.set_cdrom = function(buffer)
     }
 };
 
+// values for CMOS_BIOS_DISKTRANSFLAG
+const TRANSLATION_NONE = 0;
+const TRANSLATION_LBA = 1;
+const TRANSLATION_LARGE = 2;
+
+IDEInterface.prototype.get_disk_geometry = function()
+{
+    // try calculating the geometry from the mbr (should be filled in starter.js)
+    const mbr = this.buffer.byteLength >= 512 ? this.buffer.get_from_cache(0, 512) : undefined;
+
+    let geometry_mbr;
+
+    if(!mbr)
+    {
+        dbg_log(this.name + ": warning: first sector not available, guessing the geometry from the disk size", LOG_DISK);
+    }
+    else if(mbr[510] === 0x55 && mbr[511] === 0xAA)
+    {
+        for(let i = 0; i < 4; i++)
+        {
+            const offset = 0x1BE + i * 16;
+            const end_head = mbr[offset + 5];
+            const sectors = mbr[offset + 6] & 63;
+            const sector_count = (mbr[offset + 12] | mbr[offset + 13] << 8 | mbr[offset + 14] << 16 | mbr[offset + 15] << 24) >>> 0;
+
+            if(sector_count && end_head && sectors)
+            {
+                const heads = end_head + 1;
+                const cylinders = this.sector_count / (heads * sectors) | 0;
+
+                if(cylinders >= 1 && cylinders <= 16383)
+                {
+                    geometry_mbr = { cylinders, heads, sectors };
+                    break;
+                }
+            }
+        }
+    }
+
+    let cylinders;
+    let heads;
+    let sectors;
+    let translation;
+
+    // match qemu's behaviour to make sure disks are interchangeable
+
+    if(geometry_mbr && geometry_mbr.heads <= 16)
+    {
+        ({ cylinders, heads, sectors } = geometry_mbr);
+        translation = TRANSLATION_NONE;
+    }
+    else
+    {
+        // "standard" disk geometry
+        heads = 16;
+        sectors = 63;
+        cylinders = this.sector_count / (heads * sectors) | 0;
+
+        if(cylinders > 16383)
+        {
+            cylinders = 16383;
+        }
+        else if(cylinders < 2)
+        {
+            cylinders = 2;
+        }
+
+        if(!geometry_mbr && cylinders <= 1024)
+        {
+            translation = TRANSLATION_NONE;
+        }
+        else if(geometry_mbr && cylinders * 16 <= 131072)
+        {
+            translation = TRANSLATION_LARGE;
+        }
+        else
+        {
+            translation = TRANSLATION_LBA;
+        }
+    }
+
+    dbg_log(this.name + ": geometry " + cylinders + "/" + heads + "/" +
+            sectors + " translation " + ["none", "lba", "large"][translation], LOG_DISK);
+
+    return { cylinders, heads, sectors, translation };
+};
+
 IDEInterface.prototype.set_disk_buffer = function(buffer)
 {
     if(!buffer)
@@ -980,51 +1067,55 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
         // default values: 1/2048
         this.head_count = 1;
         this.sectors_per_track = 2048;
+        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+
+        if(this.cylinder_count !== (this.cylinder_count | 0))
+        {
+            dbg_log(this.name + ": warning: rounding up cylinder count, choose different head number", LOG_DISK);
+            this.cylinder_count = Math.floor(this.cylinder_count);
+        }
     }
     else
     {
-        // "default" values: 16/63
-        // common: 255, 63
-        this.head_count = 16;
-        this.sectors_per_track = 63;
-    }
+        const { cylinders, heads, sectors, translation } = this.get_disk_geometry();
 
-    this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+        this.cylinder_count = cylinders;
+        this.head_count = heads;
+        this.sectors_per_track = sectors;
 
-    if(this.cylinder_count !== (this.cylinder_count | 0))
-    {
-        dbg_log(this.name + ": warning: rounding up cylinder count, choose different head number", LOG_DISK);
-        this.cylinder_count = Math.floor(this.cylinder_count);
-    }
-
-    if(this.interface_nr === 0)
-    {
         // for CMOS see:
         //   https://github.com/copy/v86/blob/master/src/rtc.js
         //   https://github.com/coreboot/seabios/blob/master/src/hw/rtc.h
         //   https://web.archive.org/web/20240119203005/http://www.bioscentral.com/misc/cmosmap.htm
         const rtc = this.cpu.devices.rtc;
 
-        // master
-        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,     // TODO: what is this doing, setting LBA translation?
-                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.channel_nr * 4);
+        // two bits per drive, the drive index is channel_nr * 2 + interface_nr
+        const shift = (this.channel_nr * 2 + this.interface_nr) * 2;
+        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) & ~(3 << shift) |
+                       translation << shift);
 
-        // set hard disk type (CMOS_DISK_DATA = 0x12) of C: to 0b1111, keep type of D:
-        //   bits 0-3: hard disk type of D:
-        //   bits 4-7: hard disk type of C:
-        // TODO: should this not also set CMOS_DISK_DRIVE1_TYPE to a hard disk type (see SeaBIOS rtc.h)?
-        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
+        if(this.channel_nr === 0)
+        {
+            const is_drive1 = this.interface_nr === 0;
 
-        const drive_reg = this.channel_nr === 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;  // 0x1B : 0x24 (drive C: or D:)
-        rtc.cmos_write(drive_reg + 0, this.cylinder_count & 0xFF);        // number of cylinders least significant byte
-        rtc.cmos_write(drive_reg + 1, this.cylinder_count >> 8 & 0xFF);   // number of cylinders most significant byte
-        rtc.cmos_write(drive_reg + 2, this.head_count & 0xFF);            // number of heads
-        rtc.cmos_write(drive_reg + 3, 0xFF);                              // write precomp cylinder least significant byte
-        rtc.cmos_write(drive_reg + 4, 0xFF);                              // write precomp cylinder most significant byte
-        rtc.cmos_write(drive_reg + 5, 0xC8);                              // control byte
-        rtc.cmos_write(drive_reg + 6, this.cylinder_count & 0xFF);        // landing zone least significant byte
-        rtc.cmos_write(drive_reg + 7, this.cylinder_count >> 8 & 0xFF);   // landing zone most significant byte
-        rtc.cmos_write(drive_reg + 8, this.sectors_per_track & 0xFF);     // number of sectors
+            // set hard disk type (CMOS_DISK_DATA = 0x12) of C: or D: to 0b1111
+            //   bits 0-3: hard disk type of D:
+            //   bits 4-7: hard disk type of C:
+            rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) | (is_drive1 ? 0xF0 : 0x0F));
+            rtc.cmos_write(is_drive1 ? CMOS_DISK_DRIVE1_TYPE : CMOS_DISK_DRIVE2_TYPE, 47);
+
+            const drive_reg = is_drive1 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;  // 0x1B : 0x24 (drive C: or D:)
+            rtc.cmos_write(drive_reg + 0, this.cylinder_count & 0xFF);        // number of cylinders least significant byte
+            rtc.cmos_write(drive_reg + 1, this.cylinder_count >> 8 & 0xFF);   // number of cylinders most significant byte
+            rtc.cmos_write(drive_reg + 2, this.head_count & 0xFF);            // number of heads
+            rtc.cmos_write(drive_reg + 3, 0xFF);                              // write precomp cylinder least significant byte
+            rtc.cmos_write(drive_reg + 4, 0xFF);                              // write precomp cylinder most significant byte
+            rtc.cmos_write(drive_reg + 5, 0xC0 | (this.head_count > 8 ? 1 : 0) << 3); // control byte
+            rtc.cmos_write(drive_reg + 6, this.cylinder_count & 0xFF);        // landing zone least significant byte
+            rtc.cmos_write(drive_reg + 7, this.cylinder_count >> 8 & 0xFF);   // landing zone most significant byte
+            rtc.cmos_write(drive_reg + 8, this.sectors_per_track & 0xFF);     // number of sectors
+        }
     }
 
     if(this.channel.cpu)

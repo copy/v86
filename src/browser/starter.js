@@ -633,6 +633,19 @@ V86.prototype.continue_init = async function(emulator, options)
         this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
         this.virtio_console_adapter && this.virtio_console_adapter.show && this.virtio_console_adapter.show();
 
+        if(!settings.initial_state)
+        {
+            // ide needs to read the mbr to calculate the device geometry
+            if(settings.hda)
+            {
+                await new Promise(resolve => settings.hda.get_and_cache(0, 512, resolve));
+            }
+            if(settings.hdb)
+            {
+                await new Promise(resolve => settings.hdb.get_and_cache(0, 512, resolve));
+            }
+        }
+
         this.v86.init(settings);
 
         this.modem && this.modem.initialize();
