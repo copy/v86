@@ -1056,8 +1056,7 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
     if(this.is_atapi)
     {
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
-        // Reported via the sense path in atapi_handle
-        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
+        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
     }
     this.sector_count = this.buffer.byteLength / this.sector_size;
 
