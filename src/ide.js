@@ -179,6 +179,7 @@ const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-2] 9.1.9
 const ATAPI_CMD_READ_10 = 0x28;                       // see [CD-SCSI-2]
 const ATAPI_CMD_READ_12 = 0xA8;                       // see [SFF-8020] 9.8.14
 const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-2] 9.1.12
+const ATAPI_CMD_READ_FORMAT_CAPACITIES = 0x23;        // see [MMC-3] 5.21
 const ATAPI_CMD_READ_CD = 0xBE;                       // see [CD-SCSI-2]
 const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [CD-SCSI-2]
 const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [CD-SCSI-2]
@@ -207,6 +208,7 @@ const ATAPI_CMD =
     [ATAPI_CMD_READ_10]:                       {name: "READ (10)",                     flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_12]:                       {name: "READ (12)",                     flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_FORMAT_CAPACITIES]:        {name: "READ FORMAT CAPACITIES",        flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_DISK_INFORMATION]:         {name: "READ DISK INFORMATION",         flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_SUBCHANNEL]:               {name: "READ SUBCHANNEL",               flags: ATAPI_CF_NEEDS_DISK},
@@ -1554,6 +1556,26 @@ IDEInterface.prototype.atapi_handle = function()
                 count & 0xFF,
                 0,
                 0,
+                this.sector_size >> 8 & 0xFF,
+                this.sector_size & 0xFF,
+            ]));
+            this.data_end = this.data_length;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+            break;
+
+        case ATAPI_CMD_READ_FORMAT_CAPACITIES:
+            var count = this.sector_count - 1;
+            this.data_set(new Uint8Array([
+                0,
+                0,
+                0,
+                8, // capacity list length
+                count >> 24 & 0xFF,
+                count >> 16 & 0xFF,
+                count >> 8 & 0xFF,
+                count & 0xFF,
+                2, // formatted
+                this.sector_size >> 16 & 0xFF,
                 this.sector_size >> 8 & 0xFF,
                 this.sector_size & 0xFF,
             ]));
