@@ -38,6 +38,9 @@ import { BusConnector } from "./bus.js";
 // - [SFF-8020]
 //   ATA Packet Interface for CD-ROMs (Rev. 1.2, Feb. 12, 1994)
 //   https://dn790009.ca.archive.org/0/items/SCSISpecificationDocumentsATAATAPI/SFF-8020_%20ATA%20Packet%20Interface%20for%20CD-ROMs%20-%20SFF.pdf
+// - [AACS]
+//   Advanced Access Control System (AACS) (Rev. 0.953, Oct. 26, 2012)
+//   https://aacsla.com/wp-content/uploads/2019/02/AACS_Spec_Common_Final_0953.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -188,6 +191,8 @@ const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
 const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
 const ATAPI_CMD_START_STOP_UNIT = 0x1B;               // see [CD-SCSI-2]
 const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
+const ATAPI_CMD_REPORT_KEY = 0xA4;                    // see [MMC-3] 5.26
+const ATAPI_CMD_READ_DISC_STRUCTURE = 0xAD;           // see [AASC] 4.14.3
 
 // ATAPI command flags
 const ATAPI_CF_NONE = 0x00;         // no flags
@@ -217,6 +222,8 @@ const ATAPI_CMD =
     [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
     [ATAPI_CMD_START_STOP_UNIT]:               {name: "START STOP UNIT",               flags: ATAPI_CF_NONE},
     [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_REPORT_KEY]:                    {name: "REPORT KEY",                    flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ_DISC_STRUCTURE]:           {name: "READ DISC STRUCTURE",           flags: ATAPI_CF_NEEDS_DISK},
 };
 
 // ATAPI device signature
@@ -1718,6 +1725,8 @@ IDEInterface.prototype.atapi_handle = function()
 
         case ATAPI_CMD_PAUSE:
         case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
+        case ATAPI_CMD_REPORT_KEY:
+        case ATAPI_CMD_READ_DISC_STRUCTURE:
             dbg_log_extra = "unimplemented";
             this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
             break;
