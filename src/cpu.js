@@ -2,7 +2,7 @@ import {
     LOG_CPU, LOG_BIOS,
     FW_CFG_SIGNATURE, FW_CFG_SIGNATURE_QEMU,
     WASM_TABLE_SIZE, WASM_TABLE_OFFSET, FW_CFG_ID,
-    FW_CFG_RAM_SIZE, FW_CFG_NB_CPUS, FW_CFG_MAX_CPUS,
+    FW_CFG_RAM_SIZE, FW_CFG_NB_CPUS, FW_CFG_MAX_CPUS, FW_CFG_BOOT_MENU,
     FW_CFG_NUMA, FW_CFG_FILE_DIR, FW_CFG_FILE_START,
     FW_CFG_CUSTOM_START, FLAGS_DEFAULT,
     MMAP_BLOCK_BITS, MMAP_BLOCK_SIZE, MMAP_MAX,
@@ -19,11 +19,13 @@ import { ACPI } from "./acpi.js";
 import { PIT } from "./pit.js";
 import { DMA } from "./dma.js";
 import { UART } from "./uart.js";
+import { ParallelPort } from "./parallel.js";
 import { Ne2k } from "./ne2k.js";
 import { IO } from "./io.js";
 import { VirtioConsole } from "./virtio_console.js";
 import { PCI } from "./pci.js";
 import { PS2 } from "./ps2.js";
+import { VMwareMouse } from "./vmware.js";
 import { read_elf } from "./elf.js";
 
 import { FloppyController } from "./floppy.js";
@@ -96,11 +98,6 @@ export function CPU(bus, wm, stop_idling)
     this.gdtr_offset = view(Int32Array, memory, 576, 1);
 
     this.tss_size_32 = view(Int32Array, memory, 1128, 1);
-
-    /*
-     * whether or not a page fault occured
-     */
-    this.page_fault = view(Uint32Array, memory, 540, 8);
 
     this.cr = view(Int32Array, memory, 580, 8);
 
@@ -472,7 +469,7 @@ CPU.prototype.get_state = function()
     state[6] = this.idtr_size[0];
     state[7] = this.gdtr_offset[0];
     state[8] = this.gdtr_size[0];
-    state[9] = this.page_fault[0];
+    // 9 (formerly page_fault)
     state[10] = this.cr;
     state[11] = this.cpl[0];
 
@@ -570,6 +567,9 @@ CPU.prototype.get_state = function()
     state[86] = this.last_result;
     state[87] = this.fpu_status_word;
     state[88] = this.mxcsr;
+    state[89] = this.devices.vmware;
+    state[90] = this.devices.parallel0;
+    state[91] = this.devices.parallel1;
 
     return state;
 };
@@ -659,7 +659,6 @@ CPU.prototype.set_state = function(state)
     this.idtr_size[0] = state[6];
     this.gdtr_offset[0] = state[7];
     this.gdtr_size[0] = state[8];
-    this.page_fault[0] = state[9];
     this.cr.set(state[10]);
     this.cpl[0] = state[11];
 
@@ -738,6 +737,9 @@ CPU.prototype.set_state = function(state)
     this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
     this.devices.virtio_net && this.devices.virtio_net.set_state(state[83]);
     this.devices.virtio_balloon && this.devices.virtio_balloon.set_state(state[84]);
+    this.devices.vmware && state[89] && this.devices.vmware.set_state(state[89]);
+    this.devices.parallel0 && state[90] && this.devices.parallel0.set_state(state[90]);
+    this.devices.parallel1 && state[91] && this.devices.parallel1.set_state(state[91]);
 
     this.fw_value = state[62];
 
@@ -1067,6 +1069,10 @@ CPU.prototype.init = function(settings, device_bus)
         {
             return new Uint8Array(Int32Array.of(x).buffer);
         }
+        function i64(low, high)
+        {
+            return new Uint8Array(Int32Array.of(low, high).buffer);
+        }
 
         function to_be16(x)
         {
@@ -1091,7 +1097,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_RAM_SIZE)
         {
-            this.fw_value = i32(this.memory_size[0]);
+            this.fw_value = i64(this.memory_size[0], 0);
         }
         else if(value === FW_CFG_NB_CPUS)
         {
@@ -1100,6 +1106,10 @@ CPU.prototype.init = function(settings, device_bus)
         else if(value === FW_CFG_MAX_CPUS)
         {
             this.fw_value = i32(1);
+        }
+        else if(value === FW_CFG_BOOT_MENU)
+        {
+            this.fw_value = i32(+settings.bootmenu);
         }
         else if(value === FW_CFG_NUMA)
         {
@@ -1176,8 +1186,10 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.vga = new VGAScreen(this, device_bus, settings.screen, settings.vga_memory_size || 8 * 1024 * 1024);
 
         this.devices.ps2 = new PS2(this, device_bus);
+        this.devices.vmware = new VMwareMouse(this, device_bus);
 
         this.devices.uart0 = new UART(this, 0x3F8, device_bus);
+        this.devices.parallel0 = new ParallelPort(this, 0x378, 7, 0, device_bus);
 
         if(settings.uart1)
         {
@@ -1190,6 +1202,10 @@ CPU.prototype.init = function(settings, device_bus)
         if(settings.uart3)
         {
             this.devices.uart3 = new UART(this, 0x2E8, device_bus);
+        }
+        if(settings.parallel1)
+        {
+            this.devices.parallel1 = new ParallelPort(this, 0x278, 5, 1, device_bus);
         }
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
@@ -1540,9 +1556,7 @@ CPU.prototype.load_multiboot_option_rom = function(buffer, initrd, cmdline)
                 cpu.segment_offsets[i] = 0;
                 cpu.segment_limits[i] = 0xFFFFFFFF;
                 // cpu.segment_access_bytes[i]
-                // Value doesn't matter, OS isn't allowed to reload without setting
-                // up a proper GDT
-                cpu.sreg[i] = 0xB002;
+                cpu.sreg[i] = i === REG_CS ? 0x08 : 0x10;
             }
             cpu.instruction_pointer[0] = cpu.get_seg_cs() + entrypoint | 0;
             cpu.update_state_flags();

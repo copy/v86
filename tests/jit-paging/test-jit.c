@@ -64,7 +64,7 @@ void test_shared()
     size_t size = PAGE_SIZE;
     memcpy(write_addr, fib, size);
 
-    int (*fun_pointer)() = (void*)exec_addr;
+    int (*fun_pointer)(int) = (void*)exec_addr;
 
     // Give the JIT something to potentially cache
     for(int i = 0; i < 15000; i++)
@@ -76,7 +76,7 @@ void test_shared()
     }
 
     memcpy(write_addr, pass_test, size);
-    if(fun_pointer() == 0x42)
+    if(fun_pointer(0) == 0x42)
     {
         printf("test_shared passed\n");
     }
@@ -113,7 +113,7 @@ void test_consecutive()
     {
         uint8_t* start = (uint8_t*)(page1 - i - 1);
         memcpy(start, fib, PAGE_SIZE);
-        int (*fun_pointer)() = (void*)start;
+        int (*fun_pointer)(int) = (void*)start;
 
         for(int j = 0; j < 15000; j++)
         {

@@ -134,6 +134,23 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "GentleOS/16",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/gentleos16-fd1440.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_graphical_size: [320, 200],
+        },
+        {
+            name: "GentleOS/32",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/gentleos32-disk.img",
+            timeout: 30,
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+        },
+        {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
             timeout: 90,
@@ -145,6 +162,23 @@ if(cluster.isPrimary)
                 {
                     on_text: "/root%",
                     run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test && echo test pas''sed || echo failed\n",
+                },
+            ],
+        },
+        {
+            name: "Linux 0.11",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/experimental/linux-0.11/bootfloppy.img",
+            hda: root_path + "/images/experimental/linux-0.11/hdc-0.11.img",
+            timeout: 60,
+            expected_texts: [
+                "[/usr/root]#",
+                "test passed",
+            ],
+            actions: [
+                {
+                    on_text: "[/usr/root]#",
+                    run: "echo test pas''sed\n",
                 },
             ],
         },
@@ -211,16 +245,16 @@ if(cluster.isPrimary)
             expect_graphical_size: [640, 480],
             expect_mouse_registered: true,
         },
-        //{
-        //    name: "Windows 98",
-        //    skip_if_disk_image_missing: true,
-        //    hda: root_path + "/images/windows98.img",
-        //    timeout: 60,
-        //    expect_graphical_mode: true,
-        //    expect_graphical_size: [800, 600],
-        //    expect_mouse_registered: true,
-        //    failure_allowed: true,
-        //},
+        {
+            name: "Windows 98",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/windows98.img",
+            timeout: 60,
+            expect_graphical_mode: true,
+            expect_graphical_size: [640, 480],
+            expect_mouse_registered: true,
+            failure_allowed: true,
+        },
         {
             name: "Windows 95",
             skip_if_disk_image_missing: true,
@@ -229,7 +263,6 @@ if(cluster.isPrimary)
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
-            failure_allowed: true,
         },
         {
             name: "Oberon",
@@ -474,6 +507,30 @@ if(cluster.isPrimary)
             expect_graphical_mode: true,
             expect_graphical_size: [1024, 768],
             expect_mouse_registered: true,
+        },
+        {
+            name: "386BSD",
+            skip_if_disk_image_missing: true,
+            timeout: 5 * 60,
+            memory_size: 64 * 1024 * 1024,
+            hda: root_path + "/images/386bsd.img", // https://archive.org/details/386bsd-1.0-qemu
+            expected_texts: [
+                "386BSD Release 1.0",
+                "login:",
+                "erase ^?, kill ^U, intr ^C",
+            ],
+            actions: [
+                {
+                    on_text: "login:",
+                    after: 1000,
+                    run: "root\n",
+                },
+                {
+                    on_text: "Password:",
+                    after: 1000,
+                    run: "welcome\n",
+                },
+            ],
         },
         {
             name: "FreeBSD",

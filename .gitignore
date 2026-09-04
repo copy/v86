@@ -2,6 +2,7 @@
 *.swo
 tests/qemu/test-i386
 tests/jit-paging/test-jit
+tests/jit-paging/test-jit-smc
 *.map
 build/
 closure-compiler/
@@ -26,3 +27,4 @@ src/rust/gen/jit.rs
 src/rust/gen/jit0f.rs
 bios/seabios
 bench-results
+.devcontainer/devcontainer-lock.json

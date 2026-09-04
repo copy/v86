@@ -41,6 +41,29 @@ SyncBuffer.prototype.get = function(start, len, fn)
 /**
  * @this {SyncBuffer|SyncFileBuffer}
  * @param {number} start
+ * @param {number} len
+ * @param {function(!Uint8Array)} fn
+ */
+SyncBuffer.prototype.get_and_cache = function(start, len, fn)
+{
+    this.get(start, len, fn);
+};
+
+/**
+ * @this {SyncBuffer|SyncFileBuffer}
+ * @param {number} start
+ * @param {number} len
+ * @return {Uint8Array|undefined}
+ */
+SyncBuffer.prototype.get_from_cache = function(start, len)
+{
+    dbg_assert(start + len <= this.byteLength);
+    return new Uint8Array(this.buffer, start, len);
+};
+
+/**
+ * @this {SyncBuffer|SyncFileBuffer}
+ * @param {number} start
  * @param {!Uint8Array} slice
  * @param {function()} fn
  */
@@ -205,6 +228,31 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn, options)
         range: { start: requested_start, length: requested_length },
         signal: options?.signal,
     });
+};
+
+/**
+ * @this {AsyncXHRBuffer|AsyncXHRPartfileBuffer|AsyncFileBuffer}
+ * @param {number} offset
+ * @param {number} len
+ * @param {function(!Uint8Array)} fn
+ */
+AsyncXHRBuffer.prototype.get_and_cache = function(offset, len, fn, options)
+{
+    this.get(offset, len, function(block)
+    {
+        const start_block = offset / BLOCK_SIZE;
+        const block_count = len / BLOCK_SIZE;
+
+        for(let i = 0; i < block_count; i++)
+        {
+            if(!this.block_cache.has(start_block + i))
+            {
+                this.block_cache.set(start_block + i, block.slice(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE));
+            }
+        }
+
+        fn(block);
+    }.bind(this), options);
 };
 
 /**
@@ -508,6 +556,7 @@ AsyncXHRPartfileBuffer.prototype.get = function(offset, len, fn, options)
 };
 
 AsyncXHRPartfileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
+AsyncXHRPartfileBuffer.prototype.get_and_cache = AsyncXHRBuffer.prototype.get_and_cache;
 AsyncXHRPartfileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
 AsyncXHRPartfileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 //AsyncXHRPartfileBuffer.prototype.get_block_cache = AsyncXHRBuffer.prototype.get_block_cache;
@@ -580,6 +629,8 @@ SyncFileBuffer.prototype.load_next = function(start)
 };
 
 SyncFileBuffer.prototype.get = SyncBuffer.prototype.get;
+SyncFileBuffer.prototype.get_and_cache = SyncBuffer.prototype.get_and_cache;
+SyncFileBuffer.prototype.get_from_cache = SyncBuffer.prototype.get_from_cache;
 SyncFileBuffer.prototype.set = SyncBuffer.prototype.set;
 SyncFileBuffer.prototype.get_buffer = SyncBuffer.prototype.get_buffer;
 SyncFileBuffer.prototype.get_state = SyncBuffer.prototype.get_state;
@@ -639,6 +690,7 @@ AsyncFileBuffer.prototype.get = function(offset, len, fn)
     fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
 };
 AsyncFileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
+AsyncFileBuffer.prototype.get_and_cache = AsyncXHRBuffer.prototype.get_and_cache;
 AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
 AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 AsyncFileBuffer.prototype.get_state = AsyncXHRBuffer.prototype.get_state;

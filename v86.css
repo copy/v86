@@ -129,7 +129,8 @@ h4 {
 .table { display: table }
 .th { display: table-header-group }
 .tr { display: table-row }
-.tr > span { display: table-cell; padding: 2px 5px }
+.tr > span { display: table-cell; padding: 2px 5px; white-space: nowrap }
+#oses span:nth-child(10) { white-space: normal }
 
 /* This is the best I managed to do with my little css experience.
    If you can do better, please send a PR. */

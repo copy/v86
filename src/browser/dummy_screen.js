@@ -48,6 +48,12 @@ export function DummyScreenAdapter(options)
     this.pause = function() {};
     this.continue = function() {};
 
+    this.clear_text_state = function()
+    {
+        text_mode_width = null;
+        text_mode_height = null;
+    };
+
     this.set_mode = function(graphical)
     {
         is_graphical = graphical;

@@ -25,7 +25,7 @@
   (import "e" "safe_write32_slow_jit" (func $e.safe_write32_slow_jit (type $t16)))
   (import "e" "bug_gen_safe_read_write_page_fault" (func $e.bug_gen_safe_read_write_page_fault (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
-  (import "e" "trigger_fault_end_jit" (func $e.trigger_fault_end_jit (type $t0)))
+  (import "e" "exit_jit" (func $e.exit_jit (type $t0)))
   (import "e" "m" (memory {normalised output}))
   (func $f (export "f") (type $t1) (param $p0 i32)
     (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32) (local $l13 i32)
@@ -109,7 +109,7 @@
                   (tee_local $l10
                     (call $e.safe_read_write32s_slow_jit
                       (get_local $l9)
-                      (i32.const 0)))
+                      (i32.const 58916864)))
                   (i32.const 1))))
             (set_local $l12
               (i32.load align=1
@@ -175,7 +175,7 @@
                     (call $e.safe_write32_slow_jit
                       (get_local $l9)
                       (get_local $l12)
-                      (i32.const 0))
+                      (i32.const 58916864))
                     (i32.const 1))
                   (then
                     (call $e.bug_gen_safe_read_write_page_fault
@@ -275,7 +275,7 @@
       (i32.store
         (i32.const 92)
         (get_local $l7))
-      (call $e.trigger_fault_end_jit)
+      (call $e.exit_jit)
       (i32.store
         (i32.const 664)
         (i32.add

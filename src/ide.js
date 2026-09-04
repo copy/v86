@@ -1,7 +1,7 @@
 import { LOG_DISK } from "./const.js";
 import { h } from "./lib.js";
 import { dbg_assert, dbg_log } from "./log.js";
-import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DISK_DRIVE2_CYL } from "./rtc.js";
+import { CMOS_BIOS_DISKTRANSFLAG, CMOS_DISK_DATA, CMOS_DISK_DRIVE1_CYL, CMOS_DISK_DRIVE1_TYPE, CMOS_DISK_DRIVE2_CYL, CMOS_DISK_DRIVE2_TYPE } from "./rtc.js";
 
 // For Types Only
 import { CPU } from "./cpu.js";
@@ -38,6 +38,9 @@ import { BusConnector } from "./bus.js";
 // - [SFF-8020]
 //   ATA Packet Interface for CD-ROMs (Rev. 1.2, Feb. 12, 1994)
 //   https://dn790009.ca.archive.org/0/items/SCSISpecificationDocumentsATAATAPI/SFF-8020_%20ATA%20Packet%20Interface%20for%20CD-ROMs%20-%20SFF.pdf
+// - [AACS]
+//   Advanced Access Control System (AACS) (Rev. 0.953, Oct. 26, 2012)
+//   https://aacsla.com/wp-content/uploads/2019/02/AACS_Spec_Common_Final_0953.pdf
 
 const CDROM_SECTOR_SIZE = 2048;
 const HD_SECTOR_SIZE = 512;
@@ -179,6 +182,7 @@ const ATAPI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL = 0x1E;  // see [MMC-2] 9.1.9
 const ATAPI_CMD_READ_10 = 0x28;                       // see [CD-SCSI-2]
 const ATAPI_CMD_READ_12 = 0xA8;                       // see [SFF-8020] 9.8.14
 const ATAPI_CMD_READ_CAPACITY = 0x25;                 // see [MMC-2] 9.1.12
+const ATAPI_CMD_READ_FORMAT_CAPACITIES = 0x23;        // see [MMC-3] 5.21
 const ATAPI_CMD_READ_CD = 0xBE;                       // see [CD-SCSI-2]
 const ATAPI_CMD_READ_DISK_INFORMATION = 0x51;         // see [CD-SCSI-2]
 const ATAPI_CMD_READ_SUBCHANNEL = 0x42;               // see [CD-SCSI-2]
@@ -187,6 +191,8 @@ const ATAPI_CMD_READ_TRACK_INFORMATION = 0x52;        // see [CD-SCSI-2]
 const ATAPI_CMD_REQUEST_SENSE = 0x03;                 // see [MMC-2] 9.1.18
 const ATAPI_CMD_START_STOP_UNIT = 0x1B;               // see [CD-SCSI-2]
 const ATAPI_CMD_TEST_UNIT_READY = 0x00;               // see [MMC-2] 9.1.20
+const ATAPI_CMD_REPORT_KEY = 0xA4;                    // see [MMC-3] 5.26
+const ATAPI_CMD_READ_DISC_STRUCTURE = 0xAD;           // see [AASC] 4.14.3
 
 // ATAPI command flags
 const ATAPI_CF_NONE = 0x00;         // no flags
@@ -207,6 +213,7 @@ const ATAPI_CMD =
     [ATAPI_CMD_READ_10]:                       {name: "READ (10)",                     flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_12]:                       {name: "READ (12)",                     flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CAPACITY]:                 {name: "READ CAPACITY",                 flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_READ_FORMAT_CAPACITIES]:        {name: "READ FORMAT CAPACITIES",        flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_CD]:                       {name: "READ CD",                       flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_DISK_INFORMATION]:         {name: "READ DISK INFORMATION",         flags: ATAPI_CF_NEEDS_DISK},
     [ATAPI_CMD_READ_SUBCHANNEL]:               {name: "READ SUBCHANNEL",               flags: ATAPI_CF_NEEDS_DISK},
@@ -215,6 +222,8 @@ const ATAPI_CMD =
     [ATAPI_CMD_REQUEST_SENSE]:                 {name: "REQUEST SENSE",                 flags: ATAPI_CF_NONE},
     [ATAPI_CMD_START_STOP_UNIT]:               {name: "START STOP UNIT",               flags: ATAPI_CF_NONE},
     [ATAPI_CMD_TEST_UNIT_READY]:               {name: "TEST UNIT READY",               flags: ATAPI_CF_NEEDS_DISK},
+    [ATAPI_CMD_REPORT_KEY]:                    {name: "REPORT KEY",                    flags: ATAPI_CF_NONE},
+    [ATAPI_CMD_READ_DISC_STRUCTURE]:           {name: "READ DISC STRUCTURE",           flags: ATAPI_CF_NEEDS_DISK},
 };
 
 // ATAPI device signature
@@ -238,6 +247,11 @@ const ATAPI_SK_ABORTED_COMMAND = 11;
 const ATAPI_ASC_INV_FIELD_IN_CMD_PACKET = 0x24;
 const ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED = 0x28;
 const ATAPI_ASC_MEDIUM_NOT_PRESENT = 0x3A;
+
+// Pending media-change state, reported to the guest in order on a swap.
+const MEDIUM_CHANGED_NONE = 0;
+const MEDIUM_CHANGED_UNIT_ATTENTION = 1;
+const MEDIUM_CHANGED_NOT_PRESENT = 2;
 
 // Debug log detail bits (internal to this module)
 const LOG_DETAIL_NONE = 0x00;   // disable debug logging of details
@@ -915,8 +929,8 @@ function IDEInterface(channel, interface_nr, buffer, is_cd)
     /** @type {number} */
     this.atapi_add_sense = 0;
 
-    /** @type {boolean} */
-    this.medium_changed = false;
+    /** @type {number} */
+    this.medium_changed = MEDIUM_CHANGED_NONE;
 
     this.set_disk_buffer(buffer);
 
@@ -937,10 +951,9 @@ IDEInterface.prototype.eject = function()
 {
     if(this.is_atapi && this.buffer)
     {
-        this.medium_changed = true;
+        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
         this.buffer = null;
         this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ|ATA_SR_COND;
-        this.error_reg = ATAPI_SK_UNIT_ATTENTION << 4;
         this.push_irq();
     }
 };
@@ -950,8 +963,95 @@ IDEInterface.prototype.set_cdrom = function(buffer)
     if(this.is_atapi && buffer)
     {
         this.set_disk_buffer(buffer);
-        this.medium_changed = true;
+        this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
     }
+};
+
+// values for CMOS_BIOS_DISKTRANSFLAG
+const TRANSLATION_NONE = 0;
+const TRANSLATION_LBA = 1;
+const TRANSLATION_LARGE = 2;
+
+IDEInterface.prototype.get_disk_geometry = function()
+{
+    // try calculating the geometry from the mbr (should be filled in starter.js)
+    const mbr = this.buffer.byteLength >= 512 ? this.buffer.get_from_cache(0, 512) : undefined;
+
+    let geometry_mbr;
+
+    if(!mbr)
+    {
+        dbg_log(this.name + ": warning: first sector not available, guessing the geometry from the disk size", LOG_DISK);
+    }
+    else if(mbr[510] === 0x55 && mbr[511] === 0xAA)
+    {
+        for(let i = 0; i < 4; i++)
+        {
+            const offset = 0x1BE + i * 16;
+            const end_head = mbr[offset + 5];
+            const sectors = mbr[offset + 6] & 63;
+            const sector_count = (mbr[offset + 12] | mbr[offset + 13] << 8 | mbr[offset + 14] << 16 | mbr[offset + 15] << 24) >>> 0;
+
+            if(sector_count && end_head && sectors)
+            {
+                const heads = end_head + 1;
+                const cylinders = this.sector_count / (heads * sectors) | 0;
+
+                if(cylinders >= 1 && cylinders <= 16383)
+                {
+                    geometry_mbr = { cylinders, heads, sectors };
+                    break;
+                }
+            }
+        }
+    }
+
+    let cylinders;
+    let heads;
+    let sectors;
+    let translation;
+
+    // match qemu's behaviour to make sure disks are interchangeable
+
+    if(geometry_mbr && geometry_mbr.heads <= 16)
+    {
+        ({ cylinders, heads, sectors } = geometry_mbr);
+        translation = TRANSLATION_NONE;
+    }
+    else
+    {
+        // "standard" disk geometry
+        heads = 16;
+        sectors = 63;
+        cylinders = this.sector_count / (heads * sectors) | 0;
+
+        if(cylinders > 16383)
+        {
+            cylinders = 16383;
+        }
+        else if(cylinders < 2)
+        {
+            cylinders = 2;
+        }
+
+        if(!geometry_mbr && cylinders <= 1024)
+        {
+            translation = TRANSLATION_NONE;
+        }
+        else if(geometry_mbr && cylinders * 16 <= 131072)
+        {
+            translation = TRANSLATION_LARGE;
+        }
+        else
+        {
+            translation = TRANSLATION_LBA;
+        }
+    }
+
+    dbg_log(this.name + ": geometry " + cylinders + "/" + heads + "/" +
+            sectors + " translation " + ["none", "lba", "large"][translation], LOG_DISK);
+
+    return { cylinders, heads, sectors, translation };
 };
 
 IDEInterface.prototype.set_disk_buffer = function(buffer)
@@ -980,51 +1080,55 @@ IDEInterface.prototype.set_disk_buffer = function(buffer)
         // default values: 1/2048
         this.head_count = 1;
         this.sectors_per_track = 2048;
+        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+
+        if(this.cylinder_count !== (this.cylinder_count | 0))
+        {
+            dbg_log(this.name + ": warning: rounding up cylinder count, choose different head number", LOG_DISK);
+            this.cylinder_count = Math.floor(this.cylinder_count);
+        }
     }
     else
     {
-        // "default" values: 16/63
-        // common: 255, 63
-        this.head_count = 16;
-        this.sectors_per_track = 63;
-    }
+        const { cylinders, heads, sectors, translation } = this.get_disk_geometry();
 
-    this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
+        this.cylinder_count = cylinders;
+        this.head_count = heads;
+        this.sectors_per_track = sectors;
 
-    if(this.cylinder_count !== (this.cylinder_count | 0))
-    {
-        dbg_log(this.name + ": warning: rounding up cylinder count, choose different head number", LOG_DISK);
-        this.cylinder_count = Math.floor(this.cylinder_count);
-    }
-
-    if(this.interface_nr === 0)
-    {
         // for CMOS see:
         //   https://github.com/copy/v86/blob/master/src/rtc.js
         //   https://github.com/coreboot/seabios/blob/master/src/hw/rtc.h
         //   https://web.archive.org/web/20240119203005/http://www.bioscentral.com/misc/cmosmap.htm
         const rtc = this.cpu.devices.rtc;
 
-        // master
-        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,     // TODO: what is this doing, setting LBA translation?
-                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) | 1 << this.channel_nr * 4);
+        // two bits per drive, the drive index is channel_nr * 2 + interface_nr
+        const shift = (this.channel_nr * 2 + this.interface_nr) * 2;
+        rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG,
+                       rtc.cmos_read(CMOS_BIOS_DISKTRANSFLAG) & ~(3 << shift) |
+                       translation << shift);
 
-        // set hard disk type (CMOS_DISK_DATA = 0x12) of C: to 0b1111, keep type of D:
-        //   bits 0-3: hard disk type of D:
-        //   bits 4-7: hard disk type of C:
-        // TODO: should this not also set CMOS_DISK_DRIVE1_TYPE to a hard disk type (see SeaBIOS rtc.h)?
-        rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) & 0x0F | 0xF0);
+        if(this.channel_nr === 0)
+        {
+            const is_drive1 = this.interface_nr === 0;
 
-        const drive_reg = this.channel_nr === 0 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;  // 0x1B : 0x24 (drive C: or D:)
-        rtc.cmos_write(drive_reg + 0, this.cylinder_count & 0xFF);        // number of cylinders least significant byte
-        rtc.cmos_write(drive_reg + 1, this.cylinder_count >> 8 & 0xFF);   // number of cylinders most significant byte
-        rtc.cmos_write(drive_reg + 2, this.head_count & 0xFF);            // number of heads
-        rtc.cmos_write(drive_reg + 3, 0xFF);                              // write precomp cylinder least significant byte
-        rtc.cmos_write(drive_reg + 4, 0xFF);                              // write precomp cylinder most significant byte
-        rtc.cmos_write(drive_reg + 5, 0xC8);                              // control byte
-        rtc.cmos_write(drive_reg + 6, this.cylinder_count & 0xFF);        // landing zone least significant byte
-        rtc.cmos_write(drive_reg + 7, this.cylinder_count >> 8 & 0xFF);   // landing zone most significant byte
-        rtc.cmos_write(drive_reg + 8, this.sectors_per_track & 0xFF);     // number of sectors
+            // set hard disk type (CMOS_DISK_DATA = 0x12) of C: or D: to 0b1111
+            //   bits 0-3: hard disk type of D:
+            //   bits 4-7: hard disk type of C:
+            rtc.cmos_write(CMOS_DISK_DATA, rtc.cmos_read(CMOS_DISK_DATA) | (is_drive1 ? 0xF0 : 0x0F));
+            rtc.cmos_write(is_drive1 ? CMOS_DISK_DRIVE1_TYPE : CMOS_DISK_DRIVE2_TYPE, 47);
+
+            const drive_reg = is_drive1 ? CMOS_DISK_DRIVE1_CYL : CMOS_DISK_DRIVE2_CYL;  // 0x1B : 0x24 (drive C: or D:)
+            rtc.cmos_write(drive_reg + 0, this.cylinder_count & 0xFF);        // number of cylinders least significant byte
+            rtc.cmos_write(drive_reg + 1, this.cylinder_count >> 8 & 0xFF);   // number of cylinders most significant byte
+            rtc.cmos_write(drive_reg + 2, this.head_count & 0xFF);            // number of heads
+            rtc.cmos_write(drive_reg + 3, 0xFF);                              // write precomp cylinder least significant byte
+            rtc.cmos_write(drive_reg + 4, 0xFF);                              // write precomp cylinder most significant byte
+            rtc.cmos_write(drive_reg + 5, 0xC0 | (this.head_count > 8 ? 1 : 0) << 3); // control byte
+            rtc.cmos_write(drive_reg + 6, this.cylinder_count & 0xFF);        // landing zone least significant byte
+            rtc.cmos_write(drive_reg + 7, this.cylinder_count >> 8 & 0xFF);   // landing zone most significant byte
+            rtc.cmos_write(drive_reg + 8, this.sectors_per_track & 0xFF);     // number of sectors
+        }
     }
 
     if(this.channel.cpu)
@@ -1252,7 +1356,7 @@ IDEInterface.prototype.ata_command = function(cmd)
                 if(this.medium_changed)
                 {
                     this.error_reg |= 0x20; // MC: Media Change
-                    this.medium_changed = false;
+                    this.medium_changed = MEDIUM_CHANGED_NONE;
                 }
                 this.error_reg |= 0x40;     // WP: Write Protect
             }
@@ -1350,6 +1454,26 @@ IDEInterface.prototype.atapi_handle = function()
     this.data_pointer = 0;
     this.current_atapi_command = cmd;
 
+    // Report a media change before the sense-clear, over two commands each
+    // pending until REQUEST SENSE: NOT PRESENT then UNIT ATTENTION. Polling
+    // guests need this absent->changed order to drop the cached volume.
+    if(this.medium_changed && this.buffer &&
+        cmd !== ATAPI_CMD_REQUEST_SENSE && cmd !== ATAPI_CMD_INQUIRY)
+    {
+        if(this.medium_changed === MEDIUM_CHANGED_NOT_PRESENT)
+        {
+            this.medium_changed = MEDIUM_CHANGED_UNIT_ATTENTION;
+            this.atapi_check_condition_response(ATAPI_SK_NOT_READY, ATAPI_ASC_MEDIUM_NOT_PRESENT);
+        }
+        else
+        {
+            this.medium_changed = MEDIUM_CHANGED_NONE;
+            this.atapi_check_condition_response(ATAPI_SK_UNIT_ATTENTION, ATAPI_ASC_MEDIUM_MAY_HAVE_CHANGED);
+        }
+        this.push_irq();
+        return;
+    }
+
     if(cmd !== ATAPI_CMD_REQUEST_SENSE) // TODO
     {
         this.atapi_sense_key = 0;
@@ -1446,6 +1570,26 @@ IDEInterface.prototype.atapi_handle = function()
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
             break;
 
+        case ATAPI_CMD_READ_FORMAT_CAPACITIES:
+            var count = this.sector_count - 1;
+            this.data_set(new Uint8Array([
+                0,
+                0,
+                0,
+                8, // capacity list length
+                count >> 24 & 0xFF,
+                count >> 16 & 0xFF,
+                count >> 8 & 0xFF,
+                count & 0xFF,
+                2, // formatted
+                this.sector_size >> 16 & 0xFF,
+                this.sector_size >> 8 & 0xFF,
+                this.sector_size & 0xFF,
+            ]));
+            this.data_end = this.data_length;
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+            break;
+
         case ATAPI_CMD_READ_10:
         case ATAPI_CMD_READ_12:
             do_dbg_log = false;
@@ -1470,13 +1614,21 @@ IDEInterface.prototype.atapi_handle = function()
         case ATAPI_CMD_READ_TOC_PMA_ATIP:
             var length = this.data[8] | this.data[7] << 8;
             var format = this.data[9] >> 6;
-            dbg_log_extra = `${h(format, 2)} length=${length} ${!!(this.data[1] & 2)} ${h(this.data[6])}`;
+            // Read the MSF flag before data_allocate() overwrites this.data.
+            const toc_msf = (this.data[1] & 2) !== 0;
+            dbg_log_extra = `${h(format, 2)} length=${length} ${toc_msf} ${h(this.data[6])}`;
 
             this.data_allocate(length);
             this.data_end = this.data_length;
             if(format === 0)
             {
-                const sector_count = this.sector_count;
+                // Track 1 start and lead-out, in MSF when requested. Win9x sizes
+                // the disc from the lead-out MSF; raw LBA mis-sizes >~256 MB discs.
+                const addr = (lba) => toc_msf
+                    ? [0, (lba + 150) / (75 * 60) | 0, ((lba + 150) / 75 | 0) % 60, (lba + 150) % 75]
+                    : [lba >> 24 & 0xFF, lba >> 16 & 0xFF, lba >> 8 & 0xFF, lba & 0xFF];
+                const start = addr(0);
+                const leadout = addr(this.sector_count);
                 this.data.set(new Uint8Array([
                     0, 18, // length
                     1, 1, // first and last session
@@ -1485,16 +1637,13 @@ IDEInterface.prototype.atapi_handle = function()
                     0x14,
                     1, // track number
                     0,
-                    0, 0, 0, 0,
+                    start[0], start[1], start[2], start[3],
 
                     0,
                     0x16,
                     0xAA, // track number
                     0,
-                    sector_count >> 24,
-                    sector_count >> 16 & 0xFF,
-                    sector_count >> 8 & 0xFF,
-                    sector_count & 0xFF,
+                    leadout[0], leadout[1], leadout[2], leadout[3],
                 ]));
             }
             else if(format === 1)
@@ -1566,7 +1715,7 @@ IDEInterface.prototype.atapi_handle = function()
             if(this.buffer && loej_start === 0x2)
             {
                 dbg_log_extra += ": disk ejected";
-                this.medium_changed = true;
+                this.medium_changed = MEDIUM_CHANGED_NOT_PRESENT;
                 this.buffer = null;
             }
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
@@ -1576,6 +1725,8 @@ IDEInterface.prototype.atapi_handle = function()
 
         case ATAPI_CMD_PAUSE:
         case ATAPI_CMD_GET_EVENT_STATUS_NOTIFICATION:
+        case ATAPI_CMD_REPORT_KEY:
+        case ATAPI_CMD_READ_DISC_STRUCTURE:
             dbg_log_extra = "unimplemented";
             this.atapi_check_condition_response(ATAPI_SK_ILLEGAL_REQUEST, ATAPI_ASC_INV_FIELD_IN_CMD_PACKET);
             break;
@@ -2757,5 +2908,5 @@ IDEInterface.prototype.set_state = function(state)
     this.buffer && this.buffer.set_state(state[28]);
 
     this.drive_connected = this.is_atapi || this.buffer;
-    this.medium_changed = false;
+    this.medium_changed = MEDIUM_CHANGED_NONE;
 };

@@ -33,6 +33,7 @@ mod wasm {
 }
 
 pub mod js {
+    #[link(wasm_import_module = "env")]
     extern "C" {
         pub fn cpu_exception_hook(interrupt: i32) -> bool;
         pub fn microtick() -> f64;
@@ -333,7 +334,13 @@ pub static mut valid_tlb_entries_count: i32 = 0;
 
 pub static mut in_jit: bool = false;
 
-pub static mut jit_fault: Option<(i32, Option<i32>)> = None;
+pub enum JitExitReason {
+    None,
+    CpuException { code: i32, error_code: Option<i32> },
+    SelfModifyingCodeBail,
+}
+
+pub static mut jit_exit_reason: JitExitReason = JitExitReason::None;
 
 pub enum LastJump {
     Interrupt {
@@ -429,6 +436,11 @@ impl SegmentDescriptor {
     pub fn set_busy(&self) -> SegmentDescriptor {
         SegmentDescriptor {
             raw: self.raw | 2 << 40,
+        }
+    }
+    pub fn clear_busy(&self) -> SegmentDescriptor {
+        SegmentDescriptor {
+            raw: self.raw & !(2 << 40),
         }
     }
     pub fn set_accessed(&self) -> SegmentDescriptor {
@@ -548,10 +560,10 @@ pub unsafe fn iret(is_16: bool) {
     dbg_assert!(!vm86_mode());
 
     if *flags & FLAG_NT != 0 {
-        if DEBUG {
-            panic!("NT");
-        }
-        trigger_gp(0);
+        // nested task: return to the task linked through the back-link field of the current tss
+        let tss_offset = *segment_offsets.offset(TR as isize);
+        let backlink = return_on_pagefault!(safe_read16(tss_offset + TSR_BACKLINK));
+        do_task_switch(backlink, None, TaskSwitchSource::Iret);
         return;
     }
 
@@ -865,9 +877,8 @@ pub unsafe fn call_interrupt_vector(
                 dpl
             );
             dbg_trace();
-            dbg_assert!(descriptor.is_32(), "TODO: Check this (likely #GP)");
             dbg_assert!(offset == 0, "TODO: Check this (likely #GP)");
-            do_task_switch(selector, error_code);
+            do_task_switch(selector, error_code, TaskSwitchSource::CallOrInt);
             return;
         }
 
@@ -1154,12 +1165,12 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
     };
 
     if info.is_system() {
-        dbg_assert!(is_call, "TODO: Jump");
-
         dbg_log!("system type cs: {:x}", selector);
 
         if info.system_type() == 0xC || info.system_type() == 4 {
             // call gate
+            dbg_assert!(is_call, "TODO: Jump through call gate");
+
             let is_16 = info.system_type() == 4;
 
             if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
@@ -1385,7 +1396,45 @@ pub unsafe fn far_jump(eip: i32, selector: i32, is_call: bool, is_osize_32: bool
             update_state_flags();
         }
         else if info.system_type() == 1 || info.system_type() == 9 {
-            dbg_assert!(false, "TODO: far call task gate");
+            // available tss
+            if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
+                dbg_log!("#gp tss dpl < cpl or dpl < rpl: {:x}", selector);
+                trigger_gp(selector & !3);
+                return;
+            }
+
+            if !info.is_present() {
+                dbg_log!("#NP for loading not-present tss sel={:x}", selector);
+                trigger_np(selector & !3);
+                return;
+            }
+
+            do_task_switch(
+                selector,
+                None,
+                if is_call { TaskSwitchSource::CallOrInt } else { TaskSwitchSource::Jump },
+            );
+        }
+        else if info.system_type() == 5 {
+            // task gate
+            if info.dpl() < *cpl || info.dpl() < cs_selector.rpl() {
+                dbg_log!("#gp task gate dpl < cpl or dpl < rpl: {:x}", selector);
+                trigger_gp(selector & !3);
+                return;
+            }
+
+            if !info.is_present() {
+                dbg_log!("#NP for loading not-present task gate sel={:x}", selector);
+                trigger_np(selector & !3);
+                return;
+            }
+
+            let tss_selector = (info.raw >> 16) as i32 & 0xFFFF;
+            do_task_switch(
+                tss_selector,
+                None,
+                if is_call { TaskSwitchSource::CallOrInt } else { TaskSwitchSource::Jump },
+            );
         }
         else {
             dbg_assert!(false, "TODO: #gp invalid system type");
@@ -1568,7 +1617,16 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
 
         //adjust_stack_reg(stack_adjust);
 
-        // TODO: invalidate segments that are not accessible at this cpl (see iret)
+        for reg in [ES, DS, FS, GS] {
+            let access = *segment_access_bytes.offset(reg as isize);
+            let dpl = access >> 5 & 3;
+            let executable = access & 8 == 8;
+            let conforming = access & 4 == 4;
+            if dpl < *cpl && !(executable && conforming) {
+                *segment_is_null.offset(reg as isize) = true;
+                *sreg.offset(reg as isize) = 0;
+            }
+        }
     }
     else {
         if is_osize_32 {
@@ -1596,7 +1654,14 @@ pub unsafe fn far_return(eip: i32, selector: i32, stack_adjust: i32, is_osize_32
     update_state_flags();
 }
 
-pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
+#[derive(Copy, Clone, PartialEq)]
+pub enum TaskSwitchSource {
+    Jump,
+    CallOrInt,
+    Iret,
+}
+
+pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>, source: TaskSwitchSource) {
     dbg_log!("do_task_switch sel={:x}", selector);
 
     dbg_assert!(*tss_size_32, "TODO: 16-bit TSS in task switch");
@@ -1615,8 +1680,14 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
     let tss_is_16 = descriptor.system_type() <= 3;
     let tss_is_busy = (descriptor.system_type() & 2) == 2;
 
-    if (descriptor.system_type() & 2) == 2 {
-        // is busy
+    if source == TaskSwitchSource::Iret {
+        if !tss_is_busy {
+            // a task return must target a busy task
+            panic!("#TS handler");
+        }
+    }
+    else if tss_is_busy {
+        // jump, call or int to a busy task
         panic!("#GP handler");
     }
 
@@ -1664,9 +1735,21 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     //safe_write32(tsr_offset + TSR_LDT, *sreg.offset(reg_ldtr));
 
-    if true
-    /* is jump or call or int */
-    {
+    if source == TaskSwitchSource::Jump || source == TaskSwitchSource::Iret {
+        // mark the old task as not busy
+        let tr_selector = SegmentSelector::of_u16(*sreg.offset(TR as isize));
+        let (tr_descriptor, tr_descriptor_address) =
+            match lookup_segment_selector(tr_selector).expect("TODO: handle pagefault") {
+                Ok(desc) => desc,
+                Err(_) => {
+                    panic!("#TS handler");
+                },
+            };
+        safe_write64(tr_descriptor_address, tr_descriptor.clear_busy().raw).unwrap();
+    }
+
+    if source != TaskSwitchSource::Iret {
+        // jump, call and int mark the new task as busy (iret would not)
         safe_write64(descriptor_address, descriptor.set_busy().raw).unwrap();
     }
 
@@ -1675,9 +1758,7 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     dbg_assert!(!tss_is_16, "unimplemented");
 
-    if true
-    /* is call or int */
-    {
+    if source == TaskSwitchSource::CallOrInt {
         safe_write16(
             new_tsr_offset + TSR_BACKLINK,
             *sreg.offset(TR as isize) as i32,
@@ -1691,83 +1772,88 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
 
     let new_eip = safe_read32s(new_tsr_offset + TSR_EIP).unwrap();
     let new_cs = safe_read16(new_tsr_offset + TSR_CS).unwrap();
-    let new_cs_selector = SegmentSelector::of_u16(new_cs as u16);
-    let new_cs_descriptor =
-        match lookup_segment_selector(new_cs_selector).expect("TODO: handle pagefault") {
-            Ok((desc, _)) => desc,
-            Err(SelectorNullOrInvalid::IsNull) => {
-                dbg_log!("null cs");
-                panic!("#TS handler");
-            },
-            Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
-                dbg_log!("invalid cs: {:x}", new_cs);
-                panic!("#TS handler");
-            },
-        };
-
-    if new_cs_descriptor.is_system() {
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_executable() {
-        panic!("#TS handler");
-    }
-
-    if new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() > new_cs_selector.rpl() {
-        dbg_log!("cs conforming and dpl > rpl: {:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() != new_cs_selector.rpl() {
-        dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    if !new_cs_descriptor.is_present() {
-        dbg_log!("#NP for loading not-present in cs sel={:x}", selector.raw);
-        panic!("#TS handler");
-    }
-
-    *segment_is_null.offset(CS as isize) = false;
-    *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
-    *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
-    *segment_access_bytes.offset(CS as isize) = new_cs_descriptor.access_byte();
-    *sreg.offset(CS as isize) = new_cs as u16;
-
-    *cpl = new_cs_descriptor.dpl();
-    cpl_changed();
-
-    dbg_assert!((*sreg.offset(CS as isize) & 3) as u8 == *cpl);
-
-    dbg_assert!(
-        new_eip as u32 <= new_cs_descriptor.effective_limit(),
-        "todo: #gp"
-    );
-    update_cs_size(new_cs_descriptor.is_32());
+    let new_ldt = safe_read16(new_tsr_offset + TSR_LDT).unwrap();
 
     let mut new_eflags = safe_read32s(new_tsr_offset + TSR_EFLAGS).unwrap();
-
-    if true
-    /* is call or int */
-    {
-        safe_write32(tsr_offset + TSR_BACKLINK, selector.raw as i32).unwrap();
+    if source == TaskSwitchSource::CallOrInt {
         new_eflags |= FLAG_NT;
     }
 
+    load_ldt(new_ldt).unwrap();
+
+    let new_cpl;
     if new_eflags & FLAG_VM != 0 {
-        panic!("task switch to VM mode");
+        *segment_is_null.offset(CS as isize) = false;
+        *segment_offsets.offset(CS as isize) = new_cs << 4;
+        *sreg.offset(CS as isize) = new_cs as u16;
+        update_cs_size(false);
+        new_cpl = 3;
+    }
+    else {
+        let new_cs_selector = SegmentSelector::of_u16(new_cs as u16);
+        let new_cs_descriptor =
+            match lookup_segment_selector(new_cs_selector).expect("TODO: handle pagefault") {
+                Ok((desc, _)) => desc,
+                Err(SelectorNullOrInvalid::IsNull) => {
+                    dbg_log!("null cs");
+                    panic!("#TS handler");
+                },
+                Err(SelectorNullOrInvalid::OutsideOfTableLimit) => {
+                    dbg_log!("invalid cs: {:x}", new_cs);
+                    panic!("#TS handler");
+                },
+            };
+
+        if new_cs_descriptor.is_system() {
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_executable() {
+            panic!("#TS handler");
+        }
+
+        if new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() > new_cs_selector.rpl() {
+            dbg_log!("cs conforming and dpl > rpl: {:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_dc() && new_cs_descriptor.dpl() != new_cs_selector.rpl() {
+            dbg_log!("cs non-conforming and dpl != rpl: {:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        if !new_cs_descriptor.is_present() {
+            dbg_log!("#NP for loading not-present in cs sel={:x}", selector.raw);
+            panic!("#TS handler");
+        }
+
+        *segment_is_null.offset(CS as isize) = false;
+        *segment_limits.offset(CS as isize) = new_cs_descriptor.effective_limit();
+        *segment_offsets.offset(CS as isize) = new_cs_descriptor.base();
+        *segment_access_bytes.offset(CS as isize) = new_cs_descriptor.access_byte();
+        *sreg.offset(CS as isize) = new_cs as u16;
+
+        dbg_assert!(
+            new_eip as u32 <= new_cs_descriptor.effective_limit(),
+            "todo: #gp"
+        );
+        update_cs_size(new_cs_descriptor.is_32());
+
+        new_cpl = new_cs_selector.rpl();
     }
 
+    *cpl = 0; // run update_eflags at cpl 0
     update_eflags(new_eflags);
 
-    if true
-    /* call or int */
-    {
+    if new_eflags & FLAG_VM != 0 {
+        *flags |= FLAG_VM;
+    }
+    *cpl = new_cpl;
+    cpl_changed();
+
+    if source == TaskSwitchSource::CallOrInt {
         *flags |= FLAG_NT;
     }
-
-    let new_ldt = safe_read16(new_tsr_offset + TSR_LDT).unwrap();
-    load_ldt(new_ldt).unwrap();
 
     write_reg32(EAX, safe_read32s(new_tsr_offset + TSR_EAX).unwrap());
     write_reg32(ECX, safe_read32s(new_tsr_offset + TSR_ECX).unwrap());
@@ -1789,7 +1875,8 @@ pub unsafe fn do_task_switch(selector: i32, error_code: Option<i32>) {
         dbg_assert!(false);
     }
 
-    *instruction_pointer = get_seg_cs() + new_eip;
+    *instruction_pointer =
+        get_seg_cs() + if new_eflags & FLAG_VM != 0 { new_eip & 0xFFFF } else { new_eip };
 
     *segment_offsets.offset(TR as isize) = descriptor.base();
     *segment_limits.offset(TR as isize) = descriptor.effective_limit();
@@ -1884,18 +1971,31 @@ pub unsafe fn translate_address_data_read_jit(address: i32) -> OrPageFault<u32> 
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
     translate_address(address, true, *cpl == 3, false, true, false)
 }
-pub unsafe fn translate_address_write_jit_and_can_skip_dirty(
-    address: i32,
-) -> OrPageFault<(u32, bool)> {
+pub unsafe fn translate_address_write_jit(address: i32, wasm_table_index: u16) -> OrPageFault<u32> {
     let mut entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) != TLB_VALID {
         entry = do_page_walk(address, true, user, true, false, true)?.get();
     }
-    Ok((
-        (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32,
-        entry & TLB_HAS_CODE == 0,
-    ))
+    let has_code = entry & TLB_HAS_CODE != 0;
+    let phys_addr = (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32;
+    let page = Page::page_of(phys_addr);
+    if !has_code {
+        return Ok(phys_addr);
+    }
+    let is_smc = jit::jit_page_has_wasm_table_index(page, wasm_table_index);
+    jit::jit_dirty_page(page);
+    if !is_smc {
+        return Ok(phys_addr);
+    }
+    dbg_log!(
+        "SMC: write to addr phys={:x} virt={:x} of the running module {}, exiting",
+        phys_addr,
+        address as u32,
+        wasm_table_index,
+    );
+    jit_exit_reason = JitExitReason::SelfModifyingCodeBail;
+    Err(())
 }
 
 pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
@@ -2331,7 +2431,10 @@ pub unsafe fn trigger_de_jit(eip_offset_in_page: i32) {
     dbg_log!("#de in jit mode");
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-    jit_fault = Some((CPU_EXCEPTION_DE, None))
+    jit_exit_reason = JitExitReason::CpuException {
+        code: CPU_EXCEPTION_DE,
+        error_code: None,
+    }
 }
 
 #[no_mangle]
@@ -2339,7 +2442,10 @@ pub unsafe fn trigger_ud_jit(eip_offset_in_page: i32) {
     dbg_log!("#ud in jit mode");
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-    jit_fault = Some((CPU_EXCEPTION_UD, None))
+    jit_exit_reason = JitExitReason::CpuException {
+        code: CPU_EXCEPTION_UD,
+        error_code: None,
+    }
 }
 
 #[no_mangle]
@@ -2347,7 +2453,10 @@ pub unsafe fn trigger_nm_jit(eip_offset_in_page: i32) {
     dbg_log!("#nm in jit mode");
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-    jit_fault = Some((CPU_EXCEPTION_NM, None))
+    jit_exit_reason = JitExitReason::CpuException {
+        code: CPU_EXCEPTION_NM,
+        error_code: None,
+    }
 }
 
 #[no_mangle]
@@ -2355,13 +2464,23 @@ pub unsafe fn trigger_gp_jit(code: i32, eip_offset_in_page: i32) {
     dbg_log!("#gp in jit mode");
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-    jit_fault = Some((CPU_EXCEPTION_GP, Some(code)))
+    jit_exit_reason = JitExitReason::CpuException {
+        code: CPU_EXCEPTION_GP,
+        error_code: Some(code),
+    }
 }
 
 #[no_mangle]
-pub unsafe fn trigger_fault_end_jit() {
+pub unsafe fn exit_jit() {
     #[allow(static_mut_refs)]
-    let (code, error_code) = jit_fault.take().unwrap();
+    let (code, error_code) = match std::mem::replace(&mut jit_exit_reason, JitExitReason::None) {
+        JitExitReason::CpuException { code, error_code } => (code, error_code),
+        JitExitReason::SelfModifyingCodeBail => return,
+        JitExitReason::None => {
+            dbg_assert!(false, "exit_jit without exit reason");
+            return;
+        },
+    };
     if DEBUG {
         if js::cpu_exception_hook(code) {
             return;
@@ -2376,10 +2495,10 @@ pub unsafe fn trigger_fault_end_jit() {
 /// - translate_address_{read,write}_jit do the normal page walk and call this method with
 ///   jit=true when a page fault happens
 /// - this method prepares a page fault by setting cr2, and writes the error code
-///   into jit_fault. This method *doesn't* trigger the interrupt, as registers are
+///   into jit_exit_reason. This method *doesn't* trigger the interrupt, as registers are
 ///   still stored in the wasm module
 /// - back in the wasm module, the generated code detects the page fault, restores the registers
-///   and finally calls trigger_fault_end_jit, which does the interrupt
+///   and finally calls exit_jit, which does the interrupt
 ///
 /// Non-jit resets the instruction pointer and does the PF interrupt directly
 pub unsafe fn trigger_pagefault(
@@ -2417,7 +2536,10 @@ pub unsafe fn trigger_pagefault(
         | (write as i32) << 1
         | present as i32;
     if jit {
-        jit_fault = Some((CPU_EXCEPTION_PF, Some(error_code)));
+        jit_exit_reason = JitExitReason::CpuException {
+            code: CPU_EXCEPTION_PF,
+            error_code: Some(error_code),
+        };
     }
     else {
         *instruction_pointer = *previous_ip;
@@ -3287,7 +3409,7 @@ pub unsafe fn run_prefix_instruction() {
 
 pub unsafe fn segment_prefix_op(seg: i32) {
     dbg_assert!(seg <= 5 && seg >= 0);
-    *prefixes |= seg as u8 + 1;
+    *prefixes = *prefixes & !prefix::PREFIX_MASK_SEGMENT | (seg as u8 + 1);
     run_prefix_instruction();
     *prefixes = 0
 }
@@ -3579,22 +3701,17 @@ static mut jit_paging_scratch_buffer: ScratchBuffer = ScratchBuffer([0; 2 * 0x10
 pub unsafe fn safe_read_slow_jit(
     addr: i32,
     bitsize: i32,
-    eip_offset_in_page: i32,
     is_write: bool,
+    eip_offset_in_page_and_wasm_table_index: i32,
 ) -> i32 {
+    let wasm_table_index = (eip_offset_in_page_and_wasm_table_index >> 16) as u16;
+    let eip_offset_in_page = eip_offset_in_page_and_wasm_table_index & 0xFFFF;
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
-    if is_write && Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
-        // XXX: Check based on virtual address
-        dbg_log!(
-            "SMC (rmw): bits={} eip={:x} writeaddr={:x}",
-            bitsize,
-            (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
-            addr as u32
-        );
-    }
+    dbg_assert!(u32::from(wasm_table_index) < jit::WASM_TABLE_SIZE);
+
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
     let addr_low = match if is_write {
-        translate_address_write_jit_and_can_skip_dirty(addr).map(|x| x.0)
+        translate_address_write_jit(addr, wasm_table_index)
     }
     else {
         translate_address_data_read_jit(addr)
@@ -3608,7 +3725,7 @@ pub unsafe fn safe_read_slow_jit(
     if crosses_page {
         let boundary_addr = (addr | 0xFFF) + 1;
         let addr_high = match if is_write {
-            translate_address_write_jit_and_can_skip_dirty(boundary_addr).map(|x| x.0)
+            translate_address_write_jit(boundary_addr, wasm_table_index)
         }
         else {
             translate_address_data_read_jit(boundary_addr)
@@ -3672,23 +3789,23 @@ pub unsafe fn safe_read_slow_jit(
 
 #[no_mangle]
 pub unsafe fn safe_read8_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 8, eip, false)
+    safe_read_slow_jit(addr, 8, false, eip)
 }
 #[no_mangle]
 pub unsafe fn safe_read16_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 16, eip, false)
+    safe_read_slow_jit(addr, 16, false, eip)
 }
 #[no_mangle]
 pub unsafe fn safe_read32s_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 32, eip, false)
+    safe_read_slow_jit(addr, 32, false, eip)
 }
 #[no_mangle]
 pub unsafe fn safe_read64s_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 64, eip, false)
+    safe_read_slow_jit(addr, 64, false, eip)
 }
 #[no_mangle]
 pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 128, eip, false)
+    safe_read_slow_jit(addr, 128, false, eip)
 }
 
 #[no_mangle]
@@ -3703,20 +3820,34 @@ pub unsafe fn get_phys_eip_slow_jit(addr: i32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn safe_read_write8_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 8, eip, true)
+pub unsafe fn safe_read_write8_slow_jit(addr: i32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_read_slow_jit(addr, 8, true, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_read_write16_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 16, eip, true)
+pub unsafe fn safe_read_write16_slow_jit(addr: i32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_read_slow_jit(addr, 16, true, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_read_write32s_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 32, eip, true)
+pub unsafe fn safe_read_write32s_slow_jit(addr: i32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_read_slow_jit(addr, 32, true, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_read_write64_slow_jit(addr: i32, eip: i32) -> i32 {
-    safe_read_slow_jit(addr, 64, eip, true)
+pub unsafe fn safe_read_write64_slow_jit(addr: i32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_read_slow_jit(addr, 64, true, eip_and_wasm_table_index)
+}
+
+#[no_mangle]
+pub unsafe fn readable_or_pagefault_jit(addr: i32, size: i32, eip_offset_in_page: i32) -> i32 {
+    dbg_assert!(size > 0 && size < 0x1000);
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    let crosses_page = (addr & 0xFFF) + size > 0x1000;
+    if translate_address_read_jit(addr).is_err()
+        || crosses_page && translate_address_read_jit((addr | 0xFFF) + 1).is_err()
+    {
+        *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+        return 1;
+    }
+    0
 }
 
 pub unsafe fn safe_write_slow_jit(
@@ -3724,22 +3855,15 @@ pub unsafe fn safe_write_slow_jit(
     bitsize: i32,
     value_low: u64,
     value_high: u64,
-    eip_offset_in_page: i32,
+    eip_offset_in_page_and_wasm_table_index: i32,
 ) -> i32 {
+    let wasm_table_index = (eip_offset_in_page_and_wasm_table_index >> 16) as u16;
+    let eip_offset_in_page = eip_offset_in_page_and_wasm_table_index & 0xFFFF;
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
-    if Page::page_of(*instruction_pointer as u32) == Page::page_of(addr as u32) {
-        // XXX: Check based on virtual address
-        dbg_log!(
-            "SMC: bits={} eip={:x} writeaddr={:x} value={:x}",
-            bitsize,
-            (*instruction_pointer & !0xFFF | eip_offset_in_page) as u32,
-            addr as u32,
-            value_low,
-        );
-    }
+    dbg_assert!(u32::from(wasm_table_index) < jit::WASM_TABLE_SIZE);
+
     let crosses_page = (addr & 0xFFF) + bitsize / 8 > 0x1000;
-    let (addr_low, can_skip_dirty_page) = match translate_address_write_jit_and_can_skip_dirty(addr)
-    {
+    let addr_low = match translate_address_write_jit(addr, wasm_table_index) {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
             return 1;
@@ -3747,14 +3871,13 @@ pub unsafe fn safe_write_slow_jit(
         Ok(x) => x,
     };
     if crosses_page {
-        let (addr_high, _) =
-            match translate_address_write_jit_and_can_skip_dirty((addr | 0xFFF) + 1) {
-                Err(()) => {
-                    *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
-                    return 1;
-                },
-                Ok(x) => x,
-            };
+        let addr_high = match translate_address_write_jit((addr | 0xFFF) + 1, wasm_table_index) {
+            Err(()) => {
+                *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+                return 1;
+            },
+            Ok(x) => x,
+        };
         // TODO: Could check if virtual pages point to consecutive physical and go to fast path
 
         // do write, return dummy pointer for fast path to write into
@@ -3803,37 +3926,56 @@ pub unsafe fn safe_write_slow_jit(
         ((scratch as i32) ^ addr) & !0xFFF
     }
     else {
-        if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(addr_low));
-        }
         ((addr_low as i32 + memory::mem8 as i32) ^ addr) & !0xFFF
     }
 }
 
 #[no_mangle]
-pub unsafe fn safe_write8_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
-    safe_write_slow_jit(addr, 8, value as u64, 0, eip_offset_in_page)
+pub unsafe fn safe_write8_slow_jit(addr: i32, value: u32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_write_slow_jit(addr, 8, value as u64, 0, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_write16_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
-    safe_write_slow_jit(addr, 16, value as u64, 0, eip_offset_in_page)
+pub unsafe fn safe_write16_slow_jit(addr: i32, value: u32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_write_slow_jit(addr, 16, value as u64, 0, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_write32_slow_jit(addr: i32, value: u32, eip_offset_in_page: i32) -> i32 {
-    safe_write_slow_jit(addr, 32, value as u64, 0, eip_offset_in_page)
+pub unsafe fn safe_write32_slow_jit(addr: i32, value: u32, eip_and_wasm_table_index: i32) -> i32 {
+    safe_write_slow_jit(addr, 32, value as u64, 0, eip_and_wasm_table_index)
 }
 #[no_mangle]
-pub unsafe fn safe_write64_slow_jit(addr: i32, value: u64, eip_offset_in_page: i32) -> i32 {
-    safe_write_slow_jit(addr, 64, value, 0, eip_offset_in_page)
+pub unsafe fn safe_write64_slow_jit(addr: i32, value: u64, eip_and_wasm_table_index: i32) -> i32 {
+    safe_write_slow_jit(addr, 64, value, 0, eip_and_wasm_table_index)
 }
 #[no_mangle]
 pub unsafe fn safe_write128_slow_jit(
     addr: i32,
     low: u64,
     high: u64,
-    eip_offset_in_page: i32,
+    eip_and_wasm_table_index: i32,
 ) -> i32 {
-    safe_write_slow_jit(addr, 128, low, high, eip_offset_in_page)
+    safe_write_slow_jit(addr, 128, low, high, eip_and_wasm_table_index)
+}
+
+#[no_mangle]
+pub unsafe fn writable_or_pagefault_jit(
+    addr: i32,
+    size: i32,
+    eip_offset_in_page_and_wasm_table_index: i32,
+) -> i32 {
+    let wasm_table_index = (eip_offset_in_page_and_wasm_table_index >> 16) as u16;
+    let eip_offset_in_page = eip_offset_in_page_and_wasm_table_index & 0xFFFF;
+    dbg_assert!(size > 0 && size < 0x1000);
+    dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
+    dbg_assert!(u32::from(wasm_table_index) < jit::WASM_TABLE_SIZE);
+    let crosses_page = (addr & 0xFFF) + size > 0x1000;
+    if translate_address_write_jit(addr, wasm_table_index).is_err()
+        || crosses_page
+            && translate_address_write_jit((addr | 0xFFF) + 1, wasm_table_index).is_err()
+    {
+        *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
+        return 1;
+    }
+    0
 }
 
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
@@ -4061,7 +4203,12 @@ pub unsafe fn read_mmx32s(r: i32) -> i32 { (*fpu_st.offset(r as isize)).mantissa
 
 pub unsafe fn read_mmx64s(r: i32) -> u64 { (*fpu_st.offset(r as isize)).mantissa }
 
-pub unsafe fn write_mmx_reg64(r: i32, data: u64) { (*fpu_st.offset(r as isize)).mantissa = data; }
+pub unsafe fn write_mmx_reg64(r: i32, data: u64) {
+    *fpu_st.offset(r as isize) = softfloat::F80 {
+        mantissa: data,
+        sign_exponent: 0xFFFF,
+    };
+}
 
 pub unsafe fn read_xmm_f32(r: i32) -> f32 { return (*reg_xmm.offset(r as isize)).f32[0]; }
 
@@ -4092,6 +4239,7 @@ pub unsafe fn write_xmm128_2(r: i32, i0: u64, i1: u64) {
 pub unsafe fn write_xmm_reg128(r: i32, data: reg128) { *reg_xmm.offset(r as isize) = data; }
 
 /// Set the fpu tag word to valid and the top-of-stack to 0 on mmx instructions
+#[no_mangle]
 pub fn transition_fpu_to_mmx() {
     unsafe {
         fpu_set_tag_word(0);
@@ -4605,7 +4753,6 @@ pub unsafe fn reset_cpu() {
     *gdtr_size = 0;
     *gdtr_offset = 0;
 
-    *page_fault = false;
     *cr = 1 << 30 | 1 << 29 | 1 << 4;
     *cr.offset(2) = 0;
     *cr.offset(3) = 0;

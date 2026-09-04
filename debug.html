@@ -164,12 +164,13 @@
                     <select id="net_device_type">
                         <option value="ne2k">ne2k</option>
                         <option value="virtio">virtio</option>
+                        <option value="none">none</option>
                     </select>
                  </td>
             </tr>
 
-            <tr>
-                <td><label for="mtu">Network MTU (only used for virtio)</label></td>
+            <tr id="mtu_ui" style="display: none">
+                <td><label for="mtu">Network MTU</label></td>
                 <td>
                     <input id="mtu" type="number" value="1500" min="68" max="65535" step="1"> B<br>
                  </td>
