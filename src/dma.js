@@ -367,15 +367,16 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 DMA.prototype.address_get_8bit = function(channel)
 {
     var addr = this.channel_addr[channel];
+    var page = this.channel_page[channel];
 
     // http://wiki.osdev.org/ISA_DMA#16_bit_issues
     if(channel >= 5)
     {
         addr = (addr << 1);
+        page &= 0xFE;
     }
 
-    addr &= 0xFFFF;
-    addr |= this.channel_page[channel] << 16;
+    addr |= page << 16;
     addr |= this.channel_pagehi[channel] << 24;
 
     return addr;
