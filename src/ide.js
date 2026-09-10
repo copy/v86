@@ -1299,7 +1299,6 @@ IDEInterface.prototype.ata_command = function(cmd)
                 this.data_end = 12;
                 this.sector_count_reg = 0x01;   // 0x01: indicates transfer of a command packet (C/D)
                 this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-                this.push_irq();
             }
             else
             {
