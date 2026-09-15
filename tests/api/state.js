@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import url from "node:url";
+import assert from "node:assert/strict";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
@@ -65,12 +66,15 @@ async function run_test(name, config, done)
     await sleep(2000);
 
     console.log("Saving: %s", name);
+    const expected_efer = Array.from(emulator.v86.cpu.efer);
     const state = await emulator.save_state();
 
     await sleep(1000);
 
     console.log("Restoring: %s", name);
+    emulator.v86.cpu.efer.fill(0);
     await emulator.restore_state(state);
+    assert.deepEqual(Array.from(emulator.v86.cpu.efer), expected_efer, "EFER state");
 
     await emulator.wait_until_vga_screen_contains("~% ");
     await sleep(1000);
