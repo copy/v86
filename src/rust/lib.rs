@@ -5,6 +5,7 @@ mod dbg;
 mod paging;
 
 pub mod cpu;
+pub mod rtc;
 
 pub mod js_api;
 pub mod profiler;
