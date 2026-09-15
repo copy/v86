@@ -3841,8 +3841,8 @@ pub unsafe fn readable_or_pagefault_jit(addr: i32, size: i32, eip_offset_in_page
     dbg_assert!(size > 0 && size < 0x1000);
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     let crosses_page = (addr & 0xFFF) + size > 0x1000;
-    if translate_address_read_jit(addr).is_err()
-        || crosses_page && translate_address_read_jit((addr | 0xFFF) + 1).is_err()
+    if translate_address_data_read_jit(addr).is_err()
+        || crosses_page && translate_address_data_read_jit((addr | 0xFFF) + 1).is_err()
     {
         *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
         return 1;

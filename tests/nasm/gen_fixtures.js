@@ -64,7 +64,7 @@ assert(
 
 const dir_files = fs.readdirSync(BUILD_DIR);
 const test_files = dir_files.filter(name => {
-    return name.endsWith(".img") && TEST_NAME.test(name);
+    return name !== "nx.img" && name.endsWith(".img") && TEST_NAME.test(name);
 }).map(name => {
     return name.slice(0, -4);
 }).filter(name => {
