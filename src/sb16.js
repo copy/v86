@@ -784,11 +784,28 @@ function any_first_digit(base)
     return commands;
 }
 
-// ASP set register
-register_dsp_command([0x0E], 2, function()
+// The CSP/ASP coprocessor is reported absent (as on most real SB16 cards);
+// drivers that detect one (e.g. Win9x CSPMAN.DLL) crash programming it.
+
+// ASP set mode register
+register_dsp_command([0x04], 1);
+
+// ASP set codec parameter
+register_dsp_command([0x05], 2);
+
+// ASP get version
+register_dsp_command([0x08], 1, function()
 {
-    this.asp_registers[this.write_buffer.shift()] = this.write_buffer.shift();
+    var sub_command = this.write_buffer.shift();
+    if(sub_command === 0x03)
+    {
+        this.read_buffer.clear();
+        this.read_buffer.push(0xFF); // no chip installed
+    }
 });
+
+// ASP set register
+register_dsp_command([0x0E], 2);
 
 // ASP get register
 register_dsp_command([0x0F], 1, function()
@@ -1095,10 +1112,16 @@ register_dsp_command([0xE8], 0, function()
     this.read_buffer.push(this.test_register);
 });
 
-// Trigger IRQ
-register_dsp_command([0xF2, 0xF3], 0, function()
+// Trigger IRQ - 8-bit
+register_dsp_command([0xF2], 0, function()
 {
-    this.raise_irq();
+    this.raise_irq(SB_IRQ_8BIT);
+});
+
+// Trigger IRQ - 16-bit
+register_dsp_command([0xF3], 0, function()
+{
+    this.raise_irq(SB_IRQ_16BIT);
 });
 
 // ASP - unknown function

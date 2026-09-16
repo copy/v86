@@ -102,7 +102,7 @@ if(cluster.isMaster)
 
         if(fixture_text.includes("(signal SIGSEGV)"))
         {
-            exception = name === "nx" ? "PF" : "GP";
+            exception = "GP";
         }
 
         if(fixture_text.includes("(signal SIGBUS)"))
@@ -171,6 +171,12 @@ if(cluster.isMaster)
     const tests = files.map(name => {
         let fixture_name = name + ".fixture";
         let img_name = name + ".img";
+        if(name === "nx")
+        {
+            const array = new Array(8 + 1 + 8 + 16 + 32 + (STACK_TOP - BSS >> 2) + 3).fill(0);
+            array[8] = 0x1000;
+            return { img_name, fixture: { array, exception: "PF" } };
+        }
         let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
         let fixture = extract_json(name, fixture_text);
 

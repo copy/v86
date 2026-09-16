@@ -11,7 +11,8 @@ import sys
 import io
 import importlib
 
-HASH_LENGTH = 8
+# keep in sync with HASH_LENGTH in fs2json.py
+HASH_LENGTH = 10
 
 def hash_file(filename) -> str:
     with open(filename, "rb", buffering=0) as f:

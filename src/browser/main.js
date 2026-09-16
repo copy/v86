@@ -369,7 +369,7 @@ function onload()
                 url: host + "doof-1440.img",
                 size: 1474560,
             },
-            name: "Doom On One Floppy",
+            name: "DOOF",
             homepage: "https://github.com/fragglet/squashware",
         },
         {
@@ -461,6 +461,25 @@ function onload()
                 async: false,
             },
             name: "Oberon",
+        },
+        {
+            id: "gentleos16",
+            fda: {
+                url: host + "gentleos16-fd1440.img",
+                size: 1474560,
+            },
+            name: "GentleOS/16",
+            homepage: "https://github.com/luke8086/gentleos",
+        },
+        {
+            id: "gentleos32",
+            hda: {
+                url: host + "gentleos32-disk.img",
+                size: 8388608,
+                async: false,
+            },
+            name: "GentleOS/32",
+            homepage: "https://github.com/luke8086/gentleos32",
         },
         {
             id: "windows1",
@@ -961,18 +980,8 @@ function onload()
         {
             id: "windows95",
             memory_size: 64 * 1024 * 1024,
-            // old image:
-            //memory_size: 32 * 1024 * 1024,
-            //hda: {
-            //    url: host + "w95/.img",
-            //    size: 242049024,
-            //    async: true,
-            //    fixed_chunk_size: 256 * 1024,
-            //    use_parts: true,
-            //},
-            //state: { url: host + "windows95_state.bin.zst" },
             hda: {
-                url: host + "windows95-v2/.img",
+                url: host + "windows95-v3/.img",
                 size: 471859200,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
@@ -984,7 +993,7 @@ function onload()
             id: "windows95-boot",
             memory_size: 64 * 1024 * 1024,
             hda: {
-                url: host + "windows95-v2/.img",
+                url: host + "windows95-v3/.img",
                 size: 471859200,
                 async: true,
                 fixed_chunk_size: 256 * 1024,
@@ -1053,6 +1062,19 @@ function onload()
             },
             name: "Sanos",
             homepage: "http://www.jbox.dk/sanos/",
+        },
+        {
+            id: "386bsd",
+            memory_size: 64 * 1024 * 1024,
+            hda: {
+                url: host + "386bsd/.img",
+                size: 536870912,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            name: "386BSD",
+            homepage: "https://en.wikipedia.org/wiki/386BSD",
         },
         {
             id: "freebsd",
@@ -1776,6 +1798,13 @@ function onload()
     if(query_args.has("mtu")) $("mtu").value = query_args.get("mtu");
     if(query_args.has("modem")) $("modem").value = query_args.get("modem");
 
+    $("mtu_ui").style.display = $("net_device_type").value === "virtio" ? "table-row" : "none";
+    $("net_device_type").onchange = function()
+    {
+        $("mtu_ui").style.display = $("net_device_type").value === "virtio" ? "table-row" : "none";
+        $("net_device_type").blur();
+    };
+
     for(const dev of ["fda", "fdb"])
     {
         const toggle = $(dev + "_toggle_empty_disk");
@@ -1788,11 +1817,11 @@ function onload()
             select.id = dev + "_empty_size";
             for(const n_sect of [320, 360, 400, 640, 720, 800, 1440, 2400, 2880, 3444, 5760, 7680])
             {
-                const n_bytes = n_sect * 512, kB = 1024, MB = kB * 1000;
+                const n_bytes = n_sect * 512, kb = 1024, MB = kb * 1000;
                 const option = document.createElement("option");
                 if(n_bytes < MB)
                 {
-                    option.textContent = (n_bytes / kB) + " kB";
+                    option.textContent = (n_bytes / kb) + " kB";
                 }
                 else
                 {
@@ -2533,9 +2562,9 @@ function init_ui(profile, settings, emulator)
     $("exit").onclick = function()
     {
         emulator.destroy();
-        const url = new URL(location.href);
-        url.searchParams.delete("profile");
-        location.href = url.pathname + url.search;
+        const params = new URLSearchParams(location.search);
+        params.delete("profile");
+        location.href = location.pathname + format_query_args(params);
     };
 
     $("lock_mouse").onclick = function()
@@ -2681,6 +2710,7 @@ function init_ui(profile, settings, emulator)
     var last_instr_counter = 0;
     var interval = null;
     var os_uses_mouse = false;
+    var os_uses_absolute_mouse = false;
     var total_instructions = 0;
 
     function update_info()
@@ -2826,6 +2856,11 @@ function init_ui(profile, settings, emulator)
     {
         os_uses_mouse = is_enabled;
         $("info_mouse_enabled").textContent = is_enabled ? "Yes" : "No";
+    });
+
+    emulator.add_listener("vmware-absolute-mouse", function(is_enabled)
+    {
+        os_uses_absolute_mouse = is_enabled;
     });
 
     emulator.add_listener("screen-set-size", function(args)
@@ -3216,7 +3251,11 @@ function init_ui(profile, settings, emulator)
             emulator.speaker_adapter.audio_context.resume();
         }
 
-        if(mouse_is_enabled && os_uses_mouse)
+        // No need to lock the mouse if the guest tracks the host cursor
+        // through the absolute pointing device. The "Lock mouse" button can
+        // still be used, e.g. for games (movement is then sent as relative
+        // deltas).
+        if(mouse_is_enabled && os_uses_mouse && !os_uses_absolute_mouse)
         {
             emulator.lock_mouse();
         }
@@ -3416,11 +3455,24 @@ function onpopstate(e)
     location.reload();
 }
 
+function format_query_args(params)
+{
+    const entries = Array.from(params.entries());
+    if(entries.length)
+    {
+        return "?" + entries.map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
+    }
+    else
+    {
+        return "";
+    }
+}
+
 function push_state(params)
 {
     if(window.history.pushState)
     {
-        let search = "?" + Array.from(params.entries()).map(([key, value]) => key + "=" + value.replace(/[?&=#+]/g, encodeURIComponent)).join("&");
+        const search = format_query_args(params);
         window.history.pushState({ search }, "", search);
     }
 }

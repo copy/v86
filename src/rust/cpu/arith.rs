@@ -706,7 +706,6 @@ pub unsafe fn idiv16(source_operand: i32) {
     }
 }
 
-#[no_mangle]
 pub unsafe fn div32_without_fault(source_operand: u32) -> bool {
     let source_operand = source_operand as u64;
     let target_low = read_reg32(EAX) as u32;

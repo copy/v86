@@ -1673,8 +1673,14 @@ pub unsafe fn instr16_D9_2_reg(r: i32) {
 pub unsafe fn instr16_D9_3_mem(addr: i32) { fpu_fstm32p(addr); }
 pub unsafe fn instr16_D9_3_reg(r: i32) { fpu_fstp(r) }
 #[no_mangle]
-pub unsafe fn instr16_D9_4_mem(addr: i32) { fpu_fldenv16(addr); }
-pub unsafe fn instr32_D9_4_mem(addr: i32) { fpu_fldenv32(addr); }
+pub unsafe fn instr16_D9_4_mem(addr: i32) {
+    return_on_pagefault!(readable_or_pagefault(addr, 14));
+    fpu_fldenv16(addr);
+}
+pub unsafe fn instr32_D9_4_mem(addr: i32) {
+    return_on_pagefault!(readable_or_pagefault(addr, 28));
+    fpu_fldenv32(addr);
+}
 #[no_mangle]
 pub unsafe fn instr16_D9_4_reg(r: i32) {
     match r {
@@ -1708,8 +1714,14 @@ pub unsafe fn instr16_D9_5_reg(r: i32) {
         _ => {},
     };
 }
-pub unsafe fn instr16_D9_6_mem(addr: i32) { fpu_fstenv16(addr); }
-pub unsafe fn instr32_D9_6_mem(addr: i32) { fpu_fstenv32(addr); }
+pub unsafe fn instr16_D9_6_mem(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 14));
+    fpu_fstenv16(addr);
+}
+pub unsafe fn instr32_D9_6_mem(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 28));
+    fpu_fstenv32(addr);
+}
 #[no_mangle]
 pub unsafe fn instr16_D9_6_reg(r: i32) {
     match r {
@@ -1794,7 +1806,10 @@ pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 pub unsafe fn instr_DB_3_mem(addr: i32) { fpu_fistm32p(addr); }
 #[no_mangle]
 pub unsafe fn instr_DB_4_mem(_addr: i32) { trigger_ud(); }
-pub unsafe fn instr_DB_5_mem(addr: i32) { fpu_fldm80(addr); }
+pub unsafe fn instr_DB_5_mem(addr: i32) {
+    return_on_pagefault!(readable_or_pagefault(addr, 10));
+    fpu_fldm80(addr);
+}
 pub unsafe fn instr_DB_6_mem(_addr: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_DB_7_mem(addr: i32) { fpu_fst80p(addr); }
@@ -1961,7 +1976,10 @@ pub unsafe fn instr_DF_4_mem(_addr: i32) {
     fpu_unimpl();
 }
 pub unsafe fn instr_DF_5_mem(addr: i32) { fpu_fildm64(addr); }
-pub unsafe fn instr_DF_6_mem(addr: i32) { fpu_fbstp(addr); }
+pub unsafe fn instr_DF_6_mem(addr: i32) {
+    return_on_pagefault!(writable_or_pagefault(addr, 10));
+    fpu_fbstp(addr);
+}
 pub unsafe fn instr_DF_7_mem(addr: i32) { fpu_fistm64p(addr); }
 
 #[no_mangle]

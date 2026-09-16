@@ -27,11 +27,21 @@ export function MouseAdapter(bus, screen_container)
     // set by emulator
     this.emu_enabled = true;
 
+    // set by the guest's absolute pointing device driver
+    this.absolute_mouse = false;
+
     this.bus = bus;
 
     this.bus.register("mouse-enable", function(enabled)
     {
         this.enabled = enabled;
+        this.update_cursor();
+    }, this);
+
+    this.bus.register("vmware-absolute-mouse", function(enabled)
+    {
+        this.absolute_mouse = enabled;
+        this.update_cursor();
     }, this);
 
     // TODO: Should probably not use bus for this
@@ -44,6 +54,15 @@ export function MouseAdapter(bus, screen_container)
     {
         this.is_running = true;
     }, this);
+
+    this.update_cursor = function()
+    {
+        if(screen_container)
+        {
+            const hide = this.absolute_mouse && this.enabled && this.emu_enabled;
+            screen_container.style.cursor = hide ? "none" : "";
+        }
+    };
 
     this.destroy = function()
     {
@@ -58,6 +77,8 @@ export function MouseAdapter(bus, screen_container)
         window.removeEventListener("mousedown", mousedown_handler, false);
         window.removeEventListener("mouseup", mouseup_handler, false);
         window.removeEventListener("wheel", mousewheel_handler, { passive: false });
+        window.removeEventListener("contextmenu", contextmenu_handler, false);
+        document.removeEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
 
     this.init = function()
@@ -75,8 +96,23 @@ export function MouseAdapter(bus, screen_container)
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
         window.addEventListener("wheel", mousewheel_handler, { passive: false });
+        window.addEventListener("contextmenu", contextmenu_handler, false);
+        document.addEventListener("pointerlockchange", pointerlockchange_handler, false);
     };
     this.init();
+
+    function pointerlockchange_handler()
+    {
+        mouse.bus.send("mouse-pointer-lock", !!document.pointerLockElement);
+    }
+
+    function contextmenu_handler(e)
+    {
+        if(may_handle(e))
+        {
+            e.preventDefault();
+        }
+    }
 
     function is_child(child, parent)
     {
@@ -225,12 +261,13 @@ export function MouseAdapter(bus, screen_container)
 
         mouse.bus.send("mouse-delta", [delta_x, delta_y]);
 
-        if(screen_container)
+        // Under pointer lock the page coordinates don't change, so no
+        // meaningful absolute position can be reported
+        if(screen_container && !document.pointerLockElement)
         {
-            const absolute_x = e.pageX - screen_container.offsetLeft;
-            const absolute_y = e.pageY - screen_container.offsetTop;
+            const rect = screen_container.getBoundingClientRect();
             mouse.bus.send("mouse-absolute", [
-                absolute_x, absolute_y, screen_container.offsetWidth, screen_container.offsetHeight]);
+                e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height]);
         }
     }
 

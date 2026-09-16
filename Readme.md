@@ -25,7 +25,7 @@ list of emulated hardware:
 - A generic VGA card with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
-  - A built-in ISO 9660 CD-ROM generator.
+  - A built-in ISO 9660 CD-ROM generator with Joliet support.
 - An NE2000 (RTL8390) PCI network card.
 - Various virtio devices: Filesystem, network and balloon.
 - A SoundBlaster 16 sound card.
@@ -65,12 +65,14 @@ list of emulated hardware:
 [Dial-up modem networking](docs/modem.md) —
 [Alpine Linux guest setup](tools/docker/alpine/) —
 [Arch Linux guest setup](docs/archlinux.md) —
-[Windows NT guest setup](docs/windows-nt.md) —
+[Debian with xfce guest setup](tools/docker/debian/) —
+[MS-DOS/FreeDOS guest setup](docs/dos.md) —
+[Windows 3.1x guest setup](docs/windows-31x.md) —
 [Windows 9x guest setup](docs/windows-9x.md) —
+[Windows NT guest setup](docs/windows-nt.md) —
 [9p filesystem](docs/filesystem.md) —
 [Linux rootfs on 9p](docs/linux-9p-image.md) —
-[Profiling](docs/profiling.md) —
-[CPU Idling](docs/cpu-idling.md)
+[Profiling](docs/profiling.md)
 
 ## Compatibility
 
@@ -117,7 +119,7 @@ You need:
 - Rust with the wasm32-unknown-unknown target
 - A version of clang compatible with Rust
 - java (for Closure Compiler, not necessary when using `debug.html`)
-- nodejs (a recent version is required, v16.11.1 is known to be working)
+- nodejs (a recent version is required, v24.16 is known to be working)
 - To run tests: nasm, gdb, qemu-system, gcc, libc-i386 and rustfmt
 
 See [tools/docker/test-image/Dockerfile](tools/docker/test-image/Dockerfile)
@@ -136,7 +138,7 @@ https://www.npmjs.com/package/v86
 
   This package was originally maintained by [@giulioz](https://github.com/giulioz) (bundler-optimized fork) and was made "official" for this repo by [@basicer](https://github.com/basicer) with the author's permission.
   It is published automatically from this repository via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml), Upload release job) on pushes to `master` and uses `npm publish --provenance`.
-  
+
   Install: `npm install v86`
 
 ### Alternatively, to build using Docker
@@ -158,7 +160,7 @@ https://www.npmjs.com/package/v86
 The disk images for testing are not included in this repository. You can
 download them directly from the website using:
 
-`curl --compressed --output-dir images/ --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}`
+`mkdir -p images && curl --compressed --output-dir images/ --remote-name-all https://i.copy.sh/{linux.iso,linux3.iso,linux4.iso,buildroot-bzimage68.bin,TinyCore-11.0.iso,oberon.img,msdos.img,openbsd-floppy.img,kolibri.img,windows101.img,os8.img,freedos722.img,mobius-fd-release5.img,msdos622.img}`
 
 Run integration tests: `make tests`
 
@@ -195,6 +197,11 @@ var emulator = new V86({
 ```
 
 See [v86.d.ts](v86.d.ts) for TypeScript definitions. You can use `make doc` (TypeDoc) or `make denodoc` (Deno) to generate HTML documentation in `./docs/api/`.
+
+## Generative AI
+
+At this time, v86 does not accept pull requests or issues written partially or entirely by generative AI tools.
+Exceptions may be made on a case-by-case basis.
 
 ## License
 

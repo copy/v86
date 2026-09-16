@@ -4,10 +4,12 @@
 		"dockerfile": "Dockerfile",
 		"args": {
 			"VARIANT": "ubuntu"
-		}
+		},
+		"options": [
+			"--platform", "linux/amd64"
+		]
 	},
 	"features": {
-		"ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
 		"ghcr.io/jungaretti/features/ripgrep:1": {}
 	},
 	"customizations": {

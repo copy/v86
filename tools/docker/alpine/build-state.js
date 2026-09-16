@@ -3,6 +3,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import url from "node:url";
+import child_process from "node:child_process";
 import { V86 } from "../../../build/libv86.mjs";
 
 console.log("Don't forget to run `make all` before running this script");
@@ -53,6 +54,7 @@ emulator.add_listener("serial0-output-byte", function(byte)
                     {
                         if(e) throw e;
                         console.log("Saved as " + OUTPUT_FILE);
+                        child_process.execFileSync("make", ["-C", path.dirname(OUTPUT_FILE), path.basename(OUTPUT_FILE) + ".zst"], { stdio: "inherit" });
                         emulator.destroy();
                     });
             }, 10 * 1000);

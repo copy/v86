@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>debian example</title>
+  <script src="../build/libv86.js"></script>
+</head>
+
+<body>
+<div id="screen_container" tabindex="0" style="outline: none;">
+  <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+  <canvas style="display: none"></canvas>
+</div>
+
+<script>
+"use strict";
+
+window.onload = function () {
+    const screen = document.getElementById("screen_container");
+    screen.addEventListener("mousedown", function() {
+        screen.focus();
+    });
+
+    const emulator = new V86({
+        wasm_path: "../build/v86.wasm",
+        memory_size: 1636 * 1024 * 1024,
+        vga_memory_size: 8 * 1024 * 1024,
+        screen_container: screen,
+        initial_state: { url: "../images/debian-state-base.bin.zst" },
+        filesystem: { baseurl: "../images/debian-9p-rootfs-flat/" },
+        network_relay_url: "wss://relay.widgetry.org/",
+        autostart: true,
+    });
+
+    const canvas = document.querySelector("canvas");
+    canvas.addEventListener("click", function() {
+        canvas.requestPointerLock();
+    });
+};
+</script>
+</body>
+</html>

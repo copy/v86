@@ -325,7 +325,7 @@ export function VGAScreen(cpu, bus, screen, vga_memory_size)
     io.register_write(0x3C6, this, this.port3C6_write);
     io.register_write(0x3C7, this, this.port3C7_write);
     io.register_read(0x3C7, this, this.port3C7_read);
-    io.register_write(0x3C8, this, this.port3C8_write);
+    io.register_write(0x3C8, this, this.port3C8_write, this.port3C8_write16);
     io.register_read(0x3C8, this, this.port3C8_read);
     io.register_write(0x3C9, this, this.port3C9_write);
     io.register_read(0x3C9, this, this.port3C9_read);
@@ -532,12 +532,12 @@ VGAScreen.prototype.set_state = function(state)
 
     this.screen.set_mode(this.graphical_mode);
 
+    // Ensure set_size_graphical/set_size_graphical_text will update
+    this.screen_width = 0;
+    this.screen_height = 0;
+
     if(this.graphical_mode)
     {
-        // Ensure set_size_graphical will update
-        this.screen_width = 0;
-        this.screen_height = 0;
-
         if(this.svga_enabled)
         {
             this.set_size_graphical(this.svga_width, this.svga_height, this.svga_width, this.svga_height, this.svga_bpp);
@@ -552,6 +552,7 @@ VGAScreen.prototype.set_state = function(state)
     }
     else
     {
+        this.screen.clear_text_state();
         this.set_font_bitmap(true);
         this.set_size_text(this.max_cols, this.max_rows);
         this.set_font_page();
@@ -1640,8 +1641,14 @@ VGAScreen.prototype.port3C7_read = function()
 
 VGAScreen.prototype.port3C8_write = function(index)
 {
-    this.dac_color_index_write = index * 3;
+    this.dac_color_index_write = (index & 0xFF) * 3;
     this.dac_state |= 0x3;
+};
+
+VGAScreen.prototype.port3C8_write16 = function(data)
+{
+    this.port3C8_write(data & 0xFF);
+    this.port3C9_write(data >> 8 & 0xFF);
 };
 
 VGAScreen.prototype.port3C8_read = function()
@@ -1657,7 +1664,7 @@ VGAScreen.prototype.port3C8_read = function()
  */
 VGAScreen.prototype.port3C9_write = function(color_byte)
 {
-    var index = this.dac_color_index_write / 3 | 0,
+    var index = this.dac_color_index_write / 3 & 0xFF,
         offset = this.dac_color_index_write % 3,
         color = this.vga256_palette[index];
 
@@ -1687,19 +1694,19 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
         this.vga256_palette[index] = color;
         this.complete_redraw();
     }
-    this.dac_color_index_write++;
+    this.dac_color_index_write = (this.dac_color_index_write + 1) % (256 * 3);
 };
 
 VGAScreen.prototype.port3C9_read = function()
 {
     dbg_log("3C9 read", LOG_VGA);
 
-    var index = this.dac_color_index_read / 3 | 0;
+    var index = this.dac_color_index_read / 3 & 0xFF;
     var offset = this.dac_color_index_read % 3;
     var color = this.vga256_palette[index];
     var color8 = color >> (2 - offset) * 8 & 0xFF;
 
-    this.dac_color_index_read++;
+    this.dac_color_index_read = (this.dac_color_index_read + 1) % (256 * 3);
 
     if(this.dispi_enable_value & 0x20)
     {
@@ -2526,13 +2533,15 @@ VGAScreen.prototype.screen_fill_buffer = function()
         if(this.svga_bpp === 8)
         {
             // XXX: Slow, should be ported to rust, but it doesn't have access to vga256_palette
-            // XXX: Doesn't take svga_offset into account
             const buffer = new Int32Array(this.cpu.wasm_memory.buffer, this.dest_buffet_offset, this.screen_width * this.screen_height);
             const svga_memory = new Uint8Array(this.cpu.wasm_memory.buffer, this.svga_memory.byteOffset, this.vga_memory_size);
+            // svga_offset selects the visible part of svga_memory, used for page flipping (e.g. Master of Orion 2)
+            const base = this.svga_offset;
+            const end = Math.min(buffer.length, this.vga_memory_size - base);
 
-            for(var i = 0; i < buffer.length; i++)
+            for(var i = 0; i < end; i++)
             {
-                var color = this.vga256_palette[svga_memory[i]];
+                var color = this.vga256_palette[svga_memory[base + i]];
                 buffer[i] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
             }
         }
@@ -2595,9 +2604,9 @@ VGAScreen.prototype.set_font_page = function()
     // bits 0, 1 and 4: VGA font page index of font B
     // linear_index_map[] maps VGA's non-liner font page index to linear index
     const linear_index_map = [0, 2, 4, 6, 1, 3, 5, 7];
-    const vga_index_A = ((this.character_map_select & 0b1100) >> 2) | ((this.character_map_select & 0b100000) >> 3);
-    const vga_index_B = (this.character_map_select & 0b11) | ((this.character_map_select & 0b10000) >> 2);
-    this.font_page_ab_enabled = vga_index_A !== vga_index_B;
-    this.screen.set_font_page(linear_index_map[vga_index_A], linear_index_map[vga_index_B]);
+    const vga_index_a = ((this.character_map_select & 0b1100) >> 2) | ((this.character_map_select & 0b100000) >> 3);
+    const vga_index_b = (this.character_map_select & 0b11) | ((this.character_map_select & 0b10000) >> 2);
+    this.font_page_ab_enabled = vga_index_a !== vga_index_b;
+    this.screen.set_font_page(linear_index_map[vga_index_a], linear_index_map[vga_index_b]);
     this.complete_redraw();
 };

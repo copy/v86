@@ -234,11 +234,13 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.vga_memory_size = options.vga_memory_size || 8 * 1024 * 1024;
     settings.boot_order = boot_order;
     settings.fastboot = options.fastboot || false;
+    settings.bootmenu = options.bootmenu || false;
     settings.fda = undefined;
     settings.fdb = undefined;
     settings.uart1 = options.uart1;
     settings.uart2 = options.uart2;
     settings.uart3 = options.uart3;
+    settings.parallel1 = options.parallel1;
     settings.cmdline = options.cmdline;
     settings.preserve_mac_from_state_image = options.preserve_mac_from_state_image;
     settings.mac_address_translation = options.mac_address_translation;
@@ -287,6 +289,20 @@ V86.prototype.continue_init = async function(emulator, options)
     {
         this.mouse_adapter = new MouseAdapter(this.bus, screen_options.container);
     }
+
+    // Pointer lock is not needed while the guest uses absolute pointer
+    // positions (the guest cursor follows the host cursor), so release it
+    // when the guest driver enables absolute positioning
+    this.absolute_pointer_enabled = false;
+    this.bus.register("vmware-absolute-mouse", function(enabled)
+    {
+        if(enabled && !this.absolute_pointer_enabled &&
+            typeof document !== "undefined" && document.pointerLockElement)
+        {
+            document.exitPointerLock();
+        }
+        this.absolute_pointer_enabled = enabled;
+    }, this);
 
     if(screen_options.container)
     {
@@ -616,6 +632,19 @@ V86.prototype.continue_init = async function(emulator, options)
 
         this.serial_adapter && this.serial_adapter.show && this.serial_adapter.show();
         this.virtio_console_adapter && this.virtio_console_adapter.show && this.virtio_console_adapter.show();
+
+        if(!settings.initial_state)
+        {
+            // ide needs to read the mbr to calculate the device geometry
+            if(settings.hda)
+            {
+                await new Promise(resolve => settings.hda.get_and_cache(0, 512, resolve));
+            }
+            if(settings.hdb)
+            {
+                await new Promise(resolve => settings.hdb.get_and_cache(0, 512, resolve));
+            }
+        }
 
         this.v86.init(settings);
 
@@ -1179,6 +1208,7 @@ V86.prototype.mouse_set_enabled = function(enabled)
     if(this.mouse_adapter)
     {
         this.mouse_adapter.emu_enabled = enabled;
+        this.mouse_adapter.update_cursor();
     }
 };
 V86.prototype.mouse_set_status = V86.prototype.mouse_set_enabled;

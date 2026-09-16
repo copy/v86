@@ -30,7 +30,8 @@ IDX_GID = 5
 IDX_TARGET = 6
 IDX_FILENAME = 6
 
-HASH_LENGTH = 8
+# keep in sync with HASH_LENGTH in copy-to-sha256.py
+HASH_LENGTH = 10
 
 S_IFLNK = 0xA000
 S_IFREG = 0x8000

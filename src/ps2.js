@@ -41,6 +41,11 @@ export function PS2(cpu, bus)
 
     this.bus.register("mouse-wheel", function(data)
     {
+        if(!this.have_mouse || !this.use_mouse || !this.mouse_stream_active())
+        {
+            return;
+        }
+
         this.wheel_movement -= data[0];
         this.wheel_movement -= data[1] * 2; // X Wheel Movement
         this.wheel_movement = Math.min(7, Math.max(-8, this.wheel_movement));
@@ -224,6 +229,11 @@ PS2.prototype.set_state = function(state)
     this.bus.send("mouse-enable", this.use_mouse);
 };
 
+PS2.prototype.mouse_stream_active = function()
+{
+    return this.enable_mouse_stream && !(this.command_register & 0x20);
+};
+
 PS2.prototype.raise_irq = function()
 {
     if(this.next_byte_is_ready)
@@ -303,7 +313,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
     this.mouse_delta_x += delta_x * factor;
     this.mouse_delta_y += delta_y * factor;
 
-    if(this.enable_mouse_stream)
+    if(this.mouse_stream_active())
     {
         var change_x = this.mouse_delta_x | 0,
             change_y = this.mouse_delta_y | 0;
@@ -334,7 +344,7 @@ PS2.prototype.mouse_send_click = function(left, middle, right)
 
     this.mouse_clicks = left | right << 1 | middle << 2;
 
-    if(this.enable_mouse_stream)
+    if(this.mouse_stream_active())
     {
         this.send_mouse_packet(0, 0);
     }
@@ -764,6 +774,13 @@ PS2.prototype.port64_write = function(write_byte)
         break;
     case 0x60:
         this.read_command_register = true;
+        break;
+    case 0xD0:
+        // read controller output port
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(this.controller_output_port);
+        this.kbd_irq();
         break;
     case 0xD1:
         this.read_controller_output_port = true;

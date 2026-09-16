@@ -3,7 +3,7 @@
 use crate::cpu_context::CpuContext;
 use crate::gen;
 use crate::modrm;
-use crate::prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
+use crate::prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3, PREFIX_MASK_SEGMENT};
 use crate::regs::{CS, DS, ES, FS, GS, SS};
 
 #[derive(PartialEq, Eq)]
@@ -49,7 +49,7 @@ pub fn analyze_step_handle_segment_prefix(
     analysis: &mut Analysis,
 ) {
     dbg_assert!(segment <= 5);
-    cpu.prefixes |= segment as u8 + 1;
+    cpu.prefixes = cpu.prefixes & !PREFIX_MASK_SEGMENT | (segment as u8 + 1);
     analyze_step_handle_prefix(cpu, analysis)
 }
 

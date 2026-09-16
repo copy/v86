@@ -221,9 +221,16 @@ export interface Event {
     "serial2-output-byte": number;
     "serial3-input": number;
     "serial3-output-byte": number;
+    "parallel0-data-output": number;
+    "parallel0-control-output": number;
+    "parallel0-status-input": number;
+    "parallel1-data-output": number;
+    "parallel1-control-output": number;
+    "parallel1-status-input": number;
     "virtio-console0-output-bytes": Uint8Array;
     "virtio-console0-input-bytes": Uint8Array;
     "virtio-console0-resize": [cols: number, rows: number];
+    "vmware-absolute-mouse": boolean;
 }
 
 /**
@@ -557,6 +564,12 @@ export interface V86Options {
     fastboot?: boolean;
 
     /**
+     * Enable the boot menu (seabios)
+     * @default false
+     */
+    bootmenu?: boolean;
+
+    /**
      * Create a virtio balloon device
      * @default false
      */
@@ -604,6 +617,12 @@ export interface V86Options {
      * @default false
      */
     uart3?: boolean;
+
+    /**
+     * Enable LPT2 (parallel1)
+     * @default false
+     */
+    parallel1?: boolean;
 }
 
 export class V86 {

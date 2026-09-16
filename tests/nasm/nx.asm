@@ -65,6 +65,7 @@ section .text
     or eax, 1 << 31 ; PG
     mov cr0, eax
 
+    fld tword [0x1000]
     ; Jump to the NX page
     ; We'll put a 'hlt' there just in case it doesn't fault
     mov byte [0x1000], 0xF4 ; hlt
