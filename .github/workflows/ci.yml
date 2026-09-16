@@ -79,7 +79,7 @@ jobs:
         id: cache-nasmtests
         with:
           path: tests/nasm/build/
-          key: ${{ runner.os }}-nasmtests
+          key: ${{ runner.os }}-nasmtests-${{ hashFiles('gen/x86_table.js', 'tests/nasm/*.js', 'tests/nasm/*.asm', 'tests/nasm/*.inc', 'tests/nasm/gdb-extract-def') }}
 
       - name: Run nasmtests
         run: MAX_PARALLEL_TESTS=1 make nasmtests
