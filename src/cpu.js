@@ -207,6 +207,7 @@ export function CPU(bus, wm, stop_idling)
     this.dreg = view(Int32Array, memory, 684, 8);
 
     this.reg_pdpte = view(Int32Array, memory, 968, 8);
+    this.efer = view(Uint32Array, memory, 1280, 2);
 
     this.svga_dirty_bitmap_min_offset = view(Uint32Array, memory, 716, 1);
     this.svga_dirty_bitmap_max_offset = view(Uint32Array, memory, 720, 1);
@@ -570,6 +571,7 @@ CPU.prototype.get_state = function()
     state[89] = this.devices.vmware;
     state[90] = this.devices.parallel0;
     state[91] = this.devices.parallel1;
+    state[92] = this.efer;
 
     return state;
 };
@@ -687,6 +689,8 @@ CPU.prototype.set_state = function(state)
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
     state[42] && this.reg_pdpte.set(state[42]);
+    this.efer.fill(0);
+    state[92] && this.efer.set(state[92]);
 
     this.set_tsc(state[43][0], state[43][1]);
 

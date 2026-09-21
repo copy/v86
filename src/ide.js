@@ -129,6 +129,7 @@ const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA8-ACS] 7.64
 const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA8-ACS] 7.65
 const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA8-ACS] 7.67
 const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA8-ACS] 7.68
+const ATA_CMD_READ_LOG_EXT = 0x2F;                    // see [ACS-3] 7.42
 const ATA_CMD_10h = 0x10;                             // command obsolete/unknown, see [ATA-6] Table E.2
 const ATA_CMD_F0h = 0xF0;                             // vendor-specific
 
@@ -166,6 +167,7 @@ const ATA_CMD_NAME =
     [ATA_CMD_WRITE_MULTIPLE_EXT]:           "WRITE MULTIPLE EXT",
     [ATA_CMD_WRITE_SECTORS]:                "WRITE SECTORS",
     [ATA_CMD_WRITE_SECTORS_EXT]:            "WRITE SECTORS EXT",
+    [ATA_CMD_READ_LOG_EXT]:                 "READ LOG EXT",
     [ATA_CMD_10h]:                          "<UNKNOWN 10h>",
     [ATA_CMD_F0h]:                          "<VENDOR-SPECIFIC F0h>",
 };
@@ -1326,6 +1328,20 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
             break;
+
+        case ATA_CMD_READ_LOG_EXT:
+        {
+            // Return zeroed log page(s); sector_count_reg pages of 512 bytes each.
+            // Zero content means empty log (no errors, no self-test entries).
+            const page_count = this.sector_count_reg & 0xFF || 0x100;
+            const byte_count = page_count * 512;
+            this.data_allocate(byte_count);
+            this.data_end = this.data_length;
+            this.sector_count_reg -= page_count;  // mirror what ata_advance does for disk reads
+            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
+            this.push_irq();
+            break;
+        }
 
         case ATA_CMD_READ_DMA:
         case ATA_CMD_READ_DMA_EXT:
