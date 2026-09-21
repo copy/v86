@@ -2072,6 +2072,10 @@ fn jit_generate_basic_block(ctx: &mut JitContext, block: &BasicBlock) {
     let last_instruction_addr = block.last_instruction_addr;
     let stop_addr = block.end_addr;
 
+    if !ctx.cpu.asize_32() {
+        codegen::escape_if_could_wrap_ip(ctx, start_addr, stop_addr);
+    }
+
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
 
