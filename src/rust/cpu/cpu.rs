@@ -1961,10 +1961,10 @@ pub fn translate_address_read(address: i32) -> OrPageFault<u32> {
 pub unsafe fn translate_address_fetch(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, false, true, true)
 }
-pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
+pub unsafe fn translate_address_fetch_jit(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, true, true, true)
 }
-pub unsafe fn translate_address_data_read_jit(address: i32) -> OrPageFault<u32> {
+pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, true, true, false)
 }
 
@@ -1975,7 +1975,7 @@ pub unsafe fn translate_address_write_jit(address: i32, wasm_table_index: u16) -
     let mut entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) != TLB_VALID {
-        entry = do_page_walk(address, true, user, true, false, true)?.get();
+        entry = do_page_walk(address, true, user, true, true, false)?.get();
     }
     let has_code = entry & TLB_HAS_CODE != 0;
     let phys_addr = (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32;
@@ -2027,8 +2027,8 @@ pub unsafe fn translate_address(
             for_writing,
             user,
             jit,
-            is_instruction_fetch,
             side_effects,
+            is_instruction_fetch,
         )?
         .get();
     }
@@ -2039,7 +2039,7 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
     let mut entry = tlb_data[(address as u32 >> 12) as usize];
     let user = *cpl == 3;
     if entry & (TLB_VALID | if user { TLB_NO_USER } else { 0 } | TLB_READONLY) != TLB_VALID {
-        entry = do_page_walk(address, true, user, false, false, true)?.get();
+        entry = do_page_walk(address, true, user, false, true, false)?.get();
     }
     Ok((
         (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32,
@@ -2057,15 +2057,15 @@ pub unsafe fn translate_address_write_and_can_skip_dirty(address: i32) -> OrPage
 //
 // Note that PAE entries are 64-bit, and can describe physical addresses over 32
 // bits. However, since we support only 32-bit physical addresses, we require
-// the high half of the entry to be 0.
+// the high half of the entry to be 0, except for the NX bit when EFER.NXE is set.
 #[cold]
 pub unsafe fn do_page_walk(
     addr: i32,
     for_writing: bool,
     user: bool,
     jit: bool,
-    is_instruction_fetch: bool,
     side_effects: bool,
+    is_instruction_fetch: bool,
 ) -> OrPageFault<std::num::NonZeroI32> {
     let global;
     let mut allow_user = true;
@@ -2139,12 +2139,6 @@ pub unsafe fn do_page_walk(
                         return Err(());
                     }
                     no_exec = true;
-                    if is_instruction_fetch {
-                        if side_effects {
-                            trigger_pagefault(addr, true, for_writing, user, jit, true, false);
-                        }
-                        return Err(());
-                    }
                 }
             }
 
@@ -2178,7 +2172,10 @@ pub unsafe fn do_page_walk(
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && (pae || 0 != cr4 & CR4_PSE) {
             // size bit is set
 
-            if for_writing && !allow_write && !kernel_write_override || user && !allow_user {
+            if for_writing && !allow_write && !kernel_write_override
+                || user && !allow_user
+                || is_instruction_fetch && no_exec
+            {
                 if side_effects {
                     trigger_pagefault(
                         addr,
@@ -2248,12 +2245,6 @@ pub unsafe fn do_page_walk(
                             return Err(());
                         }
                         no_exec = true;
-                        if is_instruction_fetch {
-                            if side_effects {
-                                trigger_pagefault(addr, true, for_writing, user, jit, true, false);
-                            }
-                            return Err(());
-                        }
                     }
                 }
 
@@ -2273,6 +2264,7 @@ pub unsafe fn do_page_walk(
             if !present
                 || for_writing && !allow_write && !kernel_write_override
                 || user && !allow_user
+                || is_instruction_fetch && no_exec
             {
                 if side_effects {
                     trigger_pagefault(
@@ -2361,12 +2353,7 @@ pub unsafe fn do_page_walk(
         tlb_data[page as usize] = tlb_entry;
 
         let virt_page = Page::page_of(addr as u32);
-        if no_exec {
-            clear_tlb_code(virt_page.to_u32() as i32);
-        }
-        else {
-            jit::update_tlb_code(virt_page, Page::page_of(high));
-        }
+        jit::update_tlb_code(virt_page, Page::page_of(high));
     }
 
     Ok(if DEBUG {
@@ -2530,7 +2517,9 @@ pub unsafe fn trigger_pagefault(
     let page = ((addr as u32) >> 12) as i32;
     clear_tlb_code(page);
     tlb_data[page as usize] = 0;
-    let error_code = (is_instruction_fetch as i32) << 4
+    let instruction_fetch = is_instruction_fetch
+        && (*cr.offset(4) & CR4_SMEP != 0 || *cr.offset(4) & CR4_PAE != 0 && *efer & EFER_NXE != 0);
+    let error_code = (instruction_fetch as i32) << 4
         | (rsvd as i32) << 3
         | (user as i32) << 2
         | (write as i32) << 1
@@ -2987,6 +2976,7 @@ pub unsafe fn set_cr0(cr0: i32) {
     }
 
     if *cr.offset(4) & CR4_PAE != 0
+        && cr0 & CR0_PG != 0
         && old_cr0 & (CR0_CD | CR0_NW | CR0_PG) != cr0 & (CR0_CD | CR0_NW | CR0_PG)
     {
         load_pdpte(*cr.offset(3))
@@ -3598,7 +3588,7 @@ pub unsafe fn safe_read32s(addr: i32) -> OrPageFault<i32> {
 }
 
 pub unsafe fn safe_read_f32(addr: i32) -> OrPageFault<f32> {
-    Ok(f32::from_bits(safe_read32s(addr)? as u32))
+    Ok(f32::from_bits(i32::cast_unsigned(safe_read32s(addr)?)))
 }
 
 pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<u64> {
@@ -3714,7 +3704,7 @@ pub unsafe fn safe_read_slow_jit(
         translate_address_write_jit(addr, wasm_table_index)
     }
     else {
-        translate_address_data_read_jit(addr)
+        translate_address_read_jit(addr)
     } {
         Err(()) => {
             *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
@@ -3728,7 +3718,7 @@ pub unsafe fn safe_read_slow_jit(
             translate_address_write_jit(boundary_addr, wasm_table_index)
         }
         else {
-            translate_address_data_read_jit(boundary_addr)
+            translate_address_read_jit(boundary_addr)
         } {
             Err(()) => {
                 *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
@@ -3810,7 +3800,7 @@ pub unsafe fn safe_read128s_slow_jit(addr: i32, eip: i32) -> i32 {
 
 #[no_mangle]
 pub unsafe fn get_phys_eip_slow_jit(addr: i32) -> i32 {
-    match translate_address_read_jit(addr) {
+    match translate_address_fetch_jit(addr) {
         Err(()) => 1,
         Ok(addr_low) => {
             dbg_assert!(!memory::in_mapped_range(addr_low as u32)); // same assumption as in read_imm8
@@ -3841,8 +3831,8 @@ pub unsafe fn readable_or_pagefault_jit(addr: i32, size: i32, eip_offset_in_page
     dbg_assert!(size > 0 && size < 0x1000);
     dbg_assert!(eip_offset_in_page >= 0 && eip_offset_in_page < 0x1000);
     let crosses_page = (addr & 0xFFF) + size > 0x1000;
-    if translate_address_data_read_jit(addr).is_err()
-        || crosses_page && translate_address_data_read_jit((addr | 0xFFF) + 1).is_err()
+    if translate_address_read_jit(addr).is_err()
+        || crosses_page && translate_address_read_jit((addr | 0xFFF) + 1).is_err()
     {
         *instruction_pointer = *instruction_pointer & !0xFFF | eip_offset_in_page;
         return 1;
@@ -4691,7 +4681,7 @@ pub fn io_port_write32(port: i32, value: i32) { unsafe { js::io_port_write32(por
 #[no_mangle]
 #[cfg(debug_assertions)]
 pub unsafe fn check_page_switch(block_addr: u32, next_block_addr: u32) {
-    let x = translate_address_read_jit(*instruction_pointer);
+    let x = translate_address_fetch_jit(*instruction_pointer);
     if x != Ok(next_block_addr) {
         dbg_log!(
             "page switch from={:x} to={:x} prev_eip={:x} eip={:x} phys_eip={:x}",

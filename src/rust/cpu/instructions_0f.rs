@@ -814,7 +814,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 let old_cr4 = *cr.offset(4);
                 *cr.offset(4) = data;
                 if data & CR4_PAE != 0
-                    && 0 != (old_cr4 ^ data) & CR4_PAE
+                    && 0 != (old_cr4 ^ data) & (CR4_PAE | CR4_PGE | CR4_PSE | CR4_SMEP)
                     && *cr.offset(0) & CR0_PG != 0
                 {
                     load_pdpte(*cr.offset(3));
@@ -1198,6 +1198,11 @@ pub unsafe fn instr_0F30() {
     match index {
         MSR_EFER => {
             let value = (high as u64) << 32 | (low as u32) as u64;
+            dbg_assert!(
+                value & !EFER_NXE == 0,
+                "Unimplemented EFER bits: {:#x}",
+                value
+            );
             if value != *efer {
                 full_clear_tlb();
             }
@@ -3351,7 +3356,7 @@ pub unsafe fn instr_0FA2() {
         },
 
         0x80000008 => {
-            eax = 32; // physical address width
+            eax = 32 | 32 << 8; // physical and linear address widths
             ebx = 0;
             ecx = 0;
             edx = 0;
@@ -3850,7 +3855,7 @@ pub unsafe fn instr_F20FC2_mem(addr: i32, r: i32, imm: i32) {
 pub unsafe fn instr_F30FC2(source: i32, r: i32, imm8: i32) {
     // cmpss xmm, xmm/m32
     let destination = read_xmm_f32(r);
-    let source: f32 = f32::from_bits(source as u32);
+    let source: f32 = f32::from_bits(i32::cast_unsigned(source));
     let result = if sse_comparison(imm8, destination as f64, source as f64) { -1 } else { 0 };
     write_xmm32(r, result);
 }

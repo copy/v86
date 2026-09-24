@@ -20,9 +20,7 @@ const NUMBER_ARITH_TESTS = 100;
 
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
 
-const test_name_index = process.argv.indexOf("--test-name");
-const test_name_arg = test_name_index !== -1 ? process.argv[test_name_index + 1] : "";
-const TEST_NAME = new RegExp(process.env.TEST_NAME || test_name_arg || "", "i");
+const TEST_NAME = new RegExp(process.env.TEST_NAME || "", "i");
 
 const FLAGS_IGNORE = 0xFFFF3200;
 const CF = 1 << 0;
