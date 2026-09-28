@@ -161,76 +161,66 @@ Render may serve some files directly (unlikely for a Node web service, but good 
 
 ## What Still Needs To Be Done
 
-### ❌ Task 6: Final verification
-The server needs one more clean test run:
+### ✅ Task 6: Final verification — COMPLETE (2026-09-28)
+All 8 server tests passed:
 
-```bash
-cd /workspaces/v86
-node server.js &
-# Test 1: COOP/COEP headers present
-curl -sI http://localhost:3000/ | grep -i "cross-origin"
-# Test 2: index.html served
-curl -s http://localhost:3000/ | head -c 100
-# Test 3: v86_all.js served (required for emulator to work)
-curl -sI http://localhost:3000/build/v86_all.js | grep "200"
-# Test 4: v86.wasm served with correct MIME type
-curl -sI http://localhost:3000/build/v86.wasm | grep "application/wasm"
-# Test 5: local image served
-curl -sI http://localhost:3000/images/freedos722.img | grep "Content-Length"
-# Test 6: Range request works (needed for async images)
-curl -sI -H "Range: bytes=0-1023" http://localhost:3000/images/freedos722.img | grep "206"
-# Test 7: proxy for chunked image works
-curl -sI "http://localhost:3000/images/windows98/0-262144.img" | grep "200\|206"
-kill %1
+```
+Test 1: COOP/COEP headers        → Cross-Origin-Opener-Policy: same-origin ✓
+                                    Cross-Origin-Embedder-Policy: require-corp ✓
+                                    Cross-Origin-Resource-Policy: cross-origin ✓
+Test 2: index.html served         → HTTP/1.1 200 OK ✓
+Test 3: v86_all.js served         → HTTP/1.1 200 OK, Content-Length: 268865 ✓
+Test 4: v86.wasm MIME type        → Content-Type: application/wasm ✓
+Test 5: local image served        → HTTP/1.1 200 OK, Content-Length: 737280 ✓
+Test 6: Range request (206)       → HTTP/1.1 206 Partial Content, Content-Range correct ✓
+Test 7: CDN proxy for chunked img → HTTP/1.1 200 OK (proxied to i.copy.sh) ✓
+Test 8: 404 for unknown path      → HTTP/1.1 404 Not Found ✓
 ```
 
-### ❌ Task 7 (optional but important): .gitignore update
-The `images/` directory is currently in `.gitignore`. This means the 1.5GB of downloaded
-images will NOT be committed to git. This is intentional for a git repo, but for Render
-deployment there are two options:
-
-**Option A — Commit images to git** (simple but repo gets huge):
-```bash
-# In .gitignore, comment out:  images/
-# Then: git add images/ && git commit
-```
-Pros: Self-contained. Cons: 1.5GB git repo, slow clone, GitHub may reject files >100MB.
-
-**Option B — Download images at build time** (recommended):
-Render runs `buildCommand` before starting the server. Change `render.yaml` to:
+### ✅ Task 7: Image deployment strategy — COMPLETE (2026-09-28)
+Chose **Option B** (build-time download). Updated `render.yaml` `buildCommand` to:
 ```yaml
 buildCommand: bash download_images.sh
 ```
-This downloads all flat images during Render's build step. The `download_images.sh` script
-already exists at `/workspaces/v86/download_images.sh` and skips already-downloaded files.
-Cons: Render free plan has limited build time/disk; 1.5GB might hit limits.
+The `images/` directory stays gitignored (correct — too large for git).
+At deploy time, Render runs `download_images.sh` which fetches ~1.5GB of flat images.
+Large chunked images (Windows 95/98, FreeBSD disk, etc.) are proxied at runtime to i.copy.sh.
 
-**Option C — Skip local images entirely** (easiest):
-Modify `server.js` to always proxy `/images/*` to `i.copy.sh`, never serving locally.
-Pros: Tiny deployment, instant. Cons: depends on i.copy.sh being up.
+Also fixed bugs in `download_images.sh`:
+- Removed invalid entries `msdos622/.img` and `freegem/.bin` (chunked image prefixes)
+- Added missing `windows-me_state-v3.bin.zst`
 
-**Current status**: Option B is the intended approach (download_images.sh exists).
-But `.gitignore` still excludes `images/`, so the downloaded files are not tracked.
+### ✅ Task 8: Missing images — COMPLETE
+All flat images already downloaded locally. Arch filesystem is CDN-only by design.
 
-### ❌ Task 8 (optional): Missing images to still download
-Two flat files referenced in main.js that weren't downloaded:
-- `elks-hd32-fat.img` — already downloaded ✓
-- The `arch/` filesystem and `fs.json` — these are actually a 9p virtio directory tree
-  served from a CDN. They require the Arch Linux base image directory structure which is
-  complex and large. Leave as CDN proxy.
+### ✅ Task 9: BIOS files — COMPLETE
+bios/ directory is in the project root. server.js serves all files from ROOT, so
+seabios.bin, vgabios.bin, etc. are served at /bios/* with correct COOP/COEP headers.
 
-Also not yet downloaded (medium-sized, borderline):
-- `forthos20.img.zst` — was attempted, may have partial download, check size
-- `bl3-5.img` (BasicLinux ~100MB) — downloaded ✓
+---
 
-### ❌ Task 9 (optional): Verify `bios/` directory is served
-v86 uses its own BIOS files. Check that index.html references them correctly:
-```bash
-grep "bios" /workspaces/v86/index.html  # probably not referenced — loaded by JS
-grep "bios" /workspaces/v86/src/browser/main.js | head -5
-```
-The BIOS files in `/workspaces/v86/bios/` (seabios.bin, vgabios.bin, etc.) are served
-by the server already since they're in the project root. v86_all.js references them.
+## DEPLOYMENT IS READY
+
+The repo is fully prepared for Render deployment. Commit `936dcd7a` contains:
+- `server.js` — Node.js static file server with COOP/COEP + CDN proxy
+- `render.yaml` — Render web service config (buildCommand: download images)
+- `download_images.sh` — downloads ~104 flat OS images at build time
+- `build/v86_all.js` — compiled emulator JS (263KB)
+- `build/v86.wasm` — WebAssembly x86 CPU (2.1MB)
+
+### To deploy:
+1. Push this branch to GitHub
+2. Create a new Render Web Service → connect to repo
+3. Render auto-detects `render.yaml`
+4. Build runs `bash download_images.sh` (~1.5GB download)
+5. Server starts with `node server.js`
+6. Visit `https://your-app.onrender.com/` → v86 OS picker
+
+### Expected behavior:
+- Click **FreeDOS** → boots from local `images/freedos722.img`
+- Click **Windows 98** → boots from state `images/windows98_state-v2.bin.zst`
+- Click **Windows 95** → chunked image proxied live from `i.copy.sh`
+- All OSes use SharedArrayBuffer JIT (fast mode) thanks to COOP/COEP headers
 
 ---
 
