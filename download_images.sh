@@ -57,13 +57,13 @@ download "mobius-fd-release5.img"
 # DOS images
 download "freedos722.img"
 download "msdos4.img"
-download "msdos622/.img"  # this one is actually chunked, skip
+# msdos622 is chunked (directory of parts) — proxied at runtime, skip
 download "pc86dos.img"
 download "ibm-exploring.img"
 download "PCMOS386-9-user-patched.img"
 download "doof-1440.img"
 download "xcom144.img"
-download "freegem/.bin"  # chunked, skip
+# freegem is chunked — proxied at runtime, skip
 
 # Windows small images
 download "windows101.img"
@@ -74,6 +74,7 @@ download "win31.img"
 
 # Windows state files (small)
 download "windows98_state-v2.bin.zst"
+download "windows-me_state-v3.bin.zst"
 download "windows2k_state-v4.bin.zst"
 download "serenity_state-v4.bin.zst"
 download "redox_state-v2.bin.zst"

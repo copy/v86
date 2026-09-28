@@ -3,11 +3,8 @@ services:
     name: v86
     runtime: node
     plan: free
-    buildCommand: node --version
+    buildCommand: bash download_images.sh
     startCommand: node server.js
-    envVars:
-      - key: PORT
-        value: 3000
     headers:
       - path: /*
         name: Cross-Origin-Opener-Policy
