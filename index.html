@@ -256,6 +256,14 @@
                     Presets: <a id="network_none">none</a>, <a id="network_inbrowser">inbrowser</a>, <a id="network_relay">public relay</a>, <a id="network_wisp">wisp</a>, <a id="network_fetch">fetch</a></td>
                 <td>
                     <input id="relay_url" type="text" value="wss://relay.widgetry.org/">
+                    <script>
+                        // Use same-origin WISP relay (served by server.js).
+                        // Adjust protocol to match page (ws for http, wss for https).
+                        (function() {
+                            var proto = location.protocol === "https:" ? "wss" : "ws";
+                            document.getElementById("relay_url").value = proto + "://" + location.host + "/wisp/";
+                        })();
+                    </script>
                 </td>
             </tr>
 

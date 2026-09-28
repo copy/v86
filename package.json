@@ -16,5 +16,8 @@
   "main": "build/libv86.mjs",
   "types": "v86.d.ts",
   "repository": "github:copy/v86",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@mercuryworkshop/wisp-js": "^0.5.0"
+  }
 }

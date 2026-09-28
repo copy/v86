@@ -16,6 +16,7 @@ import https from "https";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -227,4 +228,18 @@ server.listen(PORT, () => {
     console.log(`  Root: ${ROOT}`);
     console.log(`  CDN fallback: https://${CDN_HOST}/`);
     console.log(`  COOP/COEP headers: enabled`);
+    console.log(`  WISP relay: ws://localhost:${PORT}/wisp/`);
+});
+
+// Handle WebSocket upgrade requests for the WISP relay at /wisp/
+// The WISP backend lets v86 guests make real TCP connections through the server.
+server.on("upgrade", (req, socket, head) => {
+    const url = req.url || "";
+    if (url.startsWith("/wisp/")) {
+        wisp.routeRequest(req, socket, head);
+    } else {
+        // Unknown upgrade path — reject cleanly
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        socket.destroy();
+    }
 });
