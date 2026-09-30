@@ -884,10 +884,9 @@ fn gen_safe_write(
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder.const_i32(
-        (0xFFF
-            & !TLB_GLOBAL
-            & !TLB_NO_EXEC
-            & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
+        (0xFFF & !TLB_GLOBAL & !TLB_NO_EXEC & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
+            as i32,
+    );
     ctx.builder.and_i32();
 
     ctx.builder.const_i32(TLB_VALID as i32);
@@ -1039,10 +1038,9 @@ pub fn gen_safe_read_write(
     let entry_local = ctx.builder.tee_new_local();
 
     ctx.builder.const_i32(
-        (0xFFF
-            & !TLB_GLOBAL
-            & !TLB_NO_EXEC
-            & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
+        (0xFFF & !TLB_GLOBAL & !TLB_NO_EXEC & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
+            as i32,
+    );
     ctx.builder.and_i32();
 
     ctx.builder.const_i32(TLB_VALID as i32);
