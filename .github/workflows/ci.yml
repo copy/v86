@@ -62,7 +62,7 @@ jobs:
         id: cache-kvm-unit-test
         with:
           path: tests/kvm-unit-tests/
-          key: ${{ runner.os }}-kvm-unit-test
+          key: ${{ runner.os }}-kvm-unit-test-${{ hashFiles('tests/kvm-unit-tests/**') }}
 
       - name: Build kvm-unit-test
         if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
@@ -73,6 +73,8 @@ jobs:
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
+          DISABLE_JIT=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v5

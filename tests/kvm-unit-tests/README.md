@@ -13,7 +13,12 @@ make -C ../../build/libv86.js
 ./run.js x86/ioapic.flat
 ./run.js x86/apic.flat
 ./run.js x86/pae.flat
+./run.mjs x86/nx.flat
 ```
+
+The NX test exercises PAE execute permissions, page-fault error codes and priority,
+PDPTE reloads, and executable/NX aliases of the same physical page. `make kvm-unit-test`
+from the repository root runs it with JIT enabled and disabled.
 
 Tests can also be run in browser by going to `?profile=test-$name` (for
 example, `?profile=test-realmode`).
