@@ -94,7 +94,7 @@
                               (get_local $l9)
                               (i32.const 12))
                             (i32.const 2))))
-                      (i32.const 4041))
+                      (i32.const 3977))
                     (i32.const 1))
                   (i32.le_s
                     (i32.and
