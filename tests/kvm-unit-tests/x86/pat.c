@@ -55,11 +55,15 @@ int main(void)
     flush_cache(alias);
     report("CLFLUSH accepts a read-only page and sets only accessed",
            (*pte & (PT_ACCESSED_MASK | PT_DIRTY_MASK)) == PT_ACCESSED_MASK);
+
     *pte &= ~PT_PRESENT_MASK;
     invlpg(alias);
     handler old = handle_exception(14, page_fault);
+
     asm volatile("clflush (%%eax)" : : "a"(alias) : "memory");
+
     handle_exception(14, old);
+
     report("CLFLUSH faults on an absent page", fault_error != ~0UL);
     report("CLFLUSH reports a data-read page fault", fault_error == 0 && fault_address == (unsigned long)alias);
 
