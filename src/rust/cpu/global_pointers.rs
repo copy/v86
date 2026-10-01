@@ -73,6 +73,33 @@ pub const tss_size_32: *mut bool = 1128 as *mut bool;
 pub const sse_scratch_register: *mut reg128 = 1136 as *mut reg128;
 
 pub const fpu_st: *mut F80 = 1152 as *mut F80;
+
+// ── x86-64 / long mode state ─────────────────────────────────────────────────
+// EFER MSR value (u32 is sufficient; bits above 11 are reserved)
+pub const efer: *mut u32 = 1288 as *mut u32;
+
+// When EFER.LME=1 and CR0.PG=1 the CPU activates long mode (EFER.LMA).
+// This flag mirrors EFER.LMA and is checked by the interpreter dispatch.
+pub const is_long_mode: *mut bool = 1292 as *mut bool;
+
+// High 32 bits of the 64-bit GPRs (RAX–RDI = indices 0–7).
+// The low 32 bits live in the existing reg32 array at offset 64.
+// Layout: reg64h[0]=rax_hi .. reg64h[7]=rdi_hi
+pub const reg64h: *mut u32 = 1296 as *mut u32; // 8 × 4 = 32 bytes → ends at 1328
+
+// R8–R15: full 64-bit values stored as two u32 halves (lo at even, hi at odd)
+// reg_r8_15[0]=r8_lo, reg_r8_15[1]=r8_hi, ..., reg_r8_15[14]=r15_lo, reg_r8_15[15]=r15_hi
+pub const reg_r8_15: *mut u32 = 1328 as *mut u32; // 16 × 4 = 64 bytes → ends at 1392
+
+// 64-bit instruction pointer (high 32 bits; low 32 bits = instruction_pointer)
+pub const rip_high: *mut u32 = 1392 as *mut u32;
+
+// SYSCALL/SYSRET MSRs
+pub const msr_star: *mut u64 = 1400 as *mut u64;
+pub const msr_lstar: *mut u64 = 1408 as *mut u64;
+pub const msr_cstar: *mut u64 = 1416 as *mut u64;
+pub const msr_fmask: *mut u32 = 1424 as *mut u32;
+pub const msr_kernel_gs_base: *mut u64 = 1432 as *mut u64;
 pub const pat: *mut u64 = 1288 as *mut u64;
 
 pub fn get_reg32_offset(r: u32) -> u32 {

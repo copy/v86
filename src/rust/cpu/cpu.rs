@@ -240,6 +240,18 @@ pub const IA32_KERNEL_GS_BASE: i32 = 0xC0000101u32 as i32;
 pub const MSR_AMD64_LS_CFG: i32 = 0xC0011020u32 as i32;
 pub const MSR_AMD64_DE_CFG: i32 = 0xC0011029u32 as i32;
 
+// Extended Feature Enable Register (EFER) — controls long mode
+pub const IA32_EFER: i32 = 0xC0000080u32 as i32;
+pub const EFER_SCE: u32 = 1 << 0;  // SYSCALL Enable
+pub const EFER_LME: u32 = 1 << 8;  // Long Mode Enable (set by OS)
+pub const EFER_LMA: u32 = 1 << 10; // Long Mode Active (set by CPU when CR0.PG + EFER.LME)
+pub const EFER_NXE: u32 = 1 << 11; // No-Execute Enable
+// Star/LStar/CStar/SFMask MSRs for SYSCALL/SYSRET
+pub const IA32_STAR: i32 = 0xC0000081u32 as i32;
+pub const IA32_LSTAR: i32 = 0xC0000082u32 as i32;
+pub const IA32_CSTAR: i32 = 0xC0000083u32 as i32;
+pub const IA32_FMASK: i32 = 0xC0000084u32 as i32;
+
 pub const IA32_APIC_BASE_BSP: i32 = 1 << 8;
 pub const IA32_APIC_BASE_EXTD: i32 = 1 << 10;
 pub const IA32_APIC_BASE_EN: i32 = 1 << 11;
@@ -2849,6 +2861,9 @@ pub unsafe fn set_cr0(cr0: i32) {
 
     *protected_mode = (*cr & CR0_PE) == CR0_PE;
     *segment_access_bytes.offset(CS as isize) = 0x80 | 0x10 | 0x08 | 0x02; // P dpl0 S E RW
+
+    // When PG is toggled, re-evaluate EFER.LMA (long mode active).
+    update_long_mode();
 }
 
 pub unsafe fn set_cr3(mut cr3: i32) {
@@ -4648,3 +4663,47 @@ pub unsafe fn reset_cpu() {
 
 #[no_mangle]
 pub unsafe fn set_cpuid_level(level: u32) { cpuid_level = level }
+
+/// Update EFER.LMA (Long Mode Active) based on EFER.LME and CR0.PG.
+///
+/// Per the AMD64 Architecture Programmer's Manual vol.2 §14.1:
+///   LMA is set by the processor when EFER.LME=1 AND CR0.PG=1.
+///   Software sets LME; the CPU sets LMA.
+///
+/// This function should be called whenever EFER or CR0 changes.
+pub unsafe fn update_long_mode() {
+    let lme_set = *efer & EFER_LME != 0;
+    let pg_set = *cr & CR0_PG != 0;
+
+    if lme_set && pg_set {
+        // Activate long mode: set LMA in EFER and the is_long_mode flag.
+        *efer |= EFER_LMA;
+        *is_long_mode = true;
+        dbg_log!("Long mode activated (EFER.LMA=1)");
+    }
+    else {
+        // Deactivate long mode.
+        *efer &= !EFER_LMA;
+        *is_long_mode = false;
+        if lme_set {
+            dbg_log!("Long mode enabled (EFER.LME=1) but PG not yet set");
+        }
+    }
+
+    // Rebuild the cached state flags so the JIT dispatcher picks up the change.
+    update_state_flags();
+}
+
+/// Read the current value of the EFER MSR.
+#[inline]
+pub unsafe fn read_efer() -> u32 { *efer }
+
+/// Write the EFER MSR.  Validates reserved bits and calls update_long_mode().
+pub unsafe fn write_efer(value: u32) {
+    // Mask to defined bits: SCE(0), LME(8), NXE(11).  LMA(10) is read-only.
+    let writable = EFER_SCE | EFER_LME | EFER_NXE;
+    let lma_current = *efer & EFER_LMA; // preserve current LMA (read-only)
+    *efer = (value & writable) | lma_current;
+    dbg_log!("EFER written: {:08x} (LME={})", *efer, (*efer & EFER_LME != 0) as u8);
+    update_long_mode();
+}
