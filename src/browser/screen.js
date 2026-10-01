@@ -226,7 +226,8 @@ export function ScreenAdapter(options, screen_fill_buffer)
             // clear extra row 2
             offscreen_extra_context.clearRect(0, row_extra_2_y, gfx_width, font_height);
 
-            let fg_rgba, fg_x, bg_rgba, bg_x;
+            // initialise to work around closure compiler bug (#1640)
+            let fg_rgba = undefined, fg_x, bg_rgba = undefined, bg_x;
             for(let col_x = 0; col_x < gfx_width; col_x += font_width, txt_i += TEXT_BUF_COMPONENT_SIZE)
             {
                 const chr = text_mode_data[txt_i + CHARACTER_INDEX];
