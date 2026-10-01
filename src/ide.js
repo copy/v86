@@ -1330,18 +1330,8 @@ IDEInterface.prototype.ata_command = function(cmd)
             break;
 
         case ATA_CMD_READ_LOG_EXT:
-        {
-            // Return zeroed log page(s); sector_count_reg pages of 512 bytes each.
-            // Zero content means empty log (no errors, no self-test entries).
-            const page_count = this.sector_count_reg & 0xFF || 0x100;
-            const byte_count = page_count * 512;
-            this.data_allocate(byte_count);
-            this.data_end = this.data_length;
-            this.sector_count_reg -= page_count;  // mirror what ata_advance does for disk reads
-            this.status_reg = ATA_SR_DRDY|ATA_SR_DSC|ATA_SR_DRQ;
-            this.push_irq();
+            this.ata_abort_command();
             break;
-        }
 
         case ATA_CMD_READ_DMA:
         case ATA_CMD_READ_DMA_EXT:
