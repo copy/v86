@@ -129,6 +129,7 @@ const ATA_CMD_WRITE_MULTIPLE = 0x39;                  // see [ATA8-ACS] 7.64
 const ATA_CMD_WRITE_MULTIPLE_EXT = 0xC5;              // see [ATA8-ACS] 7.65
 const ATA_CMD_WRITE_SECTORS = 0x30;                   // see [ATA8-ACS] 7.67
 const ATA_CMD_WRITE_SECTORS_EXT = 0x34;               // see [ATA8-ACS] 7.68
+const ATA_CMD_READ_LOG_EXT = 0x2F;                    // see [ACS-3] 7.42
 const ATA_CMD_10h = 0x10;                             // command obsolete/unknown, see [ATA-6] Table E.2
 const ATA_CMD_F0h = 0xF0;                             // vendor-specific
 
@@ -166,6 +167,7 @@ const ATA_CMD_NAME =
     [ATA_CMD_WRITE_MULTIPLE_EXT]:           "WRITE MULTIPLE EXT",
     [ATA_CMD_WRITE_SECTORS]:                "WRITE SECTORS",
     [ATA_CMD_WRITE_SECTORS_EXT]:            "WRITE SECTORS EXT",
+    [ATA_CMD_READ_LOG_EXT]:                 "READ LOG EXT",
     [ATA_CMD_10h]:                          "<UNKNOWN 10h>",
     [ATA_CMD_F0h]:                          "<VENDOR-SPECIFIC F0h>",
 };
@@ -1325,6 +1327,10 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.sectors_per_drq = this.sector_count_reg & 0xFF;
             this.status_reg = ATA_SR_DRDY|ATA_SR_DSC;
             this.push_irq();
+            break;
+
+        case ATA_CMD_READ_LOG_EXT:
+            this.ata_abort_command();
             break;
 
         case ATA_CMD_READ_DMA:
