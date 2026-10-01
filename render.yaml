@@ -3,7 +3,7 @@ services:
     name: v86
     runtime: node
     plan: free
-    buildCommand: bash download_images.sh
+    buildCommand: npm install && bash download_images.sh
     startCommand: node server.js
     headers:
       - path: /*

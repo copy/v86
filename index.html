@@ -42,6 +42,7 @@
             Arch:
             <label><input id=filter_16bit type=checkbox> 16-bit</label>
             <label><input id=filter_32bit type=checkbox> 32-bit</label>
+            <label title="64-bit x86-64 / AMD64 OS (runs in 32-bit compat mode under v86)"><input id=filter_64bit type=checkbox> 64-bit</label>
             <!--<label><input type=checkbox> Microkernel</label>-->
             <!--<label title="Uses a saved memory dump to skip the boot process"><input type=checkbox> skip boot process</label>-->
             <!--<label title="Supports networking (in v86)"><input type=checkbox> networking</label>
@@ -86,6 +87,8 @@
 <a class="tr" href="?profile=elks" id="start_elks"><span>ELKS</span> <span>1.2 MB</span> <span><div class=tui_icon></div></span> <span>Linux-like</span> <span>16-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Linux for 8086</span></a>
 <a class="tr" href="?profile=nodeos" id="start_nodeos"><span>NodeOS</span> <span>14 MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>bzImage</span> <span>Linux with nodejs as /bin/init</span></a>
 <a class="tr" href="?profile=tilck" id="start_tilck"><span>Tilck</span> <span>16 MB</span> <span><div class=tui_icon></div></span> <span>Linux-like</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>Tiny Linux-Compatible Kernel</span></a>
+<a class="tr" href="?profile=skiffos" id="start_skiffos"><span>SkiffOS</span> <span>230+ MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>64-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>CD</span> <span>Minimal container-optimised Linux (x86-64)</span></a>
+<a class="tr" href="?profile=buildroot6" id="start_buildroot6"><span>Buildroot Linux 6.8</span> <span>9.6 MB</span> <span><div class=tui_icon></div></span> <span>Linux</span> <span>64-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>bzImage</span> <span>Linux 6.8 kernel with 9p filesystem support</span></a>
 <a class="tr" href="?profile=freebsd" id="start_freebsd"><span>FreeBSD</span> <span>16+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>FreeBSD 12.0</span></a>
 <a class="tr" href="?profile=netbsd" id="start_netbsd"><span>NetBSD</span> <span>23+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>NetBSD 4.0 with Xorg</span></a>
 <a class="tr" href="?profile=openbsd" id="start_openbsd"><span>OpenBSD</span> <span>11+ MB</span> <span><div class=tui_icon></div></span> <span>BSD</span> <span>32-bit</span> <span>Modern</span> <span>Open-source</span> <span>C</span> <span>HD</span> <span>OpenBSD 6.6</span></a>

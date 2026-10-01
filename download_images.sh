@@ -6,7 +6,8 @@ set -euo pipefail
 
 CDN="https://i.copy.sh"
 OUT="$(dirname "$0")/images"
-mkdir -p "$OUT"
+BIOSOUT="$(dirname "$0")/bios"
+mkdir -p "$OUT" "$BIOSOUT"
 
 download() {
     local name="$1"
@@ -18,6 +19,23 @@ download() {
     echo "  [download] $name"
     curl -fsSL --retry 3 --retry-delay 2 -o "$dest" "$CDN/$name" || {
         echo "  [WARN] Failed to download $name" >&2
+        rm -f "$dest"
+    }
+}
+
+download_bios() {
+    # Download a BIOS/firmware file to the bios/ directory from a direct URL.
+    # Usage: download_bios <filename> <url>
+    local name="$1"
+    local url="$2"
+    local dest="$BIOSOUT/$name"
+    if [ -f "$dest" ]; then
+        echo "  [skip] bios/$name (already exists)"
+        return
+    fi
+    echo "  [download] bios/$name"
+    curl -fsSL --retry 3 --retry-delay 2 -o "$dest" "$url" || {
+        echo "  [WARN] Failed to download bios/$name" >&2
         rm -f "$dest"
     }
 }
@@ -155,3 +173,30 @@ echo ""
 echo "=== Download complete ==="
 ls -lh "$OUT" | tail -5
 echo "Total files: $(ls "$OUT" | wc -l)"
+
+# ── UEFI / x64 BIOS ──────────────────────────────────────────────────────────
+# OVMF.fd is the EDK2 UEFI firmware required to boot 64-bit (x86-64) OSes.
+# It replaces SeaBIOS for profiles that need UEFI instead of legacy BIOS.
+# Source: pre-built binary from the EDK2 SourceForge archive.
+# Size: ~1 MB (OVMF-X64-r15214, code + variable store combined image).
+#
+# Usage in a v86 profile:
+#   bios: { url: "bios/OVMF.fd" }
+#   vga_bios: <omit — OVMF provides its own GOP framebuffer, no VGA BIOS needed>
+#
+# NOTE: The current v86_all.js (Feb 2021 build, commit 98e7110c2) does NOT
+# implement EFER / long mode, so 64-bit OSes will triple-fault on startup even
+# with OVMF present. This downloads the file so the infrastructure is in place
+# for when long mode support is added. See TODO.md for full details.
+echo ""
+echo "=== Downloading UEFI BIOS to bios/ ==="
+download_bios "OVMF.fd" "https://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip"
+# Note: the above downloads a .zip — we need to unzip it. Handle that here:
+if [ -f "$BIOSOUT/OVMF.fd" ] && unzip -t "$BIOSOUT/OVMF.fd" >/dev/null 2>&1; then
+    # It's a zip masquerading as .fd — extract the real OVMF.fd from it
+    tmp_dir=$(mktemp -d)
+    unzip -o "$BIOSOUT/OVMF.fd" OVMF.fd -d "$tmp_dir" 2>/dev/null && mv "$tmp_dir/OVMF.fd" "$BIOSOUT/OVMF.fd"
+    rm -rf "$tmp_dir"
+    echo "  [extract] bios/OVMF.fd extracted from zip"
+fi
+echo "Total bios files: $(ls "$BIOSOUT" | wc -l)"
