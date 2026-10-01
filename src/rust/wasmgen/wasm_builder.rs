@@ -21,7 +21,7 @@ pub trait SafeToU16 {
 }
 impl SafeToU16 for usize {
     fn safe_to_u16(self) -> u16 {
-        dbg_assert!(self <= u8::MAX as usize);
+        dbg_assert!(self <= u16::MAX as usize);
         self as u16
     }
 }
