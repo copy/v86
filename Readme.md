@@ -171,7 +171,7 @@ See [tests/Readme.md](tests/Readme.md) for more information.
 ## API examples
 
 - [Basic](examples/basic.html)
-- [Programatically using the serial terminal](examples/serial.html)
+- [Programmatically using the serial terminal](examples/serial.html)
 - [A Lua interpreter](examples/lua.html)
 - [Two instances in one window](examples/two_instances.html)
 - [Networking between browser windows/tabs using the Broadcast Channel API](examples/broadcast-network.html)

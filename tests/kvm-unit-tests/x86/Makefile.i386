@@ -4,7 +4,7 @@ ldarch = elf32-i386
 
 cflatobjs += lib/x86/setjmp32.o
 
-tests = $(TEST_DIR)/taskswitch.flat $(TEST_DIR)/taskswitch2.flat $(TEST_DIR)/nx.flat \
+tests = $(TEST_DIR)/taskswitch.flat $(TEST_DIR)/taskswitch2.flat $(TEST_DIR)/nx.flat $(TEST_DIR)/pat.flat \
 	$(TEST_DIR)/cmpxchg8b.flat
 
 

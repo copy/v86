@@ -337,6 +337,7 @@ kvm-unit-test: build/v86-debug.wasm
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
+	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
 	tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 	DISABLE_JIT=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 
@@ -345,6 +346,7 @@ kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 	TEST_RELEASE_BUILD=1 DISABLE_JIT=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 

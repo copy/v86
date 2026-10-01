@@ -1243,7 +1243,19 @@ pub unsafe fn instr_0F30() {
         },
         IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux/9legacy
         IA32_PMC0 | IA32_PMC1 => {},               // linux
-        IA32_PAT => {},
+        IA32_PAT => {
+            let value = (high as u32 as u64) << 32 | low as u32 as u64;
+            for i in 0..8 {
+                let entry = (value >> (8 * i)) as u8;
+                if entry > 7 || entry == 2 || entry == 3 {
+                    trigger_gp(0);
+                    return;
+                }
+            }
+            // Cache timing and memory types are not modelled, but the register
+            // must retain the guest's selected types.
+            *pat = value;
+        },
         IA32_SPEC_CTRL => {},      // linux 5.19
         IA32_TSX_CTRL => {},       // linux 5.19
         MSR_TSX_FORCE_ABORT => {}, // linux 5.19
@@ -1323,7 +1335,10 @@ pub unsafe fn instr_0F32() {
         IA32_MCG_CAP => {},                        // netbsd
         IA32_PERFEVTSEL0 | IA32_PERFEVTSEL1 => {}, // linux/9legacy
         IA32_PMC0 | IA32_PMC1 => {},               // linux
-        IA32_PAT => {},
+        IA32_PAT => {
+            low = *pat as i32;
+            high = (*pat >> 32) as i32;
+        },
         MSR_PKG_C2_RESIDENCY => {},
         IA32_SPEC_CTRL => {},      // linux 5.19
         IA32_TSX_CTRL => {},       // linux 5.19
@@ -3271,7 +3286,7 @@ pub unsafe fn instr_0FA2() {
             }; // hypervisor
             edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
                 vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
-                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 16 | 1 << 19 | // cx8, sep, pge, cmov, pat, clflush
                 1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
 
             if *acpi_enabled
@@ -3576,9 +3591,11 @@ pub unsafe fn instr_0FAE_7_reg(_r: i32) {
     // sfence
 }
 #[no_mangle]
-pub unsafe fn instr_0FAE_7_mem(_addr: i32) {
+pub unsafe fn instr_0FAE_7_mem(addr: i32) {
     // clflush
-    undefined_instruction();
+    // No hardware caches are modelled, but the operand must pass the same
+    // address translation and permission checks as a byte load.
+    return_on_pagefault!(translate_address_read(addr));
 }
 pub unsafe fn instr16_0FAF_mem(addr: i32, r: i32) {
     write_reg16(

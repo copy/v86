@@ -73,6 +73,7 @@ jobs:
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
           DISABLE_JIT=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 
