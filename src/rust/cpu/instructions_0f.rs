@@ -811,12 +811,14 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 if 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_PAE) {
                     full_clear_tlb();
                 }
+                let old_cr4 = *cr.offset(4);
+                *cr.offset(4) = data;
                 if data & CR4_PAE != 0
-                    && 0 != (*cr.offset(4) ^ data) & (CR4_PGE | CR4_PSE | CR4_SMEP)
+                    && 0 != (old_cr4 ^ data) & (CR4_PAE | CR4_PGE | CR4_PSE | CR4_SMEP)
+                    && *cr.offset(0) & CR0_PG != 0
                 {
                     load_pdpte(*cr.offset(3));
                 }
-                *cr.offset(4) = data;
             }
         },
         _ => {
@@ -1194,6 +1196,18 @@ pub unsafe fn instr_0F30() {
     }
 
     match index {
+        MSR_EFER => {
+            let value = (high as u64) << 32 | (low as u32) as u64;
+            dbg_assert!(
+                value & !EFER_NXE == 0,
+                "Unimplemented EFER bits: {:#x}",
+                value
+            );
+            if value != *efer {
+                full_clear_tlb();
+            }
+            *efer = value;
+        },
         IA32_SYSENTER_CS => *sysenter_cs = low & 0xFFFF,
         IA32_SYSENTER_EIP => *sysenter_eip = low,
         IA32_SYSENTER_ESP => *sysenter_esp = low,
@@ -1285,6 +1299,11 @@ pub unsafe fn instr_0F32() {
     let mut high = 0;
 
     match index {
+        MSR_EFER => {
+            let val = *efer;
+            low = val as i32;
+            high = (val >> 32) as i32;
+        },
         IA32_SYSENTER_CS => low = *sysenter_cs,
         IA32_SYSENTER_EIP => low = *sysenter_eip,
         IA32_SYSENTER_ESP => low = *sysenter_esp,
@@ -3265,10 +3284,10 @@ pub unsafe fn instr_0FA2() {
             if config::VMWARE_HYPERVISOR_PORT {
                 ecx |= 1 << 31
             }; // hypervisor
-            edx = (if true /* have fpu */ { 1 } else {  0 }) |      // fpu
-                    vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
-                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 16 | 1 << 19 | // cx8, sep, pge, cmov, pat, clflush
-                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
+            edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | 1 << 16 | 1 << 19 | // cx8, sep, pge, cmov, pat, clflush
+                1 << 23 | 1 << 24 | 1 << 25 | 1 << 26; // mmx, fxsr, sse1, sse2
 
             if *acpi_enabled
             //&& this.apic_enabled[0])
@@ -3329,8 +3348,16 @@ pub unsafe fn instr_0FA2() {
 
         0x80000000 => {
             // maximum supported extended level
-            eax = 5;
+            eax = 0x80000008u32 as i32;
             // other registers are reserved
+        },
+
+        0x80000001 => {
+            let vme = 0 << 1;
+            edx = (if true /* have fpu */ { 1 } else { 0 }) |      // fpu
+                vme | 1 << 3 | 1 << 4 | 1 << 5 | 1 << 6 |  // vme, pse, tsc, msr, pae
+                1 << 8 | 1 << 13 | 1 << 15 | 1 << 20 | // cx8, pge, cmov, nx
+                1 << 23 | 1 << 24; // mmx, fxsr
         },
 
         0x40000000 => {
@@ -3341,6 +3368,13 @@ pub unsafe fn instr_0FA2() {
                 ecx = 0x4D566572 | 0; // reVM
                 edx = 0x65726177 | 0; // ware
             }
+        },
+
+        0x80000008 => {
+            eax = 32 | 32 << 8; // physical and linear address widths
+            ebx = 0;
+            ecx = 0;
+            edx = 0;
         },
 
         0x15 => {

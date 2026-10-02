@@ -62,7 +62,7 @@ jobs:
         id: cache-kvm-unit-test
         with:
           path: tests/kvm-unit-tests/
-          key: ${{ runner.os }}-kvm-unit-test
+          key: ${{ runner.os }}-kvm-unit-test-${{ hashFiles('tests/kvm-unit-tests/**') }}
 
       - name: Build kvm-unit-test
         if: steps.cache-kvm-unit-test.outputs.cache-hit != 'true'
@@ -74,13 +74,15 @@ jobs:
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/taskswitch2.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/realmode.flat
           tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/pat.flat
+          tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
+          DISABLE_JIT=1 tests/kvm-unit-tests/run.mjs tests/kvm-unit-tests/x86/nx.flat
 
       - name: Fetch namsmtests cache
         uses: actions/cache@v5
         id: cache-nasmtests
         with:
           path: tests/nasm/build/
-          key: ${{ runner.os }}-nasmtests
+          key: ${{ runner.os }}-nasmtests-${{ hashFiles('gen/x86_table.js', 'tests/nasm/*.js', 'tests/nasm/*.asm', 'tests/nasm/*.inc', 'tests/nasm/gdb-extract-def') }}
 
       - name: Run nasmtests
         run: MAX_PARALLEL_TESTS=1 make nasmtests

@@ -1105,23 +1105,7 @@ pub fn codegen_finalize_finished(
         },
     };
 
-    for i in 0..unsafe { cpu::valid_tlb_entries_count } {
-        let page = unsafe { cpu::valid_tlb_entries[i as usize] };
-        let entry = unsafe { cpu::tlb_data[page as usize] };
-        if 0 != entry {
-            let tlb_physical_page = Page::of_u32(
-                (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12),
-            );
-            if let Some(info) = pages.get(&tlb_physical_page) {
-                set_tlb_code(
-                    Page::of_u32(page as u32),
-                    wasm_table_index,
-                    &info.entry_points,
-                    state_flags,
-                );
-            }
-        }
-    }
+    let compiled_pages: HashSet<Page> = pages.keys().copied().collect();
 
     #[cfg(debug_assertions)]
     if CHECK_JIT_STATE_INVARIANTS {
@@ -1132,6 +1116,7 @@ pub fn codegen_finalize_finished(
     let mut check_for_unused_wasm_table_index = HashSet::new();
 
     for (page, mut info) in pages {
+        dbg_assert!(info.state_flags == state_flags);
         if let Some(old_entry) = ctx.pages.remove(&page) {
             info.hidden_wasm_table_indices
                 .extend(old_entry.hidden_wasm_table_indices);
@@ -1142,6 +1127,22 @@ pub fn codegen_finalize_finished(
         ctx.pages.insert(page, info);
     }
 
+    drop(ctx);
+
+    for i in 0..unsafe { cpu::valid_tlb_entries_count } {
+        let page = unsafe { cpu::valid_tlb_entries[i as usize] };
+        let entry = unsafe { cpu::tlb_data[page as usize] };
+        if 0 != entry {
+            let tlb_physical_page = Page::of_u32(
+                (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12),
+            );
+            if compiled_pages.contains(&tlb_physical_page) {
+                update_tlb_code(Page::of_u32(page as u32), tlb_physical_page);
+            }
+        }
+    }
+
+    let mut ctx = get_jit_state();
     let unused: Vec<&WasmTableIndex> = check_for_unused_wasm_table_index
         .iter()
         .filter(|&&i| ctx.pages.values().all(|page| page.wasm_table_index != i))
@@ -1163,30 +1164,28 @@ pub fn codegen_finalize_finished(
 pub fn update_tlb_code(virt_page: Page, phys_page: Page) {
     let ctx = get_jit_state();
 
-    match ctx.pages.get(&phys_page) {
-        Some(PageInfo {
-            wasm_table_index,
-            entry_points,
-            state_flags,
-            hidden_wasm_table_indices: _,
-        }) => set_tlb_code(virt_page, *wasm_table_index, entry_points, *state_flags),
-        None => cpu::clear_tlb_code(virt_page.to_u32() as i32),
-    };
-}
+    if unsafe { cpu::tlb_data[virt_page.to_u32() as usize] } & (cpu::TLB_VALID | cpu::TLB_NO_EXEC)
+        != cpu::TLB_VALID
+    {
+        cpu::clear_tlb_code(virt_page.to_u32() as i32);
+        return;
+    }
 
-pub fn set_tlb_code(
-    virt_page: Page,
-    wasm_table_index: WasmTableIndex,
-    entries: &Vec<(u16, u16)>,
-    state_flags: CachedStateFlags,
-) {
+    let info = match ctx.pages.get(&phys_page) {
+        Some(info) => info,
+        None => {
+            cpu::clear_tlb_code(virt_page.to_u32() as i32);
+            return;
+        },
+    };
+
     let c = match unsafe { cpu::tlb_code[virt_page.to_u32() as usize] } {
         None => {
             let state_table = [u16::MAX; 0x1000];
             unsafe {
                 let mut c = NonNull::new_unchecked(Box::into_raw(Box::new(cpu::Code {
-                    wasm_table_index,
-                    state_flags,
+                    wasm_table_index: info.wasm_table_index,
+                    state_flags: info.state_flags,
                     state_table,
                 })));
                 cpu::tlb_code[virt_page.to_u32() as usize] = Some(c);
@@ -1196,13 +1195,13 @@ pub fn set_tlb_code(
         Some(mut c) => unsafe {
             let c = c.as_mut();
             c.state_table.fill(u16::MAX);
-            c.state_flags = state_flags;
-            c.wasm_table_index = wasm_table_index;
+            c.state_flags = info.state_flags;
+            c.wasm_table_index = info.wasm_table_index;
             c
         },
     };
 
-    for &(addr, state) in entries {
+    for &(addr, state) in &info.entry_points {
         dbg_assert!(state != u16::MAX);
         c.state_table[addr as usize] = state;
     }

@@ -94,7 +94,7 @@
                               (get_local $l9)
                               (i32.const 12))
                             (i32.const 2))))
-                      (i32.const 4075))
+                      (i32.const 4011))
                     (i32.const 1))))
               (br_if $B1
                 (i32.and
