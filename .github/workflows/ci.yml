@@ -43,6 +43,17 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install nasm gdb qemu-system-x86 libc6-dev-i386 -y
 
+      - name: Fetch closure-compiler cache
+        uses: actions/cache@v5
+        id: cache-closure-compiler
+        with:
+          path: closure-compiler/compiler.jar
+          key: closure-compiler-v20210601
+
+      - name: Download uncached closure-compiler
+        if: steps.cache-closure-compiler.outputs.cache-hit != 'true'
+        run: make closure-compiler/compiler.jar
+
       - name: Build all-debug
         run: |
           rustc --version
