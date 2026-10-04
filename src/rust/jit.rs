@@ -1127,8 +1127,6 @@ pub fn codegen_finalize_finished(
         ctx.pages.insert(page, info);
     }
 
-    drop(ctx);
-
     for i in 0..unsafe { cpu::valid_tlb_entries_count } {
         let page = unsafe { cpu::valid_tlb_entries[i as usize] };
         let entry = unsafe { cpu::tlb_data[page as usize] };
@@ -1137,12 +1135,11 @@ pub fn codegen_finalize_finished(
                 (entry as u32 >> 12 ^ page as u32) - (unsafe { memory::mem8 } as u32 >> 12),
             );
             if compiled_pages.contains(&tlb_physical_page) {
-                update_tlb_code(Page::of_u32(page as u32), tlb_physical_page);
+                update_tlb_code_ctx(&ctx, Page::of_u32(page as u32), tlb_physical_page);
             }
         }
     }
 
-    let mut ctx = get_jit_state();
     let unused: Vec<&WasmTableIndex> = check_for_unused_wasm_table_index
         .iter()
         .filter(|&&i| ctx.pages.values().all(|page| page.wasm_table_index != i))
@@ -1162,8 +1159,10 @@ pub fn codegen_finalize_finished(
 }
 
 pub fn update_tlb_code(virt_page: Page, phys_page: Page) {
-    let ctx = get_jit_state();
+    update_tlb_code_ctx(&get_jit_state(), virt_page, phys_page)
+}
 
+fn update_tlb_code_ctx(ctx: &JitState, virt_page: Page, phys_page: Page) {
     if unsafe { cpu::tlb_data[virt_page.to_u32() as usize] } & (cpu::TLB_VALID | cpu::TLB_NO_EXEC)
         != cpu::TLB_VALID
     {
