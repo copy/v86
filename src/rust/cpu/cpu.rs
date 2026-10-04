@@ -1958,14 +1958,14 @@ pub fn translate_address_read_no_side_effects(address: i32) -> OrPageFault<u32> 
 pub fn translate_address_read(address: i32) -> OrPageFault<u32> {
     unsafe { translate_address(address, false, *cpl == 3, false, true, false) }
 }
+pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
+    translate_address(address, false, *cpl == 3, true, true, false)
+}
 pub unsafe fn translate_address_fetch(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, false, true, true)
 }
 pub unsafe fn translate_address_fetch_jit(address: i32) -> OrPageFault<u32> {
     translate_address(address, false, *cpl == 3, true, true, true)
-}
-pub unsafe fn translate_address_read_jit(address: i32) -> OrPageFault<u32> {
-    translate_address(address, false, *cpl == 3, true, true, false)
 }
 
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
