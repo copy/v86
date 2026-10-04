@@ -194,6 +194,17 @@ if(cluster.isPrimary)
             acpi: true,
         },
         {
+            name: "Windows 10",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/windows10.img",
+            memory_size: 1024 * 1024 * 1024,
+            timeout: 300,
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+            acpi: true,
+        },
+        {
             name: "Windows XP CD",
             skip_if_disk_image_missing: true,
             cdrom: root_path + "/images/experimental/VirtualXP.iso",
