@@ -2086,6 +2086,7 @@ pub unsafe fn do_page_walk(
         profiler::stat_increment(stat::TLB_MISS);
 
         let pae = cr4 & CR4_PAE != 0;
+        let pae_reserved_mask = 0x7FFF_FFFF_0000_0000 | if nxe { 0 } else { PAGE_TABLE_NX_MASK };
 
         let (page_dir_addr, page_dir_entry) = if pae {
             let pdpt_entry = *reg_pdpte.offset(((addr as u32) >> 30) as isize);
@@ -2108,7 +2109,10 @@ pub unsafe fn do_page_walk(
                 (pdpt_entry as u32 & 0xFFFFF000) + ((((addr as u32) >> 21) & 0x1FF) << 3);
             let page_dir_entry = memory::read64s(page_dir_addr);
             if page_dir_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
-                if page_dir_entry as u64 & 0x7FFF_FFFF_0000_0000 != 0 {
+                // bits 13 to 20 are reserved in a 2mb page directory entry
+                let reserved_mask = pae_reserved_mask
+                    | if page_dir_entry as i32 & PAGE_TABLE_PSE_MASK != 0 { 0x1FE000 } else { 0 };
+                if page_dir_entry as u64 & reserved_mask != 0 {
                     if side_effects {
                         trigger_pagefault(
                             addr,
@@ -2122,24 +2126,7 @@ pub unsafe fn do_page_walk(
                     }
                     return Err(());
                 }
-
-                if page_dir_entry & PAGE_TABLE_NX_MASK as i64 != 0 {
-                    if !nxe {
-                        if side_effects {
-                            trigger_pagefault(
-                                addr,
-                                true,
-                                for_writing,
-                                user,
-                                jit,
-                                is_instruction_fetch,
-                                true,
-                            );
-                        }
-                        return Err(());
-                    }
-                    no_exec = true;
-                }
+                no_exec = page_dir_entry as u64 & PAGE_TABLE_NX_MASK != 0;
             }
 
             (page_dir_addr, page_dir_entry as i32)
@@ -2214,7 +2201,7 @@ pub unsafe fn do_page_walk(
                     (page_dir_entry as u32 & 0xFFFFF000) + (((addr as u32 >> 12) & 0x1FF) << 3);
                 let page_table_entry = memory::read64s(page_table_addr);
                 if page_table_entry as i32 & PAGE_TABLE_PRESENT_MASK != 0 {
-                    if page_table_entry as u64 & 0x7FFF_FFFF_0000_0000 != 0 {
+                    if page_table_entry as u64 & pae_reserved_mask != 0 {
                         if side_effects {
                             trigger_pagefault(
                                 addr,
@@ -2228,24 +2215,7 @@ pub unsafe fn do_page_walk(
                         }
                         return Err(());
                     }
-
-                    if page_table_entry & PAGE_TABLE_NX_MASK as i64 != 0 {
-                        if !nxe {
-                            if side_effects {
-                                trigger_pagefault(
-                                    addr,
-                                    true,
-                                    for_writing,
-                                    user,
-                                    jit,
-                                    is_instruction_fetch,
-                                    true,
-                                );
-                            }
-                            return Err(());
-                        }
-                        no_exec = true;
-                    }
+                    no_exec |= page_table_entry as u64 & PAGE_TABLE_NX_MASK != 0;
                 }
 
                 (page_table_addr, page_table_entry as i32)
