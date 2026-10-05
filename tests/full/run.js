@@ -403,6 +403,26 @@ if(cluster.isPrimary)
             expect_mouse_registered: true,
         },
         {
+            name: "QNX 6.2.1 (installer)",
+            skip_if_disk_image_missing: true,
+            cdrom: root_path + "/images/qnxnc621.iso",
+            memory_size: 256 * 1024 * 1024,
+            timeout: 180,
+            expected_texts: [
+                "F3 - Install QNX to a new disk partition",
+            ],
+        },
+        {
+            name: "QNX 6.2.1",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/qnx6-hd.img",
+            memory_size: 256 * 1024 * 1024,
+            timeout: 180,
+            expect_mouse_registered: true,
+            expect_graphical_mode: true,
+            expect_graphical_size: [640, 480],
+        },
+        {
             name: "QNX",
             skip_if_disk_image_missing: true,
             fda: root_path + "/images/qnx-demo-network-4.05.img",

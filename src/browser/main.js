@@ -1169,6 +1169,19 @@ function onload()
             name: "QNX 4.05",
         },
         {
+            id: "qnx6",
+            memory_size: 256 * 1024 * 1024,
+            hda: {
+                url: host + "qnx6-hd/.img",
+                size: 1073741824,
+                async: true,
+                fixed_chunk_size: 1024 * 1024,
+                use_parts: true,
+            },
+            name: "QNX 6.2.1",
+            homepage: "https://en.wikipedia.org/wiki/QNX",
+        },
+        {
             id: "9front",
             memory_size: 128 * 1024 * 1024,
             hda: {
