@@ -1162,6 +1162,16 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "Plan 9 4th edition",
+            skip_if_disk_image_missing: true,
+            timeout: 120,
+            memory_size: 256 * 1024 * 1024,
+            hda: root_path + "/images/plan9-4th-edition.img",
+            expect_graphical_mode: true,
+            expect_graphical_size: [1024, 768],
+            expect_mouse_registered: true,
+        },
+        {
             name: "9legacy",
             use_small_bios: true, // has issues with 256k bios
             skip_if_disk_image_missing: true,

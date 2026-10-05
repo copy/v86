@@ -1232,6 +1232,19 @@ function onload()
             //net_device_type: "none",
         },
         {
+            id: "plan9",
+            memory_size: 256 * 1024 * 1024,
+            hda: {
+                url: host + "plan9-4th-edition/.img",
+                size: 2147483648,
+                async: true,
+                fixed_chunk_size: 512 * 1024,
+                use_parts: true,
+            },
+            name: "Plan 9",
+            homepage: "https://9p.io/plan9/",
+        },
+        {
             id: "mobius",
             fda: {
                 url: host + "mobius-fd-release5.img",
