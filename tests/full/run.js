@@ -134,6 +134,21 @@ if(cluster.isPrimary)
             ],
         },
         {
+            name: "CP/M-386",
+            skip_if_disk_image_missing: true,
+            fda: root_path + "/images/cpm386.img",
+            timeout: 30,
+            expected_texts: [
+                "A: TRUNCATE 386",
+            ],
+            actions: [
+                {
+                    on_text: "CP/M-386 0.1, BDOS",
+                    run: "dir\n",
+                },
+            ],
+        },
+        {
             name: "GentleOS/16",
             skip_if_disk_image_missing: true,
             fda: root_path + "/images/gentleos16-fd1440.img",

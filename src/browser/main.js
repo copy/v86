@@ -1152,6 +1152,15 @@ function onload()
             homepage: "http://www.sebastianmihai.com/snowdrop/",
         },
         {
+            id: "cpm386",
+            fda: {
+                url: host + "cpm386.img",
+                size: 1440 * 1024,
+            },
+            name: "CP/M-386",
+            homepage: "https://github.com/johnsonjh/cpm386",
+        },
+        {
             id: "openwrt",
             hda: {
                 url: host + "openwrt-18.06.1-x86-legacy-combined-squashfs.img",
