@@ -752,8 +752,14 @@ FloppyController.prototype.exec_read_id = function(args)
         curr_drive.curr_sect = (curr_drive.curr_sect % curr_drive.max_sect) + 1;
     }
 
-    // raise interrupt
-    this.end_read_write(0, 0, 0);
+    // must be delayed for windows 98's floppy driver (#1633)
+    this.msr &= ~MSR_RQM;
+    setTimeout(() => {
+        if(this.cmd_phase === CMD_PHASE_EXECUTION && (this.cmd_code & 0xBF) === CMD_READ_ID)
+        {
+            this.end_read_write(0, 0, 0);
+        }
+    }, 10);
 };
 
 FloppyController.prototype.exec_specify = function(args)
