@@ -13,6 +13,17 @@ pub static mut opstats_unguarded_register_buffer: [u64; SIZE] = [0; SIZE];
 #[allow(non_upper_case_globals)]
 pub static mut opstats_wasm_size: [u64; SIZE] = [0; SIZE];
 
+#[no_mangle]
+pub fn clear_opstats() {
+    unsafe {
+        opstats_buffer = [0; SIZE];
+        opstats_compiled_buffer = [0; SIZE];
+        opstats_jit_exit_buffer = [0; SIZE];
+        opstats_unguarded_register_buffer = [0; SIZE];
+        opstats_wasm_size = [0; SIZE];
+    }
+}
+
 pub struct Instruction {
     pub prefixes: Vec<u8>,
     pub opcode: u8,

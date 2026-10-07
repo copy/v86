@@ -322,7 +322,7 @@ CPU.prototype.read_blob = function(offset, length)
 
 CPU.prototype.clear_opstats = function()
 {
-    new Uint8Array(this.wasm_memory.buffer, 0x8000, 0x20000).fill(0);
+    this.wm.exports["clear_opstats"]();
     this.wm.exports["profiler_init"]();
 };
 
