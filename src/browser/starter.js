@@ -273,7 +273,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: "ne2k" };
+    settings.net_device = Object.assign({ type: "ne2k" }, options.net_device);
 
     const screen_options = options.screen || {};
     if(options.screen_container)
