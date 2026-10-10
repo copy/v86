@@ -205,6 +205,10 @@ function instruction(state)
                 (([d, r]) => `mov ${d}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\nmov ${r}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\n` +
                     `${pick(["shld", "shrd"])} ${d}, ${r}, ${int(1, 31)}${set(["o", "no", "b", "ae", "z", "s", "p"])}`)(pick([["ebx", "esi"], ["edi", "edx"], ["esi", "ebx"]])),
                 `${pick(["shld", "shrd"])} ${rm(w16)}, ${reg(w16)}, cl`,
+                (([d, r]) => `mov ${d}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\nmov ${r}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\n` +
+                    `mov cl, ${pick([2, 3, 5, 9, 30, 34])}\n${pick(["shld", "shrd"])} ${d}, ${r}, cl${set(["o", "no"])}`)(pick([["ebx", "esi"], ["edi", "edx"], ["esi", "ebx"]])),
+                (([d, r]) => `mov ${d}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\nmov ${r}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\n` +
+                    `mov cl, ${pick([0, 1, 2, int(0, 255), 31, 32, 33])}\n${pick(["shld", "shrd"])} ${d}, ${r}, cl${set(["o", "no", "b", "ae", "z", "s", "p"])}`)(pick([["ebx", "esi"], ["edi", "edx"], ["esi", "ebx"]])),
             ]);
         }
         case 51: case 54: {
@@ -319,6 +323,10 @@ jmp [0x2FF000]
         {
             await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
             const cpu = emulator.v86.cpu;
+            // (COMPAT_FUZZ_RECORD=<dir>: the compiled run's page functions,
+            // with TEST_RELEASE_BUILD=1 and a build/v86.wasm with ir-test-hooks)
+            const record = jit && process.env.COMPAT_FUZZ_RECORD && cpu.wm.exports.x64_page_record_start;
+            if(record) cpu.wm.exports.x64_page_record_start();
             const deadline = performance.now() + 120000;
             let rounds = 0;
             while(new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(RESULT, true) !== MAGIC)
@@ -328,6 +336,17 @@ jmp [0x2FF000]
                 if((++rounds & 63) === 0) await yield_event();
             }
             const x = cpu.wm.exports;
+            if(record)
+            {
+                fs.mkdirSync(process.env.COMPAT_FUZZ_RECORD, {recursive: true});
+                for(let i = 0, n = x.x64_page_record_count(); i < n; i++)
+                {
+                    const bytes = new Uint8Array(x.memory.buffer, x.x64_page_record_address(i), x.x64_page_record_length(i)).slice();
+                    new Uint8Array(x.memory.buffer, x.x64_page_replay_input(bytes.length), bytes.length).set(bytes);
+                    const length = x.x64_page_replay();
+                    fs.writeFileSync(`${process.env.COMPAT_FUZZ_RECORD}/g${guest}_${i}.wasm`, new Uint8Array(x.memory.buffer, x.x64_page_replay_output(), length));
+                }
+            }
             return {result: Buffer.from(cpu.mem8.slice(RESULT, RESULT + length)), native: jit ? x.x64_page_stat(1) : 0,
                 compat_compiles: jit ? x.x64_page_stat(36) : 0, stats: jit ? Array.from({length: 13}, (_, i) => x.x64_page_stat(i)) : []};
         }

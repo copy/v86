@@ -373,6 +373,12 @@ enum Op {
         width: u8,
         dst: Opnd,
     },
+    /// Compatibility mode's SHLD/SHRD r/m32, r32, CL (P7.2)
+    DoubleShiftCl {
+        left: bool,
+        dst: Opnd,
+        src: Reg,
+    },
     /// SHLD/SHRD r/m32/64, r, imm8
     DoubleShift {
         left: bool,
@@ -1096,6 +1102,11 @@ fn classify(d: &Decoded) -> Op {
                 width: if memory { 16 } else { w },
                 dst: rm(w)?,
             },
+            0x0FA5 | 0x0FAD if compat && w == 32 => Op::DoubleShiftCl {
+                left: op == 0x0FA5,
+                dst: rm(w)?,
+                src: reg(d.reg?, w),
+            },
             0x0FA4 | 0x0FAC if w >= 32 => Op::DoubleShift {
                 left: op == 0x0FA4,
                 width: w,
@@ -1288,6 +1299,7 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::BitScan { .. }
             | Op::Popcnt { .. }
             | Op::DoubleShift { width: 32, .. }
+            | Op::DoubleShiftCl { .. }
             // SSE, AVX and their templates (XMM0-7 only: no REX or VEX.R)
             | Op::Vmove { .. }
             | Op::Vlogic { .. }
@@ -2513,6 +2525,8 @@ fn effects(op: &Op, compat: bool) -> (u32, u32) {
     // SHRD with a nonzero count too)
     match (compat, op) {
         (true, Op::BitScan { .. }) => return (0, ARITH),
+        // (a zero count keeps every flag: it reads them)
+        (true, Op::DoubleShiftCl { .. }) => return (ARITH, ARITH),
         (true, Op::DoubleShift { width, count, .. }) => {
             return if shift_count(*width, *count) == 0 { (0, 0) } else { (0, ARITH) };
         },
@@ -7297,6 +7311,106 @@ impl Emitter {
                     self.set_reg(r, width);
                 },
                 Opnd::Imm(_) => unreachable!(),
+            },
+            Op::DoubleShiftCl { left, dst, src } => {
+                // (as Op::DoubleShift in compatibility mode, by CL & 31: a
+                // zero count keeps the destination, written back as the
+                // interpreter writes it, and every flag, made current first)
+                self.materialize_if(inst.flags_read);
+                self.read_dst(dst, 32, true, inst);
+                self.s(TA);
+                self.g(1);
+                self.c64(31);
+                self.b.and_i64();
+                self.s(TB);
+                self.g(TA);
+                self.s(TR);
+                self.is_zero(TB);
+                self.b.eqz_i32();
+                self.b.if_void();
+                {
+                    self.get_reg(src, 32);
+                    self.s(TC);
+                    self.g(TA);
+                    self.g(TB);
+                    if left {
+                        self.b.shl_i64()
+                    }
+                    else {
+                        self.b.shr_u_i64()
+                    }
+                    self.g(TC);
+                    self.c64(32);
+                    self.g(TB);
+                    self.b.sub_i64();
+                    if left {
+                        self.b.shr_u_i64()
+                    }
+                    else {
+                        self.b.shl_i64()
+                    }
+                    self.b.or_i64();
+                    self.mask_to(32);
+                    self.s(TR);
+                    let need = inst.writes;
+                    let lazy = if self.env.exit_flags {
+                        need & (SF | ZF | PF | AF) & !inst.live_out
+                    }
+                    else {
+                        0
+                    };
+                    let eager = need & !lazy;
+                    self.flags_begin(eager);
+                    // CF: the last bit shifted out of the destination
+                    self.g(TA);
+                    if left {
+                        self.c64(32);
+                        self.g(TB);
+                        self.b.sub_i64();
+                    }
+                    else {
+                        self.g(TB);
+                        self.c64(1);
+                        self.b.sub_i64();
+                    }
+                    self.b.shr_u_i64();
+                    self.b.wrap_i64_to_i32();
+                    self.c32(1);
+                    self.b.and_i32();
+                    self.b.or_i32();
+                    // OF: the sign change, for SHLD by 1 only
+                    self.g(TA);
+                    self.g(TR);
+                    self.b.xor_i64();
+                    self.c64(31);
+                    self.b.shr_u_i64();
+                    self.b.wrap_i64_to_i32();
+                    self.c32(1);
+                    self.b.and_i32();
+                    if left {
+                        self.g(TB);
+                        self.c64(1);
+                        self.b.eq_i64();
+                        self.b.and_i32();
+                    }
+                    self.c32(11);
+                    self.b.shl_i32();
+                    self.b.or_i32();
+                    // (CF and OF are in the base now: the terms start over)
+                    let mut first = true;
+                    self.szp(TR, eager, 32, &mut first);
+                    if eager & AF != 0 {
+                        self.legacy_af();
+                        self.join(&mut first);
+                    }
+                    self.flags_end(first);
+                    if lazy != 0 {
+                        self.legacy_record(32, lazy);
+                    }
+                    self.written(inst.writes & !lazy);
+                }
+                self.b.block_end();
+                self.write_dst(dst, 32, TR);
             },
             Op::DoubleShift {
                 left,
