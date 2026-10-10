@@ -113,6 +113,10 @@ function x87_instruction()
         `fild word ${vmem(2, false)}\nfld st0\nfmul st0, st1\nfxch st1\nfchs\nfabs\nfsubrp st1, st0\nfstp qword ${vmem(8, false)}`,
         `fld1\nfldz\nfxch st1\nffree st1\nfstp qword ${vmem(8, false)}`,
         `fld st5\nfld st0\nfmulp st1, st0\nfstp qword ${vmem(8, false)}`,
+        // stepped forms (FNSTENV, 80-bit stores) right after compiled ones:
+        // they read the x87 state the open cache holds (closed at the step)
+        `fild word ${vmem(2, false)}\nfld st0\nfmul st0, st1\nfnstenv ${vmem(28, false)}\nfstp qword ${vmem(8, false)}\nfstp qword ${vmem(8, false)}`,
+        `fild dword ${vmem(4, false)}\nfld1\nfaddp st1, st0\nfld st0\nfstp tword ${vmem(10, false)}\nfstp qword ${vmem(8, false)}`,
     ]);
 }
 const CC = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];

@@ -3364,12 +3364,15 @@ struct Emitter {
     /// high), made when first used
     x87_words: Option<(WasmLocal, WasmLocal)>,
     /// and TOP, the tags and the shadow cache's VALID/DIRTY masks in
-    /// locals while x87_open: from a block's first x87 form on, stored back
-    /// wherever the XMM locals are (xmm_writeback: every way out of the
-    /// block) and before the helpers that read the x87 state, reloaded
-    /// after those that change it (as Tier-0's x87_open/x87_close)
+    /// function-wide locals while the runtime flag x87_is_open is set (then
+    /// the CPU state is behind), as Tier-0's x87_open/x87_close: opened by
+    /// an x87 form, kept open across the function's blocks and loops,
+    /// closed before the helpers that read or change the x87 state and at
+    /// every way out of the function (exit, chain, step)
     x87_cache: Option<X87Cache>,
-    x87_open: bool,
+    x87_is_open: Option<WasmLocal>,
+    /// the emitted code has opened the x87 cache on every path to here
+    x87_known_open: bool,
     /// what else the bytes depend on
     env: CompileEnv,
 }
@@ -3548,7 +3551,8 @@ impl Emitter {
             last_op1,
             x87_words: None,
             x87_cache: None,
-            x87_open: false,
+            x87_is_open: None,
+            x87_known_open: false,
             env: *env,
         };
         let mark = e.b.body_len();
@@ -3653,10 +3657,12 @@ impl Emitter {
         e.set_exit(EXIT_RETRY);
         e.b.br(exit);
         e.b.block_end(); // leave
+        e.x87_close();
         if e.env.chaining {
             e.chain();
         }
         e.b.block_end(); // exit
+        e.x87_close();
         e.materialize_if(ARITH);
         e.writeback();
         e.gi(N);
@@ -3672,6 +3678,7 @@ impl Emitter {
             last_op1,
             x87_words,
             x87_cache,
+            x87_is_open,
             ..
         } = e;
         for l in v {
@@ -3689,7 +3696,10 @@ impl Emitter {
             b.free_local(high);
         }
         if let Some(c) = x87_cache {
-            for l in [c.top, c.tags, c.valid, c.dirty] {
+            for l in [c.top, c.tags, c.valid, c.dirty]
+                .into_iter()
+                .chain(x87_is_open)
+            {
                 b.free_local(l);
             }
         }
@@ -3876,6 +3886,7 @@ impl Emitter {
     /// Shared: interpret the instruction at RIP, then dispatch on the new RIP
     /// unless the step changed the execution context (memory is current).
     fn step_code(&mut self) {
+        self.x87_close();
         self.materialize_if(ARITH);
         self.writeback();
         self.gi(K);
@@ -4153,11 +4164,11 @@ impl Emitter {
         self.b.br(self.f().dispatch);
     }
     fn block(&mut self, block: &Block, index: &BTreeMap<u16, usize>) {
-        // (every way into a block left the XMM registers in memory, and
-        // the x87 state)
+        // (every way into a block left the XMM registers in memory; the
+        // x87 cache is open on some of them, x87_is_open says which)
         self.xmm_held = 0;
         self.xmm_dirty = 0;
-        self.x87_open = false;
+        self.x87_known_open = false;
         // (and what the block learns about MXCSR and the vector checks
         // holds from where it learns it)
         if let Some(local) = self.fp_mxcsr.take() {
@@ -5654,7 +5665,7 @@ impl Emitter {
             } => self.x87(inst, opcode, modrm, io, address),
             Op::Fnstsw => {
                 self.x87_check(start);
-                self.x87_cache_store();
+                self.x87_close();
                 self.b.call_signature(
                     "fpu_load_status_word",
                     Signature::new(&[], &[WasmType::I32]),
@@ -5672,25 +5683,23 @@ impl Emitter {
                 self.c32(gp::flags_changed as i32);
                 self.c32(0);
                 self.b.store_aligned_i32(0);
-                self.x87_cache_store();
+                self.x87_close();
                 self.c32(r as i32);
                 self.b
                     .call_signature(name, Signature::new(&[WasmType::I32], &[]));
-                self.x87_cache_reload();
                 self.b.load_fixed_i32(gp::flags as u32);
                 self.si(FL);
             },
             Op::Fcmov { cc, r } => {
                 self.x87_check(start);
                 self.materialize_if(inst.flags_read);
-                self.x87_cache_store();
+                self.x87_close();
                 self.condition(cc, None);
                 self.c32(r as i32);
                 self.b.call_signature(
                     "fpu_fcmovcc",
                     Signature::new(&[WasmType::I32, WasmType::I32], &[]),
                 );
-                self.x87_cache_reload();
             },
             Op::Mov { width, dst, src } => match dst {
                 Opnd::Reg(r) => {
@@ -7728,9 +7737,10 @@ impl Emitter {
             },
         }
     }
-    /// Open the x87 cache (Emitter::x87_cache): load it from the CPU state
+    /// Open the x87 cache (Emitter::x87_cache) unless the emitted code has:
+    /// loaded from the CPU state unless the runtime flag says it is open
     fn x87_cache_open(&mut self) {
-        if self.x87_open {
+        if self.x87_known_open {
             return;
         }
         if self.x87_cache.is_none() {
@@ -7741,9 +7751,14 @@ impl Emitter {
                 valid: b.declare_zeroed_local(),
                 dirty: b.declare_zeroed_local(),
             });
+            self.x87_is_open = Some(b.declare_zeroed_local());
         }
         let c = self.x87_cache.as_ref().unwrap().unsafe_clone();
+        let is_open = self.x87_is_open.as_ref().unwrap().unsafe_clone();
         let [_, valid, dirty] = crate::cpu::fpu::x87_cache_addresses();
+        self.b.get_local(&is_open);
+        self.b.eqz_i32();
+        self.b.if_void();
         self.b.load_fixed_u8(gp::fpu_stack_ptr as u32);
         self.b.set_local(&c.top);
         self.b.load_fixed_u8(gp::fpu_stack_empty as u32);
@@ -7752,15 +7767,24 @@ impl Emitter {
         self.b.set_local(&c.valid);
         self.b.load_fixed_i32(dirty);
         self.b.set_local(&c.dirty);
-        self.x87_open = true;
+        self.c32(1);
+        self.b.set_local(&is_open);
+        self.b.block_end();
+        self.x87_known_open = true;
     }
-    /// The open x87 cache stored into the CPU state (it stays open)
-    fn x87_cache_store(&mut self) {
-        if !self.x87_open {
+    /// Write an open x87 cache back to the CPU state and close it (before
+    /// the helpers that read or change the x87 state, and at every way out
+    /// of the function); nothing in a function without x87 forms
+    fn x87_close(&mut self) {
+        self.x87_known_open = false;
+        let Some(c) = self.x87_cache.as_ref().map(X87Cache::unsafe_clone)
+        else {
             return;
-        }
-        let c = self.x87_cache.as_ref().unwrap().unsafe_clone();
+        };
+        let is_open = self.x87_is_open.as_ref().unwrap().unsafe_clone();
         let [_, valid, dirty] = crate::cpu::fpu::x87_cache_addresses();
+        self.b.get_local(&is_open);
+        self.b.if_void();
         for (address, local, byte) in [
             (gp::fpu_stack_ptr as u32, &c.top, true),
             (gp::fpu_stack_empty as u32, &c.tags, true),
@@ -7776,13 +7800,9 @@ impl Emitter {
                 self.b.store_aligned_i32(0);
             }
         }
-    }
-    /// After a helper changed the x87 state: an open cache loaded again
-    fn x87_cache_reload(&mut self) {
-        if self.x87_open {
-            self.x87_open = false;
-            self.x87_cache_open();
-        }
+        self.c32(0);
+        self.b.set_local(&is_open);
+        self.b.block_end();
     }
     /// Compatibility mode's x87 (P7.2a): CR0.EM and TS clear, else a retry
     /// (the interpreter raises #NM); once per block
@@ -7899,7 +7919,7 @@ impl Emitter {
             self.b.block_end();
         }
         // (the helper works on the CPU state)
-        self.x87_cache_store();
+        self.x87_close();
         self.c32(form);
         self.b.get_local(&low);
         self.b.get_local(&high);
@@ -7919,7 +7939,6 @@ impl Emitter {
         self.b.shr_u_i64();
         self.b.wrap_i64_to_i32();
         self.b.set_local(&high);
-        self.x87_cache_reload();
         self.b.block_end();
         if let Io::Store { bytes } = io {
             self.gi(HOST);
@@ -8467,8 +8486,6 @@ impl Emitter {
             self.b.get_local_v128(self.xmm_locals[n].as_ref().unwrap());
             self.b.simd_memory(0x0B, 0);
         }
-        // (compatibility mode: the x87 cache too, P7.2a)
-        self.x87_cache_store();
     }
     /// xmm_writeback, and nothing held from here: only where every path runs
     fn xmm_release(&mut self) {
