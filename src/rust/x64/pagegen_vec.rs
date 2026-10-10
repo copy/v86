@@ -11,7 +11,7 @@
 //! destination's, and the arithmetic, compare and conversion templates read
 //! and state them. Integer results are i64 here: store_int extends a
 //! template's i32 explicitly.
-use super::{Emitter, Inst, Op, Reg, Xmm, HOST};
+use super::{low_lanes, Emitter, Inst, Op, Reg, Xmm, HOST};
 use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocalV128};
 use crate::x86tpl::native_fp;
 use crate::x86tpl::ops::{Facts, VecOperands};
@@ -41,11 +41,7 @@ impl VecOperands for Operands<'_> {
                 if bytes < 16 && !whole {
                     // the low `bytes`, zero-extended
                     self.e.b.simd_zero();
-                    let mut lanes = [0; 16];
-                    for (k, lane) in lanes.iter_mut().enumerate() {
-                        *lane = if k < bytes as usize { k as u8 } else { 16 + k as u8 };
-                    }
-                    self.e.b.simd_shuffle(lanes);
+                    self.e.b.simd_shuffle(low_lanes(bytes));
                 }
             },
             Xmm::Mem(a) => {
@@ -59,6 +55,10 @@ impl VecOperands for Operands<'_> {
                     self.e.b.get_local(&scratch);
                     self.e.b.guest_load_v128(&scratch);
                     self.e.b.free_local(scratch);
+                    return;
+                }
+                if matches!(bytes, 4 | 8) {
+                    self.e.load_scalar_v128(bytes * 8);
                     return;
                 }
                 // (exactly the operand's bytes: a broadcast's may be 1 or 2)
@@ -163,6 +163,15 @@ impl VecOperands for Operands<'_> {
     fn store_vec(&mut self, value: &WasmLocalV128, bytes: u8) {
         // (a template states the new facts after its write)
         self.e.xmm_clean[self.dst as usize] = 0;
+        if bytes < 16 && self.e.env.xmm_locals && self.e.held(self.dst) {
+            // (into the held register by a shuffle, no lane through a
+            // general register: the other lanes from the first source)
+            self.e.b.get_local_v128(value);
+            self.e.xv_push(self.first);
+            self.e.b.simd_shuffle(low_lanes(bytes));
+            self.e.xv_pop(self.dst);
+            return;
+        }
         if bytes < 16 && self.first != self.dst {
             // (a scalar form's other lanes from VEX.vvvv)
             self.e.xmm_copy(self.first, self.dst);

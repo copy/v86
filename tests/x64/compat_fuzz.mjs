@@ -89,6 +89,29 @@ function sse_instruction()
         `cmpps ${a}, ${b}, ${int(0, 7)}`,
     ]);
 }
+// scalar SSE on two registers that the page tier holds in v128 locals
+// (named twice or more in a stretch, P4.17): scalar moves, loads and
+// results merge into them by shuffles, MOVQ and loads zero the rest; their
+// whole values stored right after
+function sse_chain()
+{
+    const [a, b] = [pick(XMM), pick(XMM)];
+    const double = random() < 0.5;
+    const [mov, size] = double ? ["movsd", 8] : ["movss", 4];
+    const arith = () => pick(double ? ["addsd", "subsd", "mulsd"] : ["addss", "subss", "mulss"]);
+    const steps = [];
+    for(let n = int(2, 6); n--;)
+    {
+        steps.push(pick([
+            `${mov} ${a}, ${vmem(size, false)}`, `${mov} ${a}, ${b}`, `${mov} ${b}, ${a}`,
+            `movq ${a}, ${b}`, `movq ${b}, ${vmem(8, false)}`,
+            `${arith()} ${a}, ${b}`, `${arith()} ${a}, ${vmem(size, false)}`, `${arith()} ${b}, ${a}`,
+            `${mov} ${vmem(size, false)}, ${a}`,
+        ]));
+    }
+    return [`movups ${a}, ${vmem(16, false)}`, `movups ${b}, ${vmem(16, false)}`, ...steps,
+        `movups ${vmem(16, false)}, ${a}`, `movups ${vmem(16, false)}, ${b}`].join("\n");
+}
 // MMX (the MM registers are the x87 mantissas): each result stored to the
 // data, most snippets ending with EMMS (an empty stack for the x87 ones)
 const MM = Array.from({length: 8}, (_, i) => `mm${i}`);
@@ -154,8 +177,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 57);
-    while(SKIP.has(which)) which = int(0, 57);
+    let which = int(0, 58);
+    while(SKIP.has(which)) which = int(0, 58);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -207,6 +230,7 @@ function instruction(state)
         case 40: case 41: case 42: case 43: case 44: return sse_instruction();
         case 45: case 46: case 47: return x87_instruction();
         case 55: case 56: case 57: return mmx_instruction();
+        case 58: return sse_chain();
         // indirect transfers inside the loop to its own code: a CALL and RET
         // in the page, a jump table (dispatched by the loop's head, P7.2)
         case 48: { const n = state.labels++; return `call .f${n}\njmp .e${n}\n.f${n}:\n${simple()}\nret\n.e${n}:`; }

@@ -975,10 +975,12 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     };
     // Likely function starts: 16-byte aligned after INT3 padding (MSVC x64
     // code). Serving them from the first compile avoids most recompiles for
-    // entries that other pages call later.
+    // entries that other pages call later. (Guesses: an instruction's last
+    // byte may be 0xCC, as MULSD XMM1, XMM4's ModRM; pagegen drops those
+    // that code runs into, which would split its block)
     for o in (16..4096u16).step_by(16) {
         if bytes[o as usize - 1] == 0xCC && bytes[o as usize] != 0xCC && !bit(&state.entries, o) {
-            entries.push(o);
+            entries.push(o | pagegen::GUESSED);
         }
     }
     // (named after the linear page it was compiled for: host profiles)

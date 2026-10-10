@@ -87,6 +87,10 @@ pub const STEP_EXIT: i32 = 2;
 const PAGE: usize = 4096;
 /// Decoded instructions per page function, including overlapping decodes.
 const MAX_INSTRUCTIONS: usize = 3072;
+/// An entry of compile's that is a guess (pages.rs: a likely function start
+/// after INT3 padding): a block start unless decoded code runs straight into
+/// it, where the 0xCC before it was an instruction's last byte
+pub const GUESSED: u16 = 0x8000;
 
 const CF: u32 = 1;
 const PF: u32 = 4;
@@ -2306,6 +2310,34 @@ fn xmm_written(op: &Op) -> u16 {
         _ => 0,
     }
 }
+/// A kept translation (x64_fast_lookup, P4.21; Emitter::lookup_kept): of
+/// the operands with base register `base`, of its kind (`write`) and
+/// displacement page (kept_page), the page's tag (the page | 1 << 32 with
+/// x64_compat_tlb, else the access cache's; 0 for none) and its delta
+struct Kept {
+    base: u8,
+    write: bool,
+    page: i64,
+    tag: WasmLocalI64,
+    delta: WasmLocal,
+}
+/// Kept translations per function
+const MAX_KEPT: usize = 32;
+/// The displacement page of an operand `[r + displacement]`, which kept
+/// translations tell apart: two arrays a loop reads through one register,
+/// as `[EAX + 0x403000]` and `[EAX + 0x423000]`, would otherwise replace
+/// each other's translation at every access (the page of displacements
+/// within 2 KiB of 0 is 0: a structure's fields, a frame's slots)
+fn kept_page(displacement: i64) -> i64 { displacement.wrapping_add(2048) >> 12 }
+/// The i8x16.shuffle of a v128 whose low `bytes` come from the first operand
+/// and the others from the second
+fn low_lanes(bytes: u8) -> [u8; 16] {
+    let mut lanes = [0; 16];
+    for (k, lane) in lanes.iter_mut().enumerate() {
+        *lane = if k < bytes as usize { k as u8 } else { 16 + k as u8 };
+    }
+    lanes
+}
 /// The XMM register an instruction overwrites whole, unconditionally and
 /// without reading it (XMM locals: Emitter::xmm_claim)
 fn xmm_overwritten(op: &Op) -> u16 {
@@ -2317,6 +2349,20 @@ fn xmm_overwritten(op: &Op) -> u16 {
             src,
             ..
         } if !names(src, d) => 1 << d,
+        // (a scalar load zeroes the rest, a register move zeroes it or takes
+        // it from VEX.vvvv)
+        Op::Vmove {
+            dst: Xmm::Reg(d),
+            src: Xmm::Mem(_),
+            ..
+        } => 1 << d,
+        Op::Vmove {
+            dst: Xmm::Reg(d),
+            src,
+            zero,
+            upper,
+            ..
+        } if !names(src, d) && (zero || upper.is_some_and(|first| first != d)) => 1 << d,
         Op::Vlogic {
             dst, first, src, ..
         }
@@ -2435,6 +2481,10 @@ fn xmm_use(op: &Op, fast_check: bool) -> XmmUse {
             bits: 128,
             ..
         } => XmmUse::Hold(reg(dst) | reg(src)),
+        // (the scalar moves as v128 values: v128.load64_zero, shuffles)
+        Op::Vmove {
+            dst, src, upper, ..
+        } => XmmUse::Hold(reg(dst) | reg(src) | upper.map_or(0, bit)),
         Op::Vlogic {
             dst, first, src, ..
         }
@@ -2476,8 +2526,7 @@ fn xmm_use(op: &Op, fast_check: bool) -> XmmUse {
         Op::Vmovmsk { src, .. } => XmmUse::Hold(bit(*src)),
         Op::Vcvt { dst, src, .. } => XmmUse::Hold(bit(*dst) | reg(src)),
         // (lanes in general registers)
-        Op::Vmove { .. }
-        | Op::Vfp { .. }
+        Op::Vfp { .. }
         | Op::MovdIn { .. }
         | Op::MovdOut { .. }
         | Op::Vcompare { .. }
@@ -3142,78 +3191,101 @@ pub fn compile_with(
             work.push(e);
         }
     }
+    // (the guesses join once the entries' code is decoded: GUESSED)
+    let mut guesses = entries
+        .iter()
+        .filter(|&&e| e & GUESSED != 0)
+        .map(|&e| e & !GUESSED);
+    // (the offsets decoded code runs into straight-line)
+    let mut runs_into = [0u64; PAGE / 64];
     let mut decoded = 0;
-    while let Some(start) = work.pop() {
-        let add = |o: u64, starts: &mut BTreeSet<u16>, work: &mut Vec<u16>| {
-            if o < PAGE as u64 && starts.insert(o as u16) {
-                work.push(o as u16);
-            }
-        };
-        let mut o = start;
-        loop {
-            if o != start && starts.contains(&o) {
-                break;
-            }
-            decoded += 1;
-            if decoded > MAX_INSTRUCTIONS {
-                // Long runs (padding, data): the rest stays interpreted.
-                break;
-            }
-            let Some((d, op)) = decoder.at(o)
-            else {
-                break;
+    loop {
+        while let Some(start) = work.pop() {
+            let add = |o: u64, starts: &mut BTreeSet<u16>, work: &mut Vec<u16>| {
+                if o < PAGE as u64 && starts.insert(o as u16) {
+                    work.push(o as u16);
+                }
             };
-            let next = o as u64 + d.length as u64;
-            match op {
-                Op::Jcc { target, .. } => {
-                    if let Some(t) = in_page(page, target) {
-                        add(t as u64, &mut starts, &mut work);
-                    }
-                    add(next, &mut starts, &mut work);
+            let mut o = start;
+            loop {
+                if o != start && starts.contains(&o) {
                     break;
-                },
-                Op::Jmp { target } | Op::Call { target } => {
-                    if let Some(t) = in_page(page, target) {
-                        add(t as u64, &mut starts, &mut work);
-                    }
-                    if matches!(op, Op::Call { .. }) {
-                        add(next, &mut starts, &mut work);
-                    }
+                }
+                decoded += 1;
+                if decoded > MAX_INSTRUCTIONS {
+                    // Long runs (padding, data): the rest stays interpreted.
                     break;
-                },
-                Op::CallIndirect { .. } => {
-                    add(next, &mut starts, &mut work);
+                }
+                let Some((d, op)) = decoder.at(o)
+                else {
                     break;
-                },
-                Op::Ret { .. } | Op::JmpIndirect { .. } => break,
-                Op::Sti => {
-                    if next < PAGE as u64 {
-                        if let Some((shadow, _)) = decoder.at(next as u16) {
-                            add(next + shadow.length as u64, &mut starts, &mut work);
+                };
+                let next = o as u64 + d.length as u64;
+                match op {
+                    Op::Jcc { target, .. } => {
+                        if let Some(t) = in_page(page, target) {
+                            add(t as u64, &mut starts, &mut work);
                         }
-                    }
-                    break;
-                },
-                Op::Movs { rep: true, .. } | Op::Stos { rep: true, .. } | Op::RepCompare { .. }
-                    if o != start =>
-                {
-                    add(o as u64, &mut starts, &mut work);
-                    break;
-                },
-                Op::Step => {
-                    if is_rep_string(&d) && o != start {
+                        add(next, &mut starts, &mut work);
+                        break;
+                    },
+                    Op::Jmp { target } | Op::Call { target } => {
+                        if let Some(t) = in_page(page, target) {
+                            add(t as u64, &mut starts, &mut work);
+                        }
+                        if matches!(op, Op::Call { .. }) {
+                            add(next, &mut starts, &mut work);
+                        }
+                        break;
+                    },
+                    Op::CallIndirect { .. } => {
+                        add(next, &mut starts, &mut work);
+                        break;
+                    },
+                    Op::Ret { .. } | Op::JmpIndirect { .. } => break,
+                    Op::Sti => {
+                        if next < PAGE as u64 {
+                            if let Some((shadow, _)) = decoder.at(next as u16) {
+                                add(next + shadow.length as u64, &mut starts, &mut work);
+                            }
+                        }
+                        break;
+                    },
+                    Op::Movs { rep: true, .. }
+                    | Op::Stos { rep: true, .. }
+                    | Op::RepCompare { .. }
+                        if o != start =>
+                    {
                         add(o as u64, &mut starts, &mut work);
                         break;
-                    }
-                    add(next, &mut starts, &mut work);
+                    },
+                    Op::Step => {
+                        if is_rep_string(&d) && o != start {
+                            add(o as u64, &mut starts, &mut work);
+                            break;
+                        }
+                        add(next, &mut starts, &mut work);
+                        break;
+                    },
+                    _ => {},
+                }
+                if next >= PAGE as u64 {
                     break;
-                },
-                _ => {},
+                }
+                o = next as u16;
+                runs_into[o as usize / 64] |= 1 << (o % 64);
             }
-            if next >= PAGE as u64 {
-                break;
+        }
+        for g in guesses.by_ref() {
+            if (g as usize) < PAGE
+                && runs_into[g as usize / 64] >> (g % 64) & 1 == 0
+                && starts.insert(g)
+            {
+                work.push(g);
             }
-            o = next as u16;
+        }
+        if work.is_empty() {
+            break;
         }
     }
     // Blocks, in page order: from each start to its first control transfer,
@@ -3505,14 +3577,17 @@ struct Emitter {
     /// (x86tpl::vec::clean_bits; P4.18, as Tier-0's xmm_clean): from where
     /// the block learns them to the register's next write
     xmm_clean: [u8; 16],
-    /// x64_fast_lookup (P4.21): per base register and kind (reads 2r,
-    /// writes 2r + 1), the translation of an operand `[r + displacement]`
-    /// (or a stack operation, r = RSP) the function's inline lookups found
-    /// last: the tag of the page (0 for none) and its delta, valid for the
-    /// function's run (see host_fast; locals made when first used). The
-    /// base register of the operand being looked up, if it has no index.
-    lookup_kept: Vec<Option<(WasmLocalI64, WasmLocal)>>,
-    lookup_base: Option<u8>,
+    /// x64_fast_lookup (P4.21): per base register, kind and displacement
+    /// page (Kept), the translation of an operand `[r + displacement]` (or a
+    /// stack operation, r = RSP) the function's inline lookups found last,
+    /// valid for the function's run (see host_fast; made when first used,
+    /// MAX_KEPT at most). The base register of the operand being looked up,
+    /// if it has no index, and its displacement's page (kept_page).
+    lookup_kept: Vec<Kept>,
+    lookup_base: Option<(u8, i64)>,
+    /// (compatibility mode: the kept translations the current block has
+    /// set, host_tlb)
+    kept_set: u64,
     /// the module's access-cache lookup function (see access_function)
     access: Option<u32>,
     /// the compare-exchange loop of a locked instruction (read_dst)
@@ -3722,8 +3797,9 @@ impl Emitter {
             fp_mxcsr: None,
             vector_checked: 0,
             xmm_clean: [0; 16],
-            lookup_kept: (0..32).map(|_| None).collect(),
+            lookup_kept: Vec::new(),
             lookup_base: None,
+            kept_set: 0,
             access: None,
             lock_loop: None,
             last_op1,
@@ -3885,7 +3961,7 @@ impl Emitter {
         for l in v {
             b.free_local_i64(l);
         }
-        for (tag, delta) in lookup_kept.into_iter().flatten() {
+        for Kept { tag, delta, .. } in lookup_kept {
             b.free_local_i64(tag);
             b.free_local(delta);
         }
@@ -4133,9 +4209,9 @@ impl Emitter {
         self.load_rip();
         // (P4.21: the step may have retired access cache entries without a
         // new epoch, a 4 KiB INVLPG among them: the kept translations go)
-        for (tag, _) in self.lookup_kept.iter().flatten() {
+        for kept in &self.lookup_kept {
             self.b.const_i64(0);
-            self.b.set_local_i64(tag);
+            self.b.set_local_i64(&kept.tag);
         }
         self.b.br(self.f().dispatch);
     }
@@ -4417,6 +4493,7 @@ impl Emitter {
         }
         self.vector_checked = 0;
         self.xmm_clean = [0; 16];
+        self.kept_set = 0;
         if self.env.block_count {
             // (a block left early, by a retry or a step, counts the rest of
             // its instructions too: N bounds activations and feeds statistics)
@@ -4548,7 +4625,7 @@ impl Emitter {
     /// to its size, plus the FS/GS base when `segment` (not for LEA).
     fn address(&mut self, a: &AddressExpr, next: u64, segment: bool) {
         self.lookup_base = match (a.base, a.index) {
-            (AddressBase::Register(r), None) => Some(r),
+            (AddressBase::Register(r), None) => Some((r, kept_page(a.displacement))),
             _ => None,
         };
         let mut have = false;
@@ -4943,6 +5020,30 @@ impl Emitter {
         self.gi(HH);
         self.b.block_end();
     }
+    /// The kept translation of the operand being looked up (lookup_base) of
+    /// its kind, made when first used (MAX_KEPT at most)
+    fn kept(&mut self, write: bool) -> Option<usize> {
+        let (base, page) = self.lookup_base?;
+        let key = |k: &Kept| k.base == base && k.write == write && k.page == page;
+        if let Some(k) = self.lookup_kept.iter().position(key) {
+            return Some(k);
+        }
+        if self.lookup_kept.len() >= MAX_KEPT {
+            return None;
+        }
+        let (tag, delta) = (
+            self.b.declare_zeroed_local_i64(),
+            self.b.declare_zeroed_local(),
+        );
+        self.lookup_kept.push(Kept {
+            base,
+            write,
+            page,
+            tag,
+            delta,
+        });
+        Some(self.lookup_kept.len() - 1)
+    }
     /// host_kind in compatibility mode with x64_compat_tlb (P7.2): Tier-0's
     /// lookup (ir::tier0 tlb_miss) in the 32-bit TLB, whose entries x64
     /// translations fill in compatibility mode (cpu::fill_ia32e_tlb, plain
@@ -4953,9 +5054,13 @@ impl Emitter {
     /// else x64_page_access, which fills the entry, refuses as for other
     /// lookups (then `fallback`) or serves what the TLB does not hold. With
     /// x64_fast_lookup, an operand `[register + displacement]` first tries
-    /// the entry its base register's operands of its kind found last, as
-    /// host_fast keeps translations (lookup_kept: the page | 1 << 32, never
-    /// 0 as a forgotten one is, and the entry's mask)
+    /// the entry its base register's operands of its kind found last in its
+    /// block, as host_fast keeps translations (lookup_kept: the page |
+    /// 1 << 32, never 0 as a forgotten one is, and the entry's mask). A
+    /// block's first access by its key sets that on every path, so none is
+    /// live into a block: kept across the function's loops and dispatch,
+    /// they took registers that cost more than the lookups they saved
+    /// (702.call, 557.lz)
     fn host_tlb(&mut self, size: u32, aligned: bool, write: bool, start: u64, fallback: Label) {
         let [tlb, read, written] = self
             .tlb
@@ -4963,15 +5068,7 @@ impl Emitter {
             .unwrap()
             .each_ref()
             .map(|l| l.unsafe_clone());
-        let kept = match self.lookup_base {
-            Some(r) if self.env.fast_lookup => Some(r as usize * 2 + write as usize),
-            _ => None,
-        };
-        if let Some(k) = kept {
-            let b = &mut self.b;
-            self.lookup_kept[k]
-                .get_or_insert_with(|| (b.declare_zeroed_local_i64(), b.declare_zeroed_local()));
-        }
+        let kept = if self.env.fast_lookup { self.kept(write) } else { None };
         let split = size > 1 && !aligned;
         self.g(ADDR);
         self.b.wrap_i64_to_i32();
@@ -4994,7 +5091,9 @@ impl Emitter {
                 }
             }
         };
+        let first = kept.is_some_and(|k| self.kept_set >> k & 1 == 0);
         if let Some(k) = kept {
+            self.kept_set |= 1 << k;
             self.gi(OFF);
             self.c32(12);
             self.b.shr_u_i32();
@@ -5002,14 +5101,15 @@ impl Emitter {
             self.c64(1 << 32);
             self.b.or_i64();
             self.s(TAG);
+        }
+        if let Some(k) = kept.filter(|_| !first) {
             self.g(TAG);
-            self.b
-                .get_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+            self.b.get_local_i64(&self.lookup_kept[k].tag);
             self.b.eq_i64();
             in_page(self);
             self.b.hint(true);
             self.b.if_i32();
-            self.b.get_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.b.get_local(&self.lookup_kept[k].delta);
             self.gi(OFF);
             self.b.xor_i32();
             self.b.else_();
@@ -5034,14 +5134,20 @@ impl Emitter {
         self.c32(!0xFFF);
         self.b.and_i32();
         if let Some(k) = kept {
-            self.b.tee_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.b.tee_local(&self.lookup_kept[k].delta);
             self.g(TAG);
-            self.b
-                .set_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+            self.b.set_local_i64(&self.lookup_kept[k].tag);
         }
         self.gi(OFF);
         self.b.xor_i32();
         self.b.else_();
+        if let Some(k) = kept.filter(|_| first) {
+            // (set, forgotten, on this path too)
+            self.b.const_i64(0);
+            self.b.set_local_i64(&self.lookup_kept[k].tag);
+            self.c32(0);
+            self.b.set_local(&self.lookup_kept[k].delta);
+        }
         self.g(ADDR);
         if WasmBuilder::ATOMIC_GUEST_MEMORY {
             let f = self.access_function();
@@ -5062,7 +5168,7 @@ impl Emitter {
         self.b.block_end();
         self.gi(HH);
         self.b.block_end();
-        if kept.is_some() {
+        if kept.is_some() && !first {
             self.b.block_end();
         }
     }
@@ -5091,12 +5197,7 @@ impl Emitter {
         fallback: Label,
     ) {
         let write = bits & 0x100 != 0;
-        let kept = self.lookup_base.map(|r| r as usize * 2 + write as usize);
-        if let Some(k) = kept {
-            let b = &mut self.b;
-            self.lookup_kept[k]
-                .get_or_insert_with(|| (b.declare_zeroed_local_i64(), b.declare_zeroed_local()));
-        }
+        let kept = self.kept(write);
         let atomic = WasmBuilder::ATOMIC_GUEST_MEMORY && size > 1 && !aligned;
         // the last byte's tag
         self.g(ADDR);
@@ -5122,8 +5223,7 @@ impl Emitter {
         };
         if let Some(k) = kept {
             self.g(TAG);
-            self.b
-                .get_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+            self.b.get_local_i64(&self.lookup_kept[k].tag);
             self.b.eq_i64();
             if size > 1 && !aligned {
                 // (and the first byte in that page too: unlike an access
@@ -5140,7 +5240,7 @@ impl Emitter {
             aligned_check(self);
             self.b.hint(true);
             self.b.if_i32();
-            self.b.get_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.b.get_local(&self.lookup_kept[k].delta);
             self.g(ADDR);
             self.b.wrap_i64_to_i32();
             self.b.add_i32();
@@ -5163,13 +5263,12 @@ impl Emitter {
         self.b.if_i32();
         if let Some(k) = kept {
             self.g(TAG);
-            self.b
-                .set_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+            self.b.set_local_i64(&self.lookup_kept[k].tag);
         }
         self.gi(ENT);
         self.b.load_aligned_i32(table + 12);
         if let Some(k) = kept {
-            self.b.tee_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.b.tee_local(&self.lookup_kept[k].delta);
         }
         self.g(ADDR);
         self.b.wrap_i64_to_i32();
@@ -5457,7 +5556,7 @@ impl Emitter {
     /// Push the stack slot `delta` bytes from RSP into ADDR, validated as a
     /// `write` access; host address in HOST.
     fn stack(&mut self, delta: i64, write: bool, start: u64) {
-        self.lookup_base = Some(4);
+        self.lookup_base = Some((4, 0));
         self.g(4);
         if delta != 0 {
             self.c64(delta as u64);
@@ -6651,7 +6750,7 @@ impl Emitter {
             },
             Op::Leave => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
-                self.lookup_base = Some(5);
+                self.lookup_base = Some((5, 0));
                 self.g(5);
                 self.s(ADDR);
                 self.host(bytes as u32, false, start);
@@ -7670,6 +7769,26 @@ impl Emitter {
                         self.xv_push(s);
                         self.xv_pop(d);
                     },
+                    // (XMM locals: the scalar moves as v128 values, no lane
+                    // through a general register)
+                    (Xmm::Reg(d), Xmm::Reg(s)) if bits < 128 && self.env.xmm_locals => {
+                        // the low bits of s; the others zero, or from the
+                        // destination or VEX.vvvv
+                        self.xv_push(s);
+                        if zero {
+                            self.b.simd_zero();
+                        }
+                        else {
+                            self.xv_push(upper.unwrap_or(d));
+                        }
+                        self.b.simd_shuffle(low_lanes(bits / 8));
+                        self.xv_pop(d);
+                    },
+                    (Xmm::Reg(d), Xmm::Mem(a)) if bits < 128 && self.env.xmm_locals => {
+                        self.vector_address(&a, bits, aligned, false, inst);
+                        self.load_scalar_v128(bits);
+                        self.xv_pop(d);
+                    },
                     (Xmm::Reg(d), Xmm::Reg(s)) => {
                         self.xmm_load(s, 0, bits.min(64));
                         if let Some(first) = upper.filter(|&first| first != d) {
@@ -8173,9 +8292,9 @@ impl Emitter {
                 self.b.block_end();
                 // (P4.21: the page's translation may be one the function
                 // keeps)
-                for (tag, _) in self.lookup_kept.iter().flatten() {
+                for kept in &self.lookup_kept {
                     self.b.const_i64(0);
-                    self.b.set_local_i64(tag);
+                    self.b.set_local_i64(&kept.tag);
                 }
             },
             Op::Mxcsr { load, address } => {
@@ -8793,6 +8912,11 @@ impl Emitter {
     }
     /// XMM register `to` = XMM register `from`
     fn xmm_copy(&mut self, from: u8, to: u8) {
+        if self.env.xmm_locals {
+            self.xv_push(from);
+            self.xv_pop(to);
+            return;
+        }
         for half in 0..2 {
             self.xmm_load(from, half * 8, 64);
             self.xmm_store(to, half * 8, 64, false);
@@ -9296,6 +9420,26 @@ impl Emitter {
             self.b.simd_memory(0x0B, 0);
             self.b.free_local_v128(value);
         }
+    }
+    /// Push the `bits` (32 or 64) at the host address HOST as a v128, the
+    /// rest zero: v128.load32_zero or v128.load64_zero (with the workers'
+    /// atomic guest memory a scalar load into lane 0)
+    fn load_scalar_v128(&mut self, bits: u8) {
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            self.b.simd_zero();
+            self.gi(HOST);
+            self.load_bits(bits, 0);
+            if bits == 64 {
+                self.b.simd_lane(0x1E, 0); // i64x2.replace_lane
+            }
+            else {
+                self.b.wrap_i64_to_i32();
+                self.b.simd_lane(0x1C, 0); // i32x4.replace_lane
+            }
+            return;
+        }
+        self.gi(HOST);
+        self.b.simd_memory(if bits == 64 { 0x5D } else { 0x5C }, 0);
     }
     /// Push the low `bits` (32 or 64) at byte `offset` of XMM register `n`.
     fn xmm_load(&mut self, n: u8, offset: u32, bits: u8) {
@@ -10229,14 +10373,14 @@ impl Emitter {
         let size = width as u64 / 8;
         if !rep {
             if movs {
-                self.lookup_base = Some(6);
+                self.lookup_base = Some((6, 0));
                 self.g(6);
                 self.s(ADDR);
                 self.host(size as u32, false, start);
                 self.load(width);
                 self.s(TV);
             }
-            self.lookup_base = Some(7);
+            self.lookup_base = Some((7, 0));
             self.g(7);
             self.s(ADDR);
             self.host(size as u32, true, start);
@@ -10302,12 +10446,12 @@ impl Emitter {
             self.step_if(start);
         }
         if movs {
-            self.lookup_base = Some(6);
+            self.lookup_base = Some((6, 0));
             self.g(6);
             self.s(ADDR);
             self.host_or(1, false, start, self.f().step);
             self.si(SRC);
-            self.lookup_base = Some(7);
+            self.lookup_base = Some((7, 0));
             self.g(7);
             self.s(ADDR);
             self.host_or(1, true, start, self.f().step);
@@ -10333,7 +10477,7 @@ impl Emitter {
             self.b.guest_fence();
         }
         else {
-            self.lookup_base = Some(7);
+            self.lookup_base = Some((7, 0));
             self.g(7);
             self.s(ADDR);
             self.host_or(1, true, start, self.f().step);
@@ -10455,13 +10599,13 @@ impl Emitter {
             self.step_if(start);
         }
         if !scan {
-            self.lookup_base = Some(6);
+            self.lookup_base = Some((6, 0));
             self.g(6);
             self.s(ADDR);
             self.host_or(1, false, start, self.f().step);
             self.si(SRC);
         }
-        self.lookup_base = Some(7);
+        self.lookup_base = Some((7, 0));
         self.g(7);
         self.s(ADDR);
         self.host_or(1, false, start, self.f().step);

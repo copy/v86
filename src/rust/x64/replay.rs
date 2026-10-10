@@ -8,7 +8,8 @@
 //! A record, little-endian: "X6R1"; flags (bit 0: the recording build's
 //! parallel memory, then bucket dispatch, block counts, outlined accesses,
 //! chaining, relaxed FMA, the conversion templates, the STI shadow); the
-//! entries (count u16, then each offset u16); the next page's first bytes
+//! entries (count u16, then each offset u16, bit 15 a guess:
+//! pagegen::GUESSED); the next page's first bytes
 //! (count u16, then them); the page (4096 bytes); the function's name
 //! (length u16, then it); a trailer that older records lack (u8: the
 //! execution counter, loops, XMM locals, the fast SSE checks, 32-bit

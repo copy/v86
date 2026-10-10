@@ -8,7 +8,11 @@
 // One page (dual) runs as 64-bit and as 32-bit code (bytes that decode
 // alike: each mode's function of the same physical page), called in loops
 // from both modes; between the runs, 64-bit code patches it (a write to a
-// page with a compatibility-mode function).
+// page with a compatibility-mode function). A loop reads a routine's
+// immediate and writes it back incremented through one base register and
+// displacement page, then calls it: the write must not take the
+// translation the reads keep (x64_fast_lookup's kept translations, one
+// per kind), as the code page refuses writes to the inline lookups.
 // Results must equal the interpreter's, and compiled code must have run:
 // Tier-0's, or with x64_page_compat32 the x64 page tier's
 // (docs/jit-unification-plan.md P7.2, M6's acceptance).
@@ -16,7 +20,7 @@ import assert from "node:assert/strict";
 import {assemble, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
 
-const ITERATIONS = 200000, PATCHED = 60000, DUAL = 40000;
+const ITERATIONS = 200000, PATCHED = 60000, DUAL = 40000, SMC = 3000;
 const body = `
 ; 4 KiB page table at 0x210000 for linear 0x600000..0x7FFFFF (identity), NX
 mov rdi,0x210000
@@ -56,7 +60,7 @@ o64 retf
 done:
 mov rsi,0x601000
 mov rdi,0x300010
-mov ecx,8
+mov ecx,9
 rep movsq
 jmp body_end
 ; the dual page from 64-bit code: EAX at 0x601030 + phase * 4
@@ -120,12 +124,31 @@ dec ecx
 jnz .dual
 mov ebx,[0x301008]
 mov [0x601038+ebx*4],eax
+; the routine's immediate read and written through EBX: EDX at 0x601040
+; + phase * 4
+mov ecx,${SMC}
+mov ebx,smc
+xor edx,edx
+.smc:
+mov eax,[ebx+2]
+inc eax
+mov [ebx+2],eax
+call ebx
+dec ecx
+jnz .smc
+mov ebx,[0x301008]
+mov [0x601040+ebx*4],edx
 inc dword [0x301008]
 jmp 0x18:back_to_64
 ; its own page: patching it leaves the loop's compiled code in place
 align 4096
 helper:
 add edx,0x11111111
+ret
+; ADD EDX, imm32 (the immediate at +2), patched by the loop above
+align 4096
+smc:
+add edx,0x01010101
 ret
 ; ADD EAX, EBX; XOR EBX, EAX; RET in either mode
 align 4096
@@ -143,7 +166,7 @@ for(const [name, jit, compat, page32] of [["interpreter", false, false, false], 
     ["page tier + compat JIT", true, true, false], ["page tier, compat32", true, false, true]])
 {
     let tier0, page;
-    const result = await actual(directory, {length: 80, timeout: 120000,
+    const result = await actual(directory, {length: 88, timeout: 120000,
         options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
             jit_switches: {x64_page_compat32: page32 ? 1 : 0}} : {},
         setup: emulator => {
@@ -167,5 +190,7 @@ assert.notEqual(view.readUInt32LE(16 + 4), view.readUInt32LE(16 + 12), "phase 2 
 // the dual page: 64-bit results at +48 (+4), 32-bit ones at +56 (+4)
 assert.notEqual(view.readUInt32LE(16 + 48), view.readUInt32LE(16 + 52), "phase 2 ran the patched dual page in 64-bit mode");
 assert.notEqual(view.readUInt32LE(16 + 56), view.readUInt32LE(16 + 60), "phase 2 ran the patched dual page in compatibility mode");
+// the patched routine: the sum of its immediates
+assert.notEqual(view.readUInt32LE(16 + 64), 0, "the patched routine ran");
 for(const name of Object.keys(results)) assert.deepEqual(results[name], view, `${name} agrees with the interpreter`);
-console.log("PASS compatibility-mode JIT: loads/stores, CALL/RET, patched code, a remapped page and a page run in both modes agree with the interpreter");
+console.log("PASS compatibility-mode JIT: loads/stores, CALL/RET, patched code (also through a register its reads use), a remapped page and a page run in both modes agree with the interpreter");
