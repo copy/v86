@@ -31,6 +31,7 @@ use crate::wasmgen::wasm_builder::{
 };
 use crate::wasmgen::wasm_opcodes as op;
 use crate::x86tpl::vec::{self, Packed};
+use crate::x86tpl::x87::{x87_native, X87Words};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// x64_pagegen_size_stats: Wasm bytes emitted per template kind (count,
@@ -601,6 +602,30 @@ enum Op {
         reg: Reg,
     },
     Rdtscp,
+    /// Compatibility mode's x87 (docs/jit-unification-plan.md P7.2a): a
+    /// form crate::ir::x87 classifies, its memory operand at `address`,
+    /// inlined in f64 against the shadow cache (x86tpl::x87) where it
+    /// applies and the fast-math policy allows, else ir_t0_x87 on the CPU
+    /// state, as Tier-0 runs it
+    X87 {
+        opcode: u8,
+        modrm: u8,
+        io: crate::ir::x87::Io,
+        address: Option<AddressExpr>,
+    },
+    /// FNSTSW AX
+    Fnstsw,
+    /// FCOMI, FCOMIP, FUCOMI, FUCOMIP: `name`'s helper on the CPU state
+    /// sets ZF, PF and CF (and clears OF, SF, AF)
+    X87Flags {
+        name: &'static str,
+        r: u8,
+    },
+    /// FCMOVcc ST(0), ST(r)
+    Fcmov {
+        cc: u8,
+        r: u8,
+    },
     /// Interpreted in place by x64_page_step.
     Step,
 }
@@ -1131,6 +1156,35 @@ fn classify(d: &Decoded) -> Op {
                 write: op == 0x0F22,
                 reg: reg(d.rm_register?, 64),
             },
+            // (compatibility mode's x87 as Tier-0's, P7.2a)
+            0xD8..=0xDF if compat => {
+                let modrm = d.modrm?;
+                match crate::ir::x87::io(op as u8, modrm) {
+                    Some(io) => Op::X87 {
+                        opcode: op as u8,
+                        modrm,
+                        io,
+                        address: if modrm < 0xC0 { Some(d.address?) } else { None },
+                    },
+                    None if op == 0xDF && modrm == 0xE0 => Op::Fnstsw,
+                    None if modrm >= 0xC0 && matches!((op, group), (0xDB | 0xDF, 5 | 6)) => {
+                        Op::X87Flags {
+                            name: match (op, group) {
+                                (0xDB, 5) => "fpu_fucomi",
+                                (0xDB, _) => "fpu_fcomi",
+                                (_, 5) => "fpu_fucomip",
+                                _ => "fpu_fcomip",
+                            },
+                            r: modrm & 7,
+                        }
+                    },
+                    None if modrm >= 0xC0 && matches!(op, 0xDA | 0xDB) && group <= 3 => Op::Fcmov {
+                        cc: [2, 4, 6, 10][group as usize] | (op == 0xDB) as u8,
+                        r: modrm & 7,
+                    },
+                    None => return None,
+                }
+            },
             _ if d.opcode >> 8 & 0xFF == 0x0F
                 || d.opcode >> 16 == 0x0F
                 || matches!(op >> 8, 0x0F38 | 0x0F3A) =>
@@ -1245,6 +1299,11 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::Vcompare { .. }
             | Op::Vfused { .. }
             | Op::Mxcsr { .. }
+            // x87 (P7.2a)
+            | Op::X87 { .. }
+            | Op::Fnstsw
+            | Op::X87Flags { .. }
+            | Op::Fcmov { .. }
     )
 }
 
@@ -2450,6 +2509,9 @@ fn effects(op: &Op, compat: bool) -> (u32, u32) {
         } => (0, 0),
         Op::Bmi { .. } => (0, ARITH),
         Op::Jcc { cc, .. } | Op::Cmov { cc, .. } | Op::Setcc { cc, .. } => (cond_reads(cc), 0),
+        // (the helper keeps FLAGS' other bits: it reads them all)
+        Op::X87Flags { .. } => (ARITH, ARITH),
+        Op::Fcmov { cc, .. } => (cond_reads(cc), 0),
         Op::Pushf => (ARITH, 0),
         Op::Flag { opcode: 0xF5 } => (CF, CF),
         Op::Flag {
@@ -3276,12 +3338,28 @@ struct Emitter {
     /// later MUL's AF follows (cpu::misc_instr::getaf): kept in a local,
     /// loaded and written back with the GPRs
     last_op1: Option<WasmLocal>,
+    /// compatibility mode's x87 forms (P7.2a): their operand words (low,
+    /// high), made when first used
+    x87_words: Option<(WasmLocal, WasmLocal)>,
     /// what else the bytes depend on
     env: CompileEnv,
+}
+
+/// The operand words of an x87 form inlined by x86tpl::x87 (P7.2a)
+struct X87Operands<'a> {
+    b: &'a mut WasmBuilder,
+    words: [&'a WasmLocal; 2],
+}
+impl X87Words for X87Operands<'_> {
+    fn w(&mut self) -> &mut WasmBuilder { self.b }
+    fn input(&mut self, k: usize) { self.b.get_local(self.words[k]) }
+    fn output(&mut self, k: usize) { self.b.set_local(self.words[k]) }
 }
 /// Emitter::vector_checked: the legacy SSE check passed, the VEX one passed
 const VECTOR_SSE: u8 = 1;
 const VECTOR_VEX: u8 = 2;
+/// (and the x87 one: CR0.EM and TS clear, P7.2a)
+const VECTOR_X87: u8 = 4;
 /// Dispatch through a table of 16-byte buckets and compares instead of a
 /// page-sized table (x64_page_set_bucket_dispatch).
 static mut BUCKET_DISPATCH: bool = true;
@@ -3436,6 +3514,7 @@ impl Emitter {
             access: None,
             lock_loop: None,
             last_op1,
+            x87_words: None,
             env: *env,
         };
         let mark = e.b.body_len();
@@ -3557,6 +3636,7 @@ impl Emitter {
             fp_mxcsr,
             lookup_kept,
             last_op1,
+            x87_words,
             ..
         } = e;
         for l in v {
@@ -3568,6 +3648,10 @@ impl Emitter {
         }
         for l in w.into_iter().chain(fp_mxcsr).chain(last_op1) {
             b.free_local(l);
+        }
+        if let Some((low, high)) = x87_words {
+            b.free_local(low);
+            b.free_local(high);
         }
         for l in xmm_locals.into_iter().flatten() {
             b.free_local_v128(l);
@@ -5506,6 +5590,48 @@ impl Emitter {
                 return;
             },
             Op::Nop => {},
+            // compatibility mode's x87 (P7.2a)
+            Op::X87 {
+                opcode,
+                modrm,
+                io,
+                address,
+            } => self.x87(inst, opcode, modrm, io, address),
+            Op::Fnstsw => {
+                self.x87_check(start);
+                self.b.call_signature(
+                    "fpu_load_status_word",
+                    Signature::new(&[], &[WasmType::I32]),
+                );
+                self.b.extend_unsigned_i32_to_i64();
+                self.set_reg(RAX, 16);
+            },
+            Op::X87Flags { name, r } => {
+                // (the helper reads and writes FLAGS in memory)
+                self.x87_check(start);
+                self.materialize_if(ARITH);
+                self.c32(gp::flags as i32);
+                self.gi(FL);
+                self.b.store_aligned_i32(0);
+                self.c32(gp::flags_changed as i32);
+                self.c32(0);
+                self.b.store_aligned_i32(0);
+                self.c32(r as i32);
+                self.b
+                    .call_signature(name, Signature::new(&[WasmType::I32], &[]));
+                self.b.load_fixed_i32(gp::flags as u32);
+                self.si(FL);
+            },
+            Op::Fcmov { cc, r } => {
+                self.x87_check(start);
+                self.materialize_if(inst.flags_read);
+                self.condition(cc, None);
+                self.c32(r as i32);
+                self.b.call_signature(
+                    "fpu_fcmovcc",
+                    Signature::new(&[WasmType::I32, WasmType::I32], &[]),
+                );
+            },
             Op::Mov { width, dst, src } => match dst {
                 Opnd::Reg(r) => {
                     self.read(src, width, inst);
@@ -7546,6 +7672,122 @@ impl Emitter {
     /// raises #UD or #NM): sse_check, or for a VEX form CR0.TS clear,
     /// CR4.OSXSAVE set and XCR0 with SSE and AVX state (CR0.EM and
     /// CR4.OSFXSR do not matter)
+    /// Compatibility mode's x87 (P7.2a): CR0.EM and TS clear, else a retry
+    /// (the interpreter raises #NM); once per block
+    fn x87_check(&mut self, start: u64) {
+        if self.vector_checked & VECTOR_X87 != 0 {
+            return;
+        }
+        self.vector_checked |= VECTOR_X87;
+        self.b.load_fixed_i32(gp::cr as u32);
+        self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
+        self.b.and_i32();
+        self.b.if_void();
+        self.leave_to(self.f().retry, start);
+        self.b.block_end();
+    }
+    /// Compatibility mode's x87 form (P7.2a) as Tier-0 emits it (ir::tier0
+    /// Form::X87): its memory operand read into the two words, or for a
+    /// store the translation validated first (the form may pop: the store
+    /// must not fault after it); the f64 form of x86tpl::x87 where it
+    /// applies and gp::x87_native_policy allows, else ir_t0_x87 on the CPU
+    /// state from unchanged state; then the store.
+    fn x87(
+        &mut self,
+        inst: &Inst,
+        opcode: u8,
+        modrm: u8,
+        io: crate::ir::x87::Io,
+        address: Option<AddressExpr>,
+    ) {
+        use crate::ir::x87::Io;
+        let (start, next) = (inst.d.start.0, inst.d.next.0);
+        self.x87_check(start);
+        if self.x87_words.is_none() {
+            let words = (self.b.declare_zeroed_local(), self.b.declare_zeroed_local());
+            self.x87_words = Some(words);
+        }
+        let (low, high) = {
+            let (low, high) = self.x87_words.as_ref().unwrap();
+            (low.unsafe_clone(), high.unsafe_clone())
+        };
+        let kind = match io {
+            Io::Stack => 0,
+            Io::Load { .. } => 1,
+            Io::Store { .. } => 2,
+        };
+        let form = opcode as i32 | (modrm as i32) << 8 | kind << 16;
+        match io {
+            Io::Stack => {},
+            Io::Load { bytes } => {
+                self.address(&address.unwrap(), next, true);
+                self.s(ADDR);
+                self.host(bytes as u32, false, start);
+                self.load(bytes * 8);
+                self.s(TV);
+                self.g(TV);
+                self.b.wrap_i64_to_i32();
+                self.b.set_local(&low);
+                self.g(TV);
+                self.c64(32);
+                self.b.shr_u_i64();
+                self.b.wrap_i64_to_i32();
+                self.b.set_local(&high);
+            },
+            Io::Store { bytes } => {
+                self.address(&address.unwrap(), next, true);
+                self.s(ADDR);
+                self.host(bytes as u32, true, start);
+                self.si(HOST);
+            },
+        }
+        let done = self.b.block_void();
+        if let Some(native) = crate::ir::x87::native(opcode, modrm) {
+            let slow = self.b.block_void();
+            self.b.load_fixed_u8(gp::x87_native_policy as u32);
+            self.b.eqz_i32();
+            self.b.hint(false);
+            self.b.br_if(slow);
+            let mut words = X87Operands {
+                b: &mut self.b,
+                words: [&low, &high],
+            };
+            x87_native(&mut words, native, slow);
+            self.b.br(done);
+            self.b.block_end();
+        }
+        self.c32(form);
+        self.b.get_local(&low);
+        self.b.get_local(&high);
+        self.b.call_signature(
+            "ir_t0_x87",
+            Signature::new(
+                &[WasmType::I32, WasmType::I32, WasmType::I32],
+                &[WasmType::I64],
+            ),
+        );
+        self.s(TV);
+        self.g(TV);
+        self.b.wrap_i64_to_i32();
+        self.b.set_local(&low);
+        self.g(TV);
+        self.c64(32);
+        self.b.shr_u_i64();
+        self.b.wrap_i64_to_i32();
+        self.b.set_local(&high);
+        self.b.block_end();
+        if let Io::Store { bytes } = io {
+            self.gi(HOST);
+            self.b.get_local(&high);
+            self.b.extend_unsigned_i32_to_i64();
+            self.c64(32);
+            self.b.shl_i64();
+            self.b.get_local(&low);
+            self.b.extend_unsigned_i32_to_i64();
+            self.b.or_i64();
+            self.store(bytes * 8);
+        }
+    }
     fn vector_check(&mut self, inst: &Inst, start: u64) {
         // (P4.18: once per block; nothing a block compiles changes CR0, CR4
         // or XCR0)

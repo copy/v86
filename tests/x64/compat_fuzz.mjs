@@ -88,6 +88,25 @@ function sse_instruction()
         `cmpps ${a}, ${b}, ${int(0, 7)}`,
     ]);
 }
+// x87 snippets that leave the stack as they found it (stores capture the
+// results; the operands are whatever the data holds)
+function x87_instruction()
+{
+    const m = w => `${SIZE[w] || (w === 64 ? "qword" : "")} ${vmem(w / 8, false)}`;
+    return pick([
+        `fld dword ${vmem(4, false)}\nf${pick(["add", "sub", "mul", "div", "subr", "divr"])} qword ${vmem(8, false)}\nfstp qword ${vmem(8, false)}`,
+        `fld qword ${vmem(8, false)}\nf${pick(["add", "sub", "mul", "div"])} dword ${vmem(4, false)}\nfstp dword ${vmem(4, false)}`,
+        `fild dword ${vmem(4, false)}\nfi${pick(["add", "mul", "sub"])} word ${vmem(2, false)}\nfistp dword ${vmem(4, false)}`,
+        `fild word ${vmem(2, false)}\nfistp word ${vmem(2, false)}`,
+        `fild qword ${vmem(8, false)}\nfistp qword ${vmem(8, false)}`,
+        `fld1\nfldz\nfaddp st1, st0\nfld dword ${vmem(4, false)}\nfmulp st1, st0\nfstp dword ${vmem(4, false)}`,
+        `fld qword ${vmem(8, false)}\nfld st0\nfmul st0, st1\nfxch st1\nfchs\nfabs\nfaddp st1, st0\nfstp qword ${vmem(8, false)}`,
+        `fld dword ${vmem(4, false)}\nfcomp dword ${vmem(4, false)}\nfnstsw ax\nsahf\nset${pick(["b", "e", "be", "p"])} cl`,
+        `fld qword ${vmem(8, false)}\nfld qword ${vmem(8, false)}\nf${pick(["comi", "ucomi"])}p st0, st1\nfstp st0\nset${pick(["b", "e", "a", "p"])} dl`,
+        `fld dword ${vmem(4, false)}\nfld dword ${vmem(4, false)}\nfcmov${pick(["b", "e", "be", "u", "nb", "ne", "nbe", "nu"])} st0, st1\nfstp dword ${vmem(4, false)}\nfstp st0`,
+        `fnstcw word ${vmem(2, false)}\nfld dword ${vmem(4, false)}\nfstp qword ${vmem(8, false)}`,
+    ]);
+}
 const CC = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
 const ALU = ["add", "or", "adc", "sbb", "and", "sub", "xor", "cmp"];
 const rm = w => random() < 0.5 ? reg(w) : mem(w);
@@ -99,8 +118,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 44);
-    while(SKIP.has(which)) which = int(0, 44);
+    let which = int(0, 47);
+    while(SKIP.has(which)) which = int(0, 47);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -147,6 +166,7 @@ function instruction(state)
         case 37: return `and ebx, 255\n${alu} ${reg(32)}, [ebp+ebx*${pick([1, 2, 4])}+${int(0, 7000)}]`;
         case 38: return `and ecx, 255\nmov ${pick(["eax", "edx", "esi"])}, [ebp+ecx*4+${int(0, 7000)}]`;
         case 40: case 41: case 42: case 43: case 44: return sse_instruction();
+        case 45: case 46: case 47: return x87_instruction();
         default: return `${pick(["add", "sub", "and", "or", "xor", "adc", "sbb"])} ${mem(w)}, ${imm(w)}`;
     }
 }
@@ -183,6 +203,7 @@ for(let guest = 0; guest < guests; guest++)
         functions += `
 align 4096
 case_${c}:
+fninit
 ${init}
 ${XMM.map((x, i) => `movdqu ${x}, [xmm_init_${c}+${i * 16}]`).join("\n")}
 mov ebp, ${DATA}
