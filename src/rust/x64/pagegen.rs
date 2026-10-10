@@ -1142,17 +1142,23 @@ fn classify(d: &Decoded) -> Op {
     })();
     match result {
         // (compatibility mode: shifts and rotates by the 32-bit
-        // interpreter's rules, Emitter's ShiftCall)
+        // interpreter's rules, 32-bit ROL, ROR, SHL, SHR and SAR inline
+        // (Emitter::legacy_shift32), the others through its helper)
         Some(Op::Shift {
             code,
             width,
             dst,
             count,
-        }) if compat && d.address.map_or(true, |a| a.address_size == 32) => Op::ShiftCall {
-            code,
-            width,
-            dst,
-            count,
+        }) if compat
+            && d.address.map_or(true, |a| a.address_size == 32)
+            && !(width == 32 && code != 2 && code != 3) =>
+        {
+            Op::ShiftCall {
+                code,
+                width,
+                dst,
+                count,
+            }
         },
         Some(op) if !compat || compat_template(&op, d) => op,
         _ => Op::Step,
@@ -1180,7 +1186,7 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::Neg { .. }
             | Op::MulWide { .. }
             | Op::Div { .. }
-            | Op::Shift { .. }
+            | Op::Shift { width: 32, .. }
             | Op::ShiftCall { .. }
             | Op::Imul { .. }
             | Op::Push { .. }
@@ -2350,6 +2356,22 @@ fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
 fn effects(op: &Op, compat: bool) -> (u32, u32) {
     if compat && matches!(op, Op::Imul { .. } | Op::MulWide { .. }) {
         return (0, ARITH);
+    }
+    // (compatibility mode: INC and DEC keep CF, so the producer before them
+    // computes it at once instead of leaving it to the record they replace,
+    // whose helper call a loop's DEC ECX paid every iteration)
+    if compat && matches!(op, Op::IncDec { .. }) {
+        return (CF, ARITH & !CF);
+    }
+    // (compatibility mode: the 32-bit interpreter's shifts write OF for any
+    // count, and SHL, SHR and SAR AF; a zero count changes nothing)
+    if let (true, Op::Shift { code, count, .. }) = (compat, op) {
+        let writes = if *code <= 1 { CF | OF } else { ARITH };
+        return match count {
+            Some(count) if count & 31 == 0 => (0, 0),
+            Some(_) => (0, writes),
+            None => (writes, writes),
+        };
     }
     match *op {
         Op::Alu { code: 2 | 3, .. } => (CF, ARITH),
@@ -4990,19 +5012,153 @@ impl Emitter {
     fn legacy_mul_flags(&mut self, width: u8, need: u32, first: &mut bool) {
         self.szp(TR, need, width, first);
         if need & AF != 0 {
-            // (last_op1 ^ (result - last_op1) ^ result) & AF
-            self.b.get_local(self.last_op1.as_ref().unwrap());
-            self.g(TR);
-            self.b.wrap_i64_to_i32();
-            self.b.get_local(self.last_op1.as_ref().unwrap());
-            self.b.sub_i32();
-            self.b.xor_i32();
-            self.g(TR);
-            self.b.wrap_i64_to_i32();
-            self.b.xor_i32();
-            self.c32(AF as i32);
-            self.b.and_i32();
+            self.legacy_af();
             self.join(first);
+        }
+    }
+    /// i32: the AF the 32-bit interpreter's lazy EFLAGS give a result in TR
+    /// that its operation left to last_op1: (last_op1 ^ (result - last_op1)
+    /// ^ result) & AF (cpu::misc_instr::getaf, not a subtraction)
+    fn legacy_af(&mut self) {
+        self.b.get_local(self.last_op1.as_ref().unwrap());
+        self.g(TR);
+        self.b.wrap_i64_to_i32();
+        self.b.get_local(self.last_op1.as_ref().unwrap());
+        self.b.sub_i32();
+        self.b.xor_i32();
+        self.g(TR);
+        self.b.wrap_i64_to_i32();
+        self.b.xor_i32();
+        self.c32(AF as i32);
+        self.b.and_i32();
+    }
+    /// Compatibility mode (P7.2): a 32-bit ROL, ROR, SHL, SHR or SAR (code
+    /// 0, 1, 4 or 6, 5, 7) as the 32-bit interpreter computes it
+    /// (cpu::arith::rol32 and kin): the count masked to 5 bits; CF and OF by
+    /// its formulas for any nonzero count (ROL: OF = CF ^ MSB, ROR: the two
+    /// top bits, SHL: CF ^ MSB, SHR: the operand's MSB, SAR: 0); SHL, SHR
+    /// and SAR then leave SF, ZF and PF of the result and AF from last_op1;
+    /// a zero count changes no flag. `count`: an immediate, else CL. The
+    /// EFLAGS bits in `need` only.
+    fn legacy_shift32(&mut self, inst: &Inst, code: u8, dst: Opnd, count: Option<u8>, need: u32) {
+        let rotate = code <= 1;
+        self.read_dst(dst, 32, true, inst);
+        self.s(TA);
+        match count {
+            Some(count) => self.c64((count & 31) as u64),
+            None => {
+                self.g(1);
+                self.c64(31);
+                self.b.and_i64();
+            },
+        }
+        self.s(TB);
+        self.g(TA);
+        self.b.wrap_i64_to_i32();
+        self.g(TB);
+        self.b.wrap_i64_to_i32();
+        match code {
+            0 => self.b.rotl_i32(),
+            1 => self.b.rotr_i32(),
+            5 => self.b.shr_u_i32(),
+            7 => self.b.shr_s_i32(),
+            _ => self.b.shl_i32(),
+        }
+        self.b.extend_unsigned_i32_to_i64();
+        self.s(TR);
+        self.write_dst(dst, 32, TR);
+        let need = need & if rotate { CF | OF } else { ARITH };
+        if need == 0 || count.is_some_and(|c| c & 31 == 0) {
+            return;
+        }
+        if count.is_none() {
+            self.g(TB);
+            self.b.op(op::OP_I64EQZ);
+            self.b.eqz_i32();
+            self.b.if_void();
+        }
+        self.flags_begin(need);
+        let mut first = true;
+        // i32 0/1: bit `bit` of TA (the operand) or TR, or at a count from TB
+        let bit = |e: &mut Self, local: usize, shift: Option<(i64, bool)>| {
+            e.g(local);
+            match shift {
+                // (by the count plus a constant, or the constant minus it)
+                Some((k, minus)) => {
+                    if minus {
+                        e.c64(k as u64);
+                        e.g(TB);
+                        e.b.sub_i64();
+                    }
+                    else {
+                        e.g(TB);
+                        e.c64(k as u64);
+                        e.b.add_i64();
+                    }
+                    e.b.shr_u_i64();
+                },
+                None => {},
+            }
+            e.b.wrap_i64_to_i32();
+            e.c32(1);
+            e.b.and_i32();
+        };
+        let msb = |e: &mut Self, local: usize| {
+            e.g(local);
+            e.c64(31);
+            e.b.shr_u_i64();
+            e.b.wrap_i64_to_i32();
+            e.c32(1);
+            e.b.and_i32();
+        };
+        let carry = |e: &mut Self| match code {
+            0 => bit(e, TR, None),
+            1 => msb(e, TR),
+            4 | 6 => bit(e, TA, Some((32, true))),
+            _ => bit(e, TA, Some((-1, false))),
+        };
+        if need & CF != 0 {
+            carry(self);
+            self.join(&mut first);
+        }
+        if need & OF != 0 && code != 7 {
+            match code {
+                0 => {
+                    bit(self, TR, None);
+                    msb(self, TR);
+                    self.b.xor_i32();
+                },
+                1 => {
+                    msb(self, TR);
+                    self.g(TR);
+                    self.c64(30);
+                    self.b.shr_u_i64();
+                    self.b.wrap_i64_to_i32();
+                    self.c32(1);
+                    self.b.and_i32();
+                    self.b.xor_i32();
+                },
+                4 | 6 => {
+                    carry(self);
+                    msb(self, TR);
+                    self.b.xor_i32();
+                },
+                _ => msb(self, TA),
+            }
+            self.c32(11);
+            self.b.shl_i32();
+            self.join(&mut first);
+        }
+        if !rotate {
+            self.szp(TR, need, 32, &mut first);
+            if need & AF != 0 {
+                self.legacy_af();
+                self.join(&mut first);
+            }
+        }
+        self.flags_end(first);
+        if count.is_none() {
+            self.b.block_end();
         }
     }
     /// SF, ZF, PF of local `i` (masked to `width`).
@@ -5559,7 +5715,12 @@ impl Emitter {
                 else {
                     inst.writes
                 };
-                self.shift_immediate(inst, code, width, dst, count, need);
+                if self.env.compat {
+                    self.legacy_shift32(inst, code, dst, Some(count), need);
+                }
+                else {
+                    self.shift_immediate(inst, code, width, dst, count, need);
+                }
                 self.written(inst.writes);
             },
             Op::Shift {
@@ -5570,7 +5731,12 @@ impl Emitter {
             } => {
                 // a zero count keeps every flag
                 self.materialize_if(inst.flags_read);
-                self.shift_cl(inst, code, width, dst, inst.writes);
+                if self.env.compat {
+                    self.legacy_shift32(inst, code, dst, None, inst.writes);
+                }
+                else {
+                    self.shift_cl(inst, code, width, dst, inst.writes);
+                }
                 self.written(inst.writes);
             },
             Op::ShiftCall {

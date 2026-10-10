@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // The code of a page function (docs/profiling.md): records what the x64 page
-// tier (or, with --isa i686, Tier-0) compiles while a benchmark runs on a
+// tier (or, with --isa i686, Tier-0; with --isa compat32 the i686 build in
+// compatibility mode, compiled by the page tier with x64_page_compat32)
+// compiles while a benchmark runs on a
 // test core (ir-test-hooks: build/v86-ir-test-release.wasm), takes the last
 // record whose page holds the given instruction bytes, replays it
 // (tools/replay_check.mjs' fixed pseudo addresses) and prints the module's
@@ -8,7 +10,7 @@
 // of it (node --no-liftoff --print-wasm-code). How the page tier's code for
 // M5 was compared with Tier-0's (docs/jit-unification-plan.md, appendix C).
 //
-// Usage: node tools/page_code.mjs <benchmark> <hex bytes> [--isa x86_64|i686]
+// Usage: node tools/page_code.mjs <benchmark> <hex bytes> [--isa x86_64|i686|compat32]
 //        [--switches name=value,...] [--machine] [--save module.wasm]
 import fs from "node:fs";
 import path from "node:path";
@@ -104,17 +106,18 @@ const option = (name, fallback) => { const i = args.indexOf("--" + name); return
 const [name, hex] = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.match(/^--(isa|switches|save)$/));
 if(!name || !hex)
 {
-    console.error("usage: node tools/page_code.mjs <benchmark> <hex bytes> [--isa x86_64|i686] [--switches a=1,...] [--machine] [--save file]");
+    console.error("usage: node tools/page_code.mjs <benchmark> <hex bytes> [--isa x86_64|i686|compat32] [--switches a=1,...] [--machine] [--save file]");
     process.exit(2);
 }
 const isa = option("isa", "x86_64");
-const prefix = isa === "x86_64" ? "x64_page_" : "ir_t0_";
+const prefix = isa === "i686" ? "ir_t0_" : "x64_page_";
 process.chdir(ROOT);
 const { load_pe, boot_images, create, execute } = await import("../tests/bench/machine.mjs");
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const bench = manifest.benchmarks.find(b => b.name === name);
 if(!bench) throw new Error(`no benchmark ${name}`);
 const switches = Object.fromEntries(option("switches", "").split(",").filter(Boolean).map(kv => { const [k, v] = kv.split("="); return [k, +v]; }));
+if(isa === "compat32" && switches.x64_page_compat32 === undefined) switches.x64_page_compat32 = 1;
 const machine = await create({ label: "code", isa, wasm: "build/v86-ir-test-release.wasm", switches }, bench, boot_images(manifest));
 const e = machine.e;
 if(!e[prefix + "record_start"]) throw new Error("build/v86-ir-test-release.wasm has no replay hooks (ir-test-hooks)");
