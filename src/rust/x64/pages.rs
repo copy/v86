@@ -44,6 +44,9 @@ fn recompile_due(state: &PageState) -> bool {
     state.misses >= unsafe { RECOMPILE_MISSES } << backoff(state.compiles)
 }
 pub const MAX_FUNCTIONS: usize = 9000;
+/// The functions of one code mode (long, 32-bit compatibility) beyond which
+/// a full table evicts that mode's (P7.2b)
+const MODE_SHARE: usize = MAX_FUNCTIONS * 2 / 3;
 const MAX_TRACKED_PAGES: usize = 65536;
 const FAST_SLOTS: usize = 16384;
 
@@ -70,6 +73,23 @@ struct Function {
     counter: Option<u32>,
 }
 fn bit(set: &[u64; 64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
+/// The function a full table retires for a compile of (`compat`) code: the
+/// least recently used ready one, of that code's mode when the mode holds
+/// more than MODE_SHARE (P7.2b)
+fn eviction_victim(functions: &[Function], compat: bool) -> Option<usize> {
+    let mode = |f: &Function| f.page & COMPAT_KEY != 0;
+    let held = functions
+        .iter()
+        .filter(|f| f.phase != Phase::Dead && mode(f) == compat)
+        .count();
+    let crowded = held > MODE_SHARE;
+    functions
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| f.phase == Phase::Ready && (!crowded || mode(f) == compat))
+        .min_by_key(|(_, f)| f.last_used)
+        .map(|(i, _)| i)
+}
 struct PageState {
     heat: u32,
     entries: [u64; 64],
@@ -980,21 +1000,16 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     if recompile {
         r.stats[RECOMPILED] += 1;
     }
-    // Room in the table: retire the least recently used function.
+    // Room in the table: retire the least recently used function; of this
+    // code's mode when that holds more than its share (P7.2b: 32-bit
+    // compatibility-mode code and long-mode code each keep a third at least)
     let live = r
         .functions
         .iter()
         .filter(|f| f.phase != Phase::Dead)
         .count();
     if live >= MAX_FUNCTIONS {
-        if let Some(i) = r
-            .functions
-            .iter()
-            .enumerate()
-            .filter(|(_, f)| f.phase == Phase::Ready)
-            .min_by_key(|(_, f)| f.last_used)
-            .map(|(i, _)| i)
-        {
+        if let Some(i) = eviction_victim(&r.functions, compat) {
             retire(r, i);
             r.stats[EVICTED] += 1;
         }
@@ -1808,5 +1823,47 @@ pub fn x64_page_mul_high(a: u64, b: u64, signed: bool) -> u64 {
     }
     else {
         ((a as u128 * b as u128) >> 64) as u64
+    }
+}
+
+#[cfg(test)]
+mod quota_tests {
+    use super::*;
+    fn function(page: u32, last_used: u64) -> Function {
+        Function {
+            page,
+            id: 0,
+            slot: 0,
+            phase: Phase::Ready,
+            served: [0; 64],
+            last_used,
+            source: 0,
+            counter: None,
+        }
+    }
+    /// (P7.2b) A full table retires the least recently used function, but
+    /// of the compiling code's mode once that mode holds more than its share
+    #[test]
+    fn each_mode_keeps_a_share() {
+        // the oldest functions are the long mode's: 2000 of them
+        let mut functions: Vec<Function> = (0..2000).map(|i| function(i, i as u64)).collect();
+        functions.extend(
+            (0..MAX_FUNCTIONS as u32 - 2000).map(|i| function(i | COMPAT_KEY, 10_000 + i as u64)),
+        );
+        // compatibility-mode code beyond its share retires its own
+        let victim = eviction_victim(&functions, true).unwrap();
+        assert!(functions[victim].page & COMPAT_KEY != 0);
+        assert_eq!(functions[victim].last_used, 10_000);
+        // long-mode code within its share: the least recently used of all
+        let victim = eviction_victim(&functions, false).unwrap();
+        assert_eq!(functions[victim].last_used, 0);
+        // a mode within its share takes the oldest of all, the crowded one
+        // its own
+        let mut few: Vec<Function> = (0..10)
+            .map(|i| function(i | COMPAT_KEY, 50 + i as u64))
+            .collect();
+        few.extend((0..MAX_FUNCTIONS as u32 - 10).map(|i| function(i, 100 + i as u64)));
+        assert_eq!(few[eviction_victim(&few, true).unwrap()].last_used, 50);
+        assert_eq!(few[eviction_victim(&few, false).unwrap()].last_used, 100);
     }
 }

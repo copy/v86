@@ -5,14 +5,18 @@
 // INVLPG), which the already compiled code must observe (the 32-bit TLB it
 // reads inline is filled from x64 translations). The loop mixes loads,
 // stores, PUSH/CALL/RET and patches a CALLed routine after compilation.
+// One page (dual) runs as 64-bit and as 32-bit code (bytes that decode
+// alike: each mode's function of the same physical page), called in loops
+// from both modes; between the runs, 64-bit code patches it (a write to a
+// page with a compatibility-mode function).
 // Results must equal the interpreter's, and compiled code must have run:
 // Tier-0's, or with x64_page_compat32 the x64 page tier's
-// (docs/jit-unification-plan.md P7.2).
+// (docs/jit-unification-plan.md P7.2, M6's acceptance).
 import assert from "node:assert/strict";
 import {assemble, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
 
-const ITERATIONS = 200000, PATCHED = 60000;
+const ITERATIONS = 200000, PATCHED = 60000, DUAL = 40000;
 const body = `
 ; 4 KiB page table at 0x210000 for linear 0x600000..0x7FFFFF (identity), NX
 mov rdi,0x210000
@@ -30,6 +34,7 @@ mov rax,cr3
 mov cr3,rax
 mov dword [0x700000],0x5EED0001
 mov dword [0x600000],0x10101010
+call dual64
 mov rax,HIGH+second
 mov [0x301000],rax
 jmp run_compat
@@ -37,6 +42,9 @@ second:
 ; phase 2: linear 0x600000 now maps physical 0x700000
 mov qword [0x210000],0x700003
 invlpg [0x600000]
+; dual's XOR EBX, EAX becomes SUB EBX, EAX (both modes' functions go)
+mov byte [dual+2],0x29
+call dual64
 mov rax,HIGH+done
 mov [0x301000],rax
 jmp run_compat
@@ -50,6 +58,21 @@ mov rsi,0x601000
 mov rdi,0x300010
 mov ecx,8
 rep movsq
+jmp body_end
+; the dual page from 64-bit code: EAX at 0x601030 + phase * 4
+dual64:
+mov ecx,${DUAL}
+mov eax,1
+mov ebx,7
+.loop:
+mov edx,dual
+call rdx
+dec ecx
+jnz .loop
+mov edx,[0x301008]
+mov [0x601030+rdx*4],eax
+ret
+body_end:
 `;
 const data = `
 bits 32
@@ -87,12 +110,28 @@ call helper
 dec ecx
 jnz .loop2
 mov [0x601028+ebx*4],edx
+; the dual page from 32-bit code: EAX at 0x601038 + phase * 4
+mov ecx,${DUAL}
+mov eax,1
+mov ebx,7
+.dual:
+call dual
+dec ecx
+jnz .dual
+mov ebx,[0x301008]
+mov [0x601038+ebx*4],eax
 inc dword [0x301008]
 jmp 0x18:back_to_64
 ; its own page: patching it leaves the loop's compiled code in place
 align 4096
 helper:
 add edx,0x11111111
+ret
+; ADD EAX, EBX; XOR EBX, EAX; RET in either mode
+align 4096
+dual:
+add eax,ebx
+xor ebx,eax
 ret
 bits 64
 back_to_64:
@@ -125,5 +164,8 @@ for(const [name, jit, compat, page32] of [["interpreter", false, false, false], 
 const view = results.interpreter;
 // per phase: EAX/EDX at +0/+4 (+8), EDI at +16 (+8), first data dword at +32 (+4)
 assert.notEqual(view.readUInt32LE(16 + 4), view.readUInt32LE(16 + 12), "phase 2 ran on the remapped page");
+// the dual page: 64-bit results at +48 (+4), 32-bit ones at +56 (+4)
+assert.notEqual(view.readUInt32LE(16 + 48), view.readUInt32LE(16 + 52), "phase 2 ran the patched dual page in 64-bit mode");
+assert.notEqual(view.readUInt32LE(16 + 56), view.readUInt32LE(16 + 60), "phase 2 ran the patched dual page in compatibility mode");
 for(const name of Object.keys(results)) assert.deepEqual(results[name], view, `${name} agrees with the interpreter`);
-console.log("PASS compatibility-mode JIT: loads/stores, CALL/RET, patched code and a remapped page agree with the interpreter");
+console.log("PASS compatibility-mode JIT: loads/stores, CALL/RET, patched code, a remapped page and a page run in both modes agree with the interpreter");
