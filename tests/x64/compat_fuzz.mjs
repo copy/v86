@@ -57,6 +57,37 @@ const imm = w => {
     if(w === 16) return v & 0xFFFF;
     return v | 0;
 };
+const XMM = Array.from({length: 8}, (_, i) => `xmm${i}`);
+// SSE memory operands: aligned forms get 16-byte aligned addresses;
+// unaligned ones sometimes cross into the second page
+const vmem = (bytes, aligned) => {
+    let disp = int(0, 8190 - bytes);
+    if(aligned) disp &= ~15;
+    else if(random() < 0.1) disp = 4096 - int(1, bytes - 1);
+    return random() < 0.5 ? `[ebp+${disp}]` : `[${DATA + disp}]`;
+};
+function sse_instruction()
+{
+    const a = pick(XMM), b = pick(XMM);
+    return pick([
+        `movdqu ${a}, ${vmem(16, false)}`, `movdqu ${vmem(16, false)}, ${a}`, `movups ${a}, ${vmem(16, false)}`, `movups ${vmem(16, false)}, ${a}`,
+        `movupd ${a}, ${b}`, `movdqu ${a}, ${b}`, `movdqa ${a}, ${vmem(16, true)}`, `movdqa ${vmem(16, true)}, ${a}`,
+        `movaps ${a}, ${b}`, `movaps ${a}, ${vmem(16, true)}`, `movapd ${vmem(16, true)}, ${a}`,
+        `movss ${a}, ${b}`, `movss ${a}, ${vmem(4, false)}`, `movss ${vmem(4, false)}, ${a}`,
+        `movsd ${a}, ${b}`, `movsd ${a}, ${vmem(8, false)}`, `movsd ${vmem(8, false)}, ${a}`,
+        `movq ${a}, ${b}`, `movq ${a}, ${vmem(8, false)}`, `movq ${vmem(8, false)}, ${a}`,
+        `movd ${a}, ${reg(32)}`, `movd ${reg(32)}, ${a}`, `movd ${a}, ${vmem(4, false)}`, `movd ${vmem(4, false)}, ${a}`,
+        `${pick(["pxor", "por", "pand", "pandn", "xorps", "orps", "andps", "andnps", "xorpd", "andpd"])} ${a}, ${random() < 0.5 ? b : vmem(16, true)}`,
+        `${pick(["paddd", "psubd", "paddw", "psubusb", "pcmpeqd", "pcmpgtw", "pmullw", "pmaxsw", "pminub", "pavgb", "punpcklbw", "punpckhdq", "packsswb", "pmaddwd", "psadbw"])} ${a}, ${random() < 0.5 ? b : vmem(16, true)}`,
+        `${pick(["addps", "subps", "mulps", "divps", "minps", "maxps", "addsd", "mulsd", "subss", "divss", "sqrtps", "sqrtsd"])} ${a}, ${random() < 0.5 ? b : vmem(16, true)}`,
+        `${pick(["psllw", "psrld", "psraw", "psrlq", "pslldq", "psrldq"])} ${a}, ${int(0, 20)}`,
+        `pshufd ${a}, ${b}, ${int(0, 255)}`, `shufps ${a}, ${b}, ${int(0, 255)}`,
+        `cvtsi2ss ${a}, ${reg(32)}`, `cvttss2si ${reg(32)}, ${a}`, `cvtdq2ps ${a}, ${b}`, `cvttps2dq ${a}, ${b}`, `cvtss2sd ${a}, ${b}`,
+        `${pick(["comiss", "ucomiss", "comisd"])} ${a}, ${b}\nset${pick(CC)} al`,
+        `pmovmskb ${reg(32)}, ${a}`, `movmskps ${reg(32)}, ${a}`, `pextrw ${reg(32)}, ${a}, ${int(0, 7)}`, `pinsrw ${a}, ${reg(32)}, ${int(0, 7)}`,
+        `cmpps ${a}, ${b}, ${int(0, 7)}`,
+    ]);
+}
 const CC = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
 const ALU = ["add", "or", "adc", "sbb", "and", "sub", "xor", "cmp"];
 const rm = w => random() < 0.5 ? reg(w) : mem(w);
@@ -68,8 +99,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 39);
-    while(SKIP.has(which)) which = int(0, 39);
+    let which = int(0, 44);
+    while(SKIP.has(which)) which = int(0, 44);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -115,6 +146,7 @@ function instruction(state)
         case 36: { const r = reg(32); return `xor ${r}, ${r}`; }
         case 37: return `and ebx, 255\n${alu} ${reg(32)}, [ebp+ebx*${pick([1, 2, 4])}+${int(0, 7000)}]`;
         case 38: return `and ecx, 255\nmov ${pick(["eax", "edx", "esi"])}, [ebp+ecx*4+${int(0, 7000)}]`;
+        case 40: case 41: case 42: case 43: case 44: return sse_instruction();
         default: return `${pick(["add", "sub", "and", "or", "xor", "adc", "sbb"])} ${mem(w)}, ${imm(w)}`;
     }
 }
@@ -131,7 +163,7 @@ for(let guest = 0; guest < guests; guest++)
 {
     const first_seed = seed;
     // 64-bit code: each case in compatibility mode, back by a far jump
-    let body = "";
+    let body = "mov rax, cr4\nor eax, 0x600\nmov cr4, rax\n";
     let functions = "";
     const programs = [];
     for(let c = 0; c < cases; c++)
@@ -152,6 +184,7 @@ for(let guest = 0; guest < guests; guest++)
 align 4096
 case_${c}:
 ${init}
+${XMM.map((x, i) => `movdqu ${x}, [xmm_init_${c}+${i * 16}]`).join("\n")}
 mov ebp, ${DATA}
 mov dword [${COUNTER}], ${ITERATIONS}
 push 0x${(int(0, 0xFFF) & 0xCD5).toString(16)}
@@ -169,11 +202,15 @@ mov esi, ${DATA}
 mov edi, ${RESULT + 8 + c * RECORD + 256}
 mov ecx, 8192
 rep movsb
+${XMM.map((x, i) => `movdqu [${RESULT + 8 + c * RECORD + 8448 + i * 16}], ${x}`).join("\n")}
 mov edi, ${DATA}
 mov ecx, 8192
 mov al, 0x5A
 rep stosb
 jmp 0x18:back_to_64
+align 16
+xmm_init_${c}:
+${Array.from({length: 32}, () => `dd 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}`).join("\n")}
 `;
     }
     const source = long_mode_guest(body, `
@@ -233,6 +270,8 @@ jmp [0x2FF000]
             const diffs = [];
             for(let i = 0; i < 9; i++) if(a.readUInt32LE(i * 4) !== b.readUInt32LE(i * 4)) diffs.push(`${names[i]}: interpreter ${a.readUInt32LE(i * 4).toString(16)} page ${b.readUInt32LE(i * 4).toString(16)}`);
             for(let i = 256; i < 256 + 8192; i++) if(a[i] !== b[i]) { diffs.push(`data+${i - 256}: ${a[i].toString(16)} vs ${b[i].toString(16)}`); if(diffs.length > 24) break; }
+            for(let i = 0; i < 8; i++) if(!a.subarray(8448 + i * 16, 8464 + i * 16).equals(b.subarray(8448 + i * 16, 8464 + i * 16)))
+                diffs.push(`xmm${i}: interpreter ${a.subarray(8448 + i * 16, 8464 + i * 16).toString("hex")} page ${b.subarray(8448 + i * 16, 8464 + i * 16).toString("hex")}`);
             console.log(`FAIL guest ${guest} (seed ${first_seed}) case ${c}:\n  ` + diffs.join("\n  "));
             if(process.env.COMPAT_FUZZ_VERBOSE) console.log(programs[c]);
         }

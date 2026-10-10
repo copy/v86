@@ -1210,6 +1210,41 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::Movs { .. }
             | Op::Stos { .. }
             | Op::RepCompare { .. }
+            // (EFLAGS as the 32-bit interpreter leaves them, or none)
+            | Op::Bt { .. }
+            | Op::Bswap { .. }
+            | Op::Flag { .. }
+            | Op::Lahf
+            | Op::Sahf
+            | Op::CompareExchange { .. }
+            | Op::MovSreg { .. }
+            | Op::Movbe { .. }
+            // SSE, AVX and their templates (XMM0-7 only: no REX or VEX.R)
+            | Op::Vmove { .. }
+            | Op::Vlogic { .. }
+            | Op::Vfp { .. }
+            | Op::MovdIn { .. }
+            | Op::MovdOut { .. }
+            | Op::Vpacked { .. }
+            | Op::Vstrings { .. }
+            | Op::Vround { .. }
+            | Op::VshiftImm { .. }
+            | Op::Vzeroupper
+            | Op::Vmove256 { .. }
+            | Op::Vzeroall
+            | Op::Vpacked256 { .. }
+            | Op::Vinsert128 { .. }
+            | Op::Vperm2 { .. }
+            | Op::Vmovmsk256 { .. }
+            | Op::Vbroadcast { .. }
+            | Op::Vmovmsk { .. }
+            | Op::Vcmp { .. }
+            | Op::Vblendv { .. }
+            | Op::Vcvt { .. }
+            | Op::Vconvert { .. }
+            | Op::Vcompare { .. }
+            | Op::Vfused { .. }
+            | Op::Mxcsr { .. }
     )
 }
 
@@ -6253,6 +6288,9 @@ impl Emitter {
                             self.c64(log - 3);
                             self.b.shl_i64();
                             self.b.add_i64();
+                            if self.env.compat {
+                                self.wrap32();
+                            }
                         }
                         self.s(ADDR);
                         self.host(width as u32 / 8, action != 0, start);
