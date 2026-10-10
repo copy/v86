@@ -3922,6 +3922,12 @@ impl Emitter {
         e.set_exit(EXIT_UNKNOWN);
         e.b.br(exit);
         e.levels.push(level);
+        if blocks
+            .iter()
+            .any(|b| b.insts.iter().any(|i| matches!(i.op, Op::X87 { .. })))
+        {
+            e.x87_cache_locals();
+        }
         e.units(&units, blocks, index);
         let mark = e.b.body_len();
         e.b.unreachable();
@@ -8529,12 +8535,11 @@ impl Emitter {
             },
         }
     }
-    /// Open the x87 cache (Emitter::x87_cache) unless the emitted code has:
-    /// loaded from the CPU state unless the runtime flag says it is open
-    fn x87_cache_open(&mut self) {
-        if self.x87_known_open {
-            return;
-        }
+    /// The x87 cache's locals (Emitter::x87_cache), made once: from the
+    /// start in a function with x87 forms, as Tier-0's, so that x87_close
+    /// closes it in code emitted before them too (an MMX form at the top of
+    /// a loop whose x87 forms, below it, left the cache open)
+    fn x87_cache_locals(&mut self) {
         if self.x87_cache.is_none() {
             let b = &mut self.b;
             self.x87_cache = Some(X87Cache {
@@ -8545,6 +8550,14 @@ impl Emitter {
             });
             self.x87_is_open = Some(b.declare_zeroed_local());
         }
+    }
+    /// Open the x87 cache (Emitter::x87_cache) unless the emitted code has:
+    /// loaded from the CPU state unless the runtime flag says it is open
+    fn x87_cache_open(&mut self) {
+        if self.x87_known_open {
+            return;
+        }
+        self.x87_cache_locals();
         let c = self.x87_cache.as_ref().unwrap().unsafe_clone();
         let is_open = self.x87_is_open.as_ref().unwrap().unsafe_clone();
         let [_, valid, dirty] = crate::cpu::fpu::x87_cache_addresses();
