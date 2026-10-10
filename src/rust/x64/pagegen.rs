@@ -1232,6 +1232,14 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
     if d.address.is_some_and(|a| a.address_size != 32) {
         return false;
     }
+    // (BMI as cpu::bmi in every engine; VEX.W1 is no 64-bit operand here and
+    // VEX.vvvv names EAX..EDI: others step)
+    if let Op::Bmi {
+        width, dst, other, ..
+    } = op
+    {
+        return *width == 32 && dst.index < 8 && other.index < 8;
+    }
     matches!(
         op,
         Op::Alu { .. }
@@ -1277,6 +1285,9 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::CompareExchange { .. }
             | Op::MovSreg { .. }
             | Op::Movbe { .. }
+            | Op::BitScan { .. }
+            | Op::Popcnt { .. }
+            | Op::DoubleShift { width: 32, .. }
             // SSE, AVX and their templates (XMM0-7 only: no REX or VEX.R)
             | Op::Vmove { .. }
             | Op::Vlogic { .. }
@@ -2496,6 +2507,16 @@ fn effects(op: &Op, compat: bool) -> (u32, u32) {
     // whose helper call a loop's DEC ECX paid every iteration)
     if compat && matches!(op, Op::IncDec { .. }) {
         return (CF, ARITH & !CF);
+    }
+    // (compatibility mode: the 32-bit interpreter's BSF and BSR write every
+    // flag (CF clear, SF, PF, AF and OF of their lazy record), and SHLD and
+    // SHRD with a nonzero count too)
+    match (compat, op) {
+        (true, Op::BitScan { .. }) => return (0, ARITH),
+        (true, Op::DoubleShift { width, count, .. }) => {
+            return if shift_count(*width, *count) == 0 { (0, 0) } else { (0, ARITH) };
+        },
+        _ => {},
     }
     // (compatibility mode: the 32-bit interpreter's shifts write OF for any
     // count, and SHL, SHR and SAR AF; a zero count changes nothing)
@@ -5445,6 +5466,34 @@ impl Emitter {
         self.c32(AF as i32);
         self.b.and_i32();
     }
+    /// Compatibility mode: `bits` (of SF, ZF, PF, AF and OF) pending in the
+    /// lazy record as the 32-bit interpreter's EFLAGS leave them after a
+    /// result TR at `width` of an operation that kept last_op1 (shifts,
+    /// multiplies, SHLD, SHRD, BSF, BSR): its getters take SF, ZF and PF of
+    /// the result, AF and OF of last_op1 and the result as of an addition
+    /// (cpu::misc_instr::getaf, getof), which x64_page_flags gives as ADD of
+    /// last_op1 and result - last_op1. It replaces any pending record: these
+    /// instructions write every flag.
+    fn legacy_record(&mut self, width: u8, bits: u32) {
+        let op1 = self.last_op1.as_ref().unwrap().unsafe_clone();
+        self.b.get_local(&op1);
+        self.b.extend_unsigned_i32_to_i64();
+        self.s(FA);
+        self.g(TR);
+        self.g(FA);
+        self.b.sub_i64();
+        self.mask_to(32);
+        self.s(FB);
+        self.g(TR);
+        self.s(FR);
+        let size = match width {
+            8 => 0,
+            16 => 1,
+            _ => 2,
+        };
+        self.c32((size << 20 | bits) as i32);
+        self.si(FK);
+    }
     /// Compatibility mode (P7.2): a 32-bit ROL, ROR, SHL, SHR or SAR (code
     /// 0, 1, 4 or 6, 5, 7) as the 32-bit interpreter computes it
     /// (cpu::arith::rol32 and kin): the count masked to 5 bits; CF and OF by
@@ -5452,11 +5501,10 @@ impl Emitter {
     /// top bits, SHL: CF ^ MSB, SHR: the operand's MSB, SAR: 0); SHL, SHR
     /// and SAR then leave SF, ZF and PF of the result and AF from last_op1;
     /// a zero count changes no flag. `count`: an immediate, else CL. The
-    /// EFLAGS bits in `need` only; of SHL, SHR and SAR, SF, ZF and PF that
-    /// no later instruction reads (only a way out may observe them, P4.23)
-    /// stay pending in the lazy record as OR with 0 gives them
-    /// (x64_page_flags), as Tier-0 leaves them to the interpreter's lazy
-    /// EFLAGS: returned, they are not written into FL
+    /// EFLAGS bits in `need` only; of SHL, SHR and SAR, SF, ZF, PF and AF
+    /// that no later instruction reads (only a way out may observe them,
+    /// P4.23) stay pending (legacy_record), as Tier-0 leaves them to the
+    /// interpreter's lazy EFLAGS: returned, they are not written into FL
     fn legacy_shift32(
         &mut self,
         inst: &Inst,
@@ -5496,8 +5544,12 @@ impl Emitter {
             return 0;
         }
         // (a count of zero keeps every flag: the record too, see Op::Shift)
-        let lazy =
-            if rotate || !self.env.exit_flags { 0 } else { need & (SF | ZF | PF) & !inst.live_out };
+        let lazy = if rotate || !self.env.exit_flags {
+            0
+        }
+        else {
+            need & (SF | ZF | PF | AF) & !inst.live_out
+        };
         let need = need & !lazy;
         if count.is_none() {
             self.g(TB);
@@ -5506,15 +5558,7 @@ impl Emitter {
             self.b.if_void();
         }
         if lazy != 0 {
-            // (SHL, SHR and SAR write all six: the record replaces any other)
-            self.g(TR);
-            self.s(FA);
-            self.g(TR);
-            self.s(FR);
-            self.c64(0);
-            self.s(FB);
-            self.c32((1 << 16 | 2 << 20 | lazy) as i32);
-            self.si(FK);
+            self.legacy_record(32, lazy);
         }
         self.flags_begin(need);
         let mut first = true;
@@ -6327,8 +6371,16 @@ impl Emitter {
                 else {
                     inst.writes
                 };
+                // (compatibility mode: SF, ZF, PF and AF only a way out may
+                // observe stay pending, legacy_record)
+                let lazy = if self.env.compat && self.env.exit_flags {
+                    need & (SF | ZF | PF | AF) & !inst.live_out
+                }
+                else {
+                    0
+                };
                 if need != 0 {
-                    self.flags_begin(need);
+                    self.flags_begin(need & !lazy);
                     if width == 64 {
                         // the high half is not the sign extension of the low
                         self.mul_high(TA, TB, true);
@@ -6348,10 +6400,13 @@ impl Emitter {
                     self.c32(need as i32);
                     self.b.and_i32();
                     if self.env.compat {
-                        self.legacy_mul_flags(width, need, &mut false);
+                        self.legacy_mul_flags(width, need & !lazy, &mut false);
                     }
                     self.flags_end(false);
-                    self.written(need);
+                    if lazy != 0 {
+                        self.legacy_record(width, lazy);
+                    }
+                    self.written(need & !lazy);
                 }
             },
             Op::MulWide { signed, width, src } => {
@@ -6397,8 +6452,16 @@ impl Emitter {
                 else {
                     inst.writes
                 };
+                // (compatibility mode: SF, ZF, PF and AF only a way out may
+                // observe stay pending, legacy_record)
+                let lazy = if self.env.compat && self.env.exit_flags {
+                    need & (SF | ZF | PF | AF) & !inst.live_out
+                }
+                else {
+                    0
+                };
                 if need != 0 {
-                    self.flags_begin(need);
+                    self.flags_begin(need & !lazy);
                     match (signed, width) {
                         (false, _) => {
                             self.g(TV);
@@ -6424,10 +6487,13 @@ impl Emitter {
                     self.c32(need as i32);
                     self.b.and_i32();
                     if self.env.compat {
-                        self.legacy_mul_flags(width, need, &mut false);
+                        self.legacy_mul_flags(width, need & !lazy, &mut false);
                     }
                     self.flags_end(false);
-                    self.written(need);
+                    if lazy != 0 {
+                        self.legacy_record(width, lazy);
+                    }
+                    self.written(need & !lazy);
                 }
             },
             // (compatibility mode: 4-byte slots, ESP and EIP wrapped; P7.2)
@@ -6793,6 +6859,58 @@ impl Emitter {
                 self.b.and_i32();
                 self.flags_end(false);
                 self.written(CF);
+            },
+            Op::BitScan {
+                reverse,
+                width,
+                dst,
+                src,
+            } if self.env.compat => {
+                // (the 32-bit interpreter's bsf32 and kin: the destination
+                // kept for a zero source; CF clear, ZF of the source, SF, PF,
+                // AF and OF of the index, 0 for a zero source, as its lazy
+                // record leaves them: legacy_record)
+                self.read(src, width, inst);
+                self.s(TA);
+                self.is_zero(TA);
+                self.b.if_void();
+                self.c64(0);
+                self.s(TR);
+                self.b.else_();
+                if reverse {
+                    self.c64(63);
+                    self.g(TA);
+                    self.b.clz_i64();
+                    self.b.sub_i64();
+                }
+                else {
+                    self.g(TA);
+                    self.b.ctz_i64();
+                }
+                self.s(TR);
+                self.g(TR);
+                self.set_reg(dst, width);
+                self.b.block_end();
+                let need = if self.env.exit_flags {
+                    inst.writes & (inst.live_out | inst.exit_live)
+                }
+                else {
+                    inst.writes
+                };
+                let lazy = need & (SF | PF | AF | OF);
+                if need & (CF | ZF) != 0 {
+                    self.flags_begin(need & (CF | ZF));
+                    if need & ZF != 0 {
+                        self.is_zero(TA);
+                        self.c32(6);
+                        self.b.shl_i32();
+                    }
+                    self.flags_end(need & ZF == 0);
+                }
+                if lazy != 0 {
+                    self.legacy_record(width, lazy);
+                }
+                self.written(inst.writes & !lazy);
             },
             Op::BitScan {
                 reverse,
@@ -7179,6 +7297,85 @@ impl Emitter {
                     self.set_reg(r, width);
                 },
                 Opnd::Imm(_) => unreachable!(),
+            },
+            Op::DoubleShift {
+                left,
+                width: 32,
+                dst,
+                src,
+                count,
+            } if self.env.compat => {
+                // (the 32-bit interpreter's shld32 and shrd32: CF the last
+                // bit shifted out, OF for SHLD by 1 the sign change, else
+                // clear, for SHRD by any count; SF, ZF, PF and AF of the
+                // result as its lazy record leaves them; a zero count keeps
+                // every flag)
+                let count = shift_count(32, count) as u64;
+                self.read_dst(dst, 32, true, inst);
+                self.s(TA);
+                if count == 0 {
+                    self.write_dst(dst, 32, TA);
+                }
+                else {
+                    self.get_reg(src, 32);
+                    self.s(TB);
+                    self.g(TA);
+                    self.c64(count);
+                    if left {
+                        self.b.shl_i64()
+                    }
+                    else {
+                        self.b.shr_u_i64()
+                    }
+                    self.g(TB);
+                    self.c64(32 - count);
+                    if left {
+                        self.b.shr_u_i64()
+                    }
+                    else {
+                        self.b.shl_i64()
+                    }
+                    self.b.or_i64();
+                    self.mask_to(32);
+                    self.s(TR);
+                    self.write_dst(dst, 32, TR);
+                    let need = if self.env.exit_flags {
+                        inst.writes & (inst.live_out | inst.exit_live)
+                    }
+                    else {
+                        inst.writes
+                    };
+                    let lazy = need & (SF | ZF | PF | AF) & !inst.live_out;
+                    let eager = need & !lazy;
+                    self.flags_begin(eager);
+                    let mut first = true;
+                    if eager & CF != 0 {
+                        self.bit_of(
+                            TA,
+                            if left { (32 - count) as u8 } else { (count - 1) as u8 },
+                            0,
+                        );
+                        self.join(&mut first);
+                    }
+                    if eager & OF != 0 && (!left || count == 1) {
+                        self.g(TA);
+                        self.g(TR);
+                        self.b.xor_i64();
+                        self.s(TX);
+                        self.bit_of(TX, 31, 11);
+                        self.join(&mut first);
+                    }
+                    self.szp(TR, eager, 32, &mut first);
+                    if eager & AF != 0 {
+                        self.legacy_af();
+                        self.join(&mut first);
+                    }
+                    self.flags_end(first);
+                    if lazy != 0 {
+                        self.legacy_record(32, lazy);
+                    }
+                    self.written(inst.writes & !lazy);
+                }
             },
             Op::DoubleShift {
                 left,

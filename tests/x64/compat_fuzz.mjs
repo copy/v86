@@ -131,8 +131,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 49);
-    while(SKIP.has(which)) which = int(0, 49);
+    let which = int(0, 54);
+    while(SKIP.has(which)) which = int(0, 54);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -186,6 +186,37 @@ function instruction(state)
         // indirect transfers inside the loop to its own code: a CALL and RET
         // in the page, a jump table (dispatched by the loop's head, P7.2)
         case 48: { const n = state.labels++; return `call .f${n}\njmp .e${n}\n.f${n}:\n${simple()}\nret\n.e${n}:`; }
+        // bit scans, counts, SHLD/SHRD and BMI (the 32-bit interpreter's
+        // flags: BSF/BSR and SHLD/SHRD leave lazy ones), sources often small
+        // or 0, then a condition on what they set
+        case 50: case 52: case 53: {
+            const t = pick(GPR32.filter(r => r !== "ecx"));
+            // (added up in the data the test compares: registers are often
+            // overwritten, and XOR or a byte store keeps only some rounds)
+            const set = cc => (random() < 0.5 ? `\nset${pick(cc)} al\nmovzx eax, al` : `\npushfd\npop eax`) +
+                `\nadd dword [ebp+${int(0, 8188) & ~3}], eax`;
+            return pick([
+                `and ${t}, ${int(0, 3)}\n${pick(["bsf", "bsr"])} ${reg(32)}, ${t}${set(["z", "nz", "p", "np", "s", "o", "b"])}`,
+                `${pick(["bsf", "bsr"])} ${reg(w16)}, ${rm(w16)}${set(["z", "nz", "p", "o"])}`,
+                `and ${t}, ${int(0, 3)}\npopcnt ${reg(32)}, ${t}${set(["z", "nz", "b", "p", "o"])}`,
+                `and ${t}, ${pick([0, 0xFF, 0xFFFF0000])}\n${pick(["tzcnt", "lzcnt"])} ${reg(32)}, ${t}${set(["z", "nz", "b", "ae", "s"])}`,
+                `${pick(["shld", "shrd"])} ${rm(32)}, ${reg(32)}, ${pick([1, 2, int(0, 31), 31])}${set(["o", "no", "b", "ae", "z", "s", "p"])}`,
+                // (operands loaded first: the program's values are often small)
+                (([d, r]) => `mov ${d}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\nmov ${r}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}\n` +
+                    `${pick(["shld", "shrd"])} ${d}, ${r}, ${int(1, 31)}${set(["o", "no", "b", "ae", "z", "s", "p"])}`)(pick([["ebx", "esi"], ["edi", "edx"], ["esi", "ebx"]])),
+                `${pick(["shld", "shrd"])} ${rm(w16)}, ${reg(w16)}, cl`,
+            ]);
+        }
+        case 51: case 54: {
+            const t = pick(GPR32);
+            // (added up in the data the test compares: registers are often
+            // overwritten, and XOR or a byte store keeps only some rounds)
+            const set = cc => (random() < 0.5 ? `\nset${pick(cc)} al\nmovzx eax, al` : `\npushfd\npop eax`) +
+                `\nadd dword [ebp+${int(0, 8188) & ~3}], eax`;
+            return pick([`and ${t}, ${int(0, 3)}\nandn ${reg(32)}, ${reg(32)}, ${t}`, `and ${t}, ${int(0, 3)}\n${pick(["blsr", "blsmsk", "blsi"])} ${reg(32)}, ${t}`,
+                `bzhi ${reg(32)}, ${rm(32)}, ${reg(32)}`, `${pick(["shlx", "sarx", "shrx"])} ${reg(32)}, ${rm(32)}, ${reg(32)}`,
+                `rorx ${reg(32)}, ${rm(32)}, ${int(0, 31)}`]) + set(["z", "nz", "b", "ae", "s", "o"]);
+        }
         case 49: {
             const n = state.labels++, r = pick(["ebx", "edx", "esi"]);
             return `mov ${r}, ${reg(32)}\nand ${r}, 3\njmp [.t${n}+${r}*4]\n.t${n}: dd .a${n}, .b${n}, .c${n}, .d${n}\n` +
@@ -282,6 +313,7 @@ jmp [0x2FF000]
         // (JIT_SWITCHES adds switches, e.g. x64_loops=1 for loops in cold compiles)
         const emulator = new V86(with_jit_switches({graphics_adapter: "bochs_vga", multiboot: {url: dir + "guest.bin"}, memory_size: 32 << 20, acpi: true,
             disable_jit: !jit, experimental_smp_jit: true, ir_sync_publication: true, autostart: false, log_level: 0,
+            cpu_type: "x86_64", cpu_features: ["BMI1", "BMI2", "LZCNT", "MOVBE"], cpu_features_unreleased: true,
             jit_switches: {x64_page_compat32: 1}}));
         try
         {
