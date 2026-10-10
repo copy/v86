@@ -28,6 +28,7 @@ use crate::ir::frontend::decode::{DecodedInstruction, EffectiveAddress, Flow};
 use crate::ir::helper::imports::signature;
 use crate::ir::x87::Io;
 use crate::x86tpl::x87::{x87_native, X87Cache, X87Words};
+use crate::x86tpl::x87run::X87Run;
 
 #[path = "simd.rs"]
 mod simd;
@@ -3997,8 +3998,11 @@ fn emit_units(
                 let mut j = 0;
                 while j < insts.len() {
                     // A run of register-only x87 forms: one guard, f64 locals.
-                    let mut run = x87run::Plan::new();
-                    while j + run.length < insts.len() && run.append(&insts[j + run.length]) {}
+                    let mut run = X87Run::new();
+                    while insts
+                        .get(j + run.length)
+                        .is_some_and(|i| x87run::append(&mut run, i))
+                    {}
                     if run.length >= 3 && X87_RUNS {
                         p.x87_open();
                         let done = p.w.block_void();

@@ -32,6 +32,7 @@ use crate::wasmgen::wasm_builder::{
 use crate::wasmgen::wasm_opcodes as op;
 use crate::x86tpl::vec::{self, Packed};
 use crate::x86tpl::x87::{x87_native, X87Cache, X87Words};
+use crate::x86tpl::x87run::{x87_run, X87Run};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// x64_pagegen_size_stats: Wasm bytes emitted per template kind (count,
@@ -2258,6 +2259,27 @@ fn xmm_worth(block: &Block, fast_check: bool) -> Vec<u16> {
     worth
 }
 /// (`fast_check`: CompileEnv::sse_fast_check, whose Op::Vfp is a template)
+/// The run of register-only x87 forms (x86tpl::x87run) that `insts`
+/// start with, if three or more (Tier-0's threshold) join it; never an
+/// instruction that runs into the next page (Inst::straddle checks it)
+fn x87_run_at(insts: &[Inst]) -> Option<X87Run> {
+    let mut run = X87Run::new();
+    while let Some(inst) = insts.get(run.length) {
+        let joins = match inst.op {
+            Op::X87 {
+                opcode,
+                modrm,
+                io: crate::ir::x87::Io::Stack,
+                ..
+            } if inst.straddle.is_none() => run.append(opcode, modrm),
+            _ => false,
+        };
+        if !joins {
+            break;
+        }
+    }
+    (run.length >= 3).then_some(run)
+}
 fn xmm_use(op: &Op, fast_check: bool) -> XmmUse {
     let bit = |n: u8| 1u16 << n;
     let reg = |x: &Xmm| match x {
@@ -4160,9 +4182,22 @@ impl Emitter {
         }
         let worth =
             if self.env.xmm_locals { xmm_worth(block, self.env.sse_fast_check) } else { vec![] };
-        for (i, inst) in block.insts.iter().enumerate() {
+        let mut i = 0;
+        while i < block.insts.len() {
+            if let Some(run) = self
+                .env
+                .compat
+                .then(|| x87_run_at(&block.insts[i..]))
+                .flatten()
+            {
+                let insts = &block.insts[i..i + run.length];
+                self.x87_run(insts, &run, index);
+                i += run.length;
+                continue;
+            }
             self.xmm_worth = worth.get(i).copied().unwrap_or(0);
-            self.instruction(inst, index);
+            self.instruction(&block.insts[i], index);
+            i += 1;
         }
         // (the next block, whose code may follow, starts from memory)
         self.xmm_release();
@@ -7693,10 +7728,6 @@ impl Emitter {
             },
         }
     }
-    /// Retry unless the vector instruction may execute (the interpreter
-    /// raises #UD or #NM): sse_check, or for a VEX form CR0.TS clear,
-    /// CR4.OSXSAVE set and XCR0 with SSE and AVX state (CR0.EM and
-    /// CR4.OSFXSR do not matter)
     /// Open the x87 cache (Emitter::x87_cache): load it from the CPU state
     fn x87_cache_open(&mut self) {
         if self.x87_open {
@@ -7765,6 +7796,33 @@ impl Emitter {
         self.b.and_i32();
         self.b.if_void();
         self.leave_to(self.f().retry, start);
+        self.b.block_end();
+    }
+    /// A run of register-only x87 forms (P7.2a, x86tpl::x87run, as Tier-0
+    /// compiles it): one guard and f64 locals, else the forms one by one
+    fn x87_run(&mut self, insts: &[Inst], run: &X87Run, index: &BTreeMap<u16, usize>) {
+        self.x87_check(insts[0].d.start.0);
+        self.x87_cache_open();
+        let done = self.b.block_void();
+        let slow = self.b.block_void();
+        self.b.load_fixed_u8(gp::x87_native_policy as u32);
+        self.b.eqz_i32();
+        self.b.hint(false);
+        self.b.br_if(slow);
+        let cache = self.x87_cache.as_ref().unwrap().unsafe_clone();
+        x87_run(&mut self.b, &cache, run, slow);
+        if !self.env.block_count {
+            self.gi(N);
+            self.c32(insts.len() as i32);
+            self.b.add_i32();
+            self.si(N);
+        }
+        self.b.br(done);
+        self.b.block_end();
+        for inst in insts {
+            self.xmm_worth = 0;
+            self.instruction(inst, index);
+        }
         self.b.block_end();
     }
     /// Compatibility mode's x87 form (P7.2a) as Tier-0 emits it (ir::tier0
@@ -7875,6 +7933,10 @@ impl Emitter {
             self.store(bytes * 8);
         }
     }
+    /// Retry unless the vector instruction may execute (the interpreter
+    /// raises #UD or #NM): sse_check, or for a VEX form CR0.TS clear,
+    /// CR4.OSXSAVE set and XCR0 with SSE and AVX state (CR0.EM and
+    /// CR4.OSFXSR do not matter)
     fn vector_check(&mut self, inst: &Inst, start: u64) {
         // (P4.18: once per block; nothing a block compiles changes CR0, CR4
         // or XCR0)

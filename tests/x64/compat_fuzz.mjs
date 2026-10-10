@@ -105,6 +105,14 @@ function x87_instruction()
         `fld qword ${vmem(8, false)}\nfld qword ${vmem(8, false)}\nf${pick(["comi", "ucomi"])}p st0, st1\nfstp st0\nset${pick(["b", "e", "a", "p"])} dl`,
         `fld dword ${vmem(4, false)}\nfld dword ${vmem(4, false)}\nfcmov${pick(["b", "e", "be", "u", "nb", "ne", "nbe", "nu"])} st0, st1\nfstp dword ${vmem(4, false)}\nfstp st0`,
         `fnstcw word ${vmem(2, false)}\nfld dword ${vmem(4, false)}\nfstp qword ${vmem(8, false)}`,
+        // register-only runs (x86tpl::x87run; integer operands: magnitudes
+        // where every operation shows): reversed forms, FST/FXCH, FFREE, and
+        // a run whose guard fails (ST(5) empty: masked underflow)
+        `fild word ${vmem(2, false)}\nfld1\nfld st1\nfdivr st0, st1\nfsubp st2, st0\nfxch st1\nfstp qword ${vmem(8, false)}\nfstp qword ${vmem(8, false)}`,
+        `fild dword ${vmem(4, false)}\nfld st0\nfst st1\nfmul st0, st1\nfsub st0, st1\nfdiv st0, st1\nfstp qword ${vmem(8, false)}\nfstp qword ${vmem(8, false)}`,
+        `fild word ${vmem(2, false)}\nfld st0\nfmul st0, st1\nfxch st1\nfchs\nfabs\nfsubrp st1, st0\nfstp qword ${vmem(8, false)}`,
+        `fld1\nfldz\nfxch st1\nffree st1\nfstp qword ${vmem(8, false)}`,
+        `fld st5\nfld st0\nfmulp st1, st0\nfstp qword ${vmem(8, false)}`,
     ]);
 }
 const CC = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
