@@ -557,7 +557,14 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 }
                 step_profile::note_event(event::MISS, event::MISS_UNSERVED);
                 // Meanwhile the function steps from here to its next block
-                // start (pagegen: unserved dispatch) and notes the entry.
+                // start (pagegen: unserved dispatch) and notes the entry,
+                // unless the interpreter ran up to here (as while the
+                // function compiled): straight-line code is no entry, as in
+                // note_entry's `far`, and a block start there would split a
+                // loop body in the next (hot) compile
+                if !far {
+                    LAST_UNSERVED = last;
+                }
                 r.clock += 1;
                 r.functions[i].last_used = r.clock;
                 let slot = r.functions[i].slot;
