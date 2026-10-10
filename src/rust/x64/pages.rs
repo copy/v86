@@ -432,6 +432,7 @@ fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BAS
 static mut COMPAT32: bool = false;
 #[no_mangle]
 pub unsafe fn x64_page_set_compat32(enabled: bool) { COMPAT32 = enabled; }
+pub unsafe fn compat32() -> bool { COMPAT32 }
 /// The current code runs in the page tier as 32-bit compatibility-mode
 /// code: 32-bit CS, a 32-bit stack, and CS, DS, ES and SS with base 0 (as
 /// WOW64's are; FS and GS bases are added at each access). Generated code

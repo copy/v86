@@ -14,7 +14,7 @@
 //! execution counter, loops, XMM locals, the fast SSE checks, 32-bit
 //! operations in i32, the fast lookups, the chained GPRs, EFLAGS by what
 //! observes them; u16: the access cache's entries; u8: the code's mode, 1
-//! for 32-bit compatibility mode).
+//! for 32-bit compatibility mode, bit 1 its lookups in the 32-bit TLB).
 
 use super::pagegen::{compile_with, CompileEnv};
 use crate::wasmgen::wasm_builder::WasmBuilder;
@@ -63,8 +63,9 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
             | (env.exit_flags as u8) << 7,
     );
     r.extend_from_slice(&(env.jac_entries as u16).to_le_bytes());
-    // (P7.2: the code's mode, absent from older records)
-    r.push(env.compat as u8);
+    // (P7.2: the code's mode, absent from older records; bit 1: its
+    // lookups in the 32-bit TLB, x64_compat_tlb)
+    r.push(env.compat as u8 | (env.compat_tlb as u8) << 1);
     r
 }
 
@@ -110,7 +111,8 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
     );
     let exit_flags = trailer & 128 != 0;
     let jac_entries = r.u16().map_or(1024, u32::from);
-    let compat = r.bytes(1).is_some_and(|b| b[0] & 1 != 0);
+    let mode = r.bytes(1).map_or(0, |b| b[0]);
+    let (compat, compat_tlb) = (mode & 1 != 0, mode & 2 != 0);
     let env = CompileEnv::replay(
         bit(1),
         bit(2),
@@ -129,6 +131,7 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
         fast_chain,
         exit_flags,
         compat,
+        compat_tlb,
     );
     compile_with(&env, &bytes, &next, &entries, name).map(|compiled| compiled.bytes)
 }
@@ -199,7 +202,7 @@ pub fn corpus() -> Vec<Vec<u8>> {
     // (the templates of every switch, so that their bytes are pinned)
     let env = CompileEnv::replay(
         true, true, true, false, false, true, false, false, 1024, false, false, true, false, false,
-        false, false, false,
+        false, false, false, false,
     );
     let mut records = Vec::new();
     let mut seen = std::collections::HashSet::new();

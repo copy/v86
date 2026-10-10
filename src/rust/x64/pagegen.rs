@@ -23,6 +23,9 @@
 use super::decode::{self, AddressBase, AddressExpr, ByteRegister, Decoded};
 use super::jac;
 use super::state::{gpr_high_offset, gpr_low_offset, ExecutionMode, GuestIp};
+use crate::cpu::cpu::{
+    TLB_GLOBAL, TLB_HAS_CODE, TLB_IA32E_DATA, TLB_NO_USER, TLB_READONLY, TLB_VALID,
+};
 use crate::cpu::global_pointers as gp;
 use crate::ir::tier0::analysis::Unit;
 use crate::wasmgen::leaves::{self, Shift};
@@ -2259,6 +2262,21 @@ fn xmm_worth(block: &Block, fast_check: bool) -> Vec<u16> {
     worth
 }
 /// (`fast_check`: CompileEnv::sse_fast_check, whose Op::Vfp is a template)
+/// The 32-bit TLB entry bits that must read TLB_VALID for a read or a
+/// write in compatibility mode (Emitter::host_tlb; Tier-0's masks): valid,
+/// for a write writable and without code, for user code a user page; not
+/// device memory (TLB_IN_MAPPED_RANGE)
+fn tlb_read_mask(user: bool) -> i32 {
+    0xFFF
+        & !TLB_READONLY
+        & !TLB_GLOBAL
+        & !TLB_HAS_CODE
+        & !TLB_IA32E_DATA
+        & if user { !0 } else { !TLB_NO_USER }
+}
+fn tlb_write_mask(user: bool) -> i32 {
+    0xFFF & !TLB_GLOBAL & !TLB_IA32E_DATA & if user { !0 } else { !TLB_NO_USER }
+}
 /// The run of register-only x87 forms (x86tpl::x87run) that `insts`
 /// start with, if three or more (Tier-0's threshold) join it; never an
 /// instruction that runs into the next page (Inst::straddle checks it)
@@ -2820,6 +2838,9 @@ pub struct CompileEnv {
     /// addresses wrap at 4 GiB, only the GPRs' low halves are read and
     /// written back, as the 32-bit interpreter does under WOW64
     pub compat: bool,
+    /// Compatibility mode's memory operands look up the 32-bit TLB
+    /// (x64_compat_tlb, Emitter::host_tlb) instead of the access cache
+    pub compat_tlb: bool,
     /// The page's execution counter, incremented at each entry and dispatch
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
@@ -2863,6 +2884,7 @@ impl CompileEnv {
                 fast_chain: FAST_CHAIN && !compat,
                 exit_flags: EXIT_FLAGS,
                 compat,
+                compat_tlb: compat && COMPAT_TLB,
                 counter,
                 sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
@@ -2895,6 +2917,7 @@ impl CompileEnv {
         fast_chain: bool,
         exit_flags: bool,
         compat: bool,
+        compat_tlb: bool,
     ) -> CompileEnv {
         CompileEnv {
             bucket_dispatch,
@@ -2913,6 +2936,7 @@ impl CompileEnv {
             fast_chain,
             exit_flags,
             compat,
+            compat_tlb,
             counter: counting.then_some(0x0000_0E80),
             sse_fp_operands: 0x0000_0E00,
             core_yield: 0x0000_0D00,
@@ -3373,6 +3397,9 @@ struct Emitter {
     x87_is_open: Option<WasmLocal>,
     /// the emitted code has opened the x87 cache on every path to here
     x87_known_open: bool,
+    /// CompileEnv::compat_tlb: the 32-bit TLB's address and the access
+    /// masks of the activation's CPL (read, write), set by the prologue
+    tlb: Option<[WasmLocal; 3]>,
     /// what else the bytes depend on
     env: CompileEnv,
 }
@@ -3399,6 +3426,9 @@ const VECTOR_X87: u8 = 4;
 /// page-sized table (x64_page_set_bucket_dispatch).
 static mut BUCKET_DISPATCH: bool = true;
 const DISPATCH_SHIFT: u32 = 4;
+/// Compatibility mode's page dispatch: one table over the block starts'
+/// span up to this many bytes (else buckets)
+const SPAN_TABLE: usize = 1024;
 #[no_mangle]
 pub fn x64_page_set_bucket_dispatch(enabled: bool) { unsafe { BUCKET_DISPATCH = enabled } }
 /// Native instructions are counted once per block at its entry instead of
@@ -3492,6 +3522,14 @@ const CHAINED_GPRS: i32 = 1 << 31;
 static mut EXIT_FLAGS: bool = true;
 #[no_mangle]
 pub fn x64_page_set_exit_flags(enabled: bool) { unsafe { EXIT_FLAGS = enabled } }
+/// Compatibility mode's memory operands as Tier-0 reads them: inline in the
+/// 32-bit TLB that x64 translations fill in compatibility mode
+/// (cpu::fill_ia32e_tlb), not in the access cache
+/// (docs/jit-unification-plan.md P7.2). x64_page_set_compat_tlb.
+static mut COMPAT_TLB: bool = true;
+#[no_mangle]
+pub fn x64_page_set_compat_tlb(enabled: bool) { unsafe { COMPAT_TLB = enabled } }
+pub fn compat_tlb() -> bool { unsafe { COMPAT_TLB } }
 
 pub fn switch_value(name: &str) -> Option<u32> {
     unsafe {
@@ -3505,6 +3543,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_fast_lookup" => FAST_LOOKUP as u32,
             "x64_fast_chain" => FAST_CHAIN as u32,
             "x64_exit_flags" => EXIT_FLAGS as u32,
+            "x64_compat_tlb" => COMPAT_TLB as u32,
             "x64_bucket_dispatch" => BUCKET_DISPATCH as u32,
             "x64_block_count" => BLOCK_COUNT as u32,
             "x64_outline" => OUTLINE_ACCESS as u32,
@@ -3553,6 +3592,7 @@ impl Emitter {
             x87_cache: None,
             x87_is_open: None,
             x87_known_open: false,
+            tlb: None,
             env: *env,
         };
         let mark = e.b.body_len();
@@ -3593,7 +3633,28 @@ impl Emitter {
             e.c32(4095);
             e.b.and_i32();
         };
-        if e.env.bucket_dispatch {
+        // (compatibility mode: a table over the span of the block starts
+        // when that is small, as Tier-0 dispatches: a loop through a switch
+        // or a call's return is no loop of the static layout, P4.16, and
+        // each of its rounds dispatches here; compare chains in a bucket
+        // mispredict there, P7.2)
+        let (low, high) = (
+            index.keys().next().copied().unwrap_or(0),
+            index.keys().next_back().copied().unwrap_or(0),
+        );
+        let span_table = e.env.compat && (high - low) as usize <= SPAN_TABLE;
+        if span_table {
+            offset(&mut e);
+            if low != 0 {
+                e.c32(low as i32);
+                e.b.sub_i32();
+            }
+            let targets: Vec<Label> = (low..=high)
+                .map(|o| index.get(&o).map_or(bad, |&i| label_of(&level, i)))
+                .collect();
+            e.b.brtable(bad, &mut targets.iter());
+        }
+        else if e.env.bucket_dispatch {
             // Two levels: a table over 16-byte buckets of the page, then the
             // block starts in the bucket (a page-sized table is most of a
             // small function and slow to compile)
@@ -3679,6 +3740,7 @@ impl Emitter {
             x87_words,
             x87_cache,
             x87_is_open,
+            tlb,
             ..
         } = e;
         for l in v {
@@ -3705,6 +3767,9 @@ impl Emitter {
         }
         for l in xmm_locals.into_iter().flatten() {
             b.free_local_v128(l);
+        }
+        for l in tlb.into_iter().flatten() {
+            b.free_local(l);
         }
         std::mem::forget(budget);
         b.finish();
@@ -3826,6 +3891,28 @@ impl Emitter {
             self.reload();
         }
         self.load_rip();
+        if self.env.compat_tlb {
+            // (Tier-0's: supervisor code may use supervisor pages; a step
+            // that changes CPL leaves, see pages::context)
+            let tlb = self.b.declare_zeroed_local();
+            self.b.load_fixed_i32(gp::ir_tlb_base as u32);
+            self.b.set_local(&tlb);
+            let masks = [self.b.declare_zeroed_local(), self.b.declare_zeroed_local()];
+            for (mask, f) in masks
+                .iter()
+                .zip([tlb_read_mask as fn(bool) -> i32, tlb_write_mask])
+            {
+                self.c32(f(true));
+                self.c32(f(false));
+                self.b.load_fixed_u8(gp::cpl as u32);
+                self.c32(3);
+                self.b.eq_i32();
+                self.b.select();
+                self.b.set_local(mask);
+            }
+            let [read, write] = masks;
+            self.tlb = Some([tlb, read, write]);
+        }
         self.b.load_fixed_i32(gp::x64_jac_base as u32);
         self.si(JAC);
         self.c32(gp::x64_jac_epoch as i32);
@@ -4158,9 +4245,24 @@ impl Emitter {
             self.check_canonical(TX, start);
         }
     }
-    /// Continue at the address in RIP (checked by dispatch).
+    /// Continue at the address in RIP (checked by dispatch). In
+    /// compatibility mode inside a loop (P4.16), at the innermost loop's
+    /// head, which dispatches on RIP over its members (else the page
+    /// dispatch): a switch's jump or a call's return in a loop body takes
+    /// one table, not the page's buckets and then the loop's (P7.2)
     fn dispatch(&mut self) {
         self.xmm_writeback();
+        if self.env.compat && self.levels.len() > 1 {
+            // (out of the page: leave, as the page dispatch does)
+            self.g(RIP);
+            self.g(BASE);
+            self.b.sub_i64();
+            self.c64(4096);
+            self.b.op(op::OP_I64GEU);
+            self.b.br_if(self.f().leave);
+            let repeat = self.levels.last().unwrap().repeat;
+            return self.b.br(repeat);
+        }
         self.b.br(self.f().dispatch);
     }
     fn block(&mut self, block: &Block, index: &BTreeMap<u16, usize>) {
@@ -4612,6 +4714,9 @@ impl Emitter {
     /// outlined lookups only)
     fn host_kind(&mut self, (size, aligned): (u32, bool), bits: u32, start: u64, fallback: Label) {
         let write = bits & 0x100 != 0;
+        if self.tlb.is_some() {
+            return self.host_tlb(size, aligned, write, start, fallback);
+        }
         if self.env.outline {
             let f = self.access_function();
             self.g(ADDR);
@@ -4698,6 +4803,129 @@ impl Emitter {
         self.b.block_end();
         self.gi(HH);
         self.b.block_end();
+    }
+    /// host_kind in compatibility mode with x64_compat_tlb (P7.2): Tier-0's
+    /// lookup (ir::tier0 tlb_miss) in the 32-bit TLB, whose entries x64
+    /// translations fill in compatibility mode (cpu::fill_ia32e_tlb, plain
+    /// RAM only; every x64 TLB invalidation clears it too, and code pages'
+    /// entries carry TLB_HAS_CODE): an entry that grants the access to the
+    /// activation's CPL (for a write: writable, no code) for an operand
+    /// inside one page gives the host address, (entry & !0xFFF) ^ address;
+    /// else x64_page_access, which fills the entry, refuses as for other
+    /// lookups (then `fallback`) or serves what the TLB does not hold. With
+    /// x64_fast_lookup, an operand `[register + displacement]` first tries
+    /// the entry its base register's operands of its kind found last, as
+    /// host_fast keeps translations (lookup_kept: the page | 1 << 32, never
+    /// 0 as a forgotten one is, and the entry's mask)
+    fn host_tlb(&mut self, size: u32, aligned: bool, write: bool, start: u64, fallback: Label) {
+        let [tlb, read, written] = self
+            .tlb
+            .as_ref()
+            .unwrap()
+            .each_ref()
+            .map(|l| l.unsafe_clone());
+        let kept = match self.lookup_base {
+            Some(r) if self.env.fast_lookup => Some(r as usize * 2 + write as usize),
+            _ => None,
+        };
+        if let Some(k) = kept {
+            let b = &mut self.b;
+            self.lookup_kept[k]
+                .get_or_insert_with(|| (b.declare_zeroed_local_i64(), b.declare_zeroed_local()));
+        }
+        let split = size > 1 && !aligned;
+        self.g(ADDR);
+        self.b.wrap_i64_to_i32();
+        self.si(OFF);
+        let in_page = |e: &mut Self| {
+            if split {
+                e.gi(OFF);
+                e.c32(0xFFF);
+                e.b.and_i32();
+                e.c32((4096 - size) as i32);
+                e.b.leu_i32();
+                e.b.and_i32();
+                if WasmBuilder::ATOMIC_GUEST_MEMORY {
+                    // (atomic accesses need natural alignment: as host_kind)
+                    e.gi(OFF);
+                    e.c32(size.min(8) as i32 - 1);
+                    e.b.and_i32();
+                    e.b.eqz_i32();
+                    e.b.and_i32();
+                }
+            }
+        };
+        if let Some(k) = kept {
+            self.gi(OFF);
+            self.c32(12);
+            self.b.shr_u_i32();
+            self.b.extend_unsigned_i32_to_i64();
+            self.c64(1 << 32);
+            self.b.or_i64();
+            self.s(TAG);
+            self.g(TAG);
+            self.b
+                .get_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+            self.b.eq_i64();
+            in_page(self);
+            self.b.hint(true);
+            self.b.if_i32();
+            self.b.get_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.gi(OFF);
+            self.b.xor_i32();
+            self.b.else_();
+        }
+        self.b.get_local(&tlb);
+        self.gi(OFF);
+        self.c32(12);
+        self.b.shr_u_i32();
+        self.c32(2);
+        self.b.shl_i32();
+        self.b.add_i32();
+        self.b.load_aligned_i32(0);
+        self.ti(ENT);
+        self.b.get_local(if write { &written } else { &read });
+        self.b.and_i32();
+        self.c32(TLB_VALID);
+        self.b.eq_i32();
+        in_page(self);
+        self.b.hint(true);
+        self.b.if_i32();
+        self.gi(ENT);
+        self.c32(!0xFFF);
+        self.b.and_i32();
+        if let Some(k) = kept {
+            self.b.tee_local(&self.lookup_kept[k].as_ref().unwrap().1);
+            self.g(TAG);
+            self.b
+                .set_local_i64(&self.lookup_kept[k].as_ref().unwrap().0);
+        }
+        self.gi(OFF);
+        self.b.xor_i32();
+        self.b.else_();
+        self.g(ADDR);
+        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+            let f = self.access_function();
+            self.c32(size as i32 | (write as i32) << 8);
+            self.b.call_internal(f);
+        }
+        else {
+            self.c32(size as i32 | (write as i32) << 8);
+            self.b.call_signature(
+                "x64_page_access",
+                Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
+            );
+        }
+        self.ti(HH);
+        self.b.eqz_i32();
+        self.b.if_void();
+        self.leave_to(fallback, start);
+        self.b.block_end();
+        self.gi(HH);
+        self.b.block_end();
+        if kept.is_some() {
+            self.b.block_end();
+        }
     }
     /// host_kind's inline lookup with x64_fast_lookup (P4.21): the access
     /// cache entry of the operand's first byte is a hit when its tag is
@@ -5224,8 +5452,19 @@ impl Emitter {
     /// top bits, SHL: CF ^ MSB, SHR: the operand's MSB, SAR: 0); SHL, SHR
     /// and SAR then leave SF, ZF and PF of the result and AF from last_op1;
     /// a zero count changes no flag. `count`: an immediate, else CL. The
-    /// EFLAGS bits in `need` only.
-    fn legacy_shift32(&mut self, inst: &Inst, code: u8, dst: Opnd, count: Option<u8>, need: u32) {
+    /// EFLAGS bits in `need` only; of SHL, SHR and SAR, SF, ZF and PF that
+    /// no later instruction reads (only a way out may observe them, P4.23)
+    /// stay pending in the lazy record as OR with 0 gives them
+    /// (x64_page_flags), as Tier-0 leaves them to the interpreter's lazy
+    /// EFLAGS: returned, they are not written into FL
+    fn legacy_shift32(
+        &mut self,
+        inst: &Inst,
+        code: u8,
+        dst: Opnd,
+        count: Option<u8>,
+        need: u32,
+    ) -> u32 {
         let rotate = code <= 1;
         self.read_dst(dst, 32, true, inst);
         self.s(TA);
@@ -5254,13 +5493,28 @@ impl Emitter {
         self.write_dst(dst, 32, TR);
         let need = need & if rotate { CF | OF } else { ARITH };
         if need == 0 || count.is_some_and(|c| c & 31 == 0) {
-            return;
+            return 0;
         }
+        // (a count of zero keeps every flag: the record too, see Op::Shift)
+        let lazy =
+            if rotate || !self.env.exit_flags { 0 } else { need & (SF | ZF | PF) & !inst.live_out };
+        let need = need & !lazy;
         if count.is_none() {
             self.g(TB);
             self.b.op(op::OP_I64EQZ);
             self.b.eqz_i32();
             self.b.if_void();
+        }
+        if lazy != 0 {
+            // (SHL, SHR and SAR write all six: the record replaces any other)
+            self.g(TR);
+            self.s(FA);
+            self.g(TR);
+            self.s(FR);
+            self.c64(0);
+            self.s(FB);
+            self.c32((1 << 16 | 2 << 20 | lazy) as i32);
+            self.si(FK);
         }
         self.flags_begin(need);
         let mut first = true;
@@ -5345,6 +5599,7 @@ impl Emitter {
         if count.is_none() {
             self.b.block_end();
         }
+        lazy
     }
     /// SF, ZF, PF of local `i` (masked to `width`).
     fn szp(&mut self, i: usize, need: u32, width: u8, first: &mut bool) {
@@ -5945,13 +6200,14 @@ impl Emitter {
                 else {
                     inst.writes
                 };
-                if self.env.compat {
-                    self.legacy_shift32(inst, code, dst, Some(count), need);
+                let lazy = if self.env.compat {
+                    self.legacy_shift32(inst, code, dst, Some(count), need)
                 }
                 else {
                     self.shift_immediate(inst, code, width, dst, count, need);
-                }
-                self.written(inst.writes);
+                    0
+                };
+                self.written(inst.writes & !lazy);
             },
             Op::Shift {
                 code,
@@ -5961,13 +6217,14 @@ impl Emitter {
             } => {
                 // a zero count keeps every flag
                 self.materialize_if(inst.flags_read);
-                if self.env.compat {
-                    self.legacy_shift32(inst, code, dst, None, inst.writes);
+                let lazy = if self.env.compat {
+                    self.legacy_shift32(inst, code, dst, None, inst.writes)
                 }
                 else {
                     self.shift_cl(inst, code, width, dst, inst.writes);
-                }
-                self.written(inst.writes);
+                    0
+                };
+                self.written(inst.writes & !lazy);
             },
             Op::ShiftCall {
                 code,
@@ -9901,7 +10158,7 @@ mod sti_shadow_tests {
     fn compiled(page: &[u8], sti_shadow: bool) -> Vec<u8> {
         let env = CompileEnv::replay(
             true, true, true, false, false, true, sti_shadow, false, 1024, false, false, false,
-            false, false, false, false, false,
+            false, false, false, false, false, false,
         );
         compile_with(&env, page, &[], &[0], "sti".into())
             .expect("compiled")

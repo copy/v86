@@ -134,6 +134,14 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (P7.2: compatibility mode's memory operands in the 32-bit TLB, as
+    // Tier-0's)
+    Switch {
+        name: "x64_compat_tlb",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_compat_tlb).is_some(),
+        get: pagegen::switch_value,
+    },
     Switch {
         name: "x64_bucket_dispatch",
         default: 1,

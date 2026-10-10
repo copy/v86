@@ -289,6 +289,13 @@ pub unsafe fn translate(
 ) -> Result<u64, Fault> {
     translate_user(address, access, stack, !supervisor && *gp::cpl == 3)
 }
+/// In compatibility mode, x64 translations fill the 32-bit TLB too
+/// (cpu::fill_ia32e_tlb) when compiled 32-bit code reads it: Tier-0's
+/// (x64_set_compat_jit) or the page tier's (x64_page_compat32 with
+/// x64_compat_tlb, pagegen::Emitter::host_tlb)
+unsafe fn compat_tlb() -> bool {
+    crate::cpu::cpu::compat_jit() || super::pages::compat32() && super::pagegen::compat_tlb()
+}
 pub unsafe fn translate_user(
     address: u64,
     access: Access,
@@ -310,7 +317,7 @@ pub unsafe fn translate_user(
     };
     let cache = &mut X64_TLBS[apic::current_core()];
     if let Some(physical) = cache.lookup_physical(LinearAddress(address), access, c) {
-        if *gp::x64_cs_long == 0 && crate::cpu::cpu::compat_jit() {
+        if *gp::x64_cs_long == 0 && compat_tlb() {
             crate::cpu::cpu::fill_ia32e_tlb(address as u32, physical, access, user);
         }
         return Ok(physical);
@@ -338,7 +345,7 @@ pub unsafe fn translate_user(
     })?;
     cache.insert(LinearAddress(address), access, c, result);
     // compatibility mode: 32-bit linear addresses, served to compiled code too
-    if *gp::x64_cs_long == 0 && crate::cpu::cpu::compat_jit() {
+    if *gp::x64_cs_long == 0 && compat_tlb() {
         crate::cpu::cpu::fill_ia32e_tlb(address as u32, result.physical.0, access, user);
     }
     Ok(result.physical.0)

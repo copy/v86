@@ -307,7 +307,7 @@ export const STATICS = {
     "x64/pagegen.rs": { SIZE_STATS: "debug", OUTLINE_ACCESS: "machine", BLOCK_COUNT: "machine", BUCKET_DISPATCH: "machine", CVT: "machine",
         STI_SHADOW: "machine", LOOPS: "machine", XMM_LOCALS: "machine",
         SSE_FAST_CHECK: "machine", I32_OPS: "machine", FAST_LOOKUP: "machine", FAST_CHAIN: "machine",
-        EXIT_FLAGS: "machine" },
+        EXIT_FLAGS: "machine", COMPAT_TLB: "machine" },
     "x64/replay.rs": { RECORDS: "debug", INPUT: "debug", OUTPUT: "debug" },
     "x64/debug.rs": { PENDING: "scratch" },
     "x64/system.rs": { FAULT_LOG: "debug", FAULT_NEXT: "debug", USER_TRACE: "debug", USER_TRACE_NEXT: "debug", USER_TRACE_ENABLED: "debug" },

@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {assemble} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
+import {with_jit_switches} from "../lib/jit_switches.mjs";
 import {setImmediate as yield_event} from "node:timers/promises";
 
 let seed = Number(process.env.COMPAT_FUZZ_SEED || 1) >>> 0 || 1;
@@ -130,8 +131,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 47);
-    while(SKIP.has(which)) which = int(0, 47);
+    let which = int(0, 49);
+    while(SKIP.has(which)) which = int(0, 49);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -177,8 +178,19 @@ function instruction(state)
         case 36: { const r = reg(32); return `xor ${r}, ${r}`; }
         case 37: return `and ebx, 255\n${alu} ${reg(32)}, [ebp+ebx*${pick([1, 2, 4])}+${int(0, 7000)}]`;
         case 38: return `and ecx, 255\nmov ${pick(["eax", "edx", "esi"])}, [ebp+ecx*4+${int(0, 7000)}]`;
+        // a shift's SF, ZF and PF read only after leaving the page (leaf_far
+        // keeps them): pending in the lazy record at the exit
+        case 39: return `${pick(["shl", "shr", "sar"])} ${reg(32)}, ${pick([int(1, 31), "cl"])}\ncall leaf_far\n${pick([`set${pick(["z", "nz", "s", "ns", "p", "np", "b", "o", "le", "g"])} ${reg(8)}`, "pushfd\npop eax", "lahf"])}`;
         case 40: case 41: case 42: case 43: case 44: return sse_instruction();
         case 45: case 46: case 47: return x87_instruction();
+        // indirect transfers inside the loop to its own code: a CALL and RET
+        // in the page, a jump table (dispatched by the loop's head, P7.2)
+        case 48: { const n = state.labels++; return `call .f${n}\njmp .e${n}\n.f${n}:\n${simple()}\nret\n.e${n}:`; }
+        case 49: {
+            const n = state.labels++, r = pick(["ebx", "edx", "esi"]);
+            return `mov ${r}, ${reg(32)}\nand ${r}, 3\njmp [.t${n}+${r}*4]\n.t${n}: dd .a${n}, .b${n}, .c${n}, .d${n}\n` +
+                ["a", "b", "c", "d"].map(l => `.${l}${n}:\n${simple()}\njmp .e${n}`).join("\n") + `\n.e${n}:`;
+        }
         default: return `${pick(["add", "sub", "and", "or", "xor", "adc", "sbb"])} ${mem(w)}, ${imm(w)}`;
     }
 }
@@ -267,9 +279,10 @@ jmp [0x2FF000]
     const length = 8 + cases * RECORD;
     const run = async jit => {
         const {V86} = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-        const emulator = new V86({graphics_adapter: "bochs_vga", multiboot: {url: dir + "guest.bin"}, memory_size: 32 << 20, acpi: true,
+        // (JIT_SWITCHES adds switches, e.g. x64_loops=1 for loops in cold compiles)
+        const emulator = new V86(with_jit_switches({graphics_adapter: "bochs_vga", multiboot: {url: dir + "guest.bin"}, memory_size: 32 << 20, acpi: true,
             disable_jit: !jit, experimental_smp_jit: true, ir_sync_publication: true, autostart: false, log_level: 0,
-            jit_switches: {x64_page_compat32: 1}});
+            jit_switches: {x64_page_compat32: 1}}));
         try
         {
             await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
