@@ -89,6 +89,29 @@ function sse_instruction()
         `cmpps ${a}, ${b}, ${int(0, 7)}`,
     ]);
 }
+// MMX (the MM registers are the x87 mantissas): each result stored to the
+// data, most snippets ending with EMMS (an empty stack for the x87 ones)
+const MM = Array.from({length: 8}, (_, i) => `mm${i}`);
+const PACKED_MMX = ["paddb", "paddw", "paddd", "paddq", "psubb", "psubw", "psubd", "psubq", "paddsb", "paddsw", "paddusb", "paddusw",
+    "psubsb", "psubsw", "psubusb", "psubusw", "pmullw", "pmulhw", "pmulhuw", "pmaddwd", "pmuludq", "pand", "pandn", "por", "pxor",
+    "pcmpeqb", "pcmpeqw", "pcmpeqd", "pcmpgtb", "pcmpgtw", "pcmpgtd", "packsswb", "packssdw", "packuswb", "punpcklbw", "punpcklwd",
+    "punpckldq", "punpckhbw", "punpckhwd", "punpckhdq", "psrlw", "psrld", "psrlq", "psllw", "pslld", "psllq", "psraw", "psrad",
+    "pavgb", "pavgw", "pminub", "pmaxub", "pminsw", "pmaxsw", "psadbw"];
+function mmx_instruction()
+{
+    const a = pick(MM), b = pick(MM);
+    const op = pick([
+        `movq ${a}, ${random() < 0.5 ? b : `qword ${vmem(8, false)}`}`,
+        `movq qword ${vmem(8, false)}, ${a}`,
+        `movd ${a}, ${random() < 0.5 ? reg(32) : `dword ${vmem(4, false)}`}`,
+        `movd ${random() < 0.5 ? reg(32) : `dword ${vmem(4, false)}`}, ${a}`,
+        `${pick(PACKED_MMX)} ${a}, ${random() < 0.5 ? b : vmem(8, false)}`,
+        `${pick(PACKED_MMX)} ${a}, ${b}`,
+        `${pick(["psrlw", "psraw", "psllw", "psrld", "psrad", "pslld", "psrlq", "psllq"])} ${a}, ${pick([0, 1, int(0, 70)])}`,
+        `pshufw ${a}, ${random() < 0.5 ? b : vmem(8, false)}, ${int(0, 255)}`,
+    ]);
+    return `${op}\nmovq qword ${vmem(8, false)}, ${a}` + (random() < 0.7 ? "\nemms" : "");
+}
 // x87 snippets that leave the stack as they found it (stores capture the
 // results; the operands are whatever the data holds)
 function x87_instruction()
@@ -131,8 +154,8 @@ function instruction(state)
     const w = pick(WIDTHS);
     const alu = pick(ALU);
     const w16 = pick([16, 32]);
-    let which = int(0, 54);
-    while(SKIP.has(which)) which = int(0, 54);
+    let which = int(0, 57);
+    while(SKIP.has(which)) which = int(0, 57);
     switch(which)
     {
         case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
@@ -183,6 +206,7 @@ function instruction(state)
         case 39: return `${pick(["shl", "shr", "sar"])} ${reg(32)}, ${pick([int(1, 31), "cl"])}\ncall leaf_far\n${pick([`set${pick(["z", "nz", "s", "ns", "p", "np", "b", "o", "le", "g"])} ${reg(8)}`, "pushfd\npop eax", "lahf"])}`;
         case 40: case 41: case 42: case 43: case 44: return sse_instruction();
         case 45: case 46: case 47: return x87_instruction();
+        case 55: case 56: case 57: return mmx_instruction();
         // indirect transfers inside the loop to its own code: a CALL and RET
         // in the page, a jump table (dispatched by the loop's head, P7.2)
         case 48: { const n = state.labels++; return `call .f${n}\njmp .e${n}\n.f${n}:\n${simple()}\nret\n.e${n}:`; }

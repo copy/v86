@@ -133,6 +133,46 @@ enum Xmm {
     Reg(u8),
     Mem(AddressExpr),
 }
+/// Op::Mmx's forms (Xmm::Reg: an MM register here)
+#[derive(Clone, Copy, Debug)]
+enum MmxForm {
+    /// MOVQ mm, mm/m64
+    Load {
+        reg: u8,
+        src: Xmm,
+    },
+    /// MOVQ mm/m64, mm
+    Store {
+        reg: u8,
+        dst: Xmm,
+    },
+    /// MOVD mm, r/m32
+    MovdIn {
+        reg: u8,
+        src: Opnd,
+    },
+    /// MOVD r/m32, mm
+    MovdOut {
+        reg: u8,
+        dst: Opnd,
+    },
+    /// the packed forms and PSHUFW; `bytes` of a memory source (PUNPCKL*:
+    /// 4)
+    Packed {
+        op: Packed,
+        reg: u8,
+        src: Xmm,
+        bytes: u8,
+    },
+    /// PSRLW/PSRAW/PSLLW and the D, Q forms by an immediate
+    Shift {
+        reg: u8,
+        bits: u8,
+        kind: u8,
+        count: u8,
+    },
+    Emms,
+}
 /// Op::Bmi's operations
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BmiOp {
@@ -372,6 +412,11 @@ enum Op {
         segment: u8,
         width: u8,
         dst: Opnd,
+    },
+    /// Compatibility mode's MMX (P7.2a, as Tier-0's: x86tpl::mmx, the packed
+    /// templates at 8 bytes); the MM registers alias the x87 stack
+    Mmx {
+        form: MmxForm,
     },
     /// Compatibility mode's SHLD/SHRD r/m32, r32, CL (P7.2)
     DoubleShiftCl {
@@ -1200,6 +1245,10 @@ fn classify(d: &Decoded) -> Op {
                     None => return None,
                 }
             },
+            // (compatibility mode's MMX, P7.2a)
+            _ if compat && d.opcode >> 8 == 0x0F && !d.prefixes.lock && mmx(d).is_some() => {
+                return mmx(d)
+            },
             _ if d.opcode >> 8 & 0xFF == 0x0F
                 || d.opcode >> 16 == 0x0F
                 || matches!(op >> 8, 0x0F38 | 0x0F3A) =>
@@ -1300,6 +1349,7 @@ fn compat_template(op: &Op, d: &Decoded) -> bool {
             | Op::Popcnt { .. }
             | Op::DoubleShift { width: 32, .. }
             | Op::DoubleShiftCl { .. }
+            | Op::Mmx { .. }
             // SSE, AVX and their templates (XMM0-7 only: no REX or VEX.R)
             | Op::Vmove { .. }
             | Op::Vlogic { .. }
@@ -1344,6 +1394,57 @@ pub(crate) fn sse_template(bytes: &[u8]) -> Option<usize> {
     })
     .ok()?;
     sse(&d).map(|_| d.length as usize)
+}
+
+/// Compatibility mode's MMX forms (P7.2a; Tier-0's ir::tier0::simd): no
+/// prefix, MM registers 0-7
+fn mmx(d: &Decoded) -> Option<Op> {
+    let code = d.opcode as u8;
+    if code == 0x77 {
+        return Some(Op::Mmx {
+            form: MmxForm::Emms,
+        });
+    }
+    let modrm = d.modrm?;
+    let reg = modrm >> 3 & 7;
+    let src = match d.rm_register {
+        Some(r) => Xmm::Reg(r & 7),
+        None => Xmm::Mem(d.address?),
+    };
+    let rm32 = match d.rm_register {
+        Some(r) => Opnd::Reg(register(r, 32, false)),
+        None => Opnd::Mem(d.address?),
+    };
+    let form = match code {
+        0x6F => MmxForm::Load { reg, src },
+        0x7F => MmxForm::Store { reg, dst: src },
+        0x6E => MmxForm::MovdIn { reg, src: rm32 },
+        0x7E => MmxForm::MovdOut { reg, dst: rm32 },
+        0x71 | 0x72 | 0x73 if d.rm_register.is_some() => {
+            if !matches!(reg, 2 | 4 | 6) || code == 0x73 && reg == 4 {
+                return None;
+            }
+            MmxForm::Shift {
+                reg: d.rm_register? & 7,
+                bits: 16 << (code - 0x71),
+                kind: reg,
+                count: d.immediate?.value as u8,
+            }
+        },
+        0x70 => MmxForm::Packed {
+            op: vec::shuffle(0x0F70, d.immediate?.value as u32),
+            reg,
+            src,
+            bytes: 8,
+        },
+        _ => MmxForm::Packed {
+            op: vec::packed_op(code, true)?,
+            reg,
+            src,
+            bytes: if matches!(code, 0x60..=0x62) { 4 } else { 8 },
+        },
+    };
+    Some(Op::Mmx { form })
 }
 
 fn sse(d: &Decoded) -> Option<Op> {
@@ -7312,6 +7413,7 @@ impl Emitter {
                 },
                 Opnd::Imm(_) => unreachable!(),
             },
+            Op::Mmx { form } => self.mmx(inst, form, start),
             Op::DoubleShiftCl { left, dst, src } => {
                 // (as Op::DoubleShift in compatibility mode, by CL & 31: a
                 // zero count keeps the destination, written back as the
@@ -8371,6 +8473,111 @@ impl Emitter {
         self.c32(0);
         self.b.set_local(&is_open);
         self.b.block_end();
+    }
+    /// Compatibility mode's MMX (P7.2a), as Tier-0's ir::tier0::simd: CR0.EM
+    /// and TS clear (else a retry: #UD, #NM), the x87 cache closed (the MM
+    /// registers are the x87 mantissas: x86tpl::mmx syncs and invalidates
+    /// the f64 shadow slots in memory), every form ending with the switch to
+    /// MMX (all tags valid, TOP 0) but EMMS (all empty)
+    fn mmx(&mut self, inst: &Inst, form: MmxForm, start: u64) {
+        use crate::x86tpl::mmx;
+        self.x87_check(start);
+        self.x87_close();
+        let result = |e: &mut Self, reg: u8| {
+            let v = e.b.set_new_local_v128();
+            mmx::store(&mut e.b, reg, &v);
+            mmx::transition(&mut e.b);
+            e.b.free_local_v128(v);
+        };
+        match form {
+            MmxForm::Emms => {
+                self.c32(gp::fpu_stack_empty as i32);
+                self.c32(0xFF);
+                self.b.store_u8(0);
+            },
+            MmxForm::Load { reg, src } => {
+                self.mmx_source(src, 8, inst);
+                result(self, reg);
+            },
+            MmxForm::Store { reg, dst } => match dst {
+                Xmm::Reg(r) => {
+                    mmx::load(&mut self.b, reg);
+                    result(self, r);
+                },
+                Xmm::Mem(a) => {
+                    self.vector_address(&a, 64, false, true, inst);
+                    self.gi(HOST);
+                    mmx::load(&mut self.b, reg);
+                    self.b.simd_lane(0x1D, 0);
+                    self.b.guest_store_i64_bits(64, 0);
+                    mmx::transition(&mut self.b);
+                },
+            },
+            MmxForm::MovdIn { reg, src } => {
+                self.read(src, 32, inst);
+                self.b.wrap_i64_to_i32();
+                let value = self.b.set_new_local();
+                self.b.simd_zero();
+                self.b.get_local(&value);
+                self.b.simd_lane(0x1C, 0);
+                self.b.free_local(value);
+                result(self, reg);
+            },
+            MmxForm::MovdOut { reg, dst } => {
+                // (a memory destination's host first, as MOV's: a refused
+                // one retries before anything changed)
+                if let Opnd::Mem(a) = dst {
+                    self.prepare_store(&a, 32, inst);
+                }
+                mmx::load(&mut self.b, reg);
+                self.b.simd_lane(0x1B, 0);
+                self.b.extend_unsigned_i32_to_i64();
+                self.s(TV);
+                self.write_dst(dst, 32, TV);
+                mmx::transition(&mut self.b);
+            },
+            MmxForm::Packed {
+                op,
+                reg,
+                src,
+                bytes,
+            } => {
+                self.mmx_source(src, bytes, inst);
+                let source = self.b.set_new_local_v128();
+                mmx::load(&mut self.b, reg);
+                let destination = self.b.set_new_local_v128();
+                vec::packed(&mut self.b, op, &destination, &source, 8);
+                result(self, reg);
+                self.b.free_local_v128(source);
+                self.b.free_local_v128(destination);
+            },
+            MmxForm::Shift {
+                reg,
+                bits,
+                kind,
+                count,
+            } => {
+                mmx::load(&mut self.b, reg);
+                let value = self.b.set_new_local_v128();
+                vec::shift_immediate(&mut self.b, &value, bits, kind, count);
+                result(self, reg);
+                self.b.free_local_v128(value);
+            },
+        }
+    }
+    /// Push an MMX form's source (v128, low quadword): an MM register, or
+    /// `bytes` of memory zero-extended
+    fn mmx_source(&mut self, src: Xmm, bytes: u8, inst: &Inst) {
+        match src {
+            Xmm::Reg(r) => crate::x86tpl::mmx::load(&mut self.b, r),
+            Xmm::Mem(a) => {
+                self.vector_address(&a, bytes * 8, false, false, inst);
+                self.b.simd_zero();
+                self.gi(HOST);
+                self.load_bits(bytes * 8, 0);
+                self.b.simd_lane(0x1E, 0);
+            },
+        }
     }
     /// Compatibility mode's x87 (P7.2a): CR0.EM and TS clear, else a retry
     /// (the interpreter raises #NM); once per block

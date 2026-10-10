@@ -347,6 +347,20 @@ jit-arm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	@if [ "$(WASM_OPT)" != "false" ]; then $(WASM_OPT) && wasm-opt -O2 --strip-debug build/bench/arms/$(ARM).wasm -o build/bench/arms/$(ARM).wasm; fi
 	@echo "build/bench/arms/$(ARM).wasm: JIT_DEFAULTS=\"$(JIT_DEFAULTS)\""
 
+# The D gate's A/B builds of a mode migration (docs/jit-unification-plan.md
+# P7.0): A the release core as it is (32-bit compatibility-mode code in
+# Tier-0), B-ptier with the page tier's mode switch on by default
+# (x64_page_compat32; a build-time default, JIT_DEFAULTS, where the plan named
+# a cargo feature), for tools/owner_perf.mjs --arms and tests/bench/run.mjs
+# --wasm/--baseline
+.PHONY: ab-ptier
+ab-ptier:
+	mkdir -p build/ab
+	$(MAKE) jit-arm ARM=ab-A JIT_DEFAULTS=""
+	cp build/bench/arms/ab-A.wasm build/ab/A.wasm
+	$(MAKE) jit-arm ARM=ab-B-ptier JIT_DEFAULTS="x64_page_compat32=1"
+	cp build/bench/arms/ab-B-ptier.wasm build/ab/B-ptier.wasm
+
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	-BLOCK_SIZE=K ls -l build/v86-debug.wasm
