@@ -193,6 +193,22 @@ prints the ARM64 (or x64) code of TurboFan (`node --no-liftoff
 P4.20–P4.23) came from comparing this for the page tier and Tier-0 on the
 same-source benchmarks.
 
+Where the time goes inside such a function, per host instruction:
+[`tools/page_profile.mjs`](../tools/page_profile.mjs) runs the benchmark the
+same way under V8's sampling profiler (`node --prof`, a tick every 50 µs),
+saves the last module whose page holds the bytes, prints that module's
+TurboFan code and the ticks that fell in the optimized function of the same
+size (the replayed module is the one that ran when the sizes agree):
+
+    node tools/page_profile.mjs 557.lz "0f b6 9c 28 00 50 45 00" --isa compat32 --min 50
+
+Samples land on the instruction that waits (a load's consumer, a spill
+reload), a few instructions after a mispredicted branch. With `--isa i686`
+the same for Tier-0's function of the page. Two experiments with it decided
+M6's lookups (jit-unification-plan.md appendix C): a throwaway build whose
+host address is mem8 plus the linear address (the benchmarks' identity
+mapping only) gives the cost of everything but the lookups, on each engine.
+
 What the code costs V8 to compile matters as much while Windows boots: a
 page function first runs as Liftoff code, and only the ones V8 finds hot are
 compiled again by TurboFan, on background threads. When that work grows,

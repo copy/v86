@@ -29,6 +29,9 @@ const MAGIC: &[u8; 4] = b"T0R1";
 
 /// Compilations recorded since ir_t0_record_start (None: not recording)
 static mut RECORDS: Option<Vec<Vec<u8>>> = None;
+/// What each recorded compilation made, as it ran (empty for a failed one):
+/// tools/page_profile.mjs maps profiler ticks onto it
+static mut OUTPUTS: Option<Vec<Vec<u8>>> = None;
 /// The input of ir_t0_replay and its output
 static mut INPUT: Vec<u8> = Vec::new();
 static mut OUTPUT: Vec<u8> = Vec::new();
@@ -175,11 +178,39 @@ pub fn record(
     }
 }
 
+/// What the compilation just recorded made (OUTPUTS)
+pub fn record_output(module: &[u8]) {
+    if let Some(outputs) = unsafe { (*(&raw mut OUTPUTS)).as_mut() } {
+        outputs.push(module.to_vec());
+    }
+}
+/// The module record `index`'s compilation made: its address and length
+#[no_mangle]
+pub unsafe fn ir_t0_record_output_address(index: u32) -> u32 {
+    (*(&raw const OUTPUTS))
+        .as_ref()
+        .and_then(|o| o.get(index as usize))
+        .map_or(0, |o| o.as_ptr() as u32)
+}
+#[no_mangle]
+pub unsafe fn ir_t0_record_output_length(index: u32) -> u32 {
+    (*(&raw const OUTPUTS))
+        .as_ref()
+        .and_then(|o| o.get(index as usize))
+        .map_or(0, |o| o.len() as u32)
+}
+
 /// Record every compilation from now on (the records so far are dropped)
 #[no_mangle]
-pub unsafe fn ir_t0_record_start() { RECORDS = Some(Vec::new()); }
+pub unsafe fn ir_t0_record_start() {
+    RECORDS = Some(Vec::new());
+    OUTPUTS = Some(Vec::new());
+}
 #[no_mangle]
-pub unsafe fn ir_t0_record_stop() { RECORDS = None; }
+pub unsafe fn ir_t0_record_stop() {
+    RECORDS = None;
+    OUTPUTS = None;
+}
 #[no_mangle]
 pub unsafe fn ir_t0_record_count() -> u32 {
     (*(&raw const RECORDS))

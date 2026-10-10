@@ -216,7 +216,10 @@ pub fn compile_page(
     }
     #[cfg(feature = "ir-test-hooks")]
     replay::record(&env, origin, snapshot, entries, extra);
-    compile_page_with(&env, origin, snapshot, entries, extra)
+    let compiled = compile_page_with(&env, origin, snapshot, entries, extra);
+    #[cfg(feature = "ir-test-hooks")]
+    replay::record_output(compiled.as_ref().map_or(&[][..], |a| &a.code.bytes[..]));
+    compiled
 }
 
 /// compile_page in `env`

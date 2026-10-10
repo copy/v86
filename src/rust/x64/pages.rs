@@ -544,10 +544,9 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 && bit(&r.functions[i].served, offset) =>
         {
             // (its code ran often: its recompile with inline lookups)
-            if r.functions[i]
-                .counter
-                .is_some_and(|c| HOT_COUNTS[c as usize] >= HOT_COUNT)
-            {
+            if r.functions[i].counter.is_some_and(|c| {
+                HOT_COUNTS[c as usize] >= if compat { COMPAT_HOT_COUNT } else { HOT_COUNT }
+            }) {
                 r.stats[HOT_RECOMPILES] += 1;
                 return compile_mode(page, true);
             }
@@ -669,6 +668,11 @@ static mut HOT_COUNT: u32 = 1 << 22;
 #[no_mangle]
 pub unsafe fn x64_page_set_hot_inline(enabled: bool) { HOT_INLINE = enabled; }
 pub unsafe fn set_hot_count(count: u32) { HOT_COUNT = count; }
+/// x64_compat_hot_count: HOT_COUNT of 32-bit compatibility-mode functions
+/// (P7.2b): WOW64 code is a small share of what a Windows boot compiles, so
+/// its hot pages are recompiled early, as Tier-0 compiles loops at once
+static mut COMPAT_HOT_COUNT: u32 = 1 << 16;
+pub unsafe fn set_compat_hot_count(count: u32) { COMPAT_HOT_COUNT = count; }
 
 /// Interpreted execution's heat, batched (docs/jit-unification-plan.md
 /// P4.5b; jitrt takes it over in P5): instructions run outside compiled
@@ -1316,6 +1320,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_miss_run" => MISS_RUN as u32,
             "x64_hot_inline" => HOT_INLINE as u32,
             "x64_hot_count" => HOT_COUNT,
+            "x64_compat_hot_count" => COMPAT_HOT_COUNT,
             "x64_page_compat32" => COMPAT32 as u32,
             _ => return None,
         })

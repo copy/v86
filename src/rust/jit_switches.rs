@@ -122,6 +122,18 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (P7.2b: x64_hot_count of 32-bit compatibility-mode functions)
+    Switch {
+        name: "x64_compat_hot_count",
+        default: 1 << 16,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_compat_hot_count(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
     // (docs/jit-unification-plan.md P7.2: 32-bit compatibility-mode code in
     // the page tier instead of Tier-0)
     Switch {

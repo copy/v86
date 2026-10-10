@@ -3104,7 +3104,10 @@ pub fn compile(
     let env = CompileEnv::current(chaining, outline, counter, compat);
     #[cfg(feature = "ir-test-hooks")]
     super::replay::record(&env, bytes, next, entries, &name);
-    compile_with(&env, bytes, next, entries, name)
+    let compiled = compile_with(&env, bytes, next, entries, name);
+    #[cfg(feature = "ir-test-hooks")]
+    super::replay::record_output(compiled.as_ref().map_or(&[][..], |c| &c.bytes[..]));
+    compiled
 }
 
 /// compile in `env`

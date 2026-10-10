@@ -99,9 +99,11 @@ for(const bench of manifest.benchmarks) {
     const row = { name: bench.name, category: bench.category, about: bench.about, iterations, arms: {} };
     for(const arm of arms) row.arms[arm.label] = { cold_ms: [], warm_ms: [], warmup_ms: [], checksum: null, instructions: null };
     // (the x64 page tier counts instructions per block, an upper bound that
-    // depends on where blocks were left: only its checksums must repeat)
+    // depends on where blocks were left: only its checksums must repeat; it
+    // runs compat32's code too with x64_page_compat32)
+    const page_tier = arm => !arm.interpreted && (arm.isa === "x86_64" || arm.isa === "compat32");
     const note = (arm, sample) => {
-        const r = row.arms[arm.label], exact = arm.isa !== "x86_64" || arm.interpreted;
+        const r = row.arms[arm.label], exact = !page_tier(arm);
         r.checksum ??= sample.checksum; r.instructions ??= sample.instructions;
         if(r.checksum !== sample.checksum || exact && r.instructions !== sample.instructions)
             errors.push(`${bench.name}/${arm.label}: nondeterministic result ${sample.checksum}/${sample.instructions}`);
@@ -176,7 +178,7 @@ for(const bench of manifest.benchmarks) {
             // (results only compare within an ISA; instruction counts only
             // between JIT arms of 32-bit code: the x64 page tier counts blocks)
             const same = reference_of(arm), expected = same && row.arms[same.label];
-            const counts = arm.isa !== "x86_64" && !arm.interpreted && !same?.interpreted;
+            const counts = !page_tier(arm) && !arm.interpreted && !same?.interpreted;
             if(expected && (r.checksum !== expected.checksum || counts && r.instructions !== expected.instructions))
                 errors.push(`${bench.name}: ${arm.label} result ${r.checksum}/${r.instructions} differs from ${same.label} ${expected.checksum}/${expected.instructions}`);
             r.warm = median(r.warm_ms); r.cold = cold_runs ? median(r.cold_ms) : null;
