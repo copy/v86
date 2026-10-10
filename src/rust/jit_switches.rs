@@ -122,6 +122,18 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (docs/jit-unification-plan.md P7.2: 32-bit compatibility-mode code in
+    // the page tier instead of Tier-0)
+    Switch {
+        name: "x64_page_compat32",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_compat32(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
     Switch {
         name: "x64_bucket_dispatch",
         default: 1,

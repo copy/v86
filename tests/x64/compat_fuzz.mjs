@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+// Random 32-bit programs in IA-32e compatibility mode (WOW64's), each looped
+// until its code pages are compiled by the x64 page tier with
+// x64_page_compat32 (docs/jit-unification-plan.md P7.2), then compared with
+// the same guest run by the interpreters alone: the eight GPRs, EFLAGS and
+// the data pages must be identical. As tests/x64/page_fuzz.mjs for 64-bit
+// code: templated forms of every width, memory operands (base, index,
+// absolute; LOCK RMW), the 32-bit stack, calls, forward branches, string
+// instructions, interpreter steps and page-crossing accesses.
+//
+// COMPAT_FUZZ_SEED, COMPAT_FUZZ_CASES (per guest), COMPAT_FUZZ_GUESTS,
+// COMPAT_FUZZ_ITERATIONS; COMPAT_FUZZ_VERBOSE=1 prints a differing case's
+// program; COMPAT_FUZZ_SAVE=<file> with COMPAT_FUZZ_SAVE_GUEST and
+// COMPAT_FUZZ_SAVE_CASE saves one ({init, lines}), COMPAT_FUZZ_BODY=<file>
+// runs a saved one in every case (or with COMPAT_FUZZ_BODY_GUEST and
+// COMPAT_FUZZ_BODY_CASE in that one)
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {assemble} from "./guest_runner.mjs";
+import {long_mode_guest} from "./guest_builder.mjs";
+import {setImmediate as yield_event} from "node:timers/promises";
+
+let seed = Number(process.env.COMPAT_FUZZ_SEED || 1) >>> 0 || 1;
+const random = () => {
+    seed ^= seed << 13; seed >>>= 0;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5; seed >>>= 0;
+    return seed / 0x100000000;
+};
+const pick = list => list[Math.floor(random() * list.length)];
+const int = (lo, hi) => lo + Math.floor(random() * (hi - lo + 1));
+
+// ebp: data base (two pages at 0x500000); esp: the stack; the loop counter
+// is in memory.
+const GPR32 = ["eax", "ecx", "edx", "ebx", "esi", "edi"];
+const NAMES = {eax: ["eax", "ax", "al"], ecx: ["ecx", "cx", "cl"], edx: ["edx", "dx", "dl"], ebx: ["ebx", "bx", "bl"],
+    esi: ["esi", "si", null], edi: ["edi", "di", null]};
+const WIDTHS = [32, 16, 8];
+const SIZE = {32: "dword", 16: "word", 8: "byte"};
+const BYTE = ["al", "cl", "dl", "bl", "ah", "ch", "dh", "bh"];
+const reg = w => w === 8 ? pick(BYTE) : NAMES[pick(GPR32)][WIDTHS.indexOf(w)];
+const DATA = 0x500000, COUNTER = 0x4FF000, RESULT = 0x300000, RECORD = 0x2200, MAGIC = 0xC064C064;
+const mem = w => {
+    const bytes = w / 8;
+    const cross = random() < 0.04;
+    const disp = cross ? 4096 - int(1, Math.max(1, bytes - 1)) : int(0, 8190 - bytes) & ~(random() < 0.7 ? bytes - 1 : 0);
+    switch(int(0, 2))
+    {
+        case 0: return `${SIZE[w]} [ebp+${disp}]`;
+        case 1: return `${SIZE[w]} [${DATA + disp}]`;
+        default: return `${SIZE[w]} [ebp+${disp - 64}+64]`;
+    }
+};
+const imm = w => {
+    const v = [0, 1, -1, 0x7F, 0x80, 0x7FFF, 0x8000, 0x7FFFFFFF, -0x80000000, int(-1000, 1000), int(0, 0xFFFFFFFF) | 0][int(0, 10)];
+    if(w === 8) return v & 0xFF;
+    if(w === 16) return v & 0xFFFF;
+    return v | 0;
+};
+const CC = ["o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g"];
+const ALU = ["add", "or", "adc", "sbb", "and", "sub", "xor", "cmp"];
+const rm = w => random() < 0.5 ? reg(w) : mem(w);
+
+// (COMPAT_FUZZ_SKIP=15,16: generate none of those cases)
+const SKIP = new Set((process.env.COMPAT_FUZZ_SKIP || "").split(",").filter(Boolean).map(Number));
+function instruction(state)
+{
+    const w = pick(WIDTHS);
+    const alu = pick(ALU);
+    const w16 = pick([16, 32]);
+    let which = int(0, 39);
+    while(SKIP.has(which)) which = int(0, 39);
+    switch(which)
+    {
+        case 0: case 1: return `${alu} ${reg(w)}, ${reg(w)}`;
+        case 2: return `${alu} ${reg(w)}, ${imm(w)}`;
+        case 3: return `${alu} ${reg(w)}, ${mem(w)}`;
+        case 4: return `${random() < 0.3 && alu !== "cmp" ? "lock " : ""}${alu} ${mem(w)}, ${reg(w)}`;
+        case 5: return `${alu} ${mem(w)}, ${imm(w)}`;
+        case 6: return `test ${reg(w)}, ${random() < 0.5 ? imm(w) : reg(w)}`;
+        case 7: return `mov ${reg(w)}, ${imm(w)}`;
+        case 8: return `mov ${reg(w)}, ${mem(w)}`;
+        case 9: return `mov ${mem(w)}, ${random() < 0.5 ? reg(w) : imm(w)}`;
+        case 10: return pick([`movzx ${reg(32)}, ${pick([reg(8), mem(8), reg(16), mem(16)])}`,
+            `movsx ${reg(pick([16, 32]))}, ${pick([reg(8), mem(8)])}`, `movsx ${reg(32)}, ${pick([reg(16), mem(16)])}`]);
+        case 11: return `lea ${reg(pick([32, 16]))}, [${reg(32)}+${reg(32)}*${pick([1, 2, 4, 8])}+${int(-2000, 2000)}]`;
+        case 12: { const op = pick(["inc", "dec", "neg", "not"]); return random() < 0.5 ? `${op} ${reg(w)}` : `${random() < 0.3 ? "lock " : ""}${op} ${mem(w)}`; }
+        case 13: return `${pick(["shl", "shr", "sar", "rol", "ror"])} ${random() < 0.7 ? reg(w) : mem(w)}, ${pick([1, int(0, 40), int(0, 7)])}`;
+        case 14: return `${pick(["shl", "shr", "sar", "rol", "ror", "rcl", "rcr"])} ${random() < 0.8 ? reg(w) : mem(w)}, cl`;
+        case 15: return `imul ${reg(w16)}, ${rm(w16)}${random() < 0.5 ? ", " + imm(16) : ""}`;
+        case 16: return `${pick(["mul", "imul"])} ${rm(32)}`;
+        case 17: return pick([`mov ebx, ${int(3, 0x7FFFFFF0) | 3}\nxor edx, edx\ndiv ebx`, `mov ebx, ${int(3, 0x7FFFFFF0) | 3}\ncdq\nidiv ebx`,
+            (at => `or dword [ebp+${at}], 3\nxor edx, edx\ndiv dword [ebp+${at}]`)(int(0, 8000) & ~3)]);
+        case 18: { const r = reg(32); return `push ${pick([r, reg(32), mem(32), String(imm(32))])}\npop ${r}`; }
+        case 19: return `cmov${pick(CC)} ${reg(w16)}, ${rm(w16)}`;
+        case 20: return `set${pick(CC)} ${random() < 0.6 ? reg(8) : mem(8)}`;
+        case 21: { const n = state.labels++; return `j${pick(CC)} .s${n}\n${simple()}\n${simple()}\n.s${n}:`; }
+        case 22: return `xchg ${reg(w)}, ${rm(w)}`;
+        case 23: return `${random() < 0.5 ? "lock " : ""}xadd ${mem(w)}, ${reg(w)}`;
+        case 24: return random() < 0.5 ? `cmpxchg ${reg(w)}, ${reg(w)}` : `lock cmpxchg ${mem(w)}, ${reg(w)}`;
+        case 25: return pick(["cbw", "cwde", "cwd", "cdq"]);
+        case 26: return `${pick(["bt", "bts", "btr", "btc"])} ${reg(w16)}, ${random() < 0.5 ? int(0, 255) : reg(w16)}`;
+        case 27: return `${pick(["bsf", "bsr"])} ${reg(w16)}, ${rm(w16)}`;
+        case 28: return `bswap ${reg(32)}`;
+        case 29: return pick(["clc", "stc", "cmc", "lahf", "sahf", "cld", "std", "nop", "pushfd\npop eax", "xchg eax, eax"]);
+        case 30: return `call ${pick(["leaf_near", "leaf_far"])}`;
+        case 31: return pick(["cpuid", "mov eax, ds", `mov word [ebp+${int(0, 8000)}], ss`, "pause"]);
+        case 32: { const op = pick(["movsb", "movsw", "movsd", "stosb", "stosw", "stosd", "cmpsb", "cmpsw", "cmpsd", "scasb", "scasw", "scasd"]);
+            const src = int(0, 7000), dst = random() < 0.3 ? src + int(-16, 16) : int(0, 7000), count = pick([0, 1, int(2, 16), int(17, 300)]);
+            const prefix = random() < 0.8 ? (/^(cmps|scas)/.test(op) ? pick(["repe ", "repne "]) : "rep ") : "";
+            return `lea esi, [ebp+${src}]\nlea edi, [ebp+${Math.max(0, dst)}]\nmov ecx, ${count}\n${random() < 0.2 ? "std\n" : ""}${prefix}${op}\ncld`; }
+        case 33: return `test ${mem(w)}, ${random() < 0.5 ? imm(w) : reg(w)}`;
+        case 34: return `cmp ${reg(w)}, ${mem(w)}\nj${pick(CC)} .c${state.labels}\ninc edi\n.c${state.labels++}:`;
+        case 35: return `sub ${reg(w)}, ${imm(8)}\nset${pick(CC)} al`;
+        case 36: { const r = reg(32); return `xor ${r}, ${r}`; }
+        case 37: return `and ebx, 255\n${alu} ${reg(32)}, [ebp+ebx*${pick([1, 2, 4])}+${int(0, 7000)}]`;
+        case 38: return `and ecx, 255\nmov ${pick(["eax", "edx", "esi"])}, [ebp+ecx*4+${int(0, 7000)}]`;
+        default: return `${pick(["add", "sub", "and", "or", "xor", "adc", "sbb"])} ${mem(w)}, ${imm(w)}`;
+    }
+}
+function simple()
+{
+    return pick([`add ${reg(32)}, ${int(0, 99)}`, `xor ${reg(32)}, ${reg(32)}`, `inc ${mem(32)}`, `mov ${reg(16)}, ${mem(16)}`]);
+}
+
+const cases = Number(process.env.COMPAT_FUZZ_CASES || 12);
+const guests = Number(process.env.COMPAT_FUZZ_GUESTS || 4);
+const ITERATIONS = Number(process.env.COMPAT_FUZZ_ITERATIONS || 300);
+let failures = 0, native_total = 0, compat_compiles = 0;
+for(let guest = 0; guest < guests; guest++)
+{
+    const first_seed = seed;
+    // 64-bit code: each case in compatibility mode, back by a far jump
+    let body = "";
+    let functions = "";
+    const programs = [];
+    for(let c = 0; c < cases; c++)
+    {
+        const state = {labels: 0};
+        let lines = Array.from({length: int(20, 70)}, () => instruction(state));
+        let init = GPR32.map(r => `mov ${r}, 0x${(int(0, 0xFFFFFFFF) >>> 0).toString(16)}`).join("\n");
+        // (COMPAT_FUZZ_BODY_GUEST and COMPAT_FUZZ_BODY_CASE: only there; the
+        // others stay as the seed makes them)
+        const target = (name, n) => process.env[name] === undefined || +process.env[name] === n;
+        if(process.env.COMPAT_FUZZ_BODY && target("COMPAT_FUZZ_BODY_GUEST", guest) && target("COMPAT_FUZZ_BODY_CASE", c))
+            ({init, lines} = JSON.parse(fs.readFileSync(process.env.COMPAT_FUZZ_BODY, "utf8")));
+        if(process.env.COMPAT_FUZZ_SAVE && +process.env.COMPAT_FUZZ_SAVE_GUEST === guest && +process.env.COMPAT_FUZZ_SAVE_CASE === c)
+            fs.writeFileSync(process.env.COMPAT_FUZZ_SAVE, JSON.stringify({init, lines}, null, 1));
+        programs.push(init + "\n.loop:\n" + lines.join("\n"));
+        body += `mov rax, HIGH+after_${c}\nmov [0x2FF000], rax\npush 8\nmov eax, case_${c}\npush rax\no64 retf\nafter_${c}:\n`;
+        functions += `
+align 4096
+case_${c}:
+${init}
+mov ebp, ${DATA}
+mov dword [${COUNTER}], ${ITERATIONS}
+push 0x${(int(0, 0xFFF) & 0xCD5).toString(16)}
+popfd
+.loop:
+${lines.join("\n")}
+dec dword [${COUNTER}]
+jnz .loop
+${["eax", "ecx", "edx", "ebx", "esi", "edi", "ebp", "esp"].map((r, i) => `mov [${RESULT + 8 + c * RECORD + i * 4}], ${r}`).join("\n")}
+pushfd
+pop eax
+mov [${RESULT + 8 + c * RECORD + 32}], eax
+cld
+mov esi, ${DATA}
+mov edi, ${RESULT + 8 + c * RECORD + 256}
+mov ecx, 8192
+rep movsb
+mov edi, ${DATA}
+mov ecx, 8192
+mov al, 0x5A
+rep stosb
+jmp 0x18:back_to_64
+`;
+    }
+    const source = long_mode_guest(body, `
+bits 32
+${functions}
+align 4096
+leaf_near:
+add esi, 7
+xor edi, esi
+ret
+align 4096
+leaf_far:
+lea esi, [esi+edi*2+3]
+ror edi, 5
+ret
+bits 64
+back_to_64:
+jmp [0x2FF000]
+`);
+    const dir = assemble(`compat-fuzz-${guest}`, source.replace("high_mode:\n", `high_mode:\nmov rdi, ${DATA}\nmov ecx, 8192\nmov al, 0x5A\nrep stosb\n`));
+    const length = 8 + cases * RECORD;
+    const run = async jit => {
+        const {V86} = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
+        const emulator = new V86({graphics_adapter: "bochs_vga", multiboot: {url: dir + "guest.bin"}, memory_size: 32 << 20, acpi: true,
+            disable_jit: !jit, experimental_smp_jit: true, ir_sync_publication: true, autostart: false, log_level: 0,
+            jit_switches: {x64_page_compat32: 1}});
+        try
+        {
+            await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
+            const cpu = emulator.v86.cpu;
+            const deadline = performance.now() + 120000;
+            let rounds = 0;
+            while(new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(RESULT, true) !== MAGIC)
+            {
+                if(performance.now() > deadline) throw new Error("guest timed out: " + JSON.stringify(cpu.get_diagnostics()));
+                cpu.run_cores();
+                if((++rounds & 63) === 0) await yield_event();
+            }
+            const x = cpu.wm.exports;
+            return {result: Buffer.from(cpu.mem8.slice(RESULT, RESULT + length)), native: jit ? x.x64_page_stat(1) : 0,
+                compat_compiles: jit ? x.x64_page_stat(36) : 0, stats: jit ? Array.from({length: 13}, (_, i) => x.x64_page_stat(i)) : []};
+        }
+        finally { await emulator.destroy(); }
+    };
+    const reference = await run(false);
+    const compiled = await run(true);
+    native_total += compiled.native;
+    compat_compiles += compiled.compat_compiles;
+    for(let c = 0; c < cases; c++)
+    {
+        const at = 8 + c * RECORD;
+        const a = reference.result.subarray(at, at + RECORD), b = compiled.result.subarray(at, at + RECORD);
+        if(!a.equals(b))
+        {
+            failures++;
+            const names = ["eax", "ecx", "edx", "ebx", "esi", "edi", "ebp", "esp", "eflags"];
+            const diffs = [];
+            for(let i = 0; i < 9; i++) if(a.readUInt32LE(i * 4) !== b.readUInt32LE(i * 4)) diffs.push(`${names[i]}: interpreter ${a.readUInt32LE(i * 4).toString(16)} page ${b.readUInt32LE(i * 4).toString(16)}`);
+            for(let i = 256; i < 256 + 8192; i++) if(a[i] !== b[i]) { diffs.push(`data+${i - 256}: ${a[i].toString(16)} vs ${b[i].toString(16)}`); if(diffs.length > 24) break; }
+            console.log(`FAIL guest ${guest} (seed ${first_seed}) case ${c}:\n  ` + diffs.join("\n  "));
+            if(process.env.COMPAT_FUZZ_VERBOSE) console.log(programs[c]);
+        }
+    }
+    console.log(`guest ${guest} (seed ${first_seed}): ${cases} cases, native retired ${compiled.native}, compat compiles ${compiled.compat_compiles}, stats ${JSON.stringify(compiled.stats)}`);
+    assert.ok(compiled.compat_compiles > 0 && compiled.native > cases * ITERATIONS * 5, "the page tier executed the 32-bit loops");
+}
+assert.equal(failures, 0, `${failures} cases differ`);
+console.log(`PASS compat fuzz: ${guests * cases} 32-bit programs identical to the interpreter (${native_total} native instructions, ${compat_compiles} compatibility-mode compiles)`);

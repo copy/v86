@@ -1048,6 +1048,8 @@ x64-differential-tests: build/v86-debug.wasm
 x64-wow64-tests: build/v86-debug.wasm
 	node tests/x64/compat_jit.mjs
 	node tests/x64/long_visit.mjs
+	COMPAT_FUZZ_SEED=1 COMPAT_FUZZ_GUESTS=3 node tests/x64/compat_fuzz.mjs
+	COMPAT_FUZZ_SEED=2 COMPAT_FUZZ_GUESTS=3 node tests/x64/compat_fuzz.mjs
 
 x64-page-tier-tests: build/v86-debug.wasm
 	X64_JIT=1 node tests/x64/integer_oracle.mjs

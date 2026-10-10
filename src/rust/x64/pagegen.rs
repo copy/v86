@@ -667,10 +667,17 @@ fn relative(d: &Decoded) -> Option<u64> {
 
 /// The template for a long-mode instruction, or Step. Mirrors
 /// x64::execute::execute; anything it does not cover exactly is a Step.
+/// 32-bit compatibility-mode code (CompileEnv::compat) shares the long-mode
+/// templates the emitter treats in both modes (compat_template), its own
+/// forms (INC/DEC 40-4F, the 32-bit stack), and steps the rest.
 fn classify(d: &Decoded) -> Op {
-    if !d.mode.is_long() {
+    let compat = d.mode == ExecutionMode::Compatibility32;
+    if !d.mode.is_long() && !compat {
         return Op::Step;
     }
+    // (the stack width of PUSH, POP, CALL and RET: 64, or 32 in
+    // compatibility mode; other operand sizes are steps)
+    let stack = if compat { 32 } else { 64 };
     let op = d.base_opcode();
     let w = d.operand_size;
     let rex = d.prefixes.rex.is_some();
@@ -803,7 +810,7 @@ fn classify(d: &Decoded) -> Op {
                 dst: reg(d.reg?, w),
                 address: d.address?,
             },
-            0x63 => Op::Extend {
+            0x63 if !compat => Op::Extend {
                 width: w,
                 from: if w == 16 { 16 } else { 32 },
                 signed: true,
@@ -896,29 +903,36 @@ fn classify(d: &Decoded) -> Op {
                 a: rm(w)?,
                 b: Opnd::Imm(imm? & mask(w)),
             },
-            0x50..=0x57 if w == 64 => Op::Push {
-                src: Opnd::Reg(reg(d.opcode_register?, 64)),
+            // (compatibility mode: INC and DEC r32, REX prefixes in 64-bit mode)
+            0x40..=0x4F if compat => Op::IncDec {
+                dec: op >= 0x48,
+                width: w,
+                dst: Opnd::Reg(reg(op as u8 & 7, w)),
             },
-            0x58..=0x5F if w == 64 => Op::Pop {
-                dst: reg(d.opcode_register?, 64),
+            0x50..=0x57 if w == stack => Op::Push {
+                src: Opnd::Reg(reg(d.opcode_register?, stack)),
             },
-            0x68 | 0x6A if w == 64 => Op::Push {
+            0x58..=0x5F if w == stack => Op::Pop {
+                dst: reg(d.opcode_register?, stack),
+            },
+            0x68 | 0x6A if w == stack => Op::Push {
                 src: Opnd::Imm(imm?),
             },
-            0xFF if group == 6 && w == 64 => Op::Push { src: rm(64)? },
-            0x9C if w == 64 => Op::Pushf,
-            0xC9 if w == 64 => Op::Leave,
-            0xE8 => Op::Call {
+            0xFF if group == 6 && w == stack => Op::Push { src: rm(stack)? },
+            0x9C if w == stack => Op::Pushf,
+            0xC9 if w == stack => Op::Leave,
+            // (compatibility mode: a 16-bit operand size truncates EIP, a step)
+            0xE8 if !compat || w == 32 => Op::Call {
                 target: relative(d)?,
             },
-            0xFF if group == 2 => Op::CallIndirect { src: rm(64)? },
-            0xFF if group == 4 => Op::JmpIndirect { src: rm(64)? },
-            0xC3 => Op::Ret { pop: 0 },
-            0xC2 => Op::Ret { pop: imm? as u16 },
-            0xE9 | 0xEB => Op::Jmp {
+            0xFF if group == 2 && (!compat || w == 32) => Op::CallIndirect { src: rm(stack)? },
+            0xFF if group == 4 && (!compat || w == 32) => Op::JmpIndirect { src: rm(stack)? },
+            0xC3 if !compat || w == 32 => Op::Ret { pop: 0 },
+            0xC2 if !compat || w == 32 => Op::Ret { pop: imm? as u16 },
+            0xE9 | 0xEB if !compat || w == 32 => Op::Jmp {
                 target: relative(d)?,
             },
-            0x70..=0x7F | 0x0F80..=0x0F8F => Op::Jcc {
+            0x70..=0x7F | 0x0F80..=0x0F8F if !compat || w == 32 => Op::Jcc {
                 cc: op as u8 & 15,
                 target: relative(d)?,
             },
@@ -1025,7 +1039,7 @@ fn classify(d: &Decoded) -> Op {
             },
             0x0F31 => Op::Rdtsc,
             0xA4 | 0xA5 | 0xAA | 0xAB
-                if d.address_size == 64
+                if d.address_size == stack
                     && !(op <= 0xA5 && matches!(d.prefixes.segment, Some(4 | 5))) =>
             {
                 let width = if op & 1 == 0 { 8 } else { w };
@@ -1038,7 +1052,7 @@ fn classify(d: &Decoded) -> Op {
                 }
             },
             0xA6 | 0xA7 | 0xAE | 0xAF
-                if d.address_size == 64
+                if d.address_size == stack
                     && d.prefixes.rep.is_some()
                     && !(op <= 0xA7 && matches!(d.prefixes.segment, Some(4 | 5))) =>
             {
@@ -1126,7 +1140,71 @@ fn classify(d: &Decoded) -> Op {
             _ => return None,
         })
     })();
-    result.unwrap_or(Op::Step)
+    match result {
+        // (compatibility mode: shifts and rotates by the 32-bit
+        // interpreter's rules, Emitter's ShiftCall)
+        Some(Op::Shift {
+            code,
+            width,
+            dst,
+            count,
+        }) if compat && d.address.map_or(true, |a| a.address_size == 32) => Op::ShiftCall {
+            code,
+            width,
+            dst,
+            count,
+        },
+        Some(op) if !compat || compat_template(&op, d) => op,
+        _ => Op::Step,
+    }
+}
+
+/// The templates the emitter treats in 32-bit compatibility mode
+/// (CompileEnv::compat, docs/jit-unification-plan.md P7.2): EIP, ESP and
+/// addresses wrap at 4 GiB, the stack slots are 4 bytes. Memory operands
+/// with 32-bit addresses only (a 16-bit address is a step); the rest steps
+/// until its emitter covers the mode.
+fn compat_template(op: &Op, d: &Decoded) -> bool {
+    if d.address.is_some_and(|a| a.address_size != 32) {
+        return false;
+    }
+    matches!(
+        op,
+        Op::Alu { .. }
+            | Op::Test { .. }
+            | Op::Mov { .. }
+            | Op::Lea { .. }
+            | Op::Extend { .. }
+            | Op::IncDec { .. }
+            | Op::Not { .. }
+            | Op::Neg { .. }
+            | Op::MulWide { .. }
+            | Op::Div { .. }
+            | Op::Shift { .. }
+            | Op::ShiftCall { .. }
+            | Op::Imul { .. }
+            | Op::Push { .. }
+            | Op::Pop { .. }
+            | Op::Pushf
+            | Op::Leave
+            | Op::Call { .. }
+            | Op::CallIndirect { .. }
+            | Op::JmpIndirect { .. }
+            | Op::Ret { .. }
+            | Op::Jmp { .. }
+            | Op::Jcc { .. }
+            | Op::Cmov { .. }
+            | Op::Setcc { .. }
+            | Op::Xchg { .. }
+            | Op::Nop
+            | Op::Xadd { .. }
+            | Op::Cmpxchg { .. }
+            | Op::SignAcc { .. }
+            | Op::SignDx { .. }
+            | Op::Movs { .. }
+            | Op::Stos { .. }
+            | Op::RepCompare { .. }
+    )
 }
 
 /// SSE data movement and bitwise templates (x64::vector semantics).
@@ -2266,7 +2344,13 @@ fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
                 | Op::RepCompare { .. }
         )
 }
-fn effects(op: &Op) -> (u32, u32) {
+/// The EFLAGS bits an instruction reads and writes; in compatibility mode
+/// (P7.2) a multiply writes them all, as the 32-bit interpreter leaves SF,
+/// ZF, PF and AF of its result (see Emitter::legacy_mul_flags)
+fn effects(op: &Op, compat: bool) -> (u32, u32) {
+    if compat && matches!(op, Op::Imul { .. } | Op::MulWide { .. }) {
+        return (0, ARITH);
+    }
     match *op {
         Op::Alu { code: 2 | 3, .. } => (CF, ARITH),
         Op::Alu { .. }
@@ -2508,25 +2592,27 @@ struct Decoder<'a> {
     /// x64_sse_fast_check (CompileEnv::sse_fast_check): else SQRT, RSQRT,
     /// RCP, MIN and MAX are steps
     sse_fast_check: bool,
+    /// Long64, or Compatibility32 (CompileEnv::compat)
+    mode: ExecutionMode,
 }
 impl Decoder<'_> {
     fn at(&mut self, offset: u16) -> Option<(Decoded, Op)> {
-        let (bytes, next, page, cvt, fast_check) = (
+        let (bytes, next, page, cvt, fast_check, mode) = (
             self.bytes,
             self.next,
             self.page,
             self.cvt,
             self.sse_fast_check,
+            self.mode,
         );
         *self.cache.entry(offset).or_insert_with(|| {
-            let d =
-                decode::decode_with(GuestIp(page + offset as u64), ExecutionMode::Long64, |i| {
-                    let at = offset as usize + i as usize;
-                    if at < PAGE { bytes.get(at) } else { next.get(at - PAGE) }
-                        .copied()
-                        .ok_or(())
-                })
-                .ok()?;
+            let d = decode::decode_with(GuestIp(page + offset as u64), mode, |i| {
+                let at = offset as usize + i as usize;
+                if at < PAGE { bytes.get(at) } else { next.get(at - PAGE) }
+                    .copied()
+                    .ok_or(())
+            })
+            .ok()?;
             // (at most 8 bytes in the next page: x64_page_straddle compares one word)
             if offset as usize + d.length as usize > PAGE + 8 {
                 return None;
@@ -2587,6 +2673,12 @@ pub struct CompileEnv {
     /// Eager EFLAGS only where read or observable (x64_page_set_exit_flags;
     /// P4.23)
     pub exit_flags: bool,
+    /// The page's code runs in compatibility mode, 32-bit (CS.L = 0, CS.D =
+    /// 1; x64_page_compat32, docs/jit-unification-plan.md P7.2), its data
+    /// and stack segments flat (pages::run checks it at entry): EIP, ESP and
+    /// addresses wrap at 4 GiB, only the GPRs' low halves are read and
+    /// written back, as the 32-bit interpreter does under WOW64
+    pub compat: bool,
     /// The page's execution counter, incremented at each entry and dispatch
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
@@ -2603,8 +2695,14 @@ pub struct CompileEnv {
 impl CompileEnv {
     /// The running instance's, chaining or not; `outline`: memory accesses
     /// call the module's lookup function (cold compiles; see OUTLINE_ACCESS),
-    /// else inline it; `counter`: CompileEnv::counter
-    pub fn current(chaining: bool, outline: bool, counter: Option<u32>) -> CompileEnv {
+    /// else inline it; `counter`: CompileEnv::counter; `compat`:
+    /// CompileEnv::compat
+    pub fn current(
+        chaining: bool,
+        outline: bool,
+        counter: Option<u32>,
+        compat: bool,
+    ) -> CompileEnv {
         unsafe {
             CompileEnv {
                 bucket_dispatch: BUCKET_DISPATCH,
@@ -2620,8 +2718,10 @@ impl CompileEnv {
                 sse_fast_check: SSE_FAST_CHECK,
                 i32_ops: I32_OPS,
                 fast_lookup: FAST_LOOKUP,
-                fast_chain: FAST_CHAIN,
+                // (the chained GPRs are 64-bit: not for 32-bit code)
+                fast_chain: FAST_CHAIN && !compat,
                 exit_flags: EXIT_FLAGS,
+                compat,
                 counter,
                 sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
@@ -2653,6 +2753,7 @@ impl CompileEnv {
         fast_lookup: bool,
         fast_chain: bool,
         exit_flags: bool,
+        compat: bool,
     ) -> CompileEnv {
         CompileEnv {
             bucket_dispatch,
@@ -2670,6 +2771,7 @@ impl CompileEnv {
             fast_lookup,
             fast_chain,
             exit_flags,
+            compat,
             counter: counting.then_some(0x0000_0E80),
             sse_fp_operands: 0x0000_0E00,
             core_yield: 0x0000_0D00,
@@ -2680,7 +2782,8 @@ impl CompileEnv {
 }
 
 /// Compile a page of long-mode code (the bytes of its RAM backing page) for
-/// the block starts `entries`. The function is position independent: it runs
+/// the block starts `entries` (with `compat`, of 32-bit compatibility-mode
+/// code: CompileEnv::compat). The function is position independent: it runs
 /// wherever the page is mapped (gp::x64_page_linear), so every mapping of the
 /// same backing page shares it. Addresses below are relative to the page.
 /// `chaining`: leaving the page, tail-call the function serving the new page
@@ -2694,9 +2797,10 @@ pub fn compile(
     chaining: bool,
     outline: bool,
     counter: Option<u32>,
+    compat: bool,
     name: String,
 ) -> Option<Compiled> {
-    let env = CompileEnv::current(chaining, outline, counter);
+    let env = CompileEnv::current(chaining, outline, counter, compat);
     #[cfg(feature = "ir-test-hooks")]
     super::replay::record(&env, bytes, next, entries, &name);
     compile_with(&env, bytes, next, entries, name)
@@ -2721,6 +2825,7 @@ pub fn compile_with(
         cache: HashMap::default(),
         cvt: env.cvt,
         sse_fast_check: env.sse_fast_check,
+        mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
     };
     // Discover block starts: entries, in-page branch targets, return
     // addresses, and the instruction after every step (steps continue by
@@ -2833,7 +2938,7 @@ pub fn compile_with(
                 break End::StepAt(o);
             };
             let next = o + d.length as u16;
-            let (reads, writes) = effects(&op);
+            let (reads, writes) = effects(&op, env.compat);
             let liveness = if matches!(op, Op::Step) { 0 } else { reads };
             let locked = cfg!(feature = "parallel") && locked_rmw(&d, &op);
             let op = if locked && !lockable(&op) { Op::Step } else { op };
@@ -3108,6 +3213,12 @@ struct Emitter {
     access: Option<u32>,
     /// the compare-exchange loop of a locked instruction (read_dst)
     lock_loop: Option<Label>,
+    /// compatibility mode (P7.2): the 32-bit interpreter's last_op1, which
+    /// its ADD, ADC, SUB, SBB, CMP, INC and DEC (NEG, XADD, CMPXCHG, CMPS
+    /// and SCAS through them) set to their first operand, and from which a
+    /// later MUL's AF follows (cpu::misc_instr::getaf): kept in a local,
+    /// loaded and written back with the GPRs
+    last_op1: Option<WasmLocal>,
     /// what else the bytes depend on
     env: CompileEnv,
 }
@@ -3247,6 +3358,7 @@ impl Emitter {
             .map(|_| b.declare_zeroed_local_i64())
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
+        let last_op1 = env.compat.then(|| b.declare_zeroed_local());
 
         let mut e = Emitter {
             b,
@@ -3266,6 +3378,7 @@ impl Emitter {
             lookup_base: None,
             access: None,
             lock_loop: None,
+            last_op1,
             env: *env,
         };
         let mark = e.b.body_len();
@@ -3386,6 +3499,7 @@ impl Emitter {
             xmm_locals,
             fp_mxcsr,
             lookup_kept,
+            last_op1,
             ..
         } = e;
         for l in v {
@@ -3395,7 +3509,7 @@ impl Emitter {
             b.free_local_i64(tag);
             b.free_local(delta);
         }
-        for l in w.into_iter().chain(fp_mxcsr) {
+        for l in w.into_iter().chain(fp_mxcsr).chain(last_op1) {
             b.free_local(l);
         }
         for l in xmm_locals.into_iter().flatten() {
@@ -3464,12 +3578,35 @@ impl Emitter {
         self.b.memory_op(op::OP_I64STORE32, op::MEM_ALIGN32, 0);
     }
     fn reload(&mut self) {
-        for i in 0..16 {
-            self.load_pair(gpr_low_offset(i), gpr_high_offset(i));
+        // (compatibility mode: the eight GPRs' low halves, P7.2; the 32-bit
+        // code leaves the high halves as they are)
+        for i in 0..if self.env.compat { 8 } else { 16 } {
+            if self.env.compat {
+                self.c32(gpr_low_offset(i) as i32);
+                self.b.memory_op(op::OP_I64LOAD32U, op::MEM_ALIGN32, 0);
+            }
+            else {
+                self.load_pair(gpr_low_offset(i), gpr_high_offset(i));
+            }
             self.s(i);
         }
         self.b.load_fixed_i32(gp::flags as u32);
         self.si(FL);
+        if self.last_op1.is_some() {
+            self.b.load_fixed_i32(gp::last_op1 as u32);
+            self.b.set_local(self.last_op1.as_ref().unwrap());
+        }
+    }
+    /// RIP into its local (in compatibility mode EIP: its high half is 0)
+    fn load_rip(&mut self) {
+        if self.env.compat {
+            self.c32(gp::instruction_pointer as i32);
+            self.b.memory_op(op::OP_I64LOAD32U, op::MEM_ALIGN32, 0);
+        }
+        else {
+            self.load_pair(gp::instruction_pointer as u32, gp::x64_rip_hi as u32);
+        }
+        self.s(RIP);
     }
     fn prologue(&mut self) {
         self.set_exit(EXIT_NORMAL);
@@ -3497,8 +3634,7 @@ impl Emitter {
         else {
             self.reload();
         }
-        self.load_pair(gp::instruction_pointer as u32, gp::x64_rip_hi as u32);
-        self.s(RIP);
+        self.load_rip();
         self.b.load_fixed_i32(gp::x64_jac_base as u32);
         self.si(JAC);
         self.c32(gp::x64_jac_epoch as i32);
@@ -3519,20 +3655,39 @@ impl Emitter {
     }
     /// Memory becomes authoritative: GPRs, materialized EFLAGS and RIP.
     fn writeback(&mut self) {
-        for i in 0..16 {
-            self.store_pair(gpr_low_offset(i), gpr_high_offset(i), i);
+        for i in 0..if self.env.compat { 8 } else { 16 } {
+            if self.env.compat {
+                self.c32(gpr_low_offset(i) as i32);
+                self.g(i);
+                self.b.memory_op(op::OP_I64STORE32, op::MEM_ALIGN32, 0);
+            }
+            else {
+                self.store_pair(gpr_low_offset(i), gpr_high_offset(i), i);
+            }
         }
         self.writeback_except_gprs();
     }
     /// writeback but the GPRs
     fn writeback_except_gprs(&mut self) {
+        if self.last_op1.is_some() {
+            self.c32(gp::last_op1 as i32);
+            self.b.get_local(self.last_op1.as_ref().unwrap());
+            self.b.store_aligned_i32(0);
+        }
         self.c32(gp::flags as i32);
         self.gi(FL);
         self.b.store_aligned_i32(0);
         self.c32(gp::flags_changed as i32);
         self.c32(0);
         self.b.store_aligned_i32(0);
-        self.store_pair(gp::instruction_pointer as u32, gp::x64_rip_hi as u32, RIP);
+        if self.env.compat {
+            self.c32(gp::instruction_pointer as i32);
+            self.g(RIP);
+            self.b.memory_op(op::OP_I64STORE32, op::MEM_ALIGN32, 0);
+        }
+        else {
+            self.store_pair(gp::instruction_pointer as u32, gp::x64_rip_hi as u32, RIP);
+        }
         self.c32(gp::last_virt_eip as i32);
         self.c32(-1);
         self.b.store_aligned_i32(0);
@@ -3557,8 +3712,7 @@ impl Emitter {
         self.reload();
         self.c32(0);
         self.si(FK);
-        self.load_pair(gp::instruction_pointer as u32, gp::x64_rip_hi as u32);
-        self.s(RIP);
+        self.load_rip();
         // (P4.21: the step may have retired access cache entries without a
         // new epoch, a 4 KiB INVLPG among them: the kept translations go)
         for (tag, _) in self.lookup_kept.iter().flatten() {
@@ -3578,12 +3732,17 @@ impl Emitter {
         self.b.add_i32();
         self.si(N);
     }
-    /// Push the linear address of page-relative address `offset`.
+    /// Push the linear address of page-relative address `offset` (in
+    /// compatibility mode wrapped at 4 GiB, as EIP is).
     fn linear(&mut self, offset: u64) {
         self.g(BASE);
         if offset != 0 {
             self.c64(offset);
             self.b.add_i64();
+            if self.env.compat {
+                self.c64(0xFFFF_FFFF);
+                self.b.and_i64();
+            }
         }
     }
     fn leave_to(&mut self, label: Label, offset: u64) {
@@ -3800,7 +3959,8 @@ impl Emitter {
     /// canonical where the page runs (a noncanonical target is #GP at the
     /// branch).
     fn check_target(&mut self, target: u64, start: u64) {
-        if in_page(0, target).is_none() {
+        // (compatibility mode: every 32-bit EIP is valid in a flat CS)
+        if in_page(0, target).is_none() && !self.env.compat {
             self.linear(target);
             self.s(TX);
             self.check_canonical(TX, start);
@@ -3988,11 +4148,21 @@ impl Emitter {
         }
         if segment && a.segment >= 4 {
             let s = a.segment as u32;
-            self.load_pair(
-                gp::segment_offsets as u32 + s * 4,
-                gp::x64_segment_base_hi as u32 + s * 4,
-            );
-            self.b.add_i64();
+            if self.env.compat {
+                // (a 32-bit base; the linear address wraps at 4 GiB)
+                self.c32(gp::segment_offsets as i32 + s as i32 * 4);
+                self.b.memory_op(op::OP_I64LOAD32U, op::MEM_ALIGN32, 0);
+                self.b.add_i64();
+                self.c64(0xFFFF_FFFF);
+                self.b.and_i64();
+            }
+            else {
+                self.load_pair(
+                    gp::segment_offsets as u32 + s * 4,
+                    gp::x64_segment_base_hi as u32 + s * 4,
+                );
+                self.b.add_i64();
+            }
         }
     }
     /// Push the low half of the effective address of `a` (i32; LEA r32 with
@@ -4693,8 +4863,12 @@ impl Emitter {
             self.b.shr_s_i64();
         }
     }
-    /// Retry the instruction unless the address in local `i` is canonical.
+    /// Retry the instruction unless the address in local `i` is canonical
+    /// (compatibility mode has no noncanonical addresses).
     fn check_canonical(&mut self, i: usize, start: u64) {
+        if self.env.compat {
+            return;
+        }
         self.g(i);
         self.c64(16);
         self.b.shl_i64();
@@ -4715,9 +4889,37 @@ impl Emitter {
             self.c64(delta as u64);
             self.b.add_i64();
         }
+        if self.env.compat {
+            self.wrap32();
+        }
         self.s(ADDR);
-        self.host(8, write, start);
+        self.host(self.slot_bytes() as u32, write, start);
         self.si(HOST);
+    }
+    /// A stack slot's size: 8 bytes, 4 in compatibility mode (P7.2)
+    fn slot_bytes(&self) -> u64 {
+        if self.env.compat {
+            4
+        }
+        else {
+            8
+        }
+    }
+    /// The 64-bit value on the stack wrapped at 4 GiB (compatibility mode's
+    /// EIP, ESP and addresses)
+    fn wrap32(&mut self) {
+        self.c64(0xFFFF_FFFF);
+        self.b.and_i64();
+    }
+    /// RSP += `bytes` (in compatibility mode ESP, wrapped)
+    fn adjust_sp(&mut self, bytes: u64) {
+        self.g(4);
+        self.c64(bytes);
+        self.b.add_i64();
+        if self.env.compat {
+            self.wrap32();
+        }
+        self.s(4);
     }
 
     // EFLAGS ------------------------------------------------------------
@@ -4771,6 +4973,37 @@ impl Emitter {
     fn is_zero(&mut self, i: usize) {
         self.g(i);
         self.b.op(op::OP_I64EQZ);
+    }
+    /// Compatibility mode: last_op1 = the low 32 bits of i64 local `i` (see
+    /// Emitter::last_op1)
+    fn note_last_op1(&mut self, i: usize) {
+        if self.last_op1.is_some() {
+            self.g(i);
+            self.b.wrap_i64_to_i32();
+            self.b.set_local(self.last_op1.as_ref().unwrap());
+        }
+    }
+    /// Compatibility mode: SF, ZF, PF and AF after a multiply as the 32-bit
+    /// interpreter's lazy EFLAGS give them (cpu::arith::mul32 and kin: the
+    /// result TR at `width`; AF from last_op1 and that result, getaf), each
+    /// in `need`, joined to what is on the stack
+    fn legacy_mul_flags(&mut self, width: u8, need: u32, first: &mut bool) {
+        self.szp(TR, need, width, first);
+        if need & AF != 0 {
+            // (last_op1 ^ (result - last_op1) ^ result) & AF
+            self.b.get_local(self.last_op1.as_ref().unwrap());
+            self.g(TR);
+            self.b.wrap_i64_to_i32();
+            self.b.get_local(self.last_op1.as_ref().unwrap());
+            self.b.sub_i32();
+            self.b.xor_i32();
+            self.g(TR);
+            self.b.wrap_i64_to_i32();
+            self.b.xor_i32();
+            self.c32(AF as i32);
+            self.b.and_i32();
+            self.join(first);
+        }
     }
     /// SF, ZF, PF of local `i` (masked to `width`).
     fn szp(&mut self, i: usize, need: u32, width: u8, first: &mut bool) {
@@ -5136,6 +5369,11 @@ impl Emitter {
                     && matches!((dst, src), (Opnd::Reg(a), Opnd::Reg(b)) if a == b)
                 {
                     // SUB/XOR of a register with itself
+                    if code == 5 && self.last_op1.is_some() {
+                        self.get_reg(dst.reg().unwrap(), width);
+                        self.s(TA);
+                        self.note_last_op1(TA);
+                    }
                     self.c64(0);
                     self.set_reg(dst.reg().unwrap(), width);
                     self.gi(FL);
@@ -5165,6 +5403,9 @@ impl Emitter {
                     self.s(TA);
                     self.read(src, width, inst);
                     self.s(TB);
+                    if matches!(code, 0 | 2 | 3 | 5 | 7) {
+                        self.note_last_op1(TA);
+                    }
                     if width == 32 && self.env.i32_ops {
                         let carry = matches!(code, 2 | 3).then_some(self.w[CI].unsafe_clone());
                         self.op32(TA, Some(TB), |b| {
@@ -5240,6 +5481,7 @@ impl Emitter {
                 self.materialize_if(CF);
                 self.read_dst(dst, width, true, inst);
                 self.s(TA);
+                self.note_last_op1(TA);
                 self.c64(1);
                 self.s(TB);
                 if width == 32 && self.env.i32_ops {
@@ -5273,6 +5515,7 @@ impl Emitter {
                 self.s(TB);
                 self.c64(0);
                 self.s(TA);
+                self.note_last_op1(TA);
                 if width == 32 && self.env.i32_ops {
                     self.op32(TA, Some(TB), |b| b.sub_i32());
                 }
@@ -5349,13 +5592,33 @@ impl Emitter {
                 }
                 self.gi(FL);
                 self.c32(code as i32 | (width as i32) << 8);
-                self.b.call_signature(
-                    "x64_page_shift",
-                    Signature::new(
-                        &[WasmType::I64, WasmType::I32, WasmType::I32, WasmType::I32],
-                        &[WasmType::I64],
-                    ),
-                );
+                if self.last_op1.is_some() {
+                    // (compatibility mode, P7.2: the 32-bit interpreter's
+                    // rules, which leave AF to last_op1)
+                    self.b.get_local(self.last_op1.as_ref().unwrap());
+                    self.b.call_signature(
+                        "x64_page_shift32",
+                        Signature::new(
+                            &[
+                                WasmType::I64,
+                                WasmType::I32,
+                                WasmType::I32,
+                                WasmType::I32,
+                                WasmType::I32,
+                            ],
+                            &[WasmType::I64],
+                        ),
+                    );
+                }
+                else {
+                    self.b.call_signature(
+                        "x64_page_shift",
+                        Signature::new(
+                            &[WasmType::I64, WasmType::I32, WasmType::I32, WasmType::I32],
+                            &[WasmType::I64],
+                        ),
+                    );
+                }
                 self.s(TV);
                 self.g(TV);
                 self.c64(0xFFFF_FFFF);
@@ -5431,6 +5694,9 @@ impl Emitter {
                     self.b.mul_i32();
                     self.c32(need as i32);
                     self.b.and_i32();
+                    if self.env.compat {
+                        self.legacy_mul_flags(width, need, &mut false);
+                    }
                     self.flags_end(false);
                     self.written(need);
                 }
@@ -5504,77 +5770,87 @@ impl Emitter {
                     self.b.mul_i32();
                     self.c32(need as i32);
                     self.b.and_i32();
+                    if self.env.compat {
+                        self.legacy_mul_flags(width, need, &mut false);
+                    }
                     self.flags_end(false);
                     self.written(need);
                 }
             },
+            // (compatibility mode: 4-byte slots, ESP and EIP wrapped; P7.2)
             Op::Push { src } => {
-                self.read(src, 64, inst);
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
+                self.read(src, width, inst);
                 self.s(TV);
-                self.stack(-8, true, start);
+                self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
                 self.g(TV);
-                self.store(64);
+                self.store(width);
                 self.g(ADDR);
                 self.s(4);
             },
             Op::Pushf => {
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.materialize_if(ARITH);
-                self.stack(-8, true, start);
+                self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
                 self.gi(FL);
                 self.c32(!0x30000);
                 self.b.and_i32();
                 self.b.extend_unsigned_i32_to_i64();
-                self.store(64);
+                self.store(width);
                 self.g(ADDR);
                 self.s(4);
             },
             Op::Pop { dst } => {
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.stack(0, false, start);
                 self.gi(HOST);
-                self.load(64);
+                self.load(width);
                 self.s(TV);
-                self.g(4);
-                self.c64(8);
-                self.b.add_i64();
-                self.s(4);
+                self.adjust_sp(bytes);
                 self.g(TV);
-                self.set_reg(dst, 64);
+                self.set_reg(dst, width);
             },
             Op::Leave => {
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.lookup_base = Some(5);
                 self.g(5);
                 self.s(ADDR);
-                self.host(8, false, start);
-                self.load(64);
+                self.host(bytes as u32, false, start);
+                self.load(width);
                 self.s(TV);
                 self.g(5);
-                self.c64(8);
+                self.c64(bytes);
                 self.b.add_i64();
+                if self.env.compat {
+                    self.wrap32();
+                }
                 self.s(4);
                 self.g(TV);
                 self.s(5);
             },
             Op::Call { target } => {
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.check_target(target, start);
-                self.stack(-8, true, start);
+                self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
                 self.linear(next);
-                self.store(64);
+                self.store(width);
                 self.g(ADDR);
                 self.s(4);
                 self.retired();
                 self.goto(target, index);
             },
             Op::CallIndirect { src } => {
-                self.read(src, 64, inst);
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
+                self.read(src, width, inst);
                 self.s(TV);
                 self.check_canonical(TV, start);
-                self.stack(-8, true, start);
+                self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
                 self.linear(next);
-                self.store(64);
+                self.store(width);
                 self.g(ADDR);
                 self.s(4);
                 self.retired();
@@ -5583,22 +5859,21 @@ impl Emitter {
                 self.dispatch();
             },
             Op::Ret { pop } => {
+                let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.stack(0, false, start);
                 self.gi(HOST);
-                self.load(64);
+                self.load(width);
                 self.s(TV);
                 self.check_canonical(TV, start);
-                self.g(4);
-                self.c64(8 + pop as u64);
-                self.b.add_i64();
-                self.s(4);
+                self.adjust_sp(bytes + pop as u64);
                 self.retired();
                 self.g(TV);
                 self.s(RIP);
                 self.dispatch();
             },
             Op::JmpIndirect { src } => {
-                self.read(src, 64, inst);
+                let width = self.slot_bytes() as u8 * 8;
+                self.read(src, width, inst);
                 self.s(TV);
                 self.check_canonical(TV, start);
                 self.retired();
@@ -5699,6 +5974,7 @@ impl Emitter {
             Op::Xadd { width, dst, src } => {
                 self.read_dst(dst, width, true, inst);
                 self.s(TA);
+                self.note_last_op1(TA);
                 self.get_reg(src, width);
                 self.s(TB);
                 self.g(TA);
@@ -5719,6 +5995,7 @@ impl Emitter {
                 self.s(TB);
                 self.get_reg(RAX, width);
                 self.s(TA);
+                self.note_last_op1(TA);
                 self.g(TA);
                 self.g(TB);
                 self.b.sub_i64();
@@ -8580,16 +8857,15 @@ impl Emitter {
             self.store(width);
             self.step_size(size);
             self.s(TX);
-            if movs {
-                self.g(6);
+            for register in if movs { [6, 7].as_slice() } else { [7].as_slice() } {
+                self.g(*register);
                 self.g(TX);
                 self.b.add_i64();
-                self.s(6);
+                if self.env.compat {
+                    self.wrap32();
+                }
+                self.s(*register);
             }
-            self.g(7);
-            self.g(TX);
-            self.b.add_i64();
-            self.s(7);
             return;
         }
         // REP: all at once when it stays inside one page per operand, going
@@ -8681,16 +8957,15 @@ impl Emitter {
         self.gi(COND);
         self.b.extend_unsigned_i32_to_i64();
         self.s(TX);
-        if movs {
-            self.g(6);
+        for register in if movs { [6, 7].as_slice() } else { [7].as_slice() } {
+            self.g(*register);
             self.g(TX);
             self.b.add_i64();
-            self.s(6);
+            if self.env.compat {
+                self.wrap32();
+            }
+            self.s(*register);
         }
-        self.g(7);
-        self.g(TX);
-        self.b.add_i64();
-        self.s(7);
         self.c64(0);
         self.s(1);
         self.b.block_end();
@@ -8862,9 +9137,13 @@ impl Emitter {
             self.g(*register);
             self.g(TX);
             self.b.add_i64();
+            if self.env.compat {
+                self.wrap32();
+            }
             self.s(*register);
         }
-        // EFLAGS: the last comparison
+        // EFLAGS: the last comparison (and last_op1, its first operand)
+        self.note_last_op1(TA);
         self.g(TA);
         self.g(TB);
         self.b.sub_i64();
@@ -9008,7 +9287,7 @@ mod sti_shadow_tests {
     fn compiled(page: &[u8], sti_shadow: bool) -> Vec<u8> {
         let env = CompileEnv::replay(
             true, true, true, false, false, true, sti_shadow, false, 1024, false, false, false,
-            false, false, false, false,
+            false, false, false, false, false,
         );
         compile_with(&env, page, &[], &[0], "sti".into())
             .expect("compiled")

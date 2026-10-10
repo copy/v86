@@ -5,7 +5,9 @@
 // INVLPG), which the already compiled code must observe (the 32-bit TLB it
 // reads inline is filled from x64 translations). The loop mixes loads,
 // stores, PUSH/CALL/RET and patches a CALLed routine after compilation.
-// Results must equal the interpreter's, and compiled code must have run.
+// Results must equal the interpreter's, and compiled code must have run:
+// Tier-0's, or with x64_page_compat32 the x64 page tier's
+// (docs/jit-unification-plan.md P7.2).
 import assert from "node:assert/strict";
 import {assemble, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
@@ -98,20 +100,27 @@ jmp [0x301000]
 `;
 const directory = assemble("compat-jit", long_mode_guest(body, data));
 const results = {};
-for(const [name, jit, compat] of [["interpreter", false, false], ["page tier, compat interpreted", true, false], ["page tier + compat JIT", true, true]])
+for(const [name, jit, compat, page32] of [["interpreter", false, false, false], ["page tier, compat interpreted", true, false, false],
+    ["page tier + compat JIT", true, true, false], ["page tier, compat32", true, false, true]])
 {
-    let tier0;
+    let tier0, page;
     const result = await actual(directory, {length: 80, timeout: 120000,
-        options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {},
+        options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
+            jit_switches: {x64_page_compat32: page32 ? 1 : 0}} : {},
         setup: emulator => {
             const x = emulator.v86.cpu.wm.exports;
             x.x64_set_compat_jit(compat);
             if(jit) x.ir_auto_set_idle_mode(0, 1);
         },
-        inspect: emulator => { tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0; }});
+        inspect: emulator => {
+            const x = emulator.v86.cpu.wm.exports;
+            tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0;
+            page = {compat_compiles: x.x64_page_stat(36), native: x.x64_page_stat(1)};
+        }});
     results[name] = result;
-    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} tier-0 ${JSON.stringify(tier0)}`);
+    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} tier-0 ${JSON.stringify(tier0)} page tier ${JSON.stringify(page)}`);
     if(compat) assert.ok(tier0.activations > 0 && tier0.page_functions > 0, "compiled compatibility-mode code ran");
+    if(page32) assert.ok(page.compat_compiles > 0 && page.native > ITERATIONS * 10, "the page tier ran the compatibility-mode code");
 }
 const view = results.interpreter;
 // per phase: EAX/EDX at +0/+4 (+8), EDI at +16 (+8), first data dword at +32 (+4)

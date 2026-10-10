@@ -9,6 +9,9 @@
 //! backing page (CPU, DMA, host) retire it through jit::jit_dirty_page.
 //! Code in extended RAM has keys from extended::CODE_KEY_BASE on (the
 //! extended page, whichever frame holds it); extended.rs watches its writes.
+//! With x64_page_compat32 (docs/jit-unification-plan.md P7.2), 32-bit code
+//! in compatibility mode runs here too: its functions have the key of their
+//! page with COMPAT_KEY, so a page run in both modes has a function for each.
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
 use crate::page::Page;
@@ -149,7 +152,7 @@ const HOT_RECOMPILES: usize = 12;
 /// (x64_page_access calls), access cache fills of the VGA frame buffer, MOV
 /// CR3 keeping global translations, INVLPG flushing a large-page region,
 /// unaligned reads served from BOUNCE.
-pub static mut COUNTERS: [u64; 17] = [0; 17];
+pub static mut COUNTERS: [u64; 18] = [0; 18];
 pub const COUNT_ACTIVATIONS: usize = 0;
 pub const COUNT_INVLPG: usize = 1;
 pub const COUNT_CR_WRITES: usize = 2;
@@ -175,6 +178,8 @@ pub const COUNT_COMPAT_REFILLS: usize = 14;
 /// (a conflict in the direct-mapped table; P4.15)
 pub const COUNT_JAC_FILLS: usize = 15;
 pub const COUNT_JAC_CONFLICTS: usize = 16;
+/// compiles of compatibility-mode pages (x64_page_stat 36, P7.2)
+pub const COUNT_COMPAT_COMPILES: usize = 17;
 /// (32 bytes: a VEX.256 load's)
 #[repr(C, align(16))]
 struct Bounce([u8; 32]);
@@ -246,7 +251,7 @@ pub unsafe fn allowed() -> bool {
         || *gp::flags as u64 & (0x100 | 0x10000) != 0
         || state::read_dr(7) & 255 != 0
         || execution::is_deterministic()
-        || !state::mode().is_long()
+        || !(state::mode().is_long() || compat_runnable())
     {
         return false;
     }
@@ -289,7 +294,8 @@ static mut CODE_TLB: [(u64, u64, u32, bool); 8] = [(0, 0, 0, false); 8];
 /// Chaining (pagegen::Emitter::chain): a page function leaving its page
 /// looks the new linear page up here and tail-calls the function serving it,
 /// without returning to the dispatch loop. Per core and CPL, direct mapped by
-/// linear page: tag = page | access cache epoch (so every x64 TLB flush
+/// linear page (and in compatibility mode a table of its own, P7.2):
+/// tag = page | access cache epoch (so every x64 TLB flush
 /// retires the entries; INVLPG retires its page's), and the Wasm table index
 /// of a published function whose backing page the linear page executed from
 /// when the entry was filled. Retiring a function clears its entries.
@@ -303,13 +309,13 @@ struct ChainEntry {
     global: u32,
 }
 #[repr(C, align(16))]
-struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 2]);
+struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 4]);
 const NO_CHAIN: ChainEntry = ChainEntry {
     tag: 0,
     table_index: 0,
     global: 0,
 };
-static mut CHAIN: [ChainTables; 8] = [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 2]) }; 8];
+static mut CHAIN: [ChainTables; 8] = [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 4]) }; 8];
 /// Whether generated code may tail-call through the host's function table
 /// (x64_page_set_chaining: the engine supports Wasm tail calls).
 static mut CHAINING: bool = false;
@@ -325,12 +331,13 @@ pub unsafe fn x64_page_set_chaining(enabled: bool) {
 /// and leaves for crate::parallel::code::poll when other cores published or
 /// invalidated code (pagegen::Emitter::chain).
 pub unsafe fn chaining() -> bool { CHAINING }
-unsafe fn chain_base(core: usize, user: bool) -> u32 {
-    std::ptr::addr_of!(CHAIN[core].0[user as usize]) as u32
+unsafe fn chain_base(core: usize, user: bool, compat: bool) -> u32 {
+    std::ptr::addr_of!(CHAIN[core].0[compat as usize * 2 + user as usize]) as u32
 }
-unsafe fn chain_fill(core: usize, user: bool, rip: u64, slot: u32, global: bool) {
+unsafe fn chain_fill(core: usize, user: bool, compat: bool, rip: u64, slot: u32, global: bool) {
     let page = rip >> 12;
-    CHAIN[core].0[user as usize][page as usize & (CHAIN_ENTRIES - 1)] = ChainEntry {
+    let table = &mut CHAIN[core].0[compat as usize * 2 + user as usize];
+    table[page as usize & (CHAIN_ENTRIES - 1)] = ChainEntry {
         tag: page | jac::epoch_bits(core),
         table_index: slot + cpu::WASM_TABLE_OFFSET,
         global: global as u32,
@@ -372,17 +379,17 @@ unsafe fn unchain_slot(slot: u32) {
         }
     }
 }
-/// The key of the code page at `rip` (see code_key), and whether its
-/// translation is global.
-unsafe fn code_page(rip: u64) -> Option<(u32, bool)> {
+/// The key of the code page at `rip` (see code_key; with `compat`, its
+/// compatibility-mode function's), and whether its translation is global.
+unsafe fn code_page(rip: u64, compat: bool) -> Option<(u32, bool)> {
     let core = apic::current_core();
-    let tag = jac::epoch_bits(core) | (*gp::cpl == 3) as u64;
+    let tag = jac::epoch_bits(core) | (*gp::cpl == 3) as u64 | (compat as u64) << 1;
     let (cached_tag, linear, page, global) = CODE_TLB[core];
     if cached_tag == tag && linear == rip >> 12 {
         return Some((page, global));
     }
     let (physical, _, global) = memory::translate_page_execute(rip).ok()?;
-    let page = code_key(physical)?;
+    let page = code_key(physical)? | if compat { COMPAT_KEY } else { 0 };
     CODE_TLB[core] = (tag, rip >> 12, page, global);
     Some((page, global))
 }
@@ -412,7 +419,41 @@ unsafe fn code_key(address: u64) -> Option<u32> {
         None => extended::code_key(address),
     }
 }
-fn is_extended(page: u32) -> bool { page >= extended::CODE_KEY_BASE }
+/// The key bit of a compatibility-mode function (P7.2; physical keys are
+/// below extended::CODE_KEY_BASE plus the extended pages)
+const COMPAT_KEY: u32 = 1 << 31;
+/// The code key of a function's key: its page as compiled from
+fn physical_key(key: u32) -> u32 { key & !COMPAT_KEY }
+fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BASE }
+
+/// Compatibility-mode code in the page tier (the JIT switch
+/// x64_page_compat32, P7.2): 32-bit code under a 64-bit OS, while its data
+/// and stack segments are flat (compat_runnable)
+static mut COMPAT32: bool = false;
+#[no_mangle]
+pub unsafe fn x64_page_set_compat32(enabled: bool) { COMPAT32 = enabled; }
+/// The current code runs in the page tier as 32-bit compatibility-mode
+/// code: 32-bit CS, a 32-bit stack, and CS, DS, ES and SS with base 0 (as
+/// WOW64's are; FS and GS bases are added at each access). Generated code
+/// relies on it; a step that changes it leaves (context).
+pub unsafe fn compat_runnable() -> bool {
+    COMPAT32
+        && state::mode() == state::ExecutionMode::Compatibility32
+        && *gp::stack_size_32
+        && cpu::has_flat_segmentation()
+        && *gp::segment_offsets.add(cpu::ES as usize) == 0
+        && !*gp::segment_is_null.add(cpu::ES as usize)
+}
+/// One interpreted instruction at RIP: the long-mode interpreter, or in
+/// compatibility mode the 32-bit one (as Tier-0's steps)
+unsafe fn interpret_one() {
+    if state::mode().is_long() {
+        cpu::run_long_instruction();
+    }
+    else {
+        cpu::run_compat_instruction();
+    }
+}
 
 unsafe fn release_dead(r: &mut Runtime) {
     if ACTIVE {
@@ -435,7 +476,8 @@ pub unsafe fn run(budget: u32) -> Attempt {
         return miss();
     }
     let rip = state::read_rip();
-    let Some((page, global)) = code_page(rip)
+    let compat = !state::mode().is_long();
+    let Some((page, global)) = code_page(rip, compat)
     else {
         step_profile::note_event(event::MISS, event::MISS_NO_CODE);
         return miss();
@@ -492,7 +534,14 @@ pub unsafe fn run(budget: u32) -> Attempt {
             r.functions[i].last_used = r.clock;
             let slot = r.functions[i].slot;
             if CHAINING {
-                chain_fill(apic::current_core(), *gp::cpl == 3, rip, slot, global);
+                chain_fill(
+                    apic::current_core(),
+                    *gp::cpl == 3,
+                    compat,
+                    rip,
+                    slot,
+                    global,
+                );
             }
             execute(slot, budget, rip)
         },
@@ -513,7 +562,14 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 r.functions[i].last_used = r.clock;
                 let slot = r.functions[i].slot;
                 if CHAINING {
-                    chain_fill(apic::current_core(), *gp::cpl == 3, rip, slot, global);
+                    chain_fill(
+                        apic::current_core(),
+                        *gp::cpl == 3,
+                        compat,
+                        rip,
+                        slot,
+                        global,
+                    );
                 }
                 return execute(slot, budget, rip);
             }
@@ -646,21 +702,22 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
     if !MISS_RUN {
         return miss();
     }
-    let (linear, cpl) = (rip >> 12, *gp::cpl);
+    let (linear, cpl, mode) = (rip >> 12, *gp::cpl, state::mode());
     let limit = budget.min(MISS_RUN_LIMIT);
     let span = execution::ledger_begin();
     let (mut n, mut at) = (0, rip);
     loop {
         crate::x64::extended::safe_point();
         *gp::previous_ip = *gp::instruction_pointer;
-        cpu::run_long_instruction();
+        interpret_one();
         n += 1;
         let next = state::read_rip();
         if n >= limit
             || next >> 12 != linear
             || next == at
             || *gp::cpl != cpl
-            || !state::mode().is_long()
+            || state::mode() != mode
+            || !mode.is_long() && !compat_runnable()
             || *gp::in_hlt
             || cpu::core_yield
             || apic::has_core_events()
@@ -715,6 +772,7 @@ fn note_unserved(r: &mut Runtime, page: u32, offset: u16) -> bool {
 /// (profile) 0: the instruction before looks like a call, 1: 16-byte
 /// aligned, 2: other
 fn late_entry_kind(page: u32, offset: u16) -> usize {
+    let page = physical_key(page);
     let at = |o: u16| unsafe { *crate::cpu::memory::mem8.add(((page << 12) + o as u32) as usize) };
     let o = offset;
     let call = o >= 5 && at(o - 5) == 0xE8
@@ -744,7 +802,7 @@ pub unsafe fn x64_page_unserved(rip: u64) -> i32 {
         ACCESS_REFUSED[4] += 1;
         return 0;
     }
-    let Some((page, _)) = code_page(rip)
+    let Some((page, _)) = code_page(rip, !state::mode().is_long())
     else {
         return 1;
     };
@@ -787,7 +845,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     *gp::x64_jac_epoch = jac::epoch_bits(core);
     *gp::x64_page_linear = rip & !4095;
     *gp::x64_page_exit = pagegen::EXIT_NORMAL;
-    *gp::x64_code_base = chain_base(core, *gp::cpl == 3);
+    *gp::x64_code_base = chain_base(core, *gp::cpl == 3, !state::mode().is_long());
     *gp::x64_page_chain = 0;
     *gp::x64_page_lazy_kind = 0;
     // Generated code keeps EFLAGS materialized.
@@ -838,7 +896,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
             // (native code resumes after the interpreted instruction: an
             // unserved entry, noted when the function steps there)
             let span = execution::ledger_begin();
-            cpu::run_long_instruction();
+            interpret_one();
             execution::ledger_end(span, execution::Way::PageRetry);
         },
         pagegen::EXIT_UNKNOWN => r.stats[UNKNOWN] += 1,
@@ -865,6 +923,8 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     }
     let recompile = state.compiles > 1 || hot;
     let outline = pagegen::outline_access() && !state.hot;
+    // (P7.2: a compatibility-mode function's key, of the same page)
+    let (compat, physical) = (page & COMPAT_KEY != 0, physical_key(page));
     let counter = if outline && HOT_INLINE { take_counter() } else { None };
     // (a recompile serves the unserved offsets seen once so far too: each
     // would otherwise count towards the next recompile)
@@ -872,11 +932,14 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         .filter(|&o| bit(&state.entries, o) || recompile && bit(&state.seen, o))
         .collect();
     let bytes = if is_extended(page) {
-        extended::copy_page(page - extended::CODE_KEY_BASE)
+        extended::copy_page(physical - extended::CODE_KEY_BASE)
     }
     else {
-        std::slice::from_raw_parts(crate::cpu::memory::mem8.add((page << 12) as usize), 4096)
-            .to_vec()
+        std::slice::from_raw_parts(
+            crate::cpu::memory::mem8.add((physical << 12) as usize),
+            4096,
+        )
+        .to_vec()
     };
     // Likely function starts: 16-byte aligned after INT3 padding (MSVC x64
     // code). Serving them from the first compile avoids most recompiles for
@@ -888,7 +951,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     }
     // (named after the linear page it was compiled for: host profiles)
     let linear = state::read_rip() & !4095;
-    let name = format!("x64_page_{:x}", linear);
+    let name = format!("x64_page{}_{:x}", if compat { "32" } else { "" }, linear);
     let next = next_page_bytes(linear);
     let Some(code) = pagegen::compile(
         &bytes,
@@ -897,6 +960,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         chaining(),
         outline,
         counter.map(|c| &raw const HOT_COUNTS[c as usize] as u32),
+        compat,
         name,
     )
     else {
@@ -932,8 +996,12 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     r.next_id += 1;
     // Watching the page retires cached write translations to it (jac). An
     // extended page is watched by extended.rs, once its old function is gone.
-    let watched =
-        if is_extended(page) { HashSet::new() } else { HashSet::from([Page::page_of(page << 12)]) };
+    let watched = if is_extended(page) {
+        HashSet::new()
+    }
+    else {
+        HashSet::from([Page::page_of(physical << 12)])
+    };
     let Some(slot) = crate::jit::ir_reserve_slot(id, watched)
     else {
         (*(&raw mut HOT_FREE)).extend(counter);
@@ -945,7 +1013,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         retire(r, old);
     }
     if is_extended(page) {
-        extended::watch_code(page - extended::CODE_KEY_BASE);
+        extended::watch_code(physical - extended::CODE_KEY_BASE);
     }
     let reusable = |f: &Function, releases: &Vec<(u32, u64)>| {
         f.phase == Phase::Dead && !releases.iter().any(|&(s, i)| s == f.slot && i == f.id)
@@ -981,6 +1049,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     r.generation = r.generation.wrapping_add(1);
     FAST[fast_slot(page)] = (page, index as u32 + 1);
     r.stats[COMPILED] += 1;
+    if compat {
+        COUNTERS[COUNT_COMPAT_COMPILES] += 1;
+    }
     unsafe { BYTES_COMPILED += code.bytes.len() as u64 };
     r.stats[INSTRUCTIONS] += code.instructions as u64;
     r.stats[TEMPLATED] += code.templated as u64;
@@ -1042,8 +1113,9 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
     }
     if r.by_page.get(&page) == Some(&index) {
         r.by_page.remove(&page);
-        if is_extended(page) {
-            unsafe { extended::unwatch_code(page - extended::CODE_KEY_BASE) };
+        // (the page's function in the other mode, P7.2, keeps it watched)
+        if is_extended(page) && !r.by_page.contains_key(&(page ^ COMPAT_KEY)) {
+            unsafe { extended::unwatch_code(physical_key(page) - extended::CODE_KEY_BASE) };
         }
     }
     unsafe {
@@ -1073,7 +1145,7 @@ pub fn x64_page_install(id: u64, slot: u32) -> bool {
     let (page, source) = (f.page, f.source);
     let backing = match r.by_page.get(&page) {
         // (extended pages are not compiled then: retire_extended)
-        Some(_) if !is_extended(page) => page,
+        Some(_) if !is_extended(page) => physical_key(page),
         _ => return false,
     };
     if !crate::jit::wait_pages_published(std::iter::once(Page::page_of(backing << 12)), 0.5) {
@@ -1153,11 +1225,14 @@ pub fn x64_page_cancel(id: u64, slot: u32) {
 /// extended page with code (key from extended::CODE_KEY_BASE on).
 pub fn dirty_page(page: u32) {
     let r = rt();
-    let Some(&index) = r.by_page.get(&page)
-    else {
+    // (the page's functions in both modes, P7.2)
+    let dead: Vec<usize> = [page, page | COMPAT_KEY]
+        .iter()
+        .filter_map(|key| r.by_page.get(key).copied())
+        .collect();
+    if dead.is_empty() {
         return;
-    };
-    let dead = [index];
+    }
     unsafe {
         CODE_WRITES += 1;
     }
@@ -1218,6 +1293,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_miss_run" => MISS_RUN as u32,
             "x64_hot_inline" => HOT_INLINE as u32,
             "x64_hot_count" => HOT_COUNT,
+            "x64_page_compat32" => COMPAT32 as u32,
             _ => return None,
         })
     }
@@ -1241,6 +1317,7 @@ pub fn x64_page_stat(field: u32) -> f64 {
         f @ 26..=32 => unsafe { COUNTERS[f as usize - 26 + COUNT_CR0_WRITES] as f64 },
         33 => r.stats[HOT_RECOMPILES] as f64,
         f @ 34..=35 => unsafe { COUNTERS[f as usize - 34 + COUNT_JAC_FILLS] as f64 },
+        36 => unsafe { COUNTERS[COUNT_COMPAT_COMPILES] as f64 },
         24 => unsafe { BYTES_COMPILED as f64 },
         // pages compiled at least once (while tracked)
         21 => r.pages.values().filter(|state| state.compiles != 0).count() as f64,
@@ -1361,12 +1438,15 @@ struct Context {
     control: i32,
     dr7: u64,
     epoch: u64,
+    /// in compatibility mode, what compat_runnable checks (P7.2)
+    compat: bool,
 }
 unsafe fn context() -> Context {
     Context {
         cpl: *gp::cpl,
         cs: *gp::sreg.add(1),
         long: state::mode().is_long(),
+        compat: !state::mode().is_long() && compat_runnable(),
         cr0: state::read_cr(0),
         cr3: state::read_cr(3),
         cr4: state::read_cr(4),
@@ -1488,7 +1568,7 @@ pub unsafe fn x64_page_step() -> i32 {
     let writes = CODE_WRITES;
     ACTIVE = false;
     let span = execution::ledger_begin();
-    cpu::run_long_instruction();
+    interpret_one();
     execution::ledger_end(span, execution::Way::PageStep);
     ACTIVE = true;
     let flags = state::read_flags64();
@@ -1625,6 +1705,49 @@ pub fn x64_page_shift(a: u64, count: u32, flags: u32, kind: u32) -> u64 {
         flags as u64,
     );
     r & 0xFFFF_FFFF | f << 32
+}
+
+/// Compatibility mode (docs/jit-unification-plan.md P7.2): a shift or
+/// rotate as the 32-bit interpreter computes it, EFLAGS included
+/// (cpu::arith on its lazy EFLAGS, materialized before and after): `kind` =
+/// ALU group code | width << 8 (8, 16 or 32), `count` as its instruction
+/// handlers mask it, `last_op1` the page function's (pagegen
+/// Emitter::last_op1: SHL, SHR and SAR leave AF to it). The result in the
+/// low half, EFLAGS in the high half.
+#[no_mangle]
+pub unsafe fn x64_page_shift32(a: u64, count: u32, flags: u32, kind: u32, last_op1: i32) -> u64 {
+    use crate::cpu::arith::*;
+    *gp::flags = flags as i32;
+    *gp::flags_changed = 0;
+    *gp::last_op1 = last_op1;
+    let (a, count) = (a as i32, (count & 31) as i32);
+    let r = match (kind >> 8, kind & 7) {
+        (8, 0) => rol8(a, count),
+        (8, 1) => ror8(a, count),
+        (8, 2) => rcl8(a, count),
+        (8, 3) => rcr8(a, count),
+        (8, 5) => shr8(a, count),
+        (8, 7) => sar8(a, count),
+        (8, _) => shl8(a, count),
+        (16, 0) => rol16(a, count),
+        (16, 1) => ror16(a, count),
+        (16, 2) => rcl16(a, count),
+        (16, 3) => rcr16(a, count),
+        (16, 5) => shr16(a, count),
+        (16, 7) => sar16(a, count),
+        (16, _) => shl16(a, count),
+        (_, 0) => rol32(a, count),
+        (_, 1) => ror32(a, count),
+        (_, 2) => rcl32(a, count),
+        (_, 3) => rcr32(a, count),
+        (_, 5) => shr32(a, count),
+        (_, 7) => sar32(a, count),
+        _ => shl32(a, count),
+    };
+    let f = cpu::get_eflags();
+    *gp::flags = f;
+    *gp::flags_changed = 0;
+    r as u32 as u64 | (f as u32 as u64) << 32
 }
 
 /// PCMPESTRx/PCMPISTRx for generated code (ir::runtime::tier0::pcmpstr on

@@ -3506,6 +3506,20 @@ pub unsafe fn cycle_internal() -> bool {
         }
         return attempt.submitted;
     }
+    // 32-bit compatibility-mode code in the x64 page tier (x64_page_compat32,
+    // docs/jit-unification-plan.md P7.2), not Tier-0
+    if crate::ir::runtime::schedule::enabled()
+        && !crate::cpu::execution::is_deterministic()
+        && crate::x64::pages::compat_runnable()
+    {
+        let attempt = crate::x64::pages::run(4096);
+        if attempt.retired == 0 {
+            let span = crate::cpu::execution::ledger_begin();
+            run_compat_instruction();
+            crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
+        }
+        return attempt.submitted;
+    }
     profiler::stat_increment(stat::CYCLE_INTERNAL);
     // Compatibility mode compiles like legacy protected mode (see run_cpu_slice)
     let wide = crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 && !X64_COMPAT_JIT;
@@ -3867,6 +3881,37 @@ pub unsafe fn run_long_instruction() {
     handle_irqs();
 }
 
+/// One instruction of 32-bit compatibility-mode code in the 32-bit
+/// interpreter, with run_long_instruction's bookkeeping: the x64 page tier's
+/// steps, retries and misses in compatibility mode (x64_page_compat32,
+/// docs/jit-unification-plan.md P7.2). A fetch fault is delivered and
+/// counts as the instruction, as in run_long_instruction.
+pub unsafe fn run_compat_instruction() {
+    *previous_ip = *instruction_pointer;
+    crate::cpu::execution::begin_instruction();
+    crate::cpu::execution::set_irq_deferral(true);
+    if let Ok(phys_addr) = get_phys_eip() {
+        // (as jit_run_interpreted fetches with EFER.LMA)
+        let opcode = if memory::in_mapped_range(phys_addr)
+            && crate::x64::extended::aperture::contains(phys_addr)
+        {
+            memory::fetch8(phys_addr)
+        }
+        else {
+            *memory::mem8.offset(phys_addr as isize) as i32
+        };
+        *instruction_pointer += 1;
+        run_instruction(opcode | (*is_32 as i32) << 8);
+    }
+    crate::cpu::execution::set_irq_deferral(false);
+    crate::cpu::execution::finish_instruction();
+    *instruction_counter = (*instruction_counter).wrapping_add(1);
+    if *interrupt_shadow != 0 {
+        *interrupt_shadow -= 1;
+    }
+    handle_irqs();
+}
+
 /// Shared compilation budget, replenished once per machine scheduling round.
 #[no_mangle]
 pub fn begin_cpu_frame(now: f64) { crate::ir::runtime::schedule::begin_frame(now); }
@@ -3914,6 +3959,24 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
             if attempt.retired == 0 {
                 let span = crate::cpu::execution::ledger_begin();
                 run_long_instruction();
+                crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
+            }
+            remaining = remaining.saturating_sub(attempt.retired.max(1));
+            if attempt.submitted {
+                break;
+            }
+            continue;
+        }
+        // 32-bit compatibility-mode code in the x64 page tier
+        // (x64_page_compat32, docs/jit-unification-plan.md P7.2)
+        if native
+            && !crate::cpu::execution::is_deterministic()
+            && crate::x64::pages::compat_runnable()
+        {
+            let attempt = crate::x64::pages::run(remaining);
+            if attempt.retired == 0 {
+                let span = crate::cpu::execution::ledger_begin();
+                run_compat_instruction();
                 crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
             }
             remaining = remaining.saturating_sub(attempt.retired.max(1));
