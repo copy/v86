@@ -1865,3 +1865,93 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
 - `make jit-gate-full` 通过（工作树先 `make glbridge`：`ir-core-tests` 的 CPU worker 浏览器用例要 `libv86-webgpu.js`）；
   发布门禁的长级别 R-x64-UP（`x64-guest-tests` 1374 s）、R-x64-SMP、R-extended-memory、R-parallel 通过（R-parallel 要
   `images/` 下的测试镜像，工作树里链到主仓库的）。
+
+### M6
+
+**P7.2、P7.2a、P7.2b 与 P7.0 的实现，2026-10-11（分支 `jit-m6`，在 `vM5` 之上；开关 `x64_page_compat32` 默认关）。**
+
+- P7.2（Compat32）：兼容模式代码按物理页与代码模式（`COMPAT_KEY`）各有函数；入口要求 32 位 CS 与栈、CS/DS/ES/SS 基址为 0
+  （`pages::compat_runnable`，FS/GS 每次访存加基址）；只读写 GPR 的低半部，EIP、ESP 与地址按 4 GiB 回绕，栈槽 4 字节；单步、
+  重试与冷代码走 32 位解释器（`run_compat_instruction`）。非平坦段（Win98 的 46.5%）没有做：Compat32 用不到，留给 Legacy32（M7）。
+- 访存：起初照计划走 jac。剖析（`node --prof` 的 tick 映射到 `--print-wasm-code`，见 docs/profiling.md）与"宿主地址 = mem8 +
+  线性地址"的上限实验表明，兼容模式整数 benchmark 的差距主要在查找：去掉查找后兼容模式对同样去掉查找的 Tier-0 在 500–707 上
+  为 0.78–1.33，带查找时 0.75–0.87。改为 Tier-0 的 32 位 TLB 查找（`x64_compat_tlb`，默认开：兼容模式下 x64 翻译填 32 位 TLB，
+  命中只需一次表项读、掩码比较与 xor），以基址寄存器保留翻译（`x64_fast_lookup`）为先。偏离计划 P7.2(5) 的"访存走 jac"，理由是
+  这组数据；Legacy32（P7.3(3) 的 FlatTlb）本来就走这条路。
+- 分派：静态布局里经过间接跳转或 RET 的循环不是循环，每轮都走页分派；桶分派（16 字节一桶再比较）在随机 switch 上分支预测失败。
+  块起点跨度不超过 1024 字节时改为一张跨度表（`SPAN_TABLE`，仅兼容模式）：`704.jtable` 0.88 → 1.02。
+- 入口：函数在解释器执行到块中间时生效，下一次 `run()` 从块中间进入，旧代码把这个偏移记为"见过"，热重编译又把它当块起点，
+  把循环体切成两半（`711.x87` 的 x87 run 因此一分为二）。顺序执行续入不算入口（与 `note_entry` 的 15 字节规则一致）：
+  `711.x87` 0.79 → 1.08。`compile_mode` 把"INT3 填充后 16 字节对齐"的偏移当作可能的函数起点，但 0xCC 也可能是指令末字节
+  （`MULSD XMM1, XMM4` 的 ModRM），`606.nbody.sse` 的内层循环因此被切开；这些猜测现在带 `pagegen::GUESSED`，解码到的直线代码
+  流入的猜测被丢弃（长模式同样）。重试之后的直线续入不再进入函数逐条单步到下一个块起点，而由解释器跑到函数服务的偏移
+  （`pages::unserved_run`）。
+- 标志：32 位解释器在 SDM 未定义的位置给出确定值（惰性记录里 MUL 与移位的 AF 取自 `last_op1`，BSF/BSR、SHLD/SHRD 的 SF/PF/AF/OF）。
+  `legacy_record` 把它们作为"`last_op1` 加 (结果 − `last_op1`)"的 ADD 记录挂起，由 `x64_page_flags` 物化，与 `getaf`/`getof` 逐位一致；
+  只被出口观察的 SF/ZF/PF/AF 不再即时计算（`707.rmw` 0.98 → 1.13）。INC/DEC 读前一生产者的 CF（生产者即时算 CF）。
+- 模板：BSF/BSR、POPCNT、32 位 SHLD/SHRD（立即数与 CL）、BMI（32 位、VEX.vvvv 不超过 EDI）、MMX（P7.2a 的 MMX 部分）。
+  `720.bmi.bits` 0.04 → 0.98，`531.bitboard` 0.30 → 0.93，`625.mmx` 0.02 → 0.97。
+- P7.2a（x87）：Tier-0 的形式与快速数学；X87Cache 整个函数共用（运行时打开标志，FPU 辅助函数与出口关闭，与 Tier-0 的
+  `x87_open`/`x87_close` 相同；局部变量在函数开头就建好，否则排在 x87 形式之前的 MMX 指令关不掉循环上一轮留下的缓存）；
+  Tier-0 的寄存器 run 移到 `x86tpl::x87run` 两边共用。P3.2 在 M3 跳过，所以没有内存 run 与 FNSTSW 融合（Tier-0 也没有）。
+- P7.2b：每种代码模式在函数表满时至少保留三分之一（`eviction_victim`）；兼容模式热重编译阈值 `x64_compat_hot_count`
+  （默认 2^16，长模式仍 2^22）。IR 调度器在兼容模式由 page tier 接管时不计热度（`cycle_internal` 的分支）。
+- P7.0：`make ab-ptier` 产出 `build/ab/A.wasm` 与 `build/ab/B-ptier.wasm`（用 `JIT_DEFAULTS` 的构建期默认值，没有加 cargo 特性）。
+
+**与 Tier-0 的差距，逐项剖析，2026-10-11。** 用 `tools/page_profile.mjs`（V8 的 tick 映射到 TurboFan 给页函数生成的 ARM64 代码，
+两个引擎各录下实际运行的模块）与模式账本（`mode_ledger`）比较同一 benchmark 在两个引擎里的代码：
+
+- 标量 SSE：标量 MOVSD/MOVSS/MOVQ 与标量运算结果经通用寄存器进出 v128（`i64x2.extract_lane`/`replace_lane`），不持有寄存器的标量
+  装入先写内存两个 8 字节、紧接着按 16 字节读回（存储转发失败）。标量移动改为持有寄存器：装入用 `v128.load64_zero`/`load32_zero`，
+  寄存器间与结果并入用 `i8x16.shuffle`（VEX 形式的高位来自 VEX.vvvv 时也是一次 shuffle）；CVTSI2SS/SD 用 `f32x4`/`f64x2.replace_lane`，
+  32 位整数转双精度不再判断不精确（它的 `i64.ctz` 被 V8 编译成调用）。`606` 0.61 → 1.01，`611` 0.67 → 1.01，`716` 0.59 → 0.99，
+  `717` 0.64 → 1.03，`721.fma.poly` 0.84 → 0.97。
+- 保留翻译：按基址寄存器与读写种类各一个时，同一寄存器访问两个数组（`[EAX + 0x403000]` 与 `[EAX + 0x423000]`）每次都互相替换，
+  未命中路径里 V8 把十几个寄存器溢出到栈上（`621.simd.int` 0.47）：再按位移所在页区分（`kept_page`，±2 KiB 内为 0）。整个函数共用
+  的保留翻译在环路头与分派处占寄存器，比省下的查找贵（`702.call` 0.85，关掉则 1.00）：兼容模式里改为块内有效（块内第一次访问
+  在每条路径上都设置它），标签是 i32（页号 | 1 << 20），与页内检查合成一次比较（cmp、ccmp）。
+- 整数代码：带符号比较的 8/16/32 位操作数在 i32 里比较（原先两对 lsl/asr 加 64 位 cmp）；奇数条件码直接用相反的比较；XOR/SUB
+  自身清零只在标志被读或可被观察时写 EFLAGS；SETcc 写字节寄存器不再掩码；兼容模式的地址与 ESP 运算在 i32 里做（4 GiB 回绕
+  免费，V8 能合并连续的 PUSH）；查找慢路径的宿主地址经两次 XOR 返回，V8 知道汇合点的值都已零扩展，快路径每次访存前不再
+  有 `mov w, w`；页内的 RIP 不再回绕。`705.stack` 0.76 → 0.99，`562.muldiv` 0.85 → 0.98，`561.sort` 0.78 → 0.97，`500` 0.87 → 0.97。
+- 跨页访问：`x64_page_access` 拒绝跨页的操作数，每次重试后还要单步到下一个块起点；两页都是普通内存、宿主地址相邻时（客户机内存
+  是一个数组，多数如此；写时两页都没有编译过的代码）现在直接服务（`crossing_host`，并行构建不做：原子访问要求对齐）。
+  `718.avx.ymm` 0.35 → 1.5。
+- VEX.256：移动、整数打包运算、VPMOVMSKB 与宽广播的低半部留在 XMM 局部变量里（高半部在内存，同 Tier-0），不再把所有持有的寄存器
+  写回；每块对一个 YMM 寄存器的高半部只清零一次（`ymm_zeroed`，同 Tier-0）。`719.avx2.scan` 0.59 → 0.99。
+- 新加的测试栏发现的兼容模式错误：`tests/x64/avx.mjs`、`fma.mjs`、`bmi.mjs`、`sse4.mjs`、`ssse3.mjs` 原来只在 Tier-0 下跑兼容模式，
+  加了 page tier（`x64_page_compat32`）一栏对 QEMU 与模型：VEX.W1 的 64 位通用寄存器操作数只在 64 位模式有（VMOVD/VMOVQ、
+  VCVTSI2SD、VCVT(T)SD2SI、BMI、VPCMPESTR 的长度，`gpr_w`）；VBLENDV 的 is4 寄存器在 32 位模式是 imm8[6:4]；VZEROUPPER 与
+  VZEROALL 在兼容模式只管 8 个寄存器。
+- 测试：`compat_fuzz.mjs`（随机 32 位程序对解释器，含 x87 run、单步读 x87 状态、页外读惰性标志、页内 CALL/RET 与跳转表、
+  位扫描/SHLD/SHRD/BMI、MMX、两个持有的寄存器上的标量 SSE 链并立即存整个寄存器；每类都用变异确认会被发现）、`compat_jit.mjs`
+  （含同一物理页两种模式执行、64 位代码改写，以及经同一基址寄存器先读后写代码页：写不能用读的保留翻译）、
+  `make x64-wow64-tests` 加 `x64_loops=1` 的种子、上面五个测试的兼容模式 page tier 栏。
+
+**出口，2026-10-11（`8b39bec9`；`make ab-ptier` 的 A 与 B-ptier 只差 `x64_page_compat32` 的默认值，A 即默认构建）。**
+
+- 长模式的 `x64_page_step`：P7.2 给 `pages::context` 加的兼容模式字段让它不再内联进 `x64_page_step`（每次单步取两次），长模式
+  单步执行的 x87 benchmark 比 `vM5` 慢 4–7%（`--runs 7`：605 0.95、610 0.93、615 0.96、617 0.93）；模式只读一次、兼容模式才查
+  `compat_runnable`、强制内联之后 0.99–1.00。
+- D 级（Compat32，B-ptier 对 A，先跑 A/A 对照 1.000）：兼容模式 bench 4 个会话 1.038、1.030、1.042、1.040，几何均值的中位数 1.039，
+  过 ≥ 1.00；x87 类 0.971–0.988、SSE 类 0.980–0.993，过 x87 与 SSE 小门禁（≥ 0.95）。单项 ≥ 0.95 不过：`708.pages` 0.52–0.61
+  （每几条指令换一页，跨页链接时状态写回、下一页的函数再装入，Tier-0 用多页簇；要 P7.3b 的多页函数，排在 M7）、`709.smc`
+  0.59–0.61（每 64 轮改写一次被调用的代码，四次免费重编译之后退避，那一页一直解释执行）；另外有的会话低于 0.95 的是
+  `706.memory` 0.89–0.92、`715.avx.matmul` 0.88–0.93、`615.ftol` 0.91–0.92、`531.bitboard` 0.92–0.94、`620`、`621`、`610`、
+  `719`、`721`、`520`、`561`（0.85–0.94，各在一两个会话里）。WOW64 CPULOAD32（3 个会话，交替）：A 2245、1976、2156 ms，
+  B-ptier 1654、1842、1613 ms，中位数 1.304 倍，过；PROBE32（B-ptier，Win8.1）64 项无失败，过。
+- 决定：D 级不过，Compat32 继续由 Tier-0 执行（P7.4），`x64_page_compat32` 默认关；差距与原因如上，708 待 M7 的 P7.3b。
+- R 级（开关关，对 `vM5`）：i686 bench 3 个会话 1.018、1.006、0.997（单项按 `--runs 7` 复测都 ≥ 0.97：`616.fcompare` 0.96、
+  0.99、0.99）；XP 启动（所有者的配置，3 个会话）`vM5` 13.24 s，M6 13.26 s，0.999；Win8.1 到桌面 `vM5` 182 s，M6 181 s，1.006；
+  长模式 bench 1.093、1.094、1.100（复测 505 1.17、605 0.99）。
+- 偏离：跨阶段规则 4 要求 P7 在开关关闭时 Long64 输出 0 差异；上面的标量 SSE、入口猜测、保留翻译的键、条件码与清零、跨页访问、
+  `unserved_run` 改的是两个模式共用的发射器与运行时，Long64 的代码也变了（x64 重放语料 1818 条中 144 条不同），按 R 级测量：
+  长模式 bench 对 `vM5` 1.094、Win8.1 启动 1.006。报给所有者，可否决。
+- 验收（以 B-ptier 为默认构建，`JIT_DEFAULTS=x64_page_compat32=1`）：`compat_jit.mjs`（同一物理页两种模式、64 位代码改写兼容模式代码页、
+  经读用的基址寄存器改写代码）、PROBE32、`X64_JIT=tier0` 的 `vector_oracle.mjs`、`make x64-page-tier-tests`、`compat_fuzz.mjs`
+  （模板对解释器，三个种子）通过；`make x87-jit-cache-tests ir-x87-memory-tests multicore-atomic-tests multicore-memory-order-tests
+  api-tests multicore-state-tests multicore-parallel-tests` 通过（`multicore-parallel-tests` 里 `os_stress.mjs` 的 region 模式一次
+  启动超时，重跑三种模式都通过；atomic 与 memory-order 是 32 位保护模式的用例，兼容模式的多核由 `litmus.mjs` 的兼容模式阶段覆盖：
+  LOCK XADD、CMPXCHG 循环与 LOCK INC，协作式与 vCPU worker 下 2/4/8 核）；M1 的存档在 B-ptier 上恢复并继续运行。
+- `make jit-gate-full` 通过（工作树先 `make glbridge`；发布门禁每级 `--quick` 61 项通过），`make ir13-browser-tests
+  ir-backend-browser-tests` 通过；重放对 `vM5`：Tier-0 语料 869 条 0 差异，x64 语料 1818 条中 144 条不同（上面的偏离）。
