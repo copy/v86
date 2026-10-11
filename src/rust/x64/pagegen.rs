@@ -2312,14 +2312,47 @@ fn xmm_written(op: &Op) -> u16 {
 }
 /// A kept translation (x64_fast_lookup, P4.21; Emitter::lookup_kept): of
 /// the operands with base register `base`, of its kind (`write`) and
-/// displacement page (kept_page), the page's tag (the page | 1 << 32 with
-/// x64_compat_tlb, else the access cache's; 0 for none) and its delta
+/// displacement page (kept_page), the page's tag (0 for none) and its delta
 struct Kept {
     base: u8,
     write: bool,
     page: i64,
-    tag: WasmLocalI64,
+    tag: KeptTag,
     delta: WasmLocal,
+}
+/// A kept translation's tag: the access cache's (i64), or with
+/// x64_compat_tlb the page | 1 << 20, an i32 as the in-page test is, which
+/// V8 then compares in one branch (cmp, ccmp)
+enum KeptTag {
+    Wide(WasmLocalI64),
+    Narrow(WasmLocal),
+}
+impl KeptTag {
+    fn wide(&self) -> &WasmLocalI64 {
+        match self {
+            KeptTag::Wide(l) => l,
+            KeptTag::Narrow(_) => unreachable!("an i32 tag"),
+        }
+    }
+    fn narrow(&self) -> &WasmLocal {
+        match self {
+            KeptTag::Narrow(l) => l,
+            KeptTag::Wide(_) => unreachable!("an i64 tag"),
+        }
+    }
+    /// Forget it (INVLPG, steps)
+    fn forget(&self, b: &mut WasmBuilder) {
+        match self {
+            KeptTag::Wide(l) => {
+                b.const_i64(0);
+                b.set_local_i64(l);
+            },
+            KeptTag::Narrow(l) => {
+                b.const_i32(0);
+                b.set_local(l);
+            },
+        }
+    }
 }
 /// Kept translations per function
 const MAX_KEPT: usize = 32;
@@ -3968,7 +4001,10 @@ impl Emitter {
             b.free_local_i64(l);
         }
         for Kept { tag, delta, .. } in lookup_kept {
-            b.free_local_i64(tag);
+            match tag {
+                KeptTag::Wide(l) => b.free_local_i64(l),
+                KeptTag::Narrow(l) => b.free_local(l),
+            }
             b.free_local(delta);
         }
         for l in w.into_iter().chain(fp_mxcsr).chain(last_op1) {
@@ -4216,8 +4252,7 @@ impl Emitter {
         // (P4.21: the step may have retired access cache entries without a
         // new epoch, a 4 KiB INVLPG among them: the kept translations go)
         for kept in &self.lookup_kept {
-            self.b.const_i64(0);
-            self.b.set_local_i64(&kept.tag);
+            kept.tag.forget(&mut self.b);
         }
         self.b.br(self.f().dispatch);
     }
@@ -4599,7 +4634,9 @@ impl Emitter {
     }
     /// Write the value on the stack (low `width` bits) with x86-64 register
     /// semantics: 32-bit writes zero-extend, 8/16-bit writes merge.
-    fn set_reg(&mut self, r: Reg, width: u8) {
+    fn set_reg(&mut self, r: Reg, width: u8) { self.set_reg_fitting(r, width, false) }
+    /// set_reg of a value `fits` in `width` bits already (SETcc's 0 or 1)
+    fn set_reg_fitting(&mut self, r: Reg, width: u8, fits: bool) {
         let i = r.index as usize;
         match width {
             64 => self.s(i),
@@ -4609,8 +4646,10 @@ impl Emitter {
                 self.s(i);
             },
             _ => {
-                self.c64(mask(width));
-                self.b.and_i64();
+                if !fits {
+                    self.c64(mask(width));
+                    self.b.and_i64();
+                }
                 let keep = if r.high {
                     self.c64(8);
                     self.b.shl_i64();
@@ -4634,6 +4673,18 @@ impl Emitter {
             (AddressBase::Register(r), None) => Some((r, kept_page(a.displacement))),
             _ => None,
         };
+        if self.env.compat {
+            // (32-bit addresses in i32, wrapped at 4 GiB for free, as
+            // address32; plus a 32-bit FS/GS base)
+            self.address32(a, next);
+            if segment && a.segment >= 4 {
+                self.c32(gp::segment_offsets as i32 + a.segment as i32 * 4);
+                self.b.load_aligned_i32(0);
+                self.b.add_i32();
+            }
+            self.b.extend_unsigned_i32_to_i64();
+            return;
+        }
         let mut have = false;
         let mut displacement = a.displacement;
         match a.base {
@@ -5037,10 +5088,13 @@ impl Emitter {
         if self.lookup_kept.len() >= MAX_KEPT {
             return None;
         }
-        let (tag, delta) = (
-            self.b.declare_zeroed_local_i64(),
-            self.b.declare_zeroed_local(),
-        );
+        let tag = if self.tlb.is_some() {
+            KeptTag::Narrow(self.b.declare_zeroed_local())
+        }
+        else {
+            KeptTag::Wide(self.b.declare_zeroed_local_i64())
+        };
+        let delta = self.b.declare_zeroed_local();
         self.lookup_kept.push(Kept {
             base,
             write,
@@ -5062,7 +5116,7 @@ impl Emitter {
     /// x64_fast_lookup, an operand `[register + displacement]` first tries
     /// the entry its base register's operands of its kind found last in its
     /// block, as host_fast keeps translations (lookup_kept: the page |
-    /// 1 << 32, never 0 as a forgotten one is, and the entry's mask). A
+    /// 1 << 20, never 0 as a forgotten one is, and the entry's mask). A
     /// block's first access by its key sets that on every path, so none is
     /// live into a block: kept across the function's loops and dispatch,
     /// they took registers that cost more than the lookups they saved
@@ -5098,20 +5152,21 @@ impl Emitter {
             }
         };
         let first = kept.is_some_and(|k| self.kept_set >> k & 1 == 0);
+        // (the kept tag: the page | 1 << 20)
+        let tag = |e: &mut Self| {
+            e.gi(OFF);
+            e.c32(12);
+            e.b.shr_u_i32();
+            e.c32(1 << 20);
+            e.b.or_i32();
+        };
         if let Some(k) = kept {
             self.kept_set |= 1 << k;
-            self.gi(OFF);
-            self.c32(12);
-            self.b.shr_u_i32();
-            self.b.extend_unsigned_i32_to_i64();
-            self.c64(1 << 32);
-            self.b.or_i64();
-            self.s(TAG);
         }
         if let Some(k) = kept.filter(|_| !first) {
-            self.g(TAG);
-            self.b.get_local_i64(&self.lookup_kept[k].tag);
-            self.b.eq_i64();
+            tag(self);
+            self.b.get_local(self.lookup_kept[k].tag.narrow());
+            self.b.eq_i32();
             in_page(self);
             self.b.hint(true);
             self.b.if_i32();
@@ -5141,16 +5196,15 @@ impl Emitter {
         self.b.and_i32();
         if let Some(k) = kept {
             self.b.tee_local(&self.lookup_kept[k].delta);
-            self.g(TAG);
-            self.b.set_local_i64(&self.lookup_kept[k].tag);
+            tag(self);
+            self.b.set_local(self.lookup_kept[k].tag.narrow());
         }
         self.gi(OFF);
         self.b.xor_i32();
         self.b.else_();
         if let Some(k) = kept.filter(|_| first) {
             // (set, forgotten, on this path too)
-            self.b.const_i64(0);
-            self.b.set_local_i64(&self.lookup_kept[k].tag);
+            self.lookup_kept[k].tag.forget(&mut self.b);
             self.c32(0);
             self.b.set_local(&self.lookup_kept[k].delta);
         }
@@ -5229,7 +5283,7 @@ impl Emitter {
         };
         if let Some(k) = kept {
             self.g(TAG);
-            self.b.get_local_i64(&self.lookup_kept[k].tag);
+            self.b.get_local_i64(self.lookup_kept[k].tag.wide());
             self.b.eq_i64();
             if size > 1 && !aligned {
                 // (and the first byte in that page too: unlike an access
@@ -5269,7 +5323,7 @@ impl Emitter {
         self.b.if_i32();
         if let Some(k) = kept {
             self.g(TAG);
-            self.b.set_local_i64(&self.lookup_kept[k].tag);
+            self.b.set_local_i64(self.lookup_kept[k].tag.wide());
         }
         self.gi(ENT);
         self.b.load_aligned_i32(table + 12);
@@ -5535,12 +5589,40 @@ impl Emitter {
     }
     /// Sign-extend the `width`-bit value on the stack to 64 bits.
     fn sext(&mut self, width: u8) {
-        if width < 64 {
-            self.c64(64 - width as u64);
-            self.b.shl_i64();
-            self.c64(64 - width as u64);
-            self.b.shr_s_i64();
+        match width {
+            8 => self.b.op(0xC2),  // i64.extend8_s
+            16 => self.b.op(0xC3), // i64.extend16_s
+            32 => self.b.op(0xC4), // i64.extend32_s
+            _ => {},
         }
+    }
+    /// Push local `i`'s low `width` bits sign-extended: an i32 below 64
+    /// bits, else the i64
+    fn sext32(&mut self, i: usize, width: u8) {
+        self.g(i);
+        if width < 64 {
+            self.b.wrap_i64_to_i32();
+            match width {
+                8 => self.b.op(0xC0),  // i32.extend8_s
+                16 => self.b.op(0xC1), // i32.extend16_s
+                _ => {},
+            }
+        }
+    }
+    /// condition's signed L (`cc` 0xC), GE, LE and G (0xF) of two sext32
+    /// values of `width`
+    fn signed_compare(&mut self, cc: u8, width: u8) {
+        let (less, invert) = (cc >> 1 == 6, cc & 1 != 0);
+        self.b.op(match (less, invert, width == 64) {
+            (true, false, false) => op::OP_I32LTS,
+            (true, true, false) => op::OP_I32GES,
+            (false, false, false) => op::OP_I32LES,
+            (false, true, false) => op::OP_I32GTS,
+            (true, false, true) => op::OP_I64LTS,
+            (true, true, true) => op::OP_I64GES,
+            (false, false, true) => op::OP_I64LES,
+            (false, true, true) => op::OP_I64GTS,
+        });
     }
     /// Retry the instruction unless the address in local `i` is canonical
     /// (compatibility mode has no noncanonical addresses).
@@ -5564,12 +5646,18 @@ impl Emitter {
     fn stack(&mut self, delta: i64, write: bool, start: u64) {
         self.lookup_base = Some((4, 0));
         self.g(4);
-        if delta != 0 {
+        if self.env.compat {
+            // (in i32: ESP wraps at 4 GiB for free)
+            self.b.wrap_i64_to_i32();
+            if delta != 0 {
+                self.c32(delta as i32);
+                self.b.add_i32();
+            }
+            self.b.extend_unsigned_i32_to_i64();
+        }
+        else if delta != 0 {
             self.c64(delta as u64);
             self.b.add_i64();
-        }
-        if self.env.compat {
-            self.wrap32();
         }
         self.s(ADDR);
         self.host(self.slot_bytes() as u32, write, start);
@@ -5593,10 +5681,15 @@ impl Emitter {
     /// RSP += `bytes` (in compatibility mode ESP, wrapped)
     fn adjust_sp(&mut self, bytes: u64) {
         self.g(4);
-        self.c64(bytes);
-        self.b.add_i64();
         if self.env.compat {
-            self.wrap32();
+            self.b.wrap_i64_to_i32();
+            self.c32(bytes as i32);
+            self.b.add_i32();
+            self.b.extend_unsigned_i32_to_i64();
+        }
+        else {
+            self.c64(bytes);
+            self.b.add_i64();
         }
         self.s(4);
     }
@@ -6015,6 +6108,9 @@ impl Emitter {
     /// Push condition `cc` (i32 0/1): from the kept producer operands when
     /// fused, else from FL.
     fn condition(&mut self, cc: u8, fused: Option<Known>) {
+        // (an odd condition, the even one's opposite: the opposite
+        // comparison where there is one, else i32.eqz at the end)
+        let invert = cc & 1 != 0;
         match fused {
             Some(Known::Sub(w)) => match cc >> 1 {
                 0 => {
@@ -6028,48 +6124,56 @@ impl Emitter {
                     self.s(TX);
                     self.bit_of(TX, w - 1, 0);
                 },
-                1 => {
+                1..=3 => {
                     self.g(FA);
                     self.g(FB);
-                    self.b.ltu_i64();
-                },
-                2 => {
-                    self.g(FA);
-                    self.g(FB);
-                    self.b.eq_i64();
-                },
-                3 => {
-                    self.g(FA);
-                    self.g(FB);
-                    self.b.op(op::OP_I64LEU);
+                    self.b.op(match (cc >> 1, invert) {
+                        (1, false) => op::OP_I64LTU,
+                        (1, true) => op::OP_I64GEU,
+                        (2, false) => op::OP_I64EQ,
+                        (2, true) => op::OP_I64NE,
+                        (3, false) => op::OP_I64LEU,
+                        _ => op::OP_I64GTU,
+                    });
+                    return;
                 },
                 4 => self.bit_of(FR, w - 1, 0),
                 5 => self.parity(FR),
-                6 => {
-                    self.g(FA);
-                    self.sext(w);
-                    self.g(FB);
-                    self.sext(w);
-                    self.b.lt_i64();
-                },
                 _ => {
-                    self.g(FA);
-                    self.sext(w);
-                    self.g(FB);
-                    self.sext(w);
-                    self.b.op(op::OP_I64LES);
+                    // L/GE, LE/G: signed, in i32 below 64 bits
+                    for x in [FA, FB] {
+                        self.sext32(x, w);
+                    }
+                    self.signed_compare(cc, w);
+                    return;
                 },
             },
             Some(Known::Logic(w)) | Some(Known::Result(w)) => match cc >> 1 {
                 0 | 1 => self.c32(0),
-                2 | 3 => self.is_zero(FR),
+                2 | 3 => {
+                    self.g(FR);
+                    if invert {
+                        self.c64(0);
+                        self.b.ne_i64();
+                    }
+                    else {
+                        self.b.op(op::OP_I64EQZ);
+                    }
+                    return;
+                },
                 4 | 6 => self.bit_of(FR, w - 1, 0),
                 5 => self.parity(FR),
                 _ => {
-                    self.g(FR);
-                    self.sext(w);
-                    self.c64(0);
-                    self.b.op(op::OP_I64LES);
+                    // LE/G: the result's sign and zero (OF clear)
+                    self.sext32(FR, w);
+                    if w == 64 {
+                        self.c64(0);
+                    }
+                    else {
+                        self.c32(0);
+                    }
+                    self.signed_compare(cc, w);
+                    return;
                 },
             },
             None => {
@@ -6112,7 +6216,7 @@ impl Emitter {
                 }
             },
         }
-        if cc & 1 != 0 {
+        if invert {
             self.b.eqz_i32();
         }
     }
@@ -6284,14 +6388,21 @@ impl Emitter {
                     }
                     self.c64(0);
                     self.set_reg(dst.reg().unwrap(), width);
-                    self.gi(FL);
-                    self.c32(!ARITH as i32);
-                    self.b.and_i32();
-                    self.c32((ZF | PF) as i32);
-                    self.b.or_i32();
-                    self.si(FL);
-                    self.c32(0);
-                    self.si(FK);
+                    // (P4.23: its EFLAGS only where read or observable,
+                    // not as XOR EDX, EDX's before a CMP)
+                    if !self.env.exit_flags
+                        || inst.writes & (inst.live_out | inst.exit_live) != 0
+                        || inst.keep
+                    {
+                        self.gi(FL);
+                        self.c32(!ARITH as i32);
+                        self.b.and_i32();
+                        self.c32((ZF | PF) as i32);
+                        self.b.or_i32();
+                        self.si(FL);
+                        self.c32(0);
+                        self.si(FK);
+                    }
                     if inst.keep {
                         for l in [FA, FB, FR] {
                             self.c64(0);
@@ -6892,7 +7003,7 @@ impl Emitter {
                     Opnd::Reg(r) => {
                         self.condition(cc, inst.fused);
                         self.b.extend_unsigned_i32_to_i64();
-                        self.set_reg(r, 8);
+                        self.set_reg_fitting(r, 8, true);
                     },
                     Opnd::Mem(a) => {
                         self.prepare_store(&a, 8, inst);
@@ -8299,8 +8410,7 @@ impl Emitter {
                 // (P4.21: the page's translation may be one the function
                 // keeps)
                 for kept in &self.lookup_kept {
-                    self.b.const_i64(0);
-                    self.b.set_local_i64(&kept.tag);
+                    kept.tag.forget(&mut self.b);
                 }
             },
             Op::Mxcsr { load, address } => {
