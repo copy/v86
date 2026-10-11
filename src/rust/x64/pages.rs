@@ -1550,12 +1550,16 @@ struct Context {
     /// in compatibility mode, what compat_runnable checks (P7.2)
     compat: bool,
 }
+// (inlined into x64_page_step, as before P7.2's field: every long-mode step
+// takes it twice; compat_runnable only in compatibility mode)
+#[inline(always)]
 unsafe fn context() -> Context {
+    let long = state::mode().is_long();
     Context {
         cpl: *gp::cpl,
         cs: *gp::sreg.add(1),
-        long: state::mode().is_long(),
-        compat: !state::mode().is_long() && compat_runnable(),
+        long,
+        compat: !long && compat_runnable(),
         cr0: state::read_cr(0),
         cr3: state::read_cr(3),
         cr4: state::read_cr(4),
