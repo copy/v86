@@ -572,9 +572,12 @@ const expected = await reference(directory, {length});
 check(expected, "QEMU");
 for(const [label, options, compat] of [["interpreted", {}, false],
     ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, true]])
+    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, true],
+    // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
+    ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
+        jit_switches: {x64_page_compat32: 1}}, false]])
 {
-    let page = 0, tier0;
+    let page = 0, page32 = 0, tier0;
     const result = await actual(directory, {length, timeout: 180000, options: {cpu_features: ["SSSE3", "SSE4.1", "SSE4.2"], ...options},
         setup: emulator => {
             const x = emulator.v86.cpu.wm.exports;
@@ -588,12 +591,14 @@ for(const [label, options, compat] of [["interpreted", {}, false],
         },
         inspect: emulator => {
             page = emulator.v86.cpu.wm.exports.x64_page_stat(1);
+            page32 = emulator.v86.cpu.wm.exports.x64_page_stat(36);
             tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0;
         }});
     check(result, label);
     assert.ok(comparable(result).equals(comparable(expected)), `${label}: equal to QEMU (but for its documented deviations)`);
     if(options.disable_jit === false) assert.ok(page > 1000, `${label}: compiled 64-bit code ran (${page})`);
     if(compat) assert.ok(tier0.activations > 0 && tier0.page_functions > 0, `${label}: compiled compatibility-mode code ran ${JSON.stringify(tier0)}`);
+    if(options.jit_switches?.x64_page_compat32) assert.ok(page32 > 0, `${label}: the page tier compiled compatibility-mode code (${page32})`);
     console.log(`PASS (${label}): ${cases.length} SSE4 cases in 64-bit and compatibility mode, ${FAULT_CASES.length} faults, as QEMU and the SDM model`);
 }
 
@@ -682,7 +687,9 @@ hot_samples: db ${[...samples.subarray(0, 112), ...sample(19), ...sample(16), ..
 }
 
 // The page tier's ROUND refuses MXCSR.DAZ and, for imm8[2], MXCSR.RC other
-// than nearest (a retry each: the runtime interprets it): in a compiled loop,
+// than nearest (a retry: the runtime interprets it and runs on to an offset
+// the function serves, here the loop's head, so a round retries once at
+// least, x64::pages::unserved_run): in a compiled loop,
 // a denormal lane rounds up to 0 with DAZ (1 without) and imm8 4 rounds down.
 // The results of every round are summed: an execution the page tier got wrong
 // shows even when the last round ran in the interpreter.
@@ -737,6 +744,6 @@ mxcsr_default: dd 0x1F80
     };
     assert.equal(hex(result.subarray(16, 32)), hex(summed(0x1FC0, 2)), "ROUNDPD with DAZ, summed");
     assert.equal(hex(result.subarray(32, 48)), hex(summed(0x3F80, 4)), "ROUNDPD with MXCSR.RC down, summed");
-    assert.ok(retries > DAZ_ITERATIONS, `page tier: the refused ROUNDs are retried (${retries} retries)`);
+    assert.ok(retries > DAZ_ITERATIONS / 2, `page tier: the refused ROUNDs are retried (${retries} retries)`);
     console.log(`PASS (x64 page tier): ROUND refuses DAZ and MXCSR.RC (${retries} retries)`);
 }

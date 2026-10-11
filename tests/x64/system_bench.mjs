@@ -4,7 +4,8 @@
 // timed by the guest's own RDTSC (v86's TSC counts host nanoseconds), against
 // the same loop with a NOP. The events are what compiled code leaves to the
 // interpreter or leaves altogether: steps that continue (CPUID, POPFQ),
-// a retry (a load the access cache refuses: it crosses a page), IRETQ,
+// a retry (a load the access cache refuses: past the end of RAM; a page-
+// crossing one is served now, x64::pages::crossing_host), IRETQ,
 // SYSCALL with SYSRETQ, port I/O (IN from port 80h), an HPET register read
 // (MMIO), FXSAVE with FXRSTOR, MOV CR3, a TS write to CR0 with CLTS (both end
 // the activation: CR0 changed), lazy FPU switching (TS set, #NM, CLTS,
@@ -63,7 +64,8 @@ export const EVENTS = {
     // (POPFQ toggling AC: a step that ends the activation, chainable; less
     // popfq, what ending it adds to a step)
     popfq_ac: {loop: "pushfq\nxor dword [rsp],0x40000\npopfq"},
-    retry: {loop: "mov rax,[rbx+0xFFD]"},
+    // (192 MiB past the data: no RAM there, no device either)
+    retry: {loop: "mov rax,[rbx+0xC000000]"},
     iretq: {loop: "mov rax,rsp\npush 16\npush rax\npushfq\npush 24\nlea rax,[rel .next]\npush rax\niretq\n.next:"},
     // (the loop at CPL 3: SYSRETQ enters it, a SYSCALL with r9 set leaves)
     syscall: {

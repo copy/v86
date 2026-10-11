@@ -1910,12 +1910,15 @@ fn broadcast_bytes(code: u8) -> u8 {
     }
 }
 
+/// VEX.W1's 64-bit general-purpose operands (VMOVQ, VCVTSI2SD, BMI, the
+/// lengths of VPCMPESTRI): only in 64-bit mode, elsewhere it is W0's
+fn gpr_w(d: &Decoded) -> bool { d.vex.is_some_and(|v| v.w) && d.mode == ExecutionMode::Long64 }
 /// BMI1 and BMI2's VEX forms (exception type 13: no AVX state; VEX.W1 for
 /// 64-bit operands): the hot ones of plan 5.1 and their siblings (MULX,
 /// PDEP, PEXT, BEXTR and RORX step)
 fn bmi(d: &Decoded) -> Option<Op> {
     let v = d.vex?;
-    let width = if v.w { 64 } else { 32 };
+    let width = if gpr_w(d) { 64 } else { 32 };
     let group = d.modrm? >> 3 & 7;
     let dst = register(d.reg?, width, true);
     let other = register(v.vvvv, width, true);
@@ -2059,12 +2062,12 @@ fn vex(d: &Decoded) -> Option<Op> {
         },
         // VMOVD/VMOVQ xmm, r/m32/64 and r/m32/64, xmm
         (1, 1, 0x6E) => Op::MovdIn {
-            width: if v.w { 64 } else { 32 },
+            width: if gpr_w(d) { 64 } else { 32 },
             dst: register,
             src: gpr_rm()?,
         },
         (1, 1, 0x7E) => Op::MovdOut {
-            width: if v.w { 64 } else { 32 },
+            width: if gpr_w(d) { 64 } else { 32 },
             dst: gpr_rm()?,
             src: register,
         },
@@ -2100,7 +2103,7 @@ fn vex(d: &Decoded) -> Option<Op> {
         },
         // VCVTSI2SS/SD, VCVT(T)SS2SI/SD2SI (VEX.W1: 64-bit integers), VCVTSS2SD, VCVTSD2SS
         (1, 2 | 3, 0x2A | 0x2C | 0x2D | 0x5A) => Op::Vconvert {
-            convert: conversion(d, key, v.w)?,
+            convert: conversion(d, key, gpr_w(d))?,
             dst: register,
             first,
         },
@@ -2168,13 +2171,14 @@ fn vex(d: &Decoded) -> Option<Op> {
             first,
             src: xmm_rm()?,
         },
-        // VBLENDVPS VBLENDVPD VPBLENDVB: the mask register imm8[7:4]
+        // VBLENDVPS VBLENDVPD VPBLENDVB: the mask register imm8[7:4] (in
+        // 32-bit mode imm8[6:4]: bit 7 is ignored)
         (3, 1, 0x4A..=0x4C) => Op::Vblendv {
             lane: [4, 8, 1][(code - 0x4A) as usize],
             dst: register,
             first,
             src: xmm_rm()?,
-            mask: (imm? >> 4 & 15) as u8,
+            mask: (imm? >> 4 & if d.mode == ExecutionMode::Long64 { 15 } else { 7 }) as u8,
         },
         // VROUNDPS/PD (one source), VROUNDSS/SD
         (3, 1, 0x08..=0x0B) => Op::Vround {
@@ -2189,7 +2193,7 @@ fn vex(d: &Decoded) -> Option<Op> {
         (3, 1, 0x60..=0x63) => Op::Vstrings {
             op: code,
             imm8: imm? as u8,
-            wide: v.w,
+            wide: gpr_w(d),
             dst: register,
             src: xmm_rm()?,
         },
@@ -2408,6 +2412,20 @@ fn xmm_overwritten(op: &Op) -> u16 {
             wide: false,
             ..
         } if dst != src => 1 << dst,
+        Op::Vmove256 {
+            dst: Xmm::Reg(d),
+            src,
+            ..
+        } if !names(src, d) => 1 << d,
+        Op::Vpacked256 {
+            dst, first, src, ..
+        } if dst != first && !names(src, dst) => 1 << dst,
+        Op::Vbroadcast { dst, src, .. } if !names(src, dst) => 1 << dst,
+        Op::Vconvert {
+            convert: Convert::FromInteger { .. },
+            dst,
+            first,
+        } if dst != first => 1 << dst,
         _ => 0,
     }
 }
@@ -2550,14 +2568,24 @@ fn xmm_use(op: &Op, fast_check: bool) -> XmmUse {
             mask,
             ..
         } => XmmUse::Hold(bit(*dst) | bit(*first) | reg(src) | bit(*mask)),
-        Op::Vbroadcast {
-            dst,
-            src,
-            wide: false,
-            ..
-        } => XmmUse::Hold(bit(*dst) | reg(src)),
+        Op::Vbroadcast { dst, src, .. } => XmmUse::Hold(bit(*dst) | reg(src)),
+        // (VEX.256 through the templates: the low halves as XMM registers,
+        // bits 255:128 in memory, as Tier-0's)
+        Op::Vmove256 { dst, src, .. } => XmmUse::Hold(reg(dst) | reg(src)),
+        Op::Vpacked256 {
+            dst, first, src, ..
+        } => XmmUse::Hold(bit(*dst) | bit(*first) | reg(src)),
+        Op::Vmovmsk256 { src, .. } => XmmUse::Hold(bit(*src)),
+        // (bits 255:128 only)
+        Op::Vzeroupper => XmmUse::None,
         Op::Vmovmsk { src, .. } => XmmUse::Hold(bit(*src)),
         Op::Vcvt { dst, src, .. } => XmmUse::Hold(bit(*dst) | reg(src)),
+        // (CVTSI2SS/SD's result by a lane insert, vconvert)
+        Op::Vconvert {
+            convert: Convert::FromInteger { .. },
+            dst,
+            first,
+        } => XmmUse::Hold(bit(*dst) | bit(*first)),
         // (lanes in general registers)
         Op::Vfp { .. }
         | Op::MovdIn { .. }
@@ -3621,6 +3649,9 @@ struct Emitter {
     /// (compatibility mode: the kept translations the current block has
     /// set, host_tlb)
     kept_set: u64,
+    /// the YMM registers whose bits 255:128 the block zeroed and nothing
+    /// wrote since (ymm_zero once per block, as Tier-0's)
+    ymm_zeroed: u16,
     /// the module's access-cache lookup function (see access_function)
     access: Option<u32>,
     /// the compare-exchange loop of a locked instruction (read_dst)
@@ -3833,6 +3864,7 @@ impl Emitter {
             lookup_kept: Vec::new(),
             lookup_base: None,
             kept_set: 0,
+            ymm_zeroed: 0,
             access: None,
             lock_loop: None,
             last_op1,
@@ -4537,6 +4569,7 @@ impl Emitter {
         self.vector_checked = 0;
         self.xmm_clean = [0; 16];
         self.kept_set = 0;
+        self.ymm_zeroed = 0;
         if self.env.block_count {
             // (a block left early, by a retry or a step, counts the rest of
             // its instructions too: N bounds activations and feeds statistics)
@@ -6254,6 +6287,10 @@ impl Emitter {
         }
         if self.env.sse_fast_check {
             self.xmm_facts(&inst.op);
+        }
+        // (other vector code may write bits 255:128 by their memory)
+        if matches!(xmm_use(&inst.op, self.env.sse_fast_check), XmmUse::Memory) {
+            self.ymm_zeroed = 0;
         }
         if unsafe { (*(&raw const SIZE_STATS)).is_none() } {
             return self.instruction_inner(inst, index);
@@ -8075,6 +8112,7 @@ impl Emitter {
                 // (a VEX.256 form: each half alike, the low one first; a
                 // half is read before the same half is written)
                 let halves: &[u32] = if wide {
+                    self.ymm_zeroed &= !(1 << dst);
                     &[0, 16]
                 }
                 else if self.env.xmm_locals {
@@ -8165,6 +8203,7 @@ impl Emitter {
                 high,
             } => {
                 self.vector_check(inst, start);
+                self.ymm_zeroed &= !(1 << dst);
                 // (the inserted 128 bits and the kept half before any write)
                 self.vector_source(src, inst);
                 let inserted = self.b.set_new_local_v128();
@@ -8188,6 +8227,7 @@ impl Emitter {
                 imm8,
             } => {
                 self.vector_check(inst, start);
+                self.ymm_zeroed &= !(1 << dst);
                 // (the four halves, VEX.vvvv's then ymm/m256's, before any write)
                 let mut halves = Vec::new();
                 for offset in [0, 16] {
@@ -9027,8 +9067,29 @@ impl Emitter {
             unsafe { gp::ymm_hi.add(n as usize) as u32 + offset - 16 }
         }
     }
+    /// YMM register `n` = (`low`, `high`): the low half through the XMM
+    /// accessors (its v128 local while held, P4.17), bits 255:128 in memory
+    fn ymm_store(&mut self, n: u8, low: &WasmLocalV128, high: &WasmLocalV128) {
+        self.ymm_zeroed &= !(1 << n);
+        if self.env.xmm_locals {
+            self.b.get_local_v128(low);
+            self.xv_pop(n);
+        }
+        else {
+            self.c32(Self::ymm(n, 0) as i32);
+            self.b.get_local_v128(low);
+            self.b.simd_memory(0x0B, 0); // v128.store
+        }
+        self.c32(Self::ymm(n, 16) as i32);
+        self.b.get_local_v128(high);
+        self.b.simd_memory(0x0B, 0); // v128.store
+    }
     /// Zero bits 255:128 of YMM register `n`
     fn ymm_zero(&mut self, n: u8) {
+        if self.ymm_zeroed >> n & 1 != 0 {
+            return;
+        }
+        self.ymm_zeroed |= 1 << n;
         for half in 0..2 {
             self.c32(unsafe { gp::ymm_hi.add(n as usize) } as i32 + 8 * half);
             self.c64(0);
@@ -9823,6 +9884,32 @@ impl Emitter {
         self.b.block_end();
     }
     /// MXCSR.PE if INX (an inexact result)
+    /// CVTSI2SS/SD (Convert::FromInteger) of TA: MXCSR.PE when |x| has more
+    /// significant bits than the precision (24 or 53) after its trailing
+    /// zeros (|i64::MIN| is 2^63)
+    fn from_integer_inexact(&mut self, double: bool) {
+        self.g(TA);
+        self.c64(63);
+        self.b.shr_s_i64();
+        self.s(TB);
+        self.g(TA);
+        self.g(TB);
+        self.b.xor_i64();
+        self.g(TB);
+        self.b.sub_i64();
+        self.s(TC);
+        self.c64(64);
+        self.g(TC);
+        self.b.op(op::OP_I64CLZ);
+        self.b.sub_i64();
+        self.g(TC);
+        self.b.op(op::OP_I64CTZ);
+        self.c64(if double { 53 } else { 24 });
+        self.b.add_i64();
+        self.b.gtu_i64();
+        self.si(INX);
+        self.inexact_pe();
+    }
     fn inexact_pe(&mut self) {
         self.gi(INX);
         self.b.if_void();
@@ -9882,28 +9969,27 @@ impl Emitter {
                     self.b.extend_signed_i32_to_i64();
                 }
                 self.s(TA);
-                // inexact: |x| has more significant bits than the precision
-                // (24 or 53) after its trailing zeros (|i64::MIN| is 2^63)
-                self.g(TA);
-                self.c64(63);
-                self.b.shr_s_i64();
-                self.s(TB);
-                self.g(TA);
-                self.g(TB);
-                self.b.xor_i64();
-                self.g(TB);
-                self.b.sub_i64();
-                self.s(TC);
-                self.c64(64);
-                self.g(TC);
-                self.b.op(op::OP_I64CLZ);
-                self.b.sub_i64();
-                self.g(TC);
-                self.b.op(op::OP_I64CTZ);
-                self.c64(if double { 53 } else { 24 });
-                self.b.add_i64();
-                self.b.gtu_i64();
-                self.si(INX);
+                // (a 32-bit integer is exact in double precision)
+                if !(double && width == 32) {
+                    self.from_integer_inexact(double);
+                }
+                if self.env.xmm_locals {
+                    // (into lane 0 of the first source by a lane insert:
+                    // the value stays in the vector unit)
+                    self.xv_push(first);
+                    self.g(TA);
+                    if double {
+                        self.b.op(op::OP_F64CONVERTSI64);
+                        self.b.simd_lane(0x22, 0); // f64x2.replace_lane
+                    }
+                    else {
+                        self.b.op(op::OP_F32CONVERTSI64);
+                        self.b.simd_lane(0x20, 0); // f32x4.replace_lane
+                    }
+                    self.xv_pop(dst);
+                    self.vex_upper(inst, dst);
+                    return;
+                }
                 self.g(TA);
                 if double {
                     self.b.op(op::OP_F64CONVERTSI64);
@@ -9915,7 +10001,6 @@ impl Emitter {
                     self.b.extend_unsigned_i32_to_i64();
                 }
                 self.s(TR);
-                self.inexact_pe();
                 if first != dst {
                     // (the other lanes from VEX.vvvv)
                     self.xmm_copy(first, dst);

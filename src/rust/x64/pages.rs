@@ -576,12 +576,16 @@ pub unsafe fn run(budget: u32) -> Attempt {
                     return compile(page);
                 }
                 step_profile::note_event(event::MISS, event::MISS_UNSERVED);
-                // Meanwhile the function steps from here to its next block
-                // start (pagegen: unserved dispatch) and notes the entry,
-                // unless the interpreter ran up to here (as while the
-                // function compiled): straight-line code is no entry, as in
-                // note_entry's `far`, and a block start there would split a
-                // loop body in the next (hot) compile
+                // Straight-line code is no entry, as in note_entry's `far`
+                // (a block start there would split a loop body in the next,
+                // hot, compile): after a retried instruction, or where the
+                // interpreter ran up to while the function compiled, the
+                // interpreter runs on to an offset the function serves
+                if !far && MISS_RUN {
+                    return unserved_run(r, i, budget, rip);
+                }
+                // Else the function steps from here to its next block start
+                // (pagegen: unserved dispatch) and notes the entry
                 if !far {
                     LAST_UNSERVED = last;
                 }
@@ -767,6 +771,47 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
         else {
             r.pages.entry(page).or_default().heat += 1;
         }
+    }
+    // (the next miss compares its RIP with the last instruction run here)
+    r.last_rip = at;
+    execution::ledger_end(span, execution::Way::Interpreted);
+    Attempt {
+        retired: n,
+        submitted: false,
+    }
+}
+
+/// unserved_run: run() reached function `i` straight-line at an offset it
+/// does not serve (after a retried instruction, as a page-crossing VMOVDQU
+/// ymm in a loop's body): the interpreter runs to the next offset the
+/// function serves, stopping as miss_run does, instead of entering the
+/// function to step each instruction up to its next block start (an
+/// activation, a dispatch and a step apiece)
+unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Attempt {
+    let (linear, cpl, mode) = (rip >> 12, *gp::cpl, state::mode());
+    let limit = budget.min(MISS_RUN_LIMIT);
+    let span = execution::ledger_begin();
+    let (mut n, mut at) = (0, rip);
+    loop {
+        crate::x64::extended::safe_point();
+        *gp::previous_ip = *gp::instruction_pointer;
+        interpret_one();
+        n += 1;
+        let next = state::read_rip();
+        if n >= limit
+            || next >> 12 != linear
+            || !(at < next && next - at <= 15)
+            || bit(&r.functions[i].served, (next & 4095) as u16)
+            || *gp::cpl != cpl
+            || state::mode() != mode
+            || !mode.is_long() && !compat_runnable()
+            || *gp::in_hlt
+            || cpu::core_yield
+            || apic::has_core_events()
+        {
+            break;
+        }
+        at = next;
     }
     // (the next miss compares its RIP with the last instruction run here)
     r.last_rip = at;
@@ -1368,6 +1413,9 @@ pub unsafe fn x64_page_access(address: u64, kind: u32) -> u32 {
     let size = (kind & 0xFF) as u64;
     let write = kind & 0x100 != 0;
     if (address & 4095) + size > 4096 {
+        if let Some(host) = crossing_host(address, write) {
+            return host;
+        }
         ACCESS_REFUSED[0] += 1;
         return 0;
     }
@@ -1454,6 +1502,37 @@ pub unsafe fn x64_page_access(address: u64, kind: u32) -> u32 {
     (crate::cpu::memory::mem8 as u32)
         .wrapping_add(backing)
         .wrapping_add((address & 4095) as u32)
+}
+
+/// x64_page_access of an operand that crosses into the next page: served
+/// when both pages are plain RAM whose backings are adjacent (guest RAM is
+/// one array: so are most), for a write neither with compiled code; else
+/// the instruction is retried, then the activation steps up to its next
+/// block start (page-crossing VMOVDQU ymm loads and stores in a loop). With
+/// cores in workers it is unaligned, which atomic accesses refuse.
+unsafe fn crossing_host(address: u64, write: bool) -> Option<u32> {
+    if crate::wasmgen::wasm_builder::WasmBuilder::ATOMIC_GUEST_MEMORY {
+        return None;
+    }
+    let access = if write { paging::Access::Write } else { paging::Access::Read };
+    let (first, _, _) = memory::translate_page(address, access).ok()?;
+    let (second, _, _) =
+        memory::translate_page((address & !4095).wrapping_add(4096), access).ok()?;
+    let backing = jac::ram_backing(first)?;
+    if jac::ram_backing(second)? != backing.wrapping_add(4096) {
+        return None;
+    }
+    if write
+        && (crate::jit::page_needs_notification(Page::page_of(backing))
+            || crate::jit::page_needs_notification(Page::page_of(backing + 4096)))
+    {
+        return None;
+    }
+    Some(
+        (crate::cpu::memory::mem8 as u32)
+            .wrapping_add(backing)
+            .wrapping_add((address & 4095) as u32),
+    )
 }
 
 #[derive(PartialEq)]

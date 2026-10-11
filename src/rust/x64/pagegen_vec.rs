@@ -76,7 +76,16 @@ impl VecOperands for Operands<'_> {
         }
     }
     fn register(&mut self, r: u8) { self.e.xv_push(r) }
-    fn registers(&self) -> u8 { 16 }
+    /// (compatibility mode has XMM0-7: VZEROUPPER and VZEROALL keep
+    /// YMM8-15 there)
+    fn registers(&self) -> u8 {
+        if self.e.env.compat {
+            8
+        }
+        else {
+            16
+        }
+    }
     fn memory(&self) -> bool { matches!(self.src, Xmm::Mem(_)) }
     fn first_high(&mut self) {
         self.e.c32(Emitter::ymm(self.first, 16) as i32);
@@ -110,21 +119,13 @@ impl VecOperands for Operands<'_> {
     }
     fn store256(&mut self, low: &WasmLocalV128, high: &WasmLocalV128) {
         self.e.xmm_clean[self.dst as usize] = 0;
-        for (half, offset) in [(low, 0), (high, 16)] {
-            self.e.c32(Emitter::ymm(self.dst, offset) as i32);
-            self.e.b.get_local_v128(half);
-            self.e.b.simd_memory(0x0B, 0); // v128.store
-        }
+        self.e.ymm_store(self.dst, low, high);
     }
     fn store256_rm(&mut self, halves: &[WasmLocalV128; 2], aligned: bool) {
         match self.src {
             Xmm::Reg(s) => {
                 self.e.xmm_clean[s as usize] = 0;
-                for (half, offset) in [(&halves[0], 0), (&halves[1], 16)] {
-                    self.e.c32(Emitter::ymm(s, offset) as i32);
-                    self.e.b.get_local_v128(half);
-                    self.e.b.simd_memory(0x0B, 0); // v128.store
-                }
+                self.e.ymm_store(s, &halves[0], &halves[1]);
             },
             Xmm::Mem(a) => {
                 self.e
