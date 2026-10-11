@@ -1946,7 +1946,7 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
   长模式 bench 1.093、1.094、1.100（复测 505 1.17、605 0.99）。
 - 偏离：跨阶段规则 4 要求 P7 在开关关闭时 Long64 输出 0 差异；上面的标量 SSE、入口猜测、保留翻译的键、条件码与清零、跨页访问、
   `unserved_run` 改的是两个模式共用的发射器与运行时，Long64 的代码也变了（x64 重放语料 1818 条中 144 条不同），按 R 级测量：
-  长模式 bench 对 `vM5` 1.094、Win8.1 启动 1.006。报给所有者，可否决。
+  长模式 bench 对 `vM5` 1.094、Win8.1 启动 1.006。报给所有者，可否决；所有者 2026-10-11 接受（不补开关，64 位保留这些改动）。
 - 验收（以 B-ptier 为默认构建，`JIT_DEFAULTS=x64_page_compat32=1`）：`compat_jit.mjs`（同一物理页两种模式、64 位代码改写兼容模式代码页、
   经读用的基址寄存器改写代码）、PROBE32、`X64_JIT=tier0` 的 `vector_oracle.mjs`、`make x64-page-tier-tests`、`compat_fuzz.mjs`
   （模板对解释器，三个种子）通过；`make x87-jit-cache-tests ir-x87-memory-tests multicore-atomic-tests multicore-memory-order-tests
