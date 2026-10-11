@@ -428,6 +428,18 @@ pub unsafe fn forget_code_page(core: usize, address: u64) {
     }
 }
 
+/// The access cache epoch of `core` wrapped (jac::flush): its code
+/// translations of earlier epochs go. (Legacy-mode TLB flushes start epochs
+/// too, P7.1: thousands a minute while XP switches processes.)
+pub unsafe fn forget_code(core: usize) {
+    CODE_TLB[core] = (0, 0, 0, false);
+    for table in CHAIN[core].0.iter_mut() {
+        for entry in table.iter_mut() {
+            entry.tag = 0;
+        }
+    }
+}
+
 /// The key of the code page at physical `address`: its RAM backing page
 /// number, or (above every such number) its extended page's key.
 unsafe fn code_key(address: u64) -> Option<u32> {

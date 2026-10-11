@@ -2525,6 +2525,21 @@ pub unsafe fn fill_ia32e_tlb(
 
 #[no_mangle]
 pub unsafe fn full_clear_tlb() {
+    clear_all_tlb_entries();
+    legacy_code_epoch();
+}
+/// The page tier's code translations of this core (code TLB, chaining
+/// entries) carry its access cache epoch (x64 jac): a legacy-mode flush
+/// starts a new one, as x64 invalidations do (docs/jit-unification-plan.md
+/// P7.1; in long and compatibility mode the x64 paths flush it themselves)
+unsafe fn legacy_code_epoch() {
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 {
+        crate::x64::jac::flush(crate::cpu::apic::current_core());
+    }
+}
+/// full_clear_tlb without a new code epoch: the cooperative cores'
+/// context switch reinstalls a core's own entries (P7.1)
+pub unsafe fn clear_all_tlb_entries() {
     profiler::stat_increment(stat::FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1;
@@ -2568,6 +2583,7 @@ pub unsafe fn clear_tlb() {
             dbg_assert!(entry == 0 || 0 != entry & TLB_GLOBAL);
         }
     };
+    legacy_code_epoch();
 }
 
 pub unsafe fn trigger_pagefault(addr: i32, present: bool, write: bool, user: bool) {
@@ -4955,6 +4971,10 @@ pub unsafe fn invlpg(addr: i32) {
     // This however means that valid_tlb_entries can contain some invalid entries
     tlb_data[page as usize] = 0;
     *last_virt_eip = -1;
+    // (P7.1: the page tier's code translation of the page, if any)
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 {
+        crate::x64::pages::forget_code_page(crate::cpu::apic::current_core(), addr as u32 as u64);
+    }
 }
 
 #[no_mangle]

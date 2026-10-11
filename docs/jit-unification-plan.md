@@ -1955,3 +1955,20 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
   LOCK XADD、CMPXCHG 循环与 LOCK INC，协作式与 vCPU worker 下 2/4/8 核）；M1 的存档在 B-ptier 上恢复并继续运行。
 - `make jit-gate-full` 通过（工作树先 `make glbridge`；发布门禁每级 `--quick` 61 项通过），`make ir13-browser-tests
   ir-backend-browser-tests` 通过；重放对 `vM5`：Tier-0 语料 869 条 0 差异，x64 语料 1818 条中 144 条不同（上面的偏离）。
+
+### M7
+
+**P7.1，2026-10-11（分支 `jit-m7`，在 `vM6` 之上）。**
+
+- 传统模式（EFER.LMA = 0）的 `full_clear_tlb`、`clear_tlb` 开始新的每核代码 epoch（即 x64 访问缓存 jac 的 epoch，page tier 的代码 TLB
+  与 CHAIN 标签都带它，`cpu::legacy_code_epoch`）；`invlpg` 清掉该页的代码翻译与链接项（`pages::forget_code_page`）。
+  长模式与兼容模式的这些路径原来就由 x64 一侧刷新。协作式多核切换核心时（`context::install`）用不更新 epoch 的
+  `clear_all_tlb_entries`：装回的是该核自己的翻译。
+- 顺带修了一个潜在错误：jac 的 epoch 只有 12 位，第 4095 次刷新后回绕到 1，旧 epoch 的代码 TLB 与 CHAIN 项会重新匹配；
+  回绕时（`jac::flush`）现在清掉该核的这两者（`pages::forget_code`）。长模式也有这个问题，但 XP 切换进程时的刷新频率让它在
+  P7.1 之后几分钟就会出现。
+- R 级 A/B（`build/ab/A.wasm` 对只多 P7.1 的构建；回绕修复之后才加，只在回绕时运行）：i686 bench 3 个会话 1.000、0.998、0.990；
+  低于 0.97 的单项按 `--runs 7` 复测：`502` 0.99/1.01、`708` 1.06/1.04、`712` 1.03/1.32、`718` 1.00/1.00、`720` 1.26/1.26、
+  `721` 1.02/1.01（`712`、`720` 两边都是双峰），`541.recursion` 0.96/0.95，再按 `--runs 9` 两种排位各测一次：P7.1 对 A 0.986，
+  换位后 A 对 P7.1 0.996，判为噪声。XP 启动（所有者的配置，3 个会话交替）A 13.24 s，P7.1 12.94 s，1.023。`make jit-gate` 通过，
+  重放 0 差异。

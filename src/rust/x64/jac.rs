@@ -107,6 +107,9 @@ pub unsafe fn flush(core: usize) {
     if c.epoch() == EPOCH_LIMIT {
         c.tables.fill(EMPTY);
         c.epoch_less_one = 0;
+        // (the page tier's code translations carry the epoch too: an old
+        // one would match again)
+        super::pages::forget_code(core);
     }
 }
 /// MOV CR3 on `core`: only the entries of global translations stay.
