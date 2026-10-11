@@ -4274,7 +4274,9 @@ impl Emitter {
         if offset != 0 {
             self.c64(offset);
             self.b.add_i64();
-            if self.env.compat {
+            // (compatibility mode wraps at 4 GiB: not inside the page,
+            // which is below it)
+            if self.env.compat && offset >= PAGE as u64 {
                 self.c64(0xFFFF_FFFF);
                 self.b.and_i64();
             }
@@ -5226,7 +5228,14 @@ impl Emitter {
         self.b.if_void();
         self.leave_to(fallback, start);
         self.b.block_end();
+        // (through two XORs: V8 knows the result of a 32-bit operation is
+        // zero-extended, so the fast paths' addresses need no uxtw where
+        // they meet this one)
         self.gi(HH);
+        self.gi(OFF);
+        self.b.xor_i32();
+        self.gi(OFF);
+        self.b.xor_i32();
         self.b.block_end();
         if kept.is_some() && !first {
             self.b.block_end();
