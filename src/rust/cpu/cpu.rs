@@ -3908,6 +3908,7 @@ pub unsafe fn run_long_instruction() {
 /// fault is delivered and, as in the 32-bit interpreter loop
 /// (cycle_internal), not counted (cross-phase rule 3).
 pub unsafe fn run_compat_instruction() {
+    let (shadow, interrupts) = (*interrupt_shadow, *flags & FLAG_INTERRUPT);
     *previous_ip = *instruction_pointer;
     crate::cpu::execution::begin_instruction();
     crate::cpu::execution::set_irq_deferral(true);
@@ -3931,7 +3932,23 @@ pub unsafe fn run_compat_instruction() {
     if *interrupt_shadow != 0 {
         *interrupt_shadow -= 1;
     }
-    handle_irqs();
+    // Only where an interrupt can have become deliverable (P7.3: a poll
+    // after each of the page tier's interpreted instructions cost an XP boot
+    // 2%): a shadow ended, IF set, handle_irqs called while held (a device
+    // raised one; the APIC, IOAPIC, POPF, IRET and STI call it), the PIC's
+    // registers written (an EOI or unmask), events of other cores, NMI, SMI.
+    // Nothing else makes one deliverable between instructions: timers raise
+    // theirs at main-loop boundaries, which look.
+    if shadow != 0
+        || *flags & FLAG_INTERRUPT & !interrupts != 0
+        || crate::cpu::execution::irq_check_owed()
+        || pic::take_port_written()
+        || apic::has_core_events()
+        || *acpi_enabled && apic::nmi_pending()
+        || crate::cpu::smm::smi_deliverable()
+    {
+        handle_irqs();
+    }
 }
 
 /// Shared compilation budget, replenished once per machine scheduling round.
@@ -4460,7 +4477,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 1);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4488,7 +4505,7 @@ pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 2);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4519,7 +4536,7 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 4);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4549,7 +4566,7 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(Page::page_of(phys_addr));
+                jit::jit_dirty_bytes(phys_addr, 8);
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4576,7 +4593,7 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(Page::page_of(phys_addr));
+                jit::jit_dirty_bytes(phys_addr, 16);
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4655,7 +4672,7 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 1);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4698,7 +4715,7 @@ pub unsafe fn safe_read_write16_checked(
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 2);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4736,7 +4753,7 @@ pub unsafe fn safe_read_write32(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 4);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));

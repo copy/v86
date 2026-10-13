@@ -200,7 +200,7 @@ export const STATICS = {
     "cpu/memory.rs": { mem8: "machine", ram_fast_limit: "machine" },
     // device memory regions (frame buffers) and where they are mapped
     "cpu/mmio_ram.rs": { TABLE: "machine", TEST_TABLE: "debug" },
-    "cpu/pic.rs": { PIC: "machine" },
+    "cpu/pic.rs": { PIC: "machine", PORT_WRITTEN: "machine" },
     // SoftFloat's state around one SSE instruction (saved and restored)
     "cpu/simd_fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
     "ir/debug.rs": { AUDIT: "debug", RECORDS: "debug" },
@@ -299,7 +299,7 @@ export const STATICS = {
         // switches x64_hot_inline and x64_hot_count (P4.14)
         HOT_COUNTS: "machine", HOT_FREE: "machine", HOT_NEXT: "machine", HOT_INLINE: "machine", HOT_COUNT: "machine", COMPAT_HOT_COUNT: "machine",
         // the switches x64_page_compat32 (P7.2) and x64_page_legacy32 (P7.3)
-        COMPAT32: "machine", LEGACY32: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine" },
+        COMPAT32: "machine", LEGACY32: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_DECLINED: "scratch" },
     // derived from each core's x64 TLB (flushed with it); FRAME_BUFFER_WRITES:
     // some entry maps the VGA frame buffer
     "x64/jac.rs": { JAC: "cache", FRAME_BUFFER_WRITES: "cache", ENTRIES: "machine" },

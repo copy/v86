@@ -115,7 +115,11 @@ fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
 /// instance's code from it
 pub fn jit_retire_page(page: Page) { retire_page_ctx(&mut get_jit_state(), page) }
 
-fn retire_page_ctx(ctx: &mut JitState, page: Page) {
+fn retire_page_ctx(ctx: &mut JitState, page: Page) { retire_bytes_ctx(ctx, page, None) }
+
+/// retire_page_ctx for a write of `bytes` (offsets lo..hi) of the page: the
+/// x64 page tier keeps code the write misses (x64::pages::dirty_bytes)
+fn retire_bytes_ctx(ctx: &mut JitState, page: Page, bytes: Option<(u32, u32)>) {
     crate::ir::runtime::live::dirty_page(page.to_address());
     crate::ir::runtime::cache::dirty_page(page.to_address());
     crate::ir::runtime::schedule::dirty_page(page.to_address());
@@ -123,15 +127,21 @@ fn retire_page_ctx(ctx: &mut JitState, page: Page) {
         profiler::stat_increment(stat::DIRTY_PAGE_DID_NOT_HAVE_CODE);
         return;
     }
-    crate::x64::pages::dirty_page(page.to_u32());
+    let kept = match bytes {
+        Some((lo, hi)) => crate::x64::pages::dirty_bytes(page.to_u32(), lo, hi),
+        None => {
+            crate::x64::pages::dirty_page(page.to_u32());
+            Vec::new()
+        },
+    };
     let mut unwatched = HashSet::new();
     let JitState {
         ir_slots,
         ir_page_counts,
         ..
     } = ctx;
-    for (_, pages) in ir_slots.values_mut() {
-        if pages.contains(&page) {
+    for (index, (_, pages)) in ir_slots.iter_mut() {
+        if pages.contains(&page) && !kept.contains(&(index.to_u16() as u32)) {
             for p in pages.drain() {
                 ir_page_count(ir_page_counts, p, -1);
                 unwatched.insert(p);
@@ -157,6 +167,16 @@ pub fn jit_dirty_cache(start_addr: u32, end_addr: u32) {
 
 #[no_mangle]
 pub fn jit_dirty_page(page: Page) { jit_dirty_page_ctx(&mut get_jit_state(), page) }
+
+/// A write of `len` bytes at physical `addr`, within one page: as
+/// jit_dirty_page, where code the write misses may stay (retire_bytes_ctx)
+pub fn jit_dirty_bytes(addr: u32, len: u32) {
+    let page = Page::page_of(addr);
+    dbg_assert!(Page::page_of(addr + len - 1) == page);
+    unsafe { crate::parallel::code::written(page.to_u32()) };
+    let lo = addr & 0xFFF;
+    retire_bytes_ctx(&mut get_jit_state(), page, Some((lo, lo + len)));
+}
 
 /// dirty pages in the range of start_addr and end_addr, which must span at most two pages
 pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {

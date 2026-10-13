@@ -85,6 +85,12 @@ pub const STEP_CONTINUE: i32 = 0;
 pub const STEP_EXIT: i32 = 2;
 
 const PAGE: usize = 4096;
+/// The consecutive linear pages a legacy-mode function may cover
+/// (docs/jit-unification-plan.md P7.3b; CompileEnv::span)
+pub const MAX_SPAN: usize = 16;
+/// Offsets of a page's volatile instructions a compile takes at most
+/// (CompileEnv::volatile)
+pub const MAX_VOLATILE: usize = 16;
 /// Decoded instructions per page function, including overlapping decodes.
 const MAX_INSTRUCTIONS: usize = 3072;
 /// An entry of compile's that is a guess (pages.rs: a likely function start
@@ -790,6 +796,38 @@ fn relative(d: &Decoded) -> Option<u64> {
     let displacement =
         if i.encoded_bytes == 1 { i.value as i8 as i64 } else { i.value as i32 as i64 };
     Some(d.next.0.wrapping_add(displacement as u64))
+}
+
+/// A volatile instruction's op (CompileEnv::volatile): forms whose one
+/// immediate is a source operand (Emitter::read loads it, Inst::dynamic),
+/// else a step, which interprets the bytes as they are
+fn volatile_op(d: &Decoded, op: Op) -> Op {
+    let dynamic = d
+        .immediate
+        .is_some_and(|i| matches!(i.encoded_bytes, 1 | 2 | 4))
+        && matches!(
+            op,
+            Op::Alu {
+                src: Opnd::Imm(_),
+                ..
+            } | Op::Mov {
+                src: Opnd::Imm(_),
+                ..
+            } | Op::Test {
+                b: Opnd::Imm(_),
+                ..
+            } | Op::Imul {
+                b: Opnd::Imm(_),
+                ..
+            } | Op::Push { src: Opnd::Imm(_) }
+                | Op::Push16 { src: Opnd::Imm(_) }
+        );
+    if dynamic {
+        op
+    }
+    else {
+        Op::Step
+    }
 }
 
 /// The template for a long-mode instruction, or Step. Mirrors
@@ -2375,7 +2413,7 @@ enum XmmUse {
 /// Whether an instruction may leave its function (retry, step or exit), as
 /// all but arithmetic on registers and immediates may (P4.23)
 fn may_leave(inst: &Inst) -> bool {
-    if inst.straddle.is_some() || inst.locked {
+    if inst.straddle.is_some() || inst.span_straddle || inst.locked {
         return true;
     }
     let mem = |o: &Opnd| matches!(o, Opnd::Mem(_));
@@ -2633,7 +2671,7 @@ fn x87_run_at(insts: &[Inst]) -> Option<X87Run> {
                 modrm,
                 io: crate::ir::x87::Io::Stack,
                 ..
-            } if inst.straddle.is_none() => run.append(opcode, modrm),
+            } if inst.straddle.is_none() && !inst.span_straddle => run.append(opcode, modrm),
             _ => false,
         };
         if !joins {
@@ -2749,7 +2787,7 @@ impl Level {
 /// of its block graph a loop, nested (IR Tier-0's, ir::tier0::analysis);
 /// without the switch every block is a unit of the page level. Loops whose
 /// dispatch table would span too much of the page are flattened as Tier-0's.
-fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool) -> Vec<Unit> {
+fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool, span: u64) -> Vec<Unit> {
     use crate::ir::tier0::analysis::{
         flatten, units, visit_loops, MAX_LOOP_TABLE, MAX_LOOP_TABLES,
     };
@@ -2772,14 +2810,14 @@ fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool) -> Vec<Un
                 | Some(Op::LoopJump { target, .. })
                 | Some(Op::Jmp { target })
                 | Some(Op::Call { target }) => {
-                    if let Some(o) = in_page(0, target) {
+                    if let Some(o) = in_page(span, target) {
                         to(o);
                     }
                 },
                 _ => {},
             }
             if let End::Next(o) | End::Shadow(o) = b.end {
-                if (o as usize) < PAGE {
+                if (o as u64) < span {
                     to(o);
                 }
             }
@@ -2815,7 +2853,8 @@ fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool) -> Vec<Un
 /// and the instruction after it starts a block (a discovery cut short may
 /// not have reached STI) or is on the next page
 fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
-    if next as usize >= PAGE {
+    let span = decoder.span_bytes;
+    if next as usize >= span {
         return false;
     }
     let Some((d, op)) = decoder.at(next)
@@ -2823,8 +2862,8 @@ fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
         return false;
     };
     let after = next as usize + d.length as usize;
-    after <= PAGE
-        && (after == PAGE || starts.contains(&(after as u16)))
+    after <= span
+        && (after == span || starts.contains(&(after as u16)))
         && !(cfg!(feature = "parallel") && locked_rmw(&d, &op) && !lockable(&op))
         && !matches!(
             op,
@@ -3009,9 +3048,16 @@ struct Inst {
     /// (little endian) and how many. It runs only while the next page
     /// fetches as these bytes (x64_page_straddle), else it is stepped.
     straddle: Option<(u64, u8)>,
+    /// An instruction that continues into the next page of its span
+    /// (P7.3b): it runs only while that page was verified, else it is
+    /// stepped
+    span_straddle: bool,
     /// A locked read-modify-write of memory (LOCK, XCHG) with cores in
     /// workers: committed with a compare-exchange loop (Emitter::read_dst)
     locked: bool,
+    /// A volatile instruction's immediate (CompileEnv::volatile): its offset
+    /// in the span, bytes and sign extension; Emitter::read loads it
+    dynamic: Option<(u16, u8, bool)>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum End {
@@ -3035,9 +3081,9 @@ struct Block {
     live_in: u32,
 }
 
-fn in_page(page: u64, target: u64) -> Option<u16> {
-    (target & !4095 == page).then_some((target & 4095) as u16)
-}
+/// The offset of `target` (relative to the function's first page) in its
+/// `span` bytes
+fn in_page(span: u64, target: u64) -> Option<u16> { (target < span).then_some(target as u16) }
 fn is_rep_string(d: &Decoded) -> bool {
     d.prefixes.rep.is_some() && matches!(d.base_opcode(), 0x6C..=0x6F | 0xA4..=0xA7 | 0xAA..=0xAF)
 }
@@ -3093,8 +3139,14 @@ fn lockable(op: &Op) -> bool {
 
 pub struct Compiled {
     pub bytes: Vec<u8>,
-    /// Block starts, as a bitmap of page offsets.
-    pub served: [u64; 64],
+    /// Block starts, as a bitmap of offsets (64 words a page of the span)
+    pub served: Vec<u64>,
+    /// The bytes its instructions were decoded from, as a bitmap of offsets
+    /// (as `served`): a write elsewhere leaves the code as it is
+    /// (pages::dirty_bytes)
+    pub code: Vec<u64>,
+    /// The offsets its instructions start at, as `served`
+    pub starts: Vec<u64>,
     pub instructions: usize,
     pub templated: usize,
     pub blocks: usize,
@@ -3134,10 +3186,14 @@ struct Decoder<'a> {
     /// (CompileEnv::segmented)
     legacy: bool,
     segmented: bool,
+    /// The bytes of the span (CompileEnv::span: 4096 a page)
+    span_bytes: usize,
+    /// CompileEnv::volatile
+    volatile: [u16; MAX_VOLATILE],
 }
 impl Decoder<'_> {
     fn at(&mut self, offset: u16) -> Option<(Decoded, Op)> {
-        let (bytes, next, page, cvt, fast_check, mode, legacy, segmented) = (
+        let (bytes, next, page, cvt, fast_check, mode, legacy, segmented, span) = (
             self.bytes,
             self.next,
             self.page,
@@ -3146,17 +3202,21 @@ impl Decoder<'_> {
             self.mode,
             self.legacy,
             self.segmented,
+            self.span_bytes,
         );
+        let volatile = self.volatile.contains(&offset);
         *self.cache.entry(offset).or_insert_with(|| {
             let d = decode::decode_with(GuestIp(page + offset as u64), mode, |i| {
                 let at = offset as usize + i as usize;
-                if at < PAGE { bytes.get(at) } else { next.get(at - PAGE) }
+                if at < span { bytes.get(at) } else { next.get(at - span) }
                     .copied()
                     .ok_or(())
             })
             .ok()?;
-            // (at most 8 bytes in the next page: x64_page_straddle compares one word)
-            if offset as usize + d.length as usize > PAGE + 8 {
+            // (at most 8 bytes in the next page: x64_page_straddle compares
+            // one word; a span's last page only: a span's straddles step)
+            let end = offset as usize + d.length as usize;
+            if end > span + 8 || span > PAGE && end > span {
                 return None;
             }
             let op = match classify(&d) {
@@ -3171,6 +3231,7 @@ impl Decoder<'_> {
                 Op::Step if legacy => legacy_template(&d).unwrap_or(Op::Step),
                 op => op,
             };
+            let op = if volatile { volatile_op(&d, op) } else { op };
             Some((d, op))
         })
     }
@@ -3239,6 +3300,21 @@ pub struct CompileEnv {
     /// string pointers add their segment's base (read at each access, as
     /// Tier-0's functions for other than flat segments do)
     pub segmented: bool,
+    /// The consecutive linear pages the function covers (P7.3b; 1 but in
+    /// legacy mode): offsets run over all of them, and span_hosts are their
+    /// pages' host addresses as compiled (mem8 + physical). Its prologue
+    /// finds where it was entered by the 32-bit TLB entry of the entry page,
+    /// verifies each page's entry, and control only passes to a page
+    /// verified in that activation (else it leaves; a TLB flush or INVLPG
+    /// ends activations)
+    pub span: u8,
+    pub span_hosts: [u32; MAX_SPAN],
+    /// Offsets (u16::MAX: none) of instructions of a page that a write
+    /// changed while compiled (P7.3, pages::dirty_bytes; a page compiled
+    /// alone, span_hosts its host): an immediate source operand loads from
+    /// the page where it runs (Inst::dynamic), other forms step. Their bytes
+    /// are no code (Compiled::code): rewriting them keeps the function.
+    pub volatile: [u16; MAX_VOLATILE],
     /// The page's execution counter, incremented at each entry and dispatch
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
@@ -3264,7 +3340,10 @@ impl CompileEnv {
         compat: bool,
         legacy: bool,
         segmented: bool,
+        span_hosts: &[u32],
     ) -> CompileEnv {
+        let mut hosts = [0; MAX_SPAN];
+        hosts[..span_hosts.len()].copy_from_slice(span_hosts);
         unsafe {
             CompileEnv {
                 bucket_dispatch: BUCKET_DISPATCH,
@@ -3288,6 +3367,9 @@ impl CompileEnv {
                 compat_tlb: compat && (COMPAT_TLB || legacy),
                 legacy,
                 segmented,
+                span: span_hosts.len().max(1) as u8,
+                span_hosts: hosts,
+                volatile: [u16::MAX; MAX_VOLATILE],
                 counter,
                 sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
@@ -3323,7 +3405,10 @@ impl CompileEnv {
         compat_tlb: bool,
         legacy: bool,
         segmented: bool,
+        span_hosts: &[u32],
     ) -> CompileEnv {
+        let mut hosts = [0; MAX_SPAN];
+        hosts[..span_hosts.len()].copy_from_slice(span_hosts);
         CompileEnv {
             bucket_dispatch,
             block_count,
@@ -3344,6 +3429,9 @@ impl CompileEnv {
             compat_tlb,
             legacy,
             segmented,
+            span: span_hosts.len().max(1) as u8,
+            span_hosts: hosts,
+            volatile: [u16::MAX; MAX_VOLATILE],
             counter: counting.then_some(0x0000_0E80),
             sse_fp_operands: 0x0000_0E00,
             core_yield: 0x0000_0D00,
@@ -3372,9 +3460,14 @@ pub fn compile(
     compat: bool,
     legacy: bool,
     segmented: bool,
+    span_hosts: &[u32],
+    volatile: &[u16],
     name: String,
 ) -> Option<Compiled> {
-    let env = CompileEnv::current(chaining, outline, counter, compat, legacy, segmented);
+    let mut env = CompileEnv::current(
+        chaining, outline, counter, compat, legacy, segmented, span_hosts,
+    );
+    env.volatile[..volatile.len()].copy_from_slice(volatile);
     #[cfg(feature = "ir-test-hooks")]
     super::replay::record(&env, bytes, next, entries, &name);
     let compiled = compile_with(&env, bytes, next, entries, name);
@@ -3383,29 +3476,11 @@ pub fn compile(
     compiled
 }
 
-/// compile in `env`
-pub fn compile_with(
-    env: &CompileEnv,
-    bytes: &[u8],
-    next: &[u8],
-    entries: &[u16],
-    name: String,
-) -> Option<Compiled> {
-    let page = 0;
-    if bytes.len() != PAGE || entries.is_empty() {
-        return None;
-    }
-    let mut decoder = Decoder {
-        bytes,
-        next,
-        page,
-        cache: HashMap::default(),
-        cvt: env.cvt,
-        sse_fast_check: env.sse_fast_check,
-        mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
-        legacy: env.legacy,
-        segmented: env.segmented,
-    };
+/// Discover the block starts of the code at `entries` (offsets in the
+/// decoder's span; GUESSED ones once the others' code is decoded), and
+/// whether MAX_INSTRUCTIONS cut it short
+fn discover(decoder: &mut Decoder, entries: &[u16]) -> (BTreeSet<u16>, bool) {
+    let span = decoder.span_bytes;
     // Discover block starts: entries, in-page branch targets, return
     // addresses, and the instruction after every step (steps continue by
     // dispatch). Each REP string instruction starts its own block so a
@@ -3413,7 +3488,7 @@ pub fn compile_with(
     let mut starts = BTreeSet::new();
     let mut work: Vec<u16> = Vec::new();
     for &e in entries {
-        if (e as usize) < PAGE && starts.insert(e) {
+        if (e as usize) < span && starts.insert(e) {
             work.push(e);
         }
     }
@@ -3423,12 +3498,12 @@ pub fn compile_with(
         .filter(|&&e| e & GUESSED != 0)
         .map(|&e| e & !GUESSED);
     // (the offsets decoded code runs into straight-line)
-    let mut runs_into = [0u64; PAGE / 64];
+    let mut runs_into = vec![0u64; span / 64];
     let mut decoded = 0;
     loop {
         while let Some(start) = work.pop() {
             let add = |o: u64, starts: &mut BTreeSet<u16>, work: &mut Vec<u16>| {
-                if o < PAGE as u64 && starts.insert(o as u16) {
+                if o < span as u64 && starts.insert(o as u16) {
                     work.push(o as u16);
                 }
             };
@@ -3449,14 +3524,14 @@ pub fn compile_with(
                 let next = o as u64 + d.length as u64;
                 match op {
                     Op::Jcc { target, .. } | Op::LoopJump { target, .. } => {
-                        if let Some(t) = in_page(page, target) {
+                        if let Some(t) = in_page(span as u64, target) {
                             add(t as u64, &mut starts, &mut work);
                         }
                         add(next, &mut starts, &mut work);
                         break;
                     },
                     Op::Jmp { target } | Op::Call { target } => {
-                        if let Some(t) = in_page(page, target) {
+                        if let Some(t) = in_page(span as u64, target) {
                             add(t as u64, &mut starts, &mut work);
                         }
                         if matches!(op, Op::Call { .. }) {
@@ -3470,7 +3545,7 @@ pub fn compile_with(
                     },
                     Op::Ret { .. } | Op::JmpIndirect { .. } => break,
                     Op::Sti => {
-                        if next < PAGE as u64 {
+                        if next < span as u64 {
                             if let Some((shadow, _)) = decoder.at(next as u16) {
                                 add(next + shadow.length as u64, &mut starts, &mut work);
                             }
@@ -3495,7 +3570,13 @@ pub fn compile_with(
                     },
                     _ => {},
                 }
-                if next >= PAGE as u64 {
+                if next >= span as u64 {
+                    break;
+                }
+                // (P7.3b: each page of a span starts a block, where control
+                // passes between pages)
+                if next as usize / PAGE != o as usize / PAGE {
+                    add(next, &mut starts, &mut work);
                     break;
                 }
                 o = next as u16;
@@ -3503,7 +3584,7 @@ pub fn compile_with(
             }
         }
         for g in guesses.by_ref() {
-            if (g as usize) < PAGE
+            if (g as usize) < span
                 && runs_into[g as usize / 64] >> (g % 64) & 1 == 0
                 && starts.insert(g)
             {
@@ -3513,6 +3594,42 @@ pub fn compile_with(
         if work.is_empty() {
             break;
         }
+    }
+    (starts, decoded > MAX_INSTRUCTIONS)
+}
+
+/// compile in `env`
+pub fn compile_with(
+    env: &CompileEnv,
+    bytes: &[u8],
+    next: &[u8],
+    entries: &[u16],
+    name: String,
+) -> Option<Compiled> {
+    let page = 0;
+    // (P7.3b: the bytes of each page of the span, one after the other)
+    let span = PAGE * env.span as usize;
+    if bytes.len() != span || entries.is_empty() {
+        return None;
+    }
+    let mut decoder = Decoder {
+        bytes,
+        next,
+        page,
+        cache: HashMap::default(),
+        cvt: env.cvt,
+        sse_fast_check: env.sse_fast_check,
+        mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
+        legacy: env.legacy,
+        segmented: env.segmented,
+        span_bytes: PAGE * env.span as usize,
+        volatile: env.volatile,
+    };
+    let (starts, truncated) = discover(&mut decoder, entries);
+    // (a span whose code does not fit: pages::compile_mode compiles its
+    // page alone, P7.3b)
+    if truncated && span > PAGE {
+        return None;
     }
     // Blocks, in page order: from each start to its first control transfer,
     // step, or the next start.
@@ -3524,7 +3641,7 @@ pub fn compile_with(
         // (the instruction at o is in STI's shadow: Op::StiShadowed)
         let mut after_sti = false;
         let end = loop {
-            if o as usize >= PAGE {
+            if o as usize >= span {
                 // (past the page end after a straddling instruction)
                 break End::Next(o);
             }
@@ -3544,8 +3661,8 @@ pub fn compile_with(
             let liveness = if matches!(op, Op::Step) { 0 } else { reads };
             let locked = cfg!(feature = "parallel") && locked_rmw(&d, &op);
             let op = if locked && !lockable(&op) { Op::Step } else { op };
-            let straddle = (next as usize > PAGE).then(|| {
-                let count = next as usize - PAGE;
+            let straddle = (next as usize > span).then(|| {
+                let count = next as usize - span;
                 let word = (0..count).fold(0u64, |w, i| w | (decoder.next[i] as u64) << (8 * i));
                 (word, count as u8)
             });
@@ -3560,7 +3677,17 @@ pub fn compile_with(
                 fused: None,
                 keep: false,
                 straddle,
+                span_straddle: o as usize / PAGE != (next as usize - 1) / PAGE
+                    && (next as usize) <= span,
                 locked: locked && !matches!(op, Op::Step),
+                dynamic: match (env.volatile.contains(&o), op, d.immediate) {
+                    (true, Op::Step, _) | (false, ..) | (_, _, None) => None,
+                    (true, _, Some(i)) => Some((
+                        next - i.encoded_bytes as u16,
+                        i.encoded_bytes,
+                        i.sign_extended,
+                    )),
+                },
             });
             if after_sti {
                 break End::Shadow(next);
@@ -3587,7 +3714,7 @@ pub fn compile_with(
         };
         // After a truncated discovery a fall-through may not be a start.
         let end = match end {
-            End::Next(o) if (o as usize) < PAGE && !starts.contains(&o) => End::Retry(o),
+            End::Next(o) if (o as usize) < span && !starts.contains(&o) => End::Retry(o),
             end => end,
         };
         blocks.push(Block {
@@ -3630,9 +3757,9 @@ pub fn compile_with(
         let block = &blocks[b];
         // Only a performance estimate: anything reading a flag the lazy
         // record still holds materializes it (exits, steps, other code).
-        let live = |o: u16| if (o as usize) < PAGE { blocks[index[&o]].live_in } else { 0 };
+        let live = |o: u16| if (o as usize) < span { blocks[index[&o]].live_in } else { 0 };
         let target = |t: u64| {
-            in_page(page, t)
+            in_page(span as u64, t)
                 .and_then(|o| index.get(&o))
                 .map_or(0, |&i| blocks[i].live_in)
         };
@@ -3675,9 +3802,32 @@ pub fn compile_with(
             live = if may_leave(inst) { ARITH } else { live & !inst.writes };
         }
     }
-    let mut served = [0u64; 64];
+    let mut served = vec![0u64; span / 64];
     for &s in &starts {
         served[s as usize / 64] |= 1 << (s % 64);
+    }
+    // (an instruction's bytes past the span are checked where it runs:
+    // Inst::straddle)
+    // A volatile instruction's immediate (or, stepped, all of it) is none:
+    // CompileEnv::volatile.
+    let mut code = vec![0u64; span / 64];
+    let mut instruction_starts = vec![0u64; span / 64];
+    for block in &blocks {
+        let mut o = block.start as usize;
+        for inst in &block.insts {
+            instruction_starts[o / 64] |= 1 << (o % 64);
+            let (from, to) = match inst.dynamic {
+                Some((at, bytes, _)) => (at as usize, at as usize + bytes as usize),
+                None if env.volatile.contains(&(o as u16)) => (o, o + inst.d.length as usize),
+                None => (o, o),
+            };
+            for b in o..(o + inst.d.length as usize).min(span) {
+                if !(from..to).contains(&b) {
+                    code[b / 64] |= 1 << (b % 64);
+                }
+            }
+            o += inst.d.length as usize;
+        }
     }
     let instructions = blocks.iter().map(|b| b.insts.len()).sum();
     let templated = blocks
@@ -3689,6 +3839,8 @@ pub fn compile_with(
     Some(Compiled {
         bytes,
         served,
+        code,
+        starts: instruction_starts,
         instructions,
         templated,
         blocks: blocks.len(),
@@ -3815,6 +3967,10 @@ struct Emitter {
     /// The start of the instruction being emitted (a segment's null check
     /// retries it, P7.2(3))
     inst_start: u64,
+    /// A span's pages verified at entry, a bit each (P7.3b, span_entry),
+    /// and the page of the block being emitted
+    verified: Option<WasmLocal>,
+    current_page: u16,
     /// (compatibility mode: the kept translations the current block has
     /// set, host_tlb)
     kept_set: u64,
@@ -4015,6 +4171,7 @@ impl Emitter {
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
         let last_op1 = env.compat.then(|| b.declare_zeroed_local());
+        let verified = (env.span > 1).then(|| b.declare_zeroed_local());
 
         let mut e = Emitter {
             b,
@@ -4033,6 +4190,8 @@ impl Emitter {
             lookup_kept: Vec::new(),
             lookup_base: None,
             inst_start: 0,
+            verified,
+            current_page: 0,
             kept_set: 0,
             ymm_zeroed: 0,
             access: None,
@@ -4049,6 +4208,9 @@ impl Emitter {
         e.prologue();
         size_note("[prologue]".into(), e.b.body_len() - mark);
         let exit = e.b.block_void();
+        if e.env.span > 1 {
+            e.span_entry(exit);
+        }
         let leave = e.b.block_void();
         let retry = e.b.block_void();
         let dispatch = e.b.loop_void();
@@ -4065,24 +4227,20 @@ impl Emitter {
         e.g(RIP);
         e.g(BASE);
         e.b.sub_i64();
-        e.c64(4096);
+        e.c64(e.span_bytes());
         e.b.op(op::OP_I64GEU);
         e.b.br_if(leave);
+        e.span_check_rip();
         // The structured layout (P4.16): the page level's units, each with
         // its label; a block in a loop dispatches to the loop's
-        let units = layout(blocks, index, e.env.loops);
+        let units = layout(blocks, index, e.env.loops, e.span_bytes());
         let mut level = Level::of(&units, blocks.len(), dispatch);
         level.labels = units.iter().map(|_| e.b.block_void()).collect();
         level.labels.reverse();
         let label_of = |level: &Level, i: usize| level.labels[level.unit_of[i] as usize];
         let bad = e.b.block_void();
         let mark = e.b.body_len();
-        let offset = |e: &mut Emitter| {
-            e.g(RIP);
-            e.b.wrap_i64_to_i32();
-            e.c32(4095);
-            e.b.and_i32();
-        };
+        let offset = |e: &mut Emitter| e.rip_offset();
         // (compatibility mode: a table over the span of the block starts
         // when that is small, as Tier-0 dispatches: a loop through a switch
         // or a call's return is no loop of the static layout, P4.16, and
@@ -4121,7 +4279,7 @@ impl Emitter {
             e.ti(OFF);
             e.c32(DISPATCH_SHIFT as i32);
             e.b.shr_u_i32();
-            let targets: Vec<Label> = (0..(PAGE >> DISPATCH_SHIFT) as u16)
+            let targets: Vec<Label> = (0..(e.span_bytes() >> DISPATCH_SHIFT) as u16)
                 .map(|b| bucket_labels.get(&b).copied().unwrap_or(bad))
                 .collect();
             e.b.brtable(bad, &mut targets.iter());
@@ -4138,8 +4296,8 @@ impl Emitter {
         }
         else {
             offset(&mut e);
-            let targets: Vec<Label> = (0..PAGE as u16)
-                .map(|o| index.get(&o).map_or(bad, |&i| label_of(&level, i)))
+            let targets: Vec<Label> = (0..e.span_bytes() as u32)
+                .map(|o| index.get(&(o as u16)).map_or(bad, |&i| label_of(&level, i)))
                 .collect();
             e.b.brtable(bad, &mut targets.iter());
         }
@@ -4197,6 +4355,7 @@ impl Emitter {
             x87_cache,
             x87_is_open,
             tlb,
+            verified,
             ..
         } = e;
         for l in v {
@@ -4227,7 +4386,7 @@ impl Emitter {
         for l in xmm_locals.into_iter().flatten() {
             b.free_local_v128(l);
         }
-        for l in tlb.into_iter().flatten() {
+        for l in tlb.into_iter().flatten().chain(verified) {
             b.free_local(l);
         }
         std::mem::forget(budget);
@@ -4235,6 +4394,146 @@ impl Emitter {
         b.output().to_vec()
     }
     fn f(&self) -> Frame { self.frame.unwrap() }
+    /// The bytes the function's offsets cover (CompileEnv::span)
+    fn span_bytes(&self) -> u64 { PAGE as u64 * self.env.span as u64 }
+    /// Push the i32 offset of RIP in the function's pages (in a span from
+    /// BASE, its first page)
+    fn rip_offset(&mut self) {
+        self.g(RIP);
+        if self.env.span > 1 {
+            self.g(BASE);
+            self.b.sub_i64();
+            self.b.wrap_i64_to_i32();
+        }
+        else {
+            self.b.wrap_i64_to_i32();
+            self.c32(4095);
+            self.b.and_i32();
+        }
+    }
+    /// [i32 linear page] -> the host address of its page (mem8 + physical)
+    /// by its 32-bit TLB entry, or 1 when the entry does not grant reading
+    /// (execution) at this CPL (P7.3b)
+    fn tlb_page_host(&mut self) {
+        let [tlb, read, _] = self
+            .tlb
+            .as_ref()
+            .unwrap()
+            .each_ref()
+            .map(|l| l.unsafe_clone());
+        self.ti(OFF);
+        self.b.get_local(&tlb);
+        self.gi(OFF);
+        self.c32(2);
+        self.b.shl_i32();
+        self.b.add_i32();
+        self.b.load_aligned_i32(0);
+        self.ti(ENT);
+        self.c32(!0xFFF);
+        self.b.and_i32();
+        self.gi(OFF);
+        self.c32(12);
+        self.b.shl_i32();
+        self.b.xor_i32();
+        self.c32(1);
+        self.gi(ENT);
+        self.b.get_local(&read);
+        self.b.and_i32();
+        self.c32(TLB_VALID);
+        self.b.eq_i32();
+        self.b.select();
+    }
+    /// A span's entry (P7.3b): its page by the 32-bit TLB entry of the page
+    /// entered (gp::x64_page_linear, BASE so far), then BASE its first
+    /// page's address and `verified` the pages whose entries map them as
+    /// compiled (CompileEnv::span_hosts). An entry page that maps none of
+    /// them leaves at once with RIP unchanged (pages::run interprets an
+    /// instruction then).
+    fn span_entry(&mut self, exit: Label) {
+        let hosts = self.env.span_hosts;
+        self.g(BASE);
+        self.c64(12);
+        self.b.shr_u_i64();
+        self.b.wrap_i64_to_i32();
+        self.tlb_page_host();
+        self.si(HH);
+        self.c32(-1);
+        self.si(ST);
+        for j in (0..self.env.span as usize).rev() {
+            self.c32(j as i32);
+            self.gi(ST);
+            self.gi(HH);
+            self.c32(hosts[j] as i32);
+            self.b.eq_i32();
+            self.b.select();
+            self.si(ST);
+        }
+        self.gi(ST);
+        self.c32(-1);
+        self.b.eq_i32();
+        self.b.if_void();
+        self.set_exit(EXIT_UNKNOWN);
+        self.b.br(exit);
+        self.b.block_end();
+        self.g(BASE);
+        self.gi(ST);
+        self.c32(12);
+        self.b.shl_i32();
+        self.b.extend_unsigned_i32_to_i64();
+        self.b.sub_i64();
+        self.s(BASE);
+        let verified = self.verified.as_ref().unwrap().unsafe_clone();
+        self.c32(0);
+        self.b.set_local(&verified);
+        for m in 0..self.env.span as usize {
+            self.g(BASE);
+            self.c64(12);
+            self.b.shr_u_i64();
+            self.b.wrap_i64_to_i32();
+            if m != 0 {
+                self.c32(m as i32);
+                self.b.add_i32();
+            }
+            self.tlb_page_host();
+            self.c32(hosts[m] as i32);
+            self.b.eq_i32();
+            if m != 0 {
+                self.c32(m as i32);
+                self.b.shl_i32();
+            }
+            self.b.get_local(&verified);
+            self.b.or_i32();
+            self.b.set_local(&verified);
+        }
+    }
+    /// (P7.3b) Before control passes to `target` in page `page` of the
+    /// span from another page: leave unless that page was verified
+    fn span_check(&mut self, target: u64) {
+        let page = (target / PAGE as u64) as u16;
+        if self.env.span > 1 && page != self.current_page {
+            self.b.get_local(self.verified.as_ref().unwrap());
+            self.c32(1 << page);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.if_void();
+            self.leave_to(self.f().exit, target);
+            self.b.block_end();
+        }
+    }
+    /// (P7.3b) RIP is in the span: leave unless its page was verified
+    fn span_check_rip(&mut self) {
+        if self.env.span > 1 {
+            self.b.get_local(self.verified.as_ref().unwrap());
+            self.rip_offset();
+            self.c32(12);
+            self.b.shr_u_i32();
+            self.b.shr_u_i32();
+            self.c32(1);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.br_if(self.f().exit);
+        }
+    }
     /// The page dispatch's and each loop head's: the page's execution
     /// counter (CompileEnv::counter), then exit when the budget is spent
     /// (native instructions and steps; with cores in workers, also when
@@ -4493,10 +4792,11 @@ impl Emitter {
     /// Continue at `target`: a later block of this function directly, an
     /// earlier one through dispatch (and its budget check), else return.
     fn goto(&mut self, target: u64, index: &BTreeMap<u16, usize>) {
-        let Some(o) = in_page(0, target)
+        let Some(o) = in_page(self.span_bytes(), target)
         else {
             return self.leave_to(self.f().leave, target);
         };
+        self.span_check(target);
         let Some(&k) = index.get(&o)
         else {
             return self.leave_to(self.f().dispatch, target);
@@ -4566,10 +4866,7 @@ impl Emitter {
             members.iter().map(|&k| start(k)).min().unwrap(),
             members.iter().map(|&k| start(k)).max().unwrap(),
         );
-        self.g(RIP);
-        self.b.wrap_i64_to_i32();
-        self.c32(4095);
-        self.b.and_i32();
+        self.rip_offset();
         self.ti(OFF);
         self.c32(start(header) as i32);
         self.b.eq_i32();
@@ -4699,7 +4996,7 @@ impl Emitter {
     /// branch).
     fn check_target(&mut self, target: u64, start: u64) {
         // (compatibility mode: every 32-bit EIP is valid in a flat CS)
-        if in_page(0, target).is_none() && !self.env.compat {
+        if in_page(self.span_bytes(), target).is_none() && !self.env.compat {
             self.linear(target);
             self.s(TX);
             self.check_canonical(TX, start);
@@ -4717,15 +5014,17 @@ impl Emitter {
             self.g(RIP);
             self.g(BASE);
             self.b.sub_i64();
-            self.c64(4096);
+            self.c64(self.span_bytes());
             self.b.op(op::OP_I64GEU);
             self.b.br_if(self.f().leave);
+            self.span_check_rip();
             let repeat = self.levels.last().unwrap().repeat;
             return self.b.br(repeat);
         }
         self.b.br(self.f().dispatch);
     }
     fn block(&mut self, block: &Block, index: &BTreeMap<u16, usize>) {
+        self.current_page = block.start / PAGE as u16;
         // (every way into a block left the XMM registers in memory; the
         // x87 cache is open on some of them, x87_is_open says which)
         self.xmm_held = 0;
@@ -4785,6 +5084,10 @@ impl Emitter {
                     && !self.falls_into(o, index)
                 {
                     self.goto(o as u64, index);
+                }
+                else if !block.insts.last().is_some_and(|i| matches!(i.op, Op::Step)) {
+                    // (into the span's next page, P7.3b)
+                    self.span_check(o as u64);
                 }
             },
             End::Shadow(o) => {
@@ -5645,6 +5948,28 @@ impl Emitter {
     fn read(&mut self, o: Opnd, width: u8, inst: &Inst) {
         match o {
             Opnd::Reg(r) => self.get_reg(r, width),
+            // (a volatile instruction's, from the page as it is: P7.3)
+            Opnd::Imm(_) if inst.dynamic.is_some() => {
+                let (at, bytes, signed) = inst.dynamic.unwrap();
+                let host = self.env.span_hosts[at as usize / PAGE] + at as u32 % PAGE as u32;
+                self.c32(host as i32);
+                self.b.memory_op(
+                    match (bytes, signed) {
+                        (1, true) => op::OP_I64LOAD8S,
+                        (1, false) => op::OP_I64LOAD8U,
+                        (2, true) => op::OP_I64LOAD16S,
+                        (2, false) => op::OP_I64LOAD16U,
+                        (_, true) => op::OP_I64LOAD32S,
+                        (_, false) => op::OP_I64LOAD32U,
+                    },
+                    op::MEM_NO_ALIGN,
+                    0,
+                );
+                if width < 64 {
+                    self.c64(mask(width));
+                    self.b.and_i64();
+                }
+            },
             Opnd::Imm(v) => self.c64(v & mask(width)),
             Opnd::Mem(a) => {
                 self.address(&a, inst.d.next.0, true);
@@ -6539,6 +6864,17 @@ impl Emitter {
         let start = inst.d.start.0;
         let next = inst.d.next.0;
         let need = inst.writes & inst.live_out;
+        if inst.span_straddle && !matches!(inst.op, Op::Step) {
+            // (its bytes on the span's next page: as compiled once that page
+            // was verified, else step it; P7.3b)
+            self.b.get_local(self.verified.as_ref().unwrap());
+            self.c32(1 << ((next - 1) / PAGE as u64));
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.if_void();
+            self.leave_to(self.f().step, start);
+            self.b.block_end();
+        }
         if let (Some((word, count)), false) = (inst.straddle, matches!(inst.op, Op::Step)) {
             // the next page still fetches as compiled, else step it
             self.c64(word);
@@ -11477,8 +11813,27 @@ mod sti_shadow_tests {
 
     fn compiled(page: &[u8], sti_shadow: bool) -> Vec<u8> {
         let env = CompileEnv::replay(
-            true, true, true, false, false, true, sti_shadow, false, 1024, false, false, false,
-            false, false, false, false, false, false, false, false,
+            true,
+            true,
+            true,
+            false,
+            false,
+            true,
+            sti_shadow,
+            false,
+            1024,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            &[],
         );
         compile_with(&env, page, &[], &[0], "sti".into())
             .expect("compiled")

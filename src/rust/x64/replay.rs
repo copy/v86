@@ -49,7 +49,8 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
     }
     r.extend_from_slice(&(next.len() as u16).to_le_bytes());
     r.extend_from_slice(next);
-    r.extend_from_slice(bytes);
+    // (a span's first page here, the others after its trailer: P7.3b)
+    r.extend_from_slice(&bytes[..4096]);
     r.extend_from_slice(&(name.len() as u16).to_le_bytes());
     r.extend_from_slice(name.as_bytes());
     // (a trailer, absent from older records: the execution counter, P4.14;
@@ -71,12 +72,37 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
     // (P7.2: the code's mode, absent from older records; bit 1: its
     // lookups in the 32-bit TLB, x64_compat_tlb; bit 2: legacy mode, P7.3;
     // bit 3: segment bases, P7.2(3))
+    // bit 4: a span, P7.3b, or volatile instructions: then its page count
+    // and pages' hosts; bit 5: volatile instructions, P7.3: their count and
+    // offsets)
+    let volatile: Vec<u16> = env
+        .volatile
+        .iter()
+        .copied()
+        .filter(|&o| o != u16::MAX)
+        .collect();
+    let hosts = env.span > 1 || !volatile.is_empty();
     r.push(
         env.compat as u8
             | (env.compat_tlb as u8) << 1
             | (env.legacy as u8) << 2
-            | (env.segmented as u8) << 3,
+            | (env.segmented as u8) << 3
+            | (hosts as u8) << 4
+            | (!volatile.is_empty() as u8) << 5,
     );
+    if hosts {
+        r.push(env.span);
+        for host in &env.span_hosts[..env.span as usize] {
+            r.extend_from_slice(&host.to_le_bytes());
+        }
+        r.extend_from_slice(&bytes[4096..]);
+    }
+    if !volatile.is_empty() {
+        r.push(volatile.len() as u8);
+        for offset in volatile {
+            r.extend_from_slice(&offset.to_le_bytes());
+        }
+    }
     r
 }
 
@@ -107,7 +133,7 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
     }
     let count = r.u16()? as usize;
     let next = r.bytes(count)?.to_vec();
-    let bytes = r.bytes(4096)?.to_vec();
+    let mut bytes = r.bytes(4096)?.to_vec();
     let count = r.u16()? as usize;
     let name = String::from_utf8(r.bytes(count)?.to_vec()).ok()?;
     let trailer = r.bytes(1).map_or(0, |b| b[0]);
@@ -125,7 +151,22 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
     let mode = r.bytes(1).map_or(0, |b| b[0]);
     let (compat, compat_tlb, legacy, segmented) =
         (mode & 1 != 0, mode & 2 != 0, mode & 4 != 0, mode & 8 != 0);
-    let env = CompileEnv::replay(
+    let mut hosts = Vec::new();
+    if mode & 16 != 0 {
+        let span = r.bytes(1)?[0] as usize;
+        for _ in 0..span {
+            hosts.push(u32::from_le_bytes(r.bytes(4)?.try_into().ok()?));
+        }
+        bytes.extend_from_slice(r.bytes(4096 * (span - 1))?);
+    }
+    let mut volatile = [u16::MAX; super::pagegen::MAX_VOLATILE];
+    if mode & 32 != 0 {
+        let count = r.bytes(1)?[0] as usize;
+        for v in volatile.iter_mut().take(count) {
+            *v = u16::from_le_bytes(r.bytes(2)?.try_into().ok()?);
+        }
+    }
+    let mut env = CompileEnv::replay(
         bit(1),
         bit(2),
         bit(3),
@@ -146,7 +187,9 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
         compat_tlb,
         legacy,
         segmented,
+        &hosts,
     );
+    env.volatile = volatile;
     compile_with(&env, &bytes, &next, &entries, name).map(|compiled| compiled.bytes)
 }
 
@@ -243,8 +286,27 @@ pub unsafe fn x64_page_replay_output() -> u32 { (*(&raw const OUTPUT)).as_ptr() 
 pub fn corpus() -> Vec<Vec<u8>> {
     // (the templates of every switch, so that their bytes are pinned)
     let env = CompileEnv::replay(
-        true, true, true, false, false, true, false, false, 1024, false, false, true, false, false,
-        false, false, false, false, false, false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        1024,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        &[],
     );
     let mut records = Vec::new();
     let mut seen = std::collections::HashSet::new();

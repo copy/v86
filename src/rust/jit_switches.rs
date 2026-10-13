@@ -171,6 +171,28 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (P7.3b: multi-page functions of legacy-mode code)
+    Switch {
+        name: "x64_page_clusters",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_clusters(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_span_crossings",
+        default: 256,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_span_crossings(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
     Switch {
         name: "x64_legacy_recompile_misses",
         default: 4096,

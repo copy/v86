@@ -19,7 +19,8 @@ import { step_profile } from "../step_profile.mjs";
 const X64_FIELDS = ["compiled", "native_retired", "retries", "unknown_exits", "steps", "invalidated", "entries",
     "compile_failures", "recompiles", "instructions_compiled", "templated", "evictions", "ready_functions"];
 const X64_EXTRA = { 21: "pages_compiled", 24: "bytes_compiled", 20: "ms_in_calls", 22: "ms_in_execute", 13: "activations",
-    14: "invlpg", 26: "cr0_writes", 27: "cr3_writes", 28: "cr4_writes", 29: "full_flushes", 30: "walks", 33: "hot_recompiles", 34: "jac_fills", 35: "jac_conflicts" };
+    14: "invlpg", 26: "cr0_writes", 27: "cr3_writes", 28: "cr4_writes", 29: "full_flushes", 30: "walks", 33: "hot_recompiles", 34: "jac_fills", 35: "jac_conflicts",
+    36: "compat_compiles", 37: "legacy_compiles", 38: "spans", 39: "span_pages" };
 
 // cpu/execution.rs: x64::state::ExecutionMode and Way
 export const LEDGER_MODES = ["real", "vm86", "prot16", "prot32", "compat16", "compat32", "long64"];

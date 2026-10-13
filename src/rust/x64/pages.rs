@@ -86,7 +86,16 @@ struct Function {
     id: u64,
     slot: u32,
     phase: Phase,
-    served: [u64; 64],
+    /// Block starts: a bitmap of offsets, 64 words a page of `members`
+    served: Vec<u64>,
+    /// The bytes its instructions were decoded from, as `served`
+    /// (pagegen::Compiled::code): dirty_bytes
+    code: Vec<u64>,
+    /// The offsets its instructions start at, as `served`
+    starts: Vec<u64>,
+    /// The keys of the consecutive linear pages it covers, `page` first (a
+    /// span of legacy-mode code, P7.3b; else just `page`)
+    members: Vec<u32>,
     last_used: u64,
     /// the source page's bytes (hash) when compiled: with cores in workers,
     /// checked again after the page is published (crate::parallel::code)
@@ -98,7 +107,15 @@ struct Function {
     /// how long it ran when its page is written (dirty_page)
     native_at: u64,
 }
-fn bit(set: &[u64; 64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
+fn bit(set: &[u64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
+impl Function {
+    /// Which of its pages has key `key`, if any
+    fn member(&self, key: u32) -> Option<usize> { self.members.iter().position(|&m| m == key) }
+    /// Whether it serves offset `offset` of its member page `m`
+    fn serves(&self, m: usize, offset: u16) -> bool {
+        bit(&self.served, (m * 4096) as u16 + offset)
+    }
+}
 /// The function a full table retires for a compile of (`compat`) code: the
 /// least recently used ready one, of that code's mode when the mode holds
 /// more than MODE_SHARE (P7.2b)
@@ -127,6 +144,17 @@ struct PageState {
     /// its code ran often: compiled with inline access lookups from then on
     /// (x64_hot_inline, P4.14; not a compile of its own, no backoff)
     hot: bool,
+    /// times run() found it entered from the linear page before it (0) or
+    /// after it (1), with x64_page_clusters: span_members (P7.3b)
+    from: [u16; 2],
+    /// a write retired its function (dirty_page): no span takes it, P7.3b
+    written: bool,
+    /// Offsets of instructions a write changed while compiled
+    /// (dirty_bytes), volatile in its compiles alone from then on
+    /// (pagegen::CompileEnv::volatile); `volatile_new`: some since its last
+    /// compile, which run() repeats at its next miss
+    volatile: Vec<u16>,
+    volatile_new: bool,
 }
 impl Default for PageState {
     fn default() -> Self {
@@ -138,6 +166,10 @@ impl Default for PageState {
             misses: 0,
             compiles: 0,
             hot: false,
+            from: [0; 2],
+            written: false,
+            volatile: Vec::new(),
+            volatile_new: false,
         }
     }
 }
@@ -167,6 +199,8 @@ struct Runtime {
     next_id: u64,
     clock: u64,
     last_rip: u64,
+    /// The linear page the last activation or miss run ended on (P7.3b)
+    last_page: u64,
     enabled: bool,
     stats: [u64; 13],
     /// Changes whenever a function is registered or retired (HeatBatch)
@@ -198,7 +232,7 @@ const HOT_RECOMPILES: usize = 12;
 /// (x64_page_access calls), access cache fills of the VGA frame buffer, MOV
 /// CR3 keeping global translations, INVLPG flushing a large-page region,
 /// unaligned reads served from BOUNCE.
-pub static mut COUNTERS: [u64; 19] = [0; 19];
+pub static mut COUNTERS: [u64; 21] = [0; 21];
 pub const COUNT_ACTIVATIONS: usize = 0;
 pub const COUNT_INVLPG: usize = 1;
 pub const COUNT_CR_WRITES: usize = 2;
@@ -228,6 +262,9 @@ pub const COUNT_JAC_CONFLICTS: usize = 16;
 pub const COUNT_COMPAT_COMPILES: usize = 17;
 /// legacy-mode compiles (P7.3)
 pub const COUNT_LEGACY_COMPILES: usize = 18;
+/// compiles of spans (P7.3b), and their pages
+pub const COUNT_SPANS: usize = 19;
+pub const COUNT_SPAN_PAGES: usize = 20;
 /// (32 bytes: a VEX.256 load's)
 #[repr(C, align(16))]
 struct Bounce([u8; 32]);
@@ -272,6 +309,7 @@ fn rt() -> &'static mut Runtime {
             next_id: 1,
             clock: 0,
             last_rip: 0,
+            last_page: 0,
             enabled: true,
             stats: [0; 13],
             generation: 0,
@@ -337,10 +375,14 @@ unsafe fn disallowed(budget: u32) -> u32 {
     }
 }
 
-/// Per core: the last code page translation (access cache epoch | user |
-/// code mode << 1, linear page, key). An x64 TLB invalidation changes the
-/// epoch, as do legacy-mode flushes (P7.1; INVLPG forgets it).
-static mut CODE_TLB: [(u64, u64, u32, bool); 8] = [(0, 0, 0, false); 8];
+/// Per core: code page translations (access cache epoch | user | code mode
+/// << 1, linear page, key, global), direct mapped by linear page: code that
+/// calls between pages (as 709.smc into the page it rewrites) translates
+/// each once. An x64 TLB invalidation changes the epoch, as do legacy-mode
+/// flushes (P7.1; INVLPG forgets the page's entry).
+const CODE_TLB_SIZE: usize = 16;
+type CodeTlb = [(u64, u64, u32, bool); CODE_TLB_SIZE];
+static mut CODE_TLB: [CodeTlb; 8] = [[(0, 0, 0, false); CODE_TLB_SIZE]; 8];
 
 /// Chaining (pagegen::Emitter::chain): a page function leaving its page
 /// looks the new linear page up here and tail-calls the function serving it,
@@ -397,7 +439,11 @@ unsafe fn chain_fill(core: usize, user: bool, mode: usize, rip: u64, slot: u32, 
 /// MOV CR3 (see memory::invalidate_core_nonglobal): code translations of
 /// non-global pages go.
 pub unsafe fn forget_nonglobal_code(core: usize) {
-    CODE_TLB[core] = (0, 0, 0, false);
+    for entry in CODE_TLB[core].iter_mut() {
+        if !entry.3 {
+            entry.0 = 0;
+        }
+    }
     for table in CHAIN[core].0.iter_mut() {
         for entry in table.iter_mut() {
             if entry.global == 0 {
@@ -435,7 +481,8 @@ unsafe fn unchain_slot(slot: u32) {
 unsafe fn code_page(rip: u64, mode: usize) -> Option<(u32, bool)> {
     let core = apic::current_core();
     let tag = jac::epoch_bits(core) | (*gp::cpl == 3) as u64 | (mode as u64) << 1;
-    let (cached_tag, linear, page, global) = CODE_TLB[core];
+    let index = (rip >> 12) as usize & (CODE_TLB_SIZE - 1);
+    let (cached_tag, linear, page, global) = CODE_TLB[core][index];
     if cached_tag == tag && linear == rip >> 12 {
         return Some((page, global));
     }
@@ -447,7 +494,7 @@ unsafe fn code_page(rip: u64, mode: usize) -> Option<(u32, bool)> {
         (physical, global)
     };
     let page = code_key(physical)? | MODE_KEYS[mode];
-    CODE_TLB[core] = (tag, rip >> 12, page, global);
+    CODE_TLB[core][index] = (tag, rip >> 12, page, global);
     Some((page, global))
 }
 /// The 32-bit translation of linear `address` for the current privilege in
@@ -466,11 +513,12 @@ unsafe fn legacy_translate(address: u32, write: bool) -> Option<(u64, bool)> {
 /// page, and so may its chaining entries (a flush of the whole access cache
 /// retired the others by epoch).
 pub unsafe fn forget_code_page(core: usize, address: u64) {
-    CODE_TLB[core] = (0, 0, 0, false);
     let page = address >> 12;
-    // (the page the running function executes: a stepped INVLPG, in legacy
-    // mode, leaves, as x64_page_invlpg does)
-    if page == *gp::x64_page_linear >> 12 {
+    CODE_TLB[core][page as usize & (CODE_TLB_SIZE - 1)].0 = 0;
+    // (the page the running function executes: a stepped INVLPG leaves, as
+    // x64_page_invlpg does; in legacy mode any, which may be another page of
+    // a span, P7.3b)
+    if page == *gp::x64_page_linear >> 12 || state::efer() & state::EFER_LMA == 0 {
         CODE_WRITES += 1;
     }
     for table in CHAIN[core].0.iter_mut() {
@@ -485,7 +533,7 @@ pub unsafe fn forget_code_page(core: usize, address: u64) {
 /// translations of earlier epochs go. (Legacy-mode TLB flushes start epochs
 /// too, P7.1: thousands a minute while XP switches processes.)
 pub unsafe fn forget_code(core: usize) {
-    CODE_TLB[core] = (0, 0, 0, false);
+    CODE_TLB[core] = [(0, 0, 0, false); CODE_TLB_SIZE];
     for table in CHAIN[core].0.iter_mut() {
         for entry in table.iter_mut() {
             entry.tag = 0;
@@ -541,6 +589,95 @@ unsafe fn code_mode() -> usize {
     }
 }
 fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BASE }
+
+/// Multi-page functions of legacy-mode code (the JIT switch
+/// x64_page_clusters, docs/jit-unification-plan.md P7.3b, as Tier-0's
+/// neighbour clusters): span_members
+static mut CLUSTERS: bool = false;
+#[no_mangle]
+pub unsafe fn x64_page_set_clusters(enabled: bool) { CLUSTERS = enabled; }
+/// Transfers between two pages that make them one span (the JIT switch
+/// x64_span_crossings): an XP boot passes once between most neighbours, a
+/// loop over pages (708.pages) on every iteration
+static mut SPAN_CROSSINGS: u32 = 256;
+pub unsafe fn set_span_crossings(crossings: u32) { SPAN_CROSSINGS = crossings; }
+/// The consecutive linear pages of a span of legacy-mode code (P7.3b)
+/// around `linear`, whose key is `page`: (key, linear page, physical page),
+/// in linear order. A page before (after) the span joins while run() found
+/// control passing between it and the span's first (last) page, outside
+/// compiled code, SPAN_CROSSINGS times (PageState::from), and it maps to plain RAM without a fault, no
+/// write retired code of it (PageState::written) and it is no page of the
+/// span already; at most pagegen::MAX_SPAN. Not with cores in workers.
+unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u32)> {
+    let user = *gp::cpl == 3;
+    let mode_key = page & (COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY);
+    let at = |linear: u64| -> Option<(u32, u64, u32)> {
+        if linear >= 1 << 32 {
+            return None;
+        }
+        let physical = cpu::translate_address(linear as i32, false, user, false).ok()?;
+        let key = code_key(physical as u64 & !4095)?;
+        (key < extended::CODE_KEY_BASE).then_some((key | mode_key, linear, physical & !4095))
+    };
+    let Some(own) = at(linear).filter(|&(key, ..)| key == page)
+    else {
+        return vec![(page, linear, 0)];
+    };
+    if crate::parallel::active() || !physical::plain_ram((physical_key(page) as u64) << 12, 4096) {
+        return vec![own];
+    }
+    let from = |key: u32, side: usize| r.pages.get(&key).map_or(0, |s| s.from[side] as u32);
+    let written = |key: u32| r.pages.get(&key).is_some_and(|s| s.written);
+    if written(page) {
+        return vec![own];
+    }
+    let mut span = vec![own];
+    while span.len() < pagegen::MAX_SPAN && span[0].1 != 0 {
+        let Some(before) = at(span[0].1 - 4096)
+        else {
+            break;
+        };
+        if from(span[0].0, 0) + from(before.0, 1) < SPAN_CROSSINGS
+            || written(before.0)
+            || span.iter().any(|m| m.0 == before.0)
+        {
+            break;
+        }
+        span.insert(0, before);
+    }
+    while span.len() < pagegen::MAX_SPAN {
+        let last = *span.last().unwrap();
+        let Some(after) = at(last.1 + 4096)
+        else {
+            break;
+        };
+        if from(after.0, 0) + from(last.0, 1) < SPAN_CROSSINGS
+            || written(after.0)
+            || span.iter().any(|m| m.0 == after.0)
+        {
+            break;
+        }
+        span.push(after);
+    }
+    span
+}
+/// compile_mode is compiling its page alone after a span failed (P7.3b)
+static mut SPAN_DECLINED: bool = false;
+/// Undo compile_mode's count of a compile that it repeats (P7.3b)
+fn r_page_uncount(page: u32, hot: bool) {
+    if !hot {
+        let state = rt().pages.entry(page).or_default();
+        state.compiles = state.compiles.saturating_sub(1);
+    }
+}
+/// Before a span's function runs (P7.3b): its prologue finds the page it
+/// was entered at by that page's 32-bit TLB entry, which code_page does not
+/// fill when its own cache hits
+unsafe fn span_translation(rip: u64) {
+    if cpu::tlb_data[(rip >> 12) as usize & 0xFFFFF] & cpu::TLB_VALID == 0 {
+        legacy_translate(rip as u32, false);
+    }
+}
 
 /// Compatibility-mode code in the page tier (the JIT switch
 /// x64_page_compat32, P7.2): 32-bit code under a 64-bit OS, while its data
@@ -659,6 +796,24 @@ pub unsafe fn run(budget: u32) -> Attempt {
         release_dead(r);
     }
     let last = r.last_rip;
+    // (P7.3b: entered from a neighbouring page, the evidence a span takes)
+    let here = rip >> 12;
+    if CLUSTERS && mode >= MODE_LEGACY && r.last_page != here {
+        let side = if r.last_page.wrapping_add(1) == here {
+            Some(0)
+        }
+        else if r.last_page == here.wrapping_add(1) {
+            Some(1)
+        }
+        else {
+            None
+        };
+        if let Some(side) = side {
+            let count = &mut r.pages.entry(page).or_default().from[side];
+            *count = count.saturating_add(1);
+        }
+    }
+    r.last_page = here;
     r.last_rip = rip;
     // Far transfers (not the next few bytes) start blocks.
     let far = !(last < rip && rip - last <= 15);
@@ -683,11 +838,12 @@ pub unsafe fn run(budget: u32) -> Attempt {
         }
         found
     };
+    let member = index.and_then(|i| r.functions[i].member(page));
     match index {
         Some(i)
-            if r.functions[i].page == page
+            if member.is_some()
                 && r.functions[i].phase == Phase::Ready
-                && bit(&r.functions[i].served, offset) =>
+                && r.functions[i].serves(member.unwrap(), offset) =>
         {
             // (its code ran often: its recompile with inline lookups)
             if r.functions[i].counter.is_some_and(|c| {
@@ -702,9 +858,12 @@ pub unsafe fn run(budget: u32) -> Attempt {
             if CHAINING {
                 chain_fill(apic::current_core(), *gp::cpl == 3, mode, rip, slot, global);
             }
+            if r.functions[i].members.len() > 1 {
+                span_translation(rip);
+            }
             execute(slot, budget, rip)
         },
-        Some(i) if r.functions[i].page == page && r.functions[i].phase != Phase::Dead => {
+        Some(i) if member.is_some() && r.functions[i].phase != Phase::Dead => {
             if r.functions[i].phase == Phase::Ready {
                 // An entry the function does not serve: recompile once
                 // enough repeated such entries accumulate (note_unserved)
@@ -728,7 +887,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
                     if mode >= MODE_LEGACY {
                         note_unserved(r, page, offset);
                     }
-                    return unserved_run(r, i, budget, rip);
+                    return unserved_run(r, i, member.unwrap(), budget, rip);
                 }
                 // Else the function steps from here to its next block start
                 // (pagegen: unserved dispatch) and notes the entry
@@ -740,6 +899,9 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 let slot = r.functions[i].slot;
                 if CHAINING {
                     chain_fill(apic::current_core(), *gp::cpl == 3, mode, rip, slot, global);
+                }
+                if r.functions[i].members.len() > 1 {
+                    span_translation(rip);
                 }
                 return execute(slot, budget, rip);
             }
@@ -764,6 +926,14 @@ pub unsafe fn run(budget: u32) -> Attempt {
             // (legacy mode's first compile waits for LEGACY_HEAT; a page
             // compiled before is hot, its function retired by a write)
             let hot = if mode >= MODE_LEGACY && state.compiles == 0 { LEGACY_HEAT } else { HOT };
+            // (instructions a write changed are volatile now: the page's
+            // function would stay as they change again, no compile of its
+            // own, dirty_bytes)
+            if state.volatile_new {
+                state.volatile_new = false;
+                state.compiles = state.compiles.saturating_sub(1);
+                state.heat = hot << backoff(state.compiles);
+            }
             if state.heat >= hot << backoff(state.compiles) {
                 state.heat = 0;
                 if state.entry_count == 0 {
@@ -916,6 +1086,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
     }
     // (the next miss compares its RIP with the last instruction run here)
     r.last_rip = at;
+    r.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
     execution::ledger_end(span, execution::Way::Interpreted);
     Attempt {
         retired: n,
@@ -929,7 +1100,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
 /// function serves, stopping as miss_run does, instead of entering the
 /// function to step each instruction up to its next block start (an
 /// activation, a dispatch and a step apiece)
-unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Attempt {
+unsafe fn unserved_run(r: &mut Runtime, i: usize, m: usize, budget: u32, rip: u64) -> Attempt {
     let (linear, cpl, mode, kind) = (rip >> 12, *gp::cpl, state::mode(), runnable_kind());
     let limit = budget.min(MISS_RUN_LIMIT);
     let span = execution::ledger_begin();
@@ -943,7 +1114,7 @@ unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Atte
         if n >= limit
             || next >> 12 != linear
             || !(at < next && next - at <= 15)
-            || bit(&r.functions[i].served, (next & 4095) as u16)
+            || r.functions[i].serves(m, (next & 4095) as u16)
             || *gp::cpl != cpl
             || state::mode() != mode
             || !mode.is_long() && runnable_kind() != kind
@@ -957,6 +1128,7 @@ unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Atte
     }
     // (the next miss compares its RIP with the last instruction run here)
     r.last_rip = at;
+    r.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
     execution::ledger_end(span, execution::Way::Interpreted);
     Attempt {
         retired: n,
@@ -1074,6 +1246,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         let flags = state::read_flags64();
         state::write_flags64(flags);
     }
+    let interrupts_before = *gp::flags & cpu::FLAG_INTERRUPT;
     ACTIVE = true;
     COUNTERS[COUNT_ACTIVATIONS] += 1;
     STEP_EXITED = false;
@@ -1107,6 +1280,8 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     let r = rt();
     r.stats[RETIRED] += native as u64;
     r.last_rip = state::read_rip();
+    // (no evidence for span_members across a halt or an interrupt)
+    r.last_page = if *gp::in_hlt { u64::MAX } else { *gp::x64_page_linear >> 12 };
     match exit {
         pagegen::EXIT_RETRY => {
             r.stats[RETRIES] += 1;
@@ -1123,7 +1298,27 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         pagegen::EXIT_UNKNOWN => r.stats[UNKNOWN] += 1,
         _ => {},
     }
-    cpu::handle_irqs();
+    // (P7.3: legacy-mode code polls for interrupts only where one can have
+    // become deliverable: an interpreted instruction, IF set by STI, a held
+    // interrupt, events of other cores, NMI, SMI or HLT. Devices raise
+    // theirs through handle_irqs, and native code does no device access: a
+    // poll after each of XP's activations cost 2% of its boot)
+    if mode < MODE_LEGACY
+        || exit == pagegen::EXIT_RETRY
+        || STEP_EXITED
+        || *gp::flags & cpu::FLAG_INTERRUPT & !interrupts_before != 0
+        || *gp::in_hlt
+        || execution::irq_exit_requested()
+        || apic::has_core_events()
+        || apic::nmi_pending()
+        || crate::cpu::smm::smi_deliverable()
+    {
+        let rip = state::read_rip();
+        cpu::handle_irqs();
+        if state::read_rip() != rip {
+            rt().last_page = u64::MAX;
+        }
+    }
     Attempt {
         retired: (*gp::instruction_counter).wrapping_sub(before),
         submitted: false,
@@ -1152,33 +1347,81 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     // loops from the first compile)
     let outline = pagegen::outline_access() && !state.hot && !legacy;
     let counter = if outline && HOT_INLINE { take_counter() } else { None };
+    // (named after the linear page it was compiled for: host profiles)
+    let linear = state::read_rip() & !4095;
+    // (P7.3b: with x64_page_clusters, the consecutive pages of a span of
+    // legacy-mode code, `page` among them; else just `page`)
+    let span: Vec<(u32, u64, u32)> = if legacy && CLUSTERS && !hot && !SPAN_DECLINED {
+        span_members(r, page, linear)
+    }
+    else {
+        vec![(page, linear, 0)]
+    };
+    let (first, linear) = (span[0].0, span[0].1);
     // (a recompile serves the unserved offsets seen once so far too: each
     // would otherwise count towards the next recompile)
-    let mut entries: Vec<u16> = (0..4096u16)
-        .filter(|&o| bit(&state.entries, o) || recompile && bit(&state.seen, o))
-        .collect();
+    let mut entries: Vec<u16> = Vec::new();
+    for (m, &(key, ..)) in span.iter().enumerate() {
+        let Some(state) = r.pages.get(&key)
+        else {
+            continue;
+        };
+        let recompile = key == page && recompile || state.compiles != 0;
+        entries.extend(
+            (0..4096u16)
+                .filter(|&o| bit(&state.entries, o) || recompile && bit(&state.seen, o))
+                .map(|o| (m * 4096) as u16 + o),
+        );
+    }
     let bytes = if is_extended(page) {
         extended::copy_page(physical - extended::CODE_KEY_BASE)
     }
     else {
-        std::slice::from_raw_parts(
-            crate::cpu::memory::mem8.add((physical << 12) as usize),
-            4096,
-        )
-        .to_vec()
+        let mut bytes = Vec::with_capacity(4096 * span.len());
+        for &(key, ..) in &span {
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                crate::cpu::memory::mem8.add((physical_key(key) << 12) as usize),
+                4096,
+            ));
+        }
+        bytes
     };
     // Likely function starts: 16-byte aligned after INT3 padding (MSVC x64
     // code). Serving them from the first compile avoids most recompiles for
     // entries that other pages call later. (Guesses: an instruction's last
     // byte may be 0xCC, as MULSD XMM1, XMM4's ModRM; pagegen drops those
     // that code runs into, which would split its block)
-    for o in (16..4096u16).step_by(16) {
-        if bytes[o as usize - 1] == 0xCC && bytes[o as usize] != 0xCC && !bit(&state.entries, o) {
-            entries.push(o | pagegen::GUESSED);
+    for m in 0..span.len() {
+        for o in (16..4096usize).step_by(16) {
+            let at = m * 4096 + o;
+            if bytes[at - 1] == 0xCC && bytes[at] != 0xCC && !entries.contains(&(at as u16)) {
+                entries.push(at as u16 | pagegen::GUESSED);
+            }
         }
     }
-    // (named after the linear page it was compiled for: host profiles)
-    let linear = state::read_rip() & !4095;
+    // (P7.3: the instructions writes changed, of a legacy-mode page compiled
+    // alone: their immediates load from its host)
+    let volatile: Vec<u16> = if legacy && span.len() == 1 && !is_extended(page) {
+        r.pages
+            .get(&page)
+            .map_or(Vec::new(), |s| s.volatile.clone())
+    }
+    else {
+        Vec::new()
+    };
+    // (P7.3b: each page's host address as compiled, which the span's
+    // prologue compares with the 32-bit TLB's)
+    let hosts: Vec<u32> = if span.len() > 1 {
+        span.iter()
+            .map(|&(.., physical)| (crate::cpu::memory::mem8 as u32).wrapping_add(physical))
+            .collect()
+    }
+    else if !volatile.is_empty() {
+        vec![(crate::cpu::memory::mem8 as u32).wrapping_add(physical << 12)]
+    }
+    else {
+        Vec::new()
+    };
     let name = format!(
         "x64_page{}_{:x}",
         if segmented {
@@ -1195,7 +1438,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         },
         linear
     );
-    let next = next_page_bytes(linear);
+    let next = next_page_bytes(span.last().unwrap().1);
     let Some(code) = pagegen::compile(
         &bytes,
         next.as_ref().map_or(&[][..], |b| &b[..]),
@@ -1206,10 +1449,20 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         compat,
         legacy,
         segmented,
+        &hosts,
+        &volatile,
         name,
     )
     else {
         (*(&raw mut HOT_FREE)).extend(counter);
+        if span.len() > 1 {
+            // (more code than a function takes: the page alone, P7.3b)
+            r_page_uncount(page, hot);
+            SPAN_DECLINED = true;
+            let attempt = compile_mode(page, hot);
+            SPAN_DECLINED = false;
+            return attempt;
+        }
         rt().stats[FAILED] += 1;
         return miss();
     };
@@ -1217,6 +1470,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     if recompile {
         r.stats[RECOMPILED] += 1;
     }
+
     // Room in the table: retire the least recently used function; of this
     // code's mode when that holds more than its share (P7.2b: 32-bit
     // compatibility-mode code and long-mode code each keep a third at least)
@@ -1240,7 +1494,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         HashSet::new()
     }
     else {
-        HashSet::from([Page::page_of(physical << 12)])
+        span.iter()
+            .map(|&(key, ..)| Page::page_of(physical_key(key) << 12))
+            .collect()
     };
     let Some(slot) = crate::jit::ir_reserve_slot(id, watched)
     else {
@@ -1249,8 +1505,10 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         return miss();
     };
     let r = rt();
-    if let Some(&old) = r.by_page.get(&page) {
-        retire(r, old);
+    for &(key, ..) in &span {
+        if let Some(&old) = r.by_page.get(&key) {
+            retire(r, old);
+        }
     }
     if is_extended(page) {
         extended::watch_code(physical - extended::CODE_KEY_BASE);
@@ -1266,7 +1524,10 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 id: 0,
                 slot: 0,
                 phase: Phase::Dead,
-                served: [0; 64],
+                served: Vec::new(),
+                code: Vec::new(),
+                starts: Vec::new(),
+                members: Vec::new(),
                 last_used: 0,
                 source: 0,
                 counter: None,
@@ -1277,22 +1538,31 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     };
     r.clock += 1;
     r.functions[index] = Function {
-        page,
+        page: first,
         id,
         slot,
         phase: Phase::Pending,
         served: code.served,
+        code: code.code,
+        starts: code.starts,
+        members: span.iter().map(|&(key, ..)| key).collect(),
         last_used: r.clock,
         source: source_hash(&bytes),
         counter,
         native_at: r.stats[RETIRED],
     };
-    r.by_page.insert(page, index);
+    for &(key, ..) in &span {
+        r.by_page.insert(key, index);
+        FAST[fast_slot(key)] = (key, index as u32 + 1);
+    }
     r.generation = r.generation.wrapping_add(1);
-    FAST[fast_slot(page)] = (page, index as u32 + 1);
     r.stats[COMPILED] += 1;
     if legacy {
         COUNTERS[COUNT_LEGACY_COMPILES] += 1;
+    }
+    if span.len() > 1 {
+        COUNTERS[COUNT_SPANS] += 1;
+        COUNTERS[COUNT_SPAN_PAGES] += span.len() as u64;
     }
     else if compat {
         COUNTERS[COUNT_COMPAT_COMPILES] += 1;
@@ -1360,6 +1630,18 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
     r.generation = r.generation.wrapping_add(1);
     if unchain {
         unsafe { unchain_slot(slot) };
+    }
+    // (a span's other pages, P7.3b)
+    for m in 1..r.functions[index].members.len() {
+        let key = r.functions[index].members[m];
+        if r.by_page.get(&key) == Some(&index) {
+            r.by_page.remove(&key);
+        }
+        unsafe {
+            if FAST[fast_slot(key)].0 == key {
+                FAST[fast_slot(key)] = (0, 0);
+            }
+        }
     }
     if r.by_page.get(&page) == Some(&index) {
         r.by_page.remove(&page);
@@ -1477,18 +1759,95 @@ pub fn x64_page_cancel(id: u64, slot: u32) {
 
 /// A write to a watched backing page (see jit::jit_dirty_page), or to an
 /// extended page with code (key from extended::CODE_KEY_BASE on).
-pub fn dirty_page(page: u32) {
+pub fn dirty_page(page: u32) { retire_written(page, &[]); }
+/// A write of bytes `lo..hi` of backing page `page` (jit::jit_dirty_bytes):
+/// as dirty_page, but legacy-mode functions none of whose instructions it
+/// hits stay (P7.3: Windows 98's VMM and XP keep data on code pages, and a
+/// retired function's page compiles again at most after its backoff). The
+/// slots of the functions that stay, which jit.rs keeps watching.
+pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
+    let r = rt();
+    let mut kept = Vec::new();
+    if !crate::parallel::active() {
+        for mode in MODE_KEYS {
+            let key = page | mode;
+            let Some(&i) = r.by_page.get(&key)
+            else {
+                continue;
+            };
+            let f = &r.functions[i];
+            let Some(m) = f.member(key)
+            else {
+                continue;
+            };
+            if f.page & LEGACY_KEY != 0
+                && f.phase != Phase::Dead
+                && !(lo..hi.min(4096)).any(|o| bit(&f.code, (m * 4096) as u16 + o as u16))
+            {
+                kept.push(i);
+            }
+        }
+    }
+    // (the instructions a write hits are volatile in their page's next
+    // compiles, which it then keeps: 709.smc rewrites an immediate every
+    // 64 calls, and its page would stay interpreted)
+    for mode in MODE_KEYS {
+        let key = page | mode;
+        let Some(&i) = r.by_page.get(&key)
+        else {
+            continue;
+        };
+        let f = &r.functions[i];
+        let Some(m) = f.member(key)
+        else {
+            continue;
+        };
+        if kept.contains(&i) || f.page & LEGACY_KEY == 0 || f.phase == Phase::Dead {
+            continue;
+        }
+        let base = (m * 4096) as u16;
+        let hit: Vec<u16> = (lo..hi.min(4096))
+            .filter(|&o| bit(&f.code, base + o as u16))
+            .filter_map(|o| {
+                (0..=o)
+                    .rev()
+                    .take(15)
+                    .find(|&s| bit(&f.starts, base + s as u16))
+            })
+            .map(|s| s as u16)
+            .collect();
+        let state = r.pages.entry(key).or_default();
+        for s in hit {
+            if !state.volatile.contains(&s) && state.volatile.len() < pagegen::MAX_VOLATILE {
+                state.volatile.push(s);
+                state.volatile_new = true;
+            }
+        }
+    }
+    retire_written(page, &kept);
+    kept.iter().map(|&i| r.functions[i].slot).collect()
+}
+/// dirty_page, but for the functions `kept` (indices)
+fn retire_written(page: u32, kept: &[usize]) {
     let r = rt();
     // (the page's functions in every code mode, P7.2, P7.3)
     let dead: Vec<usize> = MODE_KEYS
         .iter()
         .filter_map(|&mode| r.by_page.get(&(page | mode)).copied())
+        .filter(|i| !kept.contains(i))
         .collect();
     if dead.is_empty() {
         return;
     }
     unsafe {
         CODE_WRITES += 1;
+    }
+    // (no span takes a page code writes retire, P7.3b: 709.smc's callee
+    // would retire its caller's page with it)
+    for key in MODE_KEYS {
+        if let Some(state) = r.pages.get_mut(&(page | key)) {
+            state.written = true;
+        }
     }
     for i in dead {
         // (legacy mode, P7.3: a function that ran long before its page was
@@ -1517,7 +1876,7 @@ const LIVED: u64 = 1 << 22;
 pub fn retire_extended() {
     let r = rt();
     unsafe {
-        CODE_TLB = [(0, 0, 0, false); 8];
+        CODE_TLB = [[(0, 0, 0, false); CODE_TLB_SIZE]; 8];
     }
     for i in 0..r.functions.len() {
         if is_extended(r.functions[i].page) {
@@ -1565,6 +1924,8 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_compat_hot_count" => COMPAT_HOT_COUNT,
             "x64_page_compat32" => COMPAT32 as u32,
             "x64_page_legacy32" => LEGACY32 as u32,
+            "x64_page_clusters" => CLUSTERS as u32,
+            "x64_span_crossings" => SPAN_CROSSINGS,
             "x64_legacy_heat" => LEGACY_HEAT,
             "x64_legacy_recompile_misses" => LEGACY_MISSES,
             _ => return None,
@@ -1592,6 +1953,7 @@ pub fn x64_page_stat(field: u32) -> f64 {
         f @ 34..=35 => unsafe { COUNTERS[f as usize - 34 + COUNT_JAC_FILLS] as f64 },
         36 => unsafe { COUNTERS[COUNT_COMPAT_COMPILES] as f64 },
         37 => unsafe { COUNTERS[COUNT_LEGACY_COMPILES] as f64 },
+        f @ 38..=39 => unsafe { COUNTERS[f as usize - 38 + COUNT_SPANS] as f64 },
         24 => unsafe { BYTES_COMPILED as f64 },
         // pages compiled at least once (while tracked)
         21 => r.pages.values().filter(|state| state.compiles != 0).count() as f64,
@@ -2234,7 +2596,10 @@ mod quota_tests {
             id: 0,
             slot: 0,
             phase: Phase::Ready,
-            served: [0; 64],
+            served: vec![0; 64],
+            code: vec![0; 64],
+            starts: vec![0; 64],
+            members: vec![page],
             last_used,
             source: 0,
             counter: None,

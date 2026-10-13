@@ -414,11 +414,31 @@ pub fn port21_read() -> u32 { get_pic().master.port1_read() }
 pub fn portA0_read() -> u32 { get_pic().slave.port0_read() }
 pub fn portA1_read() -> u32 { get_pic().slave.port1_read() }
 
-pub fn port20_write(v: u8) { get_pic().port0_write(0, v) }
-pub fn port21_write(v: u8) { get_pic().port1_write(0, v) }
+/// A command or mask register was written since take_port_written: an EOI or
+/// an unmask can make a pending interrupt deliverable without the
+/// handle_irqs a raised one gets (cpu::run_compat_instruction)
+static mut PORT_WRITTEN: bool = false;
+pub fn take_port_written() -> bool {
+    unsafe { std::mem::replace(&mut *(&raw mut PORT_WRITTEN), false) }
+}
 
-pub fn portA0_write(v: u8) { get_pic().port0_write(1, v) }
-pub fn portA1_write(v: u8) { get_pic().port1_write(1, v) }
+pub fn port20_write(v: u8) {
+    unsafe { PORT_WRITTEN = true };
+    get_pic().port0_write(0, v)
+}
+pub fn port21_write(v: u8) {
+    unsafe { PORT_WRITTEN = true };
+    get_pic().port1_write(0, v)
+}
+
+pub fn portA0_write(v: u8) {
+    unsafe { PORT_WRITTEN = true };
+    get_pic().port0_write(1, v)
+}
+pub fn portA1_write(v: u8) {
+    unsafe { PORT_WRITTEN = true };
+    get_pic().port1_write(1, v)
+}
 
 pub fn port4D0_read() -> u32 { get_pic().master.elcr as u32 }
 pub fn port4D1_read() -> u32 { get_pic().slave.elcr as u32 }

@@ -171,6 +171,11 @@ pub unsafe fn hold_irqs<T>(access: impl FnOnce() -> T) -> T {
 #[inline(always)]
 pub unsafe fn irq_exit_requested() -> bool { execution_state.irq_exit }
 
+/// Whether handle_irqs was called while delivery was held, and nothing has
+/// delivered since (cpu::run_compat_instruction)
+#[inline(always)]
+pub unsafe fn irq_check_owed() -> bool { execution_state.irq_noted || execution_state.irq_exit }
+
 /// At an instruction boundary, with the CPU state written back: deliver the
 /// interrupt a held access made deliverable. True if one was due.
 #[inline(always)]
