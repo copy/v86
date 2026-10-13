@@ -3147,6 +3147,10 @@ pub struct Compiled {
     pub code: Vec<u64>,
     /// The offsets its instructions start at, as `served`
     pub starts: Vec<u64>,
+    /// The bytes of its volatile instructions it reads where it runs
+    /// (CompileEnv::volatile: an immediate, or a stepped instruction), as
+    /// `served`
+    pub dynamic: Vec<u64>,
     pub instructions: usize,
     pub templated: usize,
     pub blocks: usize,
@@ -3812,6 +3816,7 @@ pub fn compile_with(
     // CompileEnv::volatile.
     let mut code = vec![0u64; span / 64];
     let mut instruction_starts = vec![0u64; span / 64];
+    let mut dynamic = vec![0u64; span / 64];
     for block in &blocks {
         let mut o = block.start as usize;
         for inst in &block.insts {
@@ -3824,6 +3829,9 @@ pub fn compile_with(
             for b in o..(o + inst.d.length as usize).min(span) {
                 if !(from..to).contains(&b) {
                     code[b / 64] |= 1 << (b % 64);
+                }
+                else {
+                    dynamic[b / 64] |= 1 << (b % 64);
                 }
             }
             o += inst.d.length as usize;
@@ -3841,6 +3849,7 @@ pub fn compile_with(
         served,
         code,
         starts: instruction_starts,
+        dynamic,
         instructions,
         templated,
         blocks: blocks.len(),

@@ -93,6 +93,8 @@ struct Function {
     code: Vec<u64>,
     /// The offsets its instructions start at, as `served`
     starts: Vec<u64>,
+    /// The bytes of its volatile instructions (pagegen::Compiled::dynamic)
+    dynamic: Vec<u64>,
     /// The keys of the consecutive linear pages it covers, `page` first (a
     /// span of legacy-mode code, P7.3b; else just `page`)
     members: Vec<u32>,
@@ -1528,6 +1530,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 served: Vec::new(),
                 code: Vec::new(),
                 starts: Vec::new(),
+                dynamic: Vec::new(),
                 members: Vec::new(),
                 last_used: 0,
                 source: 0,
@@ -1546,6 +1549,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         served: code.served,
         code: code.code,
         starts: code.starts,
+        dynamic: code.dynamic,
         members: span.iter().map(|&(key, ..)| key).collect(),
         last_used: r.clock,
         source: source_hash(&bytes),
@@ -1762,10 +1766,14 @@ pub fn x64_page_cancel(id: u64, slot: u32) {
 /// extended page with code (key from extended::CODE_KEY_BASE on).
 pub fn dirty_page(page: u32) { retire_written(page, &[]); }
 /// A write of bytes `lo..hi` of backing page `page` (jit::jit_dirty_bytes):
-/// as dirty_page, but legacy-mode functions none of whose instructions it
-/// hits stay (P7.3: Windows 98's VMM and XP keep data on code pages, and a
-/// retired function's page compiles again at most after its backoff). The
-/// slots of the functions that stay, which jit.rs keeps watching.
+/// as dirty_page, but a legacy-mode function stays when the write changes
+/// bytes of its volatile instructions, which it reads where it runs, and
+/// none of its other instructions' (P7.3: 709.smc). Not for writes of data
+/// next to code: the page stays watched while it has a function, and each
+/// such write from compiled code would be retried in the interpreter
+/// (Red Alert 2 under Windows 98: 2.6 million in 30 s, 0.8x Tier-0); after a
+/// retire it is not watched until the page compiles again. The slots of
+/// the functions that stay, which jit.rs keeps watching.
 pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
     let r = rt();
     let mut kept = Vec::new();
@@ -1781,9 +1789,12 @@ pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
             else {
                 continue;
             };
+            let base = (m * 4096) as u16;
+            let range = lo..hi.min(4096);
             if f.page & LEGACY_KEY != 0
                 && f.phase != Phase::Dead
-                && !(lo..hi.min(4096)).any(|o| bit(&f.code, (m * 4096) as u16 + o as u16))
+                && !range.clone().any(|o| bit(&f.code, base + o as u16))
+                && range.clone().any(|o| bit(&f.dynamic, base + o as u16))
             {
                 kept.push(i);
             }
@@ -2600,6 +2611,7 @@ mod quota_tests {
             served: vec![0; 64],
             code: vec![0; 64],
             starts: vec![0; 64],
+            dynamic: vec![0; 64],
             members: vec![page],
             last_used,
             source: 0,

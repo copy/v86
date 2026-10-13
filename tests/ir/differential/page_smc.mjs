@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Writes to a page of compiled legacy-mode code (docs/jit-unification-plan.md
-// P7.3, x64::pages::dirty_bytes): a hot loop calls a function on another page
-// and, every iteration, writes data on that page next to the code (the page
-// tier keeps its function); every 64th iteration it rewrites the immediates
+// P7.3, x64::pages::dirty_bytes): a hot loop calls a function on another page;
+// every 4096th iteration it writes data on that page next to the code (the
+// function retires); every 64th iteration it rewrites the immediates
 // of the function's instructions (8, 16 and 32 bits, sign-extended or not:
 // MOV, ADD, IMUL, CMP, PUSH, a 16-bit MOV to memory, TEST; volatile in the
 // next compile, which loads them from the page); every 8192nd it changes an
@@ -56,7 +56,6 @@ const jump = (opcode, name) => { emit(...opcode); fixups.push([code.length, name
 const at = offset => u32(CALLEE + offset);
 label("top");
 emit(0x45);                                     // INC EBP
-emit(0x89, 0x2D, ...at(0x800));                 // MOV [callee+800h], EBP (data on the page)
 emit(0xF7, 0xC5, ...u32(63));                   // TEST EBP, 63
 jump([0x0F, 0x85], "call");                     // JNZ call
 emit(0x80, 0x3D, ...at(0), 0x31);               // CMP BYTE [callee], 31h (the other shape?)
@@ -73,6 +72,9 @@ emit(0x66, 0x89, 0x2D, ...at(38));              // MOV [callee+38], BP
 emit(0x66, 0x89, 0x2D, ...at(43));              // MOV [callee+43], BP
 emit(0x89, 0x2D, ...at(46));                    // MOV [callee+46], EBP
 emit(0x88, 0x0D, ...at(57));                    // MOV [callee+57], CL
+emit(0xF7, 0xC5, ...u32(4095));                 // TEST EBP, 4095
+jump([0x0F, 0x85], "call");                     // JNZ call
+emit(0x89, 0x2D, ...at(0x800));                 // MOV [callee+800h], EBP (data on the page)
 emit(0xF7, 0xC5, ...u32(8191));                 // TEST EBP, 8191
 jump([0x0F, 0x85], "call");                     // JNZ call
 emit(0x80, 0x35, ...at(5), 0x28);               // XOR BYTE [callee+5], 28h (ADD <-> SUB)
@@ -147,12 +149,14 @@ async function run({ vm, cpu, e, compiled }) {
 
 const reference = await run(await machine(false));
 const compiled = await run(await machine(true));
-// (each iteration runs 16 instructions or more, the callee's 20 among them)
-assert(compiled.native > ITERATIONS * 20, `the page tier ran too few instructions natively: ${compiled.native}`);
+// (each iteration runs 24 instructions or more, the callee's 20 among them;
+// with each immediate's rewrite retiring the callee's function, about 300000
+// ran natively)
+assert(compiled.native > ITERATIONS * 16, `the page tier ran too few instructions natively: ${compiled.native}`);
 // (the first rewrite of each of 9 immediates retires the callee's function
-// once, the opcode changes 4 times and the changed form 4; later rewrites of
-// immediates and the data on the page none)
-assert(compiled.invalidated <= 17, `writes retired the callee's function ${compiled.invalidated} times`);
+// once, the data on the page 9 times, the opcode changes 4 and the changed
+// form 4; later rewrites of immediates none)
+assert(compiled.invalidated <= 26, `writes retired the callee's function ${compiled.invalidated} times`);
 const strip = ({ native, invalidated, compiles, ...rest }) => rest;
 assert.deepEqual(strip(compiled), strip(reference), "the page tier's self-modifying code differs from the interpreter's");
 console.log(`PASS: ${ITERATIONS} calls of a function whose page is written, its immediates every 64th, an opcode every 8192nd, ` +
