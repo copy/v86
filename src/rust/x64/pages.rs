@@ -604,13 +604,21 @@ pub unsafe fn x64_page_set_clusters(enabled: bool) { CLUSTERS = enabled; }
 /// 87 spans and compiled 19% more bytes, at 4096 13 spans and 7%)
 static mut SPAN_CROSSINGS: u32 = 4096;
 pub unsafe fn set_span_crossings(crossings: u32) { SPAN_CROSSINGS = crossings; }
+/// Entries (PageState::entry_count) a page of a span has at most: code
+/// that runs on from page to page (708.pages: one each) rather than pages
+/// of many small functions, one of which runs into the next (an XP boot's
+/// spans joined pages of 8 to 117 entries, and made it 1% slower; the JIT
+/// switch x64_span_entries)
+static mut SPAN_ENTRIES: u32 = 8;
+pub unsafe fn set_span_entries(entries: u32) { SPAN_ENTRIES = entries; }
 /// The consecutive linear pages of a span of legacy-mode code (P7.3b)
 /// around `linear`, whose key is `page`: (key, linear page, physical page),
 /// in linear order. A page before (after) the span joins while run() found
 /// control passing between it and the span's first (last) page, outside
-/// compiled code, SPAN_CROSSINGS times (PageState::from), and it maps to plain RAM without a fault, no
-/// write retired code of it (PageState::written) and it is no page of the
-/// span already; at most pagegen::MAX_SPAN. Not with cores in workers.
+/// compiled code, SPAN_CROSSINGS times (PageState::from), both have at most
+/// SPAN_ENTRIES entries, it maps to plain RAM without a fault, no write
+/// retired code of it (PageState::written) and it is no page of the span
+/// already; at most pagegen::MAX_SPAN. Not with cores in workers.
 unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u32)> {
     let user = *gp::cpl == 3;
     let mode_key = page & (COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY);
@@ -630,6 +638,11 @@ unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u3
         return vec![own];
     }
     let from = |key: u32, side: usize| r.pages.get(&key).map_or(0, |s| s.from[side] as u32);
+    let few_entries = |key: u32| {
+        r.pages
+            .get(&key)
+            .is_none_or(|s| s.entry_count <= SPAN_ENTRIES)
+    };
     let written = |key: u32| r.pages.get(&key).is_some_and(|s| s.written);
     if written(page) {
         return vec![own];
@@ -641,6 +654,8 @@ unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u3
             break;
         };
         if from(span[0].0, 0) + from(before.0, 1) < SPAN_CROSSINGS
+            || !few_entries(span[0].0)
+            || !few_entries(before.0)
             || written(before.0)
             || span.iter().any(|m| m.0 == before.0)
         {
@@ -655,6 +670,8 @@ unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u3
             break;
         };
         if from(after.0, 0) + from(last.0, 1) < SPAN_CROSSINGS
+            || !few_entries(last.0)
+            || !few_entries(after.0)
             || written(after.0)
             || span.iter().any(|m| m.0 == after.0)
         {
@@ -1938,6 +1955,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_page_legacy32" => LEGACY32 as u32,
             "x64_page_clusters" => CLUSTERS as u32,
             "x64_span_crossings" => SPAN_CROSSINGS,
+            "x64_span_entries" => SPAN_ENTRIES,
             "x64_legacy_heat" => LEGACY_HEAT,
             "x64_legacy_recompile_misses" => LEGACY_MISSES,
             _ => return None,

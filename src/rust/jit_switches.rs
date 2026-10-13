@@ -194,6 +194,17 @@ pub const SWITCHES: &[Switch] = &[
         get: pages::switch_value,
     },
     Switch {
+        name: "x64_span_entries",
+        default: 8,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_span_entries(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    Switch {
         name: "x64_legacy_recompile_misses",
         default: 4096,
         set: |v| {

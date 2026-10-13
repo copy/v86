@@ -6975,6 +6975,23 @@ impl Emitter {
                 io,
                 address,
             } => self.x87(inst, opcode, modrm, io, address),
+            Op::Fnstsw if self.env.legacy => {
+                // (P7.3: fpu_load_status_word with TOP from the x87 cache,
+                // which stays open: i586 code compares with FCOMP, FNSTSW AX
+                // and SAHF, 616.fcompare)
+                self.x87_check(start);
+                self.x87_cache_open();
+                let top = self.x87_cache.as_ref().unwrap().top.unsafe_clone();
+                self.b.load_fixed_u16(gp::fpu_status_word as u32);
+                self.c32(!(7 << 11));
+                self.b.and_i32();
+                self.b.get_local(&top);
+                self.c32(11);
+                self.b.shl_i32();
+                self.b.or_i32();
+                self.b.extend_unsigned_i32_to_i64();
+                self.set_reg(RAX, 16);
+            },
             Op::Fnstsw => {
                 self.x87_check(start);
                 self.x87_close();
