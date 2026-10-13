@@ -2780,6 +2780,7 @@ impl Level {
             labels: vec![],
             single,
             current: 0,
+            direct: false,
         }
     }
 }
@@ -3938,6 +3939,10 @@ struct Level {
     single: Vec<Option<u32>>,
     /// the unit being emitted (those before it: emitted)
     current: usize,
+    /// a loop of its header alone, whose head does not dispatch on RIP
+    /// (Emitter::loop_unit): what continues at RIP goes further out
+    /// (Emitter::dispatch)
+    direct: bool,
 }
 struct Emitter {
     b: WasmBuilder,
@@ -4940,6 +4945,16 @@ impl Emitter {
             members.iter().map(|&k| start(k)).min().unwrap(),
             members.iter().map(|&k| start(k)).max().unwrap(),
         );
+        // (P7.3: a loop of its header alone is entered and repeated at it:
+        // no dispatch on RIP each iteration; legacy mode, 706.memory)
+        if self.env.legacy && members.len() == 1 && units.len() == 1 {
+            level.direct = true;
+            self.levels.push(level);
+            self.units(units, blocks, index);
+            self.levels.pop();
+            self.b.block_end();
+            return;
+        }
         self.rip_offset();
         self.ti(OFF);
         self.c32(start(header) as i32);
@@ -5092,8 +5107,13 @@ impl Emitter {
             self.b.op(op::OP_I64GEU);
             self.b.br_if(self.f().leave);
             self.span_check_rip();
-            let repeat = self.levels.last().unwrap().repeat;
-            return self.b.br(repeat);
+            // (the innermost loop whose head dispatches on RIP, else the page)
+            let repeat = self.levels[1..]
+                .iter()
+                .rev()
+                .find(|l| !l.direct)
+                .map(|l| l.repeat);
+            return self.b.br(repeat.unwrap_or(self.f().dispatch));
         }
         self.b.br(self.f().dispatch);
     }
