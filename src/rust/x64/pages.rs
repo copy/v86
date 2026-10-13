@@ -598,8 +598,9 @@ static mut CLUSTERS: bool = false;
 pub unsafe fn x64_page_set_clusters(enabled: bool) { CLUSTERS = enabled; }
 /// Transfers between two pages that make them one span (the JIT switch
 /// x64_span_crossings): an XP boot passes once between most neighbours, a
-/// loop over pages (708.pages) on every iteration
-static mut SPAN_CROSSINGS: u32 = 256;
+/// loop over pages (708.pages) on every iteration (at 256 an XP boot made
+/// 87 spans and compiled 19% more bytes, at 4096 13 spans and 7%)
+static mut SPAN_CROSSINGS: u32 = 4096;
 pub unsafe fn set_span_crossings(crossings: u32) { SPAN_CROSSINGS = crossings; }
 /// The consecutive linear pages of a span of legacy-mode code (P7.3b)
 /// around `linear`, whose key is `page`: (key, linear page, physical page),

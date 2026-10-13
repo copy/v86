@@ -184,7 +184,7 @@ pub const SWITCHES: &[Switch] = &[
     },
     Switch {
         name: "x64_span_crossings",
-        default: 256,
+        default: 4096,
         set: |v| {
             v >= 1 && {
                 unsafe { pages::set_span_crossings(v) };
