@@ -2473,6 +2473,11 @@ pub fn x64_page_flags(record: u32, a: u64, b: u64, flags: u32) -> u32 {
     flags & !pending | computed as u32 & pending
 }
 
+/// FLDCW for generated code in legacy mode, the word read (M8): as
+/// fpu::fpu_fldcw, which leaves the x87 stack and its cache as they are
+#[no_mangle]
+pub unsafe fn x64_page_fldcw(word: i32) { crate::cpu::fpu::set_control_word(word as u16); }
+
 /// INVLPG for generated code (CPL 0 is checked inline). True when the
 /// function must leave after it: the access cache was flushed (its epoch
 /// changed), or the invalidated page may be the running code page (or in its

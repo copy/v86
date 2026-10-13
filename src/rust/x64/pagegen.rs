@@ -9875,6 +9875,16 @@ impl Emitter {
                 self.si(HOST);
             },
         }
+        // (M8, legacy mode: FLDCW sets the control word and SoftFloat's
+        // rounding and precision, nothing of the stack: the x87 cache stays
+        // open, where the helper would close it; 615.ftol's truncating casts
+        // take two)
+        if self.env.legacy && opcode == 0xD9 && modrm < 0xC0 && modrm >> 3 & 7 == 5 {
+            self.b.get_local(&low);
+            self.b
+                .call_signature("x64_page_fldcw", Signature::new(&[WasmType::I32], &[]));
+            return;
+        }
         let done = self.b.block_void();
         if let Some(native) = crate::ir::x87::native(opcode, modrm) {
             self.x87_cache_open();
