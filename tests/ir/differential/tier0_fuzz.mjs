@@ -13,7 +13,9 @@
 // Tier-0 page functions with their neighbor pages (ir_t0_set_ranges).
 // Debugging: FUZZ_DEBUG=1 prints each case's MXCSR and code, FUZZ_BODY=<hex>
 // replaces the random instructions. JIT_SWITCHES applies to the Tier-0
-// machine (tests/lib/jit_switches.mjs): P3's template switches.
+// machine (tests/lib/jit_switches.mjs): P3's template switches. With
+// x64_page_legacy32=1 the x64 page tier runs the programs instead
+// (docs/jit-unification-plan.md P7.3), and its counters must show it.
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
@@ -25,6 +27,8 @@ const wasm = process.argv[4] || "build/v86-ir-runtime.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
+const engine = page_tier ? "the page tier" : "Tier-0";
 
 // (Tier-0 compiles a page that got hot at the start of the next CPU frame, so
 // a program's first frame, at least ~100k instructions, runs interpreted; FP
@@ -466,7 +470,9 @@ async function machine(tier0) {
         // x86-64 profile's LZCNT)
         cpu_features: ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", ...only === "b" ? ["BMI1", "BMI2", "LZCNT", "MOVBE"] : []],
         ...only === "b" ? { cpu_type: "x86_64" } : {}, cpu_features_unreleased: true,
-        ...tier0 ? { jit_switches: jit_switches_from_env() } : {},
+        // (the page tier counts each instruction: blocks count theirs at
+        // entry by default, more than run when a retry leaves one early)
+        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0 } : {}, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -520,15 +526,17 @@ async function run(m, code, init, page, split) {
     e.update_state_flags();
     new Uint32Array(e.memory.buffer)[664 >> 2] = 0;
     // (page function activations, and the instructions that the interpreter
-    // loop ran outside page functions)
+    // loop ran outside page functions; the page tier's: activations, and
+    // native and stepped instructions)
     const entries = e.ir_t0_entries(), interpreted = e.ir_interpreted_stat(0, 0);
+    const activations = e.x64_page_stat(13), native = e.x64_page_stat(1), steps = e.x64_page_stat(4);
     vm.run();
     const end = performance.now() + 20000;
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
             const v = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
-            throw new Error(`timeout (${m.tier0 ? "tier-0" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
+            throw new Error(`timeout (${m.tier0 ? engine : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
                 `status ${v.getUint32(0x608, true).toString(16)} counter ${v.getUint32(DATA + 124, true)} ` +
                 `retired ${new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0} code ${Buffer.from(code).toString("hex")}`);
         }
@@ -537,6 +545,11 @@ async function run(m, code, init, page, split) {
     await vm.stop();
     m.entries = (e.ir_t0_entries() - entries) >>> 0;
     m.interpreted = (e.ir_interpreted_stat(0, 0) - interpreted) >>> 0;
+    if(page_tier && m.tier0) {
+        const count = new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0;
+        m.entries = e.x64_page_stat(13) - activations;
+        m.interpreted = Math.max(0, count - (e.x64_page_stat(1) - native) - (e.x64_page_stat(4) - steps));
+    }
     return {
         regs: Array.from(cpu.reg32, v => v >>> 0),
         eip: cpu.instruction_pointer[0] >>> 0,
@@ -580,7 +593,9 @@ for(let c = 0; c < cases; c++) {
     const split = straddle ? 4 + random() % (code.length - 8) : 0;
     const expected = await run(reference, code, init, c, split), actual = await run(tier0, code, init, c, split);
     if(process.env.FUZZ_DEBUG) console.log(`case ${c}: mxcsr ${expected.mxcsr.toString(16)} / ${actual.mxcsr.toString(16)} count ${expected.count} ` +
-        `page function entries ${tier0.entries} interpreted ${tier0.interpreted} code ${Buffer.from(code).toString("hex")}`);
+        `page function entries ${tier0.entries} interpreted ${tier0.interpreted} code ${Buffer.from(code).toString("hex")}` +
+        (page_tier ? ` (page tier: compiled ${tier0.e.x64_page_stat(0)} failed ${tier0.e.x64_page_stat(7)} retries ` +
+            `${tier0.e.x64_page_stat(2)} steps ${tier0.e.x64_page_stat(4)} unknown ${tier0.e.x64_page_stat(3)})` : ""));
     retired += actual.count;
     compiled += actual.count - tier0.interpreted;
     least = Math.min(least, 1 - tier0.interpreted / actual.count);
@@ -598,12 +613,13 @@ for(let c = 0; c < cases; c++) {
         }
     }
 }
-const pages = tier0.e.ir_t0_stat(0);
+// (the page tier: legacy-mode compiles, x64_page_stat 37, and steps)
+const pages = page_tier ? tier0.e.x64_page_stat(37) : tier0.e.ir_t0_stat(0);
 // (instructions that page functions left to the interpreter, ir_t0_step)
-let stepped = 0;
-for(let key = 0; key < 0x10000; key++) stepped += tier0.e.ir_t0_steps(key) >>> 0;
+let stepped = page_tier ? tier0.e.x64_page_stat(4) : 0;
+if(!page_tier) for(let key = 0; key < 0x10000; key++) stepped += tier0.e.ir_t0_steps(key) >>> 0;
 await reference.vm.destroy(); await tier0.vm.destroy();
-assert(pages > 0, "no Tier-0 page was compiled");
+assert(pages > 0, `no ${engine} page was compiled`);
 const percent = share => `${(100 * share).toFixed(1)}%`;
 const coverage = `${percent(compiled / retired)} of the instructions ran in page functions (${percent((compiled - stepped) / retired)} ` +
     `templated), at least ${percent(least)} of each program's`;
@@ -611,5 +627,5 @@ if(failures || uncompiled || compiled * 2 < retired) {
     console.log(`FAIL: ${failures}/${cases} cases differ, no page function ran in ${uncompiled}; ${coverage}`);
     process.exit(1);
 }
-console.log(`PASS: ${cases} random programs, Tier-0 (${pages} page compiles) matches the interpreter; ${coverage}`);
+console.log(`PASS: ${cases} random programs, ${engine} (${pages} page compiles) matches the interpreter; ${coverage}`);
 process.exit(0);

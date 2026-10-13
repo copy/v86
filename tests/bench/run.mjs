@@ -39,7 +39,7 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { spawnSync, execSync } from "node:child_process";
 import { parse_jit_switches, set_jit_switches } from "../../src/jit_switches.js";
-import { jit_switches_from_env } from "../lib/jit_switches.mjs";
+import { jit_switches_from_env, jit_switches_of } from "../lib/jit_switches.mjs";
 import { jit_stats, jit_stats_enabled } from "../../tools/bench/jit_stats.mjs";
 import { step_profile } from "../../tools/step_profile.mjs";
 import { load_pe, boot_images, create as create_machine, execute } from "./machine.mjs";
@@ -100,8 +100,9 @@ for(const bench of manifest.benchmarks) {
     for(const arm of arms) row.arms[arm.label] = { cold_ms: [], warm_ms: [], warmup_ms: [], checksum: null, instructions: null };
     // (the x64 page tier counts instructions per block, an upper bound that
     // depends on where blocks were left: only its checksums must repeat; it
-    // runs compat32's code too with x64_page_compat32)
-    const page_tier = arm => !arm.interpreted && (arm.isa === "x86_64" || arm.isa === "compat32");
+    // runs compat32's code too with x64_page_compat32, and i686 code with
+    // x64_page_legacy32, a switch or the build's default: arm.legacy32)
+    const page_tier = arm => !arm.interpreted && (arm.isa !== "i686" || arm.legacy32);
     const note = (arm, sample) => {
         const r = row.arms[arm.label], exact = !page_tier(arm);
         r.checksum ??= sample.checksum; r.instructions ??= sample.instructions;
@@ -111,12 +112,14 @@ for(const bench of manifest.benchmarks) {
     try {
         for(let c = 0; c < cold_runs; c++) for(const arm of c % 2 ? [...arms].reverse() : arms) {
             const machine = await create(arm, bench);
+            arm.legacy32 ??= jit_switches_of(machine.vm).x64_page_legacy32 === 1;
             try { const s = await execute(machine, images[arm.isa], iterations); note(arm, s); row.arms[arm.label].cold_ms.push(s.ms); }
             finally { await machine.vm.destroy(); }
         }
         const machines = [];
         try {
             for(const arm of arms) machines.push(await create(arm, bench));
+            for(const m of machines) m.arm.legacy32 ??= jit_switches_of(m.vm).x64_page_legacy32 === 1;
             // Warm up until two consecutive runs of every arm agree within 5%.
             for(let w = 0; w < 30; w++) {
                 for(const m of machines) { const s = await execute(m, images[m.arm.isa], iterations); note(m.arm, s); row.arms[m.arm.label].warmup_ms.push(s.ms); }
@@ -178,7 +181,7 @@ for(const bench of manifest.benchmarks) {
             // (results only compare within an ISA; instruction counts only
             // between JIT arms of 32-bit code: the x64 page tier counts blocks)
             const same = reference_of(arm), expected = same && row.arms[same.label];
-            const counts = !page_tier(arm) && !arm.interpreted && !same?.interpreted;
+            const counts = !page_tier(arm) && !(same && page_tier(same)) && !arm.interpreted && !same?.interpreted;
             if(expected && (r.checksum !== expected.checksum || counts && r.instructions !== expected.instructions))
                 errors.push(`${bench.name}: ${arm.label} result ${r.checksum}/${r.instructions} differs from ${same.label} ${expected.checksum}/${expected.instructions}`);
             r.warm = median(r.warm_ms); r.cold = cold_runs ? median(r.cold_ms) : null;

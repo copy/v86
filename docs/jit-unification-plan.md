@@ -1972,3 +1972,29 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
   `721` 1.02/1.01（`712`、`720` 两边都是双峰），`541.recursion` 0.96/0.95，再按 `--runs 9` 两种排位各测一次：P7.1 对 A 0.986，
   换位后 A 对 P7.1 0.996，判为噪声。XP 启动（所有者的配置，3 个会话交替）A 13.24 s，P7.1 12.94 s，1.023。`make jit-gate` 通过，
   重放 0 差异。
+
+**P7.3 第一部分（平坦段的 Legacy32），2026-10-13（开关 `x64_page_legacy32` 默认关）。**
+
+- 传统保护模式的 32 位代码按兼容模式的发射规则编译（`CompileEnv::legacy`，重放记录的模式字节第 2 位），函数键为
+  `COMPAT_KEY | LEGACY_KEY`，代码 TLB 标签与 CHAIN 表按代码模式区分（长模式、兼容模式、传统模式各两张）。入口条件
+  `pages::legacy_runnable`：Protected32、32 位栈、CS/DS/ES/SS 基址为 0、ES 与 FS 非空选择子（GS 的操作数单步：XP 与 Win98
+  的 GS 是空选择子，访问应 #GP）；非平坦段（Win98）留给第二部分。
+- 取指翻译（`code_page`、`next_page_bytes`、单步剖析）走 32 位分页：先无副作用探测，成功后才按解释器的方式填 32 位 TLB 与
+  A/D 位（`legacy_translate`），故障留给解释器。数据访存的内联检查与兼容模式相同（32 位 TLB），未命中调用新导出
+  `x64_page_access32`（P7.3(3)：不进 `x64_page_access`）；帧缓冲按 `jac::frame_buffer_backing` 服务，其余设备内存、故障、
+  写有代码的页都退给解释器。
+- 主循环（`run_cpu_slice` 每切片读一次开关，`cycle_internal`）在 `pages::runnable32` 时先进 page tier，IR 调度器因此不为
+  这些页计热度。单步走 32 位解释器（`run_compat_instruction`）。
+- 编译策略（P7.2b）：按 Tier-0 的做法，传统模式的页在解释执行 50000 条后才编译（`x64_legacy_heat`），未服务入口 4096 次才
+  重编译（`x64_legacy_recompile_misses`），不做冷编译加热重编译（传统模式的查找本来就内联）。XP 到桌面（所有者的配置）：
+  2000 与 64 时 568 页编译 1435 次、98 MB Wasm、18.2 s（Tier-0 13.3 s），V8 剖析显示 page 函数 39% 的时间还在 Liftoff 代码里；
+  按新策略 247 页编译 365 次、27 MB（Tier-0 28 MB）、13.4–13.8 s。
+- 修正：`dirty_page` 漏掉传统模式的键，`709.smc` 结果错误（每种代码模式的函数都要退役）；INVLPG 单步作废正在执行的代码页
+  时函数退出（`CODE_WRITES`）。
+- 测试：`tier0_fuzz.mjs` 加 page tier 模式（`JIT_SWITCHES=x64_page_legacy32=1`，按指令计数 `x64_block_count=0`，入口以激活
+  次数为准）：全部 FUZZ_KIND 与解释器 0 差异；覆盖率不足的两类：`m`（装入非平坦段，第二部分）与 `s11`（特殊浮点值：SSE 模板
+  对拒绝的操作数在有事实声明时重试，每轮一次）。`tests/bench/run.mjs` 把开了 `x64_page_legacy32` 的 i686 arm 当作 page tier
+  （指令数不精确）。
+- 初测（i686 bench，对同一构建的 Tier-0）：热态几何均值 1.048，冷态 0.84；低于 0.95：`708.pages` 0.54、`709.smc` 0.64、
+  `531` 0.93、`620` 0.93、`706` 0.92、`715` 0.91。XP 启动里还有 10.6 万次显存访问退出重试（Tier-0 在慢路径里就地完成）与约
+  950 万次未服务入口的单步。

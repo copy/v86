@@ -3523,10 +3523,12 @@ pub unsafe fn cycle_internal() -> bool {
         return attempt.submitted;
     }
     // 32-bit compatibility-mode code in the x64 page tier (x64_page_compat32,
-    // docs/jit-unification-plan.md P7.2), not Tier-0
-    if crate::ir::runtime::schedule::enabled()
+    // docs/jit-unification-plan.md P7.2), not Tier-0; legacy protected-mode
+    // code too (x64_page_legacy32, P7.3)
+    if crate::x64::pages::page32()
+        && crate::ir::runtime::schedule::enabled()
         && !crate::cpu::execution::is_deterministic()
-        && crate::x64::pages::compat_runnable()
+        && crate::x64::pages::runnable32()
     {
         let attempt = crate::x64::pages::run(4096);
         if attempt.retired == 0 {
@@ -3948,6 +3950,8 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
     jit_link_batch_limit = budget;
     jit_link_batch = true;
     let native = crate::ir::runtime::schedule::enabled();
+    // (P7.2, P7.3: a switch hands 32-bit code to the page tier)
+    let page32 = native && crate::x64::pages::page32();
     // (P4.6, as in do_many_cycles_native)
     if crate::x64::state::mode().is_long() && crate::ir::runtime::schedule::long_visit() {
         jit_link_batch = false;
@@ -3984,11 +3988,9 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
             continue;
         }
         // 32-bit compatibility-mode code in the x64 page tier
-        // (x64_page_compat32, docs/jit-unification-plan.md P7.2)
-        if native
-            && !crate::cpu::execution::is_deterministic()
-            && crate::x64::pages::compat_runnable()
-        {
+        // (x64_page_compat32, docs/jit-unification-plan.md P7.2), and legacy
+        // protected-mode code (x64_page_legacy32, P7.3)
+        if page32 && !crate::cpu::execution::is_deterministic() && crate::x64::pages::runnable32() {
             let attempt = crate::x64::pages::run(remaining);
             if attempt.retired == 0 {
                 let span = crate::cpu::execution::ledger_begin();

@@ -146,6 +146,42 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (P7.3: 32-bit legacy protected-mode code in the page tier instead of
+    // Tier-0)
+    Switch {
+        name: "x64_page_legacy32",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_legacy32(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (P7.2b, P7.3: interpreted instructions on a page of legacy-mode code
+    // before its first compile, and its unserved entries before a recompile)
+    Switch {
+        name: "x64_legacy_heat",
+        default: 50_000,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_legacy_heat(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_legacy_recompile_misses",
+        default: 4096,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_legacy_recompile_misses(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
     // (P7.2: compatibility mode's memory operands in the 32-bit TLB, as
     // Tier-0's)
     Switch {

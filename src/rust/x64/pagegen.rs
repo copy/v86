@@ -2999,16 +2999,20 @@ struct Decoder<'a> {
     sse_fast_check: bool,
     /// Long64, or Compatibility32 (CompileEnv::compat)
     mode: ExecutionMode,
+    /// CompileEnv::legacy: operands in GS are steps (GS is null in XP and
+    /// Win98, and a null selector's accesses are #GP: the interpreter's)
+    legacy: bool,
 }
 impl Decoder<'_> {
     fn at(&mut self, offset: u16) -> Option<(Decoded, Op)> {
-        let (bytes, next, page, cvt, fast_check, mode) = (
+        let (bytes, next, page, cvt, fast_check, mode, legacy) = (
             self.bytes,
             self.next,
             self.page,
             self.cvt,
             self.sse_fast_check,
             self.mode,
+            self.legacy,
         );
         *self.cache.entry(offset).or_insert_with(|| {
             let d = decode::decode_with(GuestIp(page + offset as u64), mode, |i| {
@@ -3028,6 +3032,7 @@ impl Decoder<'_> {
                     code: 0x51..=0x53 | 0x5D | 0x5F,
                     ..
                 } if !fast_check => Op::Step,
+                _ if legacy && d.address.is_some_and(|a| a.segment == 5) => Op::Step,
                 op => op,
             };
             Some((d, op))
@@ -3087,6 +3092,12 @@ pub struct CompileEnv {
     /// Compatibility mode's memory operands look up the 32-bit TLB
     /// (x64_compat_tlb, Emitter::host_tlb) instead of the access cache
     pub compat_tlb: bool,
+    /// The page's 32-bit code runs in legacy protected mode
+    /// (x64_page_legacy32, P7.3), as `compat` (pages::legacy_runnable at
+    /// entry) with compat_tlb, whose misses translate through the 32-bit
+    /// paging (pages::x64_page_access32); FS is not null there, accesses
+    /// through GS step (Decoder::legacy)
+    pub legacy: bool,
     /// The page's execution counter, incremented at each entry and dispatch
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
@@ -3103,13 +3114,14 @@ pub struct CompileEnv {
 impl CompileEnv {
     /// The running instance's, chaining or not; `outline`: memory accesses
     /// call the module's lookup function (cold compiles; see OUTLINE_ACCESS),
-    /// else inline it; `counter`: CompileEnv::counter; `compat`:
-    /// CompileEnv::compat
+    /// else inline it; `counter`: CompileEnv::counter; `compat`, `legacy`:
+    /// CompileEnv::compat and CompileEnv::legacy
     pub fn current(
         chaining: bool,
         outline: bool,
         counter: Option<u32>,
         compat: bool,
+        legacy: bool,
     ) -> CompileEnv {
         unsafe {
             CompileEnv {
@@ -3130,7 +3142,9 @@ impl CompileEnv {
                 fast_chain: FAST_CHAIN && !compat,
                 exit_flags: EXIT_FLAGS,
                 compat,
-                compat_tlb: compat && COMPAT_TLB,
+                // (no access cache in legacy mode)
+                compat_tlb: compat && (COMPAT_TLB || legacy),
+                legacy,
                 counter,
                 sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
@@ -3164,6 +3178,7 @@ impl CompileEnv {
         exit_flags: bool,
         compat: bool,
         compat_tlb: bool,
+        legacy: bool,
     ) -> CompileEnv {
         CompileEnv {
             bucket_dispatch,
@@ -3183,6 +3198,7 @@ impl CompileEnv {
             exit_flags,
             compat,
             compat_tlb,
+            legacy,
             counter: counting.then_some(0x0000_0E80),
             sse_fp_operands: 0x0000_0E00,
             core_yield: 0x0000_0D00,
@@ -3209,9 +3225,10 @@ pub fn compile(
     outline: bool,
     counter: Option<u32>,
     compat: bool,
+    legacy: bool,
     name: String,
 ) -> Option<Compiled> {
-    let env = CompileEnv::current(chaining, outline, counter, compat);
+    let env = CompileEnv::current(chaining, outline, counter, compat, legacy);
     #[cfg(feature = "ir-test-hooks")]
     super::replay::record(&env, bytes, next, entries, &name);
     let compiled = compile_with(&env, bytes, next, entries, name);
@@ -3240,6 +3257,7 @@ pub fn compile_with(
         cvt: env.cvt,
         sse_fast_check: env.sse_fast_check,
         mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
+        legacy: env.legacy,
     };
     // Discover block starts: entries, in-page branch targets, return
     // addresses, and the instruction after every step (steps continue by
@@ -5244,7 +5262,16 @@ impl Emitter {
             self.b.set_local(&self.lookup_kept[k].delta);
         }
         self.g(ADDR);
-        if WasmBuilder::ATOMIC_GUEST_MEMORY {
+        if self.env.legacy {
+            // (legacy mode's slow path, which translates through the 32-bit
+            // paging: P7.3)
+            self.c32(size as i32 | (write as i32) << 8);
+            self.b.call_signature(
+                "x64_page_access32",
+                Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
+            );
+        }
+        else if WasmBuilder::ATOMIC_GUEST_MEMORY {
             let f = self.access_function();
             self.c32(size as i32 | (write as i32) << 8);
             self.b.call_internal(f);
@@ -11040,7 +11067,7 @@ mod sti_shadow_tests {
     fn compiled(page: &[u8], sti_shadow: bool) -> Vec<u8> {
         let env = CompileEnv::replay(
             true, true, true, false, false, true, sti_shadow, false, 1024, false, false, false,
-            false, false, false, false, false, false,
+            false, false, false, false, false, false, false,
         );
         compile_with(&env, page, &[], &[0], "sti".into())
             .expect("compiled")
