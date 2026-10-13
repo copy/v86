@@ -4385,6 +4385,7 @@ impl Emitter {
             x87_is_open,
             tlb,
             verified,
+            env,
             ..
         } = e;
         for l in v {
@@ -4420,7 +4421,16 @@ impl Emitter {
         for l in xmm_locals.into_iter().flatten() {
             b.free_local_v128(l);
         }
-        for l in tlb.into_iter().flatten().chain(verified) {
+        // (legacy mode's write mask is its read mask's local: once)
+        for (k, l) in tlb.into_iter().flatten().enumerate() {
+            if env.legacy && k == 2 {
+                std::mem::forget(l);
+            }
+            else {
+                b.free_local(l);
+            }
+        }
+        if let Some(l) = verified {
             b.free_local(l);
         }
         std::mem::forget(budget);
@@ -4749,10 +4759,21 @@ impl Emitter {
             let tlb = self.b.declare_zeroed_local();
             self.b.load_fixed_i32(gp::ir_tlb_base as u32);
             self.b.set_local(&tlb);
-            let masks = [self.b.declare_zeroed_local(), self.b.declare_zeroed_local()];
+            // (M8, legacy mode: the write mask is the read mask with
+            // TLB_READONLY and TLB_HAS_CODE, ORed where a write looks up:
+            // one register less through the function)
+            let masks = if self.env.legacy {
+                let read = self.b.declare_zeroed_local();
+                [read.unsafe_clone(), read]
+            }
+            else {
+                [self.b.declare_zeroed_local(), self.b.declare_zeroed_local()]
+            };
+            let count = if self.env.legacy { 1 } else { 2 };
             for (mask, f) in masks
                 .iter()
                 .zip([tlb_read_mask as fn(bool) -> i32, tlb_write_mask])
+                .take(count)
             {
                 self.c32(f(true));
                 self.c32(f(false));
@@ -5825,7 +5846,14 @@ impl Emitter {
         self.b.add_i32();
         self.b.load_aligned_i32(0);
         self.ti(ENT);
-        self.b.get_local(if write { &written } else { &read });
+        if write && self.env.legacy {
+            self.b.get_local(&read);
+            self.c32(tlb_write_mask(true) & !tlb_read_mask(true));
+            self.b.or_i32();
+        }
+        else {
+            self.b.get_local(if write { &written } else { &read });
+        }
         self.b.and_i32();
         self.c32(TLB_VALID);
         self.b.eq_i32();
@@ -9758,9 +9786,6 @@ impl Emitter {
             return;
         }
         self.vector_checked |= VECTOR_X87;
-        if self.vector_ok.is_some() {
-            return self.vector_ok_check(VECTOR_X87, start);
-        }
         self.b.load_fixed_i32(gp::cr as u32);
         self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
         self.b.and_i32();
