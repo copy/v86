@@ -8,15 +8,20 @@
 // copy stopped), the exception, CR2 and the bytes copied.
 //
 //   node tests/ir/differential/tier0_rep_fault.mjs [wasm]
-// Needs build/bench/boot.bin (make bench-build).
+// Needs build/bench/boot.bin (make bench-build). JIT_SWITCHES=
+// x64_page_legacy32=1: the x64 page tier's REP templates instead
+// (docs/jit-unification-plan.md P7.3(5)), compiling at 2000 instructions.
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
+import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
 const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
+const engine = page_tier ? "the page tier" : "Tier-0";
 
 const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, ITERATIONS = 20000;
 // the last mapped bytes: 16 of them before 64 MiB
@@ -46,7 +51,8 @@ async function machine(tier0)
 {
     const vm = new V86({
         graphics_adapter: "bochs_vga", wasm_path: wasm, disable_jit: !tier0, memory_size: 128 << 20, ir_sync_publication: true,
-        ...tier0 ? { jit_switches: { t0_rep_blocks: 1, t0_rep_movs_stos: 1 } } : {},
+        ...tier0 ? { jit_switches: { t0_rep_blocks: 1, t0_rep_movs_stos: 1, ...page_tier ? { x64_legacy_heat: 2000 } : {},
+            ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -78,7 +84,7 @@ async function run({ vm, cpu, e }, code, page)
     cpu.instruction_pointer[0] = CODE + page * 0x1000;
     e.update_state_flags();
     e.full_clear_tlb();
-    const entries = e.ir_t0_entries();
+    const entries = page_tier ? e.x64_page_stat(13) : e.ir_t0_entries();
     vm.run();
     const end = performance.now() + 30000;
     while(!cpu.in_hlt[0]) {
@@ -93,7 +99,7 @@ async function run({ vm, cpu, e }, code, page)
         counter: view.getUint32(DATA + 124, true),
         copied: Array.from(cpu.mem8.subarray(DATA + 0x200, DATA + 0x220)),
         edge: Array.from(cpu.mem8.subarray(EDGE, EDGE + 16)),
-        entries: (e.ir_t0_entries() - entries) >>> 0,
+        entries: page_tier ? e.x64_page_stat(13) - entries : (e.ir_t0_entries() - entries) >>> 0,
     };
 }
 
@@ -110,5 +116,5 @@ for(const [page, stos] of [[0, false], [1, true]]) {
 }
 await reference.vm.destroy();
 await tier0.vm.destroy();
-console.log("PASS: REP MOVSD and STOSD faulting across the end of mapped memory leave the interpreter's state in Tier-0");
+console.log(`PASS: REP MOVSD and STOSD faulting across the end of mapped memory leave the interpreter's state in ${engine}`);
 process.exit(0);

@@ -349,10 +349,10 @@ jit-arm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 
 # The D gate's A/B builds of a mode migration (docs/jit-unification-plan.md
 # P7.0): A the release core as it is (32-bit compatibility-mode code in
-# Tier-0), B-ptier with the page tier's mode switch on by default
-# (x64_page_compat32; a build-time default, JIT_DEFAULTS, where the plan named
-# a cargo feature), for tools/owner_perf.mjs --arms and tests/bench/run.mjs
-# --wasm/--baseline
+# Tier-0), B-ptier and B-legacy with a page tier mode switch on by default
+# (x64_page_compat32, M6; x64_page_legacy32, M7; a build-time default,
+# JIT_DEFAULTS, where the plan named a cargo feature), for
+# tools/owner_perf.mjs --arms and tests/bench/run.mjs --wasm/--baseline
 .PHONY: ab-ptier
 ab-ptier:
 	mkdir -p build/ab
@@ -360,6 +360,8 @@ ab-ptier:
 	cp build/bench/arms/ab-A.wasm build/ab/A.wasm
 	$(MAKE) jit-arm ARM=ab-B-ptier JIT_DEFAULTS="x64_page_compat32=1"
 	cp build/bench/arms/ab-B-ptier.wasm build/ab/B-ptier.wasm
+	$(MAKE) jit-arm ARM=ab-B-legacy JIT_DEFAULTS="x64_page_legacy32=1"
+	cp build/bench/arms/ab-B-legacy.wasm build/ab/B-legacy.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
@@ -1089,6 +1091,18 @@ x64-page-tier-tests: build/v86-debug.wasm
 	for seed in 1 2 3; do SSE_FP_SEED=$$seed node tests/x64/sse_fp_template.mjs || exit 1; done
 	SSE_FP_ORDINARY=1 node tests/x64/sse_fp_template.mjs
 	for seed in 1 2 3; do SSE_INT_SEED=$$seed node tests/x64/sse_int_template.mjs || exit 1; done
+
+# The x64 page tier on legacy protected-mode code (x64_page_legacy32,
+# docs/jit-unification-plan.md P7.3): Tier-0's differential tests, run on it.
+# (FUZZ_KIND m loads non-flat segments, which run elsewhere: its coverage is
+# below the test's.)
+.PHONY: x64-legacy32-tests
+x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
+	for kind in "" j g e d o a v c p r b x s11 s12 s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
+	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
+	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fetch_fault.mjs
+	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_rep_fault.mjs
+	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_irq_slow.mjs
 
 # Every long-mode encoding of the opcode map executed at CPL3; needs the
 # expectations written by x64-decode-tests.

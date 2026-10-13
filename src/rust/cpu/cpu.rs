@@ -3902,13 +3902,15 @@ pub unsafe fn run_long_instruction() {
 /// One instruction of 32-bit compatibility-mode code in the 32-bit
 /// interpreter, with run_long_instruction's bookkeeping: the x64 page tier's
 /// steps, retries and misses in compatibility mode (x64_page_compat32,
-/// docs/jit-unification-plan.md P7.2). A fetch fault is delivered and
-/// counts as the instruction, as in run_long_instruction.
+/// docs/jit-unification-plan.md P7.2, and in legacy mode, P7.3). A fetch
+/// fault is delivered and, as in the 32-bit interpreter loop
+/// (cycle_internal), not counted (cross-phase rule 3).
 pub unsafe fn run_compat_instruction() {
     *previous_ip = *instruction_pointer;
     crate::cpu::execution::begin_instruction();
     crate::cpu::execution::set_irq_deferral(true);
-    if let Ok(phys_addr) = get_phys_eip() {
+    let fetched = get_phys_eip();
+    if let Ok(phys_addr) = fetched {
         // (as jit_run_interpreted fetches with EFER.LMA)
         let opcode = if memory::in_mapped_range(phys_addr)
             && crate::x64::extended::aperture::contains(phys_addr)
@@ -3923,7 +3925,7 @@ pub unsafe fn run_compat_instruction() {
     }
     crate::cpu::execution::set_irq_deferral(false);
     crate::cpu::execution::finish_instruction();
-    *instruction_counter = (*instruction_counter).wrapping_add(1);
+    *instruction_counter = (*instruction_counter).wrapping_add(fetched.is_ok() as u32);
     if *interrupt_shadow != 0 {
         *interrupt_shadow -= 1;
     }

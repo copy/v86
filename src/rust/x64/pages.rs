@@ -94,6 +94,9 @@ struct Function {
     /// compiled with outlined access lookups and an execution counter, the
     /// HOT_COUNTS cell (a cold compile with x64_hot_inline, P4.14)
     counter: Option<u32>,
+    /// The tier's native instructions when it was compiled (stats[RETIRED]):
+    /// how long it ran when its page is written (dirty_page)
+    native_at: u64,
 }
 fn bit(set: &[u64; 64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
 /// The function a full table retires for a compile of (`compat`) code: the
@@ -677,6 +680,13 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 // interpreter ran up to while the function compiled, the
                 // interpreter runs on to an offset the function serves
                 if !far && MISS_RUN {
+                    // (legacy mode, P7.3: one that recurs, as after an
+                    // instruction retried on every iteration, counts towards
+                    // a recompile that serves it; Tier-0 continues after
+                    // such a step in place)
+                    if mode == MODE_LEGACY {
+                        note_unserved(r, page, offset);
+                    }
                     return unserved_run(r, i, budget, rip);
                 }
                 // Else the function steps from here to its next block start
@@ -710,7 +720,9 @@ pub unsafe fn run(budget: u32) -> Attempt {
             HEAT_BATCH = HeatBatch::NONE;
             let state = r.pages.entry(page).or_default();
             state.heat += heat;
-            let hot = if mode == MODE_LEGACY { LEGACY_HEAT } else { HOT };
+            // (legacy mode's first compile waits for LEGACY_HEAT; a page
+            // compiled before is hot, its function retired by a write)
+            let hot = if mode == MODE_LEGACY && state.compiles == 0 { LEGACY_HEAT } else { HOT };
             if state.heat >= hot << backoff(state.compiles) {
                 state.heat = 0;
                 if state.entry_count == 0 {
@@ -1210,6 +1222,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 last_used: 0,
                 source: 0,
                 counter: None,
+                native_at: 0,
             });
             r.functions.len() - 1
         },
@@ -1224,6 +1237,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         last_used: r.clock,
         source: source_hash(&bytes),
         counter,
+        native_at: r.stats[RETIRED],
     };
     r.by_page.insert(page, index);
     r.generation = r.generation.wrapping_add(1);
@@ -1429,11 +1443,26 @@ pub fn dirty_page(page: u32) {
         CODE_WRITES += 1;
     }
     for i in dead {
+        // (legacy mode, P7.3: a function that ran long before its page was
+        // written costs no backoff: the VMM's pages under Windows 98 hold
+        // data written twice a second, and backed-off pages stay
+        // interpreted; a page rewritten while its code runs, as 709.smc's,
+        // still backs off)
+        let f = &r.functions[i];
+        if f.page & LEGACY_KEY != 0 && r.stats[RETIRED].wrapping_sub(f.native_at) >= LIVED {
+            let key = f.page;
+            if let Some(state) = r.pages.get_mut(&key) {
+                state.compiles = state.compiles.min(1);
+            }
+        }
         retire(r, i);
         r.stats[INVALIDATED] += 1;
     }
     // Slots are released at the next entry, outside the JIT state lock.
 }
+/// Native instructions of the tier after which a legacy-mode function whose
+/// page is written counts as having lived long (dirty_page)
+const LIVED: u64 = 1 << 22;
 
 /// Cores start to run in workers (crate::parallel): writes to extended RAM
 /// are no longer tracked for code, so its page functions go.
@@ -2078,6 +2107,25 @@ pub unsafe fn x64_page_pcmpstr(op: u32, imm8: u32, a: i64, b: i64) -> u32 {
     crate::ir::runtime::tier0::pcmpstr(op, imm8, a, b)
 }
 
+/// MOV and POP ES, DS, FS or GS in legacy-mode code (pagegen
+/// Emitter::load_segment, P7.3), as Tier-0's ir_t0_load_seg: 1 when refused
+/// (nothing changed: the instruction is retried); else the segment is
+/// loaded: 2 when the code no longer runs in the page tier (legacy_runnable:
+/// a null ES or FS, a nonzero ES base; switch_seg_without_fault refuses a
+/// DS that changes flat segmentation), so the function leaves after it
+#[no_mangle]
+pub unsafe fn x64_page_load_seg(segment: u32, selector: u32) -> u32 {
+    if !cpu::switch_seg_without_fault(segment as i32, selector as i32 & 0xFFFF) {
+        return 1;
+    }
+    if legacy_runnable() {
+        0
+    }
+    else {
+        2
+    }
+}
+
 /// RDTSC for generated code (the privilege check is inline).
 #[no_mangle]
 pub unsafe fn x64_page_rdtsc() -> u64 { cpu::read_tsc() }
@@ -2137,6 +2185,7 @@ mod quota_tests {
             last_used,
             source: 0,
             counter: None,
+            native_at: 0,
         }
     }
     /// (P7.2b) A full table retires the least recently used function, but

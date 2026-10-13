@@ -14,7 +14,8 @@
 //   not follow) and the leaf
 //   digests (P2.1: jit-leaf-tests, tests/x86tpl); then
 //   ir-tier0-tests when IR or shared JIT code changed and
-//   x64-page-tier-tests when x64 or shared JIT code changed. The changes are
+//   x64-page-tier-tests and x64-legacy32-tests when x64 or shared JIT code
+//   changed. The changes are
 //   the uncommitted ones, or without any the last commit's, or those since
 //   --base REV.
 // make jit-gate-full, at a milestone's exit and before a default flips:
@@ -111,6 +112,7 @@ const steps = [
         skip: ir_tests || x64_tests ? null : "no IR, x64 or shared JIT change" },
     { name: "ir-tier0-tests", command: ["make", "ir-tier0-tests"], skip: ir_tests ? null : "no IR or shared JIT change" },
     { name: "x64-page-tier-tests", command: ["make", "x64-page-tier-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
+    { name: "x64-legacy32-tests", command: ["make", "x64-legacy32-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
     { name: "jit-switch-tests", command: ["make", "jit-switch-tests"],
         skip: full || any(/jit_switches\.(rs|js|mjs)$/, /^tests\/api\/jit-switches\.js$/) ? null : "the switch registry did not change" },
 ];

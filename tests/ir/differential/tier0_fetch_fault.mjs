@@ -10,14 +10,19 @@
 //
 //   node tests/ir/differential/tier0_fetch_fault.mjs [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
+// JIT_SWITCHES=x64_page_legacy32=1: the x64 page tier runs the code instead
+// (docs/jit-unification-plan.md P7.3), compiling at 2000 instructions.
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
+import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
 const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
+const engine = page_tier ? "the page tier" : "Tier-0";
 
 const CALLER = 0x500000, CALLEE = 0x502000, HANDLER = 0x503000, DATA = 0x600000, STACK = 0x610000;
 const PTE = 0x11000 + (CALLEE >>> 12) * 4, ITERATIONS = 50000;
@@ -57,6 +62,10 @@ async function machine(tier0) {
     const vm = new V86({
         graphics_adapter: "bochs_vga",
         wasm_path: wasm, disable_jit: !tier0, memory_size: 128 << 20, // reference: the interpreter only
+        // (the page tier counts each instruction, compiles early, and its
+        // functions are installed as they are compiled)
+        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000 } : {}, ...jit_switches_from_env() } } : {},
+        ...tier0 && page_tier ? { ir_sync_publication: true } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -97,7 +106,7 @@ async function run({ vm, cpu, e, tier0 }) {
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
-            throw new Error(`timeout (${tier0 ? "tier-0" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
+            throw new Error(`timeout (${tier0 ? engine : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
                 `status ${view.getUint32(0x608, true).toString(16)} counter ${view.getUint32(DATA + 124, true)}`);
         }
         await sleep(0);
@@ -113,7 +122,8 @@ async function run({ vm, cpu, e, tier0 }) {
         fault_eip: view.getUint32(DATA + 112, true),
         cr2: view.getUint32(DATA + 116, true),
         count: new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0,
-        pages: tier0 ? e.ir_t0_stat(0) : 0,
+        pages: !tier0 ? 0 : page_tier ? e.x64_page_stat(37) : e.ir_t0_stat(0),
+        native: page_tier && tier0 ? e.x64_page_stat(1) : 0,
     };
 }
 
@@ -121,8 +131,11 @@ const reference = await run(await machine(false));
 const tier0 = await run(await machine(true));
 assert.equal(reference.stray, 0, "the interpreter reported a fault away from the callee");
 assert.equal(reference.faults, Math.floor(ITERATIONS / 64), "the interpreter took one fetch fault per unmapping");
-assert(tier0.pages > 0, "no Tier-0 page was compiled");
-const { pages, ...actual } = tier0, { pages: _, ...expected } = reference;
-assert.deepEqual(actual, expected, "Tier-0 fetch faults differ from the interpreter");
-console.log(`PASS: ${expected.faults} fetch faults on a Tier-0 callee page (${pages} page compiles) match the interpreter`);
+assert(tier0.pages > 0, `no ${engine} page was compiled`);
+assert(!page_tier || tier0.native > 0, "the page tier ran no instruction natively");
+const strip = ({ pages, native, ...rest }) => rest;
+const { pages, native } = tier0, actual = strip(tier0), expected = strip(reference);
+assert.deepEqual(actual, expected, `${engine} fetch faults differ from the interpreter`);
+console.log(`PASS: ${expected.faults} fetch faults on a callee page of ${engine} (${pages} page compiles` +
+    `${page_tier ? `, ${native} native instructions` : ""}) match the interpreter`);
 process.exit(0);

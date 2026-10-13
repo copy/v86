@@ -1998,3 +1998,24 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
 - 初测（i686 bench，对同一构建的 Tier-0）：热态几何均值 1.048，冷态 0.84；低于 0.95：`708.pages` 0.54、`709.smc` 0.64、
   `531` 0.93、`620` 0.93、`706` 0.92、`715` 0.91。XP 启动里还有 10.6 万次显存访问退出重试（Tier-0 在慢路径里就地完成）与约
   950 万次未服务入口的单步。
+
+**P7.3 第二部分（Win98 的单步与重编译），2026-10-13。**
+
+- 第一版在 Win98 存档上（Tier-0 构建对 `B-legacy`，1 个会话）：《主题医院》0.62、《暗黑破坏神》0.89、《红色警戒 2》0.84。step profile
+  显示 page tier 单步的正是 P3.7 给 Tier-0 加过模板的那些指令（《主题医院》20 s 里 JECXZ 4600 万次、MOV Sreg 900 万次，还有
+  CLI/STI、PUSHAD/POPAD、POP m32）。为传统模式加模板（`pagegen::legacy_template`，只在 classify 给出单步时、只在传统模式编译
+  时使用，长模式与兼容模式的输出不变）：LOOP/LOOPE/LOOPNE/JECXZ（新的分支 op，参与块发现与标志活性）、MOV/POP ES/DS/FS/GS（经
+  `x64_page_load_seg`，即 Tier-0 用的 `switch_seg_without_fault`；装入后不能再在 page tier 执行时在该指令后退出）、PUSH Sreg（32 位
+  操作数只写槽的低 16 位）、16 位操作数的 PUSH/POP（寄存器、立即数、内存）、POP m32（ESP 为基址时按弹出后的 ESP 计算地址）、
+  PUSHAD/POPAD（32 字节在一页内，否则重试）、不带 REP 的 LODS、CLI/STI。之后 0.88、0.98、0.96。
+- Win98 的 VMM 页（0xC0053000、0xC0059000）代码与数据同页，每秒被写数次；第 5 次编译后的退避让它们长期解释执行（几百万次冷
+  未命中）。传统模式下函数在被写之前已经运行了 2^22 条以上原生指令时不计入退避，且编译过的页按 2000 而不是 50000 重新编译。
+- 传统模式不用 SSE 的寄存器事实（P4.18）：事实只对通过准入的操作数成立，被拒绝的操作数（特殊值）会每轮重试；Tier-0 没有事实，
+  在原地精确计算。重试之后的直线续入（`unserved_run`）在传统模式下计入重编译，反复出现的续入点成为块起点（Tier-0 单步后在
+  原地继续）。`FUZZ_KIND` s11、s13 与混合类的覆盖率从 33%、21%、67% 升到 91%、95%、99%。
+- `run_compat_instruction` 不再把取指故障计为一条指令（与 32 位解释器循环一致，跨阶段规则 3）；`tier0_fetch_fault.mjs` 因此在
+  page tier 上相同。`tier0_fetch_fault.mjs`、`tier0_rep_fault.mjs`、`tier0_irq_slow.mjs` 加了 page tier 模式；新目标
+  `make x64-legacy32-tests`（全部 FUZZ_KIND 除 m、FUZZ_STRADDLE=1、上述三个测试，`x64_page_legacy32=1`）进 `make jit-gate`；
+  `make ab-ptier` 另出 `build/ab/B-legacy.wasm`。
+- 当前（1 个会话）：《主题医院》0.87、《暗黑破坏神》0.97、《红色警戒 2》1.03，XP 启动 0.99。《主题医院》的热点是游戏代码一页
+  （0x42B000，page tier 59% 的时间），两边花在生成代码里的时间相当，page tier 每秒少退役约 9% 的指令，待剖析。

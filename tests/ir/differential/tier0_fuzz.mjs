@@ -471,8 +471,9 @@ async function machine(tier0) {
         cpu_features: ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", ...only === "b" ? ["BMI1", "BMI2", "LZCNT", "MOVBE"] : []],
         ...only === "b" ? { cpu_type: "x86_64" } : {}, cpu_features_unreleased: true,
         // (the page tier counts each instruction: blocks count theirs at
-        // entry by default, more than run when a retry leaves one early)
-        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0 } : {}, ...jit_switches_from_env() } } : {},
+        // entry by default, more than run when a retry leaves one early; and
+        // compiles, and recompiles for new entries, as soon as long mode)
+        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000, x64_legacy_recompile_misses: 64 } : {}, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });

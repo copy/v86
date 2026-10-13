@@ -269,6 +269,49 @@ enum Op {
     Pop {
         dst: Reg,
     },
+    // Legacy mode's further templates (legacy_template, P7.3):
+    /// LOOPNE, LOOPE, LOOP or JECXZ (`kind` 0-3); CX with a 16-bit address
+    /// size
+    LoopJump {
+        kind: u8,
+        cx: bool,
+        target: u64,
+    },
+    /// MOV ES/DS/FS/GS, r/m16 (Emitter::load_segment)
+    LoadSreg {
+        segment: u8,
+        src: Opnd,
+    },
+    /// POP ES/DS/FS/GS with a `width` operand
+    PopSreg {
+        segment: u8,
+        width: u8,
+    },
+    /// PUSH Sreg with a `width` operand (a 32-bit one writes the low 16 bits
+    /// of its slot, as cpu::misc_instr::push32_sreg)
+    PushSreg {
+        segment: u8,
+        width: u8,
+    },
+    /// PUSH and POP with a 16-bit operand size
+    Push16 {
+        src: Opnd,
+    },
+    Pop16 {
+        dst: Opnd,
+    },
+    /// POP m32: the address computed with ESP after the pop
+    PopMem {
+        address: AddressExpr,
+    },
+    /// PUSHAD and POPAD, whose 32 bytes are in one page (else a retry)
+    Pusha,
+    Popa,
+    /// LODS without REP: AL, AX or EAX from `segment`:ESI
+    Lods {
+        width: u8,
+        segment: u8,
+    },
     Pushf,
     Leave,
     Call {
@@ -1285,6 +1328,86 @@ fn classify(d: &Decoded) -> Op {
         Some(op) if !compat || compat_template(&op, d) => op,
         _ => Op::Step,
     }
+}
+
+/// Legacy mode's further templates (CompileEnv::legacy, P7.3) for what
+/// classify leaves to a step, so that other modes compile as before:
+/// Tier-0's forms that Windows 98 and XP code would step through otherwise
+/// (P3.7 there): LOOP and JECXZ, segment register loads, pops and pushes,
+/// 16-bit pushes and pops, POP m32, PUSHAD and POPAD, LODS without REP,
+/// CLI and STI. Memory operands with 32-bit addresses only, as
+/// compat_template.
+fn legacy_template(d: &Decoded) -> Option<Op> {
+    if d.address.is_some_and(|a| a.address_size != 32)
+        || d.prefixes.rep.is_some()
+        || d.prefixes.lock
+    {
+        return None;
+    }
+    let op = d.base_opcode();
+    let w = d.operand_size;
+    let group = d.modrm.map_or(0, |m| m >> 3 & 7);
+    let rm16 = || match d.rm_register {
+        Some(r) => Some(Opnd::Reg(register(r, 16, false))),
+        None => d.address.map(Opnd::Mem),
+    };
+    // (ES, CS, SS, DS, FS, GS)
+    let segment = |op: u32| match op {
+        0x06 | 0x07 => 0,
+        0x0E => 1,
+        0x16 => 2,
+        0x1E | 0x1F => 3,
+        0x0FA0 | 0x0FA1 => 4,
+        _ => 5,
+    };
+    Some(match op {
+        // (a 16-bit operand size truncates EIP: a step)
+        0xE0..=0xE3 if w == 32 => Op::LoopJump {
+            kind: op as u8 - 0xE0,
+            cx: d.address_size == 16,
+            target: relative(d)?,
+        },
+        0x8E if matches!(group, 0 | 3 | 4 | 5) => Op::LoadSreg {
+            segment: group,
+            src: rm16()?,
+        },
+        0x07 | 0x1F | 0x0FA1 | 0x0FA9 if w != 64 => Op::PopSreg {
+            segment: segment(op),
+            width: w,
+        },
+        0x06 | 0x0E | 0x16 | 0x1E | 0x0FA0 | 0x0FA8 if w != 64 => Op::PushSreg {
+            segment: segment(op),
+            width: w,
+        },
+        0x50..=0x57 if w == 16 => Op::Push16 {
+            src: Opnd::Reg(register(d.opcode_register?, 16, false)),
+        },
+        0x58..=0x5F if w == 16 => Op::Pop16 {
+            dst: Opnd::Reg(register(d.opcode_register?, 16, false)),
+        },
+        0x68 | 0x6A if w == 16 => Op::Push16 {
+            src: Opnd::Imm(d.immediate?.value),
+        },
+        0xFF if group == 6 && w == 16 => Op::Push16 { src: rm16()? },
+        0x8F if group == 0 && w == 16 => Op::Pop16 { dst: rm16()? },
+        0x8F if group == 0 && w == 32 => match d.rm_register {
+            Some(r) => Op::Pop {
+                dst: register(r, 32, false),
+            },
+            None => Op::PopMem {
+                address: d.address?,
+            },
+        },
+        0x60 if w == 32 => Op::Pusha,
+        0x61 if w == 32 => Op::Popa,
+        0xAC | 0xAD if d.address_size == 32 && d.prefixes.segment != Some(5) => Op::Lods {
+            width: if op == 0xAC { 8 } else { w },
+            segment: d.prefixes.segment.unwrap_or(3),
+        },
+        0xFA => Op::Cli,
+        0xFB => Op::Sti,
+        _ => return None,
+    })
 }
 
 /// The templates the emitter treats in 32-bit compatibility mode
@@ -2646,6 +2769,7 @@ fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool) -> Vec<Un
             match b.insts.last().map(|i| i.op) {
                 Some(Op::Step) => return out,
                 Some(Op::Jcc { target, .. })
+                | Some(Op::LoopJump { target, .. })
                 | Some(Op::Jmp { target })
                 | Some(Op::Call { target }) => {
                     if let Some(o) = in_page(0, target) {
@@ -2705,6 +2829,9 @@ fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
         && !matches!(
             op,
             Op::Jcc { .. }
+                | Op::LoopJump { .. }
+                | Op::LoadSreg { .. }
+                | Op::PopSreg { .. }
                 | Op::Step
                 | Op::Jmp { .. }
                 | Op::Call { .. }
@@ -2795,6 +2922,8 @@ fn effects(op: &Op, compat: bool) -> (u32, u32) {
         } => (0, 0),
         Op::Bmi { .. } => (0, ARITH),
         Op::Jcc { cc, .. } | Op::Cmov { cc, .. } | Op::Setcc { cc, .. } => (cond_reads(cc), 0),
+        // (LOOPNE and LOOPE)
+        Op::LoopJump { kind: 0 | 1, .. } => (ZF, 0),
         // (the helper keeps FLAGS' other bits: it reads them all)
         Op::X87Flags { .. } => (ARITH, ARITH),
         Op::Fcmov { cc, .. } => (cond_reads(cc), 0),
@@ -3032,7 +3161,10 @@ impl Decoder<'_> {
                     code: 0x51..=0x53 | 0x5D | 0x5F,
                     ..
                 } if !fast_check => Op::Step,
+                // (legacy mode: GS is null in XP and Win98; LOOP, segment
+                // loads and others: legacy_template)
                 _ if legacy && d.address.is_some_and(|a| a.segment == 5) => Op::Step,
+                Op::Step if legacy => legacy_template(&d).unwrap_or(Op::Step),
                 op => op,
             };
             Some((d, op))
@@ -3301,7 +3433,7 @@ pub fn compile_with(
                 };
                 let next = o as u64 + d.length as u64;
                 match op {
-                    Op::Jcc { target, .. } => {
+                    Op::Jcc { target, .. } | Op::LoopJump { target, .. } => {
                         if let Some(t) = in_page(page, target) {
                             add(t as u64, &mut starts, &mut work);
                         }
@@ -3419,7 +3551,7 @@ pub fn compile_with(
                 break End::Shadow(next);
             }
             match op {
-                Op::Jcc { .. } | Op::Step => break End::Next(next),
+                Op::Jcc { .. } | Op::LoopJump { .. } | Op::Step => break End::Next(next),
                 Op::Sti
                     if env.sti_shadow
                         && total + 1 < MAX_INSTRUCTIONS
@@ -3493,7 +3625,8 @@ pub fn compile_with(
         match (block.end, last) {
             (End::Retry(_) | End::StepAt(_), _) => 0,
             (End::Next(_), Some(Op::Step)) => 0,
-            (End::Next(o), Some(Op::Jcc { target: t, .. })) => live(o) | target(t),
+            (End::Next(o), Some(Op::Jcc { target: t, .. }))
+            | (End::Next(o), Some(Op::LoopJump { target: t, .. })) => live(o) | target(t),
             (End::Next(o), _) | (End::Shadow(o), _) => live(o),
             (End::Stop, Some(Op::Jmp { target: t }))
             | (End::Stop, Some(Op::Call { target: t })) => target(t),
@@ -5713,6 +5846,11 @@ impl Emitter {
     /// Push the stack slot `delta` bytes from RSP into ADDR, validated as a
     /// `write` access; host address in HOST.
     fn stack(&mut self, delta: i64, write: bool, start: u64) {
+        self.stack_sized(delta, self.slot_bytes() as u32, write, start)
+    }
+    /// stack() of an access of `size` bytes (legacy mode's 16-bit slots,
+    /// PUSHAD and POPAD: P7.3)
+    fn stack_sized(&mut self, delta: i64, size: u32, write: bool, start: u64) {
         self.lookup_base = Some((4, 0));
         self.g(4);
         if self.env.compat {
@@ -5729,7 +5867,7 @@ impl Emitter {
             self.b.add_i64();
         }
         self.s(ADDR);
-        self.host(self.slot_bytes() as u32, write, start);
+        self.host(size, write, start);
         self.si(HOST);
     }
     /// A stack slot's size: 8 bytes, 4 in compatibility mode (P7.2)
@@ -6937,6 +7075,134 @@ impl Emitter {
                 self.adjust_sp(bytes);
                 self.g(TV);
                 self.set_reg(dst, width);
+            },
+            // (legacy mode, P7.3: legacy_template)
+            Op::LoopJump { kind, cx, target } => {
+                let (count, width) = (register(1, 32, false), if cx { 16 } else { 32 });
+                if kind < 3 {
+                    // (LOOP: the count less one, EFLAGS unchanged)
+                    self.get_reg(count, width);
+                    self.c64(1);
+                    self.b.sub_i64();
+                    self.set_reg(count, width);
+                }
+                self.materialize_if(inst.flags_read);
+                self.get_reg(count, width);
+                self.b.wrap_i64_to_i32();
+                self.b.eqz_i32();
+                if kind < 3 {
+                    self.b.eqz_i32();
+                }
+                if kind < 2 {
+                    // (LOOPE while ZF, LOOPNE while not)
+                    self.condition(if kind == 1 { 4 } else { 5 }, None);
+                    self.b.and_i32();
+                }
+                self.b.if_void();
+                self.check_target(target, start);
+                self.retired();
+                self.goto(target, index);
+                self.b.block_end();
+                self.retired();
+            },
+            Op::LoadSreg { segment, src } => {
+                self.read(src, 16, inst);
+                self.load_segment(segment, start);
+                self.leave_unless_runnable(next);
+            },
+            Op::PopSreg { segment, width } => {
+                let bytes = width as u64 / 8;
+                self.stack_sized(0, bytes as u32, false, start);
+                self.gi(HOST);
+                self.load(width);
+                self.load_segment(segment, start);
+                self.adjust_sp(bytes);
+                self.leave_unless_runnable(next);
+            },
+            Op::PushSreg { segment, width } => {
+                self.stack_sized(-(width as i64 / 8), 2, true, start);
+                self.gi(HOST);
+                self.load_selector(segment);
+                self.store(16);
+                self.g(ADDR);
+                self.s(4);
+            },
+            Op::Push16 { src } => {
+                self.read(src, 16, inst);
+                self.s(TV);
+                self.stack_sized(-2, 2, true, start);
+                self.gi(HOST);
+                self.g(TV);
+                self.store(16);
+                self.g(ADDR);
+                self.s(4);
+            },
+            Op::Pop16 { dst: Opnd::Reg(r) } => {
+                self.stack_sized(0, 2, false, start);
+                self.gi(HOST);
+                self.load(16);
+                self.s(TV);
+                self.adjust_sp(2);
+                self.g(TV);
+                self.set_reg(r, 16);
+            },
+            Op::Pop16 { dst: Opnd::Mem(a) } => self.pop_memory(a, 16, inst),
+            Op::Pop16 { dst: Opnd::Imm(_) } => unreachable!(),
+            Op::PopMem { address } => self.pop_memory(address, 32, inst),
+            Op::Pusha => {
+                // (as cpu::misc_instr's pusha32: EAX, ECX, EDX, EBX, the
+                // original ESP, EBP, ESI and EDI below ESP; the translation of
+                // all 32 bytes stands for each store: all happen or none)
+                self.stack_sized(-32, 32, true, start);
+                for r in 0..8u8 {
+                    self.gi(HOST);
+                    self.c32(28 - 4 * r as i32);
+                    self.b.add_i32();
+                    self.get_reg(register(r, 32, false), 32);
+                    self.store(32);
+                }
+                self.g(ADDR);
+                self.s(4);
+            },
+            Op::Popa => {
+                // (as popa32: EDI, ESI, EBP, ESP skipped, EBX, EDX, ECX, EAX)
+                self.stack_sized(0, 32, false, start);
+                for r in [7u8, 6, 5, 3, 2, 1, 0] {
+                    self.gi(HOST);
+                    self.c32(28 - 4 * r as i32);
+                    self.b.add_i32();
+                    self.load(32);
+                    self.set_reg(register(r, 32, false), 32);
+                }
+                self.adjust_sp(32);
+            },
+            Op::Lods { width, segment } => {
+                let source = AddressExpr {
+                    base: AddressBase::Register(6),
+                    index: None,
+                    scale: 0,
+                    displacement: 0,
+                    address_size: 32,
+                    segment,
+                };
+                self.address(&source, next, true);
+                self.s(ADDR);
+                self.host(width as u32 / 8, false, start);
+                self.load(width);
+                self.set_reg(register(0, width, false), width);
+                // ESI += the size, or with DF less it
+                let esi = register(6, 32, false);
+                self.get_reg(esi, 32);
+                self.b.wrap_i64_to_i32();
+                self.c32(-(width as i32 / 8));
+                self.c32(width as i32 / 8);
+                self.gi(FL);
+                self.c32(0x400);
+                self.b.and_i32();
+                self.b.select();
+                self.b.add_i32();
+                self.b.extend_unsigned_i32_to_i64();
+                self.set_reg(esi, 32);
             },
             Op::Leave => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
@@ -8657,6 +8923,7 @@ impl Emitter {
                 | Op::JmpIndirect { .. }
                 | Op::Jmp { .. }
                 | Op::Jcc { .. }
+                | Op::LoopJump { .. }
                 | Op::Sti
         ) {
             self.retired();
@@ -10506,6 +10773,54 @@ impl Emitter {
     fn load_selector(&mut self, segment: u8) {
         self.c32(gp::sreg as i32 + segment as i32 * 2);
         self.b.memory_op(op::OP_I64LOAD16U, op::MEM_ALIGN16, 0);
+    }
+    /// Load segment register `segment` (ES, DS, FS, GS) with the selector in
+    /// the i64 on the stack (legacy mode, P7.3): pages::x64_page_load_seg,
+    /// as Tier-0's ir_t0_load_seg; a refusal (nothing changed) retries. ST
+    /// is then 2 if the code no longer runs here (leave_unless_runnable)
+    fn load_segment(&mut self, segment: u8, start: u64) {
+        self.b.wrap_i64_to_i32();
+        self.si(ST);
+        self.c32(segment as i32);
+        self.gi(ST);
+        self.b.call_signature(
+            "x64_page_load_seg",
+            Signature::new(&[WasmType::I32, WasmType::I32], &[WasmType::I32]),
+        );
+        self.ti(ST);
+        self.c32(1);
+        self.b.eq_i32();
+        self.retry_if(start);
+    }
+    /// After load_segment's instruction: leave for `next` when ST says so
+    fn leave_unless_runnable(&mut self, next: u64) {
+        self.gi(ST);
+        self.b.if_void();
+        self.retired();
+        self.leave_to(self.f().exit, next);
+        self.b.block_end();
+    }
+    /// POP m16 or m32 (legacy mode, P7.3): the value at ESP stored to the
+    /// address computed with ESP after the pop (as instr32_8F_0_mem), then
+    /// ESP moves; both accesses are validated before anything changes
+    fn pop_memory(&mut self, address: AddressExpr, width: u8, inst: &Inst) {
+        let (start, bytes) = (inst.d.start.0, width as u64 / 8);
+        self.stack_sized(0, bytes as u32, false, start);
+        self.gi(HOST);
+        self.load(width);
+        self.s(TV);
+        let destination = match address.base {
+            AddressBase::Register(4) => AddressExpr {
+                displacement: address.displacement.wrapping_add(bytes as i64),
+                ..address
+            },
+            _ => address,
+        };
+        self.prepare_store(&destination, width, inst);
+        self.gi(HOST);
+        self.g(TV);
+        self.store(width);
+        self.adjust_sp(bytes);
     }
     /// Step the instruction (in place) when the i32 on the stack is nonzero.
     fn step_if(&mut self, start: u64) {
