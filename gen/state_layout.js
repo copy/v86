@@ -285,7 +285,7 @@ export const STATICS = {
     "x64/extended.rs": { EXTENDED: "machine", LOCK: "machine", DEPTH: "scratch", RELEASE_PENDING: "cache",
         LEGACY_TLB_CACHED: "cache", SLOT_PAGE: "cache", NEXT: "cache" },
     // page functions and their bookkeeping; entries re-check the live translation
-    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
+    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", SEGMENTED_ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
         // per core, tagged with that core's access cache epoch
         CODE_TLB: "cache", CHAIN: "cache",
         COUNTERS: "debug", CHAINING: "machine", LAST_UNSERVED: "cache", BOUNCE: "scratch", RECOMPILE_MISSES: "machine", TIMING: "debug", TIME_IN_CALLS: "debug", TIME_IN_EXECUTE: "debug", TIME_FIRST_CALLS: "debug", BYTES_COMPILED: "debug",

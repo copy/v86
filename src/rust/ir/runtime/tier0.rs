@@ -216,7 +216,7 @@ pub unsafe fn ir_t0_note_rep(elements: u32) { crate::cpu::execution::note_jit_re
 /// interpreter)
 #[no_mangle]
 pub unsafe fn ir_t0_load_seg(reg: u32, selector: u32) -> u32 {
-    !cpu::switch_seg_without_fault(reg as i32, selector as i32 & 0xFFFF) as u32
+    !cpu::switch_seg_without_fault(reg as i32, selector as i32 & 0xFFFF, true) as u32
 }
 #[no_mangle]
 pub unsafe fn ir_t0_pcmpstr(op: u32, imm8: u32, eax: i32, edx: i32) -> u32 {

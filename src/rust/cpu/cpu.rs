@@ -2977,10 +2977,11 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 /// nothing and leaves the state flags as they are (Tier-0's MOV Sreg
 /// template, docs/jit-unification-plan.md P3.7(b)). false, with nothing
 /// changed: a fault, a descriptor that does not translate without one, an
-/// accessed bit to set on a page with compiled code or a device, or a DS
-/// whose load changes flat segmentation (then the interpreter runs the
-/// instruction, as switch_seg)
-pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32) -> bool {
+/// accessed bit to set on a page with compiled code or a device, or (with
+/// `keep_flat`) a DS whose load changes flat segmentation (then the
+/// interpreter runs the instruction, as switch_seg; the x64 page tier's
+/// functions compiled for segment bases take any DS, P7.2(3))
+pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32, keep_flat: bool) -> bool {
     dbg_assert!(reg == ES || reg == DS || reg == FS || reg == GS);
     if !*protected_mode
         || vm86_mode()
@@ -2992,7 +2993,7 @@ pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32) -> bool {
     let flat = has_flat_segmentation();
     if selector.is_null() {
         // (a null DS is not flat segmentation)
-        if reg == DS && flat {
+        if reg == DS && flat && keep_flat {
             return false;
         }
         *sreg.offset(reg as isize) = selector_raw as u16;
@@ -3032,6 +3033,7 @@ pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32) -> bool {
         return false;
     }
     if reg == DS
+        && keep_flat
         && flat
             != (*segment_offsets.offset(SS as isize) == 0
                 && descriptor.base() as u32 == 0

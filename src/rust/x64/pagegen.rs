@@ -3128,13 +3128,16 @@ struct Decoder<'a> {
     sse_fast_check: bool,
     /// Long64, or Compatibility32 (CompileEnv::compat)
     mode: ExecutionMode,
-    /// CompileEnv::legacy: operands in GS are steps (GS is null in XP and
-    /// Win98, and a null selector's accesses are #GP: the interpreter's)
+    /// CompileEnv::legacy: legacy_template's forms; operands in GS are steps
+    /// (GS is null in XP and Win98, and a null selector's accesses are #GP:
+    /// the interpreter's) unless compiled for segment bases, which check
+    /// (CompileEnv::segmented)
     legacy: bool,
+    segmented: bool,
 }
 impl Decoder<'_> {
     fn at(&mut self, offset: u16) -> Option<(Decoded, Op)> {
-        let (bytes, next, page, cvt, fast_check, mode, legacy) = (
+        let (bytes, next, page, cvt, fast_check, mode, legacy, segmented) = (
             self.bytes,
             self.next,
             self.page,
@@ -3142,6 +3145,7 @@ impl Decoder<'_> {
             self.sse_fast_check,
             self.mode,
             self.legacy,
+            self.segmented,
         );
         *self.cache.entry(offset).or_insert_with(|| {
             let d = decode::decode_with(GuestIp(page + offset as u64), mode, |i| {
@@ -3163,7 +3167,7 @@ impl Decoder<'_> {
                 } if !fast_check => Op::Step,
                 // (legacy mode: GS is null in XP and Win98; LOOP, segment
                 // loads and others: legacy_template)
-                _ if legacy && d.address.is_some_and(|a| a.segment == 5) => Op::Step,
+                _ if legacy && !segmented && d.address.is_some_and(|a| a.segment == 5) => Op::Step,
                 Op::Step if legacy => legacy_template(&d).unwrap_or(Op::Step),
                 op => op,
             };
@@ -3230,6 +3234,11 @@ pub struct CompileEnv {
     /// paging (pages::x64_page_access32); FS is not null there, accesses
     /// through GS step (Decoder::legacy)
     pub legacy: bool,
+    /// Legacy-mode code compiled for segment bases (P7.2(3),
+    /// pages::segmented_runnable): ES, SS and DS operands, stack slots and
+    /// string pointers add their segment's base (read at each access, as
+    /// Tier-0's functions for other than flat segments do)
+    pub segmented: bool,
     /// The page's execution counter, incremented at each entry and dispatch
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
@@ -3254,6 +3263,7 @@ impl CompileEnv {
         counter: Option<u32>,
         compat: bool,
         legacy: bool,
+        segmented: bool,
     ) -> CompileEnv {
         unsafe {
             CompileEnv {
@@ -3277,6 +3287,7 @@ impl CompileEnv {
                 // (no access cache in legacy mode)
                 compat_tlb: compat && (COMPAT_TLB || legacy),
                 legacy,
+                segmented,
                 counter,
                 sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
@@ -3311,6 +3322,7 @@ impl CompileEnv {
         compat: bool,
         compat_tlb: bool,
         legacy: bool,
+        segmented: bool,
     ) -> CompileEnv {
         CompileEnv {
             bucket_dispatch,
@@ -3331,6 +3343,7 @@ impl CompileEnv {
             compat,
             compat_tlb,
             legacy,
+            segmented,
             counter: counting.then_some(0x0000_0E80),
             sse_fp_operands: 0x0000_0E00,
             core_yield: 0x0000_0D00,
@@ -3358,9 +3371,10 @@ pub fn compile(
     counter: Option<u32>,
     compat: bool,
     legacy: bool,
+    segmented: bool,
     name: String,
 ) -> Option<Compiled> {
-    let env = CompileEnv::current(chaining, outline, counter, compat, legacy);
+    let env = CompileEnv::current(chaining, outline, counter, compat, legacy, segmented);
     #[cfg(feature = "ir-test-hooks")]
     super::replay::record(&env, bytes, next, entries, &name);
     let compiled = compile_with(&env, bytes, next, entries, name);
@@ -3390,6 +3404,7 @@ pub fn compile_with(
         sse_fast_check: env.sse_fast_check,
         mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
         legacy: env.legacy,
+        segmented: env.segmented,
     };
     // Discover block starts: entries, in-page branch targets, return
     // addresses, and the instruction after every step (steps continue by
@@ -3797,6 +3812,9 @@ struct Emitter {
     /// if it has no index, and its displacement's page (kept_page).
     lookup_kept: Vec<Kept>,
     lookup_base: Option<(u8, i64)>,
+    /// The start of the instruction being emitted (a segment's null check
+    /// retries it, P7.2(3))
+    inst_start: u64,
     /// (compatibility mode: the kept translations the current block has
     /// set, host_tlb)
     kept_set: u64,
@@ -4014,6 +4032,7 @@ impl Emitter {
             xmm_clean: [0; 16],
             lookup_kept: Vec::new(),
             lookup_base: None,
+            inst_start: 0,
             kept_set: 0,
             ymm_zeroed: 0,
             access: None,
@@ -4862,8 +4881,13 @@ impl Emitter {
         if self.env.compat {
             // (32-bit addresses in i32, wrapped at 4 GiB for free, as
             // address32; plus a 32-bit FS/GS base)
+            // (P7.2(3): ES, SS and DS bases too when compiled for them, CS's
+            // is 0; then any but SS may be null: #GP, the interpreter's)
+            if segment && self.env.segmented && matches!(a.segment, 0 | 3 | 4 | 5) {
+                self.null_check(a.segment);
+            }
             self.address32(a, next);
-            if segment && a.segment >= 4 {
+            if segment && (a.segment >= 4 || self.env.segmented && a.segment != 1) {
                 self.c32(gp::segment_offsets as i32 + a.segment as i32 * 4);
                 self.b.load_aligned_i32(0);
                 self.b.add_i32();
@@ -5860,6 +5884,12 @@ impl Emitter {
                 self.c32(delta as i32);
                 self.b.add_i32();
             }
+            if self.env.segmented {
+                // (P7.2(3): the SS base; commit_sp sets ESP)
+                self.c32(gp::segment_offsets as i32 + 2 * 4);
+                self.b.load_aligned_i32(0);
+                self.b.add_i32();
+            }
             self.b.extend_unsigned_i32_to_i64();
         }
         else if delta != 0 {
@@ -5884,6 +5914,40 @@ impl Emitter {
     fn wrap32(&mut self) {
         self.c64(0xFFFF_FFFF);
         self.b.and_i64();
+    }
+    /// RSP to the slot stack_sized(`delta`) addressed (a push): ADDR, or
+    /// with segment bases (P7.2(3)), where ADDR holds the SS base too, ESP
+    /// plus `delta`
+    fn commit_sp(&mut self, delta: i64) {
+        if self.env.segmented {
+            self.adjust_sp(delta as u64);
+        }
+        else {
+            self.g(ADDR);
+            self.s(4);
+        }
+    }
+    /// Retry the instruction being emitted if `segment` holds a null
+    /// selector (P7.2(3))
+    fn null_check(&mut self, segment: u8) {
+        self.c32(gp::segment_is_null as i32 + segment as i32);
+        self.b.load_u8(0);
+        self.retry_if(self.inst_start);
+    }
+    /// The 32-bit address (an i64) on the stack plus the base of `segment`
+    /// when compiled for segment bases (P7.2(3): string pointers, LEAVE),
+    /// which must not be null
+    fn segment_base(&mut self, segment: u8) {
+        if self.env.segmented && segment != 1 {
+            if segment != 2 {
+                self.null_check(segment);
+            }
+            self.b.wrap_i64_to_i32();
+            self.c32(gp::segment_offsets as i32 + segment as i32 * 4);
+            self.b.load_aligned_i32(0);
+            self.b.add_i32();
+            self.b.extend_unsigned_i32_to_i64();
+        }
     }
     /// RSP += `bytes` (in compatibility mode ESP, wrapped)
     fn adjust_sp(&mut self, bytes: u64) {
@@ -6435,6 +6499,7 @@ impl Emitter {
         // register of this instruction's operand, P4.21: set by address(),
         // stack() and the string instructions, never left from another)
         self.lookup_base = None;
+        self.inst_start = inst.d.start.0;
         // (XMM locals, P4.17: the registers this instruction uses, loaded
         // now, in code every path runs; other vector code finds memory current)
         if self.env.xmm_locals {
@@ -7050,8 +7115,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.g(TV);
                 self.store(width);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-(bytes as i64));
             },
             Op::Pushf => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
@@ -7063,8 +7127,7 @@ impl Emitter {
                 self.b.and_i32();
                 self.b.extend_unsigned_i32_to_i64();
                 self.store(width);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-(bytes as i64));
             },
             Op::Pop { dst } => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
@@ -7124,8 +7187,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.load_selector(segment);
                 self.store(16);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-(width as i64 / 8));
             },
             Op::Push16 { src } => {
                 self.read(src, 16, inst);
@@ -7134,8 +7196,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.g(TV);
                 self.store(16);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-2);
             },
             Op::Pop16 { dst: Opnd::Reg(r) } => {
                 self.stack_sized(0, 2, false, start);
@@ -7161,8 +7222,7 @@ impl Emitter {
                     self.get_reg(register(r, 32, false), 32);
                     self.store(32);
                 }
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-32);
             },
             Op::Popa => {
                 // (as popa32: EDI, ESI, EBP, ESP skipped, EBX, EDX, ECX, EAX)
@@ -7208,6 +7268,7 @@ impl Emitter {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.lookup_base = Some((5, 0));
                 self.g(5);
+                self.segment_base(2);
                 self.s(ADDR);
                 self.host(bytes as u32, false, start);
                 self.load(width);
@@ -7229,8 +7290,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.linear(next);
                 self.store(width);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-(bytes as i64));
                 self.retired();
                 self.goto(target, index);
             },
@@ -7243,8 +7303,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.linear(next);
                 self.store(width);
-                self.g(ADDR);
-                self.s(4);
+                self.commit_sp(-(bytes as i64));
                 self.retired();
                 self.g(TV);
                 self.s(RIP);
@@ -10783,9 +10842,13 @@ impl Emitter {
         self.si(ST);
         self.c32(segment as i32);
         self.gi(ST);
+        self.c32(self.env.segmented as i32);
         self.b.call_signature(
             "x64_page_load_seg",
-            Signature::new(&[WasmType::I32, WasmType::I32], &[WasmType::I32]),
+            Signature::new(
+                &[WasmType::I32, WasmType::I32, WasmType::I32],
+                &[WasmType::I32],
+            ),
         );
         self.ti(ST);
         self.c32(1);
@@ -10946,6 +11009,7 @@ impl Emitter {
             if movs {
                 self.lookup_base = Some((6, 0));
                 self.g(6);
+                self.segment_base(inst.d.prefixes.segment.unwrap_or(3));
                 self.s(ADDR);
                 self.host(size as u32, false, start);
                 self.load(width);
@@ -10953,6 +11017,7 @@ impl Emitter {
             }
             self.lookup_base = Some((7, 0));
             self.g(7);
+            self.segment_base(0);
             self.s(ADDR);
             self.host(size as u32, true, start);
             if movs {
@@ -11007,6 +11072,13 @@ impl Emitter {
             if movs { [(6, false), (7, true)].as_slice() } else { [(7, true)].as_slice() }
         {
             self.g(*register);
+            // (the linear address's page offset, with segment bases)
+            self.segment_base(if *register == 6 {
+                inst.d.prefixes.segment.unwrap_or(3)
+            }
+            else {
+                0
+            });
             self.b.wrap_i64_to_i32();
             self.c32(4095);
             self.b.and_i32();
@@ -11019,11 +11091,13 @@ impl Emitter {
         if movs {
             self.lookup_base = Some((6, 0));
             self.g(6);
+            self.segment_base(inst.d.prefixes.segment.unwrap_or(3));
             self.s(ADDR);
             self.host_or(1, false, start, self.f().step);
             self.si(SRC);
             self.lookup_base = Some((7, 0));
             self.g(7);
+            self.segment_base(0);
             self.s(ADDR);
             self.host_or(1, true, start, self.f().step);
             self.si(HOST);
@@ -11050,6 +11124,7 @@ impl Emitter {
         else {
             self.lookup_base = Some((7, 0));
             self.g(7);
+            self.segment_base(0);
             self.s(ADDR);
             self.host_or(1, true, start, self.f().step);
             self.si(HOST);
@@ -11160,6 +11235,13 @@ impl Emitter {
         self.si(COND);
         for register in if scan { [7].as_slice() } else { [6, 7].as_slice() } {
             self.g(*register);
+            // (the linear address's page offset, with segment bases)
+            self.segment_base(if *register == 6 {
+                inst.d.prefixes.segment.unwrap_or(3)
+            }
+            else {
+                0
+            });
             self.b.wrap_i64_to_i32();
             self.c32(4095);
             self.b.and_i32();
@@ -11172,12 +11254,14 @@ impl Emitter {
         if !scan {
             self.lookup_base = Some((6, 0));
             self.g(6);
+            self.segment_base(inst.d.prefixes.segment.unwrap_or(3));
             self.s(ADDR);
             self.host_or(1, false, start, self.f().step);
             self.si(SRC);
         }
         self.lookup_base = Some((7, 0));
         self.g(7);
+        self.segment_base(0);
         self.s(ADDR);
         self.host_or(1, false, start, self.f().step);
         self.si(HOST);
@@ -11394,7 +11478,7 @@ mod sti_shadow_tests {
     fn compiled(page: &[u8], sti_shadow: bool) -> Vec<u8> {
         let env = CompileEnv::replay(
             true, true, true, false, false, true, sti_shadow, false, 1024, false, false, false,
-            false, false, false, false, false, false, false,
+            false, false, false, false, false, false, false, false,
         );
         compile_with(&env, page, &[], &[0], "sti".into())
             .expect("compiled")

@@ -2022,3 +2022,17 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
   `make ab-ptier` 另出 `build/ab/B-legacy.wasm`。
 - 当前（1 个会话）：《主题医院》0.87、《暗黑破坏神》0.97、《红色警戒 2》1.03，XP 启动 0.99。《主题医院》的热点是游戏代码一页
   （0x42B000，page tier 59% 的时间），两边花在生成代码里的时间相当，page tier 每秒少退役约 9% 的指令，待剖析。
+
+**P7.2(3) 非平坦段，2026-10-13。**
+
+- 传统模式另有一种按段基址编译的函数（`pages::segmented_runnable`：32 位保护模式、平坦的 32 位 CS、32 位栈；函数键
+  `SEGMENTED_KEY`，自己的 CHAIN 表）：ES、SS、DS 的操作数、栈槽、串指针与 LEAVE 加段基址（每次从内存读，同 Tier-0 的非平坦函数），
+  除 SS 外每次访问检查空选择子（重试，解释器报 #GP），GS 的操作数也走模板；入栈改为按增量更新 ESP（槽地址含 SS 基址）；REP 串
+  模板的同页判断用线性地址。平坦的函数照旧（不加基址、GS 单步），状态平坦时优先用它。
+- 段装入：按段基址编译的函数里 `x64_page_load_seg` 不再拒绝改变平坦性的 DS（`switch_seg_without_fault` 的新参数
+  `keep_flat`，Tier-0 照旧传 true）；它也能跑平坦段，单步后的上下文只在不再可运行时退出（`SEGMENTED_ACTIVE`）。
+- `FUZZ_KIND` m（装入基址 0x1000 的数据段）：0 差异，99.9% 在 page 函数里、99.9% 走模板（之前 7%，不过）；进
+  `make x64-legacy32-tests`。新测试 `tier0_segment_fault.mjs`（经空的 DS、ES、FS、GS 访问应 #GP，Tier-0 与 page tier 两种模式；
+  去掉空选择子检查或段基址的变异都会被发现），进 `make ir-tier0-tests` 与 `x64-legacy32-tests`。
+- 16 位栈上的 32 位代码（Win98 的 ring 3）还不在 page tier：P7.2(3) 要求原生执行，下一步。
+- Win98 存档（各 1 个会话）：《主题医院》0.975、《暗黑破坏神》1.019、《红色警戒 2》0.971。

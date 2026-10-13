@@ -252,6 +252,8 @@ static mut TIME_FIRST_CALLS: f64 = 0.0;
 static mut BYTES_COMPILED: u64 = 0;
 /// A generated function is running.
 static mut ACTIVE: bool = false;
+/// It was compiled for segment bases (P7.2(3)), as all it chains to
+static mut SEGMENTED_ACTIVE: bool = false;
 /// Code-page invalidations; a step that changes it ends the activation.
 static mut CODE_WRITES: u64 = 0;
 static mut STEPS: u64 = 0;
@@ -358,13 +360,13 @@ struct ChainEntry {
     global: u32,
 }
 #[repr(C, align(16))]
-struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 6]);
+struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 8]);
 const NO_CHAIN: ChainEntry = ChainEntry {
     tag: 0,
     table_index: 0,
     global: 0,
 };
-static mut CHAIN: [ChainTables; 8] = [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 6]) }; 8];
+static mut CHAIN: [ChainTables; 8] = [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 8]) }; 8];
 /// Whether generated code may tail-call through the host's function table
 /// (x64_page_set_chaining: the engine supports Wasm tail calls).
 static mut CHAINING: bool = false;
@@ -437,7 +439,7 @@ unsafe fn code_page(rip: u64, mode: usize) -> Option<(u32, bool)> {
     if cached_tag == tag && linear == rip >> 12 {
         return Some((page, global));
     }
-    let (physical, global) = if mode == MODE_LEGACY {
+    let (physical, global) = if mode >= MODE_LEGACY {
         legacy_translate(rip as u32, false)?
     }
     else {
@@ -503,19 +505,27 @@ unsafe fn code_key(address: u64) -> Option<u32> {
     }
 }
 /// The key bit of a 32-bit function (P7.2; physical keys are below
-/// extended::CODE_KEY_BASE plus the extended pages), and the one of a
-/// legacy-mode function besides (P7.3)
+/// extended::CODE_KEY_BASE plus the extended pages), the one of a
+/// legacy-mode function besides (P7.3), and of one compiled for segment
+/// bases (P7.2(3), segmented_runnable)
 const COMPAT_KEY: u32 = 1 << 31;
 const LEGACY_KEY: u32 = 1 << 30;
+const SEGMENTED_KEY: u32 = 1 << 29;
 /// The code key of a function's key: its page as compiled from
-fn physical_key(key: u32) -> u32 { key & !(COMPAT_KEY | LEGACY_KEY) }
+fn physical_key(key: u32) -> u32 { key & !(COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY) }
 /// The code's mode, as function keys, code translations and chaining tables
 /// tell it apart: 64-bit, compatibility mode (P7.2), 32-bit legacy protected
-/// mode (P7.3)
+/// mode with flat segments (P7.3) and with segment bases (P7.2(3))
 const MODE_LONG: usize = 0;
 const MODE_COMPAT: usize = 1;
 const MODE_LEGACY: usize = 2;
-const MODE_KEYS: [u32; 3] = [0, COMPAT_KEY, COMPAT_KEY | LEGACY_KEY];
+const MODE_SEGMENTED: usize = 3;
+const MODE_KEYS: [u32; 4] = [
+    0,
+    COMPAT_KEY,
+    COMPAT_KEY | LEGACY_KEY,
+    COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY,
+];
 unsafe fn code_mode() -> usize {
     if state::mode().is_long() {
         MODE_LONG
@@ -523,8 +533,11 @@ unsafe fn code_mode() -> usize {
     else if state::efer() & state::EFER_LMA != 0 {
         MODE_COMPAT
     }
-    else {
+    else if legacy_runnable() {
         MODE_LEGACY
+    }
+    else {
+        MODE_SEGMENTED
     }
 }
 fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BASE }
@@ -567,8 +580,36 @@ pub unsafe fn legacy_runnable() -> bool {
         && !*gp::segment_is_null.add(cpu::ES as usize)
         && !*gp::segment_is_null.add(cpu::FS as usize)
 }
-/// compat_runnable or legacy_runnable
-pub unsafe fn runnable32() -> bool { compat_runnable() || legacy_runnable() }
+/// The current code runs in the page tier as legacy-mode code compiled for
+/// segment bases (P7.2(3)): 32-bit protected mode with a flat 32-bit CS and
+/// a 32-bit stack; each ES, SS, DS, FS or GS access adds its segment's base
+/// and, but for SS, checks for a null selector (as Tier-0's functions for
+/// other than flat segments do). Windows 98's VMM runs with a nonzero DS
+/// base.
+pub unsafe fn segmented_runnable() -> bool {
+    LEGACY32
+        && state::mode() == state::ExecutionMode::Protected32
+        && *gp::stack_size_32
+        && *gp::segment_offsets.add(cpu::CS as usize) == 0
+}
+/// compat_runnable, legacy_runnable or segmented_runnable
+pub unsafe fn runnable32() -> bool { runnable_kind() != 0 }
+/// 1 for compat_runnable or legacy_runnable (flat segments), 2 for
+/// segmented_runnable only, else 0: a step that changes it leaves (context;
+/// in a function compiled for segment bases, which runs flat segments too,
+/// only a change to or from 0)
+#[inline(always)]
+unsafe fn runnable_kind() -> u8 {
+    if compat_runnable() || legacy_runnable() {
+        1
+    }
+    else if segmented_runnable() {
+        2
+    }
+    else {
+        0
+    }
+}
 /// One interpreted instruction at RIP: the long-mode interpreter, or in
 /// compatibility and legacy mode the 32-bit one (as Tier-0's steps)
 unsafe fn interpret_one() {
@@ -684,7 +725,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
                     // instruction retried on every iteration, counts towards
                     // a recompile that serves it; Tier-0 continues after
                     // such a step in place)
-                    if mode == MODE_LEGACY {
+                    if mode >= MODE_LEGACY {
                         note_unserved(r, page, offset);
                     }
                     return unserved_run(r, i, budget, rip);
@@ -722,7 +763,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
             state.heat += heat;
             // (legacy mode's first compile waits for LEGACY_HEAT; a page
             // compiled before is hot, its function retired by a write)
-            let hot = if mode == MODE_LEGACY && state.compiles == 0 { LEGACY_HEAT } else { HOT };
+            let hot = if mode >= MODE_LEGACY && state.compiles == 0 { LEGACY_HEAT } else { HOT };
             if state.heat >= hot << backoff(state.compiles) {
                 state.heat = 0;
                 if state.entry_count == 0 {
@@ -839,7 +880,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
     if !MISS_RUN {
         return miss();
     }
-    let (linear, cpl, mode) = (rip >> 12, *gp::cpl, state::mode());
+    let (linear, cpl, mode, kind) = (rip >> 12, *gp::cpl, state::mode(), runnable_kind());
     let limit = budget.min(MISS_RUN_LIMIT);
     let span = execution::ledger_begin();
     let (mut n, mut at) = (0, rip);
@@ -854,7 +895,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
             || next == at
             || *gp::cpl != cpl
             || state::mode() != mode
-            || !mode.is_long() && !runnable32()
+            || !mode.is_long() && runnable_kind() != kind
             || *gp::in_hlt
             || cpu::core_yield
             || apic::has_core_events()
@@ -889,7 +930,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
 /// function to step each instruction up to its next block start (an
 /// activation, a dispatch and a step apiece)
 unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Attempt {
-    let (linear, cpl, mode) = (rip >> 12, *gp::cpl, state::mode());
+    let (linear, cpl, mode, kind) = (rip >> 12, *gp::cpl, state::mode(), runnable_kind());
     let limit = budget.min(MISS_RUN_LIMIT);
     let span = execution::ledger_begin();
     let (mut n, mut at) = (0, rip);
@@ -905,7 +946,7 @@ unsafe fn unserved_run(r: &mut Runtime, i: usize, budget: u32, rip: u64) -> Atte
             || bit(&r.functions[i].served, (next & 4095) as u16)
             || *gp::cpl != cpl
             || state::mode() != mode
-            || !mode.is_long() && !runnable32()
+            || !mode.is_long() && runnable_kind() != kind
             || *gp::in_hlt
             || cpu::core_yield
             || apic::has_core_events()
@@ -1023,7 +1064,9 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     *gp::x64_jac_epoch = jac::epoch_bits(core);
     *gp::x64_page_linear = rip & !4095;
     *gp::x64_page_exit = pagegen::EXIT_NORMAL;
-    *gp::x64_code_base = chain_base(core, *gp::cpl == 3, code_mode());
+    let mode = code_mode();
+    *gp::x64_code_base = chain_base(core, *gp::cpl == 3, mode);
+    SEGMENTED_ACTIVE = mode == MODE_SEGMENTED;
     *gp::x64_page_chain = 0;
     *gp::x64_page_lazy_kind = 0;
     // Generated code keeps EFLAGS materialized.
@@ -1103,6 +1146,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     // (P7.2: a 32-bit function's key, of the same page; P7.3: legacy mode's)
     let (compat, physical) = (page & COMPAT_KEY != 0, physical_key(page));
     let legacy = page & LEGACY_KEY != 0;
+    let segmented = page & SEGMENTED_KEY != 0;
     // (legacy mode's lookups are inline either way, in the 32-bit TLB: no
     // cold compile and hot recompile, which would start V8's tier-up anew;
     // loops from the first compile)
@@ -1137,7 +1181,10 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let linear = state::read_rip() & !4095;
     let name = format!(
         "x64_page{}_{:x}",
-        if legacy {
+        if segmented {
+            "s32"
+        }
+        else if legacy {
             "l32"
         }
         else if compat {
@@ -1158,6 +1205,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         counter.map(|c| &raw const HOT_COUNTS[c as usize] as u32),
         compat,
         legacy,
+        segmented,
         name,
     )
     else {
@@ -1775,9 +1823,8 @@ struct Context {
     control: i32,
     dr7: u64,
     epoch: u64,
-    /// in compatibility and legacy mode, what compat_runnable and
-    /// legacy_runnable check (P7.2, P7.3)
-    compat: bool,
+    /// in compatibility and legacy mode, runnable_kind (P7.2, P7.3)
+    compat: u8,
 }
 // (inlined into x64_page_step, as before P7.2's field: every long-mode step
 // takes it twice; runnable32 only in 32-bit modes)
@@ -1788,7 +1835,11 @@ unsafe fn context() -> Context {
         cpl: *gp::cpl,
         cs: *gp::sreg.add(1),
         long,
-        compat: !long && runnable32(),
+        compat: match (long, runnable_kind()) {
+            (true, _) => 0,
+            (_, 1) if SEGMENTED_ACTIVE => 2,
+            (_, kind) => kind,
+        },
         cr0: state::read_cr(0),
         cr3: state::read_cr(3),
         cr4: state::read_cr(4),
@@ -2110,15 +2161,17 @@ pub unsafe fn x64_page_pcmpstr(op: u32, imm8: u32, a: i64, b: i64) -> u32 {
 /// MOV and POP ES, DS, FS or GS in legacy-mode code (pagegen
 /// Emitter::load_segment, P7.3), as Tier-0's ir_t0_load_seg: 1 when refused
 /// (nothing changed: the instruction is retried); else the segment is
-/// loaded: 2 when the code no longer runs in the page tier (legacy_runnable:
-/// a null ES or FS, a nonzero ES base; switch_seg_without_fault refuses a
-/// DS that changes flat segmentation), so the function leaves after it
+/// loaded: 2 when the code no longer runs as the function was compiled
+/// (legacy_runnable: a null ES or FS, a nonzero ES base; with `segmented`,
+/// segmented_runnable: a null ES, DS or FS; switch_seg_without_fault
+/// refuses a DS that changes flat segmentation), so it leaves after it
 #[no_mangle]
-pub unsafe fn x64_page_load_seg(segment: u32, selector: u32) -> u32 {
-    if !cpu::switch_seg_without_fault(segment as i32, selector as i32 & 0xFFFF) {
+pub unsafe fn x64_page_load_seg(segment: u32, selector: u32, segmented: u32) -> u32 {
+    if !cpu::switch_seg_without_fault(segment as i32, selector as i32 & 0xFFFF, segmented == 0) {
         return 1;
     }
-    if legacy_runnable() {
+    // (a function compiled for segment bases runs flat segments too)
+    if legacy_runnable() || segmented != 0 && segmented_runnable() {
         0
     }
     else {

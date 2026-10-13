@@ -69,6 +69,7 @@ ir-tier0-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build/jit
 	node tests/ir/differential/tier0_mode_ledger.mjs
 	node tests/ir/differential/tier0_kind_profile.mjs
 	node tests/ir/differential/tier0_rep_fault.mjs
+	node tests/ir/differential/tier0_segment_fault.mjs
 
 .PHONY: glbridge test-glbridge
 glbridge:
@@ -1094,15 +1095,14 @@ x64-page-tier-tests: build/v86-debug.wasm
 
 # The x64 page tier on legacy protected-mode code (x64_page_legacy32,
 # docs/jit-unification-plan.md P7.3): Tier-0's differential tests, run on it.
-# (FUZZ_KIND m loads non-flat segments, which run elsewhere: its coverage is
-# below the test's.)
 .PHONY: x64-legacy32-tests
 x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
-	for kind in "" j g e d o a v c p r b x s11 s12 s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
+	for kind in "" j g e d o a m v c p r b x s11 s12 s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
 	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
 	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fetch_fault.mjs
 	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_rep_fault.mjs
 	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_irq_slow.mjs
+	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_segment_fault.mjs
 
 # Every long-mode encoding of the opcode map executed at CPL3; needs the
 # expectations written by x64-decode-tests.
