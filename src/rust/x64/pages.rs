@@ -2450,12 +2450,25 @@ unsafe fn note_context_changes(before: &Context, after: &Context) -> u32 {
 /// EFLAGS with the pending bits of a lazy record (pagegen::Emitter::record)
 /// computed: record = ALU code << 16 | log2(width / 8) << 20 | carry << 23 |
 /// pending bits; `a`, `b` the operands.
+/// With pagegen::RECORD_UNIT (an INC or DEC in legacy mode) `a` is the
+/// result.
 #[no_mangle]
 pub fn x64_page_flags(record: u32, a: u64, b: u64, flags: u32) -> u32 {
     let code = (record >> 16 & 7) as u8;
     let width = 8u8 << (record >> 20 & 3);
     let carry = (record >> 23 & 1) as u64;
     let pending = record & 0x8D5;
+    // (an INC or DEC whose `a` is the result: M8, pagegen::RECORD_UNIT)
+    let (a, b) = if record & pagegen::RECORD_UNIT != 0 {
+        let mask = if width == 64 { !0 } else { (1u64 << width) - 1 };
+        (
+            if code == 5 { a.wrapping_add(1) } else { a.wrapping_sub(1) } & mask,
+            1,
+        )
+    }
+    else {
+        (a, b)
+    };
     let (_, computed) = super::execute::alu(code, a, b, width, carry);
     flags & !pending | computed as u32 & pending
 }

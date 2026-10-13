@@ -2521,6 +2521,9 @@ impl KeptTag {
 }
 /// Kept translations per function
 const MAX_KEPT: usize = 32;
+/// A lazy record's bit: an INC or DEC whose `a` is its result
+/// (Emitter::unit_record, pages::x64_page_flags)
+pub const RECORD_UNIT: u32 = 1 << 24;
 /// The displacement page of an operand `[r + displacement]`, which kept
 /// translations tell apart: two arrays a loop reads through one register,
 /// as `[EAX + 0x403000]` and `[EAX + 0x423000]`, would otherwise replace
@@ -4001,6 +4004,10 @@ struct Emitter {
     /// later MUL's AF follows (cpu::misc_instr::getaf): kept in a local,
     /// loaded and written back with the GPRs
     last_op1: Option<WasmLocal>,
+    /// legacy mode (M8): last_op1 stays in the CPU state, written where the
+    /// operations set it and read where flags take it, as Tier-0 keeps it:
+    /// no register for it across loops and dispatch
+    last_op1_memory: bool,
     /// legacy mode (P7.3): which vector_checked kinds may run natively, from
     /// CR0, CR4 and XCR0 at entry and after each step (reload: a stepped
     /// CLTS, MOV CR or XSETBV may change them), for the checks once a block
@@ -4188,7 +4195,7 @@ impl Emitter {
             .map(|_| b.declare_zeroed_local_i64())
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
-        let last_op1 = env.compat.then(|| b.declare_zeroed_local());
+        let last_op1 = (env.compat && !env.legacy).then(|| b.declare_zeroed_local());
         let vector_ok = env.legacy.then(|| b.declare_zeroed_local());
         let verified = (env.span > 1).then(|| b.declare_zeroed_local());
 
@@ -4216,6 +4223,7 @@ impl Emitter {
             access: None,
             lock_loop: None,
             last_op1,
+            last_op1_memory: env.legacy,
             vector_ok,
             x87_words: None,
             x87_cache: None,
@@ -6470,6 +6478,22 @@ impl Emitter {
             self.b.wrap_i64_to_i32();
             self.b.set_local(self.last_op1.as_ref().unwrap());
         }
+        else if self.last_op1_memory {
+            self.c32(gp::last_op1 as i32);
+            self.g(i);
+            self.b.wrap_i64_to_i32();
+            self.b.store_aligned_i32(0);
+        }
+    }
+    /// Whether the 32-bit interpreter's last_op1 is kept (compatibility and
+    /// legacy mode)
+    fn tracks_last_op1(&self) -> bool { self.last_op1.is_some() || self.last_op1_memory }
+    /// Push last_op1 (i32)
+    fn push_last_op1(&mut self) {
+        match &self.last_op1 {
+            Some(local) => self.b.get_local(local),
+            None => self.b.load_fixed_i32(gp::last_op1 as u32),
+        }
     }
     /// Compatibility mode: SF, ZF, PF and AF after a multiply as the 32-bit
     /// interpreter's lazy EFLAGS give them (cpu::arith::mul32 and kin: the
@@ -6486,10 +6510,10 @@ impl Emitter {
     /// that its operation left to last_op1: (last_op1 ^ (result - last_op1)
     /// ^ result) & AF (cpu::misc_instr::getaf, not a subtraction)
     fn legacy_af(&mut self) {
-        self.b.get_local(self.last_op1.as_ref().unwrap());
+        self.push_last_op1();
         self.g(TR);
         self.b.wrap_i64_to_i32();
-        self.b.get_local(self.last_op1.as_ref().unwrap());
+        self.push_last_op1();
         self.b.sub_i32();
         self.b.xor_i32();
         self.g(TR);
@@ -6507,8 +6531,7 @@ impl Emitter {
     /// last_op1 and result - last_op1. It replaces any pending record: these
     /// instructions write every flag.
     fn legacy_record(&mut self, width: u8, bits: u32) {
-        let op1 = self.last_op1.as_ref().unwrap().unsafe_clone();
-        self.b.get_local(&op1);
+        self.push_last_op1();
         self.b.extend_unsigned_i32_to_i64();
         self.s(FA);
         self.g(TR);
@@ -6781,6 +6804,30 @@ impl Emitter {
                 self.b.shl_i32();
                 self.b.or_i32();
             }
+        }
+        else {
+            self.c32(0);
+        }
+        self.si(FK);
+    }
+    /// record() of INC or DEC in legacy mode (M8): FA holds the result, as FR
+    /// does, and RECORD_UNIT says the operands are result -/+ 1 and 1
+    /// (pages::x64_page_flags): a loop counter's old value and the constant
+    /// are no values the loop carries
+    fn unit_record(&mut self, dec: bool, width: u8, writes: u32, eager: u32, inst: &Inst) {
+        let pending = writes & !eager;
+        if pending != 0 || inst.keep {
+            self.g(TR);
+            self.s(FA);
+            self.g(TR);
+            self.s(FR);
+        }
+        if pending != 0 {
+            let code = if dec { 5 } else { 0 };
+            self.c32(
+                ((code as u32) << 16 | (width.trailing_zeros() - 3) << 20 | RECORD_UNIT | pending)
+                    as i32,
+            );
         }
         else {
             self.c32(0);
@@ -7130,7 +7177,7 @@ impl Emitter {
                     && matches!((dst, src), (Opnd::Reg(a), Opnd::Reg(b)) if a == b)
                 {
                     // SUB/XOR of a register with itself
-                    if code == 5 && self.last_op1.is_some() {
+                    if code == 5 && self.tracks_last_op1() {
                         self.get_reg(dst.reg().unwrap(), width);
                         self.s(TA);
                         self.note_last_op1(TA);
@@ -7276,7 +7323,12 @@ impl Emitter {
                 self.s(TR);
                 self.write_dst(dst, width, TR);
                 self.alu_flags(if dec { 5 } else { 0 }, width, need);
-                self.record(if dec { 5 } else { 0 }, width, ARITH & !CF, need, inst);
+                if self.env.legacy {
+                    self.unit_record(dec, width, ARITH & !CF, need, inst);
+                }
+                else {
+                    self.record(if dec { 5 } else { 0 }, width, ARITH & !CF, need, inst);
+                }
             },
             Op::Neg { width, dst } => {
                 self.read_dst(dst, width, true, inst);
@@ -7372,10 +7424,10 @@ impl Emitter {
                 }
                 self.gi(FL);
                 self.c32(code as i32 | (width as i32) << 8);
-                if self.last_op1.is_some() {
+                if self.tracks_last_op1() {
                     // (compatibility mode, P7.2: the 32-bit interpreter's
                     // rules, which leave AF to last_op1)
-                    self.b.get_local(self.last_op1.as_ref().unwrap());
+                    self.push_last_op1();
                     self.b.call_signature(
                         "x64_page_shift32",
                         Signature::new(
