@@ -3987,6 +3987,10 @@ struct Emitter {
     /// later MUL's AF follows (cpu::misc_instr::getaf): kept in a local,
     /// loaded and written back with the GPRs
     last_op1: Option<WasmLocal>,
+    /// legacy mode (P7.3): which vector_checked kinds may run natively, from
+    /// CR0, CR4 and XCR0 at entry and after each step (reload: a stepped
+    /// CLTS, MOV CR or XSETBV may change them), for the checks once a block
+    vector_ok: Option<WasmLocal>,
     /// compatibility mode's x87 forms (P7.2a): their operand words (low,
     /// high), made when first used
     x87_words: Option<(WasmLocal, WasmLocal)>,
@@ -4171,6 +4175,7 @@ impl Emitter {
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
         let last_op1 = env.compat.then(|| b.declare_zeroed_local());
+        let vector_ok = env.legacy.then(|| b.declare_zeroed_local());
         let verified = (env.span > 1).then(|| b.declare_zeroed_local());
 
         let mut e = Emitter {
@@ -4197,6 +4202,7 @@ impl Emitter {
             access: None,
             lock_loop: None,
             last_op1,
+            vector_ok,
             x87_words: None,
             x87_cache: None,
             x87_is_open: None,
@@ -4351,6 +4357,7 @@ impl Emitter {
             fp_mxcsr,
             lookup_kept,
             last_op1,
+            vector_ok,
             x87_words,
             x87_cache,
             x87_is_open,
@@ -4368,7 +4375,12 @@ impl Emitter {
             }
             b.free_local(delta);
         }
-        for l in w.into_iter().chain(fp_mxcsr).chain(last_op1) {
+        for l in w
+            .into_iter()
+            .chain(fp_mxcsr)
+            .chain(last_op1)
+            .chain(vector_ok)
+        {
             b.free_local(l);
         }
         if let Some((low, high)) = x87_words {
@@ -4610,6 +4622,59 @@ impl Emitter {
             self.b.load_fixed_i32(gp::last_op1 as u32);
             self.b.set_local(self.last_op1.as_ref().unwrap());
         }
+        if self.vector_ok.is_some() {
+            // SSE: CR0.EM and TS clear, CR4.OSFXSR set (sse_check)
+            self.b.load_fixed_i32(gp::cr as u32);
+            self.c32(0xC);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.load_fixed_i32(gp::cr as u32 + 16);
+            self.c32(0x200);
+            self.b.and_i32();
+            self.c32(0);
+            self.b.ne_i32();
+            self.b.and_i32();
+            // VEX: CR0.TS clear, CR4.OSXSAVE set, XCR0 with SSE and AVX state
+            self.b.load_fixed_i32(gp::cr as u32);
+            self.c32(crate::cpu::cpu::CR0_TS);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.b.load_fixed_i32(gp::cr as u32 + 16);
+            self.c32(crate::cpu::cpu::CR4_OSXSAVE);
+            self.b.and_i32();
+            self.c32(0);
+            self.b.ne_i32();
+            self.b.and_i32();
+            self.b.load_fixed_i32(gp::xcr0 as u32);
+            self.c32(6);
+            self.b.and_i32();
+            self.c32(6);
+            self.b.eq_i32();
+            self.b.and_i32();
+            self.c32(VECTOR_VEX.trailing_zeros() as i32);
+            self.b.shl_i32();
+            self.b.or_i32();
+            // x87: CR0.EM and TS clear (x87_check)
+            self.b.load_fixed_i32(gp::cr as u32);
+            self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
+            self.b.and_i32();
+            self.b.eqz_i32();
+            self.c32(VECTOR_X87.trailing_zeros() as i32);
+            self.b.shl_i32();
+            self.b.or_i32();
+            self.b.set_local(self.vector_ok.as_ref().unwrap());
+        }
+    }
+    /// Retry unless `kind` (vector_checked) may run, by the local reload
+    /// sets (legacy mode)
+    fn vector_ok_check(&mut self, kind: u8, start: u64) {
+        self.b.get_local(self.vector_ok.as_ref().unwrap());
+        self.c32(kind as i32);
+        self.b.and_i32();
+        self.b.eqz_i32();
+        self.b.if_void();
+        self.leave_to(self.f().retry, start);
+        self.b.block_end();
     }
     /// RIP into its local (in compatibility mode EIP: its high half is 0)
     fn load_rip(&mut self) {
@@ -9569,6 +9634,9 @@ impl Emitter {
             return;
         }
         self.vector_checked |= VECTOR_X87;
+        if self.vector_ok.is_some() {
+            return self.vector_ok_check(VECTOR_X87, start);
+        }
         self.b.load_fixed_i32(gp::cr as u32);
         self.c32(crate::cpu::cpu::CR0_EM | crate::cpu::cpu::CR0_TS);
         self.b.and_i32();
@@ -9723,6 +9791,9 @@ impl Emitter {
                 return;
             }
             self.vector_checked |= kind;
+        }
+        if self.vector_ok.is_some() {
+            return self.vector_ok_check(kind, start);
         }
         if inst.d.vex.is_none() {
             self.sse_check(start);

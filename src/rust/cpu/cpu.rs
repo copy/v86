@@ -3532,7 +3532,10 @@ pub unsafe fn cycle_internal() -> bool {
         && !crate::cpu::execution::is_deterministic()
         && crate::x64::pages::runnable32()
     {
-        let attempt = crate::x64::pages::run(4096);
+        // (to the end of the batch, as Tier-0's functions run: a return to
+        // this loop every 4096 instructions cost 531.bitboard 4%)
+        let ran = (*instruction_counter).wrapping_sub(jit_link_batch_start);
+        let attempt = crate::x64::pages::run(jit_link_batch_limit.saturating_sub(ran).max(1));
         if attempt.retired == 0 {
             let span = crate::cpu::execution::ledger_begin();
             run_compat_instruction();

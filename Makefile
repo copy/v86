@@ -1104,6 +1104,7 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
 	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_irq_slow.mjs
 	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_segment_fault.mjs
 	node tests/ir/differential/page_smc.mjs
+	node tests/ir/differential/page_vector_ts.mjs
 	# (multi-page functions, x64_page_clusters: P7.3b)
 	for kind in "" m s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1,x64_page_clusters=1,x64_span_crossings=1 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
 	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_page_legacy32=1,x64_page_clusters=1,x64_span_crossings=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
