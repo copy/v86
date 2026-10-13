@@ -10908,10 +10908,22 @@ impl Emitter {
             self.b.ne_i64();
             self.retry_if(start);
         }
-        self.g(TA);
-        self.g(TB);
-        self.b
-            .op(if signed { op::OP_I64REMS } else { op::OP_I64REMU });
+        if self.env.legacy {
+            // (legacy mode, P7.3: the remainder from the quotient, one
+            // multiply where engines emit a second division for i64.rem; the
+            // quotient is exact, so the dividend less quotient * divisor)
+            self.g(TA);
+            self.g(TR);
+            self.g(TB);
+            self.b.mul_i64();
+            self.b.sub_i64();
+        }
+        else {
+            self.g(TA);
+            self.g(TB);
+            self.b
+                .op(if signed { op::OP_I64REMS } else { op::OP_I64REMU });
+        }
         self.s(TV);
         self.g(TR);
         self.set_reg(RAX, width);

@@ -263,13 +263,9 @@ impl VecOperands for Operands<'_> {
     }
     fn exact_result(&mut self) { sse_fp_result(&mut self.e.b, self.e.env.sse_fp_operands) }
     /// (the templates whose facts the page tier follows: arithmetic,
-    /// compares, conversions; not in legacy mode, P7.3, where a refused
-    /// operand is computed in place as Tier-0 does: facts claimed for
-    /// admitted operands only retry refused ones, and data that keeps
-    /// refusing then leaves the function on every iteration)
+    /// compares, conversions)
     fn facts(&mut self) -> Option<Facts<'_>> {
         if !self.e.env.sse_fast_check
-            || self.e.env.legacy
             || !matches!(
                 self.inst.op,
                 Op::Vfp { .. } | Op::Vcmp { .. } | Op::Vcvt { .. }
