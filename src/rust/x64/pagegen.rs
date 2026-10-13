@@ -4573,9 +4573,7 @@ impl Emitter {
             self.b.add_i32();
             self.b.store_aligned_i32(0);
         }
-        self.gi(N);
-        self.gi(K);
-        self.b.add_i32();
+        self.n_and_steps();
         self.b.get_local(&self.budget);
         self.b.geu_i32();
         if cfg!(feature = "parallel") {
@@ -4584,6 +4582,15 @@ impl Emitter {
             self.b.or_i32();
         }
         self.b.br_if(self.f().exit);
+    }
+    /// Push N plus the instructions stepped (K; legacy mode counts those in
+    /// the budget instead, M8)
+    fn n_and_steps(&mut self) {
+        self.gi(N);
+        if !self.env.legacy {
+            self.gi(K);
+            self.b.add_i32();
+        }
     }
     fn g(&mut self, i: usize) { self.b.get_local_i64(&self.v[i]); }
     fn s(&mut self, i: usize) { self.b.set_local_i64(&self.v[i]); }
@@ -4752,9 +4759,14 @@ impl Emitter {
         }
         self.b.load_fixed_i32(gp::x64_jac_base as u32);
         self.si(JAC);
-        self.c32(gp::x64_jac_epoch as i32);
-        self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
-        self.s(EP);
+        // (M8: legacy mode reads the epoch where it chains, its only use,
+        // and counts steps in the budget, not K: two registers less where
+        // dispatch tables merge, which V8 otherwise spills around)
+        if !self.env.legacy {
+            self.c32(gp::x64_jac_epoch as i32);
+            self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
+            self.s(EP);
+        }
         self.c32(gp::x64_page_linear as i32);
         self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
         self.s(BASE);
@@ -4813,10 +4825,18 @@ impl Emitter {
         self.x87_close();
         self.materialize_if(ARITH);
         self.writeback();
-        self.gi(K);
-        self.c32(1);
-        self.b.add_i32();
-        self.si(K);
+        if self.env.legacy {
+            self.b.get_local(&self.budget);
+            self.c32(1);
+            self.b.sub_i32();
+            self.b.set_local(&self.budget);
+        }
+        else {
+            self.gi(K);
+            self.c32(1);
+            self.b.add_i32();
+            self.si(K);
+        }
         self.b
             .call_signature("x64_page_step", Signature::new(&[], &[WasmType::I32]));
         self.si(ST);
@@ -4984,9 +5004,7 @@ impl Emitter {
     /// from the instructions retired so far (gp::x64_page_chain). Else
     /// return to the dispatch loop.
     fn chain(&mut self) {
-        self.gi(N);
-        self.gi(K);
-        self.b.add_i32();
+        self.n_and_steps();
         self.b.get_local(&self.budget);
         self.b.ltu_i32();
         if cfg!(feature = "parallel") {
@@ -5024,7 +5042,13 @@ impl Emitter {
         self.gi(ENT);
         self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
         self.g(TAG);
-        self.g(EP);
+        if self.env.legacy {
+            self.c32(gp::x64_jac_epoch as i32);
+            self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
+        }
+        else {
+            self.g(EP);
+        }
         self.b.or_i64();
         self.b.eq_i64();
         self.b.if_void();
@@ -5064,8 +5088,10 @@ impl Emitter {
         self.b.get_local(&self.budget);
         self.gi(N);
         self.b.sub_i32();
-        self.gi(K);
-        self.b.sub_i32();
+        if !self.env.legacy {
+            self.gi(K);
+            self.b.sub_i32();
+        }
         if self.env.fast_chain {
             self.c32(CHAINED_GPRS);
             self.b.or_i32();
