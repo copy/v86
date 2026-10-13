@@ -2105,3 +2105,19 @@ GT1/GT2 不降（P4.6 的计时运行）。`x64_heat_batch`、`x64_miss_run`、`
 - 结论：bench 有两项单项低于 0.95，其余全部通过。按 P7.4 的规则 Legacy32 不默认开启（`x64_page_legacy32`、
   `x64_page_clusters` 仍默认关，Tier-0 继续执行 32 位保护模式代码），待所有者决定是否作为偏差接受；不接受则 M8 为第二次
   尝试（跳转表派发处的寄存器压力是下一个目标）。
+
+**出口，2026-10-14（`vM7`）。**
+
+- 所有者的决定：不翻转。M8 改为 Legacy32 的第二次尝试，先降低跳转表派发处的寄存器压力；Tier-0 的删除（P7.5）顺延到 M9。
+- R 级（开关关，对 `vM6`，`vM6` 的构建来自 `build/wt-vm6`）：i686 bench 3 个会话 0.996、1.002、1.000；单个会话低于 0.97 的项
+  按 `--runs 7` 复测都 ≥ 0.98（`720.bmi.bits` 一次 0.79、其余 1.00，A/A 里也是双峰）。XP 桌面（3 个会话）`vM6` 13.48 s，
+  M7 13.43 s，1.004。Win8.1 到桌面单次启动的中位数 173 s 对 177 s，但同一构建相差到 25 s，于是按 ABBA 比 152 s 时的原生
+  指令数（各 3 次启动）：均值都是 287.7 亿条，桌面时间中位数 167 s 对 166 s，持平。
+- 开关关闭时的重放（`tools/replay_check.mjs --base vM6`）：Tier-0 语料 869、page tier 语料 1818、长模式 bench 记录 94、
+  兼容模式 bench 记录 211（`tools/replay_record.mjs` 新增 `--switches`，用 `x64_page_compat32=1` 录制）全部 0 差异。
+- M1 的存档在默认构建与开 Legacy32 加簇的构建上都能恢复，循环跑完、新命令照常执行。
+- 账本（Legacy32 开着时的《红色警戒 2》）：16 位代码只由 region 执行，32 位保护模式代码的 region 指令数为 0；Tier-0 还执行
+  16 位栈上的 32 位代码等不可运行的部分（约 0.5%），M9 删除 Tier-0 之前要迁入 page tier。
+- 打开 Legacy32 才适用的验收项（`nasmtests-force-jit`、`jitpagingtests`、SIMD/XSAVE 套件、XP 的 PAE 与非 PAE、多核套件）
+  留到翻转时跑；`make x64-legacy32-tests` 已在每次提交时通过（全部 `FUZZ_KIND`、STRADDLE、取指故障、非平坦段、自修改代码、
+  CR0.TS）。

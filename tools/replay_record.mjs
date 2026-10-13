@@ -9,6 +9,9 @@
 //
 // Usage: node tools/replay_record.mjs [--wasm build/v86-ir-test-release.wasm]
 //        [--isa i686,x86_64] [--filter re] [--out build/replay]
+//        [--switches name=value,...]   (JIT switches for every machine: with
+//            --isa compat32 and x64_page_compat32=1, or --isa i686 and
+//            x64_page_legacy32=1, the page tier's 32-bit compilations)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -21,6 +24,7 @@ const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf("--" + name); return i < 0 ? fallback : args[i + 1]; };
 const wasm = option("wasm", "build/v86-ir-test-release.wasm");
 const isas = option("isa", "i686,x86_64").split(",");
+const switches = Object.fromEntries(option("switches", "").split(",").filter(Boolean).map(kv => { const [k, v] = kv.split("="); return [k, +v]; }));
 const filter = option("filter") ? new RegExp(option("filter")) : null;
 const out = option("out", "build/replay");
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
@@ -36,7 +40,7 @@ for(const isa of isas)
     {
         const file = isa === "x86_64" ? bench.image64 : bench.image;
         if(!file || filter && !filter.test(bench.name)) continue;
-        const machine = await create({ label: "record", isa, wasm, switches: {} }, bench, boots);
+        const machine = await create({ label: "record", isa, wasm, switches }, bench, boots);
         try
         {
             const e = machine.e;
