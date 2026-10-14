@@ -2307,6 +2307,9 @@ M7 的 Legacy32 未过 D 级门禁，按回退规则 M8 为第二次尝试，Tie
   （`600.matmul.x87` 0.87，复测 1.00）。高于 1.01 的是 `714.sse4.strings` 1.38（跨页入口）、`704.jtable` 1.09、
   `500.bytecode` 1.06。所有者的负载（2 个会话）：XP 桌面 13.34 s → 13.06 s（1.022），《暗黑破坏神》77.5 → 89.3 MIPS
   （1.152），Win98 冷启动 7.3 s → 7.0 s（1.043）。过。
+- 补记：P2.1 的叶子摘要 `tests/x86tpl/leaf_digests.rs` 随 Tier-0 删除（`aaeea703`）。它是 `ir/tier0/simd.rs` 的测试模块，参数
+  网格取自 Tier-0 的分类函数对每种编码给出的值。之后 x86tpl 叶子的输出由 `pagegen_leaf_digests.rs`（按 pagegen 的编码取键）
+  与重放检查守住；只有 Tier-0 用过、page tier 不用的叶子参数不再被钉住。
 - M9 出口：`801a3b64` 上 `make jit-gate-full` 通过（重放、x64 两组测试、`ir-core-tests`，各级发布门禁 `--quick` 的 61 项
   全部通过；R-ACPI、R-SMP32、R-x64-UP、R-x64-SMP、R-parallel 在其中）。标签 `vM9`。M10 从这里开始：Prot16（P7.7）与
   V86/实模式的测量（P7.8）。
