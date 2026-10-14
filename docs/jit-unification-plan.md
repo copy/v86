@@ -2217,3 +2217,96 @@ M7 的 Legacy32 未过 D 级门禁，按回退规则 M8 为第二次尝试，Tie
 - 按回退规则，Tier-0 再保留一个里程碑：M9 删除 Tier-0（P7.5）。之前要处理的：WOW64 的兼容模式代码仍由 Tier-0 执行
   （`x64_page_compat32` 在 M6 未过 D 级门禁，默认关；多页函数现在只用于传统模式），要再测一次兼容模式的 D 级门禁；
   Legacy32 不能运行的 32 位代码（16 位栈、CS 基址非 0，约 0.5%）删除 Tier-0 之后改由 region 执行，M11 之前迁入 page tier。
+
+### M9
+
+按回退规则 M9 删除 Tier-0（P7.5）。之前先处理 M8 出口列出的两件事：兼容模式代码仍由 Tier-0 执行（`x64_page_compat32` 在 M6
+未过 D 级门禁），以及 Legacy32 不能运行的 32 位代码。
+
+**Compat32 按 Legacy32 的方式编译，D 级门禁与翻转，2026-10-14（`3d016b28`）。**
+
+- 兼容模式的代码改用 M8 给传统模式做的选择（键从 `CompileEnv::legacy` 改为 `compat`，两种 32 位模式都为真）：向量检查与
+  单块循环的捷径、TLB 别名的拆除、链接纪元与链接预算、写掩码、FNSTSW、单元记录、FLDCW、由商求余数、REP 元素的计数；
+  `last_op1` 留在内存（`Emitter` 不再有这个局部）；多页函数，首次编译前按 `LEGACY_HEAT` 收集跨页证据（M6 的
+  `708.pages` 0.55 差的就是这个）；易变立即数与按字节范围的自修改检测（`jit_dirty_bytes_small`：8 字节以内的写不再标整页）。
+  只有解码的 `legacy_template` 与 GS 规则、`x64_page_access32` 的慢路径仍是传统模式独有。
+- 试过又撤回的：`note_unserved` 与重编译门槛也按兼容模式走，`711.x87` 0.75（中断返回的入口把循环拆开），只保留首次编译的
+  热度。REP 元素数在 M8 是每条 REP 调用一次 `x64_page_note_rep`，现在加到内存字 `gp::x64_page_rep_elements`，激活结束时
+  并入核心统计。
+- D 级门禁（A 为 `vM8`，兼容模式代码在 Tier-0；B 只多 `x64_page_compat32=1`；compat32 bench 3 个会话）：A/A 0.999；B 对 A
+  1.161、1.170、1.141，中位数 1.161。各项三个会话的中位数最低是 `520.vcall` 0.94（0.95/0.93/0.94），按 `--runs 7 --scale 4`
+  复测 0.96–0.97；其余 ≥ 0.96（`610.mandel.x87`、`703.icall`、`706.memory`、`715.avx.matmul`）。CPULOAD32（3 个会话）
+  2144 ms 对 1930 ms（1.111），Win8.1 启动 170 s 对 170 s，PROBE32 64/0。过。
+- 翻转：`x64_page_compat32` 默认开（P7.4）；和 Legacy32 一样只在 `ir_tier0` 开着时生效（`pages::COMPAT_ACTIVE`）；
+  `get_jit_info().ir.page_tier.compat32`，`v86.d.ts` 同步。x64 的 SIMD 测试（avx、bmi、fma、sse4、ssse3）的兼容模式 JIT 臂与
+  `long_visit` 钉住开关关，继续测 Tier-0；`compat_fuzz` 用 `x64_legacy_heat` 2000。`make jit-gate-full` 通过。
+
+**P7.5 删除 Tier-0，2026-10-14。**
+
+- 删除 `ir/tier0/`（analysis、emit、mod、replay、simd、x87run）与 `ir/runtime/tier0.rs`，Rust 净减约 9600 行。page tier
+  还在用的先移出并改名：`x64/loops.rs`（循环单元与 Tarjan 强连通分量，原 `tier0::analysis`）、`x64/helpers.rs`（精确 SSE
+  helper 的操作数块 `sse_fp_operands`、`x64_sse_fp` 原 `ir_t0_sse_fp`、`x64_fma` 原 `ir_t0_fma`、`pcmpstr`、调用计数、
+  `jit_set_tail_calls` 原 `ir_t0_set_tail_calls`、relaxed FMA 的开关），`ir/runtime/x87.rs` 的 `ir_t0_x87` 改名 `x64_x87`。
+  `cache.rs`：页见证、`PAGE_REFILL`（只为页见证）、`t0_execute`、`PAGE_OUT`、`ir_t0_chain` 与链接采样，以及只有 Tier-0 读的
+  `COLLECTION_PENDING`；`FAST_STAMP` 保留（region 的见证用它）。`schedule.rs`：`PAGE_HEAT`、范围与伙伴、`long_visit`（P4.6）、
+  饥饿事件；调度器的页集合（`ir/runtime/pages.rs`）：种子、范围、伙伴、排队的上下文。`snapshot.rs` 的多页捕获与
+  `CompiledArtifact` 的 `page_blocks`/`page_seeds`。13 个 `t0_*` 开关与 `ir_t0_*` 开关、`x64_long_visit`、`t0_kind_profile`
+  （及 `tools/bench/jit_stats.mjs` 的模板种类统计）随之删除。P4.6 与 `t0_rep_compat` 也就没有了。
+- 只为 Tier-0 存在的运行时机制：设备访问期间暂缓中断的 `hold_irqs`/`irq_exit`/`deliver_held_irqs`（page tier 把设备访问
+  交给解释器重试，不需要），生成代码报告的解释派发数 `JIT_ACCOUNTED_DISPATCHES`（`note_native_retired` 不再减它），模式账本的
+  `Tier0Native`/`Tier0Step` 两路（编号保留，工具按下标读）。单步画像的步进者 0 空出（`tools/step_profile.mjs` 的
+  `step_key` 默认改为 `x64page`）；画像的两字节直方图改由 page tier 提供（`x64_page_steps(pair)`、`x64_page_steps_reset()`，
+  只在画像开着时计数）。
+- `ir_tier0` 保留为别名：开着时 page tier 编译 32 位代码（传统模式与兼容模式），关掉时这些代码归 region（兼容模式经
+  `x64_compat_jit`）。它不再打开调度器的页模式、也不再把页门槛设为 50000（`ir_page_mode` 现在只表示 region 的整页编译，
+  默认关；`tests/api/jit-switches.js` 随之改为期待 0 与 512）。M8 默认配置里 region 的页模式本来就因 `!TIER0` 不起作用，
+  但调度并非不变：页模式下 `do_work` 每帧的编译额度先给 Tier-0 的页任务，Legacy32 不能运行的 32 位入口也只积累 Tier-0
+  的页热度；删除后额度都归 region，这些入口改为积累 region 的热度。R 级门禁里《暗黑破坏神》快了 15%，很可能来自前者
+  （16 位代码的 region 编译不再排在 Tier-0 的页任务后面），未单独验证。
+- 测试的迁移（约 45 个文件）：`COMPILED_ARMS` 只剩 `pages`（放第一个：测试按 `machines[1]` 查模板）与 `regions` 两臂，
+  `pages` 臂用同步发布（Tier-0 在下一帧开始时同步编译；异步发布时程序的第二页整轮都在"编译中"，其上的指令都被单步）。
+  ISA 测试（avx、sse4、ssse3、bmi、fma）改查 `x64_page_steps`，模板清单按 page tier 实际情况更新：page tier 多了 RORX，
+  少了 MMX 的 PSHUFB/PALIGNR、PMULDQ 与五个 VEX 转换（VCVTTSD2SI、VCVTSD2SS、VCVTSI2SD、VCVTSS2SD、VCVTPD2PS），ROUND
+  的 NaN lane 走重试而不是精确 helper。`SMP_MODES` 去掉 `tier0`；x64 测试的 `tier0` 模式改名 `pages`；`tier0_*` 差分测试
+  只测 page tier（文件名不变，到 M11 再随 `tests/ir` 一起整理），`ir-tier0-tests` 并入 `x64-legacy32-tests`（加上原来只在
+  前者里的 i/s 类、`sse_fp_tracking`、单步画像与模式账本）；s1 类（随机值上的打包 SSE 运算）在 page tier 里约一半指令
+  因重试在页函数外执行，覆盖门槛降到 0.25（`FUZZ_COVERAGE`），结果仍与解释器逐项比较。x64 的 SIMD 测试的兼容模式 JIT
+  臂改为 region（`x64_page_compat32` 关）；avx、bmi、fma 的这一臂去掉（region 不编译这些兼容模式代码：FMA 与 BMI 在 P7.6
+  之后结束 region）。`long_visit.mjs` 与 `tier0_kind_profile.mjs` 删除。`src/parallel/vcpu.js` 的 JIT 入口计数不再读
+  `ir_t0_entries`。`nasmtests-force-jit` 给 page tier 设 `x64_legacy_heat` 1。
+- 工具：`replay_check`/`replay_record` 只剩 page tier 的记录（`.x6r`）；`jit_gate` 去掉 `ir-tier0-tests` 一步，
+  `x64-legacy32-tests` 在 IR 或 x64 代码改动时都跑；`make ab-ptier` 的 A 臂改为两个 32 位开关都关（32 位代码在 region），
+  供 M10 用；`page_code`/`page_profile` 的 `--isa i686` 现在是 page tier 的传统模式。文档：`ir-design.md`、`x86-64.md`、
+  `profiling.md`、`cpu-benchmarks.md`、ARM64 计划里尾调用探测的导出名。
+- Legacy32 不能运行的 32 位代码（16 位栈、CS 基址非 0）照 M8 出口所说改由 region 执行（`ir_tier0` 开着时 region 本来就编译
+  page tier 不接的代码），M10 的 Prot16 一并处理 16 位栈。
+- 门禁发现并行构建的一个潜伏错误（`439cd4a3`）：`relocate.js` 按值判断一个被重定位的地址是否在 CPU 状态块里，编译器把越过
+  静态数组末尾的地址折进常量（`configure_heat` 清 `HEAT` 的循环以 `HEAT + 256 KiB` 为基址），删除 Tier-0 的静态量之后
+  状态块正好排在 `HEAT` 后面，这些存储被搬到状态槽 0，`ir_auto_config` 在每个 `v86-parallel.wasm` 实例里越界。现在
+  `tools/parallel_wasm.mjs` 按重定位的符号把指向 `STATE_BLOCK` 的字段单独列出（重定位表第 3 版），`relocate.js` 只搬这些。
+  门禁的另两处失败是环境：新工作树缺 `build/glbridge/libv86-webgpu.js`（`make glbridge`），ACPI 访客测试在宿主忙时
+  （同时在编译）认为 PM 定时器的速率不对；`ssse3-tests` 的调试构建一项在同样的负载下 PSHUFB 被单步，安静时 0 次。
+- ISA 测试改查 page tier 之后发现 page tier 自 M7 起就有的一个问题：从前一页顺序执行进来的那条指令（页的第一条）不算入口
+  （`run()` 把与上次相距 15 字节以内的地址当作直线代码的延续），页函数于是不服务它，之后每轮都从那里单步到页尾。
+  `tests/rust/sse4.mjs` 的 PCMPxSTRx 程序（23 KiB 没有分支）三分之一的指令被单步。现在跨页进入算入口（`run()` 与
+  `x64_page_unserved` 的 `far`）；6 页直线代码的循环 220800 次单步变为 0（100 ms → 43 ms），新测试 `page_crossing.mjs`
+  进 `x64-legacy32-tests`。ISA 测试原来用“MOVDQU 也被单步”判断构建没有 Wasm SIMD（Tier-0 的情形），page tier 在没有
+  SIMD 的构建里仍原生搬 XMM 寄存器，改为查 `ir_wasm_simd_supported`；两字节单步计数在冷的一轮之前冻结
+  （`x64_page_steps_freeze`：改写后的程序重编译时把被写过的指令当作易变指令单步，计数应只算热的一轮）。
+- R 级门禁的第一轮在 `708.pages` 0.02、`709.smc` 0.22、`502.codebloat` 0.55：B 的每个多页函数都没通过 Wasm 验证。原因有两层。
+  测量本身：bench 在 A 的工作树里跑，A 的 JS 经 `ir_t0_set_tail_calls` 打开链接，B 的核心只有改名后的
+  `jit_set_tail_calls`，B 于是在没有链接的情况下运行（门禁改在 B 的工作树里跑，用一个只供测量的 `--import` 垫片给两种核心
+  都补上两个导出名，`708/709/502` 两臂一致）。真正的错误：`tlb_page_host` 开头把页参数 tee 而不是 set，`span_entry` 每个
+  成员页（加一）在栈上留下一个 i32；有链接的函数以 `return` 结束，栈多态把它藏住，没有链接（引擎不支持 Wasm 尾调用）时
+  P7.3b 以来每个多页函数都被拒绝、所在页全部解释执行。改为 set（`801a3b64`）；`page_crossing.mjs` 加一个像 `708.pages`
+  的程序（每页一条指令跳到下一页），以多页函数有链接与无链接各跑一遍并检查没有编译失败。三种 ISA 的 bench 在
+  `x64_chaining=0` 下全部编译成功。
+- R 级门禁（B 为 `801a3b64`，A 为 `3d016b28`，同一份 B 的 JS）：i686 bench 3 个会话 1.005、1.006、1.010（各项中位数的几何均值
+  1.010）；低于 0.99 的 `616.fcompare` 0.94（0.94/0.93/1.00）、`721.fma.poly` 0.97 与 `719.avx2.scan` 0.98 按 `--runs 7 --scale 4`
+  复测为 1.01、1.00、0.99；`720.bmi.bits` 三次 0.85/1.25/1.10，是两种稳定状态之间的跳动。compat32 1.000，x86_64 0.998
+  （`600.matmul.x87` 0.87，复测 1.00）。高于 1.01 的是 `714.sse4.strings` 1.38（跨页入口）、`704.jtable` 1.09、
+  `500.bytecode` 1.06。所有者的负载（2 个会话）：XP 桌面 13.34 s → 13.06 s（1.022），《暗黑破坏神》77.5 → 89.3 MIPS
+  （1.152），Win98 冷启动 7.3 s → 7.0 s（1.043）。过。
+- M9 出口：`801a3b64` 上 `make jit-gate-full` 通过（重放、x64 两组测试、`ir-core-tests`，各级发布门禁 `--quick` 的 61 项
+  全部通过；R-ACPI、R-SMP32、R-x64-UP、R-x64-SMP、R-parallel 在其中）。标签 `vM9`。M10 从这里开始：Prot16（P7.7）与
+  V86/实模式的测量（P7.8）。
