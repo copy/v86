@@ -139,6 +139,7 @@ state!(x64_code_base: u32 = 1820);
 state!(x64_page_lazy_kind: u32 = 1824);
 state!(x64_page_lazy_a: u64 = 1832);
 state!(x64_page_lazy_b: u64 = 1840);
+state!(x64_page_rep_elements: u32 = 1848);
 state!(smm_state: u32 = 1856);
 state!(smbase: u32 = 1860);
 state!(x64_chain_gprs: u64 = 1864);

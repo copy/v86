@@ -10,6 +10,8 @@ const { createV86GLDevice: create_v86gl_device } = create_require(import.meta.ur
 // Headless CPU/disk diagnostic. Disk writes stay in AsyncXHRBuffer's RAM overlay.
 // Run one process per core so 2 GiB guest memories do not overlap.
 // node tests/ir/performance/xp_boot.mjs disk.img [core.wasm]; IR_TIER0=0 turns Tier-0 off.
+// XP_CPU_TYPE=x86_64: a CPU with NX, for which XP boots its PAE kernel (the
+// result's cr4 shows PAE, bit 5).
 const [disk, wasm = "build/v86-ir-runtime.wasm", ...extra] = process.argv.slice(2);
 assert(disk && !extra.length, "usage: xp_boot.mjs disk.img [core.wasm]");
 const duration = Number(process.env.IR_BOOT_MS || 30000);
@@ -68,6 +70,7 @@ const vm = new V86({
     ...(process.env.IR_SYNC_PUB !== undefined ? {ir_sync_publication: process.env.IR_SYNC_PUB === "1"} : {}),
     ...(process.env.IR_OPT_LEVEL !== undefined ? {ir_opt_level: Number(process.env.IR_OPT_LEVEL)} : {}),
     memory_size: 2048 * 1024 * 1024, vram_size: 16 * 1024 * 1024,
+    ...(process.env.XP_CPU_TYPE ? { cpu_type: process.env.XP_CPU_TYPE } : {}),
     bios: { url: "bios/seabios.bin" }, vga_bios: { url: "bios/vgabios.bin" },
     hda: process.env.IR_SYNC_DISK === "1" ? new SyncDisk(disk) : { url: disk, size: fs.statSync(disk).size, async: true },
     x87_fast_math: true, x87_jit_cache: true,
@@ -212,7 +215,7 @@ try {
     // (tools/bench/jit_stats.mjs, docs/jit-unification-plan.md P0.7)
     if(jit_stats_enabled()) print_jit_stats(vm, { script: "xp_boot", wasm, target, milestone, ms: performance.now() - started });
     console.log(JSON.stringify({event:"result", target, completed:target === "time" || !!milestone,
-        ms:performance.now()-started, instructions:total, milestone, jit:vm.get_jit_info(),
+        ms:performance.now()-started, instructions:total, milestone, jit:vm.get_jit_info(), cr4:cpu.cr[4]>>>0,
         // Accumulate wrapping counters per interval; long boots can exceed 2^32.
         ir_work:{guest_steps:total_ir[0],activations:total_ir[1],full_checks:total_ir[2],observer_checks:total_ir[3],
             warm_handoffs:total_ir[4],missing_hint_hits:total_ir[5]},

@@ -51,7 +51,7 @@ async function machine(tier0)
 {
     const vm = new V86({
         graphics_adapter: "bochs_vga", wasm_path: wasm, disable_jit: !tier0, memory_size: 128 << 20, ir_sync_publication: true,
-        ...tier0 ? { jit_switches: { t0_rep_blocks: 1, t0_rep_movs_stos: 1, ...page_tier ? { x64_legacy_heat: 2000 } : {},
+        ...tier0 ? { jit_switches: { t0_rep_blocks: 1, t0_rep_movs_stos: 1, ...page_tier ? { x64_legacy_heat: 2000 } : { x64_page_legacy32: 0 },
             ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,

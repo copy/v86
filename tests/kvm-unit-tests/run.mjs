@@ -13,7 +13,8 @@
 //   --cpu-features L  CPU features of docs/simd-xsave-plan.md, comma-separated
 //   --cpu-type T      x86 (default) or x86_64, for the x86_64 builds
 //   --quiet           don't echo the serial output
-// Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter.
+// Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter,
+// JIT_SWITCHES the JIT switches (tests/lib/jit_switches.mjs).
 //
 // Exit status: 0 passed, 1 failed, 2 crashed (the emulator threw), 3 timed out,
 // 4 test file missing. The last line is machine readable:
@@ -73,9 +74,10 @@ process.on("uncaughtException", e => finish("crashed", -1, "emulator exception: 
 process.on("unhandledRejection", e => finish("crashed", -1, "emulator exception: " + (e && e.stack || e)));
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+const { with_jit_switches } = await import("../lib/jit_switches.mjs");
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
-const emulator = new V86({
+const emulator = new V86(with_jit_switches({
     graphics_adapter: "bochs_vga",
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
@@ -89,7 +91,7 @@ const emulator = new V86({
     cpu_type: options.cpu_type,
     disable_jit: +process.env.DISABLE_JIT,
     log_level: 0,
-});
+}));
 
 setTimeout(async () => {
     const diagnostics = await emulator.get_diagnostics();

@@ -4,7 +4,7 @@ import {V86} from "../../../build/libv86.mjs";
 import {WASM_TABLE_SIZE} from "../../../src/const.js";
 const wasm=process.argv[2]||"build/v86-ir-cache-test.wasm";
 let clock_mutation=null;
-const vm=new V86({graphics_adapter: "bochs_vga", wasm_fn:async imports=>{
+const vm=new V86({jit_switches:{x64_page_legacy32:0},graphics_adapter: "bochs_vga", wasm_fn:async imports=>{
     const tick=imports.env.microtick;
     imports.env.microtick=()=>{if(clock_mutation)clock_mutation();return tick();};
     return (await WebAssembly.instantiate(fs.readFileSync(wasm),imports)).instance.exports;

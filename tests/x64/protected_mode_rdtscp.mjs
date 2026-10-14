@@ -210,11 +210,11 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
     for(const [name, jit] of [["interpreter", false], ["JIT", true]])
     {
         const run = `${profile} profile, ${name}`;
-        let tier0;
+        let ir;
         const result = await actual(directory, {length: RECORDS + 8 + 16 * STEPS.length + 8 - OUT, timeout: 120000,
             options: {...(cpu_type ? {cpu_type} : {}), ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
             setup: emulator => { if(jit) emulator.v86.cpu.wm.exports.ir_auto_set_idle_mode(0, 1); },
-            inspect: emulator => { tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0; }});
+            inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
         const word = at => result.readUInt32LE(at - OUT);
         const tsc = at => BigInt(word(at + 4)) << 32n | BigInt(word(at));
         assert.equal(word(BAD), 0, `${run}: no exception other than #UD and #GP`);
@@ -239,7 +239,9 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
         times.slice(1).forEach((time, i) => assert.ok(time >= times[i], `${run}: TSC goes backwards: ${times.map(time => "0x" + time.toString(16))}`));
         assert.equal(word(MISMATCHES), 0, `${run}: rounds where ECX was not that round's TSC_AUX`);
         assert.equal(word(FAULTS), ROUNDS * expected.filter(Boolean).length, `${run}: faults over all rounds`);
-        if(jit) assert.ok(tier0.page_functions > 0 && tier0.activations > 0, `${run}: compiled code ran: ${JSON.stringify(tier0)}`);
+        // (32-bit protected-mode code in the x64 page tier, else Tier-0)
+        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
+            `${run}: compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
         console.log(`PASS 32-bit RDTSCP (${run}): ${profile === "x64" ? "EDX:EAX = TSC, ECX = TSC_AUX, #GP at CPL 3 with CR4.TSD" : "#UD"}`);
     }
 }
@@ -290,7 +292,7 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
     for(const [name, jit] of [["interpreter", false], ["compat JIT", true]])
     {
         const run = `compatibility mode, ${profile} profile, ${name}`;
-        let tier0;
+        let ir;
         const result = await actual(compat, {length: 40, timeout: 60000,
             options: {...(cpu_type ? {cpu_type} : {}), ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
             setup: emulator => {
@@ -298,11 +300,13 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
                 exports.x64_set_compat_jit(jit);
                 if(jit) exports.ir_auto_set_idle_mode(0, 1);
             },
-            inspect: emulator => { tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0; }});
+            inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
         const tsc = at => BigInt(result.readUInt32LE(at + 4)) << 32n | BigInt(result.readUInt32LE(at));
         assert.equal(result.readUInt32LE(12), 0, `${run}: RDTSCPs whose ECX was not TSC_AUX`);
         assert.ok(tsc(16) <= tsc(24) && tsc(24) <= tsc(32), `${run}: RDTSCP's EDX:EAX between the RDTSCs`);
-        if(jit) assert.ok(tier0.page_functions > 0 && tier0.activations > 0, `${run}: compiled code ran: ${JSON.stringify(tier0)}`);
+        // (32-bit protected-mode code in the x64 page tier, else Tier-0)
+        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
+            `${run}: compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
         console.log(`PASS RDTSCP (${run})`);
     }
 }

@@ -7,13 +7,15 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import url from "node:url";
+import { with_smp_mode } from "../lib/smp_modes.mjs";
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const local = path => url.fileURLToPath(new URL(path, import.meta.url));
 const affinity_probe = fs.readFileSync(local("../../build/smp/affinity_probe"));
 const TIMEOUT_MS = 120000;
+// (tests/lib/smp_modes.mjs)
 const jit_mode = process.env.SMP_JIT_MODE || "interpreter";
-assert.ok(["interpreter", "tier0", "region"].includes(jit_mode), "SMP_JIT_MODE must be interpreter, tier0 or region");
+assert.ok(["interpreter", "tier0", "region", "pages"].includes(jit_mode), "SMP_JIT_MODE must be interpreter, tier0, region or pages");
 const counts = process.env.CPU_COUNTS ? process.env.CPU_COUNTS.split(",").map(Number) : [1, 2, 3, 4, 8];
 assert.ok(counts.every(count => Number.isInteger(count) && count >= 1 && count <= 8));
 const transcript_directory = process.env.C2_LOG_DIR;
@@ -61,7 +63,7 @@ function check_smbios(cpu, count)
 
 async function test(count)
 {
-    const emulator = new V86({
+    const emulator = new V86(with_smp_mode({
         graphics_adapter: "bochs_vga",
         wasm_path: process.env.WASM_PATH,
         bios: { url: local("../../bios/seabios.bin") },
@@ -72,23 +74,24 @@ async function test(count)
         acpi: true,
         disable_jit: jit_mode === "interpreter",
         experimental_smp_jit: jit_mode !== "interpreter",
-        ir_tier0: jit_mode === "tier0",
         ir_sync_publication: true,
         ir_region_budget: { hot_threshold: 8, promotion_threshold: 128 },
         autostart: false,
         filesystem: {},
         log_level: 0,
-    });
+    }, jit_mode, false));
     let serial = "";
     let cpu;
     let timeout;
     let phase = "load";
     let rounds = 0;
     let summary;
-    const per_core_jit = Array.from({ length: count }, () => ({ tier0: 0, region: 0 }));
+    const per_core_jit = Array.from({ length: count }, () => ({ tier0: 0, region: 0, pages: 0 }));
     const jit_counts = () => ({
         tier0: cpu.wm.exports.ir_t0_entries() >>> 0,
         region: cpu.wm.exports.ir_cache_stat(2) >>> 0,
+        // (instructions the page tier ran natively)
+        pages: cpu.wm.exports.x64_page_stat(1) >>> 0,
     });
     emulator.add_listener("serial0-output-byte", byte => {
         const character = String.fromCharCode(byte);
@@ -134,6 +137,7 @@ async function test(count)
                 const after = jit_counts();
                 per_core_jit[core].tier0 += (after.tier0 - before.tier0) >>> 0;
                 per_core_jit[core].region += (after.region - before.region) >>> 0;
+                per_core_jit[core].pages += (after.pages - before.pages) >>> 0;
                 return result;
             };
         }
@@ -193,8 +197,9 @@ echo C2_DONE
         const workload_jit = per_core_jit.map((counters, id) => ({
             tier0: counters.tier0 - boot_jit[id].tier0,
             region: counters.region - boot_jit[id].region,
+            pages: counters.pages - boot_jit[id].pages,
         }));
-        if(jit_mode === "interpreter") assert.deepEqual(hits, { tier0: 0, region: 0 }, "interpreter reference executed no compiled code");
+        if(jit_mode === "interpreter") assert.deepEqual(hits, { tier0: 0, region: 0, pages: 0 }, "interpreter reference executed no compiled code");
         else
         {
             assert.ok(hits[jit_mode] > 0, `${jit_mode} compiled code actually executed`);

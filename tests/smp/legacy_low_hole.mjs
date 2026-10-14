@@ -4,9 +4,10 @@
 // ordinary RAM. Core 1 executes code above the hole to test the fast-limit gap.
 import assert from "node:assert/strict";
 import { setImmediate as set_immediate } from "node:timers";
+import { smp_modes, with_smp_mode, mode_hits } from "../lib/smp_modes.mjs";
 const { V86 } = await import(process.env.V86_LIB_PATH || (+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js"));
 const u32 = value => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 const target = 0x200000, high = 2 ** 32, value = 0x12345678, relocated = 0x87654321;
 const ips = [0x10000, 0x300000];
 const code = new Uint8Array([
@@ -20,11 +21,10 @@ const code = new Uint8Array([
 ]);
 for(const mode of modes)
 {
-    const emulator = new V86({ graphics_adapter: "bochs_vga", wasm_path: process.env.WASM_PATH, memory_size: 16 << 20,
-        acpi: true, cpu_cores: 2, disable_jit: mode === "interpreter", experimental_smp_jit: true,
-        ir_tier0: mode === "tier0", ir_sync_publication: true,
+    const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", wasm_path: process.env.WASM_PATH, memory_size: 16 << 20,
+        acpi: true, cpu_cores: 2, disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
         ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
-        autostart: false, log_level: 0, net_device: { type: "none" } });
+        autostart: false, log_level: 0, net_device: { type: "none" } }, mode));
     await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
     try
     {
@@ -54,7 +54,7 @@ for(const mode of modes)
             cpu.full_clear_tlb();
             cpu.cores[core].running = true;
         }
-        const hits = () => mode === "tier0" ? e.ir_t0_entries() >>> 0 : e.ir_cache_stat(2) >>> 0;
+        const hits = () => mode_hits(e, mode);
         const run = async (phase, expected) => {
             const counts = [];
             for(let core = 0; core < 2; core++)

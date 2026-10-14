@@ -473,7 +473,8 @@ async function machine(tier0) {
         // (the page tier counts each instruction: blocks count theirs at
         // entry by default, more than run when a retry leaves one early; and
         // compiles, and recompiles for new entries, as soon as long mode)
-        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000, x64_legacy_recompile_misses: 64 } : {}, ...jit_switches_from_env() } } : {},
+        ...tier0 ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000, x64_legacy_recompile_misses: 64 } : { x64_page_legacy32: 0 },
+            ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });

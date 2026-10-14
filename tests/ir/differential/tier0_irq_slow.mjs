@@ -94,7 +94,7 @@ async function machine(tier0, switches = {}) {
     }
     await vm.stop();
     if(tier0) assert(e.ir_auto_set_tier0(1));
-    set_jit_switches(e, cpu.wasm_memory, { ...tier0 && page_tier ? { x64_legacy_heat: 2000, ...jit_switches_from_env() } : {},
+    set_jit_switches(e, cpu.wasm_memory, { ...tier0 && page_tier ? { x64_legacy_heat: 2000, ...jit_switches_from_env() } : { x64_page_legacy32: 0 },
         ...switches }, "tier0_irq_slow");
     return { vm, cpu, e, tier0 };
 }

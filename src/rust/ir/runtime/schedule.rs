@@ -503,6 +503,7 @@ pub unsafe fn ir_auto_set_tier0(enabled: u32) -> bool {
         return false;
     }
     TIER0 = enabled != 0;
+    crate::x64::pages::set_legacy_tier0(TIER0);
     if TIER0 {
         reserve_compiler_heap();
     }

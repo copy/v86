@@ -133,11 +133,11 @@ image_end:
 const hex = x => "0x" + (x >>> 0).toString(16);
 for(const [name, jit] of [["interpreter", false], ["JIT", true]])
 {
-    let tier0;
+    let ir;
     const result = await actual(directory, {length: 16 + 12 * STEPS.length, timeout: 120000,
         options: {cpu_type: "x86_64", ...(jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {})},
         setup: emulator => { if(jit) emulator.v86.cpu.wm.exports.ir_auto_set_idle_mode(0, 1); },
-        inspect: emulator => { tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0; }});
+        inspect: emulator => { ir = emulator.v86.cpu.get_jit_info().ir; }});
     assert.equal(result.readUInt32LE(4), 0, `${name}: no exception other than #GP`);
     assert.ok(result.readUInt32LE(8) & 1 << 29, `${name}: CPUID.(EAX=7,ECX=0):EDX[29] advertises IA32_ARCH_CAPABILITIES`);
     STEPS.forEach(([op, msr], i) => {
@@ -146,6 +146,8 @@ for(const [name, jit] of [["interpreter", false], ["JIT", true]])
         assert.deepEqual(observed, EXPECTED[i].map(x => x >>> 0),
             `${name}: ${op === "read" ? "RDMSR" : "WRMSR"} ${hex(msr)}: #GP, EAX, EDX ${observed.map(hex)}, expected ${EXPECTED[i].map(hex)}`);
     });
-    if(jit) assert.ok(tier0.page_functions > 0 && tier0.activations > 0, `compiled code ran: ${JSON.stringify(tier0)}`);
+    // (32-bit protected-mode code in the x64 page tier, else Tier-0)
+    if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
+        `compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
     console.log(`PASS 32-bit protected mode on the x86-64 profile (${name}): IA32_ARCH_CAPABILITIES = ${hex(arch_high)}:${hex(arch_low)}, read-only; KERNEL_GS_BASE and TSC_AUX`);
 }

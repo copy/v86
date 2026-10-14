@@ -808,7 +808,11 @@ export interface V86Options {
     /** Startup-only diagnostic controls. Verification and recovery cannot be disabled. */
     ir_passes_disabled?: Array<"prune" | "merge" | "phis" | "copy" | "fold" | "flags" | "helper_state" |
         "gvn" | "dce" | "licm" | "mir_fold" | "stack" | "allocation" | "state_elision" | "ram_loop" | "ram_forward" | "ram_guard">;
-    /** Page-granular Tier-0 compilation below the IR region tier (default true). */
+    /**
+     * Page-granular compilation below the IR region tier (default true): 32-bit
+     * protected-mode code in the x64 page tier (JIT switch x64_page_legacy32,
+     * default on), else Tier-0, which also runs what the page tier cannot.
+     */
     ir_tier0?: boolean;
     /** Bounded automatic IR policy. */
     ir_region_budget?: {
@@ -1396,6 +1400,8 @@ export interface V86JitInfo {
         /** Tier-0 page functions (ir_tier0); counters wrap at 2^32. */
         tier0: { enabled: boolean; page_functions: number; instructions: number; wasm_bytes: number;
             activations: number; chains: number } | null;
+        /** The x64 page tier (32-bit code with ir_tier0 and x64_page_legacy32); counters wrap at 2^32. */
+        page_tier: { legacy32: boolean; functions: number; native_instructions: number; activations: number } | null;
         diagnostics: V86IrDiagnostics | null;
     } | null;
 }

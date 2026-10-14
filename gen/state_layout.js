@@ -139,6 +139,7 @@ export const STATE_FIELDS = [
     { name: "x64_page_lazy_kind", offset: 1824, rust: "u32", size: 4, owner: "scratch", note: "lazy EFLAGS record a page function tail-called with (0: flags are materialized)" },
     { name: "x64_page_lazy_a", offset: 1832, rust: "u64", size: 8, owner: "scratch", note: "its first operand" },
     { name: "x64_page_lazy_b", offset: 1840, rust: "u64", size: 8, owner: "scratch", note: "its second operand" },
+    { name: "x64_page_rep_elements", offset: 1848, rust: "u32", size: 4, owner: "scratch", note: "REP elements legacy-mode page functions ran in an activation (into the core's statistics after it)" },
     { name: "x64_chain_gprs", offset: 1864, rust: "u64", count: 16, size: 128, owner: "scratch", note: "the GPRs a page function tail-calls with (x64_fast_chain)" },
     // System management mode (src/rust/cpu/smm.rs). Its own per-core range, so
     // that snapshots from before it restore it to its reset value.
@@ -299,7 +300,7 @@ export const STATICS = {
         // switches x64_hot_inline and x64_hot_count (P4.14)
         HOT_COUNTS: "machine", HOT_FREE: "machine", HOT_NEXT: "machine", HOT_INLINE: "machine", HOT_COUNT: "machine", COMPAT_HOT_COUNT: "machine",
         // the switches x64_page_compat32 (P7.2) and x64_page_legacy32 (P7.3)
-        COMPAT32: "machine", LEGACY32: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_ENTRIES: "machine", SPAN_DECLINED: "scratch" },
+        COMPAT32: "machine", LEGACY32: "machine", LEGACY_TIER0: "machine", LEGACY_ACTIVE: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_ENTRIES: "machine", SPAN_DECLINED: "scratch" },
     // derived from each core's x64 TLB (flushed with it); FRAME_BUFFER_WRITES:
     // some entry maps the VGA frame buffer
     "x64/jac.rs": { JAC: "cache", FRAME_BUFFER_WRITES: "cache", ENTRIES: "machine" },

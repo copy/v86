@@ -11702,6 +11702,12 @@ impl Emitter {
             crate::x86tpl::string::memory_fill(&mut self.b);
             self.b.guest_fence();
         }
+        if self.env.legacy {
+            self.note_rep(|e| {
+                e.g(1);
+                e.b.wrap_i64_to_i32();
+            });
+        }
         self.gi(COND);
         self.b.extend_unsigned_i32_to_i64();
         self.s(TX);
@@ -11776,6 +11782,17 @@ impl Emitter {
     /// REPE/REPNE CMPS or SCAS inside one page per operand, forward: one
     /// loop over the elements, EFLAGS of the last comparison; anything else
     /// is stepped (the step dispatches back here to continue).
+    /// Legacy mode: `count`'s i32, elements of a REP string instruction run
+    /// here, onto gp::x64_page_rep_elements, which the activation adds to the
+    /// core's statistics (a call here would spill the function's registers:
+    /// 563.memops 0.92)
+    fn note_rep(&mut self, count: impl FnOnce(&mut Self)) {
+        self.c32(gp::x64_page_rep_elements as i32);
+        self.b.load_fixed_i32(gp::x64_page_rep_elements as u32);
+        count(self);
+        self.b.add_i32();
+        self.b.store_aligned_i32(0);
+    }
     fn rep_compare(&mut self, inst: &Inst, width: u8, scan: bool, equal: bool) {
         let start = inst.d.start.0;
         let size = width as u64 / 8;
@@ -11881,6 +11898,14 @@ impl Emitter {
         self.b.block_end();
         self.b.guest_fence();
         // elements done: RCX, RSI, RDI
+        if self.env.legacy {
+            let shift = size.trailing_zeros() as i32;
+            self.note_rep(|e| {
+                e.gi(ENT);
+                e.c32(shift);
+                e.b.shr_u_i32();
+            });
+        }
         self.gi(ENT);
         self.b.extend_unsigned_i32_to_i64();
         self.s(TX);

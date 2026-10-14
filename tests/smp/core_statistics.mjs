@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
-// Architectural counters across interpreter, Tier-0 and region execution.
+// Architectural counters across interpreter, Tier-0, region and page-tier execution.
 // Initial protected-mode contexts are injected only to isolate accounting.
 // All increments, REP progress, faults and halts come from guest instructions.
 import assert from "node:assert/strict";
 import { setImmediate as set_immediate } from "node:timers";
+import { smp_modes, with_smp_mode, mode_hits } from "../lib/smp_modes.mjs";
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 // SMP_CORES=1: CPU 0's program alone (Tier-0's REP template runs on one core
 // only: its elements must count the same)
-assert.ok(modes.every(mode => ["interpreter", "tier0", "region"].includes(mode)));
 const fields = ["retired_instructions", "rep_elements", "faults", "halt_count", "runtime_ms"];
 const specifications = [
     { loops: 2048, elements: 1000, destination: 0x40000, fault: "ud" },
@@ -21,6 +21,7 @@ specifications.length = Number(process.env.SMP_CORES || specifications.length);
 // (alone, CPU 0 loops long enough for Tier-0 to compile its page)
 if(specifications.length === 1) specifications[0].loops = 1 << 18;
 const u32 = value => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
+const COMPARED = 24;
 
 function guest(core)
 {
@@ -31,6 +32,10 @@ function guest(core)
         0xB0, 0x5A, 0xAA,                  // mov al, 5A; stosb (not a REP element)
         0xB9, ...u32(loops), 0x31, 0xC0,   // mov ecx, loops; xor eax,eax
         0x40, 0x49, 0x75, 0xFC,            // inc eax; dec ecx; jnz: exactly 3N
+        0xBE, ...u32(0x52000),              // mov esi, zeros
+        0xBF, ...u32(0x53000),              // mov edi, zeros
+        0xB9, ...u32(COMPARED),             // mov ecx, COMPARED
+        0xF3, 0xA6,                        // repe cmpsb: COMPARED elements, all equal
         0xB9, ...u32(elements),             // mov ecx, REP count
         0xBF, ...u32(destination),          // mov edi, REP destination
         0xB0, 0x5A,                        // mov al, 5A
@@ -112,16 +117,15 @@ async function halted(cpu, label)
 
 for(const mode of modes)
 {
-    const emulator = new V86({
+    const emulator = new V86(with_smp_mode({
         graphics_adapter: "bochs_vga",
         wasm_path: process.env.WASM_PATH,
         memory_size: 16 << 20, acpi: true, cpu_cores: specifications.length,
         cpu_quantum: 17, cpu_schedule_seed: 42,
-        disable_jit: mode === "interpreter", experimental_smp_jit: true,
-        ir_tier0: mode === "tier0", ir_sync_publication: true,
+        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
         ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
         autostart: false, log_level: 0,
-    });
+    }, mode));
     try
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
@@ -135,7 +139,7 @@ for(const mode of modes)
             if(mode === "region") assert.equal(ex.ir_auto_set_page_mode(0), 1);
         }
         initialize(cpu);
-        const hits = () => mode === "tier0" ? ex.ir_t0_entries() >>> 0 : ex.ir_cache_stat(2) >>> 0;
+        const hits = () => mode_hits(ex, mode);
         const per_core_hits = specifications.map(() => 0);
         const run_cpu_slice = cpu.run_cpu_slice.bind(cpu);
         cpu.run_cpu_slice = budget => {
@@ -156,8 +160,8 @@ for(const mode of modes)
         {
             const specification = specifications[core];
             const expected = {
-                retired_instructions: specification.loops * 3 + (specification.fault === "pf" ? 11 : 12),
-                rep_elements: specification.fault === "pf" ? 5 : specification.elements,
+                retired_instructions: specification.loops * 3 + (specification.fault === "pf" ? 15 : 16),
+                rep_elements: COMPARED + (specification.fault === "pf" ? 5 : specification.elements),
                 faults: specification.fault === "none" ? 0 : 1,
                 halt_count: 1,
             };
@@ -179,6 +183,7 @@ for(const mode of modes)
         {
             assert.equal(ex.ir_t0_entries(), 0);
             assert.equal(ex.ir_cache_stat(2), 0);
+            assert.equal(ex.x64_page_stat(1), 0);
             assert.ok(cpu.cores[0].steps > original[0].retired_instructions,
                 "REP continuation and fault dispatches must not inflate architectural retirement");
         }

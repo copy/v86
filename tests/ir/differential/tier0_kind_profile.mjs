@@ -46,7 +46,8 @@ const code = [...prelude, ...loop, 0xF4];           // HLT
 
 const vm = new V86({
     graphics_adapter: "bochs_vga", wasm_path: wasm, memory_size: 128 << 20, ir_sync_publication: true,
-    jit_switches: { mode_ledger: 1, t0_kind_profile: 1 },
+    // (Tier-0's: the page tier runs 32-bit code by default since M8)
+    jit_switches: { mode_ledger: 1, t0_kind_profile: 1, x64_page_legacy32: 0 },
     bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
     disable_speaker: true, net_device: { type: "none" }, autostart: false,
 });

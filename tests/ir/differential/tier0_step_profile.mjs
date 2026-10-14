@@ -46,6 +46,8 @@ const vm = new V86({
     graphics_adapter: "bochs_vga", wasm_path: wasm, memory_size: 128 << 20,
     // (page functions are installed as they are compiled)
     ir_sync_publication: true,
+    // (Tier-0's: the page tier runs 32-bit code by default since M8)
+    jit_switches: { x64_page_legacy32: 0 },
     bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
     disable_speaker: true, net_device: { type: "none" }, autostart: false,
 });

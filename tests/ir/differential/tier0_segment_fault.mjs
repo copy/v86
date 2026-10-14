@@ -61,7 +61,7 @@ async function machine(compiled) {
         graphics_adapter: "bochs_vga",
         wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20, // reference: the interpreter only
         ir_sync_publication: true,
-        ...compiled ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000 } : {}, ...jit_switches_from_env() } } : {},
+        ...compiled ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000 } : { x64_page_legacy32: 0 }, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });

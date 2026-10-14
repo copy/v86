@@ -502,7 +502,8 @@ kvm-unit-test: build/v86-debug.wasm
 	tests/kvm-unit-tests/build.sh i386 x86/realmode.flat x86/taskswitch.flat x86/taskswitch2.flat
 	tests/kvm-unit-tests/run.mjs $(KVM_UNIT_TESTS)/taskswitch.flat
 	tests/kvm-unit-tests/run.mjs --expect-pass 11 $(KVM_UNIT_TESTS)/taskswitch2.flat
-	tests/kvm-unit-tests/run.mjs --expect-pass 127 $(KVM_UNIT_TESTS)/realmode.flat
+	# (realmode.flat runs about 50 s, debug or release: near run.mjs's 60 s)
+	tests/kvm-unit-tests/run.mjs --timeout 180 --expect-pass 127 $(KVM_UNIT_TESTS)/realmode.flat
 
 # x86/xsave.flat without XSAVE, with it (XCR0 x87, SSE) and with AVX too (YMM),
 # in the x86_64 build (whose exception tables ASM_TRY fills with .quad)
@@ -516,7 +517,7 @@ kvm-unit-test-release: build/libv86.mjs build/v86.wasm
 	tests/kvm-unit-tests/build.sh i386 x86/realmode.flat x86/taskswitch.flat x86/taskswitch2.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs $(KVM_UNIT_TESTS)/taskswitch.flat
 	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs --expect-pass 11 $(KVM_UNIT_TESTS)/taskswitch2.flat
-	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs --expect-pass 127 $(KVM_UNIT_TESTS)/realmode.flat
+	TEST_RELEASE_BUILD=1 tests/kvm-unit-tests/run.mjs --timeout 180 --expect-pass 127 $(KVM_UNIT_TESTS)/realmode.flat
 
 # Interrupt controller tests (ACPI enables the APIC in v86).
 kvm-unit-test-apic: build/v86-debug.wasm
@@ -1665,10 +1666,12 @@ multicore-linux-tests-release: build/smp/affinity_probe build/libv86.mjs build/v
 multicore-linux-jit-tests: build/smp/affinity_probe build/v86-debug.wasm images/linux4.iso
 	SMP_JIT_MODE=tier0 node tests/smp/linux_topology.mjs
 	SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
+	SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 
 multicore-linux-jit-tests-release: build/smp/affinity_probe build/libv86.mjs build/v86.wasm images/linux4.iso
 	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=tier0 node tests/smp/linux_topology.mjs
 	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
+	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 
 .PHONY: multicore-linux-jit-tests multicore-linux-jit-tests-release
 

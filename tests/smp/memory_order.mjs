@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { setImmediate as set_immediate } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { smp_modes, with_smp_mode, compiled_hits } from "../lib/smp_modes.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -14,7 +15,7 @@ const kernel = root + `build/smp/memory_order${mutation ? "-" + mutation : ""}.b
 const assembled = spawnSync("nasm", [...(mutation ? ["-DPUBLISH_EARLY"] : []), "-f", "bin", "-o", kernel, root + "tests/smp/memory_order.asm"], { encoding: "utf8" });
 assert.equal(assembled.status, 0, assembled.stderr);
 const seeds = process.env.SMP_SEEDS?.split(",").map(Number) || Array.from({ length: 10 }, (_, i) => i + 1);
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 const quantums = process.env.SMP_QUANTUMS?.split(",").map(Number) || [17, 257, 4096];
 const CONTROL = 0x380000;
 const RECORDS = 0x381000;
@@ -22,11 +23,10 @@ const RECORDS = 0x381000;
 async function run(cores, seed, quantum, mode)
 {
     const count = 4096 + seed * 17;
-    const emulator = new V86({ graphics_adapter: "bochs_vga", multiboot: { url: kernel }, memory_size: 16 << 20,
+    const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", multiboot: { url: kernel }, memory_size: 16 << 20,
         acpi: true, cpu_cores: cores, cpu_quantum: quantum, cpu_schedule_seed: seed,
-        disable_jit: mode === "interpreter", experimental_smp_jit: true,
-        ir_tier0: mode === "tier0", ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 }, autostart: false, log_level: 0 });
+        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
+        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 }, autostart: false, log_level: 0 }, mode));
     const label = `${mode} cores=${cores} seed=${seed} quantum=${quantum}`;
     try
     {
@@ -67,7 +67,7 @@ async function run(cores, seed, quantum, mode)
             assert.equal(word(RECORDS + id * 64 + 4), id & 1 ? 0 : count * (count + 1) / 2, `${label}: consumer ${id} checksum`);
             assert.equal(word(0x390000 + (id >> 1) * 4096 + (id & 1 ? 0 : 64)), count, `${label}: queue fully drained`);
         }
-        const hits = (e.ir_cache_stat(2) >>> 0) + (e.ir_t0_entries() >>> 0);
+        const hits = compiled_hits(e);
         if(mode !== "interpreter") assert.ok(hits > 0, `${label}: compiled queue actually executed`);
         else assert.equal(hits, 0);
         return hits;

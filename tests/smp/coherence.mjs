@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { setImmediate as set_immediate } from "node:timers";
 import { fileURLToPath } from "node:url";
+import { smp_modes, with_smp_mode, compiled_hits, published } from "../lib/smp_modes.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -19,13 +20,13 @@ const RECORDS = CONTROL + 0x100;
 const OLD = 0xA5A51111;
 const NEW = 0x5A5A2222;
 const seeds = process.env.SMP_SEEDS ? process.env.SMP_SEEDS.split(",").map(Number) : Array.from({ length: 10 }, (_, i) => i + 1);
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 const quantums = process.env.SMP_QUANTUMS?.split(",").map(Number) || [17, 257, 4096];
 
 async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = false)
 {
     const iterations = 128 + seed * 7;
-    const emulator = new V86({
+    const emulator = new V86(with_smp_mode({
         graphics_adapter: "bochs_vga",
         multiboot: { url: kernel },
         memory_size: 16 << 20,
@@ -35,12 +36,11 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
         cpu_schedule_seed: seed,
         disable_jit: mode === "interpreter",
         experimental_smp_jit: true,
-        ir_tier0: mode === "tier0",
         ir_sync_publication: !asynchronous,
         ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
         autostart: false,
         log_level: 0,
-    });
+    }, mode));
     const label = `${mode} cores=${cores} seed=${seed} quantum=${quantum} writer=${writer} async=${asynchronous}`;
     try
     {
@@ -106,11 +106,14 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
                 // the interpreter only permits STI's one shadow instruction.
                 assert.ok(slice <= quantum + (mode === "interpreter" ? 1 : 256), `${label}: bounded core ${id} slice (${slice})`);
             }
-            const hot_published = e.ir_cache_entry_stat(0x101000, 0, 1, 0);
+            const hot_published = published(e, 0x101000);
             const function_hits = e.ir_cache_entry_stat(0x101000, 0, 1, 1) >>> 0;
             // Tier-0 bypasses per-record hit accounting; the only cross-page
             // call/return chain in this fixture is the published hot function.
-            hot_hits = Math.max(hot_hits, function_hits, mode === "tier0" && hot_published ? e.ir_t0_chains() >>> 0 : 0);
+            // (the page tier counts no calls per function: its native
+            // instructions, once the page has one)
+            hot_hits = Math.max(hot_hits, function_hits, mode === "tier0" && hot_published ? e.ir_t0_chains() >>> 0 : 0,
+                mode === "pages" && hot_published ? e.x64_page_stat(1) >>> 0 : 0);
             if(hot_hits > 0) new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).setUint32(CONTROL + 52, 1, true);
             rounds++;
             if((rounds & (asynchronous ? 7 : 127)) === 0) await new Promise(resolve => set_immediate(resolve));
@@ -128,7 +131,7 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
         assert.equal(word(CONTROL + 40), writer === "dma" ? 0x33333333 : 0x22222222, `${label}: cross-core SMC invalidates compiled code`);
         if(writer === "dma") assert.equal(dma_wrote, true, `${label}: DMA writer ran`);
         assert.equal(word(CONTROL + 28), 1, `${label}: exactly one shootdown IPI`);
-        const hits = (e.ir_cache_stat(2) >>> 0) + (e.ir_t0_entries() >>> 0);
+        const hits = compiled_hits(e);
         if(mode !== "interpreter")
         {
             assert.ok(hits > 0, `${label}: compiled code must actually execute: ${JSON.stringify(cpu.get_jit_info().ir)}`);

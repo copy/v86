@@ -152,12 +152,15 @@ export async function backend_scenarios(V86, options, log = console.log)
         await create({ ir_tier0: undefined }); await boot();
         await vm.write_memory(Uint8Array.of(0x40, 0xEB, 0xFD), 0x1200000);
         await vm.write_memory(bytes(0x1200000), 0x600);
-        await until(async () => (await info()).ir.tier0.activations > 0, "default Tier-0 runs");
+        // (32-bit code in the x64 page tier since Legacy32's flip; Tier-0 stays
+        // enabled for what the page tier cannot run)
+        await until(async () => (await info()).ir.page_tier.native_instructions > 0, "default page tier runs 32-bit code");
         await vm.stop();
         const defaults = await info();
-        check(defaults.backend === "ir" && defaults.ir.enabled && defaults.ir.tier0.enabled, "default is IR with Tier-0");
+        check(defaults.backend === "ir" && defaults.ir.enabled && defaults.ir.tier0.enabled && defaults.ir.page_tier.legacy32
+            && defaults.ir.page_tier.functions > 0, "default is IR with the page tier and Tier-0");
         await destroy();
-        log("PASS: explicit disable_jit and the default IR + Tier-0 backend");
+        log("PASS: explicit disable_jit and the default IR + page tier backend");
 
         await create({ jit_backend: "ir", ir_region_budget: budget, initial_state: { buffer: ir_snapshot } });
         await assert_ir();

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../../build/libv86.mjs";
 const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
-const vm = new V86({ graphics_adapter: "bochs_vga", wasm_path: wasm, jit_backend: "ir", memory_size: 32 << 20,
+const vm = new V86({jit_switches:{x64_page_legacy32:0}, graphics_adapter: "bochs_vga", wasm_path: wasm, jit_backend: "ir", memory_size: 32 << 20,
     bios: { buffer: Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer },
     disable_keyboard: true, disable_mouse: true, disable_speaker: true,
     net_device: { type: "none" }, autostart: false });

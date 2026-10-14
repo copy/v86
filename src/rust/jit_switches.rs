@@ -147,10 +147,10 @@ pub const SWITCHES: &[Switch] = &[
         get: pages::switch_value,
     },
     // (P7.3: 32-bit legacy protected-mode code in the page tier instead of
-    // Tier-0)
+    // Tier-0; on since M8, which passed its D gate: P7.4)
     Switch {
         name: "x64_page_legacy32",
-        default: 0,
+        default: 1,
         set: |v| {
             flag(v)
                 .map(|on| unsafe { pages::x64_page_set_legacy32(on) })
@@ -174,7 +174,7 @@ pub const SWITCHES: &[Switch] = &[
     // (P7.3b: multi-page functions of legacy-mode code)
     Switch {
         name: "x64_page_clusters",
-        default: 0,
+        default: 1,
         set: |v| {
             flag(v)
                 .map(|on| unsafe { pages::x64_page_set_clusters(on) })

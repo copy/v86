@@ -595,7 +595,7 @@ fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BAS
 /// Multi-page functions of legacy-mode code (the JIT switch
 /// x64_page_clusters, docs/jit-unification-plan.md P7.3b, as Tier-0's
 /// neighbour clusters): span_members
-static mut CLUSTERS: bool = false;
+static mut CLUSTERS: bool = true;
 #[no_mangle]
 pub unsafe fn x64_page_set_clusters(enabled: bool) { CLUSTERS = enabled; }
 /// Transfers between two pages that make them one span (the JIT switch
@@ -720,16 +720,30 @@ pub unsafe fn compat_runnable() -> bool {
 }
 /// Legacy protected-mode code in the page tier (the JIT switch
 /// x64_page_legacy32, P7.3), as 32-bit compatibility-mode code
-static mut LEGACY32: bool = false;
+static mut LEGACY32: bool = true;
+/// ir_tier0 (set_legacy_tier0): the page tier replaces Tier-0, the IR's
+/// page-granular compiler, so configurations without it (region only)
+/// leave 32-bit code to the region tier
+static mut LEGACY_TIER0: bool = false;
+/// LEGACY32 && LEGACY_TIER0
+static mut LEGACY_ACTIVE: bool = false;
 #[no_mangle]
-pub unsafe fn x64_page_set_legacy32(enabled: bool) { LEGACY32 = enabled; }
+pub unsafe fn x64_page_set_legacy32(enabled: bool) {
+    LEGACY32 = enabled;
+    LEGACY_ACTIVE = LEGACY32 && LEGACY_TIER0;
+}
+/// (crate::ir::runtime::schedule::ir_auto_set_tier0)
+pub unsafe fn set_legacy_tier0(enabled: bool) {
+    LEGACY_TIER0 = enabled;
+    LEGACY_ACTIVE = LEGACY32 && LEGACY_TIER0;
+}
 /// Whether a switch hands 32-bit code to the page tier (read once a slice)
-pub unsafe fn page32() -> bool { COMPAT32 || LEGACY32 }
+pub unsafe fn page32() -> bool { COMPAT32 || LEGACY_ACTIVE }
 /// The current code runs in the page tier as 32-bit legacy protected-mode
 /// code: as compat_runnable, and with FS not null (its base is added at each
 /// access; GS's accesses step, see pagegen Decoder::legacy), paged or not
 pub unsafe fn legacy_runnable() -> bool {
-    LEGACY32
+    LEGACY_ACTIVE
         && state::mode() == state::ExecutionMode::Protected32
         && *gp::stack_size_32
         && cpu::has_flat_segmentation()
@@ -744,7 +758,7 @@ pub unsafe fn legacy_runnable() -> bool {
 /// other than flat segments do). Windows 98's VMM runs with a nonzero DS
 /// base.
 pub unsafe fn segmented_runnable() -> bool {
-    LEGACY32
+    LEGACY_ACTIVE
         && state::mode() == state::ExecutionMode::Protected32
         && *gp::stack_size_32
         && *gp::segment_offsets.add(cpu::CS as usize) == 0
@@ -1271,6 +1285,10 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     COUNTERS[COUNT_ACTIVATIONS] += 1;
     STEP_EXITED = false;
     let t_call = if TIMING { time::microtick() } else { 0.0 };
+    // (the performance recorder's JIT chunks, as the IR cache's activations)
+    let sample = crate::profiler::performance_recording_enabled().then(|| {
+        crate::profiler::performance_chunk_start(true, rip as u32, *gp::cr.add(3) as u32, *gp::cpl)
+    });
     let native = call_indirect1_ret(
         (slot + cpu::WASM_TABLE_OFFSET) as i32,
         budget.min(u16::MAX as u32) as u16,
@@ -1281,6 +1299,16 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     ACTIVE = false;
     // (functions this activation tail-called from)
     let native = native.wrapping_add(*gp::x64_page_chain);
+    // (REP elements legacy-mode functions ran, pagegen Emitter::note_rep:
+    // the core's statistics count them as the interpreter's)
+    if *gp::x64_page_rep_elements != 0 {
+        execution::note_jit_rep(*gp::x64_page_rep_elements);
+        *gp::x64_page_rep_elements = 0;
+    }
+    if let Some(sample) = sample {
+        crate::profiler::performance_chunk_finish(sample, native);
+        crate::profiler::performance_recording_add(1, native as u64);
+    }
     *gp::instruction_counter = (*gp::instruction_counter).wrapping_add(native);
     execution::note_native_retired(native, execution::jit_dispatches());
     execution::ledger_end_count(span, execution::Way::PageNative, native);
@@ -1723,6 +1751,17 @@ fn source_hash(bytes: &[u8]) -> u64 {
     }
     hash
 }
+/// (tests) A ready function serves code of the physical page of `address`,
+/// in any code mode: the page tier's ir_cache_entry_stat(.., 0)
+#[no_mangle]
+pub fn x64_page_published(address: u32) -> bool {
+    let r = rt();
+    MODE_KEYS.iter().any(|&mode| {
+        r.by_page
+            .get(&(address >> 12 | mode))
+            .is_some_and(|&i| r.functions[i].phase == Phase::Ready)
+    })
+}
 #[no_mangle]
 pub fn x64_page_ready(id: u64, slot: u32) -> bool {
     let r = rt();
@@ -1984,6 +2023,8 @@ pub fn x64_page_stat(field: u32) -> f64 {
         36 => unsafe { COUNTERS[COUNT_COMPAT_COMPILES] as f64 },
         37 => unsafe { COUNTERS[COUNT_LEGACY_COMPILES] as f64 },
         f @ 38..=39 => unsafe { COUNTERS[f as usize - 38 + COUNT_SPANS] as f64 },
+        // (legacy-mode code runs here: x64_page_legacy32 and ir_tier0)
+        40 => unsafe { LEGACY_ACTIVE as u32 as f64 },
         24 => unsafe { BYTES_COMPILED as f64 },
         // pages compiled at least once (while tracked)
         21 => r.pages.values().filter(|state| state.compiles != 0).count() as f64,
