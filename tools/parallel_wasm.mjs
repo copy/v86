@@ -11,11 +11,15 @@
 //   them, which gives each vCPU worker its own copy of the Rust statics, stack
 //   and CPU state block inside the one shared memory;
 // - the address and size of the CPU state block (the STATE_BLOCK static of
-//   cpu/global_pointers.rs) go into the same section: relocate.js moves
-//   every address inside it to a low fixed slot per instance instead (the
-//   module is linked above them), so that the generated code reaches the
-//   registers with small constant addresses, which hosts like arm64 encode
-//   in the load or store itself;
+//   cpu/global_pointers.rs) go into the same section, and the fields whose
+//   relocation names the STATE_BLOCK symbol are listed apart: relocate.js
+//   moves those to a low fixed slot per instance instead (the module is
+//   linked above them), so that the generated code reaches the registers
+//   with small constant addresses, which hosts like arm64 encode in the load
+//   or store itself. (By symbol, not by value: the compiler folds
+//   addresses past the end of a static, such as a loop's base, into
+//   constants that can fall inside the next static, which may be the state
+//   block.)
 // - the linker's relocation and linking sections are dropped.
 //
 // Usage: tools/parallel_wasm.mjs input.wasm output.wasm
@@ -101,10 +105,10 @@ export function convert(input)
         {
             const type = r.u8();
             const offset = r.uleb();
-            r.uleb(); // symbol index
+            const symbol = r.uleb();
             if(HAS_ADDEND.has(type)) r.sleb();
             assert.ok(!MEMORY_64.has(type) && !PIC_OR_TLS.has(type), "unexpected relocation type " + type + " in " + s.name);
-            if(type === R_MEMORY_ADDR_LEB || type === R_MEMORY_ADDR_SLEB || type === R_MEMORY_ADDR_I32) list.push({ type, offset });
+            if(type === R_MEMORY_ADDR_LEB || type === R_MEMORY_ADDR_SLEB || type === R_MEMORY_ADDR_I32) list.push({ type, offset, symbol });
         }
         relocs.set(target, (relocs.get(target) || []).concat(list));
     }
@@ -124,7 +128,7 @@ export function convert(input)
             const type = r.u8(), size = r.uleb(), end = r.pos + size;
             if(type === 8) // WASM_SYMBOL_TABLE
             {
-                for(let n = r.uleb(); n--;)
+                for(let n = r.uleb(), index = 0; n--; index++)
                 {
                     const kind = r.u8(), flags = r.uleb();
                     const undefined_symbol = flags & 0x10, explicit_name = flags & 0x40;
@@ -133,7 +137,7 @@ export function convert(input)
                         const name = r.name();
                         if(undefined_symbol) continue;
                         const segment = r.uleb(), offset = r.uleb(), length = r.uleb();
-                        if(/STATE_BLOCK/.test(name)) { assert.ok(!symbol, "two STATE_BLOCK symbols"); symbol = { segment, offset, length }; }
+                        if(/STATE_BLOCK/.test(name)) { assert.ok(!symbol, "two STATE_BLOCK symbols"); symbol = { segment, offset, length, index }; }
                     }
                     else if(kind === 3) r.uleb(); // section
                     else { r.uleb(); if(!undefined_symbol || explicit_name) r.name(); }
@@ -153,7 +157,7 @@ export function convert(input)
             const offset = d.sleb();
             assert.equal(d.u8(), 0x0B);
             const length = d.uleb();
-            if(i === symbol.segment) return { address: offset + symbol.offset, size: symbol.length };
+            if(i === symbol.segment) return { address: offset + symbol.offset, size: symbol.length, symbol: symbol.index };
             d.pos += length;
         }
     })();
@@ -184,7 +188,9 @@ export function convert(input)
     const out = [bytes.subarray(0, 8)];
     let out_length = 8;
     const emit = chunk => { chunk = chunk instanceof Uint8Array ? chunk : Uint8Array.from(chunk); out.push(chunk); out_length += chunk.length; };
-    const sites = { uleb5: [], sleb5: [], u32: [] };
+    // (a kind's fields that name the state block: kind + "_state")
+    const sites = { uleb5: [], sleb5: [], u32: [], uleb5_state: [], sleb5_state: [], u32_state: [] };
+    const state = symbol => symbol === state_block.symbol ? "_state" : "";
     let found_memory = false, globals_relocated = [];
 
     for(const [index, s] of sections.entries())
@@ -246,11 +252,11 @@ export function convert(input)
         }
         else if(s.id === SECTION_CODE)
         {
-            for(const { type, offset } of relocs.get(index) || [])
+            for(const { type, offset, symbol } of relocs.get(index) || [])
             {
                 assert.ok(type !== R_MEMORY_ADDR_I32, "I32 relocation in code");
                 assert.ok(is_padded_leb(bytes, s.start + offset), "relocated LEB at code offset " + offset + " is not 5 bytes");
-                local_sites.push({ kind: type === R_MEMORY_ADDR_LEB ? "uleb5" : "sleb5", pos: offset });
+                local_sites.push({ kind: (type === R_MEMORY_ADDR_LEB ? "uleb5" : "sleb5") + state(symbol), pos: offset });
             }
         }
         else if(s.id === SECTION_DATA)
@@ -292,12 +298,12 @@ export function convert(input)
             for(const site of local_sites) site.pos += count.length;
             for(const move of moves) move[1] += count.length;
             rebuilt.unshift(...count);
-            for(const { type, offset } of data_relocs)
+            for(const { type, offset, symbol } of data_relocs)
             {
                 assert.equal(type, R_MEMORY_ADDR_I32, "data relocation type " + type);
                 const move = moves.find(([from, , length]) => offset >= from && offset + 4 <= from + length);
                 assert.ok(move, "data relocation outside the segments");
-                local_sites.push({ kind: "u32", pos: offset - move[0] + move[1] });
+                local_sites.push({ kind: "u32" + state(symbol), pos: offset - move[0] + move[1] });
             }
             content = rebuilt;
         }
@@ -309,10 +315,12 @@ export function convert(input)
     assert.ok(found_memory, "link with --import-memory");
     assert.deepEqual(globals_relocated.sort(), ["__data_end", "__heap_base", "__stack_pointer"]);
 
-    // custom section "v86.relocs" (version 2): for each kind, count and
-    // delta-coded positions; then the state block's linked address and size
-    const table = [...uleb(2)];
-    for(const kind of ["uleb5", "sleb5", "u32"])
+    // custom section "v86.relocs" (version 3): for each kind, count and
+    // delta-coded positions, first the fields relocated by the instance's
+    // base, then those naming the state block; then the state block's
+    // linked address and size
+    const table = [...uleb(3)];
+    for(const kind of ["uleb5", "sleb5", "u32", "uleb5_state", "sleb5_state", "u32_state"])
     {
         const list = sites[kind].sort((a, b) => a - b);
         table.push(...uleb(list.length));
@@ -338,5 +346,6 @@ if(process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())
     new WebAssembly.Module(bytes);
     fs.writeFileSync(output, bytes);
     console.log(`${output}: ${bytes.length} bytes; relocated fields: ${sites.uleb5.length} offsets, ${sites.sleb5.length} constants, ` +
-        `${sites.u32.length} data pointers; state block at ${state_block.address.toString(16)}`);
+        `${sites.u32.length} data pointers; of the state block ${sites.uleb5_state.length}, ${sites.sleb5_state.length}, ` +
+        `${sites.u32_state.length}; state block at ${state_block.address.toString(16)}`);
 }

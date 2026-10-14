@@ -17,7 +17,8 @@ const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv
 const bytes = new Uint8Array(fs.readFileSync(PARALLEL_WASM));
 assert.ok(memory_import(bytes)?.shared, "the parallel build imports a shared memory");
 const table = relocations(bytes);
-console.log(`relocation table: ${table.uleb5.length} offsets, ${table.sleb5.length} constants, ${table.u32.length} data pointers`);
+console.log(`relocation table: ${table.uleb5.length} offsets, ${table.sleb5.length} constants, ${table.u32.length} data pointers; ` +
+    `of the state block ${table.uleb5_state.length}, ${table.sleb5_state.length}, ${table.u32_state.length}`);
 
 const timeout = setTimeout(() => { console.log("timeout"); process.exit(1); }, 900000);
 

@@ -3,8 +3,9 @@
 // own static data, stack and CPU state block at a different base address.
 // tools/parallel_wasm.mjs lists every field that holds an address of the
 // module's static data; relocate() adds the base to them, except for
-// addresses inside the CPU state block, which it moves to the instance's
-// state slot at slot * STATE_SLOT_SIZE, below the module's static data: the
+// addresses of the CPU state block (the fields whose relocation names it),
+// which it moves to the instance's state slot at slot * STATE_SLOT_SIZE,
+// below the module's static data: the
 // generated code then addresses registers with small constants (which arm64
 // hosts encode in the load or store instruction). Slot 0 is the machine
 // instance's, so its state block is where v86.wasm has it.
@@ -88,7 +89,9 @@ export function memory_import(bytes)
 /**
  * Positions of the relocated fields and where the linker put the state block
  * @param {Uint8Array} bytes
- * @return {{uleb5: !Array<number>, sleb5: !Array<number>, u32: !Array<number>, state_address: number, state_size: number}}
+ * @return {{uleb5: !Array<number>, sleb5: !Array<number>, u32: !Array<number>,
+ *     uleb5_state: !Array<number>, sleb5_state: !Array<number>, u32_state: !Array<number>,
+ *     state_address: number, state_size: number}}
  */
 export function relocations(bytes)
 {
@@ -96,7 +99,7 @@ export function relocations(bytes)
     if(!section) throw new Error("v86-parallel.wasm: no relocation table (not built by tools/parallel_wasm.mjs)");
     const at = { pos: section.content };
     const version = read_uleb(bytes, at);
-    if(version !== 2) throw new Error("v86-parallel.wasm: relocation table version " + version + " (rebuild it)");
+    if(version !== 3) throw new Error("v86-parallel.wasm: relocation table version " + version + " (rebuild it)");
     const list = () => {
         const positions = [];
         let position = 0;
@@ -108,9 +111,10 @@ export function relocations(bytes)
         return positions;
     };
     const uleb5 = list(), sleb5 = list(), u32 = list();
+    const uleb5_state = list(), sleb5_state = list(), u32_state = list();
     const state_address = read_uleb(bytes, at), state_size = read_uleb(bytes, at);
     dbg_assert(at.pos === section.end && state_size === STATE_SLOT_SIZE);
-    return { uleb5, sleb5, u32, state_address, state_size };
+    return { uleb5, sleb5, u32, uleb5_state, sleb5_state, u32_state, state_address, state_size };
 }
 
 /**
@@ -128,10 +132,10 @@ export function relocate(bytes, base, slot)
     dbg_assert(base % PAGE_SIZE === 0 && base >= 0 && base < 2 ** 32);
     dbg_assert(slot >= 0 && slot < STATE_SLOTS);
     const table = relocations(bytes);
-    const state_start = table.state_address, state_end = table.state_address + table.state_size;
-    // the new value of a field that holds the (unsigned) address `value`
-    const map = value => value >= state_start && value < state_end ?
-        slot * STATE_SLOT_SIZE + value - state_start : value + base;
+    const state_start = table.state_address;
+    // the new value of a field that holds the (unsigned) address `value`: of
+    // the instance's static data, or of its state block (`state`)
+    const map = (value, state) => state ? slot * STATE_SLOT_SIZE + value - state_start : value + base;
     const out = new Uint8Array(bytes);
     const view = new DataView(out.buffer, out.byteOffset, out.byteLength);
 
@@ -147,22 +151,25 @@ export function relocate(bytes, base, slot)
             value = Math.floor(value / 128);
         }
     };
-    for(const at of table.uleb5)
+    for(const state of [false, true])
     {
-        // load/store offsets and unsigned immediates: must stay below 4 GiB
-        const value = map(read5(at));
-        if(value >= 2 ** 32) throw new Error("relocated offset beyond 4 GiB");
-        write5(at, value);
-    }
-    for(const at of table.sleb5)
-    {
-        // i32.const: a signed 32-bit value in 5 bytes (bits 32..34 are sign extension)
-        const value = map(read5(at) % 2 ** 32) % 2 ** 32 | 0;
-        write5(at, (value >>> 0) + (value < 0 ? 0x700000000 : 0));
-    }
-    for(const at of table.u32)
-    {
-        view.setUint32(at, map(view.getUint32(at, true)) >>> 0, true);
+        for(const at of state ? table.uleb5_state : table.uleb5)
+        {
+            // load/store offsets and unsigned immediates: must stay below 4 GiB
+            const value = map(read5(at), state);
+            if(value < 0 || value >= 2 ** 32) throw new Error("relocated offset beyond 4 GiB");
+            write5(at, value);
+        }
+        for(const at of state ? table.sleb5_state : table.sleb5)
+        {
+            // i32.const: a signed 32-bit value in 5 bytes (bits 32..34 are sign extension)
+            const value = map(read5(at) % 2 ** 32, state) % 2 ** 32 | 0;
+            write5(at, (value >>> 0) + (value < 0 ? 0x700000000 : 0));
+        }
+        for(const at of state ? table.u32_state : table.u32)
+        {
+            view.setUint32(at, map(view.getUint32(at, true), state) >>> 0, true);
+        }
     }
     return out;
 }
