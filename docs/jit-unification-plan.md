@@ -2159,3 +2159,61 @@ M7 的 Legacy32 未过 D 级门禁，按回退规则 M8 为第二次尝试，Tie
 - Win98 存档（3 个会话，MIPS）：《主题医院》A 998.8、B 1000.9、C 1002.2；《暗黑破坏神》75.5、79.6、79.5；《红色警戒 2》181.0、
   187.1、187.2。C 对 A 的几何均值 1.030（单项 1.003、1.053、1.034），B 1.030，过。
 - 结论：Legacy32 加多页函数通过 D 级门禁，按 P7.4 默认开启（下一个提交），然后跑 M7 列出的验收清单。
+
+**翻转与验收，2026-10-14（`9db09614`、`842e7fda`、`038619da`）。**
+
+- `x64_page_legacy32` 与 `x64_page_clusters` 默认开启（P7.4）。Legacy32 只在 `ir_tier0` 开着时生效（`pages::LEGACY_ACTIVE`，
+  由 `ir_auto_set_tier0` 与开关共同决定）：page tier 取代的是 Tier-0 这个按页编译的层，只用 region 的配置（`ir_tier0: false`，
+  或 `disable_jit` 之后再 `ir_auto_config`）里 32 位代码仍归 region，P7.5 之后 `ir_tier0` 作为别名也就有了含义。默认配置的
+  行为不受影响（D 级门禁就是这个配置）。`get_jit_info().ir.page_tier` 新报告 page tier（`legacy32`、函数数、原生指令数、
+  激活次数；`x64_page_stat(40)`），`v86.d.ts` 同步。
+- 翻转后可运行的 32 位代码不再查 region 缓存：编译前逐条解释（`run_compat_instruction`），编译后进 page tier。这是 M7 的
+  设计，但让三类测试必须调整：Tier-0 专属的测试钉住 `x64_page_legacy32: 0`（`tier0_*`、`entry`、`page_x87_cw` 的 Tier-0 一侧；
+  `JIT_SWITCHES` 仍在其后，`x64-legacy32-tests` 照旧测 page tier）；在默认配置下直接装 region 再运行 32 位代码的测试同样钉住
+  （`cache`、`overlap_validation`、`missing_hint`）；`COMPILED_ARMS` 加 `pages` 臂（放最后：有的测试按下标取 Tier-0 机器）。
+- 验收发现 region 的老问题（`9db09614`，region-fix-only，问题自 `b991dccf` 起就有）：CFG 前端把每个段选择子在 region 入口
+  读一次（graft 的 `entry_reads`），前提是改选择子的指令结束 region；但实模式与 V86 的 MOV Sreg 是继续执行的
+  （`ir_mov_segment_continue`），之后的 `MOV r/m16, Sreg`、`PUSH Sreg` 读到的是入口时的值。SeaVGABIOS 的 INT 10h 额外栈入口
+  从 ROM 里取 DS 再经 DX 抄给 SS：SS 保留了调用者的值，返回时从错的段读回 SS:ESP，`multicore-linux-jit-tests`（region 预算
+  `hot_threshold` 8）里 ISOLINUX 之后跑进实模式的垃圾代码；VGA BIOS 的字体拷贝循环在中途退出后也因此把 DS 留在 C000。
+  Legacy32 本身没有错，它只是改变了哪些代码先变热。现在写一个本 region 也读的选择子的 MOV Sreg 是停止片段，其后不再有
+  该选择子的读；单元测试 `mov_sreg_of_a_selector_the_region_reads_ends_it`（去掉修复：提交 3 条而不是 2 条）。定位方法：
+  按物理页限制 page tier 编译二分到 SeaBIOS 的一页，再按页内偏移单步二分，结果是时序问题；最后用调试构建的指令轨迹
+  （在 DS ≠ SS 时冻结）看到入口桩跑完后 SS 仍是 0x1000、EDX 也是 0x1000。
+- page tier 原生执行的 REP 串指令（单页内的 MOVS/STOS、REPE/REPNE CMPS/SCAS）之前不计入核心统计的 `rep_elements`，
+  `multicore-statistics-tests` 的 page tier 模式发现：传统模式下把元素数加到 `gp::x64_page_rep_elements`，激活结束时并入
+  核心统计（Tier-0 用的是调用 `ir_t0_note_rep`；先照它写成调用，`563.memops` 掉到 0.92：调用前后整个函数的寄存器都要溢出，
+  改成加到内存后 0.98；只改传统模式的代码，长模式与兼容模式字节不变）；`core_statistics.mjs` 加一条 24 个元素的 REPE CMPSB，去掉 CMPS 那处
+  计数会被发现。page tier 的激活也计入性能录制的 JIT 块（`WorkerPerformanceRecorder` 的 `jit_chunks`，IR-13 的 worker
+  浏览器测试发现为 0）。
+- SMP 测试矩阵加入 page tier 模式（`tests/lib/smp_modes.mjs`）：`pages` 即默认配置，固定装置里 `x64_legacy_heat` 为 2
+  （与它们给 Tier-0 设的页门槛 2 相同），`tier0`、`region` 钉住 Legacy32 关；`x64_page_published` 是 page tier 版的
+  `ir_cache_entry_stat(.., 0)`（一致性测试要求被改写的函数先以编译代码运行）。`linux_topology` 加 `SMP_JIT_MODE=pages`，
+  `multicore-linux-jit-tests` 两个目标都跑三种模式。`backend-scenarios` 的默认后端改查 page tier。
+- 其他：`build_rep_reference.py` 自 `bb8979f3` 起找不到 `string.rs` 的标记（`842e7fda` 修好，`ir-rep-tests` 恢复）；
+  `kvm-unit-tests/run.mjs` 接受 `JIT_SWITCHES`；realmode.flat 调试与发布构建都要约 50 s（Legacy32 开 53.5 s，关 51.8 s：
+  测试框架的 32 位代码在编译前逐条解释），贴着 60 s 的超时，改为 180 s；`xp_boot.mjs` 加 `XP_CPU_TYPE`，结果里带 CR4。
+- 验收（翻转后的默认构建）：`ir-tier0-tests`、`x64-legacy32-tests`、`ir-x87-tests`、`ir-x87-memory-tests`、`ir-sse-fp-tests`、
+  `ir-mmx-tests`、`ir-string-tests`、`ir-rep-tests`、`x87-fast-math-tests`、`x87-jit-cache-tests`、`packed-simd-tests`、
+  `mmx-fast-tests`、`sse3-tests` 与 SIMD/XSAVE 套件（`ssse3`、`sse4`、`sse-fp`、`sse-fault`、`avx`、`ir-avx`、`fma`、`bmi`、`ir-bmi`、
+  `xsave`）；`nasmtests-force-jit`、`jitpagingtests`、`kvm-unit-test`；多核 `multicore-coherence-tests`、`-atomic-`、
+  `-memory-order-`、`-statistics-`（含发布构建）、`highmem-tests`（`legacy_low_hole` 四种模式）、`multicore-linux-jit-tests`
+  （调试与发布，1/2/3/4/8 核，三种模式）、`multicore-parallel-tests`；IR 的 region 套件（`ir-cfg`、`ir-segment`、`ir-loop`、
+  `ir-selector-query`、`ir-live`、`ir-auto`、`ir-cache`、`ir-diagnostic`、`ir-fusion`、IR-13 冒烟含 Chrome）全部通过。
+  XP 到桌面：非 PAE（所有者的配置，CR4 0x698）与 PAE（`cpu_type` x86_64，有 NX，XP 载入 PAE 内核，CR4 0x6f8）都到桌面。
+  M1 的存档在翻转后的构建上恢复，循环跑完、新命令照常执行。`make jit-gate-full` 通过（`ir-core-tests` 全部；发布门禁
+  每级 `--quick` 63 个目标通过，此前 `protected_mode_msrs`/`protected_mode_rdtscp` 只认 Tier-0 的编译执行，已改为也认 page tier）。
+- `ir-system-stack-tests` 第 91 行的失败（描述符访问位写入在 #PF 之后的陷入）在 `985f518d` 上就有，与本计划无关：
+  `8d7a3927` 起该写入干净地报告故障，测试里钉住的宿主陷入已过时，由 `c3c88ade` 改为断言架构行为（另一会话）。
+- 对 D 级门禁的 C 臂（`d41e8351` 开两个开关）复测最终构建：i686 bench 3 个会话几何均值 1.004；`541.recursion`、`560.hash`
+  按 `--runs 7` 复测 1.01，`563.memops` 是真的（REP 计数的调用，见上，改后 0.98）。所有者的负载（3 个会话交替）：XP 桌面
+  12.89 s 对 12.89 s（1.000），《主题医院》0.999，《暗黑破坏神》1.000，《红色警戒 2》0.992，Win98 冷启动 1.029（C 臂有一次
+  没到桌面，最终构建 3 次都到）。
+
+**出口，2026-10-14（`vM8`）。**
+
+- Legacy32 加多页函数默认开启，M7 的验收清单在翻转后的构建上全部通过（见上）。开关关闭时的重放（`replay_check`）：Tier-0
+  语料 869、page tier 语料 1818 全部 0 差异；传统模式的代码只因 REP 计数而变（`REPLAY_ALLOW_CHANGES=x64`）。M1 存档可恢复。
+- 按回退规则，Tier-0 再保留一个里程碑：M9 删除 Tier-0（P7.5）。之前要处理的：WOW64 的兼容模式代码仍由 Tier-0 执行
+  （`x64_page_compat32` 在 M6 未过 D 级门禁，默认关；多页函数现在只用于传统模式），要再测一次兼容模式的 D 级门禁；
+  Legacy32 不能运行的 32 位代码（16 位栈、CS 基址非 0，约 0.5%）删除 Tier-0 之后改由 region 执行，M11 之前迁入 page tier。
