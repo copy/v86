@@ -552,6 +552,23 @@ fn lift_cfg_graph(
             },
         );
     }
+    // MOV Sreg in real or VM86 mode continues (ir_mov_segment_continue), but
+    // graft reads each selector once, at the region's entry: a MOV Sreg of a
+    // selector the region also reads (MOV r/m16, Sreg; PUSH Sreg) ends the
+    // region, so no read follows it. (SeaVGABIOS's INT 10h entry loads DS
+    // and copies it to SS: SS kept the caller's, and the Linux boot failed)
+    let read = fragments.values().fold(0u8, |mask, f| {
+        f.ir.instructions.iter().fold(mask, |mask, i| match i.op {
+            Op::ReadSegment(segment) => mask | 1 << segment,
+            _ => mask,
+        })
+    });
+    for fragment in fragments.values_mut() {
+        let i = &fragment.decoded;
+        if i.encoding.opcode == 0x8E && read >> (i.modrm.unwrap() >> 3 & 7) & 1 != 0 {
+            fragment.stop = true;
+        }
+    }
     let entries: Vec<GuestEip> = entries
         .iter()
         .copied()
@@ -627,8 +644,9 @@ fn lift_cfg_graph(
     });
     let seed = IntegerBuilder::new();
     let mut b = IntegerBuilder::new();
-    // Mode/selector-changing adapters terminate the region. These reads therefore
-    // remain invariant until exit, including across guest backedges.
+    // Mode/selector-changing adapters terminate the region, as does a MOV Sreg
+    // of a selector read here (above). These reads therefore remain invariant
+    // until exit, including across guest backedges.
     let mut entry_reads: Vec<(Op, ValueId)> = vec![];
     for fragment in fragments.values() {
         for inst in &fragment.ir.instructions {
@@ -1252,6 +1270,26 @@ mod formation_tests {
             lift_cpu_cfg(&bytes, GuestEip(0x1000), LinearAddress(0x2000), true, 64).unwrap();
         crate::ir::verify::verify(&region).unwrap();
         crate::ir::lowering::lower(&region).unwrap();
+    }
+
+    #[test]
+    fn mov_sreg_of_a_selector_the_region_reads_ends_it() {
+        // (16-bit) PUSH DS; MOV DS,AX; MOV DX,DS; HLT: the region reads DS at
+        // its entry, so it ends after MOV DS,AX
+        let bytes = [0x1E, 0x8E, 0xD8, 0x8C, 0xDA, 0xF4];
+        let region =
+            lift_cpu_cfg(&bytes, GuestEip(0x1000), LinearAddress(0x2000), false, 64).unwrap();
+        crate::ir::verify::verify(&region).unwrap();
+        crate::ir::lowering::lower(&region).unwrap();
+        assert_eq!(
+            region.states.iter().map(|s| s.committed_instructions).max(),
+            Some(2)
+        );
+        // MOV DS,AX; MOV DX,ES; HLT: no read of DS, the region continues
+        let bytes = [0x8E, 0xD8, 0x8C, 0xC2, 0xF4];
+        let region =
+            lift_cpu_cfg(&bytes, GuestEip(0x1000), LinearAddress(0x2000), false, 64).unwrap();
+        assert!(region.states.iter().map(|s| s.committed_instructions).max() >= Some(2));
     }
 
     #[test]
