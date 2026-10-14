@@ -84,14 +84,21 @@ try {
         configure();e.ir_test_step();e.ir_test_step();assert.deepEqual(actual,state(),"segment dword reservation versus actual access width");word_boundaries++;
     }
     console.log(`PASS: ${word_boundaries} segment stack page boundaries: word-only PUSH and full-width POP`);
-    const caught=f=>{try {f();return false;} catch(err){assert(err instanceof WebAssembly.RuntimeError);return true;}};
+    // Both faults are ordinary #PFs, without a host trap. Until 8d7a3927 the
+    // accessed-bit store unwrapped its translation, so it panicked after
+    // delivering the #PF, and this loop pinned that trap. The store is a
+    // supervisor write, so under CR0.WP the read-only GDT page faults with
+    // error code 3 and CR2 at the access byte. POP commits nothing: the frame
+    // sits directly below the old ESP, and no segment register changes.
     let descriptor_faults=0;
     for(let i=0;i<cases.length;i++) if(cases[i][3]&1&&cases[i][3]!==0x9D) for(const opt of [0,1]) for(const write_fault of [false,true]){
         const configure=()=>{reset(i,true,0x1000);mem.copyWithin(0x5000,0x3000,0x3058);cpu.gdtr_offset[0]=0x5000;cpu.gdtr_size[0]=0x10FF;set32(0x6000,0xFFFF);set32(0x6004,0x00CF9200);set32(0x13000+5*4,0x5003);set32(0x13000+6*4,write_fault?0x6001:0);windows.push([0x5000,0x1100]);e.full_clear_tlb();};
-        configure();const trapped=caught(()=>instances[i][opt].exports.f(0)),actual=state();assert.equal(trapped,write_fault);assert.equal(actual.ip,HANDLER);assert.equal(words[664>>2],101);
-        configure();e.ir_test_step();assert.equal(caught(()=>e.ir_test_step()),write_fault);assert.deepEqual(actual,state(),`descriptor lookup/accessed-bit fault ${i}/${write_fault}`);descriptor_faults++;
+        configure();instances[i][opt].exports.f(0);const actual=state();assert.equal(actual.ip,HANDLER);assert.equal(words[664>>2],101);
+        assert.equal(actual.cr2,write_fault?0x6005:0x6000);assert.equal(actual.regs[4],BASE+0x80-16);assert.equal(get32(BASE+0x80-16),write_fault?3:0);assert.equal(get32(BASE+0x80-12),PC+1,"saved EIP: the POP after INC EAX");
+        assert.deepEqual(actual.sreg,[0x18,8,16,0x20,0x18,0x20]);assert.equal(mem[0x6005],0x92);
+        configure();e.ir_test_step();e.ir_test_step();assert.deepEqual(actual,state(),`descriptor lookup/accessed-bit fault ${i}/${write_fault}`);descriptor_faults++;
     }
-    console.log(`PASS: ${descriptor_faults} descriptor #PF cases, including pinned post-delivery accessed-bit write traps`);
+    console.log(`PASS: ${descriptor_faults} descriptor read/accessed-bit #PF cases without host traps`);
     let real_mode=0;
     for(let i=0;i<cases.length;i++) if(!cases[i][1]) for(const opt of [0,1]) for(const value of [0,0xA000,0xFFFF]){
         const configure=()=>{reset(i,false,value);e.ir_test_set_cr0(cr0&~0x80000001);cpu.segment_offsets[2]=0x70000;cpu.reg32[4]=0xABCD1000;cpu.sreg[2]=0x7000;set32(0x71000,value);mem.fill(0x5A,0x70FC0,0x71000);windows.push([0x70FC0,0x80]);e.full_clear_tlb();e.update_state_flags();};
