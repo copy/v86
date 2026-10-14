@@ -4458,7 +4458,7 @@ impl Emitter {
             .unwrap()
             .each_ref()
             .map(|l| l.unsafe_clone());
-        self.ti(OFF);
+        self.si(OFF);
         self.b.get_local(&tlb);
         self.gi(OFF);
         self.c32(2);
