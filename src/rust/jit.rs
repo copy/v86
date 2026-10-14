@@ -178,6 +178,21 @@ pub fn jit_dirty_bytes(addr: u32, len: u32) {
     retire_bytes_ctx(&mut get_jit_state(), page, Some((lo, lo + len)));
 }
 
+/// jit_dirty_bytes for the bytes start..end, which span at most two pages
+/// (the RAM writers of crate::cpu::memory, through which compatibility-mode
+/// code's writes go: M9)
+pub fn jit_dirty_bytes_small(start: u32, end: u32) {
+    dbg_assert!(start < end);
+    let split = (start & !0xFFF).wrapping_add(0x1000);
+    if end <= split || split == 0 {
+        jit_dirty_bytes(start, end - start);
+    }
+    else {
+        jit_dirty_bytes(start, split - start);
+        jit_dirty_bytes(split, end - split);
+    }
+}
+
 /// dirty pages in the range of start_addr and end_addr, which must span at most two pages
 pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
     dbg_assert!(start_addr < end_addr);

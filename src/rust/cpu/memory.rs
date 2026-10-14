@@ -341,7 +341,7 @@ pub unsafe fn write8(addr: u32, value: i32) {
 
 #[inline]
 pub unsafe fn write8_ram(addr: u32, value: i32) {
-    jit::jit_dirty_page(Page::page_of(addr));
+    jit::jit_dirty_bytes(addr, 1);
     write8_no_mmap_or_dirty_check(addr, value);
 }
 
@@ -376,7 +376,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
 }
 #[inline]
 pub unsafe fn write16_ram(addr: u32, value: i32) {
-    jit::jit_dirty_cache_small(addr, addr + 2);
+    jit::jit_dirty_bytes_small(addr, addr + 2);
     write16_no_mmap_or_dirty_check(addr, value);
 }
 pub unsafe fn write16_no_mmap_or_dirty_check(addr: u32, value: i32) {
@@ -395,7 +395,7 @@ pub unsafe fn write32(addr: u32, value: i32) {
 
 #[inline]
 pub unsafe fn write32_ram(addr: u32, value: i32) {
-    jit::jit_dirty_cache_small(addr, addr + 4);
+    jit::jit_dirty_bytes_small(addr, addr + 4);
     write32_no_mmap_or_dirty_check(addr, value);
 }
 

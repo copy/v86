@@ -3998,15 +3998,14 @@ struct Emitter {
     access: Option<u32>,
     /// the compare-exchange loop of a locked instruction (read_dst)
     lock_loop: Option<Label>,
-    /// compatibility mode (P7.2): the 32-bit interpreter's last_op1, which
-    /// its ADD, ADC, SUB, SBB, CMP, INC and DEC (NEG, XADD, CMPXCHG, CMPS
-    /// and SCAS through them) set to their first operand, and from which a
-    /// later MUL's AF follows (cpu::misc_instr::getaf): kept in a local,
-    /// loaded and written back with the GPRs
-    last_op1: Option<WasmLocal>,
-    /// legacy mode (M8): last_op1 stays in the CPU state, written where the
-    /// operations set it and read where flags take it, as Tier-0 keeps it:
-    /// no register for it across loops and dispatch
+    /// compatibility and legacy mode (P7.2, M8): the 32-bit interpreter's
+    /// last_op1, which its ADD, ADC, SUB, SBB, CMP, INC and DEC (NEG, XADD,
+    /// CMPXCHG, CMPS and SCAS through them) set to their first operand, and
+    /// from which a later MUL's AF follows (cpu::misc_instr::getaf): it
+    /// stays in the CPU state, written where the operations set it and read
+    /// where flags take it, as Tier-0 keeps it (no register for it across
+    /// loops and dispatch; M9 for compatibility mode, which kept it in a
+    /// local)
     last_op1_memory: bool,
     /// legacy mode (P7.3): which vector_checked kinds may run natively, from
     /// CR0, CR4 and XCR0 at entry and after each step (reload: a stepped
@@ -4195,8 +4194,7 @@ impl Emitter {
             .map(|_| b.declare_zeroed_local_i64())
             .collect();
         let w = (0..LOCALS32).map(|_| b.declare_zeroed_local()).collect();
-        let last_op1 = (env.compat && !env.legacy).then(|| b.declare_zeroed_local());
-        let vector_ok = env.legacy.then(|| b.declare_zeroed_local());
+        let vector_ok = env.compat.then(|| b.declare_zeroed_local());
         let verified = (env.span > 1).then(|| b.declare_zeroed_local());
 
         let mut e = Emitter {
@@ -4222,8 +4220,7 @@ impl Emitter {
             ymm_zeroed: 0,
             access: None,
             lock_loop: None,
-            last_op1,
-            last_op1_memory: env.legacy,
+            last_op1_memory: env.compat,
             vector_ok,
             x87_words: None,
             x87_cache: None,
@@ -4378,7 +4375,6 @@ impl Emitter {
             xmm_locals,
             fp_mxcsr,
             lookup_kept,
-            last_op1,
             vector_ok,
             x87_words,
             x87_cache,
@@ -4398,12 +4394,7 @@ impl Emitter {
             }
             b.free_local(delta);
         }
-        for l in w
-            .into_iter()
-            .chain(fp_mxcsr)
-            .chain(last_op1)
-            .chain(vector_ok)
-        {
+        for l in w.into_iter().chain(fp_mxcsr).chain(vector_ok) {
             b.free_local(l);
         }
         if let Some((low, high)) = x87_words {
@@ -4421,9 +4412,9 @@ impl Emitter {
         for l in xmm_locals.into_iter().flatten() {
             b.free_local_v128(l);
         }
-        // (legacy mode's write mask is its read mask's local: once)
+        // (32-bit modes' write mask is their read mask's local: once)
         for (k, l) in tlb.into_iter().flatten().enumerate() {
-            if env.legacy && k == 2 {
+            if env.compat && k == 2 {
                 std::mem::forget(l);
             }
             else {
@@ -4601,11 +4592,11 @@ impl Emitter {
         }
         self.b.br_if(self.f().exit);
     }
-    /// Push N plus the instructions stepped (K; legacy mode counts those in
-    /// the budget instead, M8)
+    /// Push N plus the instructions stepped (K; the 32-bit modes count those
+    /// in the budget instead, M8, M9)
     fn n_and_steps(&mut self) {
         self.gi(N);
-        if !self.env.legacy {
+        if !self.env.compat {
             self.gi(K);
             self.b.add_i32();
         }
@@ -4657,10 +4648,6 @@ impl Emitter {
         }
         self.b.load_fixed_i32(gp::flags as u32);
         self.si(FL);
-        if self.last_op1.is_some() {
-            self.b.load_fixed_i32(gp::last_op1 as u32);
-            self.b.set_local(self.last_op1.as_ref().unwrap());
-        }
         if self.vector_ok.is_some() {
             // SSE: CR0.EM and TS clear, CR4.OSFXSR set (sse_check)
             self.b.load_fixed_i32(gp::cr as u32);
@@ -4759,17 +4746,17 @@ impl Emitter {
             let tlb = self.b.declare_zeroed_local();
             self.b.load_fixed_i32(gp::ir_tlb_base as u32);
             self.b.set_local(&tlb);
-            // (M8, legacy mode: the write mask is the read mask with
+            // (M8, the 32-bit modes: the write mask is the read mask with
             // TLB_READONLY and TLB_HAS_CODE, ORed where a write looks up:
             // one register less through the function)
-            let masks = if self.env.legacy {
+            let masks = if self.env.compat {
                 let read = self.b.declare_zeroed_local();
                 [read.unsafe_clone(), read]
             }
             else {
                 [self.b.declare_zeroed_local(), self.b.declare_zeroed_local()]
             };
-            let count = if self.env.legacy { 1 } else { 2 };
+            let count = if self.env.compat { 1 } else { 2 };
             for (mask, f) in masks
                 .iter()
                 .zip([tlb_read_mask as fn(bool) -> i32, tlb_write_mask])
@@ -4788,10 +4775,10 @@ impl Emitter {
         }
         self.b.load_fixed_i32(gp::x64_jac_base as u32);
         self.si(JAC);
-        // (M8: legacy mode reads the epoch where it chains, its only use,
-        // and counts steps in the budget, not K: two registers less where
+        // (M8: the 32-bit modes read the epoch where they chain, its only
+        // use, and count steps in the budget, not K: two registers less where
         // dispatch tables merge, which V8 otherwise spills around)
-        if !self.env.legacy {
+        if !self.env.compat {
             self.c32(gp::x64_jac_epoch as i32);
             self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
             self.s(EP);
@@ -4825,11 +4812,6 @@ impl Emitter {
     }
     /// writeback but the GPRs
     fn writeback_except_gprs(&mut self) {
-        if self.last_op1.is_some() {
-            self.c32(gp::last_op1 as i32);
-            self.b.get_local(self.last_op1.as_ref().unwrap());
-            self.b.store_aligned_i32(0);
-        }
         self.c32(gp::flags as i32);
         self.gi(FL);
         self.b.store_aligned_i32(0);
@@ -4854,7 +4836,7 @@ impl Emitter {
         self.x87_close();
         self.materialize_if(ARITH);
         self.writeback();
-        if self.env.legacy {
+        if self.env.compat {
             self.b.get_local(&self.budget);
             self.c32(1);
             self.b.sub_i32();
@@ -4995,8 +4977,8 @@ impl Emitter {
             members.iter().map(|&k| start(k)).max().unwrap(),
         );
         // (P7.3: a loop of its header alone is entered and repeated at it:
-        // no dispatch on RIP each iteration; legacy mode, 706.memory)
-        if self.env.legacy && members.len() == 1 && units.len() == 1 {
+        // no dispatch on RIP each iteration; the 32-bit modes, 706.memory)
+        if self.env.compat && members.len() == 1 && units.len() == 1 {
             level.direct = true;
             self.levels.push(level);
             self.units(units, blocks, index);
@@ -5071,7 +5053,7 @@ impl Emitter {
         self.gi(ENT);
         self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
         self.g(TAG);
-        if self.env.legacy {
+        if self.env.compat {
             self.c32(gp::x64_jac_epoch as i32);
             self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
         }
@@ -5117,7 +5099,7 @@ impl Emitter {
         self.b.get_local(&self.budget);
         self.gi(N);
         self.b.sub_i32();
-        if !self.env.legacy {
+        if !self.env.compat {
             self.gi(K);
             self.b.sub_i32();
         }
@@ -5846,7 +5828,7 @@ impl Emitter {
         self.b.add_i32();
         self.b.load_aligned_i32(0);
         self.ti(ENT);
-        if write && self.env.legacy {
+        if write && self.env.compat {
             self.b.get_local(&read);
             self.c32(tlb_write_mask(true) & !tlb_read_mask(true));
             self.b.or_i32();
@@ -6501,12 +6483,7 @@ impl Emitter {
     /// Compatibility mode: last_op1 = the low 32 bits of i64 local `i` (see
     /// Emitter::last_op1)
     fn note_last_op1(&mut self, i: usize) {
-        if self.last_op1.is_some() {
-            self.g(i);
-            self.b.wrap_i64_to_i32();
-            self.b.set_local(self.last_op1.as_ref().unwrap());
-        }
-        else if self.last_op1_memory {
+        if self.last_op1_memory {
             self.c32(gp::last_op1 as i32);
             self.g(i);
             self.b.wrap_i64_to_i32();
@@ -6515,14 +6492,9 @@ impl Emitter {
     }
     /// Whether the 32-bit interpreter's last_op1 is kept (compatibility and
     /// legacy mode)
-    fn tracks_last_op1(&self) -> bool { self.last_op1.is_some() || self.last_op1_memory }
+    fn tracks_last_op1(&self) -> bool { self.last_op1_memory }
     /// Push last_op1 (i32)
-    fn push_last_op1(&mut self) {
-        match &self.last_op1 {
-            Some(local) => self.b.get_local(local),
-            None => self.b.load_fixed_i32(gp::last_op1 as u32),
-        }
-    }
+    fn push_last_op1(&mut self) { self.b.load_fixed_i32(gp::last_op1 as u32); }
     /// Compatibility mode: SF, ZF, PF and AF after a multiply as the 32-bit
     /// interpreter's lazy EFLAGS give them (cpu::arith::mul32 and kin: the
     /// result TR at `width`; AF from last_op1 and that result, getaf), each
@@ -7096,7 +7068,7 @@ impl Emitter {
                 io,
                 address,
             } => self.x87(inst, opcode, modrm, io, address),
-            Op::Fnstsw if self.env.legacy => {
+            Op::Fnstsw if self.env.compat => {
                 // (P7.3: fpu_load_status_word with TOP from the x87 cache,
                 // which stays open: i586 code compares with FCOMP, FNSTSW AX
                 // and SAHF, 616.fcompare)
@@ -7351,7 +7323,7 @@ impl Emitter {
                 self.s(TR);
                 self.write_dst(dst, width, TR);
                 self.alu_flags(if dec { 5 } else { 0 }, width, need);
-                if self.env.legacy {
+                if self.env.compat {
                     self.unit_record(dec, width, ARITH & !CF, need, inst);
                 }
                 else {
@@ -9879,7 +9851,7 @@ impl Emitter {
         // rounding and precision, nothing of the stack: the x87 cache stays
         // open, where the helper would close it; 615.ftol's truncating casts
         // take two)
-        if self.env.legacy && opcode == 0xD9 && modrm < 0xC0 && modrm >> 3 & 7 == 5 {
+        if self.env.compat && opcode == 0xD9 && modrm < 0xC0 && modrm >> 3 & 7 == 5 {
             self.b.get_local(&low);
             self.b
                 .call_signature("x64_page_fldcw", Signature::new(&[WasmType::I32], &[]));
@@ -11537,8 +11509,8 @@ impl Emitter {
             self.b.ne_i64();
             self.retry_if(start);
         }
-        if self.env.legacy {
-            // (legacy mode, P7.3: the remainder from the quotient, one
+        if self.env.compat {
+            // (the 32-bit modes, P7.3: the remainder from the quotient, one
             // multiply where engines emit a second division for i64.rem; the
             // quotient is exact, so the dividend less quotient * divisor)
             self.g(TA);
@@ -11702,7 +11674,7 @@ impl Emitter {
             crate::x86tpl::string::memory_fill(&mut self.b);
             self.b.guest_fence();
         }
-        if self.env.legacy {
+        if self.env.compat {
             self.note_rep(|e| {
                 e.g(1);
                 e.b.wrap_i64_to_i32();
@@ -11898,7 +11870,7 @@ impl Emitter {
         self.b.block_end();
         self.b.guest_fence();
         // elements done: RCX, RSI, RDI
-        if self.env.legacy {
+        if self.env.compat {
             let shift = size.trailing_zeros() as i32;
             self.note_rep(|e| {
                 e.gi(ENT);

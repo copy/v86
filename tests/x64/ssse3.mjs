@@ -200,7 +200,9 @@ const check = (result, label) => {
 check(expected, "QEMU");
 for(const [label, options, compat] of [["interpreted", {}, false],
     ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, true],
+    // (Tier-0's compatibility-mode code: the page tier's is the default since M9)
+    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
+        jit_switches: {x64_page_compat32: 0}}, true],
     // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
     ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
         jit_switches: {x64_page_compat32: 1}}, false]])

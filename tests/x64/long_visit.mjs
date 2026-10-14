@@ -72,7 +72,8 @@ for(const [name, jit, long_visit] of [["interpreter", false, false], ["compat JI
 {
     let tier0 = null, starved = 0, frames = 0;
     results[name] = await actual(directory, {length: 88, timeout: 300000,
-        options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true} : {},
+        // (Tier-0's compatibility-mode pages: the page tier's are the default since M9)
+        options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true, jit_switches: {x64_page_compat32: 0}} : {},
         setup: emulator => {
             const cpu = emulator.v86.cpu, x = cpu.wm.exports;
             x.x64_set_compat_jit(jit);

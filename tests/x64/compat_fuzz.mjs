@@ -366,7 +366,9 @@ jmp [0x2FF000]
         const emulator = new V86(with_jit_switches({graphics_adapter: "bochs_vga", multiboot: {url: dir + "guest.bin"}, memory_size: 32 << 20, acpi: true,
             disable_jit: !jit, experimental_smp_jit: true, ir_sync_publication: true, autostart: false, log_level: 0,
             cpu_type: "x86_64", cpu_features: ["BMI1", "BMI2", "LZCNT", "MOVBE"], cpu_features_unreleased: true,
-            jit_switches: {x64_page_compat32: 1}}));
+            // (compatibility mode's first compile waits for x64_legacy_heat, as
+            // legacy mode's: the loops here are shorter, as tier0_fuzz's)
+            jit_switches: {x64_page_compat32: 1, x64_legacy_heat: 2000}}));
         try
         {
             await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));

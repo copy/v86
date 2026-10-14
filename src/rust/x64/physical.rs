@@ -715,7 +715,7 @@ unsafe fn write_ram(address: u32, width: usize, value: u64) {
         2 => memory::write16_ram(address, value as u16 as i32),
         4 => memory::write32_ram(address, value as i32),
         8 => {
-            crate::jit::jit_dirty_cache_small(address, address + 8);
+            crate::jit::jit_dirty_bytes_small(address, address + 8);
             memory::write64_no_mmap_or_dirty_check(address, value);
         },
         _ => unreachable!(),

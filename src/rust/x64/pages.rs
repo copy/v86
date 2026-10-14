@@ -700,18 +700,24 @@ unsafe fn span_translation(rip: u64) {
 }
 
 /// Compatibility-mode code in the page tier (the JIT switch
-/// x64_page_compat32, P7.2): 32-bit code under a 64-bit OS, while its data
-/// and stack segments are flat (compat_runnable)
-static mut COMPAT32: bool = false;
+/// x64_page_compat32, P7.2; on since M9, which passed its D gate: P7.4):
+/// 32-bit code under a 64-bit OS, while its data and stack segments are flat
+/// (compat_runnable)
+static mut COMPAT32: bool = true;
+/// COMPAT32 && PAGE32_TIER0
+static mut COMPAT_ACTIVE: bool = false;
 #[no_mangle]
-pub unsafe fn x64_page_set_compat32(enabled: bool) { COMPAT32 = enabled; }
-pub unsafe fn compat32() -> bool { COMPAT32 }
+pub unsafe fn x64_page_set_compat32(enabled: bool) {
+    COMPAT32 = enabled;
+    COMPAT_ACTIVE = COMPAT32 && PAGE32_TIER0;
+}
+pub unsafe fn compat32() -> bool { COMPAT_ACTIVE }
 /// The current code runs in the page tier as 32-bit compatibility-mode
 /// code: 32-bit CS, a 32-bit stack, and CS, DS, ES and SS with base 0 (as
 /// WOW64's are; FS and GS bases are added at each access). Generated code
 /// relies on it; a step that changes it leaves (context).
 pub unsafe fn compat_runnable() -> bool {
-    COMPAT32
+    COMPAT_ACTIVE
         && state::mode() == state::ExecutionMode::Compatibility32
         && *gp::stack_size_32
         && cpu::has_flat_segmentation()
@@ -721,24 +727,26 @@ pub unsafe fn compat_runnable() -> bool {
 /// Legacy protected-mode code in the page tier (the JIT switch
 /// x64_page_legacy32, P7.3), as 32-bit compatibility-mode code
 static mut LEGACY32: bool = true;
-/// ir_tier0 (set_legacy_tier0): the page tier replaces Tier-0, the IR's
+/// ir_tier0 (set_page32_tier0): the page tier replaces Tier-0, the IR's
 /// page-granular compiler, so configurations without it (region only)
-/// leave 32-bit code to the region tier
-static mut LEGACY_TIER0: bool = false;
-/// LEGACY32 && LEGACY_TIER0
+/// leave legacy-mode code to the region tier and interpret
+/// compatibility-mode code, as they did
+static mut PAGE32_TIER0: bool = false;
+/// LEGACY32 && PAGE32_TIER0
 static mut LEGACY_ACTIVE: bool = false;
 #[no_mangle]
 pub unsafe fn x64_page_set_legacy32(enabled: bool) {
     LEGACY32 = enabled;
-    LEGACY_ACTIVE = LEGACY32 && LEGACY_TIER0;
+    LEGACY_ACTIVE = LEGACY32 && PAGE32_TIER0;
 }
 /// (crate::ir::runtime::schedule::ir_auto_set_tier0)
-pub unsafe fn set_legacy_tier0(enabled: bool) {
-    LEGACY_TIER0 = enabled;
-    LEGACY_ACTIVE = LEGACY32 && LEGACY_TIER0;
+pub unsafe fn set_page32_tier0(enabled: bool) {
+    PAGE32_TIER0 = enabled;
+    LEGACY_ACTIVE = LEGACY32 && PAGE32_TIER0;
+    COMPAT_ACTIVE = COMPAT32 && PAGE32_TIER0;
 }
 /// Whether a switch hands 32-bit code to the page tier (read once a slice)
-pub unsafe fn page32() -> bool { COMPAT32 || LEGACY_ACTIVE }
+pub unsafe fn page32() -> bool { COMPAT_ACTIVE || LEGACY_ACTIVE }
 /// The current code runs in the page tier as 32-bit legacy protected-mode
 /// code: as compat_runnable, and with FS not null (its base is added at each
 /// access; GS's accesses step, see pagegen Decoder::legacy), paged or not
@@ -832,7 +840,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
     let last = r.last_rip;
     // (P7.3b: entered from a neighbouring page, the evidence a span takes)
     let here = rip >> 12;
-    if CLUSTERS && mode >= MODE_LEGACY && r.last_page != here {
+    if CLUSTERS && mode >= MODE_COMPAT && r.last_page != here {
         let side = if r.last_page.wrapping_add(1) == here {
             Some(0)
         }
@@ -957,9 +965,12 @@ pub unsafe fn run(budget: u32) -> Attempt {
             HEAT_BATCH = HeatBatch::NONE;
             let state = r.pages.entry(page).or_default();
             state.heat += heat;
-            // (legacy mode's first compile waits for LEGACY_HEAT; a page
-            // compiled before is hot, its function retired by a write)
-            let hot = if mode >= MODE_LEGACY && state.compiles == 0 { LEGACY_HEAT } else { HOT };
+            // (32-bit code's first compile waits for LEGACY_HEAT, which also
+            // gathers the page crossings spans take (P7.3b; compatibility
+            // mode since M9: compiled at HOT, its pages chained before any
+            // crossing reached run); a page compiled before is hot, its
+            // function retired by a write)
+            let hot = if mode >= MODE_COMPAT && state.compiles == 0 { LEGACY_HEAT } else { HOT };
             // (instructions a write changed are volatile now: the page's
             // function would stay as they change again, no compile of its
             // own, dirty_bytes)
@@ -1398,8 +1409,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     // (named after the linear page it was compiled for: host profiles)
     let linear = state::read_rip() & !4095;
     // (P7.3b: with x64_page_clusters, the consecutive pages of a span of
-    // legacy-mode code, `page` among them; else just `page`)
-    let span: Vec<(u32, u64, u32)> = if legacy && CLUSTERS && !hot && !SPAN_DECLINED {
+    // 32-bit code, `page` among them, legacy mode and since M9 compatibility
+    // mode; else just `page`)
+    let span: Vec<(u32, u64, u32)> = if compat && CLUSTERS && !hot && !SPAN_DECLINED {
         span_members(r, page, linear)
     }
     else {
@@ -1447,9 +1459,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
             }
         }
     }
-    // (P7.3: the instructions writes changed, of a legacy-mode page compiled
+    // (P7.3: the instructions writes changed, of a 32-bit page compiled
     // alone: their immediates load from its host)
-    let volatile: Vec<u16> = if legacy && span.len() == 1 && !is_extended(page) {
+    let volatile: Vec<u16> = if compat && span.len() == 1 && !is_extended(page) {
         r.pages
             .get(&page)
             .map_or(Vec::new(), |s| s.volatile.clone())
@@ -1847,7 +1859,7 @@ pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
             };
             let base = (m * 4096) as u16;
             let range = lo..hi.min(4096);
-            if f.page & LEGACY_KEY != 0
+            if f.page & COMPAT_KEY != 0
                 && f.phase != Phase::Dead
                 && !range.clone().any(|o| bit(&f.code, base + o as u16))
                 && range.clone().any(|o| bit(&f.dynamic, base + o as u16))
@@ -1870,7 +1882,7 @@ pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
         else {
             continue;
         };
-        if kept.contains(&i) || f.page & LEGACY_KEY == 0 || f.phase == Phase::Dead {
+        if kept.contains(&i) || f.page & COMPAT_KEY == 0 || f.phase == Phase::Dead {
             continue;
         }
         let base = (m * 4096) as u16;
@@ -1924,7 +1936,7 @@ fn retire_written(page: u32, kept: &[usize]) {
         // interpreted; a page rewritten while its code runs, as 709.smc's,
         // still backs off)
         let f = &r.functions[i];
-        if f.page & LEGACY_KEY != 0 && r.stats[RETIRED].wrapping_sub(f.native_at) >= LIVED {
+        if f.page & COMPAT_KEY != 0 && r.stats[RETIRED].wrapping_sub(f.native_at) >= LIVED {
             let key = f.page;
             if let Some(state) = r.pages.get_mut(&key) {
                 state.compiles = state.compiles.min(1);
@@ -2025,6 +2037,8 @@ pub fn x64_page_stat(field: u32) -> f64 {
         f @ 38..=39 => unsafe { COUNTERS[f as usize - 38 + COUNT_SPANS] as f64 },
         // (legacy-mode code runs here: x64_page_legacy32 and ir_tier0)
         40 => unsafe { LEGACY_ACTIVE as u32 as f64 },
+        // (compatibility-mode code runs here: x64_page_compat32 and ir_tier0)
+        41 => unsafe { COMPAT_ACTIVE as u32 as f64 },
         24 => unsafe { BYTES_COMPILED as f64 },
         // pages compiled at least once (while tracked)
         21 => r.pages.values().filter(|state| state.compiles != 0).count() as f64,

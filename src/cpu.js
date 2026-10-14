@@ -2721,6 +2721,7 @@ CPU.prototype.get_jit_info = function()
         // (32-bit protected-mode code in the x64 page tier, x64_page_legacy32)
         ir["page_tier"] = exports["x64_page_stat"] ? {
             "legacy32": !!exports["x64_page_stat"](40),
+            "compat32": !!exports["x64_page_stat"](41),
             "functions": exports["x64_page_stat"](12) >>> 0,
             "native_instructions": exports["x64_page_stat"](1) >>> 0,
             "activations": exports["x64_page_stat"](13) >>> 0,
