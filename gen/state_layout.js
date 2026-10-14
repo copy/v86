@@ -183,7 +183,7 @@ export const STATICS = {
     },
     "cpu/exceptions.rs": { DELIVERING: "scratch", EXTERNAL: "scratch", SHUTDOWN: "core", BSP_RESET: "machine" },
     "cpu/context.rs": { CONTEXTS: "core" },
-    "cpu/execution.rs": { execution_state: "machine", CORE_STATISTICS: "core", JIT_ACCOUNTED_DISPATCHES: "scratch", LEDGER: "debug",
+    "cpu/execution.rs": { execution_state: "machine", CORE_STATISTICS: "core", LEDGER: "debug",
         // flushed into CORE_STATISTICS before every read, reset and core switch
         PENDING_RETIRED: "scratch", PENDING_REP_ELEMENTS: "scratch" },
     "cpu/fpu.rs": { X87_JIT_CACHE: "machine" },
@@ -208,13 +208,12 @@ export const STATICS = {
     "ir/frontend/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
     "ir/runtime/cache.rs": {
         // compiled code and lookup caches; hits re-check the live TLB and CPU context
-        CACHE: "machine", COLLECTION_PENDING: "machine", FAST: "machine", FAST_CHAINS: "machine", FAST_HITS: "debug",
-        FAST_STAMP: "machine", FUSION_PROFILE: "debug", LINK_RANDOM: "machine", MERGED_VALIDATION_ENABLED: "machine",
+        CACHE: "machine", FAST: "machine", FAST_CHAINS: "machine", FAST_HITS: "debug",
+        FAST_STAMP: "machine", FUSION_PROFILE: "debug", MERGED_VALIDATION_ENABLED: "machine",
         MISSING_ENTRIES: "machine", MISSING_HINT_ENABLED: "machine", MISSING_HINT_HITS: "debug", NEG_STAMP: "machine",
-        PAGE_FAST: "machine", PAGE_OUT: "machine", PAGE_REFILL: "machine", POLL_REUSE_ENABLED: "machine",
-        STRICT_VALIDATION: "machine", T0_CHAINS: "machine", T0_ENTRIES: "debug", T0_LINKABLE: "machine", T0_SLOTS: "machine",
-        // the running activation and its entry state; never across a host yield
-        ACTIVE: "scratch", T0_CONTROL: "scratch", T0_CS: "scratch",
+        POLL_REUSE_ENABLED: "machine", STRICT_VALIDATION: "machine",
+        // the running activation; never across a host yield
+        ACTIVE: "scratch",
     },
     // (calls of the AVX helper, for tests)
     "ir/runtime/avx.rs": { CALLS: "debug" },
@@ -231,29 +230,15 @@ export const STATICS = {
     "ir/runtime/rep.rs": { LAST_RESULT: "scratch" },
     "ir/runtime/schedule.rs": {
         DIRECT_T2: "machine", FORCED: "machine", HEAT: "machine", HEAT_STEPS: "machine", HEAT_STEPS_PER_VISIT: "machine",
-        PAGE_HEAT: "machine", SCHEDULER: "machine", T0_RANGES: "machine", T0_CLUSTERS: "machine", TIER0: "machine", RESERVED: "machine",
-        // config.enabled's lock-free mirror (P4.5a); x64_long_visit (P4.6)
-        ENABLED: "machine", LONG_VISIT: "machine", LONG_VISIT_AGAIN: "cache",
+        SCHEDULER: "machine", TIER0: "machine", RESERVED: "machine",
+        // config.enabled's lock-free mirror (P4.5a)
+        ENABLED: "machine",
     },
-    "ir/runtime/tier0.rs": {
-        COMPILED: "machine", STEPS: "debug", T0_LINK: "machine", T0_TAIL_CALLS: "machine", TEMPLATES: "machine",
-        T0_IRQ_DEFERRAL: "machine",
-        // (the host's relaxed multiply-adds: whether they fuse, whether FMA uses them)
-        RELAXED_FMA_FUSED: "machine", RELAXED_FMA: "machine",
-        // the operands of one ir_t0_sse_fp call
-        T0_SSE_FP: "scratch", SSE_FP_CALLS: "debug", FMA_CALLS: "debug",
-        // Tier-0's feature switches (docs/jit-unification-plan.md P3.0a); the
-        // template-kind profile, its switch and the names of its kinds
-        T0_FEATURES: "machine", KIND_PROFILE: "debug", KIND_PROFILE_ON: "machine", FORM_NAMES_TEXT: "debug",
-    },
-    // the compile records and the replay buffers of the byte-identity check
-    // (ir-test-hooks; docs/jit-unification-plan.md P2.0)
-    "ir/tier0/replay.rs": { RECORDS: "debug", INPUT: "debug", OUTPUT: "debug", OUTPUTS: "debug" },
     "jit.rs": { JIT_STATE: "machine", WATCHED: "machine", TABLE_FREE_LOW: "debug" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)
-    "step_profile.rs": { PROFILE: "debug", SAMPLES: "debug", SNAPSHOT: "debug", X64_LEGACY: "debug", X64_LEGACY_STALE: "debug" },
+    "step_profile.rs": { PROFILE: "debug", SAMPLES: "debug", PAIRS: "debug", SNAPSHOT: "debug", X64_LEGACY: "debug", X64_LEGACY_STALE: "debug" },
     // the parallel runtime: where this instance's statics are and whether
     // cores run in workers, then machine-wide words reached through machine():
     // wake-ups, yield flags, the locks of locked operations and the code
@@ -286,6 +271,13 @@ export const STATICS = {
     "x64/extended.rs": { EXTENDED: "machine", LOCK: "machine", DEPTH: "scratch", RELEASE_PENDING: "cache",
         LEGACY_TLB_CACHED: "cache", SLOT_PAGE: "cache", NEXT: "cache" },
     // page functions and their bookkeeping; entries re-check the live translation
+    // the page tier's exact SSE/FMA paths (their operand block and call
+    // counts), the host's tail calls and relaxed multiply-adds (P7.5: from
+    // ir/runtime/tier0.rs)
+    "x64/helpers.rs": {
+        SSE_FP_OPERANDS: "scratch", SSE_FP_CALLS: "debug", FMA_CALLS: "debug", TAIL_CALLS: "machine",
+        RELAXED_FMA_FUSED: "machine", RELAXED_FMA: "machine",
+    },
     "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", SEGMENTED_ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
         // per core, tagged with that core's access cache epoch
         CODE_TLB: "cache", CHAIN: "cache",

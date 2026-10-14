@@ -1,14 +1,15 @@
 //! Vector leaves of x86 semantics (docs/jit-unification-plan.md P2.2): the
 //! table of packed integer and logic operations (Packed) and its emission,
 //! the immediate shifts, the SSE arithmetic, compares and conversions, the
-//! call of the exact SSE helper (runtime::tier0::ir_t0_sse_fp) and the
-//! register facts behind native_fp's admission. Tier-0 uses them, the page
-//! tier from P2.3 on; tests/x86tpl/leaf_digests.rs pins their output.
+//! call of the exact SSE helper (x64::helpers::x64_sse_fp) and the
+//! register facts behind native_fp's admission. The page tier uses them
+//! (P2.3 on; IR Tier-0 until P7.5); tests/x86tpl/pagegen_leaf_digests.rs
+//! pins their output.
 use crate::ir::helper::imports::signature;
 use crate::wasmgen::leaves::{self, Shift};
 use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocal, WasmLocalV128};
 
-/// Register facts (Tier-0's Page::xmm_clean): lanes known to be neither NaN
+/// Register facts (the page tier's Emitter::xmm_clean): lanes known to be neither NaN
 /// nor denormal, as single precision (the low lane, all lanes) or double
 /// precision.
 pub const CLEAN_SS: u8 = 1;
@@ -142,34 +143,6 @@ impl Packed {
             _ => None,
         }
     }
-}
-
-/// The register facts (CLEAN_*) of a byte shuffle of the destination's and the source's
-/// lanes (`source`: None for memory), given theirs: whole lanes moved keep
-/// their state
-pub fn shuffled_clean(lanes: &[u8; 16], destination: u8, source: Option<u8>) -> u8 {
-    let mut clean = 0;
-    for (size, packed, scalar) in [(4, CLEAN_PS, CLEAN_SS), (8, CLEAN_PD, CLEAN_SD)] {
-        let group_clean = |g: usize| {
-            let first = lanes[g * size] as usize;
-            if first % size != 0 || (0..size).any(|k| lanes[g * size + k] as usize != first + k) {
-                return false;
-            }
-            let (bits, lane) = match (first < 16, source) {
-                (true, _) => (destination, first / size),
-                (false, Some(source)) => (source, (first - 16) / size),
-                (false, None) => return false,
-            };
-            bits & packed != 0 || lane == 0 && bits & scalar != 0
-        };
-        if (0..16 / size).all(group_clean) {
-            clean |= packed | scalar;
-        }
-        else if group_clean(0) {
-            clean |= scalar;
-        }
-    }
-    clean
 }
 
 /// PALIGNR with `imm8` on `n`-byte operands (simd_int::palignr_lanes)
@@ -547,22 +520,6 @@ pub fn compare_relation(
     }
 }
 
-/// COMISS/COMISD and UCOMISS/UCOMISD of the low lanes of (`dst`, `src`),
-/// both ordered (operands_refused takes the others): or ZF (equal) and CF
-/// (less) into the i32 on the stack
-pub fn compare_flags(w: &mut WasmBuilder, double: bool, dst: &WasmLocalV128, src: &WasmLocalV128) {
-    let base = if double { 0x47 } else { 0x41 };
-    for (compare, flag) in [(0, 0x40), (2, 1)] {
-        w.get_local_v128(dst);
-        w.get_local_v128(src);
-        w.simd(base + compare);
-        w.simd_lane(0x1B, 0);
-        w.const_i32(flag);
-        w.and_i32();
-        w.or_i32();
-    }
-}
-
 /// Call runtime::tier0::ir_t0_sse_fp, the exact path of a refused
 /// instruction: (`destination`, `source`) into its operand block at
 /// `operands` (Tier-0's Page::env.sse_fp_operands), the form `key` (a catalogue key:
@@ -583,7 +540,7 @@ pub fn sse_fp_call(
     }
     w.const_i32(key as i32);
     w.const_i32(imm8 as i32);
-    w.call_signature("ir_t0_sse_fp", signature("ir_t0_sse_fp"));
+    w.call_signature("x64_sse_fp", signature("x64_sse_fp"));
 }
 /// Push the result of sse_fp_call
 pub fn sse_fp_result(w: &mut WasmBuilder, operands: u32) {
@@ -660,13 +617,5 @@ pub fn convert_facts(
     clean[reg as usize] = lanes | if scalar { before & clean_bits(double, false) } else { 0 };
     if let (0x5F, Some(source)) = (opcode, source.filter(|&r| r != reg)) {
         clean[source as usize] |= CLEAN_SS;
-    }
-}
-/// The register facts after native_fp::operands_refused admitted XMM `first`
-/// and `source` (None: memory) in `lanes`
-pub fn operand_facts(clean: &mut [u8], lanes: u8, first: u8, source: Option<u8>) {
-    clean[first as usize] |= lanes;
-    if let Some(source) = source {
-        clean[source as usize] |= lanes;
     }
 }

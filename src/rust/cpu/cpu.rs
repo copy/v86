@@ -2974,8 +2974,8 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 }
 
 /// switch_seg for ES, DS, FS or GS in legacy protected mode when it raises
-/// nothing and leaves the state flags as they are (Tier-0's MOV Sreg
-/// template, docs/jit-unification-plan.md P3.7(b)). false, with nothing
+/// nothing and leaves the state flags as they are (the MOV Sreg template,
+/// docs/jit-unification-plan.md P3.7(b), IR Tier-0's until P7.5). false, with nothing
 /// changed: a fault, a descriptor that does not translate without one, an
 /// accessed bit to set on a page with compiled code or a device, or (with
 /// `keep_flat`) a DS whose load changes flat segmentation (then the
@@ -3442,7 +3442,7 @@ pub unsafe fn run_instruction(opcode: i32) {
 pub unsafe fn run_instruction0f_16(opcode: i32) { gen::interpreter0f::run(opcode as u32) }
 pub unsafe fn run_instruction0f_32(opcode: i32) { gen::interpreter0f::run(opcode as u32 | 0x100) }
 
-/// Instructions run by the interpreter loop (not Tier-0 steps), in total and
+/// Instructions run by the interpreter loop (not page tier steps), in total and
 /// by linear page in a small direct-mapped table: where compiled code is
 /// missing (diagnostics; see ir_interpreted_stat).
 static mut INTERPRETED: u32 = 0;
@@ -3525,14 +3525,14 @@ pub unsafe fn cycle_internal() -> bool {
         return attempt.submitted;
     }
     // 32-bit compatibility-mode code in the x64 page tier (x64_page_compat32,
-    // docs/jit-unification-plan.md P7.2), not Tier-0; legacy protected-mode
-    // code too (x64_page_legacy32, P7.3)
+    // docs/jit-unification-plan.md P7.2) and legacy protected-mode code
+    // (x64_page_legacy32, P7.3)
     if crate::x64::pages::page32()
         && crate::ir::runtime::schedule::enabled()
         && !crate::cpu::execution::is_deterministic()
         && crate::x64::pages::runnable32()
     {
-        // (to the end of the batch, as Tier-0's functions run: a return to
+        // (to the end of the batch, as IR Tier-0's functions ran: a return to
         // this loop every 4096 instructions cost 531.bitboard 4%)
         let ran = (*instruction_counter).wrapping_sub(jit_link_batch_start);
         let attempt = crate::x64::pages::run(jit_link_batch_limit.saturating_sub(ran).max(1));
@@ -3567,11 +3567,9 @@ pub unsafe fn cycle_internal() -> bool {
         return true;
     }
     let native_before = *instruction_counter;
-    let interpreted_before = crate::cpu::execution::jit_dispatches();
     if !wide && crate::ir::runtime::cache::execute() {
         crate::cpu::execution::note_native_retired(
             (*instruction_counter).wrapping_sub(native_before),
-            interpreted_before,
         );
         return false;
     }
@@ -3976,11 +3974,6 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
     let native = crate::ir::runtime::schedule::enabled();
     // (P7.2, P7.3: a switch hands 32-bit code to the page tier)
     let page32 = native && crate::x64::pages::page32();
-    // (P4.6, as in do_many_cycles_native)
-    if crate::x64::state::mode().is_long() && crate::ir::runtime::schedule::long_visit() {
-        jit_link_batch = false;
-        return (*instruction_counter).wrapping_sub(before);
-    }
     while remaining != 0 && !*in_hlt && !core_yield {
         // (as in do_many_cycles_native: extended RAM frames held by access
         // caches are released between entries)
@@ -4037,11 +4030,9 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
             if crate::ir::runtime::schedule::visit() {
                 break;
             }
-            let interpreted_before = crate::cpu::execution::jit_dispatches();
             if crate::ir::runtime::cache::execute() {
                 crate::cpu::execution::note_native_retired(
                     (*instruction_counter).wrapping_sub(count),
-                    interpreted_before,
                 );
                 remaining =
                     remaining.saturating_sub((*instruction_counter).wrapping_sub(count).max(1));
@@ -4173,7 +4164,6 @@ static mut jit_link_batch_limit: u32 = LOOP_COUNTER as u32;
 pub unsafe fn ir_link_budget_available() -> bool {
     jit_link_batch
         && !core_yield
-        && !crate::cpu::execution::irq_exit_requested()
         && !apic::has_core_events()
         && (*instruction_counter).wrapping_sub(jit_link_batch_start) < jit_link_batch_limit
 }
@@ -4187,10 +4177,6 @@ pub unsafe fn do_many_cycles_native() -> bool {
     jit_link_batch_start = initial_instruction_counter;
     jit_link_batch_limit = LOOP_COUNTER as u32;
     *slice_budget = LOOP_COUNTER as u32;
-    // (P4.6: a batch running 64-bit code compiles WOW64's waiting pages)
-    if crate::x64::state::mode().is_long() && crate::ir::runtime::schedule::long_visit() {
-        return true;
-    }
     jit_link_batch = true;
     while (*instruction_counter).wrapping_sub(initial_instruction_counter) < LOOP_COUNTER as u32
         && !*in_hlt
@@ -4202,14 +4188,6 @@ pub unsafe fn do_many_cycles_native() -> bool {
         // two loads when nothing is new, nothing in the normal build)
         crate::parallel::code::poll();
         crate::x64::extended::safe_point();
-        // (P4.6: an address space switch in 64-bit code)
-        if crate::ir::runtime::schedule::LONG_VISIT_AGAIN
-            && crate::x64::state::mode().is_long()
-            && crate::ir::runtime::schedule::long_visit()
-        {
-            publication_yield = true;
-            break;
-        }
         if cycle_internal() {
             publication_yield = true;
             break;

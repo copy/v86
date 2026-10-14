@@ -394,7 +394,7 @@ if(!process.env.X64_ORACLE_ONLY)
 {
     const received=await actual(directory,{length,timeout:60000,
         options: {disable_jit:!process.env.X64_JIT,experimental_smp_jit:true,
-            ir_tier0:process.env.X64_JIT === "tier0",ir_sync_publication:true,
+            ir_tier0:process.env.X64_JIT === "pages",ir_sync_publication:true,
             // (the VMASKMOV and gather cases)
             cpu_features:["SSSE3","SSE4.1","SSE4.2","XSAVE","AVX","AVX2"],cpu_features_unreleased:true},
         inspect: emulator => {

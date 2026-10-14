@@ -2280,7 +2280,7 @@ async function start_emulation(profile, query_args)
     for(const name of ["ir_opt_level", "ir_passes_disabled", "ir_verify", "ir_dump", "ir_stats"])
         if(cpu_args.has(name)) new_query_args.set(name, cpu_args.get(name));
 
-    // IR Tier-0 and the x87 fast paths are on unless the URL passes =0.
+    // ir_tier0 (32-bit code in the x64 page tier) and the x87 fast paths are on unless the URL passes =0.
     const settings = {};
     for(const name of ["ir_tier0", "x87_fast_math", "x87_jit_cache"])
     {

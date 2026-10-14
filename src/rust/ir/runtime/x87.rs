@@ -403,11 +403,12 @@ pub unsafe fn ir_x87_op(opcode: u32, modrm: u32, low: u32, high: u32) -> u64 {
     let io = crate::ir::x87::io(opcode, modrm).expect("continuing x87 form");
     x87_semantics(opcode, modrm, io, low, high)
 }
-/// ir_x87_op for Tier-0 page functions, which never inline f64 forms (no
-/// mirroring) and classify at compile time: `form` is opcode | modrm << 8 |
-/// kind << 16 (0 stack, 1 load, 2 store; the transfer width is implied).
+/// ir_x87_op for the x64 page tier's functions (IR Tier-0's until P7.5
+/// deleted it, ir_t0_x87), which never inline f64 forms (no mirroring) and
+/// classify at compile time: `form` is opcode | modrm << 8 | kind << 16 (0
+/// stack, 1 load, 2 store; the transfer width is implied).
 #[no_mangle]
-pub unsafe fn ir_t0_x87(form: u32, low: u32, high: u32) -> u64 {
+pub unsafe fn x64_x87(form: u32, low: u32, high: u32) -> u64 {
     use crate::ir::x87::Io;
     let (opcode, modrm) = (form as u8, (form >> 8) as u8);
     let io = match form >> 16 {

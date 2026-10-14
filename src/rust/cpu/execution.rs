@@ -23,10 +23,6 @@ static mut CORE_STATISTICS: [CoreStatistics; 8] = [CoreStatistics {
     halts: 0,
     runtime_ms: 0.0,
 }; 8];
-// Tier-0 fallback dispatches are counted by generated code even when they
-// fault. Remove those dispatch counts before adding the native JIT delta;
-// the interpreter ledger already accounts their actual retirement.
-static mut JIT_ACCOUNTED_DISPATCHES: u32 = 0;
 // Retired instructions and REP elements of the current core not yet added to
 // CORE_STATISTICS: two plain adds per instruction instead of an indexed
 // update. Flushed on core switch and before any read or reset.
@@ -55,12 +51,8 @@ struct ExecutionState {
     // callback inside that window must not deliver an IRQ; the dispatch
     // loop polls again at the instruction boundary.
     defer_irqs: bool,
-    // handle_irqs was called while defer_irqs held (hold_irqs)
+    // handle_irqs was called while defer_irqs held
     irq_noted: bool,
-    // A held access of compiled code made an interrupt deliverable: the code
-    // leaves at the next instruction boundary it reaches, without linking,
-    // and is delivered there (deliver_held_irqs)
-    irq_exit: bool,
 }
 
 impl ExecutionState {
@@ -75,7 +67,6 @@ impl ExecutionState {
             rep_elements: 0,
             defer_irqs: false,
             irq_noted: false,
-            irq_exit: false,
         }
     }
 
@@ -140,52 +131,10 @@ pub unsafe fn set_irq_deferral(enabled: bool) { execution_state.defer_irqs = ena
 #[inline(always)]
 pub unsafe fn irqs_deferred() -> bool { execution_state.defer_irqs }
 
-/// IRQ deferral for the helpers compiled code calls in the middle of an
-/// instruction whose state is still in Wasm locals
-/// (docs/jit-unification-plan.md P3.0b: IR Tier-0's memory slow paths and
-/// steps; the x64 page tier's system helpers, P4.7-P4.11, and P7's 32-bit
-/// page functions are meant to share it). A device access can raise or
-/// unmask an interrupt (an APIC or IOAPIC write, a device's callback), and
-/// delivering it there pushes a stale EIP and ESP that the code then
-/// overwrites. While `access` runs, handle_irqs only notes that it was
-/// called. Then, if an interrupt is deliverable, irq_exit_requested() holds:
-/// the code stops linking and leaves at the next instruction boundary it
-/// reaches (a step, a page exit, a poll), where deliver_held_irqs delivers it.
-#[inline(always)]
-pub unsafe fn hold_irqs<T>(access: impl FnOnce() -> T) -> T {
-    let outer = execution_state.defer_irqs;
-    execution_state.defer_irqs = true;
-    let result = access();
-    execution_state.defer_irqs = outer;
-    if !outer && execution_state.irq_noted {
-        execution_state.irq_noted = false;
-        if crate::cpu::cpu::irq_deliverable() {
-            execution_state.irq_exit = true;
-        }
-    }
-    result
-}
-
-/// Whether compiled code must leave at its next instruction boundary for an
-/// interrupt to be delivered (hold_irqs)
-#[inline(always)]
-pub unsafe fn irq_exit_requested() -> bool { execution_state.irq_exit }
-
 /// Whether handle_irqs was called while delivery was held, and nothing has
 /// delivered since (cpu::run_compat_instruction)
 #[inline(always)]
-pub unsafe fn irq_check_owed() -> bool { execution_state.irq_noted || execution_state.irq_exit }
-
-/// At an instruction boundary, with the CPU state written back: deliver the
-/// interrupt a held access made deliverable. True if one was due.
-#[inline(always)]
-pub unsafe fn deliver_held_irqs() -> bool {
-    if !execution_state.irq_exit {
-        return false;
-    }
-    crate::cpu::cpu::handle_irqs();
-    true
-}
+pub unsafe fn irq_check_owed() -> bool { execution_state.irq_noted }
 
 /// handle_irqs while delivery is held: the hold's end looks again
 #[inline(always)]
@@ -193,10 +142,7 @@ pub unsafe fn note_held_irq() { execution_state.irq_noted = true; }
 
 /// handle_irqs outside a hold delivers what is deliverable: nothing is owed
 #[inline(always)]
-pub unsafe fn held_irqs_served() {
-    execution_state.irq_noted = false;
-    execution_state.irq_exit = false;
-}
+pub unsafe fn held_irqs_served() { execution_state.irq_noted = false; }
 
 /// This mode uses the bounded interpreter and never a JIT/IR dispatch path.
 #[no_mangle]
@@ -256,27 +202,19 @@ pub unsafe fn note_jit_rep(elements: u32) {
     (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].rep_elements +=
         elements as u64;
 }
-pub unsafe fn jit_dispatches() -> u32 { JIT_ACCOUNTED_DISPATCHES }
-pub unsafe fn note_jit_interpreted(dispatches: u32) {
-    JIT_ACCOUNTED_DISPATCHES = JIT_ACCOUNTED_DISPATCHES.wrapping_add(dispatches);
-}
-pub unsafe fn note_native_retired(steps: u32, accounted_before: u32) {
-    let interpreted = JIT_ACCOUNTED_DISPATCHES.wrapping_sub(accounted_before);
-    dbg_assert!(
-        steps >= interpreted,
-        "JIT dispatch ledger exceeds generated step count"
-    );
+/// Instructions compiled code retired natively (the instructions it leaves
+/// to the interpreter retire there: finish_instruction)
+pub unsafe fn note_native_retired(native: u32) {
     (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].retired +=
-        steps.saturating_sub(interpreted) as u64;
+        native as u64;
 }
 /// How retired instructions ran (the mode ledger)
 #[derive(Clone, Copy)]
 pub enum Way {
     /// by the interpreter, outside compiled code
     Interpreted = 0,
-    /// IR Tier-0's page functions, and the instructions they stepped
-    Tier0Native = 1,
-    Tier0Step = 2,
+    // 1 and 2 were IR Tier-0's page functions and the instructions they
+    // stepped (deleted in P7.5); the numbering, which tools read, stays
     /// IR regions (Tier-1 and Tier-2)
     RegionNative = 3,
     /// the x64 page tier, the instructions it stepped and the ones it
@@ -326,7 +264,6 @@ pub struct LedgerSpan {
     flat: u8,
     retired: u64,
     counter: u32,
-    dispatches: u32,
 }
 #[inline(always)]
 pub unsafe fn ledger_begin() -> Option<LedgerSpan> {
@@ -351,7 +288,6 @@ unsafe fn ledger_begin_now() -> LedgerSpan {
         flat: flat as u8,
         retired: retired_now(),
         counter: *crate::cpu::global_pointers::instruction_counter,
-        dispatches: JIT_ACCOUNTED_DISPATCHES,
     }
 }
 /// The current core's retired instructions so far, pending ones included
@@ -372,14 +308,12 @@ pub unsafe fn ledger_end(span: Option<LedgerSpan>, way: Way) {
     }
 }
 /// Instructions compiled code retired since the span began, as
-/// note_native_retired counts them: the instruction counter's advance less
-/// the instructions it stepped (which their own spans count)
+/// note_native_retired counts them: the instruction counter's advance
 #[inline(always)]
 pub unsafe fn ledger_end_native(span: Option<LedgerSpan>, way: Way) {
     if let Some(span) = span {
-        let steps = (*crate::cpu::global_pointers::instruction_counter).wrapping_sub(span.counter);
-        let interpreted = JIT_ACCOUNTED_DISPATCHES.wrapping_sub(span.dispatches);
-        ledger_add(&span, way, steps.saturating_sub(interpreted) as u64);
+        let native = (*crate::cpu::global_pointers::instruction_counter).wrapping_sub(span.counter);
+        ledger_add(&span, way, native as u64);
     }
 }
 /// `retired` instructions compiled code retired since the span began, counted

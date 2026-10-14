@@ -23,7 +23,7 @@ all-debug: build/cpu-worker.js build/libv86-debug.js build/libv86-debug.mjs buil
 browser: build/cpu-worker.js build/v86_all.js
 
 # CPU benchmark suite (tests/bench): one IR core against another, see docs/cpu-benchmarks.md.
-.PHONY: bench-build bench bench-quick bench-same-source ir-tier0-tests replay-check replay-record
+.PHONY: bench-build bench bench-quick bench-same-source replay-check replay-record
 bench-build:
 	node tools/bench/build.mjs
 
@@ -39,38 +39,6 @@ bench-quick: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
 bench-same-source: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
 	node tests/bench/run.mjs --same-source --quick --out build/bench/same-source.json $(BENCH_ARGS)
 	node tests/bench/gate.mjs --level S build/bench/same-source.json
-
-# Tier-0 page functions against the interpreter on random programs.
-ir-tier0-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
-	node tests/ir/differential/tier0_fuzz.mjs 60 1
-	for kind in i0 i10 i13 i19 i22 i26 s1 s3 s7 s10 s11 x; do FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 6 2 || exit 1; done
-	FUZZ_KIND=s12 node tests/ir/differential/tier0_fuzz.mjs 40 2
-	FUZZ_KIND=s13 node tests/ir/differential/tier0_fuzz.mjs 40 2
-	FUZZ_KIND=b node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_jecxz=1 FUZZ_KIND=j node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_sreg_read=1 FUZZ_KIND=g node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_xchg_mem=1 FUZZ_KIND=e node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_cld_std=1 FUZZ_KIND=d node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_pop_rm=1 FUZZ_KIND=o node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_pusha=1 FUZZ_KIND=a node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_sreg_load=1 FUZZ_KIND=m node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_vec_store_slow=1 FUZZ_KIND=v node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_cli=1 FUZZ_KIND=c node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_pop_esp=1 FUZZ_KIND=p node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_rep_blocks=1,t0_rep_movs_stos=1 FUZZ_KIND=r node tests/ir/differential/tier0_fuzz.mjs 40 2
-	JIT_SWITCHES=t0_rep_blocks=1,t0_rep_movs_stos=0 FUZZ_KIND=r node tests/ir/differential/tier0_fuzz.mjs 20 3
-	JIT_SWITCHES=t0_rep_blocks=0,t0_rep_movs_stos=0 FUZZ_KIND=r node tests/ir/differential/tier0_fuzz.mjs 10 2
-	# (the same with P3.7's templates off: the steps they replaced)
-	for kind in j g e d o a m v c p; do JIT_SWITCHES=t0_jecxz=0,t0_sreg_read=0,t0_xchg_mem=0,t0_cld_std=0,t0_pop_rm=0,t0_pusha=0,t0_sreg_load=0,t0_vec_store_slow=0,t0_cli=0,t0_pop_esp=0 FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 6 2 || exit 1; done
-	node tests/ir/differential/sse_fp_tracking.mjs build/v86-ir-runtime.wasm
-	node tests/ir/differential/tier0_fetch_fault.mjs
-	node tests/ir/differential/tier0_irq_slow.mjs
-	node tests/ir/differential/tier0_step_profile.mjs
-	node tests/ir/differential/tier0_mode_ledger.mjs
-	node tests/ir/differential/tier0_kind_profile.mjs
-	node tests/ir/differential/tier0_rep_fault.mjs
-	node tests/ir/differential/tier0_segment_fault.mjs
-	node tests/ir/differential/page_x87_cw.mjs
 
 .PHONY: glbridge test-glbridge
 glbridge:
@@ -338,7 +306,7 @@ build/v86.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 # release core with build-time switch defaults, beside the others in
 # build/bench/arms, for the measurements whose processes take one setting
 # (tools/owner_perf.mjs --arms, XP, Windows 8.1 and Windows 98):
-#   make jit-arm ARM=t0-kinds JIT_DEFAULTS="t0_kind_profile=1"
+#   make jit-arm ARM=no-legacy32 JIT_DEFAULTS="x64_page_legacy32=0"
 # Its own cargo target directory leaves build/v86.wasm as it is.
 .PHONY: jit-arm
 jit-arm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
@@ -350,20 +318,18 @@ jit-arm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	@echo "build/bench/arms/$(ARM).wasm: JIT_DEFAULTS=\"$(JIT_DEFAULTS)\""
 
 # The D gate's A/B builds of a mode migration (docs/jit-unification-plan.md
-# P7.0): A the release core as it is (32-bit compatibility-mode code in
-# Tier-0), B-ptier and B-legacy with a page tier mode switch on by default
-# (x64_page_compat32, M6; x64_page_legacy32, M7; a build-time default,
-# JIT_DEFAULTS, where the plan named a cargo feature), for
-# tools/owner_perf.mjs --arms and tests/bench/run.mjs --wasm/--baseline
+# P7.0): A with 32-bit code in the region tiers (x64_page_compat32 and
+# x64_page_legacy32 off: IR Tier-0, M6-M8's A, was deleted in P7.5), B the
+# release core as it is (a build-time default, JIT_DEFAULTS, where the plan
+# named a cargo feature), for tools/owner_perf.mjs --arms and
+# tests/bench/run.mjs --wasm/--baseline
 .PHONY: ab-ptier
 ab-ptier:
 	mkdir -p build/ab
-	$(MAKE) jit-arm ARM=ab-A JIT_DEFAULTS=""
+	$(MAKE) jit-arm ARM=ab-A JIT_DEFAULTS="x64_page_compat32=0,x64_page_legacy32=0"
 	cp build/bench/arms/ab-A.wasm build/ab/A.wasm
-	$(MAKE) jit-arm ARM=ab-B-ptier JIT_DEFAULTS="x64_page_compat32=1"
-	cp build/bench/arms/ab-B-ptier.wasm build/ab/B-ptier.wasm
-	$(MAKE) jit-arm ARM=ab-B-legacy JIT_DEFAULTS="x64_page_legacy32=1"
-	cp build/bench/arms/ab-B-legacy.wasm build/ab/B-legacy.wasm
+	$(MAKE) jit-arm ARM=ab-B JIT_DEFAULTS=""
+	cp build/bench/arms/ab-B.wasm build/ab/B.wasm
 
 build/v86-debug.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
@@ -881,7 +847,7 @@ multicore-memory-order-tests-release: build/libv86.mjs build/v86.wasm
 
 multicore-statistics-tests: build/v86-debug.wasm
 	node tests/smp/core_statistics.mjs
-	SMP_CORES=1 SMP_MODES=tier0 node tests/smp/core_statistics.mjs
+	SMP_CORES=1 SMP_MODES=pages node tests/smp/core_statistics.mjs
 
 multicore-statistics-tests-release: build/libv86.mjs build/v86.wasm
 	TEST_RELEASE_BUILD=1 node tests/smp/core_statistics.mjs
@@ -1060,27 +1026,25 @@ x64-differential-tests: build/v86-debug.wasm
 # The x64 page tier (x64::pagegen/pages): QEMU and interpreter references,
 # and random programs compared with the interpreter.
 # WOW64 (IA-32e compatibility mode) code under the JIT, docs/jit-unification-plan.md
-# M4's gate set: compiled 32-bit code with remapped and patched pages, and
-# pages compiled from long-mode frames (x64_long_visit). On the owner's Windows
+# M4's gate set: compiled 32-bit code with remapped and patched pages (and,
+# until P7.5, pages compiled from long-mode frames, x64_long_visit). On the owner's Windows
 # 8.1 image the set adds PROBE32 (tests/x64/windows_boot.mjs) and CPULOAD32
 # (WIN_CPULOAD32, tools/owner_perf.mjs).
 x64-wow64-tests: build/v86-debug.wasm
 	node tests/x64/compat_jit.mjs
-	node tests/x64/long_visit.mjs
 	COMPAT_FUZZ_SEED=1 COMPAT_FUZZ_GUESTS=3 node tests/x64/compat_fuzz.mjs
 	COMPAT_FUZZ_SEED=2 COMPAT_FUZZ_GUESTS=3 node tests/x64/compat_fuzz.mjs
 	JIT_SWITCHES=x64_loops=1 COMPAT_FUZZ_SEED=3 COMPAT_FUZZ_GUESTS=3 node tests/x64/compat_fuzz.mjs
 
 x64-page-tier-tests: build/v86-debug.wasm
 	X64_JIT=1 node tests/x64/integer_oracle.mjs
-	X64_JIT=tier0 node tests/x64/vector_oracle.mjs
+	X64_JIT=pages node tests/x64/vector_oracle.mjs
 	JIT_SWITCHES=x64_cvt=0 X64_JIT=1 X64_VECTOR_FILTER=cvt node tests/x64/vector_oracle.mjs
 	X64_JIT=1 node tests/x64/system_oracle.mjs
 	X64_JIT=1 X64_IR_TIER0=0 node tests/x64/system_oracle.mjs
 	node tests/x64/page_system.mjs
 	node tests/x64/frame_buffer.mjs
 	node tests/x64/compat_jit.mjs
-	node tests/x64/long_visit.mjs
 	node tests/x64/initial_ram.mjs
 	node tests/x64/step_profile.mjs
 	node tests/x64/step_events.mjs
@@ -1096,21 +1060,36 @@ x64-page-tier-tests: build/v86-debug.wasm
 	for seed in 1 2 3; do SSE_INT_SEED=$$seed node tests/x64/sse_int_template.mjs || exit 1; done
 
 # The x64 page tier on legacy protected-mode code (x64_page_legacy32,
-# docs/jit-unification-plan.md P7.3): Tier-0's differential tests, run on it.
+# docs/jit-unification-plan.md P7.3): the differential tests written for IR
+# Tier-0 (ir-tier0-tests until P7.5 deleted it; the tier0_ names stay), run
+# on it: random programs of each instruction kind against the interpreter
+# (tier0_fuzz.mjs, FUZZ_KIND), faults, interrupts, the step profile and the
+# mode ledger.
 .PHONY: x64-legacy32-tests
-x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs
-	for kind in "" j g e d o a m v c p r b x s11 s12 s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
-	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
-	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_fetch_fault.mjs
-	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_rep_fault.mjs
-	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_irq_slow.mjs
-	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/tier0_segment_fault.mjs
+x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build/jit-capacity.bin
+	node tests/ir/differential/tier0_fuzz.mjs 60 1
+	for kind in i0 i10 i13 i19 i22 i26 s3 s7 s10 x; do FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 6 2 || exit 1; done
+	# (packed SSE arithmetic of random values: the page tier retries lanes
+	# its templates refuse in the interpreter, where IR Tier-0 ran its exact
+	# helper in place, so about half of it runs outside page functions)
+	FUZZ_KIND=s1 FUZZ_COVERAGE=0.25 node tests/ir/differential/tier0_fuzz.mjs 6 2
+	for kind in j g e d o a m v c p r b s11 s12 s13; do FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
+	FUZZ_KIND=r node tests/ir/differential/tier0_fuzz.mjs 20 3
+	FUZZ_STRADDLE=1 node tests/ir/differential/tier0_fuzz.mjs 20 2
+	node tests/ir/differential/sse_fp_tracking.mjs build/v86-ir-runtime.wasm
+	node tests/ir/differential/tier0_fetch_fault.mjs
+	node tests/ir/differential/tier0_rep_fault.mjs
+	node tests/ir/differential/tier0_irq_slow.mjs
+	node tests/ir/differential/tier0_segment_fault.mjs
+	node tests/ir/differential/tier0_step_profile.mjs
+	node tests/ir/differential/tier0_mode_ledger.mjs
 	node tests/ir/differential/page_smc.mjs
 	node tests/ir/differential/page_vector_ts.mjs
-	JIT_SWITCHES=x64_page_legacy32=1 node tests/ir/differential/page_x87_cw.mjs
-	# (multi-page functions, x64_page_clusters: P7.3b)
-	for kind in "" m s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_page_legacy32=1,x64_page_clusters=1,x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
-	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_page_legacy32=1,x64_page_clusters=1,x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 2
+	node tests/ir/differential/page_x87_cw.mjs
+	# (multi-page functions, x64_page_clusters: P7.3b; spans form after one
+	# crossing)
+	for kind in "" m s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
+	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 2
 	node tests/ir/differential/tier0_span_remap.mjs
 
 # Every long-mode encoding of the opcode map executed at CPL3; needs the
@@ -1664,12 +1643,10 @@ multicore-linux-tests-release: build/smp/affinity_probe build/libv86.mjs build/v
 .PHONY: multicore-topology-tests multicore-topology-tests-release multicore-linux-tests multicore-linux-tests-release
 
 multicore-linux-jit-tests: build/smp/affinity_probe build/v86-debug.wasm images/linux4.iso
-	SMP_JIT_MODE=tier0 node tests/smp/linux_topology.mjs
 	SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
 	SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 
 multicore-linux-jit-tests-release: build/smp/affinity_probe build/libv86.mjs build/v86.wasm images/linux4.iso
-	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=tier0 node tests/smp/linux_topology.mjs
 	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=region node tests/smp/linux_topology.mjs
 	TEST_RELEASE_BUILD=1 SMP_JIT_MODE=pages node tests/smp/linux_topology.mjs
 

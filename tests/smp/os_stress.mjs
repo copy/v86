@@ -143,7 +143,7 @@ for(const mode of modes)
         const jit = per_core_jit.map((value, i) => value - jit_before[i]);
         if(mode === "interpreter") assert.ok(jit.every(value => value === 0));
         else assert.ok(jit.every(value => value > 0), "each core executes compiled code during workload");
-        if(mode === "region") assert.equal(cpu.wm.exports.ir_t0_entries(), 0, "region arm does not execute Tier-0");
+        if(mode === "region") assert.equal(cpu.wm.exports.x64_page_stat(1), 0, "region arm does not execute the page tier");
         const record = { seed, quantum, wall_ms: Math.round(performance.now() - round_started_ms), snapshot: !!saved, ...first, packets: packets - net_before, disk_read_bytes: disk_reads - reads_before, disk_write_bytes: disk_writes - writes_before, jit };
         results.push(record);
         console.log(`${mode}: OS stress passed ${JSON.stringify(record)}`);

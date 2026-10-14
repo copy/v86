@@ -2,7 +2,7 @@
 // (docs/simd-xsave-plan.md 5.2): which row the 66/F2/F3 prefixes select
 // (decode_rules::mandatory_variant), the order of repeated F2/F3, #UD for a
 // mandatory prefix without a row of its own, the three-byte maps and VEX.
-// Each case runs in the interpreter, then hot under Tier-0 and under the
+// Each case runs in the interpreter, then hot under the page tier and under the
 // region tiers. (tests/ir/decode/vex_modes.mjs: C4/C5 by mode.)
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -66,7 +66,7 @@ async function run_all(program, before = () => {}, set = machines, verify = () =
         }
     }
 }
-/** The interpreter, then Tier-0 and the region tiers, with `options` */
+/** The interpreter, then the page tier and the region tiers, with `options` */
 async function create_machines(options = {})
 {
     const set = [];

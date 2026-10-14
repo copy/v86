@@ -5,12 +5,11 @@
 // switches) and what the JITs did, with the definitions of cross-phase rule 3:
 // retired instructions are core_statistics_get(core, 0) (a REP instruction
 // counts once, a faulting one not at all); the x64 page tier's counters
-// (x64_page_stat), IR Tier-0's and the regions' (CPU.get_jit_info); with the
+// (x64_page_stat) and the regions' (CPU.get_jit_info); with the
 // JIT switch step_profile on, the 40 most stepped instructions and events
 // (StepKey v1, tools/step_profile.mjs; JIT_STATS_STEPS=<n> keeps n); the host
 // milliseconds each core ran (runtime_ms); with mode_ledger on, the retired instructions by
-// mode and how they ran (mode_ledger below); with t0_kind_profile on, the
-// executions of Tier-0's code by template kind (kind_profile below).
+// mode and how they ran (mode_ledger below).
 
 import { get_jit_switches } from "../../src/jit_switches.js";
 import { step_profile } from "../step_profile.mjs";
@@ -22,7 +21,8 @@ const X64_EXTRA = { 21: "pages_compiled", 24: "bytes_compiled", 20: "ms_in_calls
     14: "invlpg", 26: "cr0_writes", 27: "cr3_writes", 28: "cr4_writes", 29: "full_flushes", 30: "walks", 33: "hot_recompiles", 34: "jac_fills", 35: "jac_conflicts",
     36: "compat_compiles", 37: "legacy_compiles", 38: "spans", 39: "span_pages" };
 
-// cpu/execution.rs: x64::state::ExecutionMode and Way
+// cpu/execution.rs: x64::state::ExecutionMode and Way (tier0_*: IR Tier-0's,
+// none since P7.5)
 export const LEDGER_MODES = ["real", "vm86", "prot16", "prot32", "compat16", "compat32", "long64"];
 export const LEDGER_WAYS = ["interpreted", "tier0_native", "tier0_step", "region_native", "page_native", "page_step", "page_retry"];
 
@@ -43,37 +43,6 @@ export function mode_ledger(exports)
     });
     return ledger;
 }
-/**
- * The template-kind profile of a core's exports (the JIT switch
- * t0_kind_profile, docs/jit-unification-plan.md P3.0a): what the Tier-0
- * code compiled while it was on executed, by key, most first: Form kinds by
- * name ("Alu", ..., "Step" for instructions left to the interpreter) and x87
- * instructions by opcode and ModRM ("x87 D9 FA" a register form, "x87 DD /3
- * m" a memory form). [{key, name, count}], at most `limit` rows, nonzero
- * counts only
- */
-export function kind_profile(exports, memory, limit = Infinity)
-{
-    if(!exports["ir_t0_kind_profile_keys"]) return [];
-    // (>>> 0: a heap address above 2 GiB, as with XP's large memory)
-    const forms = new TextDecoder().decode(new Uint8Array(memory.buffer, exports["ir_t0_form_names"]() >>> 0, exports["ir_t0_form_names_length"]() >>> 0)).split("\n");
-    const hex = n => n.toString(16).toUpperCase().padStart(2, "0");
-    // (ir::tier0::emit::X87_KEYS)
-    const X87_KEYS = 64;
-    const name = key => {
-        if(key < X87_KEYS) return forms[key] || "kind " + key;
-        const opcode = 0xD8 + (key - X87_KEYS >> 8), modrm = key - X87_KEYS & 255;
-        return modrm >= 0xC0 ? `x87 ${hex(opcode)} ${hex(modrm)}` : `x87 ${hex(opcode)} /${modrm >> 3} m`;
-    };
-    const rows = [];
-    for(let key = 0; key < exports["ir_t0_kind_profile_keys"](); key++)
-    {
-        const count = exports["ir_t0_kind_profile"](key, 1) * 2 ** 32 + (exports["ir_t0_kind_profile"](key, 0) >>> 0);
-        if(count) rows.push({ key, name: name(key), count });
-    }
-    return rows.sort((a, b) => b.count - a.count).slice(0, limit);
-}
-
 /** The sum of a mode_ledger() result */
 export function mode_ledger_total(ledger)
 {
@@ -119,7 +88,6 @@ export function jit_stats(emulator, extra = {})
         table: exports["jit_wasm_table_free_low"] ? { free: exports["jit_get_wasm_table_index_free_list_count"](), free_low: exports["jit_wasm_table_free_low"]() } : null,
         ...switches["step_profile"] ? { steps: step_profile(exports, Number(process.env["JIT_STATS_STEPS"] || 40)) } : {},
         ...switches["mode_ledger"] ? { ledger: mode_ledger(exports) } : {},
-        ...switches["t0_kind_profile"] ? { kinds: kind_profile(exports, cpu.wasm_memory, 60) } : {},
     };
 }
 

@@ -1,14 +1,13 @@
 // Compiled-code arms for tests that compare generated code with the
 // interpreter. 32-bit protected-mode code runs in the x64 page tier by
-// default since M8 (x64_page_legacy32, docs/jit-unification-plan.md P7.3);
-// IR Tier-0's page functions (its fallback until M9) and the region tiers,
-// which run alone when Tier-0 is off, take it with the switch off. Tests run
-// their compiled side once per arm (Tier-0's first: tests check its counters
-// on the first compiled machine).
+// default since M8 (x64_page_legacy32, docs/jit-unification-plan.md P7.3;
+// IR Tier-0, its fallback until then, was deleted in P7.5); the region tiers
+// take it with ir_tier0 off. Tests run their compiled side once per arm (the
+// page tier's first: tests check its step counts on the first compiled
+// machine, x64_page_steps).
 export const COMPILED_ARMS = [
-    { label: "tier0", options: { jit_switches: { x64_page_legacy32: 0 } } },
-    { label: "regions", options: { ir_tier0: false, jit_switches: { x64_page_legacy32: 0 } } },
-    { label: "pages", options: {} },
+    { label: "pages", options: { ir_sync_publication: true } },
+    { label: "regions", options: { ir_tier0: false } },
 ];
 
 // The region tiers compile asynchronously: a hot run of VEX forms waits until
@@ -30,10 +29,9 @@ export function vex_settled(marker)
     };
 }
 
-// Activations of compiled code of any kind: Tier-0's, the regions' and the
-// page tier's (x64_page_stat 13). The performance recording counters cannot
-// show this: Tier-0 does not run while recording is enabled.
+// Activations of compiled code of any kind: the regions' and the page
+// tier's (x64_page_stat 13).
 export function compiled_activations(exports)
 {
-    return (exports["ir_t0_entries"]() + exports["ir_cache_stat"](2) + (exports["x64_page_stat"]?.(13) ?? 0)) >>> 0;
+    return (exports["ir_cache_stat"](2) + (exports["x64_page_stat"]?.(13) ?? 0)) >>> 0;
 }

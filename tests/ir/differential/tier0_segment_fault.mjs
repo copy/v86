@@ -4,9 +4,9 @@
 // based at 0x1000 into ES, so its code runs with other than flat segments,
 // loads a null selector into DS, ES, FS or GS in turn, reads through it (#GP,
 // whose handler counts it and skips the 3-byte read), and reloads the
-// segment. Tier-0's functions for other than flat segments, and the page
-// tier's compiled for segment bases (JIT_SWITCHES=x64_page_legacy32=1),
-// check the selector at each access; the faults, registers and counters must
+// segment. The page tier's functions compiled for segment bases (written for
+// IR Tier-0's for other than flat segments, deleted in P7.5) check the
+// selector at each access; the faults, registers and counters must
 // be the interpreter's.
 //
 //   node tests/ir/differential/tier0_segment_fault.mjs [wasm]
@@ -20,8 +20,6 @@ const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
-const engine = page_tier ? "the page tier" : "Tier-0";
 
 const CODE = 0x500000, HANDLER = 0x503000, DATA = 0x600000, STACK = 0x610000, ITERATIONS = 40000;
 const u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24 & 255];
@@ -61,7 +59,7 @@ async function machine(compiled) {
         graphics_adapter: "bochs_vga",
         wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20, // reference: the interpreter only
         ir_sync_publication: true,
-        ...compiled ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000 } : { x64_page_legacy32: 0 }, ...jit_switches_from_env() } } : {},
+        ...compiled ? { jit_switches: { x64_block_count: 0, x64_legacy_heat: 2000, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -79,7 +77,6 @@ async function machine(compiled) {
     view.setUint32(gdt + 24, 0x1000FFFF, true);
     view.setUint32(gdt + 28, 0x00CF9300, true);
     cpu.gdtr_size[0] = 31;
-    if(compiled) assert(e.ir_auto_set_tier0(1));
     return { vm, cpu, e, compiled };
 }
 
@@ -102,13 +99,13 @@ async function run({ vm, cpu, e, compiled }) {
     cpu.instruction_pointer[0] = CODE;
     e.update_state_flags();
     new Uint32Array(e.memory.buffer)[664 >> 2] = 0;
-    const native = page_tier ? e.x64_page_stat(1) : 0;
+    const native = e.x64_page_stat(1);
     vm.run();
     const end = performance.now() + 30000;
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
-            throw new Error(`timeout (${compiled ? engine : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
+            throw new Error(`timeout (${compiled ? "page tier" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
                 `counter ${view.getUint32(DATA + 124, true)}`);
         }
         await sleep(0);
@@ -121,8 +118,8 @@ async function run({ vm, cpu, e, compiled }) {
         stray: view.getUint32(DATA + 104, true),
         counter: view.getUint32(DATA + 124, true),
         count: new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0,
-        pages: !compiled ? 0 : page_tier ? e.x64_page_stat(37) : e.ir_t0_stat(0),
-        native: compiled && page_tier ? e.x64_page_stat(1) - native : 0,
+        pages: compiled ? e.x64_page_stat(37) : 0,
+        native: compiled ? e.x64_page_stat(1) - native : 0,
     };
 }
 
@@ -130,10 +127,10 @@ const reference = await run(await machine(false));
 assert.equal(reference.stray, 0, "the interpreter faulted elsewhere");
 assert.equal(reference.faults, 4 * ITERATIONS, "the interpreter took a #GP per null access");
 const compiled = await run(await machine(true));
-assert(compiled.pages > 0, `no ${engine} page was compiled`);
-assert(!page_tier || compiled.native > ITERATIONS, "the page tier ran the loop's instructions natively too seldom");
+assert(compiled.pages > 0, "no page was compiled");
+assert(compiled.native > ITERATIONS, "the page tier ran the loop's instructions natively too seldom");
 const strip = ({ pages, native, ...rest }) => rest;
-assert.deepEqual(strip(compiled), strip(reference), `${engine}'s null segment accesses differ from the interpreter`);
-console.log(`PASS: ${reference.faults} accesses through null DS, ES, FS and GS in ${engine} (${compiled.pages} page compiles` +
-    `${page_tier ? `, ${compiled.native} native instructions` : ""}) fault as in the interpreter`);
+assert.deepEqual(strip(compiled), strip(reference), "the page tier's null segment accesses differ from the interpreter");
+console.log(`PASS: ${reference.faults} accesses through null DS, ES, FS and GS in the page tier (${compiled.pages} page compiles, ` +
+    `${compiled.native} native instructions) fault as in the interpreter`);
 process.exit(0);

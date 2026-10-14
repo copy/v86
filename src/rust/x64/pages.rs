@@ -42,7 +42,8 @@ pub unsafe fn x64_page_set_recompile_misses(misses: u32) { RECOMPILE_MISSES = mi
 /// x64_legacy_recompile_misses; P7.2b, P7.3). An XP boot runs one 32-bit
 /// OS's code, much of it lukewarm and entered from ever new places, where a
 /// compile (each starts V8's tier-up anew) costs more than interpreting:
-/// Tier-0 compiles a page at 50000 instructions and never for new entries.
+/// IR Tier-0 (deleted in P7.5) compiled a page at 50000 instructions and
+/// never for new entries.
 /// (XP to the desktop, i440FX, one core: at 2000 and 64, 1435 compiles of
 /// 568 pages, 98 MB of Wasm, 18.2 s; at these, 365 of 247, 27 MB, 13.4 s.)
 static mut LEGACY_HEAT: u32 = 50_000;
@@ -727,10 +728,10 @@ pub unsafe fn compat_runnable() -> bool {
 /// Legacy protected-mode code in the page tier (the JIT switch
 /// x64_page_legacy32, P7.3), as 32-bit compatibility-mode code
 static mut LEGACY32: bool = true;
-/// ir_tier0 (set_page32_tier0): the page tier replaces Tier-0, the IR's
-/// page-granular compiler, so configurations without it (region only)
-/// leave legacy-mode code to the region tier and interpret
-/// compatibility-mode code, as they did
+/// ir_tier0 (set_page32_tier0): the page tier replaced IR Tier-0, the IR's
+/// page-granular compiler (deleted in P7.5), so configurations without it
+/// (region only) leave 32-bit code to the region tier (compatibility-mode
+/// code with x64_compat_jit), as they did
 static mut PAGE32_TIER0: bool = false;
 /// LEGACY32 && PAGE32_TIER0
 static mut LEGACY_ACTIVE: bool = false;
@@ -1321,7 +1322,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         crate::profiler::performance_recording_add(1, native as u64);
     }
     *gp::instruction_counter = (*gp::instruction_counter).wrapping_add(native);
-    execution::note_native_retired(native, execution::jit_dispatches());
+    execution::note_native_retired(native);
     execution::ledger_end_count(span, execution::Way::PageNative, native);
     let exit = *gp::x64_page_exit;
     if step_profile::enabled() {
@@ -1367,7 +1368,6 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         || STEP_EXITED
         || *gp::flags & cpu::FLAG_INTERRUPT & !interrupts_before != 0
         || *gp::in_hlt
-        || execution::irq_exit_requested()
         || apic::has_core_events()
         || apic::nmi_pending()
         || crate::cpu::smm::smi_deliverable()
@@ -2329,6 +2329,12 @@ pub unsafe fn x64_page_profile_get(key: u32) -> f64 {
     }
     step_profile::x64_legacy_count(key) as f64
 }
+/// Steps and retries since x64_page_steps_reset by their first two bytes
+/// (step_profile::pair_count); the reset turns the step profile on
+#[no_mangle]
+pub unsafe fn x64_page_steps(pair: u32) -> u32 { step_profile::pair_count(pair) }
+#[no_mangle]
+pub unsafe fn x64_page_steps_reset() { x64_page_profile(true) }
 /// With the step profile: stepped instructions by RIP (x64_page_step_rips)
 static mut STEP_RIPS: Option<HashMap<u64, u32>> = None;
 unsafe fn profile_step() {
@@ -2379,7 +2385,7 @@ unsafe fn profile_instruction(retry: bool) {
     let mut bytes = [0u8; 15];
     let mut n = 0;
     if state::efer() & state::EFER_LMA == 0 {
-        // (legacy mode, P7.3: as Tier-0's step profile)
+        // (legacy mode, P7.3)
         if let Ok(physical) = cpu::translate_address_read_no_side_effects(rip as i32) {
             if !crate::cpu::memory::in_mapped_range(physical) {
                 n = step_profile::read_legacy(rip as u32, physical, &mut bytes);
@@ -2400,12 +2406,13 @@ unsafe fn profile_instruction(retry: bool) {
             *crate::cpu::memory::mem8.add((page.backing + (t.physical.0 & 4095) as u32) as usize);
         n += 1;
     }
-    step_profile::note(step_profile::x86_key(
+    let key = step_profile::x86_key(
         &bytes[..n],
         state::mode(),
         step_profile::Stepper::X64Page,
         retry,
-    ));
+    );
+    step_profile::note_sampled(key, rip as u32, &bytes[..n]);
 }
 
 #[no_mangle]
@@ -2616,11 +2623,11 @@ pub unsafe fn x64_page_shift32(a: u64, count: u32, flags: u32, kind: u32, last_o
     r as u32 as u64 | (f as u32 as u64) << 32
 }
 
-/// PCMPESTRx/PCMPISTRx for generated code (ir::runtime::tier0::pcmpstr on
+/// PCMPESTRx/PCMPISTRx for generated code (x64::helpers::pcmpstr on
 /// its operand block): the lengths RAX/RDX, or EAX/EDX sign-extended
 #[no_mangle]
 pub unsafe fn x64_page_pcmpstr(op: u32, imm8: u32, a: i64, b: i64) -> u32 {
-    crate::ir::runtime::tier0::pcmpstr(op, imm8, a, b)
+    super::helpers::pcmpstr(op, imm8, a, b)
 }
 
 /// MOV and POP ES, DS, FS or GS in legacy-mode code (pagegen

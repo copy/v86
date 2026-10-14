@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// What Tier-0 knows about XMM registers within a block (ir::tier0 simd.rs,
-// Page::xmm_clean: lanes neither NaN nor denormal, whose checks native SSE
+// What compiled code knows about XMM registers within a block (the x64 page
+// tier's Emitter::xmm_clean, IR Tier-0's Page::xmm_clean until P7.5: lanes
+// neither NaN nor denormal, whose checks native SSE
 // floating point then skips, see x86tpl::native_fp). Each sequence makes a wrong
 // fact visible: a consumer skips the check of a denormal, and MXCSR.DE is
 // missing. The sequences run hot, each iteration starting with LDMXCSR and
@@ -113,7 +114,7 @@ try {
         }
         assert(expected.mxcsr & 2 || name.startsWith("XORPS"), `${name}: the sequence should raise DE`);
     }
-    console.log(`PASS: ${SEQUENCES.length} sequences on what Tier-0 knows about XMM registers match the interpreter`);
+    console.log(`PASS: ${SEQUENCES.length} sequences on what compiled code knows about XMM registers match the interpreter`);
 }
 finally {
     await reference.vm.destroy();

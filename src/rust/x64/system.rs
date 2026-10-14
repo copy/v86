@@ -143,9 +143,6 @@ pub unsafe fn write_cr(index: usize, value: u64) -> Result<(), Fault> {
         cpu::full_clear_tlb();
         memory::invalidate_core(crate::cpu::apic::current_core());
     }
-    if index == 3 {
-        crate::ir::runtime::schedule::long_visit_cr3();
-    }
     crate::ir::runtime::entry::ir_admission_barrier();
     Ok(())
 }

@@ -98,188 +98,6 @@ static mut FAST_STAMP: u32 = 1;
 // reset (generation change, contract switch).
 static mut NEG_STAMP: u32 = 1;
 static mut FAST_HITS: u32 = 0;
-// Page witnesses: a Tier-0 page function accepts any block start of its page,
-// so one witness per (linear page, CS base, mode) replaces a key per entry.
-// Validity follows FAST_STAMP exactly like FAST; `blocks` points into the
-// record's artifact, which is only freed by collection (a stamp change).
-const PAGE_FAST_CAPACITY: usize = 4096;
-#[derive(Clone, Copy)]
-struct PageWitness {
-    stamp: u32,
-    /// The function's own page (its entries' page), not a covered neighbor.
-    primary: bool,
-    page: u32,
-    cs_base: u32,
-    default_32: bool,
-    physical: u32,
-    slot: u32,
-    index: u32,
-    id: u64,
-    blocks: *const [u64; 64],
-}
-const EMPTY_PAGE: PageWitness = PageWitness {
-    stamp: 0,
-    primary: false,
-    page: 0,
-    cs_base: 0,
-    default_32: false,
-    physical: 0,
-    slot: 0,
-    index: 0,
-    id: 0,
-    blocks: std::ptr::null(),
-};
-static mut PAGE_FAST: [PageWitness; PAGE_FAST_CAPACITY] = [EMPTY_PAGE; PAGE_FAST_CAPACITY];
-fn page_slot(page: u32, cs_base: u32, default_32: bool) -> usize {
-    let bits = page ^ cs_base.rotate_left(9) ^ u32::from(default_32) << 31;
-    (bits.wrapping_mul(0x9E3779B1) >> (32 - PAGE_FAST_CAPACITY.trailing_zeros())) as usize
-}
-fn page_fill(cache: &Cache, index: usize) {
-    let record = &cache.records[index];
-    let (Some(blocks), Some(_)) = (
-        &record.job.artifact.page_blocks,
-        record.job.artifact.source_origin,
-    )
-    else {
-        return;
-    };
-    let EntryContract::Cpu(entry) = record.job.artifact.entry
-    else {
-        return;
-    };
-    let mappings = &record.job.source.mappings;
-    if strict_validation() || mappings.len() != blocks.len() {
-        return;
-    }
-    // Every covered page's blocks are entries of the function; a page's own
-    // function (which covers what follows it) keeps its witness, and of two
-    // functions for a page the newer (a recompilation with more entries).
-    let id = record.job.artifact.key.job;
-    for (mapping, bits) in mappings.iter().zip(blocks.iter()) {
-        let page = mapping.linear.0 >> 12;
-        let primary = entry.linear.0 >> 12 == page;
-        unsafe {
-            let slot = page_slot(page, entry.cs_base(), entry.default_32);
-            let old = &PAGE_FAST[slot];
-            if old.stamp == FAST_STAMP
-                && old.page == page
-                && old.cs_base == entry.cs_base()
-                && old.default_32 == entry.default_32
-                && (old.primary && !primary || old.primary == primary && old.id > id)
-            {
-                continue;
-            }
-            PAGE_FAST[slot] = PageWitness {
-                stamp: FAST_STAMP,
-                primary,
-                page,
-                cs_base: entry.cs_base(),
-                default_32: entry.default_32,
-                physical: mapping.physical.0,
-                slot: record.slot,
-                index: index as u32,
-                id: record.job.artifact.key.job,
-                blocks: bits,
-            };
-        }
-    }
-}
-/// Page witnesses go stale with every FAST_STAMP change. Exact witnesses are
-/// refilled by the complete admission path, but a page function's other block
-/// starts are then served by the witnessed fast path, which never refills its
-/// page witness: refill every published page function's witness at once.
-static mut PAGE_REFILL: bool = false;
-#[inline(never)]
-unsafe fn refill_page_witnesses() {
-    let Ok(cache) = CACHE.try_lock()
-    else {
-        return;
-    };
-    PAGE_REFILL = false;
-    for index in 0..cache.records.len() {
-        if cache.records[index].phase == Phase::Published
-            && cache.records[index].job.artifact.page_blocks.is_some()
-        {
-            page_fill(&cache, index);
-        }
-    }
-}
-/// page_probe for chaining: the table slot only.
-#[inline(always)]
-unsafe fn page_chain_slot(linear: u32, cs_base: u32, default_32: bool) -> Option<u32> {
-    let page = linear >> 12;
-    let w = &PAGE_FAST[page_slot(page, cs_base, default_32)];
-    if w.stamp != FAST_STAMP || w.page != page || w.cs_base != cs_base || w.default_32 != default_32
-    {
-        return None;
-    }
-    let offset = linear & 4095;
-    if (*w.blocks)[offset as usize >> 6] >> (offset & 63) & 1 == 0 {
-        return None;
-    }
-    let mask =
-        cpu::TLB_VALID | cpu::TLB_IA32E_DATA | if *gp::cpl == 3 { cpu::TLB_NO_USER } else { 0 };
-    let cached = cpu::tlb_data[page as usize];
-    if cached & mask != cpu::TLB_VALID
-        || ((cached as u32 & !4095) ^ (linear & !4095))
-            .wrapping_sub(crate::cpu::memory::mem8 as u32)
-            != w.physical
-    {
-        return None;
-    }
-    Some(w.slot)
-}
-/// page_chain_slot without the TLB check: a published page function's block
-/// starts there.
-#[inline(always)]
-unsafe fn page_witness_matches(linear: u32, cs_base: u32, default_32: bool) -> bool {
-    let page = linear >> 12;
-    let w = &PAGE_FAST[page_slot(page, cs_base, default_32)];
-    w.stamp == FAST_STAMP
-        && w.page == page
-        && w.cs_base == cs_base
-        && w.default_32 == default_32
-        && (*w.blocks)[(linear & 4095) as usize >> 6] >> (linear & 63) & 1 != 0
-}
-/// A block start of a witnessed page function at the current EIP.
-#[inline(always)]
-unsafe fn page_probe(linear: u32, cs_base: u32, default_32: bool) -> Option<FastEntry> {
-    let page = linear >> 12;
-    let w = PAGE_FAST[page_slot(page, cs_base, default_32)];
-    if w.stamp != FAST_STAMP || w.page != page || w.cs_base != cs_base || w.default_32 != default_32
-    {
-        return None;
-    }
-    let offset = linear & 4095;
-    if (*w.blocks)[offset as usize >> 6] >> (offset & 63) & 1 == 0 {
-        return None;
-    }
-    let mask =
-        cpu::TLB_VALID | cpu::TLB_IA32E_DATA | if *gp::cpl == 3 { cpu::TLB_NO_USER } else { 0 };
-    let cached = cpu::tlb_data[page as usize];
-    let base = crate::cpu::memory::mem8 as u32;
-    if cached & mask != cpu::TLB_VALID
-        || ((cached as u32 & !4095) ^ (linear & !4095)).wrapping_sub(base) != w.physical
-    {
-        return None;
-    }
-    let mut maps = [(0, 0); FAST_MAPPINGS];
-    maps[0] = (linear & !4095, w.physical);
-    Some(FastEntry {
-        stamp: FAST_STAMP,
-        linear,
-        cs_base,
-        default_32,
-        tier_one: true,
-        primary: false,
-        negative: false,
-        map_count: 1,
-        slot: w.slot,
-        index: w.index,
-        id: w.id,
-        maps,
-    })
-}
 // The running activation. Owned by this single CPU thread; set immediately
 // before a generated call and cleared after it, never across a host yield.
 static mut ACTIVE: Option<Owner> = None;
@@ -287,7 +105,6 @@ static mut FAST_CHAINS: u32 = 0;
 #[inline(always)]
 fn fast_invalidate() {
     unsafe {
-        PAGE_REFILL = true;
         FAST_STAMP = FAST_STAMP.wrapping_add(1);
         if FAST_STAMP == 0 {
             // Never let a wrapped stamp revalidate an ancient witness.
@@ -295,12 +112,10 @@ fn fast_invalidate() {
         }
     }
 }
-/// Full reset of both witness kinds (reset/restore, contract switch).
+/// Full reset of the witnesses (reset/restore, contract switch).
 fn fast_reset() {
     unsafe {
         FAST = [EMPTY_FAST; FAST_CAPACITY];
-        PAGE_FAST = [EMPTY_PAGE; PAGE_FAST_CAPACITY];
-        PAGE_REFILL = true;
         FAST_STAMP = 1;
         NEG_STAMP = 1;
     }
@@ -332,13 +147,8 @@ fn fast_fill(cache: &Cache, index: usize, entry: super::entry::CpuEntryKey) {
     let mut count = 0;
     let sources = std::iter::once(&record.job.source)
         .chain(record.job.artifact.fused_sources.iter().map(|s| &s.source));
-    // A Tier-0 page function validates its other pages itself.
-    let tier0 = record.job.artifact.page_blocks.is_some();
     for source in sources {
         for mapping in &source.mappings {
-            if tier0 && mapping.linear.0 != entry.linear.0 & !4095 {
-                continue;
-            }
             let pair = (mapping.linear.0, mapping.physical.0);
             if maps[..count].contains(&pair) {
                 continue;
@@ -409,11 +219,6 @@ unsafe fn fast_probe() -> Probe {
         || e.default_32 != default_32
         || e.negative
     {
-        // An exact witness is missing (or says no exact owner): a Tier-0
-        // page function may still serve this block start.
-        if let Some(page) = page_probe(linear, cs_base, default_32) {
-            return Probe::Hit(page);
-        }
         return if e.negative
             && e.stamp == NEG_STAMP
             && e.linear == linear
@@ -585,8 +390,8 @@ static CACHE: Mutex<Cache> = Mutex::new(Cache {
     // At the default heat threshold an XP boot once kept ~1000 regions hot
     // and 256 resident owners evicted and recompiled them; at 768, 256 or
     // 512 the XP desktop boot now evicts none (2026-10-09). The slots come
-    // from the shared table (jit::WASM_TABLE_SIZE), which Tier-0 and the x64
-    // page tier use too.
+    // from the shared table (jit::WASM_TABLE_SIZE), which the x64 page tier
+    // uses too.
     capacity: 768,
     evictions: 0,
     published: BTreeMap::new(),
@@ -849,342 +654,17 @@ pub unsafe fn ir_cache_set_capacity(capacity: u32) -> bool {
     cache.capacity = capacity as usize;
     true
 }
-use super::tier0::{t0_link, Link};
 extern "C" {
     fn call_indirect1(f: i32, x: u16);
-    fn call_indirect1_ret(f: i32, x: u16) -> i32;
 }
-/// Table slots holding Tier-0 page functions (signature (i32) -> i32: the
-/// linear EIP they leave for, see tier0::emit). Set when a function is
-/// installed; a slot is only called while its owner is published.
-static mut T0_SLOTS: [bool; jit::WASM_TABLE_SIZE as usize] = [false; jit::WASM_TABLE_SIZE as usize];
-/// Run the function in table `slot` (either signature).
+/// Run the function in table `slot`.
 #[inline(always)]
 unsafe fn call_slot(slot: u32) {
     use crate::cpu::execution::{ledger_begin, ledger_end_native, Way};
     let span = ledger_begin();
-    if T0_SLOTS[slot as usize] {
-        call_indirect1_ret((slot + cpu::WASM_TABLE_OFFSET) as i32, 0);
-        ledger_end_native(span, Way::Tier0Native);
-    }
-    else {
-        call_indirect1((slot + cpu::WASM_TABLE_OFFSET) as i32, 0);
-        ledger_end_native(span, Way::RegionNative);
-    }
+    call_indirect1((slot + cpu::WASM_TABLE_OFFSET) as i32, 0);
+    ledger_end_native(span, Way::RegionNative);
 }
-
-/// Chained page functions: at most this many nested activations per dispatch.
-const T0_CHAIN_DEPTH: u32 = 48;
-/// A Tier-0 page function leaving its page has written back all state and
-/// the target EIP. If a published page function serves the target block,
-/// run it nested (the caller then returns at once) instead of returning to
-/// the CPU loop. Same checks as a page-witness dispatch; the CPU batch budget
-/// still bounds the chain so interrupts are serviced.
-#[no_mangle]
-pub unsafe fn ir_t0_chain(depth: u32) -> u32 {
-    if t0_link() != Link::Nested
-        || depth >= T0_CHAIN_DEPTH
-        || COLLECTION_PENDING
-        || *gp::prefixes != 0
-        || *gp::in_hlt
-        || !cpu::ir_link_budget_available()
-    {
-        return 0;
-    }
-    let linear = *gp::instruction_pointer as u32;
-    let Some(slot) = page_chain_slot(linear, cpu::get_seg_cs() as u32, *gp::is_32)
-    else {
-        return 0;
-    };
-    *gp::previous_ip = linear as i32;
-    T0_CHAINS = T0_CHAINS.wrapping_add(1);
-    super::entry::take_link_request();
-    // The callee skips ir_enter_page at depth > 0: the witness matched CS
-    // and mode, and prefixes/HLT were checked above.
-    call_indirect1_ret((slot + cpu::WASM_TABLE_OFFSET) as i32, (depth + 1) as u16);
-    1
-}
-/// Mirrors Cache::needs_collection for ir_t0_chain (no lock on that path):
-/// witnesses of retired owners stay filled until collection.
-static mut COLLECTION_PENDING: bool = false;
-/// A Tier-0 page function serving EIP runs directly: page functions own no
-/// per-activation cache state (hits, fusion profile, LRU stamps), and chain
-/// among themselves (ir_t0_chain). False: take the complete path.
-unsafe fn t0_execute() -> bool {
-    if strict_validation()
-        || COLLECTION_PENDING
-        || *gp::prefixes != 0
-        || *gp::in_hlt
-        || profiler::performance_recording_enabled()
-        || !jit::ir_cache_quiescent()
-    {
-        return false;
-    }
-    if PAGE_REFILL && !busy() {
-        refill_page_witnesses();
-    }
-    let linear = *gp::instruction_pointer as u32;
-    let Some(slot) = page_chain_slot(linear, cpu::get_seg_cs() as u32, *gp::is_32).or_else(|| {
-        // Page functions never fetch through the TLB, so a flush (a guest
-        // context switch) leaves their code pages untranslated until the
-        // interpreter runs there: translate EIP as it would next. A fetch
-        // fault is delivered for the instruction at EIP, so previous_ip must
-        // be EIP (not the last retired instruction, which after SYSEXIT or
-        // IRET is kernel code the fault frame would return to in user mode).
-        if !page_witness_matches(linear, cpu::get_seg_cs() as u32, *gp::is_32) {
-            return None;
-        }
-        *gp::previous_ip = linear as i32;
-        if cpu::get_phys_eip().is_err() {
-            return None;
-        }
-        page_chain_slot(linear, cpu::get_seg_cs() as u32, *gp::is_32)
-    })
-    else {
-        // A fault while translating EIP was delivered, as the interpreter's
-        // fetch would have: that is progress.
-        return *gp::instruction_pointer as u32 != linear;
-    };
-    *gp::previous_ip = linear as i32;
-    let before = *gp::instruction_counter;
-    super::entry::take_link_request();
-    T0_ENTRIES = T0_ENTRIES.wrapping_add(1);
-    T0_CONTROL = *gp::flags & T0_CONTROL_FLAGS;
-    T0_CS = cpu::get_seg_cs() as u32;
-    T0_LINKABLE = true;
-    // The next linear EIP comes back in a register: a call target derived
-    // from the EIP just stored to memory stalls (store-to-load into an
-    // indirect call).
-    let mut from = linear;
-    let span = crate::cpu::execution::ledger_begin();
-    let mut linear = call_indirect1_ret((slot + cpu::WASM_TABLE_OFFSET) as i32, 0) as u32;
-    if t0_link() != Link::Nested {
-        // Iterative linking (as the legacy JIT's jit_link_once): a page
-        // function that left for another page's block returns, and this
-        // loop enters the next one (depth 1: the checks below replace
-        // ir_enter_page's). With tail calls, page functions link among
-        // themselves (ir_t0_link) and this loop only retries.
-        for _ in 0..64 {
-            if !super::entry::link_requested() || !t0_linkable() {
-                break;
-            }
-            sample_link(from, linear);
-            let Some(slot) = page_chain_slot(linear, T0_CS, *gp::is_32)
-            else {
-                break;
-            };
-            *gp::previous_ip = linear as i32;
-            T0_CHAINS = T0_CHAINS.wrapping_add(1);
-            super::entry::take_link_request();
-            from = linear;
-            linear = call_indirect1_ret((slot + cpu::WASM_TABLE_OFFSET) as i32, 1) as u32;
-        }
-    }
-    crate::cpu::execution::ledger_end_native(span, crate::cpu::execution::Way::Tier0Native);
-    T0_LINKABLE = false;
-    let poll_reuse = POLL_REUSE_ENABLED && super::entry::poll_exit();
-    if !super::entry::link_requested() && !poll_reuse {
-        ir_admission_barrier();
-    }
-    super::entry::take_link_request();
-    // A page function always retires an instruction; never spin if not.
-    *gp::instruction_counter != before
-}
-static mut T0_ENTRIES: u32 = 0;
-/// Links out of a page function's entry page since the page's last
-/// decision: the total, and the most frequent target pages (space-saving
-/// counters: a new target replaces the least counted and inherits its count
-/// as error, so count - error never overstates a target's links). A target
-/// with T0_RANGE_LINKS links that are at least a fifth of the page's has the
-/// source page recompiled with it: a neighbor its code continues into
-/// (schedule::want_range), or any page it often calls or returns to
-/// (schedule::want_partner, a cluster function), together with the pages
-/// that partner mostly continues to. The page's counts then restart, so its
-/// next hottest target is judged on its own; so do they when no target
-/// qualified in 64 times that many links. Two ways per set, the page with
-/// fewer links giving way.
-#[derive(Clone, Copy)]
-struct PageOut {
-    page: u32,
-    total: u32,
-    /// Target page, count, error, and the last linear target address.
-    targets: [(u32, u32, u32, u32); 4],
-}
-impl PageOut {
-    const fn new(page: u32) -> PageOut {
-        PageOut {
-            page,
-            total: 0,
-            targets: [(!0, 0, 0, 0); 4],
-        }
-    }
-}
-const PAGE_OUT_SETS: usize = 2048;
-static mut PAGE_OUT: [[PageOut; 2]; PAGE_OUT_SETS] = [[PageOut::new(!0); 2]; PAGE_OUT_SETS];
-#[inline(always)]
-unsafe fn page_out_set(page: u32) -> &'static mut [PageOut; 2] {
-    &mut *core::ptr::addr_of_mut!(
-        PAGE_OUT[page.wrapping_mul(0x9E3779B1) as usize >> 21 & PAGE_OUT_SETS - 1]
-    )
-}
-/// Links counted per decision, in sampled links (see sample_link): 100K links.
-const T0_RANGE_LINKS: u32 = 100_000 >> LINK_SAMPLE_SHIFT;
-/// note_link sees a random 1 in 2^LINK_SAMPLE_SHIFT links: its table does not
-/// fit in cache, and updating it on every one of ~10M links/s (3DMark06) cost
-/// about 2% of all time. Random, not every n-th: a loop alternating between
-/// two pages must not be seen in one direction only.
-const LINK_SAMPLE_SHIFT: u32 = 3;
-static mut LINK_RANDOM: u32 = 0x2545F491;
-#[inline(always)]
-unsafe fn sample_link(from: u32, to: u32) {
-    let mut x = LINK_RANDOM;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    LINK_RANDOM = x;
-    if x >> (32 - LINK_SAMPLE_SHIFT) == 0 {
-        note_link(from, to);
-    }
-}
-/// Where the page's function goes on to in at least half its links (of
-/// enough of them to tell): a chain of pages, each jumping to the next,
-/// joins a cluster in one recompilation instead of one per page.
-unsafe fn dominant_successor(page: u32) -> Option<u32> {
-    let out = page_out_set(page).iter().find(|o| o.page == page)?;
-    let &(_, count, error, linear) = out.targets.iter().max_by_key(|t| t.1 - t.2)?;
-    (out.total >= T0_RANGE_LINKS / 4 && (count - error) * 2 >= out.total).then_some(linear)
-}
-/// Whether the page function just left by RET: the address it popped is
-/// still below ESP (a 32-bit stack in RAM mapped in the TLB; otherwise no).
-/// A return makes its caller a partner only if the caller's page mostly
-/// continues back into the returning page: taking a caller into its
-/// callee's function copies the caller's code into every callee (a
-/// dispatcher into each of its handlers, each copy tiering up on its own)
-/// and saves only the return.
-#[inline(always)]
-unsafe fn link_is_return(to: u32) -> bool {
-    if !*gp::stack_size_32 {
-        return false;
-    }
-    let slot = (cpu::get_seg_ss() as u32)
-        .wrapping_add(*gp::reg32.add(cpu::ESP as usize) as u32)
-        .wrapping_sub(4);
-    let mask = cpu::TLB_VALID
-        | cpu::TLB_IN_MAPPED_RANGE
-        | if *gp::cpl == 3 { cpu::TLB_NO_USER } else { 0 };
-    let entry = cpu::tlb_data[(slot >> 12) as usize];
-    if entry & mask != cpu::TLB_VALID || slot & 4095 > 4092 {
-        return false;
-    }
-    (((entry as u32 & !4095) ^ slot) as *const u32).read_unaligned() == to
-}
-#[inline(always)]
-unsafe fn note_link(from: u32, to: u32) {
-    let (a, b) = (from >> 12, to >> 12);
-    if a == b {
-        return;
-    }
-    let set = page_out_set(a);
-    let way = if set[0].page == a {
-        0
-    }
-    else if set[1].page == a {
-        1
-    }
-    else {
-        let way = (set[1].total < set[0].total) as usize;
-        set[way] = PageOut::new(a);
-        way
-    };
-    let out = &mut set[way];
-    if out.total >= T0_RANGE_LINKS << 6 {
-        *out = PageOut::new(a);
-    }
-    out.total += 1;
-    let mut k = 0;
-    while k < 4 && out.targets[k].0 != b {
-        k += 1;
-    }
-    if k == 4 {
-        k = (0..4).min_by_key(|&k| out.targets[k].1).unwrap();
-        let least = out.targets[k].1;
-        out.targets[k] = (b, least, least, to);
-    }
-    let target = &mut out.targets[k];
-    target.1 += 1;
-    target.3 = to;
-    if target.1 - target.2 < T0_RANGE_LINKS {
-        return;
-    }
-    let total = out.total;
-    *out = PageOut::new(a);
-    if b.wrapping_sub(a).wrapping_add(1) <= 2 {
-        super::schedule::want_range(a << 12, T0_CS, *gp::is_32);
-    }
-    // A call graph without dominant pairs gains little from clusters.
-    else if total / 5 <= T0_RANGE_LINKS
-        && (!link_is_return(to) || dominant_successor(b).is_some_and(|next| next >> 12 == a))
-    {
-        super::schedule::want_partner(a << 12, to, T0_CS, *gp::is_32);
-        let mut page = b;
-        for _ in 0..crate::ir::tier0::MAX_PAGES - 2 {
-            let Some(next) =
-                dominant_successor(page).filter(|&next| next >> 12 != a && next >> 12 != page)
-            else {
-                break;
-            };
-            super::schedule::want_partner(a << 12, next, T0_CS, *gp::is_32);
-            page = next >> 12;
-        }
-    }
-}
-const T0_CONTROL_FLAGS: i32 = cpu::FLAG_INTERRUPT | cpu::FLAG_TRAP | cpu::FLAG_VM;
-/// State at the t0_execute entry that linking must preserve, and whether a
-/// t0_execute activation is running (other callers never link).
-static mut T0_CONTROL: i32 = 0;
-static mut T0_CS: u32 = 0;
-static mut T0_LINKABLE: bool = false;
-#[inline(always)]
-unsafe fn t0_linkable() -> bool {
-    T0_LINKABLE
-        && !COLLECTION_PENDING
-        && *gp::prefixes == 0
-        && !*gp::in_hlt
-        && cpu::ir_link_budget_available()
-        && *gp::flags & T0_CONTROL_FLAGS == T0_CONTROL
-        && cpu::get_seg_cs() as u32 == T0_CS
-}
-/// An activation from the general paths: a Tier-0 page function may link.
-#[inline(always)]
-unsafe fn call_linkable(slot: u32) {
-    T0_CONTROL = *gp::flags & T0_CONTROL_FLAGS;
-    T0_CS = cpu::get_seg_cs() as u32;
-    T0_LINKABLE = true;
-    call_slot(slot);
-    T0_LINKABLE = false;
-}
-/// Tail-call linking: the table index of the page function serving the
-/// written-back EIP, which the leaving page function tail-calls (depth 1),
-/// or -1: it then requests a link and returns.
-#[no_mangle]
-pub unsafe fn ir_t0_link() -> i32 {
-    if t0_link() != Link::Tail || !t0_linkable() {
-        return -1;
-    }
-    let linear = *gp::instruction_pointer as u32;
-    let Some(slot) = page_chain_slot(linear, T0_CS, *gp::is_32)
-    else {
-        return -1;
-    };
-    *gp::previous_ip = linear as i32;
-    T0_CHAINS = T0_CHAINS.wrapping_add(1);
-    (slot + cpu::WASM_TABLE_OFFSET) as i32
-}
-#[no_mangle]
-pub unsafe fn ir_t0_entries() -> u32 { T0_ENTRIES }
-static mut T0_CHAINS: u32 = 0;
-#[no_mangle]
-pub unsafe fn ir_t0_chains() -> u32 { T0_CHAINS }
 #[inline(always)]
 fn active() -> Option<Owner> { unsafe { ACTIVE } }
 pub fn busy() -> bool { active().is_some() }
@@ -1198,7 +678,6 @@ pub fn invalidate() {
     }
     clear_missing_hint();
     cache.needs_collection = true;
-    unsafe { COLLECTION_PENDING = true };
 }
 pub fn dirty_page(page: u32) {
     super::entry::code_write_barrier();
@@ -1220,9 +699,6 @@ pub fn dirty_page(page: u32) {
         clear_missing_hint();
     }
     cache.needs_collection |= retired;
-    if retired {
-        unsafe { COLLECTION_PENDING = true };
-    }
 }
 unsafe fn cold() -> bool { !busy() && jit::ir_cache_quiescent() }
 /// The values of this module's switches (crate::jit_switches)
@@ -1377,15 +853,6 @@ unsafe fn cached_current(record: &Record) -> CachedMatch {
     if !strict_validation() {
         // Notified contract: every code write already retired this owner.
         // Missing translations still take the read-only capture fallback.
-        if job.artifact.page_blocks.is_some() && job.artifact.fused_sources.is_empty() {
-            // A Tier-0 page function checks each other page's translation
-            // when control enters it: only the entry page must translate.
-            let page = *gp::instruction_pointer as u32 & !4095;
-            return match job.source.mappings.iter().find(|m| m.linear.0 == page) {
-                Some(m) if super::snapshot::mapping_cached(m) => CachedMatch::Match,
-                _ => CachedMatch::Unavailable,
-            };
-        }
         return if mappings_current(job) { CachedMatch::Match } else { CachedMatch::Unavailable };
     }
     if MERGED_VALIDATION_ENABLED
@@ -1448,16 +915,7 @@ unsafe fn mappings_current(job: &Job) -> bool {
     true
 }
 unsafe fn source_current(linear: u32, source: &super::compile::ImmutableCodeSnapshot) -> bool {
-    let current =
-        if source.bytes.len() > 4096 && linear & 4095 == 0 && source.bytes.len() % 4096 == 0 {
-            // A multi-page Tier-0 source: its pages need not be consecutive.
-            let pages: Vec<u32> = source.mappings.iter().map(|m| m.linear.0).collect();
-            super::snapshot::capture_page_list(&pages)
-        }
-        else {
-            capture(linear, source.bytes.len())
-        };
-    current
+    capture(linear, source.bytes.len())
         .is_ok_and(|current| current.bytes == source.bytes && current.mappings == source.mappings)
 }
 unsafe fn unchanged_full(job: &Job) -> bool {
@@ -1684,7 +1142,6 @@ pub unsafe fn ir_cache_set_fusion(enabled: u32) -> bool {
         }
         clear_missing_hint();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
     }
     true
 }
@@ -1730,7 +1187,6 @@ pub unsafe fn ir_cache_collect() -> u32 {
             })
             .collect();
         cache.needs_collection = false;
-        unsafe { COLLECTION_PENDING = false };
         if !retired.is_empty() {
             fast_invalidate();
         }
@@ -1961,7 +1417,6 @@ pub(super) unsafe fn make_room(entry: super::entry::CpuEntryKey) -> bool {
             cache.evictions = cache.evictions.wrapping_add(1);
             clear_missing_hint();
             cache.needs_collection = true;
-            unsafe { COLLECTION_PENDING = true };
             Some(entries)
         }
         else {
@@ -2064,7 +1519,6 @@ pub unsafe fn ir_cache_validate(id: u64, slot: u32) -> bool {
     if !valid {
         clear_missing_hint();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
         cache.rejected = cache.rejected.wrapping_add(1);
     }
     valid
@@ -2085,7 +1539,6 @@ pub unsafe fn ir_cache_finish(id: u64, slot: u32) -> bool {
     if cache.records[index].phase != Phase::Validated {
         return false;
     }
-    T0_SLOTS[slot as usize] = cache.records[index].job.artifact.page_blocks.is_some();
     if !unchanged_full(&cache.records[index].job)
         || cache.records[index]
             .promotion_parent
@@ -2094,7 +1547,6 @@ pub unsafe fn ir_cache_finish(id: u64, slot: u32) -> bool {
         cache.records[index].phase = Phase::Retired;
         clear_missing_hint();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
         return false;
     }
     let entries = cache.records[index].entries.clone();
@@ -2126,13 +1578,11 @@ pub unsafe fn ir_cache_finish(id: u64, slot: u32) -> bool {
     if superseded {
         fast_invalidate();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
     }
     for entry in &entries {
         cache.published.insert(index_key(*entry), index);
         fast_clear_key(*entry);
     }
-    page_fill(&cache, index);
     refresh_fusion_candidates(&mut cache);
     // Cached predecessor hints must not retain authority over superseded aliases.
     cache.targets.fill(None);
@@ -2175,7 +1625,6 @@ pub unsafe fn ir_cache_cancel(id: u64, slot: u32) -> bool {
     r.phase = Phase::Retired;
     clear_missing_hint();
     cache.needs_collection = true;
-    unsafe { COLLECTION_PENDING = true };
     cache.failed = cache.failed.wrapping_add(1);
     true
 }
@@ -2360,7 +1809,6 @@ pub unsafe fn link_target() -> Option<(u32, u64)> {
         cache.records[index].phase = Phase::Retired;
         clear_missing_hint();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
         cache.link_misses = cache.link_misses.wrapping_add(1);
         return None;
     }
@@ -2387,22 +1835,8 @@ pub unsafe fn ir_cache_link_target() -> u64 {
 /// No request means no IR entry; compilation policy/tier promotion remain separate.
 #[inline(always)]
 pub unsafe fn execute() -> bool {
-    let executed = execute_any();
-    // A device access of a page function made an interrupt deliverable
-    // (tier0::held): the activation stopped linking and left at this
-    // instruction boundary, where it is delivered (which, as an interpreted
-    // instruction, reads descriptor tables and writes the stack).
-    if crate::cpu::execution::deliver_held_irqs() {
-        ir_admission_barrier();
-    }
-    executed
-}
-unsafe fn execute_any() -> bool {
     if diag::enabled() {
         return execute_mode::<true>();
-    }
-    if super::schedule::tier0() && t0_execute() {
-        return true;
     }
     if !strict_validation() {
         match fast_probe() {
@@ -2525,11 +1959,6 @@ unsafe fn fast_execute(mut witness: FastEntry) -> bool {
         {
             break;
         }
-        // Tier-0 page functions chain among themselves in t0_execute, without
-        // this loop's per-activation accounting.
-        if super::schedule::tier0() && t0_execute() {
-            break;
-        }
         match fast_probe() {
             Probe::Hit(next) => {
                 witness = next;
@@ -2571,7 +2000,7 @@ unsafe fn fast_run(witness: FastEntry, linked: bool) -> bool {
     FAST_HITS = FAST_HITS.wrapping_add(1);
     let before = *gp::instruction_counter;
     super::entry::take_link_request();
-    call_linkable(witness.slot);
+    call_slot(witness.slot);
     ACTIVE = None;
     let poll_reuse = POLL_REUSE_ENABLED && super::entry::poll_exit();
     if !super::entry::link_requested() && !poll_reuse {
@@ -2653,7 +2082,6 @@ unsafe fn fast_run(witness: FastEntry, linked: bool) -> bool {
     if steps == 0 {
         clear_missing_hint();
         cache.needs_collection = true;
-        unsafe { COLLECTION_PENDING = true };
     }
     let current = !cache.needs_collection;
     drop(cache);
@@ -2730,7 +2158,6 @@ fn activate<const PROFILE: bool>(
     let slot = record.slot;
     if !PROFILE {
         fast_fill(cache, index, entry);
-        page_fill(cache, index);
     }
     unsafe {
         ACTIVE = Some(owner);
@@ -2838,7 +2265,6 @@ unsafe fn admit_one<const PROFILE: bool>(linked: bool, previous: Option<Owner>) 
                 cache.records[index].phase = Phase::Retired;
                 clear_missing_hint();
                 cache.needs_collection = true;
-                unsafe { COLLECTION_PENDING = true };
             }
             else {
                 let warm =
@@ -2951,7 +2377,6 @@ unsafe fn admit_one<const PROFILE: bool>(linked: bool, previous: Option<Owner>) 
                             cache.records[index].phase = Phase::Retired;
                             clear_missing_hint();
                             cache.needs_collection = true;
-                            unsafe { COLLECTION_PENDING = true };
                             false
                         },
                     }
@@ -3077,12 +2502,7 @@ unsafe fn run_activation<const PROFILE: bool>(
         diag::activation_start();
     }
     let execution_scope = PROFILE.then(|| Scope::new(Stage::Generated));
-    if PROFILE {
-        call_slot(slot);
-    }
-    else {
-        call_linkable(slot);
-    }
+    call_slot(slot);
     let duration = execution_scope.and_then(Scope::finish);
     // Terminal helpers/fault delivery can observe the host even when they do
     // not pass through an emitted continuing-call barrier. A plain recovered
@@ -3183,7 +2603,6 @@ unsafe fn run_activation<const PROFILE: bool>(
             }
             clear_missing_hint();
             cache.needs_collection = true;
-            unsafe { COLLECTION_PENDING = true };
         }
         // A normal completed edge may reuse an admission certificate. Timing
         // imports are observable, so diagnostics/recording retain full admission.

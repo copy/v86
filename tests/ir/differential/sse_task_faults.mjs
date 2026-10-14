@@ -12,7 +12,7 @@ const wasm=process.argv[2]||"build/v86-ir-cache-test.wasm";
 const release=process.argv.includes("--release");
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const little=value=>Array.from({length:4},(_,i)=>value>>>(i*8)&255);
-// The region scheduler is under test: Tier-0 (on by default) is off.
+// The region scheduler is under test: ir_tier0 (32-bit code in the x64 page tier, on by default) is off.
 const vm=new V86({graphics_adapter: "bochs_vga", ir_tier0:false,
     wasm_fn:async imports=>(await WebAssembly.instantiate(fs.readFileSync(wasm),imports)).instance.exports,
     memory_size:32<<20,bios:{buffer:Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer},

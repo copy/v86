@@ -1,5 +1,6 @@
-// Fresh-VM cold/steady comparison of the IR code generators (Tier-0 page
-// functions and the region tiers) plus promotion, SMC and restore checks.
+// Fresh-VM cold/steady comparison of the code generators (the x64 page
+// tier's page functions, IR Tier-0's until P7.5, and the region tiers) plus
+// promotion, SMC and restore checks.
 //   node tests/rust/jit_tiers.mjs [baseline.wasm] [candidate.wasm]
 // With a baseline core, it runs in its default configuration as an extra arm.
 import assert from "node:assert/strict";
@@ -43,10 +44,10 @@ for(let round=0;round<5;round++) for(const index of round&1 ? [...arms.keys()].r
         while(performance.now()-warm<120) cpu.main_loop();
         const pages_per_ms=((word(vm,0x600)-before)>>>0)/(performance.now()-warm);
         const ir=vm.get_jit_info().ir;
-        const sample={first_compiled_ms,pages_per_ms,page_functions:ir.tier0?.page_functions||0,
+        const sample={first_compiled_ms,pages_per_ms,page_functions:ir.page_tier?.functions||0,
             tier1:ir.tier1_published,tier2:ir.tier2_published};
         results[index].push(sample);
-        if(label==="tier0") assert(sample.page_functions>0,"Tier-0 compiled page functions");
+        if(label==="pages") assert(sample.page_functions>0,"the page tier compiled page functions");
         if(label==="regions") { assert(sample.tier1>0,"tier 1 compiled");assert(sample.tier2>0,"hot modules promoted"); }
         if(round===0) {
             const saved=await vm.save_state();
@@ -64,4 +65,4 @@ for(const [i,{ label, wasm }] of arms.entries()) {
     for(const key of Object.keys(results[i][0])) summary[key]=median(results[i].map(x=>x[key]));
     console.log(JSON.stringify({...summary,samples:results[i]}));
 }
-console.log("PASS: Tier-0 and region compilation, promotion, code modification and save/restore");
+console.log("PASS: page tier and region compilation, promotion, code modification and save/restore");

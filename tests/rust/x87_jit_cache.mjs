@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
-// x87 in both IR code generators (Tier-0 and regions) against the interpreter:
+// x87 in both IR code generators (the page tier and regions) against the interpreter:
 // native f64 arithmetic over the shadow cache (x87_fast_math with
 // x87_jit_cache), its entry guards and observers, and the runtime policies.
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
@@ -29,7 +29,7 @@ async function run(vm, body, data, interpreted = false) {
     const p = [...body, 0xFF, 0x05, ...u32(0x600)];
     p.push(0xE9, ...u32(-p.length - 5));
     // Every program reuses CODE: start each from an empty compiler state
-    // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+    // (compiled code needs more heat to recompile a page after each rewrite).
     vm.v86.cpu.jit_clear_cache();
     vm.write_memory(data, DATA);
     vm.write_memory(new Uint8Array(1024), OUT);
@@ -75,7 +75,7 @@ const prefix = (control, rotation = 0, wide = false, count = 3) => {
 };
 try {
     reference = await boot({ disable_jit: true, x87_jit_cache: false });
-    // Tier-0 without native x87 regions: every x87 operation uses helpers.
+    // The page tier without the x87 cache: every x87 operation uses helpers.
     helper = await boot({ x87_jit_cache: false });
     for(const { label, options } of COMPILED_ARMS) arms.push({ label, vm: await boot({ ...options, x87_jit_cache: true }) });
     for(const pc of [0,2,3]) for(let rc=0;rc<4;rc++) for(let rotation=0;rotation<8;rotation++) {
@@ -270,7 +270,7 @@ try {
             `${label}: restore discards newer shadow values and reads saved 3.0`);
     }
     console.log("PASS: host save materializes dirty f64 state and restore discards stale shadow values");
-    // Warm-loop throughput in Tier-0, same generated code and input; switch
+    // Warm-loop throughput in the page tier, same generated code and input; switch
     // only runtime cache policy. The body reloads its seeds each iteration.
     const cached=arms[0].vm;
     await run(cached,[...prefix(0x27F),...Array.from({length:3},()=>region).flat(),...snapshot],data);

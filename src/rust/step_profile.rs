@@ -1,6 +1,6 @@
 //! The step profile (docs/jit-unification-plan.md P0.5): which instructions
-//! compiled code leaves to the interpreter, in one store for IR Tier-0 and the
-//! x64 page tier, keyed by StepKey v1. Off by default (the JIT switch
+//! compiled code leaves to the interpreter (the x64 page tier's; IR Tier-0's
+//! too until P7.5), keyed by StepKey v1. Off by default (the JIT switch
 //! step_profile); while it is on, every step decodes its instruction's
 //! prefixes and opcode into a hash table, so measure in rounds that are not
 //! timed (tests/bench/run.mjs --fallbacks). tools/step_profile.mjs names keys.
@@ -15,7 +15,7 @@
 //! | 12    | VEX.L |
 //! | 14    | VEX encoded |
 //! | 16    | an F2 or F3 prefix (REP, REPNE, or SSE's mandatory prefix) |
-//! | 17    | a retry: compiled code refused an access of the instruction (the x64 page tier; Tier-0's retries and fallbacks share one step block and are not told apart) |
+//! | 17    | a retry: compiled code refused an access of the instruction (the x64 page tier) |
 //! | 18-20 | ModRM.reg, for an opcode it extends (groups, x87) |
 //! | 21    | bits 18-20 are valid |
 //! | 22    | a 66 prefix |
@@ -53,10 +53,10 @@ pub const ISA_SHIFT: u32 = 30;
 /// The bits of the x64 page tier's earlier key
 pub const X64_LEGACY_BITS: u32 = 0x3_5FFF;
 
-/// Who stepped the instruction (Event: not a step, see `event`)
+/// Who stepped the instruction (Event: not a step, see `event`; 0 was IR
+/// Tier-0's until P7.5 deleted it)
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Stepper {
-    Tier0 = 0,
     X64Page = 1,
     Event = 2,
 }
@@ -125,11 +125,8 @@ pub mod event {
     pub const STEP_CONTEXT_IOPL: u32 = 13;
     pub const STEP_CONTEXT_DR7: u32 = 14;
     pub const STEP_CONTEXT_EPOCH: u32 = 15;
-    /// A long-mode frame while IR Tier-0 had pages ready to compile (WOW64's
-    /// code waits for a compatibility-mode slice: P4.6); detail 1: a compile
-    /// was pending, 2: none was queued from compatibility mode under the
-    /// current CR3, 3: one was
-    pub const STARVED: u32 = 5;
+    // (5 was STARVED: P4.6's long-mode frames with IR Tier-0 pages ready,
+    // deleted with Tier-0 by P7.5)
     /// #NM delivered; CLTS; a MOV to CR0 that changed TS (the plan's open
     /// question 5: lazy FPU switching)
     pub const NM: u32 = 6;
@@ -141,7 +138,7 @@ pub mod event {
     /// what QueryPerformanceCounter reads)
     pub const HPET_READ: u32 = 10;
     pub const PM_TIMER_READ: u32 = 11;
-    /// A CPU frame began (STARVED's denominator)
+    /// A CPU frame began
     pub const FRAME: u32 = 12;
     // (src/hpet.js and src/acpi.js pass these numbers)
     const _: () = assert!(HPET_READ == 10 && PM_TIMER_READ == 11);
@@ -149,7 +146,7 @@ pub mod event {
 
 /// StepKeys and how often they were stepped; None while the profile is off
 static mut PROFILE: Option<HashMap<u32, u32>> = None;
-/// A sample of each Tier-0 key: the last stepped instruction's linear
+/// A sample of each key of a step: the last stepped instruction's linear
 /// address and first 8 bytes (step_profile_sample: what the key's steps
 /// were, such as a template's refused access)
 static mut SAMPLES: Option<HashMap<u32, (u32, [u8; 8])>> = None;
@@ -169,6 +166,7 @@ pub unsafe fn set_enabled(on: bool) {
     if on != enabled() {
         PROFILE = on.then(HashMap::new);
         SAMPLES = None;
+        PAIRS = Vec::new();
         X64_LEGACY_STALE = true;
     }
 }
@@ -179,6 +177,7 @@ pub unsafe fn step_profile_reset() {
         profile.clear();
     }
     SAMPLES = None;
+    PAIRS = Vec::new();
     X64_LEGACY_STALE = true;
 }
 
@@ -378,25 +377,34 @@ pub unsafe fn read_legacy(address: u32, physical: u32, bytes: &mut [u8; 15]) -> 
     15
 }
 
-/// A step of IR Tier-0 at linear `address`, whose first byte is at
-/// `physical` (with the profile on)
-pub unsafe fn note_tier0(address: u32, physical: u32) {
-    let mut bytes = [0; 15];
-    let n = read_legacy(address, physical, &mut bytes);
-    let key = x86_key(
-        &bytes[..n],
-        crate::x64::state::mode(),
-        Stepper::Tier0,
-        false,
-    );
+/// Steps by their first two bytes (little-endian, as IR Tier-0 counted
+/// them before P7.5): the ISA tests' check that a form ran as a template
+static mut PAIRS: Vec<u32> = Vec::new();
+pub unsafe fn pair_count(pair: u32) -> u32 {
+    (&*(&raw const PAIRS))
+        .get(pair as usize & 0xFFFF)
+        .copied()
+        .unwrap_or(0)
+}
+
+/// note(key) of a step at linear `address`, whose bytes begin with `bytes`:
+/// they are the key's sample (step_profile_sample)
+pub unsafe fn note_sampled(key: u32, address: u32, bytes: &[u8]) {
     note(key);
+    if let Some(&b0) = bytes.first() {
+        let pairs = &mut *(&raw mut PAIRS);
+        pairs.resize(0x10000, 0);
+        let pair = b0 as usize | (*bytes.get(1).unwrap_or(&0) as usize) << 8;
+        pairs[pair] = pairs[pair].wrapping_add(1);
+    }
     let mut first = [0; 8];
-    first.copy_from_slice(&bytes[..8]);
+    let n = bytes.len().min(8);
+    first[..n].copy_from_slice(&bytes[..n]);
     (*(&raw mut SAMPLES))
         .get_or_insert_with(HashMap::new)
         .insert(key, (address, first));
 }
-/// The sample of the snapshot's entry `index` (Tier-0 keys): 0, the linear
+/// The sample of the snapshot's entry `index`: 0, the linear
 /// address; 1 and 2, the instruction's bytes 0-3 and 4-7 (little-endian);
 /// 0 without one
 #[no_mangle]
@@ -422,7 +430,7 @@ mod tests {
     use ExecutionMode::*;
 
     fn key(bytes: &[u8], mode: ExecutionMode) -> u32 {
-        x86_key(bytes, mode, Stepper::Tier0, false) & ((1 << MODE_SHIFT) - 1)
+        x86_key(bytes, mode, Stepper::X64Page, false) & ((1 << MODE_SHIFT) - 1)
     }
 
     #[test]

@@ -27,8 +27,6 @@ pub mod simd;
 
 pub mod x87;
 
-pub mod tier0;
-
 pub mod cache;
 mod hot_index;
 pub mod live;

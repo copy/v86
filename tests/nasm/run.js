@@ -38,8 +38,8 @@ const READY_MSG = "READY";
 const BSS = 0x100000;
 const STACK_TOP = 0x102000;
 
-// --force-jit: IR compiles at the first opportunity (Tier-0 pages after one
-// instruction, regions after one visit), so code that runs more than once
+// --force-jit: code compiles at the first opportunity (the x64 page tier's
+// 32-bit pages after one instruction, regions after one visit), so code that runs more than once
 // executes compiled.
 const FORCE_JIT = process.argv.includes("--force-jit");
 
@@ -394,7 +394,8 @@ else {
         // the generated tests include the forms of docs/simd-xsave-plan.md
         // that are implemented so far
         cpu_features: ["SSSE3", "SSE4.1", "SSE4.2"],
-        ...FORCE_JIT ? { ir_region_budget: { hot_threshold: 1, promotion_threshold: 1 } } : {},
+        ...FORCE_JIT ? { ir_region_budget: { hot_threshold: 1, promotion_threshold: 1 },
+            jit_switches: { x64_legacy_heat: 1, x64_legacy_recompile_misses: 1 } } : {},
         log_level: 0,
     });
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// The step profile of IR Tier-0 (docs/jit-unification-plan.md P0.5): a hot
-// loop whose page function steps CPUID and an IN at the last byte of its
-// page. The next linear page is mapped to another physical page, so the
-// instruction's second byte must be read through the page tables: Tier-0's
-// two-byte histogram (ir_t0_steps) used to read it from the next physical
-// page. With the JIT switch step_profile on, both steps land under their
-// StepKeys (32-bit protected mode, Tier-0), as often as the two-byte
-// histogram counts them; off, the profile is gone.
+// The step profile of the x64 page tier in legacy mode (docs/jit-unification-
+// plan.md P0.5; written for IR Tier-0, deleted in P7.5): a hot loop whose
+// page function steps CPUID and an IN at the last byte of its page. The next
+// linear page is mapped to another physical page, so the instruction's
+// second byte must be read through the page tables: Tier-0's two-byte
+// histogram used to read it from the next physical page. With the JIT switch
+// step_profile on, both steps land under their StepKeys (32-bit protected
+// mode, x64page), as often as the two-byte histogram (x64_page_steps) counts
+// them; off, the profile is gone.
 //
 //   node tests/ir/differential/tier0_step_profile.mjs [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
@@ -37,17 +38,17 @@ const next = [0xFF, 0x0D, ...u32(DATA + 124)];      // DEC DWORD [DATA+124]
 next.push(0x0F, 0x85, ...u32(TOP - (NEXT + next.length + 6)), 0xF4); // JNZ top; HLT
 
 // the names of a few keys (tools/step_profile.mjs)
-assert.equal(step_key_name(step_key({ opcode: 0xA2, map: 1 })), "prot32 tier0 0F A2");
+assert.equal(step_key_name(step_key({ opcode: 0xA2, map: 1 })), "prot32 x64page 0F A2");
 assert.equal(step_key_name(step_key({ opcode: 0xA5, rep: true, mode: "long64", stepper: "x64page", retry: true })), "long64 x64page retry F3 A5");
-assert.equal(step_key_name(step_key({ opcode: 0x18, map: 2, vex: true, vex_l: true, vex_pp: 1, mode: "long64" })), "long64 tier0 VEX.256.66.0F38 18");
-assert.equal(step_key_name(step_key({ opcode: 0xFF, reg: 2, mode: "real" })), "real tier0 FF /2");
+assert.equal(step_key_name(step_key({ opcode: 0x18, map: 2, vex: true, vex_l: true, vex_pp: 1, mode: "long64" })), "long64 x64page VEX.256.66.0F38 18");
+assert.equal(step_key_name(step_key({ opcode: 0xFF, reg: 2, mode: "real" })), "real x64page FF /2");
 
 const vm = new V86({
     graphics_adapter: "bochs_vga", wasm_path: wasm, memory_size: 128 << 20,
     // (page functions are installed as they are compiled)
     ir_sync_publication: true,
-    // (Tier-0's: the page tier runs 32-bit code by default since M8)
-    jit_switches: { x64_page_legacy32: 0 },
+    // (the page tier compiles a page after 2000 instructions)
+    jit_switches: { x64_legacy_heat: 2000 },
     bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
     disable_speaker: true, net_device: { type: "none" }, autostart: false,
 });
@@ -60,7 +61,6 @@ while(new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(0x500, true) 
     await sleep(1);
 }
 await vm.stop();
-assert(e.ir_auto_set_tier0(1));
 assert.equal(get_jit_switches(e, cpu.wasm_memory).step_profile, 0, "the step profile is off by default");
 set_jit_switches(e, cpu.wasm_memory, { step_profile: 1 }, "tier0_step_profile");
 
@@ -93,26 +93,25 @@ async function run() {
     assert.equal(view.getUint32(0x608, true), 0, "the guest took an exception");
     assert.equal(view.getUint32(DATA + 124, true), 0);
 }
-// (the first CPU batch, about 14000 iterations, is interpreted: pages
-// compile at its end)
+// (the first run compiles the pages)
 await run();
-e.ir_t0_steps_reset();
+e.x64_page_steps_reset();
 e.step_profile_reset();
 await run();
 
-const raw_in = e.ir_t0_steps(0xFFEC), raw_cpuid = e.ir_t0_steps(0xA20F);
-assert.equal(e.ir_t0_steps(0x90EC), 0, "the IN's second byte was read from the wrong physical page");
-assert(raw_in >= ITERATIONS * 0.9 && raw_cpuid >= ITERATIONS * 0.9, `Tier-0 stepped the IN ${raw_in} and CPUID ${raw_cpuid} times`);
+const raw_in = e.x64_page_steps(0xFFEC), raw_cpuid = e.x64_page_steps(0xA20F);
+assert.equal(e.x64_page_steps(0x90EC), 0, "the IN's second byte was read from the wrong physical page");
+assert(raw_in >= ITERATIONS * 0.9 && raw_cpuid >= ITERATIONS * 0.9, `the page tier stepped the IN ${raw_in} and CPUID ${raw_cpuid} times`);
 const steps = step_profile(e);
 const count = key => steps.find(r => r.key === key)?.count ?? 0;
 assert.equal(count(step_key({ opcode: 0xEC })), raw_in, `IN: ${JSON.stringify(steps.slice(0, 4))}`);
 assert.equal(count(step_key({ opcode: 0xA2, map: 1 })), raw_cpuid, `CPUID: ${JSON.stringify(steps.slice(0, 4))}`);
 assert.equal(e.step_profile_get(step_key({ opcode: 0xA2, map: 1 })), raw_cpuid);
-assert.deepEqual(steps.slice(0, 2).map(r => r.name).sort(), ["prot32 tier0 0F A2", "prot32 tier0 EC"]);
+assert.deepEqual(steps.slice(0, 2).map(r => r.name).sort(), ["prot32 x64page 0F A2", "prot32 x64page EC"]);
 
 set_jit_switches(e, cpu.wasm_memory, { step_profile: 0 }, "tier0_step_profile");
 assert.equal(e.step_profile_snapshot(), 0, "the profile is dropped when the switch goes off");
 await vm.destroy();
-console.log(`PASS: Tier-0 stepped CPUID ${raw_cpuid} times and the IN at a page's last byte ${raw_in} times, ` +
+console.log(`PASS: the page tier stepped CPUID ${raw_cpuid} times and the IN at a page's last byte ${raw_in} times, ` +
     `the same in the two-byte histogram and under their StepKeys`);
 process.exit(0);

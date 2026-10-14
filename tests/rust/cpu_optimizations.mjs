@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 
-// Compiled code against independent oracles, once per IR arm (Tier-0 and regions).
+// Compiled code against independent oracles, once per IR arm (the page tier and regions).
 const wasm = process.argv[2] || "build/v86.wasm";
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
 let vm;

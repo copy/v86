@@ -5,7 +5,7 @@ import {WASM_TABLE_SIZE} from "../../../src/const.js";
 const wasm=process.argv[2]||"build/v86-ir-cache-test.wasm",PC=0x100000;
 // Every table slot but 0 is free once IR and x64 page functions are released.
 const POOL=WASM_TABLE_SIZE-1;
-// disable_jit: IR starts idle (no scheduler, no Tier-0); each case enables it.
+// disable_jit: IR starts idle (no scheduler, no page tier); each case enables it.
 const vm=new V86({graphics_adapter: "bochs_vga", wasm_path:wasm,disable_jit:true,memory_size:32<<20,bios:{buffer:Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer},disable_keyboard:true,disable_mouse:true,disable_speaker:true,net_device:{type:"none"},autostart:false});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),u32=n=>[n&255,n>>>8&255,n>>>16&255,n>>>24];
 const until=async(test,label)=>{const end=performance.now()+15000;while(!test()){assert(performance.now()<end,label);await sleep(1);}};

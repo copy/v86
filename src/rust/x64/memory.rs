@@ -290,7 +290,7 @@ pub unsafe fn translate(
     translate_user(address, access, stack, !supervisor && *gp::cpl == 3)
 }
 /// In compatibility mode, x64 translations fill the 32-bit TLB too
-/// (cpu::fill_ia32e_tlb) when compiled 32-bit code reads it: Tier-0's
+/// (cpu::fill_ia32e_tlb) when compiled 32-bit code reads it: the regions'
 /// (x64_set_compat_jit) or the page tier's (x64_page_compat32 with
 /// x64_compat_tlb, pagegen::Emitter::host_tlb)
 unsafe fn compat_tlb() -> bool {

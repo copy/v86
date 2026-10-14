@@ -10,12 +10,11 @@
 //   that feeds build/v86.wasm changed, core-split-check (ARM64 plan P0.7);
 //   when IR, x64 or shared JIT code changed, replay-check (P2.0: the
 //   generated code byte for byte, tools/replay_check.mjs; REPLAY_ALLOW_CHANGES=x64
-//   for a change meant to alter the page tier's code, which Tier-0's must
-//   not follow) and the leaf
+//   for a change meant to alter the page tier's code) and the leaf
 //   digests (P2.1: jit-leaf-tests, tests/x86tpl); then
-//   ir-tier0-tests when IR or shared JIT code changed and
-//   x64-page-tier-tests and x64-legacy32-tests when x64 or shared JIT code
-//   changed. The changes are
+//   x64-page-tier-tests when x64 or shared JIT code changed and
+//   x64-legacy32-tests (ir-tier0-tests until P7.5) when x64, IR or shared
+//   JIT code changed. The changes are
 //   the uncommitted ones, or without any the last commit's, or those since
 //   --base REV.
 // make jit-gate-full, at a milestone's exit and before a default flips:
@@ -89,7 +88,7 @@ const eslint_command = eslint && [...(eslint.endsWith(".js") ? ["node", eslint] 
 const warning_free = { RUSTFLAGS: "-D warnings" };
 // recordings of real compilations (tools/replay_record.mjs), when made
 const replay_dir = path.join(ROOT, "build/replay");
-const replay_records = fs.existsSync(replay_dir) ? fs.readdirSync(replay_dir).filter(f => /\.(t0r|x6r)$/.test(f)).flatMap(f => ["--records", path.join("build/replay", f)]) : [];
+const replay_records = fs.existsSync(replay_dir) ? fs.readdirSync(replay_dir).filter(f => /\.x6r$/.test(f)).flatMap(f => ["--records", path.join("build/replay", f)]) : [];
 const cargo_check = ["check", "--release", "--target", "wasm32-unknown-unknown"];
 
 const steps = [
@@ -110,9 +109,8 @@ const steps = [
         skip: ir_tests || x64_tests ? null : "no IR, x64 or shared JIT change" },
     { name: "leaf digests (P2.1)", command: ["make", "jit-leaf-tests"],
         skip: ir_tests || x64_tests ? null : "no IR, x64 or shared JIT change" },
-    { name: "ir-tier0-tests", command: ["make", "ir-tier0-tests"], skip: ir_tests ? null : "no IR or shared JIT change" },
     { name: "x64-page-tier-tests", command: ["make", "x64-page-tier-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
-    { name: "x64-legacy32-tests", command: ["make", "x64-legacy32-tests"], skip: x64_tests ? null : "no x64 or shared JIT change" },
+    { name: "x64-legacy32-tests", command: ["make", "x64-legacy32-tests"], skip: x64_tests || ir_tests ? null : "no x64, IR or shared JIT change" },
     { name: "jit-switch-tests", command: ["make", "jit-switch-tests"],
         skip: full || any(/jit_switches\.(rs|js|mjs)$/, /^tests\/api\/jit-switches\.js$/) ? null : "the switch registry did not change" },
 ];

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guest RAM reads as zero until something writes it, whatever the wasm heap
 // it is allocated from held before (cpu/memory.rs allocate_memory). With
-// Tier-0, ir::runtime::schedule's reserve_compiler_heap frees 16 chunks of
+// ir_tier0 on, ir::runtime::schedule's reserve_compiler_heap frees 16 chunks of
 // 2 MiB just before RAM is allocated in their place, and their allocator
 // headers used to show up in guest RAM: 0x0020000A00400010 at 0x3FFEA0
 // (reported as an x64 page tier write: no guest touched it), a header every
@@ -10,7 +10,7 @@
 // each configuration: before the first instruction, all of RAM is zero but
 // the multiboot image; after a long-mode guest ran a loop (compiled by the
 // page tier), RAM from 0x300000 to its end is zero but the guest's marker.
-// With Tier-0, 32 MiB of RAM lies within the memory the heap had used, and
+// With ir_tier0 on, 32 MiB of RAM lies within the memory the heap had used, and
 // 64 MiB extends past it.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -46,7 +46,7 @@ for(const [label, options] of [
     ["interpreted", {}],
     ["x64 page tier", page_tier],
     ["x64 page tier, 64 MiB", {...page_tier, memory_size: 64 << 20}],
-    ["x64 page tier without Tier-0", {...page_tier, ir_tier0: false}],
+    ["x64 page tier without ir_tier0", {...page_tier, ir_tier0: false}],
 ])
 {
     const size = options.memory_size || 32 << 20;

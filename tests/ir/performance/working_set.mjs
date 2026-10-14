@@ -4,7 +4,7 @@ import { V86 } from "../../../build/libv86.mjs";
 const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const delta=(a,b)=>(a-b)>>>0;
-// Synthetic cold-start diagnostic of the IR region tiers (Tier-0 off), not an
+// Synthetic cold-start diagnostic of the IR region tiers (ir_tier0 off), not an
 // XP or application benchmark. Compare cores by running this once per core,
 // alternating, on an otherwise idle host.
 const duration=Number(process.env.IR_BENCH_MS || 1200);

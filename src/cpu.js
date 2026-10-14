@@ -557,18 +557,16 @@ CPU.prototype.create_jit_imports = function()
         jit_imports[name] = this.wm.exports[name];
     }
 
-    // With Wasm tail calls, IR Tier-0 page functions continue in the next
-    // page's function directly, through the shared function table.
+    // With Wasm tail calls, x64 page functions continue in the next page's
+    // function directly, through the shared function table (x64::pages CHAIN).
     const table = this.wm.wasm_table;
-    if(table && this.wm.exports["ir_t0_set_tail_calls"])
+    if(table && this.wm.exports["jit_set_tail_calls"])
     {
         // (module (func (return_call 0)))
         const probe = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 18, 0, 11]);
         const supported = WebAssembly.validate(probe);
         if(supported) jit_imports["t"] = table;
-        this.wm.exports["ir_t0_set_tail_calls"](supported ? 1 : 0);
-        // x64 page functions continue in the next page's function too
-        // (x64::pages CHAIN)
+        this.wm.exports["jit_set_tail_calls"](supported ? 1 : 0);
         this.wm.exports["x64_page_set_chaining"]?.(supported ? 1 : 0);
     }
     // FMA with relaxed SIMD's multiply-adds where they fuse (ir::native_fp)
@@ -2586,9 +2584,11 @@ CPU.prototype.configure_jit_backend = function(settings)
         throw new Error("Cannot configure IR while a CPU compilation or execution is active");
     if(settings["ir_tier0"] !== undefined && typeof settings["ir_tier0"] !== "boolean")
         throw new Error("ir_tier0 must be a boolean");
-    // Page-granular Tier-0 below the optimizing region tier (default on).
+    // 32-bit protected-mode code in the x64 page tier, below the optimizing
+    // region tier (default on; the name is IR Tier-0's, which it replaced in
+    // docs/jit-unification-plan.md P7.5).
     if(enabled && settings["ir_tier0"] !== false && !(exports["ir_auto_set_tier0"] && exports["ir_auto_set_tier0"](1)))
-        throw new Error("IR Tier-0 requires a compatible fresh core");
+        throw new Error("ir_tier0 requires a compatible fresh core");
     // Testing: region-only compilation (no page-granular compilation)
     if(settings["ir_page_mode"] !== undefined && !exports["ir_auto_set_page_mode"](settings["ir_page_mode"] ? 1 : 0))
         throw new Error("ir_page_mode requires a fresh core");
@@ -2710,14 +2710,9 @@ CPU.prototype.get_jit_info = function()
         ir["fused_hits"] = exports["ir_cache_stat"](24) >>> 0;
         ir["fused_guest_steps"] = exports["ir_cache_stat"](25) >>> 0;
         ir["fusion_enabled"] = !!exports["ir_cache_stat"](26);
-        ir["tier0"] = exports["ir_t0_stat"] ? {
-            "enabled": !!exports["ir_t0_stat"](5),
-            "page_functions": exports["ir_t0_stat"](0) >>> 0,
-            "instructions": exports["ir_t0_stat"](1) >>> 0,
-            "wasm_bytes": exports["ir_t0_stat"](3) >>> 0,
-            "activations": exports["ir_t0_entries"]() >>> 0,
-            "chains": exports["ir_t0_chains"]() >>> 0,
-        } : null;
+        // (IR Tier-0 was deleted, docs/jit-unification-plan.md P7.5: its
+        // 32-bit code is the x64 page tier's, page_tier)
+        ir["tier0"] = null;
         // (32-bit protected-mode code in the x64 page tier, x64_page_legacy32)
         ir["page_tier"] = exports["x64_page_stat"] ? {
             "legacy32": !!exports["x64_page_stat"](40),

@@ -1,5 +1,5 @@
 // Equal guest work, warmed code, fresh VM for each core. No timer-limited loops.
-// Measures the IR region tiers (Tier-0 off). An interpreter-only arm is the
+// Measures the IR region tiers (ir_tier0 off). An interpreter-only arm is the
 // architectural reference. Correctness and warmup failures fail the process;
 // speed is reported against an optional baseline core.
 import assert from "node:assert/strict";

@@ -1,8 +1,12 @@
 # v86 IR: design, architecture, and comparison with the legacy JIT
 
 This is the consolidated description of the IR, written against the current
-source. **The IR is now the only JIT, and Tier-0 is on by default**; the legacy
-JIT's analyzer and code generator have been removed. Code that is not compiled,
+source. **The IR is now the only JIT**; the legacy JIT's analyzer and code
+generator have been removed. 32-bit protected-mode and compatibility-mode
+code is compiled by the x64 page tier ([x86-64.md](x86-64.md),
+[jit-unification-plan.md](jit-unification-plan.md) P7.3), which replaced IR
+Tier-0 (deleted in P7.5; `ir_tier0`, the option's name, now turns the page
+tier's 32-bit code on and off). Code that is not compiled,
 or cannot be compiled safely, still runs in the interpreter. The earlier design,
 instruction-topic, implementation-progress, and review documents have been
 merged into this one; the coverage catalogue and raw measurement data are kept.
@@ -11,19 +15,10 @@ merged into this one; the coverage catalogue and raw measurement data are kept.
 
 ### Two compilation paths for startup speed and optimization
 
-- **Tier-0 page compilation**: accumulates interpreter execution heat per code
-  page, discovers basic blocks from observed entry points, and emits Wasm
-  directly from templates, without building SSA or running the full region
-  optimization pipeline. Jumps, calls, and returns within a page are dispatched
-  inside the same function where possible; frequent cross-page transfers can
-  produce a multi-page function of up to 6 code pages, contiguous or not.
-  Its templates grow behind feature switches (`t0_*` in the switch registry,
-  `CompileEnv::features`; [jit-unification-plan.md](jit-unification-plan.md)
-  P3): REP MOVS/STOS within a page as one bulk copy or fill (one core),
-  segment register reads and loads, JECXZ, CLD/STD, CLI, XCHG with memory,
-  POP m32, PUSHAD/POPAD, and vector stores to device memory through a slow
-  path; the template-kind profile (`t0_kind_profile`) and the step profile's
-  samples ([profiling.md](profiling.md)) show what is left to the interpreter.
+- **Tier-0 page compilation** (until P7.5; the x64 page tier compiles that
+  code now): accumulated interpreter execution heat per code page, discovered
+  basic blocks from observed entry points, and emitted Wasm directly from
+  templates, without SSA or the region optimization pipeline.
 - **Tier-1/2 region compilation**: lifts x86 instructions into an explicit
   intermediate representation, then optimizes it and lowers it to Wasm. Tier-1
   uses cheap canonicalization and state pruning; Tier-2 adds cross-block value
@@ -31,14 +26,16 @@ merged into this one; the coverage catalogue and raw measurement data are kept.
   optimizations.
 - **Interpreter fallback**: cold code, missing entries, and paths that do not
   meet the compilation conditions keep running in the interpreter. Instructions
-  without a native Tier-0 template run through a single-step helper, and the
+  without a native template run through a single-step helper, and the
   returned status decides whether to continue or exit.
 
-By default, Tier-0 does most of the work; non-32-bit code, and entries that
-Tier-0 fails to compile or rejects, can still go to the region compiler. Set
-`ir_tier0: false` to use the region pipeline. **There is currently no general
-automatic Tier-0 → Tier-1 → Tier-2 tier-up chain**; the region pipeline keeps
-its own Tier-1 → Tier-2 tier-up.
+By default, the x64 page tier does most of the work; 16-bit code, and entries
+that it cannot run (a 16-bit stack, a CS base other than 0), go to the region
+compiler. Set `ir_tier0: false` to use the region pipeline for 32-bit code
+too. **There is no automatic page tier → Tier-1 → Tier-2 tier-up chain**; the
+region pipeline keeps its own Tier-1 → Tier-2 tier-up. (The rest of this
+document still describes IR Tier-0 where it names it: the code as it was
+before P7.5.)
 
 ### Semantics, optimization, and machine code generation stay separate
 
@@ -187,7 +184,7 @@ Key code locations:
 | Responsibility | Location |
 |---|---|
 | Encoding catalogue and shared decoder | [gen/x86_table.js](../gen/x86_table.js), [frontend](../src/rust/ir/frontend/) |
-| Tier-0 analysis, templates, and multi-page functions | [tier0](../src/rust/ir/tier0/) |
+| The page tier's analysis, templates, and multi-page functions (IR Tier-0's until P7.5) | [x64](../src/rust/x64/): pagegen.rs, pages.rs, loops.rs |
 | x86 leaf templates every engine shares: packed operations, SSE arithmetic, conversions and their exact admission, MMX, the inlined x87 | [x86tpl](../src/rust/x86tpl/), with the ISA-neutral v128 leaves in [wasmgen/leaves.rs](../src/rust/wasmgen/leaves.rs) |
 | HIR, state, and optimization | [hir.rs](../src/rust/ir/hir.rs), [state.rs](../src/rust/ir/state.rs), [passes](../src/rust/ir/passes/) |
 | Lowering, MIR, and the Wasm backend | [lowering.rs](../src/rust/ir/lowering.rs), [mir.rs](../src/rust/ir/mir.rs), [backend/wasm](../src/rust/ir/backend/wasm/) |
@@ -198,7 +195,7 @@ Common controls: `disable_jit: true` runs only the interpreter; `ir_opt_level`
 and `ir_passes_disabled` control region optimization; `get_jit_info()` shows
 scheduler and cache statistics; `ir_dump` and `get_ir_dumps()` show region
 HIR/MIR/Wasm. `jit_backend` accepts only `"ir"`, or can be omitted. The
-validation entry points are `make ir-tests`, `make ir-tier0-tests`, and
+validation entry points are `make ir-tests`, `make x64-legacy32-tests`, and
 `make ir-generated-check`; for targeted tests see the
 [tests README](../tests/Readme.md), and for the coverage catalogue see
 [ir-coverage.json](../src/rust/ir/frontend/ir-coverage.json).

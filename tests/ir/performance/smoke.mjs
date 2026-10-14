@@ -102,7 +102,7 @@ function target_entry_stats(exports)
 async function sample_ir(execution_budget, round)
 {
     const budget = { ...base_budget, execution_budget };
-    // The matrix measures the region tiers, so Tier-0 is off.
+    // The matrix measures the region tiers, so ir_tier0 (32-bit code in the x64 page tier) is off.
     const { vm, load_ms } = await create({ ir_tier0: false, ir_region_budget: budget });
     try
     {

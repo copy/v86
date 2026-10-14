@@ -239,9 +239,9 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
         times.slice(1).forEach((time, i) => assert.ok(time >= times[i], `${run}: TSC goes backwards: ${times.map(time => "0x" + time.toString(16))}`));
         assert.equal(word(MISMATCHES), 0, `${run}: rounds where ECX was not that round's TSC_AUX`);
         assert.equal(word(FAULTS), ROUNDS * expected.filter(Boolean).length, `${run}: faults over all rounds`);
-        // (32-bit protected-mode code in the x64 page tier, else Tier-0)
-        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
-            `${run}: compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
+        // (32-bit protected-mode code in the x64 page tier)
+        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0,
+            `${run}: compiled code ran: ${JSON.stringify(ir.page_tier)}`);
         console.log(`PASS 32-bit RDTSCP (${run}): ${profile === "x64" ? "EDX:EAX = TSC, ECX = TSC_AUX, #GP at CPL 3 with CR4.TSD" : "#UD"}`);
     }
 }
@@ -304,9 +304,9 @@ for(const [profile, cpu_type] of [["x64", "x86_64"], ["legacy", undefined]])
         const tsc = at => BigInt(result.readUInt32LE(at + 4)) << 32n | BigInt(result.readUInt32LE(at));
         assert.equal(result.readUInt32LE(12), 0, `${run}: RDTSCPs whose ECX was not TSC_AUX`);
         assert.ok(tsc(16) <= tsc(24) && tsc(24) <= tsc(32), `${run}: RDTSCP's EDX:EAX between the RDTSCs`);
-        // (32-bit protected-mode code in the x64 page tier, else Tier-0)
-        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
-            `${run}: compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
+        // (32-bit protected-mode code in the x64 page tier)
+        if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0,
+            `${run}: compiled code ran: ${JSON.stringify(ir.page_tier)}`);
         console.log(`PASS RDTSCP (${run})`);
     }
 }

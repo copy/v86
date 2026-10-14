@@ -285,8 +285,8 @@ export async function run_vcpu(init, post, handle)
         ctrl[word(C.STEPS)] = steps;
         ctrl[word(C.SLICES)]++;
         // (cumulative: a reset or restore clears the caches' own counters;
-        // Tier-0, the IR cache and x64 page functions)
-        const entries = exports["ir_t0_entries"]() + exports["ir_cache_stat"](2) + exports["x64_page_stat"](6) >>> 0;
+        // the IR cache and x64 page functions)
+        const entries = exports["ir_cache_stat"](2) + exports["x64_page_stat"](6) >>> 0;
         jit_entries += entries >= last_entries ? entries - last_entries : entries;
         last_entries = entries;
         ctrl[word(C.JIT_ENTRIES)] = jit_entries;

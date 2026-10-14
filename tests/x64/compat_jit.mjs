@@ -14,8 +14,9 @@
 // translation the reads keep (x64_fast_lookup's kept translations, one
 // per kind), as the code page refuses writes to the inline lookups.
 // Results must equal the interpreter's, and compiled code must have run:
-// Tier-0's, or with x64_page_compat32 the x64 page tier's
-// (docs/jit-unification-plan.md P7.2, M6's acceptance).
+// the region tiers' (x64_compat_jit; IR Tier-0's until P7.5), or with
+// x64_page_compat32 the x64 page tier's (docs/jit-unification-plan.md P7.2,
+// M6's acceptance).
 import assert from "node:assert/strict";
 import {assemble, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
@@ -163,9 +164,9 @@ jmp [0x301000]
 const directory = assemble("compat-jit", long_mode_guest(body, data));
 const results = {};
 for(const [name, jit, compat, page32] of [["interpreter", false, false, false], ["page tier, compat interpreted", true, false, false],
-    ["page tier + compat JIT", true, true, false], ["page tier, compat32", true, false, true]])
+    ["page tier + compat regions", true, true, false], ["page tier, compat32", true, false, true]])
 {
-    let tier0, page;
+    let regions, page;
     const result = await actual(directory, {length: 88, timeout: 120000,
         options: jit ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
             jit_switches: {x64_page_compat32: page32 ? 1 : 0}} : {},
@@ -176,12 +177,12 @@ for(const [name, jit, compat, page32] of [["interpreter", false, false, false], 
         },
         inspect: emulator => {
             const x = emulator.v86.cpu.wm.exports;
-            tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0;
+            regions = x.ir_cache_stat(2);
             page = {compat_compiles: x.x64_page_stat(36), native: x.x64_page_stat(1)};
         }});
     results[name] = result;
-    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} tier-0 ${JSON.stringify(tier0)} page tier ${JSON.stringify(page)}`);
-    if(compat) assert.ok(tier0.activations > 0 && tier0.page_functions > 0, "compiled compatibility-mode code ran");
+    console.log(`${name}: ${result.subarray(16, 80).toString("hex")} region entries ${regions} page tier ${JSON.stringify(page)}`);
+    if(compat) assert.ok(regions > 0, "compiled compatibility-mode code ran");
     if(page32) assert.ok(page.compat_compiles > 0 && page.native > ITERATIONS * 10, "the page tier ran the compatibility-mode code");
 }
 const view = results.interpreter;

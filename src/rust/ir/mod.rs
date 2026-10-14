@@ -1,5 +1,5 @@
-//! The IR compiler (frontend, MIR, Wasm backend, Tier-0) and its runtime; the
-//! only compiler of the core. See docs/ir-design.md.
+//! The IR compiler (frontend, MIR, Wasm backend: the region tiers) and its
+//! runtime, which also schedules the x64 page tier (crate::x64). See docs/ir-design.md.
 #![allow(dead_code)]
 pub mod analysis;
 pub mod backend;
@@ -46,7 +46,6 @@ pub mod state;
 #[cfg(test)]
 #[path = "../../../tests/ir/semantics/store_continuation.rs"]
 mod store_continuation_tests;
-pub mod tier0;
 pub mod types;
 pub mod verify;
 pub mod x87;

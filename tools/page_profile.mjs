@@ -3,8 +3,8 @@
 // (docs/profiling.md): runs a benchmark on the test core
 // (build/v86-ir-test-release.wasm, ir-test-hooks) under V8's sampling
 // profiler (node --prof) while recording what the x64 page tier (with
-// --isa i686, Tier-0; with --isa compat32, the page tier in compatibility
-// mode) compiles, saves the last module whose page holds the given
+// --isa i686 in legacy protected mode, IR Tier-0's code until P7.5; with
+// --isa compat32 in compatibility mode) compiles, saves the last module whose page holds the given
 // instruction bytes, has V8's optimizing compiler print that module's code
 // (node --no-liftoff --print-wasm-code) and maps the ticks that fell in the
 // optimized function of the same size onto it. Sizes differ when the
@@ -29,7 +29,7 @@ if(args.includes("--child"))
 {
     // the profiled run: record, run, save the module of the page
     const out = option("child");
-    const prefix = isa === "i686" ? "ir_t0_" : "x64_page_";
+    const prefix = "x64_page_";
     const { load_pe, boot_images, create, execute } = await import("../tests/bench/machine.mjs");
     const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
     const bench = manifest.benchmarks.find(b => b.name === name);

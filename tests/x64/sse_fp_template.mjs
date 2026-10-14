@@ -10,7 +10,7 @@
 // P4.18) the instructions go through x86tpl::ops::float, which also takes
 // SQRT, MIN and MAX (PS PD SS SD) and RCP and RSQRT (PS SS), tested too,
 // and runs refused ones exactly in place, but those whose register facts
-// hold only for admitted operands, which retry (as Tier-0's).
+// hold only for admitted operands, which retry (as IR Tier-0's did).
 //
 // SSE_FP_SEED, SSE_FP_VECTORS (per form, default 256), SSE_FP_ROUNDS (8),
 // SSE_FP_FORMS (a regular expression of the mnemonics to test);

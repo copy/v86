@@ -9,7 +9,7 @@ const { createV86GLDevice: create_v86gl_device } = create_require(import.meta.ur
 
 // Headless CPU/disk diagnostic. Disk writes stay in AsyncXHRBuffer's RAM overlay.
 // Run one process per core so 2 GiB guest memories do not overlap.
-// node tests/ir/performance/xp_boot.mjs disk.img [core.wasm]; IR_TIER0=0 turns Tier-0 off.
+// node tests/ir/performance/xp_boot.mjs disk.img [core.wasm]; IR_TIER0=0 turns ir_tier0 off (32-bit code in the regions instead of the x64 page tier).
 // XP_CPU_TYPE=x86_64: a CPU with NX, for which XP boots its PAE kernel (the
 // result's cr4 shows PAE, bit 5).
 const [disk, wasm = "build/v86-ir-runtime.wasm", ...extra] = process.argv.slice(2);
@@ -128,9 +128,7 @@ try {
     if(process.env.IR_IDLE_MODE !== undefined) assert.equal(e.ir_auto_set_idle_mode(Number(process.env.IR_IDLE_MODE), Number(process.env.IR_SYNC_AFTER || 16)),1);
     if(process.env.IR_PAGE_MODE !== undefined) assert.equal(e.ir_auto_set_page_mode(Number(process.env.IR_PAGE_MODE)),1);
     if(process.env.IR_TIER0 !== undefined) assert.equal(e.ir_auto_set_tier0(Number(process.env.IR_TIER0)),1);
-    if(process.env.IR_T0_RANGES !== undefined) assert.equal(e.ir_t0_set_ranges(Number(process.env.IR_T0_RANGES)),1);
     if(process.env.IR_PAGE_THRESHOLD !== undefined) assert.equal(e.ir_auto_set_page_threshold(Number(process.env.IR_PAGE_THRESHOLD)),1);
-    if(process.env.IR_T0_LINK !== undefined) assert.equal(e.ir_t0_set_link_mode(Number(process.env.IR_T0_LINK)),1);
     if(process.env.IR_HOT_FILTER !== undefined) assert.equal(e.ir_auto_set_hot_filter(Number(process.env.IR_HOT_FILTER)),1);
     if(process.env.IR_CACHE_CAPACITY !== undefined) assert.equal(e.ir_cache_set_capacity(Number(process.env.IR_CACHE_CAPACITY)),1);
     if(process.env.IR_FAST_VALIDATION !== undefined) {
@@ -205,13 +203,9 @@ try {
     }
     await vm.stop();
     total+=((vm.get_instruction_counter()>>>0)-count)>>>0;sample_ir();
-    if(e.ir_t0_stat) console.log(JSON.stringify({event:"tier0", pages:e.ir_t0_stat(0), instructions:e.ir_t0_stat(1), templated:e.ir_t0_stat(2), bytes:e.ir_t0_stat(3), chains:e.ir_t0_chains?.(), entries:e.ir_t0_entries?.(), covered:e.ir_t0_stat(4), memory:e.memory.buffer.byteLength}));
-    if(e.ir_t0_template_stat && process.env.IR_TIER0_BYTES) {
-        const kinds = [];
-        for(let k = 0; k < 64; k++) { const n = e.ir_t0_template_stat(k, 1); if(n) kinds.push([k, e.ir_t0_template_stat(k, 0), n]); }
-        kinds.sort((a, b) => b[1] - a[1]);
-        console.log(JSON.stringify({event:"tier0_bytes", kinds: kinds.map(([k, b, n]) => `${k}:${b}/${n}=${(b / n).toFixed(0)}`)}));
-    }
+    console.log(JSON.stringify({event:"page_tier", compiles:e.x64_page_stat(0), legacy_compiles:e.x64_page_stat(37), native:e.x64_page_stat(1),
+        steps:e.x64_page_stat(4), retries:e.x64_page_stat(2), activations:e.x64_page_stat(13), pages:e.x64_page_stat(21), bytes:e.x64_page_stat(24),
+        memory:e.memory.buffer.byteLength}));
     // (tools/bench/jit_stats.mjs, docs/jit-unification-plan.md P0.7)
     if(jit_stats_enabled()) print_jit_stats(vm, { script: "xp_boot", wasm, target, milestone, ms: performance.now() - started });
     console.log(JSON.stringify({event:"result", target, completed:target === "time" || !!milestone,

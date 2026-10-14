@@ -10,7 +10,7 @@
 // MXCSR settings; the others through random and special values. MXCSR's
 // exceptions are masked there; the faults (#XM, destination unchanged) come
 // with every exception unmasked. The cases run in rounds: interpreted, then
-// with the x64 page tier, then also with Tier-0 in compatibility mode.
+// with the x64 page tier, then also with the page tier in compatibility mode.
 // QEMU 10.2 deviates from the SDM for F16C's denormals: VCVTPH2PS of a
 // denormal half reports DE and, with DAZ, gives zero (the SDM: DAZ is
 // ignored, and no denormal exception is reported); VCVTPS2PH flushes a tiny
@@ -26,7 +26,7 @@ import {FMA_FORMS, F16C_FORMS, fma_cases, fma_expect, f16c_cases} from "../rust/
 
 const OUT = 0x300000, CASE = OUT + 0x80, SKIP = OUT + 0x84, COUNTER = OUT + 0x88, FAULTS = OUT + 0x100, RESULTS = OUT + 0x2000, IDT = 0x380000;
 // (the cases run in rounds, so that the last ones run compiled: the page tier
-// compiles a page after 2000 visits, Tier-0 compatibility-mode code later)
+// compiles a page after 2000 visits)
 const ROUNDS = 400, COMPAT_ROUNDS = 4000;
 const SLOT = 48;
 // (MXCSR: exceptions masked; nearest, nearest with PE set (where native FMA
@@ -258,14 +258,14 @@ check(expected_qemu, "QEMU");
 const FEATURES = {cpu_type: "x86_64", cpu_features: ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", "FMA", "F16C"], cpu_features_unreleased: true};
 for(const [label, options, compat] of [["interpreted", {}, false],
     ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    // (Tier-0's compatibility-mode code: the page tier's is the default since M9)
-    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
-        jit_switches: {x64_page_compat32: 0}}, true],
+    // (no compatibility-mode region arm: the region tiers end their regions
+    // at these forms, docs/jit-unification-plan.md P7.6; IR Tier-0's arm
+    // went with it in P7.5)
     // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
     ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
         jit_switches: {x64_page_compat32: 1}}, false]])
 {
-    let page = 0, page32 = 0, tier0;
+    let page = 0, page32 = 0, regions = 0;
     const result = await actual(directory, {length, timeout: 180000, options: {...FEATURES, ...options},
         setup: emulator => {
             const x = emulator.v86.cpu.wm.exports;
@@ -280,11 +280,11 @@ for(const [label, options, compat] of [["interpreted", {}, false],
         inspect: emulator => {
             page = emulator.v86.cpu.wm.exports.x64_page_stat(1);
             page32 = emulator.v86.cpu.wm.exports.x64_page_stat(36);
-            tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0;
+            regions = emulator.v86.cpu.wm.exports.ir_cache_stat(2);
         }});
     check(result, label);
     if(options.disable_jit === false) assert.ok(page > 1000, `${label}: compiled 64-bit code ran (${page})`);
-    if(compat) assert.ok(tier0.activations > 0 && tier0.page_functions > 0, `${label}: compiled compatibility-mode code ran ${JSON.stringify(tier0)}`);
+    if(compat) assert.ok(regions > 0, `${label}: compiled compatibility-mode code ran (${regions} region entries)`);
     if(options.jit_switches?.x64_page_compat32) assert.ok(page32 > 0, `${label}: the page tier compiled compatibility-mode code (${page32})`);
     console.log(`PASS (${label}): ${cases.length} FMA and F16C cases in 64-bit and compatibility mode (XMM0-15, aliased and memory operands, faults), as the model and QEMU`);
 }
@@ -296,7 +296,7 @@ for(const [label, options, compat] of [["interpreted", {}, false],
 // (x64_page_stat(4)), the sums of every round as QEMU's. PE is set after the
 // first rounding: where the host's relaxed multiply-adds fuse
 // (ir_relaxed_fma), natively (x86tpl::native_fp::fused: the exact helper
-// ir_t0_fma only before), and again with them switched off (every FMA
+// x64_fma only before), and again with them switched off (every FMA
 // through the helper).
 for(const native of [true, false])
 {
@@ -366,12 +366,12 @@ s2: dd -0.375
             const e = emulator.v86.cpu.wm.exports;
             relaxed = e.ir_relaxed_fma() === 1 && native;
             e.ir_set_relaxed_fma(+relaxed);
-            e.ir_t0_fma_calls_reset();
+            e.x64_fma_calls_reset();
         },
         inspect: emulator => {
             steps = emulator.v86.cpu.wm.exports.x64_page_stat(4);
             retired = emulator.v86.cpu.wm.exports.x64_page_stat(1);
-            calls = emulator.v86.cpu.wm.exports.ir_t0_fma_calls();
+            calls = emulator.v86.cpu.wm.exports.x64_fma_calls();
         }});
     if(native && !relaxed) continue;
     assert.equal(Buffer.from(result.subarray(16, 64)).toString("hex"), Buffer.from(expected.subarray(16, 64)).toString("hex"), "hot loop: the sums as QEMU");

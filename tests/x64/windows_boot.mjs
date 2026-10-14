@@ -200,7 +200,8 @@ async function profile_window()
     await profiler.post("Profiler.start");
     // page functions are named x64_page_<linear page>: name the guest module
     // of each (<out>/modules.json, for offline profiles by guest module)
-    // (compatibility-mode code: the 32-bit compiler's t0_<linear page>)
+    // (compatibility-mode code too since M9; t0_<linear page> was IR
+    // Tier-0's, before P7.5)
     if(!cpu) return;
     const self = new Map(), by_id = new Map(profile.nodes.map(node => [node.id, node]));
     let total = 0;

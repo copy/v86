@@ -3,7 +3,7 @@
 // standard format (round trips, partial saves, init on restore, the header
 // and MXCSR checks, the fault order and page faults without partial effects)
 // and FXSAVE/FXRSTOR, which share the state encoding (cpu/xstate.rs). Each
-// case runs in the interpreter, then hot under Tier-0 and the region tiers;
+// case runs in the interpreter, then hot under the page tier and the region tiers;
 // its checks follow the hot run (compiled code) and the cold one. P9:
 // XSAVEOPT, XGETBV(1), XSAVEC and XRSTOR's compacted form, XSAVES, XRSTORS and
 // IA32_XSS.
@@ -132,7 +132,7 @@ async function run_all(program, before = () => {}, set = machines, check = () =>
         }
     }
 }
-/** The interpreter, then Tier-0 and the region tiers, with `options` */
+/** The interpreter, then the page tier and the region tiers, with `options` */
 async function create_machines(options = {})
 {
     const set = [];

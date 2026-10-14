@@ -1,4 +1,5 @@
-// IR policy sweep: Tier-0 on/off and the region tiers' heat and promotion
+// IR policy sweep: ir_tier0 on/off (32-bit code in the x64 page tier or in
+// the regions; IR Tier-0 until P7.5) and the region tiers' heat and promotion
 // thresholds. Cold compilation and warm throughput are reported separately.
 // Each sample starts a fresh VM, so no generated-code cache carries between
 // policies.
@@ -56,7 +57,7 @@ for(let round = 0; round < 5; round++) {
             const before = word(vm, 0x600), warm_start = performance.now();
             while(performance.now() - warm_start < 100) cpu.main_loop();
             const blocks_per_ms = ((word(vm, 0x600) - before) >>> 0) / (performance.now() - warm_start);
-            results[index].push({ first_compiled_ms, page_functions: ir.tier0?.page_functions || 0,
+            results[index].push({ first_compiled_ms, page_functions: ir.page_tier?.functions || 0,
                 tier1: ir.tier1_published, tier2: ir.tier2_published, blocks_per_ms });
         } finally { await vm.destroy(); }
     }

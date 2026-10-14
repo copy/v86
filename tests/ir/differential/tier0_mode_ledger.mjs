@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// The mode ledger (docs/jit-unification-plan.md P0.6) with IR Tier-0: on from
+// The mode ledger (docs/jit-unification-plan.md P0.6) with the x64 page tier
+// in legacy mode (written for IR Tier-0, deleted in P7.5): on from
 // the machine's construction (the JIT switch mode_ledger), it must account
 // for every retired instruction (cross-phase rule 3: its sum is
 // core_statistics_get(0, 0)) and file them by mode and how they ran. The
 // benchmark BIOS starts in real mode; then a hot loop in flat 32-bit code
-// runs in a Tier-0 page function that steps CPUID and MOV DS, and loads DS
+// runs in a page function that steps CPUID and MOV DS, and loads DS
 // with a segment based at 4 KiB for a few instructions, which therefore run
 // as 32-bit code without flat segments.
 //
@@ -37,8 +38,8 @@ code.push(0x0F, 0x85, ...u32(-(code.length + 6)), 0xF4); // JNZ top; HLT
 
 const vm = new V86({
     graphics_adapter: "bochs_vga", wasm_path: wasm, memory_size: 128 << 20, ir_sync_publication: true,
-    // (Tier-0's: the page tier runs 32-bit code by default since M8)
-    jit_switches: { mode_ledger: 1, x64_page_legacy32: 0 },
+    // (the page tier compiles a page after 2000 instructions)
+    jit_switches: { mode_ledger: 1, x64_legacy_heat: 2000 },
     bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
     disable_speaker: true, net_device: { type: "none" }, autostart: false,
 });
@@ -51,7 +52,6 @@ while(new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(0x500, true) 
     await sleep(1);
 }
 await vm.stop();
-assert(e.ir_auto_set_tier0(1));
 
 const view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
 // A fourth descriptor: a data segment based at 0x1000.
@@ -85,8 +85,8 @@ const ledger = mode_ledger(e), retired = e.core_statistics_get(0, 0);
 const row = name => ledger[name] || {};
 assert.equal(mode_ledger_total(ledger), retired, `the ledger accounts for every retired instruction: ${JSON.stringify(ledger)}`);
 assert(row("real").interpreted > 0, "the BIOS's real-mode start is in the ledger");
-assert(row("prot32.flat").tier0_native > ITERATIONS, `flat 32-bit code ran in a page function: ${JSON.stringify(ledger)}`);
-assert(row("prot32.flat").tier0_step >= ITERATIONS / 2, `CPUID and MOV DS were stepped: ${JSON.stringify(ledger)}`);
+assert(row("prot32.flat").page_native > ITERATIONS, `flat 32-bit code ran in a page function: ${JSON.stringify(ledger)}`);
+assert(row("prot32.flat").page_step >= ITERATIONS / 2, `CPUID and MOV DS were stepped: ${JSON.stringify(ledger)}`);
 assert(mode_ledger_total({ prot32: row("prot32") }) >= ITERATIONS / 2, `the instructions with DS based at 0x1000: ${JSON.stringify(ledger)}`);
 await vm.destroy();
 console.log(`PASS: the mode ledger accounts for ${retired} retired instructions: ${JSON.stringify(ledger)}`);

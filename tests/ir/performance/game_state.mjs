@@ -5,6 +5,7 @@
 //
 //   node tests/ir/performance/game_state.mjs --state kartrider.bin \
 //       --hda windowsxp.img [--hdb game.img] [--wasm core.wasm] [--tier0 0|1]
+//       (--tier0: ir_tier0, 32-bit code in the x64 page tier; 0, in the regions)
 //       [--seconds 60] [--profile-from 30 --profile-out game.cpuprofile]
 //       [--sync-publication 0|1]
 //
@@ -254,7 +255,8 @@ await new Promise(resolve => {
             mips: +((instructions - prev.instructions) / dt / 1e6).toFixed(1),
             fps: +((g.presents - prev.presents) / dt).toFixed(1),
             draws: Math.round((g.draws - prev.draws) / dt),
-            t0_compiles: e.ir_t0_stat?.(0), t0_chains: e.ir_t0_chains?.() >>> 0,
+            // (the x64 page tier's legacy- and compatibility-mode compiles)
+            page_compiles: e.x64_page_stat(37) + e.x64_page_stat(36),
         };
         console.log(JSON.stringify(line));
         if(s >= seconds / 2) { steady.push(line); measuring = true; mode_late = true; }
@@ -267,9 +269,11 @@ await vm.stop();
 clearInterval(speaker);
 if(profiling) fs.writeFileSync(profile_out, JSON.stringify((await post("Profiler.stop")).profile));
 const mean = key => steady.reduce((t, l) => t + l[key], 0) / Math.max(1, steady.length);
-const t0 = ["functions", "instructions", "templated", "bytes", "pages"].map((name, i) => [name, e.ir_t0_stat?.(i) >>> 0]);
+// (the x64 page tier, which compiles 32-bit protected-mode code since M8)
+const page = { compiles: e.x64_page_stat(0), functions: e.x64_page_stat(12), native: e.x64_page_stat(1), steps: e.x64_page_stat(4),
+    retries: e.x64_page_stat(2), pages: e.x64_page_stat(21), bytes: e.x64_page_stat(24) };
 console.log(JSON.stringify({ event: "summary", seconds, second_half: { mips: +mean("mips").toFixed(1), fps: +mean("fps").toFixed(1), draws: Math.round(mean("draws")) },
-    frame_ms: Object.fromEntries([...intervals].sort((a, b) => b[1] - a[1]).slice(0, 8)), tier0: Object.fromEntries(t0),
+    frame_ms: Object.fromEntries([...intervals].sort((a, b) => b[1] - a[1]).slice(0, 8)), page_tier: page,
     ...mode_ms.size ? { modes: shares(mode_ms), modes_second_half: shares(mode_ms_late) } : {},
     ...!raw ? { desktop_s } : {},
     ...with_ledger ? { ledger: mode_ledger(e) } : {} }));

@@ -357,62 +357,6 @@ pub unsafe fn capture_page(linear: u32) -> Result<ImmutableCodeSnapshot, Capture
     capture(linear & !4095, 4096)
 }
 
-/// `pages` (at most three) consecutive whole pages from the page of
-/// `linear`: a Tier-0 page function covering a page and its neighbors.
-pub unsafe fn capture_pages(
-    linear: u32,
-    pages: u32,
-) -> Result<ImmutableCodeSnapshot, CaptureError> {
-    if !(1..=3).contains(&pages) {
-        return Err(CaptureError::Size);
-    }
-    let base = linear & !4095;
-    let mut snapshot = capture(base, 4096)?;
-    for k in 1..pages {
-        let next = capture(base.wrapping_add(k << 12), 4096)?;
-        snapshot.bytes.extend_from_slice(&next.bytes);
-        snapshot.mappings.extend(next.mappings);
-        for dependency in next.dependencies {
-            if !snapshot
-                .dependencies
-                .iter()
-                .any(|d| d.page == dependency.page)
-            {
-                snapshot.dependencies.push(dependency);
-            }
-        }
-    }
-    Ok(snapshot)
-}
-
-/// Whole pages at the given linear page addresses (in address order): a
-/// Tier-0 function covering pages that need not be consecutive.
-pub unsafe fn capture_page_list(pages: &[u32]) -> Result<ImmutableCodeSnapshot, CaptureError> {
-    let mut sorted: Vec<u32> = pages.iter().map(|&page| page & !4095).collect();
-    sorted.sort_unstable();
-    sorted.dedup();
-    let mut snapshot = ImmutableCodeSnapshot {
-        bytes: vec![],
-        dependencies: vec![],
-        mappings: vec![],
-    };
-    for page in sorted {
-        let next = capture(page, 4096)?;
-        snapshot.bytes.extend_from_slice(&next.bytes);
-        snapshot.mappings.extend(next.mappings);
-        for dependency in next.dependencies {
-            if !snapshot
-                .dependencies
-                .iter()
-                .any(|d| d.page == dependency.page)
-            {
-                snapshot.dependencies.push(dependency);
-            }
-        }
-    }
-    Ok(snapshot)
-}
-
 /// Test hook (tests/ir/decode/snapshot.mjs): bytes captured at `linear`, or
 /// 0 where capture declines (MMIO, unallocated RAM).
 #[cfg(feature = "ir-test-hooks")]

@@ -1,7 +1,7 @@
 //! Native SSE floating point in compiled code (docs/simd-xsave-plan.md 7.4):
 //! Wasm's IEEE arithmetic, admitted only where it gives exactly the results
 //! and MXCSR effects of cpu::simd_fp (whose interpreter fast path applies the
-//! same rule). Tier-0 and the region backend emit these checks; a refused
+//! same rule). The page tier and the region backend emit these checks; a refused
 //! instruction runs in the exact interpreter or helper.
 //!
 //! MXCSR's flags are sticky. When every exception is masked, the rounding is
@@ -17,10 +17,10 @@
 //! cannot round and raise nothing for normal operands (MIN, MAX, compares,
 //! widening conversions, reciprocal approximations) need only their operand
 //! checks; the `*_refused` functions leave MXCSR's condition to the caller
-//! (Tier-0 evaluates it once per block).
+//! (the page tier evaluates it once per block).
 //!
 //! FMA (`fused`) uses relaxed SIMD's multiply-adds, but only where the host
-//! fuses them (cpu.js checks at startup, see runtime::tier0::relaxed_fma):
+//! fuses them (cpu.js checks at startup, see x64::helpers::relaxed_fma):
 //! then they round once, as IEEE 754's fusedMultiplyAdd and x86's FMA, and
 //! the admitted lanes' results are exact and the same on every host.
 //!

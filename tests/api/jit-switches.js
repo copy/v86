@@ -59,7 +59,7 @@ process.on("unhandledRejection", exn => { throw exn; });
     assert.throws(() => set_jit_switches(exports, memory, { no_such_switch: 1 }), /no JIT switch no_such_switch/);
     // (chained page functions need tail calls, which src/cpu.js reports)
     assert.throws(() => set_jit_switches(exports, memory, { x64_chaining: 1 }), /x64_chaining cannot be 1/);
-    exports["ir_t0_set_tail_calls"](1);
+    exports["jit_set_tail_calls"](1);
     set_jit_switches(exports, memory, { x64_chaining: 1 });
     set_jit_switches(exports, memory, { x64_chaining: 0 });
     assert.equal(get_jit_switches(exports, memory).x64_chaining, 0);
@@ -103,7 +103,9 @@ function load(options)
     assert.equal(values.ir_fusion, 1);
     // (not named: as configure_jit_backend left them)
     assert.equal(values.ir_tier0, 1);
-    assert.equal(values.ir_page_threshold, 50000);
+    // (IR Tier-0 set the page mode and its threshold, 50000, until P7.5)
+    assert.equal(values.ir_page_mode, 0);
+    assert.equal(values.ir_page_threshold, 512);
     set_emulator_jit_switches(emulator, { x64_outline: 1 });
     assert.equal(jit_switches_of(emulator).x64_outline, 1);
     await emulator.destroy();

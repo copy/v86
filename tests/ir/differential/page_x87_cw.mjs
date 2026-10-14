@@ -4,8 +4,7 @@
 // rounding mode in turn (FNSTCW, the RC field set, FLDCW, FISTP, FLDCW of
 // the saved word, as compilers truncate) and once in a while lowers the
 // precision control; the integers, the x87 state and the instruction count
-// must be the interpreter's. Tier-0 by default, the page tier with
-// JIT_SWITCHES=x64_page_legacy32=1.
+// must be the interpreter's.
 //
 //   node tests/ir/differential/page_x87_cw.mjs [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
@@ -18,8 +17,6 @@ const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
-const engine = page_tier ? "the page tier" : "Tier-0";
 
 const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, ITERATIONS = 40000;
 const u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24 & 255];
@@ -61,7 +58,7 @@ async function machine(compiled) {
         graphics_adapter: "bochs_vga",
         wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20, // reference: the interpreter only
         ir_sync_publication: true,
-        ...compiled ? { jit_switches: { ...page_tier ? { x64_block_count: 0, x64_legacy_heat: 2000 } : { x64_page_legacy32: 0 }, ...jit_switches_from_env() } } : {},
+        ...compiled ? { jit_switches: { x64_block_count: 0, x64_legacy_heat: 2000, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -74,7 +71,6 @@ async function machine(compiled) {
         await sleep(1);
     }
     await vm.stop();
-    if(compiled) assert(e.ir_auto_set_tier0(1));
     return { vm, cpu, e, compiled };
 }
 
@@ -91,13 +87,13 @@ async function run({ vm, cpu, e, compiled }) {
     cpu.instruction_pointer[0] = CODE;
     e.update_state_flags();
     new Uint32Array(e.memory.buffer)[664 >> 2] = 0;
-    const native = compiled && page_tier ? e.x64_page_stat(1) : 0;
+    const native = compiled ? e.x64_page_stat(1) : 0;
     vm.run();
     const end = performance.now() + 60000;
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
-            throw new Error(`timeout (${compiled ? engine : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)}`);
+            throw new Error(`timeout (${compiled ? "page tier" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)}`);
         }
         await sleep(0);
     }
@@ -106,16 +102,16 @@ async function run({ vm, cpu, e, compiled }) {
         regs: Array.from(cpu.reg32, v => v >>> 0),
         data: Array.from(cpu.mem8.subarray(DATA, DATA + 64)),
         count: new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0,
-        native: compiled && page_tier ? e.x64_page_stat(1) - native : 0,
+        native: compiled ? e.x64_page_stat(1) - native : 0,
     };
 }
 
 const reference = await run(await machine(false));
 const compiled = await run(await machine(true));
-assert(!page_tier || compiled.native > ITERATIONS * 20, `the page tier ran too few instructions natively: ${compiled.native}`);
+assert(compiled.native > ITERATIONS * 20, `the page tier ran too few instructions natively: ${compiled.native}`);
 const strip = ({ native, ...rest }) => rest;
-assert.deepEqual(strip(compiled), strip(reference), `${engine}'s FLDCW and FISTP differ from the interpreter's`);
+assert.deepEqual(strip(compiled), strip(reference), `the page tier's FLDCW and FISTP differ from the interpreter's`);
 const sum = new DataView(Uint8Array.from(reference.data).buffer).getInt32(28, true);
-console.log(`PASS: ${ITERATIONS} FISTP under each rounding mode set by FLDCW in ${engine} as in the interpreter (sum ${sum}` +
-    `${page_tier ? `, ${compiled.native} native instructions` : ""})`);
+console.log(`PASS: ${ITERATIONS} FISTP under each rounding mode set by FLDCW in the page tier as in the interpreter (sum ${sum}` +
+    `, ${compiled.native} native instructions)`);
 process.exit(0);

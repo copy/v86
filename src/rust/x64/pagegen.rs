@@ -20,14 +20,18 @@
 //! them (page-local liveness; exits and steps read all of them). Condition
 //! consumers after CMP/SUB/TEST-like producers in the same block compare the
 //! producer's operands directly.
+//!
+//! The tier also compiles 32-bit compatibility- and legacy-mode code (P7.2,
+//! P7.3), which IR Tier-0 compiled until P7.5 deleted it: comments that
+//! compare with "Tier-0" describe that code as it was.
 use super::decode::{self, AddressBase, AddressExpr, ByteRegister, Decoded};
 use super::jac;
+use super::loops::Unit;
 use super::state::{gpr_high_offset, gpr_low_offset, ExecutionMode, GuestIp};
 use crate::cpu::cpu::{
     TLB_GLOBAL, TLB_HAS_CODE, TLB_IA32E_DATA, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use crate::cpu::global_pointers as gp;
-use crate::ir::tier0::analysis::Unit;
 use crate::wasmgen::leaves::{self, Shift};
 use crate::wasmgen::wasm_builder::{
     Label, Signature, WasmBuilder, WasmLocal, WasmLocalI64, WasmLocalV128, WasmType,
@@ -406,7 +410,7 @@ enum Op {
         other: Reg,
     },
     /// FMA's VEX.128 and scalar forms (P11) through
-    /// runtime::tier0::ir_t0_fma (`op` the opcode byte, `double` VEX.W1)
+    /// x64::helpers::x64_fma (`op` the opcode byte, `double` VEX.W1)
     Vfused {
         op: u8,
         double: bool,
@@ -2788,13 +2792,11 @@ impl Level {
     }
 }
 /// The structured layout of a page function (P4.16, x64_loops): each cycle
-/// of its block graph a loop, nested (IR Tier-0's, ir::tier0::analysis);
+/// of its block graph a loop, nested (x64::loops, IR Tier-0's analysis);
 /// without the switch every block is a unit of the page level. Loops whose
 /// dispatch table would span too much of the page are flattened as Tier-0's.
 fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool, span: u64) -> Vec<Unit> {
-    use crate::ir::tier0::analysis::{
-        flatten, units, visit_loops, MAX_LOOP_TABLE, MAX_LOOP_TABLES,
-    };
+    use super::loops::{flatten, units, visit_loops, MAX_LOOP_TABLE, MAX_LOOP_TABLES};
     if !loops {
         return (0..blocks.len() as u32).map(Unit::Block).collect();
     }
@@ -3260,7 +3262,7 @@ pub struct CompileEnv {
     /// Leaving the page, tail-call the function serving the new page when
     /// the chaining table (pages::CHAIN) has it
     pub chaining: bool,
-    /// FMA through the host's relaxed multiply-adds (tier0::relaxed_fma)
+    /// FMA through the host's relaxed multiply-adds (helpers::relaxed_fma)
     pub relaxed_fma: bool,
     /// The packed conversions as templates (x64_page_set_cvt)
     pub cvt: bool,
@@ -3327,7 +3329,7 @@ pub struct CompileEnv {
     /// (outlined, cold compiles with x64_hot_inline: pages::run recompiles
     /// a page whose counter passes HOT_INLINE with inline lookups; P4.14)
     pub counter: Option<u32>,
-    /// The exact helpers' operand block (runtime::tier0::T0_SSE_FP: FMA)
+    /// The exact helpers' operand block (helpers::SSE_FP_OPERANDS: FMA)
     pub sse_fp_operands: u32,
     /// Cores in workers: the kick a page function polls (cpu::core_yield),
     /// the code publication counters (parallel::code::pending_addresses)
@@ -3358,7 +3360,7 @@ impl CompileEnv {
                 block_count: BLOCK_COUNT,
                 outline,
                 chaining,
-                relaxed_fma: crate::ir::runtime::tier0::relaxed_fma(),
+                relaxed_fma: super::helpers::relaxed_fma(),
                 cvt: CVT,
                 sti_shadow: STI_SHADOW,
                 jac_entries: jac::entries() as u32,
@@ -3379,7 +3381,7 @@ impl CompileEnv {
                 span_hosts: hosts,
                 volatile: [u16::MAX; MAX_VOLATILE],
                 counter,
-                sse_fp_operands: crate::ir::runtime::tier0::sse_fp_operands(),
+                sse_fp_operands: super::helpers::sse_fp_operands(),
                 core_yield: &raw const crate::cpu::cpu::core_yield as u32,
                 pending: if cfg!(feature = "parallel") {
                     crate::parallel::code::pending_addresses()
@@ -9263,7 +9265,7 @@ impl Emitter {
                     },
                 }
                 let source = self.b.set_new_local_v128();
-                let operands = crate::ir::runtime::tier0::sse_fp_operands() as i32;
+                let operands = super::helpers::sse_fp_operands() as i32;
                 self.c32(operands + 16);
                 self.b.get_local_v128(&source);
                 self.b.simd_memory(0x0B, 0);
@@ -9881,7 +9883,7 @@ impl Emitter {
         self.b.get_local(&low);
         self.b.get_local(&high);
         self.b.call_signature(
-            "ir_t0_x87",
+            "x64_x87",
             Signature::new(
                 &[WasmType::I32, WasmType::I32, WasmType::I32],
                 &[WasmType::I64],

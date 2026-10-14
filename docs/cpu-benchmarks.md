@@ -15,7 +15,7 @@ make bench-quick                      # half-size work, 3 warm runs, 1 cold samp
 node tests/bench/run.mjs --filter 'x87|sse' --runs 7
 node tests/bench/run.mjs --baseline build/older-ir.wasm   # reference arm: another core
 node tests/bench/run.mjs --xp windowsxp.img --xp-runs 3   # add the XP boot benchmark
-node tests/bench/run.mjs --ir-setup ir_t0_set_ranges=1     # call IR exports after boot, on every arm
+node tests/bench/run.mjs --ir-setup ir_auto_set_page_threshold=2  # call IR exports after boot, on every arm
 node tests/bench/report.mjs build/bench/results-new.json build/bench/results-old.json
 node tests/bench/run.mjs --fallbacks                       # the instructions the JITs step (one more round, not timed)
 node tests/bench/run.mjs --switches-a ir_fusion=1 --switches-b ir_fusion=0   # two JIT configurations of one core

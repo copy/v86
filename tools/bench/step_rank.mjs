@@ -103,6 +103,7 @@ const outside = counted.ledger?.long64?.interpreted;
 if(outside !== undefined) CLASSES.find(c => c.task === "P4.5c").count = outside;
 const others = rows.filter(r => page_step(r) && !claimed.has(r));
 CLASSES.push({task: "-", name: "other steps of the x64 page tier", count: others.reduce((sum, r) => sum + r.count, 0), cost: costs.cpuid});
+// (IR Tier-0's steps: in logs from before P7.5 only)
 const tier0 = rows.filter(r => r.f.stepper === "tier0");
 CLASSES.push({task: "P3/P7", name: "Tier-0 steps (all modes)", count: tier0.reduce((sum, r) => sum + r.count, 0), cost: costs.tier0_step});
 

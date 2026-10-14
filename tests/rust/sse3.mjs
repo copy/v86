@@ -21,7 +21,7 @@ const ops = [["addsubps",0xF2,0xD0,4], ["addsubpd",0x66,0xD0,8],
 async function run(vm, program, warm = true) {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     // Programs reuse CODE: start each warm run from an empty compiler state
-    // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+    // (compiled code needs more heat to recompile a page after each rewrite).
     if(warm) cpu.jit_clear_cache();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
@@ -132,7 +132,7 @@ try {
                     assert.deepEqual(bytes.slice(n*32,n*32+16),expected[n],`${name} oracle ${n}`);
             }
         }
-        assert.deepEqual(results[1],results[0],`${name}: interpreter/Tier-0 bits`);
+        assert.deepEqual(results[1],results[0],`${name}: interpreter/page tier bits`);
         assert.deepEqual(results[2],results[0],`${name}: interpreter/regions bits`);
         cases += 96;
     }
@@ -156,7 +156,7 @@ try {
             vm.write_memory(data,DATA); vm.write_memory(new Uint8Array(8192),OUT);
             await run(vm,loop(p)); results.push(Uint8Array.from(vm.read_memory(OUT,800)));
         }
-        assert.deepEqual(results[2],results[1],"SSE3 mixed sequence, including NaN fallback: regions/Tier-0");
+        assert.deepEqual(results[2],results[1],"SSE3 mixed sequence, including NaN fallback: regions/page tier");
     }
     console.log("PASS: mixed SSE3 cached sequences, alias chains, memory barriers and FXSAVE");
 
@@ -204,7 +204,7 @@ try {
                 assert.equal(v.getUint16(n*16+10,true),control,"FISTTP preserves rounding control");
             }
         }
-        assert.deepEqual(results[1],results[0],"FISTTP interpreter/Tier-0 result and status");
+        assert.deepEqual(results[1],results[0],"FISTTP interpreter/page tier result and status");
         assert.deepEqual(results[2],results[0],"FISTTP interpreter/regions result and status");
         integer_cases += expected.length;
     }

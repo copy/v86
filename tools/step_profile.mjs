@@ -1,11 +1,11 @@
 // The step profile (docs/jit-unification-plan.md P0.5): the instructions
-// compiled code leaves to the interpreter, from IR Tier-0 and the x64 page
-// tier in one store keyed by StepKey v1 (src/rust/step_profile.rs, which
+// compiled code leaves to the interpreter, from the x64 page tier (and IR
+// Tier-0 until P7.5 deleted it: stepper 0) in one store keyed by StepKey v1 (src/rust/step_profile.rs, which
 // documents the layout). Turn it on with the JIT switch step_profile; it
 // slows every step, so measure in rounds that are not timed.
 
 export const MODES = ["real", "vm86", "prot16", "prot32", "compat16", "compat32", "long64"];
-export const STEPPERS = ["tier0", "x64page", "event"];
+export const STEPPERS = ["tier0", "x64page", "event"];   // ("tier0": none since P7.5)
 // Events that are not steps (stepper "event", docs/jit-unification-plan.md
 // P4.0; src/rust/step_profile.rs's event module): the event, then names of
 // its details by number
@@ -15,6 +15,7 @@ export const EVENTS = {
     2: ["exit", [null, "retry", "unknown", "step", "budget", "leave"]],
     3: ["step-exit", [null, "halt", "yield", "shadow", "core-event", "code-write", "irq", "nmi", "barrier", "chainable"]],
     4: ["step-context", [null, "cpl", "cs", "mode", "cr0", "cr3", "cr4", "efer", "if", "tf", "ac", "vm", "rf", "iopl", "dr7", "epoch"]],
+    // (5: IR Tier-0's starved pages, before P7.5)
     5: ["starved", [null, "pending", "other-cr3", "this-cr3"]],
     6: ["#NM", []],
     7: ["CLTS", []],
@@ -48,9 +49,9 @@ export function step_key_fields(key)
     };
 }
 
-/** A StepKey from fields (the defaults: a one-byte opcode stepped by Tier-0 in 32-bit protected mode) */
+/** A StepKey from fields (the defaults: a one-byte opcode stepped by the page tier in 32-bit protected mode) */
 export function step_key({ opcode, map = 0, vex = false, vex_pp = 0, vex_l = false, rep = false, repne = false, retry = false,
-    reg = null, operand_size = false, rex_w = false, mode = "prot32", stepper = "tier0", isa = 0 })
+    reg = null, operand_size = false, rex_w = false, mode = "prot32", stepper = "x64page", isa = 0 })
 {
     const mode_index = MODES.indexOf(mode), stepper_index = STEPPERS.indexOf(stepper);
     if(mode_index < 0 || stepper_index < 0) throw new Error(`step_key: mode ${mode} or stepper ${stepper} unknown`);
@@ -59,7 +60,7 @@ export function step_key({ opcode, map = 0, vex = false, vex_pp = 0, vex_l = fal
         (repne ? 1 << 23 : 0) | (rex_w ? 1 << 24 : 0) | mode_index << 25 | stepper_index << 28 | isa << 30) >>> 0;
 }
 
-/** "prot32 tier0 0F A2", "long64 x64page retry F3 66 VEX.256.66.0F38 18 /2", "long64 event exit leave" */
+/** "prot32 x64page 0F A2", "long64 x64page retry F3 66 VEX.256.66.0F38 18 /2", "long64 event exit leave" */
 export function step_key_name(key)
 {
     const f = step_key_fields(key);
@@ -95,7 +96,7 @@ export function step_profile(exports, limit = Infinity)
     {
         const key = exports["step_profile_key"](i) >>> 0;
         const row = { key, count: exports["step_profile_count"](i) >>> 0, name: step_key_name(key) };
-        // (Tier-0 keys: the last stepped instruction, its address and bytes)
+        // (step keys: the last stepped instruction, its address and bytes)
         const address = exports["step_profile_sample"]?.(i, 0) >>> 0;
         if(address)
         {

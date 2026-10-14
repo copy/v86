@@ -535,7 +535,7 @@ new V86({
    `cargo check --features aarch64` 与 `--features aarch64,parallel`。`v86-arm64-fallback.wasm`（无 simd128 与 bulk memory，
    NEON 走标量路径）在每个里程碑出口与 `make a64-gate-full` 中构建，跑 `a64-portable-tests`；A4 起 NEON 模板按 simd128
    分流，它进 `a64-gate`。`v86-arm64-parallel.wasm` 在 P8.2 加入，A6 起进 `a64-gate`。`v86-arm64-debug.wasm` 只供本地开发与 `debug.html`。P8.7 之后再跑浏览器测试。A64 的链接默认用尾调用（所有者已定目标浏览器都支持，JIT 计划待决问题 12）；运行时探测保留作保险
-   （`src/cpu.js:574-587` 的探测现在受 `ir_t0_set_tail_calls` 导出守卫，:577；P1.3 把它移到不依赖 IR 导出的位置），
+   （`src/cpu.js:560-571` 的探测现在受 `jit_set_tail_calls` 导出守卫，:563，JIT 计划 P7.5 之前名为 `ir_t0_set_tail_calls`；P1.3 把它移到不依赖 x86 核心导出的位置），
    不支持时 A64 退回分派器，正确性不变。所有者从 A2 起每个里程碑在桌面 Chrome 上实测一次 Alpine。
 10. **quick 与 long。** 每个 Alpine 关卡分 quick（单核 initramfs 阶加 probe，不挂 modloop）与 long（完整 ISO、
     2/4 核、快照）。提交前跑 quick 与受影响的单元目标（`make a64-gate`）；long 进 `make a64-gate-full` 和所有者执行的发布门禁，在
@@ -1196,7 +1196,7 @@ flowchart TD
 14. （已写入）第 788 行（待决问题 8）：已定，按指令集家族拆核心（本计划"Wasm 核心"一节，JIT 计划跨阶段规则 12）；
     基线 `v86.wasm` 为 5,090,053 字节（`0aebe4f`，未用 wasm-opt）。
 15. （已写入）第 801 行（待决问题 12）：注明尾调用在 Chrome 112+、Firefox 121+、Safari 18.2+ 可用；不支持时 A64 退回分派器，
-    正确性不变。现在的探测受 `ir_t0_set_tail_calls` 导出守卫（`src/cpu.js:577`，同一守卫还控制第 586 行的
+    正确性不变。现在的探测受 `jit_set_tail_calls` 导出守卫（`src/cpu.js:563`，JIT 计划 P7.5 之前名为 `ir_t0_set_tail_calls`；同一守卫还控制第 570 行的
     `x64_page_set_chaining`）；ARM64 计划 P1.3 在 A1 把探测移出这个守卫，A64 的 `src/arm/cpu.js` 用同一个探测，
     J1a 之后由 jitrt 提供统一的尾调用设置导出。Android Chrome 由 ARM64 计划 P0.8 的宿主矩阵确认。
 16. （不再需要）原提议在 JIT 计划的 P0 验收处注明 `tests/smp/virtio_high_dma.mjs` 在 `0aebe4f` 上失败、由 M1 先修好；

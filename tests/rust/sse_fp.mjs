@@ -8,7 +8,7 @@
 // #XM, or #UD without CR4.OSXMMEXCPT, with the destination unchanged. Values
 // include zeros, denormals, the normal extremes, infinities, QNaNs and SNaNs
 // and results that overflow, underflow or are inexact. Every case runs in the
-// interpreter, then hot under Tier-0 and the region tiers, whose native paths
+// interpreter, then hot under the page tier and the region tiers, whose native paths
 // (x86tpl::native_fp) must be refused exactly where they would differ.
 // Then the same cases run as 64-bit code in long mode under the x64 page
 // tier (docs/jit-unification-plan.md P4.18: its templates with JIT_SWITCHES

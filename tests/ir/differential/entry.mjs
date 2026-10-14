@@ -94,16 +94,16 @@ try {
     for(const recording of [0,1]){
         reset([0,true,0x100000,0x100000,false,false,[0x90]]);cpu.jit_clear_cache();
         // OUT/LOOP run long enough to become hot and run through compiled IR
-        // (Tier-0 page functions or regions). Every callback must see committed
+        // (page functions of the x64 page tier or regions). Every callback must see committed
         // state: no prefix, not halted, and an admissible entry key.
         vm.write_memory(Uint8Array.from([0xBA,1,5,0,0,0xB9,0x40,0x0D,3,0,0xEE,0xE2,0xFD,0xF4]),0x100000);
-        const compiled_before=(e.ir_t0_entries()+e.ir_cache_stat(2))>>>0;
+        const compiled_before=(e.x64_page_stat(13)+e.ir_cache_stat(2))>>>0;
         e.performance_recording_enable(recording);active_counts=[0,0];vm.run();const until=performance.now()+10000;
         while(!cpu.in_hlt[0]){assert(performance.now()<until,"IR callback loop timed out");await sleep(5);} await vm.stop();
         e.performance_recording_enable(0);
         assert.equal(active_counts[0]+active_counts[1],200000);
         assert.equal(active_counts[0],0,"I/O callbacks from compiled IR see admissible entry keys");
-        assert(((e.ir_t0_entries()+e.ir_cache_stat(2))>>>0)!==compiled_before,"the OUT loop ran through compiled IR");
+        assert(((e.x64_page_stat(13)+e.ir_cache_stat(2))>>>0)!==compiled_before,"the OUT loop ran through compiled IR");
         cpu.in_hlt[0]=0;assert.equal(e.ir_entry_matches(cpu.instruction_pointer[0],cpu.segment_offsets[1],cpu.is_32[0]),1,"entry key is admissible after the loop");
     }
     console.log(`PASS: ${wasm}: I/O callbacks from compiled IR see admissible CPU entry keys, with recording disabled/enabled`);

@@ -108,12 +108,9 @@ async function run(cores, seed, quantum, mode, writer = "guest", asynchronous = 
             }
             const hot_published = published(e, 0x101000);
             const function_hits = e.ir_cache_entry_stat(0x101000, 0, 1, 1) >>> 0;
-            // Tier-0 bypasses per-record hit accounting; the only cross-page
-            // call/return chain in this fixture is the published hot function.
             // (the page tier counts no calls per function: its native
             // instructions, once the page has one)
-            hot_hits = Math.max(hot_hits, function_hits, mode === "tier0" && hot_published ? e.ir_t0_chains() >>> 0 : 0,
-                mode === "pages" && hot_published ? e.x64_page_stat(1) >>> 0 : 0);
+            hot_hits = Math.max(hot_hits, function_hits, mode === "pages" && hot_published ? e.x64_page_stat(1) >>> 0 : 0);
             if(hot_hits > 0) new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).setUint32(CONTROL + 52, 1, true);
             rounds++;
             if((rounds & (asynchronous ? 7 : 127)) === 0) await new Promise(resolve => set_immediate(resolve));

@@ -12,7 +12,7 @@ Every instruction count in measurements and gates is a count of **retired
 instructions** (docs/jit-unification-plan.md, cross-phase rule 3): the
 growth of `core_statistics_get(core, 0)`, where a REP instruction counts once
 and a faulting one not at all. `instruction_counter` is only a budget
-counter: Tier-0 steps and REP elements move it differently, and the x64
+counter: steps and REP elements move it differently, and the x64
 page tier adds whole blocks at their entry (`x64_block_count`, on by
 default), an upper bound when a block is left early. Count long-mode work
 with the mode ledger or with `x64_block_count=0` (compiled in: set it before
@@ -33,7 +33,7 @@ profiles (`WIN_CPU_PROFILE`, `--profile-from`).
 
 ## The step profile: what compiled code leaves to the interpreter
 
-IR Tier-0 and the x64 page tier interpret some instructions one at a time
+The x64 page tier (and IR Tier-0 until P7.5) interprets some instructions one at a time
 inside their page functions ("steps"): forms without a template, accesses
 refused by the fast path, faults. The step profile counts them in one store
 ([`src/rust/step_profile.rs`](../src/rust/step_profile.rs)), keyed by
@@ -53,7 +53,7 @@ which also names keys (`"prot32 tier0 0F A2"`). The exports:
 `step_profile_snapshot()` sorts it and returns the number of keys,
 `step_profile_key(i)` and `step_profile_count(i)` read entry `i`,
 `step_profile_get(key)` one key, `step_profile_reset()` empties it.
-For Tier-0's keys it also keeps a sample, the last stepped instruction's
+For each key it also keeps a sample, the last stepped instruction's
 linear address and first 8 bytes (`step_profile_sample(i, 0)`, and its
 bytes in words 1 and 2): what a key's steps were, such as a template's
 refused access or a page function entered in another state, which
@@ -67,8 +67,10 @@ refused access or a page function entered in another state, which
   `x64_page_profile(1)` turns it on, `x64_page_profile_get(key)` sums it by
   the old key (bits 0-17 of StepKey), as `WIN_STEP_PROFILE` and
   `X64_STEP_PROFILE` in the Windows and Linux harnesses print it.
-- `ir_t0_steps(key)` is separate and always on: Tier-0's steps by their
-  first two bytes, prefixes included, which tests read.
+- `x64_page_steps(pair)` counts the steps and retries since
+  `x64_page_steps_reset()` (which turns the profile on) by their first two
+  bytes, little-endian, prefixes included, which tests read (IR Tier-0's
+  `ir_t0_steps` before P7.5).
 
 ### Events
 
@@ -149,39 +151,19 @@ reads it as `{ mode: { way: retired } }`, flat 32-bit code under
 `mode_ledger_reset()` empties it. The count is per Wasm instance: with cores
 in workers, each worker has its own.
 
-## The template-kind profile: what Tier-0's code executes
+## The template-kind profile (until P7.5)
 
-The step profile counts what Tier-0 leaves to the interpreter; the JIT
-switch `t0_kind_profile` (off by default) counts what its code executes, by
-template kind. While it is on, Tier-0 compiles a 64-bit count into every
-instruction of the page functions it compiles, keyed by its `Form` kind
-(`Alu`, `MovToReg`, `Jcc`, `X87`, `Simd`, ...; `Step` for an instruction left
-to the interpreter) or, for x87 instructions, templated or not, by opcode
-and ModRM byte: a register form by its whole byte (`x87 D9 FA` is FSQRT), a
-memory form by its reg field (`x87 DD /3 m` is FSTP m64). An x87 run that takes its fast path
-counts its instructions when it completes. Page functions compiled before
-the switch was turned on do not count, so set it with the machine
-(`JIT_SWITCHES=t0_kind_profile=1`); the counts cost time, so time nothing
-with it on. It is P3's measure for ranking Tier-0's template changes
-([jit-unification-plan.md](jit-unification-plan.md) P3.0a and cross-phase
-rule 11), together with the step profile.
-
-`kind_profile(exports, memory)` in [`tools/bench/jit_stats.mjs`](../tools/bench/jit_stats.mjs)
-reads it, most executed first; `JIT_STATS=1` records carry the 60 largest
-while it is on (`tests/bench/run.mjs`, `tests/ir/performance/xp_boot.mjs`,
-`tests/ir/performance/game_state.mjs` for Windows 98 states,
-`tests/x64/windows_boot.mjs`). The exports: `ir_t0_kind_profile(key, high)`
-(a count's low or high 32 bits), `ir_t0_kind_profile_keys()`,
-`ir_t0_form_names()` and `ir_t0_form_names_length()` (the kinds' names, one
-per line), `ir_t0_kind_profile_reset()`. Each Wasm instance counts in its
-own table.
+IR Tier-0 counted what its code executed, by template kind, with the JIT
+switch `t0_kind_profile` (P3.0a's measure for ranking its template changes);
+it went with Tier-0 in [jit-unification-plan.md](jit-unification-plan.md)
+P7.5. The step profile above and the mode ledger below cover the page tier.
 
 ## The code of a page function: tools/page_code.mjs
 
 What a page function costs is easiest to see in the host code V8 makes of
 it. [`tools/page_code.mjs`](../tools/page_code.mjs) runs a benchmark on the
 test core (`build/v86-ir-test-release.wasm`, ir-test-hooks), records what the
-x64 page tier (or with `--isa i686` Tier-0) compiles, takes the last record
+x64 page tier compiles (`--isa i686` its legacy-mode code, IR Tier-0's until P7.5), takes the last record
 whose page holds the given instruction bytes and replays it at
 `tools/replay_check.mjs`' fixed pseudo addresses:
 
@@ -204,7 +186,7 @@ size (the replayed module is the one that ran when the sizes agree):
 
 Samples land on the instruction that waits (a load's consumer, a spill
 reload), a few instructions after a mispredicted branch. With `--isa i686`
-the same for Tier-0's function of the page. Two experiments with it decided
+the same for the page's legacy-mode function. Two experiments with it decided
 M6's lookups (jit-unification-plan.md appendix C): a throwaway build whose
 host address is mem8 plus the linear address (the benchmarks' identity
 mapping only) gives the cost of everything but the lookups, on each engine.
@@ -234,7 +216,7 @@ setting per process, so an A/B there compares two cores: build the second
 with the setting as its build-time default (`JIT_DEFAULTS`, the switch
 registry's defaults) next to the others in `build/bench/arms`,
 
-    make jit-arm ARM=t0-kinds JIT_DEFAULTS="t0_kind_profile=1"
+    make jit-arm ARM=no-legacy32 JIT_DEFAULTS="x64_page_legacy32=0"
 
 (its own cargo target directory, so `build/v86.wasm` stays as it is), and
 give both to the runner: `tools/owner_perf.mjs --arms
@@ -262,8 +244,8 @@ scene is profiled again and again without booting:
   latency from arrival to done) every 10 s.
 - `WIN_CPU_PROFILE=<s>`: host CPU profiles, one per window; after each, an
   `X64_WIN_PROFILE_MODULES` line gives the generated code's share by guest
-  module (page functions are named by linear page: `x64_page_<page>` for long
-  mode, `t0_<page>` for compatibility mode).
+  module (page functions are named by linear page: `x64_page_<page>`; IR
+  Tier-0's compatibility-mode ones were `t0_<page>` until P7.5).
 - `x64_page_stat` counters (in `X64_WIN_PROGRESS`): control register writes
   by register and full flushes, page walks, and the 32-bit TLB fills of
   compatibility mode and refills of pages it had already. A high refill count

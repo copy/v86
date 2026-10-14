@@ -146,8 +146,8 @@ for(const [name, jit] of [["interpreter", false], ["JIT", true]])
         assert.deepEqual(observed, EXPECTED[i].map(x => x >>> 0),
             `${name}: ${op === "read" ? "RDMSR" : "WRMSR"} ${hex(msr)}: #GP, EAX, EDX ${observed.map(hex)}, expected ${EXPECTED[i].map(hex)}`);
     });
-    // (32-bit protected-mode code in the x64 page tier, else Tier-0)
-    if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0 || ir.tier0.page_functions > 0 && ir.tier0.activations > 0,
-        `compiled code ran: ${JSON.stringify({ tier0: ir.tier0, page_tier: ir.page_tier })}`);
+    // (32-bit protected-mode code in the x64 page tier)
+    if(jit) assert.ok(ir.page_tier.activations > 0 && ir.page_tier.native_instructions > 0,
+        `compiled code ran: ${JSON.stringify(ir.page_tier)}`);
     console.log(`PASS 32-bit protected mode on the x86-64 profile (${name}): IA32_ARCH_CAPABILITIES = ${hex(arch_high)}:${hex(arch_low)}, read-only; KERNEL_GS_BASE and TSC_AUX`);
 }

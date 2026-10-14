@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Architectural counters across interpreter, Tier-0, region and page-tier execution.
+// Architectural counters across interpreter, region and page-tier execution.
 // Initial protected-mode contexts are injected only to isolate accounting.
 // All increments, REP progress, faults and halts come from guest instructions.
 import assert from "node:assert/strict";
@@ -9,8 +9,8 @@ import { smp_modes, with_smp_mode, mode_hits } from "../lib/smp_modes.mjs";
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const modes = smp_modes();
-// SMP_CORES=1: CPU 0's program alone (Tier-0's REP template runs on one core
-// only: its elements must count the same)
+// SMP_CORES=1: CPU 0's program alone (IR Tier-0's REP template ran on one core
+// only, until P7.5: its elements must count the same)
 const fields = ["retired_instructions", "rep_elements", "faults", "halt_count", "runtime_ms"];
 const specifications = [
     { loops: 2048, elements: 1000, destination: 0x40000, fault: "ud" },
@@ -18,7 +18,7 @@ const specifications = [
     { loops: 2122, elements: 10, destination: 0x4FFB, fault: "pf" },
 ];
 specifications.length = Number(process.env.SMP_CORES || specifications.length);
-// (alone, CPU 0 loops long enough for Tier-0 to compile its page)
+// (alone, CPU 0 loops long enough for the page tier to compile its page)
 if(specifications.length === 1) specifications[0].loops = 1 << 18;
 const u32 = value => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
 const COMPARED = 24;
@@ -181,13 +181,12 @@ for(const mode of modes)
         if(specifications.length > 2) assert.deepEqual(Array.from(cpu.mem8.slice(0x4FFB, 0x5001)), [0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0]);
         if(mode === "interpreter")
         {
-            assert.equal(ex.ir_t0_entries(), 0);
             assert.equal(ex.ir_cache_stat(2), 0);
             assert.equal(ex.x64_page_stat(1), 0);
             assert.ok(cpu.cores[0].steps > original[0].retired_instructions,
                 "REP continuation and fault dispatches must not inflate architectural retirement");
         }
-        if(mode === "region") assert.equal(ex.ir_t0_entries(), 0, "region arm never used Tier-0");
+        if(mode === "region") assert.equal(ex.x64_page_stat(1), 0, "region arm never used the page tier");
         if(specifications.length === 1)
         {
             // (the snapshot checks below are about separate cores)

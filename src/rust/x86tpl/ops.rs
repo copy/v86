@@ -2,9 +2,10 @@
 //! (docs/jit-unification-plan.md P2.4): the SSE arithmetic, the masked
 //! compares and the conversions, over an engine's VecOperands. Their
 //! admission is native_fp's. What differs between the engines is a property
-//! of the operands: where a refused instruction goes (in_place: Tier-0 runs
-//! runtime::tier0::ir_t0_sse_fp where it stands, the page tier retries in the
-//! interpreter), and the register facts that Tier-0 keeps (facts).
+//! of the operands: where a refused instruction goes (in_place: the exact
+//! helper x64::helpers::x64_sse_fp where it stands, as IR Tier-0 ran it until
+//! P7.5; else the page tier retries in the interpreter), and the register
+//! facts an engine keeps (facts).
 //!
 //! A template reads its operands and passes every retry point before its
 //! first write (store_vec, store_int), so a retry finds the CPU as it was.
@@ -18,8 +19,7 @@ use crate::cpu::global_pointers as gp;
 use crate::ir::helper::imports::signature;
 use crate::wasmgen::wasm_builder::{WasmBuilder, WasmLocalV128};
 
-/// An engine's register facts (Tier-0's Page::xmm_clean, the page tier's
-/// Emitter::xmm_clean: per register, the lanes known to be neither NaN nor
+/// An engine's register facts (the page tier's Emitter::xmm_clean: per register, the lanes known to be neither NaN nor
 /// denormal) and the instruction's registers
 pub struct Facts<'a> {
     pub clean: &'a mut [u8],
@@ -40,9 +40,6 @@ pub trait VecOperands {
     /// m128 checked), or an XMM register, its low `bytes` zero-extended, or
     /// `whole` (the forms that use only the low lane)
     fn source(&mut self, bytes: u8, whole: bool);
-    /// Push the integer r/m operand: an i32 (an i64 if `wide`), a register
-    /// or memory
-    fn source_int(&mut self, wide: bool);
     /// Push XMM `r`, whole (another register the form names, such as
     /// BLENDV's mask)
     fn register(&mut self, r: u8);
@@ -433,87 +430,6 @@ pub fn convert_to_integers<T: VecOperands>(t: &mut T, double: bool, truncate: bo
     t.w().free_local_v128(x);
 }
 
-/// CVTSI2SS and CVTSI2SD xmm, r/m32
-pub fn from_integer<T: VecOperands>(t: &mut T, double: bool) {
-    t.source_int(false);
-    t.w().simd(0x11); // i32x4.splat
-    let integer = t.w().set_new_local_v128();
-    t.w().get_local_v128(&integer);
-    t.w().simd(if double { 0xFE } else { 0xFA });
-    let v = t.w().set_new_local_v128();
-    if !double {
-        // (an inexact result sets PE)
-        t.first();
-        let destination = t.w().set_new_local_v128();
-        t.mxcsr_refused();
-        t.refused(&destination, &integer, None, &v);
-        t.w().free_local_v128(destination);
-    }
-    t.w().free_local_v128(integer);
-    let before = first_facts(t);
-    t.store_vec(&v, lane_bytes(double, true));
-    t.w().free_local_v128(v);
-    if let Some(f) = t.facts() {
-        // (the result lane is clean, the others the first source's)
-        f.clean[f.reg as usize] = clean_bits(double, true) | before & clean_bits(double, false);
-    }
-}
-
-/// CVT(T)SS2SI and CVT(T)SD2SI r32, xmm/m: sse_convert(_with_truncation)_
-/// f64_to_i32 natively, unless the value is NaN, out of the i32 range or,
-/// with MXCSR's condition, inexact
-pub fn to_integer<T: VecOperands>(t: &mut T, double: bool, truncate: bool) {
-    t.source(lane_bytes(double, true), true);
-    let source = t.w().set_new_local_v128();
-    t.w().get_local_v128(&source);
-    if double {
-        t.w().simd_lane(0x21, 0); // f64x2.extract_lane
-    }
-    else {
-        t.w().simd_lane(0x1F, 0); // f32x4.extract_lane
-        t.w().promote_f32_to_f64();
-    }
-    let x = t.w().set_new_local_f64();
-    // round (MXCSR.RC, admitted to nearest only, or toward zero), then
-    // 0x80000000 outside the i32 range
-    t.w().get_local_f64(&x);
-    t.w().round_f64(if truncate { 3 } else { 0 });
-    t.w().set_local_f64(&x);
-    // a NaN or out-of-range value raises IE; an inexact one PE
-    t.w().get_local_f64(&x);
-    t.w().const_f64(-2147483648.0);
-    t.w().ge_f64();
-    t.w().get_local_f64(&x);
-    t.w().const_f64(2147483648.0);
-    t.w().compare_f64(1);
-    t.w().and_i32();
-    t.w().eqz_i32();
-    t.mxcsr_refused();
-    t.w().or_i32();
-    if t.in_place() {
-        let value = t.w().declare_zeroed_local();
-        t.exact_open(&source, &source, None);
-        t.exact_result();
-        t.w().simd_lane(0x1B, 0); // i32x4.extract_lane
-        t.w().set_local(&value);
-        t.w().else_();
-        t.w().get_local_f64(&x);
-        t.w().trunc_f64_to_i32();
-        t.w().set_local(&value);
-        t.w().block_end();
-        t.w().get_local(&value);
-        t.w().free_local(value);
-    }
-    else {
-        t.retry_if();
-        t.w().get_local_f64(&x);
-        t.w().trunc_f64_to_i32();
-    }
-    t.w().free_local_f64(x);
-    t.w().free_local_v128(source);
-    t.store_int(false);
-}
-
 /// PMOVMSKB (`lane` 1), MOVMSKPS (4) and MOVMSKPD (8) r32, xmm: the sign bits
 /// of the lanes (register forms only)
 pub fn move_mask<T: VecOperands>(t: &mut T, lane: u8) {
@@ -841,7 +757,7 @@ pub fn fused<T: VecOperands>(t: &mut T, op: u8, double: bool) {
     t.w().get_local_v128(&third);
     t.w().simd_memory(0x0B, 4);
     t.w().const_i32(op as i32 | (double as i32) << 8);
-    t.w().call_signature("ir_t0_fma", signature("ir_t0_fma"));
+    t.w().call_signature("x64_fma", signature("x64_fma"));
     t.retry_if();
     t.w().const_i32(operands as i32);
     t.w().simd_memory(0x00, 4); // v128.load

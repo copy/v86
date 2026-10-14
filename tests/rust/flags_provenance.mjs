@@ -1,6 +1,6 @@
 // Compare flag-neutral instruction chains against the interpreter. Each
 // consumer gets a fresh producer, so all 16 conditions exercise provenance.
-// Both IR code generators (Tier-0 and regions) run every program.
+// Both IR code generators (the page tier and regions) run every program.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -88,7 +88,7 @@ async function execute(vm, program, label) {
     const interpreted = !label;
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     // Every program reuses CODE. Start each from an empty compiler state:
-    // Tier-0 needs 4x the heat to recompile a page after each rewrite.
+    // compiled code needs more heat to recompile a page after each rewrite.
     cpu.jit_clear_cache();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4096), OUT);
@@ -178,5 +178,5 @@ try {
             programs++;
         }
     }
-    console.log(`PASS: ${cases} flag/condition cases in ${programs} programs (interpreter vs warmed Tier-0 and regions)`);
+    console.log(`PASS: ${cases} flag/condition cases in ${programs} programs (interpreter vs warmed page tier and regions)`);
 } finally { for(const vm of machines) await vm.destroy(); }

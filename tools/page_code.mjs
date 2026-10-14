@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 // The code of a page function (docs/profiling.md): records what the x64 page
-// tier (or, with --isa i686, Tier-0; with --isa compat32 the i686 build in
-// compatibility mode, compiled by the page tier with x64_page_compat32; with
-// --isa legacy32 the i686 build in legacy protected mode, compiled by the
-// page tier with x64_page_legacy32)
+// tier (with --isa compat32 the i686 build in compatibility mode; with --isa
+// i686, or legacy32, in legacy protected mode: IR Tier-0's code until P7.5)
 // compiles while a benchmark runs on a
 // test core (ir-test-hooks: build/v86-ir-test-release.wasm), takes the last
 // record whose page holds the given instruction bytes, replays it
@@ -111,9 +109,8 @@ if(!name || !hex)
     console.error("usage: node tools/page_code.mjs <benchmark> <hex bytes> [--isa x86_64|i686|compat32|legacy32] [--switches a=1,...] [--machine] [--save file]");
     process.exit(2);
 }
-const legacy = option("isa", "x86_64") === "legacy32";
-const isa = legacy ? "i686" : option("isa", "x86_64");
-const prefix = isa === "i686" && !legacy ? "ir_t0_" : "x64_page_";
+const isa = option("isa", "x86_64") === "legacy32" ? "i686" : option("isa", "x86_64");
+const prefix = "x64_page_";
 process.chdir(ROOT);
 const { load_pe, boot_images, create, execute } = await import("../tests/bench/machine.mjs");
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
@@ -121,7 +118,6 @@ const bench = manifest.benchmarks.find(b => b.name === name);
 if(!bench) throw new Error(`no benchmark ${name}`);
 const switches = Object.fromEntries(option("switches", "").split(",").filter(Boolean).map(kv => { const [k, v] = kv.split("="); return [k, +v]; }));
 if(isa === "compat32" && switches.x64_page_compat32 === undefined) switches.x64_page_compat32 = 1;
-if(legacy && switches.x64_page_legacy32 === undefined) switches.x64_page_legacy32 = 1;
 const machine = await create({ label: "code", isa, wasm: "build/v86-ir-test-release.wasm", switches }, bench, boot_images(manifest));
 const e = machine.e;
 if(!e[prefix + "record_start"]) throw new Error("build/v86-ir-test-release.wasm has no replay hooks (ir-test-hooks)");

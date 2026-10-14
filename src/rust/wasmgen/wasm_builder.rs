@@ -129,9 +129,6 @@ impl WasmLocalI64 {
 pub struct WasmLocalF32(u32);
 pub struct WasmLocalF64(u32);
 pub struct WasmLocalV128(u32);
-impl WasmLocalV128 {
-    pub fn unsafe_clone(&self) -> Self { Self(self.0) }
-}
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct Label(u32);
@@ -362,11 +359,6 @@ impl WasmBuilder {
     pub fn output(&self) -> &[u8] { &self.output }
     /// Bytes of instructions emitted so far (for size statistics).
     pub fn body_len(&self) -> usize { self.instruction_body.len() }
-    /// Replace emitted instructions (the bytes from `start` to `end` of the
-    /// body, a stack-neutral sequence) by nops.
-    pub fn patch_nop(&mut self, start: usize, end: usize) {
-        self.instruction_body[start..end].fill(op::OP_NOP);
-    }
 
     /// Declared locals excluding parameters, including temporary staging slots.
     pub fn declared_local_count(&self) -> usize { self.local_types.len() }
@@ -785,10 +777,7 @@ impl WasmBuilder {
     pub fn eq_i64(&mut self) { self.instruction_body.push(op::OP_I64EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
     pub fn ne_i64(&mut self) { self.instruction_body.push(op::OP_I64NE); }
-
-    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
     pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
-    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
 
     pub fn gtu_i32(&mut self) { self.instruction_body.push(op::OP_I32GTU); }
     pub fn geu_i32(&mut self) { self.instruction_body.push(op::OP_I32GEU); }

@@ -158,9 +158,6 @@ impl VecOperands for Operands<'_> {
         }
         self.e.ymm_zero(r);
     }
-    fn source_int(&mut self, _wide: bool) {
-        unreachable!("the page tier converts integers in Op::Vconvert")
-    }
     fn store_vec(&mut self, value: &WasmLocalV128, bytes: u8) {
         // (a template states the new facts after its write)
         self.e.xmm_clean[self.dst as usize] = 0;

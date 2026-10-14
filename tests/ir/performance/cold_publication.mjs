@@ -1,5 +1,5 @@
 // Fixed retired work, cold code, serial alternating VMs. This is a region-tier
-// publication latency workload (Tier-0 off), not an XP boot benchmark or a
+// publication latency workload (ir_tier0 off), not an XP boot benchmark or a
 // substitute for system tests.
 // node tests/ir/performance/cold_publication.mjs [current.wasm] [baseline.wasm]
 import assert from "node:assert/strict";

@@ -14,8 +14,9 @@ export async function backend_scenarios(V86, options, log = console.log)
     };
     const budget = { hot_threshold: 2, promotion_threshold: 4, max_source_bytes: 96, execution_budget: 128, rep_iterations: 8 };
     let vm, ir_snapshot;
-    // The scenarios exercise the region tiers with small budgets, so Tier-0
-    // (on by default) is off unless a scenario asks for the defaults.
+    // The scenarios exercise the region tiers with small budgets, so ir_tier0
+    // (32-bit code in the x64 page tier, on by default) is off unless a
+    // scenario asks for the defaults.
     const create = async (extra = {}, expected_error) => {
         vm = new V86({ graphics_adapter: "bochs_vga", memory_size: 32 << 20, disable_keyboard: true, disable_mouse: true,
             disable_speaker: true, net_device: { type: "none" }, ir_tier0: false, ...options, autostart: false, ...extra });
@@ -152,13 +153,13 @@ export async function backend_scenarios(V86, options, log = console.log)
         await create({ ir_tier0: undefined }); await boot();
         await vm.write_memory(Uint8Array.of(0x40, 0xEB, 0xFD), 0x1200000);
         await vm.write_memory(bytes(0x1200000), 0x600);
-        // (32-bit code in the x64 page tier since Legacy32's flip; Tier-0 stays
-        // enabled for what the page tier cannot run)
+        // (32-bit code in the x64 page tier since Legacy32's flip; the regions
+        // run what the page tier cannot)
         await until(async () => (await info()).ir.page_tier.native_instructions > 0, "default page tier runs 32-bit code");
         await vm.stop();
         const defaults = await info();
-        check(defaults.backend === "ir" && defaults.ir.enabled && defaults.ir.tier0.enabled && defaults.ir.page_tier.legacy32
-            && defaults.ir.page_tier.functions > 0, "default is IR with the page tier and Tier-0");
+        check(defaults.backend === "ir" && defaults.ir.enabled && defaults.ir.tier0 === null && defaults.ir.page_tier.legacy32
+            && defaults.ir.page_tier.compat32 && defaults.ir.page_tier.functions > 0, "default is IR with the page tier");
         await destroy();
         log("PASS: explicit disable_jit and the default IR + page tier backend");
 

@@ -13,7 +13,7 @@ const nasm = spawnSync("nasm", ["-f", "bin", "-o", kernel, root + "tests/x64/mul
 assert.equal(nasm.status, 0, nasm.stderr);
 const {V86} = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const {CORE_STATE_RANGES, STATE_OFFSETS} = await import("../../src/state_layout.js");
-const modes = process.env.X64_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = process.env.X64_MODES?.split(",") || ["interpreter", "pages", "region"];
 const seeds = process.env.X64_SEEDS?.split(",").map(Number) || [1, 7];
 const quantums = process.env.X64_QUANTUMS?.split(",").map(Number) || [17, 257];
 const CONTROL = 0x380000, RECORDS = 0x390000, ITERATIONS = 512;
@@ -22,7 +22,7 @@ async function run(mode, seed, quantum)
     const label = `${mode} seed=${seed} quantum=${quantum}`;
     const emulator = new V86({graphics_adapter: "bochs_vga", multiboot: {url: kernel}, memory_size: 32 << 20, cpu_cores: 4,
         cpu_quantum: quantum, cpu_schedule_seed: seed, acpi: true, autostart: false,
-        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_tier0: mode === "tier0",
+        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_tier0: mode === "pages",
         ir_sync_publication: true, ir_region_budget: {hot_threshold: 2, promotion_threshold: 8}, log_level: 0});
     let cpu, rounds = 0;
     const native = [0, 0, 0, 0];

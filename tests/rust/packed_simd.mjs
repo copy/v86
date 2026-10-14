@@ -4,7 +4,7 @@ import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 // packed_simd.mjs [baseline.wasm] [candidate.wasm]: machine 0 is the
 // interpreter (or, with arguments, the baseline core); the candidate core runs
-// every case once per IR arm (Tier-0 and regions) and must match it.
+// every case once per IR arm (the page tier and regions) and must match it.
 const candidate = process.argv[3] || "build/v86.wasm";
 const baseline = process.argv[2] || candidate;
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
@@ -143,7 +143,7 @@ try {
         for(const [i, vm] of machines.entries()) {
             const cpu = vm.v86.cpu, e = cpu.wm.exports;
             // Programs reuse CODE: start each from an empty compiler state
-            // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+            // (compiled code needs more heat to recompile a page after each rewrite).
             cpu.jit_clear_cache();
             vm.write_memory(data, DATA); vm.write_memory(new Uint8Array(total * 32), OUT);
             vm.write_memory(Uint8Array.from(program), CODE); vm.write_memory(new Uint8Array(4), 0x600);
@@ -168,7 +168,7 @@ try {
         }
         cases += total;
     }
-    console.log(`PASS: ${cases} MMX/SSE integer, floating, conversion and transfer cases; aliases, boundaries and memory, on Tier-0 and regions`);
+    console.log(`PASS: ${cases} MMX/SSE integer, floating, conversion and transfer cases; aliases, boundaries and memory, on the page tier and regions`);
 } finally {
     for(const vm of machines) await vm.destroy();
 }

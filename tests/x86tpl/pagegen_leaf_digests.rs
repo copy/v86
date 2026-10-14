@@ -1,5 +1,6 @@
-//! Golden digests of the page tier's leaf emission (x64/pagegen.rs; see
-//! tests/x86tpl/leaf_digests.rs for Tier-0's and the method): its own
+//! Golden digests of the page tier's leaf emission (x64/pagegen.rs; until
+//! P7.5 deleted IR Tier-0, tests/x86tpl/leaf_digests.rs pinned the leaves as
+//! Tier-0's classifiers used them, the method of P2.1): its own
 //! immediate shift, and x86tpl's packed operations as pagegen classifies
 //! them, keyed by encoding. That digest is the one of pagegen's own Packed
 //! table and emitter before P2.3 replaced them, so the change kept every

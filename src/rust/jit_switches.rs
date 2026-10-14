@@ -7,13 +7,13 @@
 //! ir_cache_set_fusion, ...) stay as aliases: jit_switch reads a value however
 //! it was set. The region tier's own settings (ir_auto_set_region_instructions,
 //! ir_auto_config) are frozen with it (P7.6) and not listed; the engine's tail
-//! calls (ir_t0_set_tail_calls) are a host capability, not a switch.
+//! calls (jit_set_tail_calls) are a host capability, not a switch.
 //!
-//! Values apply in the order of SWITCHES: ir_tier0 resets ir_page_mode and
-//! ir_page_threshold, so those follow it.
+//! Values apply in the order of SWITCHES (ir_tier0 reset ir_page_mode and
+//! ir_page_threshold until P7.5 deleted IR Tier-0; they still follow it).
 
 use crate::cpu::{cpu, execution};
-use crate::ir::runtime::{cache, schedule, tier0};
+use crate::ir::runtime::{cache, schedule};
 use crate::step_profile;
 use crate::x64::{pagegen, pages};
 
@@ -43,7 +43,7 @@ pub const SWITCHES: &[Switch] = &[
         default: 0,
         // (chained page functions end in a Wasm tail call)
         set: |v| match flag(v) {
-            Some(on) if !on || tier0::tail_calls() => {
+            Some(on) if !on || crate::x64::helpers::tail_calls() => {
                 unsafe { pages::x64_page_set_chaining(on) };
                 true
             },
@@ -309,17 +309,8 @@ pub const SWITCHES: &[Switch] = &[
         set: |v| flag(v).map(pagegen::x64_page_set_sti_shadow).is_some(),
         get: pagegen::switch_value,
     },
-    // (docs/jit-unification-plan.md P4.6)
-    Switch {
-        name: "x64_long_visit",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { crate::ir::runtime::schedule::x64_set_long_visit(on) })
-                .is_some()
-        },
-        get: |_| Some(crate::ir::runtime::schedule::long_visit_enabled() as u32),
-    },
+    // (compatibility-mode code in the IR's region tier, without
+    // x64_page_compat32)
     Switch {
         name: "x64_compat_jit",
         default: 1,
@@ -330,7 +321,10 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: |_| Some(unsafe { cpu::compat_jit() } as u32),
     },
-    // IR Tier-0 and the scheduler (crate::ir::runtime)
+    // the IR scheduler (crate::ir::runtime); ir_tier0 since P7.5 deleted
+    // Tier-0: the page tier compiles 32-bit code (x64_page_legacy32 and
+    // x64_page_compat32 take effect with it; region-only configurations
+    // turn it off)
     Switch {
         name: "ir_tier0",
         default: 0,
@@ -350,44 +344,10 @@ pub const SWITCHES: &[Switch] = &[
         get: schedule::switch_value,
     },
     Switch {
-        name: "ir_t0_ranges",
-        default: 0,
-        set: |v| v <= 1 && unsafe { schedule::ir_t0_set_ranges(v) },
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_t0_clusters",
-        default: 1,
-        set: |v| flag(v).map(schedule::set_t0_clusters).is_some(),
-        get: schedule::switch_value,
-    },
-    Switch {
-        name: "ir_t0_link",
-        default: 0,
-        set: |v| unsafe { tier0::ir_t0_set_link_mode(v) },
-        get: |_| {
-            Some(match tier0::t0_link() {
-                tier0::Link::Iterative => 0,
-                tier0::Link::Nested => 1,
-                tier0::Link::Tail => 2,
-            })
-        },
-    },
-    Switch {
-        name: "ir_t0_irq_deferral",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_irq_deferral(on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::irq_deferral() as u32),
-    },
-    Switch {
         name: "ir_relaxed_fma",
         default: 0,
-        set: |v| unsafe { tier0::ir_set_relaxed_fma(v) },
-        get: |_| Some(unsafe { tier0::ir_relaxed_fma() }),
+        set: |v| unsafe { crate::x64::helpers::ir_set_relaxed_fma(v) },
+        get: |_| Some(unsafe { crate::x64::helpers::ir_relaxed_fma() }),
     },
     Switch {
         name: "ir_hot_filter",
@@ -514,142 +474,6 @@ pub const SWITCHES: &[Switch] = &[
                 .is_some()
         },
         get: |_| Some(execution::ledger_on() as u32),
-    },
-    // Tier-0's template changes of P3 (docs/jit-unification-plan.md P3.7),
-    // each off until its A/B flips it (P3.7(a)'s six: on, after their A/B as
-    // a group; P3.7(b)'s t0_sreg_load, P3.7(c)'s three and P3.1's two: on);
-    // page functions compiled before a change keep their code
-    Switch {
-        name: "t0_jecxz",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_JECXZ, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_JECXZ)),
-    },
-    Switch {
-        name: "t0_sreg_read",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_SREG_READ, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_SREG_READ)),
-    },
-    Switch {
-        name: "t0_xchg_mem",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_XCHG_MEM, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_XCHG_MEM)),
-    },
-    Switch {
-        name: "t0_cld_std",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_CLD_STD, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_CLD_STD)),
-    },
-    Switch {
-        name: "t0_pop_rm",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_POP_RM, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_POP_RM)),
-    },
-    Switch {
-        name: "t0_pusha",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_PUSHA, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_PUSHA)),
-    },
-    Switch {
-        name: "t0_sreg_load",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_SREG_LOAD, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_SREG_LOAD)),
-    },
-    Switch {
-        name: "t0_vec_store_slow",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_VEC_STORE_SLOW, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_VEC_STORE_SLOW)),
-    },
-    Switch {
-        name: "t0_cli",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_CLI, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_CLI)),
-    },
-    Switch {
-        name: "t0_pop_esp",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_POP_ESP, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_POP_ESP)),
-    },
-    Switch {
-        name: "t0_rep_blocks",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_REP_BLOCKS, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_REP_BLOCKS)),
-    },
-    Switch {
-        name: "t0_rep_movs_stos",
-        default: 1,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_feature(tier0::T0_REP_MOVS_STOS, on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::feature_value(tier0::T0_REP_MOVS_STOS)),
-    },
-    // measurement: the executions of what Tier-0 compiles from now on, by
-    // template kind (ir::runtime::tier0::kind_profile)
-    Switch {
-        name: "t0_kind_profile",
-        default: 0,
-        set: |v| {
-            flag(v)
-                .map(|on| unsafe { tier0::set_kind_profile(on) })
-                .is_some()
-        },
-        get: |_| Some(tier0::kind_profile_on() as u32),
     },
 ];
 

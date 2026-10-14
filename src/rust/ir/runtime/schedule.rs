@@ -296,26 +296,9 @@ pub fn ir_auto_optimization_stat(field: u32) -> u32 {
 }
 pub fn begin_frame(now: f64) {
     let mut s = SCHEDULER.try_lock().unwrap();
-    // (the step profile, docs/jit-unification-plan.md P4.0: frames, and
-    // those that ended with Tier-0 pages ready but no compile credit used,
-    // which only a slice outside 64-bit mode spends: WOW64's code waited)
+    // (the step profile, docs/jit-unification-plan.md P4.0: frames)
     if crate::step_profile::enabled() {
-        use crate::step_profile::{event, note_event};
-        if s.credit && s.pages.has_ready() {
-            // (why: a compile pending; no page queued from compatibility
-            // mode under the current CR3; else one was)
-            let detail = if s.pending.is_some() {
-                1
-            }
-            else if !s.pages.ready_in(unsafe { crate::x64::state::read_cr(3) }) {
-                2
-            }
-            else {
-                3
-            };
-            unsafe { note_event(event::STARVED, detail) };
-        }
-        unsafe { note_event(event::FRAME, 0) };
+        unsafe { crate::step_profile::note_event(crate::step_profile::event::FRAME, 0) };
     }
     s.credit = true;
     s.scan_credit = true;
@@ -406,100 +389,15 @@ pub unsafe fn ir_auto_set_page_mode(enabled: u32) -> bool {
     s.pages.clear();
     true
 }
-/// Tier-0: compile hot code pages with the cheap page compiler (ir::tier0)
-/// instead of the optimizing page pipeline. Implies page mode.
+/// ir_tier0 (since docs/jit-unification-plan.md P7.5 deleted IR Tier-0, an
+/// alias): whether the x64 page tier compiles 32-bit legacy and
+/// compatibility-mode code (crate::x64::pages::set_page32_tier0), which
+/// x64_page_legacy32 and x64_page_compat32 select. Off, as region-only
+/// configurations set it, legacy-mode code stays with the region tier.
 static mut TIER0: bool = false;
-pub(super) fn tier0() -> bool { unsafe { TIER0 } }
-/// Tier-0 page functions may cover neighbor pages (A/B switch). Off: on the
-/// XP boot, neighbors rarely are the pages execution chains to (chains -5%)
-/// while code grew 38% and boot slowed 7%; only page-crossing loops gain.
-static mut T0_RANGES: bool = false;
-/// Recompile a page function with the neighbors and partners its links go to
-/// (want_range, want_partner). The switch ir_t0_clusters turns these
-/// multi-page functions off, to measure what they bring
-/// (docs/jit-unification-plan.md P0.13).
-static mut T0_CLUSTERS: bool = true;
-pub(crate) fn set_t0_clusters(enabled: bool) { unsafe { T0_CLUSTERS = enabled } }
-/// Frequent links from the page function of the page at `base` to the
-/// page of `target` (not a neighbor): recompile it with that page.
-pub(super) fn want_partner(base: u32, target: u32, cs_base: u32, default_32: bool) {
-    if !unsafe { T0_CLUSTERS } {
-        return;
-    }
-    SCHEDULER.try_lock().unwrap().pages.want_partner(
-        PageKey {
-            base,
-            cs_base,
-            default_32,
-        },
-        target,
-    );
-}
-/// Frequent links from the page function of the page at `base` to a
-/// neighbor page: recompile it with its neighbors (see tier0::range).
-pub(super) fn want_range(base: u32, cs_base: u32, default_32: bool) {
-    if !unsafe { T0_CLUSTERS } {
-        return;
-    }
-    SCHEDULER.try_lock().unwrap().pages.want_range(PageKey {
-        base,
-        cs_base,
-        default_32,
-    });
-}
-#[no_mangle]
-pub unsafe fn ir_t0_set_ranges(enabled: u32) -> bool {
-    T0_RANGES = enabled != 0;
-    true
-}
-/// Interpreted instructions per (page + 1, CS base) not yet given to Pages,
-/// with the batch's first distinct entries (linear addresses).
-#[derive(Clone, Copy)]
-struct PageHeat {
-    page: u32,
-    cs_base: u32,
-    steps: u32,
-    entries: [u32; 8],
-    count: u8,
-}
-const PAGE_HEAT_SLOTS: usize = 256;
-static mut PAGE_HEAT: [PageHeat; PAGE_HEAT_SLOTS] = [PageHeat {
-    page: 0,
-    cs_base: 0,
-    steps: 0,
-    entries: [0; 8],
-    count: 0,
-}; PAGE_HEAT_SLOTS];
-/// Give a batch's heat to its page (split over the batch's entries).
-/// Returns whether the page may still use region compilation.
-unsafe fn flush_page_heat(batch: &PageHeat) -> bool {
-    let count = batch.count as usize;
-    if count == 0 {
-        return false;
-    }
-    let mut s = SCHEDULER.try_lock().unwrap();
-    if !s.config.enabled || !s.page_mode {
-        return true;
-    }
-    let threshold = s.page_threshold;
-    let mut region = false;
-    for (k, &linear) in batch.entries[..count].iter().enumerate() {
-        let key = CpuEntryKey {
-            pc: crate::ir::frontend::decode::GuestEip(linear.wrapping_sub(batch.cs_base)),
-            linear: crate::ir::frontend::decode::LinearAddress(linear),
-            default_32: true,
-        };
-        // The batch's heat, split evenly (the remainder to the first).
-        let share =
-            batch.steps / count as u32 + if k == 0 { batch.steps % count as u32 } else { 0 };
-        region |= s.pages.visit_weighted(key, threshold, share.max(1));
-    }
-    region
-}
-const PAGE_HEAT_BATCH: u32 = 1024;
 #[no_mangle]
 pub unsafe fn ir_auto_set_tier0(enabled: u32) -> bool {
-    if enabled > 1 || !ir_auto_set_page_mode(enabled) {
+    if enabled > 1 || !cold() {
         return false;
     }
     TIER0 = enabled != 0;
@@ -507,11 +405,6 @@ pub unsafe fn ir_auto_set_tier0(enabled: u32) -> bool {
     if TIER0 {
         reserve_compiler_heap();
     }
-    // Executed instructions per page before its first compilation (the
-    // legacy JIT's threshold for flat 32-bit code); page_threshold tunes it.
-    let mut s = SCHEDULER.try_lock().unwrap();
-    s.page_threshold = if TIER0 { 50_000 } else { 512 };
-    s.pages.set_tier0(TIER0);
     true
 }
 /// The values of this module's switches (crate::jit_switches)
@@ -521,8 +414,6 @@ pub unsafe fn switch_value(name: &str) -> Option<u32> {
         "ir_tier0" => TIER0 as u32,
         "ir_page_mode" => s.page_mode as u32,
         "ir_page_threshold" => s.page_threshold,
-        "ir_t0_ranges" => T0_RANGES as u32,
-        "ir_t0_clusters" => T0_CLUSTERS as u32,
         "ir_hot_filter" => s.hot_filter as u32,
         "ir_hot_capacity" => s.hot_capacity as u32,
         "ir_heat_steps" => HEAT_STEPS_PER_VISIT,
@@ -609,7 +500,7 @@ unsafe fn record_weighted(entry: CpuEntryKey, interpreted: bool, weight: u32) {
     }
     // Page functions are limited to 32-bit code: a real-mode boot-loader
     // regression remains unexplained in 16-bit page functions.
-    if s.page_mode && interpreted && entry.default_32 && !TIER0 {
+    if s.page_mode && interpreted && entry.default_32 {
         let threshold = s.page_threshold;
         // Only entries of pages that cannot be compiled whole keep the
         // bounded region heat ring.
@@ -772,42 +663,6 @@ unsafe fn configure_heat(threshold: u32) {
 /// prefix, checked by the caller before interpretation) retired `steps` guest
 /// instructions.
 pub unsafe fn note_interpreted(entry: CpuEntryKey, steps: u32) {
-    if TIER0 && entry.default_32 {
-        // Tier-0 pages earn instruction-weighted heat from every block; the
-        // region heat below only serves pages Tier-0 could not compile.
-        // Heat reaches the page table in batches (the threshold is 50000).
-        // Distinct entries of the batch are kept: they seed the page's blocks.
-        let page = (entry.linear.0 >> 12) + 1;
-        let slot = &mut PAGE_HEAT[(page ^ page >> 8) as usize % PAGE_HEAT_SLOTS];
-        if slot.page != page || slot.cs_base != entry.cs_base() {
-            // The previous page keeps the heat it gathered in this slot.
-            if slot.steps != 0 {
-                let evicted = *slot;
-                flush_page_heat(&evicted);
-            }
-            *slot = PageHeat {
-                page,
-                cs_base: entry.cs_base(),
-                steps: 0,
-                entries: [0; 8],
-                count: 0,
-            };
-        }
-        slot.steps = slot.steps.saturating_add(steps.max(1));
-        if !slot.entries[..slot.count as usize].contains(&entry.linear.0) && slot.count < 8 {
-            slot.entries[slot.count as usize] = entry.linear.0;
-            slot.count += 1;
-        }
-        if slot.steps < PAGE_HEAT_BATCH {
-            return;
-        }
-        let batch = *slot;
-        slot.steps = 0;
-        slot.count = 0;
-        if !flush_page_heat(&batch) {
-            return;
-        }
-    }
     if HEAT_STEPS == 0 {
         record(entry, true);
         return;
@@ -887,59 +742,6 @@ fn failed(
 /// True only when this call submitted a new module to the asynchronous host
 /// installer. The CPU may hand off once at this cold point; an existing pending
 /// Promise returns false, so delayed/failed compilation never stalls the guest.
-/// A frame running 64-bit code compiles a Tier-0 page that waits in the
-/// queue from compatibility mode (WOW64) under the current CR3, with the
-/// state flags it was queued with; else WOW64's code waits for a frame with
-/// a compatibility-mode slice (docs/jit-unification-plan.md P4.6, the JIT
-/// switch x64_long_visit). The code snapshot translates at the current CPL,
-/// which only matters with CR4.SMEP (then the CPL must be the queued one).
-/// One per frame, from its compile credit, tried when a frame starts in
-/// 64-bit code and after each MOV CR3 in it; the function is published by
-/// the next compatibility-mode slice. True when the caller yields (as visit).
-pub unsafe fn long_visit() -> bool {
-    LONG_VISIT_AGAIN = false;
-    if !LONG_VISIT || !TIER0 || !cold() {
-        return false;
-    }
-    let work = {
-        let mut s = SCHEDULER.try_lock().unwrap();
-        if !s.config.enabled
-            || s.pending.is_some()
-            || !s.credit
-            || !s.page_mode
-            || !s.pages.has_ready()
-            || !FORCED && s.idle_mode && s.frame_start - s.last_idle < s.sync_after
-        {
-            return false;
-        }
-        let smep = crate::x64::state::read_cr(4) & 1 << 20 != 0;
-        let Some(work) = s
-            .pages
-            .take_ready_if(crate::x64::state::read_cr(3), *gp::cpl, !smep)
-        else {
-            return false;
-        };
-        s.credit = false;
-        s.work += 1;
-        work
-    };
-    let (key, entries, state_flags) = work;
-    yields(compile_page_in(key, entries, 1, Some(state_flags)))
-}
-static mut LONG_VISIT: bool = true;
-/// A MOV CR3 in 64-bit code (another address space): long_visit tries
-/// again at the dispatcher's next turn in this frame (long_visit_again)
-pub static mut LONG_VISIT_AGAIN: bool = false;
-#[no_mangle]
-pub unsafe fn x64_set_long_visit(enabled: bool) { LONG_VISIT = enabled; }
-/// A MOV to CR3 (x64::system::write_cr): queued pages of the new address
-/// space may compile in this frame
-pub unsafe fn long_visit_cr3() {
-    if LONG_VISIT {
-        LONG_VISIT_AGAIN = true;
-    }
-}
-pub fn long_visit_enabled() -> bool { unsafe { LONG_VISIT } }
 pub unsafe fn visit() -> bool {
     {
         let mut s = SCHEDULER.try_lock().unwrap();
@@ -989,8 +791,6 @@ pub unsafe fn visit() -> bool {
             let promote = s.config.promote;
             match s.pages.take_ready() {
                 Some((key, entries)) => Some((key, entries, 1)),
-                // Tier-0 pages are not recompiled whole by the optimizing tier.
-                None if TIER0 => None,
                 None => cache::next_page_promotion(promote)
                     .map(|entries| (PageKey::of(entries[0]), entries, 2)),
             }
@@ -1366,15 +1166,6 @@ unsafe fn compile_selected(
 fn yields(submitted: bool) -> bool { submitted && SCHEDULER.try_lock().unwrap().pending.is_some() }
 /// Compile one whole code page with its observed entries and submit it.
 unsafe fn compile_page(key: PageKey, entries: Vec<CpuEntryKey>, tier: u32) -> bool {
-    compile_page_in(key, entries, tier, None)
-}
-/// compile_page with the state flags the code runs with (None: the live ones)
-unsafe fn compile_page_in(
-    key: PageKey,
-    entries: Vec<CpuEntryKey>,
-    tier: u32,
-    state_flags: Option<crate::state_flags::CachedStateFlags>,
-) -> bool {
     let (config, opt_level, disabled, debug) = {
         let s = SCHEDULER.try_lock().unwrap();
         (s.config, s.opt_level, s.passes_disabled, s.debug)
@@ -1407,74 +1198,6 @@ unsafe fn compile_page_in(
         default_32: key.default_32,
         tier: compile_tier,
     };
-    // A Tier-0 page function also covers neighbor pages its code continues
-    // into, where its links to them are frequent (or all, T0_RANGES).
-    // ... and pages it often calls or returns to (a cluster function), with
-    // their entries as block starts.
-    let known = |base| {
-        SCHEDULER
-            .try_lock()
-            .unwrap()
-            .pages
-            .known_code(PageKey { base, ..key })
-    };
-    let mut list = vec![key.base];
-    let mut extra = vec![];
-    if TIER0 && tier == 1 {
-        let ranged = T0_RANGES || SCHEDULER.try_lock().unwrap().pages.range(key);
-        if ranged {
-            let (first, mut pages) = crate::ir::tier0::range(&request, &snapshot, &entries, known);
-            // Code that runs on through the next page may continue into the
-            // one after it (the legacy JIT's three-page modules).
-            if pages == 2 && first == key.base && known(key.base.wrapping_add(8192)) {
-                let _clock = CompileScope::new(1);
-                if let Ok(two) = super::snapshot::capture_pages(first, 2) {
-                    if crate::ir::tier0::continues(&request, &two, &entries) {
-                        pages = 3;
-                    }
-                }
-            }
-            list = (0..pages).map(|k| first.wrapping_add(k << 12)).collect();
-        }
-        let partners = SCHEDULER.try_lock().unwrap().pages.partners(key);
-        for (partner, partner_entries) in partners {
-            if list.len() < crate::ir::tier0::MAX_PAGES
-                && !list.contains(&partner)
-                && known(partner)
-            {
-                list.push(partner);
-                // A partner whose code runs on into the next page brings it
-                // (else the function would leave there at once).
-                let next = partner.wrapping_add(4096);
-                if list.len() < crate::ir::tier0::MAX_PAGES && !list.contains(&next) && known(next)
-                {
-                    let _clock = CompileScope::new(1);
-                    if let Ok(one) = super::snapshot::capture_pages(partner, 1) {
-                        if crate::ir::tier0::runs_on(
-                            &one,
-                            key.cs_base,
-                            key.default_32,
-                            &partner_entries,
-                        ) {
-                            list.push(next);
-                        }
-                    }
-                }
-                extra.extend(partner_entries);
-            }
-        }
-        // A range or partner request that adds nothing: the same function.
-        if list.len() == 1 && !T0_RANGES && SCHEDULER.try_lock().unwrap().pages.range_only(key) {
-            return false;
-        }
-    }
-    let snapshot = if list.len() > 1 {
-        let _clock = CompileScope::new(1);
-        super::snapshot::capture_page_list(&list).unwrap_or(snapshot)
-    }
-    else {
-        snapshot
-    };
     let ir_config = IrConfig {
         optimize: opt_level != 0,
         passes: crate::ir::passes::PassConfig {
@@ -1505,12 +1228,7 @@ unsafe fn compile_page_in(
     let compile_scope = Scope::new(Stage::Compile);
     let compile_clock = CompileScope::new(0);
     let started = crate::profiler::performance_codegen_start();
-    let compiled = if TIER0 && tier == 1 {
-        crate::ir::tier0::compile_page(&request, &snapshot, &entries, &extra, state_flags)
-    }
-    else {
-        compile_cpu_page(&request, &snapshot, &entries, &ir_config)
-    };
+    let compiled = compile_cpu_page(&request, &snapshot, &entries, &ir_config);
     crate::profiler::performance_codegen_finish(started);
     drop(compile_clock);
     drop(compile_scope);
@@ -1526,7 +1244,7 @@ unsafe fn compile_page_in(
             };
             s.stats[field] = s.stats[field].wrapping_add(1);
             if tier == 1 {
-                s.pages.compiled(key, &entries, None, &[]);
+                s.pages.compiled(key, &entries, None);
             }
             return false;
         },
@@ -1534,12 +1252,7 @@ unsafe fn compile_page_in(
     let served: Vec<CpuEntryKey> = artifact.cpu_entries().collect();
     {
         let mut s = SCHEDULER.try_lock().unwrap();
-        s.pages.compiled(
-            key,
-            &entries,
-            Some((&served, physical)),
-            &artifact.page_seeds,
-        );
+        s.pages.compiled(key, &entries, Some((&served, physical)));
         if tier == 2 {
             s.page_tier2 = s.page_tier2.wrapping_add(1);
         }

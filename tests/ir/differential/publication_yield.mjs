@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../../build/libv86.mjs";
 const wasm = process.argv[2] || "build/v86-ir-runtime.wasm";
-// disable_jit: IR starts idle (no scheduler, no Tier-0); each case enables it.
+// disable_jit: IR starts idle (no scheduler, no page tier); each case enables it.
 const vm = new V86({ graphics_adapter: "bochs_vga", wasm_path: wasm, disable_jit: true, memory_size: 32 << 20,
     bios: { buffer: Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer },
     disable_keyboard: true, disable_mouse: true, disable_speaker: true,

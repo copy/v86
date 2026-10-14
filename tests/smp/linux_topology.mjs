@@ -15,7 +15,7 @@ const affinity_probe = fs.readFileSync(local("../../build/smp/affinity_probe"));
 const TIMEOUT_MS = 120000;
 // (tests/lib/smp_modes.mjs)
 const jit_mode = process.env.SMP_JIT_MODE || "interpreter";
-assert.ok(["interpreter", "tier0", "region", "pages"].includes(jit_mode), "SMP_JIT_MODE must be interpreter, tier0, region or pages");
+assert.ok(["interpreter", "region", "pages"].includes(jit_mode), "SMP_JIT_MODE must be interpreter, region or pages");
 const counts = process.env.CPU_COUNTS ? process.env.CPU_COUNTS.split(",").map(Number) : [1, 2, 3, 4, 8];
 assert.ok(counts.every(count => Number.isInteger(count) && count >= 1 && count <= 8));
 const transcript_directory = process.env.C2_LOG_DIR;
@@ -86,9 +86,8 @@ async function test(count)
     let phase = "load";
     let rounds = 0;
     let summary;
-    const per_core_jit = Array.from({ length: count }, () => ({ tier0: 0, region: 0, pages: 0 }));
+    const per_core_jit = Array.from({ length: count }, () => ({ region: 0, pages: 0 }));
     const jit_counts = () => ({
-        tier0: cpu.wm.exports.ir_t0_entries() >>> 0,
         region: cpu.wm.exports.ir_cache_stat(2) >>> 0,
         // (instructions the page tier ran natively)
         pages: cpu.wm.exports.x64_page_stat(1) >>> 0,
@@ -135,7 +134,6 @@ async function test(count)
                 const before = jit_counts();
                 const result = execute(...args);
                 const after = jit_counts();
-                per_core_jit[core].tier0 += (after.tier0 - before.tier0) >>> 0;
                 per_core_jit[core].region += (after.region - before.region) >>> 0;
                 per_core_jit[core].pages += (after.pages - before.pages) >>> 0;
                 return result;
@@ -195,15 +193,14 @@ echo C2_DONE
         const smbios = check_smbios(cpu, count);
         const hits = jit_counts();
         const workload_jit = per_core_jit.map((counters, id) => ({
-            tier0: counters.tier0 - boot_jit[id].tier0,
             region: counters.region - boot_jit[id].region,
             pages: counters.pages - boot_jit[id].pages,
         }));
-        if(jit_mode === "interpreter") assert.deepEqual(hits, { tier0: 0, region: 0, pages: 0 }, "interpreter reference executed no compiled code");
+        if(jit_mode === "interpreter") assert.deepEqual(hits, { region: 0, pages: 0 }, "interpreter reference executed no compiled code");
         else
         {
             assert.ok(hits[jit_mode] > 0, `${jit_mode} compiled code actually executed`);
-            if(jit_mode === "region") assert.equal(hits.tier0, 0, "region arm did not execute Tier-0");
+            if(jit_mode === "region") assert.equal(hits.pages, 0, "region arm did not execute the page tier");
             for(let id = 0; id < count; id++)
             {
                 assert.ok(per_core_jit[id][jit_mode] > 0, `CPU ${id}: ${jit_mode} activations`);

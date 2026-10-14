@@ -6,7 +6,7 @@
 // operand is #GP(0) without effect and before #PF, except for MOVUPS,
 // MOVUPD, MOVDQU and LDDQU; UNPCKLPS/UNPCKLPD read 8 bytes of an aligned
 // m128; narrower operands, MMX forms and the masked stores need no
-// alignment. Each program runs in the interpreter, then hot under Tier-0 and
+// alignment. Each program runs in the interpreter, then hot under the page tier and
 // the region tiers; the fault log, registers and memory must agree after the
 // hot run and after one more round.
 import assert from "node:assert/strict";

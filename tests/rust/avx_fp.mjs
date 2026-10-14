@@ -7,7 +7,7 @@
 // four rounding modes, DAZ, FZ, masked and unmasked exceptions) and checks
 // the destination, MXCSR and the fault: #XM, or #UD without
 // CR4.OSXMMEXCPT, with the destination unchanged. Every case runs in the
-// interpreter, then hot under Tier-0 and the region tiers (the AVX helper).
+// interpreter, then hot under the page tier and the region tiers (the AVX helper).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";

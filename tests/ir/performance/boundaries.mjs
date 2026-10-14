@@ -1,6 +1,6 @@
 // Run from the repository root. Fixed-work timings follow bounded code warmup.
 // node tests/ir/performance/boundaries.mjs [current.wasm] [baseline.wasm]
-// Measures the IR region tiers, so Tier-0 is off.
+// Measures the IR region tiers, so ir_tier0 (32-bit code in the x64 page tier) is off.
 // IR_FUSION defaults to 0 so separated pages remain separate compiled regions.
 // Set IR_FUSION=1 explicitly to measure how much fusion recovers instead.
 import assert from "node:assert/strict";

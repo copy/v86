@@ -1,22 +1,19 @@
 #!/usr/bin/env node
-// Interrupts that a Tier-0 page function's own device access makes
-// deliverable (docs/jit-unification-plan.md P3.0b). A hot loop sends itself
+// Interrupts that a page function's own device access makes deliverable
+// (docs/jit-unification-plan.md P3.0b; written for IR Tier-0, deleted in
+// P7.5, now run on the x64 page tier in legacy mode, P7.3). A hot loop sends itself
 // an IPI through the local APIC's ICR, then sends another while the TPR
 // blocks it and lowers the TPR. Each interrupt must arrive right after the
 // APIC write that made it deliverable: the handler compares the return EIP
 // with the one the loop stored, and EOIs. The interpreter delivers inside
 // the write, after EIP advanced; a page function, whose GPRs and EIP are
-// in Wasm locals, must leave that write to ir_t0_step, which holds the
-// interrupt to the instruction boundary. Delivered inside a page function's
-// write, the interrupt frame is built from stale state, IF is cleared and the
-// vector stays in service: no further interrupt arrives (shown with the
-// emergency switch ir_t0_irq_deferral=0).
+// in Wasm locals, must leave that write to the interpreter: the page tier
+// retries device accesses there. Delivered inside a page function's write,
+// the interrupt frame would be built from stale state, IF cleared and the
+// vector left in service: no further interrupt arrives.
 //
 //   node tests/ir/differential/tier0_irq_slow.mjs [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
-// JIT_SWITCHES=x64_page_legacy32=1: the x64 page tier instead
-// (docs/jit-unification-plan.md P7.3), which retries device accesses in the
-// interpreter (no emergency switch to compare).
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
@@ -71,13 +68,10 @@ const handler = [
     0xCF,                                           // IRETD
 ];
 
-const page_tier = jit_switches_from_env().x64_page_legacy32 === 1;
-const engine = page_tier ? "the page tier" : "Tier-0";
-
-async function machine(tier0, switches = {}) {
+async function machine(compiled) {
     const vm = new V86({
         graphics_adapter: "bochs_vga", acpi: true,
-        wasm_path: wasm, disable_jit: !tier0, memory_size: 128 << 20, // reference: the interpreter only
+        wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20, // reference: the interpreter only
         // (page functions are installed as they are compiled, not in a Promise
         // continuation, which the whole loop can run ahead of)
         ir_sync_publication: true,
@@ -93,13 +87,11 @@ async function machine(tier0, switches = {}) {
         await sleep(1);
     }
     await vm.stop();
-    if(tier0) assert(e.ir_auto_set_tier0(1));
-    set_jit_switches(e, cpu.wasm_memory, { ...tier0 && page_tier ? { x64_legacy_heat: 2000, ...jit_switches_from_env() } : { x64_page_legacy32: 0 },
-        ...switches }, "tier0_irq_slow");
-    return { vm, cpu, e, tier0 };
+    if(compiled) set_jit_switches(e, cpu.wasm_memory, { x64_legacy_heat: 2000, ...jit_switches_from_env() }, "tier0_irq_slow");
+    return { vm, cpu, e, compiled };
 }
 
-async function run({ vm, cpu, e, tier0 }) {
+async function run({ vm, cpu, e, compiled }) {
     const view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
     cpu.mem8.set(code, CODE);
     cpu.mem8.set(handler, HANDLER);
@@ -127,7 +119,7 @@ async function run({ vm, cpu, e, tier0 }) {
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
-            throw new Error(`timeout (${tier0 ? engine : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
+            throw new Error(`timeout (${compiled ? "page tier" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
                 `status ${view.getUint32(0x608, true).toString(16)} counter ${view.getUint32(DATA + 124, true)}`);
         }
         await sleep(0);
@@ -142,10 +134,10 @@ async function run({ vm, cpu, e, tier0 }) {
         misplaced: view.getUint32(DATA + 104, true),
         misplaced_eip: view.getUint32(DATA + 100, true),
         pending_runs: view.getUint32(DATA + 96, true),
-        pages: !tier0 ? 0 : page_tier ? e.x64_page_stat(37) : e.ir_t0_stat(0),
-        // MOV DWORD [disp32], imm32 (C7 05): the APIC writes Tier-0 interpreted
-        // (the page tier's: its retries)
-        apic_steps: !tier0 ? 0 : page_tier ? e.x64_page_stat(2) : e.ir_t0_steps(0x05C7),
+        pages: compiled ? e.x64_page_stat(37) : 0,
+        // (the APIC writes, MOV DWORD [disp32], imm32, the page tier retried
+        // in the interpreter)
+        apic_steps: compiled ? e.x64_page_stat(2) : 0,
     };
 }
 
@@ -156,23 +148,11 @@ assert.equal(reference.misplaced, 0, `the interpreter delivered at ${reference.m
 assert.equal(reference.pending_runs, ITERATIONS);
 assert.equal(reference.esp, STACK);
 
-const tier0 = await run(await machine(true));
-assert(tier0.pages > 0, `no ${engine} page was compiled`);
-assert(tier0.apic_steps >= ITERATIONS, `${engine} interpreted ${tier0.apic_steps} APIC writes; the loop did not run in a page function`);
+const page = await run(await machine(true));
+assert(page.pages > 0, "no page was compiled");
+assert(page.apic_steps >= ITERATIONS, `the page tier retried ${page.apic_steps} APIC writes; the loop did not run in a page function`);
 const strip = ({ pages, apic_steps, ...rest }) => rest;
-assert.deepEqual(strip(tier0), strip(reference), `interrupts from ${engine}'s APIC writes differ from the interpreter`);
-if(page_tier) {
-    console.log(`PASS: ${reference.taken} interrupts from APIC writes in page tier pages (${tier0.pages} page compiles, ` +
-        `${tier0.apic_steps} retries) match the interpreter`);
-    process.exit(0);
-}
-
-// The emergency switch restores the old delivery inside the page function.
-const off = await run(await machine(true, { ir_t0_irq_deferral: 0 }));
-assert(off.taken < reference.taken && off.esp !== STACK,
-    `with ir_t0_irq_deferral=0, ${off.taken} interrupts and ESP ${off.esp.toString(16)}: the test no longer sees the old bug`);
-
-console.log(`PASS: ${reference.taken} interrupts from APIC writes in Tier-0 pages (${tier0.pages} page compiles, ` +
-    `${tier0.apic_steps} APIC writes stepped) match the interpreter; without deferral ${off.taken} arrive ` +
-    `and ${STACK - off.esp} bytes of interrupt frames stay on the stack`);
+assert.deepEqual(strip(page), strip(reference), "interrupts from the page tier's APIC writes differ from the interpreter");
+console.log(`PASS: ${reference.taken} interrupts from APIC writes in page tier pages (${page.pages} page compiles, ` +
+    `${page.apic_steps} retries) match the interpreter`);
 process.exit(0);

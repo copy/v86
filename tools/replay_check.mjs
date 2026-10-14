@@ -1,25 +1,22 @@
 #!/usr/bin/env node
 // The byte-identity check of the JITs' generated code
 // (docs/jit-unification-plan.md P2.0, cross-phase rule 4): records of
-// compilations (src/rust/ir/tier0/replay.rs) replayed in a base build and in
-// the working tree, under fixed pseudo addresses, must give the same bytes.
-// Both JITs: IR Tier-0 (src/rust/ir/tier0/replay.rs) and the x64 page tier
-// (src/rust/x64/replay.rs). The records are each base's synthetic corpus
-// (every SIMD form Tier-0's templates take, every SSE form the page tier's
+// compilations of the x64 page tier (src/rust/x64/replay.rs) replayed in a
+// base build and in the working tree, under fixed pseudo addresses, must give
+// the same bytes. (IR Tier-0's, *.t0r, went with it in P7.5.) The records are
+// each base's synthetic corpus (every SSE form the page tier's templates
 // take) and any recordings given with --records (made with
-// tools/replay_record.mjs from real workloads: the file name says the
-// engine, *.t0r or *.x6r).
+// tools/replay_record.mjs from real workloads, *.x6r).
 //
 // - BASE (--base, default HEAD) builds build/v86-ir-test-release.wasm in the
 //   worktree build/core-split/base (shared with core_split_check.mjs), the
 //   working tree its own; --base-wasm and --new-wasm take built ones instead.
 // - Exit 1 when a record's bytes differ, unless --allow-changes (a change
 //   meant to alter generated code reports which records it changed);
-//   --allow-changes x64 (or tier0; comma-separated) allows only that
-//   engine's: the other must still give the same bytes.
+//   --allow-changes x64 allows only that engine's (the only one now).
 //
 // Usage: tools/replay_check.mjs [--base REV] [--base-wasm f] [--new-wasm f]
-//        [--records file.t0r ...] [--allow-changes [tier0,x64]]
+//        [--records file.x6r ...] [--allow-changes [x64]]
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -79,7 +76,7 @@ async function load(file)
 }
 
 // the exports of each engine: <prefix>record_count, ..., <prefix>replay
-const ENGINES = [{ name: "tier0", prefix: "ir_t0_", extension: ".t0r" }, { name: "x64", prefix: "x64_page_", extension: ".x6r" }];
+const ENGINES = [{ name: "x64", prefix: "x64_page_", extension: ".x6r" }];
 
 /** The records a core holds for an engine (<prefix>record_*) */
 function records_of(e, engine)
@@ -115,28 +112,18 @@ const same = (a, b) => a === b || a && b && a.length === b.length && Buffer.comp
 /** A short name of a record: its first instruction's bytes, from the first entry */
 function describe(engine, record)
 {
-    if(engine.name === "x64")
-    {
-        // (magic 4, flags, the entry count, the entries, the next bytes' count and them, the page)
-        const view = Buffer.from(record), entries = view.readUInt16LE(5), first = view.readUInt16LE(7);
-        const next_at = 7 + 2 * entries, page = next_at + 2 + view.readUInt16LE(next_at);
-        return `+${first.toString(16)}: ${view.subarray(page + first, page + first + 8).toString("hex")}`;
-    }
-    // (magic 4, flags, state flags, link, pc 4, linear 4, default_32, the
-    // mapping count at 16, the mappings, the pages, the entry count)
-    const view = Buffer.from(record);
-    const pages = view[16], entries = 17 + 8 * pages + 4096 * pages;
-    const linear = view.readUInt32LE(entries + 2 + 4), first = view.readUInt32LE(17);
-    const code = 17 + 8 * pages + (linear - first);
-    return `${linear.toString(16)}: ${view.subarray(code, code + 8).toString("hex")}`;
+    // (magic 4, flags, the entry count, the entries, the next bytes' count and them, the page)
+    const view = Buffer.from(record), entries = view.readUInt16LE(5), first = view.readUInt16LE(7);
+    const next_at = 7 + 2 * entries, page = next_at + 2 + view.readUInt16LE(next_at);
+    return `+${first.toString(16)}: ${view.subarray(page + first, page + first + 8).toString("hex")}`;
 }
 
 const base_wasm = option("--base-wasm") || build_base(option("--base") || "HEAD");
 const new_wasm = option("--new-wasm") || (run(ROOT, "make", [ARTIFACT]), path.join(ROOT, ARTIFACT));
 const [base, next] = [await load(base_wasm), await load(new_wasm)];
-if(!base["ir_t0_replay"] || !next["ir_t0_replay"])
+if(!base["x64_page_replay"] || !next["x64_page_replay"])
 {
-    console.log(`replay-check: ${!base["ir_t0_replay"] ? "the base" : "the working tree"} has no replay (ir-test-hooks before P2.0): skipped`);
+    console.log(`replay-check: ${!base["x64_page_replay"] ? "the base" : "the working tree"} has no replay (ir-test-hooks before P2.0): skipped`);
     process.exit(0);
 }
 // (the engines whose changes are allowed: --allow-changes alone, every one)

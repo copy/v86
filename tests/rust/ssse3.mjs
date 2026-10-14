@@ -6,7 +6,7 @@
 // rules: #UD without SSSE3, with CR0.EM, LOCK or an F2/F3 prefix, #NM with
 // CR0.TS, #GP for a misaligned XMM memory operand (none for MMX) and #PF,
 // each without effect. Every case runs in the interpreter, then hot under
-// Tier-0 and the region tiers.
+// The page tier and the region tiers.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -219,21 +219,23 @@ try
                 program.push(...store, ...absolute(dst, OUT + n * 16));
             }
             if(!xmm) program.push(...EMMS);
-            for(const vm of machines) vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+            for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
             const runs = await run_all(program, vm => {
                 vm.write_memory(destinations, DEST);
                 vm.write_memory(sources, SOURCE);
                 vm.write_memory(new Uint8Array(count * 16), OUT);
             }, machines, vm => bytes(vm, OUT, count * 16));
-            // Tier-0 (machine 1) has templates for PSHUFB and PALIGNR; it
-            // steps the others through the interpreter (keyed by their first
-            // two bytes: 66 0F, 0F 38 or 0F 3A), each round. A build without
-            // Wasm SIMD has no SIMD templates: its MOVQ/MOVDQU loads step too.
-            const t0_steps = machines[1].v86.cpu.wm.exports["ir_t0_steps"];
-            const steps = t0_steps(xmm ? 0x0F66 : op === PALIGNR ? 0x3A0F : 0x380F);
-            const templates = t0_steps(xmm ? 0x0FF3 : 0x6F0F) < count / 2;
-            if(templates && (op === 0x00 || op === PALIGNR)) assert.ok(steps < count / 2, `${name}: Tier-0 template (${steps} steps)`);
-            else assert.ok(steps >= count, `${name}: Tier-0 steps (${steps})`);
+            // The page tier (machine 1) has templates for PSHUFB and PALIGNR on
+            // XMM registers (IR Tier-0, deleted in P7.5, also had the MMX
+            // ones); it steps the others through the interpreter (keyed by
+            // their first two bytes: 66 0F, 0F 38 or 0F 3A), each round. A
+            // build without Wasm SIMD has no SIMD templates: its MOVQ/MOVDQU
+            // loads step too.
+            const page_steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
+            const steps = page_steps(xmm ? 0x0F66 : op === PALIGNR ? 0x3A0F : 0x380F);
+            const templates = page_steps(xmm ? 0x0FF3 : 0x6F0F) < count / 2;
+            if(templates && xmm && (op === 0x00 || op === PALIGNR)) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
+            else assert.ok(steps >= count, `${name}: the page tier steps (${steps})`);
             const results = runs.map(({ data }) => data);
             for(let n = 0; n < count; n++)
             {
@@ -253,7 +255,7 @@ try
         }
     }
     checks += cases;
-    console.log(`PASS: ${cases} SSSE3 cases (${OPS.length} MMX and XMM forms, register and memory sources, all PALIGNR shifts) match the SDM model on 3 arms; Tier-0 templates PSHUFB and PALIGNR`);
+    console.log(`PASS: ${cases} SSSE3 cases (${OPS.length} MMX and XMM forms, register and memory sources, all PALIGNR shifts) match the SDM model on 3 arms; the page tier templates XMM PSHUFB and PALIGNR`);
 
     // The MMX forms alias the x87 registers: the destination's exponent is all
     // ones, TOP is 0 and all tags are valid. A fault changes nothing.

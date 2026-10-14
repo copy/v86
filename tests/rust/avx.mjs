@@ -9,7 +9,7 @@
 // CR0.TS (after #UD); CR0.EM and CR4.OSFXSR do not matter; #PF has no
 // effect. Operands alias in every combination; VEX.W and VEX.L where they
 // are ignored, and both VEX prefixes. Every case runs in the interpreter,
-// then hot under Tier-0 (templates for the hot forms, steps for the others)
+// then hot under the page tier (templates for the hot forms, steps for the others)
 // and the region tiers (natively on the legacy SSE lifters, or through the
 // AVX helpers, ir::runtime::avx).
 //
@@ -214,40 +214,42 @@ const pages = (vm, page, present) => {
     vm.write_memory(Uint8Array.from(u32(present ? page | 3 : 0)), 0x13000 + (page >>> 12) * 4);
     vm.v86.cpu.wm.exports["full_clear_tlb"]();
 };
-/** The rounds of a check_cases program that Tier-0 (machine 1) ran since
- * ir_t0_steps_reset: it steps each case's XRSTOR and XSAVE (0F AE) */
-const tier0_rounds = () => machines[1].v86.cpu.wm.exports["ir_t0_steps"](0xAE0F) / 2;
-// The VEX forms of gen/isa_hot_forms.json, which have Tier-0 templates (P5
+/** The rounds of a check_cases program that the page tier (machine 1) ran since
+ * x64_page_steps_reset: it steps each case's XRSTOR and XSAVE (0F AE) */
+const page_rounds = () => machines[1].v86.cpu.wm.exports["x64_page_steps"](0xAE0F) / 2;
+// The VEX forms of gen/isa_hot_forms.json, which have page tier templates (P5
 // part 5): the others here, against every case; the floating-point ones with
-// ordinary operands (see TIER0_HOT_FP)
-const TIER0_HOT = ["vmovsd", "vmovss", "vmovapd", "vmovaps", "vmovdqu", "vmovdqa", "vmovq", "vmovd", "vxorpd", "vxorps",
+// ordinary operands (see PAGE_HOT_FP)
+const PAGE_HOT = ["vmovsd", "vmovss", "vmovapd", "vmovaps", "vmovdqu", "vmovdqa", "vmovq", "vmovd", "vxorpd", "vxorps",
     "vandpd", "vandnpd", "vorpd", "vpand", "vpandn", "vpor", "vpxor", "vpcmpeqb", "vpcmpeqd", "vpcmpgtb", "vpaddb",
     "vpmovmskb", "vzeroupper", "vunpcklpd", "vunpckhpd", "vblendvpd", "vpshufb", "vpbroadcastb", "vpbroadcastd"];
 // The VEX.256 ones (P6 part 3: the moves and VZEROALL; with the moves of
 // the other types): every form of the name templated
-const TIER0_HOT_256 = ["vmovdqu", "vmovdqa", "vmovntdq", "vzeroall", "vmovups", "vmovaps", "vmovupd", "vmovapd",
+const PAGE_HOT_256 = ["vmovdqu", "vmovdqa", "vmovntdq", "vzeroall", "vmovups", "vmovaps", "vmovupd", "vmovapd",
     "vmovntps", "vmovntpd",
     // (AVX2, P7 part 3)
     "vpmovmskb", "vpcmpeqb", "vpcmpeqd", "vpaddb", "vpandn", "vpminub", "vpcmpgtb", "vpand", "vpminud", "vpor", "vpxor",
     "vpbroadcastb", "vpbroadcastd"].map(name => name + " ymm");
-const TIER0_HOT_FP = ["vaddsd", "vmulsd", "vsubsd", "vdivsd", "vaddss", "vmulss", "vsubss", "vdivss", "vmulpd", "vcomisd",
-    "vucomisd", "vcomiss", "vucomiss", "vcmpsd", "vcvttsd2si", "vcvtsd2ss", "vcvtsi2sd", "vcvtss2sd", "vcvtpd2ps"];
+// (IR Tier-0, deleted in P7.5, also templated VCVTTSD2SI, VCVTSD2SS,
+// VCVTSI2SD, VCVTSS2SD and VCVTPD2PS; the page tier steps them)
+const PAGE_HOT_FP = ["vaddsd", "vmulsd", "vsubsd", "vdivsd", "vaddss", "vmulss", "vsubss", "vdivss", "vmulpd", "vcomisd",
+    "vucomisd", "vcomiss", "vucomiss", "vcmpsd"];
 // The hot forms the region tiers run without the AVX helpers (P5 part 6):
-// TIER0_HOT's but VBLENDVPD (BLENDVPD's helper) and VPSHUFB (from memory:
+// PAGE_HOT's but VBLENDVPD (BLENDVPD's helper) and VPSHUFB (from memory:
 // PSHUFB's helper) and AVX2's broadcasts (the AVX helper)
-const REGIONS_NATIVE = TIER0_HOT.filter(name => !["vblendvpd", "vpshufb", "vpbroadcastb", "vpbroadcastd"].includes(name));
-/** The forms whose cases Tier-0 ran templates for (fewer steps than cases)
+const REGIONS_NATIVE = PAGE_HOT.filter(name => !["vblendvpd", "vpshufb", "vpbroadcastb", "vpbroadcastd"].includes(name));
+/** The forms whose cases the page tier ran templates for (fewer steps than cases)
  * or stepped, by name (" ymm": a VEX.256 form's) */
-const tier0_forms = { templated: new Set(), stepped: new Set() };
+const page_forms = { templated: new Set(), stepped: new Set() };
 /** The forms the region tiers ran without the AVX helpers (no calls in the
  * hot run) or with them */
 const region_forms = { native: new Set(), helper: new Set() };
-/** VEX instructions stepped by Tier-0 (machine 1) since ir_t0_steps_reset:
+/** VEX instructions stepped by the page tier (machine 1) since x64_page_steps_reset:
  * keyed by their first two bytes, C4 or C5 and the next, or an address-size
  * or segment prefix and C4 or C5 */
-function tier0_vex_steps()
+function page_vex_steps()
 {
-    const steps = machines[1].v86.cpu.wm.exports["ir_t0_steps"];
+    const steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
     let count = 0;
     for(let byte = 0; byte < 256; byte++) count += steps(0xC4 | byte << 8) + steps(0xC5 | byte << 8);
     for(const prefix of [0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65, 0x67]) count += steps(prefix | 0xC400) + steps(prefix | 0xC500);
@@ -260,9 +262,9 @@ const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
 /** Runs `cases` in one program: each loads its registers with XRSTOR, runs
  * its `code` between `pre` and `post` and stores its registers with XSAVE;
  * the registers, MXCSR, its destination memory and `out` must be as its
- * `model` says, in each run. Returns the VEX instructions Tier-0 stepped in
- * its hot run; with the `form` under test, records whether Tier-0 ran a
- * template for it (tier0_forms) */
+ * `model` says, in each run. Returns the VEX instructions the page tier stepped in
+ * its hot run; with the `form` under test, records whether the page tier ran a
+ * template for it (page_forms) */
 async function check_cases(name, cases, { before = () => {}, form } = {})
 {
     const program = [];
@@ -283,7 +285,7 @@ async function check_cases(name, cases, { before = () => {}, form } = {})
     };
     for(const vm of machines)
     {
-        vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+        vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
         vm.v86.cpu.wm.exports["ir_avx_calls_reset"]();
     }
     const settled = vex_settled(0x600);
@@ -294,22 +296,22 @@ async function check_cases(name, cases, { before = () => {}, form } = {})
             dest: bytes(vm, c.destination_at ?? DEST + c.n * SPAN, SPAN),
             out: bytes(vm, OUT + c.n * 16, 16),
         })),
-        tier0: vm === machines[1] ? tier0_vex_steps() : 0,
+        page: vm === machines[1] ? page_vex_steps() : 0,
         avx_calls: vm.v86.cpu.wm.exports["ir_avx_calls"](),
-    }), vm => vm === machines[1] ? tier0_rounds() >= cases.length :
+    }), vm => vm === machines[1] ? page_rounds() >= cases.length :
         vm === machines[2] && simd(vm) ? settled(vm) : true);
-    // (the hot runs ran the VEX forms compiled: Tier-0 a template or steps,
+    // (the hot runs ran the VEX forms compiled: the page tier a template or steps,
     // the region tiers call the AVX helper, but in a build without Wasm
-    // SIMD, which has neither Tier-0 SIMD templates nor regions with XMM state)
-    const steps = results[2].data.tier0;
+    // SIMD, which has neither page tier SIMD templates nor regions with XMM state)
+    const steps = results[2].data.page;
     if(form)
     {
         // (a template retries some cases at most: floating-point lanes it refuses)
-        if(steps < cases.length / 2 && simd(machines[1])) tier0_forms.templated.add(form_key(form));
+        if(steps < cases.length / 2 && simd(machines[1])) page_forms.templated.add(form_key(form));
         else
         {
-            assert.ok(steps >= cases.length || form.kind === "fp", `${name}: Tier-0 stepped ${steps} VEX instructions`);
-            tier0_forms.stepped.add(form_key(form));
+            assert.ok(steps >= cases.length || form.kind === "fp", `${name}: the page tier stepped ${steps} VEX instructions`);
+            page_forms.stepped.add(form_key(form));
         }
     }
     if(form && simd(machines[2])) region_forms[results[4].data.avx_calls ? "helper" : "native"].add(form_key(form));
@@ -351,16 +353,16 @@ const CASES = 32;
 async function expect_fault(setup, faulting, vector, { epilogue = [], before = () => {}, cr2, error_code, label, memory, keep_upper = true, registers = {}, uppers = {} } = {})
 {
     const at = CODE + PROLOGUE.length + xrstor(0).length + setup.length;
-    for(const vm of machines) vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+    for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
     const results = await run_all([...xrstor(area_in(0)), ...setup, ...faulting, ...epilogue, ...xsave(area_out(0))], vm => {
         vm.write_memory(Uint8Array.from(u32(faulting.length)), SKIP);
         vm.write_memory(area(0, registers, uppers), area_in(0));
         before(vm);
     }, machines, vm => ({ fault: [0, 4, 8, 12].map(o => word(vm, FAULT + o)), area: bytes(vm, area_out(0), 832),
         memory: memory && bytes(vm, memory[0], memory[1].length) }),
-    // (Tier-0 steps XRSTOR: the faulting form runs as a template once the
+    // (the page tier steps XRSTOR: the faulting form runs as a template once the
     // page has been compiled again with an entry after it)
-    vm => vm !== machines[1] || tier0_rounds() >= 300);
+    vm => vm !== machines[1] || page_rounds() >= 300);
     const name = label || hex(faulting);
     const initial_area = area(0, registers, uppers);
     for(const { label: run, data } of results)
@@ -603,10 +605,10 @@ try
     }
     if(simd(machines[1]))
     {
-        for(const name of TIER0_HOT.filter(name => !only || only.includes(name))) assert.ok(tier0_forms.templated.has(name), `${name}: a Tier-0 template`);
-        for(const name of TIER0_HOT_256.filter(name => !only || only.includes(name.slice(0, -4))))
+        for(const name of PAGE_HOT.filter(name => !only || only.includes(name))) assert.ok(page_forms.templated.has(name), `${name}: a page tier template`);
+        for(const name of PAGE_HOT_256.filter(name => !only || only.includes(name.slice(0, -4))))
         {
-            assert.ok(tier0_forms.templated.has(name) && !tier0_forms.stepped.has(name), `${name}: Tier-0 templates`);
+            assert.ok(page_forms.templated.has(name) && !page_forms.stepped.has(name), `${name}: the page tier templates`);
         }
     }
     if(simd(machines[2]))
@@ -615,9 +617,9 @@ try
     }
     if(process.env.AVX_REGION_FORMS) console.log("regions without the AVX helpers:", [...region_forms.native].join(","), "\nwith them:", [...region_forms.helper].join(","));
     console.log(`PASS: ${FORMS.filter(f => !f.long).length} forms against the model, from registers and memory: bits 255:128 of register destinations zeroed; ` +
-        `Tier-0 templates for ${tier0_forms.templated.size} of them, the region tiers without the AVX helpers for ${region_forms.native.size}`);
+        `The page tier templates for ${page_forms.templated.size} of them, the region tiers without the AVX helpers for ${region_forms.native.size}`);
 
-    // The floating-point hot forms run Tier-0 templates (or their exact path)
+    // The floating-point hot forms run page tier templates (or their exact path)
     // for ordinary operands: finite, normal and of moderate size
     {
         const values = [1.5, -2.25, 3000, -0.007, 1024, -1, 650, 0.125];
@@ -631,7 +633,7 @@ try
             }
             return b;
         };
-        for(const f of FORMS.filter(f => !f.long && !f.l && TIER0_HOT_FP.includes(f.name) && (!only || only.includes(f.name))))
+        for(const f of FORMS.filter(f => !f.long && !f.l && PAGE_HOT_FP.includes(f.name) && (!only || only.includes(f.name))))
         {
             const double = f.legacy.double ?? f.legacy.kind === "narrow";
             const cases = Array.from({ length: CASES }, (_, n) => {
@@ -642,12 +644,12 @@ try
                 return c;
             });
             const steps = await check_cases(`${f.name} of ordinary operands`, cases);
-            if(simd(machines[1])) assert.ok(steps < CASES / 2, `${f.name}: a Tier-0 template (${steps} steps)`);
+            if(simd(machines[1])) assert.ok(steps < CASES / 2, `${f.name}: a page tier template (${steps} steps)`);
         }
     }
     // VEX.256 moves among VEX.128 forms in one block (P6 part 3): a VEX.128
     // write zeroes bits 255:128 again after a VEX.256 move wrote them
-    // (Tier-0 zeroes a register's once per block, Page::ymm_zeroed), the
+    // (the page tier zeroes a register's once per block, Emitter::ymm_zeroed), the
     // halves between registers and memory, VZEROALL
     {
         const cases = [];
@@ -692,45 +694,14 @@ try
             } });
         }
         const steps = await check_cases("VEX.256 moves and VEX.128 forms in a block", cases);
-        if(simd(machines[1])) assert.ok(steps < cases.length / 2, `VEX.256 moves in a block: Tier-0 templates (${steps} steps)`);
+        if(simd(machines[1])) assert.ok(steps < cases.length / 2, `VEX.256 moves in a block: the page tier templates (${steps} steps)`);
     }
-    console.log(`PASS: Tier-0 templates for ${TIER0_HOT.length + TIER0_HOT_FP.length + TIER0_HOT_256.length} hot forms, VEX.256 moves among VEX.128 forms in a block`);
+    console.log(`PASS: the page tier templates for ${PAGE_HOT.length + PAGE_HOT_FP.length + PAGE_HOT_256.length} hot forms, VEX.256 moves among VEX.128 forms in a block`);
 
-    // An interpreted VEX instruction continues the interpreter's run as a
-    // legacy SSE one does: a round of a loop of VEX forms, interpreted until
-    // Tier-0 compiles its page again, dispatches as often as the same loop of
-    // their legacy forms (the instruction after each was a dispatch entry,
-    // where Tier-0 split its blocks: P5 part 5)
-    if(simd(machines[1]))
-    {
-        // (register forms: no retries) MOVAPS, PXOR, PADDB, PAND, POR,
-        // PCMPEQD, XORPS and MOVDQA; reg, the destination, r/m the source
-        const FORMS_BLOCKS = [[0, 0x28, 1, 2], [1, 0xEF, 3, 4], [1, 0xFC, 5, 6], [1, 0xDB, 7, 0], [1, 0xEB, 1, 3],
-            [1, 0x76, 2, 5], [0, 0x57, 4, 7], [1, 0x6F, 6, 1]];
-        const dispatches = vm => vm.v86.cpu.wm.exports["ir_auto_stat"](0);
-        const counts = {};
-        for(const as_vex of [false, true])
-        {
-            const body = [];
-            for(const [pp, op, reg, rm] of [...FORMS_BLOCKS, ...FORMS_BLOCKS])
-            {
-                // (the moves have one source: VEX.vvvv 1111b)
-                const first = op === 0x28 || op === 0x6F ? 0 : reg;
-                body.push(...as_vex ? vex({ pp, vvvv: first }, op, reg, rm) : [...pp ? [0x66] : [], 0x0F, op, 0xC0 | reg << 3 | rm]);
-            }
-            // ECX = 32; a loop of the body; DEC ECX; JNZ
-            const program = [...mov_r32(1, 32), ...body, 0x49, 0x75, -(body.length + 3) & 255];
-            let start;
-            const results = await run_all(program, vm => { start = dispatches(vm); }, [machines[0], machines[1]],
-                vm => dispatches(vm) - start);
-            // (machine 1's round after the program was written again)
-            counts[as_vex] = results[3].data;
-        }
-        assert.ok(counts[false] > 0 && counts[true] <= counts[false] + 8,
-            `dispatches in a round: ${counts[true]} with VEX forms, ${counts[false]} with their legacy forms`);
-        checks++;
-    }
-    console.log("PASS: a loop of VEX forms dispatches in the interpreter as the same loop of legacy SSE forms");
+    // (IR Tier-0 made the instruction after an interpreted VEX one a dispatch
+    // entry, so a loop of VEX forms was checked to dispatch as often as one of
+    // their legacy forms, P5 part 5; the page tier, which replaced it in
+    // P7.5, interprets 32-bit code one instruction at a time, VEX or not)
 
     // VMASKMOVDQU to [DI] with an address-size prefix (DI's address below
     // 64 KiB; EDI's upper half ignored)
@@ -998,7 +969,7 @@ try
         for(const f of FORMS.filter(f => f.aligned))
         {
             const store = f.kind === "store";
-            // (first an ordinary access to the same page: Tier-0's template
+            // (first an ordinary access to the same page: the page tier's template
             // finds it in the TLB, where its alignment check decides)
             const warm = store ? [0xA3, ...u32(DEST + 0x100)] : [0xA1, ...u32(SOURCE + 0x100)];
             // (VEX.256: aligned to 16 bytes, not to 32)
@@ -1072,7 +1043,7 @@ try
             vm.write_memory(Uint8Array.from(u32(faulting.length)), SKIP);
             vm.write_memory(initial, area_in(0));
         }, machines, vm => ({ fault: [0, 4].map(o => word(vm, FAULT + o)), area: bytes(vm, area_out(0), 832) }),
-        vm => vm !== machines[1] || tier0_rounds() >= 300);
+        vm => vm !== machines[1] || page_rounds() >= 300);
         for(const { label, data } of results)
         {
             assert.deepEqual(data.fault, [19, at], `vaddps ymm, an SNaN in the high half (${label}): #XM`);
