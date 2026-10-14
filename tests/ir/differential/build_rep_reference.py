@@ -14,8 +14,15 @@ old = subprocess.check_output(["git", "show", f"{COMMIT}:{SOURCE}"], cwd=ROOT).d
 start = old.index("// We implement all string instructions here")
 end = old.index("\n#[no_mangle]\npub unsafe fn movsb_rep", start)
 body = old[start:end].replace("unsafe fn string_instruction(", "unsafe fn string_instruction_reference(", 1)
+# (memory::in_svga_lfb and memcpy_into_svga_lfb are gone: the pinned body
+# takes its generic path into the frame buffer, which only its MOVS fast path
+# skipped; the string semantics the tests compare are the same)
+body = body.replace("memory::in_svga_lfb(addr)", "false").replace(
+    "memory::memcpy_into_svga_lfb(", "reference_lfb_copy(")
+body += "\nunsafe fn reference_lfb_copy(_: u32, _: u32, _: u32) { unreachable!() }\n"
 current = (ROOT / SOURCE).read_text()
-start = current.index("// Interpreter callers retain their unbounded/page-bounded execution policy.")
+# (the comment above the interpreter's string_instruction, reworded in bb8979f3)
+start = current.index("// Single-core interpreter callers retain their original page-bounded policy.")
 end = current.index("/// Explicit progress", start)
 wrapper = """#[inline(always)]
 unsafe fn string_instruction(is_asize_32: bool, ds_or_prefix: i32, instruction: Instruction, size: Size, rep: Rep) {
