@@ -238,7 +238,7 @@ export const STATICS = {
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)
-    "step_profile.rs": { PROFILE: "debug", SAMPLES: "debug", PAIRS: "debug", SNAPSHOT: "debug", X64_LEGACY: "debug", X64_LEGACY_STALE: "debug" },
+    "step_profile.rs": { PROFILE: "debug", SAMPLES: "debug", PAIRS: "debug", PAIRS_FROZEN: "debug", SNAPSHOT: "debug", X64_LEGACY: "debug", X64_LEGACY_STALE: "debug" },
     // the parallel runtime: where this instance's statics are and whether
     // cores run in workers, then machine-wide words reached through machine():
     // wake-ups, yield flags, the locks of locked operations and the code

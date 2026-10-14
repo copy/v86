@@ -74,6 +74,8 @@ async function run(vm, program, warm, interpreter)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
+    // (the page tier's step counts are the hot run's: x64_page_steps)
+    else e["x64_page_steps_freeze"]();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;
@@ -229,11 +231,11 @@ try
             // XMM registers (IR Tier-0, deleted in P7.5, also had the MMX
             // ones); it steps the others through the interpreter (keyed by
             // their first two bytes: 66 0F, 0F 38 or 0F 3A), each round. A
-            // build without Wasm SIMD has no SIMD templates: its MOVQ/MOVDQU
-            // loads step too.
+            // build without Wasm SIMD has no SIMD templates (it still moves
+            // XMM registers natively).
             const page_steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
             const steps = page_steps(xmm ? 0x0F66 : op === PALIGNR ? 0x3A0F : 0x380F);
-            const templates = page_steps(xmm ? 0x0FF3 : 0x6F0F) < count / 2;
+            const templates = machines[1].v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
             if(templates && xmm && (op === 0x00 || op === PALIGNR)) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
             else assert.ok(steps >= count, `${name}: the page tier steps (${steps})`);
             const results = runs.map(({ data }) => data);

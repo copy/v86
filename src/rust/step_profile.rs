@@ -167,6 +167,7 @@ pub unsafe fn set_enabled(on: bool) {
         PROFILE = on.then(HashMap::new);
         SAMPLES = None;
         PAIRS = Vec::new();
+        PAIRS_FROZEN = false;
         X64_LEGACY_STALE = true;
     }
 }
@@ -178,6 +179,7 @@ pub unsafe fn step_profile_reset() {
     }
     SAMPLES = None;
     PAIRS = Vec::new();
+    PAIRS_FROZEN = false;
     X64_LEGACY_STALE = true;
 }
 
@@ -380,6 +382,9 @@ pub unsafe fn read_legacy(address: u32, physical: u32, bytes: &mut [u8; 15]) -> 
 /// Steps by their first two bytes (little-endian, as IR Tier-0 counted
 /// them before P7.5): the ISA tests' check that a form ran as a template
 static mut PAIRS: Vec<u32> = Vec::new();
+/// x64_page_steps_freeze: PAIRS keep their counts until the next reset
+static mut PAIRS_FROZEN: bool = false;
+pub unsafe fn freeze_pairs() { PAIRS_FROZEN = true; }
 pub unsafe fn pair_count(pair: u32) -> u32 {
     (&*(&raw const PAIRS))
         .get(pair as usize & 0xFFFF)
@@ -391,7 +396,7 @@ pub unsafe fn pair_count(pair: u32) -> u32 {
 /// they are the key's sample (step_profile_sample)
 pub unsafe fn note_sampled(key: u32, address: u32, bytes: &[u8]) {
     note(key);
-    if let Some(&b0) = bytes.first() {
+    if let Some(&b0) = bytes.first().filter(|_| !PAIRS_FROZEN) {
         let pairs = &mut *(&raw mut PAIRS);
         pairs.resize(0x10000, 0);
         let pair = b0 as usize | (*bytes.get(1).unwrap_or(&0) as usize) << 8;

@@ -1086,6 +1086,7 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build
 	node tests/ir/differential/page_smc.mjs
 	node tests/ir/differential/page_vector_ts.mjs
 	node tests/ir/differential/page_x87_cw.mjs
+	node tests/ir/differential/page_crossing.mjs
 	# (multi-page functions, x64_page_clusters: P7.3b; spans form after one
 	# crossing)
 	for kind in "" m s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done

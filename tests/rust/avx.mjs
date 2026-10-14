@@ -127,6 +127,8 @@ async function run(vm, program, warm, interpreter, label, until = () => true)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
+    // (the page tier's step counts are the hot run's: x64_page_steps)
+    else e["x64_page_steps_freeze"]();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;

@@ -124,6 +124,8 @@ async function run(vm, program, warm, interpreter, label)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
+    // (the page tier's step counts are the hot run's: x64_page_steps)
+    else e["x64_page_steps_freeze"]();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;
@@ -219,15 +221,17 @@ async function create_machines(options = {})
     }
     return set;
 }
+/** The build has Wasm SIMD (the fallback build has no SIMD templates) */
+const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
 /** The page tier (machine 1) ran a template for the form under test, whose
  * interpreter steps are keyed by its first two bytes, 66 0F; or stepped it
- * each round. A build without Wasm SIMD has no SIMD templates: its MOVDQU
- * (F3 0F) steps too. Reset the counts before the run (x64_page_steps_reset). */
+ * each round. A build without Wasm SIMD has no SIMD templates. Reset the
+ * counts before the run (x64_page_steps_reset). */
 function page_ran(name, templated, count)
 {
     const page_steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
     const steps = page_steps(0x0F66);
-    if(templated && page_steps(0x0FF3) < count / 2) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
+    if(templated && simd(machines[1])) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
     else assert.ok(steps >= count, `${name}: the page tier steps (${steps})`);
 }
 /** `faulting` raises `vector` at its first byte after `prologue` (the
@@ -509,7 +513,7 @@ try
             assert.equal(new DataView(result.buffer, result.byteOffset).getUint32(count * 16, true), fp.finish().mxcsr, `${label}: MXCSR`);
             const page = machines[1].v86.cpu.wm.exports;
             const steps = page["x64_page_steps"](0x0F66), calls = page["x64_sse_fp_calls"](0x660F3A00 | op);
-            if(page["x64_page_steps"](0x0FF3) >= count / 2) assert.ok(steps >= count, `${label}: the page tier steps without Wasm SIMD (${steps})`);
+            if(!simd(machines[1])) assert.ok(steps >= count, `${label}: the page tier steps without Wasm SIMD (${steps})`);
             else if(nan) assert.ok(calls + steps >= count / 4, `${label}: NaN lanes leave the template (${calls} calls, ${steps} steps and retries)`);
             else assert.ok(calls === 0 && steps < count / 2, `${label}: the page tier rounds natively (${calls} calls, ${steps} steps)`);
             checks += count;

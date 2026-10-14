@@ -859,7 +859,10 @@ pub unsafe fn run(budget: u32) -> Attempt {
     r.last_page = here;
     r.last_rip = rip;
     // Far transfers (not the next few bytes) start blocks.
-    let far = !(last < rip && rip - last <= 15);
+    // (and the first instruction a page is entered at from the page before:
+    // straight-line code over pages would else step through each page after
+    // the first, as no entry of its function, up to its next block start)
+    let far = !(last < rip && rip - last <= 15) || last >> 12 != rip >> 12;
     // a page without a function, as at the last miss: its heat goes to the
     // batch (P4.5b)
     if HEAT_BATCH.holds(page, r.generation) && HEAT_BATCH.count < HEAT_BATCH_LIMIT {
@@ -1233,7 +1236,8 @@ static mut LAST_UNSERVED: u64 = 0;
 /// consecutive stepped instructions is noted.
 #[no_mangle]
 pub unsafe fn x64_page_unserved(rip: u64) -> i32 {
-    let far = !(LAST_UNSERVED < rip && rip - LAST_UNSERVED <= 15);
+    let far =
+        !(LAST_UNSERVED < rip && rip - LAST_UNSERVED <= 15) || LAST_UNSERVED >> 12 != rip >> 12;
     LAST_UNSERVED = rip;
     if !far {
         ACCESS_REFUSED[4] += 1;
@@ -2335,6 +2339,10 @@ pub unsafe fn x64_page_profile_get(key: u32) -> f64 {
 pub unsafe fn x64_page_steps(pair: u32) -> u32 { step_profile::pair_count(pair) }
 #[no_mangle]
 pub unsafe fn x64_page_steps_reset() { x64_page_profile(true) }
+/// The counts of x64_page_steps stay as they are until the next reset (the
+/// ISA tests: a hot run's, not the cold run's after it)
+#[no_mangle]
+pub unsafe fn x64_page_steps_freeze() { step_profile::freeze_pairs() }
 /// With the step profile: stepped instructions by RIP (x64_page_step_rips)
 static mut STEP_RIPS: Option<HashMap<u64, u32>> = None;
 unsafe fn profile_step() {
