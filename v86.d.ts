@@ -1402,7 +1402,7 @@ export interface V86JitInfo {
         tier0: { enabled: boolean; page_functions: number; instructions: number; wasm_bytes: number;
             activations: number; chains: number } | null;
         /** The x64 page tier (32-bit code with ir_tier0 and x64_page_legacy32); counters wrap at 2^32. */
-        page_tier: { legacy32: boolean; compat32: boolean; prot16: boolean; functions: number; native_instructions: number; activations: number } | null;
+        page_tier: { legacy32: boolean; compat32: boolean; prot16: boolean; v86: boolean; functions: number; native_instructions: number; activations: number } | null;
         diagnostics: V86IrDiagnostics | null;
     } | null;
 }

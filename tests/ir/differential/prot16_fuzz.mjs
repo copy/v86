@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// 16-bit protected-mode differential fuzzing (docs/jit-unification-plan.md
-// P7.7(6)): random 16-bit programs run hot in a loop in a 16-bit code segment
-// (so their page is compiled by the x64 page tier with x64_page_prot16) and
+// 16-bit differential fuzzing (docs/jit-unification-plan.md P7.7(6), P7.8):
+// random 16-bit programs run hot in a loop in a 16-bit code segment of
+// protected mode, real mode or virtual-8086 mode (FUZZ_MODE prot16, real or
+// v86; so their page is compiled by the x64 page tier with x64_page_prot16
+// or x64_page_v86) and
 // must leave exactly the interpreter's state: the GPRs, FLAGS (PUSHF inside
 // the loop stores them), the data, stack and counter segments, and the
 // retired-instruction count. Each program must also have run in page
@@ -13,6 +15,12 @@
 // at IP 0x840 (or, with FUZZ_STRADDLE=1, the program straddles two pages);
 // the data and stack segments are 64 KiB each, so every 16-bit address is
 // in them (the interpreter checks no data segment limits).
+// Real mode and virtual-8086 mode set the machine state directly instead of
+// a prologue, below 1 MiB (segment bases are the selectors shifted left by
+// 4; at most 24 cases a run). Virtual-8086 programs run with IOPL 3 and
+// paging off (boot.bin's page tables are not user pages); their final HLT
+// is #GP, which a ring-0 handler of our own (TSS at 0x8000, IDT vector 13)
+// halts at.
 //
 //   node tests/ir/differential/prot16_fuzz.mjs [cases=40] [seed=1] [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
@@ -21,9 +29,14 @@
 // j (jumps, LOOP, JCXZ), g (segment register loads, LES, LDS), x
 // (multiplies, divides, shifts, extensions), f (far calls into a second
 // code segment), l (LODS), z (a null ES loaded at the last round, then an
-// ES access: #GP), c (self-modifying code: the round counter written over
-// the immediate of the next instruction, through FS, flat, with a 32-bit
-// address).
+// ES access: #GP; protected mode only), c (self-modifying code: the round
+// counter written over the immediate of the next instruction, through FS,
+// flat, with a 32-bit address), i (virtual-8086 mode only: IOPL 0, no
+// PUSHF captures, and at the last round PUSHF, POPF, CLI or STI: #GP), k
+// (as i, but that instruction first, behind JMP +1 and reached by the JMP
+// -3 after it: cold code, the page tier's interpreted blocks (a backward
+// jump ends one), the #GP in the second one's first instruction; the
+// handler's stack frame, the faulting IP, compared too).
 // FUZZ_DEBUG=1 prints each case. JIT_SWITCHES applies to the compiled machine.
 import fs from "node:fs";
 import assert from "node:assert/strict";
@@ -38,11 +51,26 @@ const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const only = process.env.FUZZ_KIND || "";
 const straddle = process.env.FUZZ_STRADDLE === "1";
+const MODE = process.env.FUZZ_MODE || "prot16";
+assert(["prot16", "real", "v86"].includes(MODE), "FUZZ_MODE: prot16, real or v86");
+const paragraphs = MODE !== "prot16";
+assert(!paragraphs || cases <= 24, "real and virtual-8086 mode: at most 24 cases (below 1 MiB)");
+assert(!paragraphs || only !== "z", "kind z needs protected mode (no null selectors)");
+assert(!["i", "k"].includes(only) || MODE === "v86", "kinds i and k need virtual-8086 mode");
+const iopl0 = ["i", "k"].includes(only);
 
 // The prologue's page, the code pages (one per case), the segments
-const PROLOGUE = 0x480000, CODE = 0x500000, DATA = 0x600000, STACK = 0x620000, COUNTER = 0x640000, FAR = 0x680000;
+const { PROLOGUE, CODE, DATA, STACK, COUNTER, FAR } = paragraphs ?
+    // (a page after the stack: a 32-bit push at SP 2 writes past its end)
+    { PROLOGUE: 0, CODE: 0x6B000, DATA: 0x30000, STACK: 0x40000, COUNTER: 0x51000, FAR: 0x52000 } :
+    { PROLOGUE: 0x480000, CODE: 0x500000, DATA: 0x600000, STACK: 0x620000, COUNTER: 0x640000, FAR: 0x680000 };
 const IP = 0x840, ITERATIONS = 20000;
-const SEL = { code: 0x20, data: 0x28, stack: 0x30, counter: 0x38, far: 0x40 };
+// (selectors; in real and virtual-8086 mode the segments' paragraphs: the
+// far routine's and code's per case, see run)
+const SEL = paragraphs ? { data: DATA >> 4, stack: STACK >> 4, counter: COUNTER >> 4, far: 0 } :
+    { code: 0x20, data: 0x28, stack: 0x30, counter: 0x38, far: 0x40 };
+// Virtual-8086 mode's #GP handler (HLT), TSS and ring-0 stack
+const V86_HANDLER = 0x8100, V86_TSS = 0x8000, V86_STACK0 = 0x9000, TSS_SELECTOR = 0x48;
 // the far routine's IP in its code segment
 const FAR_IP = 0x100;
 const random = () => {
@@ -163,13 +191,17 @@ const lods = () => [pick([0xFC, 0xFD]), pick([0xAC, 0xAD]), 0xFC];
 // CALL FAR to the routine in the second code segment, which RETFs (or
 // with `far_pop`, RETF 2 after the caller pushed a word)
 let far_pop = false;
-const far = () => [...far_pop ? [0x6A, random() & 127] : [], 0x9A, ...u16(FAR_IP), ...u16(SEL.far)];
+// (real and virtual-8086 mode: the paragraph is patched per case, run)
+const far = () => ({ bytes: [...far_pop ? [0x6A, random() & 127] : [], 0x9A, ...u16(FAR_IP), ...u16(SEL.far)], far_at: far_pop ? 5 : 3 });
 /** The far routine: register operands, then RETF */
 const far_routine = () => [...pick([[0x40 | dst()], [0x05, ...u16(random())], [0x31, rr(any(), dst())]]),
     ...far_pop ? [0xCA, 2, 0] : [0xCB]];
 // At the last round (ES:[0] 1): MOV ES, a null selector, then MOV AX,
 // ES:[BX], #GP(0) (CMP WORD ES:[0], 1; JNE over the rest)
 const fault = () => [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, 7, 0x31, 0xC0, 0x8E, 0xC0, 0x26, 0x8B, 0x07];
+// At the last round, an instruction IOPL governs in virtual-8086 mode
+// (kind i: IOPL 0, #GP)
+const iopl = () => [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, 1, pick([0x9C, 0x9D, 0xFA, 0xFB])];
 // MOV AX, ES:[0]; MOV FS:[linear address of the imm16 below], AX (67, A3);
 // ADD AX, imm16 (an object: program() records where the address goes)
 const smc = () => ({ bytes: [0x26, 0xA1, 0, 0, 0x64, 0x67, 0xA3, 0, 0, 0, 0, 0x05, ...u16(random())], address_at: 7, target_at: 12 });
@@ -177,19 +209,20 @@ const smc = () => ({ bytes: [0x26, 0xA1, 0, 0, 0x64, 0x67, 0xA3, 0, 0, 0, 0, 0x0
 function simple() { return pick([alu, move, unary])(); }
 function instruction() {
     const kinds = { a: [alu, move, unary], m: [move, alu], s: [stack], j: [jumps], g: [segments], x: [wide], f: [far, alu], l: [lods, move],
-        z: [fault, alu, move], c: [smc, alu, move] }[only];
+        z: [fault, alu, move], c: [smc, alu, move], i: [iopl, alu, move, unary] }[only];
     return pick(kinds || [alu, alu, move, move, unary, wide, stack, jumps, segments, far, lods, smc])();
 }
 function program() {
-    const body = [], fixups = [];
+    const body = only === "k" ? [0xEB, 0x01, pick([0x9C, 0x9D, 0xFA, 0xFB]), 0xEB, 0xFD] : [], fixups = [];
     for(let k = 0; k < 24; k++) {
         const next = instruction();
-        if(!Array.isArray(next)) {
-            fixups.push({ at: body.length + next.address_at, target: body.length + next.target_at });
+        if(Array.isArray(next)) body.push(...next);
+        else {
+            if(next.far_at !== undefined) fixups.push({ at: body.length + next.far_at, far: true });
+            else fixups.push({ at: body.length + next.address_at, target: body.length + next.target_at });
             body.push(...next.bytes);
         }
-        else body.push(...next);
-        if(k % 4 === 3) body.push(...capture());
+        if(k % 4 === 3 && !iopl0) body.push(...capture());
     }
     // a call of a subroutine after the loop
     const call_at = body.length;
@@ -213,8 +246,8 @@ async function machine(compiled) {
         graphics_adapter: "bochs_vga",
         wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20,
         ir_sync_publication: true,
-        ...compiled ? { jit_switches: { x64_page_prot16: 1, x64_block_count: 0, x64_legacy_heat: 2000, x64_legacy_recompile_misses: 64,
-            ...jit_switches_from_env() } } : {},
+        ...compiled ? { jit_switches: { x64_page_prot16: 1, x64_page_v86: 1, x64_block_count: 0, x64_legacy_heat: 2000,
+            x64_legacy_recompile_misses: 64, ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -228,11 +261,28 @@ async function machine(compiled) {
     }
     await vm.stop();
     const gdt = cpu.gdtr_offset[0] >>> 0;
-    cpu.mem8.set(descriptor(DATA, 0x93), gdt + SEL.data);
-    cpu.mem8.set(descriptor(FAR - FAR_IP, 0x9B), gdt + SEL.far);
-    cpu.mem8.set(descriptor(STACK, 0x93), gdt + SEL.stack);
-    cpu.mem8.set(descriptor(COUNTER, 0x93), gdt + SEL.counter);
-    cpu.gdtr_size[0] = SEL.far + 7;
+    if(!paragraphs) {
+        cpu.mem8.set(descriptor(DATA, 0x93), gdt + SEL.data);
+        cpu.mem8.set(descriptor(FAR - FAR_IP, 0x9B), gdt + SEL.far);
+        cpu.mem8.set(descriptor(STACK, 0x93), gdt + SEL.stack);
+        cpu.mem8.set(descriptor(COUNTER, 0x93), gdt + SEL.counter);
+        cpu.gdtr_size[0] = SEL.far + 7;
+    }
+    if(MODE === "v86") {
+        // A 32-bit TSS (ESP0, SS0 the flat data segment; no I/O bitmap) in
+        // TR, and vector 13 an interrupt gate to HLT
+        const view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
+        cpu.mem8.fill(0, V86_TSS, V86_TSS + 0x68);
+        view.setUint32(V86_TSS + 4, V86_STACK0, true);
+        view.setUint16(V86_TSS + 8, 0x10, true);
+        view.setUint16(V86_TSS + 0x66, 0x68, true);
+        cpu.mem8.set([0x67, 0, V86_TSS & 255, V86_TSS >> 8 & 255, V86_TSS >> 16 & 255, 0x8B, 0, V86_TSS >>> 24], gdt + TSS_SELECTOR);
+        cpu.gdtr_size[0] = TSS_SELECTOR + 7;
+        cpu.sreg[6] = TSS_SELECTOR; cpu.segment_offsets[6] = V86_TSS; cpu.segment_limits[6] = 0x67; cpu.tss_size_32[0] = 1;
+        cpu.mem8[V86_HANDLER] = 0xF4;
+        const gate = (cpu.idtr_offset[0] >>> 0) + 13 * 8;
+        cpu.mem8.set([V86_HANDLER & 255, V86_HANDLER >> 8 & 255, 0x08, 0, 0, 0x8E, V86_HANDLER >> 16 & 255, V86_HANDLER >>> 24], gate);
+    }
     return { vm, cpu, e, compiled };
 }
 
@@ -244,17 +294,24 @@ async function run(m, code, init, c, split) {
     // `split` (then it straddles the page before)
     const page = CODE + c * 0x2000 + (split ? 0x1000 : 0);
     const start = page - split, base = page - IP;
-    cpu.mem8.set(descriptor(base, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.code);
     // (the far routine: a fresh page too)
     const far_page = FAR + c * 0x1000;
-    cpu.mem8.set(descriptor(far_page - FAR_IP, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.far);
+    if(!paragraphs) {
+        cpu.mem8.set(descriptor(base, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.code);
+        cpu.mem8.set(descriptor(far_page - FAR_IP, 0x9B), (cpu.gdtr_offset[0] >>> 0) + SEL.far);
+    }
     cpu.mem8.set(init.far, far_page);
-    // (the self-modifying writes' linear addresses)
+    // (the self-modifying writes' linear addresses; in real and virtual-8086
+    // mode the far routine's paragraph)
     const placed = Uint8Array.from(code);
-    for(const { at, target } of code.fixups) placed.set(u32(start + target), at);
+    for(const { at, target, far } of code.fixups) {
+        if(far) { if(paragraphs) placed.set(u16(far_page - FAR_IP >> 4), at); }
+        else placed.set(u32(start + target), at);
+    }
     cpu.mem8.set(placed, start);
     cpu.mem8.set(init.data, DATA);
     cpu.mem8.set(init.stack, STACK);
+    if(MODE === "v86") cpu.mem8.fill(0, V86_STACK0 - 64, V86_STACK0);
     cpu.mem8.fill(0, COUNTER, COUNTER + 16);
     view.setUint16(COUNTER, ITERATIONS, true);
     view.setUint32(0x608, 0, true);
@@ -263,7 +320,7 @@ async function run(m, code, init, c, split) {
     const prologue = [0x66, 0xB8, ...u16(SEL.stack), 0x8E, 0xD0, 0xBC, ...u32(0xFFF0),
         0x66, 0xB8, ...u16(SEL.data), 0x8E, 0xD8, 0x66, 0xB8, ...u16(SEL.counter), 0x8E, 0xC0,
         0xB8, ...u32(init.regs[0]), 0xEA, ...u32(IP - split), ...u16(SEL.code)];
-    cpu.mem8.set(prologue, PROLOGUE);
+    if(!paragraphs) cpu.mem8.set(prologue, PROLOGUE);
     // The prologue is 32-bit code: back to the BIOS's flat segments (the
     // last case halted in its 16-bit code segment; FS the flat alias the
     // self-modifying code writes through)
@@ -275,6 +332,21 @@ async function run(m, code, init, c, split) {
     cpu.reg32.set(init.regs);
     cpu.flags[0] = 2; cpu.flags_changed[0] = 0; cpu.in_hlt[0] = 0;
     cpu.instruction_pointer[0] = PROLOGUE;
+    if(paragraphs) {
+        // Real mode (CR0.PE and PG clear) or virtual-8086 mode (EFLAGS.VM,
+        // IOPL 3, CPL 3; paging off), the segments loaded as there, and the
+        // program entered directly
+        for(const [r, paragraph] of [[0, SEL.counter], [1, base >> 4], [2, SEL.stack], [3, SEL.data], [4, 0], [5, 0]]) {
+            cpu.sreg[r] = paragraph; cpu.segment_offsets[r] = paragraph << 4; cpu.segment_limits[r] = 0xFFFF;
+            cpu.segment_access_bytes[r] = r === 1 ? 0x9B : 0x93; cpu.segment_is_null[r] = 0;
+        }
+        cpu.is_32[0] = 0; cpu.stack_size_32[0] = 0;
+        cpu.cr[0] = MODE === "real" ? cpu.cr[0] & ~0x80000001 : (cpu.cr[0] | 1) & ~0x80000000;
+        cpu.protected_mode[0] = MODE === "real" ? 0 : 1;
+        cpu.cpl[0] = MODE === "real" ? 0 : 3;
+        cpu.flags[0] = MODE === "real" ? 2 : 0x20000 | (iopl0 ? 0 : 0x3000) | 2;
+        cpu.instruction_pointer[0] = start;
+    }
     e.update_state_flags();
     e.full_clear_tlb();
     new Uint32Array(e.memory.buffer)[664 >> 2] = 0;
@@ -307,11 +379,15 @@ async function run(m, code, init, c, split) {
         // after it, at [0x608] through DS: the data segment's then)
         status: view.getUint32(0x608, true) || view.getUint32(DATA + 0x608, true),
         fault_eip: view.getUint32(DATA + 0x60C, true),
+        // (virtual-8086 mode: the #GP handler's frame)
+        ...MODE === "v86" ? { ring0: Buffer.from(cpu.mem8.subarray(V86_STACK0 - 64, V86_STACK0)).toString("hex") } : {},
     };
 }
 
 const reference = await machine(false), compiled = await machine(true);
-assert.equal(compiled.e.x64_page_stat(42), 1, "x64_page_prot16 is on");
+assert.equal(compiled.e.x64_page_stat(paragraphs ? 44 : 42), 1, paragraphs ? "x64_page_v86 is on" : "x64_page_prot16 is on");
+// (16-bit protected-mode compiles, or real-mode and virtual-8086 ones)
+const compile_stat = paragraphs ? 45 : 43;
 let failures = 0, uncompiled = 0, retired = 0, native = 0;
 for(let c = 0; c < cases; c++) {
     far_pop = (random() & 1) === 1;
@@ -326,12 +402,12 @@ for(let c = 0; c < cases; c++) {
     const split = straddle ? 4 + random() % Math.max(1, code.length - 8) : 0;
     const expected = await run(reference, code, init, c, split), actual = await run(compiled, code, init, c, split);
     if(process.env.FUZZ_DEBUG) console.log(`case ${c}: count ${expected.count} entries ${compiled.entries} native ${compiled.native} ` +
-        `interpreted ${compiled.interpreted} (compiles ${compiled.e.x64_page_stat(43)}, retries ${compiled.e.x64_page_stat(2)}, ` +
-        `unknown exits ${compiled.e.x64_page_stat(3)}, steps ${compiled.e.x64_page_stat(4)}) status ${expected.status.toString(16)} ` +
+        `interpreted ${compiled.interpreted} (compiles ${compiled.e.x64_page_stat(compile_stat)}, retries ${compiled.e.x64_page_stat(2)}, ` +
+        `unknown exits ${compiled.e.x64_page_stat(3)}, steps ${compiled.e.x64_page_stat(4)}) status ${expected.status.toString(16)} eip ${expected.eip.toString(16)} eflags ${expected.eflags.toString(16)} ` +
         `code ${Buffer.from(code).toString("hex")}`);
     retired += actual.count;
     native += compiled.native;
-    if(!compiled.entries) {
+    if(!compiled.entries && only !== "k") {
         uncompiled++;
         console.log(`case ${c}: no page function ran (${actual.count} instructions, eip ${actual.eip.toString(16)}, status ${actual.status.toString(16)}, ` +
             `faulting IP ${actual.fault_eip.toString(16)})\n` +
@@ -353,13 +429,14 @@ for(let c = 0; c < cases; c++) {
         }
     }
 }
-const compiles = compiled.e.x64_page_stat(43);
+const compiles = compiled.e.x64_page_stat(compile_stat);
 await reference.vm.destroy(); await compiled.vm.destroy();
 const percent = share => `${(100 * share).toFixed(1)}%`;
 const coverage = `${percent(native / retired)} of the instructions ran natively, ${compiles} 16-bit page compiles`;
-if(failures || uncompiled || compiles === 0 || native * 2 < retired) {
+// (kind k faults in cold code: interpreted only)
+if(failures || uncompiled || only !== "k" && (compiles === 0 || native * 2 < retired)) {
     console.log(`FAIL: ${failures}/${cases} cases differ, no page function ran in ${uncompiled}; ${coverage}`);
     process.exit(1);
 }
-console.log(`PASS: ${cases} random 16-bit programs in the page tier match the interpreter; ${coverage}`);
+console.log(`PASS: ${cases} random 16-bit programs (${MODE}) in the page tier match the interpreter; ${coverage}`);
 process.exit(0);

@@ -2719,6 +2719,8 @@ CPU.prototype.get_jit_info = function()
             "compat32": !!exports["x64_page_stat"](41),
             // (16-bit protected-mode code, x64_page_prot16)
             "prot16": !!exports["x64_page_stat"](42),
+            // (real-mode and virtual-8086 code, x64_page_v86)
+            "v86": !!exports["x64_page_stat"](44),
             "functions": exports["x64_page_stat"](12) >>> 0,
             "native_instructions": exports["x64_page_stat"](1) >>> 0,
             "activations": exports["x64_page_stat"](13) >>> 0,

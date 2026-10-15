@@ -2983,11 +2983,18 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 /// functions compiled for segment bases take any DS, P7.2(3))
 pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32, keep_flat: bool) -> bool {
     dbg_assert!(reg == ES || reg == DS || reg == FS || reg == GS);
-    if !*protected_mode
-        || vm86_mode()
-        || crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0
-    {
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 {
         return false;
+    }
+    // (real mode and virtual-8086 mode: no descriptor and no fault, as
+    // switch_seg; the page tier's 16-bit code, docs/jit-unification-plan.md
+    // P7.8)
+    if !*protected_mode || vm86_mode() {
+        *sreg.offset(reg as isize) = selector_raw as u16;
+        *segment_is_null.offset(reg as isize) = false;
+        *segment_offsets.offset(reg as isize) = selector_raw << 4;
+        update_state_flags();
+        return true;
     }
     let selector = SegmentSelector::of_u16(selector_raw as u16);
     let flat = has_flat_segmentation();
@@ -3798,6 +3805,21 @@ pub unsafe fn instruction_trace_get(index: u32, field: u32) -> u32 {
     }
     INSTRUCTION_TRACE[(INSTRUCTION_TRACE_NEXT - 1 - index as usize) % INSTRUCTION_TRACE_LEN]
         [field as usize]
+}
+
+/// The x64 page tier's misses in 16-bit code (pages::miss_run,
+/// docs/jit-unification-plan.md P7.8): a basic block in the interpreter, as
+/// code without compiled code runs; the instructions it retired (0 when the
+/// fetch faulted, the fault delivered)
+pub unsafe fn run_interpreted_block(budget: u32) -> u32 {
+    let before = *instruction_counter;
+    // (a fault restores EIP from here; jit_run_interpreted sets it between
+    // instructions)
+    *previous_ip = *instruction_pointer;
+    if let Ok(phys_addr) = get_phys_eip() {
+        jit_run_interpreted(phys_addr, budget);
+    }
+    (*instruction_counter).wrapping_sub(before)
 }
 
 unsafe fn jit_run_interpreted(mut phys_addr: u32, budget: u32) {

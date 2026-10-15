@@ -891,6 +891,25 @@ fn volatile_op(d: &Decoded, op: Op) -> Op {
     }
 }
 
+/// The mode of 16-bit code (CompileEnv::mode16): protected mode (P7.7),
+/// real mode or virtual-8086 mode (P7.8). Real-mode segment bases are the
+/// selectors shifted left by 4 (pages::x64_page_load_seg loads them as the
+/// interpreter does); virtual-8086 code steps what IOPL governs there.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Mode16 {
+    Protected,
+    Real,
+    V86,
+}
+/// 16-bit code in the page tier: 16-bit protected mode (P7.7), real and
+/// virtual-8086 mode (P7.8)
+fn code16(mode: ExecutionMode) -> bool {
+    matches!(
+        mode,
+        ExecutionMode::Protected16 | ExecutionMode::Real | ExecutionMode::Vm86
+    )
+}
+
 /// The template for a long-mode instruction, or Step. Mirrors
 /// x64::execute::execute; anything it does not cover exactly is a Step.
 /// 32-bit compatibility-mode code (CompileEnv::compat) shares the long-mode
@@ -899,7 +918,7 @@ fn volatile_op(d: &Decoded, op: Op) -> Op {
 fn classify(d: &Decoded) -> Op {
     // (16-bit protected-mode code, P7.7, as 32-bit code with 16-bit
     // operands, addresses and stack)
-    let prot16 = d.mode == ExecutionMode::Protected16;
+    let prot16 = code16(d.mode);
     let compat = d.mode == ExecutionMode::Compatibility32 || prot16;
     if !d.mode.is_long() && !compat {
         return Op::Step;
@@ -1161,7 +1180,8 @@ fn classify(d: &Decoded) -> Op {
                 src: Opnd::Imm(imm?),
             },
             0xFF if group == 6 && w == stack => Op::Push { src: rm(stack)? },
-            0x9C if w == stack => Op::Pushf,
+            // (virtual-8086 mode: IOPL governs it, a step; P7.8)
+            0x9C if w == stack && d.mode != ExecutionMode::Vm86 => Op::Pushf,
             0xC9 if w == stack => Op::Leave,
             0xE8 if near => Op::Call {
                 target: relative(d)?,
@@ -1452,7 +1472,7 @@ fn classify(d: &Decoded) -> Op {
 /// CLI and STI. Memory operands with 32-bit addresses only, as
 /// compat_template.
 fn legacy_template(d: &Decoded) -> Option<Op> {
-    let prot16 = d.mode == ExecutionMode::Protected16;
+    let prot16 = code16(d.mode);
     if d.address.is_some_and(|a| a.address_size != 32 && !prot16)
         || d.prefixes.rep.is_some()
         || d.prefixes.lock
@@ -1579,7 +1599,7 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
 /// until its emitter covers the mode.
 fn compat_template(op: &Op, d: &Decoded) -> bool {
     // (16-bit code, P7.7: 16-bit addresses, but its string instructions step)
-    if d.mode == ExecutionMode::Protected16 {
+    if code16(d.mode) {
         if matches!(
             op,
             Op::Movs { .. } | Op::Stos { .. } | Op::RepCompare { .. }
@@ -3453,9 +3473,10 @@ pub struct CompileEnv {
     /// first byte (its linear address less CS's base): near branch targets
     /// wrap at 64 KiB by it, near calls push IPs, returns and indirect
     /// branches add CS's base back; the prologue leaves at once when CS's
-    /// base differs.
+    /// base differs. Real-mode and virtual-8086 code too (P7.8, `mode16`).
     pub prot16: bool,
     pub ip_base: i32,
+    pub mode16: Mode16,
     /// The consecutive linear pages the function covers (P7.3b; 1 but in
     /// legacy mode): offsets run over all of them, and span_hosts are their
     /// pages' host addresses as compiled (mem8 + physical). Its prologue
@@ -3496,7 +3517,7 @@ impl CompileEnv {
         compat: bool,
         legacy: bool,
         segmented: bool,
-        prot16: Option<i32>,
+        prot16: Option<(i32, Mode16)>,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3525,7 +3546,8 @@ impl CompileEnv {
                 legacy,
                 segmented,
                 prot16: prot16.is_some(),
-                ip_base: prot16.unwrap_or(0),
+                ip_base: prot16.map_or(0, |p| p.0),
+                mode16: prot16.map_or(Mode16::Protected, |p| p.1),
                 span: span_hosts.len().max(1) as u8,
                 span_hosts: hosts,
                 volatile: [u16::MAX; MAX_VOLATILE],
@@ -3564,7 +3586,7 @@ impl CompileEnv {
         compat_tlb: bool,
         legacy: bool,
         segmented: bool,
-        prot16: Option<i32>,
+        prot16: Option<(i32, Mode16)>,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3590,7 +3612,8 @@ impl CompileEnv {
             legacy,
             segmented,
             prot16: prot16.is_some(),
-            ip_base: prot16.unwrap_or(0),
+            ip_base: prot16.map_or(0, |p| p.0),
+            mode16: prot16.map_or(Mode16::Protected, |p| p.1),
             span: span_hosts.len().max(1) as u8,
             span_hosts: hosts,
             volatile: [u16::MAX; MAX_VOLATILE],
@@ -3622,7 +3645,7 @@ pub fn compile(
     compat: bool,
     legacy: bool,
     segmented: bool,
-    prot16: Option<i32>,
+    prot16: Option<(i32, Mode16)>,
     span_hosts: &[u32],
     volatile: &[u16],
     name: String,
@@ -3783,7 +3806,11 @@ pub fn compile_with(
         cvt: env.cvt,
         sse_fast_check: env.sse_fast_check,
         mode: if env.prot16 {
-            ExecutionMode::Protected16
+            match env.mode16 {
+                Mode16::Protected => ExecutionMode::Protected16,
+                Mode16::Real => ExecutionMode::Real,
+                Mode16::V86 => ExecutionMode::Vm86,
+            }
         }
         else if env.compat {
             ExecutionMode::Compatibility32

@@ -84,8 +84,8 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
         .filter(|&o| o != u16::MAX)
         .collect();
     let hosts = env.span > 1 || !volatile.is_empty();
-    // (bit 6: 16-bit protected-mode code, P7.7: then its IP base, i32,
-    // last)
+    // (bit 6: 16-bit code, P7.7: then its IP base, i32, and its mode, a
+    // byte: 0 protected, 1 real, 2 virtual-8086 mode, P7.8, last)
     r.push(
         env.compat as u8
             | (env.compat_tlb as u8) << 1
@@ -110,6 +110,7 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
     }
     if env.prot16 {
         r.extend_from_slice(&env.ip_base.to_le_bytes());
+        r.push(env.mode16 as u8);
     }
     r
 }
@@ -174,8 +175,19 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
             *v = u16::from_le_bytes(r.bytes(2)?.try_into().ok()?);
         }
     }
-    let prot16 =
-        if mode & 64 != 0 { Some(i32::from_le_bytes(r.bytes(4)?.try_into().ok()?)) } else { None };
+    let prot16 = if mode & 64 != 0 {
+        let ip_base = i32::from_le_bytes(r.bytes(4)?.try_into().ok()?);
+        let mode16 = match r.bytes(1)?[0] {
+            0 => super::pagegen::Mode16::Protected,
+            1 => super::pagegen::Mode16::Real,
+            2 => super::pagegen::Mode16::V86,
+            _ => return None,
+        };
+        Some((ip_base, mode16))
+    }
+    else {
+        None
+    };
     let mut env = CompileEnv::replay(
         bit(1),
         bit(2),

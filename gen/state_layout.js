@@ -292,7 +292,7 @@ export const STATICS = {
         // switches x64_hot_inline and x64_hot_count (P4.14)
         HOT_COUNTS: "machine", HOT_FREE: "machine", HOT_NEXT: "machine", HOT_INLINE: "machine", HOT_COUNT: "machine", COMPAT_HOT_COUNT: "machine",
         // the switches x64_page_compat32 (P7.2) and x64_page_legacy32 (P7.3)
-        COMPAT32: "machine", COMPAT_ACTIVE: "machine", LEGACY32: "machine", PAGE32_TIER0: "machine", LEGACY_ACTIVE: "machine", PROT16: "machine", PROT16_ACTIVE: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_ENTRIES: "machine", SPAN_DECLINED: "scratch" },
+        COMPAT32: "machine", COMPAT_ACTIVE: "machine", LEGACY32: "machine", PAGE32_TIER0: "machine", LEGACY_ACTIVE: "machine", PROT16: "machine", PROT16_ACTIVE: "machine", V86: "machine", V86_ACTIVE: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_ENTRIES: "machine", SPAN_DECLINED: "scratch" },
     // derived from each core's x64 TLB (flushed with it); FRAME_BUFFER_WRITES:
     // some entry maps the VGA frame buffer
     "x64/jac.rs": { JAC: "cache", FRAME_BUFFER_WRITES: "cache", ENTRIES: "machine" },

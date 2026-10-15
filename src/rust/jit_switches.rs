@@ -170,6 +170,17 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (real-mode and virtual-8086 code, P7.8)
+    Switch {
+        name: "x64_page_v86",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_v86(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
     // (P7.2b, P7.3: interpreted instructions on a page of legacy-mode code
     // before its first compile, and its unserved entries before a recompile)
     Switch {
