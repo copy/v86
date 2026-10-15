@@ -11,22 +11,30 @@
 // - BASE (--base, default HEAD) builds build/v86-ir-test-release.wasm in the
 //   worktree build/core-split/base (shared with core_split_check.mjs), the
 //   working tree its own; --base-wasm and --new-wasm take built ones instead.
+// - The parallel build's test cores too (build/v86-ir-test-parallel.wasm,
+//   P5.0): the generated code with atomic guest memory, loaded as the
+//   machine instance (state slot 0, where v86.wasm has the state block), for
+//   each base's corpus (a record says which memory it was made for, so the
+//   recordings, made with build/v86.wasm, are not replayed there), compared
+//   without the modules' name sections. --no-parallel skips them, as does a
+//   base without the target.
 // - Exit 1 when a record's bytes differ, unless --allow-changes (a change
 //   meant to alter generated code reports which records it changed);
 //   --allow-changes x64 allows only that engine's (the only one now).
 //
 // Usage: tools/replay_check.mjs [--base REV] [--base-wasm f] [--new-wasm f]
-//        [--records file.x6r ...] [--allow-changes [x64]]
+//        [--records file.x6r ...] [--allow-changes [x64]] [--no-parallel]
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
 import { WASM_TABLE_SIZE, WASM_TABLE_OFFSET } from "../src/const.js";
+import { instantiate_v86 } from "../src/parallel/relocate.js";
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 const BASE_DIR = path.join(ROOT, "build/core-split/base");
-const ARTIFACT = "build/v86-ir-test-release.wasm";
+const ARTIFACT = "build/v86-ir-test-release.wasm", PARALLEL_ARTIFACT = "build/v86-ir-test-parallel.wasm";
 const args = process.argv.slice(2);
 const option = name => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
 const options = name => args.flatMap((a, i) => a === name && args[i + 1] ? [args[i + 1]] : []);
@@ -44,8 +52,8 @@ function git(cwd, ...git_args)
     return r.stdout.trim();
 }
 
-/** The base's test core: built in the base worktree at `rev` */
-function build_base(rev)
+/** The base's test core (`artifact`): built in the base worktree at `rev`, or null without its target */
+function build_base(rev, artifact = ARTIFACT)
 {
     const commit = git(ROOT, "rev-parse", rev);
     if(!fs.existsSync(path.join(BASE_DIR, ".git")))
@@ -57,8 +65,9 @@ function build_base(rev)
     {
         git(BASE_DIR, "checkout", "--detach", "--force", commit);
     }
-    run(BASE_DIR, "make", [ARTIFACT]);
-    return path.join(BASE_DIR, ARTIFACT);
+    if(artifact !== ARTIFACT && !fs.readFileSync(path.join(BASE_DIR, "Makefile"), "utf8").includes(artifact + ":")) return null;
+    run(BASE_DIR, "make", [artifact]);
+    return path.join(BASE_DIR, artifact);
 }
 
 async function load(file)
@@ -71,8 +80,27 @@ async function load(file)
         if(kind === "function") env[name] = () => 0;
         else if(kind === "table") env[name] = new WebAssembly.Table({ element: "anyfunc", initial: WASM_TABLE_SIZE + WASM_TABLE_OFFSET });
     }
-    const { exports } = await WebAssembly.instantiate(module, { env });
-    return exports;
+    // (a parallel build imports its memory: instantiate_v86 makes it and
+    // relocates the module as the machine instance)
+    const { instance } = await instantiate_v86(fs.readFileSync(file), { env });
+    return instance.exports;
+}
+
+/** A module's bytes without its "name" custom section */
+function without_names(bytes)
+{
+    const parts = [bytes.subarray(0, 8)];
+    for(let at = 8; at < bytes.length;)
+    {
+        const start = at, id = bytes[at++];
+        let size = 0, shift = 0, byte;
+        do { byte = bytes[at++]; size += (byte & 0x7F) * 2 ** shift; shift += 7; } while(byte & 0x80);
+        const payload = at;
+        at += size;
+        if(id === 0 && bytes[payload] === 4 && String.fromCharCode(...bytes.subarray(payload + 1, payload + 5)) === "name") continue;
+        parts.push(bytes.subarray(start, at));
+    }
+    return Buffer.concat(parts);
 }
 
 // the exports of each engine: <prefix>record_count, ..., <prefix>replay
@@ -126,23 +154,38 @@ if(!base["x64_page_replay"] || !next["x64_page_replay"])
     console.log(`replay-check: ${!base["x64_page_replay"] ? "the base" : "the working tree"} has no replay (ir-test-hooks before P2.0): skipped`);
     process.exit(0);
 }
+// (the parallel build's cores: [base, next], or null)
+const parallel = await (async () => {
+    if(args.includes("--no-parallel") || option("--base-wasm")) return null;
+    const base_parallel = build_base(option("--base") || "HEAD", PARALLEL_ARTIFACT);
+    if(!base_parallel)
+    {
+        console.log("replay-check: the base has no parallel test core (before P5.0): the parallel build skipped");
+        return null;
+    }
+    run(ROOT, "make", [PARALLEL_ARTIFACT]);
+    return [await load(base_parallel), await load(path.join(ROOT, PARALLEL_ARTIFACT))];
+})();
 // (the engines whose changes are allowed: --allow-changes alone, every one)
 const allow_at = args.indexOf("--allow-changes");
 const allow_list = allow_at >= 0 && args[allow_at + 1] && !args[allow_at + 1].startsWith("--") ? args[allow_at + 1].split(",") : null;
 const allowed = engine => allow_at >= 0 && (!allow_list || allow_list.includes(engine.name));
 for(const name of allow_list || []) if(!ENGINES.some(e => e.name === name)) throw new Error(`--allow-changes: no engine ${name}`);
 let differ = 0, total = 0, blocking = 0;
+const builds = [{ label: "", cores: [base, next], recordings: true, strip: x => x },
+    ...parallel ? [{ label: " (parallel build)", cores: parallel, recordings: false, strip: x => x && without_names(x) }] : []];
+for(const { label, cores: [base, next], recordings, strip } of builds)
 for(const engine of ENGINES)
 {
     const sources = [["corpus", (base[engine.prefix + "record_corpus"](), records_of(base, engine))],
-        ...options("--records").filter(f => f.endsWith(engine.extension)).map(f => [path.basename(f), read_records(f)])];
+        ...recordings ? options("--records").filter(f => f.endsWith(engine.extension)).map(f => [path.basename(f), read_records(f)]) : []];
     for(const [name, records] of sources)
     {
         let changed = 0, refused = 0;
         const examples = [];
         for(const record of records)
         {
-            const a = replay(base, engine, record), b = replay(next, engine, record);
+            const a = strip(replay(base, engine, record)), b = strip(replay(next, engine, record));
             if(!a && !b) refused++;
             else if(!same(a, b))
             {
@@ -153,7 +196,7 @@ for(const engine of ENGINES)
         total += records.length;
         differ += changed;
         if(!allowed(engine)) blocking += changed;
-        console.log(`replay-check ${engine.name} ${name}: ${records.length} records, ${changed} differ, ${refused} compile in neither` +
+        console.log(`replay-check ${engine.name} ${name}${label}: ${records.length} records, ${changed} differ, ${refused} compile in neither` +
             (examples.length ? "\n  " + examples.join("\n  ") : ""));
     }
 }

@@ -1143,8 +1143,14 @@ build/v86-ir-test-release.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib
 	cargo rustc --release --features ir-test-hooks $(CARGO_FLAGS)
 	cp build/wasm32-unknown-unknown/release/v86.wasm $@
 
+# The parallel build's test core (docs/jit-unification-plan.md P5.0): the
+# replay identity of the generated code with atomic guest memory
+build/v86-ir-test-parallel.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml tools/parallel_wasm.mjs
+	CARGO_TARGET_DIR=build/parallel-test cargo rustc --release --features ir-test-hooks,parallel $(CARGO_FLAGS_PARALLEL)
+	./tools/parallel_wasm.mjs build/parallel-test/wasm32-unknown-unknown/release/v86.wasm $@
+
 # The pinned resolver is compiled into test cores via #[path].
-build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/v86-rep-reference.wasm: tests/decode/legacy_modrm.rs
+build/v86-ir-test.wasm build/v86-ir-test-release.wasm build/v86-ir-test-parallel.wasm build/v86-rep-reference.wasm: tests/decode/legacy_modrm.rs
 
 # The interpreter's REP engine in bounded batches against the pinned
 # pre-refactor string body (tests/ir/differential/build_rep_reference.py)
