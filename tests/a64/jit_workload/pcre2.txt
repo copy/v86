@@ -1,0 +1,20 @@
+# The guest JIT workload's PCRE2 part (tests/a64/linux_boot.mjs,
+# A64_WORKLOAD=jit; P6.7): pcre2test -jit compiles each pattern to machine code
+
+/(\d{3})-(\d{4})/
+    call 555-1234 now
+    no match here
+
+/^(?:a|b)*c$/
+    ababababc
+    ababd
+
+/(?<year>\d{4})-(?<month>\d\d)/g
+    2026-10 and 1999-12 but not 12-2026
+
+/(\w+)\s+\1/i
+    the The quick
+    no repeats
+
+/[\x{100}-\x{2ff}]+/utf
+    abc\x{101}\x{2fe}def

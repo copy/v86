@@ -79,7 +79,7 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "$B mount -t proc proc /proc; $B mount -t sysfs sys /sys; $B mount -t devtmpfs dev /dev",
     "$B mkdir -p /tmp; $B mount -t tmpfs tmp /tmp",
     "/a64-probe nodisk \"$@\"",
-    "[ -n \"$A64_WORKLOAD\" ] && /a64-workload \"$A64_WORKLOAD\"",
+    "case \"$A64_WORKLOAD\" in '') ;; jit) /a64-jit-workload ;; *) /a64-workload \"$A64_WORKLOAD\" ;; esac",
     "$B cat /proc/interrupts",
     "for f in /sys/devices/system/cpu/vulnerabilities/*; do $B echo \"A64_VULN ${f##*/}: $($B cat $f)\"; done",
     "$B echo A64_INIT_DONE",
@@ -126,15 +126,61 @@ const manifest = {
 fs.writeFileSync(manifest_file, JSON.stringify(manifest, null, 2) + "\n");
 if(+process.env.A64_LINUX_PREPARE_ONLY) process.exit(0);
 
-const timeout = Number(process.env.A64_LINUX_TIMEOUT || 180000);
+// (A64_WORKLOAD=jit: the guest JIT workloads of docs/arm64-virt-android16-plan.md
+// P6.7 between A64_WORKLOAD_BEGIN and A64_WORKLOAD_END: V8 in nodejs, HotSpot
+// running `java Hello.java`, LuaJIT with -jon and -joff, PCRE2's JIT; sources
+// in tests/a64/jit_workload/. Their packages (tools/alpine_repo.mjs --arch
+// aarch64 --set jit) are unpacked into one more cpio after the probe's (no
+// disk yet: P5), without the JDK's jmods; 1.5 GiB of RAM: the arm64 core takes less than 2 GiB)
+const jit_workload = process.env.A64_WORKLOAD === "jit";
+const JIT_EXCLUDED = ["openjdk21-jmods", "busybox", "busybox-binsh"];
+let initrd = initrd_probe;
+if(jit_workload)
+{
+    const { output_directory } = await import("../../tools/alpine_repo.mjs");
+    const repo = path.join(output_directory("aarch64"), "jit-repo");
+    assert.ok(fs.existsSync(repo), repo + " is missing: node tools/alpine_repo.mjs --arch aarch64 --set jit");
+    const staging = directory + "jit-root/";
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging + "jit", { recursive: true });
+    for(const section of ["main", "community"])
+    {
+        const apks = path.join(repo, section, "aarch64");
+        for(const file of fs.readdirSync(apks).filter(f => f.endsWith(".apk")).sort())
+        {
+            if(JIT_EXCLUDED.some(name => new RegExp(`^${name}-\\d`).test(file))) continue;
+            run("bsdtar", ["-xf", path.join(apks, file), "-C", staging, "--exclude", ".PKGINFO", "--exclude", ".SIGN.*",
+                "--exclude", ".*-install", "--exclude", ".*-upgrade", "--exclude", ".*-deinstall", "--exclude", ".trigger"]);
+        }
+    }
+    for(const file of fs.readdirSync(ROOT + "tests/a64/jit_workload")) fs.copyFileSync(ROOT + "tests/a64/jit_workload/" + file, staging + "jit/" + file);
+    fs.writeFileSync(staging + "a64-jit-workload", [
+        "#!/bin/busybox sh",
+        "B=/bin/busybox",
+        "export PATH=/usr/bin:/usr/sbin:/bin:/sbin HOME=/tmp TMPDIR=/tmp",
+        "$B echo A64_WORKLOAD_BEGIN",
+        "/usr/bin/node /jit/work.js 2>&1",
+        "cd /tmp && /usr/lib/jvm/java-21-openjdk/bin/java -Xmx256m -XX:+UseSerialGC /jit/Hello.java 2>&1",
+        "/usr/bin/luajit -jon /jit/work.lua 2>&1",
+        "/usr/bin/luajit -joff /jit/work.lua 2>&1",
+        "/usr/bin/pcre2test -C jit | $B cat; /usr/bin/pcre2test -jit /jit/pcre2.txt 2>&1 | $B cat",
+        "$B echo A64_WORKLOAD_END",
+        ""].join("\n"), { mode: 0o755 });
+    run("bsdtar", ["--format", "newc", ...tar_args, "-cf", directory + "jit.cpio", "-C", staging, "."]);
+    initrd = directory + "initramfs-virt+probe+jit.cpio";
+    fs.writeFileSync(initrd, Buffer.concat([fs.readFileSync(initrd_probe), fs.readFileSync(directory + "jit.cpio")]));
+}
+const memory_mb = jit_workload ? 1536 : 512;
+const timeout = Number(process.env.A64_LINUX_TIMEOUT || (jit_workload ? 3600000 : 180000));
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
 // (A64_KPTI=1: the initramfs stage with kpti=1, KPTI forced on although CSV3 says it is not needed, P3.9)
 const kpti = !!+process.env.A64_KPTI;
 assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
-// (A64_WORKLOAD=N: the initramfs stage runs /a64-workload N after the probe)
-const workload = +process.env.A64_WORKLOAD || 0;
+// (A64_WORKLOAD=N: the initramfs stage runs /a64-workload N after the probe;
+// A64_WORKLOAD=jit: the guest JIT workloads, below)
+const workload = process.env.A64_WORKLOAD === "jit" ? "jit" : +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
     `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}`;
@@ -187,7 +233,7 @@ if(qemu_reference)
     const version = run(qemu, ["--version"]).split("\n")[0];
     assert.match(version, /QEMU emulator version 9\.2\./, "the fixed reference is QEMU 9.2.x");
     const machine = QEMU_MACHINE;
-    const base = ["-cpu", QEMU_CPU, "-m", "512M", "-smp", smp(cores),
+    const base = ["-cpu", QEMU_CPU, "-m", memory_mb + "M", "-smp", smp(cores),
         "-global", "virtio-mmio.force-legacy=false", "-display", "none", "-no-reboot"];
     // the DTB QEMU gives this machine (dumpdtb), once
     const dtb = directory + `qemu-virt-${cores}c.dtb`;
@@ -196,7 +242,7 @@ if(qemu_reference)
     fs.writeFileSync(manifest_file, JSON.stringify(manifest, null, 2) + "\n");
     const live = stage === "live", single = stage === "single";
     const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", prepared.kernel,
-        "-initrd", live || single ? prepared.initrd : initrd_probe,
+        "-initrd", live || single ? prepared.initrd : initrd,
         "-append", live ? "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage"
             : single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("qemu"),
         ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
@@ -332,9 +378,9 @@ if(stage === "lifecycle")
 const single = stage === "single";
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const machine_options = {
-    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
+    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory_mb * 1048576, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
-    kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd_probe },
+    kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd },
     cmdline: single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
 };
 let emulator = new V86({ ...machine_options, autostart: true });

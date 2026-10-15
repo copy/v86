@@ -235,6 +235,9 @@ A64CPU.prototype.boot = function(entry, x0)
 A64CPU.prototype.create_memory = function(size)
 {
     const exports = this.wm.exports;
+    // (one allocation in the 32-bit Wasm memory: below 2 GiB; more RAM is
+    // docs/arm64-virt-android16-plan.md P8)
+    if(size >= 0x80000000) throw new Error("memory_size: the arm64 core takes less than 2 GiB of RAM (" + size + " bytes)");
     const pointer = exports["a64_allocate_memory"](size) >>> 0;
     if(!exports["a64_bus_set_ram"](size)) throw new Error("create_memory: RAM of " + size + " bytes does not fit");
     this.mem8 = view(Uint8Array, this.wasm_memory, pointer, size);
