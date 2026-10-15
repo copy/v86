@@ -18,6 +18,8 @@
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
 use crate::jitrt::capacity;
+use crate::jitrt::heat::{self, backoff, HeatBatch, HEAT_BATCH_LIMIT};
+use crate::jitrt::page::{self, PageFrontend};
 use crate::jitrt::publish::{self, Phase};
 use crate::jitrt::ClientId;
 use crate::page::Page;
@@ -50,8 +52,6 @@ pub unsafe fn set_legacy_recompile_misses(misses: u32) { LEGACY_MISSES = misses;
 /// Compiles of a page before each further one waits twice as long (heat
 /// and unserved entries): a page recompiled for ever new entries, or
 /// rewritten over and over, costs ever less; its code stays in use.
-const FREE_RECOMPILES: u32 = 4;
-fn backoff(compiles: u32) -> u32 { compiles.saturating_sub(FREE_RECOMPILES).min(16) }
 /// (`page`: the function's key, which tells legacy-mode code)
 fn recompile_due(page: u32, state: &PageState) -> bool {
     let misses = unsafe {
@@ -71,15 +71,26 @@ const MODE_SHARE: usize = MAX_FUNCTIONS * 2 / 3;
 const MAX_TRACKED_PAGES: usize = 65536;
 const FAST_SLOTS: usize = 16384;
 
-struct Function {
-    /// backing page number (a function serves every mapping of the page),
-    /// or an extended page's key (see code_key)
-    page: u32,
-    id: u64,
-    slot: u32,
-    phase: Phase,
-    /// Block starts: a bitmap of offsets, 64 words a page of `members`
-    served: Vec<u64>,
+/// The x64 page tier as a client of jitrt's page runtime (P5.7): its
+/// functions' code facts, its code pages' own state and its own runtime
+/// state
+struct X86;
+impl PageFrontend for X86 {
+    type Code = X86Code;
+    type Page = X86Page;
+    type Extra = X86Extra;
+}
+type Function = page::Function<X86Code>;
+type PageState = heat::PageState<X86Page>;
+type Runtime = page::PageRuntime<X86>;
+
+/// A function's own data. (Its key, the page number of its backing page
+/// with the code mode's bits, or an extended page's key (see code_key);
+/// `served`, its block starts as a bitmap of offsets, 64 words a page of
+/// `members`, the keys of the consecutive linear pages it covers: a span of
+/// legacy-mode code, P7.3b, else just its page: page::Function's.)
+#[derive(Default)]
+struct X86Code {
     /// The bytes its instructions were decoded from, as `served`
     /// (pagegen::Compiled::code): dirty_bytes
     code: Vec<u64>,
@@ -87,10 +98,6 @@ struct Function {
     starts: Vec<u64>,
     /// The bytes of its volatile instructions (pagegen::Compiled::dynamic)
     dynamic: Vec<u64>,
-    /// The keys of the consecutive linear pages it covers, `page` first (a
-    /// span of legacy-mode code, P7.3b; else just `page`)
-    members: Vec<u32>,
-    last_used: u64,
     /// the source page's bytes (hash) when compiled: with cores in workers,
     /// checked again after the page is published (crate::parallel::code)
     source: u64,
@@ -106,39 +113,15 @@ struct Function {
     ip_base: i32,
 }
 fn bit(set: &[u64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
-impl Function {
-    /// Which of its pages has key `key`, if any
-    fn member(&self, key: u32) -> Option<usize> { self.members.iter().position(|&m| m == key) }
-    /// Whether it serves offset `offset` of its member page `m`
-    fn serves(&self, m: usize, offset: u16) -> bool {
-        bit(&self.served, (m * 4096) as u16 + offset)
-    }
-}
 /// The function a full table retires for a compile of (`compat`) code: the
 /// least recently used ready one, of that code's mode when the mode holds
 /// more than MODE_SHARE (P7.2b)
-fn eviction_victim(functions: &[Function], compat: bool) -> Option<usize> {
-    let mode = |f: &Function| f.page & COMPAT_KEY != 0;
-    let held = functions
-        .iter()
-        .filter(|f| f.phase != Phase::Dead && mode(f) == compat)
-        .count();
-    let crowded = held > MODE_SHARE;
-    functions
-        .iter()
-        .enumerate()
-        .filter(|(_, f)| f.phase == Phase::Ready && (!crowded || mode(f) == compat))
-        .min_by_key(|(_, f)| f.last_used)
-        .map(|(i, _)| i)
+fn eviction_victim(r: &Runtime, compat: bool) -> Option<usize> {
+    r.victim(|f| (f.page & COMPAT_KEY != 0) == compat, MODE_SHARE)
 }
-struct PageState {
-    heat: u32,
-    entries: [u64; 64],
-    /// unserved entries seen once (see note_unserved)
-    seen: [u64; 64],
-    entry_count: u32,
-    misses: u32,
-    compiles: u32,
+/// A code page's own state (heat::PageState's `x`)
+#[derive(Default)]
+struct X86Page {
     /// its code ran often: compiled with inline access lookups from then on
     /// (x64_hot_inline, P4.14; not a compile of its own, no backoff)
     hot: bool,
@@ -154,55 +137,14 @@ struct PageState {
     volatile: Vec<u16>,
     volatile_new: bool,
 }
-impl Default for PageState {
-    fn default() -> Self {
-        Self {
-            heat: 0,
-            entries: [0; 64],
-            seen: [0; 64],
-            entry_count: 0,
-            misses: 0,
-            compiles: 0,
-            hot: false,
-            from: [0; 2],
-            written: false,
-            volatile: Vec::new(),
-            volatile_new: false,
-        }
-    }
-}
-/// Multiplicative hashing for page numbers.
-#[derive(Default)]
-struct PageHasher(u64);
-impl std::hash::Hasher for PageHasher {
-    fn finish(&self) -> u64 { self.0 }
-    fn write(&mut self, bytes: &[u8]) {
-        for &b in bytes {
-            self.0 = (self.0.rotate_left(8) ^ b as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-        }
-    }
-    fn write_u32(&mut self, value: u32) {
-        self.0 = (value as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    }
-}
-type PageMap<V> = HashMap<u32, V, std::hash::BuildHasherDefault<PageHasher>>;
-struct Runtime {
-    functions: Vec<Function>,
-    by_page: PageMap<usize>,
-    pages: PageMap<PageState>,
-    /// slots of dead functions, released at the next cold point
-    releases: Vec<(u32, u64)>,
-    /// their HOT_COUNTS cells, free again at the same point
+/// The runtime's own state
+struct X86Extra {
+    /// dead functions' HOT_COUNTS cells, free again when their slots are
+    /// released
     released_counters: Vec<u32>,
-    next_id: u64,
-    clock: u64,
     last_rip: u64,
     /// The linear page the last activation or miss run ended on (P7.3b)
     last_page: u64,
-    enabled: bool,
-    stats: [u64; 13],
-    /// Changes whenever a function is registered or retired (HeatBatch)
-    generation: u32,
 }
 static mut RUNTIME: Option<Runtime> = None;
 /// Hot path lookup: backing page number and function index + 1, validated
@@ -306,19 +248,12 @@ static mut STEPS: u64 = 0;
 /// generated code, the interpreter or jit::).
 fn rt() -> &'static mut Runtime {
     unsafe {
-        (*(&raw mut RUNTIME)).get_or_insert_with(|| Runtime {
-            functions: Vec::new(),
-            by_page: PageMap::default(),
-            pages: PageMap::default(),
-            releases: Vec::new(),
-            released_counters: Vec::new(),
-            next_id: 1,
-            clock: 0,
-            last_rip: 0,
-            last_page: 0,
-            enabled: true,
-            stats: [0; 13],
-            generation: 0,
+        (*(&raw mut RUNTIME)).get_or_insert_with(|| {
+            Runtime::new(X86Extra {
+                released_counters: Vec::new(),
+                last_rip: 0,
+                last_page: 0,
+            })
         })
     }
 }
@@ -675,13 +610,13 @@ unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u3
     if crate::parallel::active() || !physical::plain_ram((physical_key(page) as u64) << 12, 4096) {
         return vec![own];
     }
-    let from = |key: u32, side: usize| r.pages.get(&key).map_or(0, |s| s.from[side] as u32);
+    let from = |key: u32, side: usize| r.pages.get(&key).map_or(0, |s| s.x.from[side] as u32);
     let few_entries = |key: u32| {
         r.pages
             .get(&key)
             .is_none_or(|s| s.entry_count <= SPAN_ENTRIES)
     };
-    let written = |key: u32| r.pages.get(&key).is_some_and(|s| s.written);
+    let written = |key: u32| r.pages.get(&key).is_some_and(|s| s.x.written);
     if written(page) {
         return vec![own];
     }
@@ -975,10 +910,10 @@ unsafe fn release_dead(r: &mut Runtime) {
     if ACTIVE {
         return;
     }
-    for (slot, id) in r.releases.drain(..) {
+    r.release_dead(|slot, id| {
         crate::jit::release_page_slot(slot, id);
-    }
-    (*(&raw mut HOT_FREE)).extend(r.released_counters.drain(..));
+    });
+    (*(&raw mut HOT_FREE)).extend(r.x.released_counters.drain(..));
 }
 
 /// Run published code at RIP for up to `budget` instructions, or note the
@@ -1008,26 +943,26 @@ pub unsafe fn run(budget: u32) -> Attempt {
     if !r.releases.is_empty() {
         release_dead(r);
     }
-    let last = r.last_rip;
+    let last = r.x.last_rip;
     // (P7.3b: entered from a neighbouring page, the evidence a span takes)
     let here = rip >> 12;
-    if CLUSTERS && mode >= MODE_COMPAT && r.last_page != here {
-        let side = if r.last_page.wrapping_add(1) == here {
+    if CLUSTERS && mode >= MODE_COMPAT && r.x.last_page != here {
+        let side = if r.x.last_page.wrapping_add(1) == here {
             Some(0)
         }
-        else if r.last_page == here.wrapping_add(1) {
+        else if r.x.last_page == here.wrapping_add(1) {
             Some(1)
         }
         else {
             None
         };
         if let Some(side) = side {
-            let count = &mut r.pages.entry(page).or_default().from[side];
+            let count = &mut r.pages.entry(page).or_default().x.from[side];
             *count = count.saturating_add(1);
         }
     }
-    r.last_page = here;
-    r.last_rip = rip;
+    r.x.last_page = here;
+    r.x.last_rip = rip;
     // Far transfers (not the next few bytes) start blocks.
     // (and the first instruction a page is entered at from the page before:
     // straight-line code over pages would else step through each page after
@@ -1062,7 +997,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
                 && r.functions[i].serves(member.unwrap(), offset) =>
         {
             // (its code ran often: its recompile with inline lookups)
-            if r.functions[i].counter.is_some_and(|c| {
+            if r.functions[i].x.counter.is_some_and(|c| {
                 HOT_COUNTS[c as usize] >= if compat { COMPAT_HOT_COUNT } else { HOT_COUNT }
             }) {
                 r.stats[HOT_RECOMPILES] += 1;
@@ -1071,7 +1006,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
             // (P7.7: 16-bit code compiled under a CS of another base, whose
             // prologue would leave at once: the page compiles for this one
             // once that recurs)
-            if code16(mode) && r.functions[i].ip_base != ip_base_of(rip) {
+            if code16(mode) && r.functions[i].x.ip_base != ip_base_of(rip) {
                 step_profile::note_event(event::MISS, event::MISS_UNSERVED);
                 let state = r.pages.entry(page).or_default();
                 state.misses += 1;
@@ -1169,8 +1104,8 @@ pub unsafe fn run(budget: u32) -> Attempt {
             // (instructions a write changed are volatile now: the page's
             // function would stay as they change again, no compile of its
             // own, dirty_bytes)
-            if state.volatile_new {
-                state.volatile_new = false;
+            if state.x.volatile_new {
+                state.x.volatile_new = false;
                 state.compiles = state.compiles.saturating_sub(1);
                 state.heat = hot << backoff(state.compiles);
             }
@@ -1230,29 +1165,7 @@ pub unsafe fn set_hot_count(count: u32) { HOT_COUNT = count; }
 static mut COMPAT_HOT_COUNT: u32 = 1 << 16;
 pub unsafe fn set_compat_hot_count(count: u32) { COMPAT_HOT_COUNT = count; }
 
-/// Interpreted execution's heat, batched (docs/jit-unification-plan.md
-/// P4.5b; jitrt takes it over in P5): instructions run outside compiled
-/// code on a code page without a function, not yet added to the page's
-/// PageState. While the runtime's functions are unchanged (`generation`)
-/// a miss on that page needs neither the function nor the page lookup; it
-/// is added at the next miss of another page, and at HEAT_BATCH_LIMIT.
-#[derive(Clone, Copy)]
-pub struct HeatBatch {
-    page: u32,
-    count: u32,
-    generation: u32,
-}
-impl HeatBatch {
-    const NONE: HeatBatch = HeatBatch {
-        page: u32::MAX,
-        count: 0,
-        generation: 0,
-    };
-    fn holds(self, page: u32, generation: u32) -> bool {
-        self.page == page && self.generation == generation
-    }
-}
-const HEAT_BATCH_LIMIT: u32 = 256;
+/// Interpreted execution's heat, batched (jitrt::heat::HeatBatch, P4.5b)
 static mut HEAT_BATCH: HeatBatch = HeatBatch::NONE;
 /// The JIT switches x64_heat_batch (P4.5b) and x64_miss_run (P4.5c)
 static mut BATCH_HEAT: bool = true;
@@ -1340,8 +1253,8 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
         }
     }
     // (the next miss compares its RIP with the last instruction run here)
-    r.last_rip = at;
-    r.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
+    r.x.last_rip = at;
+    r.x.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
     execution::ledger_end(span, execution::Way::Interpreted);
     Attempt {
         retired: n,
@@ -1382,8 +1295,8 @@ unsafe fn unserved_run(r: &mut Runtime, i: usize, m: usize, budget: u32, rip: u6
         at = next;
     }
     // (the next miss compares its RIP with the last instruction run here)
-    r.last_rip = at;
-    r.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
+    r.x.last_rip = at;
+    r.x.last_page = if *gp::in_hlt { u64::MAX } else { at >> 12 };
     execution::ledger_end(span, execution::Way::Interpreted);
     Attempt {
         retired: n,
@@ -1551,9 +1464,9 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     }
     let r = rt();
     r.stats[RETIRED] += native as u64;
-    r.last_rip = linear_rip();
+    r.x.last_rip = linear_rip();
     // (no evidence for span_members across a halt or an interrupt)
-    r.last_page = if *gp::in_hlt { u64::MAX } else { *gp::x64_page_linear >> 12 };
+    r.x.last_page = if *gp::in_hlt { u64::MAX } else { *gp::x64_page_linear >> 12 };
     match exit {
         pagegen::EXIT_RETRY => {
             r.stats[RETRIES] += 1;
@@ -1587,7 +1500,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         let rip = linear_rip();
         cpu::handle_irqs();
         if linear_rip() != rip {
-            rt().last_page = u64::MAX;
+            rt().x.last_page = u64::MAX;
         }
     }
     Attempt {
@@ -1606,7 +1519,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let r = rt();
     let state = r.pages.entry(page).or_default();
     if hot {
-        state.hot = true;
+        state.x.hot = true;
     }
     else {
         state.compiles += 1;
@@ -1632,7 +1545,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     // (legacy mode's lookups are inline either way, in the 32-bit TLB: no
     // cold compile and hot recompile, which would start V8's tier-up anew;
     // loops from the first compile)
-    let outline = pagegen::outline_access() && !state.hot && !legacy;
+    let outline = pagegen::outline_access() && !state.x.hot && !legacy;
     let counter = if outline && HOT_INLINE { take_counter() } else { None };
     // (named after the linear page it was compiled for: host profiles)
     let linear = linear_rip() & !4095;
@@ -1693,7 +1606,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let volatile: Vec<u16> = if compat && span.len() == 1 && !is_extended(page) {
         r.pages
             .get(&page)
-            .map_or(Vec::new(), |s| s.volatile.clone())
+            .map_or(Vec::new(), |s| s.x.volatile.clone())
     }
     else {
         Vec::new()
@@ -1779,11 +1692,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     // Room in the table: retire the least recently used function; of this
     // code's mode when that holds more than its share (P7.2b: 32-bit
     // compatibility-mode code and long-mode code each keep a third at least)
-    let live = r
-        .functions
-        .iter()
-        .filter(|f| f.phase != Phase::Dead)
-        .count() as u32;
+    let live = r.live();
     // (the slot budget, jitrt::capacity: this client's quota is
     // MAX_FUNCTIONS; an eviction another client asked of it is done here,
     // at its cold point)
@@ -1795,7 +1704,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         })
     };
     if capacity::take_request(ClientId::X86Page) || must_evict {
-        if let Some(i) = eviction_victim(&r.functions, compat) {
+        if let Some(i) = eviction_victim(r, compat) {
             retire(r, i);
             r.stats[EVICTED] += 1;
         }
@@ -1840,15 +1749,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 slot: 0,
                 phase: Phase::Dead,
                 served: Vec::new(),
-                code: Vec::new(),
-                starts: Vec::new(),
-                dynamic: Vec::new(),
                 members: Vec::new(),
                 last_used: 0,
-                source: 0,
-                counter: None,
-                native_at: 0,
-                ip_base: 0,
+                x: X86Code::default(),
             });
             r.functions.len() - 1
         },
@@ -1860,15 +1763,17 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         slot,
         phase: Phase::Pending,
         served: code.served,
-        code: code.code,
-        starts: code.starts,
-        dynamic: code.dynamic,
         members: span.iter().map(|&(key, ..)| key).collect(),
         last_used: r.clock,
-        source: source_hash(&bytes),
-        counter,
-        native_at: r.stats[RETIRED],
-        ip_base,
+        x: X86Code {
+            code: code.code,
+            starts: code.starts,
+            dynamic: code.dynamic,
+            source: source_hash(&bytes),
+            counter,
+            native_at: r.stats[RETIRED],
+            ip_base,
+        },
     };
     for &(key, ..) in &span {
         r.by_page.insert(key, index);
@@ -1941,13 +1846,13 @@ pub unsafe fn x64_page_straddle(word: u64, count: u32) -> i32 {
 fn retire(r: &mut Runtime, index: usize) { retire_with(r, index, true) }
 /// `unchain`: clear the chaining entries of the function (reset clears all).
 fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
-    let f = &mut r.functions[index];
-    if !f.phase.kill() {
+    // (jitrt's: Dead, a new generation, the slot released at the next cold point)
+    if !r.kill(index) {
         return;
     }
-    let (page, slot, id) = (f.page, f.slot, f.id);
-    r.released_counters.extend(f.counter.take());
-    r.generation = r.generation.wrapping_add(1);
+    let f = &mut r.functions[index];
+    let (page, slot) = (f.page, f.slot);
+    r.x.released_counters.extend(f.x.counter.take());
     if unchain {
         unsafe { unchain_slot(slot) };
     }
@@ -1979,7 +1884,6 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
             FAST[fast_slot(page)] = (0, 0);
         }
     }
-    r.releases.push((slot, id));
 }
 
 /// Called by the host before table.set: false if the function was retired
@@ -1987,10 +1891,7 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
 #[no_mangle]
 pub fn x64_page_install(id: u64, slot: u32) -> bool {
     let r = rt();
-    let Some(f) = r
-        .functions
-        .iter()
-        .find(|f| f.id == id && f.slot == slot && f.phase == Phase::Pending)
+    let Some(f) = r.pending(id, slot).map(|i| &r.functions[i])
     else {
         return false;
     };
@@ -1998,7 +1899,7 @@ pub fn x64_page_install(id: u64, slot: u32) -> bool {
         return true;
     }
     // other cores mark the page first, then its bytes are checked once more
-    let (page, source) = (f.page, f.source);
+    let (page, source) = (f.page, f.x.source);
     let backing = match r.by_page.get(&page) {
         // (extended pages are not compiled then: retire_extended)
         Some(_) if !is_extended(page) => physical_key(page),
@@ -2034,22 +1935,13 @@ pub fn x64_page_published(address: u32) -> bool {
 }
 #[no_mangle]
 pub fn x64_page_ready(id: u64, slot: u32) -> bool {
-    let r = rt();
-    match r
-        .functions
-        .iter_mut()
-        .find(|f| f.id == id && f.slot == slot && f.phase == Phase::Pending)
-    {
-        Some(f) => {
-            f.phase.ready();
-            if unsafe { TIMING } {
-                let slot = f.slot;
-                unsafe { time_first_call(slot) };
-            }
-            true
-        },
-        None => false,
+    if rt().ready(id, slot).is_none() {
+        return false;
     }
+    if unsafe { TIMING } {
+        unsafe { time_first_call(slot) };
+    }
+    true
 }
 /// (x64_page_timing) Call a new function once with budget 0: it returns at
 /// its first budget check, having written back the unchanged state, and the
@@ -2077,11 +1969,7 @@ unsafe fn time_first_call(slot: u32) {
 #[no_mangle]
 pub fn x64_page_cancel(id: u64, slot: u32) {
     let r = rt();
-    if let Some(i) = r
-        .functions
-        .iter()
-        .position(|f| f.id == id && f.slot == slot && f.phase != Phase::Dead)
-    {
+    if let Some(i) = r.alive(id, slot) {
         retire(r, i);
         r.stats[FAILED] += 1;
     }
@@ -2119,8 +2007,8 @@ pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
             let range = lo..hi.min(4096);
             if f.page & COMPAT_KEY != 0
                 && f.phase != Phase::Dead
-                && !range.clone().any(|o| bit(&f.code, base + o as u16))
-                && range.clone().any(|o| bit(&f.dynamic, base + o as u16))
+                && !range.clone().any(|o| bit(&f.x.code, base + o as u16))
+                && range.clone().any(|o| bit(&f.x.dynamic, base + o as u16))
             {
                 kept.push(i);
             }
@@ -2145,20 +2033,20 @@ pub fn dirty_bytes(page: u32, lo: u32, hi: u32) -> Vec<u32> {
         }
         let base = (m * 4096) as u16;
         let hit: Vec<u16> = (lo..hi.min(4096))
-            .filter(|&o| bit(&f.code, base + o as u16))
+            .filter(|&o| bit(&f.x.code, base + o as u16))
             .filter_map(|o| {
                 (0..=o)
                     .rev()
                     .take(15)
-                    .find(|&s| bit(&f.starts, base + s as u16))
+                    .find(|&s| bit(&f.x.starts, base + s as u16))
             })
             .map(|s| s as u16)
             .collect();
         let state = r.pages.entry(key).or_default();
         for s in hit {
-            if !state.volatile.contains(&s) && state.volatile.len() < pagegen::MAX_VOLATILE {
-                state.volatile.push(s);
-                state.volatile_new = true;
+            if !state.x.volatile.contains(&s) && state.x.volatile.len() < pagegen::MAX_VOLATILE {
+                state.x.volatile.push(s);
+                state.x.volatile_new = true;
             }
         }
     }
@@ -2184,7 +2072,7 @@ fn retire_written(page: u32, kept: &[usize]) {
     // would retire its caller's page with it)
     for key in MODE_KEYS {
         if let Some(state) = r.pages.get_mut(&(page | key)) {
-            state.written = true;
+            state.x.written = true;
         }
     }
     for i in dead {
@@ -2194,7 +2082,7 @@ fn retire_written(page: u32, kept: &[usize]) {
         // interpreted; a page rewritten while its code runs, as 709.smc's,
         // still backs off)
         let f = &r.functions[i];
-        if f.page & COMPAT_KEY != 0 && r.stats[RETIRED].wrapping_sub(f.native_at) >= LIVED {
+        if f.page & COMPAT_KEY != 0 && r.stats[RETIRED].wrapping_sub(f.x.native_at) >= LIVED {
             let key = f.page;
             if let Some(state) = r.pages.get_mut(&key) {
                 state.compiles = state.compiles.min(1);
@@ -2231,7 +2119,7 @@ pub fn reset() {
         retire_with(r, i, false);
     }
     r.pages.clear();
-    r.last_rip = 0;
+    r.x.last_rip = 0;
     r.generation = r.generation.wrapping_add(1);
     unsafe {
         CODE_WRITES += 1;
@@ -3053,16 +2941,19 @@ mod quota_tests {
             slot: 0,
             phase: Phase::Ready,
             served: vec![0; 64],
-            code: vec![0; 64],
-            starts: vec![0; 64],
-            dynamic: vec![0; 64],
             members: vec![page],
             last_used,
-            source: 0,
-            counter: None,
-            native_at: 0,
-            ip_base: 0,
+            x: X86Code::default(),
         }
+    }
+    fn runtime(functions: Vec<Function>) -> Runtime {
+        let mut r = Runtime::new(X86Extra {
+            released_counters: Vec::new(),
+            last_rip: 0,
+            last_page: 0,
+        });
+        r.functions = functions;
+        r
     }
     /// (P7.2b) A full table retires the least recently used function, but
     /// of the compiling code's mode once that mode holds more than its share
@@ -3073,20 +2964,28 @@ mod quota_tests {
         functions.extend(
             (0..MAX_FUNCTIONS as u32 - 2000).map(|i| function(i | COMPAT_KEY, 10_000 + i as u64)),
         );
+        let r = runtime(functions);
         // compatibility-mode code beyond its share retires its own
-        let victim = eviction_victim(&functions, true).unwrap();
-        assert!(functions[victim].page & COMPAT_KEY != 0);
-        assert_eq!(functions[victim].last_used, 10_000);
+        let victim = eviction_victim(&r, true).unwrap();
+        assert!(r.functions[victim].page & COMPAT_KEY != 0);
+        assert_eq!(r.functions[victim].last_used, 10_000);
         // long-mode code within its share: the least recently used of all
-        let victim = eviction_victim(&functions, false).unwrap();
-        assert_eq!(functions[victim].last_used, 0);
+        let victim = eviction_victim(&r, false).unwrap();
+        assert_eq!(r.functions[victim].last_used, 0);
         // a mode within its share takes the oldest of all, the crowded one
         // its own
         let mut few: Vec<Function> = (0..10)
             .map(|i| function(i | COMPAT_KEY, 50 + i as u64))
             .collect();
         few.extend((0..MAX_FUNCTIONS as u32 - 10).map(|i| function(i, 100 + i as u64)));
-        assert_eq!(few[eviction_victim(&few, true).unwrap()].last_used, 50);
-        assert_eq!(few[eviction_victim(&few, false).unwrap()].last_used, 100);
+        let few = runtime(few);
+        assert_eq!(
+            few.functions[eviction_victim(&few, true).unwrap()].last_used,
+            50
+        );
+        assert_eq!(
+            few.functions[eviction_victim(&few, false).unwrap()].last_used,
+            100
+        );
     }
 }

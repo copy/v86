@@ -17,7 +17,9 @@
 //! (tools/check_x86tpl_imports.mjs checks it, in make jit-gate).
 
 pub mod capacity;
+pub mod heat;
 pub mod host;
+pub mod page;
 pub mod publish;
 pub mod stat;
 pub mod table;
