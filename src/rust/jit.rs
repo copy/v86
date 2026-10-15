@@ -1,38 +1,27 @@
-//! Shared state for compiled code: whether it runs (jit_set_enabled), the
-//! bounded Wasm table that the x64 page tier's functions are installed into,
-//! and the physical code pages they were compiled from. Writes to such a page
-//! (self-modifying code, DMA, host writes) retire the functions that depend
-//! on it. (The IR region tiers shared it until docs/jit-unification-plan.md
-//! M11 deleted them.)
-use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
-use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Mutex, MutexGuard};
+//! The x86 core's composition root of compiled code
+//! (docs/jit-unification-plan.md P5.1): whether it runs (jit_set_enabled),
+//! the wiring of the ISA-neutral runtime crate::jitrt to the CPU (its host
+//! environment, the x64 page tier as the client X86Page that hears of writes
+//! and resets), and the hot-path compositions that stay here
+//! (page_watched). Writes to a physical page compiled code was made from
+//! (self-modifying code, DMA, host writes) retire that code. (The IR region
+//! tiers shared it until M11 deleted them.)
+use std::collections::HashSet;
 
 use crate::cpu::cpu;
+use crate::jitrt::host::Env;
+use crate::jitrt::table::{Owner, Signature};
+use crate::jitrt::watch::Trigger;
+use crate::jitrt::{self, ClientId};
 use crate::page::Page;
 use crate::profiler;
 use crate::profiler::stat;
 
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
-#[repr(transparent)]
-pub struct WasmTableIndex(u16);
-impl WasmTableIndex {
-    pub fn to_u16(self) -> u16 { self.0 }
-}
-
 mod unsafe_jit {
-    use super::WasmTableIndex;
-
     #[link(wasm_import_module = "env")]
     extern "C" {
-        pub fn jit_clear_func(wasm_table_index: WasmTableIndex);
+        pub fn jit_clear_func(wasm_table_index: u16);
     }
-}
-
-pub fn jit_clear_func(wasm_table_index: WasmTableIndex) {
-    unsafe { unsafe_jit::jit_clear_func(wasm_table_index) }
 }
 
 // needs to be synced to const.js
@@ -93,29 +82,56 @@ fn reserve_compiler_heap() {
 #[no_mangle]
 pub extern "C" fn jit_wasm_simd_supported() -> u32 { u32::from(cfg!(target_feature = "simd128")) }
 
-static JIT_STATE: Mutex<MaybeUninit<JitState>> = Mutex::new(MaybeUninit::uninit());
-fn get_jit_state() -> JitStateRef { JitStateRef(JIT_STATE.try_lock().unwrap()) }
-
-struct JitStateRef(MutexGuard<'static, MaybeUninit<JitState>>);
-
-impl Deref for JitStateRef {
-    type Target = JitState;
-    fn deref(&self) -> &Self::Target { unsafe { self.0.assume_init_ref() } }
-}
-impl DerefMut for JitStateRef {
-    fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.0.assume_init_mut() } }
-}
-
 #[no_mangle]
 pub fn rust_init() {
     #[cfg(target_arch = "wasm32")]
     unsafe {
         *crate::cpu::global_pointers::ir_tlb_base = std::ptr::addr_of!(cpu::tlb_data) as u32;
     }
-    let _ = JIT_STATE
-        .try_lock()
-        .unwrap()
-        .write(JitState::create_and_initialise());
+    jitrt::init(Env {
+        table_size: WASM_TABLE_SIZE,
+        table_offset: cpu::WASM_TABLE_OFFSET,
+        state_base: crate::cpu::global_pointers::state_base(),
+        mem8: || unsafe { crate::cpu::memory::mem8 },
+        now: || unsafe { cpu::js::microtick() },
+        core: crate::cpu::apic::current_core,
+        clear_slot: |slot| unsafe { unsafe_jit::jit_clear_func(slot as u16) },
+        page_has_code: cpu::tlb_set_has_code,
+        pages_gain_code: |pages| {
+            cpu::tlb_set_has_code_multiple(pages, true);
+            // x64 page functions store through cached write translations of
+            // pages without code; these pages may be among them.
+            for page in pages {
+                unsafe { crate::x64::jac::retire_writes_to(page.to_address()) };
+            }
+        },
+        claim: |page, on| unsafe {
+            if on {
+                crate::parallel::code::claim(page)
+            }
+            else {
+                crate::parallel::code::release(page)
+            }
+        },
+        release_all: || unsafe { crate::parallel::code::release_all() },
+    });
+    {
+        let mut rt = jitrt::state();
+        // (with cores in workers, the other cores hear of every write: crate::parallel::code)
+        rt.watch.on_dirty(Trigger::Always, |page, _| {
+            unsafe { crate::parallel::code::written(page) };
+            Vec::new()
+        });
+        rt.watch
+            .on_dirty(Trigger::WatchedOnly, |page, bytes| match bytes {
+                Some((lo, hi)) => crate::x64::pages::dirty_bytes(page, lo, hi),
+                None => {
+                    crate::x64::pages::dirty_page(page);
+                    Vec::new()
+                },
+            });
+        rt.watch.on_reset(crate::x64::pages::reset);
+    }
 
     use std::panic;
 
@@ -124,82 +140,19 @@ pub fn rust_init() {
     }));
 }
 
-struct JitState {
-    wasm_table_index_free_list: Vec<WasmTableIndex>,
-    /// Reserved table slots: owner id and the physical pages the module was
-    /// compiled from.
-    ir_slots: HashMap<WasmTableIndex, (u64, HashSet<Page>)>,
-    /// Number of slots watching each physical page (TLB fills query this on
-    /// every page walk; iterating all slots' sets was measurable).
-    ir_page_counts: Vec<u16>,
-}
-
-impl JitState {
-    pub fn create_and_initialise() -> JitState {
-        // don't assign 0 (XXX: Check)
-        let wasm_table_indices = (1..=(WASM_TABLE_SIZE - 1) as u16).map(|x| WasmTableIndex(x));
-
-        JitState {
-            wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
-            ir_slots: HashMap::new(),
-            ir_page_counts: Vec::new(),
-        }
+/// A write to the page: retire the code compiled from it, here and
+/// (crate::parallel::code) in other cores' workers.
+fn dirty_page(page: Page) {
+    if !jitrt::state().watch.write(page, None) {
+        profiler::stat_increment(stat::DIRTY_PAGE_DID_NOT_HAVE_CODE);
     }
-}
-
-fn check_jit_state_invariants(ctx: &JitState) {
-    if !cfg!(debug_assertions) {
-        return;
-    }
-    let free: HashSet<WasmTableIndex> =
-        HashSet::from_iter(ctx.wasm_table_index_free_list.iter().copied());
-    dbg_assert!(ctx.ir_slots.keys().all(|index| !free.contains(index)));
-    dbg_assert!(free.len() + ctx.ir_slots.len() == (WASM_TABLE_SIZE - 1) as usize);
-}
-
-/// Register a write in this page: retire all IR code compiled from it, here
-/// and (crate::parallel::code) in other cores' workers.
-fn jit_dirty_page_ctx(ctx: &mut JitState, page: Page) {
-    unsafe { crate::parallel::code::written(page.to_u32()) };
-    retire_page_ctx(ctx, page);
 }
 
 /// Another core wrote the page (crate::parallel::code::poll): retire this
 /// instance's code from it
-pub fn jit_retire_page(page: Page) { retire_page_ctx(&mut get_jit_state(), page) }
-
-fn retire_page_ctx(ctx: &mut JitState, page: Page) { retire_bytes_ctx(ctx, page, None) }
-
-/// retire_page_ctx for a write of `bytes` (offsets lo..hi) of the page: the
-/// x64 page tier keeps code the write misses (x64::pages::dirty_bytes)
-fn retire_bytes_ctx(ctx: &mut JitState, page: Page, bytes: Option<(u32, u32)>) {
-    if !ir_page_watched(ctx, page) {
+pub fn jit_retire_page(page: Page) {
+    if !jitrt::state().watch.retire(page, None) {
         profiler::stat_increment(stat::DIRTY_PAGE_DID_NOT_HAVE_CODE);
-        return;
-    }
-    let kept = match bytes {
-        Some((lo, hi)) => crate::x64::pages::dirty_bytes(page.to_u32(), lo, hi),
-        None => {
-            crate::x64::pages::dirty_page(page.to_u32());
-            Vec::new()
-        },
-    };
-    let mut unwatched = HashSet::new();
-    let JitState {
-        ir_slots,
-        ir_page_counts,
-        ..
-    } = ctx;
-    for (index, (_, pages)) in ir_slots.iter_mut() {
-        if pages.contains(&page) && !kept.contains(&(index.to_u16() as u32)) {
-            for p in pages.drain() {
-                ir_page_count(ir_page_counts, p, -1);
-                unwatched.insert(p);
-            }
-        }
-    }
-    for page in unwatched {
-        cpu::tlb_set_has_code(page, ir_page_watched(ctx, page));
     }
 }
 
@@ -211,21 +164,23 @@ pub fn jit_dirty_cache(start_addr: u32, end_addr: u32) {
     let end_page = Page::page_of(end_addr - 1);
 
     for page in start_page.to_u32()..end_page.to_u32() + 1 {
-        jit_dirty_page_ctx(&mut get_jit_state(), Page::page_of(page << 12));
+        dirty_page(Page::page_of(page << 12));
     }
 }
 
 #[no_mangle]
-pub fn jit_dirty_page(page: Page) { jit_dirty_page_ctx(&mut get_jit_state(), page) }
+pub fn jit_dirty_page(page: Page) { dirty_page(page) }
 
 /// A write of `len` bytes at physical `addr`, within one page: as
-/// jit_dirty_page, where code the write misses may stay (retire_bytes_ctx)
+/// jit_dirty_page, where code the write misses may stay (the x64 page
+/// tier's dirty_bytes)
 pub fn jit_dirty_bytes(addr: u32, len: u32) {
     let page = Page::page_of(addr);
     dbg_assert!(Page::page_of(addr + len - 1) == page);
-    unsafe { crate::parallel::code::written(page.to_u32()) };
     let lo = addr & 0xFFF;
-    retire_bytes_ctx(&mut get_jit_state(), page, Some((lo, lo + len)));
+    if !jitrt::state().watch.write(page, Some((lo, lo + len))) {
+        profiler::stat_increment(stat::DIRTY_PAGE_DID_NOT_HAVE_CODE);
+    }
 }
 
 /// jit_dirty_bytes for the bytes start..end, which span at most two pages
@@ -250,36 +205,21 @@ pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
     let start_page = Page::page_of(start_addr);
     let end_page = Page::page_of(end_addr - 1);
 
-    let mut ctx = get_jit_state();
-    jit_dirty_page_ctx(&mut ctx, start_page);
+    dirty_page(start_page);
 
     // Note: This can't happen when paging is enabled, as writes across
     //       boundaries are split up on two pages
     if start_page != end_page {
         dbg_assert!(start_page.to_u32() + 1 == end_page.to_u32());
-        jit_dirty_page_ctx(&mut ctx, end_page);
+        dirty_page(end_page);
     }
 }
 
 #[no_mangle]
-pub fn jit_clear_cache_js() { jit_clear_cache(&mut get_jit_state()) }
+pub fn jit_clear_cache_js() { jitrt::state().watch.reset() }
 
-fn jit_clear_cache(ctx: &mut JitState) {
-    crate::x64::pages::reset();
-    let mut pages_with_code = HashSet::new();
-    for (_, pages) in ctx.ir_slots.values_mut() {
-        pages_with_code.extend(pages.drain());
-    }
-    ctx.ir_page_counts.clear();
-    unsafe { (*(&raw mut WATCHED)).clear() };
-    unsafe { crate::parallel::code::release_all() };
-    for page in pages_with_code {
-        cpu::tlb_set_has_code(page, false);
-    }
-}
-
-/// Whether IR code (a published artifact's source) lies on the page.
-pub fn jit_page_has_code(page: Page) -> bool { ir_page_watched(&get_jit_state(), page) }
+/// Whether compiled code (a published function's source) lies on the page.
+pub fn jit_page_has_code(page: Page) -> bool { jitrt::state().watch.watched(page) }
 
 /// Whether stores to the page must take the slow path: this instance or,
 /// with cores in workers, another core compiled code from it. Used for new
@@ -288,62 +228,11 @@ pub fn page_needs_notification(page: Page) -> bool {
     jit_page_has_code(page) || unsafe { crate::parallel::code::others_own(page.to_u32()) }
 }
 
-fn ir_page_watched(ctx: &JitState, page: Page) -> bool {
-    ctx.ir_page_counts
-        .get(page.to_u32() as usize)
-        .is_some_and(|count| *count != 0)
-}
-fn ir_page_count(counts: &mut Vec<u16>, page: Page, delta: i32) {
-    let index = page.to_u32() as usize;
-    if counts.len() <= index {
-        counts.resize(index + 1, 0);
-    }
-    let before = counts[index] != 0;
-    counts[index] = (counts[index] as i32 + delta).max(0) as u16;
-    let after = counts[index] != 0;
-    set_watched(index, after);
-    if before != after {
-        unsafe {
-            if after {
-                crate::parallel::code::claim(index as u32)
-            }
-            else {
-                crate::parallel::code::release(index as u32)
-            }
-        }
-    }
-}
-
-/// Lock-free mirror of `ir_page_counts != 0`, one bit per page, for writers
-/// that must only notify pages holding compiled code (x64::physical).
-static mut WATCHED: Vec<u64> = Vec::new();
-fn set_watched(page: usize, watched: bool) {
-    unsafe {
-        let bits = &mut *(&raw mut WATCHED);
-        if bits.len() <= page / 64 {
-            if !watched {
-                return;
-            }
-            bits.resize(page / 64 + 1, 0);
-        }
-        if watched {
-            bits[page / 64] |= 1 << (page % 64)
-        }
-        else {
-            bits[page / 64] &= !(1 << (page % 64))
-        }
-    }
-}
-/// Whether IR or x64 page-tier code was compiled from this backing page, by
-/// this instance or (with cores in workers) another: writes must notify.
+/// Whether x64 page-tier code was compiled from this backing page, by this
+/// instance or (with cores in workers) another: writes must notify.
 #[inline(always)]
 pub fn page_watched(page: u32) -> bool {
-    unsafe {
-        (&*(&raw const WATCHED))
-            .get(page as usize / 64)
-            .is_some_and(|w| w >> (page % 64) & 1 != 0)
-            || crate::parallel::code::others_own(page)
-    }
+    jitrt::watch::bit(page) || unsafe { crate::parallel::code::others_own(page) }
 }
 
 /// Whether every page this code depends on is published to the other cores
@@ -354,66 +243,39 @@ pub fn wait_pages_published(pages: impl Iterator<Item = Page> + Clone, ms: f64) 
 }
 
 /// The fewest free table slots since the last jit_wasm_table_free_low_reset
-/// (docs/jit-unification-plan.md P0.10): IR and the x64 page tier both take
-/// theirs from this table
-static mut TABLE_FREE_LOW: u32 = WASM_TABLE_SIZE - 1;
+/// (docs/jit-unification-plan.md P0.10)
 #[no_mangle]
-pub fn jit_wasm_table_free_low() -> u32 { unsafe { TABLE_FREE_LOW } }
+pub fn jit_wasm_table_free_low() -> u32 { jitrt::state().table.free_low() }
 #[no_mangle]
-pub fn jit_wasm_table_free_low_reset() {
-    unsafe { TABLE_FREE_LOW = get_jit_state().wasm_table_index_free_list.len() as u32 }
+pub fn jit_wasm_table_free_low_reset() { jitrt::state().table.reset_free_low() }
+
+/// A slot for an x64 page function (the client X86Page, code `id`) compiled
+/// from `pages`, which it watches from now on
+pub fn reserve_page_slot(id: u64, pages: HashSet<Page>) -> Option<u32> {
+    let mut rt = jitrt::state();
+    let slot = rt.table.reserve(Owner {
+        client: ClientId::X86Page,
+        signature: Signature::Fn1Ret,
+        id,
+    })?;
+    rt.watch.attach(slot, pages);
+    Some(slot)
 }
 
-pub fn ir_reserve_slot(id: u64, pages: HashSet<Page>) -> Option<u32> {
-    let mut ctx = get_jit_state();
-    let index = ctx.wasm_table_index_free_list.pop()?;
-    unsafe {
-        TABLE_FREE_LOW = TABLE_FREE_LOW.min(ctx.wasm_table_index_free_list.len() as u32);
-    }
-    for &page in &pages {
-        ir_page_count(&mut ctx.ir_page_counts, page, 1);
-    }
-    ctx.ir_slots.insert(index, (id, pages.clone()));
-    cpu::tlb_set_has_code_multiple(&pages, true);
-    // x64 page functions store through cached write translations of pages
-    // without code; these pages may be among them.
-    for page in &pages {
-        unsafe { crate::x64::jac::retire_writes_to(page.to_address()) };
-    }
-    check_jit_state_invariants(&ctx);
-    Some(index.to_u16() as u32)
-}
-
-/// Called only at a cold/quiescent point. The owner protects a reused slot from old callbacks.
-pub fn ir_release_slot(index: u32, id: u64) -> bool {
-    if index == 0 || index >= WASM_TABLE_SIZE {
+/// Called only at a cold/quiescent point. The owner protects a reused slot
+/// from old callbacks by `id`.
+pub fn release_page_slot(slot: u32, id: u64) -> bool {
+    let mut rt = jitrt::state();
+    if !rt.table.release(slot, ClientId::X86Page, id) {
         return false;
     }
-    let mut ctx = get_jit_state();
-    let index = WasmTableIndex(index as u16);
-    if !ctx
-        .ir_slots
-        .get(&index)
-        .is_some_and(|(owner, _)| *owner == id)
-    {
-        return false;
-    }
-    let (_, pages) = ctx.ir_slots.remove(&index).unwrap();
-    for &page in &pages {
-        ir_page_count(&mut ctx.ir_page_counts, page, -1);
-    }
-    for page in pages {
-        cpu::tlb_set_has_code(page, ir_page_watched(&ctx, page));
-    }
-    ctx.wasm_table_index_free_list.push(index);
-    // It is not strictly necessary to clear the function, but it will fail more predictably if we
-    // accidentally use the function and may garbage collect unused modules earlier
-    jit_clear_func(index);
-    check_jit_state_invariants(&ctx);
+    rt.watch.detach(slot);
+    // It is not strictly necessary to clear the function, but it will fail
+    // more predictably if we accidentally use the function and may garbage
+    // collect unused modules earlier
+    (jitrt::host::env().clear_slot)(slot);
     true
 }
 
 #[no_mangle]
-pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
-    get_jit_state().wasm_table_index_free_list.len() as u32
-}
+pub fn jit_get_wasm_table_index_free_list_count() -> u32 { jitrt::state().table.free_count() }

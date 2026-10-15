@@ -205,7 +205,12 @@ export const STATICS = {
     "cpu/simd_fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
     "decode/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
     // (calls of the AVX helper, for tests)
-    "jit.rs": { JIT_STATE: "machine", WATCHED: "machine", TABLE_FREE_LOW: "debug", ENABLED: "machine", RESERVED: "machine" },
+    "jit.rs": { ENABLED: "machine", RESERVED: "machine" },
+    // (the ISA-neutral runtime, P5: an instance's table and watched pages;
+    // LOG is a unit test's)
+    "jitrt/mod.rs": { STATE: "machine" },
+    "jitrt/host.rs": { ENV: "machine" },
+    "jitrt/watch.rs": { WATCHED: "machine", LOG: "debug" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)

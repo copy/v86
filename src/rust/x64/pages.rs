@@ -985,7 +985,7 @@ unsafe fn release_dead(r: &mut Runtime) {
         return;
     }
     for (slot, id) in r.releases.drain(..) {
-        crate::jit::ir_release_slot(slot, id);
+        crate::jit::release_page_slot(slot, id);
     }
     (*(&raw mut HOT_FREE)).extend(r.released_counters.drain(..));
 }
@@ -1812,7 +1812,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
             .map(|&(key, ..)| Page::page_of(physical_key(key) << 12))
             .collect()
     };
-    let Some(slot) = crate::jit::ir_reserve_slot(id, watched)
+    let Some(slot) = crate::jit::reserve_page_slot(id, watched)
     else {
         (*(&raw mut HOT_FREE)).extend(counter);
         rt().stats[FAILED] += 1;

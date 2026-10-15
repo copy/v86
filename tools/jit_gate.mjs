@@ -95,7 +95,7 @@ const steps = [
     { name: "cargo check --features parallel (warning-free)", command: ["cargo", ...cargo_check, "--features", "parallel"], env: warning_free },
     { name: "rustfmt", command: ["make", "rustfmt"] },
     { name: "eslint", command: eslint_command, skip: eslint ? null : "eslint not installed (set ESLINT to its bin/eslint.js)" },
-    { name: "x86tpl imports (P2.10)", command: ["node", "tools/check_x86tpl_imports.mjs"] },
+    { name: "x86tpl and jitrt imports (P2.10, P5.1)", command: ["node", "tools/check_x86tpl_imports.mjs"] },
     { name: "core-split-check (ARM64 plan P0.7)", command: ["node", "tools/core_split_check.mjs", ...(base ? ["--base", base] : [])],
         skip: feeds_core || full ? null : "nothing that feeds build/v86.wasm changed" },
     // (P2.0: the base's and the working tree's generated code, byte for
