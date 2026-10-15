@@ -86,9 +86,11 @@ pub const EXIT_RETRY: u32 = 1;
 pub const EXIT_UNKNOWN: u32 = 2;
 /// x64_page_step results.
 pub const STEP_CONTINUE: i32 = 0;
-/// The step changed CS but nothing else the function depends on (16-bit
-/// code's far calls and returns, P7.7): it leaves through the chaining
-/// table, to the function of the new RIP, whose prologue checks CS's base
+/// The step changed CS but nothing else the function depends on (far calls
+/// and returns in code compiled for segment bases, P7.7; M11: or also the
+/// mode among those, pages::x64_page_step switching the chaining table): it
+/// leaves through the chaining table, to the function of the new RIP, whose
+/// prologue checks CS's base in 16-bit code
 pub const STEP_CHAIN: i32 = 1;
 pub const STEP_EXIT: i32 = 2;
 
@@ -341,6 +343,18 @@ enum Op {
     Lods16 {
         width: u8,
         segment: u8,
+    },
+    /// Far CALL ptr16:16 or ptr16:32 and RETF (imm16) in code compiled for
+    /// segment bases (M11): pages::x64_page_far, then through the chaining
+    /// table
+    FarCall {
+        selector: u16,
+        offset: u32,
+        width: u8,
+    },
+    FarRet {
+        pop: u16,
+        width: u8,
     },
     /// PUSHAD and POPAD, whose 32 bytes are in one page (else a retry)
     Pusha,
@@ -1485,7 +1499,7 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
     // register loads, pushes and pops, CLI and STI; the 32-bit forms step)
     if prot16
         && !matches!(op, 0xE0..=0xE3 | 0x8E | 0x06 | 0x07 | 0x0E | 0x16 | 0x1E | 0x1F | 0x0FA0 | 0x0FA1 | 0x0FA8 | 0x0FA9 | 0xFA | 0xFB
-            | 0x50..=0x5F | 0x68 | 0x6A | 0xFF | 0x8F | 0xC4 | 0xC5 | 0xC8 | 0xAC | 0xAD)
+            | 0x50..=0x5F | 0x68 | 0x6A | 0xFF | 0x8F | 0xC4 | 0xC5 | 0xC8 | 0xAC | 0xAD | 0x9A | 0xCA | 0xCB)
     {
         return None;
     }
@@ -1529,6 +1543,18 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
         },
         0xC8 if prot16 && w == 16 && d.extra_immediate == Some(0) => Op::Enter {
             size: d.immediate?.value as u16,
+        },
+        // (far CALL and RETF, M11: for code compiled for segment bases,
+        // Decoder::at)
+        0x9A => Op::FarCall {
+            selector: d.extra_immediate?,
+            offset: d.immediate?.value as u32,
+            width: w,
+        },
+        0xCB => Op::FarRet { pop: 0, width: w },
+        0xCA => Op::FarRet {
+            pop: d.immediate?.value as u16,
+            width: w,
         },
         0xAC | 0xAD if prot16 && d.address_size == 16 => Op::Lods16 {
             width: if op == 0xAC { 8 } else { w },
@@ -2624,7 +2650,9 @@ fn xmm_written(op: &Op) -> u16 {
         | Op::Vcompare { .. }
         | Op::Mxcsr { .. } => 0,
         // (PCMPxSTRM: XMM0)
-        Op::Vstrings { .. } | Op::Vzeroall | Op::Step => !0,
+        Op::Vstrings { .. } | Op::Vzeroall | Op::Step | Op::FarCall { .. } | Op::FarRet { .. } => {
+            !0
+        },
         _ => 0,
     }
 }
@@ -3032,6 +3060,8 @@ fn shadowed(decoder: &mut Decoder, next: u16, starts: &BTreeSet<u16>) -> bool {
                 | Op::CallIndirect { .. }
                 | Op::Ret { .. }
                 | Op::JmpIndirect { .. }
+                | Op::FarCall { .. }
+                | Op::FarRet { .. }
                 | Op::Sti
                 | Op::StiShadowed
                 | Op::Movs { rep: true, .. }
@@ -3137,7 +3167,7 @@ fn effects(op: &Op, compat: bool) -> (u32, u32) {
         Op::CompareExchange { .. } => (0, ZF),
         Op::Sahf => (0, SF | ZF | AF | PF | CF),
         Op::Vcompare { .. } | Op::Vstrings { .. } => (0, ARITH),
-        Op::Step => (ARITH, ARITH),
+        Op::Step | Op::FarCall { .. } | Op::FarRet { .. } => (ARITH, ARITH),
         // (RCX = 0 leaves EFLAGS as they were)
         Op::RepCompare { .. } => (ARITH, ARITH),
         _ => (0, 0),
@@ -3403,6 +3433,8 @@ impl Decoder<'_> {
             let op = match op {
                 Op::Pusha | Op::Popa if stack16 && !code16(mode) => Op::Step,
                 Op::Enter { .. } if !stack16 => Op::Step,
+                // (flat legacy-mode code's far transfers step, as in M10)
+                Op::FarCall { .. } | Op::FarRet { .. } if !segmented => Op::Step,
                 op => op,
             };
             let op = if volatile { volatile_op(&d, op) } else { op };
@@ -3775,6 +3807,12 @@ fn discover(decoder: &mut Decoder, entries: &[u16]) -> (BTreeSet<u16>, bool) {
                         add(next, &mut starts, &mut work);
                         break;
                     },
+                    // (a far call's return comes back here)
+                    Op::FarCall { .. } => {
+                        add(next, &mut starts, &mut work);
+                        break;
+                    },
+                    Op::FarRet { .. } => break,
                     _ => {},
                 }
                 if next >= span as u64 {
@@ -3928,6 +3966,8 @@ pub fn compile_with(
                 | Op::CallIndirect { .. }
                 | Op::Ret { .. }
                 | Op::JmpIndirect { .. }
+                | Op::FarCall { .. }
+                | Op::FarRet { .. }
                 | Op::Sti => break End::Stop,
                 _ => {},
             }
@@ -5064,6 +5104,55 @@ impl Emitter {
     }
     /// Shared: interpret the instruction at RIP, then dispatch on the new RIP
     /// unless the step changed the execution context (memory is current).
+    /// Far CALL and RETF (M11, Op::FarCall, Op::FarRet): the state to
+    /// memory as for a step, EIP the next instruction's and previous_ip this
+    /// one's (a fault restarts it), pages::x64_page_far, then through the
+    /// chaining table, or leave
+    fn far_transfer(
+        &mut self,
+        op: u32,
+        offset: u32,
+        selector: u32,
+        width: u8,
+        start: u64,
+        next: u64,
+    ) {
+        self.xmm_writeback();
+        self.x87_close();
+        self.materialize_if(ARITH);
+        self.linear(next);
+        self.s(RIP);
+        self.writeback();
+        self.c32(gp::previous_ip as i32);
+        self.linear(start);
+        self.b.wrap_i64_to_i32();
+        self.b.store_aligned_i32(0);
+        self.c32((op | (width as u32) << 8) as i32);
+        self.c32(offset as i32);
+        self.c32(selector as i32);
+        self.b.call_signature(
+            "x64_page_far",
+            Signature::new(
+                &[WasmType::I32, WasmType::I32, WasmType::I32],
+                &[WasmType::I32],
+            ),
+        );
+        self.si(ST);
+        // (counted also when it faulted, as the interpreter counts an
+        // instruction whose execution faults)
+        self.retired();
+        self.gi(ST);
+        self.b.if_void();
+        self.gi(N);
+        self.b.return_();
+        self.b.block_end();
+        self.reload();
+        self.c32(0);
+        self.si(FK);
+        self.load_rip();
+        // (it returns: through the table or to pages::run)
+        self.chain();
+    }
     fn step_code(&mut self) {
         self.x87_close();
         self.materialize_if(ARITH);
@@ -5085,7 +5174,9 @@ impl Emitter {
         self.si(ST);
         self.gi(ST);
         self.b.if_void();
-        if self.env.chaining && self.env.prot16 {
+        // (code compiled for segment bases, 16-bit code among it: a far
+        // transfer chains, pages::x64_page_step)
+        if self.env.chaining && self.env.segmented {
             self.gi(ST);
             self.c32(STEP_CHAIN);
             self.b.eq_i32();
@@ -7360,6 +7451,12 @@ impl Emitter {
                 self.leave_to(self.f().step, start);
                 return;
             },
+            Op::FarCall {
+                selector,
+                offset,
+                width,
+            } => self.far_transfer(0, offset, selector as u32, width, start, next),
+            Op::FarRet { pop, width } => self.far_transfer(1, pop as u32, 0, width, start, next),
             Op::Nop => {},
             // compatibility mode's x87 (P7.2a)
             Op::X87 {
@@ -9945,6 +10042,8 @@ impl Emitter {
             inst.op,
             Op::Call { .. }
                 | Op::CallIndirect { .. }
+                | Op::FarCall { .. }
+                | Op::FarRet { .. }
                 | Op::Ret { .. }
                 | Op::JmpIndirect { .. }
                 | Op::Jmp { .. }

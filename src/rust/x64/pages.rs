@@ -613,32 +613,24 @@ const MODE_KEYS: [u32; 9] = [
     COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | STACK_KEY,
 ];
 unsafe fn code_mode() -> usize {
-    if state::mode().is_long() {
+    let mode = state::mode();
+    if mode.is_long() {
         MODE_LONG
     }
     else if state::efer() & state::EFER_LMA != 0 {
         MODE_COMPAT
     }
-    else if prot16_runnable() {
-        MODE_PROT16
-    }
-    else if real_runnable() {
-        MODE_REAL
-    }
-    else if v86_runnable() {
-        MODE_V86
-    }
-    else if prot16_ss32_runnable() {
-        MODE_PROT16_SS32
-    }
-    else if segmented_ss16_runnable() {
-        MODE_SEGMENTED_SS16
-    }
-    else if legacy_runnable() {
-        MODE_LEGACY
-    }
     else {
-        MODE_SEGMENTED
+        // (legacy mode: runnable_kind's 1 is legacy_runnable)
+        match kind_of(mode) {
+            1 => MODE_LEGACY,
+            3 => MODE_PROT16,
+            4 => MODE_REAL,
+            5 => MODE_V86,
+            6 => MODE_PROT16_SS32,
+            7 => MODE_SEGMENTED_SS16,
+            _ => MODE_SEGMENTED,
+        }
     }
 }
 fn is_extended(page: u32) -> bool { physical_key(page) >= extended::CODE_KEY_BASE }
@@ -924,30 +916,52 @@ pub unsafe fn runnable32() -> bool { runnable_kind() != 0 }
 /// in a function compiled for segment bases, which runs flat segments too,
 /// only a change to or from 0)
 #[inline(always)]
-unsafe fn runnable_kind() -> u8 {
-    if compat_runnable() || legacy_runnable() {
-        1
-    }
-    else if segmented_runnable() {
-        2
-    }
-    else if prot16_runnable() {
-        3
-    }
-    else if real_runnable() {
-        4
-    }
-    else if v86_runnable() {
-        5
-    }
-    else if prot16_ss32_runnable() {
-        6
-    }
-    else if segmented_ss16_runnable() {
-        7
-    }
-    else {
-        0
+unsafe fn runnable_kind() -> u8 { kind_of(state::mode()) }
+/// runnable_kind for the current state in `mode`: the predicates above with
+/// the mode computed once (each computed it; with 7 kinds that cost Theme
+/// Hospital 1.5%, M11)
+#[inline(always)]
+unsafe fn kind_of(mode: state::ExecutionMode) -> u8 {
+    use state::ExecutionMode::*;
+    let cs_flat = *gp::segment_offsets.add(cpu::CS as usize) == 0;
+    let es_flat = || {
+        cpu::has_flat_segmentation()
+            && *gp::segment_offsets.add(cpu::ES as usize) == 0
+            && !*gp::segment_is_null.add(cpu::ES as usize)
+    };
+    let stack32 = *gp::stack_size_32;
+    match mode {
+        Protected32 if LEGACY_ACTIVE => {
+            if !stack32 {
+                if cs_flat {
+                    7
+                }
+                else {
+                    0
+                }
+            }
+            else if es_flat() && !*gp::segment_is_null.add(cpu::FS as usize) {
+                1
+            }
+            else if cs_flat {
+                2
+            }
+            else {
+                0
+            }
+        },
+        Compatibility32 if COMPAT_ACTIVE && stack32 && es_flat() => 1,
+        Protected16 if PROT16_ACTIVE && !crate::cpu::smm::smm_active() => {
+            if stack32 {
+                6
+            }
+            else {
+                3
+            }
+        },
+        Real if V86_ACTIVE && !stack32 && !crate::cpu::smm::smm_active() => 4,
+        Vm86 if V86_ACTIVE && !stack32 => 5,
+        _ => 0,
     }
 }
 /// One interpreted instruction at RIP: the long-mode interpreter, or in
@@ -2506,7 +2520,7 @@ unsafe fn legacy_host(address: u32, write: bool) -> Result<u32, usize> {
     Ok((entry & !0xFFF ^ address as i32) as u32)
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 struct Context {
     cpl: u8,
     cs: u16,
@@ -2680,6 +2694,14 @@ pub unsafe fn x64_page_step() -> i32 {
     ACTIVE = true;
     let flags = state::read_flags64();
     state::write_flags64(flags);
+    step_result(&before, writes)
+}
+
+/// After an instruction the interpreter (x64_page_step) or a helper
+/// (x64_page_far) ran for a page function, whose context was `before` and
+/// CODE_WRITES `writes`: STEP_CONTINUE, STEP_CHAIN or STEP_EXIT
+unsafe fn step_result(before: &Context, writes: u64) -> i32 {
+    let before = *before;
     let after = context();
     let exit = if *gp::in_hlt {
         event::STEP_EXIT_HALT
@@ -2697,16 +2719,26 @@ pub unsafe fn x64_page_step() -> i32 {
         event::STEP_EXIT_CODE_WRITE
     }
     else if after != before {
-        // (16-bit code, P7.7, P7.8: a far call or return to code of the
-        // same privilege continues through the chaining table)
+        // (code compiled for segment bases, 16-bit code among it, P7.7,
+        // P7.8: a far call or return to code of the same privilege continues
+        // through the chaining table; M11: also to code of another such
+        // mode, as Windows 98's thunks between 16-bit code and 32-bit code
+        // on a 16-bit stack, through that mode's table)
         if CHAINING
-            && before.compat >= 3
+            && before.compat >= 2
+            && after.compat >= 2
             && after
                 == (Context {
                     cs: after.cs,
+                    compat: after.compat,
                     ..before
                 })
         {
+            if after.compat != before.compat {
+                let mode = code_mode();
+                *gp::x64_code_base = chain_base(apic::current_core(), *gp::cpl == 3, mode);
+                SEGMENTED_ACTIVE = mode >= MODE_SEGMENTED;
+            }
             step_profile::note_event(event::STEP_EXIT, event::STEP_EXIT_CHAINABLE);
             return pagegen::STEP_CHAIN;
         }
@@ -2736,6 +2768,46 @@ pub unsafe fn x64_page_step() -> i32 {
 /// Whether the last activation ended in a step that left (its exit's reason
 /// for the step profile, P4.0)
 static mut STEP_EXITED: bool = false;
+
+/// Far CALL ptr16:16 or ptr16:32 and RETF (imm16) for page functions of
+/// code compiled for segment bases (M11; 16-bit code's far calls and
+/// returns were a tenth of Diablo's instructions, each a step): `op` 0 a
+/// call to `selector`:`offset`, 1 a return popping `offset` bytes more,
+/// plus the operand size << 8. The state is in memory, EIP the next
+/// instruction's, previous_ip this one's. 0: done, continue through the
+/// chaining table (x64_page_step's STEP_CHAIN, or STEP_CONTINUE: the same
+/// mode); 1: done, leave; 2: a fault was delivered (the instruction counts
+/// as retired, as the interpreter counts it).
+#[no_mangle]
+pub unsafe fn x64_page_far(op: u32, offset: u32, selector: u32) -> i32 {
+    let before = context();
+    let writes = CODE_WRITES;
+    let wide = op >> 8 == 32;
+    ACTIVE = false;
+    let done = if op & 255 == 0 {
+        cpu::far_jump_checked(offset as i32, selector as i32 & 0xFFFF, true, wide)
+    }
+    else {
+        let at = |bytes: i32| crate::cpu::misc_instr::get_stack_pointer(bytes);
+        let ip = if wide { cpu::safe_read32s(at(0)) } else { cpu::safe_read16(at(0)) };
+        // (RETF32 reads a dword for the selector)
+        let cs = if wide { cpu::safe_read32s(at(4)) } else { cpu::safe_read16(at(2)) };
+        match (ip, cs) {
+            (Ok(ip), Ok(cs)) => cpu::far_return_checked(ip, cs & 0xFFFF, offset as i32, wide),
+            _ => false,
+        }
+    };
+    ACTIVE = true;
+    if !done {
+        return 2;
+    }
+    let flags = state::read_flags64();
+    state::write_flags64(flags);
+    match step_result(&before, writes) {
+        pagegen::STEP_EXIT => 1,
+        _ => 0,
+    }
+}
 
 /// The parts of a step's context that changed, each a STEP_CONTEXT event:
 /// STEP_EXIT_CHAINABLE if only those P4.3's STEP_CHAIN may continue after

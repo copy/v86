@@ -31,7 +31,9 @@
 // code segment), l (LODS), z (a null ES loaded at the last round, then an
 // ES access: #GP; protected mode only), c (self-modifying code: the round
 // counter written over the immediate of the next instruction, through FS,
-// flat, with a 32-bit address), i (virtual-8086 mode only: IOPL 0, no
+// flat, with a 32-bit address), y (protected mode: at the last round a far
+// call to a selector past the GDT's limit, or a RETF popping one: #GP, in
+// the page tier's far transfer helper, M11), i (virtual-8086 mode only: IOPL 0, no
 // PUSHF captures, and at the last round PUSHF, POPF, CLI or STI: #GP), k
 // (as i, but that instruction first, behind JMP +1 and reached by the JMP
 // -3 after it: cold code, the page tier's interpreted blocks (a backward
@@ -55,7 +57,7 @@ const MODE = process.env.FUZZ_MODE || "prot16";
 assert(["prot16", "prot16ss32", "real", "v86"].includes(MODE), "FUZZ_MODE: prot16, prot16ss32, real or v86");
 const paragraphs = MODE === "real" || MODE === "v86";
 assert(!paragraphs || cases <= 24, "real and virtual-8086 mode: at most 24 cases (below 1 MiB)");
-assert(!paragraphs || only !== "z", "kind z needs protected mode (no null selectors)");
+assert(!paragraphs || only !== "z" && only !== "y", "kinds z and y need protected mode (no null selectors, no descriptors)");
 assert(!["i", "k"].includes(only) || MODE === "v86", "kinds i and k need virtual-8086 mode");
 const iopl0 = ["i", "k"].includes(only);
 
@@ -199,6 +201,12 @@ const far_routine = () => [...pick([[0x40 | dst()], [0x05, ...u16(random())], [0
 // At the last round (ES:[0] 1): MOV ES, a null selector, then MOV AX,
 // ES:[BX], #GP(0) (CMP WORD ES:[0], 1; JNE over the rest)
 const fault = () => [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, 7, 0x31, 0xC0, 0x8E, 0xC0, 0x26, 0x8B, 0x07];
+// At the last round (ES:[0] 1): CALL FAR 0xF8:0x100, or PUSH 0xF8; PUSH
+// 0x100; RETF, whose selector is past the GDT's limit (kind y)
+const far_fault = () => {
+    const transfer = pick([[0x9A, 0x00, 0x01, 0xF8, 0x00], [0x68, 0xF8, 0x00, 0x68, 0x00, 0x01, 0xCB]]);
+    return [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, transfer.length, ...transfer];
+};
 // At the last round, an instruction IOPL governs in virtual-8086 mode
 // (kind i: IOPL 0, #GP)
 const iopl = () => [0x26, 0x83, 0x3E, 0, 0, 1, 0x75, 1, pick([0x9C, 0x9D, 0xFA, 0xFB])];
@@ -209,7 +217,7 @@ const smc = () => ({ bytes: [0x26, 0xA1, 0, 0, 0x64, 0x67, 0xA3, 0, 0, 0, 0, 0x0
 function simple() { return pick([alu, move, unary])(); }
 function instruction() {
     const kinds = { a: [alu, move, unary], m: [move, alu], s: [stack], j: [jumps], g: [segments], x: [wide], f: [far, alu], l: [lods, move],
-        z: [fault, alu, move], c: [smc, alu, move], i: [iopl, alu, move, unary] }[only];
+        z: [fault, alu, move], c: [smc, alu, move], i: [iopl, alu, move, unary], y: [far_fault, far, alu] }[only];
     return pick(kinds || [alu, alu, move, move, unary, wide, stack, jumps, segments, far, lods, smc])();
 }
 function program() {
