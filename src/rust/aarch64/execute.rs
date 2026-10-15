@@ -212,22 +212,31 @@ fn crc32(acc: u32, value: u64, bytes: u32, castagnoli: bool) -> u32 {
 // ---- DC ZVA
 
 /// DC ZVA: zero the 64-byte block holding `va` (DCZID_EL0.BS = 4); an
-/// alignment fault on Device memory (the MMU off)
+/// alignment fault on Device memory (the MMU off, or a Device mapping), as
+/// the Arm ARM says (QEMU zeroes there: an allowed difference). DC ZVA is no
+/// cache maintenance instruction for ESR.CM, which stays 0.
 pub fn dc_zva(va: u64, rt: u32) -> Result<(), Exception> {
     let block = va & !63;
     let syndrome = Syndrome {
-        cache: true,
         register: rt,
         ..Syndrome::NONE
     };
+    let device_fault = Exception::DataAbort {
+        iss: FSC_ALIGNMENT | 1 << 6,
+        far: va,
+    };
     if cpu::sctlr() & SCTLR_M == 0 {
-        return Err(Exception::DataAbort {
-            iss: FSC_ALIGNMENT | 1 << 6 | 1 << 8,
-            far: va,
-        });
+        return Err(device_fault);
     }
     // (one 64-byte block lies in one page: checked once, then written as 8 doublewords)
     memory::prepare_write(block, 64, false, syndrome).map_err(|e| with_far(e, va))?;
+    if let Ok(translation) =
+        crate::aarch64::mmu::translate(block, memory::Access::Write, cpu::el() == 0, 1)
+    {
+        if translation.device {
+            return Err(device_fault);
+        }
+    }
     for i in 0..8 {
         memory::write(block + 8 * i, 8, 0, false, syndrome).map_err(|e| with_far(e, va))?;
     }
@@ -797,17 +806,12 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
     }
 }
 
-fn alignment(va: u64, write: bool, syndrome: Syndrome) -> Exception {
-    let mut iss = FSC_ALIGNMENT | (write as u32) << 6;
-    if syndrome.valid {
-        iss |= 1 << 24
-            | syndrome.size_log << 22
-            | (syndrome.signed as u32) << 21
-            | syndrome.register << 16
-            | (syndrome.sixty_four as u32) << 15
-            | (syndrome.acquire_release as u32) << 14;
+fn alignment(va: u64, write: bool, _syndrome: Syndrome) -> Exception {
+    // (ISV 0, as for every data abort taken to EL1: memory.rs)
+    Exception::DataAbort {
+        iss: FSC_ALIGNMENT | (write as u32) << 6,
+        far: va,
     }
-    Exception::DataAbort { iss, far: va }
 }
 
 /// LDR/STR and their variants (one register)

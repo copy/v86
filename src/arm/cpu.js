@@ -12,7 +12,8 @@ import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtIO } from "../virt/io.js";
-import { A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_RAM_BASE, virt_machine } from "../virt/platform.js";
+import { A64_PROFILE, VIRT_LAYOUT_VERSION, VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, VIRT_PCIE_MMIO_SIZE,
+    VIRT_RAM_BASE, virt_machine } from "../virt/platform.js";
 import { PL011 } from "../virt/pl011.js";
 import { load_kernel } from "../virt/loader.js";
 
@@ -81,6 +82,15 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.devices = {
         "pl011": new PL011(this, device_bus),
     };
+    // (the PCIe host bridge comes with P5.10; until then its 32- and 64-bit
+    // windows read as an empty bus does, all ones, as the reference's do)
+    const empty_bus = {
+        name: "pcie-window",
+        read: (offset, width) => width === 8 ? 0xFFFFFFFFFFFFFFFFn : 2 ** (8 * width) - 1,
+        write: () => {},
+    };
+    this.io.register_mmio(VIRT_PCIE_MMIO, VIRT_PCIE_MMIO_SIZE, empty_bus);
+    this.io.register_mmio(VIRT_PCIE_MMIO_HIGH, VIRT_PCIE_MMIO_HIGH_SIZE, empty_bus);
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
     if(settings.kernel)

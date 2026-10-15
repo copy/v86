@@ -1035,8 +1035,10 @@ a64-portable-tests:
 	$(call A64_PENDING,A3)
 a64-system-tests:
 	$(call A64_PENDING,A2)
-a64-mmu-tests:
-	$(call A64_PENDING,A2)
+a64-mmu-tests: build/v86-arm64.wasm
+	node tests/a64/mmu.mjs
+	node tests/a64/mmu.mjs --seed 2
+	node tests/a64/mmu_granule.mjs
 a64-kvm-unit-tests:
 	$(call A64_PENDING,A2)
 a64-litmus-tests:

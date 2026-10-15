@@ -1,5 +1,5 @@
-//! Virtual memory accesses of the AArch64 core: translation (the stage 1 MMU
-//! is P3.4; with SCTLR_EL1.M clear an address is its physical address, data
+//! Virtual memory accesses of the AArch64 core: translation (the stage 1 MMU,
+//! mmu.rs; with SCTLR_EL1.M clear an address is its physical address, data
 //! accesses are to Device memory and must be aligned) and the accesses
 //! themselves through the address space (crate::aarch64::bus). A
 //! multi-byte access that faults anywhere writes nothing.
@@ -8,6 +8,7 @@ use crate::aarch64::bus::{self, Fault, Lookup};
 use crate::aarch64::cpu::{
     self, Exception, FSC_ADDRESS_SIZE_L0, FSC_ALIGNMENT, FSC_EXTERNAL, SCTLR_A, SCTLR_M,
 };
+use crate::aarch64::mmu;
 
 /// What an access does
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -43,17 +44,11 @@ impl Syndrome {
         acquire_release: false,
         cache: false,
     };
+    /// The ISS of a data abort taken to EL1: ISV is 0 for every fault
+    /// reported in ESR_EL1 without FEAT_LS64 (DDI 0487 L.b; QEMU likewise),
+    /// so only WnR and CM are kept (the rest of the syndrome is for an EL2)
     fn iss(self, write: bool, fsc: u32) -> u32 {
-        let mut iss = fsc | (write as u32) << 6 | (self.cache as u32) << 8;
-        if self.valid {
-            iss |= 1 << 24
-                | self.size_log << 22
-                | (self.signed as u32) << 21
-                | self.register << 16
-                | (self.sixty_four as u32) << 15
-                | (self.acquire_release as u32) << 14;
-        }
-        iss
+        fsc | (write as u32) << 6 | (self.cache as u32) << 8
     }
 }
 
@@ -82,7 +77,7 @@ pub fn translate(
     va: u64,
     size: u32,
     access: Access,
-    _unprivileged: bool,
+    unprivileged: bool,
     syndrome: Syndrome,
 ) -> Result<u64, Exception> {
     let sctlr = cpu::sctlr();
@@ -92,16 +87,16 @@ pub fn translate(
         if access != Access::Fetch && !aligned {
             return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
         }
-        if va >> 40 != 0 {
-            return Err(abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome));
-        }
-        return Ok(va);
+        return mmu::mmu_off(va).ok_or_else(|| abort(access, va, FSC_ADDRESS_SIZE_L0, syndrome));
     }
     if access != Access::Fetch && sctlr & SCTLR_A != 0 && !aligned {
         return Err(abort(access, va, FSC_ALIGNMENT, syndrome));
     }
-    // (the stage 1 MMU: P3.4)
-    crate::aarch64::mmu::translate(va, access, _unprivileged, syndrome)
+    let el0 = unprivileged || cpu::el() == 0;
+    match mmu::translate(va, access, el0, size) {
+        Ok(translation) => Ok(translation.pa),
+        Err(fsc) => Err(abort(access, va, fsc, syndrome)),
+    }
 }
 
 /// Whether [va, va + size) crosses into the next page

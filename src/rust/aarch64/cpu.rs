@@ -38,10 +38,9 @@ pub const SCTLR_NTWE: u64 = 1 << 18;
 pub const SCTLR_E0E: u64 = 1 << 24;
 pub const SCTLR_EE: u64 = 1 << 25;
 pub const SCTLR_UCI: u64 = 1 << 26;
-/// RES1 bits of SCTLR_EL1 in Armv8.0 (11, 20, 22, 23, 28, 29)
-pub const SCTLR_RES1: u64 = 1 << 11 | 1 << 20 | 1 << 22 | 1 << 23 | 1 << 28 | 1 << 29;
-/// SCTLR_EL1 at reset (QEMU's reset value for an EL1-only CPU: the RES1 bits)
-pub const SCTLR_RESET: u64 = 0x30D0_0800;
+/// SCTLR_EL1 at reset: the reference's (QEMU 9.2 cortex-a35: SA, SA0,
+/// CP15BEN, EOS, nTWI, nTWE, EIS, SPAN)
+pub const SCTLR_RESET: u64 = 0x00C5_0838;
 
 // ---- registers
 

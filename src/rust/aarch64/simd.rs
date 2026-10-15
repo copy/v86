@@ -924,10 +924,10 @@ fn alignment_fault(va: u64, write: bool) -> Exception {
     }
 }
 
-/// Whether accesses must be aligned to their size here (Device memory with
-/// the MMU off, or SCTLR_EL1.A)
+/// Whether a 16-byte access must be aligned to 16 bytes: SCTLR_EL1.A (on
+/// Device memory the two 8-byte halves need 8, as QEMU checks the pair)
 #[inline(always)]
-fn strict_alignment() -> bool { cpu::sctlr() & (cpu::SCTLR_M | cpu::SCTLR_A) != cpu::SCTLR_M }
+fn strict_alignment() -> bool { cpu::sctlr() & cpu::SCTLR_A != 0 }
 
 /// Read `size` bytes (1-16) of a SIMD&FP register's load
 pub fn read_vector(va: u64, size: u32) -> Result<u128, Exception> {

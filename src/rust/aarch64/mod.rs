@@ -24,6 +24,7 @@ pub mod smp;
 pub mod state;
 pub mod sysregs;
 pub mod timer;
+pub mod tlb;
 
 /// The ISA marker the loader checks after instantiating a core (P1.3): the
 /// ARM core exports it, the x86 core does not

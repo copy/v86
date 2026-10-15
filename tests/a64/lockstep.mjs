@@ -4,12 +4,15 @@
 // instruction and the registers it changed (X0-X30, SP, CPSR's NZCV, V0-V31,
 // FPSR); v86 then single-steps it (a64_step) and logs the same. The first
 // instruction where the PC or a changed register differs is printed with the
-// instructions before it.
+// instructions before it. QEMU clears NZCV when it takes an exception
+// (pstate_write); AArch64.TakeException leaves it, as v86 does: at an
+// exception entry v86 adopts QEMU's flags and the difference is not reported.
 //
-//   node tests/a64/lockstep.mjs <directory of guest.bin> [--max N] [--context N]
+//   node tests/a64/lockstep.mjs <directory of guest.bin> [--max N] [--context N] [--memory MiB] [--granules-all]
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline";
 import { reference, qemu_binary, root, RESULT, DONE } from "./guest_runner.mjs";
 import { STATE_OFFSETS } from "../../src/arm/state_layout.js";
 
@@ -26,6 +29,7 @@ assert.ok(fs.existsSync(plugin), "no execlog plugin at " + plugin + " (tools/a64
 const log = directory + "lockstep-qemu.log";
 fs.rmSync(log, { force: true });
 const expected = await reference(directory, {
+    memory: +option("--memory", 256),
     timeout: 600000,
     extra: ["-plugin", plugin + ",reg=x*,reg=sp,reg=cpsr,reg=v*,reg=fpsr", "-d", "plugin", "-D", log],
 });
@@ -33,7 +37,8 @@ console.log(`QEMU: ${expected.status}`);
 
 const LINE = /^\d+, 0x([0-9a-f]+), 0x([0-9a-f]+), "([^"]*)"(.*)$/;
 const qemu = [];
-for(const line of fs.readFileSync(log, "latin1").split("\n"))
+// (streamed: a trace can be gigabytes)
+for await (const line of readline.createInterface({ input: fs.createReadStream(log, { encoding: "latin1" }), crlfDelay: Infinity }))
 {
     const m = LINE.exec(line);
     if(!m) continue;
@@ -51,12 +56,13 @@ console.log(`QEMU: ${qemu.length} instructions traced`);
 // ---- v86, one instruction at a time
 const { V86 } = await import("../../src/main.js");
 const emulator = new V86({
-    cpu_type: "arm64", graphics_adapter: "none", memory_size: 128 << 20, autostart: false, log_level: 0,
+    cpu_type: "arm64", graphics_adapter: "none", memory_size: +option("--memory", 256) << 20, autostart: false, log_level: 0,
     wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm",
     kernel: { url: directory + "guest.bin" },
 });
 await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
 const cpu = emulator.v86.cpu;
+if(args.includes("--granules-all")) cpu.wm.exports["a64_set_granules"](7);
 const memory = () => new DataView(cpu.wasm_memory.buffer);
 const base = cpu.state_base;
 function registers()
@@ -109,6 +115,13 @@ for(let i = first; i < qemu.length; i++)
     }
     const previous = before;
     step();
+    // (a fetch that aborts is a step of its own in v86; QEMU's log folds it into the instruction before)
+    if(i + 1 < qemu.length && pc() !== qemu[i + 1].pc) step();
+    const vbar = memory().getBigUint64(base + STATE_OFFSETS.vbar_el1, true);
+    if(pc() >= vbar && pc() < vbar + 0x800n && q.changes.has("cpsr"))
+    {
+        memory().setUint32(base + STATE_OFFSETS.nzcv, Number(BigInt("0x" + q.changes.get("cpsr"))), true);
+    }
     const after = registers();
     const changes = new Map();
     for(const [name, value] of after) if(before.get(name) !== value) changes.set(name, value);

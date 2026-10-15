@@ -184,9 +184,10 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
  * The same on v86: the arm64 CPU boots guest.bin as its kernel (an arm64
  * Image at RAM + 0x80000, src/virt/loader.js); the slices run until the
  * result block is done (or `timeout` ms). A64_WASM selects the core
- * (default build/v86-arm64.wasm), TEST_RELEASE_BUILD=1 the compiled library.
+ * (default build/v86-arm64.wasm), TEST_RELEASE_BUILD=1 the compiled library;
+ * `setup(cpu)` runs before the first instruction.
  */
-export async function actual(directory, { cores = 1, memory = 128, timeout = 60000, options = {} } = {})
+export async function actual(directory, { cores = 1, memory = 128, timeout = 60000, options = {}, setup = null } = {})
 {
     const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
     const emulator = new V86({
@@ -202,6 +203,8 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
             emulator.add_listener("emulator-error", reject);
         });
         const cpu = emulator.v86.cpu;
+        // (setup(cpu): a test's own configuration of the core, e.g. the test profile v1.1)
+        setup?.(cpu);
         let serial = "";
         emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
         const at = RESULT - 0x40000000;

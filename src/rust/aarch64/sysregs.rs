@@ -27,9 +27,10 @@ pub const CTR: u64 = 0x8444_C004;
 pub const CLIDR: u64 = 0x0A20_0023;
 pub const CCSIDR: [u64; 3] = [0x700F_E01A, 0x200F_E01A, 0x703F_E07A];
 
-const SCTLR_WRITABLE: u64 = SCTLR_M | SCTLR_A | SCTLR_C | SCTLR_SA | SCTLR_SA0 | 1 << 5 /* CP15BEN */ | 1 << 8 /* SED */
-    | SCTLR_UMA | 1 << 12 /* I */ | SCTLR_DZE | SCTLR_UCT | SCTLR_NTWI | SCTLR_NTWE | 1 << 19 /* WXN */ | SCTLR_E0E | SCTLR_EE
-    | SCTLR_UCI;
+/// SCTLR_EL1 keeps what is written but the MTE controls (ITFSB, TCF0, TCF,
+/// ATA0, ATA: FEAT_MTE is not in v1), as the reference does; v86 acts on the
+/// bits profile v1 defines
+const SCTLR_MTE: u64 = 1 << 37 | 3 << 38 | 3 << 40 | 1 << 42 | 1 << 43;
 
 /// The ISS of a trapped system register access or instruction (EC 0x18)
 fn trap_iss(reg: u32, rt: u32, read: bool) -> u32 {
@@ -68,7 +69,7 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
             (4, 0) => Ok(ID_AA64PFR0),
             (5, 0) => Ok(ID_AA64DFR0),
             (6, 0) => Ok(ID_AA64ISAR0),
-            (7, 0) => Ok(ID_AA64MMFR0),
+            (7, 0) => Ok(ID_AA64MMFR0 & !(0xFF << 20) | crate::aarch64::mmu::mmfr0_granules()),
             _ => Ok(0),
         };
     }
@@ -209,18 +210,18 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
             r if r == key(3, 3, 13, 0, 3) => *tpidrro_el0 = value,
             r if r == key(3, 2, 0, 0, 0) => *csselr_el1 = value & 0x1F,
             r if r == key(3, 0, 1, 0, 0) => {
-                *sctlr_el1 = value & SCTLR_WRITABLE | SCTLR_RES1;
+                *sctlr_el1 = value & !SCTLR_MTE;
                 crate::aarch64::mmu::regime_changed();
             },
             r if r == key(3, 0, 1, 0, 1) => *actlr_el1 = value,
             r if r == key(3, 0, 1, 0, 2) => *cpacr_el1 = value & 3 << 20,
             r if r == key(3, 0, 2, 0, 0) => {
                 *ttbr0_el1 = value;
-                crate::aarch64::mmu::regime_changed();
+                crate::aarch64::mmu::ttbr_changed();
             },
             r if r == key(3, 0, 2, 0, 1) => {
                 *ttbr1_el1 = value;
-                crate::aarch64::mmu::regime_changed();
+                crate::aarch64::mmu::ttbr_changed();
             },
             r if r == key(3, 0, 2, 0, 2) => {
                 *tcr_el1 = value;
@@ -343,7 +344,7 @@ pub fn sys(op: u32, rt: u32) -> Result<(), Exception> {
             if el == 0 {
                 return Err(Exception::Undefined);
             }
-            crate::aarch64::mmu::address_translate(op2, value);
+            crate::aarch64::mmu::address_translate(op2, value)?;
         },
         // TLB maintenance (P3.4)
         (0, 8, 3, 0..=3)

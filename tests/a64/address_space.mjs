@@ -3,7 +3,7 @@
 // (docs/arm64-virt-android16-plan.md P1.5, P1.7; src/rust/aarch64/bus.rs,
 // src/virt/io.js): new V86 with cpu_type "arm64" loads the ARM core and the
 // arm64 CPU; RAM at 0x4000_0000, device ranges above 4 GiB (high ECAM at
-// 0x40_1000_0000, the 64-bit window at 0x80_0000_0000) and two 0x200 windows
+// 0x40_1000_0000, a device at 0x60_0000_0000) and two 0x200 windows
 // inside one 128 KiB block, holes, 16- and 64-bit accesses (a FIFO's 16-bit
 // read pops once), the map's generation, an access across regions that
 // writes nothing, code keys and the writes that retire watched code.
@@ -60,7 +60,7 @@ try
         read: (offset, width) => offset + width,
         write: () => {},
     });
-    const high = cpu.io.register_mmio([0, 0x80], 0x1000, {
+    const high = cpu.io.register_mmio([0, 0x60], 0x1000, {
         read: (offset, width) => { accesses.push(["high", offset, width]); return register; },
         write: (offset, width, value) => { accesses.push(["high-write", offset, width]); register = value; },
     });
@@ -71,7 +71,7 @@ try
     assert.equal(detail(0x0a000200), window_owner);
     assert.equal(kind(0x0a000400), 0, "the next 0x200 is a hole");
     assert.equal(detail(0x4010000000n + 0x123n), ecam);
-    assert.equal(detail(0x8000000000n), high);
+    assert.equal(detail(0x6000000000n), high);
     assert.throws(() => cpu.io.register_mmio(0x0a000100, 0x200, { read: () => 0, write: () => {} }), /overlaps/);
     assert.throws(() => cpu.io.register_mmio(0x40000000, 0x1000, { read: () => 0, write: () => {} }), /overlaps RAM/);
     assert.throws(() => cpu.io.register_mmio([0, 0x100], 0x1000, { read: () => 0, write: () => {} }), /40-bit/);
@@ -83,8 +83,8 @@ try
     assert.deepEqual(accesses, [["fifo", 0, 2]]);
     assert.deepEqual(fifo, [0x2222, 0x3333]);
     assert.deepEqual(read(0x0a000204, 4), [0, 4n]);
-    assert.equal(write(0x8000000008n, 8, 0x1122334455667788n), 0);
-    assert.deepEqual(read(0x8000000008n, 8), [0, 0x1122334455667788n]);
+    assert.equal(write(0x6000000008n, 8, 0x1122334455667788n), 0);
+    assert.deepEqual(read(0x6000000008n, 8), [0, 0x1122334455667788n]);
     assert.deepEqual(read(0x4010000010n, 4), [0, 0x14n]);
     console.log("PASS 16- and 64-bit device accesses (a 16-bit FIFO read pops once)");
 
