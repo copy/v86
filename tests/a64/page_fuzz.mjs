@@ -50,11 +50,15 @@ const imm12 = () => rand(4096);
 const LOGICAL_IMMS = ["#0xff", "#0xffff", "#0xf0f0f0f0f0f0f0f0", "#0x5555555555555555", "#0x7ffffffffffffffe", "#0xfffffff0", "#0x3c"];
 const LOGICAL_IMMS32 = ["#0xff", "#0xffff", "#0xf0f0f0f0", "#0x55555555", "#0x7ffffffe", "#0xfffffff0", "#0x3c"];
 
+// (vector registers v0-v7 in an arrangement)
+const ARRANGEMENTS = ["8b", "16b", "4h", "8h", "2s", "4s", "2d"];
+const v = t => `v${rand(8)}.${t}`;
+
 let label = 0;
 /** One random instruction, or a short sequence (a construct) */
 function instruction(depth)
 {
-    const kind = rand(47);
+    const kind = rand(54);
     const [d, a, b] = same();
     const wide = d.startsWith("x");
     switch(kind)
@@ -174,6 +178,61 @@ function instruction(depth)
         case 45: {
             const p = rand(2) ? "d" : "s";
             return `${pick(["fabs", "fneg", "fmov"])} ${p}${rand(8)}, ${p}${rand(8)}\n    fcmp${rand(2) ? "e" : ""} ${p}${rand(8)}, ${rand(2) ? p + rand(8) : "#0.0"}\n    cset ${d}, ${pick(CONDS_NOT_AL)}`;
+        }
+        // AdvSIMD vector forms (the page tier's NEON templates, and helper calls)
+        case 47: {
+            const op = pick(["add", "sub", "cmeq", "cmtst", "cmgt", "cmge", "cmhi", "cmhs", "smax", "umax", "smin", "umin", "mul", "urhadd", "sqadd"]);
+            const arrangements = ["add", "sub", "cmeq", "cmtst", "cmgt", "cmge", "cmhi", "cmhs", "sqadd"].includes(op) ? ARRANGEMENTS : ARRANGEMENTS.slice(0, 6);
+            const t = pick(arrangements);
+            return `${op} ${v(t)}, ${v(t)}, ${v(t)}`;
+        }
+        case 48: {
+            const t = pick(["8b", "16b"]);
+            return `${pick(["and", "bic", "orr", "orn", "eor", "bsl", "bit", "bif"])} ${v(t)}, ${v(t)}, ${v(t)}`;
+        }
+        case 49: {
+            const t = pick(ARRANGEMENTS);
+            switch(rand(6))
+            {
+                case 0: { const b8 = pick(["8b", "16b"]); return `${pick(["not", "cnt"])} ${v(b8)}, ${v(b8)}`; }
+                case 1: return `${pick(["abs", "neg"])} ${v(t)}, ${v(t)}`;
+                case 2: return `${pick(["cmeq", "cmgt", "cmge", "cmle", "cmlt"])} ${v(t)}, ${v(t)}, #0`;
+                case 3: { const [op, ts] = pick([["rev64", ARRANGEMENTS.slice(0, 6)], ["rev32", ARRANGEMENTS.slice(0, 4)], ["rev16", ["8b", "16b"]]]); const r = pick(ts); return `${op} ${v(r)}, ${v(r)}`; }
+                case 4: { const [narrow, source] = pick([["8b", "8h"], ["4h", "4s"], ["2s", "2d"]]); return `xtn ${v(narrow)}, ${v(source)}`; }
+                default: { const [narrow, source] = pick([["16b", "8h"], ["8h", "4s"], ["4s", "2d"]]); return `xtn2 ${v(narrow)}, ${v(source)}`; }
+            }
+        }
+        case 50: {
+            const t = pick(ARRANGEMENTS);
+            const esize = { b: 8, h: 16, s: 32, d: 64 }[t.slice(-1)];
+            const op = pick(["shl", "sshr", "ushr"]);
+            return `${op} ${v(t)}, ${v(t)}, #${op === "shl" ? rand(esize) : 1 + rand(esize)}`;
+        }
+        case 51: switch(rand(9))
+        {
+            case 0: return pick([`movi ${v("16b")}, #${rand(256)}`, `movi ${v("8b")}, #${rand(256)}`, `movi ${v("2d")}, #0xff00ff0000ffff00`, `movi d${rand(8)}, #0x00ff00ff00ff00ff`,
+                `movi ${v("4s")}, #${rand(256)}, lsl #${8 * rand(4)}`, `mvni ${v("2s")}, #${rand(256)}, msl #${pick([8, 16])}`, `fmov ${v("4s")}, #1.5`, `fmov ${v("2d")}, #-2.0`]);
+            case 1: return `${pick(["orr", "bic"])} ${v(pick(["4s", "2s"]))}, #${rand(256)}, lsl #${8 * rand(4)}`;
+            case 2: { const [t, r] = pick([["8b", w], ["16b", w], ["4h", w], ["8h", w], ["2s", w], ["4s", w], ["2d", x]]); return `dup ${v(t)}, ${r()}`; }
+            case 3: { const [t, e, n] = pick([["16b", "b", 16], ["8h", "h", 8], ["4s", "s", 4], ["2d", "d", 2], ["8b", "b", 16], ["2s", "s", 4]]); return `dup ${v(t)}, v${rand(8)}.${e}[${rand(n)}]`; }
+            case 4: { const [e, n, r] = pick([["b", 16, w], ["h", 8, w], ["s", 4, w], ["d", 2, x]]); return `mov v${rand(8)}.${e}[${rand(n)}], ${r()}`; }
+            case 5: { const [e, n] = pick([["b", 16], ["h", 8], ["s", 4], ["d", 2]]); return `mov v${rand(8)}.${e}[${rand(n)}], v${rand(8)}.${e}[${rand(n)}]`; }
+            case 6: return pick([`umov ${w()}, v${rand(8)}.b[${rand(16)}]`, `umov ${w()}, v${rand(8)}.h[${rand(8)}]`, `mov ${w()}, v${rand(8)}.s[${rand(4)}]`,
+                `mov ${x()}, v${rand(8)}.d[${rand(2)}]`, `smov ${x()}, v${rand(8)}.b[${rand(16)}]`, `smov ${w()}, v${rand(8)}.h[${rand(8)}]`, `smov ${x()}, v${rand(8)}.s[${rand(4)}]`]);
+            case 7: return pick([`fmov d${rand(8)}, ${x()}`, `fmov s${rand(8)}, ${w()}`, `fmov v${rand(8)}.d[1], ${x()}`, `fmov ${x()}, v${rand(8)}.d[1]`]);
+            default: { const [e, n] = pick([["b", 16], ["h", 8], ["s", 4], ["d", 2]]); return `mov ${e}${rand(8)}, v${rand(8)}.${e}[${rand(n)}]`; }
+        }
+        case 52: {
+            if(rand(3) === 0) { const q = rand(2); return `ext ${v(q ? "16b" : "8b")}, ${v(q ? "16b" : "8b")}, ${v(q ? "16b" : "8b")}, #${rand(q ? 16 : 8)}`; }
+            const t = pick([...ARRANGEMENTS.slice(0, 6), "2d"]);
+            return `${pick(["zip1", "zip2", "uzp1", "uzp2", "trn1", "trn2"])} ${v(t)}, ${v(t)}, ${v(t)}`;
+        }
+        case 53: {
+            // vector FP on ordinary values (converted integers): the fast path, FMLA and FMLS fused
+            const t = pick(["2s", "4s", "2d"]);
+            const [f1, f2, f3] = [rand(8), rand(8), rand(8)];
+            return `scvtf v${f1}.${t}, v${f1}.${t}\n    scvtf v${f2}.${t}, v${f2}.${t}\n` +
+                `    ${pick(["fadd", "fsub", "fmul", "fdiv", "fmla", "fmls"])} v${f3}.${t}, v${f1}.${t}, v${f2}.${t}`;
         }
         default: return `${pick(["ubfx", "sbfx"])} ${d}, ${a}, #${rand(wide ? 32 : 16)}, #${1 + rand(wide ? 32 : 16)}`;
     }

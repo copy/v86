@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The A64 page tier's FP fast path (docs/arm64-virt-android16-plan.md P6,
 // "A64 JIT 的语义红线"; J2): a hot loop of the four scalar multiply-adds,
-// divisions, multiplications and additions with FPSR.IXC set (tests/a64/fma.c)
+// divisions, multiplications and additions, and of vector FMLA and FMLS (4S,
+// 2S, 2D), with FPSR.IXC set (tests/a64/fma.c)
 // gives the same bits and FPSR on QEMU, the interpreter, and the page tier
 // with a64_relaxed_fma off and on; where the host fuses relaxed SIMD's
 // multiply-adds, the compiled loop calls no helper (SoftFloat) at all.
@@ -38,4 +39,4 @@ for(const fma of [0, 1])
     console.log(`a64_relaxed_fma=${fma}: ${t.retired} native instructions, ${t.helpers} helper calls`);
     if(fma) assert.ok(t.helpers < 100, `the fused loop calls the SoftFloat helpers ${t.helpers} times`);
 }
-console.log(`fma: ${expected}; passed`);
+console.log(`fma: ${expected.replace(/\n/g, "; ")}; passed`);

@@ -37,6 +37,8 @@ use crate::wasmgen::wasm_builder::{
 use crate::wasmgen::wasm_opcodes as op;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod neon;
+
 const PAGE: u64 = 4096;
 /// The sign-extension operators
 const OP_I64EXTEND8S: u8 = 0xC2;
@@ -97,10 +99,13 @@ fn fp_form(i: &Inst, env: &CompileEnv) -> Option<FpForm> {
             }),
             _ => None,
         },
-        Op::FpDp3 if env.relaxed_fma => Some(FpForm::MultiplyAdd {
-            negate_addend: word >> 21 & 1 != 0,
-            negate_product: (word >> 21 & 1) != (word >> 15 & 1),
-        }),
+        // (relaxed SIMD: a core built with simd128 only)
+        Op::FpDp3 if env.relaxed_fma && cfg!(target_feature = "simd128") => {
+            Some(FpForm::MultiplyAdd {
+                negate_addend: word >> 21 & 1 != 0,
+                negate_product: (word >> 21 & 1) != (word >> 15 & 1),
+            })
+        },
         Op::FpDp1 => match word >> 15 & 63 {
             op @ 0..=2 => Some(FpForm::Move(op as u8)),
             _ => None,
@@ -235,7 +240,7 @@ fn helper(i: &Inst, env: &CompileEnv) -> Option<HelperSync> {
 
 /// Whether the instruction has a native template
 fn native(i: &Inst, env: &CompileEnv) -> bool {
-    if fp_form(i, env).is_some() {
+    if fp_form(i, env).is_some() || neon::form(i, env).is_some() {
         return true;
     }
     match i.op {
@@ -1299,6 +1304,9 @@ impl Emitter<'_> {
     fn instruction(&mut self, offset: u16, i: &Inst, index: &BTreeMap<u16, usize>) {
         if let Some(form) = fp_form(i, &self.env) {
             return self.fp_instruction(offset, i, form);
+        }
+        if let Some(form) = neon::form(i, &self.env) {
+            return self.vector_instruction(offset, i, form);
         }
         if !native(i, &self.env) {
             let sync = helper(i, &self.env).expect("a template");
