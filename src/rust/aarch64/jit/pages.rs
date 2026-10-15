@@ -77,9 +77,10 @@ fn mode() -> u32 {
 
 // ---- the access cache (jitrt::access) and the chaining tables (jitrt::chain)
 
-/// A64's tags: the virtual page below bit 52 (its top byte included: a
-/// tagged pointer has entries of its own), the epoch above; regions: no
-/// block marks them (the TLB decides when a page's invalidation flushes,
+/// A64's tags: the virtual page below bit 52, the epoch above (with
+/// a64_asid_tag, the ASID's: bind_asid); a tagged pointer (TBI) gets no
+/// entry, since a TLBI by VA names the page untagged; regions: no block
+/// marks them (the TLB decides when a page's invalidation flushes,
 /// tlb::flush_page)
 pub const LAYOUT: TagLayout = TagLayout {
     epoch_shift: 52,
@@ -121,6 +122,13 @@ static mut CODE_TLB: [[(u64, u64, u32); CODE_TLB_SIZE]; MAX_CORES] =
 /// The TLB of `core` was flushed: its access cache entries and code
 /// translations retire (an epoch), its chaining entries go
 pub fn tlb_flushed(core: usize) {
+    if unsafe { super::ASID_TAG } {
+        // (every ASID's epoch goes; the chaining tables' and the code TLB's
+        // entries of old epochs never match again)
+        asids(core).slots = [NO_SLOT; ASID_SLOTS];
+        fresh_epoch(core);
+        return;
+    }
     if access(core).flush(LAYOUT) {
         // (the epochs wrapped: the tables were emptied, and tags of old epochs would match again)
         unsafe { CODE_TLB[core] = [(0, 0, 0); CODE_TLB_SIZE] };
@@ -137,12 +145,179 @@ pub fn tlb_flushed_nonglobal(core: usize) {
         table.forget_nonglobal();
     }
 }
-/// The TLB of `core` dropped the entries of virtual page `page`
-pub fn tlb_flushed_page(core: usize, page: u64) {
-    let _ = access(core).invalidate_page(LAYOUT, ENTRIES, page << 12);
+/// The TLB of `core` dropped the non-global entries of `asid` (TLBI ASIDE1)
+pub fn tlb_flushed_asid(core: usize, asid: u16) {
+    if !unsafe { super::ASID_TAG } {
+        return tlb_flushed_nonglobal(core);
+    }
+    let a = asids(core);
+    match a.slots.iter().position(|s| s.epoch != 0 && s.asid == asid) {
+        Some(i) if a.current == Some(i) => drop_current_epoch(core),
+        Some(i) => a.slots[i] = NO_SLOT,
+        None => {},
+    }
+}
+/// The TLB of `core` dropped the entries of virtual page `page` (VA >> 12,
+/// TBI applied) for `asid` (and the global ones), or for every ASID (None)
+pub fn tlb_flushed_page(core: usize, page: u64, asid: Option<u16>) {
+    let flushed = access(core).invalidate_page(LAYOUT, ENTRIES, page << 12);
     unsafe { CODE_TLB[core][page as usize & (CODE_TLB_SIZE - 1)].0 = 0 };
     for table in chain(core).0.iter_mut() {
         table.forget_page(LAYOUT, page);
+    }
+    if unsafe { super::ASID_TAG } {
+        if flushed.is_some() {
+            // (jitrt's flush numbered the new epoch itself: start over)
+            asids(core).slots = [NO_SLOT; ASID_SLOTS];
+            fresh_epoch(core);
+            return;
+        }
+        // the other epochs that may hold the page: the ASID's, those with a
+        // global translation in the lower half, all of them for the upper
+        // half (the kernel's global pages are in every epoch)
+        let upper = page >> 43 & 1 != 0;
+        let a = asids(core);
+        for i in 0..ASID_SLOTS {
+            let slot = a.slots[i];
+            if a.current != Some(i)
+                && slot.epoch != 0
+                && (upper || slot.low_global || asid.map_or(true, |x| x == slot.asid))
+            {
+                a.slots[i] = NO_SLOT;
+            }
+        }
+    }
+    else if flushed == Some(true) {
+        // (the epochs wrapped: tags of old epochs would match again)
+        unsafe { CODE_TLB[core] = [(0, 0, 0); CODE_TLB_SIZE] };
+        for table in chain(core).0.iter_mut() {
+            table.clear();
+        }
+    }
+}
+
+// ---- a64_asid_tag (P6.4): an epoch per ASID
+
+/// With a64_asid_tag, each recently used ASID of a core has an epoch of its
+/// own: an ASID switch makes the running ASID's epoch the access cache's
+/// current one (its entries, and the code TLB's and chaining tables', are
+/// live again) instead of dropping every non-global entry. Epoch numbers are
+/// never reused before the epochs wrap (everything is emptied then), and
+/// binding happens at an activation (bind_asid), which a TTBR write by a
+/// single step ends. A TLBI drops the epochs its entries may be in: TLBI
+/// ASIDE1 the ASID's; a TLBI by VA the current epoch's entries of the page,
+/// and the other epochs that may hold it; anything else, every epoch.
+const ASID_SLOTS: usize = 16;
+#[derive(Clone, Copy)]
+struct AsidSlot {
+    asid: u16,
+    /// 0: an empty slot
+    epoch: u64,
+    used: u64,
+    /// an entry of a global translation in the lower half (TTBR0) was filled
+    low_global: bool,
+}
+const NO_SLOT: AsidSlot = AsidSlot {
+    asid: 0,
+    epoch: 0,
+    used: 0,
+    low_global: false,
+};
+struct Asids {
+    slots: [AsidSlot; ASID_SLOTS],
+    /// the slot of the current epoch (None: a fresh epoch, no entries yet)
+    current: Option<usize>,
+    /// the last epoch number given out
+    latest: u64,
+    clock: u64,
+}
+static mut ASIDS: [Asids; MAX_CORES] = [const {
+    Asids {
+        slots: [NO_SLOT; ASID_SLOTS],
+        current: None,
+        latest: 0,
+        clock: 0,
+    }
+}; MAX_CORES];
+fn asids(core: usize) -> &'static mut Asids { unsafe { &mut (*(&raw mut ASIDS))[core] } }
+
+/// A new epoch number, made the current epoch of `core`'s access cache
+/// (bound to no ASID yet); when the numbers run out, everything tagged
+/// with one is emptied
+fn fresh_epoch(core: usize) -> u64 {
+    let a = asids(core);
+    a.latest = a.latest.max(access(core).epoch()) + 1;
+    if a.latest >= LAYOUT.epoch_limit() {
+        access(core).clear();
+        unsafe { CODE_TLB[core] = [(0, 0, 0); CODE_TLB_SIZE] };
+        for table in chain(core).0.iter_mut() {
+            table.clear();
+        }
+        a.slots = [NO_SLOT; ASID_SLOTS];
+        a.latest = 1;
+    }
+    access(core).set_epoch(a.latest);
+    a.current = None;
+    a.latest
+}
+/// The current epoch's entries are no longer valid: its slot goes, a fresh epoch comes
+fn drop_current_epoch(core: usize) {
+    let a = asids(core);
+    if let Some(i) = a.current {
+        a.slots[i] = NO_SLOT;
+    }
+    fresh_epoch(core);
+}
+/// Before compiled code runs or the code TLB is used: the access cache's
+/// current epoch is the running ASID's
+#[inline]
+fn bind_asid(core: usize) {
+    if !unsafe { super::ASID_TAG } {
+        return;
+    }
+    let asid = crate::aarch64::mmu::current_asid();
+    let a = asids(core);
+    if let Some(i) = a.current {
+        if a.slots[i].asid == asid {
+            return;
+        }
+    }
+    a.clock += 1;
+    if let Some(i) = a.slots.iter().position(|s| s.epoch != 0 && s.asid == asid) {
+        a.slots[i].used = a.clock;
+        access(core).set_epoch(a.slots[i].epoch);
+        a.current = Some(i);
+        return;
+    }
+    // (an unbound epoch has no entries: the ASID takes it; else a fresh one)
+    let epoch = if a.current.is_none() { access(core).epoch() } else { fresh_epoch(core) };
+    let a = asids(core);
+    let i = a
+        .slots
+        .iter()
+        .position(|s| s.epoch == 0)
+        .unwrap_or_else(|| (0..ASID_SLOTS).min_by_key(|&i| a.slots[i].used).unwrap());
+    a.slots[i] = AsidSlot {
+        asid,
+        epoch,
+        used: a.clock,
+        low_global: false,
+    };
+    a.current = Some(i);
+}
+/// a64_asid_tag changed: every core's cache starts over, empty (an epoch
+/// number either way may have been given out by the other)
+pub fn set_asid_tag(on: bool) {
+    unsafe { super::ASID_TAG = on };
+    for core in 0..MAX_CORES {
+        access(core).clear();
+        unsafe { CODE_TLB[core] = [(0, 0, 0); CODE_TLB_SIZE] };
+        for table in chain(core).0.iter_mut() {
+            table.clear();
+        }
+        let a = asids(core);
+        a.slots = [NO_SLOT; ASID_SLOTS];
+        a.current = None;
     }
 }
 
@@ -256,14 +431,25 @@ pub fn retire_all() {
     }
 }
 
-/// The write entries of every core's access cache to the RAM page at
-/// `backing` retire (a reservation was made there: stores must reach the
-/// global monitor, crate::aarch64::smp::reserve)
-pub fn retire_write_entries(backing: u32) {
-    let host = (unsafe { bus::MEM8 } as u32).wrapping_add(backing);
-    for core in 0..MAX_CORES {
-        access(core).retire_writes(ENTRIES, |entry| entry.host == host);
+/// Before `core` runs (crate::aarch64::smp::switch_to): its write entries to
+/// the RAM pages the cores in `monitors` hold reservations in retire, so
+/// that its compiled stores there reach the global monitor (P3.7). (A scan
+/// at every reservation instead cost 2-core Alpine half its speed, also
+/// interpreted: every atomic is a load-exclusive.)
+pub fn retire_reserved_writes(core: usize, monitors: u32) {
+    if !unsafe { ENABLED } {
+        return;
     }
+    let mem8 = unsafe { bus::MEM8 } as u32;
+    let mut hosts = [u32::MAX; MAX_CORES];
+    let mut count = 0;
+    for c in 0..MAX_CORES {
+        if monitors & 1 << c != 0 {
+            hosts[count] = mem8.wrapping_add(crate::aarch64::smp::reserved_backing(c) & !0xFFF);
+            count += 1;
+        }
+    }
+    access(core).retire_writes(ENTRIES, |entry| hosts[..count].contains(&entry.host));
 }
 
 /// Pages that gained code: write entries to them retire (stores must notify)
@@ -343,6 +529,7 @@ pub fn run(budget: u32) -> Ran {
     }
     let pc = cpu::get_pc();
     let mode = mode();
+    bind_asid(current_core());
     let Some(key) = code_page(pc, mode)
     else {
         return Ran::None;
@@ -632,7 +819,18 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         return 0;
     }
     let host = (unsafe { bus::MEM8 } as u32).wrapping_add(page);
-    access(current_core()).fill(LAYOUT, ENTRIES, el0, write, address, host, false, global);
+    // (a tagged pointer, TBI: no entry, since a TLBI names the page untagged)
+    if ((address << 8) as i64 >> 8) as u64 != address {
+        return host + (address & 0xFFF) as u32;
+    }
+    let core = current_core();
+    access(core).fill(LAYOUT, ENTRIES, el0, write, address, host, false, global);
+    if global && address >> 55 == 0 && unsafe { super::ASID_TAG } {
+        let a = asids(core);
+        if let Some(i) = a.current {
+            a.slots[i].low_global = true;
+        }
+    }
     r.stats[ACCESS_FILLS] += 1;
     host + (address & 0xFFF) as u32
 }

@@ -179,7 +179,7 @@ pub fn flush_asid(shareable: bool, asid: u16) {
                 *entry = Entry::EMPTY;
             }
         }
-        crate::aarch64::jit::pages::tlb_flushed_nonglobal(core);
+        crate::aarch64::jit::pages::tlb_flushed_asid(core, asid);
     }
     bump();
 }
@@ -206,7 +206,7 @@ pub fn flush_page(shareable: bool, page: u64, asid: Option<u16>) {
             if entry.tag == p + 1 && matches(entry.flags & GLOBAL != 0, entry.asid) {
                 *entry = Entry::EMPTY;
             }
-            crate::aarch64::jit::pages::tlb_flushed_page(core, p);
+            crate::aarch64::jit::pages::tlb_flushed_page(core, p, asid);
         }
     }
     bump();

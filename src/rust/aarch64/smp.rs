@@ -84,6 +84,13 @@ pub fn switch_to(core: usize) {
     crate::aarch64::debug::refresh();
     crate::aarch64::tlb::bump_generation();
     execute::core_switched();
+    // (the page tier: this core's compiled stores to pages other cores hold
+    // reservations in must reach monitors_written, P3.7; while it runs no
+    // other core reserves, and reserved pages get no write entries)
+    let others = unsafe { MONITORS } & !(1 << core);
+    if others != 0 {
+        crate::aarch64::jit::pages::retire_reserved_writes(core, others);
+    }
 }
 
 /// The running core (tests, snapshots)
@@ -122,19 +129,17 @@ pub fn send_event() {
 /// A load-exclusive of guest RAM at `backing` marks its granule for the running core
 pub fn reserve(backing: u32) {
     let core = current_core();
-    let changed =
-        unsafe { MONITORS & 1 << core == 0 || MONITOR_GRANULE[core] >> 6 != backing >> 12 };
     unsafe {
         MONITORS |= 1 << core;
         MONITOR_GRANULE[core] = backing >> 6;
     }
     // (other cores' compiled stores to the page must reach monitors_written:
-    // the page tier's access cache stops serving them, P3.7; a core's own
-    // stores do not clear its reservation, so one core needs none of it)
-    if changed && core_count() > 1 {
-        crate::aarch64::jit::pages::retire_write_entries(backing & !0xFFF);
-    }
+    // their write entries to it retire when they next run, switch_to, and
+    // the access cache fills none while the reservation holds, P3.7)
 }
+
+/// The RAM backing offset of `core`'s reserved granule
+pub fn reserved_backing(core: usize) -> u32 { unsafe { MONITOR_GRANULE[core] << 6 } }
 
 /// Whether a core holds a reservation in the RAM page at `backing` (the page
 /// tier's access cache serves no stores to it)

@@ -292,7 +292,7 @@ export const STATICS = {
     // the code pages' translations, the flow a step asked for
     "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
     "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
-        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug" },
+        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request
@@ -348,7 +348,7 @@ export const STATICS = {
     "jitrt/watch.rs": { WATCHED: "machine", LOG: "debug" },
     // (unit tests')
     "jitrt/step.rs": { STATE: "debug" },
-    "jitrt/access.rs": { CACHE: "debug" },
+    "jitrt/access.rs": { CACHE: "debug", KEPT: "debug" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
     // the step profile (docs/jit-unification-plan.md P0.5)

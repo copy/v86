@@ -57,6 +57,8 @@ pub fn rust_init() {
     crate::aarch64::jit::pages::register();
     // (the whole table is the A64 page tier's: jitrt::capacity)
     jitrt::capacity::set_quota(ClientId::A64Page, crate::aarch64::jit::pages::MAX_FUNCTIONS);
+    // (its counters through jit_stat(1, field), P5.10)
+    jitrt::stat::register(ClientId::A64Page, crate::aarch64::jit::pages::a64_page_stat);
     jitrt::state()
         .watch
         .on_dirty(Trigger::WatchedOnly, |page, _| {

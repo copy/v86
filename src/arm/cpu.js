@@ -594,8 +594,10 @@ A64CPU.prototype.get_diagnostics = function()
 /** The A64 page tier's counters (src/rust/aarch64/jit/pages.rs), or null without it */
 A64CPU.prototype.page_tier_stats = function()
 {
-    const stat = this.wm.exports["a64_page_stat"];
-    if(!stat) return null;
+    // (the A64 page tier is jitrt's client 1: jit_stat, src/rust/jitrt/stat.rs)
+    const jit_stat = this.wm.exports["jit_stat"];
+    if(!jit_stat || Number.isNaN(jit_stat(1, 0))) return null;
+    const stat = field => jit_stat(1, field);
     const names = ["compiled", "activations", "retired", "steps", "retries", "unknown", "retired_functions",
         "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),

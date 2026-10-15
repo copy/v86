@@ -122,6 +122,12 @@ impl AccessCache {
     }
     /// Empty the tables (a new number of entries)
     pub fn clear(&mut self) { self.tables.fill(EMPTY) }
+    /// An ISA that keeps several epochs live (A64 with a64_asid_tag: one per
+    /// ASID) makes `epoch` the current one; it numbers them itself, never
+    /// reusing one before the tables were emptied (and never 0). (The x86
+    /// core has no use for it.)
+    #[allow(dead_code)]
+    pub fn set_epoch(&mut self, epoch: u64) { self.epoch_less_one = epoch - 1 }
     /// An address space switch: only the entries of global translations stay
     pub fn flush_nonglobal(&mut self, entries: usize) {
         for (i, entry) in self.tables[..TABLES * entries].iter_mut().enumerate() {
@@ -252,5 +258,31 @@ mod tests {
         assert!(wrapped);
         assert_ne!(c.epoch(), 0);
         assert_eq!(LAYOUT.page(c.entry(1024, 0, page).tag), 0);
+    }
+
+    static mut KEPT: AccessCache = AccessCache::NEW;
+    #[test]
+    fn epochs_kept_side_by_side() {
+        // (A64's a64_asid_tag: an epoch per ASID, switched to and back)
+        let c = unsafe { &mut *(&raw mut KEPT) };
+        let address = 0x0000_7FFF_0000_1000u64;
+        let page = address >> 12;
+        c.set_epoch(5);
+        c.fill(LAYOUT, 1024, true, false, address, 0x5000, false, false);
+        c.set_epoch(9);
+        assert_ne!(c.entry(1024, 1, page).tag, LAYOUT.tag(page, c.epoch()));
+        c.fill(
+            LAYOUT,
+            1024,
+            true,
+            false,
+            address + 0x1000,
+            0x6000,
+            false,
+            false,
+        );
+        c.set_epoch(5);
+        assert_eq!(c.epoch(), 5);
+        assert_eq!(c.entry(1024, 1, page).tag, LAYOUT.tag(page, 5));
     }
 }

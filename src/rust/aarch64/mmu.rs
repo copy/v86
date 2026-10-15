@@ -77,7 +77,7 @@ fn granule_of(select: u64) -> u32 {
 
 /// The current ASID: TTBR1_EL1's if TCR_EL1.A1, else TTBR0_EL1's (8 bits unless TCR_EL1.AS)
 #[inline(always)]
-fn current_asid() -> u16 {
+pub fn current_asid() -> u16 {
     unsafe {
         let tcr = *tcr_el1;
         let ttbr = if tcr >> 22 & 1 != 0 { *ttbr1_el1 } else { *ttbr0_el1 };
@@ -344,9 +344,12 @@ pub fn regime_changed() { tlb::flush(false); }
 /// nothing is flushed (software changing a table under an ASID must TLBI)
 pub fn ttbr_changed() {
     unsafe { tlb::GENERATION = tlb::GENERATION.wrapping_add(1).max(1) };
-    // (the page tier's access cache is not tagged with the ASID: its
-    // non-global entries go, P6.4 without a64_asid_tag)
-    crate::aarch64::jit::pages::tlb_flushed_nonglobal(crate::isa::current_core());
+    // (without a64_asid_tag, the page tier's access cache is not tagged with
+    // the ASID: its non-global entries go; with it, the next activation
+    // takes the running ASID's epoch, P6.4)
+    if !unsafe { crate::aarch64::jit::ASID_TAG } {
+        crate::aarch64::jit::pages::tlb_flushed_nonglobal(crate::isa::current_core());
+    }
 }
 
 /// A data or instruction cache maintenance by VA: no effect, and no fault

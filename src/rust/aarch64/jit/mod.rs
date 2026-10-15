@@ -6,8 +6,12 @@
 //! - a64_page: compiled code runs (default off until its F gate)
 //! - a64_page_hot: interpreted instructions on a page before it is compiled
 //! - a64_neon: the AdvSIMD templates (P6.3b)
-//! - a64_asid_tag: the ASID in the access cache's tags (P6.4; off: an ASID
-//!   switch flushes the non-global entries)
+//! - a64_asid_tag: the ASID in the access cache's tags (P6.4: an epoch per
+//!   ASID; off, the default: an ASID switch flushes the non-global entries)
+//! - a64_helpers: helper calls for the forms pagegen::helper takes (off:
+//!   single steps)
+//! - a64_relaxed_fma: the multiply-adds through relaxed SIMD (only where the
+//!   host fuses them; its default is the host's probe)
 //!
 //! jitrt and pagegen never name this module (tools/check_a64_imports.mjs,
 //! tools/check_x86tpl_imports.mjs).
@@ -30,7 +34,9 @@ pub fn a64_page_set_relaxed_fma_fused(fused: bool) {
         RELAXED_FMA = fused;
     }
 }
-/// The ASID in the access cache's tags (P6.4, not yet: every ASID switch flushes)
+/// The ASID in the access cache's tags (P6.4: an epoch per ASID,
+/// pages::bind_asid; off, an ASID switch drops the non-global entries;
+/// default off until the ARM plan's P9.3 measures it)
 pub static mut ASID_TAG: bool = false;
 
 // ---- the switch registry: the x86 core's interface (src/rust/jit_switches.rs,
@@ -83,8 +89,7 @@ const SWITCHES: [Switch; 6] = [
         name: "a64_asid_tag",
         default: 0,
         get: || unsafe { ASID_TAG as u32 },
-        // (not yet: P6.4's ASID in the tags)
-        set: |v| v == 0,
+        set: |v| v <= 1 && pages::set_asid_tag(v != 0) == (),
     },
 ];
 static mut EXPLICIT: [u32; SWITCHES.len()] = [UNSET; SWITCHES.len()];
