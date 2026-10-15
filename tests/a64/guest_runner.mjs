@@ -92,12 +92,21 @@ export function parse(bytes)
     };
 }
 
-// A test interrupted by a signal skips `finally`; QEMU would outlive it.
+// A test interrupted by a signal skips `finally`; QEMU would outlive it. The
+// handlers are there only while QEMU runs: Node runs them on the event loop,
+// and a test busy in the emulator (a hang included) would never see SIGTERM
+// (`timeout` could not stop it)
 const references = new Set();
 process.on("exit", () => { for(const child of references) child.kill("SIGKILL"); });
-for(const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]])
+const SIGNALS = [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]].map(([signal, code]) => [signal, () => process.exit(code)]);
+function track(child)
 {
-    process.once(signal, () => process.exit(code));
+    if(!references.size) for(const [signal, handler] of SIGNALS) process.on(signal, handler);
+    references.add(child);
+    child.on("exit", () => {
+        references.delete(child);
+        if(!references.size) for(const [signal, handler] of SIGNALS) process.off(signal, handler);
+    });
 }
 
 /**
@@ -111,8 +120,7 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
         "-kernel", directory + "guest.bin", ...extra,
         ...(process.env.A64_QEMU_TRACE ? ["-d", "int,guest_errors", "-D", directory + "qemu.log"] : [])];
     const child = spawn(qemu_binary(), args, { stdio: ["pipe", "pipe", "pipe"] });
-    references.add(child);
-    child.on("exit", () => references.delete(child));
+    track(child);
     let input = "", error = "", id = 0;
     const pending = new Map();
     child.stderr.on("data", data => error += data);
