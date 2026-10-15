@@ -492,48 +492,65 @@ CPU.prototype.clear_stats = function()
     this.wm.exports["profiler_init"]();
 };
 
-// x64 page functions (src/rust/x64/pages.rs). Installed synchronously when
-// the host allows it: the core is at a scheduling point with no Rust lock
-// held, so the function is callable before the guest continues. Resolves to
-// whether the function was installed (the performance recorder times it).
+// Compiled code of the page tiers (src/rust/jitrt/publish.rs: the x64
+// page tier is client 0). Installed synchronously when the host allows it:
+// the core is at a scheduling point with no Rust lock held, so the function
+// is callable before the guest continues. Resolves to whether the function
+// was installed (the performance recorder times it).
+CPU.prototype.jit_publish = function(client, id, slot, pointer, length)
+{
+    const exports = this.wm.exports;
+    return this.publish_code(slot, pointer, length, () => exports["jit_install"](client, id, slot),
+        () => exports["jit_ready"](client, id, slot), () => exports["jit_cancel"](client, id, slot));
+};
+
+// (the x64 page tier's own import, of cores built before J1a: until vJ2,
+// docs/jit-unification-plan.md P5.4)
 CPU.prototype.x64_page_publish = function(id, slot, pointer, length)
+{
+    const exports = this.wm.exports;
+    return this.publish_code(slot, pointer, length, () => exports["x64_page_install"](id, slot),
+        () => exports["x64_page_ready"](id, slot), () => exports["x64_page_cancel"](id, slot));
+};
+
+CPU.prototype.publish_code = function(slot, pointer, length, install, ready, cancel)
 {
     const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;
     const epoch = this.execution_epoch;
     const code = new Uint8Array(exports["memory"].buffer, pointer >>> 0, length >>> 0).slice();
     const current = () => this.execution_epoch === epoch && this.wm === wasm;
-    const install = instance => {
+    const set = instance => {
         if(!current()) return false;
         const f = instance.exports["f"];
-        if(typeof f !== "function" || !exports["x64_page_install"](id, slot))
+        if(typeof f !== "function" || !install())
         {
-            exports["x64_page_cancel"](id, slot);
+            cancel();
             return false;
         }
         table.set(slot + WASM_TABLE_OFFSET, f);
-        exports["x64_page_ready"](id, slot);
+        ready();
         return true;
     };
     if(this.ir_sync_publication)
     {
         try
         {
-            return Promise.resolve(install(new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports })));
+            return Promise.resolve(set(new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports })));
         }
         catch(error)
         {
             if(error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError)
             {
-                dbg_log("x64 page function rejected: " + error, LOG_CPU);
-                if(current()) exports["x64_page_cancel"](id, slot);
+                dbg_log("page function rejected: " + error, LOG_CPU);
+                if(current()) cancel();
                 return Promise.resolve(false);
             }
             this.ir_sync_publication = false;
         }
     }
-    return WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => install(result.instance), error => {
-        dbg_log("x64 page function rejected: " + error, LOG_CPU);
-        if(current()) exports["x64_page_cancel"](id, slot);
+    return WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => set(result.instance), error => {
+        dbg_log("page function rejected: " + error, LOG_CPU);
+        if(current()) cancel();
         return false;
     });
 };

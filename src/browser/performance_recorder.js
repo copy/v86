@@ -124,18 +124,18 @@ export class PerformanceRecorder
         cpu.main_loop = timed_loop;
         this.cleanup.push(() => { if(cpu.main_loop === timed_loop) cpu.main_loop = main_loop; });
 
-        // Page functions are published through x64_page_publish, which
-        // resolves to whether the function was installed. Each call has its
-        // own token, so a completion after stop/restart never reaches a later
+        // Page functions are published through jit_publish, which resolves
+        // to whether the function was installed. Each call has its own
+        // token, so a completion after stop/restart never reaches a later
         // recording.
-        const publish = cpu.x64_page_publish;
-        const timed_publish = (id, slot, pointer, length) => {
-            if(!live()) return publish.call(cpu, id, slot, pointer, length);
+        const publish = cpu.jit_publish;
+        const timed_publish = (client, id, slot, pointer, length) => {
+            if(!live()) return publish.call(cpu, client, id, slot, pointer, length);
             const token = {}, start = this.now(), bytes = length >>> 0;
             run["jit_requests"]++;
             run["jit_wasm_bytes"] += bytes;
             this.pending_jit.set(token, start);
-            return publish.call(cpu, id, slot, pointer, length).then(success => {
+            return publish.call(cpu, client, id, slot, pointer, length).then(success => {
                 if(this.pending_jit.delete(token) && success)
                 {
                     const ms = this.now() - start;
@@ -148,8 +148,8 @@ export class PerformanceRecorder
                 return success;
             });
         };
-        cpu.x64_page_publish = timed_publish;
-        this.cleanup.push(() => { if(cpu.x64_page_publish === timed_publish) cpu.x64_page_publish = publish; });
+        cpu.jit_publish = timed_publish;
+        this.cleanup.push(() => { if(cpu.jit_publish === timed_publish) cpu.jit_publish = publish; });
         const clear_one = cpu.jit_clear_func;
         const count_one = index => { if(live()) run["jit_single_clear_calls"]++; return clear_one.call(cpu, index); };
         cpu.jit_clear_func = count_one;

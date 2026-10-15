@@ -20,7 +20,7 @@ const assert = require("node:assert/strict");
             performance_recording_get(index) { return counters[index]; },
         }, wasm_table: { get() { return null; } } },
         main_loop() { time += 4; instructions = instructions + 100 >>> 0; counters[0] += 25; counters[1] += 75; return 0; },
-        x64_page_publish(id, slot, pointer, length) {
+        jit_publish(client, id, slot, pointer, length) {
             publicationCalls.push([id, slot, pointer, length]);
             return new Promise(resolve => { resolvePublish = resolve; });
         },
@@ -39,7 +39,7 @@ const assert = require("node:assert/strict");
     time = 15; reads.shift()();
     time = 20; reads.shift()();
     cpu.main_loop();
-    const published = cpu.x64_page_publish(1n, 1, 0x1000, 200);
+    const published = cpu.jit_publish(0, 1n, 1, 0x1000, 200);
     time += 10;
     resolvePublish(true);
     assert.equal(await published, true, "the wrapper forwards the publication result");
@@ -60,8 +60,8 @@ const assert = require("node:assert/strict");
     assert.equal(recorder.timer, null);
 
     recorder.start();
-    const late = cpu.x64_page_publish(2n, 1, 0x2000, 100), resolveLate = resolvePublish;
-    const failed = cpu.x64_page_publish(3n, 2, 0x3000, 100), resolveFailed = resolvePublish;
+    const late = cpu.jit_publish(0, 2n, 1, 0x2000, 100), resolveLate = resolvePublish;
+    const failed = cpu.jit_publish(0, 3n, 2, 0x3000, 100), resolveFailed = resolvePublish;
     assert.equal(recorder.pending_jit.size, 2);
     resolveFailed(false);
     assert.equal(await failed, false);

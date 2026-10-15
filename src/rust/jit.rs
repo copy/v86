@@ -132,6 +132,14 @@ pub fn rust_init() {
             });
         rt.watch.on_reset(crate::x64::pages::reset);
     }
+    jitrt::publish::register(
+        ClientId::X86Page,
+        jitrt::publish::Client {
+            install: crate::x64::pages::x64_page_install,
+            ready: crate::x64::pages::x64_page_ready,
+            cancel: crate::x64::pages::x64_page_cancel,
+        },
+    );
 
     use std::panic;
 

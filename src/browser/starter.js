@@ -230,6 +230,7 @@ export function V86(options)
         // the M1 baselines, docs/jit-unification-plan.md P1.2)
         "x64_native_discard": () => {},
         "x64_page_publish": (id, slot, pointer, length) => cpu.x64_page_publish(id, slot, pointer, length),
+        "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -1069,7 +1070,7 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
                         "mmap_read8", "mmap_read32",
                         "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
                         "jit_clear_func",
-                        "x64_native_discard", "x64_page_publish",
+                        "x64_native_discard", "x64_page_publish", "jit_publish",
                         "extended_load", "extended_store",
                     ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
 

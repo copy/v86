@@ -210,6 +210,7 @@ export const STATICS = {
     // LOG is a unit test's)
     "jitrt/mod.rs": { STATE: "machine" },
     "jitrt/host.rs": { ENV: "machine" },
+    "jitrt/publish.rs": { CLIENTS: "machine" },
     "jitrt/watch.rs": { WATCHED: "machine", LOG: "debug" },
     // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
     "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },

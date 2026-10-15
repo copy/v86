@@ -17,16 +17,12 @@
 //! paging and TLB (cpu::translate_address), with LEGACY_KEY besides.
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
+use crate::jitrt::publish::{self, Phase};
+use crate::jitrt::ClientId;
 use crate::page::Page;
 use crate::step_profile::{self, event};
 use std::collections::{HashMap, HashSet};
 
-mod js {
-    #[link(wasm_import_module = "env")]
-    extern "C" {
-        pub fn x64_page_publish(id: u64, slot: u32, pointer: u32, length: u32);
-    }
-}
 extern "C" {
     fn call_indirect1_ret(f: i32, x: u16) -> i32;
 }
@@ -74,12 +70,6 @@ const MODE_SHARE: usize = MAX_FUNCTIONS * 2 / 3;
 const MAX_TRACKED_PAGES: usize = 65536;
 const FAST_SLOTS: usize = 16384;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-enum Phase {
-    Pending,
-    Ready,
-    Dead,
-}
 struct Function {
     /// backing page number (a function serves every mapping of the page),
     /// or an extended page's key (see code_key)
@@ -1896,12 +1886,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     r.stats[TEMPLATED] += code.templated as u64;
     crate::profiler::performance_codegen_finish(started);
     // The host installs it synchronously when it can (x64_page_install).
-    js::x64_page_publish(
-        id,
-        slot,
-        code.bytes.as_ptr() as u32,
-        code.bytes.len() as u32,
-    );
+    publish::publish(ClientId::X86Page, id, slot, &code.bytes);
     Attempt {
         retired: 0,
         submitted: false,
@@ -1946,10 +1931,9 @@ fn retire(r: &mut Runtime, index: usize) { retire_with(r, index, true) }
 /// `unchain`: clear the chaining entries of the function (reset clears all).
 fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
     let f = &mut r.functions[index];
-    if f.phase == Phase::Dead {
+    if !f.phase.kill() {
         return;
     }
-    f.phase = Phase::Dead;
     let (page, slot, id) = (f.page, f.slot, f.id);
     r.released_counters.extend(f.counter.take());
     r.generation = r.generation.wrapping_add(1);
@@ -2046,7 +2030,7 @@ pub fn x64_page_ready(id: u64, slot: u32) -> bool {
         .find(|f| f.id == id && f.slot == slot && f.phase == Phase::Pending)
     {
         Some(f) => {
-            f.phase = Phase::Ready;
+            f.phase.ready();
             if unsafe { TIMING } {
                 let slot = f.slot;
                 unsafe { time_first_call(slot) };
