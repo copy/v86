@@ -24,15 +24,17 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { create_trace_renderer } from "./gpu_trace.mjs";
 import { create_remote_renderer } from "./gpu_remote_renderer.mjs";
+import { IMAGES, directory_of } from "../lib/alpine_image.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const directory = root + "build/x64-linux/";
+// (the pinned ISO and its unpacked files: tests/lib/alpine_image.mjs)
+const directory = directory_of("x86_64");
 const adapter = process.env.GPU_ADAPTER || "bochs_vga";
 const scenario = process.env.GPU_SCENARIO || "drm";
 const out = process.env.GPU_OUT || path.join(directory, "gpu-" + adapter + (process.env.GPU_LEVEL ? "-" + process.env.GPU_LEVEL : ""));
 fs.mkdirSync(out, { recursive: true });
 
-const iso = directory + "alpine-virt-3.24.0-x86_64.iso";
+const iso = directory + IMAGES["x86_64-virt"].name;
 const repo = directory + "gpu-repo.tar";
 for(const file of [iso, directory + "boot/vmlinuz-virt", directory + "boot/initramfs-virt"])
 {

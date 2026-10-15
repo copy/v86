@@ -23,8 +23,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import url from "node:url";
-import { spawnSync } from "node:child_process";
-import { createHash as create_hash } from "node:crypto";
+import { prepare as prepare_alpine } from "../lib/alpine_image.mjs";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 process.on("unhandledRejection", exn => { throw exn; });
@@ -35,29 +34,10 @@ const DISABLE_JIT = +process.env.DISABLE_JIT;
 const { V86 } = await import(TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const ROOT = __dirname + "/../../";
-const DIRECTORY = ROOT + "build/x64-linux/";
-const ISO = "alpine-virt-3.24.0-x86_64.iso";
-const ISO_SHA256 = "6cd1a38ae05cf96a5d0cbb2ddd6c630834babfeca1ecc5d1f05ec0b06b886102";
+// (the pinned ISO, downloaded, checked and unpacked: tests/lib/alpine_image.mjs)
+const { directory: DIRECTORY, image: { name: ISO } } = await prepare_alpine("x86_64-virt");
 const KERNEL = "boot/vmlinuz-virt";
 const INITRD = "boot/initramfs-virt";
-
-const sha256 = bytes => create_hash("sha256").update(bytes).digest("hex");
-fs.mkdirSync(DIRECTORY, { recursive: true });
-if(!fs.existsSync(DIRECTORY + ISO))
-{
-    const response = await fetch("https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/" + ISO);
-    assert.ok(response.ok, "Alpine ISO: HTTP " + response.status);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    assert.equal(sha256(bytes), ISO_SHA256, "the pinned Alpine ISO");
-    fs.writeFileSync(DIRECTORY + ISO, bytes);
-}
-assert.equal(sha256(fs.readFileSync(DIRECTORY + ISO)), ISO_SHA256, "the pinned Alpine ISO");
-for(const file of [KERNEL, INITRD])
-{
-    if(fs.existsSync(DIRECTORY + file)) continue;
-    const unpack = spawnSync("bsdtar", ["-xf", DIRECTORY + ISO, "-C", DIRECTORY, file], { encoding: "utf8" });
-    assert.equal(unpack.status, 0, unpack.stderr);
-}
 
 /** What the entropy device hands out, from the start of each buffer */
 const rng_byte = i => i * 37 + 11 & 0xFF;
