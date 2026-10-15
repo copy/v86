@@ -8,13 +8,14 @@
 
 use crate::aarch64::cpu::{self, *};
 use crate::aarch64::decode::{
-    self, Inst, Op, LS_LOAD, LS_PREFETCH, LS_SIGNED, LS_TO_W, LS_UNPRIVILEGED,
+    self, Inst, Op, LS_LOAD, LS_PREFETCH, LS_SIGNED, LS_SIMD, LS_TO_W, LS_UNPRIVILEGED,
 };
 use crate::aarch64::decode::{MODE_POST, MODE_PRE, MODE_REGISTER};
 use crate::aarch64::memory::{self, Syndrome};
 use crate::aarch64::psci;
 use crate::aarch64::state::{event_register, excl_addr, excl_valid, excl_value};
 use crate::aarch64::sysregs;
+use crate::aarch64::{crypto, fp, simd, simd_fp};
 
 // ---- the decode cache (by instruction word)
 
@@ -180,7 +181,7 @@ fn bitfield_masks(n: u32, imms: u32, immr: u32, sf: bool) -> (u64, u64) {
 
 /// The SP alignment check of a load or store with the SP as its base
 #[inline(always)]
-fn check_sp(rn: u32, base: u64) -> Result<(), Exception> {
+pub(crate) fn check_sp(rn: u32, base: u64) -> Result<(), Exception> {
     if rn == 31 && base & 15 != 0 {
         let sctlr = cpu::sctlr();
         if sctlr & if cpu::el() == 0 { SCTLR_SA0 } else { SCTLR_SA } != 0 {
@@ -479,6 +480,14 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
         },
 
         // ---- loads and stores
+        Op::LoadLiteral if i.sub >= 4 => {
+            // LDR (literal, SIMD&FP): S, D, Q
+            fp::check_access()?;
+            let va = address.wrapping_add(i.imm);
+            let value = simd::read_vector(va, 4 << (i.sub - 4))?;
+            simd::set_vreg(rd, value);
+            Ok(Flow::Next)
+        },
         Op::LoadLiteral => {
             let va = address.wrapping_add(i.imm);
             let syndrome = Syndrome {
@@ -753,6 +762,38 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
             set_xw(rd, sf, result);
             Ok(Flow::Next)
         },
+        // ---- scalar FP, AdvSIMD, crypto (P2.5-P2.8, P2.11)
+        Op::SimdStructure => simd::structure(i.imm as u32),
+        _ => {
+            fp::check_access()?;
+            let word = i.imm as u32;
+            Ok(match i.op {
+                Op::FpDp1 => simd_fp::dp1(word),
+                Op::FpDp2 => simd_fp::dp2(word),
+                Op::FpDp3 => simd_fp::dp3(word),
+                Op::FpCompare => simd_fp::compare(word),
+                Op::FpCondCompare => simd_fp::cond_compare(word),
+                Op::FpCondSelect => simd_fp::cond_select(word),
+                Op::FpImm => simd_fp::immediate(word),
+                Op::FpFixed => simd_fp::fixed(word),
+                Op::FpInt => simd_fp::int(word),
+                Op::SimdThreeSame => simd::three_same(word),
+                Op::SimdThreeDiff => simd::three_different(word),
+                Op::SimdTwoMisc => simd::two_misc(word),
+                Op::SimdAcross => simd::across(word),
+                Op::SimdPairwise => simd::pairwise(word),
+                Op::SimdCopy => simd::copy(word),
+                Op::SimdModImm => simd::modified_immediate(word),
+                Op::SimdShiftImm => simd::shift_immediate(word),
+                Op::SimdIndexed => simd::indexed(word),
+                Op::SimdTable => simd::table(word),
+                Op::SimdPermute => simd::permute(word),
+                Op::SimdExtract => simd::extract(word),
+                Op::CryptoAes => crypto::aes(word),
+                Op::CryptoSha3 => crypto::sha3(word),
+                _ => crypto::sha2(word),
+            })
+        },
     }
 }
 
@@ -769,12 +810,15 @@ fn alignment(va: u64, write: bool, syndrome: Syndrome) -> Exception {
     Exception::DataAbort { iss, far: va }
 }
 
-/// LDR/STR and their variants (one general-purpose register)
+/// LDR/STR and their variants (one register)
 fn load_store(i: &Inst) -> Result<Flow, Exception> {
     let rt = i.rd as u32;
     let rn = i.rn as u32;
     let size_log = i.cond as u32;
     let size = 1u32 << size_log;
+    if i.sub & LS_SIMD != 0 {
+        fp::check_access()?;
+    }
     let base = xr_sp(rn);
     check_sp(rn, base)?;
     let address = match i.shift {
@@ -786,6 +830,21 @@ fn load_store(i: &Inst) -> Result<Flow, Exception> {
     let new_base = if i.shift == MODE_POST { base.wrapping_add(i.imm) } else { address };
     if i.sub & LS_PREFETCH != 0 {
         // (PRFM never faults)
+        return Ok(Flow::Next);
+    }
+    if i.sub & LS_SIMD != 0 {
+        // a SIMD&FP register: B, H, S, D, Q
+        if i.sub & LS_LOAD != 0 {
+            let value = simd::read_vector(address, size)?;
+            simd::set_vreg(rt, value);
+        }
+        else {
+            let value = simd::vreg(rt);
+            simd::prepare_vector_write(address, size)?.commit(value)?;
+        }
+        if writeback {
+            set_x_sp(rn, new_base);
+        }
         return Ok(Flow::Next);
     }
     let unprivileged = i.sub & LS_UNPRIVILEGED != 0 && cpu::el() == 1;
@@ -841,6 +900,27 @@ fn load_store_pair(i: &Inst) -> Result<Flow, Exception> {
     let address = if i.shift == MODE_POST { base } else { base.wrapping_add(i.imm) };
     let writeback = i.shift == MODE_PRE || i.shift == MODE_POST;
     let new_base = if i.shift == MODE_POST { base.wrapping_add(i.imm) } else { address };
+    if i.sub & LS_SIMD != 0 {
+        // SIMD&FP pairs: S, D, Q
+        let second_address = address.wrapping_add(size as u64);
+        if i.sub & LS_LOAD != 0 {
+            let first = simd::read_vector(address, size)?;
+            let second = simd::read_vector(second_address, size)?;
+            simd::set_vreg(rt, first);
+            simd::set_vreg(rt2, second);
+        }
+        else {
+            let (first, second) = (simd::vreg(rt), simd::vreg(rt2));
+            let a = simd::prepare_vector_write(address, size)?;
+            let b = simd::prepare_vector_write(second_address, size)?;
+            a.commit(first)?;
+            b.commit(second)?;
+        }
+        if writeback {
+            set_x_sp(rn, new_base);
+        }
+        return Ok(Flow::Next);
+    }
     if i.sub & LS_LOAD != 0 {
         let first = memory::read(address, size, false, Syndrome::NONE)?;
         let second = memory::read(
@@ -976,6 +1056,53 @@ fn exclusive(i: &Inst) -> Result<Flow, Exception> {
     Ok(Flow::Next)
 }
 
+// ---- UNDEF telemetry (P2.3): counts by EL and encoding class, the last ones
+
+/// UNDEF counts: [EL][bits 28:25 of the word]
+static mut UNDEF_COUNTS: [[u32; 16]; 2] = [[0; 16]; 2];
+/// The last UNDEFs: (PC, word, EL), a ring
+static mut UNDEF_LAST: [(u64, u32, u32); 16] = [(0, 0, 0); 16];
+static mut UNDEF_NEXT: usize = 0;
+
+#[cold]
+fn note_undefined(address: u64) {
+    let word = memory::fetch(address).unwrap_or(0);
+    let el = cpu::el() as usize & 1;
+    unsafe {
+        UNDEF_COUNTS[el][(word >> 25 & 15) as usize] += 1;
+        UNDEF_LAST[UNDEF_NEXT % 16] = (address, word, el as u32);
+        UNDEF_NEXT += 1;
+    }
+}
+
+/// (diagnostics) UNDEFs at `el` (0 or 1) in encoding class `class` (bits 28:25); class 16: all
+#[no_mangle]
+pub fn a64_undef_count(el: u32, class: u32) -> u32 {
+    let counts = unsafe { &*(&raw const UNDEF_COUNTS) }[el as usize & 1];
+    if class >= 16 {
+        counts.iter().sum()
+    }
+    else {
+        counts[class as usize]
+    }
+}
+/// (diagnostics) the i-th most recent UNDEF: its PC (low, high), word and EL by `field` 0-3
+#[no_mangle]
+pub fn a64_undef_last(i: u32, field: u32) -> u32 {
+    unsafe {
+        if i as usize >= UNDEF_NEXT.min(16) {
+            return 0;
+        }
+        let (pc, word, el) = UNDEF_LAST[(UNDEF_NEXT - 1 - i as usize) % 16];
+        match field {
+            0 => pc as u32,
+            1 => (pc >> 32) as u32,
+            2 => word,
+            _ => el,
+        }
+    }
+}
+
 // ---- one instruction
 
 /// Fetch the instruction at the PC
@@ -1010,6 +1137,9 @@ pub fn interpret_one() -> Flow {
             Flow::Set
         },
         Err(exception) => {
+            if let Exception::Undefined = exception {
+                note_undefined(address);
+            }
             take_sync(exception);
             Flow::Set
         },

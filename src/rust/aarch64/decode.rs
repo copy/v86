@@ -2,10 +2,10 @@
 //! word to an `Inst`, following the encoding index of the Arm ARM (DDI 0487
 //! L.b, C4.1). Every encoding is implemented, a HINT (a NOP unless
 //! implemented), or UNDEF: unallocated, or a feature profile v86-aarch64-v1
-//! does not declare (tests/platform/a64-profile.json). The groups that come
-//! later (FP and AdvSIMD, P2.5-P2.8; crypto, P2.11) decode to UNDEF until
-//! then. `mnemonic` names the base instruction (not LLVM's preferred alias)
-//! for the decode oracle (tests/a64/oracle/decode.mjs).
+//! does not declare (tests/platform/a64-profile.json). The scalar FP,
+//! AdvSIMD and crypto classes are in simd_decode (P2.5-P2.8, P2.11).
+//! `mnemonic` names the base instruction (not LLVM's preferred alias) for
+//! the decode oracle (tests/a64/oracle/decode.mjs).
 
 /// What an instruction does; the fields of `Inst` hold its operands
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -83,6 +83,35 @@ pub enum Op {
     DataProc2,
     /// RBIT, REV16, REV32, REV, CLZ, CLS: sub = opcode
     DataProc1,
+    // scalar FP, AdvSIMD and crypto (simd_decode): imm = the instruction
+    // word; a scalar AdvSIMD form shares its vector form's class (bit 28 of
+    // the word tells them apart)
+    FpDp1,
+    FpDp2,
+    FpDp3,
+    FpCompare,
+    FpCondCompare,
+    FpCondSelect,
+    FpImm,
+    FpFixed,
+    FpInt,
+    SimdThreeSame,
+    SimdThreeDiff,
+    SimdTwoMisc,
+    SimdAcross,
+    SimdPairwise,
+    SimdCopy,
+    SimdModImm,
+    SimdShiftImm,
+    SimdIndexed,
+    SimdTable,
+    SimdPermute,
+    SimdExtract,
+    CryptoAes,
+    CryptoSha3,
+    CryptoSha2,
+    /// LD1-LD4/ST1-ST4 and LD1R-LD4R (simd_decode::structure): imm = the word
+    SimdStructure,
 }
 
 /// A decoded instruction
@@ -119,7 +148,7 @@ impl Inst {
         amount: 0,
         imm: 0,
     };
-    fn new(op: Op, word: u32) -> Inst {
+    pub(crate) fn new(op: Op, word: u32) -> Inst {
         Inst {
             op,
             rd: (word & 31) as u8,
@@ -153,7 +182,9 @@ pub const LS_UNSCALED: u8 = 1;
 pub const LS_NO_ALLOCATE: u8 = 1;
 
 #[inline(always)]
-fn bits(word: u32, high: u32, low: u32) -> u32 { word >> low & ((1u32 << (high - low + 1)) - 1) }
+pub(crate) fn bits(word: u32, high: u32, low: u32) -> u32 {
+    word >> low & ((1u32 << (high - low + 1)) - 1)
+}
 #[inline(always)]
 fn sext(value: u64, width: u32) -> u64 { ((value << (64 - width)) as i64 >> (64 - width)) as u64 }
 
@@ -194,7 +225,8 @@ pub fn decode(word: u32) -> Inst {
         0b1010 | 0b1011 => branch_system(word),
         0b0100 | 0b0110 | 0b1100 | 0b1110 => load_store(word),
         0b0101 | 0b1101 => data_processing_register(word),
-        // scalar FP and AdvSIMD (P2.5-P2.8, P2.11); reserved, SME, SVE
+        0b0111 | 0b1111 => crate::aarch64::simd_decode::data_processing(word),
+        // reserved, SME, SVE
         _ => Inst::UNDEF,
     }
 }
@@ -426,7 +458,18 @@ fn load_store(word: u32) -> Inst {
             if bits(word, 29, 24) == 0b001000 && !v {
                 return exclusive(word);
             }
-            // AdvSIMD structures (P2.7), LDAPR, RCPC, MTE, LSE128, ...
+            if v && word >> 31 == 0 && bits(word, 29, 25) == 0b00110 {
+                // AdvSIMD structures
+                return match crate::aarch64::simd_decode::structure(word) {
+                    Some(_) => {
+                        let mut i = Inst::new(Op::SimdStructure, word);
+                        i.imm = word as u64;
+                        i
+                    },
+                    None => Inst::UNDEF,
+                };
+            }
+            // LDAPR, RCPC, MTE, LSE128, ...
             Inst::UNDEF
         },
         0b01 => {
@@ -435,11 +478,16 @@ fn load_store(word: u32) -> Inst {
                 return Inst::UNDEF;
             }
             let opc = bits(word, 31, 30);
-            if v {
-                // LDR (literal, SIMD&FP): P2.5
-                return Inst::UNDEF;
-            }
             let mut i = Inst::new(Op::LoadLiteral, word);
+            if v {
+                // LDR (literal, SIMD&FP): sub 4 S, 5 D, 6 Q
+                if opc == 3 {
+                    return Inst::UNDEF;
+                }
+                i.sub = 4 + opc as u8;
+                i.imm = sext((bits(word, 23, 5) as u64) << 2, 21);
+                return i;
+            }
             i.sub = opc as u8;
             i.imm = sext((bits(word, 23, 5) as u64) << 2, 21);
             i
@@ -489,21 +537,26 @@ fn pair(word: u32) -> Inst {
     let v = word >> 26 & 1 != 0;
     let mode = bits(word, 24, 23);
     let load = word >> 22 & 1 != 0;
-    if v {
-        // SIMD&FP pairs: P2.5
-        return Inst::UNDEF;
+    let (size, signed) = if v {
+        // S, D, Q
+        if opc == 3 {
+            return Inst::UNDEF;
+        }
+        (2 + opc, false)
     }
-    let (size, signed) = match (opc, load) {
-        (0b00, _) => (2, false),
-        (0b01, true) if mode != 0 => (2, true), // LDPSW
-        (0b10, _) => (3, false),
-        // STGP (FEAT_MTE), LDPSW without allocation, reserved
-        _ => return Inst::UNDEF,
+    else {
+        match (opc, load) {
+            (0b00, _) => (2, false),
+            (0b01, true) if mode != 0 => (2, true), // LDPSW
+            (0b10, _) => (3, false),
+            // STGP (FEAT_MTE), LDPSW without allocation, reserved
+            _ => return Inst::UNDEF,
+        }
     };
     let mut i = Inst::new(Op::LoadStorePair, word);
     i.ra = bits(word, 14, 10) as u8; // Rt2
-    i.cond = size;
-    i.sub = load as u8 | if signed { LS_SIGNED } else { 0 };
+    i.cond = size as u8;
+    i.sub = load as u8 | if signed { LS_SIGNED } else { 0 } | if v { LS_SIMD } else { 0 };
     i.shift = match mode {
         0b00 | 0b10 => MODE_OFFSET,
         0b01 => MODE_POST,
@@ -520,10 +573,6 @@ fn single(word: u32) -> Inst {
     let size = bits(word, 31, 30);
     let v = word >> 26 & 1 != 0;
     let opc = bits(word, 23, 22);
-    if v {
-        // SIMD&FP registers: P2.5
-        return Inst::UNDEF;
-    }
     let unsigned_offset = word >> 24 & 1 != 0;
     let unscaled = !unsigned_offset && word >> 21 & 1 == 0 && bits(word, 11, 10) == 0b00;
     let (mode, unprivileged) = if unsigned_offset {
@@ -544,20 +593,34 @@ fn single(word: u32) -> Inst {
         // atomic memory operations (FEAT_LSE), LDRAA/LDRAB (FEAT_PAuth)
         return Inst::UNDEF;
     };
-    // the access: store, load, prefetch, sign-extending loads
-    let (sub, size_log) = match (size, opc) {
-        (_, 0b00) => (0, size),
-        (_, 0b01) => (LS_LOAD, size),
-        (0b11, 0b10) => {
-            // PRFM, PRFUM; none unprivileged or with write-back
-            if unprivileged || mode == MODE_PRE || mode == MODE_POST {
-                return Inst::UNDEF;
-            }
-            (LS_PREFETCH, 3)
-        },
-        (0b11, _) | (0b10, 0b11) => return Inst::UNDEF,
-        (_, 0b10) => (LS_LOAD | LS_SIGNED, size),
-        (_, _) => (LS_LOAD | LS_SIGNED | LS_TO_W, size),
+    // the access: store, load, prefetch, sign-extending loads; SIMD&FP B, H, S, D, Q
+    let (sub, size_log) = if v {
+        if unprivileged {
+            return Inst::UNDEF;
+        }
+        match (size, opc) {
+            (_, 0b00) => (LS_SIMD, size),
+            (_, 0b01) => (LS_SIMD | LS_LOAD, size),
+            (0b00, 0b10) => (LS_SIMD, 4),
+            (0b00, 0b11) => (LS_SIMD | LS_LOAD, 4),
+            _ => return Inst::UNDEF,
+        }
+    }
+    else {
+        match (size, opc) {
+            (_, 0b00) => (0, size),
+            (_, 0b01) => (LS_LOAD, size),
+            (0b11, 0b10) => {
+                // PRFM, PRFUM; none unprivileged or with write-back
+                if unprivileged || mode == MODE_PRE || mode == MODE_POST {
+                    return Inst::UNDEF;
+                }
+                (LS_PREFETCH, 3)
+            },
+            (0b11, _) | (0b10, 0b11) => return Inst::UNDEF,
+            (_, 0b10) => (LS_LOAD | LS_SIGNED, size),
+            (_, _) => (LS_LOAD | LS_SIGNED | LS_TO_W, size),
+        }
     };
     let mut i = Inst::new(Op::LoadStore, word);
     i.cond = size_log as u8;
@@ -748,11 +811,19 @@ pub fn mnemonic(i: &Inst) -> &'static str {
         Op::Sys => ["sys", "sysl"][i.sub as usize],
         Op::Mrs => "mrs",
         Op::Msr => "msr",
-        Op::LoadLiteral => ["ldr", "ldr", "ldrsw", "prfm"][i.sub as usize],
+        Op::LoadLiteral => ["ldr", "ldr", "ldrsw", "prfm", "ldr", "ldr", "ldr"][i.sub as usize],
         Op::LoadStore => {
             let load = i.sub & LS_LOAD != 0;
             let unprivileged = i.sub & LS_UNPRIVILEGED != 0;
             let unscaled = i.amount == LS_UNSCALED && i.shift == MODE_OFFSET;
+            if i.sub & LS_SIMD != 0 {
+                return match (load, unscaled) {
+                    (false, false) => "str",
+                    (true, false) => "ldr",
+                    (false, true) => "stur",
+                    (true, true) => "ldur",
+                };
+            }
             if i.sub & LS_PREFETCH != 0 {
                 return if unscaled { "prfum" } else { "prfm" };
             }
@@ -869,6 +940,10 @@ pub fn mnemonic(i: &Inst) -> &'static str {
             (4, _) => "clz",
             _ => "cls",
         },
+        Op::SimdStructure => {
+            crate::aarch64::simd_decode::structure(i.imm as u32).map_or("", |s| s.name)
+        },
+        _ => crate::aarch64::simd_decode::classify(i.imm as u32).map_or("", |c| c.1),
     }
 }
 

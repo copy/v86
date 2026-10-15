@@ -1011,7 +1011,7 @@ a64-kvm-unit-tests-qemu:
 # targets that have no tests yet print A64_PENDING and the milestone that
 # brings them, which the release gate reports as pending
 A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android16-plan.md)"
-.PHONY: a64-decode-tests a64-isa-tests a64-trace-tests a64-portable-tests a64-system-tests a64-mmu-tests \
+.PHONY: a64-decode-tests a64-isa-tests a64-native-tests a64-trace-tests a64-portable-tests a64-system-tests a64-mmu-tests \
 	a64-kvm-unit-tests a64-litmus-tests a64-virt-device-tests a64-api-tests a64-guest-quick-tests a64-guest-tests \
 	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
 	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
@@ -1020,10 +1020,15 @@ a64-decode-tests: build/v86-arm64.wasm
 	node tests/a64/oracle/decode.mjs --self-test
 	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
 	node tests/a64/decode_check.mjs
-	$(call A64_PENDING,P2.5-P2.8 (the FP and AdvSIMD groups against the oracle))
 a64-isa-tests: build/v86-arm64.wasm
 	node tests/a64/integer_oracle.mjs
-	$(call A64_PENDING,P2.5-P2.8 and P2.11 (FP, AdvSIMD, crypto))
+	node tests/a64/simd_oracle.mjs
+	node tests/a64/fp_oracle.mjs
+	node tests/a64/crypto_oracle.mjs
+	A64_TARGET=v86 node tests/a64/float_ref.mjs
+# (P2.12: the FP, AdvSIMD and crypto cases on the host's arm64 CPU; macOS on arm64 only)
+a64-native-tests: build/v86-arm64.wasm
+	node tests/a64/native_oracle.mjs
 a64-trace-tests:
 	$(call A64_PENDING,A3)
 a64-portable-tests:

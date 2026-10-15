@@ -90,8 +90,15 @@ pub fn read(reg: u32, rt: u32) -> Result<u64, Exception> {
                 trap(cpu::sctlr() & SCTLR_UMA != 0)?;
                 (get_pstate() & PSTATE_DAIF) as u64
             },
-            r if r == key(3, 3, 4, 4, 0) => crate::aarch64::fp::fpcr_read(),
-            r if r == key(3, 3, 4, 4, 1) => *fpsr as u64,
+            // (FPCR and FPSR trap as FP instructions do: CPACR_EL1.FPEN)
+            r if r == key(3, 3, 4, 4, 0) => {
+                crate::aarch64::fp::check_access()?;
+                crate::aarch64::fp::fpcr_read()
+            },
+            r if r == key(3, 3, 4, 4, 1) => {
+                crate::aarch64::fp::check_access()?;
+                *fpsr as u64
+            },
             r if r == key(3, 3, 13, 0, 2) => *tpidr_el0,
             r if r == key(3, 3, 13, 0, 3) => *tpidrro_el0,
             r if r == key(3, 3, 0, 0, 1) => {
@@ -186,8 +193,14 @@ pub fn write(reg: u32, rt: u32, value: u64) -> Result<(), Exception> {
                 trap(cpu::sctlr() & SCTLR_UMA != 0)?;
                 set_pstate(get_pstate() & !PSTATE_DAIF | value as u32 & PSTATE_DAIF);
             },
-            r if r == key(3, 3, 4, 4, 0) => crate::aarch64::fp::fpcr_write(value),
-            r if r == key(3, 3, 4, 4, 1) => *fpsr = value as u32 & 0xF800_009F,
+            r if r == key(3, 3, 4, 4, 0) => {
+                crate::aarch64::fp::check_access()?;
+                crate::aarch64::fp::fpcr_write(value)
+            },
+            r if r == key(3, 3, 4, 4, 1) => {
+                crate::aarch64::fp::check_access()?;
+                *fpsr = value as u32 & 0xF800_009F
+            },
             r if r == key(3, 3, 13, 0, 2) => *tpidr_el0 = value,
             r if (r >> 7) == key(3, 3, 14, 0, 0) >> 7 => {
                 return crate::aarch64::timer::write(reg, rt, value)

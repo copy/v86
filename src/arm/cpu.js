@@ -378,7 +378,27 @@ A64CPU.prototype.get_diagnostics = function()
         "machine_type": "virt",
         "pc": this.read_pc(),
         "retired": this.wm.exports["core_statistics_get"] ? this.wm.exports["core_statistics_get"](0, 0) : 0,
+        "undefined": this.undefined_instructions(),
     };
+};
+
+/**
+ * UNDEF telemetry (P2.3): counts at EL0 and EL1, and the most recent ones
+ * (PC, word, EL)
+ */
+A64CPU.prototype.undefined_instructions = function()
+{
+    const exports = this.wm.exports;
+    if(!exports["a64_undef_count"]) return null;
+    const last = [];
+    for(let i = 0; i < 16; i++)
+    {
+        const word = exports["a64_undef_last"](i, 2) >>> 0;
+        const pc = (exports["a64_undef_last"](i, 1) >>> 0) * 0x100000000 + (exports["a64_undef_last"](i, 0) >>> 0);
+        if(!pc && !word) break;
+        last.push({ "pc": "0x" + pc.toString(16), "word": "0x" + word.toString(16).padStart(8, "0"), "el": exports["a64_undef_last"](i, 3) });
+    }
+    return { "el0": exports["a64_undef_count"](0, 16), "el1": exports["a64_undef_count"](1, 16), "last": last };
 };
 
 /** The current core's PC, as a hexadecimal string */

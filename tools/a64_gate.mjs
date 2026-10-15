@@ -13,9 +13,10 @@
 //   changed, core-split-check (P0.7: a change only to src/rust/aarch64/
 //   leaves v86.wasm byte for byte as it was).
 // make a64-gate-full, at a milestone's exit and when the owner runs it:
-//   the same, then the long reference runs (kvm-unit-tests arm64 at 4k, 16k
-//   and 64k, Alpine's initramfs and live stages on 1, 2 and 4 cores, all on
-//   QEMU) and the release levels R-a64-* (tools/release_gate.mjs).
+//   the same, then the native arm64 oracle (P2.12, on macOS arm64), the long
+//   reference runs (kvm-unit-tests arm64 at 4k, 16k and 64k, Alpine's
+//   initramfs and live stages on 1, 2 and 4 cores, all on QEMU) and the
+//   release levels R-a64-* (tools/release_gate.mjs).
 //
 // The QEMU checks need the fixed reference (tools/a64_qemu/build.sh) and are
 // skipped, said so, without it.
@@ -63,6 +64,8 @@ const steps = [
 ];
 if(full)
 {
+    steps.push({ name: "FP, AdvSIMD, crypto on the host's arm64 CPU (P2.12)", command: ["make", "--no-print-directory", "a64-native-tests"],
+        skip: process.platform === "darwin" && process.arch === "arm64" ? null : "not macOS on arm64" });
     steps.push({ name: "kvm-unit-tests arm64 4k/16k/64k (QEMU)", command: ["node", "tests/kvm-unit-tests/arm64.mjs", "--qemu"], skip: no_qemu });
     for(const stage of ["initramfs", "live"])
     {

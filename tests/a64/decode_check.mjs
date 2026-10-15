@@ -8,12 +8,13 @@
 //
 // The set: every encoding of the classes whose fields are few enough
 // (hints, system registers, system instructions, exception generation, the
-// one- and two-source data processing opcodes, the PSTATE fields), and a
-// stratified sample of the rest of the 2^32 space. GROUPS limits it to the
-// groups the decoder implements so far (A1: all but scalar FP, AdvSIMD and
-// the SIMD&FP loads and stores, P2.5-P2.8).
+// one- and two-source data processing opcodes, the PSTATE fields; every
+// field of the FP/SIMD data processing group with a few register values,
+// the AdvSIMD structure loads and stores), and a stratified sample of the
+// rest of the 2^32 space. --no-fp-simd leaves out the FP and SIMD groups
+// (as A1's decoder, which had none, was checked).
 //
-//   node tests/a64/decode_check.mjs [--sample N] [--seed S] [--all-groups]
+//   node tests/a64/decode_check.mjs [--sample N] [--seed S] [--no-fp-simd]
 import fs from "node:fs";
 import { decode as oracle } from "./oracle/decode.mjs";
 import { root } from "./guest_runner.mjs";
@@ -22,7 +23,7 @@ const args = process.argv.slice(2);
 const option = (name, value) => { const i = args.indexOf(name); return i < 0 ? value : args[i + 1]; };
 const SAMPLE = +option("--sample", 1000000);
 const SEED = +option("--seed", 1);
-const ALL_GROUPS = args.includes("--all-groups");
+const ALL_GROUPS = !args.includes("--no-fp-simd");
 
 // llvm-mc's spelling -> v86's base mnemonics it may stand for
 const ALIASES = {
@@ -39,7 +40,11 @@ const ALIASES = {
     rev64: ["rev"], ldur: ["ldur"], stur: ["stur"],
     // (the hint and prefetch spaces of later extensions: NOPs in v8.0)
     rprfm: ["prfm"], stshh: ["hint"], shuh: ["hint"], stcph: ["hint"], apas: ["sys"],
+    // AdvSIMD
+    sxtl: ["sshll"], sxtl2: ["sshll2"], uxtl: ["ushll"], uxtl2: ["ushll2"],
 };
+ALIASES.mov.push("ins", "dup", "umov", "orr");
+ALIASES.mvn.push("not");
 const same = (llvm, v86, text) => llvm === v86 || (ALIASES[llvm] || []).includes(v86) || llvm === "b" && /^b\./.test(text) && v86 === "b.cond";
 
 /**
@@ -113,14 +118,29 @@ for(let w = 0; w < 1 << 16; w++)
     // 3 source: sf, op54, op31, o0
     add(0x1B000000 | (w & 1) << 31 | (w >> 1 & 3) << 29 | (w >> 3 & 7) << 21 | (w >> 6 & 1) << 15 | 2 << 16 | 3 << 10 | 4 << 5 | 5);
 }
-// loads and stores: every top-level field with registers 1-3 (V = 0)
+// loads and stores: every top-level field with registers 1-3 (V = 0 and 1)
 for(let w = 0; w < 1 << 16; w++)
 {
-    const word = (w & 0x3) << 30 | 0b111 << 27 | (w >> 2 & 3) << 24 | (w >> 4 & 3) << 22 | (w >> 6 & 1) << 21 |
-        (w >> 7 & 0x1F) << 16 | (w >> 12 & 3) << 10 | (w >> 14 & 3) << 12 | 2 << 5 | 1;
-    add(word);
-    add(word & ~(1 << 27) | 1 << 28);
-    add(word & ~(3 << 27) | 1 << 29 | (w >> 7 & 1) << 15);
+    for(const v of [0, 1 << 26])
+    {
+        const word = (w & 0x3) << 30 | 0b111 << 27 | v | (w >> 2 & 3) << 24 | (w >> 4 & 3) << 22 | (w >> 6 & 1) << 21 |
+            (w >> 7 & 0x1F) << 16 | (w >> 12 & 3) << 10 | (w >> 14 & 3) << 12 | 2 << 5 | 1;
+        add(word);
+        add(word & ~(1 << 27) | 1 << 28);
+        add(word & ~(3 << 27) | 1 << 29 | (w >> 7 & 1) << 15);
+    }
+}
+// FP/SIMD data processing (bits 28:25 = x111): every value of bits 31:28, 24:10, with Rn/Rd 2/1 and
+// the low fields the FP classes use (imm5, opcode2, nzcv) and the modified immediates' defgh
+for(let top = 0; top < 16; top++) for(let b24 = 0; b24 < 2; b24++) for(let mid = 0; mid < 1 << 14; mid++)
+{
+    const base = top << 28 | 0b111 << 25 | b24 << 24 | mid << 10;
+    for(const low of [2 << 5 | 1, 0, 0b01000, 0b10000, 0b11000, 0x3FF, 1 << 5 | 0x11]) add(base | low);
+}
+// AdvSIMD structures: Q, bits 24:21, Rm, opcode, S, size (Rn 2, Rt 1; Rm 0, 3 and 31)
+for(let q = 0; q < 2; q++) for(let b = 0; b < 16; b++) for(const rm of [0, 3, 31]) for(let op = 0; op < 64; op++)
+{
+    add(q << 30 | 0b0011 << 26 | b << 21 | rm << 16 | op << 10 | 2 << 5 | 1);
 }
 // the rest: stratified by the top 8 bits
 let rng = BigInt(SEED) * 0x9E3779B97F4A7C15n & (1n << 64n) - 1n || 1n;
@@ -151,5 +171,5 @@ for(const [key, { count, example }] of [...differences].sort((a, b) => b[1].coun
 {
     console.log(`${key} x${count}  e.g. ${example}`);
 }
-console.log(`decode check: ${list.length} words${ALL_GROUPS ? "" : " (no FP/SIMD yet)"}, ${different} differences`);
+console.log(`decode check: ${list.length} words${ALL_GROUPS ? "" : " (no FP/SIMD)"}, ${different} differences`);
 process.exit(different ? 1 : 0);

@@ -6,6 +6,7 @@
 
 pub mod bus;
 pub mod cpu;
+pub mod crypto;
 pub mod debug;
 pub mod decode;
 pub mod execute;
@@ -16,6 +17,9 @@ pub mod memory;
 pub mod mmu;
 pub mod psci;
 pub mod root;
+pub mod simd;
+pub mod simd_decode;
+pub mod simd_fp;
 pub mod smp;
 pub mod state;
 pub mod sysregs;
