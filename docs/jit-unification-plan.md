@@ -2604,3 +2604,107 @@ x86 侧。`pagegen` 的导入与 jitrt 一样由 `tools/check_x86tpl_imports.mjs
 - J1b 出口：标签 `vJ1b`，打在本记录的提交上。它前面已有 J2 的第一部分（`94e24279`）与 P6.3b 的标量 FP（`e5860bf9`），只改 ARM
   核心，`v86.wasm` 与 `486fc045` 的逐字节相同（`core-split-check`）。
 
+### J2
+
+在 J1b 之后做，对应 ARM64 计划的 P6（A4）；ARM64 一侧的记录在 [arm64-virt-android16-plan.md](arm64-virt-android16-plan.md)
+附录 E 的 A4 一节。A64 page tier 只进 ARM 核心 `v86-arm64.wasm`，默认关闭（`a64_page` 为 0，翻转走 F 级）。
+
+**P6.0–P6.5（`94e24279`）。** `crate::aarch64::jit` 是 ARM 核心里 jitrt 的客户端 `A64Page`，组合根是 `aarch64/root.rs`
+（注册客户端、整张表的配额、写入与重置的监听器、`pages_gain_code`）：
+- `pages.rs`：函数按 code key 加编译时的模式（EL、SP 对齐检查）为键；解释器在一页上跑满 `a64_page_hot` 条指令后编译，经
+  `jitrt::publish` 发布，页被写入时退休；每核每 EL 一份 `jitrt::access` 访问缓存，从 TLB 的翻译填充、随 TLB 一起刷新；每核每
+  模式一张链接表；`A64Step` 是 `jitrt::step` 的单步前端（P6.2：`interpret_one`，上下文为 EL、DAIF/SS/IL/SPSel、SCTLR、TCR、
+  TTBR0/1、MDSCR、断点与观察点、代码写入计数与访问缓存 epoch，任何一项变化都结束这次激活）。运行环在每个块边界把 PC 交给
+  page tier。
+- `pagegen.rs` 在 `pagegen::frame` 里编译一页（P6.3）：整数 v1 全部是原生模板；S、D、Q 寄存器的 SIMD&FP 存取是原生的；
+  FP、AdvSIMD、crypto、CRC32、RBIT、独占存取与 MRS 调用解释器的 `execute`（helper，只同步它们点名的寄存器，不单步）。
+- 途中发现的问题：编译代码的存储绕过了全局独占监视器（另一核的保留必须被清除），多核时建立保留会把该页移出访问缓存；
+  切换核心不再刷新访问缓存。
+
+**P6.3b（`e5860bf9`，以及 NEON 向量模板 `1c9bd445`）。**
+- 标量 FP（S、D）：FMUL、FDIV、FADD、FSUB、FNMUL，开 `a64_relaxed_fma` 时还有四个乘加，按 ARM64 计划的快路径直接用 Wasm 指令：
+  FPCR 的 RMode 为 RN 且 FZ 为 0，FPSR.IXC 已置位（比较不需要），操作数为零或规格化数，除数不为零，结果为零或指数不小于 2
+  的规格化数；否则调用 SoftFloat。FMOV、FABS、FNEG（寄存器）是位运算；FCMP、FCMPE（含与零比较）在两个操作数都不是 NaN 时
+  原生设置 NZCV。乘加用 relaxed SIMD 的 madd/nmadd 取一条 lane，宿主探测为融合时才可用（`src/cpu.js` 的 `relaxed_fma_fused`），
+  `a64_relaxed_fma` 的默认值就是探测结果。乘加热循环（`tests/a64/fma.mjs`）在融合时只调用 helper 11 次（不开时 120001 次），
+  结果与 QEMU 逐位一致；`fp_oracle` 在 JIT 下两种设置都是 0 差异（规则 8 的乘加验收）。
+- 向量模板（`pagegen/neon.rs`，只在核心带 simd128 构建时发射）：整数与按位的三同类（ADD、SUB、CMEQ、CMTST、CMGT、CMGE、CMHI、
+  CMHS、SMAX、UMAX、SMIN、UMIN、MUL、URHADD，AND、BIC、ORR、ORN、EOR、BSL、BIT、BIF）、二杂项（NOT、CNT、ABS、NEG、与零比较、
+  REV16/32/64、XTN/XTN2）、立即数移位（SHL、SSHR、USHR）、修改立即数（MOVI、MVNI、ORR、BIC、FMOV）、元素操作（DUP、INS、
+  UMOV、SMOV、标量 DUP）、置换（ZIP、UZP、TRN）、EXT、FMOV（通用寄存器，含 `V.D[1]`），以及向量 FADD、FSUB、FMUL、FDIV 和
+  融合的 FMLA、FMLS（逐 lane 的同一快路径条件）。饱和类（会置 FPSR.QC）与其余形式仍调用 helper。SIMD oracle 在每条指令都编译时 0 差异，
+  它的第一个客体在 page tier 里不再调用 helper（`a64_neon=0` 时 99251 次）；`page_fuzz.mjs` 加了这些向量形式，0 差异；
+  `fma.mjs` 加了 4S、2S、2D 的 FMLA/FMLS 热循环，融合时整个程序只调用 helper 4 次（不开时 239994 次），与 QEMU 逐位一致。
+
+**P6.4（`94e24279`，`a64_asid_tag` 与两处修正 `9957441e`）。**
+- 失效接线：TLBI 按 VA 时覆盖 64 KiB 内的全部 4 KiB 子页（TLB 自己在页落在块翻译里时刷新整个核心）；TTBR 写入在不开
+  `a64_asid_tag` 时丢弃访问缓存的非全局条目；IS 变体作用于所有协作核；写入代码页、DC ZVA、独占存储、DMA、加载器与恢复都经
+  jitrt::watch 退休函数。
+- `a64_asid_tag`（默认关，按 ARM64 计划 P9.3 的测量走 F 级翻转）：没有把 ASID 放进 `TagLayout` 的位里——用户地址在 TBI 下
+  顶字节任意，标签里放不下 16 位 ASID——而是每个核心为最近的 16 个 ASID 各保留一个 epoch。切换 ASID 时把访问缓存的当前
+  epoch 换成该 ASID 的（它的访问缓存、代码 TLB 与链接表条目重新生效），不再丢弃非全局条目；epoch 编号在回绕清空之前不重用；
+  绑定发生在激活开始时（单步写 TTBR 会结束激活）。TLBI 丢弃条目可能所在的 epoch：ASIDE1 丢该 ASID 的；按 VA 时处理当前
+  epoch 中该页的条目，并丢弃其他可能含有它的 epoch（该 ASID 的、低半区有全局翻译的，高半区时全部）；其余 TLBI 全部丢弃。
+  jitrt 为此只加了一个方法 `AccessCache::set_epoch`（x86 不用，`v86.wasm` 逐字节不变，见 P6.6a）。
+- 修正：带标签的指针（TBI，顶字节不是第 55 位的符号扩展）不再填访问缓存——TLBI 按去掉标签的页失效，带标签的条目会留下来；
+  `tlb_flushed_page` 在访问缓存的 epoch 回绕时清空代码 TLB 与链接表。
+- `tests/a64/asid.mjs`：20 个 ASID（16 位）下同一 VA 映射到不同的页，不发 TLBI 来回切换；在别的 ASID 运行时重映射并发
+  TLBI VAE1 与 ASIDE1；低半区的全局页经另一个 ASID 失效；ASID 多于保留的 epoch 数。QEMU、解释器与 `a64_asid_tag` 0 和 1
+  的 page tier 输出相同；把“丢弃其他 epoch”一步去掉时它报错（重映射后读到旧页）。`a64_asid_tag=1` 时 litmus、Alpine
+  initramfs 阶 1/2/4 核（含 kpti=1）与 kvm-unit-tests（4k、16k、64k，45 项）都通过。
+- ARM64 计划 P3.7 的修正：第一部分让每次建立保留都扫描所有核访问缓存的写表（别的核的编译存储必须到达全局监视器），v8.0
+  没有 LSE，每个原子操作都是 LDXR/STXR，解释器也受累：2 核 initramfs 的 probe_done 从 40 s 变成 64 s，4 核出现 soft lockup
+  （JIT 2 核 20 s、4 核 25 s）。协作式多核里别的核的保留只在一个核运行时有意义：现在切换到某个核时清掉它写往其他核保留页
+  的条目（运行期间没有别的核能建立保留，保留页也不再填写条目），page tier 关闭时什么也不做。解释器 2 核回到 40.1 s，4 核
+  49.9 s 通过；JIT 2 核 6.1 s、4 核 6.8 s。
+
+**P6.5。** `tests/a64/page_fuzz.mjs`：随机程序（整数、分支、存取、SIMD&FP 存取、标量 FP、向量），解释器与 page tier
+（阈值 1）对照；编译中途保存并恢复快照由 `A64_MIDWAY_SNAPSHOT=1` 的 Alpine 负载覆盖；memfd 双映射由 probe 覆盖
+（`dual_map=64`）；16 KiB 与 64 KiB 下的 TLBI 由 kvm-unit-tests 的 page-size 构建在 JIT 下验证。`make a64-page-tier-tests`
+与 `a64-jit-guest-tests` 是 R-a64-jit 的两个目标。
+
+**P6.6a 抽象审计。** A64 对共享代码的使用都经声明的扩展点：`jitrt::host::Env`、`table`、`watch`（两种触发）、`publish`、
+`capacity`（配额）、`heat`、`page`（`PageRuntime` 与 `PageFrontend`）、`step`（`StepFrontend`、`StepAbi`）、`access`（`Bus`、
+`TagLayout`）、`chain`、`stat`，以及 `pagegen::frame` 的 `PageEmitter`。超出声明扩展点的只有一处：`AccessCache::set_epoch`
+（`a64_asid_tag` 的每 ASID epoch）。记为设计债、在 A64 默认开启前解决的重复：`call_indirect1_ret`（x86 在 `crate::cpu`，
+ARM 在 `aarch64/jit/mod.rs`；属于 jitrt 的 `Fn1Ret` 签名）；开关登记（x86 的 `jit_switches.rs` 与 ARM 重写的同一导出接口，
+应当是 jitrt 里一个中立的登记表）；`jit_wasm_table_free_low` 在两个组合根各写一份。审计中发现 ARM 核心没有向
+`jitrt::stat` 注册，`jit_stat(1, …)` 返回 NaN：已注册，`page_tier_stats()` 经它读取。
+
+**P6.6b 指标（Alpine，ARM64 计划 P0.9 的口径）。** `tools/a64_jit_metrics.mjs`：initramfs 阶跑完 probe，release 构建，
+本机（Apple M 系列），3 次会话的中位数（`build/a64-linux/metrics.json`）。“原生执行”是 page tier 退役的指令占全部退役指令的
+比例，“链接的激活”是一次激活中至少尾调用过一次别页函数的比例；表有 12000 个槽。
+
+| 配置 | probe_done_ms | 全程 ms | MIPS | 编译数 | 编译 ms | 驱逐 | 表空闲槽最小值 | 原生执行 | 每条指令的单步 | 链接的激活 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 解释器 1 核 | 34560 | 37519 | 26.8 | – | – | – | – | – | – | – |
+| JIT 1 核 | 5711 | 6566 | 134.9 | 1770 | 414 | 0 | 11117 | 97.3% | 3.1e-3 | 44.2% |
+| 解释器 2 核 | 40126 | 43677 | 26.2 | – | – | – | – | – | – | – |
+| JIT 2 核 | 6137 | 7088 | 128.7 | 1924 | 473 | 0 | 11081 | 97.4% | 2.9e-3 | 61.8% |
+| 解释器 4 核 | 49930 | 53912 | 25.5 | – | – | – | – | – | – | – |
+| JIT 4 核 | 6826 | 7800 | 123.4 | 1989 | 481 | 0 | 11069 | 97.3% | 3.0e-3 | 62.3% |
+
+JIT 让 1/2/4 核分别快 6.1、6.5、7.3 倍；QEMU（TCG，同一宿主）1 核跑完这一阶是 1.7 s。ARM64 计划的 E 级初值（1 核 JIT 启动
+到 login 并跑完 probe，不超过 x86_64 page tier 的 3 倍）要 live 阶，等 ARM64 计划 P5；`boot_to_login_ms` 同样。
+
+**P6.7（未做）。** `tools/alpine_gpu_repo.mjs` 已泛化为（`8a6fcb48`） `tools/alpine_repo.mjs`（`--arch`、`--set gpu|jit`，按 arch 区分输出
+目录；`jit` 集为 nodejs、openjdk21-jdk、luajit、pcre2-tools，3.24 的索引里都有，nodejs 是 24.18.1）。生成仓库要从 Alpine 的镜像
+下载这些包，需要所有者同意；客体里装包还要 ARM64 计划 P5 的 virtio 块设备（或者把包放进 initramfs）。所以 node、java、
+luajit 在 JIT、解释器与 QEMU 上的对照，以及 JIT 负载中途的快照，还没有做。
+
+**规则 10。** J1 保留的旧导入在这里删除：JS 不再提供 `x64_page_publish`，`CPU.x64_page_publish` 删除，x64 page tier 的
+`x64_page_install`、`x64_page_ready`、`x64_page_cancel` 不再导出（只作为 `jitrt::publish` 的回答）。J1a 之前构建的核心不能再用
+这一版的 JS 运行（owner_perf 的树臂用各自的脚本，不受影响）。`tests/x64/windows_boot.mjs` 的 `WIN_DUMP_MODULES` 包的是从 J1a
+起就不再被调用的 `x64_page_publish`，改为包 `jit_publish`（`6b960f39`）。`v86.wasm` 0 个函数改变，只是这三个函数没了导出名
+  （`core-split-check`）；重放逐字节相同，所以不重跑 R 级。
+
+**验收。**
+- `make a64-page-tier-tests`：`page_fuzz.mjs` 0 差异；`fma.mjs`；整数、SIMD、FP（`a64_relaxed_fma` 开与关）、crypto oracle 在
+  每条指令都编译时 0 差异；异常与 MMU oracle 0 差异；litmus。`tests/a64/asid.mjs`。
+- `make a64-jit-guest-tests`：Alpine initramfs 阶 1/2/4 核、kpti=1 的 1/2/4 核、single 阶、lifecycle 阶，2 核负载中途快照
+  （输出与 QEMU 相同），kvm-unit-tests 4k/16k/64k 全部通过；`a64_asid_tag=1` 时同样（litmus、initramfs 与 kvm-unit-tests）。
+- `make a64-gate`、`jit-gate`（重放 3976 条与 `vJ1b` 逐字节相同，`x64-page-tier-tests`、`x64-legacy32-tests`）、
+  `api-tests` 通过。两个核心及其并行构建 `cargo check` 无警告。
+- J2 出口：没有达到。P6.7 的客体 JIT 负载（node、java、luajit 在 JIT、解释器与 QEMU 上一致，负载中途快照）要下载 Alpine 的包
+  （等所有者同意），还要 ARM64 计划 P5 的 virtio 块设备或更大的 initramfs；ARM64 计划 A4 验收里 A3 的 live 阶用例同样等 P5。
+  所以 `vJ2` 不打，P6.7 完成后再打。

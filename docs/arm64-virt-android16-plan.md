@@ -1562,3 +1562,36 @@ flowchart TD
   `v86.wasm` 与 `e7ac27ca` 逐字节一致。
 - 至此 P1–P3 的验收完成（P2a、P2b、P3 全部），JIT 计划 J2 的开工条件中属于本计划的部分已满足；A3 余下的是
   P5（virtio 与 live 阶）。
+
+### A4 中 P6 的部分（2026-10-16；JIT 计划 J2，P6.7 未做）
+
+JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论。提交：`94e24279`（page tier 第一部分）、`e5860bf9`（标量 FP、
+指标工具与 make 目标）、`1c9bd445`（AdvSIMD 向量模板）、`9957441e`（`a64_asid_tag`、TBI 与回绕修正、P3.7 的保留修正）、
+`8a6fcb48`（`tools/alpine_repo.mjs`）。
+
+- P6.0：组合根 `src/rust/aarch64/root.rs`（`ClientId::A64Page`、整张表的配额、写入与重置监听器、`pages_gain_code`、
+  `jitrt::stat` 注册）；开关经与 x86 相同的登记接口：`a64_page`（默认 0）、`a64_page_hot`、`a64_neon`、`a64_helpers`、
+  `a64_relaxed_fma`（默认为宿主探测结果）、`a64_asid_tag`（默认 0）。`tools/check_a64_imports.mjs` 覆盖 `aarch64/jit/`。
+- P6.1–P6.3、P6.3b：见 JIT 计划。FP 模板只在本计划“A64 JIT 的语义红线”的快路径条件下直接用 Wasm 指令，FPCR 在运行时
+  检查（没有固化进代码，所以函数键不必包含 RMode、FZ、DN）。乘加热循环在宿主融合时不调用 SoftFloat（标量四个乘加与
+  4S、2S、2D 的 FMLA/FMLS，`tests/a64/fma.mjs`），`fp_oracle` 在 `a64_relaxed_fma` 开与关时都与 SoftFloat 逐位一致（含 FPSR）。
+- P6.4：`a64_asid_tag` 没有把 ASID 放进 `TagLayout` 的位（TBI 下用户地址顶字节任意，标签里放不下 16 位 ASID），而是每个
+  ASID 一个访问缓存 epoch，详见 JIT 计划。默认仍关，留给 P9.3 测量后按 F 级翻转。顺带修正两处：带标签的指针不再填访问缓存
+  （TLBI 按去标签的页失效，带标签的条目会留下）；访问缓存 epoch 回绕时清空代码 TLB 与链接表。
+- P3.7 的修正：J2 第一部分让建立保留时扫描所有核的访问缓存写表，以免别的核的编译存储绕过全局监视器；但每次
+  load-exclusive 换页都扫 8 个核的写表，连解释器都受累（v8.0 没有 LSE，每个原子操作都是 LDXR/STXR）：2 核 initramfs 的
+  probe_done 从 40 s 变成 64 s，4 核出现 soft lockup。改为切换到某个核时只清它写往其他核保留页的条目（运行期间没有别的核能
+  建立保留，保留页也不再填写条目），page tier 关闭时什么也不做：2 核回到 40.4 s，4 核 50.3 s 通过。
+- 验收：
+  - 在 JIT 下重跑 A2、A3 的 Alpine 用例：initramfs 阶 1/2/4 核与 kpti=1 的 1/2/4 核、single 阶、lifecycle 阶（92 MB 快照、
+    恢复、reboot、poweroff）、2 核 `A64_WORKLOAD=3` 中途保存并恢复快照（输出与 QEMU 相同）；kvm-unit-tests 在 4k、16k、64k
+    下全部通过（`make a64-jit-guest-tests`）。`a64_asid_tag=1` 时 litmus、initramfs 阶 1/2/4 核（含 kpti=1）与
+    kvm-unit-tests 也都通过。
+  - `tests/a64/page_fuzz.mjs` 与解释器 0 差异；ISA、异常与 MMU oracle 在每条指令都编译时 0 差异；`tests/a64/asid.mjs`
+    在 QEMU、解释器与两种 `a64_asid_tag` 下输出相同（`make a64-page-tier-tests`）。
+  - P6.6b 指标（initramfs 阶跑完 probe，3 次会话的中位数，表在 JIT 计划 J2 一节与 docs/aarch64.md）：probe_done_ms 解释器
+    1/2/4 核 34.6、40.1、49.9 s，JIT 5.7、6.1、6.8 s；JIT 的 MIPS 135、129、123，97% 的指令原生执行，没有驱逐。E 级初值的比较
+    （对 x86_64 page tier 的 3 倍）要 live 阶，等 P5。
+  - 没做的：P6.7（node、java、luajit 与 pcre2 的 JIT 负载）要从 Alpine 镜像下载包（所有者同意之前不下载），客体里还要 P5 的
+    virtio 块设备或者更大的 initramfs；live 阶与 `boot_to_login_ms` 也等 P5。所以 A4 的验收中“node、java、luajit 的输出在
+    JIT、解释器与 QEMU 上一致”与“JIT 负载中途快照”这两项未完成，`vJ2` 不打。
