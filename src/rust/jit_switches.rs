@@ -162,7 +162,7 @@ pub const SWITCHES: &[Switch] = &[
     // region tiers; off until it passes its D gate)
     Switch {
         name: "x64_page_prot16",
-        default: 0,
+        default: 1,
         set: |v| {
             flag(v)
                 .map(|on| unsafe { pages::x64_page_set_prot16(on) })
@@ -173,7 +173,7 @@ pub const SWITCHES: &[Switch] = &[
     // (real-mode and virtual-8086 code, P7.8)
     Switch {
         name: "x64_page_v86",
-        default: 0,
+        default: 1,
         set: |v| {
             flag(v)
                 .map(|on| unsafe { pages::x64_page_set_v86(on) })

@@ -2313,3 +2313,94 @@ M7 的 Legacy32 未过 D 级门禁，按回退规则 M8 为第二次尝试，Tie
 - M9 出口：`801a3b64` 上 `make jit-gate-full` 通过（重放、x64 两组测试、`ir-core-tests`，各级发布门禁 `--quick` 的 61 项
   全部通过；R-ACPI、R-SMP32、R-x64-UP、R-x64-SMP、R-parallel 在其中）。标签 `vM9`。M10 从这里开始：Prot16（P7.7）与
   V86/实模式的测量（P7.8）。
+
+### M10
+
+**P7.7 Prot16（16 位保护模式代码进 page tier），2026-10-15（开关 `x64_page_prot16` 默认关）。**
+
+- 新的代码模式 `MODE_PROT16`（函数键 `PROT16_KEY`，链接表按模式各一组，现在 5 组）：16 位 CS、16 位栈
+  （`prot16_runnable`），按段基址编译（`segmented`，每次访存加段基址，DS/ES/FS/GS 判空），解码用 Protected16
+  （默认 16 位操作数与地址；`address32` 已按 16 位地址回绕）。CS 有基址：函数记下它第一页第一个字节的 IP
+  （`CompileEnv::ip_base`，即页的线性地址减 CS 基址），近转移目标按 64 KiB 在 CS 内回绕（`wrap_ip`，编译时算出），
+  近调用压 IP、返回与间接转移加回 CS 基址（`return_address`、`ip_to_linear`）；序言比较当前 CS 基址，不同就立刻
+  离开（RIP 不变，解释器执行一条）；`run()` 也先比较，同一页在另一个 CS 基址下重复 64 次未命中就按新基址重编译。
+  CS 段超越的访存加 CS 基址（32 位代码的 CS 平坦，所以以前不加）。SP 在 64 KiB 内回绕，ESP 的高半保持
+  （`stack_sized`、`adjust_sp`、LEAVE 的 16 位版本）。解释器不检查数据段界限（只有 TR），page tier 照此不检查。
+- 修掉的一个跨模式问题：`state::read_rip()` 在 32 位模式里返回 EIP（线性地址减 CS 基址），`pages.rs` 一直把它当线性
+  地址用，平坦 CS 下两者相同；现在一律用 `linear_rip()`。
+- 模板：16 位代码的 MUL/IMUL r/m16（DX:AX）与 DIV/IDIV r/m16、32 位的 PUSH/POP（66 前缀）、POP m16/m32、LES/LDS、
+  ENTER n, 0、LODS（16 位地址）；远 CALL/RETF 仍单步，但单步只改了 CS（同一特权级）时不再离开激活，而经链接表接到
+  新 RIP 的函数（`STEP_CHAIN`，P4.3 写过而没有实现的那个结果；被接的函数的序言核对 CS 基址）。16 位字符串指令
+  （REP MOVS/STOS/CMPS/SCAS）仍单步。
+- 差分测试 `tests/ir/differential/prot16_fuzz.mjs`（P7.7(6)）：32 位序言装入 16 位的 SS、DS、ES 并远跳到 16 位代码段，
+  每个用例一页新代码、CS 基址使页首为 IP 0x840，随机的 16 位程序（各种 16 位寻址、段超越读、栈、近调用、LEAVE/ENTER
+  帧、LOOP、段寄存器装入与 LES/LDS、乘除、移位、远调用到第二个代码段再 RETF/RETF 2、LODS），与解释器比较寄存器、标志、
+  数据段与栈段各 64 KiB、退休指令数；跨页（FUZZ_STRADDLE）。另有两类定向程序：z 在最后一轮把 ES 装成空选择子后经 ES 访存
+  （#GP(0)，比较故障向量与故障 IP），c 是自修改代码（每轮经平坦的 FS 用 32 位地址把轮数写进紧随其后那条 ADD AX, imm16
+  的立即数）。这些进 `x64-legacy32-tests`。变异检查：近调用压线性地址而不是 IP（超时）、SP 不在 64 KiB 内回绕（s 类
+  12 例中多数寄存器不同：不平衡的压栈让 SP 在 20000 轮里绕过 0）、Prot16 跳过空选择子检查（z 类寄存器不同），都会被
+  发现。
+- 计划的验收要“16 位的 `nasmtests` 子集在 page tier 下通过”，没有做成那个形式：nasmtests 是在 1 MiB 以上装入的 32 位
+  multiboot ELF，参考值是 32 位硬件（gdb）的结果，16 位代码段与 16 位栈下没有参考，只能与解释器比较，那正是
+  `prot16_fuzz.mjs` 做的事（随机程序加上述定向类）。段界限故障同样不适用：解释器不检查数据段界限（只检查 TR），page tier
+  照此不检查。
+
+**P7.8 的测量与实现，2026-10-15。**
+
+- 测量（`ir_region_modes`：region 只服务所给的 `ExecutionMode` 位，0x7C 即实模式与 V86 交给解释器；四臂一次
+  所有者运行，3 个会话，A 为 M9 的默认，B 开 Prot16，C 再让实模式与 V86 解释执行，D 完全不用 region）：Win98 冷启动
+  到桌面 A 7.0 s、B 7.2 s、C 8.3 s、D 8.3 s。C 比 B 慢 15%，远过 5%，所以做。XP 13.05/13.04/12.97/13.02 s、Win8.1
+  182/175/174/177 s 不受影响；游戏（MIPS）《暗黑破坏神》88.9/108.0/108.5/105.6、《红色警戒 2》192.7/225.7/225.2/221.3、
+  《主题医院》984.5/984.7/980.9/985.5（D 比 C 低约 2%：region 仍在跑 page tier 不接的 16/32 位代码，M11 之前要处理）。
+- 实现（开关 `x64_page_v86`，默认关）：两个新代码模式 `MODE_REAL`、`MODE_V86`（函数键在 Prot16 的上面加
+  `REAL_KEY`、`V86_KEY`，链接表现在 7 组），`real_runnable`/`v86_runnable`（16 位栈）。代码生成沿用 Prot16
+  （`CompileEnv::mode16`：Protected、Real、V86；解码按各自的 `ExecutionMode`，实模式与 V86 下 C4/C5 一律是 LES/LDS）。
+  段寄存器装入：`switch_seg_without_fault` 在实模式与 V86 下照解释器的 `switch_seg` 直接装入（基址为选择子左移 4，
+  从不为空），`x64_page_load_seg` 装入后仍可运行就继续。V86 里受 IOPL 约束的：PUSHF 单步（Prot16 的模板不查 IOPL），
+  CLI/STI 的模板查 CPL <= IOPL，在 V86（CPL 3）下就是 IOPL = 3，与解释器一致；POPF、INT n、IRET、I/O 本来就单步。
+  空选择子检查保留：解释器的 `get_seg` 在任何模式下都检查（实模式里可能残留保护模式的空段缓存）。没有 A20 回绕：解释器
+  也没有。远 CALL/RETF 的 `STEP_CHAIN` 对三种 16 位模式都成立。
+- 第一版（E）的冷启动比 A 慢约 7%（7.4–7.7 s 对 6.9–7.3 s）。剖析：16 位代码的编译量是 A 的两倍多（1032 个函数、108 MB
+  对 530、38.5 MB），V8 在首次调用时用 Liftoff 编译（`x64_page_stat(23)`：1059 ms 对 657 ms）；按原因计数，实模式页
+  写入后重编译 197 次（首次 69 次），V86 页 131 次（首次 25 次）：DOS 与 BIOS 写自己的代码页，写后按 HOT（2000）重编译。
+  改为 16 位代码每次编译都等 `LEGACY_HEAT`（E2：编译 850 个、81 MB，7.0–7.3 s）。剩下的差距在冷代码的解释：page tier
+  的未命中路径一次解释一条（`run_compat_instruction` 与 `miss_run` 的逐条检查），A 走解释器的基本块循环；16 位代码的
+  `miss_run` 改为一次一个基本块（`cpu::run_interpreted_block`，入口与热度照旧按块记，远转移按块内最后一条指令判断）。
+  试过又撤回的：每条指令后先比较一个廉价的状态签名、变了才重算 `runnable_kind`（反而慢了约 5%，解释的指令数相同）；
+  16 位的首次编译热度提到 150000/400000（编译量降到 54 MB，桌面时间不变）。
+- 第一次实现块解释时启动不到桌面：`jit_run_interpreted` 只在指令之间设 `previous_ip`，块的第一条指令故障时按上一块的
+  地址恢复 EIP。`run_interpreted_block` 先设好它。随机程序没有覆盖到（冷代码里的故障只在定向用例里有），加了 k 类（V86、
+  IOPL 0：`JMP +1; S; JMP -3`，向后的跳转结束一个块，下一块的第一条就是受 IOPL 约束的 S，比较 #GP 处理程序的栈帧）；
+  去掉修复后 k 类失败，第一次写的 `JMP +0` 版本不结束块，测不到（变异检查必要）。
+- 差分：`prot16_fuzz.mjs` 加 `FUZZ_MODE`（prot16、real、v86）：实模式与 V86 直接设状态而不用序言，所有区域在 1 MiB
+  以下（段基址为选择子左移 4；每次运行至多 24 例）；V86 用 IOPL 3、关分页（boot.bin 的页表不是用户页），程序末尾的 HLT
+  在 V86 里是 #GP，由自己的 ring 0 处理程序（TSS 在 0x8000，IDT 向量 13）停机。i 类（V86、IOPL 0、最后一轮执行 PUSHF/
+  POPF/CLI/STI）。一个布局错误：32 位压栈在 SP = 2 时写过栈段末尾，覆盖了紧接的轮数计数器（解释器不查界限），计数器
+  挪到栈段之后一页。变异检查：V86 里 PUSHF 走模板（i 类寄存器不同）、实模式段基址左移 3（g 类计数器不同）。
+
+**D 级门禁与翻转（P7.4 的 16 位部分），2026-10-15（`cdb0cade` 上建的三臂，所有者的负载 3 个会话）。**
+
+- A 为 M9 的默认（16 位代码在 region），B2 开 `x64_page_prot16` 与 `x64_page_v86`，F2 再关掉 region
+  （`ir_region_modes=0`，M11 的预演）。《暗黑破坏神》88.5 / 107.7 / 105.5 MIPS（B2 对 A 1.217），《红色警戒 2》
+  192.9 / 221.9 / 218.1（1.150），《主题医院》974.5 / 972.4 / 971.9（0.998）；Win98 冷启动 6.9 / 7.0 / 6.9 s，XP
+  13.45 / 13.60 / 13.32 s，Win8.1 177 / 179 / 178 s。冷启动与 XP 的分辨率与噪声（0.1 s；XP 一个 A 样本 14.85 s）下
+  B2 的中位数各差一格，又跑了 4 个 A/B2 交替会话：冷启动 7.0 对 6.9 s（1.014），XP 13.15 对 13.13 s（1.001）；
+  合计 7 个会话的中位数冷启动 7.0 对 6.9 s、XP 13.18 对 13.14 s。Win8.1 的样本在 165–180 s 之间，两次四臂/三臂运行
+  合计 A 179.5 s、B 176.5 s。过：《暗黑破坏神》≥ 1.00，其余 Win98 存档 ≥ 0.99，冷启动、XP、Win8.1 不变慢。
+- 翻转：`x64_page_prot16` 与 `x64_page_v86` 默认开（与 Legacy32 一样只在 `ir_tier0` 开着时生效），`get_jit_info()`
+  的 `page_tier.prot16`/`v86`，`v86.d.ts` 同步。region 保留为回退（M11 删除），`ir_region_modes` 留到 M11 用。
+- F2 比 B2 低约 2%（《暗黑破坏神》《红色警戒 2》）：region 仍在执行 page tier 不接的代码（16 位代码配 32 位栈、32 位代码
+  配 16 位栈或 CS 基址非 0）。M11 删除 region 之前要把它们接进 page tier，否则 M11 的“相对 M10 不变慢”过不了。
+- 翻转后的 `jit-gate-full` 找到一个问题：`q35-device-tests` 的 SMM 测试 25 项失败 11 项（核心离不开 SMM，第二次 SMI
+  保存的 EBX 不对）。SMI 处理程序在 SMBASE + 0x8000 以实模式（4 GiB 段）运行，代码与状态保存区在 SMRAM 里（SMM 外被
+  VGA 窗口遮住），测试在两次 SMI 之间改写它；page tier 编出的函数看不到这些写入。`real_runnable` 与 `prot16_runnable`
+  在 SMM 里不成立（`smm::smm_active()`），之后 25 项全过；V86 代码不会在 SMM 里（进入 SMM 清 VM）。32 位代码在 SMM 里
+  照旧（SeaBIOS 的 call32_smm 在 SMRAM 之外，M8 起就由 page tier 执行）。
+- `acpi-guest-tests` 偶发失败（Linux 判定 “PM-Timer running at invalid rate: 107–109%”，不注册 acpi_pm）：PM 定时器与
+  PIT 2 号通道同在机器时钟上，校准窗口末尾落进一次几毫秒的主循环停顿（多为页函数编译）就会这样。开关关闭时同样出现
+  （12 次中 1 次，开着 15 次中 3 次），与 M10 无关；M9 的记录里写过它在宿主忙时失败。
+- M10 出口：翻转后的 `make jit-gate-full`：重放、x64 两组测试、`ir-core-tests`（新工作树先 `make glbridge`）、各级发布门禁
+  `--quick` 的 61 项（`acpi-guest-tests` 一次偶发失败，见上；`q35-device-tests` 的 SMM 修好后 R-q35 与 R-ACPI 重跑全过）。
+  开关关闭时 Long64、Compat32、Legacy32 的重放（合成语料 1818 条加 bench 录制 85 + 153 + 102 条）与 M9 逐字节相同。
+  Win98 存档恢复后照常运行（D 级门禁的三个游戏都从存档开始）。标签 `vM10`。M11 之前要做的：把 region 仍在执行的代码
+  （16 位代码配 32 位栈、32 位代码配 16 位栈或 CS 基址非 0）接进 page tier，再删除 region。

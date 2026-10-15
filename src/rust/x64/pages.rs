@@ -773,7 +773,7 @@ pub unsafe fn x64_page_set_legacy32(enabled: bool) {
 }
 /// 16-bit protected-mode code in the page tier (the JIT switch
 /// x64_page_prot16, P7.7): Windows 3.x and 9x's 16-bit code
-static mut PROT16: bool = false;
+static mut PROT16: bool = true;
 /// PROT16 && PAGE32_TIER0
 static mut PROT16_ACTIVE: bool = false;
 #[no_mangle]
@@ -783,7 +783,7 @@ pub unsafe fn x64_page_set_prot16(enabled: bool) {
 }
 /// Real-mode and virtual-8086 code in the page tier (the JIT switch
 /// x64_page_v86, P7.8): BIOS, DOS and Windows 98's boot, DOS boxes
-static mut V86: bool = false;
+static mut V86: bool = true;
 /// V86 && PAGE32_TIER0
 static mut V86_ACTIVE: bool = false;
 #[no_mangle]
@@ -827,14 +827,23 @@ unsafe fn ip_base_of(rip: u64) -> i32 {
 /// pagegen::CompileEnv::ip_base). Data segment limits are not checked, as
 /// the interpreter does not.
 pub unsafe fn prot16_runnable() -> bool {
-    PROT16_ACTIVE && state::mode() == state::ExecutionMode::Protected16 && !*gp::stack_size_32
+    PROT16_ACTIVE
+        && state::mode() == state::ExecutionMode::Protected16
+        && !*gp::stack_size_32
+        && !crate::cpu::smm::smm_active()
 }
 /// The current code runs in the page tier as real-mode code (P7.8): as
 /// prot16_runnable, segment bases the selectors shifted left by 4 (segment
 /// loads cannot fault, cpu::switch_seg_without_fault). No A20 wrap: the
-/// interpreter has none either.
+/// interpreter has none either. Not in SMM (16-bit code there runs at
+/// SMBASE + 0x8000 in SMRAM, which the VGA window hides outside SMM; with
+/// the page tier, tests/devices/smm.js failed 11 of 25: the core never left
+/// SMM), as prot16_runnable
 pub unsafe fn real_runnable() -> bool {
-    V86_ACTIVE && state::mode() == state::ExecutionMode::Real && !*gp::stack_size_32
+    V86_ACTIVE
+        && state::mode() == state::ExecutionMode::Real
+        && !*gp::stack_size_32
+        && !crate::cpu::smm::smm_active()
 }
 /// The current code runs in the page tier as virtual-8086 code (P7.8): as
 /// real_runnable at CPL 3; the instructions IOPL governs there (PUSHF,
