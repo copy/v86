@@ -5,6 +5,10 @@
 // This is the single source for
 //   src/rust/cpu/global_pointers.rs  the constants between the GENERATED markers
 //   src/state_layout.js              offsets and per-core ranges for JavaScript
+// and for the ARM core's own state block (docs/arm64-virt-android16-plan.md
+// P1.4: each core has its 4096 bytes, from offset 64)
+//   src/rust/aarch64/state.rs        the constants between the GENERATED markers
+//   src/arm/state_layout.js          offsets and per-core ranges for JavaScript
 // Regenerate with `node gen/state_layout.js`; `--check` fails if either file is
 // stale, a field overlaps another, or a Rust static is missing from STATICS.
 //
@@ -32,7 +36,7 @@ import url from "node:url";
 
 const ROOT = path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 
-const RUST_SIZE = { u8: 1, bool: 1, u16: 2, i32: 4, u32: 4, u64: 8, reg128: 16, F80: 16, CachedStateFlags: 1, "[u64; 8]": 64 };
+const RUST_SIZE = { u8: 1, bool: 1, u16: 2, i32: 4, u32: 4, u64: 8, u128: 16, reg128: 16, F80: 16, CachedStateFlags: 1, "[u64; 8]": 64 };
 
 // size: bytes the field owns. JavaScript views some 1-byte Rust fields as
 // 32-bit (e.g. protected_mode), so a slot can be larger than the Rust type.
@@ -160,6 +164,82 @@ export const STATE_FIELDS = [
     { name: "xcr0", offset: 2432, rust: "u64", size: 8, owner: "core", range: "xstate", init: "keep" },
     { name: "xss", offset: 2440, rust: "u64", size: 8, owner: "core", range: "xstate", init: "keep", note: "IA32_XSS (XSAVES)" },
     { name: "ymm_hi", offset: 2448, rust: "reg128", count: 16, size: 256, owner: "core", range: "xstate", init: "keep", note: "bits 255:128 of YMM0-YMM15" },
+];
+
+// The ARM core's state block (src/rust/aarch64/state.rs): the hottest fields
+// first (PC, X0-X30 and the current SP, NZCV), then FPCR/FPSR and V0-V31,
+// then the EL1 system registers, the timers, the GIC CPU interface, the
+// exclusive monitor and the debug registers. Bits of PSTATE other than NZCV
+// are in `pstate` as SPSR_EL1 lays them out (D, A, I, F at 9:6, SS 21, IL 20,
+// EL 3:2, SP 0). SVE state beyond 128 bits (not in v1) goes outside.
+export const A64_STATE_FIELDS = [
+    { name: "x", offset: 64, rust: "u64", count: 32, size: 256, owner: "core", note: "X0-X30, then the current SP (SP_EL0 or SP_EL1 by PSTATE.SP)" },
+    { name: "pc", offset: 320, rust: "u64", size: 8, owner: "core" },
+    { name: "nzcv", offset: 328, rust: "u32", size: 4, owner: "core", note: "N Z C V at bits 31:28" },
+    { name: "pstate", offset: 332, rust: "u32", size: 4, owner: "core", note: "PSTATE but NZCV, as in SPSR_EL1" },
+    { name: "fpcr", offset: 336, rust: "u32", size: 4, owner: "core" },
+    { name: "fpsr", offset: 340, rust: "u32", size: 4, owner: "core" },
+    { name: "instruction_counter", offset: 344, rust: "u32", size: 4, owner: "machine", note: "dispatch/JIT step counter for budgets" },
+    { name: "slice_budget", offset: 348, rust: "u32", size: 4, owner: "machine", note: "maximum retired work in one generated activation" },
+    { name: "v", offset: 352, rust: "u128", count: 32, size: 512, owner: "core", note: "V0-V31" },
+    // the inactive stack pointer and the EL1 system registers (P3.1)
+    { name: "sp_el", offset: 864, rust: "u64", count: 2, size: 16, owner: "core", range: "sys", note: "SP_EL0, SP_EL1 while not the current SP" },
+    { name: "elr_el1", offset: 880, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "spsr_el1", offset: 888, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "esr_el1", offset: 896, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "far_el1", offset: 904, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "vbar_el1", offset: 912, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "sctlr_el1", offset: 920, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cpacr_el1", offset: 928, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "ttbr0_el1", offset: 936, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "ttbr1_el1", offset: 944, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tcr_el1", offset: 952, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "mair_el1", offset: 960, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "amair_el1", offset: 968, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "contextidr_el1", offset: 976, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidr_el0", offset: 984, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidrro_el0", offset: 992, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidr_el1", offset: 1000, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "par_el1", offset: 1008, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "afsr0_el1", offset: 1016, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "afsr1_el1", offset: 1024, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "actlr_el1", offset: 1032, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "csselr_el1", offset: 1040, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cntkctl_el1", offset: 1048, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cntfrq_el0", offset: 1056, rust: "u64", size: 8, owner: "core", range: "sys", note: "writable at EL1; the counter's rate does not follow it" },
+    { name: "mdscr_el1", offset: 1064, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "osdlr_el1", offset: 1072, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "oslsr_el1", offset: 1080, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "mdccint_el1", offset: 1088, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "disr_el1", offset: 1096, rust: "u64", size: 8, owner: "core", range: "sys" },
+    // the generic timer's EL1 virtual and physical timers (P3.6)
+    { name: "cntv_ctl", offset: 1104, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntv_cval", offset: 1112, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntp_ctl", offset: 1120, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntp_cval", offset: 1128, rust: "u64", size: 8, owner: "core", range: "timer" },
+    // the GICv3 CPU interface (P3.5): ICC_PMR, BPR0/1, IGRPEN0/1, CTLR, the
+    // active priorities AP0R0/AP1R0 and the running priority stack
+    { name: "icc_pmr", offset: 1136, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_bpr", offset: 1140, rust: "u32", count: 2, size: 8, owner: "core", range: "gic" },
+    { name: "icc_igrpen", offset: 1148, rust: "u32", count: 2, size: 8, owner: "core", range: "gic" },
+    { name: "icc_ctlr", offset: 1156, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_ap0r", offset: 1160, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_ap1r", offset: 1164, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_active", offset: 1168, rust: "u32", count: 8, size: 32, owner: "core", range: "gic", note: "INTIDs being handled, innermost last" },
+    { name: "icc_active_count", offset: 1200, rust: "u32", size: 4, owner: "core", range: "gic" },
+    // the local exclusive monitor (P3.3): the reserved granule and the value
+    // for the parallel build's compare-exchange
+    { name: "excl_valid", offset: 1208, rust: "u32", size: 4, owner: "core", range: "exclusive" },
+    { name: "excl_addr", offset: 1216, rust: "u64", size: 8, owner: "core", range: "exclusive" },
+    { name: "excl_value", offset: 1232, rust: "u128", size: 16, owner: "core", range: "exclusive" },
+    // the debug registers (P3.8): 2 breakpoints, 2 watchpoints
+    { name: "dbgbvr", offset: 1248, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgbcr", offset: 1264, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgwvr", offset: 1280, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgwcr", offset: 1296, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    // waiting (WFI, WFE) and the event register
+    { name: "waiting", offset: 1312, rust: "u32", size: 4, owner: "core", range: "wait", note: "0 running, 1 WFI, 2 WFE" },
+    { name: "event_register", offset: 1316, rust: "u32", size: 4, owner: "core", range: "wait" },
 ];
 
 // Every static in src/rust, by file. The check fails on a static that is not
@@ -296,9 +376,9 @@ export const STATICS = {
 
 const OWNERS = new Set(["core", "cache", "scratch", "machine", "debug"]);
 
-function validate()
+function validate(fields)
 {
-    const sorted = [...STATE_FIELDS].sort((a, b) => a.offset - b.offset);
+    const sorted = [...fields].sort((a, b) => a.offset - b.offset);
     for(const [i, f] of sorted.entries())
     {
         assert.ok(OWNERS.has(f.owner) && f.owner !== "debug", f.name + ": owner");
@@ -318,9 +398,9 @@ function validate()
 }
 
 /** [start, end) byte ranges covering the core fields, merged across unused gaps within a range */
-export function core_ranges()
+export function core_ranges(fields = STATE_FIELDS)
 {
-    const sorted = [...STATE_FIELDS].sort((a, b) => a.offset - b.offset);
+    const sorted = [...fields].sort((a, b) => a.offset - b.offset);
     const ranges = [];
     let current = null, range;
     for(const f of sorted)
@@ -346,10 +426,10 @@ export function core_ranges()
     return ranges;
 }
 
-function rust_consts()
+function rust_consts(fields)
 {
     const lines = [];
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset))
     {
         const type = f.rust;
         for(const line of f.doc || []) lines.push("// " + line);
@@ -366,18 +446,18 @@ function rust_consts()
 const BEGIN = "// BEGIN GENERATED by gen/state_layout.js (edit the layout there)\n";
 const END = "// END GENERATED\n";
 
-function rust_file(current)
+function rust_file(current, fields, name)
 {
     const start = current.indexOf(BEGIN);
     const end = current.indexOf(END);
-    assert.ok(start !== -1 && end > start, "global_pointers.rs: GENERATED markers missing");
-    return current.slice(0, start + BEGIN.length) + rust_consts() + current.slice(end);
+    assert.ok(start !== -1 && end > start, name + ": GENERATED markers missing");
+    return current.slice(0, start + BEGIN.length) + rust_consts(fields) + current.slice(end);
 }
 
-function js_file()
+function js_file(fields)
 {
     const offsets = {};
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset))
     {
         for(const [alias] of f.aliases || []) offsets[alias] = f.offset;
         offsets[f.name] = f.offset;
@@ -394,21 +474,21 @@ ${Object.entries(offsets).map(([name, offset]) => `    ${name}: ${offset},`).joi
  * changes (CPU.prototype.save_core_state/load_core_state)
  */
 export const CORE_STATE_RANGES = [
-${core_ranges().map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
+${core_ranges(fields).map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
 ];
 
 /** [offset, size] of the core state that INIT keeps (the rest takes its reset value) */
 export const INIT_PRESERVED = [
-${init_preserved().map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
+${init_preserved(fields).map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
 ];
 `;
 }
 
 /** [offset, size] of the fields marked init: "keep", adjacent ones merged */
-function init_preserved()
+function init_preserved(fields)
 {
     const kept = [];
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset).filter(f => f.init === "keep"))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset).filter(f => f.init === "keep"))
     {
         const last = kept[kept.length - 1];
         if(last && last[0] + last[1] === f.offset) last[1] += f.size;
@@ -461,17 +541,26 @@ function check_statics()
 
 if(process.argv[1] === url.fileURLToPath(import.meta.url))
 {
-    validate();
+    validate(STATE_FIELDS);
+    validate(A64_STATE_FIELDS);
     const check = process.argv.includes("--check");
     const rust_path = path.join(ROOT, "src/rust/cpu/global_pointers.rs");
-    const outputs = [[rust_path, rust_file(fs.readFileSync(rust_path, "utf8"))], [path.join(ROOT, "src/state_layout.js"), js_file()]];
+    const a64_rust_path = path.join(ROOT, "src/rust/aarch64/state.rs");
+    const outputs = [
+        [rust_path, rust_file(fs.readFileSync(rust_path, "utf8"), STATE_FIELDS, "global_pointers.rs")],
+        [path.join(ROOT, "src/state_layout.js"), js_file(STATE_FIELDS)],
+        [a64_rust_path, rust_file(fs.readFileSync(a64_rust_path, "utf8"), A64_STATE_FIELDS, "aarch64/state.rs")],
+        [path.join(ROOT, "src/arm/state_layout.js"), js_file(A64_STATE_FIELDS)],
+    ];
     for(const [file, content] of outputs)
     {
         if(check) assert.equal(fs.existsSync(file) && fs.readFileSync(file, "utf8"), content, file + " is stale; run node gen/state_layout.js");
         else fs.writeFileSync(file, content);
     }
     check_statics();
-    const core_bytes = core_ranges().reduce((n, [a, b]) => n + b - a, 0);
-    console.log(`state layout: ${STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges())} (${core_bytes} bytes), ` +
+    const core_bytes = fields => core_ranges(fields).reduce((n, [a, b]) => n + b - a, 0);
+    console.log(`state layout: ${STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges())} (${core_bytes(STATE_FIELDS)} bytes), ` +
         `${Object.values(STATICS).reduce((n, s) => n + Object.keys(s).length, 0)} Rust statics classified`);
+    console.log(`ARM state layout: ${A64_STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges(A64_STATE_FIELDS))} ` +
+        `(${core_bytes(A64_STATE_FIELDS)} bytes)`);
 }

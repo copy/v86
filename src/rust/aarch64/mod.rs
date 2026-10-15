@@ -6,6 +6,7 @@
 
 pub mod isa_hooks;
 pub mod root;
+pub mod state;
 
 /// The ISA marker the loader checks after instantiating a core (P1.3): the
 /// ARM core exports it, the x86 core does not
