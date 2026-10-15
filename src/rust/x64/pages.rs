@@ -17,6 +17,7 @@
 //! paging and TLB (cpu::translate_address), with LEGACY_KEY besides.
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
+use crate::jitrt::capacity;
 use crate::jitrt::publish::{self, Phase};
 use crate::jitrt::ClientId;
 use crate::page::Page;
@@ -1782,8 +1783,18 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         .functions
         .iter()
         .filter(|f| f.phase != Phase::Dead)
-        .count();
-    if live >= MAX_FUNCTIONS {
+        .count() as u32;
+    // (the slot budget, jitrt::capacity: this client's quota is
+    // MAX_FUNCTIONS; an eviction another client asked of it is done here,
+    // at its cold point)
+    let must_evict = {
+        let rt = crate::jitrt::state();
+        let free = rt.table.free_count();
+        capacity::must_evict(ClientId::X86Page, live, free, |c| {
+            rt.table.owned_by(c) as u32
+        })
+    };
+    if capacity::take_request(ClientId::X86Page) || must_evict {
         if let Some(i) = eviction_victim(&r.functions, compat) {
             retire(r, i);
             r.stats[EVICTED] += 1;

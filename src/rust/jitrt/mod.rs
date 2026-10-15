@@ -16,8 +16,10 @@
 //! differences come through host::Env or type parameters
 //! (tools/check_x86tpl_imports.mjs checks it, in make jit-gate).
 
+pub mod capacity;
 pub mod host;
 pub mod publish;
+pub mod stat;
 pub mod table;
 pub mod watch;
 
@@ -35,7 +37,6 @@ pub enum ClientId {
     A64Page = 1,
 }
 impl ClientId {
-    #[allow(dead_code)]
     pub fn of(n: u32) -> Option<ClientId> {
         match n {
             0 => Some(ClientId::X86Page),

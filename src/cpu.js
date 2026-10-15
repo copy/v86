@@ -2571,6 +2571,9 @@ CPU.prototype.configure_jit_backend = function(settings)
 CPU.prototype.get_jit_info = function()
 {
     const exports = this.wm.exports;
+    // (the page tier's counters, through jitrt's jit_stat: client 0,
+    // docs/jit-unification-plan.md P5.10)
+    const stat = exports["jit_stat"] ? field => exports["jit_stat"](0, field) : null;
     // (the IR region tiers' statistics and settings went with them,
     // docs/jit-unification-plan.md M11; IR Tier-0's before, P7.5)
     return {
@@ -2581,16 +2584,16 @@ CPU.prototype.get_jit_info = function()
             "enabled": exports["jit_is_enabled"] ? +exports["jit_is_enabled"]() : 0,
             "tier0": null,
             // (32-bit and 16-bit code in the x64 page tier)
-            "page_tier": exports["x64_page_stat"] ? {
-                "legacy32": !!exports["x64_page_stat"](40),
-                "compat32": !!exports["x64_page_stat"](41),
+            "page_tier": stat ? {
+                "legacy32": !!stat(40),
+                "compat32": !!stat(41),
                 // (16-bit protected-mode code, x64_page_prot16)
-                "prot16": !!exports["x64_page_stat"](42),
+                "prot16": !!stat(42),
                 // (real-mode and virtual-8086 code, x64_page_v86)
-                "v86": !!exports["x64_page_stat"](44),
-                "functions": exports["x64_page_stat"](12) >>> 0,
-                "native_instructions": exports["x64_page_stat"](1) >>> 0,
-                "activations": exports["x64_page_stat"](13) >>> 0,
+                "v86": !!stat(44),
+                "functions": stat(12) >>> 0,
+                "native_instructions": stat(1) >>> 0,
+                "activations": stat(13) >>> 0,
             } : null,
         },
     };

@@ -78,7 +78,6 @@ impl Table {
             .and_then(|slot| self.owners.get(&slot).copied())
     }
     /// The slots `client` owns
-    #[allow(dead_code)]
     pub fn owned_by(&self, client: ClientId) -> usize {
         self.owners.values().filter(|o| o.client == client).count()
     }

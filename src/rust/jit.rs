@@ -132,6 +132,8 @@ pub fn rust_init() {
             });
         rt.watch.on_reset(crate::x64::pages::reset);
     }
+    jitrt::stat::register(ClientId::X86Page, crate::x64::pages::x64_page_stat);
+    jitrt::capacity::set_quota(ClientId::X86Page, crate::x64::pages::MAX_FUNCTIONS as u32);
     jitrt::publish::register(
         ClientId::X86Page,
         jitrt::publish::Client {
