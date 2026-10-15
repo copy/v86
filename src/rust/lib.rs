@@ -32,6 +32,9 @@ use cpu::isa_hooks as isa;
 #[cfg(not(feature = "aarch64"))]
 pub mod js_api;
 pub mod parallel;
+// retired instructions and the other per-core counters of both cores
+#[cfg_attr(feature = "aarch64", allow(dead_code))]
+mod core_stats;
 #[cfg(not(feature = "aarch64"))]
 pub mod profiler;
 

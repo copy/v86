@@ -7,37 +7,10 @@
 use crate::cpu::apic;
 use crate::cpu::string::{StringExecution, StringOutcome};
 
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-struct CoreStatistics {
-    retired: u64,
-    rep_elements: u64,
-    faults: u64,
-    halts: u64,
-    runtime_ms: f64,
-}
-static mut CORE_STATISTICS: [CoreStatistics; 8] = [CoreStatistics {
-    retired: 0,
-    rep_elements: 0,
-    faults: 0,
-    halts: 0,
-    runtime_ms: 0.0,
-}; 8];
-// Retired instructions and REP elements of the current core not yet added to
-// CORE_STATISTICS: two plain adds per instruction instead of an indexed
-// update. Flushed on core switch and before any read or reset.
-static mut PENDING_RETIRED: u64 = 0;
-static mut PENDING_REP_ELEMENTS: u64 = 0;
-pub unsafe fn flush_core_statistics() {
-    if PENDING_RETIRED | PENDING_REP_ELEMENTS != 0 {
-        let stats =
-            &mut (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()];
-        stats.retired += PENDING_RETIRED;
-        stats.rep_elements += PENDING_REP_ELEMENTS;
-        PENDING_RETIRED = 0;
-        PENDING_REP_ELEMENTS = 0;
-    }
-}
+// The per-core counters are crate::core_stats's (both cores count there)
+use crate::core_stats::retired_now;
+pub use crate::core_stats::{flush_core_statistics, note_halt, note_jit_rep, note_native_retired};
+use crate::core_stats::{CORE_STATISTICS, PENDING_REP_ELEMENTS, PENDING_RETIRED};
 
 struct ExecutionState {
     deterministic: bool,
@@ -195,19 +168,6 @@ pub unsafe fn begin_shadow_instruction() {
     }
 }
 
-pub unsafe fn note_halt() {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].halts += 1;
-}
-pub unsafe fn note_jit_rep(elements: u32) {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].rep_elements +=
-        elements as u64;
-}
-/// Instructions compiled code retired natively (the instructions it leaves
-/// to the interpreter retire there: finish_instruction)
-pub unsafe fn note_native_retired(native: u32) {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].retired +=
-        native as u64;
-}
 /// How retired instructions ran (the mode ledger)
 #[derive(Clone, Copy)]
 pub enum Way {
@@ -289,11 +249,6 @@ unsafe fn ledger_begin_now() -> LedgerSpan {
         counter: *crate::cpu::global_pointers::instruction_counter,
     }
 }
-/// The current core's retired instructions so far, pending ones included
-unsafe fn retired_now() -> u64 {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].retired
-        + PENDING_RETIRED
-}
 unsafe fn ledger_add(span: &LedgerSpan, way: Way, retired: u64) {
     if let Some(ledger) = (*(&raw mut LEDGER)).as_mut() {
         ledger[span.mode as usize][span.flat as usize][way as usize] += retired;
@@ -322,42 +277,6 @@ pub unsafe fn ledger_end_count(span: Option<LedgerSpan>, way: Way, retired: u32)
     if let Some(span) = span {
         ledger_add(&span, way, retired as u64);
     }
-}
-
-#[no_mangle]
-pub unsafe fn core_statistics_reset() {
-    PENDING_RETIRED = 0;
-    PENDING_REP_ELEMENTS = 0;
-    *crate::parallel::machine(&raw mut CORE_STATISTICS) = [CoreStatistics::default(); 8];
-}
-#[no_mangle]
-pub unsafe fn core_statistics_addr(core: u32) -> u32 {
-    assert!(core < 8);
-    flush_core_statistics();
-    crate::parallel::machine(&raw mut CORE_STATISTICS)
-        .cast::<CoreStatistics>()
-        .add(core as usize) as u32
-}
-#[no_mangle]
-pub fn core_statistics_size() -> u32 { std::mem::size_of::<CoreStatistics>() as u32 }
-#[no_mangle]
-pub unsafe fn core_statistics_get(core: u32, field: u32) -> f64 {
-    assert!(core < 8);
-    flush_core_statistics();
-    let stats = (*crate::parallel::machine(&raw mut CORE_STATISTICS))[core as usize];
-    match field {
-        0 => stats.retired as f64,
-        1 => stats.rep_elements as f64,
-        2 => stats.faults as f64,
-        3 => stats.halts as f64,
-        4 => stats.runtime_ms,
-        _ => 0.0,
-    }
-}
-#[no_mangle]
-pub unsafe fn core_statistics_runtime(core: u32, elapsed_ms: f64) {
-    assert!(core < 8 && elapsed_ms.is_finite() && elapsed_ms >= 0.0);
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[core as usize].runtime_ms += elapsed_ms;
 }
 
 /// Used after reset/restore, with the previous pending delta already consumed.

@@ -187,9 +187,11 @@ export const STATICS = {
     },
     "cpu/exceptions.rs": { DELIVERING: "scratch", EXTERNAL: "scratch", SHUTDOWN: "core", BSP_RESET: "machine" },
     "cpu/context.rs": { CONTEXTS: "core" },
-    "cpu/execution.rs": { execution_state: "machine", CORE_STATISTICS: "core", LEDGER: "debug",
-        // flushed into CORE_STATISTICS before every read, reset and core switch
-        PENDING_RETIRED: "scratch", PENDING_REP_ELEMENTS: "scratch" },
+    "cpu/execution.rs": { execution_state: "machine", LEDGER: "debug" },
+    // both cores' per-core counters (docs/arm64-virt-android16-plan.md P1.10);
+    // the pending ones are flushed into CORE_STATISTICS before every read,
+    // reset and core switch
+    "core_stats.rs": { CORE_STATISTICS: "core", PENDING_RETIRED: "scratch", PENDING_REP_ELEMENTS: "scratch" },
     "cpu/fpu.rs": { X87_JIT_CACHE: "machine" },
     // (IOAPIC_LOCK guards it while cores run in workers; UNUSED stands in for it in the normal build)
     "cpu/ioapic.rs": { IOAPIC: "machine", IOAPIC_LOCK: "machine", UNUSED: "machine" },

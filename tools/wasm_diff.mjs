@@ -14,6 +14,10 @@
 //   and memory offsets inside the static data as one placeholder. A function
 //   equal that way is "shifted" (an added function renumbers the others'
 //   calls; a longer string moves the data after it); else it "changed";
+// - a function that moved to another module (its body equal, its symbol's
+//   path new) is paired with its old self as "moved", and calls to it count
+//   as calls to the old name, so its callers are not "changed" (ARM64 plan
+//   P1.0, P1.10: code moves out of the x86 modules);
 // - the custom sections (name, producers, target_features, ...) and the data
 //   section (the static data, where the panic locations keep file names and
 //   line numbers) are reported apart from the code.
@@ -121,6 +125,7 @@ export function parse_module(bytes)
         for(let count = g.uleb(); count--;) { g.u8(); g.u8(); globals.push(g.constant()); }
     }
     const exported_globals = new Map();
+    const exports = [];
     for(const s of each(SECTION_EXPORT))
     {
         const e = new Reader(s.payload);
@@ -128,6 +133,7 @@ export function parse_module(bytes)
         {
             const name = e.name(), kind = e.u8(), index = e.uleb();
             if(kind === 3) exported_globals.set(name, globals[index - imported_globals]);
+            exports.push({ name, kind, index });
         }
     }
 
@@ -183,7 +189,7 @@ export function parse_module(bytes)
         const high = Math.max(...placed.map(s => s.address + s.bytes.length), exported_globals.get("__heap_base") || 0, globals[0] || 0);
         static_range = [low, high];
     }
-    return { sections, types, functions, segments, function_name, static_range };
+    return { sections, types, functions, segments, function_name, static_range, exports };
 }
 
 /**
@@ -193,13 +199,17 @@ export function parse_module(bytes)
  * @param {Uint8Array} body
  * @param {{types: Array<string>, function_name: function(number): string}} module
  * @param {Array<number>|null} range
+ * @param {Map<string, string>=} renamed a moved function's new name (without its hash) -> its old name
  */
-export function normalize(body, module, range)
+export function normalize(body, module, range, renamed)
 {
     const r = new Reader(body);
     const out = [];
     const address = value => range && value >= range[0] && value < range[1] ? "addr" : value;
-    const callee = index => module.function_name(index).replace(RUST_HASH, "");
+    const callee = index => {
+        const name = module.function_name(index).replace(RUST_HASH, "");
+        return renamed?.get(name) ?? name;
+    };
     const memarg = () => { const align = r.uleb(); if(align & 0x40) out.push("m" + r.uleb()); out.push(align & ~0x40, address(r.uleb())); };
     const block_type = () => {
         if(r.bytes[r.pos] === 0x40 || VALUE_TYPES.has(r.bytes[r.pos])) out.push(r.u8());
@@ -357,7 +367,7 @@ export function compare(old_bytes, new_bytes)
         identical: same(old_bytes, new_bytes),
         size: [old_bytes.length, new_bytes.length],
         sections: [],
-        functions: { total: [0, 0], shifted: 0, changed: [], added: [], removed: [] },
+        functions: { total: [0, 0], shifted: 0, moved: [], changed: [], added: [], removed: [] },
         data: { segments: [0, 0], changed_bytes: 0, changes: [] },
         custom: [],
         addresses_masked: false,
@@ -388,10 +398,39 @@ export function compare(old_bytes, new_bytes)
 
     result.functions.total = [a.functions.length, b.functions.length];
     const { pairs, removed, added } = match_functions(a.functions, b.functions, equal);
+    // moved functions: renamed, with calls to them counting as calls to the
+    // old name (until no more pair up)
+    const strip = f => f.name.replace(RUST_HASH, "");
+    const renamed = new Map();
+    const range = module => moved ? module.static_range : null;
+    for(let grew = true; grew;)
+    {
+        grew = false;
+        for(const [f, g] of pairs)
+        {
+            if(strip(f) !== strip(g) && !renamed.has(strip(g))) { renamed.set(strip(g), strip(f)); grew = true; }
+        }
+        for(const f of [...removed])
+        {
+            const body = normalize(f.body, a, range(a));
+            const g = added.find(g => normalize(g.body, b, range(b), renamed) === body);
+            if(!g) continue;
+            pairs.push([f, g]);
+            removed.splice(removed.indexOf(f), 1);
+            added.splice(added.indexOf(g), 1);
+            grew = true;
+        }
+    }
+    // the exports, by name and what they name (renumbered functions are the same exports)
+    const export_list = (module, rename) => module.exports.map(e => e.name + ":" + e.kind + ":" +
+        (e.kind === 0 ? (n => rename?.get(n) ?? n)(module.function_name(e.index).replace(RUST_HASH, "")) : e.index)).sort().join("\n");
+    result.exports_equal = export_list(a) === export_list(b, renamed);
     for(const [f, g] of pairs)
     {
+        if(strip(f) !== strip(g)) result.functions.moved.push({ from: f.name, to: g.name });
         if(same(f.body, g.body)) continue;
-        if(normalized(f, a) === normalized(g, b)) result.functions.shifted++;
+        if(normalized(f, a) === normalized(g, b) ||
+            renamed.size && normalize(f.body, a, range(a)) === normalize(g.body, b, range(b), renamed)) result.functions.shifted++;
         else result.functions.changed.push({ name: g.name, sizes: [f.body.length, g.body.length] });
     }
     result.functions.added = added.map(f => ({ name: f.name, size: f.body.length }));
@@ -426,7 +465,8 @@ export function code_changed(result)
 {
     const f = result.functions;
     return f.changed.length + f.added.length + f.removed.length > 0 ||
-        result.sections.some(s => !s.equal && (s.name === "import" || s.name === "export" || s.name === "start" || s.name === "memory" || s.name === "table"));
+        result.sections.some(s => !s.equal && (s.name === "import" || s.name === "start" || s.name === "memory" || s.name === "table")) ||
+        result.sections.some(s => s.name === "export" && !s.equal) && result.exports_equal === false;
 }
 
 export function format(result, old_path, new_path)
@@ -444,7 +484,8 @@ export function format(result, old_path, new_path)
         if(s.name === "code")
         {
             note = `${f.changed.length} of ${f.total[1]} functions changed, ${f.added.length} added, ${f.removed.length} removed, ` +
-                `${f.shifted} only shifted` + (result.addresses_masked ? " (calls and static data addresses)" : " (calls)");
+                `${f.shifted} only shifted` + (result.addresses_masked ? " (calls and static data addresses)" : " (calls)") +
+                (f.moved.length ? `, ${f.moved.length} moved to another module` : "");
         }
         if(s.name === "data") note = s.equal ? "same" : `${result.data.changed_bytes} bytes differ in ${result.data.changes.length} of ${result.data.segments[1]} segments`;
         lines.push(`  ${s.name.padEnd(10)} ${note}`);
@@ -453,6 +494,7 @@ export function format(result, old_path, new_path)
     {
         lines.push(`  ${s.name.padEnd(10)} ${s.equal ? "same" : `differs (${s.sizes[0]} -> ${s.sizes[1]} bytes)`}`);
     }
+    for(const c of f.moved) lines.push(`  moved    ${c.from.replace(RUST_HASH, "")} -> ${c.to.replace(RUST_HASH, "")}`);
     for(const c of f.changed) lines.push(`  changed  ${c.name} (${c.sizes[0]} -> ${c.sizes[1]} bytes)`);
     for(const c of f.added) lines.push(`  added    ${c.name} (${c.size} bytes)`);
     for(const c of f.removed) lines.push(`  removed  ${c.name} (${c.size} bytes)`);
