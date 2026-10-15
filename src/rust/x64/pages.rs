@@ -109,6 +109,10 @@ struct Function {
     /// The tier's native instructions when it was compiled (stats[RETIRED]):
     /// how long it ran when its page is written (dirty_page)
     native_at: u64,
+    /// 16-bit protected-mode code (P7.7): the IP of its first page's first
+    /// byte as compiled (its linear address less CS's base), which the
+    /// function requires (pagegen::CompileEnv::ip_base)
+    ip_base: i32,
 }
 fn bit(set: &[u64], offset: u16) -> bool { set[offset as usize / 64] >> (offset % 64) & 1 != 0 }
 impl Function {
@@ -235,7 +239,7 @@ const HOT_RECOMPILES: usize = 12;
 /// (x64_page_access calls), access cache fills of the VGA frame buffer, MOV
 /// CR3 keeping global translations, INVLPG flushing a large-page region,
 /// unaligned reads served from BOUNCE.
-pub static mut COUNTERS: [u64; 21] = [0; 21];
+pub static mut COUNTERS: [u64; 22] = [0; 22];
 pub const COUNT_ACTIVATIONS: usize = 0;
 pub const COUNT_INVLPG: usize = 1;
 pub const COUNT_CR_WRITES: usize = 2;
@@ -268,6 +272,8 @@ pub const COUNT_LEGACY_COMPILES: usize = 18;
 /// compiles of spans (P7.3b), and their pages
 pub const COUNT_SPANS: usize = 19;
 pub const COUNT_SPAN_PAGES: usize = 20;
+/// 16-bit protected-mode compiles (P7.7)
+pub const COUNT_PROT16_COMPILES: usize = 21;
 /// (32 bytes: a VEX.256 load's)
 #[repr(C, align(16))]
 struct Bounce([u8; 32]);
@@ -405,13 +411,14 @@ struct ChainEntry {
     global: u32,
 }
 #[repr(C, align(16))]
-struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 8]);
+struct ChainTables([[ChainEntry; CHAIN_ENTRIES]; 2 * MODE_KEYS.len()]);
 const NO_CHAIN: ChainEntry = ChainEntry {
     tag: 0,
     table_index: 0,
     global: 0,
 };
-static mut CHAIN: [ChainTables; 8] = [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 8]) }; 8];
+static mut CHAIN: [ChainTables; 8] =
+    [const { ChainTables([[NO_CHAIN; CHAIN_ENTRIES]; 2 * MODE_KEYS.len()]) }; 8];
 /// Whether generated code may tail-call through the host's function table
 /// (x64_page_set_chaining: the engine supports Wasm tail calls).
 static mut CHAINING: bool = false;
@@ -557,25 +564,30 @@ unsafe fn code_key(address: u64) -> Option<u32> {
 }
 /// The key bit of a 32-bit function (P7.2; physical keys are below
 /// extended::CODE_KEY_BASE plus the extended pages), the one of a
-/// legacy-mode function besides (P7.3), and of one compiled for segment
-/// bases (P7.2(3), segmented_runnable)
+/// legacy-mode function besides (P7.3), of one compiled for segment
+/// bases (P7.2(3), segmented_runnable) and of 16-bit protected-mode code
+/// (P7.7, prot16_runnable)
 const COMPAT_KEY: u32 = 1 << 31;
 const LEGACY_KEY: u32 = 1 << 30;
 const SEGMENTED_KEY: u32 = 1 << 29;
+const PROT16_KEY: u32 = 1 << 28;
 /// The code key of a function's key: its page as compiled from
-fn physical_key(key: u32) -> u32 { key & !(COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY) }
+fn physical_key(key: u32) -> u32 { key & !(COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY) }
 /// The code's mode, as function keys, code translations and chaining tables
 /// tell it apart: 64-bit, compatibility mode (P7.2), 32-bit legacy protected
-/// mode with flat segments (P7.3) and with segment bases (P7.2(3))
+/// mode with flat segments (P7.3) and with segment bases (P7.2(3)), 16-bit
+/// protected mode (P7.7)
 const MODE_LONG: usize = 0;
 const MODE_COMPAT: usize = 1;
 const MODE_LEGACY: usize = 2;
 const MODE_SEGMENTED: usize = 3;
-const MODE_KEYS: [u32; 4] = [
+const MODE_PROT16: usize = 4;
+const MODE_KEYS: [u32; 5] = [
     0,
     COMPAT_KEY,
     COMPAT_KEY | LEGACY_KEY,
     COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY,
+    COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY,
 ];
 unsafe fn code_mode() -> usize {
     if state::mode().is_long() {
@@ -583,6 +595,9 @@ unsafe fn code_mode() -> usize {
     }
     else if state::efer() & state::EFER_LMA != 0 {
         MODE_COMPAT
+    }
+    else if prot16_runnable() {
+        MODE_PROT16
     }
     else if legacy_runnable() {
         MODE_LEGACY
@@ -622,7 +637,7 @@ pub unsafe fn set_span_entries(entries: u32) { SPAN_ENTRIES = entries; }
 /// already; at most pagegen::MAX_SPAN. Not with cores in workers.
 unsafe fn span_members(r: &Runtime, page: u32, linear: u64) -> Vec<(u32, u64, u32)> {
     let user = *gp::cpl == 3;
-    let mode_key = page & (COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY);
+    let mode_key = page & (COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY);
     let at = |linear: u64| -> Option<(u32, u64, u32)> {
         if linear >= 1 << 32 {
             return None;
@@ -740,14 +755,53 @@ pub unsafe fn x64_page_set_legacy32(enabled: bool) {
     LEGACY32 = enabled;
     LEGACY_ACTIVE = LEGACY32 && PAGE32_TIER0;
 }
+/// 16-bit protected-mode code in the page tier (the JIT switch
+/// x64_page_prot16, P7.7): Windows 3.x and 9x's 16-bit code
+static mut PROT16: bool = false;
+/// PROT16 && PAGE32_TIER0
+static mut PROT16_ACTIVE: bool = false;
+#[no_mangle]
+pub unsafe fn x64_page_set_prot16(enabled: bool) {
+    PROT16 = enabled;
+    PROT16_ACTIVE = PROT16 && PAGE32_TIER0;
+}
 /// (crate::ir::runtime::schedule::ir_auto_set_tier0)
 pub unsafe fn set_page32_tier0(enabled: bool) {
     PAGE32_TIER0 = enabled;
     LEGACY_ACTIVE = LEGACY32 && PAGE32_TIER0;
     COMPAT_ACTIVE = COMPAT32 && PAGE32_TIER0;
+    PROT16_ACTIVE = PROT16 && PAGE32_TIER0;
 }
-/// Whether a switch hands 32-bit code to the page tier (read once a slice)
-pub unsafe fn page32() -> bool { COMPAT_ACTIVE || LEGACY_ACTIVE }
+/// Whether a switch hands 32-bit (or 16-bit protected-mode) code to the
+/// page tier (read once a slice)
+pub unsafe fn page32() -> bool { COMPAT_ACTIVE || LEGACY_ACTIVE || PROT16_ACTIVE }
+/// The current instruction's linear address, on which the page tier works:
+/// RIP in long mode, else CS's base plus EIP (the same with a flat CS, as
+/// 32-bit code runs here; 16-bit code's CS has a base, P7.7)
+#[inline(always)]
+unsafe fn linear_rip() -> u64 {
+    if state::mode().is_long() {
+        state::read_rip()
+    }
+    else {
+        *gp::instruction_pointer as u32 as u64
+    }
+}
+/// Misses of a 16-bit function compiled under another CS base before its
+/// page compiles for the current one (P7.7)
+const PROT16_REBASE: u32 = 64;
+/// The IP of the first byte of `rip`'s page under the current CS (P7.7)
+unsafe fn ip_base_of(rip: u64) -> i32 {
+    ((rip & !4095) as u32).wrapping_sub(*gp::segment_offsets.add(cpu::CS as usize) as u32) as i32
+}
+/// The current code runs in the page tier as 16-bit protected-mode code
+/// (P7.7): a 16-bit CS and a 16-bit stack, compiled for segment bases as
+/// segmented_runnable (CS's base too: near branches compute IPs in it,
+/// pagegen::CompileEnv::ip_base). Data segment limits are not checked, as
+/// the interpreter does not.
+pub unsafe fn prot16_runnable() -> bool {
+    PROT16_ACTIVE && state::mode() == state::ExecutionMode::Protected16 && !*gp::stack_size_32
+}
 /// The current code runs in the page tier as 32-bit legacy protected-mode
 /// code: as compat_runnable, and with FS not null (its base is added at each
 /// access; GS's accesses step, see pagegen Decoder::legacy), paged or not
@@ -772,12 +826,12 @@ pub unsafe fn segmented_runnable() -> bool {
         && *gp::stack_size_32
         && *gp::segment_offsets.add(cpu::CS as usize) == 0
 }
-/// compat_runnable, legacy_runnable or segmented_runnable
+/// compat_runnable, legacy_runnable, segmented_runnable or prot16_runnable
 pub unsafe fn runnable32() -> bool { runnable_kind() != 0 }
 /// 1 for compat_runnable or legacy_runnable (flat segments), 2 for
-/// segmented_runnable only, else 0: a step that changes it leaves (context;
-/// in a function compiled for segment bases, which runs flat segments too,
-/// only a change to or from 0)
+/// segmented_runnable only, 3 for prot16_runnable, else 0: a step that
+/// changes it leaves (context; in a function compiled for segment bases,
+/// which runs flat segments too, only a change to or from 0)
 #[inline(always)]
 unsafe fn runnable_kind() -> u8 {
     if compat_runnable() || legacy_runnable() {
@@ -785,6 +839,9 @@ unsafe fn runnable_kind() -> u8 {
     }
     else if segmented_runnable() {
         2
+    }
+    else if prot16_runnable() {
+        3
     }
     else {
         0
@@ -821,7 +878,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
         }
         return miss();
     }
-    let rip = state::read_rip();
+    let rip = linear_rip();
     let mode = code_mode();
     let compat = mode != MODE_LONG;
     let Some((page, global)) = code_page(rip, mode)
@@ -897,6 +954,19 @@ pub unsafe fn run(budget: u32) -> Attempt {
             }) {
                 r.stats[HOT_RECOMPILES] += 1;
                 return compile_mode(page, true);
+            }
+            // (P7.7: 16-bit code compiled under a CS of another base, whose
+            // prologue would leave at once: the page compiles for this one
+            // once that recurs)
+            if mode == MODE_PROT16 && r.functions[i].ip_base != ip_base_of(rip) {
+                step_profile::note_event(event::MISS, event::MISS_UNSERVED);
+                let state = r.pages.entry(page).or_default();
+                state.misses += 1;
+                if state.misses >= PROT16_REBASE {
+                    state.misses = 0;
+                    return compile(page);
+                }
+                return miss();
             }
             r.clock += 1;
             r.functions[i].last_used = r.clock;
@@ -1108,7 +1178,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
         *gp::previous_ip = *gp::instruction_pointer;
         interpret_one();
         n += 1;
-        let next = state::read_rip();
+        let next = linear_rip();
         if n >= limit
             || next >> 12 != linear
             || next == at
@@ -1159,7 +1229,7 @@ unsafe fn unserved_run(r: &mut Runtime, i: usize, m: usize, budget: u32, rip: u6
         *gp::previous_ip = *gp::instruction_pointer;
         interpret_one();
         n += 1;
-        let next = state::read_rip();
+        let next = linear_rip();
         if n >= limit
             || next >> 12 != linear
             || !(at < next && next - at <= 15)
@@ -1288,7 +1358,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     *gp::x64_page_exit = pagegen::EXIT_NORMAL;
     let mode = code_mode();
     *gp::x64_code_base = chain_base(core, *gp::cpl == 3, mode);
-    SEGMENTED_ACTIVE = mode == MODE_SEGMENTED;
+    SEGMENTED_ACTIVE = mode >= MODE_SEGMENTED;
     *gp::x64_page_chain = 0;
     *gp::x64_page_lazy_kind = 0;
     // Generated code keeps EFLAGS materialized.
@@ -1343,7 +1413,7 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
     }
     let r = rt();
     r.stats[RETIRED] += native as u64;
-    r.last_rip = state::read_rip();
+    r.last_rip = linear_rip();
     // (no evidence for span_members across a halt or an interrupt)
     r.last_page = if *gp::in_hlt { u64::MAX } else { *gp::x64_page_linear >> 12 };
     match exit {
@@ -1376,9 +1446,9 @@ unsafe fn execute_inner(slot: u32, budget: u32, rip: u64) -> Attempt {
         || apic::nmi_pending()
         || crate::cpu::smm::smi_deliverable()
     {
-        let rip = state::read_rip();
+        let rip = linear_rip();
         cpu::handle_irqs();
-        if state::read_rip() != rip {
+        if linear_rip() != rip {
             rt().last_page = u64::MAX;
         }
     }
@@ -1405,17 +1475,19 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let (compat, physical) = (page & COMPAT_KEY != 0, physical_key(page));
     let legacy = page & LEGACY_KEY != 0;
     let segmented = page & SEGMENTED_KEY != 0;
+    let prot16 = page & PROT16_KEY != 0;
     // (legacy mode's lookups are inline either way, in the 32-bit TLB: no
     // cold compile and hot recompile, which would start V8's tier-up anew;
     // loops from the first compile)
     let outline = pagegen::outline_access() && !state.hot && !legacy;
     let counter = if outline && HOT_INLINE { take_counter() } else { None };
     // (named after the linear page it was compiled for: host profiles)
-    let linear = state::read_rip() & !4095;
+    let linear = linear_rip() & !4095;
     // (P7.3b: with x64_page_clusters, the consecutive pages of a span of
     // 32-bit code, `page` among them, legacy mode and since M9 compatibility
     // mode; else just `page`)
-    let span: Vec<(u32, u64, u32)> = if compat && CLUSTERS && !hot && !SPAN_DECLINED {
+    // (16-bit protected-mode code: pages alone, P7.7)
+    let span: Vec<(u32, u64, u32)> = if compat && !prot16 && CLUSTERS && !hot && !SPAN_DECLINED {
         span_members(r, page, linear)
     }
     else {
@@ -1486,9 +1558,15 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     else {
         Vec::new()
     };
+    // (P7.7: the IP of the page's first byte under the current CS, which
+    // the function requires)
+    let ip_base = if prot16 { ip_base_of(linear) } else { 0 };
     let name = format!(
         "x64_page{}_{:x}",
-        if segmented {
+        if prot16 {
+            "16"
+        }
+        else if segmented {
             "s32"
         }
         else if legacy {
@@ -1513,6 +1591,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         compat,
         legacy,
         segmented,
+        prot16.then_some(ip_base),
         &hosts,
         &volatile,
         name,
@@ -1597,6 +1676,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
                 source: 0,
                 counter: None,
                 native_at: 0,
+                ip_base: 0,
             });
             r.functions.len() - 1
         },
@@ -1616,6 +1696,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         source: source_hash(&bytes),
         counter,
         native_at: r.stats[RETIRED],
+        ip_base,
     };
     for &(key, ..) in &span {
         r.by_page.insert(key, index);
@@ -1625,6 +1706,9 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     r.stats[COMPILED] += 1;
     if legacy {
         COUNTERS[COUNT_LEGACY_COMPILES] += 1;
+    }
+    if prot16 {
+        COUNTERS[COUNT_PROT16_COMPILES] += 1;
     }
     if span.len() > 1 {
         COUNTERS[COUNT_SPANS] += 1;
@@ -1809,7 +1893,7 @@ unsafe fn time_first_call(slot: u32) {
         state::write_flags64(flags);
     }
     *gp::x64_page_lazy_kind = 0;
-    *gp::x64_page_linear = state::read_rip() & !4095;
+    *gp::x64_page_linear = linear_rip() & !4095;
     let core = apic::current_core();
     *gp::x64_jac_base = jac::base(core, *gp::cpl == 3);
     *gp::x64_jac_epoch = jac::epoch_bits(core);
@@ -2008,6 +2092,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
             "x64_compat_hot_count" => COMPAT_HOT_COUNT,
             "x64_page_compat32" => COMPAT32 as u32,
             "x64_page_legacy32" => LEGACY32 as u32,
+            "x64_page_prot16" => PROT16 as u32,
             "x64_page_clusters" => CLUSTERS as u32,
             "x64_span_crossings" => SPAN_CROSSINGS,
             "x64_span_entries" => SPAN_ENTRIES,
@@ -2043,6 +2128,10 @@ pub fn x64_page_stat(field: u32) -> f64 {
         40 => unsafe { LEGACY_ACTIVE as u32 as f64 },
         // (compatibility-mode code runs here: x64_page_compat32 and ir_tier0)
         41 => unsafe { COMPAT_ACTIVE as u32 as f64 },
+        // (16-bit protected-mode code runs here: x64_page_prot16 and
+        // ir_tier0; its compiles)
+        42 => unsafe { PROT16_ACTIVE as u32 as f64 },
+        43 => unsafe { COUNTERS[COUNT_PROT16_COMPILES] as f64 },
         24 => unsafe { BYTES_COMPILED as f64 },
         // pages compiled at least once (while tracked)
         21 => r.pages.values().filter(|state| state.compiles != 0).count() as f64,
@@ -2351,7 +2440,7 @@ unsafe fn profile_step() {
     }
     let rips = (*(&raw mut STEP_RIPS)).get_or_insert_with(HashMap::new);
     if rips.len() < 1 << 16 {
-        *rips.entry(state::read_rip()).or_default() += 1;
+        *rips.entry(linear_rip()).or_default() += 1;
     }
     profile_instruction(false);
 }
@@ -2389,7 +2478,7 @@ unsafe fn profile_instruction(retry: bool) {
     if !step_profile::enabled() {
         return;
     }
-    let rip = state::read_rip();
+    let rip = linear_rip();
     let mut bytes = [0u8; 15];
     let mut n = 0;
     if state::efer() & state::EFER_LMA == 0 {
@@ -2453,6 +2542,19 @@ pub unsafe fn x64_page_step() -> i32 {
         event::STEP_EXIT_CODE_WRITE
     }
     else if after != before {
+        // (16-bit code, P7.7: a far call or return to code of the same
+        // privilege continues through the chaining table)
+        if CHAINING
+            && before.compat == 3
+            && after
+                == (Context {
+                    cs: after.cs,
+                    ..before
+                })
+        {
+            step_profile::note_event(event::STEP_EXIT, event::STEP_EXIT_CHAINABLE);
+            return pagegen::STEP_CHAIN;
+        }
         if step_profile::enabled() {
             note_context_changes(&before, &after)
         }
@@ -2650,8 +2752,9 @@ pub unsafe fn x64_page_load_seg(segment: u32, selector: u32, segmented: u32) -> 
     if !cpu::switch_seg_without_fault(segment as i32, selector as i32 & 0xFFFF, segmented == 0) {
         return 1;
     }
-    // (a function compiled for segment bases runs flat segments too)
-    if legacy_runnable() || segmented != 0 && segmented_runnable() {
+    // (a function compiled for segment bases runs flat segments too; 16-bit
+    // code, P7.7, any)
+    if legacy_runnable() || segmented != 0 && (segmented_runnable() || prot16_runnable()) {
         0
     }
     else {
@@ -2723,6 +2826,7 @@ mod quota_tests {
             source: 0,
             counter: None,
             native_at: 0,
+            ip_base: 0,
         }
     }
     /// (P7.2b) A full table retires the least recently used function, but

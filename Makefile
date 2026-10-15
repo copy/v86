@@ -1092,6 +1092,10 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build
 	for kind in "" m s13; do FUZZ_KIND=$$kind JIT_SWITCHES=x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 1 || exit 1; done
 	FUZZ_STRADDLE=1 JIT_SWITCHES=x64_span_crossings=1,x64_span_entries=4096 node tests/ir/differential/tier0_fuzz.mjs 20 2
 	node tests/ir/differential/tier0_span_remap.mjs
+	# (16-bit protected-mode code, x64_page_prot16: P7.7)
+	node tests/ir/differential/prot16_fuzz.mjs 40 1
+	for kind in a m s j g x f l z c; do FUZZ_KIND=$$kind node tests/ir/differential/prot16_fuzz.mjs 12 2 || exit 1; done
+	FUZZ_STRADDLE=1 node tests/ir/differential/prot16_fuzz.mjs 20 3
 
 # Every long-mode encoding of the opcode map executed at CPL3; needs the
 # expectations written by x64-decode-tests.

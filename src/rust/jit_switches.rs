@@ -158,6 +158,18 @@ pub const SWITCHES: &[Switch] = &[
         },
         get: pages::switch_value,
     },
+    // (P7.7: 16-bit protected-mode code in the page tier instead of the
+    // region tiers; off until it passes its D gate)
+    Switch {
+        name: "x64_page_prot16",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_prot16(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
     // (P7.2b, P7.3: interpreted instructions on a page of legacy-mode code
     // before its first compile, and its unserved entries before a recompile)
     Switch {
@@ -365,6 +377,12 @@ pub const SWITCHES: &[Switch] = &[
         name: "ir_heat_steps",
         default: 4096,
         set: |v| unsafe { schedule::ir_auto_set_heat_steps(v) },
+        get: schedule::switch_value,
+    },
+    Switch {
+        name: "ir_region_modes",
+        default: 0x7F,
+        set: |v| unsafe { schedule::set_region_modes(v) },
         get: schedule::switch_value,
     },
     Switch {

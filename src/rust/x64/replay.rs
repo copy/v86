@@ -15,7 +15,9 @@
 //! execution counter, loops, XMM locals, the fast SSE checks, 32-bit
 //! operations in i32, the fast lookups, the chained GPRs, EFLAGS by what
 //! observes them; u16: the access cache's entries; u8: the code's mode, 1
-//! for 32-bit compatibility mode, bit 1 its lookups in the 32-bit TLB).
+//! for 32-bit compatibility mode, bit 1 its lookups in the 32-bit TLB, then
+//! what its bits say follows: a span's or volatile instructions' hosts,
+//! the volatile offsets, 16-bit code's IP base, P7.7).
 
 use super::pagegen::{compile_with, CompileEnv};
 use crate::wasmgen::wasm_builder::WasmBuilder;
@@ -82,13 +84,16 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
         .filter(|&o| o != u16::MAX)
         .collect();
     let hosts = env.span > 1 || !volatile.is_empty();
+    // (bit 6: 16-bit protected-mode code, P7.7: then its IP base, i32,
+    // last)
     r.push(
         env.compat as u8
             | (env.compat_tlb as u8) << 1
             | (env.legacy as u8) << 2
             | (env.segmented as u8) << 3
             | (hosts as u8) << 4
-            | (!volatile.is_empty() as u8) << 5,
+            | (!volatile.is_empty() as u8) << 5
+            | (env.prot16 as u8) << 6,
     );
     if hosts {
         r.push(env.span);
@@ -102,6 +107,9 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
         for offset in volatile {
             r.extend_from_slice(&offset.to_le_bytes());
         }
+    }
+    if env.prot16 {
+        r.extend_from_slice(&env.ip_base.to_le_bytes());
     }
     r
 }
@@ -166,6 +174,8 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
             *v = u16::from_le_bytes(r.bytes(2)?.try_into().ok()?);
         }
     }
+    let prot16 =
+        if mode & 64 != 0 { Some(i32::from_le_bytes(r.bytes(4)?.try_into().ok()?)) } else { None };
     let mut env = CompileEnv::replay(
         bit(1),
         bit(2),
@@ -187,6 +197,7 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
         compat_tlb,
         legacy,
         segmented,
+        prot16,
         &hosts,
     );
     env.volatile = volatile;
@@ -306,6 +317,7 @@ pub fn corpus() -> Vec<Vec<u8>> {
         false,
         false,
         false,
+        None,
         &[],
     );
     let mut records = Vec::new();

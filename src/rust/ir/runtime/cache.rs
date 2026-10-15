@@ -1835,6 +1835,9 @@ pub unsafe fn ir_cache_link_target() -> u64 {
 /// No request means no IR entry; compilation policy/tier promotion remain separate.
 #[inline(always)]
 pub unsafe fn execute() -> bool {
+    if !super::schedule::region_mode_allowed() {
+        return false;
+    }
     if diag::enabled() {
         return execute_mode::<true>();
     }

@@ -86,6 +86,10 @@ pub const EXIT_RETRY: u32 = 1;
 pub const EXIT_UNKNOWN: u32 = 2;
 /// x64_page_step results.
 pub const STEP_CONTINUE: i32 = 0;
+/// The step changed CS but nothing else the function depends on (16-bit
+/// code's far calls and returns, P7.7): it leaves through the chaining
+/// table, to the function of the new RIP, whose prologue checks CS's base
+pub const STEP_CHAIN: i32 = 1;
 pub const STEP_EXIT: i32 = 2;
 
 const PAGE: usize = 4096;
@@ -313,6 +317,30 @@ enum Op {
     /// POP m32: the address computed with ESP after the pop
     PopMem {
         address: AddressExpr,
+    },
+    /// 16-bit code (P7.7): PUSH and POP with a 32-bit operand size
+    Push32 {
+        src: Opnd,
+    },
+    Pop32 {
+        dst: Opnd,
+    },
+    /// 16-bit code: LES and LDS (`segment` ES or DS), the offset of `width`
+    /// bits and the selector after it at `address`
+    LoadFar {
+        segment: u8,
+        width: u8,
+        dst: Reg,
+        address: AddressExpr,
+    },
+    /// 16-bit code: ENTER size, 0
+    Enter {
+        size: u16,
+    },
+    /// 16-bit code: LODS with 16-bit addresses (SI)
+    Lods16 {
+        width: u8,
+        segment: u8,
     },
     /// PUSHAD and POPAD, whose 32 bytes are in one page (else a retry)
     Pusha,
@@ -797,9 +825,38 @@ fn register(encoded: u8, width: u8, rex: bool) -> Reg {
 /// compile). Whether it is canonical depends on where the page runs.
 fn relative(d: &Decoded) -> Option<u64> {
     let i = d.immediate?;
-    let displacement =
-        if i.encoded_bytes == 1 { i.value as i8 as i64 } else { i.value as i32 as i64 };
+    let displacement = match i.encoded_bytes {
+        1 => i.value as i8 as i64,
+        2 => i.value as i16 as i64,
+        _ => i.value as i32 as i64,
+    };
     Some(d.next.0.wrapping_add(displacement as u64))
+}
+/// 16-bit protected-mode code (P7.7): a near branch's target IP wraps at
+/// 64 KiB in CS, so its target relative to the page is that IP less the IP
+/// of the page's first byte (CompileEnv::ip_base)
+fn wrap_ip(op: Op, ip_base: i32) -> Op {
+    let wrap = |target: u64| {
+        ((ip_base as i64).wrapping_add(target as i64) & 0xFFFF).wrapping_sub(ip_base as i64) as u64
+    };
+    match op {
+        Op::Jmp { target } => Op::Jmp {
+            target: wrap(target),
+        },
+        Op::Jcc { cc, target } => Op::Jcc {
+            cc,
+            target: wrap(target),
+        },
+        Op::Call { target } => Op::Call {
+            target: wrap(target),
+        },
+        Op::LoopJump { kind, cx, target } => Op::LoopJump {
+            kind,
+            cx,
+            target: wrap(target),
+        },
+        op => op,
+    }
 }
 
 /// A volatile instruction's op (CompileEnv::volatile): forms whose one
@@ -840,15 +897,30 @@ fn volatile_op(d: &Decoded, op: Op) -> Op {
 /// templates the emitter treats in both modes (compat_template), its own
 /// forms (INC/DEC 40-4F, the 32-bit stack), and steps the rest.
 fn classify(d: &Decoded) -> Op {
-    let compat = d.mode == ExecutionMode::Compatibility32;
+    // (16-bit protected-mode code, P7.7, as 32-bit code with 16-bit
+    // operands, addresses and stack)
+    let prot16 = d.mode == ExecutionMode::Protected16;
+    let compat = d.mode == ExecutionMode::Compatibility32 || prot16;
     if !d.mode.is_long() && !compat {
         return Op::Step;
     }
     // (the stack width of PUSH, POP, CALL and RET: 64, or 32 in
-    // compatibility mode; other operand sizes are steps)
-    let stack = if compat { 32 } else { 64 };
+    // compatibility mode, 16 in 16-bit code; other operand sizes are steps)
+    let stack = if prot16 {
+        16
+    }
+    else if compat {
+        32
+    }
+    else {
+        64
+    };
     let op = d.base_opcode();
     let w = d.operand_size;
+    // (near branches: in compatibility mode with 32-bit operands, a 16-bit
+    // operand size truncating EIP is a step; in 16-bit code with 16-bit
+    // operands, their IP wrapping at 64 KiB: wrap_ip)
+    let near = if prot16 { w == 16 } else { !compat || w == 32 };
     let rex = d.prefixes.rex.is_some();
     let group = d.modrm.map_or(0, |m| m >> 3 & 7);
     let imm = d.immediate.map(|i| i.value);
@@ -1020,12 +1092,13 @@ fn classify(d: &Decoded) -> Op {
                         width,
                         dst: rm(width)?,
                     },
-                    4 | 5 if width >= 32 => Op::MulWide {
+                    // (16-bit code's DX:AX, P7.7)
+                    4 | 5 if width >= 32 || width == 16 && prot16 => Op::MulWide {
                         signed: group == 5,
                         width,
                         src: rm(width)?,
                     },
-                    6 | 7 if width >= 32 => Op::Div {
+                    6 | 7 if width >= 32 || width == 16 && prot16 => Op::Div {
                         signed: group == 7,
                         width,
                         src: rm(width)?,
@@ -1090,18 +1163,17 @@ fn classify(d: &Decoded) -> Op {
             0xFF if group == 6 && w == stack => Op::Push { src: rm(stack)? },
             0x9C if w == stack => Op::Pushf,
             0xC9 if w == stack => Op::Leave,
-            // (compatibility mode: a 16-bit operand size truncates EIP, a step)
-            0xE8 if !compat || w == 32 => Op::Call {
+            0xE8 if near => Op::Call {
                 target: relative(d)?,
             },
-            0xFF if group == 2 && (!compat || w == 32) => Op::CallIndirect { src: rm(stack)? },
-            0xFF if group == 4 && (!compat || w == 32) => Op::JmpIndirect { src: rm(stack)? },
-            0xC3 if !compat || w == 32 => Op::Ret { pop: 0 },
-            0xC2 if !compat || w == 32 => Op::Ret { pop: imm? as u16 },
-            0xE9 | 0xEB if !compat || w == 32 => Op::Jmp {
+            0xFF if group == 2 && near => Op::CallIndirect { src: rm(stack)? },
+            0xFF if group == 4 && near => Op::JmpIndirect { src: rm(stack)? },
+            0xC3 if near => Op::Ret { pop: 0 },
+            0xC2 if near => Op::Ret { pop: imm? as u16 },
+            0xE9 | 0xEB if near => Op::Jmp {
                 target: relative(d)?,
             },
-            0x70..=0x7F | 0x0F80..=0x0F8F if !compat || w == 32 => Op::Jcc {
+            0x70..=0x7F | 0x0F80..=0x0F8F if near => Op::Jcc {
                 cc: op as u8 & 15,
                 target: relative(d)?,
             },
@@ -1357,7 +1429,7 @@ fn classify(d: &Decoded) -> Op {
             dst,
             count,
         }) if compat
-            && d.address.map_or(true, |a| a.address_size == 32)
+            && d.address.map_or(true, |a| a.address_size == 32 || prot16)
             && !(width == 32 && code != 2 && code != 3) =>
         {
             Op::ShiftCall {
@@ -1380,7 +1452,8 @@ fn classify(d: &Decoded) -> Op {
 /// CLI and STI. Memory operands with 32-bit addresses only, as
 /// compat_template.
 fn legacy_template(d: &Decoded) -> Option<Op> {
-    if d.address.is_some_and(|a| a.address_size != 32)
+    let prot16 = d.mode == ExecutionMode::Protected16;
+    if d.address.is_some_and(|a| a.address_size != 32 && !prot16)
         || d.prefixes.rep.is_some()
         || d.prefixes.lock
     {
@@ -1388,6 +1461,14 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
     }
     let op = d.base_opcode();
     let w = d.operand_size;
+    // (16-bit code, P7.7: LOOP and JCXZ with 16-bit operands, segment
+    // register loads, pushes and pops, CLI and STI; the 32-bit forms step)
+    if prot16
+        && !matches!(op, 0xE0..=0xE3 | 0x8E | 0x06 | 0x07 | 0x0E | 0x16 | 0x1E | 0x1F | 0x0FA0 | 0x0FA1 | 0x0FA8 | 0x0FA9 | 0xFA | 0xFB
+            | 0x50..=0x5F | 0x68 | 0x6A | 0xFF | 0x8F | 0xC4 | 0xC5 | 0xC8 | 0xAC | 0xAD)
+    {
+        return None;
+    }
     let group = d.modrm.map_or(0, |m| m >> 3 & 7);
     let rm16 = || match d.rm_register {
         Some(r) => Some(Opnd::Reg(register(r, 16, false))),
@@ -1402,9 +1483,48 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
         0x0FA0 | 0x0FA1 => 4,
         _ => 5,
     };
+    let rm32 = || match d.rm_register {
+        Some(r) => Some(Opnd::Reg(register(r, 32, false))),
+        None => d.address.map(Opnd::Mem),
+    };
     Some(match op {
-        // (a 16-bit operand size truncates EIP: a step)
-        0xE0..=0xE3 if w == 32 => Op::LoopJump {
+        // (16-bit code, P7.7: 32-bit pushes and pops, LES and LDS, ENTER at
+        // level 0, LODS with 16-bit addresses)
+        0x50..=0x57 if prot16 && w == 32 => Op::Push32 {
+            src: Opnd::Reg(register(d.opcode_register?, 32, false)),
+        },
+        0x58..=0x5F if prot16 && w == 32 => Op::Pop32 {
+            dst: Opnd::Reg(register(d.opcode_register?, 32, false)),
+        },
+        0x68 | 0x6A if prot16 && w == 32 => Op::Push32 {
+            src: Opnd::Imm(d.immediate?.value & 0xFFFF_FFFF),
+        },
+        0xFF if prot16 && group == 6 && w == 32 => Op::Push32 { src: rm32()? },
+        0x8F if prot16 && group == 0 && w == 32 => Op::Pop32 { dst: rm32()? },
+        0xC4 | 0xC5 if prot16 && d.rm_register.is_none() => Op::LoadFar {
+            segment: if op == 0xC4 { 0 } else { 3 },
+            width: w,
+            dst: register(d.reg?, w, false),
+            address: d.address?,
+        },
+        0xC8 if prot16 && w == 16 && d.extra_immediate == Some(0) => Op::Enter {
+            size: d.immediate?.value as u16,
+        },
+        0xAC | 0xAD if prot16 && d.address_size == 16 => Op::Lods16 {
+            width: if op == 0xAC { 8 } else { w },
+            segment: d.prefixes.segment.unwrap_or(3),
+        },
+        _ if prot16
+            && matches!(
+                op,
+                0x50..=0x5F | 0x68 | 0x6A | 0xFF | 0xC4 | 0xC5 | 0xC8 | 0xAC | 0xAD
+            ) =>
+        {
+            return None
+        },
+        // (a 16-bit operand size truncates EIP: a step; 16-bit code's IP
+        // wraps, wrap_ip)
+        0xE0..=0xE3 if w == 32 && !prot16 || w == 16 && prot16 => Op::LoopJump {
             kind: op as u8 - 0xE0,
             cx: d.address_size == 16,
             target: relative(d)?,
@@ -1458,7 +1578,16 @@ fn legacy_template(d: &Decoded) -> Option<Op> {
 /// with 32-bit addresses only (a 16-bit address is a step); the rest steps
 /// until its emitter covers the mode.
 fn compat_template(op: &Op, d: &Decoded) -> bool {
-    if d.address.is_some_and(|a| a.address_size != 32) {
+    // (16-bit code, P7.7: 16-bit addresses, but its string instructions step)
+    if d.mode == ExecutionMode::Protected16 {
+        if matches!(
+            op,
+            Op::Movs { .. } | Op::Stos { .. } | Op::RepCompare { .. }
+        ) {
+            return false;
+        }
+    }
+    else if d.address.is_some_and(|a| a.address_size != 32) {
         return false;
     }
     // (BMI as cpu::bmi in every engine; VEX.W1 is no 64-bit operand here and
@@ -3188,8 +3317,11 @@ struct Decoder<'a> {
     /// x64_sse_fast_check (CompileEnv::sse_fast_check): else SQRT, RSQRT,
     /// RCP, MIN and MAX are steps
     sse_fast_check: bool,
-    /// Long64, or Compatibility32 (CompileEnv::compat)
+    /// Long64, or Compatibility32 (CompileEnv::compat), or Protected16
+    /// (CompileEnv::prot16)
     mode: ExecutionMode,
+    /// CompileEnv::ip_base of 16-bit code: its near branch targets wrap
+    ip_base: Option<i32>,
     /// CompileEnv::legacy: legacy_template's forms; operands in GS are steps
     /// (GS is null in XP and Win98, and a null selector's accesses are #GP:
     /// the interpreter's) unless compiled for segment bases, which check
@@ -3203,7 +3335,7 @@ struct Decoder<'a> {
 }
 impl Decoder<'_> {
     fn at(&mut self, offset: u16) -> Option<(Decoded, Op)> {
-        let (bytes, next, page, cvt, fast_check, mode, legacy, segmented, span) = (
+        let (bytes, next, page, cvt, fast_check, mode, legacy, segmented, span, ip_base) = (
             self.bytes,
             self.next,
             self.page,
@@ -3213,6 +3345,7 @@ impl Decoder<'_> {
             self.legacy,
             self.segmented,
             self.span_bytes,
+            self.ip_base,
         );
         let volatile = self.volatile.contains(&offset);
         *self.cache.entry(offset).or_insert_with(|| {
@@ -3242,6 +3375,10 @@ impl Decoder<'_> {
                 op => op,
             };
             let op = if volatile { volatile_op(&d, op) } else { op };
+            let op = match ip_base {
+                Some(ip_base) => wrap_ip(op, ip_base),
+                None => op,
+            };
             Some((d, op))
         })
     }
@@ -3310,6 +3447,15 @@ pub struct CompileEnv {
     /// string pointers add their segment's base (read at each access, as
     /// Tier-0's functions for other than flat segments do)
     pub segmented: bool,
+    /// 16-bit protected-mode code (P7.7, pages::prot16_runnable), as
+    /// `segmented` with 16-bit operands, addresses, IP and stack (SP wraps
+    /// at 64 KiB, ESP's high half is kept). `ip_base` is the IP of the page's
+    /// first byte (its linear address less CS's base): near branch targets
+    /// wrap at 64 KiB by it, near calls push IPs, returns and indirect
+    /// branches add CS's base back; the prologue leaves at once when CS's
+    /// base differs.
+    pub prot16: bool,
+    pub ip_base: i32,
     /// The consecutive linear pages the function covers (P7.3b; 1 but in
     /// legacy mode): offsets run over all of them, and span_hosts are their
     /// pages' host addresses as compiled (mem8 + physical). Its prologue
@@ -3350,6 +3496,7 @@ impl CompileEnv {
         compat: bool,
         legacy: bool,
         segmented: bool,
+        prot16: Option<i32>,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3377,6 +3524,8 @@ impl CompileEnv {
                 compat_tlb: compat && (COMPAT_TLB || legacy),
                 legacy,
                 segmented,
+                prot16: prot16.is_some(),
+                ip_base: prot16.unwrap_or(0),
                 span: span_hosts.len().max(1) as u8,
                 span_hosts: hosts,
                 volatile: [u16::MAX; MAX_VOLATILE],
@@ -3415,6 +3564,7 @@ impl CompileEnv {
         compat_tlb: bool,
         legacy: bool,
         segmented: bool,
+        prot16: Option<i32>,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3439,6 +3589,8 @@ impl CompileEnv {
             compat_tlb,
             legacy,
             segmented,
+            prot16: prot16.is_some(),
+            ip_base: prot16.unwrap_or(0),
             span: span_hosts.len().max(1) as u8,
             span_hosts: hosts,
             volatile: [u16::MAX; MAX_VOLATILE],
@@ -3470,12 +3622,13 @@ pub fn compile(
     compat: bool,
     legacy: bool,
     segmented: bool,
+    prot16: Option<i32>,
     span_hosts: &[u32],
     volatile: &[u16],
     name: String,
 ) -> Option<Compiled> {
     let mut env = CompileEnv::current(
-        chaining, outline, counter, compat, legacy, segmented, span_hosts,
+        chaining, outline, counter, compat, legacy, segmented, prot16, span_hosts,
     );
     env.volatile[..volatile.len()].copy_from_slice(volatile);
     #[cfg(feature = "ir-test-hooks")]
@@ -3629,9 +3782,18 @@ pub fn compile_with(
         cache: HashMap::default(),
         cvt: env.cvt,
         sse_fast_check: env.sse_fast_check,
-        mode: if env.compat { ExecutionMode::Compatibility32 } else { ExecutionMode::Long64 },
+        mode: if env.prot16 {
+            ExecutionMode::Protected16
+        }
+        else if env.compat {
+            ExecutionMode::Compatibility32
+        }
+        else {
+            ExecutionMode::Long64
+        },
         legacy: env.legacy,
         segmented: env.segmented,
+        ip_base: env.prot16.then_some(env.ip_base),
         span_bytes: PAGE * env.span as usize,
         volatile: env.volatile,
     };
@@ -4238,6 +4400,9 @@ impl Emitter {
         if e.env.span > 1 {
             e.span_entry(exit);
         }
+        if e.env.prot16 {
+            e.prot16_entry(exit);
+        }
         let leave = e.b.block_void();
         let retry = e.b.block_void();
         let dispatch = e.b.loop_void();
@@ -4479,6 +4644,22 @@ impl Emitter {
         self.c32(TLB_VALID);
         self.b.eq_i32();
         self.b.select();
+    }
+    /// 16-bit code's entry (P7.7): it leaves at once with RIP unchanged
+    /// (pages::run interprets an instruction then) unless the page's linear
+    /// address less CS's base is CompileEnv::ip_base, which its IPs assume
+    fn prot16_entry(&mut self, exit: Label) {
+        self.g(BASE);
+        self.b.wrap_i64_to_i32();
+        self.c32(gp::segment_offsets as i32 + crate::cpu::cpu::CS * 4);
+        self.b.load_aligned_i32(0);
+        self.b.sub_i32();
+        self.c32(self.env.ip_base);
+        self.b.ne_i32();
+        self.b.if_void();
+        self.set_exit(EXIT_UNKNOWN);
+        self.b.br(exit);
+        self.b.block_end();
     }
     /// A span's entry (P7.3b): its page by the 32-bit TLB entry of the page
     /// entered (gp::x64_page_linear, BASE so far), then BASE its first
@@ -4855,6 +5036,19 @@ impl Emitter {
         self.si(ST);
         self.gi(ST);
         self.b.if_void();
+        if self.env.chaining && self.env.prot16 {
+            self.gi(ST);
+            self.c32(STEP_CHAIN);
+            self.b.eq_i32();
+            self.b.if_void();
+            self.reload();
+            self.c32(0);
+            self.si(FK);
+            self.load_rip();
+            // (it returns: through the table or to pages::run)
+            self.chain();
+            self.b.block_end();
+        }
         self.gi(N);
         self.b.return_();
         self.b.block_end();
@@ -4879,6 +5073,34 @@ impl Emitter {
         self.c32(1);
         self.b.add_i32();
         self.si(N);
+    }
+    /// Push the return address of a call whose next instruction is at
+    /// page-relative `offset`: its linear address, or in 16-bit code its IP
+    /// (P7.7: CompileEnv::ip_base)
+    fn return_address(&mut self, offset: u64) {
+        if self.env.prot16 {
+            self.c64(((self.env.ip_base as i64).wrapping_add(offset as i64) & 0xFFFF) as u64);
+        }
+        else {
+            self.linear(offset);
+        }
+    }
+    /// In 16-bit code (P7.7), the IP in local `i` (a return address or an
+    /// indirect branch target) to its linear address: plus CS's base, which
+    /// is the page's linear address less CompileEnv::ip_base
+    fn ip_to_linear(&mut self, i: usize) {
+        if !self.env.prot16 {
+            return;
+        }
+        self.g(BASE);
+        self.c64(self.env.ip_base as i64 as u64);
+        self.b.sub_i64();
+        self.g(i);
+        self.c64(0xFFFF);
+        self.b.and_i64();
+        self.b.add_i64();
+        self.wrap32();
+        self.s(i);
     }
     /// Push the linear address of page-relative address `offset` (in
     /// compatibility mode wrapped at 4 GiB, as EIP is).
@@ -5323,7 +5545,11 @@ impl Emitter {
                 self.null_check(a.segment);
             }
             self.address32(a, next);
-            if segment && (a.segment >= 4 || self.env.segmented && a.segment != 1) {
+            // (CS's base: 0 in 32-bit code, which runs with a flat CS; 16-bit
+            // code's, P7.7, is not)
+            if segment
+                && (a.segment >= 4 || self.env.segmented && (a.segment != 1 || self.env.prot16))
+            {
                 self.c32(gp::segment_offsets as i32 + a.segment as i32 * 4);
                 self.b.load_aligned_i32(0);
                 self.b.add_i32();
@@ -6349,6 +6575,11 @@ impl Emitter {
                 self.c32(delta as i32);
                 self.b.add_i32();
             }
+            if self.env.prot16 {
+                // (16-bit code's SP wraps at 64 KiB, P7.7)
+                self.c32(0xFFFF);
+                self.b.and_i32();
+            }
             if self.env.segmented {
                 // (P7.2(3): the SS base; commit_sp sets ESP)
                 self.c32(gp::segment_offsets as i32 + 2 * 4);
@@ -6365,9 +6596,13 @@ impl Emitter {
         self.host(size, write, start);
         self.si(HOST);
     }
-    /// A stack slot's size: 8 bytes, 4 in compatibility mode (P7.2)
+    /// A stack slot's size: 8 bytes, 4 in compatibility mode (P7.2), 2 in
+    /// 16-bit code (P7.7)
     fn slot_bytes(&self) -> u64 {
-        if self.env.compat {
+        if self.env.prot16 {
+            2
+        }
+        else if self.env.compat {
             4
         }
         else {
@@ -6403,8 +6638,8 @@ impl Emitter {
     /// when compiled for segment bases (P7.2(3): string pointers, LEAVE),
     /// which must not be null
     fn segment_base(&mut self, segment: u8) {
-        if self.env.segmented && segment != 1 {
-            if segment != 2 {
+        if self.env.segmented && (segment != 1 || self.env.prot16) {
+            if segment != 1 && segment != 2 {
                 self.null_check(segment);
             }
             self.b.wrap_i64_to_i32();
@@ -6414,8 +6649,22 @@ impl Emitter {
             self.b.extend_unsigned_i32_to_i64();
         }
     }
-    /// RSP += `bytes` (in compatibility mode ESP, wrapped)
+    /// RSP += `bytes` (in compatibility mode ESP, wrapped; in 16-bit code SP,
+    /// ESP's high half kept: P7.7)
     fn adjust_sp(&mut self, bytes: u64) {
+        if self.env.prot16 {
+            self.g(4);
+            self.c64(0xFFFF_0000);
+            self.b.and_i64();
+            self.g(4);
+            self.c64(bytes);
+            self.b.add_i64();
+            self.c64(0xFFFF);
+            self.b.and_i64();
+            self.b.or_i64();
+            self.s(4);
+            return;
+        }
         self.g(4);
         if self.env.compat {
             self.b.wrap_i64_to_i32();
@@ -7560,23 +7809,24 @@ impl Emitter {
                     self.s(TV);
                 }
                 else {
+                    // (32 or, in 16-bit code, 16 bits: EDX:EAX or DX:AX)
                     self.g(TA);
                     if signed {
-                        self.sext(32);
+                        self.sext(width);
                     }
                     self.g(TB);
                     if signed {
-                        self.sext(32);
+                        self.sext(width);
                     }
                     self.b.mul_i64();
                     self.s(TC);
                     self.g(TC);
-                    self.mask_to(32);
+                    self.mask_to(width);
                     self.s(TR);
                     self.g(TC);
-                    self.c64(32);
+                    self.c64(width as u64);
                     self.b.shr_u_i64();
-                    self.mask_to(32);
+                    self.mask_to(width);
                     self.s(TV);
                 }
                 self.g(TR);
@@ -7614,7 +7864,7 @@ impl Emitter {
                         },
                         (true, _) => {
                             self.g(TR);
-                            self.sext(32);
+                            self.sext(width);
                             self.g(TC);
                             self.b.ne_i64();
                         },
@@ -7736,6 +7986,103 @@ impl Emitter {
             },
             Op::Pop16 { dst: Opnd::Mem(a) } => self.pop_memory(a, 16, inst),
             Op::Pop16 { dst: Opnd::Imm(_) } => unreachable!(),
+            Op::Push32 { src } => {
+                self.read(src, 32, inst);
+                self.s(TV);
+                self.stack_sized(-4, 4, true, start);
+                self.gi(HOST);
+                self.g(TV);
+                self.store(32);
+                self.commit_sp(-4);
+            },
+            Op::Pop32 { dst: Opnd::Reg(r) } => {
+                self.stack_sized(0, 4, false, start);
+                self.gi(HOST);
+                self.load(32);
+                self.s(TV);
+                self.adjust_sp(4);
+                self.g(TV);
+                self.set_reg(r, 32);
+            },
+            Op::Pop32 { dst: Opnd::Mem(a) } => self.pop_memory(a, 32, inst),
+            Op::Pop32 { dst: Opnd::Imm(_) } => unreachable!(),
+            Op::LoadFar {
+                segment,
+                width,
+                dst,
+                address,
+            } => {
+                // (the offset and the selector after it, read before the
+                // segment loads, which may retry: nothing changed then)
+                self.read(Opnd::Mem(address), width, inst);
+                self.s(TV);
+                let selector = AddressExpr {
+                    displacement: address.displacement.wrapping_add(width as i64 / 8),
+                    ..address
+                };
+                self.read(Opnd::Mem(selector), 16, inst);
+                self.load_segment(segment, start);
+                self.g(TV);
+                self.set_reg(dst, width);
+                self.leave_unless_runnable(next);
+            },
+            Op::Enter { size } => {
+                // (as enter16 at level 0: BP at SP - 2, BP = SP - 2, SP less
+                // size + 2; ESP's and EBP's high halves stay)
+                let bp = register(5, 16, false);
+                self.stack_sized(-2, 2, true, start);
+                self.gi(HOST);
+                self.get_reg(bp, 16);
+                self.store(16);
+                self.g(4);
+                self.c64(2);
+                self.b.sub_i64();
+                self.c64(0xFFFF);
+                self.b.and_i64();
+                self.s(TV);
+                self.g(4);
+                self.c64(0xFFFF_0000);
+                self.b.and_i64();
+                self.g(TV);
+                self.c64(size as u64);
+                self.b.sub_i64();
+                self.c64(0xFFFF);
+                self.b.and_i64();
+                self.b.or_i64();
+                self.s(4);
+                self.g(TV);
+                self.set_reg(bp, 16);
+            },
+            Op::Lods16 { width, segment } => {
+                let source = AddressExpr {
+                    base: AddressBase::Register(6),
+                    index: None,
+                    scale: 0,
+                    displacement: 0,
+                    address_size: 16,
+                    segment,
+                };
+                self.address(&source, next, true);
+                self.s(ADDR);
+                self.host(width as u32 / 8, false, start);
+                self.load(width);
+                self.set_reg(register(0, width, false), width);
+                // SI += the size, or with DF less it, at 16 bits
+                let si = register(6, 16, false);
+                self.get_reg(si, 16);
+                self.b.wrap_i64_to_i32();
+                self.c32(-(width as i32 / 8));
+                self.c32(width as i32 / 8);
+                self.gi(FL);
+                self.c32(0x400);
+                self.b.and_i32();
+                self.b.select();
+                self.b.add_i32();
+                self.c32(0xFFFF);
+                self.b.and_i32();
+                self.b.extend_unsigned_i32_to_i64();
+                self.set_reg(si, 16);
+            },
             Op::PopMem { address } => self.pop_memory(address, 32, inst),
             Op::Pusha => {
                 // (as cpu::misc_instr's pusha32: EAX, ECX, EDX, EBX, the
@@ -7791,6 +8138,35 @@ impl Emitter {
                 self.b.extend_unsigned_i32_to_i64();
                 self.set_reg(esi, 32);
             },
+            Op::Leave if self.env.prot16 => {
+                // (16-bit code, P7.7: SP = BP, then POP BP; ESP's and EBP's
+                // high halves stay)
+                self.lookup_base = None;
+                self.g(5);
+                self.b.wrap_i64_to_i32();
+                self.c32(0xFFFF);
+                self.b.and_i32();
+                self.c32(gp::segment_offsets as i32 + 2 * 4);
+                self.b.load_aligned_i32(0);
+                self.b.add_i32();
+                self.b.extend_unsigned_i32_to_i64();
+                self.s(ADDR);
+                self.host(2, false, start);
+                self.load(16);
+                self.s(TV);
+                self.g(4);
+                self.c64(0xFFFF_0000);
+                self.b.and_i64();
+                self.g(5);
+                self.c64(2);
+                self.b.add_i64();
+                self.c64(0xFFFF);
+                self.b.and_i64();
+                self.b.or_i64();
+                self.s(4);
+                self.g(TV);
+                self.set_reg(register(5, 16, false), 16);
+            },
             Op::Leave => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.lookup_base = Some((5, 0));
@@ -7815,7 +8191,7 @@ impl Emitter {
                 self.check_target(target, start);
                 self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
-                self.linear(next);
+                self.return_address(next);
                 self.store(width);
                 self.commit_sp(-(bytes as i64));
                 self.retired();
@@ -7825,10 +8201,11 @@ impl Emitter {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
                 self.read(src, width, inst);
                 self.s(TV);
+                self.ip_to_linear(TV);
                 self.check_canonical(TV, start);
                 self.stack(-(bytes as i64), true, start);
                 self.gi(HOST);
-                self.linear(next);
+                self.return_address(next);
                 self.store(width);
                 self.commit_sp(-(bytes as i64));
                 self.retired();
@@ -7842,6 +8219,7 @@ impl Emitter {
                 self.gi(HOST);
                 self.load(width);
                 self.s(TV);
+                self.ip_to_linear(TV);
                 self.check_canonical(TV, start);
                 self.adjust_sp(bytes + pop as u64);
                 self.retired();
@@ -7853,6 +8231,7 @@ impl Emitter {
                 let width = self.slot_bytes() as u8 * 8;
                 self.read(src, width, inst);
                 self.s(TV);
+                self.ip_to_linear(TV);
                 self.check_canonical(TV, start);
                 self.retired();
                 self.g(TV);
@@ -11470,6 +11849,25 @@ impl Emitter {
             self.g(0);
             self.s(TA);
         }
+        else if width == 16 {
+            // DX:AX (16-bit code, P7.7): a 32-bit dividend, no i64 overflow
+            self.g(2);
+            self.mask_to(16);
+            self.c64(16);
+            self.b.shl_i64();
+            self.g(0);
+            self.mask_to(16);
+            self.b.or_i64();
+            if signed {
+                self.sext(32);
+            }
+            self.s(TA);
+            if signed {
+                self.g(TB);
+                self.sext(16);
+                self.s(TB);
+            }
+        }
         else {
             // EDX:EAX
             self.g(2);
@@ -11498,14 +11896,14 @@ impl Emitter {
         self.b
             .op(if signed { op::OP_I64DIVS } else { op::OP_I64DIVU });
         self.s(TR);
-        if width == 32 {
+        if width < 64 {
             // the quotient must fit
             self.g(TR);
             if signed {
-                self.sext(32);
+                self.sext(width);
             }
             else {
-                self.mask_to(32);
+                self.mask_to(width);
             }
             self.g(TR);
             self.b.ne_i64();
@@ -12062,6 +12460,7 @@ mod sti_shadow_tests {
             false,
             false,
             false,
+            None,
             &[],
         );
         compile_with(&env, page, &[], &[0], "sti".into())

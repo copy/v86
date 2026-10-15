@@ -417,6 +417,7 @@ pub unsafe fn switch_value(name: &str) -> Option<u32> {
         "ir_hot_filter" => s.hot_filter as u32,
         "ir_hot_capacity" => s.hot_capacity as u32,
         "ir_heat_steps" => HEAT_STEPS_PER_VISIT,
+        "ir_region_modes" => REGION_MODES,
         "ir_direct_tier2" => DIRECT_T2 as u32,
         "ir_idle_mode" => s.idle_mode as u32,
         "ir_idle_sync_ms" => s.sync_after as u32,
@@ -655,6 +656,24 @@ pub unsafe fn ir_auto_set_heat_steps(steps_per_visit: u32) -> bool {
     configure_heat(SCHEDULER.try_lock().unwrap().config.threshold);
     true
 }
+/// The CPU modes (bit n: x64::state::ExecutionMode n) whose code the region
+/// tiers compile and run: the JIT switch ir_region_modes, all of them by
+/// default. docs/jit-unification-plan.md P7.8 measures what real-mode and
+/// virtual-8086 code costs without them; the page tier's modes are not
+/// affected.
+const ALL_REGION_MODES: u32 = 0x7F;
+static mut REGION_MODES: u32 = ALL_REGION_MODES;
+#[inline(always)]
+pub unsafe fn region_mode_allowed() -> bool {
+    REGION_MODES == ALL_REGION_MODES || REGION_MODES & 1 << crate::x64::state::mode() as u32 != 0
+}
+pub unsafe fn set_region_modes(modes: u32) -> bool {
+    if modes > ALL_REGION_MODES {
+        return false;
+    }
+    REGION_MODES = modes;
+    true
+}
 unsafe fn configure_heat(threshold: u32) {
     HEAT = [EMPTY_HEAT; HEAT_SLOTS];
     HEAT_STEPS = if threshold >= 32 { threshold.saturating_mul(HEAT_STEPS_PER_VISIT) } else { 0 };
@@ -663,6 +682,9 @@ unsafe fn configure_heat(threshold: u32) {
 /// prefix, checked by the caller before interpretation) retired `steps` guest
 /// instructions.
 pub unsafe fn note_interpreted(entry: CpuEntryKey, steps: u32) {
+    if !region_mode_allowed() {
+        return;
+    }
     if HEAT_STEPS == 0 {
         record(entry, true);
         return;
