@@ -300,7 +300,9 @@ region 管线与 ir/runtime 在 M11 删除；在此之前 region 冻结，它的
 9. **浏览器与 Node 的差异。** 每个里程碑出口都跑 `make ir13-browser-tests ir-backend-browser-tests`；
    任何生成新 Wasm 特性的阶段（P2 SIMD、P3 `memory.copy`/`fill`、P4/P7 尾调用）都跑
    `make ir-portable-tests`，因为降级核心没有 simd128 和 bulk memory；另由所有者在 Chrome
-   上实测一次 XP 与 Win8.1。
+   上实测一次 XP 与 Win8.1。（这三个目标随 M11 删除 `ir` 一起删掉了。此后浏览器测试是 `make cpu-worker-tests
+   display-browser-tests` 与发布门禁里的 `multicore-parallel-browser-tests`；降级核心由 `sse3-tests`、`ssse3-tests`
+   覆盖，它们用 `build/v86-fallback.wasm` 跑 page tier 的各个 arm，ARM 核心是 `a64-portable-tests`。）
 10. **"保留一个版本"以里程碑标签计。** x86 主线打 `vM1`…`vM11` 标签，支线打 `vJ1a`、`vJ1b`、`vJ2`。
     被替换的旧路径在同一条线的下一个标签时删除；支线 J1 保留的旧导入在 `vJ2` 删除。
 11. **每个里程碑都要有收益。** M1 之后，x86 主线每个里程碑至少包含一项 F 级默认值翻转或一次
@@ -348,7 +350,7 @@ region 管线与 ir/runtime 在 M11 删除；在此之前 region 冻结，它的
 | P0.2b | **兼容模式 bench 启动**（Compat32 的 D 级门禁需要）：`long_mode.asm` 的变体远跳转到 CS.L=0、D=1 的代码段后进入 `crt0.asm`，在兼容模式下运行 i686 版 PE；`run.mjs --isa compat32` 让两个 arm（Tier-0 与 page tier）跑同一批镜像 | `tests/bench/lib/long_mode.asm`、`tests/bench/run.mjs` | `--isa compat32` | M |
 | P0.3 | `-m64` 构建档加入 `tools/bench/build.mjs` 与 `suite.json`（审查时的原型 `tools/bench/build64.mjs` 未进仓库，这里新写）：int 档用 `-mgeneral-regs-only -fno-tree-vectorize`，调优 `nocona`（对应 i686 的 `pentium4`）；`625.mmx` 和 `616.fcompare` 不进 64 位集合；32 位产物的客户机可见字节不变 | `tools/bench/build.mjs`、`tests/bench/suite.json` | `BENCH_ISA` | M |
 | P0.4 | `run.mjs`：`--isa`、PE32+ 加载（审查时的原型 `same_source.mjs` 未进仓库）、长模式机器配置、可用的纯解释器参考 arm、每个 arm 单独的开关（`--switches-a/--switches-b`）；`make bench-same-source` 在同一会话里交替运行两个 arm 并计算 S 门禁 | `tests/bench/run.mjs:60-124` | `--isa` | M |
-| P0.5 | 统一单步直方图键 StepKey v1，Tier-0 与 x64 共用一个存储 `src/rust/step_profile.rs`；32 位分页下跨页字节用 `translate_address_read_no_side_effects` 读取 | `ir/runtime/tier0.rs:49-85, 208-212`、`x64/pages.rs:1106-1227` | `STEP_PROFILE`（默认关） | M |
+| P0.5 | 统一单步直方图键 StepKey v1，Tier-0 与 x64 共用一个存储 `src/rust/step_profile.rs`；32 位分页下跨页字节用 `translate_address_read_no_side_effects` 读取；第 30–31 位预留为 ISA 字段（x86 为 0，A64 接入时取 1，不必升级键的版本；ARM64 计划附录 D 第 12 项） | `ir/runtime/tier0.rs:49-85, 208-212`、`x64/pages.rs:1106-1227` | `STEP_PROFILE`（默认关） | M |
 | P0.6 | 按模式统计退役指令（实模式、V86、Prot16、Legacy32、Compat32、Long64 × native/step/retry/interpreted），并区分 Tier-0、region 与 page tier，平坦与非平坦 32 位代码；P0.15 的 Win98 工作负载也跑一遍 | `cpu/execution.rs`、`cpu.rs:3397-3464`、`cpu.rs:3777-3844` | `MODE_LEDGER`（默认关） | M |
 | P0.7 | 三个测试脚本输出同一份 `jit_stats` 记录 | 新 `tools/bench/jit_stats.mjs` | 默认关 | M |
 | P0.8 | 门禁工具：`tests/bench/gate.mjs` 汇总 N 个会话、按单项中位数和几何均值判定（S 级门禁的成员筛选与 `same_source.mjs` 相同）；`compare.mjs` 比较同一构建的两种配置；`--fallbacks` 只在额外的不计时轮次启用直方图 | `tests/bench/report.mjs` | 无 | S |
@@ -509,11 +511,13 @@ P4.14–P4.18 不依赖 P4.1 的排名：它们针对的是已实测的代码质
 
 目标：去掉重复的运行时机制，不合并代码生成器。每一步生成代码都逐字节一致，性能在 ±1% 内。
 主要服务 ARM64；P7 的 32 位迁移不依赖它。J1 单独排人力，不与 x86 主线争抢，
-在 ARM64 计划的 M2 进行期间开始，保证 A64 JIT 动工时它已就绪。
+在 ARM64 计划的 A2（Alpine 单核 shell）进行期间开始，保证 A64 JIT 动工时它已就绪。
 
 - **J1a**（M4 之后即可开始）：P5.0–P5.5、P5.7、P5.10。
-- **J1b**（M5 之后，并要求 ARM64 计划 P1 通过验收）：P5.6、P5.8、P5.9，因为它们搬迁 M5 的成果
+- **J1b**（M5 之后，并要求 ARM64 计划 P1 通过验收：A1 中 P1 的部分，即 `tests/a64/address_space.mjs` 与 Bus 就绪
+  清单，不等 A1 的 P2 整数子集）：P5.6、P5.8、P5.9，因为它们搬迁 M5 的成果
   （P4.3/P4.7–P4.12 的 `StepOutcome`、P4.14 的访存发射、P4.16 的结构化环路）。
+- ARM64 计划从 A1 起在每个里程碑公布 P1–P3 验收与 A3 的预计时间。
 - 改写 pagegen 或 `x64/pages.rs` 的任务不并行：J1 的 P5.7–P5.9 与主线的 P4.14–P4.18、P7.2–P7.3b、P7.7–P7.8
   依次进行，先后由 ARM64 的进度决定，后做的一方在前者合入后重新基于它实现。
 
@@ -527,7 +531,7 @@ P4.14–P4.18 不依赖 P4.1 的排名：它们针对的是已实测的代码质
 | P5.5 | `jitrt::capacity`：全局槽位预算加各客户端软配额，只投递驱逐请求，由受害方在自己的冷点执行；默认值取当时的实际上限（含 P7.2b 的模式配额）。预算按核心：x86 核心的表在 `IrRuntime` 与 `X86Page` 之间分配（现在 9000 + 768 = 9768 个槽），ARM 核心的整张表归 `A64Page` | `x64/pages.rs:41, 658`、`cache.rs:839` | M |
 | P5.6 | `jitrt::step`：结果类型采用 P4.3 引入、P4.7–P4.12 扩展的 `StepOutcome`（含 CHAIN 和延迟 IRQ 退出），上下文按 ISA 与模式参数化；全局量只定义为偏移，由组合根解析成小立即数常量（ARM64 宿主上高地址会慢 1.4×，见 [multicore.md](multicore.md) 第 146–148 行） | `x64/pages.rs:1224`、`ir/runtime/tier0.rs:4-49` | M |
 | P5.7 | `jitrt::heat` + `PageRuntime<F: PageFrontend>`，x86 page 客户端作为第一个使用者；直接搬入 P4.5b 的 `HeatBatch`，不再新增一个开关 | `x64/pages.rs:26-969` | L |
-| P5.8 | `jitrt::chain` 与 `jitrt::access`：链接表与访问缓存的数据结构、填充与失效，带 `TagLayout`（含代码模式位）、`Bus` 扩展点；`Bus` 实现为 ARM64 计划 P1 `AddressSpace` 的适配器。访存查找的发射（P4.14 的冷页外置与热页内联）进入 `pagegen/frame.rs`，访存路径的选择（jac 或 32 位 TLB）留在 ISA 侧 | `x64/pages.rs:238-355`、`x64/jac.rs:14-220` | L |
+| P5.8 | `jitrt::chain` 与 `jitrt::access`：链接表与访问缓存的数据结构、填充与失效，带 `TagLayout`（含代码模式位）、`Bus` 扩展点；`Bus` 实现为 ARM64 计划 P1.5 `AddressSpace` 的适配器。TagLayout 要能容纳 EL 视图、ASID、去掉 TBI 之后的 VA，以及 A64 的代码模式位（SCTLR_EL1.A/SA/SA0；模板固化 FP 模式时再加 FPCR.RMode/FZ/DN）（J2 的做法：EL 视图是分开的表，代码模式位在函数键里，ASID 用每个 ASID 一个 epoch（`a64_asid_tag`），带 TBI 标签的地址不进访问缓存，FP 模式在运行时检查、不固化）。访存查找的发射（P4.14 的冷页外置与热页内联）进入 `pagegen/frame.rs`，访存路径的选择（jac 或 32 位 TLB）留在 ISA 侧 | `x64/pages.rs:238-355`、`x64/jac.rs:14-220` | L |
 | P5.9 | 把 pagegen 拆成中立骨架 `src/rust/pagegen/frame.rs` 和 x86 ISA 模块；结构化环路（P4.16）与访存查找发射进入骨架；flags 物化和单步上下文留在 ISA 侧；所有已有模式的输出逐字节一致 | `x64/pagegen.rs:2224-3044` | XL |
 | P5.10 | 统一指标 `jit_stat(client, field)`，`get_jit_info` 加入 x64 | `x64/pages.rs:947`、`src/cpu.js:2681` | S |
 
@@ -550,14 +554,17 @@ ARM 核心 `v86-arm64.wasm`，ARM64 计划在 P1.0 就把它拆出来（跨阶�
 
 | ID | 任务 | 规模 |
 | --- | --- | --- |
+| P6.0 | A64 组合根（`jit.rs` 在 x86 上的角色：注册 `ClientId::A64Page`、Bus 适配器、宿主环境）与导入规则检查（jitrt 永不引用 aarch64）、开关登记；由 ARM64 计划负责 | S |
 | P6.1 | virt 板的 `Bus` 与代码键（物理页，代码与位置无关）；为 A64 解释器 TLB 注册访问钩子，让解释器写入代码页、DC ZVA、独占存储和 DMA 都能触发失效 | M |
 | P6.2 | A64 `StepFrontend`：单步上下文与 `interpret_one` | M |
 | P6.3 | A64 `PageFrontend` 与骨架 ISA：整数 v1（算术、逻辑、MOVZ/K/N、ADR/ADRP、分支、LDR/STR/LDP/STP） | L |
 | P6.3b | NEON 模板，复用 wasmgen 层的中立叶子；crypto 指令（ARM64 计划 v1 profile 的 AES、PMULL、SHA1、SHA2）在生成代码里调用解释器的 helper，不单步；标量与向量的乘加（FMADD 族、FMLA/FMLS）在宿主融合时用 relaxed 乘加，探测与准入条件同 x86 的 `native_fp::fused`，另要求 FPCR 的 RMode 为 RN、FZ 为 0 且 FPSR.IXC 已置位（ARM64 计划待决问题 12，所有者 2026-10-09 同意） | L |
-| P6.4 | 失效接线：TLBI（按 VA 时覆盖 16 KiB/64 KiB 粒度对应的全部 4 KiB 子页）、ASID（v1 在切换时刷新，v2 才把 ASID 放进标签）、IC、DMA、恢复 | M |
-| P6.5 | `tests/a64/page_fuzz.mjs` 与定向测试：ART 双映射、TLBI 各变体在 4K/16K/64K 粒度、编译循环中途快照恢复 | M |
+| P6.4 | 失效接线：TLBI（按 VA 时覆盖 16 KiB/64 KiB 粒度对应的全部 4 KiB 子页，也覆盖由 block 与 contiguous 区间派生的条目；IS 广播在 DSB 完成前作用于所有核，协作式（ARM64 计划 P3.9）属于 J2，并行（ARM64 计划 P8.3）在其 A6 验收，不是 `vJ2` 的条件）、ASID（切换时刷新只在 KPTI 关闭且没有 SW_TTBR0_PAN 时可用；ASID 进入标签（开关 `a64_asid_tag`）在 J2 内实现，默认关，由 ARM64 计划 P9.3 测量后按 F 级翻转）、IC（不依赖客户机执行 IC 指令：写入代码页即失效）、DMA、恢复 | M |
+| P6.5 | `tests/a64/page_fuzz.mjs` 与定向测试：memfd 双映射（ARM64 计划的 probe）加客体内的 JIT 负载（node、java、luajit；ART 用例在 ARM64 计划的 Android 阶段）、TLBI 各变体（16K/64K 在 J2 内用 kvm-unit-tests 的 page-size 构建验证；ARM64 计划 P8.6 的 16K/64K 内核在 JIT 下运行属于其 A6，不是 `vJ2` 的条件）、编译循环中途快照恢复 | M |
 | P6.6a | 抽象审计：列出 A64 对 jitrt 的所有超出声明扩展点的修改，作为设计债，在 A64 默认开启前解决 | S |
-| P6.6b | Android 16 验收指标（依赖 ARM64 产品阶段） | M |
+| P6.6b | Alpine arm64 验收指标（ARM64 计划 A4，口径见其 P0.9） | M |
+| P6.6c | Android 16 验收指标（ARM64 计划 P12.3，不阻塞 `vJ2`） | M |
+| P6.7 | Alpine 上的 JIT 代理负载：node、java、luajit、pcre2（`tools/alpine_repo.mjs --arch aarch64 --set jit`）；由 ARM64 计划负责 | M |
 
 每个触及 jitrt 或其他共享代码的 P6 PR，先按规则 12 比较 `v86.wasm`：逐字节一致即可；有变化时重跑 x86
 身份比对和 R 级性能门禁。
@@ -645,7 +652,7 @@ x86 主线（M1–M11）决定 XP、Win98 与 Win8.1 的性能；共享运行时
 
 | 里程碑 | 内容 | XP | Win98 | Win8.1 | ARM64 |
 | --- | --- | --- | --- | --- | --- |
-| **M1** | P0（含 P0.12–P0.15）、P1；开关注册表与 worker 传递；"退役指令"定义、每 arm 开关、`gate.mjs`；新写同源对比工具（P0.2–P0.4）；P3.0b IRQ 修复；P7.6 region 冻结；本地门禁 `make jit-gate` 与 `jit-gate-full`（含 `state-layout-check`）；发布门禁新增 R-IR 级别（性能先不设门禁，待决问题 2） | 速度不变（R 级）；IRQ 投递修复；基线、驱逐曲线、多页函数贡献 | 速度不变；P0.15 的基线（存档与冷启动的 MIPS、按模式的时间占比）；region 冻结，不再加原生路径 | 速度不变；各模式的 s、单步前 40 名、表槽余量、同源与 CPULOAD32 基线；删除约 1500 行死代码 | 无运行时变化；单步存储、开关注册表、统计记录可直接搬进 jitrt |
+| **M1** | P0（含 P0.12–P0.15）、P1；开关注册表与 worker 传递；"退役指令"定义、每 arm 开关、`gate.mjs`；新写同源对比工具（P0.2–P0.4）；P3.0b IRQ 修复；P7.6 region 冻结；本地门禁 `make jit-gate` 与 `jit-gate-full`（含 `state-layout-check`）；发布门禁新增 R-IR 级别（性能先不设门禁，待决问题 2）。ARM64 计划 A0、A1 用到 M1 的开关注册表、P0.7 `jit_stats`、P0.8 `gate.mjs` 与 M1 录制的 x86 存档，M2 的 P2.0 重放用于判定 ARM64 计划共享代码 PR 的 R 级；M1、M2 之前 ARM64 计划按其"编号约定"一节的替代办法执行 | 速度不变（R 级）；IRQ 投递修复；基线、驱逐曲线、多页函数贡献 | 速度不变；P0.15 的基线（存档与冷启动的 MIPS、按模式的时间占比）；region 冻结，不再加原生路径 | 速度不变；各模式的 s、单步前 40 名、表槽余量、同源与 CPULOAD32 基线；删除约 1500 行死代码 | 无运行时变化；单步存储、开关注册表、统计记录可直接搬进 jitrt |
 | **M2** | P2.0–P2.8、P2.10；P2.9 是否做的决定 | 字节一致，不变 | 字节一致，不变 | **首次提速**：CVT*/MMX 单步下降 ≥ 90%，逐个翻转，每个 ≥ +2% | wasmgen 中立 v128/f64 叶子可供 NEON 复用 |
 | **M3** | P2.11；P3.0a；按 M3 开始时的排序（附录 C）：P3.7、P3.1a、P3.1t、P3.1b；P3.1c–e、P3.2、P3.5、P3.6 记为跳过 | **迁移前的主要提速**：REP 类 benchmark ≥ 1.05×（x87 类随 P3.2 跳过），套件 ≥ 1.00；启动不变慢 | **Tier-0 单步热点的模板（P3.7）**，REP MOVS/STOS | WOW64 的 32 位代码同样经 Tier-0 获得 P3.7 与 REP 的模板 | 无 |
 | **M4** | P4.0–P4.5、P4.13、P3.1d（`t0_rep_compat` 视条件）；P4.6 视条件；统一的 WOW64 门禁集（CPULOAD32、PROBE32、compat_jit 饥饿与别名场景） | 不变慢（新代码都在 `is_long()` 分支内） | 不变慢 | 退出加重试次数减半，s_total 降 30% | `StepOutcome`、`HeatBatch` 将原样成为 jitrt 组件；J1a 可以开始 |
@@ -658,7 +665,7 @@ x86 主线（M1–M11）决定 XP、Win98 与 Win8.1 的性能；共享运行时
 | **M11** | P7.9：删除 region 管线与 ir/runtime；最终文档 | 只剩一个 x86 编译器（pagegen） | 同左 | 同左 | jitrt 只剩 `X86Page` 与 `A64Page` 两个客户端 |
 | **J1a** | P5.0–P5.5、P5.7、P5.10 | 不变（R 级，±1%） | 不变（R 级） | 不变（R 级） | 运行时的表槽、监视、发布、容量、热度就绪 |
 | **J1b** | P5.6、P5.8、P5.9 | 不变（R 级） | 不变（R 级） | 不变（R 级） | 单步 ABI、链接与访问缓存、页函数骨架就绪，可接入 A64 |
-| **J2** | P6.1–P6.5、P6.3b、P6.6a；P6.6b 随 ARM64 产品阶段完成 | 不变（每个 PR 重跑身份比对与性能门禁） | 不变 | 不变 | **首次 ARM64 提速**：A64 整数 + NEON page tier；Android 16 P6 验收指标 |
+| **J2** | P6.0、P6.1–P6.5、P6.3b、P6.6a、P6.7；P6.6b（Alpine 指标，ARM64 计划 A4）；P6.6c 随 ARM64 计划的 Android 阶段（P12.3）完成，不是 `vJ2` 的条件 | 不变（每个 PR 重跑身份比对与性能门禁） | 不变 | 不变 | **首次 ARM64 提速**：Alpine 上的 A64 page tier |
 
 依赖关系：
 
@@ -683,9 +690,9 @@ flowchart TD
     J1b["J1b jitrt：单步、链接与访问；pagegen 骨架拆分"]
     J2["J2 A64 客户端<br/>ARM64 首次提速"]
 
-    A1(["ARM64 计划 P1：AddressSpace"])
-    A23(["ARM64 计划 P2/P3：解释器、MMU/异常"])
-    AP(["ARM64 产品阶段"])
+    A1(["ARM64 计划 P1 验收"])
+    A23(["ARM64 计划 P1–P3 验收"])
+    AP(["ARM64 计划 Android 阶段（A7 之后）"])
 
     M1 --> M2 --> M3 --> M4 --> M5
     M5 -->|"S 级同源门禁"| M6
@@ -705,7 +712,7 @@ flowchart TD
     A1 --> J1b
     J1b --> J2
     A23 --> J2
-    AP -.->|"P6.6b Android 指标"| J2
+    AP -.->|"P6.6c Android 指标（不是 J2 的完成条件）"| J2
     J1b <-.->|"不同时改写 pagegen 与 pages.rs"| M6
     J1b <-.-> M7
     J1b <-.-> M10
@@ -2723,3 +2730,18 @@ JIT 让 1/2/4 核分别快 6.1、6.5、7.3 倍；QEMU（TCG，同一宿主）1 �
   `api-tests` 通过。两个核心及其并行构建 `cargo check` 无警告。
 - J2 出口：本节各项（P6.0–P6.7，P6.6a 的设计债留到 A64 默认开启前）。标签 `vJ2`。还没做的属于 ARM64 计划的后续阶段：live 阶
   与 `boot_to_login_ms`、E 级初值的比较（P5），2 GiB 以上的 RAM 与 Worker 里的核（P8）。
+
+### 收尾（2026-10-16）
+
+在 `vJ2`（`91c94290`）的树上补做最后几个里程碑没有做的出口检查，并把 ARM64 计划附录 D 余下的同步修改写进正文。
+
+- `make jit-gate-full` 通过：快速档各项、重放（与 `vJ2` 逐字节相同）、`x64-page-tier-tests`、`x64-legacy32-tests`、
+  `jit-switch-tests`、`jit-core-tests`，发布门禁每级 `--quick` 64 项通过、0 项失败（含 `multicore-parallel-browser-tests`；
+  4 项 pending 是 ARM64 计划后续阶段的目标：A3 的设备复位、A6 的并行与浏览器、A8 的 Android）。J1a、J1b、J2 当时只跑了快速档。
+- 浏览器测试：`make cpu-worker-tests display-browser-tests` 全部通过。规则 9 点名的 `ir13-browser-tests`、
+  `ir-backend-browser-tests` 与 `ir-portable-tests` 随 M11 删除，规则 9 已改写为现在的目标；所有者在 Chrome 上实测
+  XP 与 Win8.1 的那一项仍由所有者做。
+- ARM64 计划附录 D 的第 2、3、4、5、7、8、9、10、11、12、18 项写入正文（P0.5、P5 开头与 J1b 的前提、P5.8、P6 表新增
+  P6.0、P6.6c、P6.7 三行、P6.4、P6.5、P6.6b、J2 一行、依赖图、M1 一行）；ASID 与 TBI 两处写的是 J2 实际的做法。
+- 至此本计划的里程碑 M1–M11、J1a、J1b、J2 都已完成并打了标签。“M1 的存档仍可恢复”在 M8 之后没有再查（所有者决定不补）。
+  留给 ARM64 计划的：P6.6a 的设计债（A64 默认开启前解决）、P6.6c 的 Android 指标（其 P12.3）、`a64_page` 默认值的 F 级翻转。
