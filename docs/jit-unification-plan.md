@@ -2506,3 +2506,57 @@ M10 的 F2 臂（关掉 region）因此比 B2 低约 2%。前两种接进 page t
   配 32 位栈的 16 位代码，`c22e1ee2` 起由 page tier 执行，代价从那时起就在（D 臂 0.993）。后续候选（不在本计划）：按段基址编译的代码里 INT n 用远转移那样的模板（helper 交付中断，省去
   单步的解码与上下文比较），以及转换桩里的 MOV SS/LSS。
 - M11 出口：本节各项。jitrt 不存在（见上），M11 的“jitrt 只剩 `X86Page` 与 `A64Page`”由 J1a 直接满足。标签 `vM11`。
+
+### J1a
+
+在 M11 之后做（计划允许 M4 之后就开始；按所有者的顺序 m9 → m10 → m11 → j1a）。M11 删除 region 之后 x86 核心里只有一个客户端，
+所以 P5.1 的 `IrRuntime` 不再出现，P5.3 的两种顺序只剩 x64 一方，P5.5 的预算也不再在两个 x86 客户端之间分配。
+
+**P5.0（`ffb3b47f`）。** 并行构建的测试核心 `build/v86-ir-test-parallel.wasm`；`tools/replay_check.mjs` 在基线与工作树的并行核心里
+重放各自的合成语料（录制按构建的内存种类标记，bench 录制是默认构建做的，并行核心拒绝重放它们），按机器实例加载（状态槽 0，
+状态块与 v86.wasm 同址），比较时去掉 name 段。状态块范围不用另外归一化：槽 0 的状态块地址与默认构建相同，其余静态量的地址
+都由 `CompileEnv::replay` 固定。基线没有这个目标时跳过（vM11 之前的基线）。
+
+**P5.1–P5.3（`70ec6b37`）。** `src/rust/jitrt`：`ClientId { X86Page, A64Page }`；`host::Env`（表的大小与偏移、状态块地址、
+`mem8`、时钟、核编号、清槽，以及宿主的服务：页有无代码、取得代码时退休缓存的写翻译、跨核认领与释放），由组合根 `jit.rs` 在
+`rust_init` 填入。ARM64 计划 P1.0 还没有把这些宿主导入移出 `crate::cpu`，组合根暂时直接传 `crate::cpu` 的；`A64Page` 与
+Env 里 x86 客户端不经它取的几项暂时标 `allow(dead_code)`。`jitrt::table`：槽位所有者（客户端、签名 `Fn1`/`Fn1Ret`、客户端的
+代码 id）与空闲表，取槽次序与以前相同（从高到低）。`jitrt::watch`：每槽的页、每页的计数、无锁位图，监听器按注册顺序——写入时
+先 Always（并行构建里先通知其他核），被监视的页再 WatchedOnly（x64 page tier 退休代码并列出保留的槽，写几个字节的情形），其余
+槽放开它们的全部页；重置时先监听器再清空（单元测试覆盖顺序、保留的槽与重置）。`jit.rs` 只剩开关、组合与热路径的
+`page_watched`。导入规则（std、page、wasmgen、leb，代码里没有 `feature = "aarch64"`）与 x86tpl 的一起由
+`tools/check_x86tpl_imports.mjs` 检查，在 `make jit-gate` 里。P5.2 的“表项不得越过 `WASM_TABLE_OFFSET`”的加载检查属于
+ARM64 计划 P1.3，没有做。
+
+**P5.4（`79505c00`）。** `jitrt::publish`：`Phase`（Pending → Ready → Dead）、各客户端的回答（install、ready、cancel）、导入
+`jit_publish(client, …)` 与导出 `jit_install`/`jit_ready`/`jit_cancel`。x64 page tier 作为客户端 0 经它发布；JS 的
+`CPU.jit_publish` 与旧的 `CPU.x64_page_publish`（J1a 之前的核心导入它）共用一个实现，旧导入与 `x64_page_install` 等导出保留
+到 `vJ2`。性能记录器改为给 `jit_publish` 计时。
+
+**P5.5、P5.10（`6c2884ba`）。** `jitrt::capacity`：各客户端在本核心表里的软配额；到配额的客户端先驱逐自己的代码，配额以内而表
+已满时向超额的客户端投递驱逐请求，由对方在自己的冷点执行。x64 page tier 的配额就是它独占时的上限（`MAX_FUNCTIONS` 9000，
+P7.2b 的模式份额在其内），驱逐与以前完全相同。`jitrt::stat`：一个导出 `jit_stat(client, field)`，`get_jit_info()` 经它读
+page tier 的计数（“`get_jit_info` 加入 x64”在 M7 起的 `page_tier` 里已经有了）。
+
+**P5.7（`91f36451`）。** `jitrt::heat`：代码页的状态（热度、入口、未命中、编译次数，客户端自己的放在 `x`）、退避，P4.5b 的
+`HeatBatch` 原样搬入，没有新开关。`jitrt::page`：`PageRuntime<F: PageFrontend>`，一个 page tier 的函数（`Function<C>`：页键、
+id、槽、阶段、服务的偏移、成员页、LRU 时钟，客户端的代码事实放在 `x`）、页表、发布阶段（pending、ready、alive）、带类别份额的
+LRU 驱逐、`kill` 与冷点释放死槽。x64 page tier 是第一个客户端（`X86`：`X86Code`、`X86Page`、`X86Extra`）；何时、如何、以哪种
+模式编译，以及函数怎样运行（`run()` 里的模式、跨页函数、链接、CS 基址）仍是它自己的。单元测试覆盖阶段、驱逐与释放。
+
+**验收。** 导入规则；`state-layout-check`；Rust 单元测试 127 项（jitrt 6 项）；默认构建与并行构建的重放与 vM11 逐字节相同
+（合成语料 1818 条两种构建各一遍，加 bench 录制）；`X64_JIT=1 make x64-system-tests` 与 `x64-page-tier-tests`、
+`x64-multicore-tests`、`extended-memory-tests`、`highmem-tests`、`x64-guest-tests`、`x64-legacy32-tests`（原 `ir-tier0-tests`）、
+`multicore-coherence-tests`、`multicore-state-tests`、`api-tests`、`smp-tests`、`multicore-parallel-tests`（含 release，
+vCPU worker 的 `jit_publish` 绑定）、`multicore-linux-jit-tests`、`jit-tiers-tests`、`jit-disabled-tests` 通过（`ir-cache-tests`、
+`ir-auto-tests` 随 region 删除）。“两个核心都能构建（`--features aarch64`）”与 jitrt 里没有 aarch64 的 lint：还没有 ARM 核心，
+`aarch64` 特性不存在，等 ARM64 计划建立它；lint 已在检查里。宿主就是 ARM64（Apple M 系列），所以下面的 bench 就是“ARM64
+宿主上的 bench”。ARM64 计划附录 D 的行号按内容重新核对（第 2、11 项改了位置）。
+- R 级门禁（相对 `vM11`，工作树 `build/wt-vm11`，3 个会话）：《暗黑破坏神》125.1 → 126.8 MIPS（1.014），《红色警戒 2》235.3 →
+  234.5（0.997），《主题医院》981.2 → 980.8（1.000），Win98 冷启动 6.7 → 6.7 s，XP 12.92 → 12.96 s（0.996），Win8.1 174 →
+  168 s（vM11 的样本 167–176 s，噪声）；都在 J1 要求的 ±1% 以内或更快。bench：compat32 几何平均 1.006、x86_64 1.000 通过；
+  i686 1.007，三项按规则以 `--runs 7 --scale 4` 重测（541.recursion 0.94 → 1.00，712.sse4.int 0.92 → 1.00，718.avx.ymm 0.81 →
+  1.01）。同一棵树做两臂的 A/A 运行给出同样的比值（541 两次都是 0.94；718 一次 1.24、一次 0.81）：这些短基准的偏差是 bench 的
+  臂间伪迹，与代码无关；M11 门禁里 718 的 0.81 也是它。
+- J1a 出口：本节各项。标签 `vJ1a`。J1b（P5.6、P5.8、P5.9）要求 ARM64 计划 P1 通过验收，J2 要求 ARM64 计划 P1–P3：这两步在
+  ARM64 计划开工之前不做。

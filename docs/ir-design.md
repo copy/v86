@@ -136,12 +136,13 @@ Key code locations:
 | Responsibility | Location |
 |---|---|
 | Encoding catalogue and the decoder tables (generated) | [gen/x86_table.js](../gen/x86_table.js), [gen/generate_decoder.js](../gen/generate_decoder.js), [decode](../src/rust/decode/) |
-| The page tier's runtime: heat, compiles, spans, chaining, invalidation, statistics | [pages.rs](../src/rust/x64/pages.rs), [physical.rs](../src/rust/x64/physical.rs) |
+| The ISA-neutral runtime (J1a): table slots and their owners, watched pages and the write/reset listeners, publication, the slot budget, page heat, the generic page runtime, `jit_stat` | [jitrt](../src/rust/jitrt/); [jit.rs](../src/rust/jit.rs) is the x86 core's composition root |
+| The page tier's runtime: when and how to compile, spans, chaining, invalidation, statistics (the client X86 of jitrt's page runtime) | [pages.rs](../src/rust/x64/pages.rs), [physical.rs](../src/rust/x64/physical.rs) |
 | Analysis and emission: blocks, templates, locals, flags, loops | [pagegen.rs](../src/rust/x64/pagegen.rs), [pagegen_vec.rs](../src/rust/x64/pagegen_vec.rs), [loops.rs](../src/rust/x64/loops.rs) |
 | Inline memory access and helpers of generated code | [memory.rs](../src/rust/x64/memory.rs), [helpers.rs](../src/rust/x64/helpers.rs) |
 | x86 leaf templates every engine shares | [x86tpl](../src/rust/x86tpl/), [wasmgen/leaves.rs](../src/rust/wasmgen/leaves.rs) |
 | Recording and replay of compilations (test cores) | [replay.rs](../src/rust/x64/replay.rs), `tools/replay_check.mjs` |
-| CPU dispatch, the mode ledger, slots and the host bridge | [cpu.rs](../src/rust/cpu/cpu.rs), [execution.rs](../src/rust/cpu/execution.rs), [jit.rs](../src/rust/jit.rs), [cpu.js](../src/cpu.js) |
+| CPU dispatch, the mode ledger and the host bridge (`jit_publish`) | [cpu.rs](../src/rust/cpu/cpu.rs), [execution.rs](../src/rust/cpu/execution.rs), [cpu.js](../src/cpu.js) |
 
 Common controls: `disable_jit: true` runs only the interpreter (at run time,
 the export `jit_set_enabled`); `ir_tier0: false` interprets 32-bit and 16-bit

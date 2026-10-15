@@ -261,7 +261,7 @@ JIT 计划需要的同步修改见附录 D。
 | `src/parallel/`、`src/rust/parallel.rs` | 停机纪元、kick、代码发布与失效环、SeqCst 访存（比 ARM 强，可直接作为第一版）、CAS | INIT/SIPI、TSC 偏移、端口 I/O、32 位 IO_ADDR、只有 MMIO_READ8/32（`control.js:23-83`；`vcpu.js:23-24, 173-204`）；`COMMAND_FLUSH` 没有发出方；没有独占监视器；`parallel.rs` 的 set_active、attach、sync、poll 直接调用 x86 模块：attach 写 x86 状态偏移 552、812、1352（`acpi_enabled`、`memory_size`、`x87_native_policy`，:160-177），poll 在客户机运行时经 `full_clear_tlb` 写偏移 620（`last_virt_eip`，:1003-1047），P1.0 把这 4 处改为 ISA 挂钩点 |
 | `src/rust/jit.rs:36-37, 74-105, 107-200, 238-268` | 12000 槽的表、按 backing 页的写监视位图、`page_watched` | 脏页分发硬接 IR 与 x64（118-126）；初始化、脏页退役、清空、占用与释放槽位 5 处直接调用 x86 模块（:53、118、182、279、297），P1.0 改为 ISA 挂钩点；A64 先经 `page_watched`、`jit_dirty_page`、`jit_clear_cache_js` 通知（过渡，见层表），JIT 计划 J1a（JIT 计划 P5.3）合入后改为 `jitrt::watch` 的监听器。每个核心实例各有一张表：x86 的 JIT 占 12000 个槽里的 9768 个（x64 page tier 9000，`src/rust/x64/pages.rs:41`；IR 缓存 768，`src/rust/ir/runtime/cache.rs:588`） |
 | `src/rust/wasmgen/` | 模块 ABI（单个导出 `f`，FN1/FN1_RET）、v128 发射 | 中立的 v128/f64 叶子由 JIT 计划 P2.2 提供；并行构建的 `guest_*` 是 SeqCst 原子，v128 拆成两个 i64 |
-| `src/rust/ir/` | 不复用 | JIT 计划 P7.6 冻结 region 管线，P7.9 在 M11 把它连同 ir/runtime 删除；StateMap 固定为 x86（`ir/state.rs:37-51`） |
+| `src/rust/ir/` | 不复用 | JIT 计划 P7.9 已在 M11（2026-10-15）把 region 管线连同 ir/runtime 删除（它的 StateMap 固定为 x86）；共享运行时是 `src/rust/jitrt`（J1a） |
 | `lib/softfloat/softfloat.c`、`src/rust/softfloat.rs`、`src/rust/cpu/simd_fp.rs:24-56, 126-150, 362-377` | SoftFloat 3e 有 f16/f32/f64、mulAdd、roundToInt（含 ties-away）；`cpu/simd_fp.rs` 有 MXCSR 式的包装（`Fp`），SIMD/XSAVE 计划 P4a 起由 x86 的解释器、Tier-0、region 与 x64 引擎共用 | 链接的是 8086-SSE 特化（softfloat.c 第 1 行；tininess 在舍入后，:853；默认 NaN 0xFFC00000，:928），ARM 需要另一个特化；round-to-odd（FCVTXN 需要）受 `SOFTFLOAT_ROUND_ODD` 控制，当前构建（`Makefile:331-337`）没有定义它，ARM 特化构建时加上 `-DSOFTFLOAT_ROUND_ODD` |
 | `gen/state_layout.js`、`Makefile:96-115`、`docs/multicore.md:146-148` | 字段 owner 分类、STATICS 登记、`state-layout-check` | 固定状态区为 64–4096，x86 字段在 `0aebe4f` 用到第 2424 字节，SIMD/XSAVE 计划 P2（`8c6ccc8c`）加入 XCR0、XSS 与 YMM 高半部之后到第 2704 字节（`985f518d` 不变）；ARM 核心有自己的一整块（P1.4）；并行构建每核 4096 字节的槽；生成代码访问的状态必须在低地址（arm64 宿主上放在高地址会慢 1.4 倍）；`state!` 宏与 `STATE_BLOCK` 在 x86 模块里（`src/rust/cpu/global_pointers.rs:7-39`），P1.0 移出 |
 | `src/rust/cpu/execution.rs:19-44, 164, 187-191, 203, 223-236` | 退役指令统计 | 按 `apic::current_core()` 索引 |
@@ -1158,12 +1158,12 @@ flowchart TD
 
 ## 附录 D：JIT 计划需要的同步修改
 
-行号按 2026-10-09 按 `985f518d` 重新核对之后的 JIT 计划，2026-10-10 M3 的排序在 P3 表里加了 P3.7 一行，此后的行号已加 1；同日 M4 的排序在 P4 表里加了 P4.5d 一行（此后的行号再加 1），P4.1 给待决问题 4、5 各加了一行实测结果（待决问题 6 以后再加 2），M5 在 P4 表里加了 P4.20–P4.23 四行（P4.19 之后的行号再加 4）。第 1、6、13、14、17 项与核心拆分
+行号按 2026-10-09 按 `985f518d` 重新核对之后的 JIT 计划，2026-10-10 M3 的排序在 P3 表里加了 P3.7 一行，此后的行号已加 1；同日 M4 的排序在 P4 表里加了 P4.5d 一行（此后的行号再加 1），P4.1 给待决问题 4、5 各加了一行实测结果（待决问题 6 以后再加 2），M5 在 P4 表里加了 P4.20–P4.23 四行（P4.19 之后的行号再加 4）。第 1、6、13、14、17 项与核心拆分2026-10-15（JIT 计划 M11、J1a 之后）按内容逐项重新核对：第 2 项与第 11 项的行号改为现在的位置，其余各项所指的行未变。
 改的是同一段文字，已在那次修改中一并写入；第 15 项随所有者对 JIT 计划待决问题 12 的回答写入（2026-10-09），第 19 项随所有者对本计划待决问题 12 的回答写入（同日）。这些标为"已写入"；第 16 项已不需要（`virtio_high_dma.mjs` 已修好）；其余各项仍待写入。编号保持不变，正文按编号引用。
 
 1. （已写入）第 7-12 行与第 155 行（目标客户机）：写明 ARM64 先以 Alpine Linux 3.24 aarch64 逐阶段验收（ARM64
    计划 A0–A7），Android 16 在 G-Alpine 之后验证。
-2. 第 507-508 行：把"在 ARM64 计划的 M2 进行期间开始"改为"在 ARM64 计划的 A2（Alpine 单核 shell）进行期间开始"。
+2. 第 511-512 行：把"在 ARM64 计划的 M2 进行期间开始"改为"在 ARM64 计划的 A2（Alpine 单核 shell）进行期间开始"。
    这是提前开工，不是改名：原 M2（多核 Linux、virtio 磁盘与网络）对应 ARM64 计划的 A3。
 3. 第 515 行：J1b 的前提写成"ARM64 计划 P1 通过验收（A1 中 P1 的部分：`tests/a64/address_space.mjs` 与 Bus 就绪
    清单；不等 A1 的 P2 整数子集）"。
@@ -1186,7 +1186,7 @@ flowchart TD
 10. 第 661 行（J2 行）：内容列改为"P6.0、P6.1–P6.5、P6.3b、P6.6a、P6.7；P6.6b（Alpine 指标，ARM64 计划 A4）；P6.6c
     随 ARM64 计划的 Android 阶段（P12.3）完成，不是 `vJ2` 的条件"；ARM64 列改为"首次 ARM64 提速：Alpine 上的 A64
     page tier"。
-11. 第 682-684 行与第 701-704 行（依赖图）：A1 节点改为"ARM64 计划 P1 验收"，A23 改为"ARM64 计划 P1–P3 验收"，
+11. 第 686-688 行与第 704-708 行（依赖图）：A1 节点改为"ARM64 计划 P1 验收"，A23 改为"ARM64 计划 P1–P3 验收"，
     AP 改为"ARM64 计划 Android 阶段（A7 之后）"；`AP -.-> J2` 的标签改为"P6.6c Android 指标"，并说明它不是 J2 的
     完成条件。
 12. 第 351 行（P0.5）：StepKey v1 预留 ISA 或客户端字段（x86 为 0），A64 接入时不必升级键的版本；这一项须在 M1
