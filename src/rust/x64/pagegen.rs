@@ -26,12 +26,16 @@
 //! compare with "Tier-0" describe that code as it was.
 use super::decode::{self, AddressBase, AddressExpr, ByteRegister, Decoded};
 use super::jac;
-use super::loops::Unit;
 use super::state::{gpr_high_offset, gpr_low_offset, ExecutionMode, GuestIp};
 use crate::cpu::cpu::{
     TLB_GLOBAL, TLB_HAS_CODE, TLB_IA32E_DATA, TLB_NO_USER, TLB_READONLY, TLB_VALID,
 };
 use crate::cpu::global_pointers as gp;
+use crate::pagegen::frame::{
+    self as page_frame, in_page, AccessAbi, ChainEpoch, DispatchKind, Frame, Level, LookupLocals,
+    PageEmitter, SPAN_TABLE,
+};
+use crate::pagegen::loops::Unit;
 use crate::wasmgen::leaves::{self, Shift};
 use crate::wasmgen::wasm_builder::{
     Label, Signature, WasmBuilder, WasmLocal, WasmLocalI64, WasmLocalV128, WasmType,
@@ -2935,38 +2939,10 @@ fn xmm_use(op: &Op, fast_check: bool) -> XmmUse {
     }
 }
 
-impl Level {
-    /// The level of `units` (no labels yet), re-entered at `repeat`
-    fn of(units: &[Unit], blocks: usize, repeat: Label) -> Level {
-        let mut unit_of = vec![u32::MAX; blocks];
-        let mut single = vec![];
-        for (u, unit) in units.iter().enumerate() {
-            let mut members = vec![];
-            unit.blocks(&mut members);
-            for k in members {
-                unit_of[k as usize] = u as u32;
-            }
-            single.push(match unit {
-                Unit::Block(k) => Some(*k),
-                Unit::Loop { .. } => None,
-            });
-        }
-        Level {
-            repeat,
-            unit_of,
-            labels: vec![],
-            single,
-            current: 0,
-            direct: false,
-        }
-    }
-}
-/// The structured layout of a page function (P4.16, x64_loops): each cycle
-/// of its block graph a loop, nested (x64::loops, IR Tier-0's analysis);
-/// without the switch every block is a unit of the page level. Loops whose
-/// dispatch table would span too much of the page are flattened as Tier-0's.
+/// The structured layout of a page function (P4.16, x64_loops;
+/// pagegen::frame::structured) over its static in-page successors; without
+/// the switch every block is a unit of the page level.
 fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool, span: u64) -> Vec<Unit> {
-    use super::loops::{flatten, units, visit_loops, MAX_LOOP_TABLE, MAX_LOOP_TABLES};
     if !loops {
         return (0..blocks.len() as u32).map(Unit::Block).collect();
     }
@@ -3000,27 +2976,7 @@ fn layout(blocks: &[Block], index: &BTreeMap<u16, usize>, loops: bool, span: u64
             out
         })
         .collect();
-    let all: Vec<u32> = (0..blocks.len() as u32).collect();
-    let mut layout = units(&all, &successors, None);
-    let start = |k: u32| blocks[k as usize].start as usize;
-    let range = |unit: &Unit| {
-        let mut members = vec![];
-        unit.blocks(&mut members);
-        members.iter().map(|&k| start(k)).max().unwrap() - start(unit.first()) + 1
-    };
-    flatten(&mut layout, &|unit| range(unit) > MAX_LOOP_TABLE);
-    loop {
-        let (mut total, mut widest) = (0, 0);
-        visit_loops(&layout, &mut |unit| {
-            total += range(unit);
-            widest = widest.max(range(unit));
-        });
-        if total <= MAX_LOOP_TABLES {
-            break;
-        }
-        flatten(&mut layout, &|unit| range(unit) == widest);
-    }
-    layout
+    crate::pagegen::frame::structured(&successors, &|k| blocks[k as usize].start as usize, true)
 }
 
 /// Whether the instruction at `next`, in STI's interrupt shadow, compiles
@@ -3261,7 +3217,6 @@ struct Block {
 
 /// The offset of `target` (relative to the function's first page) in its
 /// `span` bytes
-fn in_page(span: u64, target: u64) -> Option<u16> { (target < span).then_some(target as u16) }
 fn is_rep_string(d: &Decoded) -> bool {
     d.prefixes.rep.is_some() && matches!(d.base_opcode(), 0x6C..=0x6F | 0xA4..=0xA7 | 0xAA..=0xAF)
 }
@@ -4176,35 +4131,10 @@ const AH: Reg = Reg {
     high: true,
 };
 
-#[derive(Clone, Copy)]
-struct Frame {
-    exit: Label,
-    /// RIP left the page (normal exit): chain or return
-    leave: Label,
-    retry: Label,
-    step: Label,
-    dispatch: Label,
-}
-/// One level of a page function's structured layout (P4.16): the page's
-/// units, or a loop's (each a block or a loop, in address order)
-struct Level {
-    /// re-enters the level: its loop's head (the page level: Frame::dispatch)
-    repeat: Label,
-    /// per block: its unit at this level, or u32::MAX
-    unit_of: Vec<u32>,
-    /// per unit: its label (the unit's code follows the label's end)
-    labels: Vec<Label>,
-    /// per unit: Some(block) for a single block
-    single: Vec<Option<u32>>,
-    /// the unit being emitted (those before it: emitted)
-    current: usize,
-    /// a loop of its header alone, whose head does not dispatch on RIP
-    /// (Emitter::loop_unit): what continues at RIP goes further out
-    /// (Emitter::dispatch)
-    direct: bool,
-}
-struct Emitter {
+struct Emitter<'a> {
     b: WasmBuilder,
+    /// the function's blocks (PageEmitter::emit_block)
+    blocks: &'a [Block],
     v: Vec<WasmLocalI64>,
     w: Vec<WasmLocal>,
     budget: WasmLocal,
@@ -4287,6 +4217,89 @@ struct Emitter {
     env: CompileEnv,
 }
 
+/// The x86 page tier in the neutral skeleton (pagegen::frame, P5.9)
+impl PageEmitter for Emitter<'_> {
+    fn b(&mut self) -> &mut WasmBuilder { &mut self.b }
+    fn frame(&self) -> Frame { self.frame.unwrap() }
+    fn set_frame(&mut self, frame: Frame) { self.frame = Some(frame) }
+    fn levels(&mut self) -> &mut Vec<Level> { &mut self.levels }
+    fn levels_ref(&self) -> &[Level] { &self.levels }
+    fn span_bytes(&self) -> u64 { Emitter::span_bytes(self) }
+    fn pc_offset(&mut self) { self.rip_offset() }
+    fn tee_offset(&mut self) { self.ti(OFF) }
+    fn get_offset(&mut self) { self.gi(OFF) }
+    fn head(&mut self) { Emitter::head(self) }
+    fn emit_block(&mut self, k: u32, index: &BTreeMap<u16, usize>) {
+        let blocks = self.blocks;
+        self.block(&blocks[k as usize], index)
+    }
+    fn block_start(&self, k: u32) -> u16 { self.blocks[k as usize].start }
+    fn leave_to(&mut self, label: Label, target: u64) { Emitter::leave_to(self, label, target) }
+    fn before_branch(&mut self) { self.xmm_writeback() }
+    fn span_check(&mut self, target: u64) { Emitter::span_check(self, target) }
+    /// (P7.3: in the 32-bit modes a loop of its header alone needs no
+    /// dispatch on RIP each iteration, 706.memory)
+    fn direct_loops(&self) -> bool { self.env.compat }
+    fn entry_checks(&mut self, exit: Label) {
+        if self.env.span > 1 {
+            self.span_entry(exit);
+        }
+        if self.env.prot16 {
+            self.prot16_entry(exit);
+        }
+    }
+    fn bounds(&mut self, leave: Label) {
+        self.g(RIP);
+        self.g(BASE);
+        self.b.sub_i64();
+        self.c64(Emitter::span_bytes(self));
+        self.b.op(op::OP_I64GEU);
+        self.b.br_if(leave);
+        self.span_check_rip();
+    }
+    /// Not a block start: step it in place, unless the page is due for a
+    /// recompile (pages::x64_page_unserved)
+    fn unknown_offset(&mut self) {
+        self.g(RIP);
+        self.b.call_signature(
+            "x64_page_unserved",
+            Signature::new(&[WasmType::I64], &[WasmType::I32]),
+        );
+        self.b.eqz_i32();
+        self.b.br_if(self.f().step);
+        self.set_exit(EXIT_UNKNOWN);
+        self.b.br(self.f().exit);
+    }
+    fn before_units(&mut self) {
+        if self
+            .blocks
+            .iter()
+            .any(|b| b.insts.iter().any(|i| matches!(i.op, Op::X87 { .. })))
+        {
+            self.x87_cache_locals();
+        }
+    }
+    fn step_tail(&mut self) { self.step_code() }
+    fn retry_tail(&mut self) {
+        self.set_exit(EXIT_RETRY);
+        self.b.br(self.f().exit);
+    }
+    fn leave_tail(&mut self) {
+        self.x87_close();
+        if self.env.chaining {
+            self.chain();
+        }
+    }
+    fn exit_tail(&mut self) {
+        self.x87_close();
+        self.materialize_if(ARITH);
+        self.writeback();
+        self.gi(N);
+    }
+    fn note_size(&mut self, what: &str, bytes: usize) { size_note(what.into(), bytes) }
+    fn lookup_function(&mut self) -> u32 { self.access_function() }
+}
+
 /// The operand words of an x87 form inlined by x86tpl::x87, and the
 /// block's x87 cache (P7.2a)
 struct X87Operands<'a> {
@@ -4308,10 +4321,6 @@ const VECTOR_X87: u8 = 4;
 /// Dispatch through a table of 16-byte buckets and compares instead of a
 /// page-sized table (x64_page_set_bucket_dispatch).
 static mut BUCKET_DISPATCH: bool = true;
-const DISPATCH_SHIFT: u32 = 4;
-/// Compatibility mode's page dispatch: one table over the block starts'
-/// span up to this many bytes (else buckets)
-const SPAN_TABLE: usize = 1024;
 #[no_mangle]
 pub fn x64_page_set_bucket_dispatch(enabled: bool) { unsafe { BUCKET_DISPATCH = enabled } }
 /// Native instructions are counted once per block at its entry instead of
@@ -4435,7 +4444,7 @@ pub fn switch_value(name: &str) -> Option<u32> {
     }
 }
 
-impl Emitter {
+impl Emitter<'_> {
     fn emit(
         blocks: &[Block],
         index: &BTreeMap<u16, usize>,
@@ -4455,6 +4464,7 @@ impl Emitter {
 
         let mut e = Emitter {
             b,
+            blocks,
             v,
             w,
             budget,
@@ -4488,144 +4498,28 @@ impl Emitter {
         let mark = e.b.body_len();
         e.prologue();
         size_note("[prologue]".into(), e.b.body_len() - mark);
-        let exit = e.b.block_void();
-        if e.env.span > 1 {
-            e.span_entry(exit);
-        }
-        if e.env.prot16 {
-            e.prot16_entry(exit);
-        }
-        let leave = e.b.block_void();
-        let retry = e.b.block_void();
-        let dispatch = e.b.loop_void();
-        let step = e.b.block_void();
-        e.frame = Some(Frame {
-            exit,
-            leave,
-            retry,
-            step,
-            dispatch,
-        });
-        // Budget (native instructions and steps), then the page.
-        e.head();
-        e.g(RIP);
-        e.g(BASE);
-        e.b.sub_i64();
-        e.c64(e.span_bytes());
-        e.b.op(op::OP_I64GEU);
-        e.b.br_if(leave);
-        e.span_check_rip();
-        // The structured layout (P4.16): the page level's units, each with
-        // its label; a block in a loop dispatches to the loop's
+        // The structured layout (P4.16) and the page dispatch's kind:
+        // compatibility mode's a table over the span of the block starts
+        // when that is small, as Tier-0 dispatched (a loop through a switch
+        // or a call's return is no loop of the static layout and each of its
+        // rounds dispatches here; compare chains in a bucket mispredict
+        // there, P7.2), else buckets (x64_page_set_bucket_dispatch) or a
+        // table over the page
         let units = layout(blocks, index, e.env.loops, e.span_bytes());
-        let mut level = Level::of(&units, blocks.len(), dispatch);
-        level.labels = units.iter().map(|_| e.b.block_void()).collect();
-        level.labels.reverse();
-        let label_of = |level: &Level, i: usize| level.labels[level.unit_of[i] as usize];
-        let bad = e.b.block_void();
-        let mark = e.b.body_len();
-        let offset = |e: &mut Emitter| e.rip_offset();
-        // (compatibility mode: a table over the span of the block starts
-        // when that is small, as Tier-0 dispatches: a loop through a switch
-        // or a call's return is no loop of the static layout, P4.16, and
-        // each of its rounds dispatches here; compare chains in a bucket
-        // mispredict there, P7.2)
         let (low, high) = (
             index.keys().next().copied().unwrap_or(0),
             index.keys().next_back().copied().unwrap_or(0),
         );
-        let span_table = e.env.compat && (high - low) as usize <= SPAN_TABLE;
-        if span_table {
-            offset(&mut e);
-            if low != 0 {
-                e.c32(low as i32);
-                e.b.sub_i32();
-            }
-            let targets: Vec<Label> = (low..=high)
-                .map(|o| index.get(&o).map_or(bad, |&i| label_of(&level, i)))
-                .collect();
-            e.b.brtable(bad, &mut targets.iter());
+        let kind = if e.env.compat && (high - low) as usize <= SPAN_TABLE {
+            DispatchKind::SpanTable { low, high }
         }
         else if e.env.bucket_dispatch {
-            // Two levels: a table over 16-byte buckets of the page, then the
-            // block starts in the bucket (a page-sized table is most of a
-            // small function and slow to compile)
-            let mut buckets: BTreeMap<u16, Vec<(u16, usize)>> = BTreeMap::new();
-            for (&o, &i) in index {
-                buckets.entry(o >> DISPATCH_SHIFT).or_default().push((o, i));
-            }
-            let order: Vec<u16> = buckets.keys().copied().collect();
-            let mut bucket_labels: HashMap<u16, Label> = HashMap::new();
-            for &b in order.iter().rev() {
-                bucket_labels.insert(b, e.b.block_void());
-            }
-            offset(&mut e);
-            e.ti(OFF);
-            e.c32(DISPATCH_SHIFT as i32);
-            e.b.shr_u_i32();
-            let targets: Vec<Label> = (0..(e.span_bytes() >> DISPATCH_SHIFT) as u16)
-                .map(|b| bucket_labels.get(&b).copied().unwrap_or(bad))
-                .collect();
-            e.b.brtable(bad, &mut targets.iter());
-            for b in order {
-                e.b.block_end();
-                for &(o, i) in &buckets[&b] {
-                    e.gi(OFF);
-                    e.c32(o as i32);
-                    e.b.eq_i32();
-                    e.b.br_if(label_of(&level, i));
-                }
-                e.b.br(bad);
-            }
+            DispatchKind::Buckets
         }
         else {
-            offset(&mut e);
-            let targets: Vec<Label> = (0..e.span_bytes() as u32)
-                .map(|o| index.get(&(o as u16)).map_or(bad, |&i| label_of(&level, i)))
-                .collect();
-            e.b.brtable(bad, &mut targets.iter());
-        }
-        size_note("[dispatch br_table]".into(), e.b.body_len() - mark);
-        e.b.block_end();
-        // Not a block start: step it in place, unless the page is due for a
-        // recompile (pages::x64_page_unserved)
-        e.g(RIP);
-        e.b.call_signature(
-            "x64_page_unserved",
-            Signature::new(&[WasmType::I64], &[WasmType::I32]),
-        );
-        e.b.eqz_i32();
-        e.b.br_if(step);
-        e.set_exit(EXIT_UNKNOWN);
-        e.b.br(exit);
-        e.levels.push(level);
-        if blocks
-            .iter()
-            .any(|b| b.insts.iter().any(|i| matches!(i.op, Op::X87 { .. })))
-        {
-            e.x87_cache_locals();
-        }
-        e.units(&units, blocks, index);
-        let mark = e.b.body_len();
-        e.b.unreachable();
-        e.b.block_end(); // step
-        e.step_code();
-        e.b.block_end(); // dispatch loop
-        e.b.unreachable();
-        e.b.block_end(); // retry
-        e.set_exit(EXIT_RETRY);
-        e.b.br(exit);
-        e.b.block_end(); // leave
-        e.x87_close();
-        if e.env.chaining {
-            e.chain();
-        }
-        e.b.block_end(); // exit
-        e.x87_close();
-        e.materialize_if(ARITH);
-        e.writeback();
-        e.gi(N);
-        size_note("[step, retry, chain, exit]".into(), e.b.body_len() - mark);
+            DispatchKind::Full
+        };
+        e.page(&units, blocks.len(), index, kind);
         let Emitter {
             mut b,
             v,
@@ -5266,116 +5160,6 @@ impl Emitter {
         self.s(RIP);
         self.b.br(label);
     }
-    /// Continue at `target`: a later block of this function directly, an
-    /// earlier one through dispatch (and its budget check), else return.
-    fn goto(&mut self, target: u64, index: &BTreeMap<u16, usize>) {
-        let Some(o) = in_page(self.span_bytes(), target)
-        else {
-            return self.leave_to(self.f().leave, target);
-        };
-        self.span_check(target);
-        let Some(&k) = index.get(&o)
-        else {
-            return self.leave_to(self.f().dispatch, target);
-        };
-        // The innermost level holding the block: a unit after the one being
-        // emitted by its label (a single block directly), else the level's
-        // head, which dispatches on RIP (P4.16; the page level: Frame::dispatch)
-        for level in self.levels.iter().rev() {
-            let u = level.unit_of[k];
-            if u == u32::MAX {
-                continue;
-            }
-            let u = u as usize;
-            let (single, label, repeat) = (level.single[u], level.labels[u], level.repeat);
-            if u <= level.current {
-                return self.leave_to(repeat, target);
-            }
-            if single == Some(k as u32) {
-                self.xmm_writeback();
-                return self.b.br(label);
-            }
-            return self.leave_to(label, target);
-        }
-        self.leave_to(self.f().dispatch, target)
-    }
-    /// Whether the block at `o` is the next unit of the innermost level, a
-    /// single block, whose code follows (no branch needed)
-    fn falls_into(&self, o: u16, index: &BTreeMap<u16, usize>) -> bool {
-        let level = self.levels.last().unwrap();
-        index
-            .get(&o)
-            .is_some_and(|&k| level.single.get(level.current + 1) == Some(&Some(k as u32)))
-    }
-    /// The units of a level, after its labels and dispatch: each one's code
-    /// after its label's end
-    fn units(&mut self, units: &[Unit], blocks: &[Block], index: &BTreeMap<u16, usize>) {
-        for (u, unit) in units.iter().enumerate() {
-            self.b.block_end();
-            self.levels.last_mut().unwrap().current = u;
-            match unit {
-                Unit::Block(k) => self.block(&blocks[*k as usize], index),
-                Unit::Loop { header, units } => self.loop_unit(*header, units, blocks, index),
-            }
-        }
-    }
-    /// A loop (P4.16): its head (budget) and a dispatch on RIP over its
-    /// members, the header first; an offset it does not hold goes to the page
-    /// dispatch. Back edges re-enter the head instead of the page dispatch.
-    fn loop_unit(
-        &mut self,
-        header: u32,
-        units: &[Unit],
-        blocks: &[Block],
-        index: &BTreeMap<u16, usize>,
-    ) {
-        let repeat = self.b.loop_void();
-        self.head();
-        let mut level = Level::of(units, blocks.len(), repeat);
-        level.labels = units.iter().map(|_| self.b.block_void()).collect();
-        level.labels.reverse();
-        let mut members = vec![];
-        for unit in units {
-            unit.blocks(&mut members);
-        }
-        let start = |k: u32| blocks[k as usize].start;
-        let (low, high) = (
-            members.iter().map(|&k| start(k)).min().unwrap(),
-            members.iter().map(|&k| start(k)).max().unwrap(),
-        );
-        // (P7.3: a loop of its header alone is entered and repeated at it:
-        // no dispatch on RIP each iteration; the 32-bit modes, 706.memory)
-        if self.env.compat && members.len() == 1 && units.len() == 1 {
-            level.direct = true;
-            self.levels.push(level);
-            self.units(units, blocks, index);
-            self.levels.pop();
-            self.b.block_end();
-            return;
-        }
-        self.rip_offset();
-        self.ti(OFF);
-        self.c32(start(header) as i32);
-        self.b.eq_i32();
-        self.b.br_if(level.labels[0]);
-        let dispatch = self.f().dispatch;
-        let table: Vec<Label> = (low..=high)
-            .map(|o| match index.get(&o) {
-                Some(&k) if level.unit_of[k] != u32::MAX => level.labels[level.unit_of[k] as usize],
-                _ => dispatch,
-            })
-            .collect();
-        self.gi(OFF);
-        if low != 0 {
-            self.c32(low as i32);
-            self.b.sub_i32();
-        }
-        self.b.brtable(dispatch, &mut table.iter());
-        self.levels.push(level);
-        self.units(units, blocks, index);
-        self.levels.pop();
-        self.b.block_end();
-    }
     /// RIP left the page: with budget left and a chaining entry for the new
     /// linear page (pages::CHAIN, tagged with the access cache epoch), write
     /// the state back and tail-call that page's function, which counts on
@@ -5404,32 +5188,22 @@ impl Emitter {
             self.b.and_i32();
         }
         self.b.if_void();
-        self.g(RIP);
-        self.c64(12);
-        self.b.shr_u_i64();
-        self.s(TAG);
-        self.g(TAG);
-        self.b.wrap_i64_to_i32();
-        self.c32(super::pages::CHAIN_ENTRIES as i32 - 1);
-        self.b.and_i32();
-        self.c32(4);
-        self.b.shl_i32();
-        self.b.load_fixed_i32(gp::x64_code_base as u32);
-        self.b.add_i32();
-        self.si(ENT);
-        self.gi(ENT);
-        self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
-        self.g(TAG);
-        if self.env.compat {
-            self.c32(gp::x64_jac_epoch as i32);
-            self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, 0);
+        // (the chaining lookup, pagegen::frame: the 32-bit modes' epoch from
+        // memory, long mode's in EP)
+        let epoch = if self.env.compat {
+            ChainEpoch::Global(gp::x64_jac_epoch as u32)
         }
         else {
-            self.g(EP);
-        }
-        self.b.or_i64();
-        self.b.eq_i64();
-        self.b.if_void();
+            ChainEpoch::Local(&self.v[EP])
+        };
+        page_frame::chain_lookup(
+            &mut self.b,
+            &self.v[RIP],
+            &self.v[TAG],
+            &self.w[ENT],
+            gp::x64_code_base as u32,
+            epoch,
+        );
         // the state goes to memory, EFLAGS with the lazy record unevaluated:
         // the next function continues with it (its prologue); with
         // x64_fast_chain the GPRs go to x64_chain_gprs (P4.22)
@@ -5474,9 +5248,7 @@ impl Emitter {
             self.c32(CHAINED_GPRS);
             self.b.or_i32();
         }
-        self.gi(ENT);
-        self.b.load_aligned_i32(8);
-        self.b.return_call_indirect_fn1();
+        page_frame::chain_call(&mut self.b, &self.w[ENT]);
         self.b.block_end();
         self.b.block_end();
         self.materialize_if(ARITH);
@@ -5821,166 +5593,20 @@ impl Emitter {
         if let Some(f) = self.access {
             return f;
         }
-        use crate::leb::{write_leb_i32, write_leb_u32};
-        // (write tables: 2 * entries * 16 bytes on)
-        let write_shift = 15 + (self.env.jac_entries / 1024).trailing_zeros() as i32;
-        debug_assert!(self.env.jac_entries.is_power_of_two() && jac::ENTRY_BYTES == 16);
-        let slow = self.b.import_index(
-            "x64_page_access",
-            Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
-        );
-        // locals: tag (i64), entry, offset, host (i32)
-        let mut c: Vec<u8> = vec![2, 1, op::TYPE_I64, 3, op::TYPE_I32];
-        let i32c = |c: &mut Vec<u8>, v: i32| {
-            c.push(op::OP_I32CONST);
-            write_leb_i32(c, v);
-        };
-        // tag = addr >> 12 | epoch bits (local 2)
-        c.extend_from_slice(&[op::OP_GETLOCAL, 0, op::OP_I64CONST, 12, op::OP_I64SHRU]);
-        i32c(&mut c, gp::x64_jac_epoch as i32);
-        c.extend_from_slice(&[op::OP_I64LOAD, 3, 0, op::OP_I64OR, op::OP_TEELOCAL, 2]);
-        // entry = table base + (tag & (ENTRIES - 1)) * 16 (+ write tables) (local 3)
-        c.push(op::OP_I32WRAPI64);
-        i32c(&mut c, self.env.jac_entries as i32 - 1);
-        c.push(op::OP_I32AND);
-        i32c(&mut c, 4);
-        c.push(op::OP_I32SHL);
-        i32c(&mut c, gp::x64_jac_base as i32);
-        c.extend_from_slice(&[op::OP_I32LOAD, 2, 0, op::OP_I32ADD, op::OP_GETLOCAL, 1]);
-        i32c(&mut c, 8);
-        c.push(op::OP_I32SHRU);
-        i32c(&mut c, 1);
-        c.push(op::OP_I32AND);
-        i32c(&mut c, write_shift);
-        c.extend_from_slice(&[op::OP_I32SHL, op::OP_I32ADD, op::OP_SETLOCAL, 3]);
-        // offset in the page (local 4)
-        c.extend_from_slice(&[op::OP_GETLOCAL, 0, op::OP_I32WRAPI64]);
-        i32c(&mut c, 4095);
-        c.extend_from_slice(&[op::OP_I32AND, op::OP_SETLOCAL, 4]);
-        // hit: tag matches and the access stays in the page
-        c.extend_from_slice(&[
-            op::OP_GETLOCAL,
-            3,
-            op::OP_I64LOAD,
-            3,
-            0,
-            op::OP_GETLOCAL,
-            2,
-            op::OP_I64EQ,
-        ]);
-        c.extend_from_slice(&[op::OP_GETLOCAL, 4]);
-        i32c(&mut c, 4096);
-        c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-        i32c(&mut c, 255);
-        c.extend_from_slice(&[op::OP_I32AND, op::OP_I32SUB, op::OP_I32LEU, op::OP_I32AND]);
-        c.extend_from_slice(&[op::OP_IF, op::TYPE_I32]);
-        c.extend_from_slice(&[
-            op::OP_GETLOCAL,
-            3,
-            op::OP_I32LOAD,
-            2,
-            8,
-            op::OP_GETLOCAL,
-            4,
-            op::OP_I32ADD,
-        ]);
-        if WasmBuilder::ATOMIC_GUEST_MEMORY {
-            // Cores in workers access guest memory with atomics, which need
-            // natural alignment (min(size, 8)). An unaligned read is copied
-            // with plain loads, then a fence (x86 orders it before later
-            // loads), to an aligned buffer (pages::BOUNCE) the caller reads.
-            // An unaligned write host is returned as it is when the caller
-            // stores unaligned itself (kind bit 9: host_store), else the
-            // slow path refuses it (retried).
-            c.extend_from_slice(&[op::OP_TEELOCAL, 5, op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 8);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 8);
-            c.extend_from_slice(&[op::OP_I32LTU, op::OP_SELECT]);
-            i32c(&mut c, 1);
-            c.extend_from_slice(&[op::OP_I32SUB, op::OP_I32AND, op::OP_IF, op::TYPE_I32]);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 0x100);
-            c.extend_from_slice(&[op::OP_I32AND, op::OP_IF, op::TYPE_I32]);
-            // (a write whose code handles unaligned hosts, bit 9: store)
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 0x200);
-            c.extend_from_slice(&[
-                op::OP_I32AND,
-                op::OP_IF,
-                op::TYPE_I32,
-                op::OP_GETLOCAL,
-                5,
-                op::OP_ELSE,
-            ]);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 0, op::OP_GETLOCAL, 1, op::OP_CALL]);
-            write_leb_u32(&mut c, slow);
-            c.push(op::OP_END);
-            c.push(op::OP_ELSE);
-            let bounce = self.env.bounce as i32;
-            // (sizes 2, 4, 8, 16, 32: the first 8 bytes or fewer, then the
-            // rest; 32: a VEX.256 load's)
-            let copy = |c: &mut Vec<u8>, load: u8, store: u8, align: u8, offset: u32| {
-                i32c(c, bounce);
-                c.extend_from_slice(&[op::OP_GETLOCAL, 5, load, 0]);
-                write_leb_u32(c, offset);
-                c.extend_from_slice(&[store, align]);
-                write_leb_u32(c, offset);
-            };
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 4);
-            c.extend_from_slice(&[op::OP_I32LTU, op::OP_IF, op::TYPE_VOID_BLOCK]);
-            copy(&mut c, op::OP_I32LOAD16U, op::OP_I32STORE16, 1, 0);
-            c.push(op::OP_ELSE);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 4);
-            c.extend_from_slice(&[op::OP_I32EQ, op::OP_IF, op::TYPE_VOID_BLOCK]);
-            copy(&mut c, op::OP_I32LOAD, op::OP_I32STORE, 2, 0);
-            c.push(op::OP_ELSE);
-            copy(&mut c, op::OP_I64LOAD, op::OP_I64STORE, 3, 0);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 16);
-            c.extend_from_slice(&[op::OP_I32GEU, op::OP_IF, op::TYPE_VOID_BLOCK]);
-            copy(&mut c, op::OP_I64LOAD, op::OP_I64STORE, 3, 8);
-            c.extend_from_slice(&[op::OP_END]);
-            c.extend_from_slice(&[op::OP_GETLOCAL, 1]);
-            i32c(&mut c, 255);
-            c.push(op::OP_I32AND);
-            i32c(&mut c, 32);
-            c.extend_from_slice(&[op::OP_I32EQ, op::OP_IF, op::TYPE_VOID_BLOCK]);
-            copy(&mut c, op::OP_I64LOAD, op::OP_I64STORE, 3, 16);
-            copy(&mut c, op::OP_I64LOAD, op::OP_I64STORE, 3, 24);
-            c.extend_from_slice(&[op::OP_END, op::OP_END, op::OP_END]);
-            c.extend_from_slice(&[0xFE, 0x03, 0x00]); // atomic.fence
-            i32c(&mut c, bounce);
-            c.extend_from_slice(&[op::OP_END, op::OP_ELSE, op::OP_GETLOCAL, 5, op::OP_END]);
-        }
-        c.extend_from_slice(&[
-            op::OP_ELSE,
-            op::OP_GETLOCAL,
-            0,
-            op::OP_GETLOCAL,
-            1,
-            op::OP_CALL,
-        ]);
-        write_leb_u32(&mut c, slow);
-        c.extend_from_slice(&[op::OP_END, op::OP_END]);
-        let f = self.b.add_internal_function(
-            Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
-            c,
-        );
+        let abi = self.access_abi();
+        let f = page_frame::lookup_function(&mut self.b, &abi);
         self.access = Some(f);
         f
+    }
+    /// The access cache's globals and the runtime's lookup (pagegen::frame::AccessAbi)
+    fn access_abi(&self) -> AccessAbi {
+        AccessAbi {
+            epoch: gp::x64_jac_epoch as u32,
+            base: gp::x64_jac_base as u32,
+            entries: self.env.jac_entries,
+            slow: "x64_page_access",
+            bounce: self.env.bounce,
+        }
     }
     /// The host address of a store or read-modify-write of `size` bytes at
     /// ADDR (else a retry). With cores in workers it may be unaligned:
@@ -6005,92 +5631,29 @@ impl Emitter {
         if self.tlb.is_some() {
             return self.host_tlb(size, aligned, write, start, fallback);
         }
+        // (the access cache's lookups: pagegen::frame, P5.9)
         if self.env.outline {
-            let f = self.access_function();
-            self.g(ADDR);
-            self.c32((size | bits) as i32);
-            self.b.call_internal(f);
-            self.ti(HH);
-            self.b.eqz_i32();
-            self.b.if_void();
-            self.leave_to(fallback, start);
-            self.b.block_end();
-            self.gi(HH);
-            return;
+            let l = self.lookup_locals();
+            return self.outlined_lookup(&l, size, bits, start, fallback);
         }
         let table = if write { 2 * self.env.jac_entries * jac::ENTRY_BYTES } else { 0 };
         if self.env.fast_lookup {
             return self.host_fast(size, aligned, table, bits, start, fallback);
         }
-        self.g(ADDR);
-        self.c64(12);
-        self.b.shr_u_i64();
-        self.g(EP);
-        self.b.or_i64();
-        self.s(TAG);
-        self.g(TAG);
-        self.b.wrap_i64_to_i32();
-        self.c32(self.env.jac_entries as i32 - 1);
-        self.b.and_i32();
-        self.c32(4);
-        self.b.shl_i32();
-        self.gi(JAC);
-        self.b.add_i32();
-        self.si(ENT);
-        self.g(ADDR);
-        self.b.wrap_i64_to_i32();
-        self.c32(4095);
-        self.b.and_i32();
-        self.si(OFF);
-        self.gi(ENT);
-        self.b.memory_op(op::OP_I64LOAD, op::MEM_ALIGN64, table);
-        self.g(TAG);
-        self.b.eq_i64();
-        if !aligned {
-            self.gi(OFF);
-            self.c32((4096 - size) as i32);
-            self.b.leu_i32();
-            self.b.and_i32();
+        let (l, abi) = (self.lookup_locals(), self.access_abi());
+        self.inline_lookup(&l, &abi, (size, aligned), bits, start, fallback);
+    }
+    /// The locals of the access cache's lookups (pagegen::frame::LookupLocals)
+    fn lookup_locals(&self) -> LookupLocals {
+        LookupLocals {
+            addr: self.v[ADDR].unsafe_clone(),
+            epoch: self.v[EP].unsafe_clone(),
+            tag: self.v[TAG].unsafe_clone(),
+            tables: self.w[JAC].unsafe_clone(),
+            entry: self.w[ENT].unsafe_clone(),
+            offset: self.w[OFF].unsafe_clone(),
+            host: self.w[HH].unsafe_clone(),
         }
-        if WasmBuilder::ATOMIC_GUEST_MEMORY && size > 1 && !aligned {
-            // atomic accesses (cores in workers) need natural alignment; the
-            // slow path refuses unaligned ones (x64_page_access)
-            self.gi(OFF);
-            self.c32(size.min(8) as i32 - 1);
-            self.b.and_i32();
-            self.b.eqz_i32();
-            self.b.and_i32();
-        }
-        self.b.hint(true);
-        self.b.if_i32();
-        self.gi(ENT);
-        self.b.load_aligned_i32(table + 8);
-        self.gi(OFF);
-        self.b.add_i32();
-        self.b.else_();
-        self.g(ADDR);
-        if WasmBuilder::ATOMIC_GUEST_MEMORY {
-            // (with cores in workers, inline lookups too: the module's
-            // lookup, which takes unaligned accesses that x64_page_access
-            // refuses; P4.14)
-            let f = self.access_function();
-            self.c32((size | bits) as i32);
-            self.b.call_internal(f);
-        }
-        else {
-            self.c32(size as i32 | (write as i32) << 8);
-            self.b.call_signature(
-                "x64_page_access",
-                Signature::new(&[WasmType::I64, WasmType::I32], &[WasmType::I32]),
-            );
-        }
-        self.ti(HH);
-        self.b.eqz_i32();
-        self.b.if_void();
-        self.leave_to(fallback, start);
-        self.b.block_end();
-        self.gi(HH);
-        self.b.block_end();
     }
     /// The kept translation of the operand being looked up (lookup_base) of
     /// its kind, made when first used (MAX_KEPT at most)
@@ -7379,7 +6942,7 @@ impl Emitter {
     }
 }
 
-impl Emitter {
+impl Emitter<'_> {
     fn instruction(&mut self, inst: &Inst, index: &BTreeMap<u16, usize>) {
         // (an access cache lookup takes a kept translation by the base
         // register of this instruction's operand, P4.21: set by address(),
@@ -11910,7 +11473,7 @@ impl Emitter {
     }
 }
 
-impl Emitter {
+impl Emitter<'_> {
     fn load_selector(&mut self, segment: u8) {
         self.c32(gp::sreg as i32 + segment as i32 * 2);
         self.b.memory_op(op::OP_I64LOAD16U, op::MEM_ALIGN16, 0);

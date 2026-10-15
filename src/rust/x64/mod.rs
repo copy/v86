@@ -6,7 +6,6 @@ pub mod execute;
 pub mod extended;
 pub mod helpers;
 pub mod jac;
-pub mod loops;
 pub mod memory;
 pub mod pagegen;
 pub mod pages;

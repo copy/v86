@@ -123,6 +123,7 @@ impl WasmLocal {
 pub struct WasmLocalI64(u32);
 impl WasmLocalI64 {
     pub fn idx(&self) -> u32 { self.0 }
+    pub fn unsafe_clone(&self) -> Self { Self(self.0) }
 }
 // F32 locals are exercised by the backend tests; SIMD uses V128.
 #[allow(dead_code)]

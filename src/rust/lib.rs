@@ -58,6 +58,9 @@ mod jitrt;
 mod leb;
 #[cfg_attr(feature = "aarch64", allow(dead_code))]
 mod page;
+// (the page tiers' neutral code generation: the A64 page tier is J2)
+#[cfg_attr(feature = "aarch64", allow(dead_code))]
+mod pagegen;
 #[cfg(not(feature = "aarch64"))]
 mod prefix;
 #[cfg(all(test, not(feature = "aarch64")))]

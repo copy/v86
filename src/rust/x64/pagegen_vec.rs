@@ -19,8 +19,8 @@ use crate::x86tpl::vec::{sse_fp_call, sse_fp_result};
 
 /// One instruction's operands: destination `dst`, first source `first` (the
 /// destination, or VEX.vvvv), r/m operand `src`
-pub(super) struct Operands<'e> {
-    pub e: &'e mut Emitter,
+pub(super) struct Operands<'e, 'b> {
+    pub e: &'e mut Emitter<'b>,
     pub inst: &'e Inst,
     /// the instruction's offset, where a retry resumes
     pub start: u64,
@@ -29,7 +29,7 @@ pub(super) struct Operands<'e> {
     pub src: Xmm,
 }
 
-impl VecOperands for Operands<'_> {
+impl VecOperands for Operands<'_, '_> {
     fn w(&mut self) -> &mut WasmBuilder { &mut self.e.b }
     // (XMM registers through the emitter's accessors: their v128 locals
     // while held, P4.17)

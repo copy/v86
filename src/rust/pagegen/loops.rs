@@ -26,7 +26,7 @@ impl Unit {
 }
 
 /// Loop dispatch table bounds: per loop, and for all loops of a function
-/// (pagegen::layout; V8 compiles functions with very large tables slowly or
+/// (frame::structured; V8 compiles functions with very large tables slowly or
 /// not at all, its per-function zone limit)
 pub(crate) const MAX_LOOP_TABLE: usize = 1024;
 pub(crate) const MAX_LOOP_TABLES: usize = 8192;

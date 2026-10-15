@@ -18,7 +18,7 @@
 use super::{extended, jac, memory, pagegen, paging, physical, state};
 use crate::cpu::{apic, cpu, execution, global_pointers as gp};
 use crate::jitrt::capacity;
-use crate::jitrt::chain::{self, ChainTable};
+use crate::jitrt::chain::ChainTable;
 use crate::jitrt::heat::{self, backoff, HeatBatch, HEAT_BATCH_LIMIT};
 use crate::jitrt::page::{self, PageFrontend};
 use crate::jitrt::publish::{self, Phase};
@@ -332,7 +332,6 @@ static mut CODE_TLB: [CodeTlb; 8] = [[(0, 0, 0, false); CODE_TLB_SIZE]; 8];
 /// without returning to the dispatch loop: jitrt::chain's tables (P5.8), per
 /// core, code mode (P7.2, P7.3) and CPL, tagged with the access cache epoch
 /// (so every x64 TLB flush retires the entries; INVLPG retires its page's).
-pub const CHAIN_ENTRIES: usize = chain::ENTRIES;
 #[repr(C, align(16))]
 struct ChainTables([ChainTable; 2 * MODE_KEYS.len()]);
 static mut CHAIN: [ChainTables; 8] =

@@ -12,6 +12,9 @@
 //   names only std, crate::page, crate::wasmgen and crate::leb (and itself),
 //   and has no feature = "aarch64": ISA differences come through
 //   jitrt::host::Env or type parameters.
+// - src/rust/pagegen (P5.9): the page functions' neutral skeleton names only
+//   std, crate::wasmgen, crate::leb, crate::jitrt and itself, and has no
+//   feature = "aarch64": the ISAs implement its PageEmitter.
 //
 // Usage: tools/check_x86tpl_imports.mjs
 
@@ -24,6 +27,8 @@ const MODULES = [
     { name: "x86tpl", rule: "names an engine (P2.10)", allowed: p => !/^crate::(x64|jit)\b/.test(p) },
     { name: "jitrt", rule: "names something but std, page, wasmgen and leb (P5.1)",
         allowed: p => /^crate::(page|wasmgen|leb|jitrt)\b/.test(p) || /^(super|self)::/.test(p) },
+    { name: "pagegen", rule: "names something but std, wasmgen, leb and jitrt (P5.9)",
+        allowed: p => /^crate::(wasmgen|leb|jitrt|pagegen)\b/.test(p) || /^(super|self)::/.test(p) },
 ];
 
 /** The code of a Rust file without comments, strings and character literals */
@@ -71,7 +76,7 @@ for(const { name, rule, allowed } of MODULES)
         const raw = fs.readFileSync(path.join(dir, file), "utf8"), text = code(raw);
         const where = `src/rust/${name}/${file}`;
         const without_comments = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-        if(name === "jitrt" && /feature\s*=\s*"aarch64"/.test(without_comments)) problems.push(`${where}: feature = "aarch64" (cross-phase rule 12)`);
+        if((name === "jitrt" || name === "pagegen") && /feature\s*=\s*"aarch64"/.test(without_comments)) problems.push(`${where}: feature = "aarch64" (cross-phase rule 12)`);
         const paths = [];
         for(const [, tree] of text.matchAll(/\buse\s+([^;]+);/g)) paths.push(...use_paths(tree.replace(/\s+/g, " ")));
         // (paths written out in the code, outside use declarations)
