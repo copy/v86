@@ -272,8 +272,9 @@
                     <select id="cpu_type">
                         <option value="x86" selected>x86</option>
                         <option value="x86_64">x86_64</option>
+                        <option value="arm64">arm64 (in development)</option>
                     </select><br>
-                    <small>x86_64 (experimental) is needed for 64-bit operating systems (e.g. Windows 8.1 x64)</small>
+                    <small>x86_64 (experimental) is needed for 64-bit operating systems (e.g. Windows 8.1 x64); arm64 runs on the virt machine and does not boot anything yet</small>
                 </td>
             </tr>
 
@@ -283,6 +284,7 @@
                     <select id="machine_type">
                         <option value="i440fx" selected>i440FX (IDE)</option>
                         <option value="q35">Q35 (AHCI, PCI Express)</option>
+                        <option value="virt">virt (arm64)</option>
                     </select><br>
                     <small>Q35 puts the hard disks and the CD-ROM on an AHCI (SATA) controller, and has ACPI, an HPET and an SMBus controller. The guest needs an AHCI driver
                     (a Windows installed on i440FX: enable its storahci driver first)</small>

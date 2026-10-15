@@ -550,6 +550,24 @@ export interface V86Options {
     initrd?: V86Image;
 
     /**
+     * machine_type "virt" only (in development: docs/aarch64.md): an arm64
+     * Linux Image or EFI zboot image to boot
+     */
+    kernel?: V86Image;
+
+    /**
+     * machine_type "virt" only, for debugging: a device tree instead of the
+     * one v86 generates from the platform
+     */
+    dtb?: V86Image;
+
+    /**
+     * machine_type "virt" only: virtio-blk disks in order (not together
+     * with hda and hdb, which are the first two on virt)
+     */
+    virtio_disks?: Array<V86Image & { readonly?: boolean; id?: string }>;
+
+    /**
      * Automatically fetch bzimage and initrd from the 9p filesystem
      */
     bzimage_initrd_from_filesystem?: boolean;
@@ -672,9 +690,17 @@ export interface V86Options {
      * two SMIs per call, so such guests are better off on "i440fx". A
      * snapshot only restores into an emulator of the same machine type. See
      * docs/q35.md.
-     * @default "i440fx"
+     *
+     * "virt" is the machine of cpu_type "arm64" (and its default; see
+     * docs/virt.md): no PC firmware, chipset or VGA. The PC machines' options
+     * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
+     * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
+     * cpuid_level, cpu_features, x87_*, high_memory_size) are errors there,
+     * as are kernel, dtb and virtio_disks on the PC machines, and every
+     * other combination of cpu_type and machine_type.
+     * @default "i440fx" ("virt" with cpu_type "arm64")
      */
-    machine_type?: "i440fx" | "q35";
+    machine_type?: "i440fx" | "q35" | "virt";
 
     /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports
@@ -731,10 +757,12 @@ export interface V86Options {
      * The guest's CPU. "x86" is the 32-bit CPU v86 always had; "x86_64"
      * (experimental) adds long mode, NX, SYSCALL, CMPXCHG16B, ..., needed by
      * 64-bit operating systems such as Windows 8.1 x64 or x86_64 Linux.
+     * "arm64" (experimental, in development: docs/aarch64.md) is an Armv8.0-A
+     * CPU on machine_type "virt", with its own core (v86-arm64.wasm).
      * Other values fail at startup.
      * @default "x86"
      */
-    cpu_type?: "x86" | "x86_64";
+    cpu_type?: "x86" | "x86_64" | "arm64";
 
     /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1

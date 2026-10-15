@@ -12,6 +12,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
+import { check_machine_options } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -118,33 +119,6 @@ function create_local_channel()
     return { device: end(0, 1), host: end(1, 0) };
 }
 
-/** The guest CPUs of new V86() (`cpu_type`); the first is the default */
-export const CPU_TYPES = ["x86", "x86_64"];
-
-/**
- * Check the guest CPU of new V86() (`cpu_type`)
- * @param {!Object} options
- * @return {string} one of CPU_TYPES
- */
-function check_cpu_type(options)
-{
-    if(options["experimental_x64"] !== undefined)
-    {
-        throw new Error("experimental_x64 was replaced by cpu_type: \"x86_64\"");
-    }
-    const cpu_type = options["cpu_type"];
-    if(cpu_type === undefined)
-    {
-        return CPU_TYPES[0];
-    }
-    if(!CPU_TYPES.includes(cpu_type))
-    {
-        throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
-            CPU_TYPES.map(name => "\"" + name + "\"").join(", "));
-    }
-    return cpu_type;
-}
-
 /**
  * Constructor for emulator instances.
  *
@@ -174,7 +148,11 @@ export function V86(options)
 
     // The display adapter is required; its plugin loads with the other files
     this.graphics_adapter = check_graphics_adapter_options(options);
-    this.cpu_type = check_cpu_type(options);
+    // the guest CPU, the machine and the options that belong to them
+    // (src/machine_options.js; CPU.init checks again)
+    const machine = check_machine_options(options);
+    this.cpu_type = machine.cpu_type;
+    this.machine_type = machine.machine_type;
 
     const bus = Bus.create();
     this.bus = bus[0];
@@ -420,7 +398,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
 
     settings.acpi = options.acpi;
-    settings.machine_type = options.machine_type;
+    settings.machine_type = this.machine_type;
     settings.pcie_root_ports = options.pcie_root_ports;
     settings.hpet = options.hpet;
     settings.smbus = options.smbus;

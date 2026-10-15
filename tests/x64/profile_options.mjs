@@ -5,7 +5,7 @@
 // - cpu_type: "x86_64" presents the x86-64 CPU profile: CPUID.80000001h:EDX
 //   long mode (bit 29), NX (20) and SYSCALL (11) only when it is set; an
 //   unknown cpu_type, or the removed experimental_x64, fails in the
-//   constructor.
+//   constructor (and so does arm64 with a PC display).
 import assert from "node:assert/strict";
 import url from "node:url";
 import {assemble, actual} from "./guest_runner.mjs";
@@ -56,12 +56,15 @@ for(const [options, expected] of [
     console.log(`PASS ${name} -> CPUID.80000001h:EDX ${edx.toString(16)}`);
 }
 
-for(const cpu_type of ["arm64", "x86-64", ""])
+for(const cpu_type of ["aarch64", "x86-64", ""])
 {
     assert.throws(() => new V86({graphics_adapter: "bochs_vga", cpu_type, autostart: false}),
-        /Unknown cpu_type .*supported: "x86", "x86_64"/, `cpu_type ${JSON.stringify(cpu_type)} is refused`);
+        /Unknown cpu_type .*supported: "x86", "x86_64", "arm64"/, `cpu_type ${JSON.stringify(cpu_type)} is refused`);
     console.log(`PASS cpu_type ${JSON.stringify(cpu_type)} is refused`);
 }
+// (arm64 runs on machine_type "virt", which has no VGA: tests/api/arm64-options.js)
+assert.throws(() => new V86({graphics_adapter: "bochs_vga", cpu_type: "arm64", autostart: false}), /is not on machine_type "virt"/);
+console.log("PASS cpu_type \"arm64\" with a PC display is refused");
 for(const experimental_x64 of [true, false])
 {
     assert.throws(() => new V86({graphics_adapter: "bochs_vga", experimental_x64, autostart: false}),

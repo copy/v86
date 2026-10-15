@@ -5,14 +5,14 @@
 > profile, the QEMU reference and the tests that run on it. Sections marked
 > *(pending)* are filled in as the milestones land.
 
-With `cpu_type: "aarch64"` (from A1), v86 runs a separate core,
+With `cpu_type: "arm64"` (from A1), v86 runs a separate core,
 `build/v86-arm64.wasm`: an Armv8.0-A CPU at EL0 and EL1 only, on the `virt`
 board ([virt.md](virt.md)). The x86 core, `build/v86.wasm`, is unchanged and
 does not contain the ARM code (the plan's "Wasm core" section).
 
 | | |
 | --- | --- |
-| Option | `cpu_type: "aarch64"` *(pending: A1)* |
+| Option | `cpu_type: "arm64"` (machine_type "virt", its default) *(the core runs from A1)* |
 | Profile | `v86-aarch64-v1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) |
 | Verified guests | none yet; Alpine 3.24 aarch64 passes its probe on the QEMU reference on 1/2/4 cores |
 | Boot time | *(pending: A3 interpreted, A4 with the JIT)* |

@@ -53,6 +53,7 @@ import { create_virtio_devices, get_virtio_devices_state, resolve_virtio_devices
 import { Virtio9p, Virtio9pHandler, Virtio9pProxy } from "../lib/9p.js";
 
 import { load_kernel } from "./kernel.js";
+import { check_machine_options } from "./machine_options.js";
 
 import {
     RTC,
@@ -2604,6 +2605,12 @@ CPU.prototype.get_jit_info = function()
  */
 CPU.prototype.init = function(settings, device_bus)
 {
+    // (the V86 constructor checked the options; this is the x86 CPU, of the
+    // PC machines: docs/arm64-virt-android16-plan.md P1.1)
+    if(check_machine_options(settings).machine_type === "virt")
+    {
+        throw new Error("The x86 CPU does not run machine_type \"virt\"");
+    }
     const multicore = (settings.cpu_cores || 1) > 1;
     this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
     this.clock.set_instruction_source(() => this.wm.exports["take_clock_progress"]());
