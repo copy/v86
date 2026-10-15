@@ -4,11 +4,53 @@
 #
 # usage: build.sh [ARCH [TEST.flat...]]
 #   ARCH defaults to i386; the tests default to the ones in `make kvm-unit-test`
+#   ARCH arm64-4k, arm64-16k or arm64-64k: upstream's arm64 tests with that
+#   translation granule (docs/arm64-virt-android16-plan.md P0.6), built from
+#   the pinned upstream checkout KUT_ARM64_SRC (default build/a64-ref/
+#   kvm-unit-tests at $kut_arm64_commit): this copy's lib/ is years older
+#   than upstream's arm/ and lib/arm*.
 set -euo pipefail
 
 src="$(cd "$(dirname "$0")"; pwd)"
 arch="${1:-i386}"
 shift || true
+kut_arm64_commit=5a221342a025948fa7d84f0c404748f6ba57f3ad
+
+case "$arch" in arm64-*)
+    page="${arch#arm64-}"
+    ksrc="${KUT_ARM64_SRC:-$src/../../build/a64-ref/kvm-unit-tests}"
+    ksrc="$(cd "$ksrc"; pwd)"
+    if [ "$(git -C "$ksrc" rev-parse HEAD)" != "$kut_arm64_commit" ]
+    then
+        echo "$ksrc is not kvm-unit-tests $kut_arm64_commit" >&2
+        exit 1
+    fi
+    if [ $# -eq 0 ]
+    then
+        set -- arm/selftest.flat arm/psci.flat arm/timer.flat arm/gic.flat arm/cache.flat arm/debug.flat \
+            arm/fpu.flat arm/pl031.flat arm/spinlock-test.flat
+    fi
+    out="$src/../../build/kvm-unit-tests/$arch"
+    mkdir -p "$out"
+    out="$(cd "$out"; pwd)"
+    cd "$out"
+    rust_bin="$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin"
+    llvm="${LLVM_BIN:-$(dirname "$(command -v llvm-objcopy || echo /opt/homebrew/opt/llvm/bin/llvm-objcopy)")}"
+    mkdir -p tools
+    ln -sf "$rust_bin/rust-lld" tools/ld.lld
+    cc="clang -target aarch64-unknown-linux-gnu --ld-path=$out/tools/ld.lld -Wno-unknown-warning-option -Wno-unused-command-line-argument"
+    if [ ! -f config.mak ]
+    then
+        # (upstream's configure insists on bash 4 but runs on macOS's 3.2)
+        sed -e '/BASH_VERSINFO/,/^fi$/d' -e "s|^srcdir=.*|srcdir=\"$ksrc\"|" "$ksrc/configure" > configure
+        bash ./configure --arch=arm64 --page-size="$page" --cc="$cc" --ld="$out/tools/ld.lld" --disable-werror
+    fi
+    tools=(CC="$cc" LD="$out/tools/ld.lld" OBJCOPY="$llvm/llvm-objcopy" OBJDUMP="$llvm/llvm-objdump" READELF="$llvm/llvm-readelf" AR="$llvm/llvm-ar")
+    # (the object directories: only `make all` creates them)
+    make "${tools[@]}" directories
+    make "${tools[@]}" "$@"
+    exit 0
+esac
 if [ $# -eq 0 ]
 then
     set -- x86/realmode.flat x86/taskswitch.flat x86/taskswitch2.flat

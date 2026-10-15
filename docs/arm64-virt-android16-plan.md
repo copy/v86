@@ -1022,6 +1022,7 @@ flowchart TD
 | QEMU 版本漂移（virt-X.Y、CNTFRQ、默认的 GIC、ITS 与 legacy virtio-mmio） | 固定 9.2.x 与 virt-9.2，从源码构建并按 SHA-256 缓存，命令行全部显式 |
 | 参考机 cortex-a35 与 v1 的差异掩盖缺陷 | 允许差异清单逐项列出，只含 ID 与报告类差异；架构 oracle（llvm-mc、`.ref` 文件、herd7）不依赖 QEMU |
 | 没有 EL2：GKI 命令行的 `kvm-arm.mode=protected` 不生效，AVF/pKVM 不可用 | P0.12 审计记录；P10.4 若发现产品依赖 AVF，按 profile 版本表的 v3 行由所有者决定 |
+| Cuttlefish 的 `vsoc_arm64` 带 32 位第二 ABI（`TARGET_2ND_ARCH := arm`，要求 AArch32 EL0，v1 没有） | P0.12 核对：`vsoc_arm64` 与 `vsoc_arm64_only` 都是 `TARGET_ARCH_VARIANT := armv8-a`、`TARGET_CPU_VARIANT := cortex-a53`，与 v1 的 v8.0 基线相容；P10.2 选只有 64 位的产品（`vsoc_arm64_only`，`aosp_cf_arm64_only_phone` 一类），不为 32 位应用做 AArch32 |
 | Alpine 产物下架或漂移 | 固定 3.24.0 与 SHA-256；本机缓存；离线仓库保留 Alpine 签名的 APKINDEX |
 | Mesa 版本分裂（3.24 没有 virgl） | 3.23 的 Mesa 与 3.24 的 Venus 混用，同 x86 |
 | 本地门禁的耗时 | 提交前只跑 quick 与单元目标；long 进 `a64-gate-full` 与所有者执行的发布门禁；记录各档耗时；GitHub CI 以后再接 |
@@ -1099,6 +1100,14 @@ flowchart TD
   拆分 P1.0）、P2 29.0（含 crypto 的 P2.11 与真机对照的 P2.12）、P3 20.25、P4 14.0、P5 19.0（含 4 GiB 以上 PCI 区域的
   P5.10）、P6 17.5（含 JIT 计划 J2 的任务）、P7 6.0、P8 17.25、P9 7.25 人周；到 A7 合计约 163 人周，加上协调与返工按约
   171 人周计。P10–P12 已列任务合计约 53 人周，不含 v2 特性的实现。
+
+- 宿主能力矩阵（P0.8，`tests/a64/browser_caps.html`，2026-10-15）：
+
+  | 宿主 | 跨源隔离与 SAB | 最大 Memory（共享） | simd128 | 尾调用 | relaxed SIMD | relaxed madd 融合 | memory64 |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Chromium 152（应用内浏览器），macOS 27 arm64（M1 Pro） | 是、是 | 4096 MiB（4096 MiB） | 是 | 是 | 是 | 是 | 是 |
+  | Node 25.6.0（V8 14.1），macOS arm64 | —、是 | 4096 MiB（4096 MiB） | 是 | 是 | 是 | 是 | 是 |
+  | 桌面 Chrome、Firefox、Safari，x86 宿主，Android Chrome | 待所有者在各设备上打开同一页面补齐 | | | | | | |
 
 ## 附录 B：外部事实（核对日期 2026-10-07）
 
@@ -1224,3 +1233,96 @@ flowchart TD
   P1.0 拆分核心时，ARM 核心的 C 目标文件同样要注意这一点。
 - 附录 D 第 12 项（2026-10-09）：JIT 计划 P0.5 的 StepKey v1 第 30–31 位是 ISA 字段，x86 为 0，A64 接入时用 1，
   不必升级键的版本；第 28–29 位是单步的执行者（Tier-0、x64 page tier），A64 page tier 另取一个值。
+
+### A0（2026-10-15）
+
+- P0.1：`tests/lib/alpine_image.mjs` 收拢了 x86 测试里的下载、校验与解包（`tests/x64/linux_boot.mjs`、
+  `tests/devices/pcie_hotplug.mjs`、`poweroff_loop.mjs`、`linux_gpu.mjs` 改为导入）；aarch64 的
+  `alpine-virt-3.24.0-aarch64.iso` 的 SHA-256 为 `83446988…7866`，与官方 `.sha256` 一致。`vmlinuz-virt` 是 EFI zboot
+  （gzip），`unzboot()` 解出的 `Image` 为 36,110,336 字节（`8b216f74…`）。manifest（`build/a64-linux/manifest.json`）
+  记录 ISO、vmlinuz、Image、initramfs、modloop、`config-virt`、probe 及其 cpio/tar、QEMU 版本与 DTB 的 hash。
+- P0.2：QEMU 参考在 1/2/4 核下 initramfs 阶与 live 阶全部输出 `A64_PROBE_OK` 与 `A64_PROBE_XC`。initramfs 阶
+  `direct_io=0`，live 阶 `direct_io=1`。不带插件时 live 阶 1/2/4 核到 login 为 11.7/12.2/13.2 s，都远低于 180 s。
+  `modules=` 不必列出 virtio 模块：Alpine 默认的 `modules=loop,squashfs,sd-mod,usb-storage` 下，initramfs 按 DT
+  modalias 自动加载了 virtio_mmio 与 virtio_blk。QEMU 一侧有两项偏差，都写进了允许差异：2/4 核时 `excl_aba=0`（STXR 按值比较），
+  以及 `aarch32=ran`（cortex-a35 有 AArch32）。定向裸机测试 `tests/a64/platform_probe.c` 的结果存在
+  `tests/a64/platform_probe.expected`，v86 照做：
+  - PSCI 版本 1.1；HVC #1 与 #0 一样按 PSCI 处理。
+  - 未知的 PSCI/SMCCC 函数号和 SMCCC_VERSION 都返回 -1。
+  - SMC 为 UNDEF（ESR `0x02000000`）。
+  - 访问未映射的物理地址是同步外部中止（ESR `0x96000010`，FAR 为该地址）。
+  - MMU 关闭时访问 40 位以外的地址是第 0 级地址大小故障（`0x96000000`）。
+  - 读空的 64 位 PCIe 窗口得全 1。
+- P0.3：`tests/platform/a64-profile.json` 写出了 ID 空间的全部 64 个编码（主要 AArch64 ID 寄存器带字段），以及 CTR、DCZID、CLIDR、
+  CCSIDR（L1D/L1I 32 KiB 4 路、L2 512 KiB 16 路，取自参考）、AIDR、CNTFRQ、FPCR/FPSR 与 ICC_SRE。另外记录了固定的
+  IMPLEMENTATION DEFINED 选择，以及 CPU 与 DTB 两部分允许差异。依据定为 DDI 0487 L.b（2026-10-15 查到的最新版）。
+  - 本次的决定：MIDR 的 PartNum 取 0x086（MIDR `0x000f0860`）。
+  - 允许差异清单比正文多一项：MMFR0 的 BigEnd/SNSMem（参考为 1，v1 为 0）。另外 DTB 缺 `platform-bus` 节点。
+  - `tools/cpu_contract.mjs --a64-reference` 在参考上读出寄存器：1 核与 4 核各有 21 项差异，全部在允许清单里。
+    MPIDR 与 profile 一致（`0x8000000N`）。
+  - `cpu-contract.json` 的 a64-1、a64-4 取自 profile JSON；`--check` 目前只核对它们与 JSON 一致，v86 端从 P3.1 起。
+  - 评审：所有者尚未评审 JSON，由实施者按正文核对。
+- P0.4：probe 与 `/a64-init` 已在 525fc908 合入。ESR 检查先触碰页面，使故障是权限故障（`0x9200004f`）。live 阶的
+  probe 改名为 `/tmp/a64-probe`，以免 ETXTBSY。
+- P0.5：`tests/a64/guest_runner.mjs` 加 `tests/a64/baremetal/`：程序是 arm64 Image，装在 RAM+0x80000；结果块在
+  `0x4080_0000`；附一个 libc 子集，printf 的 `%a`、`%#x` 与 glibc 逐字一致；异常可预期并跳过。QEMU 上 `float_convs`
+  与 `float_madds`（从固定的 QEMU 源码树以 -O0 构建）与 `.ref` 逐字一致（748 与 768 行）。`.ref` 与源码留在 QEMU 树里，
+  不复制进仓库。解码 oracle `tests/a64/oracle/decode.mjs` 用 llvm-mc 23.1.3，`-mattr=+v8a,+fp-armv8,+neon,+aes,+sha2,+crc`
+  （写在 profile JSON 里），自检 23/23。不带 `-mattr` 时 llvm-mc 连 NEON 都不认，所以必须显式给出。v86 端随 A1。
+- P0.6：偏差：arm64 的 kvm-unit-tests 不复制进仓库。`tests/kvm-unit-tests/` 是多年前的上游，公共 `lib/` 与今天的
+  `arm/`、`lib/arm*` 不兼容，整体升级会牵动 x86 的测试。`build.sh arm64-{4k,16k,64k}` 改从固定的上游提交 `5a221342`
+  （`build/a64-ref/kvm-unit-tests`）树外构建，并核对提交号。上游 configure 要求 bash 4，在 macOS 的 bash 3.2 上去掉这项检查后照常运行。
+  `run.mjs --arm64 --qemu` 解析 `EXIT: STATUS=`，以 PSCI SYSTEM_OFF 结束。不加 chr-testdev 与 pci-testdev，因为 v86 不会有它们。
+  `tests/kvm-unit-tests/arm64.mjs` 的 15 项（含直接运行的 fpu/pl031/spinlock-test）在 QEMU 上 4k、16k、64k 全部通过。
+  timer 的 "latency within 10 ms" 检查在宿主繁忙时偶发失败，只有这类失败时重试一次。
+  过程中发现 QEMU 9.2.0 在 macOS 宿主上的一个缺陷：第一次命中观察点时 vCPU 线程永远自旋（debug-wp 与一个最小裸机
+  复现都挂住，QMP `stop` 也超时）。`sample` 显示它停在 `tb_check_watchpoint → tb_phys_invalidate` 的
+  `qemu_spin_lock(&tb->jmp_lock)`：TB 结构在 MAP_JIT 区里，这条路径没有切到可写，独占存储一直失败。
+  `tools/a64_qemu/0001-tb_phys_invalidate-jit-write.patch` 补上 `qemu_thread_jit_write/execute`，`tools/a64_qemu/build.sh` 从
+  tarball 构建时打上它（固定的参考因此是"9.2.0 加这一个补丁"）。
+- P0.7：`make core-split-check`（HEAD 525fc908 对工作树，后者只改测试、工具与文档）报两个 `v86.wasm` 逐字节一致：
+  3,000,251 字节，compile 2.9 ms、instantiate 0.6 ms（Node 25 的 V8，惰性编译，5 次中位数）。codegen-units 已由 JIT 计划
+  P0.14 定为 1。
+- P0.8：`tests/a64/browser_caps.html`（另有 `browser_caps.mjs`，可在 Node 中运行）的结果见附录 A 的宿主矩阵。
+  Firefox、Safari 与 Android Chrome 的结果由所有者在各自的设备上打开同一页面补齐。
+- P0.9：测量口径写进 `tests/a64/linux_boot.mjs` 的结果 JSON（`build/a64-linux/result-<tag>.json`）：
+  - `boot_to_login_ms`：串口出现 `localhost login:` 为止。
+  - `probe_done_ms`：出现 `A64_PROBE_XC` 为止。
+  - 指令数：`A64_QEMU_PLUGINS=1` 时用 libinsn 与 howvec。插件让 QEMU 慢约 13 倍，按时间运行的循环会因此多跑，所以带插件时加
+    `-icount shift=0,sleep=on`。
+
+  结果（1 核）：initramfs 阶加 probe 为 1.006×10⁹ 条，live 阶到 login 并跑完 probe 为 6.36×10⁹ 条。live 阶最多的类别依次是
+  Data Proc Reg 24.7%、ldst pair 13.8%、ldst reg (imm) 11.3%、Move Wide 8.6%、Add/Sub (imm) 8.2%、Extract 6.7%。
+  E 级初值即 P6 验收中的数：1 核 JIT 到 login 并跑完 probe，不超过同宿主重测的 x86_64 page tier 的 3 倍。P9.3 的 X 初值定为
+  20%（3 次会话的中位数）。两者都在 A4 实测后冻结。StepKey 的 ISA 字段已于 2026-10-09 预留（见上）。
+- P0.10：`tools/a64_isa_scan.mjs` 扫 ISO 的 95 个 apk，含 180 个 AArch64 ELF，代码共 3,816,351 字（459,060 个不同的编码）。
+  按 v1 有效的占 99.94%；出现次数最多的是 mov、ldr、add、bl、b、adrp（结果全表存 `build/a64-linux/isa-scan.json`）。
+  超出 v1 的 2,408 处逐项结论如下：
+  - SVE/SVE2（1,247）、SM3/SM4（606）、SHA3/SHA512（537）：全在 libcrypto 与 `legacy.so`。OpenSSL 按 HWCAP/HWCAP2
+    选用这些路径，属于运行时探测；v1 不声明，这些路径不会执行。
+  - LSE（15）：在 libdbus、libusb、libcap、libssl、libcrypto 中，是 libgcc 的 outline atomics 辅助函数。它们按
+    `__aarch64_have_lse_atomics` 选择，musl 上这个变量永远为假，所以也是运行时探测、从不执行。
+  - ldrab、cbne、smlal (SME2)、ldnt1sh、ld1h 各 1 处：都在 libcrypto 的 `.text` 中，推定是 perlasm 放在代码段里的常量表。
+    P2.10 的轨迹会证实它们不被执行。
+  - 另有 75 处在任何特性下都无效，是数据或填充。
+  - 所有 LOAD 段的 `p_align` 都是 64 KiB（360 个），16/64 KiB 页可用（P8.6）。
+
+  为此 `tools/alpine_gpu_repo.mjs` 导出了 `apkindex()` 与 `parse_apkindex()`，`build_repo()` 增加 `arch` 参数；作为脚本运行时
+  行为不变。
+- P0.11：
+  - `make a64-gate`（`tools/a64_gate.mjs`）是快速档：`tools/check_a64_imports.mjs`（`feature = "aarch64"` 只在 `lib.rs` 与
+    `src/rust/aarch64/`，ARM 核心不引用 x86 模块，其他模块不引用 `crate::aarch64`）、解码 oracle 自检、QEMU 上的浮点、
+    平台与 ID 寄存器检查，以及有共享改动时的 `core-split-check`。
+  - `make a64-gate-full` 再加 QEMU 上的 kvm-unit-tests（三种 granule）、Alpine 1/2/4 核两阶，以及 R-a64-* 级别。
+  - 发布级别表中的全部目标都已建空壳，输出 `A64_PENDING` 与对应的里程碑；`tools/release_gate.mjs` 把它们报为 pending，
+    环境记录加了 `qemu-system-aarch64 --version`。表中"`api-tests` 的 arm64 部分"改为单独的空壳 `a64-api-tests`。
+  - `tools/a64_qemu/build.sh` 按 SHA-256（`f859f0bc…`）从 tarball 构建 QEMU，带插件；没有 `--download` 开关时不下载。
+  - 偏差：macOS 上建不了 `aarch64-linux-user`。P2.10 的 user 模式轨迹要另找办法：在 Linux 宿主上运行，或者在 system 模式下
+    用插件只记录 Alpine 客户机中指定进程的 EL0 指令。
+  - 文档骨架：`docs/aarch64.md` 与 `docs/virt.md`；`virt.md` 的地址表取自参考 DTB。
+- P0.12：Cuttlefish 的 `vsoc_arm64` 与 `vsoc_arm64_only` 都是 `TARGET_ARCH_VARIANT := armv8-a`、
+  `TARGET_CPU_VARIANT := cortex-a53`（AOSP main 分支的 BoardConfig.mk），以 v8.0 为基线，与 v1 相容。`vsoc_arm64` 带
+  32 位第二 ABI，需要 AArch32 EL0，v1 没有，所以 P10.2 选只有 64 位的产品（已加入风险表）。GKI 的 virtio-pci、VA_BITS_39、
+  SW_TTBR0_PAN、PSEUDO_NMI 与 `kvm-arm.mode=protected` 维持附录 B 与风险表中的结论：没有 EL2 时 AVF 不可用；FEAT_PAN 仍是
+  v2 候选，由 P9.3 的测量决定。
+- 在 A0 中 `v86.wasm` 不变（P0.7 的比较）。`make platform-contract-tests` 通过（14 个 x86 profile 加 a64-1、a64-4）。

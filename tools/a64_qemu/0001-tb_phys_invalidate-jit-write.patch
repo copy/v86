@@ -1,0 +1,17 @@
+On a macOS host (MAP_JIT, write-protected while a vCPU thread executes
+translated code) tb_check_watchpoint() invalidates the TB from a store
+helper without making the JIT region writable: the store-exclusive of
+qemu_spin_lock(&tb->jmp_lock) then fails forever and the vCPU thread spins
+on the first watchpoint hit. tb_phys_invalidate__locked() already brackets
+the same work with qemu_thread_jit_write()/qemu_thread_jit_execute().
+
+--- a/accel/tcg/tb-maint.c
++++ b/accel/tcg/tb-maint.c
+@@ -957,2 +957,3 @@
+ {
++    qemu_thread_jit_write();
+     if (page_addr == -1 && tb_page_addr0(tb) != -1) {
+@@ -964,2 +965,3 @@
+     }
++    qemu_thread_jit_execute();
+ }

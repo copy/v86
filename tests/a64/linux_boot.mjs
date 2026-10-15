@@ -17,14 +17,23 @@
 // A64_LINUX_QEMU=1 runs the fixed reference (QEMU 9.2.0 built from source,
 // build/a64-ref or A64_QEMU, virt-9.2 with cortex-a35 and every default the
 // plan names spelled out) and passes ref=qemu to the probe; A64_CORES (1, 2,
-// 4), A64_LINUX_TIMEOUT (ms, 180000). A64_LINUX_PREPARE_ONLY=1 only prepares
+// 4), A64_LINUX_TIMEOUT (ms, 180000); A64_QEMU_PLUGINS=1 adds QEMU's insn and
+// howvec plugins (the guest's instruction count and classes, P0.9).
+// A64_LINUX_PREPARE_ONLY=1 only prepares
 // the files and the manifest (build/a64-linux/manifest.json): the ISO, the
 // kernel, the Image inside it, the initramfs, the probe and, after a QEMU
 // run, the reference DTB (dumpdtb) and QEMU's version.
+//
+// The measurements (P0.9), in build/a64-linux/result-<tag>.json:
+// boot_to_login_ms, from the start until "localhost login:" on the serial
+// console (live stage); probe_done_ms, until the probe's A64_PROBE_XC line;
+// with the plugins, the guest's retired instructions and their classes.
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { prepare, unzboot, sha256, ROOT } from "../lib/alpine_image.mjs";
+import { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } from "./guest_runner.mjs";
 
 const stage = process.env.A64_STAGE || "initramfs";
 assert.ok(["initramfs", "live"].includes(stage), "A64_STAGE is initramfs or live");
@@ -113,12 +122,11 @@ function check_probe(text, reference)
 
 if(qemu_reference)
 {
-    const qemu = process.env.A64_QEMU || ROOT + "build/a64-ref/qemu-9.2.0-install/bin/qemu-system-aarch64";
-    assert.ok(fs.existsSync(qemu), qemu + " is missing: build QEMU 9.2.0 (docs/arm64-virt-android16-plan.md P0.11)");
+    const qemu = qemu_binary();
     const version = run(qemu, ["--version"]).split("\n")[0];
     assert.match(version, /QEMU emulator version 9\.2\./, "the fixed reference is QEMU 9.2.x");
-    const machine = "virt-9.2,gic-version=3,its=off,highmem-ecam=on,highmem-mmio=on,highmem-redists=on,virtualization=off,secure=off,acpi=off,dtb-randomness=off";
-    const base = ["-cpu", "cortex-a35,pmu=off,cntfrq=1000000000", "-m", "512M", "-smp", `${cores},sockets=1,cores=${cores},threads=1`,
+    const machine = QEMU_MACHINE;
+    const base = ["-cpu", QEMU_CPU, "-m", "512M", "-smp", smp(cores),
         "-global", "virtio-mmio.force-legacy=false", "-display", "none", "-no-reboot"];
     // the DTB QEMU gives this machine (dumpdtb), once
     const dtb = directory + `qemu-virt-${cores}c.dtb`;
@@ -132,8 +140,20 @@ if(qemu_reference)
             : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=qemu",
         ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
             "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe"] : [])];
+    const plugins = !!+process.env.A64_QEMU_PLUGINS;
+    const plugin_log = directory + `${tag}-plugins.log`;
+    if(plugins)
+    {
+        const qemu_build = path.dirname(qemu) + "/../../qemu-9.2.0/build/";
+        const library = name => [".dylib", ".so"].map(suffix => qemu_build + name + suffix).find(file => fs.existsSync(file));
+        const insn = library("tests/tcg/plugins/libinsn"), howvec = library("contrib/plugins/libhowvec");
+        assert.ok(insn && howvec, "QEMU's insn and howvec plugins are missing: tools/a64_qemu/build.sh");
+        // (-icount: the guest's clock follows its instructions, 1 ns each, so
+        // the plugins' slowdown does not lengthen time-driven loops)
+        args.push("-plugin", insn, "-plugin", howvec, "-d", "plugin", "-D", plugin_log, "-icount", "shift=0,sleep=on");
+    }
     const child = spawn(qemu, args, { stdio: ["pipe", "pipe", "pipe"] });
-    let transcript = "", logged_in = false, ran = false;
+    let transcript = "", logged_in = false, ran = false, login_ms, probe_ms;
     const started = performance.now();
     let timer;
     try
@@ -144,8 +164,10 @@ if(qemu_reference)
             child.on("exit", code => (/A64_INIT_DONE|A64_LIVE_DONE/.test(transcript) ? resolve() : reject(new Error(`QEMU exited ${code}`))));
             const output = bytes => {
                 transcript += bytes;
+                if(probe_ms === undefined && transcript.includes("A64_PROBE_XC")) probe_ms = Math.round(performance.now() - started);
                 if(live && !logged_in && /localhost login: ?$/.test(transcript))
                 {
+                    login_ms = Math.round(performance.now() - started);
                     logged_in = true;
                     child.stdin.write("root\n");
                 }
@@ -167,8 +189,15 @@ if(qemu_reference)
         fs.writeFileSync(directory + `${tag}.log`, transcript);
     }
     const lines = check_probe(transcript, true);
-    const result = { tag, ms: Math.round(performance.now() - started), ...lines,
+    const result = { tag, ms: Math.round(performance.now() - started), boot_to_login_ms: login_ms, probe_done_ms: probe_ms, ...lines,
         login: live ? /localhost login:/.test(transcript) : undefined };
+    if(plugins)
+    {
+        const log = fs.readFileSync(plugin_log, "utf8");
+        result.instructions = Number(log.match(/total insns: (\d+)/)?.[1]);
+        result.classes = Object.fromEntries([...log.matchAll(/^Class: (.+?)\s+\((\d+) hits\)/gm)].map(m => [m[1].trim(), +m[2]]));
+    }
+    fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");
     console.log(JSON.stringify(result));
     console.log(`A64_LINUX_BOOT_OK ${tag}`);
     process.exit(0);

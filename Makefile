@@ -939,6 +939,93 @@ replay-record: build/v86-ir-test-release.wasm build/libv86.mjs bench-build
 core-split-check:
 	node tools/core_split_check.mjs $(CORE_SPLIT_ARGS)
 
+# The ARM64 plan's local gates (docs/arm64-virt-android16-plan.md P0.11,
+# tools/a64_gate.mjs): a64-gate before each commit, a64-gate-full at a
+# milestone's exit; the fixed QEMU reference comes from tools/a64_qemu/build.sh
+.PHONY: a64-gate a64-gate-full a64-qemu-reference a64-reference-tests a64-kvm-unit-tests-qemu
+a64-gate:
+	node tools/a64_gate.mjs $(A64_GATE_ARGS)
+
+a64-gate-full:
+	node tools/a64_gate.mjs --full $(A64_GATE_ARGS)
+
+a64-qemu-reference:
+	tools/a64_qemu/build.sh
+
+# The QEMU side of P0 (A0): bare-metal float, platform and ID register
+# checks, Alpine's initramfs and live stages on 1/2/4 cores
+a64-reference-tests:
+	node tests/a64/float_ref.mjs
+	node tests/a64/platform_probe.mjs
+	node tools/cpu_contract.mjs --a64-reference
+	for stage in initramfs live; do for cores in 1 2 4; do \
+		A64_LINUX_QEMU=1 A64_STAGE=$$stage A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done; done
+
+a64-kvm-unit-tests-qemu:
+	node tests/kvm-unit-tests/arm64.mjs --qemu
+
+# The release levels R-a64-* and R-android (tools/release_gate.mjs): the
+# targets that have no tests yet print A64_PENDING and the milestone that
+# brings them, which the release gate reports as pending
+A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android16-plan.md)"
+.PHONY: a64-decode-tests a64-isa-tests a64-trace-tests a64-portable-tests a64-system-tests a64-mmu-tests \
+	a64-kvm-unit-tests a64-litmus-tests a64-virt-device-tests a64-api-tests a64-guest-quick-tests a64-guest-tests \
+	a64-lifecycle-guest-tests a64-multicore-guest-tests a64-page-tier-tests a64-jit-guest-tests a64-gpu-guest-tests \
+	a64-parallel-tests a64-parallel-guest-tests a64-browser-tests a64-extended-guest-tests a64-pagesize-guest-tests \
+	a64-android-prep-tests android-reference-tests android-guest-tests
+a64-decode-tests:
+	node tests/a64/oracle/decode.mjs --self-test
+	$(call A64_PENDING,P2.1 (the v86 decoder against the oracle))
+a64-isa-tests:
+	$(call A64_PENDING,A1)
+a64-trace-tests:
+	$(call A64_PENDING,A3)
+a64-portable-tests:
+	$(call A64_PENDING,A3)
+a64-system-tests:
+	$(call A64_PENDING,A2)
+a64-mmu-tests:
+	$(call A64_PENDING,A2)
+a64-kvm-unit-tests:
+	$(call A64_PENDING,A2)
+a64-litmus-tests:
+	$(call A64_PENDING,A3)
+a64-virt-device-tests:
+	$(call A64_PENDING,A1)
+# (api-tests' arm64 part)
+a64-api-tests:
+	$(call A64_PENDING,A1)
+a64-guest-quick-tests:
+	$(call A64_PENDING,A2)
+a64-guest-tests:
+	$(call A64_PENDING,A2)
+a64-lifecycle-guest-tests:
+	$(call A64_PENDING,A6)
+a64-multicore-guest-tests:
+	$(call A64_PENDING,A3)
+a64-page-tier-tests:
+	$(call A64_PENDING,A4)
+a64-jit-guest-tests:
+	$(call A64_PENDING,A4)
+a64-gpu-guest-tests:
+	$(call A64_PENDING,A5)
+a64-parallel-tests:
+	$(call A64_PENDING,A6)
+a64-parallel-guest-tests:
+	$(call A64_PENDING,A6)
+a64-browser-tests:
+	$(call A64_PENDING,A6)
+a64-extended-guest-tests:
+	$(call A64_PENDING,A6)
+a64-pagesize-guest-tests:
+	$(call A64_PENDING,A6)
+a64-android-prep-tests:
+	$(call A64_PENDING,A7)
+android-reference-tests:
+	$(call A64_PENDING,A8)
+android-guest-tests:
+	$(call A64_PENDING,A8)
+
 # The JIT's and the decoder's tests outside the x64 targets (the R-JIT level
 # of the release gate): the Rust unit tests, the Wasm builder's output, the
 # decoder, the interpreter's REP engine and VERR flags, the decode rules

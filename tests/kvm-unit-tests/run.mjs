@@ -13,6 +13,13 @@
 //   --cpu-features L  CPU features of docs/simd-xsave-plan.md, comma-separated
 //   --cpu-type T      x86 (default) or x86_64, for the x86_64 builds
 //   --quiet           don't echo the serial output
+//   --arm64           an arm64 build (build.sh arm64-*): booted as an arm64
+//                     Image on the virt board, the status read from upstream's
+//                     "EXIT: STATUS=" line on the PL011, PSCI SYSTEM_OFF ends it
+//   --append ARGS     the test's arguments (unittests.cfg test_args), arm64
+//   --qemu            run arm64 tests on the fixed QEMU reference
+//                     (docs/arm64-virt-android16-plan.md P0.6); v86 runs need
+//                     the ARM core
 // Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter,
 // JIT_SWITCHES the JIT switches (tests/lib/jit_switches.mjs).
 //
@@ -26,7 +33,8 @@ import url from "node:url";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
-const options = { acpi: false, cores: 1, memory: 64, timeout: 60, expect_pass: 0, quiet: false, cpu_features: undefined, cpu_type: undefined };
+const options = { acpi: false, cores: 1, memory: 64, timeout: 60, expect_pass: 0, quiet: false, cpu_features: undefined, cpu_type: undefined,
+    arm64: false, append: "", qemu: false };
 let test_file;
 for(let i = 2; i < process.argv.length; i++)
 {
@@ -39,6 +47,9 @@ for(let i = 2; i < process.argv.length; i++)
     else if(arg === "--expect-pass") options.expect_pass = +process.argv[++i];
     else if(arg === "--cpu-features") options.cpu_features = process.argv[++i].split(",");
     else if(arg === "--cpu-type") options.cpu_type = process.argv[++i];
+    else if(arg === "--arm64") options.arm64 = true;
+    else if(arg === "--append") options.append = process.argv[++i];
+    else if(arg === "--qemu") options.qemu = true;
     else if(arg.startsWith("--")) { console.error("unknown option " + arg); process.exit(4); }
     else test_file = arg;
 }
@@ -72,6 +83,32 @@ if(!test_file || !fs.existsSync(test_file))
 
 process.on("uncaughtException", e => finish("crashed", -1, "emulator exception: " + (e && e.stack || e)));
 process.on("unhandledRejection", e => finish("crashed", -1, "emulator exception: " + (e && e.stack || e)));
+
+if(options.arm64)
+{
+    if(!options.qemu) finish("crashed", -1, "arm64 tests on v86 need the ARM core (docs/arm64-virt-android16-plan.md A1-A3); use --qemu");
+    const { spawn } = await import("node:child_process");
+    const { QEMU_MACHINE, QEMU_CPU, qemu_binary, smp } = await import("../a64/guest_runner.mjs");
+    const child = spawn(qemu_binary(), ["-nodefaults", "-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", (options.memory === 64 ? 128 : options.memory) + "M",
+        "-smp", smp(options.cores), "-display", "none", "-serial", "stdio", "-kernel", test_file, "-append", options.append], { stdio: ["ignore", "pipe", "pipe"] });
+    process.on("exit", () => child.kill("SIGKILL"));
+    let error = "";
+    child.stderr.on("data", data => error += data);
+    child.stdout.on("data", data => {
+        serial += data.toString("latin1");
+        if(!options.quiet) process.stdout.write(data);
+    });
+    setTimeout(() => finish("timeout", -1, "no exit after " + options.timeout + " s"), options.timeout * 1000);
+    // (exit(code) prints EXIT: STATUS=<code << 1 | 1>, then PSCI SYSTEM_OFF ends QEMU)
+    child.on("exit", () => {
+        const status = serial.match(/^EXIT: STATUS=(\d+)/m);
+        if(!status) finish("crashed", -1, "QEMU exited without EXIT: STATUS=: " + error);
+        const code = +status[1] >> 1;
+        finish(code === 0 ? "passed" : "failed", code);
+    });
+    // (finish() ends the process)
+    await new Promise(() => {});
+}
 
 const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 const { with_jit_switches } = await import("../lib/jit_switches.mjs");

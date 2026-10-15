@@ -37,7 +37,7 @@ export const PACKAGES = [
 export const VIRGL_PACKAGES = ["mesa-dri-gallium", "mesa-gbm", "mesa-egl", "mesa-gl", "mesa-gles"];
 
 /** Extract the APKINDEX member of a gzipped tar */
-function apkindex(tar_gz)
+export function apkindex(tar_gz)
 {
     const tar = zlib.gunzipSync(tar_gz);
     for(let offset = 0; offset + 512 <= tar.length;)
@@ -49,6 +49,27 @@ function apkindex(tar_gz)
         if(!name) break;
     }
     throw new Error("no APKINDEX in the index archive");
+}
+
+/**
+ * An APKINDEX's records (Alpine's apk spec: one "X:value" line per field, a
+ * blank line between packages), the first record of each package name
+ * @param {string} text
+ * @return {!Map<string, !Object<string, string>>}
+ */
+export function parse_apkindex(text)
+{
+    const records = new Map();
+    for(const record of text.split("\n\n"))
+    {
+        const fields = {};
+        for(const line of record.split("\n"))
+        {
+            if(line[1] === ":") fields[line[0]] = line.slice(2);
+        }
+        if(fields.P && !records.has(fields.P)) records.set(fields.P, fields);
+    }
+    return records;
 }
 
 async function fetch_bytes(location)
@@ -63,26 +84,22 @@ async function fetch_bytes(location)
  * @param {string} branch e.g. "v3.24"
  * @param {string} out
  * @param {!Array<string>} names
+ * @param {string=} arch
  */
-async function build_repo(branch, out, names)
+async function build_repo(branch, out, names, arch = "x86_64")
 {
     const packages = new Map();     // name -> { repo, version, deps, provides }
     const providers = new Map();    // provided name -> package name
 
     for(const repo of REPOS)
     {
-        const directory = path.join(out, repo, "x86_64");
+        const directory = path.join(out, repo, arch);
         fs.mkdirSync(directory, { recursive: true });
         const index_path = path.join(directory, "APKINDEX.tar.gz");
-        if(!fs.existsSync(index_path)) fs.writeFileSync(index_path, await fetch_bytes(`${MIRROR}${branch}/${repo}/x86_64/APKINDEX.tar.gz`));
-        for(const record of apkindex(fs.readFileSync(index_path)).split("\n\n"))
+        if(!fs.existsSync(index_path)) fs.writeFileSync(index_path, await fetch_bytes(`${MIRROR}${branch}/${repo}/${arch}/APKINDEX.tar.gz`));
+        for(const fields of parse_apkindex(apkindex(fs.readFileSync(index_path))).values())
         {
-            const fields = {};
-            for(const line of record.split("\n"))
-            {
-                if(line[1] === ":") fields[line[0]] = line.slice(2);
-            }
-            if(!fields.P || packages.has(fields.P)) continue;
+            if(packages.has(fields.P)) continue;
             const entry = { repo, version: fields.V, deps: (fields.D || "").split(" ").filter(Boolean), provides: [] };
             packages.set(fields.P, entry);
             for(const provided of (fields.p || "").split(" ").filter(Boolean))
@@ -115,21 +132,25 @@ async function build_repo(branch, out, names)
     for(const name of [...wanted].sort())
     {
         const { repo, version } = packages.get(name);
-        const file = path.join(out, repo, "x86_64", `${name}-${version}.apk`);
-        if(!fs.existsSync(file)) fs.writeFileSync(file, await fetch_bytes(`${MIRROR}${branch}/${repo}/x86_64/${name}-${version}.apk`));
+        const file = path.join(out, repo, arch, `${name}-${version}.apk`);
+        if(!fs.existsSync(file)) fs.writeFileSync(file, await fetch_bytes(`${MIRROR}${branch}/${repo}/${arch}/${name}-${version}.apk`));
         bytes += fs.statSync(file).size;
     }
     console.log(`${branch}: ${wanted.size} packages, ${(bytes / 1048576).toFixed(1)} MiB` +
         (missing.length ? `; unresolved (provided by the base system): ${[...new Set(missing)].join(" ")}` : ""));
 }
 
-await build_repo("v3.24", OUT, PACKAGES);
-await build_repo("v3.23", path.join(OUT, "v3.23"), VIRGL_PACKAGES);
+// (run as a script, not when imported for its APKINDEX helpers)
+if(process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url))
+{
+    await build_repo("v3.24", OUT, PACKAGES);
+    await build_repo("v3.23", path.join(OUT, "v3.23"), VIRGL_PACKAGES);
 
-// A ustar image on the IDE disk (as for tests/x64/linux_boot.mjs's probes):
-// the guest unpacks it with `tar -xf /dev/sda`, names intact
-const image = path.join(ROOT, "build/x64-linux/gpu-repo.tar");
-const result = spawnSync("bsdtar", ["--format", "ustar", "--no-xattrs", "--no-mac-metadata", "--uid", "0", "--gid", "0",
-    "-cf", image, "-C", OUT, ...REPOS, "v3.23"], { encoding: "utf8" });
-if(result.status !== 0) throw new Error("bsdtar: " + result.stderr);
-console.log("Wrote " + path.relative(ROOT, image));
+    // A ustar image on the IDE disk (as for tests/x64/linux_boot.mjs's probes):
+    // the guest unpacks it with `tar -xf /dev/sda`, names intact
+    const image = path.join(ROOT, "build/x64-linux/gpu-repo.tar");
+    const result = spawnSync("bsdtar", ["--format", "ustar", "--no-xattrs", "--no-mac-metadata", "--uid", "0", "--gid", "0",
+        "-cf", image, "-C", OUT, ...REPOS, "v3.23"], { encoding: "utf8" });
+    if(result.status !== 0) throw new Error("bsdtar: " + result.stderr);
+    console.log("Wrote " + path.relative(ROOT, image));
+}
