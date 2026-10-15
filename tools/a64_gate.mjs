@@ -10,7 +10,8 @@
 //   own targets (A1: its unit tests and the decoder against the oracle,
 //   the integer oracle, the loader, the address space and the PL011 against
 //   QEMU, the arm64 options; A2: the ID registers, the exceptions and MMU
-//   oracles; A3: the litmus tests) and, when something that feeds build/v86.wasm
+//   oracles; A3: the litmus tests; A4: the page tier's fuzzer and FP fast
+//   path) and, when something that feeds build/v86.wasm
 //   changed, core-split-check (P0.7: a change only to src/rust/aarch64/
 //   leaves v86.wasm byte for byte as it was).
 // make a64-gate-full, at a milestone's exit and when the owner runs it:
@@ -19,7 +20,8 @@
 //   initramfs and live stages on 1, 2 and 4 cores, all on QEMU), the ARM
 //   core's long runs (kvm-unit-tests on its cores; Alpine's initramfs,
 //   single and lifecycle stages, on 2 and 4 cores, with kpti=1; the trace
-//   replay and corpus; the portable core) and the release levels R-a64-*
+//   replay and corpus; the portable core; A4: the oracles compiled, and
+//   Alpine and kvm-unit-tests with the page tier) and the release levels R-a64-*
 //   (tools/release_gate.mjs).
 //
 // The QEMU checks need the fixed reference (tools/a64_qemu/build.sh) and are
@@ -66,6 +68,8 @@ const steps = [
     { name: "ARM core: ID registers, exceptions (QEMU)", command: ["make", "--no-print-directory", "a64-system-tests"], skip: no_qemu },
     { name: "ARM core: MMU and TLB (QEMU)", command: ["make", "--no-print-directory", "a64-mmu-tests"], skip: no_qemu },
     { name: "ARM core: litmus on cooperative cores", command: ["make", "--no-print-directory", "a64-litmus-tests"] },
+    { name: "ARM core: page tier against the interpreter (A4)", command: ["node", "tests/a64/page_fuzz.mjs"] },
+    { name: "ARM core: page tier FP fast path (QEMU)", command: ["node", "tests/a64/fma.mjs"], skip: no_qemu },
     { name: "core-split-check (P0.7)", command: ["node", "tools/core_split_check.mjs", ...(base ? ["--base", base] : [])],
         skip: feeds_core || full ? null : "nothing that feeds build/v86.wasm changed" },
 ];
@@ -77,6 +81,8 @@ if(full)
     steps.push({ name: "ARM core: kvm-unit-tests, one core", command: ["make", "--no-print-directory", "a64-kvm-unit-tests"] });
     steps.push({ name: "ARM core: Alpine initramfs, single, lifecycle", command: ["make", "--no-print-directory", "a64-guest-tests"], skip: no_qemu });
     steps.push({ name: "ARM core: Alpine on 2 and 4 cores, kpti=1", command: ["make", "--no-print-directory", "a64-multicore-guest-tests"] });
+    steps.push({ name: "ARM core: page tier, the oracles compiled (QEMU)", command: ["make", "--no-print-directory", "a64-page-tier-tests"], skip: no_qemu });
+    steps.push({ name: "ARM core: Alpine and kvm-unit-tests with the page tier", command: ["make", "--no-print-directory", "a64-jit-guest-tests"], skip: no_qemu });
     steps.push({ name: "ARM core: Alpine trace replay and corpus (QEMU)", command: ["make", "--no-print-directory", "a64-trace-tests"], skip: no_qemu });
     steps.push({ name: "ARM core: the portable core (QEMU)", command: ["make", "--no-print-directory", "a64-portable-tests"], skip: no_qemu });
     for(const stage of ["initramfs", "live"])

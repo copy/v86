@@ -399,7 +399,9 @@ finally
 // (no UNDEF in the kernel, P2.3; no trouble in its log; the timer's and the UART's interrupts counted)
 const undefined_instructions = emulator.v86.cpu.undefined_instructions();
 const page_tier = jit ? emulator.v86.cpu.page_tier_stats() : undefined;
-const retired_instructions = emulator.v86.cpu.wm.exports["core_statistics_get"](0, 0);
+// (every core's; MIPS over the whole run, P0.9)
+const retired_instructions = Array.from({ length: cores }, (_, core) => emulator.v86.cpu.wm.exports["core_statistics_get"](core, 0))
+    .reduce((sum, n) => sum + n, 0);
 await emulator.destroy();
 assert.equal(undefined_instructions.el1, 0, "UNDEF at EL1: " + JSON.stringify(undefined_instructions));
 const trouble = transcript.match(/^.*(Oops|BUG:|WARNING:|SError|rcu_.*stall|Internal error|undefined instruction).*$/m);
@@ -440,7 +442,8 @@ if(!single)
 }
 const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S+): ([^\r\n]*)/g)].map(m => [m[1], m[2]]));
 if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
-const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, retired_instructions, page_tier,
+const ms = Math.round(performance.now() - started);
+const result = { tag, ms, probe_done_ms: probe_ms, retired_instructions, mips: Math.round(retired_instructions / ms / 100) / 10, page_tier,
     ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");

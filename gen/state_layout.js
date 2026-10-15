@@ -290,9 +290,9 @@ export const STATICS = {
     // the A64 page tier (J2): its switches, functions and code pages, the
     // access caches and chaining tables per core (derived from the TLBs),
     // the code pages' translations, the flow a step asked for
-    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
+    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
     "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
-        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug" },
+        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request

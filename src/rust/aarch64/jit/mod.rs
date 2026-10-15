@@ -19,6 +19,17 @@ pub mod pages;
 pub static mut NEON: bool = true;
 /// Helper calls instead of single steps for the forms pagegen::helper takes
 pub static mut HELPERS: bool = true;
+/// The multiply-adds through relaxed SIMD (a64_relaxed_fma): only where the
+/// host fuses them (a64_page_set_relaxed_fma_fused, the host's probe)
+pub static mut RELAXED_FMA: bool = false;
+static mut FMA_FUSED: bool = false;
+#[no_mangle]
+pub fn a64_page_set_relaxed_fma_fused(fused: bool) {
+    unsafe {
+        FMA_FUSED = fused;
+        RELAXED_FMA = fused;
+    }
+}
 /// The ASID in the access cache's tags (P6.4, not yet: every ASID switch flushes)
 pub static mut ASID_TAG: bool = false;
 
@@ -34,7 +45,7 @@ struct Switch {
     set: fn(u32) -> bool,
 }
 const UNSET: u32 = u32::MAX;
-const SWITCHES: [Switch; 5] = [
+const SWITCHES: [Switch; 6] = [
     Switch {
         name: "a64_page",
         default: 0,
@@ -58,6 +69,15 @@ const SWITCHES: [Switch; 5] = [
         default: 1,
         get: || unsafe { HELPERS as u32 },
         set: |v| v <= 1 && unsafe { HELPERS = v != 0 } == (),
+    },
+    Switch {
+        name: "a64_relaxed_fma",
+        default: 0,
+        get: || unsafe { RELAXED_FMA as u32 },
+        // (on only where the host fuses them)
+        set: |v| {
+            v <= 1 && (v == 0 || unsafe { FMA_FUSED }) && unsafe { RELAXED_FMA = v != 0 } == ()
+        },
     },
     Switch {
         name: "a64_asid_tag",

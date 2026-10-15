@@ -56,6 +56,60 @@ pub struct CompileEnv {
     pub neon: bool,
     /// helper calls (a64_helpers)
     pub helpers: bool,
+    /// the host's relaxed SIMD multiply-adds fuse (a64_relaxed_fma, probed by the host)
+    pub relaxed_fma: bool,
+}
+
+/// A scalar FP form with a native template (P6.3b), from its word
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FpForm {
+    /// FMUL, FDIV, FADD, FSUB (0-3), FNMUL (8): admitted on the fast path's conditions
+    Arithmetic { op: u8, negate: bool },
+    /// FMADD, FMSUB, FNMADD, FNMSUB: o1 negates the addend, o0 the product
+    MultiplyAdd {
+        negate_addend: bool,
+        negate_product: bool,
+    },
+    /// FMOV, FABS, FNEG (register): bit operations, never an exception
+    Move(u8),
+    /// FCMP, FCMPE (with zero: `zero`): NZCV, when neither operand is a NaN
+    Compare { zero: bool },
+}
+/// The native scalar FP template of `word` (S and D only), if any
+fn fp_form(i: &Inst, env: &CompileEnv) -> Option<FpForm> {
+    if !env.neon {
+        return None;
+    }
+    let word = i.imm as u32;
+    let ptype = word >> 22 & 3;
+    if ptype > 1 || word >> 29 & 7 != 0 {
+        return None;
+    }
+    match i.op {
+        Op::FpDp2 => match word >> 12 & 15 {
+            op @ 0..=3 => Some(FpForm::Arithmetic {
+                op: op as u8,
+                negate: false,
+            }),
+            8 => Some(FpForm::Arithmetic {
+                op: 0,
+                negate: true,
+            }),
+            _ => None,
+        },
+        Op::FpDp3 if env.relaxed_fma => Some(FpForm::MultiplyAdd {
+            negate_addend: word >> 21 & 1 != 0,
+            negate_product: (word >> 21 & 1) != (word >> 15 & 1),
+        }),
+        Op::FpDp1 => match word >> 15 & 63 {
+            op @ 0..=2 => Some(FpForm::Move(op as u8)),
+            _ => None,
+        },
+        Op::FpCompare if word >> 14 & 3 == 0 && word & 7 == 0 => Some(FpForm::Compare {
+            zero: word >> 3 & 1 != 0,
+        }),
+        _ => None,
+    }
 }
 
 pub struct Compiled {
@@ -181,6 +235,9 @@ fn helper(i: &Inst, env: &CompileEnv) -> Option<HelperSync> {
 
 /// Whether the instruction has a native template
 fn native(i: &Inst, env: &CompileEnv) -> bool {
+    if fp_form(i, env).is_some() {
+        return true;
+    }
     match i.op {
         Op::Adr
         | Op::Adrp
@@ -990,7 +1047,259 @@ impl Emitter<'_> {
         }
     }
 
+    // ---- scalar FP (P6.3b): the fast path's rules (docs/arm64-virt-android16-plan.md P6)
+
+    /// Push whether an FP value's bits in local `l` (D: 64 bits, S: the low
+    /// 32) are zero or a normal number, or with `result`, zero or a normal
+    /// number of exponent 2 or more (no NaN, infinity, denormal, nor what
+    /// may have been tiny)
+    fn fp_ordinary(&mut self, l: usize, double: bool, result: bool) {
+        let (sign, low, inf) = if double {
+            (
+                0x8000_0000_0000_0000u64,
+                if result { 0x0020_0000_0000_0000u64 } else { 0x0010_0000_0000_0000 },
+                0x7FF0_0000_0000_0000u64,
+            )
+        }
+        else {
+            (
+                0x8000_0000u64,
+                if result { 0x0100_0000u64 } else { 0x0080_0000 },
+                0x7F80_0000u64,
+            )
+        };
+        let magnitude = |e: &mut Self| {
+            e.g(l);
+            e.c64(!sign & if double { u64::MAX } else { 0xFFFF_FFFF });
+            e.b.and_i64();
+        };
+        magnitude(self);
+        self.o(op::OP_I64EQZ);
+        magnitude(self);
+        self.c64(low);
+        self.b.sub_i64();
+        self.c64(inf - low);
+        self.o(op::OP_I64LTU);
+        self.b.or_i32();
+    }
+    /// Load V[v]'s low 64 bits (D) or 32 (S, zero-extended) into local `l`
+    fn fp_load(&mut self, v: u32, double: bool, l: usize) {
+        self.c32((state::v as u32 + 16 * v) as i32);
+        self.b.memory_op(
+            if double { op::OP_I64LOAD } else { op::OP_I64LOAD32U },
+            if double { 3 } else { 2 },
+            0,
+        );
+        self.s(l);
+    }
+    /// Write local `l`'s bits to V[d], the rest of the register zero
+    fn fp_store(&mut self, d: u32, double: bool, l: usize) {
+        let at = state::v as u32 + 16 * d;
+        self.c32(at as i32);
+        self.g(l);
+        if !double {
+            self.c64(0xFFFF_FFFF);
+            self.b.and_i64();
+        }
+        self.b.store_aligned_i64(0);
+        self.c32(at as i32 + 8);
+        self.c64(0);
+        self.b.store_aligned_i64(0);
+    }
+    /// Push local `l` as an f64 (D) or f32 (S)
+    fn fp_value(&mut self, l: usize, double: bool) {
+        self.g(l);
+        if double {
+            self.b.reinterpret_i64_as_f64();
+        }
+        else {
+            self.b.wrap_i64_to_i32();
+            self.b.reinterpret_i32_as_f32();
+        }
+    }
+    /// Pop an f64 (D) or f32 (S) into local `l` as its bits
+    fn fp_bits(&mut self, l: usize, double: bool) {
+        if double {
+            self.b.reinterpret_f64_as_i64();
+        }
+        else {
+            self.b.reinterpret_f32_as_i32();
+            self.b.extend_unsigned_i32_to_i64();
+        }
+        self.s(l);
+    }
+    fn fp_instruction(&mut self, offset: u16, i: &Inst, form: FpForm) {
+        let word = i.imm as u32;
+        let double = word >> 22 & 1 != 0;
+        let (d, n, m, a) = (word & 31, word >> 5 & 31, word >> 16 & 31, word >> 10 & 31);
+        self.fp_check(offset);
+        if let FpForm::Move(op) = form {
+            self.fp_load(n, double, T0);
+            self.g(T0);
+            let sign = if double { 1u64 << 63 } else { 1 << 31 };
+            match op {
+                1 => {
+                    self.c64(!sign);
+                    self.b.and_i64();
+                },
+                2 => {
+                    self.c64(sign);
+                    self.b.xor_i64();
+                },
+                _ => {},
+            }
+            self.s(T0);
+            return self.fp_store(d, double, T0);
+        }
+        let done = self.b.block_void();
+        // the fast path: RMode RN and FZ 0 (FPCR), IXC already set (FPSR), operands ordinary
+        self.fp_load(n, double, T0);
+        match form {
+            FpForm::Compare { zero: true } => {
+                self.c64(0);
+                self.s(T1);
+            },
+            _ => self.fp_load(m, double, T1),
+        }
+        let compare = matches!(form, FpForm::Compare { .. });
+        if let FpForm::MultiplyAdd { .. } = form {
+            self.fp_load(a, double, T2);
+        }
+        self.load32(state::fpcr as u32);
+        self.c32(0x01C0_0000);
+        self.b.and_i32();
+        self.b.eqz_i32();
+        if !compare {
+            // (IXC: bit 4, as 0 or 1)
+            self.load32(state::fpsr as u32);
+            self.c32(4);
+            self.b.shr_u_i32();
+            self.c32(1);
+            self.b.and_i32();
+            self.b.and_i32();
+        }
+        for l in if matches!(form, FpForm::MultiplyAdd { .. }) {
+            &[T0, T1, T2][..]
+        }
+        else {
+            &[T0, T1][..]
+        } {
+            if compare {
+                // (a compare only refuses NaNs: magnitude <= infinity)
+                self.g(*l);
+                self.c64(if double { 0x7FFF_FFFF_FFFF_FFFF } else { 0x7FFF_FFFF });
+                self.b.and_i64();
+                self.c64(if double { 0x7FF0_0000_0000_0000 } else { 0x7F80_0000 });
+                self.o(op::OP_I64LEU);
+            }
+            else {
+                self.fp_ordinary(*l, double, false);
+            }
+            self.b.and_i32();
+        }
+        if let FpForm::Arithmetic { op: 1, .. } = form {
+            // (FDIV: a divisor that is not zero)
+            self.g(T1);
+            self.c64(if double { 0x7FFF_FFFF_FFFF_FFFF } else { 0x7FFF_FFFF });
+            self.b.and_i64();
+            self.c64(0);
+            self.b.ne_i64();
+            self.b.and_i32();
+        }
+        self.b.if_void();
+        match form {
+            FpForm::Compare { .. } => {
+                // equal 0110, less 1000, greater 0010
+                self.fp_value(T0, double);
+                self.fp_value(T1, double);
+                self.o(if double { op::OP_F64EQ } else { 0x5B });
+                self.b.if_i32();
+                self.c32(0x6000_0000);
+                self.b.else_();
+                self.fp_value(T0, double);
+                self.fp_value(T1, double);
+                self.o(if double { op::OP_F64LT } else { 0x5D });
+                self.b.if_i32();
+                self.c32(0x8000_0000u32 as i32);
+                self.b.else_();
+                self.c32(0x2000_0000);
+                self.b.block_end();
+                self.b.block_end();
+                self.si(NZCV);
+                self.b.br(done);
+                self.b.block_end();
+            },
+            _ => {
+                match form {
+                    FpForm::Arithmetic { op, negate } => {
+                        // (FMUL 0, FDIV 1, FADD 2, FSUB 3 in the word; Wasm's 0 add, 1 sub, 2 mul, 3 div)
+                        let wasm = [2, 3, 0, 1][op as usize];
+                        self.fp_value(T0, double);
+                        self.fp_value(T1, double);
+                        if double {
+                            self.b.arithmetic_f64(wasm);
+                        }
+                        else {
+                            self.b.arithmetic_f32(wasm);
+                        }
+                        if negate {
+                            if double {
+                                self.b.unary_f64(true);
+                            }
+                            else {
+                                self.o(0x8C); // f32.neg
+                            }
+                        }
+                    },
+                    FpForm::MultiplyAdd {
+                        negate_addend,
+                        negate_product,
+                    } => {
+                        // relaxed_madd(n, m, a) = n * m + a; relaxed_nmadd = -(n * m) + a, fused (probed)
+                        for l in [T0, T1, T2] {
+                            self.fp_value(l, double);
+                            if l == T2 && negate_addend {
+                                if double {
+                                    self.b.unary_f64(true);
+                                }
+                                else {
+                                    self.o(0x8C);
+                                }
+                            }
+                            self.b.simd(if double { 0x14 } else { 0x13 }); // splat
+                        }
+                        self.b.simd(match (double, negate_product) {
+                            (false, false) => 0x105,
+                            (false, true) => 0x106,
+                            (true, false) => 0x107,
+                            (true, true) => 0x108,
+                        });
+                        self.b.simd_lane(if double { 0x21 } else { 0x1F }, 0); // extract lane 0
+                    },
+                    _ => unreachable!(),
+                }
+                self.fp_bits(T3, double);
+                self.fp_ordinary(T3, double, true);
+                self.b.if_void();
+                self.fp_store(d, double, T3);
+                self.b.br(done);
+                self.b.block_end();
+                self.b.block_end();
+            },
+        }
+        // the exact path: the interpreter's SoftFloat
+        let sync = HelperSync {
+            gprs: vec![],
+            nzcv: compare,
+        };
+        self.helper_call(offset, &sync);
+        self.b.block_end();
+    }
+
     fn instruction(&mut self, offset: u16, i: &Inst, index: &BTreeMap<u16, usize>) {
+        if let Some(form) = fp_form(i, &self.env) {
+            return self.fp_instruction(offset, i, form);
+        }
         if !native(i, &self.env) {
             let sync = helper(i, &self.env).expect("a template");
             return self.helper_call(offset, &sync);

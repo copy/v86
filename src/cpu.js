@@ -651,7 +651,7 @@ let relaxed_fma_result;
  * only a fused operation keeps.
  * @return {boolean}
  */
-function relaxed_fma_fused()
+export function relaxed_fma_fused()
 {
     if(relaxed_fma_result !== undefined) return relaxed_fma_result;
     const leb = n => {

@@ -8,6 +8,7 @@
 import { dbg_assert, dbg_log } from "../log.js";
 import { LOG_CPU, WASM_TABLE_OFFSET } from "../const.js";
 import { set_jit_switches } from "../jit_switches.js";
+import { relaxed_fma_fused } from "../cpu.js";
 import { view, Bitmap } from "../lib.js";
 import { v86 } from "../main.js";
 import { MachineClock } from "../machine_clock.js";
@@ -92,6 +93,8 @@ A64CPU.prototype.create_jit_imports = function()
         if(supported) jit_imports["t"] = table;
         this.wm.exports["a64_page_set_chaining"](supported ? 1 : 0);
     }
+    // (the multiply-adds through relaxed SIMD where they fuse: a64_relaxed_fma)
+    this.wm.exports["a64_page_set_relaxed_fma_fused"]?.(relaxed_fma_fused() ? 1 : 0);
     this.jit_imports = jit_imports;
 };
 
@@ -596,7 +599,8 @@ A64CPU.prototype.page_tier_stats = function()
     const names = ["compiled", "activations", "retired", "steps", "retries", "unknown", "retired_functions",
         "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
     const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
-        "most_compiles": stat(104), "helpers": stat(106) };
+        "most_compiles": stat(104), "helpers": stat(106), "evictions": stat(107), "compile_ms": stat(108),
+        "table_free_low": this.wm.exports["jit_wasm_table_free_low"]() };
     names.forEach((name, i) => { result[name] = stat(i); });
     return result;
 };

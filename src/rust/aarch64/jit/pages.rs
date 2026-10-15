@@ -195,6 +195,9 @@ const TEMPLATED: usize = 12;
 static mut WRITES: u64 = 0;
 static mut RESETS: u64 = 0;
 static mut HELPERS: u64 = 0;
+/// functions retired to make room (P6.6b), and the time spent compiling (ms)
+static mut EVICTIONS: u64 = 0;
+static mut COMPILE_MS: f64 = 0.0;
 
 /// Code retired (a write to code, a reset): a step that sees it changed ends the activation
 static mut CODE_WRITES: u64 = 0;
@@ -474,7 +477,8 @@ fn compile(key: u32, pc: u64) {
         if mode & 1 != 0 { "_el1" } else { "_el0" },
         pc & !0xFFF
     );
-    let Some(code) = pagegen::compile(
+    let started = unsafe { crate::isa::microtick() };
+    let compiled = pagegen::compile(
         &bytes,
         &entries,
         pagegen::CompileEnv {
@@ -483,9 +487,12 @@ fn compile(key: u32, pc: u64) {
             chaining: unsafe { CHAINING },
             neon: unsafe { super::NEON },
             helpers: unsafe { super::HELPERS },
+            relaxed_fma: unsafe { super::RELAXED_FMA },
         },
         name,
-    )
+    );
+    unsafe { COMPILE_MS += crate::isa::microtick() - started };
+    let Some(code) = compiled
     else {
         rt().stats[FAILED] += 1;
         return;
@@ -503,6 +510,7 @@ fn compile(key: u32, pc: u64) {
     if crate::jitrt::capacity::take_request(ClientId::A64Page) || must_evict {
         if let Some(i) = r.victim(|_| true, usize::MAX) {
             retire(r, i);
+            unsafe { EVICTIONS += 1 };
         }
     }
     release_dead(r);
@@ -753,6 +761,8 @@ pub fn a64_page_stat(n: u32) -> f64 {
         104 => r.pages.values().map(|p| p.compiles).max().unwrap_or(0) as f64,
         105 => r.pages.values().map(|p| p.misses).sum::<u32>() as f64,
         106 => (unsafe { HELPERS }) as f64,
+        107 => (unsafe { EVICTIONS }) as f64,
+        108 => unsafe { COMPILE_MS },
         _ => r.stats.get(n as usize).copied().unwrap_or(0) as f64,
     }
 }

@@ -1085,10 +1085,33 @@ a64-multicore-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=2 node tests/a64/linux_boot.mjs
 	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=4 node tests/a64/linux_boot.mjs
 	$(call A64_PENDING,A3 (the live stage on 1, 2 and 4 cores: virtio, P5))
-a64-page-tier-tests:
-	$(call A64_PENDING,A4)
-a64-jit-guest-tests:
-	$(call A64_PENDING,A4)
+# (A4, JIT plan P6.5: random programs on the page tier against the
+# interpreter; the FP fast path's hot multiply-add loop; the ISA, exceptions
+# and MMU oracles with every instruction compiled (A64_JIT=1, threshold 1;
+# A64_MMU=1: the bare-metal runtime turns the MMU on), the FP oracle with
+# a64_relaxed_fma off and at its default; litmus on the page tier)
+a64-page-tier-tests: build/v86-arm64.wasm
+	node tests/a64/page_fuzz.mjs
+	node tests/a64/fma.mjs
+	A64_JIT=1 A64_MMU=1 node tests/a64/integer_oracle.mjs
+	A64_JIT=1 A64_MMU=1 node tests/a64/simd_oracle.mjs
+	A64_JIT=1 A64_MMU=1 node tests/a64/fp_oracle.mjs
+	A64_JIT=1 A64_MMU=1 A64_JIT_SWITCHES=a64_relaxed_fma=0 node tests/a64/fp_oracle.mjs
+	A64_JIT=1 A64_MMU=1 node tests/a64/crypto_oracle.mjs
+	A64_JIT=1 node tests/a64/system_oracle.mjs
+	A64_JIT=1 node tests/a64/mmu.mjs
+	A64_JIT=1 node tests/a64/litmus.mjs
+# (L, A4: A2's and A3's Alpine stages with the page tier on 1, 2 and 4
+# cores, kpti=1, the workload with a snapshot in its middle against QEMU's
+# output, and kvm-unit-tests at 4k, 16k and 64k)
+a64-jit-guest-tests: build/v86-arm64.wasm
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=initramfs A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	for cores in 1 2 4; do A64_JIT=1 A64_STAGE=initramfs A64_KPTI=1 A64_CORES=$$cores node tests/a64/linux_boot.mjs || exit 1; done
+	A64_JIT=1 A64_STAGE=single A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_CORES=2 node tests/a64/linux_boot.mjs
+	A64_JIT=1 A64_STAGE=initramfs A64_WORKLOAD=3 A64_MIDWAY_SNAPSHOT=1 A64_CORES=2 node tests/a64/linux_boot.mjs
+	A64_JIT=1 node tests/kvm-unit-tests/arm64.mjs
 a64-gpu-guest-tests:
 	$(call A64_PENDING,A5)
 a64-parallel-tests:

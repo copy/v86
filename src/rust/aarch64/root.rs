@@ -72,6 +72,13 @@ pub fn rust_init() {
     }));
 }
 
+/// The fewest free table slots since the last jit_wasm_table_free_low_reset
+/// (as the x86 core's, src/rust/jit.rs)
+#[no_mangle]
+pub fn jit_wasm_table_free_low() -> u32 { jitrt::state().table.free_low() }
+#[no_mangle]
+pub fn jit_wasm_table_free_low_reset() { jitrt::state().table.reset_free_low() }
+
 /// Drop all compiled code (a snapshot was restored, guest memory changed under it)
 #[no_mangle]
 pub fn jit_clear_cache_js() { jitrt::state().watch.reset() }

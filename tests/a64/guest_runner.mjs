@@ -191,7 +191,9 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
 export function jit_options()
 {
     if(!+process.env.A64_JIT) return {};
-    return { jit_switches: { a64_page: 1, a64_page_hot: +(process.env.A64_JIT_HOT || 1) }, ir_sync_publication: true };
+    // (A64_JIT_SWITCHES: more switches, "name=value,...")
+    const more = Object.fromEntries((process.env.A64_JIT_SWITCHES || "").split(",").filter(Boolean).map(p => [p.split("=")[0], +p.split("=")[1]]));
+    return { jit_switches: { a64_page: 1, a64_page_hot: +(process.env.A64_JIT_HOT || 1), ...more }, ir_sync_publication: true };
 }
 
 /**
