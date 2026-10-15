@@ -79,12 +79,14 @@ import {MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16} from "../smp/di
 import {jit_switches_from_env} from "../lib/jit_switches.mjs";
 import {jit_stats_enabled, print_jit_stats} from "../../tools/bench/jit_stats.mjs";
 import {CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
+import {site_directory} from "../lib/site.mjs";
 // WIN_CPU_FEATURES: feature names, comma separated, or a preset ("x86-64-v3")
 const win_cpu_features = process.env.WIN_CPU_FEATURES ?
     CPU_FEATURE_PRESETS[process.env.WIN_CPU_FEATURES] || process.env.WIN_CPU_FEATURES.split(",") : null;
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const image_path = path.resolve(process.env.WIN_IMAGE || path.join(root, "../retro-gaming-site/windows8/windows8.img"));
+// (the default: retro-gaming-site next to the main checkout, also from a worktree)
+const image_path = path.resolve(process.env.WIN_IMAGE || path.join(site_directory(root), "windows8/windows8.img"));
 const out = path.resolve(process.env.WIN_OUT || path.join(root, "build/x64-windows"));
 fs.mkdirSync(out, {recursive: true});
 const cores = +(process.env.WIN_CORES || 1), jit = process.env.X64_JIT !== "0";

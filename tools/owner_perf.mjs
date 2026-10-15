@@ -35,6 +35,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import url from "node:url";
+import { site_directory } from "../tests/lib/site.mjs";
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -44,7 +45,11 @@ const arms = (option("arms", "build/v86.wasm")).split(",").map(w => path.resolve
 const workloads = option("workloads", "xp,win98-diablo1,win98-ra2,win98-themehospital,win98-boot").split(",");
 const sessions = Number(option("sessions", 3));
 const seconds = Number(option("seconds", 60));
-const site = path.resolve(ROOT, option("site", "../retro-gaming-site"));
+// (the default: retro-gaming-site next to the main checkout, also from a worktree)
+const site = option("site") ? path.resolve(ROOT, option("site")) : site_directory(ROOT);
+// (the Windows workloads get the image explicitly: a tree arm's own
+// windows_boot.mjs may look for it relative to that tree)
+const win_image = process.env.WIN_IMAGE || path.join(site, "windows8/windows8.img");
 const work = path.join(ROOT, "build/owner-perf");
 const out = option("out", path.join(work, new Date().toISOString().replace(/[:.]/g, "-") + ".json"));
 fs.mkdirSync(work, { recursive: true });
@@ -80,13 +85,13 @@ const WORKLOADS = {
         return result?.milestone ? { value: result.milestone.ms / 1000, unit: "s", mips: result.milestone.instructions / result.milestone.ms / 1000 } : { error: "no desktop" };
     },
     win81: ({ root, wasm }) => {
-        const r = node(root, "tests/x64/windows_boot.mjs", [], { TEST_RELEASE_BUILD: "1", WASM_PATH: wasm, WIN_STOP_AT_DESKTOP: "1", WIN_TIMEOUT_MS: "1800000",
+        const r = node(root, "tests/x64/windows_boot.mjs", [], { TEST_RELEASE_BUILD: "1", WASM_PATH: wasm, WIN_IMAGE: win_image, WIN_STOP_AT_DESKTOP: "1", WIN_TIMEOUT_MS: "1800000",
             WIN_OUT: path.join(work, "win81") });
         const desktop = lines(r.output, "X64_WIN_EVENT ").map(l => JSON.parse(l)).find(e => e.kind === "desktop");
         return desktop ? { value: desktop.s, unit: "s" } : { error: "no desktop" };
     },
     cpuload32: ({ root, wasm }) => {
-        const r = node(root, "tests/x64/windows_boot.mjs", [], { TEST_RELEASE_BUILD: "1", WASM_PATH: wasm, WIN_CPULOAD32: "5", WIN_TIMEOUT_MS: "2400000",
+        const r = node(root, "tests/x64/windows_boot.mjs", [], { TEST_RELEASE_BUILD: "1", WASM_PATH: wasm, WIN_IMAGE: win_image, WIN_CPULOAD32: "5", WIN_TIMEOUT_MS: "2400000",
             WIN_OUT: path.join(work, "cpuload32") });
         const load = lines(r.output, "X64_WIN_CPULOAD32 ").map(l => JSON.parse(l))[0];
         // (the fastest warm round: the desktop's background work slows others)
