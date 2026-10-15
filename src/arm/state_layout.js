@@ -61,6 +61,12 @@ export const STATE_OFFSETS = {
     dbgwcr: 1296,
     waiting: 1312,
     event_register: 1316,
+    a64_page_exit: 1328,
+    a64_page_chain: 1332,
+    a64_page_linear: 1336,
+    a64_jac_epoch: 1344,
+    a64_jac_base: 1352,
+    a64_code_base: 1356,
 };
 
 /**

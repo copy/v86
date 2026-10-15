@@ -240,6 +240,15 @@ export const A64_STATE_FIELDS = [
     // waiting (WFI, WFE) and the event register
     { name: "waiting", offset: 1312, rust: "u32", size: 4, owner: "core", range: "wait", note: "0 running, 1 WFI, 2 WFE" },
     { name: "event_register", offset: 1316, rust: "u32", size: 4, owner: "core", range: "wait" },
+    // the A64 page tier's activation (docs/jit-unification-plan.md P6, J2):
+    // set by the runtime before each call, read by generated code at small
+    // offsets (jitrt::step's StepAbi and pagegen::frame's AccessAbi)
+    { name: "a64_page_exit", offset: 1328, rust: "u32", size: 4, owner: "scratch", note: "why the last page function returned (jitrt::step::EXIT_*)" },
+    { name: "a64_page_chain", offset: 1332, rust: "u32", size: 4, owner: "scratch", note: "native instructions of the page functions an activation tail-called from" },
+    { name: "a64_page_linear", offset: 1336, rust: "u64", size: 8, owner: "scratch", note: "virtual address of the page a page function runs at" },
+    { name: "a64_jac_epoch", offset: 1344, rust: "u64", size: 8, owner: "scratch", note: "tag bits of the running core's access cache epoch" },
+    { name: "a64_jac_base", offset: 1352, rust: "u32", size: 4, owner: "scratch", note: "access cache read table of the running core and EL" },
+    { name: "a64_code_base", offset: 1356, rust: "u32", size: 4, owner: "scratch", note: "chaining table of the running core and EL" },
 ];
 
 // Every static in src/rust, by file. The check fails on a static that is not
@@ -278,6 +287,12 @@ export const STATICS = {
     // (P3.7); each core's event stream (P4.3)
     "aarch64/smp.rs": { SAVED: "core", EVENTS: "machine", ROUND: "machine", MONITORS: "machine", MONITOR_GRANULE: "machine" },
     "aarch64/timer.rs": { EVENT_STREAM_LAST: "core" },
+    // the A64 page tier (J2): its switches, functions and code pages, the
+    // access caches and chaining tables per core (derived from the TLBs),
+    // the code pages' translations, the flow a step asked for
+    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
+    "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
+        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug" },
     "aarch64/decode.rs": { BUFFER: "debug" },
     // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
     // or SYSTEM_RESET request

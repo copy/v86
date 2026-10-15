@@ -82,7 +82,7 @@ pub fn switch_to(core: usize) {
     }
     // (what derives from the core's registers: the debug fast paths, the fetch fast path)
     crate::aarch64::debug::refresh();
-    crate::aarch64::mmu::ttbr_changed();
+    crate::aarch64::tlb::bump_generation();
     execute::core_switched();
 }
 
@@ -122,10 +122,31 @@ pub fn send_event() {
 /// A load-exclusive of guest RAM at `backing` marks its granule for the running core
 pub fn reserve(backing: u32) {
     let core = current_core();
+    let changed =
+        unsafe { MONITORS & 1 << core == 0 || MONITOR_GRANULE[core] >> 6 != backing >> 12 };
     unsafe {
         MONITORS |= 1 << core;
         MONITOR_GRANULE[core] = backing >> 6;
     }
+    // (other cores' compiled stores to the page must reach monitors_written:
+    // the page tier's access cache stops serving them, P3.7; a core's own
+    // stores do not clear its reservation, so one core needs none of it)
+    if changed && core_count() > 1 {
+        crate::aarch64::jit::pages::retire_write_entries(backing & !0xFFF);
+    }
+}
+
+/// Whether a core holds a reservation in the RAM page at `backing` (the page
+/// tier's access cache serves no stores to it)
+pub fn reserved_page(backing: u32) -> bool {
+    if core_count() == 1 {
+        return false;
+    }
+    let page = backing >> 12;
+    let monitors = unsafe { MONITORS };
+    monitors != 0
+        && (0..MAX_CORES)
+            .any(|c| monitors & 1 << c != 0 && unsafe { MONITOR_GRANULE[c] } >> 6 == page)
 }
 
 /// Whether the running core's reservation of the granule at `backing` still holds
@@ -244,18 +265,50 @@ fn reset_state(entry: u64, context: u64) {
     unsafe { EVENTS &= !(1 << current_core()) };
 }
 
-/// Run the running core for up to `budget` instructions: how many it ran
+/// Run the running core for up to `budget` instructions: how many it ran.
+/// At each block boundary (a branch, an exception, an interrupt, the turn's
+/// start) the A64 page tier may run the PC's compiled function
+/// (crate::aarch64::jit::pages; J2), else instructions are interpreted.
 fn run_core(budget: u32) -> u32 {
+    use crate::aarch64::jit::pages::{self, Ran};
     let several = core_count() > 1;
-    for i in 0..budget {
-        if i & 1023 == 1023 {
+    let mut i = 0;
+    let mut next_tick = 1023;
+    let mut boundary = true;
+    while i < budget {
+        if i >= next_tick {
             crate::aarch64::timer::tick();
+            next_tick = i + 1024;
         }
         if unsafe { crate::aarch64::gic::SIGNAL[current_core()] } != 0 && take_interrupt() {
+            i += 1;
+            boundary = true;
             continue;
         }
-        match execute::interpret_one() {
+        let flow = if boundary && unsafe { pages::ENABLED } {
+            boundary = false;
+            match pages::run(budget - i) {
+                Ran::Native { retired, flow } => {
+                    i += retired.max(1);
+                    boundary = true;
+                    flow
+                },
+                Ran::None => {
+                    i += 1;
+                    pages::interpreted();
+                    execute::interpret_one()
+                },
+            }
+        }
+        else {
+            i += 1;
+            pages::interpreted();
+            execute::interpret_one()
+        };
+        match flow {
+            Flow::Jump(_) | Flow::Set => boundary = true,
             Flow::Wait(kind) => {
+                boundary = true;
                 // (a wait that is already over goes on; WFE consumes the event)
                 if wakes(current_core(), kind) {
                     if kind == 2 {
@@ -265,18 +318,18 @@ fn run_core(budget: u32) -> u32 {
                 }
                 unsafe { *waiting = kind };
                 unsafe { crate::core_stats::note_halt() };
-                return i + 1;
+                return i;
             },
             Flow::Off => {
                 unsafe { *waiting = 3 };
-                return i + 1;
+                return i;
             },
             // (YIELD: the other cores' turn; a spin loop waits for one of them)
-            Flow::Yield if several => return i + 1,
+            Flow::Yield if several => return i,
             _ => {},
         }
     }
-    budget
+    i
 }
 
 /// The milliseconds the machine can sleep: until the first waiting core's

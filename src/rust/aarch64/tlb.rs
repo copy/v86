@@ -139,12 +139,16 @@ pub fn insert(page: u64, entry: Entry) {
 }
 
 fn bump() { unsafe { GENERATION = GENERATION.wrapping_add(1).max(1) } }
+/// (another core runs now: the fetch fast path's translation is another TLB's)
+pub fn bump_generation() { bump() }
 
 fn flush_core(core: usize) {
     let t = tlb(core);
     t.entries.fill(Entry::EMPTY);
     t.block_count = 0;
     t.blocks_overflowed = false;
+    // (what the page tier derived from the TLB goes with it: P6.4)
+    crate::aarch64::jit::pages::tlb_flushed(core);
 }
 
 /// The cores a TLBI acts on: this one, or all (the inner shareable domain)
@@ -175,6 +179,7 @@ pub fn flush_asid(shareable: bool, asid: u16) {
                 *entry = Entry::EMPTY;
             }
         }
+        crate::aarch64::jit::pages::tlb_flushed_nonglobal(core);
     }
     bump();
 }
@@ -201,6 +206,7 @@ pub fn flush_page(shareable: bool, page: u64, asid: Option<u16>) {
             if entry.tag == p + 1 && matches(entry.flags & GLOBAL != 0, entry.asid) {
                 *entry = Entry::EMPTY;
             }
+            crate::aarch64::jit::pages::tlb_flushed_page(core, p);
         }
     }
     bump();

@@ -13,6 +13,7 @@ pub mod execute;
 pub mod fp;
 pub mod gic;
 pub mod isa_hooks;
+pub mod jit;
 pub mod memory;
 pub mod mmu;
 pub mod psci;

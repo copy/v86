@@ -314,12 +314,40 @@ pub fn translate(va: u64, access: Access, el0: bool, align: u32) -> Result<Trans
     })
 }
 
+/// (the page tier's access cache, crate::aarch64::jit::pages) The
+/// translation of `va` for a data access at EL0 (`el0`) or EL1 with the MMU
+/// on, if the access cache may keep it: Normal memory the access is allowed
+/// to: the physical address, whether it came from a block (invalidating a
+/// page of it must flush), whether it is global
+pub fn translate_for_cache(va: u64, write: bool, el0: bool) -> Option<(u64, bool, bool)> {
+    let entry = entry_of(va).ok()?;
+    let needed = match (write, el0) {
+        (false, false) => EL1_READ,
+        (true, false) => EL1_WRITE,
+        (false, true) => EL0_READ,
+        (true, true) => EL0_WRITE,
+    };
+    if entry.flags & DEVICE != 0 || entry.flags & needed == 0 {
+        return None;
+    }
+    Some((
+        entry.pa | va & 0xFFF,
+        entry.size_log > 12,
+        entry.flags & GLOBAL != 0,
+    ))
+}
+
 /// SCTLR_EL1, TCR_EL1 or MAIR_EL1 changed: what the TLB derived from them is stale
 pub fn regime_changed() { tlb::flush(false); }
 
 /// TTBR0_EL1 or TTBR1_EL1 changed: entries are tagged with their ASID, so
 /// nothing is flushed (software changing a table under an ASID must TLBI)
-pub fn ttbr_changed() { unsafe { tlb::GENERATION = tlb::GENERATION.wrapping_add(1).max(1) } }
+pub fn ttbr_changed() {
+    unsafe { tlb::GENERATION = tlb::GENERATION.wrapping_add(1).max(1) };
+    // (the page tier's access cache is not tagged with the ASID: its
+    // non-global entries go, P6.4 without a64_asid_tag)
+    crate::aarch64::jit::pages::tlb_flushed_nonglobal(crate::isa::current_core());
+}
 
 /// A data or instruction cache maintenance by VA: no effect, and no fault
 /// (as QEMU, which implements them as NOPs)

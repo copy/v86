@@ -5,7 +5,9 @@
 // vCPU workers (parallel) come with P8.2; until then the parallel members are
 // empty. The x86 CPU is src/cpu.js.
 
-import { dbg_assert } from "../log.js";
+import { dbg_assert, dbg_log } from "../log.js";
+import { LOG_CPU, WASM_TABLE_OFFSET } from "../const.js";
+import { set_jit_switches } from "../jit_switches.js";
 import { view, Bitmap } from "../lib.js";
 import { v86 } from "../main.js";
 import { MachineClock } from "../machine_clock.js";
@@ -65,7 +67,86 @@ export function A64CPU(bus, wm, stop_idling)
     this.snapshot_io_pending = false;
     /** the device registers (src/virt/io.js) */
     this.io = new VirtIO(this.wm.exports);
+    /** (the A64 page tier, docs/jit-unification-plan.md J2) publications of an older machine are dropped */
+    this.execution_epoch = 0;
+    this.ir_sync_publication = false;
+    this.create_jit_imports();
 }
+
+/** What generated page functions import (module "e"): the core's exports, its memory and, with tail calls, its table */
+A64CPU.prototype.create_jit_imports = function()
+{
+    const jit_imports = Object.create(null);
+    jit_imports["m"] = this.wm.exports["memory"];
+    for(const name of Object.keys(this.wm.exports))
+    {
+        if(name.startsWith("_") || name.startsWith("zstd") || name.endsWith("_js")) continue;
+        jit_imports[name] = this.wm.exports[name];
+    }
+    const table = this.wm.wasm_table;
+    if(table && this.wm.exports["a64_page_set_chaining"])
+    {
+        // (module (func (return_call 0)))
+        const probe = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 18, 0, 11]);
+        const supported = WebAssembly.validate(probe);
+        if(supported) jit_imports["t"] = table;
+        this.wm.exports["a64_page_set_chaining"](supported ? 1 : 0);
+    }
+    this.jit_imports = jit_imports;
+};
+
+/**
+ * (env.jit_publish, jitrt::publish) the module of a page function: instantiated
+ * (at once with ir_sync_publication), then its table slot set if the core still wants it
+ */
+A64CPU.prototype.jit_publish = function(client, id, slot, pointer, length)
+{
+    const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;
+    const epoch = this.execution_epoch;
+    const code = new Uint8Array(exports["memory"].buffer, pointer >>> 0, length >>> 0).slice();
+    const current = () => this.execution_epoch === epoch && this.wm === wasm;
+    const cancel = () => exports["jit_cancel"](client, id, slot);
+    const set = instance => {
+        if(!current()) return false;
+        const f = instance.exports["f"];
+        if(typeof f !== "function" || !exports["jit_install"](client, id, slot))
+        {
+            cancel();
+            return false;
+        }
+        table.set(slot + WASM_TABLE_OFFSET, f);
+        exports["jit_ready"](client, id, slot);
+        return true;
+    };
+    if(this.ir_sync_publication)
+    {
+        try
+        {
+            return Promise.resolve(set(new WebAssembly.Instance(new WebAssembly.Module(code), { "e": this.jit_imports })));
+        }
+        catch(error)
+        {
+            if(error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError)
+            {
+                dbg_log("page function rejected: " + error, LOG_CPU);
+                if(current()) cancel();
+                return Promise.resolve(false);
+            }
+            this.ir_sync_publication = false;
+        }
+    }
+    return WebAssembly.instantiate(code, { "e": this.jit_imports }).then(result => set(result.instance), error => {
+        dbg_log("page function rejected: " + error, LOG_CPU);
+        if(current()) cancel();
+        return false;
+    });
+};
+
+/** (env.jit_clear_func) a slot of a retired function */
+A64CPU.prototype.jit_clear_func = function(index)
+{
+    this.wm.wasm_table.set(index + WASM_TABLE_OFFSET, null);
+};
 
 /** The shared imports the ARM core needs besides those of src/browser/starter.js */
 A64CPU.prototype.imports = function()
@@ -84,6 +165,9 @@ A64CPU.prototype.init = function(settings, device_bus)
     }
     const { cores, memory_size } = virt_machine(settings);
     this.cores = cores;
+    // the A64 page tier (J2): synchronous publication (tests), the JIT switches by name
+    this.ir_sync_publication = settings["ir_sync_publication"] === true;
+    set_jit_switches(this.wm.exports, this.wasm_memory, settings["jit_switches"]);
     // (the GIC's distributor and redistributors: decoded in the core, P4.2)
     if(!this.wm.exports["a64_set_cores"](cores)) throw new Error("the GIC's frames overlap a device");
     if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
@@ -500,7 +584,21 @@ A64CPU.prototype.get_diagnostics = function()
         "pc": this.read_pc(),
         "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
+        "page_tier": this.page_tier_stats(),
     };
+};
+
+/** The A64 page tier's counters (src/rust/aarch64/jit/pages.rs), or null without it */
+A64CPU.prototype.page_tier_stats = function()
+{
+    const stat = this.wm.exports["a64_page_stat"];
+    if(!stat) return null;
+    const names = ["compiled", "activations", "retired", "steps", "retries", "unknown", "retired_functions",
+        "access_fills", "access_refused", "failed", "chained", "instructions", "templated"];
+    const result = { "live": stat(100), "code_page_writes": stat(101), "resets": stat(102), "pages_compiled": stat(103),
+        "most_compiles": stat(104), "helpers": stat(106) };
+    names.forEach((name, i) => { result[name] = stat(i); });
+    return result;
 };
 
 /**

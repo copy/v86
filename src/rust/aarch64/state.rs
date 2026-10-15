@@ -64,4 +64,10 @@ state!(dbgwvr: u64 = 1280);
 state!(dbgwcr: u64 = 1296);
 state!(waiting: u32 = 1312);
 state!(event_register: u32 = 1316);
+state!(a64_page_exit: u32 = 1328);
+state!(a64_page_chain: u32 = 1332);
+state!(a64_page_linear: u64 = 1336);
+state!(a64_jac_epoch: u64 = 1344);
+state!(a64_jac_base: u32 = 1352);
+state!(a64_code_base: u32 = 1356);
 // END GENERATED

@@ -35,8 +35,34 @@ void a64_fail(const char *why)
     finish(A64_FAILED);
 }
 
+#ifdef A64_MMU
+// (A64_MMU=1, tests/a64/guest_runner.mjs: the MMU on from the start, an
+// identity map of 1 GiB blocks, devices below RAM and normal write-back
+// RAM, so that the A64 page tier, which needs it, runs the guest's code)
+static uint64_t identity[512] __attribute__((aligned(4096)));
+static void mmu_on(void)
+{
+    if(!identity[1])
+    {
+        identity[0] = 0x00000000UL | 1 | 1 << 2 | 1 << 10;
+        identity[1] = 0x40000000UL | 1 | 0 << 2 | 3 << 8 | 1 << 10;
+        identity[2] = 0x80000000UL | 1 | 0 << 2 | 3 << 8 | 1 << 10;
+        __asm__ volatile("dsb ish" ::: "memory");
+    }
+    a64_write(mair_el1, 0x00FF);
+    a64_write(tcr_el1, 25 | 1 << 8 | 1 << 10 | 3 << 12 | 1 << 23 | 2UL << 32);
+    a64_write(ttbr0_el1, (uint64_t)identity);
+    __asm__ volatile("dsb ish\n tlbi vmalle1\n dsb ish\n isb" ::: "memory");
+    a64_write(sctlr_el1, a64_read(sctlr_el1) | 1 | 1 << 2 | 1 << 12);
+    __asm__ volatile("isb" ::: "memory");
+}
+#endif
+
 void a64_start(uint64_t dtb)
 {
+#ifdef A64_MMU
+    mmu_on();
+#endif
     heap = (char *)(((uintptr_t)_end + 15) & ~(uintptr_t)15);
     a64_result->magic = 0;
     a64_result->status = 0;
@@ -50,6 +76,9 @@ void a64_start(uint64_t dtb)
 
 void a64_secondary_start(unsigned core)
 {
+#ifdef A64_MMU
+    mmu_on();
+#endif
     __atomic_fetch_add((uint32_t *)&a64_result->cores, 1, __ATOMIC_SEQ_CST);
     if(a64_core_main) a64_core_main(core);
 }

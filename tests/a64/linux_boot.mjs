@@ -138,8 +138,15 @@ const workload = +process.env.A64_WORKLOAD || 0;
 assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
 const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
     `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}`;
-const tag_of = target => `${target}-${stage}${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
-const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "");
+// (A64_JIT=1: the v86 runs with the A64 page tier, docs/jit-unification-plan.md J2;
+// A64_JIT_HOT its compile threshold)
+const jit = !!+process.env.A64_JIT;
+const JIT_OPTIONS = jit ? { jit_switches: { a64_page: 1, ...(process.env.A64_JIT_HOT ? { a64_page_hot: +process.env.A64_JIT_HOT } : {}),
+    ...(process.env.A64_JIT_SWITCHES ? Object.fromEntries(process.env.A64_JIT_SWITCHES.split(",").map(p => [p.split("=")[0], +p.split("=")[1]])) : {}) } } : {};
+const tag_of = target => `${target}${target === "v86" && jit ? "-jit" : ""}-${stage}${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
+// (without the kernel's messages, which may land between the workload's lines)
+const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "")
+    .split("\n").filter(line => !/^\[\s*\d+\.\d+\] /.test(line)).join("\n");
 const tag = tag_of(qemu_reference ? "qemu" : "v86");
 
 // The "CPU features: detected" lines may differ from the reference's only
@@ -265,7 +272,7 @@ if(qemu_reference)
 assert.notEqual(stage, "live", "the live stage on v86 needs virtio-blk (P5.1, A3)");
 const v86_options = {
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
-    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
+    wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm", ...JIT_OPTIONS,
 };
 if(stage === "lifecycle")
 {
@@ -324,12 +331,19 @@ if(stage === "lifecycle")
 }
 const single = stage === "single";
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-const emulator = new V86({
-    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, autostart: true, log_level: 0,
+const machine_options = {
+    cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd_probe },
-    cmdline: single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("v86"),
-});
+    cmdline: single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("v86"), ...JIT_OPTIONS,
+};
+let emulator = new V86({ ...machine_options, autostart: true });
+// (A64_MIDWAY_SNAPSHOT=1 with A64_WORKLOAD: a snapshot 1.5 s into the
+// workload, while its code runs compiled, restored into a new machine that
+// finishes it; its output must still be the reference's: P6.5)
+const midway = !!+process.env.A64_MIDWAY_SNAPSHOT;
+assert.ok(!midway || workload, "A64_MIDWAY_SNAPSHOT needs A64_WORKLOAD");
+let snapped = false, snapshot_bytes;
 const verbose = !!+process.env.A64_VERBOSE;
 let transcript = "", probe_ms, typed = false;
 const started = performance.now();
@@ -343,10 +357,25 @@ try
 {
     await new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`v86 ${stage} deadline (${timeout} ms): ${inspect()}`)), timeout);
-        emulator.add_listener("serial0-output-byte", byte => {
+        const on_byte = byte => {
             const c = String.fromCharCode(byte);
             transcript += c;
             if(verbose) process.stdout.write(c);
+            if(midway && !snapped && transcript.includes("A64_WORKLOAD_BEGIN"))
+            {
+                snapped = true;
+                setTimeout(async () => {
+                    await emulator.stop();
+                    const saved = await emulator.save_state();
+                    snapshot_bytes = saved.byteLength;
+                    await emulator.destroy();
+                    emulator = new V86({ ...machine_options, autostart: false });
+                    await new Promise(r => emulator.add_listener("emulator-loaded", r));
+                    await emulator.restore_state(saved);
+                    emulator.add_listener("serial0-output-byte", on_byte);
+                    emulator.run();
+                }, 1500);
+            }
             if(probe_ms === undefined && transcript.includes("A64_PROBE_XC")) probe_ms = Math.round(performance.now() - started);
             if(single && !typed && /Entering single mode[^\n]*\n/.test(transcript))
             {
@@ -359,7 +388,8 @@ try
                 clearTimeout(timer);
                 setTimeout(() => (done.test(transcript) ? resolve() : reject(new Error("kernel panic: " + inspect()))), 200);
             }
-        });
+        };
+        emulator.add_listener("serial0-output-byte", on_byte);
     });
 }
 finally
@@ -368,6 +398,8 @@ finally
 }
 // (no UNDEF in the kernel, P2.3; no trouble in its log; the timer's and the UART's interrupts counted)
 const undefined_instructions = emulator.v86.cpu.undefined_instructions();
+const page_tier = jit ? emulator.v86.cpu.page_tier_stats() : undefined;
+const retired_instructions = emulator.v86.cpu.wm.exports["core_statistics_get"](0, 0);
 await emulator.destroy();
 assert.equal(undefined_instructions.el1, 0, "UNDEF at EL1: " + JSON.stringify(undefined_instructions));
 const trouble = transcript.match(/^.*(Oops|BUG:|WARNING:|SError|rcu_.*stall|Internal error|undefined instruction).*$/m);
@@ -407,7 +439,9 @@ if(!single)
     }
 }
 const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S+): ([^\r\n]*)/g)].map(m => [m[1], m[2]]));
-const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, ...lines, features,
+if(midway) assert.ok(snapped && snapshot_bytes, "the snapshot in the workload's middle was taken and restored");
+const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, retired_instructions, page_tier,
+    ...(midway ? { midway_snapshot_bytes: snapshot_bytes } : {}), ...lines, features,
     reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");
 console.log(JSON.stringify(result));

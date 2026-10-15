@@ -67,7 +67,8 @@ export function build(name, sources, { cflags = [], optimize = "-O2", general_re
     // (general_regs_only: no FP or SIMD register anywhere, for the integer
     // core before P2.5; printf has no %a then)
     const no_fp = general_regs_only ? ["-mgeneral-regs-only", "-DA64_GENERAL_REGS_ONLY"] : [];
-    compile(runtime + "runtime.c", ["-O2", ...no_fp]);
+    // (A64_MMU=1: the runtime turns the MMU on, an identity map, before main: see runtime.c)
+    compile(runtime + "runtime.c", ["-O2", ...no_fp, ...(+process.env.A64_MMU ? ["-DA64_MMU"] : [])]);
     compile(runtime + "exception.c", ["-O2", "-mgeneral-regs-only"]);
     for(const source of sources) compile(source, [optimize, ...no_fp, ...cflags]);
     const link = ["-flavor", "gnu", "-m", "aarch64elf", "-static", "-T", runtime + "link.ld", ...objects];
@@ -181,11 +182,25 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
 }
 
 /**
+ * The A64 page tier for v86 runs (docs/jit-unification-plan.md J2): A64_JIT=1
+ * turns it on, with synchronous publication (the runners drive the slices
+ * themselves) and the compile threshold A64_JIT_HOT (default 1: code is
+ * compiled at its first block boundary, so even code that runs once runs
+ * compiled)
+ */
+export function jit_options()
+{
+    if(!+process.env.A64_JIT) return {};
+    return { jit_switches: { a64_page: 1, a64_page_hot: +(process.env.A64_JIT_HOT || 1) }, ir_sync_publication: true };
+}
+
+/**
  * The same on v86: the arm64 CPU boots guest.bin as its kernel (an arm64
  * Image at RAM + 0x80000, src/virt/loader.js); the slices run until the
  * result block is done (or `timeout` ms). A64_WASM selects the core
- * (default build/v86-arm64.wasm), TEST_RELEASE_BUILD=1 the compiled library;
- * `setup(cpu)` runs before the first instruction.
+ * (default build/v86-arm64.wasm), TEST_RELEASE_BUILD=1 the compiled library,
+ * A64_JIT=1 the page tier (jit_options); `setup(cpu)` runs before the first
+ * instruction.
  */
 export async function actual(directory, { cores = 1, memory = 128, timeout = 60000, options = {}, setup = null } = {})
 {
@@ -194,6 +209,7 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
         cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: memory << 20, autostart: false, log_level: 0,
         wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm",
         kernel: { url: directory + "guest.bin" },
+        ...jit_options(),
         ...options,
     });
     try
@@ -222,6 +238,9 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
         }
         const result = parse(Buffer.from(block()));
         result.serial = serial;
+        // (with A64_JIT=1 on stderr: what the page tier did)
+        result.page_tier = cpu.page_tier_stats();
+        if(+process.env.A64_JIT) console.error("page tier: " + JSON.stringify(result.page_tier));
         fs.writeFileSync(directory + "v86.bin", Buffer.from(block()));
         return result;
     }

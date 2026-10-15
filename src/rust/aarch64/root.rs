@@ -1,8 +1,8 @@
 //! The ARM core's composition root (the x86 core's is crate::jit): the host
 //! environment of the ISA-neutral runtime crate::jitrt, and what happens to
 //! compiled code when guest memory is written or the address space changes.
-//! The ARM core has no code client yet (the A64 page tier is P6, the JIT
-//! plan's J2).
+//! Its code client is the A64 page tier (crate::aarch64::jit, the JIT plan's
+//! J2).
 use std::collections::HashSet;
 
 use crate::aarch64::bus;
@@ -38,7 +38,8 @@ pub fn rust_init() {
         core: crate::isa::current_core,
         clear_slot: |slot| unsafe { js::jit_clear_func(slot as u16) },
         page_has_code: |_, _| {},
-        pages_gain_code: |_| {},
+        // (write entries of the access cache to pages that gained code retire)
+        pages_gain_code: crate::aarch64::jit::pages::pages_gain_code,
         claim: |page, on| unsafe {
             if on {
                 crate::parallel::code::claim(page)
@@ -51,11 +52,21 @@ pub fn rust_init() {
     });
     // (a new map invalidates every translation compiled code made)
     bus::on_map_changed(|| jitrt::state().watch.reset());
-    // (tests, until the A64 page tier: a64_test_watch_page)
-    jitrt::state().watch.on_dirty(Trigger::WatchedOnly, |_, _| {
-        unsafe { TEST_RETIRED += 1 };
-        Vec::new()
-    });
+    // the A64 page tier: publication's answers; a write to a page retires the
+    // functions compiled from it (each mode's), a reset all of them
+    crate::aarch64::jit::pages::register();
+    // (the whole table is the A64 page tier's: jitrt::capacity)
+    jitrt::capacity::set_quota(ClientId::A64Page, crate::aarch64::jit::pages::MAX_FUNCTIONS);
+    jitrt::state()
+        .watch
+        .on_dirty(Trigger::WatchedOnly, |page, _| {
+            unsafe { TEST_RETIRED += 1 };
+            crate::aarch64::jit::pages::page_written(page);
+            Vec::new()
+        });
+    jitrt::state()
+        .watch
+        .on_reset(crate::aarch64::jit::pages::retire_all);
     std::panic::set_hook(Box::new(|panic_info| {
         console_log!("{}", panic_info.to_string());
     }));

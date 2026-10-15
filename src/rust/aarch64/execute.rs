@@ -155,7 +155,7 @@ pub fn condition_holds(cond: u8, flags: u32) -> bool {
 
 /// The masks of a bitfield instruction (DecodeBitMasks without the
 /// immediate's restrictions): wmask, tmask
-fn bitfield_masks(n: u32, imms: u32, immr: u32, sf: bool) -> (u64, u64) {
+pub(crate) fn bitfield_masks(n: u32, imms: u32, immr: u32, sf: bool) -> (u64, u64) {
     let combined = n << 6 | !imms & 0x3F;
     let len = 31 - combined.leading_zeros();
     let levels = (1u32 << len) - 1;

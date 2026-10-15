@@ -91,11 +91,11 @@ if(options.arm64 && !options.qemu)
 {
     // the ARM core: the .flat file is the kernel, the arguments the device tree's bootargs
     const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-    const { root } = await import("../a64/guest_runner.mjs");
+    const { root, jit_options } = await import("../a64/guest_runner.mjs");
     const emulator = new V86({
         cpu_type: "arm64", graphics_adapter: "none", cpu_cores: options.cores, memory_size: options.memory << 20,
         wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", kernel: { url: test_file }, cmdline: options.append,
-        autostart: !options.granules_all, log_level: 0,
+        autostart: !options.granules_all, log_level: 0, ...jit_options(),
     });
     if(options.granules_all)
     {
