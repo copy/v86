@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import assert from "node:assert/strict";
 import url from "node:url";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
@@ -124,8 +125,38 @@ async function run_test_before_pci_enumeration()
     emulator.destroy();
 }
 
+// The UART's receive queue belongs to the snapshot: Linux's 8250 driver
+// sizes the FIFO by looping 256 bytes back, and a restore that kept the
+// queue of the timeline it discards handed them to the console (^\ killed
+// init, the sync cdrom case failing now and then)
+async function run_test_uart_queue()
+{
+    const emulator = new V86({
+        graphics_adapter: "bochs_vga",
+        bios: { buffer: new Uint8Array(0x10000).fill(0xF4).buffer },
+        memory_size: 16 * 1024 * 1024,
+        autostart: false,
+        log_level: 0,
+    });
+    await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
+    const uart = emulator.v86.cpu.devices.uart0;
+
+    console.log("Saving and restoring: the UART's receive queue");
+    uart.data_received(0x41);
+    uart.data_received(0x42);
+    const state = await emulator.save_state();
+    uart.input.length = 0;
+    for(let byte = 0; byte < 256; byte++) uart.data_received(byte);
+    await emulator.restore_state(state);
+    assert.deepEqual(uart.input, [0x41, 0x42], "the queue at the save");
+
+    console.log("Done: the UART's receive queue");
+    emulator.destroy();
+}
+
 (async function() {
     await run_test_before_pci_enumeration();
+    await run_test_uart_queue();
     await run_test("async cdrom", config_async_cdrom);
     await run_test("sync cdrom", config_sync_cdrom);
     await run_test("filesystem", config_filesystem);
