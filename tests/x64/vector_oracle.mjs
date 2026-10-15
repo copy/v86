@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {assemble, reference, actual} from "./guest_runner.mjs";
+import {step_profile} from "../../tools/step_profile.mjs";
 const cases = [];
 function add(name, code, a = [0x3F800000,0x40000000,0x40400000,0x40800000], b = [0x40000000,0x40800000,0x40C00000,0x41000000], mxcsr = 0x1F80)
 {
@@ -30,6 +31,11 @@ for(const ins of ["ucomiss","comiss","ucomisd","comisd"]) for(const values of fl
 for(const ins of ["haddps","haddpd","hsubps","hsubpd","addsubps","addsubpd"]) add(ins,`${ins} xmm8,xmm9`);
 for(const ins of ["cvtps2pd","cvtpd2ps","cvtss2sd","cvtsd2ss","cvtdq2ps","cvtps2dq","cvttps2dq","cvtdq2pd","cvtpd2dq","cvttpd2dq"]) for(const values of floats) for(const rounding of [0,1,2,3])
     add(`${ins} ${values[0]} round ${rounding}`,`${ins} xmm8,xmm9`,undefined,values,0x1F80|rounding<<13);
+// (MXCSR.PE set: where the page tier's conversion templates admit them, they
+// run natively; P2.5, switch x64_cvt)
+for(const ins of ["cvtps2pd","cvtpd2ps","cvtdq2ps","cvtps2dq","cvttps2dq","cvtdq2pd","cvtpd2dq","cvttpd2dq"])
+    for(const [n,values] of [...floats,...doubles,[0x3FC00000,0xBFC00000,0x4B800001,0xCF000000],[1,2,0x7FFFFFFF,0x80000000]].entries())
+        for(const operand of ["xmm9","[rel .b]"]) add(`${ins} PE ${n} ${operand}`,`${ins} xmm8,${operand}`,undefined,values,0x1FA0);
 for(const ins of ["cvtsi2ss","cvtsi2sd"]) for(const n of ["0x7FFFFFFFFFFFFFFF","0x8000000000000000","0x20000000000001"]) for(const rounding of [0,1,2,3]) add(`${ins} ${n} ${rounding}`,`mov r10,${n}\n${ins} xmm8,r10`,undefined,undefined,0x1F80|rounding<<13);
 for(const ins of ["cvtss2si","cvttss2si","cvtsd2si","cvttsd2si"]) for(const values of floats) for(const rounding of [0,1,2,3]) add(`${ins} ${values[0]} ${rounding}`,`${ins} rax,xmm9`,undefined,values,0x1F80|rounding<<13);
 for(const code of ["movq xmm15,xmm8","movd xmm8,r10d","movq xmm8,r10","movq rax,xmm9","movd eax,xmm9","movhlps xmm8,xmm9","movlhps xmm8,xmm9","movss xmm8,xmm9","movsd xmm8,xmm9","movddup xmm8,xmm9","movsldup xmm8,xmm9","movshdup xmm8,xmm9","movmskps eax,xmm9","movmskpd eax,xmm9","pmovmskb eax,xmm9","pinsrw xmm8,r10d,7","pextrw eax,xmm9,7"])
@@ -388,7 +394,7 @@ if(!process.env.X64_ORACLE_ONLY)
 {
     const received=await actual(directory,{length,timeout:60000,
         options: {disable_jit:!process.env.X64_JIT,experimental_smp_jit:true,
-            ir_tier0:process.env.X64_JIT === "tier0",ir_sync_publication:true,
+            ir_tier0:process.env.X64_JIT === "pages",ir_sync_publication:true,
             // (the VMASKMOV and gather cases)
             cpu_features:["SSSE3","SSE4.1","SSE4.2","XSAVE","AVX","AVX2"],cpu_features_unreleased:true},
         inspect: emulator => {
@@ -397,6 +403,8 @@ if(!process.env.X64_ORACLE_ONLY)
                 const retired = emulator.v86.cpu.wm.exports.x64_page_stat(1);
                 assert.ok(retired > 1000,`mixed vector/native loop executed compiled instructions: retired=${retired}, compiled=${emulator.v86.cpu.wm.exports.x64_page_stat(0)}`);
                 console.log(`native retirement=${retired} backend=${process.env.X64_JIT}`);
+                // (X64_STEP_PROFILE=1 with JIT_SWITCHES=step_profile=1: what the page tier stepped)
+                if(process.env.X64_STEP_PROFILE) for(const {name,count} of step_profile(emulator.v86.cpu.wm.exports,Number(process.env.X64_STEP_PROFILE)||12)) console.log(`step ${name}: ${count}`);
             }
         }});
     const failures=[];

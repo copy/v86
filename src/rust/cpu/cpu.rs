@@ -329,15 +329,6 @@ pub static mut tsc_offset: u64 = 0;
 /// spinning core waits for (see CPU.prototype.run_cores)
 pub static mut core_yield: bool = false;
 
-/// Compiled 32-bit code in IA-32e compatibility mode (tests may turn it off
-/// to compare with the interpreter). The IR's system-instruction helpers
-/// (SYSENTER/SYSEXIT, far transfers, IRET, LAR/LSL, segment loads) call the
-/// same CPU functions the interpreter uses in compatibility mode.
-static mut X64_COMPAT_JIT: bool = true;
-pub unsafe fn compat_jit() -> bool { X64_COMPAT_JIT }
-#[no_mangle]
-pub unsafe fn x64_set_compat_jit(enabled: bool) { X64_COMPAT_JIT = enabled; }
-
 #[no_mangle]
 pub unsafe fn request_core_yield() {
     core_yield = true;
@@ -365,8 +356,8 @@ pub unsafe fn yield_to_other_cores() {
 pub unsafe fn copy_machine_configuration() {
     use crate::parallel::machine;
     cpuid_level = *machine(&raw mut cpuid_level);
-    X64_COMPAT_JIT = *machine(&raw mut X64_COMPAT_JIT);
     crate::cpu::instructions_0f::copy_cpu_profile();
+    crate::jit_switches::copy_from_machine();
 }
 
 pub static mut tlb_data: [i32; 0x100000] = [0; 0x100000];
@@ -2524,6 +2515,21 @@ pub unsafe fn fill_ia32e_tlb(
 
 #[no_mangle]
 pub unsafe fn full_clear_tlb() {
+    clear_all_tlb_entries();
+    legacy_code_epoch();
+}
+/// The page tier's code translations of this core (code TLB, chaining
+/// entries) carry its access cache epoch (x64 jac): a legacy-mode flush
+/// starts a new one, as x64 invalidations do (docs/jit-unification-plan.md
+/// P7.1; in long and compatibility mode the x64 paths flush it themselves)
+unsafe fn legacy_code_epoch() {
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 {
+        crate::x64::jac::flush(crate::cpu::apic::current_core());
+    }
+}
+/// full_clear_tlb without a new code epoch: the cooperative cores'
+/// context switch reinstalls a core's own entries (P7.1)
+pub unsafe fn clear_all_tlb_entries() {
     profiler::stat_increment(stat::FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1;
@@ -2567,6 +2573,7 @@ pub unsafe fn clear_tlb() {
             dbg_assert!(entry == 0 || 0 != entry & TLB_GLOBAL);
         }
     };
+    legacy_code_epoch();
 }
 
 pub unsafe fn trigger_pagefault(addr: i32, present: bool, write: bool, user: bool) {
@@ -2670,8 +2677,9 @@ pub unsafe fn read_imm8() -> OrPageFault<i32> {
     else if DISABLE_EIP_TRANSLATION_OPTIMISATION || 0 != eip & !0xFFF ^ *last_virt_eip {
         return read_imm8_uncached(eip);
     }
-    // cached pages are plain RAM (see cache_fetch_page)
-    dbg_assert!(!memory::in_mapped_range((*eip_phys ^ eip) as u32));
+    // cached pages are plain RAM (see cache_fetch_page; in compatibility
+    // mode also relocated RAM, ia32e_phys_eip)
+    dbg_assert!(memory::is_ram_backing((*eip_phys ^ eip) as u32));
     let data8 = *memory::mem8.offset((*eip_phys ^ eip) as isize) as i32;
     *instruction_pointer = eip + 1;
     return Ok(data8);
@@ -2955,6 +2963,106 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     true
 }
 
+/// switch_seg for ES, DS, FS or GS in legacy protected mode when it raises
+/// nothing and leaves the state flags as they are (the MOV Sreg template,
+/// docs/jit-unification-plan.md P3.7(b), IR Tier-0's until P7.5). false, with nothing
+/// changed: a fault, a descriptor that does not translate without one, an
+/// accessed bit to set on a page with compiled code or a device, or (with
+/// `keep_flat`) a DS whose load changes flat segmentation (then the
+/// interpreter runs the instruction, as switch_seg; the x64 page tier's
+/// functions compiled for segment bases take any DS, P7.2(3))
+pub unsafe fn switch_seg_without_fault(reg: i32, selector_raw: i32, keep_flat: bool) -> bool {
+    dbg_assert!(reg == ES || reg == DS || reg == FS || reg == GS);
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 {
+        return false;
+    }
+    // (real mode and virtual-8086 mode: no descriptor and no fault, as
+    // switch_seg; the page tier's 16-bit code, docs/jit-unification-plan.md
+    // P7.8)
+    if !*protected_mode || vm86_mode() {
+        *sreg.offset(reg as isize) = selector_raw as u16;
+        *segment_is_null.offset(reg as isize) = false;
+        *segment_offsets.offset(reg as isize) = selector_raw << 4;
+        update_state_flags();
+        return true;
+    }
+    let selector = SegmentSelector::of_u16(selector_raw as u16);
+    let flat = has_flat_segmentation();
+    if selector.is_null() {
+        // (a null DS is not flat segmentation)
+        if reg == DS && flat && keep_flat {
+            return false;
+        }
+        *sreg.offset(reg as isize) = selector_raw as u16;
+        *segment_is_null.offset(reg as isize) = true;
+        update_state_flags();
+        return true;
+    }
+    // lookup_segment_selector's read, a system access, must not fault
+    let (table, limit) = if selector.is_gdt() {
+        (*gdtr_offset as u32, *gdtr_size as u32)
+    }
+    else {
+        (
+            *segment_offsets.offset(LDTR as isize) as u32,
+            *segment_limits.offset(LDTR as isize) as u32,
+        )
+    };
+    if selector.descriptor_offset() as u32 + 7 > limit {
+        return false;
+    }
+    let address = table.wrapping_add(selector.descriptor_offset() as u32);
+    for byte in [address, address.wrapping_add(7)] {
+        if translate_address(byte as i32, false, false, false).is_err() {
+            return false;
+        }
+    }
+    let Ok(Ok((mut descriptor, descriptor_address))) = lookup_segment_selector(selector)
+    else {
+        return false;
+    };
+    if descriptor.is_system()
+        || !descriptor.is_readable()
+        || (!descriptor.is_conforming_executable()
+            && (selector.rpl() > descriptor.dpl() || *cpl > descriptor.dpl()))
+        || !descriptor.is_present()
+    {
+        return false;
+    }
+    if reg == DS
+        && keep_flat
+        && flat
+            != (*segment_offsets.offset(SS as isize) == 0
+                && descriptor.base() as u32 == 0
+                && *segment_offsets.offset(CS as isize) == 0)
+    {
+        return false;
+    }
+    if !descriptor.accessed() {
+        let Ok(physical) = translate_address(descriptor_address as i32 + 5, true, false, false)
+        else {
+            return false;
+        };
+        if crate::jit::jit_page_has_code(crate::page::Page::page_of(physical))
+            || memory::may_interrupt(physical)
+        {
+            return false;
+        }
+        descriptor = descriptor.set_accessed();
+        if write_descriptor_access_byte(descriptor_address, descriptor.access_byte()).is_err() {
+            dbg_assert!(false, "a translated accessed-bit write faulted");
+            return false;
+        }
+    }
+    *segment_is_null.offset(reg as isize) = false;
+    *segment_limits.offset(reg as isize) = descriptor.effective_limit();
+    crate::x64::state::write_segment_base(reg as usize, descriptor.base() as u32 as u64);
+    *segment_access_bytes.offset(reg as isize) = descriptor.access_byte();
+    *sreg.offset(reg as isize) = selector_raw as u16;
+    update_state_flags();
+    true
+}
+
 pub unsafe fn load_tr(selector: i32) { let _ = load_tr_checked(selector); }
 
 // Explicit read-fault status for terminal IR callers. load_tr keeps
@@ -3103,6 +3211,9 @@ pub unsafe fn set_cr0(cr0: i32) -> bool {
     if (cr0 & (CR0_PE | CR0_PG)) == CR0_PG {
         trigger_gp(0);
         return false;
+    }
+    if (old_cr0 ^ cr0) & CR0_TS != 0 {
+        crate::step_profile::note_event(crate::step_profile::event::CR0_TS, 0);
     }
 
     *cr = cr0;
@@ -3328,7 +3439,7 @@ pub unsafe fn run_instruction(opcode: i32) {
 pub unsafe fn run_instruction0f_16(opcode: i32) { gen::interpreter0f::run(opcode as u32) }
 pub unsafe fn run_instruction0f_32(opcode: i32) { gen::interpreter0f::run(opcode as u32 | 0x100) }
 
-/// Instructions run by the interpreter loop (not Tier-0 steps), in total and
+/// Instructions run by the interpreter loop (not page tier steps), in total and
 /// by linear page in a small direct-mapped table: where compiled code is
 /// missing (diagnostics; see ir_interpreted_stat).
 static mut INTERPRETED: u32 = 0;
@@ -3396,72 +3507,50 @@ pub unsafe fn ir_interpreted_stat(field: u32, index: u32) -> u32 {
 
 pub unsafe fn cycle_internal() -> bool {
     if crate::x64::state::mode().is_long() {
-        if !crate::ir::runtime::schedule::enabled() {
+        if !crate::jit::enabled() {
+            let span = crate::cpu::execution::ledger_begin();
             run_long_instruction();
+            crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
             return false;
         }
         let attempt = crate::x64::pages::run(4096);
         if attempt.retired == 0 {
+            let span = crate::cpu::execution::ledger_begin();
             run_long_instruction();
+            crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
+        }
+        return attempt.submitted;
+    }
+    // 32-bit compatibility-mode code in the x64 page tier (x64_page_compat32,
+    // docs/jit-unification-plan.md P7.2) and legacy protected-mode code
+    // (x64_page_legacy32, P7.3)
+    if crate::x64::pages::page32()
+        && crate::jit::enabled()
+        && !crate::cpu::execution::is_deterministic()
+        && crate::x64::pages::runnable32()
+    {
+        // (to the end of the batch, as IR Tier-0's functions ran: a return to
+        // this loop every 4096 instructions cost 531.bitboard 4%)
+        let ran = (*instruction_counter).wrapping_sub(jit_link_batch_start);
+        let attempt = crate::x64::pages::run(jit_link_batch_limit.saturating_sub(ran).max(1));
+        if attempt.retired == 0 {
+            let span = crate::cpu::execution::ledger_begin();
+            run_compat_instruction();
+            crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
         }
         return attempt.submitted;
     }
     profiler::stat_increment(stat::CYCLE_INTERNAL);
-    // Compatibility mode compiles like legacy protected mode (see run_cpu_slice)
-    let wide = crate::x64::state::efer() & crate::x64::state::EFER_LMA != 0 && !X64_COMPAT_JIT;
-    let submitted = if wide {
-        false
-    }
-    else {
-        if crate::ir::runtime::diagnostics::enabled() {
-            let _scope = crate::ir::runtime::diagnostics::Scope::new(
-                crate::ir::runtime::diagnostics::Stage::Scheduler,
-            );
-            crate::ir::runtime::schedule::visit()
-        }
-        else {
-            crate::ir::runtime::schedule::visit()
-        }
-    };
-    // Installation runs in a host Promise continuation, never on this CPU
-    // stack. Avoid interpreting a full batch before that continuation can
-    // run. This is an edge (new submission), not the level "pending != 0".
-    if submitted {
-        return true;
-    }
-    let native_before = *instruction_counter;
-    let interpreted_before = crate::cpu::execution::jit_dispatches();
-    if !wide && crate::ir::runtime::cache::execute() {
-        crate::cpu::execution::note_native_retired(
-            (*instruction_counter).wrapping_sub(native_before),
-            interpreted_before,
-        );
-        return false;
-    }
-    // The interpreter can call devices and mutate raw RAM.
-    crate::ir::runtime::entry::ir_admission_barrier();
     let initial_eip = *instruction_pointer;
-    let ir_entry = crate::ir::runtime::live::entry();
-    let ir_heat = *prefixes == 0 && !*in_hlt;
-
     *previous_ip = initial_eip;
     let phys_addr = return_on_pagefault!(get_phys_eip(), false);
 
     let initial_instruction_counter = *instruction_counter;
     let performance_sample =
         profiler::performance_chunk_start(false, initial_eip as u32, *cr.offset(3) as u32, *cpl);
-    if crate::ir::runtime::diagnostics::enabled() {
-        jit_run_interpreted_diagnostic(phys_addr);
-    }
-    else {
-        jit_run_interpreted(phys_addr, u32::MAX);
-    }
-    if ir_heat {
-        crate::ir::runtime::schedule::note_interpreted(
-            ir_entry,
-            (*instruction_counter).wrapping_sub(initial_instruction_counter),
-        );
-    }
+    let span = crate::cpu::execution::ledger_begin();
+    jit_run_interpreted(phys_addr, u32::MAX);
+    crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
     note_interpreted_page(
         initial_eip as u32,
         (*instruction_counter).wrapping_sub(initial_instruction_counter),
@@ -3609,20 +3698,6 @@ pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
     return Ok(phys_addr);
 }
 
-#[inline(never)]
-unsafe fn jit_run_interpreted_diagnostic(phys_addr: u32) {
-    let before = *instruction_counter;
-    let pc = *instruction_pointer as u32;
-    let cr3 = *cr.offset(3) as u32;
-    let scope = crate::ir::runtime::diagnostics::Scope::new(
-        crate::ir::runtime::diagnostics::Stage::Interpreter,
-    );
-    jit_run_interpreted(phys_addr, u32::MAX);
-    let count = (*instruction_counter).wrapping_sub(before);
-    crate::ir::runtime::diagnostics::interpreter_steps(count);
-    crate::ir::runtime::diagnostics::interpreter(pc, cr3, phys_addr, count, scope.finish());
-}
-
 /// Diagnostics (off by default): the last interpreted instructions as
 /// (EIP, ESP, CR3, EAX, EBX, EDX), for debugging guests that jump into
 /// garbage. Debug builds only; compiled code is not traced (use disable_jit).
@@ -3663,14 +3738,28 @@ pub unsafe fn instruction_trace_get(index: u32, field: u32) -> u32 {
         [field as usize]
 }
 
+/// The x64 page tier's misses in 16-bit code (pages::miss_run,
+/// docs/jit-unification-plan.md P7.8): a basic block in the interpreter, as
+/// code without compiled code runs; the instructions it retired (0 when the
+/// fetch faulted, the fault delivered)
+pub unsafe fn run_interpreted_block(budget: u32) -> u32 {
+    let before = *instruction_counter;
+    // (a fault restores EIP from here; jit_run_interpreted sets it between
+    // instructions)
+    *previous_ip = *instruction_pointer;
+    if let Ok(phys_addr) = get_phys_eip() {
+        jit_run_interpreted(phys_addr, budget);
+    }
+    (*instruction_counter).wrapping_sub(before)
+}
+
 unsafe fn jit_run_interpreted(mut phys_addr: u32, budget: u32) {
     profiler::stat_increment(stat::RUN_INTERPRETED);
 
     jit_block_boundary = false;
-    // IR hotness is collected at outer dispatch. A same-page interpreted loop
-    // must expose its backedge before the 100,001-instruction limit, or an
-    // already hot/published side entry can remain invisible to IR selection.
-    let ir_dispatch = crate::ir::runtime::schedule::enabled();
+    // (the page tier gathers heat at outer dispatch: a same-page interpreted
+    // loop returns at its back edge, or after 64 instructions)
+    let ir_dispatch = crate::jit::enabled();
     let before = *instruction_counter;
     let mut i = 0;
 
@@ -3765,9 +3854,55 @@ pub unsafe fn run_long_instruction() {
     handle_irqs();
 }
 
-/// Shared compilation budget, replenished once per machine scheduling round.
-#[no_mangle]
-pub fn begin_cpu_frame(now: f64) { crate::ir::runtime::schedule::begin_frame(now); }
+/// One instruction of 32-bit compatibility-mode code in the 32-bit
+/// interpreter, with run_long_instruction's bookkeeping: the x64 page tier's
+/// steps, retries and misses in compatibility mode (x64_page_compat32,
+/// docs/jit-unification-plan.md P7.2, and in legacy mode, P7.3). A fetch
+/// fault is delivered and, as in the 32-bit interpreter loop
+/// (cycle_internal), not counted (cross-phase rule 3).
+pub unsafe fn run_compat_instruction() {
+    let (shadow, interrupts) = (*interrupt_shadow, *flags & FLAG_INTERRUPT);
+    *previous_ip = *instruction_pointer;
+    crate::cpu::execution::begin_instruction();
+    crate::cpu::execution::set_irq_deferral(true);
+    let fetched = get_phys_eip();
+    if let Ok(phys_addr) = fetched {
+        // (as jit_run_interpreted fetches with EFER.LMA)
+        let opcode = if memory::in_mapped_range(phys_addr)
+            && crate::x64::extended::aperture::contains(phys_addr)
+        {
+            memory::fetch8(phys_addr)
+        }
+        else {
+            *memory::mem8.offset(phys_addr as isize) as i32
+        };
+        *instruction_pointer += 1;
+        run_instruction(opcode | (*is_32 as i32) << 8);
+    }
+    crate::cpu::execution::set_irq_deferral(false);
+    crate::cpu::execution::finish_instruction();
+    *instruction_counter = (*instruction_counter).wrapping_add(fetched.is_ok() as u32);
+    if *interrupt_shadow != 0 {
+        *interrupt_shadow -= 1;
+    }
+    // Only where an interrupt can have become deliverable (P7.3: a poll
+    // after each of the page tier's interpreted instructions cost an XP boot
+    // 2%): a shadow ended, IF set, handle_irqs called while held (a device
+    // raised one; the APIC, IOAPIC, POPF, IRET and STI call it), the PIC's
+    // registers written (an EOI or unmask), events of other cores, NMI, SMI.
+    // Nothing else makes one deliverable between instructions: timers raise
+    // theirs at main-loop boundaries, which look.
+    if shadow != 0
+        || *flags & FLAG_INTERRUPT & !interrupts != 0
+        || crate::cpu::execution::irq_check_owed()
+        || pic::take_port_written()
+        || apic::has_core_events()
+        || *acpi_enabled && apic::nmi_pending()
+        || crate::cpu::smm::smi_deliverable()
+    {
+        handle_irqs();
+    }
+}
 
 /// The cooperative scheduler's interpreter slice. Device clocks are serviced once by
 /// the machine scheduler, outside this entry. Yield only after a complete
@@ -3777,14 +3912,15 @@ pub fn begin_cpu_frame(now: f64) { crate::ir::runtime::schedule::begin_frame(now
 pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
     core_yield = false;
     crate::parallel::sync_worker_configuration();
-    crate::ir::runtime::entry::ir_admission_barrier();
     handle_irqs();
     let before = *instruction_counter;
     let mut remaining = budget;
     jit_link_batch_start = before;
     jit_link_batch_limit = budget;
     jit_link_batch = true;
-    let native = crate::ir::runtime::schedule::enabled();
+    let native = crate::jit::enabled();
+    // (P7.2, P7.3: a switch hands 32-bit code to the page tier)
+    let page32 = native && crate::x64::pages::page32();
     while remaining != 0 && !*in_hlt && !core_yield {
         // (as in do_many_cycles_native: extended RAM frames held by access
         // caches are released between entries)
@@ -3805,7 +3941,9 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
                 }
             };
             if attempt.retired == 0 {
+                let span = crate::cpu::execution::ledger_begin();
                 run_long_instruction();
+                crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
             }
             remaining = remaining.saturating_sub(attempt.retired.max(1));
             if attempt.submitted {
@@ -3813,34 +3951,26 @@ pub unsafe fn run_cpu_slice(budget: u32) -> u32 {
             }
             continue;
         }
-        // Legacy modes and IA-32e compatibility mode (32-bit code under a
-        // 64-bit OS): the IR reads 4-level translations through the 32-bit
-        // TLB that fill_ia32e_tlb keeps (x64 memory::translate_user)
-        if !crate::cpu::execution::is_deterministic()
-            && (crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 || X64_COMPAT_JIT)
-            && crate::ir::runtime::schedule::enabled()
-        {
-            if crate::ir::runtime::schedule::visit() {
+        // 32-bit compatibility-mode code in the x64 page tier
+        // (x64_page_compat32, docs/jit-unification-plan.md P7.2), and legacy
+        // protected-mode code (x64_page_legacy32, P7.3)
+        if page32 && !crate::cpu::execution::is_deterministic() && crate::x64::pages::runnable32() {
+            let attempt = crate::x64::pages::run(remaining);
+            if attempt.retired == 0 {
+                let span = crate::cpu::execution::ledger_begin();
+                run_compat_instruction();
+                crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
+            }
+            remaining = remaining.saturating_sub(attempt.retired.max(1));
+            if attempt.submitted {
                 break;
             }
-            let interpreted_before = crate::cpu::execution::jit_dispatches();
-            if crate::ir::runtime::cache::execute() {
-                crate::cpu::execution::note_native_retired(
-                    (*instruction_counter).wrapping_sub(count),
-                    interpreted_before,
-                );
-                remaining =
-                    remaining.saturating_sub((*instruction_counter).wrapping_sub(count).max(1));
-                continue;
-            }
+            continue;
         }
-        let entry = crate::ir::runtime::live::entry();
         if let Ok(phys_addr) = get_phys_eip() {
+            let span = crate::cpu::execution::ledger_begin();
             jit_run_interpreted(phys_addr, remaining);
-            crate::ir::runtime::schedule::note_interpreted(
-                entry,
-                (*instruction_counter).wrapping_sub(count),
-            );
+            crate::cpu::execution::ledger_end(span, crate::cpu::execution::Way::Interpreted);
         }
         remaining = remaining.saturating_sub((*instruction_counter).wrapping_sub(count).max(1));
         if apic::has_core_events() {
@@ -3893,7 +4023,6 @@ pub unsafe fn main_loop() -> f64 {
     profiler::stat_increment(stat::MAIN_LOOP);
 
     let start = js::microtick();
-    crate::ir::runtime::schedule::begin_frame(start);
 
     if *in_hlt {
         profiler::performance_execution_add(4, 1.0);
@@ -3907,7 +4036,6 @@ pub unsafe fn main_loop() -> f64 {
             profiler::performance_timer_finish(performance_start, 1);
             if *in_hlt {
                 profiler::stat_increment(stat::MAIN_LOOP_IDLE);
-                let t = t - crate::ir::runtime::schedule::idle((t - 0.25).min(8.0));
                 return profiler::performance_main_loop_exit(t.max(0.0), true);
             }
         }
@@ -3930,7 +4058,6 @@ pub unsafe fn main_loop() -> f64 {
         handle_irqs();
         profiler::performance_timer_finish(performance_start, 1);
         if *in_hlt {
-            let t = t - crate::ir::runtime::schedule::idle((t - 0.25).min(8.0));
             return profiler::performance_main_loop_exit(t.max(0.0), true);
         }
         if core_yield {
@@ -3963,9 +4090,7 @@ pub unsafe fn ir_link_budget_available() -> bool {
 
 pub unsafe fn do_many_cycles_native() -> bool {
     let mut publication_yield = false;
-    let diagnostic_start = crate::ir::runtime::diagnostics::batch_start();
     profiler::stat_increment(stat::DO_MANY_CYCLES);
-    crate::ir::runtime::entry::ir_admission_barrier();
     let initial_instruction_counter = *instruction_counter;
     jit_link_batch_start = initial_instruction_counter;
     jit_link_batch_limit = LOOP_COUNTER as u32;
@@ -3987,7 +4112,6 @@ pub unsafe fn do_many_cycles_native() -> bool {
         }
     }
     jit_link_batch = false;
-    crate::ir::runtime::diagnostics::batch_end(diagnostic_start);
     publication_yield
 }
 
@@ -4251,7 +4375,7 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 1);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4279,7 +4403,7 @@ pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 2);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4310,7 +4434,7 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 4);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4340,7 +4464,7 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(Page::page_of(phys_addr));
+                jit::jit_dirty_bytes(phys_addr, 8);
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4367,7 +4491,7 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         }
         else {
             if !can_skip_dirty_page {
-                jit::jit_dirty_page(Page::page_of(phys_addr));
+                jit::jit_dirty_bytes(phys_addr, 16);
             }
             else {
                 dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4402,7 +4526,7 @@ unsafe fn wide_read_write(
 #[inline(always)]
 unsafe fn read_write_ram(phys_addr: u32, bytes: u32, instruction: &dyn Fn(i32) -> i32) {
     #[cfg(feature = "parallel")]
-    let saved = crate::parallel::Registers::save();
+    let saved = crate::cpu::isa_hooks::Registers::save();
     loop {
         let x = match bytes {
             1 => memory::read8_no_mmap_check(phys_addr),
@@ -4446,7 +4570,7 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 1);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4489,7 +4613,7 @@ pub unsafe fn safe_read_write16_checked(
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 2);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4527,7 +4651,7 @@ pub unsafe fn safe_read_write32(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     }
     else {
         if !can_skip_dirty_page {
-            jit::jit_dirty_page(Page::page_of(phys_addr));
+            jit::jit_dirty_bytes(phys_addr, 4);
         }
         else {
             dbg_assert!(!jit::jit_page_has_code(Page::page_of(phys_addr as u32)));
@@ -4768,6 +4892,10 @@ pub unsafe fn invlpg(addr: i32) {
     // This however means that valid_tlb_entries can contain some invalid entries
     tlb_data[page as usize] = 0;
     *last_virt_eip = -1;
+    // (P7.1: the page tier's code translation of the page, if any)
+    if crate::x64::state::efer() & crate::x64::state::EFER_LMA == 0 {
+        crate::x64::pages::forget_code_page(crate::cpu::apic::current_core(), addr as u32 as u64);
+    }
 }
 
 #[no_mangle]
@@ -4875,9 +5003,14 @@ pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
 
 #[no_mangle]
 pub unsafe fn handle_irqs() {
-    if crate::cpu::exceptions::delivering() || crate::cpu::execution::irqs_deferred() {
+    if crate::cpu::execution::irqs_deferred() {
+        crate::cpu::execution::note_held_irq();
         return;
     }
+    if crate::cpu::exceptions::delivering() {
+        return;
+    }
+    crate::cpu::execution::held_irqs_served();
     let core = apic::current_core() as u32;
     let shutdown = crate::cpu::exceptions::exception_shutdown(core);
     if shutdown == 2 {
@@ -4910,6 +5043,18 @@ pub unsafe fn handle_irqs() {
             }
         }
     }
+}
+
+/// Whether handle_irqs would deliver an interrupt now, without its effects
+/// (nothing is acknowledged)
+pub unsafe fn irq_deliverable() -> bool {
+    if crate::cpu::smm::smi_deliverable() || *acpi_enabled && !*nmi_blocked && apic::nmi_pending() {
+        return true;
+    }
+    *flags & FLAG_INTERRUPT != 0
+        && *interrupt_shadow == 0
+        && (apic::routed_pic_pending(apic::current_core() as u32)
+            || *acpi_enabled && apic::has_pending_irq())
 }
 
 unsafe fn pic_call_irq(interrupt_nr: u8) {

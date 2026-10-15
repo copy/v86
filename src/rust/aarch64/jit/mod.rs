@@ -1,0 +1,146 @@
+//! The A64 page tier (docs/jit-unification-plan.md P6, J2;
+//! docs/arm64-virt-android16-plan.md P6): the runtime client (pages) and the
+//! code generator (pagegen), the ARM core's composition of jitrt (with
+//! crate::aarch64::root) and its switches (P6.0):
+//!
+//! - a64_page: compiled code runs (default off until its F gate)
+//! - a64_page_hot: interpreted instructions on a page before it is compiled
+//! - a64_neon: the AdvSIMD templates (P6.3b)
+//! - a64_asid_tag: the ASID in the access cache's tags (P6.4: an epoch per
+//!   ASID; off, the default: an ASID switch flushes the non-global entries)
+//! - a64_helpers: helper calls for the forms pagegen::helper takes (off:
+//!   single steps)
+//! - a64_relaxed_fma: the multiply-adds through relaxed SIMD (only where the
+//!   host fuses them; its default is the host's probe)
+//!
+//! jitrt and pagegen never name this module (tools/check_a64_imports.mjs,
+//! tools/check_x86tpl_imports.mjs).
+
+pub mod pagegen;
+pub mod pages;
+
+/// AdvSIMD templates
+pub static mut NEON: bool = true;
+/// Helper calls instead of single steps for the forms pagegen::helper takes
+pub static mut HELPERS: bool = true;
+/// The multiply-adds through relaxed SIMD (a64_relaxed_fma): only where the
+/// host fuses them (a64_page_set_relaxed_fma_fused, the host's probe)
+pub static mut RELAXED_FMA: bool = false;
+static mut FMA_FUSED: bool = false;
+#[no_mangle]
+pub fn a64_page_set_relaxed_fma_fused(fused: bool) {
+    unsafe {
+        FMA_FUSED = fused;
+        RELAXED_FMA = fused;
+    }
+}
+/// The ASID in the access cache's tags (P6.4: an epoch per ASID,
+/// pages::bind_asid; off, an ASID switch drops the non-global entries;
+/// default off until the ARM plan's P9.3 measures it)
+pub static mut ASID_TAG: bool = false;
+
+// ---- the switch registry: the x86 core's interface (src/rust/jit_switches.rs,
+// src/jit_switches.js), so the V86 option jit_switches and tests' JIT_SWITCHES
+// set them by name
+
+struct Switch {
+    name: &'static str,
+    default: u32,
+    get: fn() -> u32,
+    /// false: the value is refused
+    set: fn(u32) -> bool,
+}
+const UNSET: u32 = u32::MAX;
+const SWITCHES: [Switch; 6] = [
+    Switch {
+        name: "a64_page",
+        default: 0,
+        get: || unsafe { pages::ENABLED as u32 },
+        set: |v| v <= 1 && unsafe { pages::ENABLED = v != 0 } == (),
+    },
+    Switch {
+        name: "a64_page_hot",
+        default: 2000,
+        get: || unsafe { pages::HOT },
+        set: |v| v >= 1 && unsafe { pages::HOT = v } == (),
+    },
+    Switch {
+        name: "a64_neon",
+        default: 1,
+        get: || unsafe { NEON as u32 },
+        set: |v| v <= 1 && unsafe { NEON = v != 0 } == (),
+    },
+    Switch {
+        name: "a64_helpers",
+        default: 1,
+        get: || unsafe { HELPERS as u32 },
+        set: |v| v <= 1 && unsafe { HELPERS = v != 0 } == (),
+    },
+    Switch {
+        name: "a64_relaxed_fma",
+        default: 0,
+        get: || unsafe { RELAXED_FMA as u32 },
+        // (on only where the host fuses them)
+        set: |v| {
+            v <= 1 && (v == 0 || unsafe { FMA_FUSED }) && unsafe { RELAXED_FMA = v != 0 } == ()
+        },
+    },
+    Switch {
+        name: "a64_asid_tag",
+        default: 0,
+        get: || unsafe { ASID_TAG as u32 },
+        set: |v| v <= 1 && pages::set_asid_tag(v != 0) == (),
+    },
+];
+static mut EXPLICIT: [u32; SWITCHES.len()] = [UNSET; SWITCHES.len()];
+static mut NAMES: Option<String> = None;
+
+#[no_mangle]
+pub fn jit_switch_count() -> u32 { SWITCHES.len() as u32 }
+#[no_mangle]
+pub fn jit_switch(id: u32) -> u32 { SWITCHES.get(id as usize).map_or(UNSET, |s| (s.get)()) }
+#[no_mangle]
+pub fn jit_set_switch(id: u32, value: u32) -> bool {
+    let Some(s) = SWITCHES.get(id as usize)
+    else {
+        return false;
+    };
+    if value == UNSET || !(s.set)(value) {
+        return false;
+    }
+    unsafe { EXPLICIT[id as usize] = value };
+    true
+}
+#[no_mangle]
+pub fn jit_switch_explicit(id: u32) -> u32 {
+    unsafe {
+        (*(&raw const EXPLICIT))
+            .get(id as usize)
+            .copied()
+            .unwrap_or(UNSET)
+    }
+}
+/// The address of a text: 0, the switches ("name default\n" by id); 1, the
+/// build-time defaults (none in the ARM core)
+#[no_mangle]
+pub fn jit_switch_text(which: u32) -> u32 { text(which).as_ptr() as u32 }
+#[no_mangle]
+pub fn jit_switch_text_length(which: u32) -> u32 { text(which).len() as u32 }
+fn text(which: u32) -> &'static str {
+    if which == 1 {
+        return "";
+    }
+    unsafe {
+        (*(&raw mut NAMES)).get_or_insert_with(|| {
+            SWITCHES
+                .iter()
+                .map(|s| format!("{} {}\n", s.name, s.default))
+                .collect()
+        })
+    }
+}
+
+/// The page tier's functions return the instructions they retired (the
+/// table's Fn1Ret: called by index)
+#[no_mangle]
+pub fn call_indirect1_ret(f: fn(u16) -> i32, x: u16) -> i32 { f(x) }

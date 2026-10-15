@@ -132,7 +132,6 @@ pub unsafe fn sync_worker() {
         memory::ram_fast_limit = *crate::parallel::machine(&raw mut memory::ram_fast_limit);
         crate::x64::physical::copy_from_machine();
         crate::cpu::context::invalidate_all_tlbs();
-        crate::ir::runtime::entry::ir_admission_barrier();
     }
 }
 
@@ -410,7 +409,6 @@ unsafe fn entered_mode() {
     crate::parallel::code::poll();
     full_clear_tlb();
     crate::x64::memory::invalidate_core(apic::current_core());
-    crate::ir::runtime::entry::ir_admission_barrier();
     update_state_flags();
     cpl_changed();
 }

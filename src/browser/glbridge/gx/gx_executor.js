@@ -61,7 +61,7 @@
     };
 
     const SVGA3D_BUFFER = 37;
-    const SVGA3D_R16_UINT = 89, SVGA3D_R32_UINT = 77;
+    const SVGA3D_R16_UINT = 89, SVGA3D_R32_UINT = 77, SVGA3D_R8G8B8A8_UNORM = 0x44;
     // depth formats whose guest layout differs: D3D9's 32-bit integer depth, and depth in the high 24 bits
     const SVGA3D_Z_D32 = 7, SVGA3D_Z_D24S8 = 9, SVGA3D_Z_D24X8 = 0x26, SVGA3D_Z_DF24 = 0x77, SVGA3D_Z_D24S8_INT = 0x78;
     const SURFACE_CUBEMAP = 1, SURFACE_VOLUME = 0x8000;
@@ -1493,11 +1493,13 @@ struct Out { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32> 
             this.scratchTargets = this.scratchTargets || new Map();
             let S = this.scratchTargets.get(key);
             if (!S) {
-                const texture = this.device.createTexture({ size: [width, height, 1], format: "rgba8unorm", usage: TEXTURE_USAGE.RENDER_ATTACHMENT });
-                S = { sid: "scratch:" + key, generation: 0, texture, views: new Map(), layers: 1, gpuMips: 1, volume: false, ss: [1, 1] };
+                // (f: what a surface of R8G8B8A8_UNORM has, which attachmentView's textureFor reads)
+                const f = this.formatOf(SVGA3D_R8G8B8A8_UNORM);
+                const texture = this.device.createTexture({ size: [width, height, 1], format: f.gpu, usage: TEXTURE_USAGE.RENDER_ATTACHMENT });
+                S = { sid: "scratch:" + key, f, generation: 0, texture, views: new Map(), layers: 1, gpuMips: 1, volume: false, ss: [1, 1] };
                 this.scratchTargets.set(key, S);
             }
-            const colors = [{ S, view: { mip: 0, first: 0 }, format: "rgba8unorm", x: false, scratch: true }];
+            const colors = [{ S, view: { mip: 0, first: 0 }, format: S.f.gpu, x: false, scratch: true }];
             return { colors, targets: {}, width, height, samples: 1, ss: [1, 1], DS: null, dsView: null, depthFormat: null };
         }
 

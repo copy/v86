@@ -47,10 +47,8 @@ import { PerformanceRecorder } from "../../src/browser/performance_recorder.js";
     check(report.samples.length >= 2, "records bounded timeline samples");
     check(cpu.main_loop === originalLoop && disk.get === originalGet, "stop restores hot-path methods");
 
-    // Interpreter-only: pause IR scheduling and drop compiled code.
-    const budget = emulator.get_jit_info().ir_region_budget;
-    const configure = (enabled, execution_budget = budget.execution_budget) => check(cpu.wm.exports.ir_auto_config(enabled,
-        budget.hot_threshold, budget.promotion_threshold, budget.max_source_bytes, execution_budget, budget.rep_iterations), "reconfigure IR");
+    // Interpreter-only: disable the JIT and drop compiled code.
+    const configure = enabled => check(cpu.wm.exports.jit_set_enabled(enabled), "reconfigure the JIT");
     configure(0);
     cpu.jit_clear_cache();
     recorder.start();
@@ -84,10 +82,9 @@ import { PerformanceRecorder } from "../../src/browser/performance_recorder.js";
         overhead.push({ enabled, steps_per_ms: steps / ms });
     }
 
-    // A 4-unit region execution budget returns to the dispatcher every few
-    // instructions. This exercises millions of dispatcher calls, unlike the
-    // long compiled loop above.
-    configure(1, 4);
+    // A short loop with port I/O (OUT every iteration), unlike the long
+    // compiled loop above. (Until M11 of docs/jit-unification-plan.md a
+    // 4-unit region execution budget returned to the dispatcher here.)
     cpu.jit_clear_cache();
     emulator.write_memory(new Uint8Array([0xfa, 0x40, 0xe6, 0x80, 0xeb, 0xfb]), 0xf0300);
     cpu.instruction_pointer[0] = 0xf0300;

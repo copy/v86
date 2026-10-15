@@ -52,8 +52,7 @@ const LEVELS = {
     // "x86-64-v2"): every engine against SDM models, QEMU and gdb references
     "R-SSE4": [
         ["platform-contract-tests"], ["ssse3-tests"], ["sse4-tests"], ["sse3-tests"], ["sse-fp-tests"], ["sse-fault-tests"],
-        ["packed-simd-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["ir-sse-fp-tests"], ["ir-crc32-tests"],
-        ["ir-simd-integer-tests"], ["ir-simd-shuffle-tests"], ["nasmtests", true], ["nasmtests-force-jit", true],
+        ["packed-simd-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["nasmtests", true], ["nasmtests-force-jit", true],
     ],
     // XSAVE with the x87 and SSE state (docs/simd-xsave-plan.md M2:
     // cpu_features "XSAVE"): the codec, XSETBV/XGETBV, the state's lifecycle
@@ -63,10 +62,10 @@ const LEVELS = {
     ],
     // AVX, VEX.128 and VEX.256 (docs/simd-xsave-plan.md M3: cpu_features
     // "XSAVE" and "AVX"): every engine against SDM models and QEMU, the
-    // region tiers against the interpreter, the YMM state
+    // YMM state
     "R-AVX": [
         ["platform-contract-tests"], ["xsave-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"],
-        ["ir-avx-tests"], ["x64-differential-tests"], ["x64-page-tier-tests"], ["avx-tests", true],
+        ["x64-differential-tests"], ["x64-page-tier-tests"], ["avx-tests", true],
     ],
     // x86-64-v3 (docs/simd-xsave-plan.md M4: cpu_features "x86-64-v3" with
     // cpu_type "x86_64"; the 32-bit profile has its features but LZCNT):
@@ -74,19 +73,63 @@ const LEVELS = {
     // every engine against SDM models and QEMU; glibc's x86-64-v3 code and
     // the YMM state in a real guest
     "R-x86-64-v3": [
-        ["platform-contract-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"], ["ir-avx-tests"],
-        ["ir-bmi-tests"], ["x64-differential-tests"], ["x64-page-tier-tests"], ["bmi-tests"], ["fma-tests"],
+        ["platform-contract-tests"], ["decode-rules-tests"], ["x64-decode-tests"], ["isa-forms-check"],
+        ["x64-differential-tests"], ["x64-page-tier-tests"], ["bmi-tests"], ["fma-tests"],
         ["avx-tests", true], ["x64-glibc-tests", true],
     ],
     // the XSAVE family (M5: XSAVEOPT, XGETBV(1), XSAVEC, XSAVES and
     // IA32_XSS): formats, the init and modified optimizations, the kernel's
     // compacted format in a real guest
     "R-XSAVE-ext": [
-        ["platform-contract-tests"], ["xsave-tests"], ["ir-fp-state-tests"], ["kvm-unit-test-xsave"], ["x64-glibc-tests", true],
+        ["platform-contract-tests"], ["xsave-tests"], ["kvm-unit-test-xsave"], ["x64-glibc-tests", true],
     ],
     // machine_type "q35": chipset, ACPI tables, AHCI (docs/q35.md, docs/ahci.md)
     "R-q35": [
         ["acpi-table-tests"], ["q35-device-tests"], ["q35-guest-tests", true], ["q35-hotplug-tests", true],
+    ],
+    // the JIT's and the decoder's tests outside the x64 targets
+    // (docs/jit-unification-plan.md P0.9; R-IR until M11 deleted the region
+    // tiers, whose tests .github/workflows/ir-core.yml still names)
+    "R-JIT": [
+        ["jit-core-tests"],
+    ],
+    // AArch64 (docs/arm64-virt-android16-plan.md, release levels): a target
+    // without tests yet prints A64_PENDING and is reported as pending
+    "R-a64-isa": [
+        ["a64-decode-tests"], ["a64-isa-tests"], ["a64-trace-tests"], ["a64-portable-tests"],
+    ],
+    "R-a64-sys": [
+        ["a64-system-tests"], ["a64-mmu-tests"], ["a64-kvm-unit-tests"], ["a64-litmus-tests"],
+    ],
+    "R-a64-virt": [
+        ["a64-virt-device-tests"], ["a64-api-tests"],
+    ],
+    "R-a64-UP": [
+        ["a64-guest-quick-tests"], ["a64-guest-tests", true], ["a64-lifecycle-guest-tests", true],
+    ],
+    "R-a64-SMP": [
+        ["a64-multicore-guest-tests", true],
+    ],
+    "R-a64-jit": [
+        ["a64-page-tier-tests"], ["a64-jit-guest-tests", true],
+    ],
+    "R-a64-gpu": [
+        ["a64-gpu-guest-tests", true],
+    ],
+    "R-a64-parallel": [
+        ["a64-parallel-tests"], ["a64-parallel-guest-tests", true], ["a64-browser-tests"],
+    ],
+    "R-a64-memory": [
+        ["a64-extended-guest-tests", true],
+    ],
+    "R-a64-granule": [
+        ["a64-pagesize-guest-tests", true],
+    ],
+    "R-a64-android-prep": [
+        ["a64-android-prep-tests", true],
+    ],
+    "R-android": [
+        ["android-reference-tests"], ["android-guest-tests", true],
     ],
 };
 
@@ -118,6 +161,7 @@ const environment = {
     nasm: run_text("nasm", ["-v"]),
     clang: run_text("clang", ["--version"])?.split("\n")[0] || null,
     qemu: run_text("qemu-system-x86_64", ["--version"])?.split("\n")[0] || null,
+    qemu_aarch64: run_text(process.env.A64_QEMU || path.join(root, "build/a64-ref/qemu-9.2.0-install/bin/qemu-system-aarch64"), ["--version"])?.split("\n")[0] || null,
     host: { platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model, cores: os.cpus().length,
         memory_gb: Math.round(os.totalmem() / 2 ** 30) },
     levels, quick,
@@ -136,7 +180,8 @@ function make(target)
         child.on("close", code => {
             fs.closeSync(log);
             const text = fs.readFileSync(path.join(directory, target + ".log"), "utf8");
-            resolve({ code, seconds: Math.round((Date.now() - started) / 1000), tail: text.split("\n").slice(-6).join("\n") });
+            resolve({ code, seconds: Math.round((Date.now() - started) / 1000), tail: text.split("\n").slice(-6).join("\n"),
+                pending: /^A64_PENDING /m.test(text) });
         });
     });
 }
@@ -157,8 +202,8 @@ for(const level of levels)
             continue;
         }
         process.stdout.write(`${level} ${target} ... `);
-        const { code, seconds, tail } = await make(target);
-        const status = code === 0 ? "pass" : "FAIL";
+        const { code, seconds, tail, pending } = await make(target);
+        const status = code !== 0 ? "FAIL" : pending ? "pending" : "pass";
         console.log(`${status} (${seconds} s)`);
         results.push({ level, target, status, seconds, log: target + ".log", tail });
         if(code !== 0) failed = true;
@@ -168,14 +213,14 @@ for(const level of levels)
 const summary = Object.fromEntries(levels.map(level => {
     const rows = results.filter(r => r.level === level);
     const verdict = rows.every(r => r.status === "pass") ? "pass" :
-        rows.some(r => r.status === "FAIL") ? "FAIL" : "incomplete";
+        rows.some(r => r.status === "FAIL") ? "FAIL" : rows.some(r => r.status === "pending") ? "pending" : "incomplete";
     return [level, verdict];
 }));
 fs.writeFileSync(path.join(directory, "report.json"), JSON.stringify({ environment, summary, results }, null, 2));
 const md = [
     `# Release gate ${environment.time}`, "",
     `commit \`${environment.commit}\`, ${environment.uncommitted.length} uncommitted file(s) (${environment.diff_stat || "no diff"})`, "",
-    `Node ${environment.node}; ${environment.rustc}; ${environment.java}; ${environment.nasm}; ${environment.clang}; ${environment.qemu}`, "",
+    `Node ${environment.node}; ${environment.rustc}; ${environment.java}; ${environment.nasm}; ${environment.clang}; ${environment.qemu}; ${environment.qemu_aarch64}`, "",
     `Host: ${environment.host.cpu}, ${environment.host.cores} logical cores, ${environment.host.memory_gb} GiB, ${environment.host.platform}/${environment.host.arch}`, "",
     "| level | verdict |", "| --- | --- |", ...levels.map(level => `| ${level} | ${summary[level]} |`), "",
     "| level | target | status | seconds |", "| --- | --- | --- | --- |",

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { setImmediate as set_immediate } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { smp_modes, with_smp_mode, compiled_hits, published } from "../lib/smp_modes.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
@@ -11,7 +12,7 @@ fs.mkdirSync(root + "build/smp", { recursive: true });
 const kernel = root + "build/smp/atomic_boundaries.bin";
 const assembled = spawnSync("nasm", ["-f", "bin", "-o", kernel, root + "tests/smp/atomic_boundaries.asm"], { encoding: "utf8" });
 assert.equal(assembled.status, 0, assembled.stderr);
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 const CONTROL = 0x380000;
 const RESULT = 0x382000;
 const RAM = 0x3A0000;
@@ -91,22 +92,15 @@ function expected(test)
 
 for(const mode of modes)
 {
-    const emulator = new V86({ graphics_adapter: "bochs_vga", multiboot: { url: kernel }, memory_size: 16 << 20,
+    const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", multiboot: { url: kernel }, memory_size: 16 << 20,
         acpi: true, cpu_cores: 2, cpu_quantum: 257, cpu_schedule_seed: 7,
-        disable_jit: mode === "interpreter", experimental_smp_jit: true,
-        ir_tier0: mode === "tier0", ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 }, autostart: false, log_level: 0 });
+        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
+        autostart: false, log_level: 0 }, mode));
     try
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
         const e = cpu.wm.exports;
-        if(mode !== "interpreter")
-        {
-            assert.equal(e.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(e.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
-        }
         const view = () => new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
         const word = address => view().getUint32(address, true);
         const set = (address, value) => view().setUint32(address, value, true);
@@ -151,7 +145,7 @@ for(const mode of modes)
             assert.equal(test, active);
             if(test.warm)
             {
-                if(mode !== "interpreter") assert.ok(e.ir_cache_entry_stat(0x101000 + test.op * 4096, 0, 1, 0), `${label}: operation published after warm-up`);
+                if(mode !== "interpreter") assert.ok(published(e, 0x101000 + test.op * 4096), `${label}: operation published after warm-up`);
                 active = null;
                 return;
             }
@@ -208,7 +202,7 @@ for(const mode of modes)
             if((++rounds & 1023) === 0) await set_immediate();
         }
         assert.equal(checked, cases.filter(test => !test.warm).length);
-        const hits = (e.ir_cache_stat(2) >>> 0) + (e.ir_t0_entries() >>> 0);
+        const hits = compiled_hits(e);
         if(mode !== "interpreter") assert.ok(hits > 0, `${mode}: compiled code actually executed`);
         console.log(`${mode}: ${checked} atomic #UD/page-fault/write-protection/MMIO cases passed; compiled activations=${hits}`);
     }

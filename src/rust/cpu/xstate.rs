@@ -321,7 +321,6 @@ pub unsafe fn xsetbv(index: u32, value: u64) -> bool {
         return false;
     }
     *gp::xcr0 = value;
-    crate::ir::runtime::entry::ir_admission_barrier();
     true
 }
 
@@ -442,6 +441,7 @@ fn mxcsr_valid(area: &[u8; AREA_SIZE]) -> bool {
 
 /// XSAVE of the components `rfbm` (XCR0 AND EDX:EAX)
 pub unsafe fn xsave<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 2);
     save_standard(m, rfbm, format, false)
 }
 /// XSAVEOPT: XSAVE's but for the components in their initial configuration
@@ -449,6 +449,7 @@ pub unsafe fn xsave<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(),
 /// modified optimization (the SDM lets XSAVEOPT also skip components
 /// unmodified since an XRSTOR from the same area; not doing so is allowed).
 pub unsafe fn xsaveopt<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 2);
     save_standard(m, rfbm, format, true)
 }
 /// The standard form's save: the components `rfbm`, or with
@@ -485,6 +486,7 @@ unsafe fn save_standard<A: Area>(
 /// stored; XCOMP_BV: `rfbm` with bit 63. No other header byte, nor bytes
 /// 464-511.
 pub unsafe fn xsavec<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 2);
     let r = registers();
     let mut saved = rfbm & in_use(&r, format);
     if rfbm & SSE != 0 && r.mxcsr != 0x1F80 {
@@ -505,12 +507,14 @@ pub unsafe fn xsavec<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<()
 /// checked): XSAVEC's (no modified optimization, which the SDM allows XSAVES
 /// too)
 pub unsafe fn xsaves<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    // (xsavec counts it in the step profile)
     xsavec(m, rfbm, format)
 }
 /// XRSTORS of the components `rfbm` ((XCR0 OR IA32_XSS) AND EDX:EAX; CPL 0
 /// checked): the compacted form only (#GP(0) for the standard form), its
 /// XCOMP_BV within XCR0 OR IA32_XSS
 pub unsafe fn xrstors<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 3);
     let mut area = [0; AREA_SIZE];
     read_fields(m, &mut area, &[(HEADER, 64)])?;
     let header = area[HEADER as usize..][..64].try_into().unwrap();
@@ -521,6 +525,7 @@ pub unsafe fn xrstors<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(
 }
 /// XRSTOR of the components `rfbm`, from either form
 pub unsafe fn xrstor<A: Area>(m: &mut A, rfbm: u64, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 3);
     let mut area = [0; AREA_SIZE];
     read_fields(m, &mut area, &[(HEADER, 64)])?;
     let Some(compacted) = header_form(area[HEADER as usize..][..64].try_into().unwrap(), *gp::xcr0)
@@ -560,6 +565,7 @@ unsafe fn restore<A: Area>(
 /// FXSAVE: the x87 and SSE state with MXCSR (bytes 288-511 only in 64-bit
 /// mode, and never 416-511)
 pub unsafe fn fxsave<A: Area>(m: &mut A, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 0);
     let r = registers();
     write_fields(
         m,
@@ -569,6 +575,7 @@ pub unsafe fn fxsave<A: Area>(m: &mut A, format: Format) -> Result<(), A::Fault>
 }
 /// FXRSTOR: #GP(0) for reserved MXCSR bits
 pub unsafe fn fxrstor<A: Area>(m: &mut A, format: Format) -> Result<(), A::Fault> {
+    crate::step_profile::note_event(crate::step_profile::event::FXSTATE, 1);
     let mut area = [0; AREA_SIZE];
     read_fields(m, &mut area, &fields(X87 | SSE, true, format))?;
     if !mxcsr_valid(&area) {

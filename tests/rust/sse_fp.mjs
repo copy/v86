@@ -8,13 +8,18 @@
 // #XM, or #UD without CR4.OSXMMEXCPT, with the destination unchanged. Values
 // include zeros, denormals, the normal extremes, infinities, QNaNs and SNaNs
 // and results that overflow, underflow or are inexact. Every case runs in the
-// interpreter, then hot under Tier-0 and the region tiers, whose native paths
-// (ir::native_fp) must be refused exactly where they would differ.
+// interpreter, then hot under the page tier, whose native paths
+// (x86tpl::native_fp) must be refused exactly where they would differ.
+// Then the same cases run as 64-bit code in long mode under the x64 page
+// tier (docs/jit-unification-plan.md P4.18: its templates with JIT_SWITCHES
+// x64_sse_fast_check=1, else the forms it takes before P4.18).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 import { FORMS, MXCSRS, bytes128, cases } from "./sse_fp_cases.mjs";
+import { assemble, actual as run_guest } from "../x64/guest_runner.mjs";
+import { long_mode_guest } from "../x64/guest_builder.mjs";
 
 const candidate = process.argv[2] || "build/v86.wasm";
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
@@ -121,7 +126,120 @@ async function create_machines()
     return set;
 }
 
-let total = 0;
+// The long-mode column: a form's cases as 64-bit code, LONG_ROUNDS times
+// over (the page tier compiles each page during the first rounds), with an
+// IDT whose handlers record a fault for the case and skip the instruction
+// as above. A fault resumes at a jump's target, a block start of the page
+// function, so the rest of the page runs compiled.
+const L_DATA = 0x400000, L_OUT = 0x800000, L_FAULTS = 0xA00000, L_CASE = 0xA10000, L_SKIP = 0xA10004, L_IDT = 0xA20000;
+const LONG_ROUNDS = 24;
+/** The instruction in 64-bit code ([source] through a SIB byte: ModRM 0x05 is RIP-relative there) */
+function instruction64(form, memory, source, imm8)
+{
+    const rm = memory ? [0x04 | 1 << 3, 0x25, ...u32(source)] : [0xC0 | 1 << 3 | 0];
+    return [...form.prefix, 0x0F, ...(form.map ? [form.map] : []), form.code, ...rm, ...(form.imm8 ? [imm8] : [])];
+}
+function long_program(form, memory, list, xmm_exceptions)
+{
+    const lines = [];
+    for(const [vector] of VECTORS)
+    {
+        const gate = L_IDT + vector * 16;
+        lines.push(`lea rax, [rel fault${vector}]`, `mov [${gate}], ax`, `mov word [${gate + 2}], 24`, `mov word [${gate + 4}], 0x8E00`,
+            "shr rax, 16", `mov [${gate + 6}], ax`, "shr rax, 16", `mov [${gate + 8}], eax`, `mov dword [${gate + 12}], 0`);
+    }
+    lines.push("lidt [rel idtr]", "mov rax, cr4", `or eax, ${xmm_exceptions ? 0x600 : 0x200}`, ...(xmm_exceptions ? [] : ["and eax, ~0x400"]),
+        "mov cr4, rax", `mov r15d, ${LONG_ROUNDS}`, "cases:");
+    list.forEach((c, n) => {
+        const base = L_DATA + n * 64, out = L_OUT + n * 32;
+        lines.push(`mov dword [${L_CASE}], ${n}`, `ldmxcsr [${base + 32}]`);
+        if(form.kind === "to_gpr") lines.push("mov ecx, 0x5A5A5A5A");
+        else if(form.kind === "to_mmx") lines.push(`movq mm1, [${base}]`);
+        else lines.push(`movdqu xmm1, [${base}]`);
+        if(!memory)
+        {
+            if(form.kind === "from_gpr") lines.push(`mov eax, ${Number(c.b & 0xFFFFFFFFn)}`);
+            else if(form.kind === "from_mmx") lines.push(`movq mm0, [${base + 16}]`);
+            else lines.push(`movdqu xmm0, [${base + 16}]`);
+        }
+        // (a fault skips the instruction and the 2-byte jump: L_SKIP)
+        lines.push(`db ${instruction64(form, memory, base + 16, c.imm8).join(",")}`, `jmp short resume${n}`, `resume${n}:`,
+            `stmxcsr [${out + 16}]`);
+        if(form.kind === "comi") lines.push("pushfq", "pop rax", `mov [${out}], eax`);
+        else if(form.kind === "to_gpr") lines.push(`mov [${out}], ecx`);
+        else if(form.kind === "to_mmx") lines.push(`movq [${out}], mm1`, "emms");
+        else lines.push(`movdqu [${out}], xmm1`);
+        if(form.kind === "from_mmx") lines.push("emms");
+    });
+    lines.push("dec r15d", "jnz cases");
+    const handlers = VECTORS.map(([vector, error_code]) => [`fault${vector}:`, "push rax", `mov eax, [${L_CASE}]`,
+        `mov dword [${L_FAULTS} + rax * 4], ${vector}`, `mov eax, [${L_SKIP}]`, `add [rsp + ${error_code ? 16 : 8}], rax`, "pop rax",
+        ...(error_code ? ["add rsp, 8"] : []), "iretq"].join("\n"));
+    return long_mode_guest(lines.join("\n"), [...handlers, "align 8", `idtr: dw 4095`, `dq ${L_IDT}`].join("\n"));
+}
+/** Run the cases of `form` in long mode under the page tier: its outputs and fault vectors */
+async function run_long(form, memory, list, xmm_exceptions, data)
+{
+    const directory = assemble(`sse-fp-model-${form.name}${memory ? "-mem" : ""}`, long_program(form, memory, list, xmm_exceptions));
+    let out, faults, native;
+    await run_guest(directory, {
+        length: 8, timeout: 120000,
+        options: { wasm_path: candidate, disable_jit: false, ir_sync_publication: true, cpu_features: ["SSSE3", "SSE4.1"] },
+        setup: emulator => {
+            const cpu = emulator.v86.cpu;
+            cpu.mem8.set(data, L_DATA);
+            cpu.mem8.fill(0, L_OUT, L_OUT + list.length * 32);
+            cpu.mem8.fill(0, L_FAULTS, L_FAULTS + list.length * 4);
+            cpu.mem8.set(u32(instruction64(form, memory, 0, 0).length + 2), L_SKIP);
+        },
+        inspect: emulator => {
+            const cpu = emulator.v86.cpu;
+            out = cpu.mem8.slice(L_OUT, L_OUT + list.length * 32);
+            faults = cpu.mem8.slice(L_FAULTS, L_FAULTS + list.length * 4);
+            native = cpu.wm.exports.x64_page_stat(1);
+        },
+    });
+    return { out, faults, native };
+}
+
+/** Compare a run's outputs (and fault vectors) for `list` with the model */
+function check(form, memory, list, run, out, fault_bytes, xmm_exceptions)
+{
+    const faults = new DataView(fault_bytes.buffer);
+    const view = new DataView(out.buffer);
+    list.forEach((c, n) => {
+        const label = `${form.name}${memory ? " [mem]" : ""} case ${n} on ${run}: mxcsr ${c.mxcsr.toString(16)} a ${c.a.toString(16)} b ${c.b.toString(16)}${form.imm8 ? " imm8 " + c.imm8 : ""}`;
+        const vector = faults.getUint32(n * 4, true);
+        assert.equal(vector, c.fault ? xmm_exceptions ? 19 : 6 : 0, label + ": fault");
+        assert.equal(view.getUint32(n * 32 + 16, true), c.after, label + ": MXCSR");
+        // a faulting instruction leaves its destination alone
+        const destination = form.kind === "to_gpr" ? 0x5A5A5A5An : form.kind === "comi" ? undefined : c.a;
+        let actual, expected;
+        if(form.kind === "comi")
+        {
+            actual = BigInt(view.getUint32(n * 32, true) & 0x8D5);
+            expected = c.fault ? undefined : BigInt(c.result);
+        }
+        else if(form.kind === "to_gpr")
+        {
+            actual = BigInt(view.getUint32(n * 32, true));
+            expected = c.fault ? destination : c.result & 0xFFFFFFFFn;
+        }
+        else if(form.kind === "to_mmx")
+        {
+            actual = view.getBigUint64(n * 32, true);
+            expected = c.fault ? c.a & 0xFFFFFFFFFFFFFFFFn : c.result;
+        }
+        else
+        {
+            actual = view.getBigUint64(n * 32, true) | view.getBigUint64(n * 32 + 8, true) << 64n;
+            expected = c.fault ? destination : c.result;
+        }
+        if(expected !== undefined) assert.equal(actual.toString(16), expected.toString(16), label + ": result");
+    });
+}
+
+let total = 0, long_total = 0;
 try
 {
     machines.push(...await create_machines());
@@ -167,47 +285,25 @@ try
                             faults: Uint8Array.from(vm.read_memory(FAULTS, list.length * 4)) });
                     }
                 }
-                for(const { run, out, faults: fault_bytes } of runs)
+                for(const { run, out, faults } of runs) check(form, memory, list, run, out, faults, xmm_exceptions);
+                // (the long-mode column: SSE_FP_LONG=0 leaves it out)
+                if(process.env.SSE_FP_LONG !== "0")
                 {
-                    const faults = new DataView(fault_bytes.buffer);
-                    const view = new DataView(out.buffer);
-                    list.forEach((c, n) => {
-                        const label = `${form.name}${memory ? " [mem]" : ""} case ${n} on ${run}: mxcsr ${c.mxcsr.toString(16)} a ${c.a.toString(16)} b ${c.b.toString(16)}${form.imm8 ? " imm8 " + c.imm8 : ""}`;
-                        const vector = faults.getUint32(n * 4, true);
-                        assert.equal(vector, c.fault ? xmm_exceptions ? 19 : 6 : 0, label + ": fault");
-                        assert.equal(view.getUint32(n * 32 + 16, true), c.after, label + ": MXCSR");
-                        // a faulting instruction leaves its destination alone
-                        const destination = form.kind === "to_gpr" ? 0x5A5A5A5An : form.kind === "comi" ? undefined : c.a;
-                        let actual, expected;
-                        if(form.kind === "comi")
-                        {
-                            actual = BigInt(view.getUint32(n * 32, true) & 0x8D5);
-                            expected = c.fault ? undefined : BigInt(c.result);
-                        }
-                        else if(form.kind === "to_gpr")
-                        {
-                            actual = BigInt(view.getUint32(n * 32, true));
-                            expected = c.fault ? destination : c.result & 0xFFFFFFFFn;
-                        }
-                        else if(form.kind === "to_mmx")
-                        {
-                            actual = view.getBigUint64(n * 32, true);
-                            expected = c.fault ? c.a & 0xFFFFFFFFFFFFFFFFn : c.result;
-                        }
-                        else
-                        {
-                            actual = view.getBigUint64(n * 32, true) | view.getBigUint64(n * 32 + 8, true) << 64n;
-                            expected = c.fault ? destination : c.result;
-                        }
-                        if(expected !== undefined) assert.equal(actual.toString(16), expected.toString(16), label + ": result");
-                    });
+                    const { out, faults, native } = await run_long(form, memory, list, xmm_exceptions, data);
+                    // (each case runs some 10 instructions, which the page tier
+                    // compiles from the third round on; a form it steps leaves
+                    // a page function at each case)
+                    assert.ok(native > list.length * 2 * LONG_ROUNDS, `${form.name}: the page tier ran the cases (${native} native instructions)`);
+                    check(form, memory, list, "the x64 page tier", out, faults, xmm_exceptions);
+                    long_total += list.length;
                 }
                 total += list.length;
             }
         }
         console.log(`PASS: ${xmm_exceptions ? "all forms, unmasked exceptions as #XM" : "unmasked exceptions as #UD without CR4.OSXMMEXCPT"}`);
     }
-    console.log(`PASS: ${total} exact SSE floating-point cases (${FORMS.length} forms, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model on 3 arms`);
+    console.log(`PASS: ${total} exact SSE floating-point cases (${FORMS.length} forms, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model in the interpreter and the page tier`);
+    if(long_total) console.log(`PASS: ${long_total} of them as 64-bit code under the x64 page tier`);
 }
 finally
 {

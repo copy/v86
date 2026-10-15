@@ -10,7 +10,7 @@
 // AVX state requirements); #PF without effect, MOVBE's store too. Without
 // the features: CPUID reports none, TZCNT and LZCNT are BSF and BSR, the VEX
 // forms and MOVBE #UD. Each case runs in the interpreter, then hot under
-// Tier-0 and the region tiers (LZCNT needs the x86-64 profile's machines).
+// the page tier (LZCNT needs the x86-64 profile's machines).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -53,21 +53,21 @@ const INDICES = [0, 1, 4, 15, 16, 31, 32, 33, 63, 64, 255, 0x100, 0x101F, 0xFFFF
 const value_of = n => n % 3 === 0 ? EDGES[(n / 3 | 0) % EDGES.length] : random();
 
 const machines = [];
-// The forms Tier-0 (machines[1]) runs as templates (P10 part 2: the hot ones
+// The forms the page tier (machines[1]) runs as templates (P10 part 2: the hot ones
 // of plan 5.1 and their siblings, 32-bit operands); it steps the others
-const TIER0_TEMPLATED = ["andn", "blsr", "blsmsk", "blsi", "bzhi", "shlx", "sarx", "shrx", "tzcnt 32", "lzcnt 32", "movbe 32"];
-const tier0_forms = { templated: [], stepped: [] };
-/** Before a run: Tier-0's step counts from 0 */
-const reset_steps = vm => vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
-/** After a hot run of `count` cases of `name` on the Tier-0 machine: its
+const PAGE_TEMPLATED = ["andn", "blsr", "blsmsk", "blsi", "bzhi", "shlx", "sarx", "shrx", "rorx", "tzcnt 32", "lzcnt 32", "movbe 32"];
+const page_forms = { templated: [], stepped: [] };
+/** Before a run: the page tier's step counts from 0 */
+const reset_steps = vm => vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
+/** After a hot run of `count` cases of `name` on the page tier machine: its
  * steps of instructions beginning with the bytes of `key` (two, little
  * endian) say whether it ran a template (a few steps at most: TLB misses) */
-function tier0_check(vm, run, name, key, count)
+function page_check(vm, run, name, key, count)
 {
     if(vm !== machines[1] || !run.startsWith("hot")) return;
-    const steps = vm.v86.cpu.wm.exports["ir_t0_steps"](key), templated = steps < count;
-    assert.equal(templated, TIER0_TEMPLATED.includes(name), `${name}: Tier-0 ${templated ? "ran a template" : "stepped"} (${steps} steps, ${count} cases)`);
-    tier0_forms[templated ? "templated" : "stepped"].push(name);
+    const steps = vm.v86.cpu.wm.exports["x64_page_steps"](key), templated = steps < count;
+    assert.equal(templated, PAGE_TEMPLATED.includes(name), `${name}: the page tier ${templated ? "ran a template" : "stepped"} (${steps} steps, ${count} cases)`);
+    page_forms[templated ? "templated" : "stepped"].push(name);
 }
 async function run(vm, program, warm, interpreter, label)
 {
@@ -263,7 +263,7 @@ try
         });
         await run_all(program, vm => { vm.write_memory(new Uint8Array(count * 32), OUT); reset_steps(vm); }, machines, (vm, run) => {
             no_fault(f.name)(vm, run);
-            tier0_check(vm, run, f.name, f.map === 3 ? 0xE3C4 : 0xE2C4, count);
+            page_check(vm, run, f.name, f.map === 3 ? 0xE3C4 : 0xE2C4, count);
             cases.forEach((c, n) => {
                 const registers = [];
                 for(const r of GPRS) registers[r] = BigInt(0x11111111 * (r + 1) >>> 0);
@@ -303,7 +303,7 @@ try
         }
         await run_all(program, reset_steps, machines, (vm, run) => {
             no_fault(name)(vm, run);
-            tier0_check(vm, run, `${name} ${bits}`, bits === 16 ? 0xF366 : 0x0FF3, count);
+            page_check(vm, run, `${name} ${bits}`, bits === 16 ? 0xF366 : 0x0FF3, count);
             for(let n = 0; n < count; n++)
             {
                 const { memory, dst, src, value } = operand(n);
@@ -332,7 +332,7 @@ try
         }
         await run_all(program, vm => { vm.write_memory(new Uint8Array(count * 16).fill(0xEE), OUT); reset_steps(vm); }, machines, (vm, run) => {
             no_fault("movbe")(vm, run);
-            tier0_check(vm, run, `movbe ${bits}`, bits === 16 ? 0x0F66 : 0x380F, count * 2);
+            page_check(vm, run, `movbe ${bits}`, bits === 16 ? 0x0F66 : 0x380F, count * 2);
             for(let n = 0; n < count; n++)
             {
                 const value = values[n], swapped = Number(ops.movbe(BigInt(value) & (1n << BigInt(bits)) - 1n, bits).result);
@@ -347,8 +347,8 @@ try
         checks += count;
     }
     console.log("PASS: MOVBE loads and stores (16 and 32 bits): the bytes reversed, no byte beyond");
-    assert.deepEqual([...tier0_forms.templated].sort(), [...TIER0_TEMPLATED].sort(), "every form Tier-0 runs as a template was run");
-    console.log(`PASS: Tier-0 ran templates for ${tier0_forms.templated.join(", ")}; stepped ${tier0_forms.stepped.join(", ")}`);
+    assert.deepEqual([...page_forms.templated].sort(), [...PAGE_TEMPLATED].sort(), "every form the page tier runs as a template was run");
+    console.log(`PASS: the page tier ran templates for ${page_forms.templated.join(", ")}; stepped ${page_forms.stepped.join(", ")}`);
 
     // Exceptions: #UD for VEX.L1, a VEX.vvvv other than 1111b where it is no
     // operand (RORX), 66/F2/F3/LOCK before VEX, MOVBE from a register; none
@@ -381,13 +381,14 @@ try
 
     // Virtual-8086 mode and real mode with a 32-bit code segment, where C4
     // is LES (last: it rewrites the descriptor and page tables): a loop
-    // runs until the byte at 604h is set (on the compiled arms once compiled
-    // code ran it: Tier-0, which compiles 32-bit code only, in real mode,
-    // where its VEX templates retry; the region tiers' helper checks the
-    // mode), then falls through to ANDN, which raises #UD, or TZCNT, which
-    // runs, and the HLT after it halts (real mode) or raises #GP. The
-    // handlers halt: virtual-8086 mode's at ring 0 (a TSS gives the stack),
-    // real mode's through the vector table at 0.
+    // runs until the byte at 604h is set (on the compiled arms in
+    // virtual-8086 mode once compiled code ran it: the page tier compiles
+    // virtual-8086 code, x64_page_v86, but not real-mode code on a 32-bit
+    // stack, which the interpreter runs; the region tiers, which compiled
+    // both, were deleted in M11), then falls through to ANDN, which raises
+    // #UD, or TZCNT, which runs, and the HLT after it halts (real mode) or
+    // raises #GP. The handlers halt: virtual-8086 mode's at ring 0 (a TSS
+    // gives the stack), real mode's through the vector table at 0.
     const V86_CODE = 0x8000, GDT = 0x251100, TSS = 0x251200, RING0_STACK = 0x253000, UD_HALT = 0x281000, GP_HALT = 0x281010, REAL_UD = 0x70000;
     const descriptor = (base, limit, access, flags) => [...u32(limit & 0xFFFF | base << 16), ...u32(base & 0xFF000000 | base >>> 16 & 255 | access << 8 | limit & 0xF0000 | flags << 20)];
     // (virtual-8086 mode first: real mode leaves CR0.PE clear)
@@ -450,10 +451,10 @@ try
                 cpu.reg32.set([0, 0xA5A5A5A5, 0x804, 0x5A5A5A5A, real ? 0xA000 : 0x1000, 0, 0x12345677, 0]);
                 cpu.instruction_pointer[0] = V86_CODE; cpu.in_hlt[0] = 0;
                 e.update_state_flags(); e.full_clear_tlb();
-                const start = compiled_activations(e), entries = e.ir_t0_entries() >>> 0;
+                const start = compiled_activations(e);
                 vm.run();
                 const deadline = performance.now() + 20000;
-                while(i !== 0 && (i === 1 && real ? (e.ir_t0_entries() >>> 0) === entries : compiled_activations(e) === start))
+                while(i !== 0 && !real && compiled_activations(e) === start)
                 {
                     assert(performance.now() < deadline, `${label}: no compiled code ran`);
                     await sleep(1);

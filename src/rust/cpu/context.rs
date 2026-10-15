@@ -38,7 +38,8 @@ unsafe fn capture(core: usize) {
     *last_virt_eip = -1;
 }
 unsafe fn install(core: usize) {
-    cpu::full_clear_tlb();
+    // (no new code epoch: the core's own translations come back, P7.1)
+    cpu::clear_all_tlb_entries();
     cpu::tsc_offset = CONTEXTS[core].tsc_offset;
     cpu::tsc_last_value = 0;
     cpu::tsc_resolution = u64::MAX;
@@ -62,7 +63,6 @@ pub unsafe fn context_switch(old: u32, new: u32) {
     assert!(old < apic::core_count() as u32 && new < apic::core_count() as u32);
     capture(old as usize);
     install(new as usize);
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 #[no_mangle]
 pub unsafe fn context_reset(core: u32) {

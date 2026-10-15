@@ -4,9 +4,9 @@
 // compatibility mode, with register and memory sources, against QEMU and the
 // SDM model of tests/rust/ssse3_model.mjs; #GP(0) for a misaligned XMM memory
 // operand (none for MMX), #NM with CR0.TS, #UD with CR0.EM or F3, in both
-// modes. Interpreted, with the x64 page tier, and with compatibility-mode code
-// compiled (x64_set_compat_jit: its compiled code steps through the 32-bit
-// interpreter). Both blocks loop so that they become hot.
+// modes. Interpreted and with the x64 page tier, with and without its
+// compatibility-mode code (x64_page_compat32). Both blocks loop so that they
+// become hot.
 import assert from "node:assert/strict";
 import {assemble, reference, actual} from "./guest_runner.mjs";
 import {long_mode_guest} from "./guest_builder.mjs";
@@ -198,30 +198,22 @@ const check = (result, label) => {
     });
 };
 check(expected, "QEMU");
-for(const [label, options, compat] of [["interpreted", {}, false],
-    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, false],
-    ["x64 page tier + compatibility-mode JIT", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}, true]])
+for(const [label, options] of [["interpreted", {}],
+    ["x64 page tier", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true}],
+    // (compatibility-mode code in the page tier, docs/jit-unification-plan.md P7.2)
+    ["x64 page tier, compat32", {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
+        jit_switches: {x64_page_compat32: 1}}]])
 {
-    let page = 0, tier0;
+    let page = 0, page32 = 0;
     const result = await actual(directory, {length, timeout: 120000, options: {cpu_features: ["SSSE3"], ...options},
-        setup: emulator => {
-            const x = emulator.v86.cpu.wm.exports;
-            x.x64_set_compat_jit(compat);
-            if(options.disable_jit === false)
-            {
-                x.ir_auto_set_idle_mode(0, 1);
-                // (compile compatibility-mode pages at their first visit)
-                assert.ok(x.ir_auto_set_page_threshold(1));
-            }
-        },
         inspect: emulator => {
             page = emulator.v86.cpu.wm.exports.x64_page_stat(1);
-            tier0 = emulator.v86.cpu.get_jit_info().ir?.tier0;
+            page32 = emulator.v86.cpu.wm.exports.x64_page_stat(36);
         }});
     check(result, label);
     assert.ok(result.equals(expected), `${label}: equal to QEMU`);
     if(options.disable_jit === false) assert.ok(page > 1000, `${label}: compiled 64-bit code ran (${page})`);
-    if(compat) assert.ok(tier0.activations > 0 && tier0.page_functions > 0, `${label}: compiled compatibility-mode code ran ${JSON.stringify(tier0)}`);
+    if(options.jit_switches?.x64_page_compat32) assert.ok(page32 > 0, `${label}: the page tier compiled compatibility-mode code (${page32})`);
     console.log(`PASS (${label}): ${cases.length} SSSE3 cases in 64-bit and compatibility mode, ${FAULT_CASES.length} faults, as QEMU and the SDM model`);
 }
 

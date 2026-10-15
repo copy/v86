@@ -1,5 +1,6 @@
 import { WorkerPerformanceRecorder } from "./cpu_worker.js";
-import { V86, CPU_TYPES } from "./starter.js";
+import { V86 } from "./starter.js";
+import { CPU_TYPES } from "../machine_options.js";
 import { MAX_VRAM_SIZE } from "../graphics_adapter.js";
 import { MACHINE_TYPES, Q35_ROOT_PORTS_MAX } from "../platform.js";
 import { LOG_NAMES } from "../const.js";
@@ -2277,10 +2278,7 @@ async function start_emulation(profile, query_args)
     new_query_args.set("profile", profile?.id || "custom");
     if(!cpu_worker) new_query_args.set("cpu_worker", "0");
     if(graphics_proxy) new_query_args.set("graphics_proxy", "1");
-    for(const name of ["ir_opt_level", "ir_passes_disabled", "ir_verify", "ir_dump", "ir_stats"])
-        if(cpu_args.has(name)) new_query_args.set(name, cpu_args.get(name));
-
-    // IR Tier-0 and the x87 fast paths are on unless the URL passes =0.
+    // ir_tier0 (32-bit code in the x64 page tier) and the x87 fast paths are on unless the URL passes =0.
     const settings = {};
     for(const name of ["ir_tier0", "x87_fast_math", "x87_jit_cache"])
     {
@@ -2628,6 +2626,13 @@ async function start_emulation(profile, query_args)
         {
             settings.machine_type = $("machine_type").value || DEFAULT_MACHINE_TYPE;
         }
+        // the arm64 CPU runs on the virt machine, the x86 CPUs on the PC
+        // machines (src/machine_options.js)
+        if((settings.cpu_type === "arm64") !== (settings.machine_type === "virt"))
+        {
+            settings.machine_type = settings.cpu_type === "arm64" ? "virt" : DEFAULT_MACHINE_TYPE;
+            $("machine_type").value = settings.machine_type;
+        }
         if(settings.machine_type !== DEFAULT_MACHINE_TYPE) new_query_args.set("machine_type", settings.machine_type);
         if(settings.machine_type === "q35")
         {
@@ -2642,8 +2647,12 @@ async function start_emulation(profile, query_args)
         }
 
         // multiple cores are described to the guest through ACPI (MADT);
-        // Q35 always has ACPI
-        if((settings.cpu_cores > 1 || settings.machine_type === "q35") && !settings.acpi)
+        // Q35 always has ACPI (virt describes itself with a device tree)
+        if(settings.cpu_type === "arm64")
+        {
+            settings.acpi = false;
+        }
+        else if((settings.cpu_cores > 1 || settings.machine_type === "q35") && !settings.acpi)
         {
             settings.acpi = true;
             $("acpi").checked = true;
@@ -2656,15 +2665,21 @@ async function start_emulation(profile, query_args)
 
         const BIOSPATH = "bios/";
 
-        if(!settings.bios)
+        if(settings.cpu_type === "arm64")
+        {
+            // (virt: no PC firmware, ACPI, VGA or NE2000)
+            settings.acpi = false;
+            if(settings.graphics_adapter !== "virtio_gpu") settings.graphics_adapter = "none";
+        }
+        else if(!settings.bios)
         {
             settings.bios = { url: BIOSPATH + (DEBUG ? "seabios-debug.bin" : "seabios.bin") };
         }
-        if(!settings.vga_bios)
+        if(!settings.vga_bios && settings.cpu_type !== "arm64")
         {
             settings.vga_bios = { url: BIOSPATH + (DEBUG ? "vgabios-debug.bin" : "vgabios.bin") };
         }
-        if(settings.use_bochs_bios)
+        if(settings.use_bochs_bios && settings.cpu_type !== "arm64")
         {
             settings.bios = { url: BIOSPATH + "bochs-bios.bin" };
             settings.vga_bios = { url: BIOSPATH + "bochs-vgabios.bin" };
@@ -2700,13 +2715,6 @@ async function start_emulation(profile, query_args)
     const emulator = new V86({
         "cpu_worker": cpu_worker,
         "cpu_worker_url": "build/cpu-worker.js" + query_append(),
-        "ir_stats": cpu_args.has("ir_stats") ? cpu_args.get("ir_stats") : undefined,
-        "ir_verify": cpu_args.has("ir_verify") ? cpu_args.get("ir_verify") : undefined,
-        "ir_dump": cpu_args.has("ir_dump") ? cpu_args.get("ir_dump") : undefined,
-        "ir_opt_level": cpu_args.has("ir_opt_level") ?
-            (cpu_args.get("ir_opt_level").trim() ? Number(cpu_args.get("ir_opt_level")) : NaN) : undefined,
-        "ir_passes_disabled": cpu_args.has("ir_passes_disabled") ?
-            (cpu_args.get("ir_passes_disabled") ? cpu_args.get("ir_passes_disabled").split(",") : []) : undefined,
         "ir_tier0": settings["ir_tier0"],
         wasm_path: "build/" + (DEBUG ? "v86-debug.wasm" : "v86.wasm") + query_append(),
         // more than one core: each in a host thread (v86-parallel.wasm) where the
@@ -2726,12 +2734,12 @@ async function start_emulation(profile, query_args)
             container: $("screen_container"),
         },
         net_device: {
-            type: settings.net_device_type || DEFAULT_NIC_TYPE,
+            type: settings.cpu_type === "arm64" ? "virtio" : settings.net_device_type || DEFAULT_NIC_TYPE,
             relay_url: settings.relay_url,
             cors_proxy: settings.cors_proxy,
             mtu: settings.mtu
         },
-        modem: settings.modem,
+        modem: settings.cpu_type === "arm64" ? undefined : settings.modem,
         autostart: true,
 
         memory_size: settings.memory_size,
@@ -2754,7 +2762,7 @@ async function start_emulation(profile, query_args)
 
         cmdline: settings.cmdline,
         bzimage_initrd_from_filesystem: settings.bzimage_initrd_from_filesystem,
-        acpi: settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35",
+        acpi: settings.cpu_type !== "arm64" && (settings.acpi || settings.cpu_cores > 1 || settings.machine_type === "q35"),
         cpu_cores: settings.cpu_cores,
         "cpu_type": settings.cpu_type,
         machine_type: settings.machine_type,
@@ -2764,8 +2772,8 @@ async function start_emulation(profile, query_args)
         // without it, more than one core runs in the interpreter
         experimental_smp_jit: settings.cpu_cores > 1 && !settings.disable_jit,
         disable_jit: settings.disable_jit,
-        "x87_fast_math": settings["x87_fast_math"],
-        "x87_jit_cache": settings["x87_jit_cache"],
+        "x87_fast_math": settings.cpu_type === "arm64" ? undefined : settings["x87_fast_math"],
+        "x87_jit_cache": settings.cpu_type === "arm64" ? undefined : settings["x87_jit_cache"],
         initial_state: settings.initial_state,
         filesystem: settings.filesystem || {},
         disable_speaker: settings.disable_audio,

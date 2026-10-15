@@ -2,6 +2,10 @@
 
 状态：设计与实施计划；本文不表示这些功能已经实现或通过验收。
 
+（2026-10-15 注：本文提到的 IR Tier-0 与 region 管线（Tier-1/2，`src/rust/ir/`）已由
+[jit-unification-plan.md](jit-unification-plan.md) 在 P7.5 与 M11 删除，32 位与 16 位代码现在由 x64 page tier
+编译；本文的 `make ir-*-tests` 目标随之删除，各节保留实施当时的记录。）
+
 初稿基于 2026 年 10 月 3 日的工作区（Git 基线 `696d91ab`）。2026 年 10 月 4 日复核到
 `6912875a`，其间合入了 SMM（见第 2 节），并按审阅意见修订了解码前缀、浮点、XSAVE、
 快照/INIT、测试参考和发布顺序；同日把 x86-64-v3 的其余指令（FMA、F16C、BMI1、BMI2、

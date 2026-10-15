@@ -14,10 +14,16 @@
 // overlay, i.e. every sector the guest wrote, is saved), WIN_OVERLAY_LOAD=<file>
 // (boot with such an overlay: the state after Windows installed the drivers
 // for this machine; the image itself is never written), WIN_IDLE=1 (after the
-// desktop: host and in-guest CPU load of the idle desktop, see host_window). While it runs, a line written to
+// desktop: host and in-guest CPU load of the idle desktop, see host_window),
+// WIN_CPULOAD32=<rounds> (after the desktop: the timed WOW64 workload
+// tests/x64/windows_cpuload32.c as LOAD32.EXE, an X64_WIN_CPULOAD32 line with
+// each round's time; docs/jit-unification-plan.md P0.12). While it runs, a line written to
 // <out>/command.txt is executed: "key <scancodes hex>", "type <text>",
 // "run <command line>", "enter", "space", "password", "shot", "rips",
-// "trace on|off" (WIN_USER_TRACE=1 enables it from the start), "runadmin
+// "trace on|off" (WIN_USER_TRACE=1 enables it from the start), "jitstats
+// <phase>" (a JIT_STATS record, tools/bench/jit_stats.mjs, named <phase>;
+// with JIT_STATS=1 the harness also writes one at the desktop and one at
+// the end, phases "desktop" and "end"), "runadmin
 // <cmd /c line>" (elevated through PowerShell, Alt+Y for UAC), "wait <s>",
 // "launch <command line>" (run by the launcher with cmd /c, see WIN_LAUNCHER),
 // "display <width> <height> [index]" (V86.set_display_size), "mouse <dx> <dy>",
@@ -70,9 +76,17 @@ import {spawnSync} from "node:child_process";
 import {setTimeout as delay} from "node:timers/promises";
 import {fileURLToPath} from "node:url";
 import {MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16} from "../smp/disk_fixture.mjs";
+import {jit_switches_from_env} from "../lib/jit_switches.mjs";
+import {jit_stats_enabled, print_jit_stats} from "../../tools/bench/jit_stats.mjs";
+import {CPU_FEATURE_PRESETS} from "../../src/cpu_features.js";
+import {site_directory} from "../lib/site.mjs";
+// WIN_CPU_FEATURES: feature names, comma separated, or a preset ("x86-64-v3")
+const win_cpu_features = process.env.WIN_CPU_FEATURES ?
+    CPU_FEATURE_PRESETS[process.env.WIN_CPU_FEATURES] || process.env.WIN_CPU_FEATURES.split(",") : null;
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const image_path = path.resolve(process.env.WIN_IMAGE || path.join(root, "../retro-gaming-site/windows8/windows8.img"));
+// (the default: retro-gaming-site next to the main checkout, also from a worktree)
+const image_path = path.resolve(process.env.WIN_IMAGE || path.join(site_directory(root), "windows8/windows8.img"));
 const out = path.resolve(process.env.WIN_OUT || path.join(root, "build/x64-windows"));
 fs.mkdirSync(out, {recursive: true});
 const cores = +(process.env.WIN_CORES || 1), jit = process.env.X64_JIT !== "0";
@@ -91,7 +105,8 @@ function build(compiler, entry, output, source = "tests/x64/windows_probe.c")
 const probe64 = build("x86_64-w64-mingw32-gcc", "entry", path.join(out, "PROBE64.EXE"));
 const probe32 = build("i686-w64-mingw32-gcc", "_entry@0", path.join(out, "PROBE32.EXE"));
 const cpuload = build("x86_64-w64-mingw32-gcc", "entry", path.join(out, "CPULOAD.EXE"), "tests/x64/windows_cpuload.c");
-const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload}));
+const cpuload32 = build("i686-w64-mingw32-gcc", "_entry@0", path.join(out, "LOAD32.EXE"), "tests/x64/windows_cpuload32.c");
+const tools = new MemoryDisk(make_fat16({"PROBE64.EXE": probe64, "PROBE32.EXE": probe32, "CPULOAD.EXE": cpuload, "LOAD32.EXE": cpuload32}));
 const source = new ReadOnlyOverlayDisk(image_path);
 // WIN_HDB=<image>: that disk (e.g. retro-gaming-site/game/3dmark06.img) in
 // place of the tools disk, never written either (its writes stay in memory)
@@ -148,6 +163,8 @@ const vm = new V86({
     acpi: true, cpu_cores: cores, net_device: {type: "ne2k"}, autostart: false, log_level: 0,
     // WIN_QEMU_COMPATIBLE=1: devices where QEMU, which the image was installed with, had them
     qemu_compatible: !!+process.env.WIN_QEMU_COMPATIBLE,
+    // JIT_SWITCHES (tests/lib/jit_switches.mjs)
+    ...(Object.keys(jit_switches_from_env()).length ? {jit_switches: jit_switches_from_env()} : {}),
     ...(process.env.WIN_MACHINE ? {machine_type: process.env.WIN_MACHINE, hpet: !!+process.env.WIN_HPET,
         pcie_root_ports: +process.env.WIN_ROOT_PORTS || 0, smbus: !!+process.env.WIN_SMBUS} : {}),
     ...(process.env.WIN_PCIE_DEVICE ? {virtio_devices: [{"name": "hotplug", "device_id": 0x1044, "subsystem_device_id": 4,
@@ -160,7 +177,7 @@ const vm = new V86({
     // the browser does by default
     disable_jit: !jit, experimental_smp_jit: jit, ir_sync_publication: !+process.env.WIN_ASYNC_PUBLICATION,
     ...(process.env.X64_IR_TIER0 === "0" ? {ir_tier0: false} : {}),
-    ...(process.env.WIN_CPU_FEATURES ? {cpu_type: "x86_64", cpu_features: process.env.WIN_CPU_FEATURES.split(",")} : {}),
+    ...(win_cpu_features ? {cpu_type: "x86_64", cpu_features: win_cpu_features} : {}),
     // WIN_PARALLEL=1: the application processors run in vCPU workers
     // (WIN_PARALLEL_WASM: another build of it)
     ...(+process.env.WIN_PARALLEL ? {parallel: true, wasm_path: process.env.WIN_PARALLEL_WASM || root + "build/v86-parallel.wasm"} : {}),
@@ -185,7 +202,8 @@ async function profile_window()
     await profiler.post("Profiler.start");
     // page functions are named x64_page_<linear page>: name the guest module
     // of each (<out>/modules.json, for offline profiles by guest module)
-    // (compatibility-mode code: the 32-bit compiler's t0_<linear page>)
+    // (compatibility-mode code too since M9; t0_<linear page> was IR
+    // Tier-0's, before P7.5)
     if(!cpu) return;
     const self = new Map(), by_id = new Map(profile.nodes.map(node => [node.id, node]));
     let total = 0;
@@ -534,7 +552,7 @@ function stats()
 {
     const ex = cpu.wm.exports;
     const tier = ex.x64_page_stat ? Object.fromEntries([["compiled", 0], ["native", 1], ["retries", 2], ["unknown", 3], ["steps", 4], ["invalidated", 5],
-        ["failed", 7], ["recompiled", 8], ["evicted", 11], ["live", 12], ["activations", 13], ["invlpg", 14], ["cr_writes", 15], ["access_misses", 16], ["lfb_fills", 17], ["cr3_keep_global", 18], ["jac_large_flush", 19], ["unaligned_reads", 25], ["distinct", 21], ["ms_in_calls", 20], ["ms_in_execute", 22], ["ms_first_calls", 23], ["bytes_compiled", 24], ["cr0_writes", 26], ["cr3_writes", 27], ["cr4_writes", 28], ["full_flushes", 29], ["walks", 30], ["compat_fills", 31], ["compat_refills", 32]]
+        ["failed", 7], ["recompiled", 8], ["evicted", 11], ["live", 12], ["activations", 13], ["invlpg", 14], ["cr_writes", 15], ["access_misses", 16], ["lfb_fills", 17], ["cr3_keep_global", 18], ["jac_large_flush", 19], ["unaligned_reads", 25], ["distinct", 21], ["ms_in_calls", 20], ["ms_in_execute", 22], ["ms_first_calls", 23], ["bytes_compiled", 24], ["cr0_writes", 26], ["cr3_writes", 27], ["cr4_writes", 28], ["full_flushes", 29], ["walks", 30], ["compat_fills", 31], ["compat_refills", 32], ["hot_recompiles", 33], ["jac_fills", 34], ["jac_conflicts", 35]]
         .map(([name, i]) => [name, ex.x64_page_stat(i)])) : null;
     const d = cpu.get_diagnostics();
     return {page_tier: tier, cores: d.cores.map(core => ({state: core.state, ip: core.linear_ip, cs: core.cs, retired: core.retired_instructions, halted: core.halted})),
@@ -716,16 +734,24 @@ try
     if(+process.env.WIN_DUMP_MODULES)
     {
         fs.mkdirSync(path.join(out, "modules"), {recursive: true});
-        const publish = cpu.x64_page_publish.bind(cpu);
+        const publish = cpu.jit_publish.bind(cpu);
         let published = 0, dumped = 0;
-        cpu.x64_page_publish = (id, slot, pointer, length) => {
+        cpu.jit_publish = (client, id, slot, pointer, length) => {
             if(published++ % 64 === 0 && dumped < +process.env.WIN_DUMP_MODULES)
                 fs.writeFileSync(path.join(out, "modules", `m${String(dumped++).padStart(4, "0")}.wasm`),
                     new Uint8Array(cpu.wasm_memory.buffer, pointer >>> 0, length >>> 0));
-            return publish(id, slot, pointer, length);
+            return publish(client, id, slot, pointer, length);
         };
     }
-    if(process.env.X64_COMPAT_JIT) cpu.wm.exports.x64_set_compat_jit(process.env.X64_COMPAT_JIT !== "0");
+    // WIN_RECORD=<file>: the inputs of the page tier's compilations, saved at
+    // the end as tools/replay_record.mjs saves them (a test core's replay
+    // hooks: WASM_PATH=build/v86-ir-test-release.wasm), e.g. to replay a
+    // boot's pages under other JIT switches
+    if(process.env.WIN_RECORD)
+    {
+        if(!cpu.wm.exports.x64_page_record_start) throw new Error("WIN_RECORD: the core has no replay hooks (WASM_PATH=build/v86-ir-test-release.wasm)");
+        cpu.wm.exports.x64_page_record_start();
+    }
     // WIN_LPT_STATUS=<hex>: the status register of the unconnected LPT1
     if(process.env.WIN_LPT_STATUS) cpu.devices.parallel0.status = parseInt(process.env.WIN_LPT_STATUS, 16);
     // WIN_PORT_STATS=1: port accesses by port and size, printed each minute
@@ -857,6 +883,7 @@ try
             event("snapshot", {bytes: state.byteLength});
         }
         else if(verb === "rips") next_samples = 0;
+        else if(verb === "jitstats") print_jit_stats(vm, {script: "windows_boot", phase: argument || "command", s: elapsed(), wasm: process.env.WASM_PATH || null, cores});
         // PCI Express hot plug (WIN_PCIE_DEVICE)
         else if(verb === "pcieattach") await vm.attach_pcie_device(+argument);
         else if(verb === "pciedetach")
@@ -931,6 +958,7 @@ try
         }
     };
     let idle_at = 0, idle_sent = false, next_host_window = 0;
+    let load32_at = 0, load32_sent = false;
     while(performance.now() < deadline)
     {
         await delay(200);
@@ -1074,7 +1102,7 @@ try
                 if(password_box_visible() || !process.env.WIN_NO_PROBE && performance.now() - last_sign_in > 180000) await sign_in();
                 probe_sent = performance.now() + 20000;
             }
-            else if(!process.env.WIN_OVERLAY_SAVE && !process.env.WIN_STOP_AT_DESKTOP && !process.env.WIN_IDLE && !process.env.WIN_NO_PROBE)
+            else if(!process.env.WIN_OVERLAY_SAVE && !process.env.WIN_STOP_AT_DESKTOP && !process.env.WIN_IDLE && !process.env.WIN_CPULOAD32 && !process.env.WIN_NO_PROBE)
             {
                 const arch = report.results[64] ? 32 : 64;
                 const started = await run_command(`cmd /c for %d in (d e f g h) do @if exist %d:\\probe${arch}.exe %d:\\probe${arch}.exe`);
@@ -1100,7 +1128,13 @@ try
             if(match && !report.results[arch])
             {
                 const avx = text.match(/X64_WIN_AVX arch=\d+ avx=(\d)(?: avx2=(\d) fma=(\d) threads=(\d+) steps=(\d+) faults=(\d+) xstate=(\d+) compute_bad=(\d+) bad=(\d+))?/);
-                report.results[arch] = {processors: +match[2], packages: +match[3], cores: +match[4], smt_cores: +match[5],
+                // (QueryPerformanceFrequency: the HPET's 14318180 Hz, the ACPI
+                // PM timer's 3579545 Hz, else the TSC; docs/jit-unification-plan.md
+                // open question 4)
+                const qpf = text.match(/X64_WIN_BEGIN arch=\d+ processors=\d+ architecture=\d+ qpf=(\w+)/);
+                report.results[arch] = {qpf: qpf ? parseInt(qpf[1], 16) : null,
+                    qpc_source: qpf ? {14318180: "hpet", 3579545: "acpi-pm-timer"}[parseInt(qpf[1], 16)] ?? "tsc" : null,
+                    processors: +match[2], packages: +match[3], cores: +match[4], smt_cores: +match[5],
                     progress: +match[6], failures: +match[7], apic_ids: match[8], high_block: match[9],
                     avx: avx && (avx[2] === undefined ? {avx: 0} : {avx: 1, avx2: +avx[2], fma: +avx[3], threads: +avx[4], steps: +avx[5],
                         faults: +avx[6], xstate: +avx[7], compute_bad: +avx[8], bad: +avx[9]}), text};
@@ -1113,6 +1147,8 @@ try
         {
             report.desktop_s = elapsed();
             event("desktop");
+            // (tools/bench/jit_stats.mjs, docs/jit-unification-plan.md P0.7)
+            if(jit_stats_enabled()) print_jit_stats(vm, {script: "windows_boot", phase: "desktop", wasm: process.env.WASM_PATH || null, desktop_s: report.desktop_s, cores});
             for(let attempt = 0; process.env.WIN_LAUNCHER && !launcher_ready && attempt < 4; attempt++)
             {
                 if(process.env.WIN_LAUNCHER_ADMIN) await run_admin(process.env.WIN_LAUNCHER);
@@ -1130,6 +1166,7 @@ try
             if(process.env.WIN_SETUP && !process.env.WIN_OVERLAY_SAVE) break;
             if(process.env.WIN_OVERLAY_SAVE) shutdown_at = performance.now() + 30000;
             else if(process.env.WIN_IDLE) idle_at = performance.now() + 1000 * +(process.env.WIN_IDLE_SETTLE_S || 20);
+            else if(process.env.WIN_CPULOAD32) load32_at = performance.now() + 1000 * +(process.env.WIN_IDLE_SETTLE_S || 20);
             else if(process.env.WIN_DESKTOP_TEST)
             {
                 // desktop responsiveness: open programs one after another
@@ -1151,6 +1188,26 @@ try
             next_host_window = performance.now() + 10000;
             idle_sent = await run_command(`cmd /c for %d in (d e f g h) do @if exist %d:\\cpuload.exe %d:\\cpuload.exe ${+process.env.WIN_IDLE_ROUNDS || 6}`);
             if(!idle_sent) idle_at = performance.now() + 20000;
+        }
+        if(load32_at && performance.now() >= load32_at && !load32_sent)
+        {
+            load32_sent = await run_command(`cmd /c for %d in (d e f g h) do @if exist %d:\\load32.exe %d:\\load32.exe ${+process.env.WIN_CPULOAD32 || 5}`);
+            if(!load32_sent) load32_at = performance.now() + 20000;
+        }
+        if(load32_sent)
+        {
+            const load = result_text("LOAD32.TXT");
+            if(load.includes("CPULOAD32_DONE"))
+            {
+                const rounds = [...load.matchAll(/round (\d+) ms=(\d+) checksum=([0-9a-f]+)/g)].map(m => ({ms: +m[2], checksum: m[3]}));
+                // (the median and the fastest leave out the first round, which
+                // also compiles; the fastest is what the gate compares: a
+                // fresh desktop's background work slows other rounds)
+                const warm = rounds.slice(1).map(r => r.ms).sort((a, b) => a - b);
+                report.cpuload32 = {wow64: /wow64=1/.test(load), rounds, median_ms: warm[warm.length >> 1] ?? rounds[0]?.ms, min_ms: warm[0] ?? rounds[0]?.ms};
+                console.log("X64_WIN_CPULOAD32 " + JSON.stringify(report.cpuload32));
+                break;
+            }
         }
         if(idle_sent && performance.now() >= next_host_window)
         {
@@ -1185,7 +1242,7 @@ try
         assert.ok(!shutdown_deadline || performance.now() < shutdown_deadline, "the guest powered off");
     }
     // (the probes run in plain qualification runs, not in setup sessions)
-    for(const arch of process.env.WIN_STOP_AT_DESKTOP || process.env.WIN_IDLE || process.env.WIN_SETUP || process.env.WIN_HDB ? [] : [64, 32])
+    for(const arch of process.env.WIN_STOP_AT_DESKTOP || process.env.WIN_IDLE || process.env.WIN_CPULOAD32 || process.env.WIN_SETUP || process.env.WIN_HDB ? [] : [64, 32])
     {
         const r = report.results[arch];
         assert.ok(r, `probe ${arch} completed`);
@@ -1196,7 +1253,7 @@ try
         if(arch === 64) assert.ok(BigInt("0x" + r.high_block) >> 32n > 0n, "x64 top-down allocation above 4 GiB");
         // the YMM state (docs/simd-xsave-plan.md 11.3): 8 rounds of 3 steps
         // (one migrates, one faults) on 2N threads; x64 GetThreadContext
-        const features = (process.env.WIN_CPU_FEATURES || "").split(",");
+        const features = win_cpu_features || [];
         assert.ok(r.avx, `probe ${arch}: AVX line`);
         if(features.includes("AVX"))
         {
@@ -1208,6 +1265,7 @@ try
     }
     if(process.env.WIN_STOP_AT_DESKTOP) assert.ok(report.desktop_s, "desktop reached");
     if(process.env.WIN_IDLE) assert.ok(report.cpuload, "CPULOAD.EXE completed");
+    if(process.env.WIN_CPULOAD32) assert.ok(report.cpuload32?.wow64 && report.cpuload32.rounds.length, "LOAD32.EXE (CPULOAD32) completed under WOW64");
     report.passed = true;
     console.log("X64_WIN_PASS " + JSON.stringify(report.results));
 }
@@ -1226,7 +1284,20 @@ finally
         remote_renderer.close();
     }
     if(profiler) await profile_window();
+    if(cpu && jit_stats_enabled()) print_jit_stats(vm, {script: "windows_boot", phase: "end", s: elapsed(), wasm: process.env.WASM_PATH || null, desktop_s: report.desktop_s ?? null, cores});
     if(cpu && process.env.WIN_SIZE_STATS) cpu.wm.exports.x64_pagegen_size_dump();
+    if(cpu && process.env.WIN_RECORD)
+    {
+        const e = cpu.wm.exports, chunks = [];
+        for(let i = 0, n = e.x64_page_record_count(); i < n; i++)
+        {
+            const length = Buffer.alloc(4);
+            length.writeUInt32LE(e.x64_page_record_length(i));
+            chunks.push(length, Buffer.from(new Uint8Array(cpu.wasm_memory.buffer, e.x64_page_record_address(i) >>> 0, e.x64_page_record_length(i))));
+        }
+        fs.writeFileSync(process.env.WIN_RECORD, Buffer.concat(chunks));
+        console.log(`X64_WIN_RECORD ${chunks.length / 2} records`);
+    }
     // WIN_DUMP_OVERLAY=<file>: the sectors written so far (no shutdown: what
     // the guest had flushed), e.g. to read setupapi.dev.log
     if(process.env.WIN_DUMP_OVERLAY) save_overlay(process.env.WIN_DUMP_OVERLAY);

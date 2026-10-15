@@ -568,7 +568,7 @@ pub unsafe fn ram_page(address: u64) -> Result<RamPage, PhysicalError> {
 /// Replace/remove one high mapping. Caller must be outside any CPU frame,
 /// including interpreted I/O callbacks. Active JIT frames are rejected too.
 pub unsafe fn set_window(slot: usize, window: Option<Window>) -> Result<(), PhysicalError> {
-    if crate::ir::runtime::cache::busy() {
+    if crate::x64::pages::in_activation() {
         return Err(PhysicalError::Busy);
     }
     let changed =
@@ -582,7 +582,7 @@ pub unsafe fn set_window(slot: usize, window: Option<Window>) -> Result<(), Phys
 /// Validate all restored mappings before replacing any live state. The local
 /// generation advances instead of trusting a serialized host-cache epoch.
 pub unsafe fn restore_windows(windows: [Option<Window>; MAX_WINDOWS]) -> Result<(), PhysicalError> {
-    if crate::ir::runtime::cache::busy() {
+    if crate::x64::pages::in_activation() {
         return Err(PhysicalError::Busy);
     }
     let mut candidate = validated_windows(windows, *global_pointers::memory_size)?;
@@ -608,7 +608,6 @@ pub unsafe fn memory_map_changed() {
         .expect("physical bus generation");
     memory::ram_fast_limit = fast_limit();
     context::invalidate_all_tlbs();
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 
 /// The first relocated low RAM byte, or the first byte of TSEG (at the top of
@@ -630,7 +629,6 @@ unsafe fn invalidate_mapping() {
     memory::ram_fast_limit = fast_limit();
     context::invalidate_all_tlbs();
     crate::jit::jit_clear_cache_js();
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 
 unsafe fn read_allowed(address: u64, width: usize, allow_mmio: bool) -> Result<u64, PhysicalError> {
@@ -715,7 +713,7 @@ unsafe fn write_ram(address: u32, width: usize, value: u64) {
         2 => memory::write16_ram(address, value as u16 as i32),
         4 => memory::write32_ram(address, value as i32),
         8 => {
-            crate::jit::jit_dirty_cache_small(address, address + 8);
+            crate::jit::jit_dirty_bytes_small(address, address + 8);
             memory::write64_no_mmap_or_dirty_check(address, value);
         },
         _ => unreachable!(),

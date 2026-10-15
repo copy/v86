@@ -13,7 +13,7 @@
 // the whole m128 read though a string ends early), CRC32 from 8-, 16- and
 // 32-bit registers (AH-BH too) and memory (flags kept, no XMM state checks),
 // and POPCNT, which has its own CPUID bit. Every case runs in the
-// interpreter, then hot under Tier-0 and the region tiers.
+// interpreter, then hot under the page tier.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -103,10 +103,10 @@ const IMMEDIATE = [[0x0C, "blendps"], [0x0D, "blendpd"], [0x0E, "pblendw"], [0x2
 const EXTRACT = [[0x14, "pextrb", 1], [0x15, "pextrw", 2], [0x16, "pextrd", 4], [0x17, "extractps", 4]];
 const INSERT = [[0x20, "pinsrb", 1], [0x22, "pinsrd", 4]];
 const GPRS = [0, 1, 2, 3, 5, 6, 7]; // (not ESP)
-// The forms with Tier-0 templates (P4b part 4): one Wasm SIMD operation (66 0F
-// 38) and the blends with imm8 (66 0F 3A); PBLENDVB, BLENDVPS, BLENDVPD and
-// PMULDQ (P5 part 5)
-const TEMPLATED_38 = [0x10, 0x14, 0x15, 0x28, 0x29, 0x2B, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40];
+// The forms with page tier templates (P4b part 4): one Wasm SIMD operation (66 0F
+// 38) and the blends with imm8 (66 0F 3A); PBLENDVB, BLENDVPS and BLENDVPD
+// (P5 part 5; IR Tier-0, deleted in P7.5, also had PMULDQ's)
+const TEMPLATED_38 = [0x10, 0x14, 0x15, 0x29, 0x2B, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40];
 const TEMPLATED_3A = [0x0C, 0x0D, 0x0E];
 // PCMPESTRM, PCMPESTRI, PCMPISTRM, PCMPISTRI
 const STRINGS = [[0x60, "pcmpestrm"], [0x61, "pcmpestri"], [0x62, "pcmpistrm"], [0x63, "pcmpistri"]];
@@ -124,6 +124,8 @@ async function run(vm, program, warm, interpreter, label)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
+    // (the page tier's step counts are the hot run's: x64_page_steps)
+    else e["x64_page_steps_freeze"]();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;
@@ -219,16 +221,18 @@ async function create_machines(options = {})
     }
     return set;
 }
-/** Tier-0 (machine 1) ran a template for the form under test, whose
+/** The build has Wasm SIMD (the fallback build has no SIMD templates) */
+const simd = vm => vm.v86.cpu.wm.exports["jit_wasm_simd_supported"]() !== 0;
+/** The page tier (machine 1) ran a template for the form under test, whose
  * interpreter steps are keyed by its first two bytes, 66 0F; or stepped it
- * each round. A build without Wasm SIMD has no SIMD templates: its MOVDQU
- * (F3 0F) steps too. Reset the counts before the run (ir_t0_steps_reset). */
-function tier0_ran(name, templated, count)
+ * each round. A build without Wasm SIMD has no SIMD templates. Reset the
+ * counts before the run (x64_page_steps_reset). */
+function page_ran(name, templated, count)
 {
-    const t0_steps = machines[1].v86.cpu.wm.exports["ir_t0_steps"];
-    const steps = t0_steps(0x0F66);
-    if(templated && t0_steps(0x0FF3) < count / 2) assert.ok(steps < count / 2, `${name}: Tier-0 template (${steps} steps)`);
-    else assert.ok(steps >= count, `${name}: Tier-0 steps (${steps})`);
+    const page_steps = machines[1].v86.cpu.wm.exports["x64_page_steps"];
+    const steps = page_steps(0x0F66);
+    if(templated && simd(machines[1])) assert.ok(steps < count / 2, `${name}: the page tier template (${steps} steps)`);
+    else assert.ok(steps >= count, `${name}: the page tier steps (${steps})`);
 }
 /** `faulting` raises `vector` at its first byte after `prologue` (the
  * handler skips it) in every run, and OUT holds `out` afterwards */
@@ -326,9 +330,9 @@ try
             program.push(...encode(0x38, op, dst, src, memory ? address : undefined));
             program.push(...STORE, ...absolute(dst, OUT + n * 16));
         }
-        for(const vm of machines) vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+        for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
         const result = await run_out(program, vm => { write_data(vm); vm.write_memory(new Uint8Array(CASES * 16), OUT); }, CASES * 16, name);
-        tier0_ran(name, TEMPLATED_38.includes(op), CASES);
+        page_ran(name, TEMPLATED_38.includes(op), CASES);
         for(let n = 0; n < CASES; n++)
         {
             const dst = n & 7, src = n >> 3 & 7, memory = n >= CASES / 2;
@@ -343,7 +347,7 @@ try
         }
         cases += CASES;
     }
-    console.log(`PASS: ${cases} cases of ${BINARY.length} forms of 66 0F 38 (PMOVSX/PMOVZX, BLENDV, PMULDQ/PMULLD, PCMPEQQ/PCMPGTQ, PACKUSDW, PMIN/PMAX, PHMINPOSUW) match the model on 3 arms; Tier-0 templates for ${TEMPLATED_38.length}`);
+    console.log(`PASS: ${cases} cases of ${BINARY.length} forms of 66 0F 38 (PMOVSX/PMOVZX, BLENDV, PMULDQ/PMULLD, PCMPEQQ/PCMPGTQ, PACKUSDW, PMIN/PMAX, PHMINPOSUW) match the model in the interpreter and the page tier; the page tier templates for ${TEMPLATED_38.length}`);
     checks += cases;
 
     // PTEST: ZF and CF from the model, AF, OF, PF and SF cleared (set before)
@@ -385,9 +389,9 @@ try
             program.push(...encode(0x3A, op, dst, src, memory ? address : undefined, imm8));
             program.push(...STORE, ...absolute(dst, OUT + n * 16));
         }
-        for(const vm of machines) vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+        for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
         const result = await run_out(program, vm => { write_data(vm); vm.write_memory(new Uint8Array(count * 16), OUT); }, count * 16, name);
-        tier0_ran(name, TEMPLATED_3A.includes(op), count);
+        page_ran(name, TEMPLATED_3A.includes(op), count);
         for(let n = 0; n < count; n++)
         {
             const imm8 = n & 255, dst = n % 7 + 1, src = n % 5, memory = n >= 256;
@@ -451,10 +455,12 @@ try
     }
     console.log(`PASS: PEXTRB/PEXTRW/PEXTRD/EXTRACTPS and PINSRB/PINSRD with registers and memory, ${cases} cases in all`);
 
-    // ROUND: Tier-0 (machine 1) rounds finite lanes natively from the
+    // ROUND: the page tier (machine 1) rounds finite lanes natively from the
     // default MXCSR (PE clear: set natively when reported), without the
-    // exact helper (ir_t0_sse_fp_calls) or steps; a NaN lane takes the
-    // helper. Every imm8 mode (bits 4-7 are ignored), registers and memory.
+    // exact helper (x64_sse_fp_calls) or steps; a NaN lane leaves the
+    // template (the page tier retries the instruction in the interpreter; IR
+    // Tier-0, before P7.5, called the helper). Every imm8 mode (bits 4-7 are
+    // ignored), registers and memory.
     {
         const FINITE = [0.5, 1.5, 2.5, -0.5, -1.5, -2.5, 3.7, -2.3, 1e-40, -1e-40, 0, -0, 1e10, -7, 123.456, 0.25];
         const NAN_LANES = [NaN, 1.5, -0.5, NaN];
@@ -487,8 +493,8 @@ try
             program.push(0x0F, 0xAE, 0x1D, ...u32(OUT + count * 16));
             for(const vm of machines)
             {
-                vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
-                vm.v86.cpu.wm.exports["ir_t0_sse_fp_calls_reset"]();
+                vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
+                vm.v86.cpu.wm.exports["x64_sse_fp_calls_reset"]();
             }
             const label = `${name}${nan ? " with NaN lanes" : ""}`;
             const result = await run_out(program, vm => {
@@ -505,14 +511,14 @@ try
                 assert.equal(hex(result.subarray(n * 16, n * 16 + 16)), hex(expected), `${label} ${n}, imm8 ${imm8(n).toString(16)}`);
             }
             assert.equal(new DataView(result.buffer, result.byteOffset).getUint32(count * 16, true), fp.finish().mxcsr, `${label}: MXCSR`);
-            const t0 = machines[1].v86.cpu.wm.exports;
-            const steps = t0["ir_t0_steps"](0x0F66), calls = t0["ir_t0_sse_fp_calls"](0x660F3A00 | op);
-            if(t0["ir_t0_steps"](0x0FF3) >= count / 2) assert.ok(steps >= count, `${label}: Tier-0 steps without Wasm SIMD (${steps})`);
-            else if(nan) assert.ok(calls >= count / 4 && steps < count / 2, `${label}: NaN lanes take the exact helper (${calls} calls, ${steps} steps)`);
-            else assert.ok(calls === 0 && steps < count / 2, `${label}: Tier-0 rounds natively (${calls} calls, ${steps} steps)`);
+            const page = machines[1].v86.cpu.wm.exports;
+            const steps = page["x64_page_steps"](0x0F66), calls = page["x64_sse_fp_calls"](0x660F3A00 | op);
+            if(!simd(machines[1])) assert.ok(steps >= count, `${label}: the page tier steps without Wasm SIMD (${steps})`);
+            else if(nan) assert.ok(calls + steps >= count / 4, `${label}: NaN lanes leave the template (${calls} calls, ${steps} steps and retries)`);
+            else assert.ok(calls === 0 && steps < count / 2, `${label}: the page tier rounds natively (${calls} calls, ${steps} steps)`);
             checks += count;
         }
-        console.log("PASS: ROUNDSS/ROUNDSD/ROUNDPS/ROUNDPD in Tier-0 natively for finite lanes (PE set there), the exact helper for NaN lanes, every mode");
+        console.log("PASS: ROUNDSS/ROUNDSD/ROUNDPS/ROUNDPD in the page tier natively for finite lanes (PE set there), retried for NaN lanes, every mode");
     }
 
     // MOVNTDQA loads an aligned m128
@@ -545,7 +551,7 @@ try
             program.push(...encode(0x3A, op, dst, src, memory ? address : undefined, imm8));
             program.push(...store_r32(1, OUT + n * 32 + 16), ...STORE, ...absolute(0, OUT + n * 32), ...PUSHF_STORE(OUT + n * 32 + 20));
         }
-        for(const vm of machines) vm.v86.cpu.wm.exports["ir_t0_steps_reset"]();
+        for(const vm of machines) vm.v86.cpu.wm.exports["x64_page_steps_reset"]();
         const result = await run_out(program, vm => {
             vm.write_memory(needles, DEST);
             vm.write_memory(haystacks, SOURCE);
@@ -553,7 +559,7 @@ try
             vm.write_memory(pattern, PATTERN);
             vm.write_memory(new Uint8Array(count * 32), OUT);
         }, count * 32, name);
-        tier0_ran(name, true, count);
+        page_ran(name, true, count);
         const view = new DataView(result.buffer, result.byteOffset);
         for(let n = 0; n < count; n++)
         {
@@ -578,7 +584,7 @@ try
         checks += count;
     }
     assert(reached.none > 50 && reached.all > 50 && reached.short > 50, `PCMPxSTRx data: ${JSON.stringify(reached)}`);
-    console.log("PASS: PCMPESTRM/PCMPESTRI/PCMPISTRM/PCMPISTRI, every imm8 from registers and unaligned memory: XMM0, ECX and the flags as the model; Tier-0 templates");
+    console.log("PASS: PCMPESTRM/PCMPESTRI/PCMPISTRM/PCMPISTRI, every imm8 from registers and unaligned memory: XMM0, ECX and the flags as the model; the page tier templates");
 
     // CRC32 against the model: r/m8 (AH-BH too), r/m16 and r/m32 from
     // registers (the destination's too) and unaligned memory; the flags kept
@@ -739,7 +745,7 @@ try
     for(const vm of machines) pages(vm, ABSENT, true);
     checks += 5;
     console.log("PASS: #GP(0) for misaligned m128 operands (none for narrow ones or PCMPxSTRx), #NM, #UD (EM, OSFXSR, LOCK, F2/F3, MOVNTDQA register) and #PF, without effect; CRC32 and POPCNT without XMM checks");
-    console.log(`PASS: ${checks} SSE4 checks on 3 arms`);
+    console.log(`PASS: ${checks} SSE4 checks in the interpreter and the page tier`);
 }
 finally
 {

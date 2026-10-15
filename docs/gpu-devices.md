@@ -1018,7 +1018,7 @@ The guest is Alpine 3.24 x86_64 from the official virt ISO. Its kernel builds
   `+context_init` from `virgl43-blob` and maps host visible memory (BAR4) at
   `virgl43-hostmem`.
 - **Mesa's virgl.** Alpine 3.24's Mesa (26.1) is built without virgl, so the
-  tests install Alpine 3.23's Mesa 25.2 (`tools/alpine_gpu_repo.mjs`). It
+  tests install Alpine 3.23's Mesa 25.2 (`tools/alpine_repo.mjs`). It
   reports OpenGL 3.3 core/compat and GLES 3.0 at `virgl`, OpenGL 4.3
   core/compat and GLES 3.1 from `virgl43`, and offers `ARB_buffer_storage`
   (persistent, coherent mappings) when the capset has
@@ -1244,7 +1244,7 @@ Prepare once:
 
 ```sh
 X64_LINUX_PREPARE_ONLY=1 node tests/x64/linux_boot.mjs
-node tools/alpine_gpu_repo.mjs
+node tools/alpine_repo.mjs
 ```
 
 - **The guest** is Alpine 3.24 x86_64 from the official virt ISO.
@@ -1252,7 +1252,7 @@ node tools/alpine_gpu_repo.mjs
   `linux-virt` kernel and initramfs into `build/x64-linux/`. The DRM drivers
   `bochs`, `vmwgfx` and `virtio_gpu` are modules of that kernel.
 - **The test disk** `build/x64-linux/gpu-repo.tar` is a local Alpine
-  repository that `alpine_gpu_repo.mjs` fills with the dependency closure of
+  repository that `alpine_repo.mjs` fills with the dependency closure of
   Mesa, kmscube, mesa-demos, mesa-utils, libdrm-tests, weston (DRM backend,
   desktop shell, terminal, clients), seatd, vulkan-tools, and Mesa's Venus
   (`mesa-vulkan-virtio`) and lavapipe (`mesa-vulkan-swrast`) Vulkan drivers.

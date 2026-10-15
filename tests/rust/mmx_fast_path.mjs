@@ -4,7 +4,7 @@ import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
 // mmx_fast_path.mjs [baseline.wasm] [candidate.wasm]: machine 0 is the
 // interpreter (or, with arguments, the baseline core); the candidate core runs
-// every case once per IR arm (Tier-0 and regions) and must match it.
+// every case once per compiled arm (the page tier) and must match it.
 const paths = [process.argv[2] || "build/v86.wasm", process.argv[3] || "build/v86.wasm"];
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -16,7 +16,7 @@ const word = (vm, a) => new DataView(Uint8Array.from(vm.read_memory(a, 4)).buffe
 async function run(vm, address, warm = false) {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     // Programs reuse CODE: start each warm run from an empty compiler state
-    // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+    // (compiled code needs more heat to recompile a page after each rewrite).
     if(warm) cpu.jit_clear_cache();
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;

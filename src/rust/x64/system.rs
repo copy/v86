@@ -110,6 +110,9 @@ pub unsafe fn write_cr(index: usize, value: u64) -> Result<(), Fault> {
     let old = controls();
     let mut c = controls();
     c.write_cr(index, value)?;
+    if (c.cr0 ^ old.cr0) & 8 != 0 {
+        crate::step_profile::note_event(crate::step_profile::event::CR0_TS, 0);
+    }
     state::write_cr_raw(0, c.cr0);
     state::write_cr_raw(3, c.cr3);
     state::write_cr_raw(4, c.cr4);
@@ -140,7 +143,6 @@ pub unsafe fn write_cr(index: usize, value: u64) -> Result<(), Fault> {
         cpu::full_clear_tlb();
         memory::invalidate_core(crate::cpu::apic::current_core());
     }
-    crate::ir::runtime::entry::ir_admission_barrier();
     Ok(())
 }
 pub unsafe fn write_msr(index: u32, value: u64) -> Result<bool, Fault> {
@@ -299,6 +301,7 @@ pub unsafe fn execute(instruction: &Decoded) -> Result<bool, Fault> {
             if *gp::cpl != 0 {
                 return Err(Fault::gp());
             }
+            crate::step_profile::note_event(crate::step_profile::event::CLTS, 0);
             state::write_cr_raw(0, state::read_cr(0) & !8);
         },
         0x0F08 | 0x0F09 => {
@@ -494,7 +497,6 @@ unsafe fn flat_segments(cs: u16, ss: u16, privilege: u8, long: bool) {
     *gp::cpl = privilege;
     cpu::update_state_flags();
     cpu::cpl_changed();
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 pub unsafe fn fast_call(op: u32, wide: bool, next: u64) -> Result<(), Fault> {
     match op {
@@ -1039,7 +1041,6 @@ unsafe fn install_cs(selector: u16, descriptor: &cpu::SegmentDescriptor, privile
     *gp::cpl = privilege;
     cpu::update_state_flags();
     *gp::last_virt_eip = -1;
-    crate::ir::runtime::entry::ir_admission_barrier();
 }
 pub unsafe fn interrupt(vector: u8, software: bool, code: Option<u32>) -> Result<(), Fault> {
     let offset = vector as u32 * 16;

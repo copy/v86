@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 import { COMPILED_ARMS, compiled_activations } from "./compiled_arms.mjs";
-// x87 in both IR code generators (Tier-0 and regions) against the interpreter:
-// native f64 arithmetic over the shadow cache (x87_fast_math with
-// x87_jit_cache), its entry guards and observers, and the runtime policies.
+// x87 in the page tier against the interpreter: native f64 arithmetic over
+// the shadow cache (x87_fast_math with x87_jit_cache), its entry guards and
+// observers, and the runtime policies. (The region tiers, a second compiled
+// arm, were deleted in M11.)
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;
 const CODE = 0x100000, DATA = 0x200000, OUT = 0x210000;
 const u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24];
@@ -29,7 +30,7 @@ async function run(vm, body, data, interpreted = false) {
     const p = [...body, 0xFF, 0x05, ...u32(0x600)];
     p.push(0xE9, ...u32(-p.length - 5));
     // Every program reuses CODE: start each from an empty compiler state
-    // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+    // (compiled code needs more heat to recompile a page after each rewrite).
     vm.v86.cpu.jit_clear_cache();
     vm.write_memory(data, DATA);
     vm.write_memory(new Uint8Array(1024), OUT);
@@ -51,7 +52,7 @@ async function run(vm, body, data, interpreted = false) {
 }
 let reference, helper;
 const arms = [];
-// Interpreter reference, then every IR arm; all must produce identical bytes.
+// Interpreter reference, then every compiled arm (the page tier); all must produce identical bytes.
 async function compare(body, message) {
     const a = await run(reference, body, data, true), results = [];
     for(const { label, vm } of arms) {
@@ -75,7 +76,7 @@ const prefix = (control, rotation = 0, wide = false, count = 3) => {
 };
 try {
     reference = await boot({ disable_jit: true, x87_jit_cache: false });
-    // Tier-0 without native x87 regions: every x87 operation uses helpers.
+    // The page tier without the x87 cache: every x87 operation uses helpers.
     helper = await boot({ x87_jit_cache: false });
     for(const { label, options } of COMPILED_ARMS) arms.push({ label, vm: await boot({ ...options, x87_jit_cache: true }) });
     for(const pc of [0,2,3]) for(let rc=0;rc<4;rc++) for(let rotation=0;rotation<8;rotation++) {
@@ -233,8 +234,9 @@ try {
         for(const { vm } of arms) assert.equal(word(vm,OUT+400),fault,"precise fault EIP");
     }
     console.log("PASS: overflow/subnormal intermediates and precise #NM/#PF state");
-    // Long regions split at the bound; warm code checks the runtime policy
-    // anew at every instruction (x87_native_policy).
+    // A long x87 run (20 copies of the sequence; the region tiers split it at
+    // their bound until M11); warm code checks the runtime policy anew at
+    // every instruction (x87_native_policy).
     const body=[...prefix(0x27F),...Array.from({length:20},()=>region).flat(),...snapshot];
     const a=await run(helper,body,data);
     helper.v86.cpu.wm.exports.set_x87_fast_math(false);
@@ -243,7 +245,7 @@ try {
     const output=vm=>Uint8Array.from(vm.read_memory(OUT,512));
     for(const { label, vm: cached } of arms) {
         const e=cached.v86.cpu.wm.exports, b=await run(cached,body,data);
-        assert.deepEqual(b.bytes,a.bytes,`${label}: bounded splitting preserves all stack state`);
+        assert.deepEqual(b.bytes,a.bytes,`${label}: a long x87 run preserves all stack state`);
         e.set_x87_fast_math(false);cached.run();await sleep(25);await cached.stop();
         assert.deepEqual(output(cached),compatible.bytes,`${label}: warm code honors compatible arithmetic`);
         e.set_x87_fast_math(true);cached.run();await sleep(25);await cached.stop();
@@ -255,7 +257,7 @@ try {
         e.set_x87_jit_cache(true);cached.run();await sleep(25);await cached.stop();
         assert.deepEqual(output(cached),b.bytes,`${label}: restore regenerates valid cached code`);
     }
-    console.log("PASS: guard fallback, region bound, runtime switch, SMC between cases and save/restore");
+    console.log("PASS: guard fallback, long x87 runs, runtime switch, SMC between cases and save/restore");
     // Save while f64 is authoritative and no guest F80 observer has run.
     d.setFloat64(8,1,true);d.setFloat64(16,2,true);
     const seed_only=[...prefix(0x27F),0xD8,0xC1,0xFF,0x05,...u32(0x600),0xE9,...u32(-11)];
@@ -270,7 +272,7 @@ try {
             `${label}: restore discards newer shadow values and reads saved 3.0`);
     }
     console.log("PASS: host save materializes dirty f64 state and restore discards stale shadow values");
-    // Warm-loop throughput in Tier-0, same generated code and input; switch
+    // Warm-loop throughput in the page tier, same generated code and input; switch
     // only runtime cache policy. The body reloads its seeds each iteration.
     const cached=arms[0].vm;
     await run(cached,[...prefix(0x27F),...Array.from({length:3},()=>region).flat(),...snapshot],data);

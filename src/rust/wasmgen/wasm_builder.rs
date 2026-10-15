@@ -123,15 +123,13 @@ impl WasmLocal {
 pub struct WasmLocalI64(u32);
 impl WasmLocalI64 {
     pub fn idx(&self) -> u32 { self.0 }
+    pub fn unsafe_clone(&self) -> Self { Self(self.0) }
 }
 // F32 locals are exercised by the backend tests; SIMD uses V128.
 #[allow(dead_code)]
 pub struct WasmLocalF32(u32);
 pub struct WasmLocalF64(u32);
 pub struct WasmLocalV128(u32);
-impl WasmLocalV128 {
-    pub fn unsafe_clone(&self) -> Self { Self(self.0) }
-}
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct Label(u32);
@@ -362,14 +360,11 @@ impl WasmBuilder {
     pub fn output(&self) -> &[u8] { &self.output }
     /// Bytes of instructions emitted so far (for size statistics).
     pub fn body_len(&self) -> usize { self.instruction_body.len() }
-    /// Replace emitted instructions (the bytes from `start` to `end` of the
-    /// body, a stack-neutral sequence) by nops.
-    pub fn patch_nop(&mut self, start: usize, end: usize) {
-        self.instruction_body[start..end].fill(op::OP_NOP);
-    }
+    /// Declared locals excluding parameters, including temporary staging slots.
+    #[cfg(test)]
+    pub fn declared_local_count(&self) -> usize { self.local_types.len() }
 
     /// Declared locals excluding parameters, including temporary staging slots.
-    pub fn declared_local_count(&self) -> usize { self.local_types.len() }
 
     fn new_local_index(&mut self, ty: WasmType) -> u32 {
         assert!(!self.finished, "reset builder before reuse");
@@ -685,12 +680,6 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn load_unaligned_u16(&mut self, byte_offset: u32) {
-        self.instruction_body.push(op::OP_I32LOAD16U);
-        self.instruction_body.push(op::MEM_NO_ALIGN);
-        write_leb_u32(&mut self.instruction_body, byte_offset);
-    }
-
     pub fn load_aligned_f64(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_F64LOAD);
         self.instruction_body.push(op::MEM_ALIGN64);
@@ -733,12 +722,6 @@ impl WasmBuilder {
         write_leb_u32(&mut self.instruction_body, byte_offset);
     }
 
-    pub fn store_unaligned_i32(&mut self, byte_offset: u32) {
-        self.instruction_body.push(op::OP_I32STORE);
-        self.instruction_body.push(op::MEM_NO_ALIGN);
-        write_leb_u32(&mut self.instruction_body, byte_offset);
-    }
-
     pub fn store_unaligned_i64(&mut self, byte_offset: u32) {
         self.instruction_body.push(op::OP_I64STORE);
         self.instruction_body.push(op::MEM_NO_ALIGN);
@@ -753,10 +736,7 @@ impl WasmBuilder {
     pub fn ctz_i64(&mut self) { self.instruction_body.push(op::OP_I64CTZ); }
     pub fn popcnt_i64(&mut self) { self.instruction_body.push(op::OP_I64POPCNT); }
     pub fn sub_i64(&mut self) { self.instruction_body.push(op::OP_I64SUB); }
-    pub fn div_s_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVS); }
-    pub fn rem_s_i64(&mut self) { self.instruction_body.push(op::OP_I64REMS); }
     pub fn shr_s_i64(&mut self) { self.instruction_body.push(op::OP_I64SHRS); }
-    pub fn lt_i64(&mut self) { self.instruction_body.push(op::OP_I64LTS); }
     pub fn ltu_i64(&mut self) { self.instruction_body.push(op::OP_I64LTU); }
     pub fn add_i64(&mut self) { self.instruction_body.push(op::OP_I64ADD); }
     pub fn sub_i32(&mut self) { self.instruction_body.push(op::OP_I32SUB); }
@@ -768,8 +748,6 @@ impl WasmBuilder {
     pub fn xor_i64(&mut self) { self.instruction_body.push(op::OP_I64XOR); }
     pub fn mul_i32(&mut self) { self.instruction_body.push(op::OP_I32MUL); }
     pub fn mul_i64(&mut self) { self.instruction_body.push(op::OP_I64MUL); }
-    pub fn div_i64(&mut self) { self.instruction_body.push(op::OP_I64DIVU); }
-    pub fn rem_i64(&mut self) { self.instruction_body.push(op::OP_I64REMU); }
 
     pub fn rotl_i32(&mut self) { self.instruction_body.push(op::OP_I32ROTL); }
     pub fn rotr_i32(&mut self) { self.instruction_body.push(op::OP_I32ROTR); }
@@ -785,10 +763,6 @@ impl WasmBuilder {
     pub fn eq_i64(&mut self) { self.instruction_body.push(op::OP_I64EQ); }
     pub fn ne_i32(&mut self) { self.instruction_body.push(op::OP_I32NE); }
     pub fn ne_i64(&mut self) { self.instruction_body.push(op::OP_I64NE); }
-
-    pub fn le_i32(&mut self) { self.instruction_body.push(op::OP_I32LES); }
-    pub fn lt_i32(&mut self) { self.instruction_body.push(op::OP_I32LTS); }
-    pub fn ge_i32(&mut self) { self.instruction_body.push(op::OP_I32GES); }
 
     pub fn gtu_i32(&mut self) { self.instruction_body.push(op::OP_I32GTU); }
     pub fn geu_i32(&mut self) { self.instruction_body.push(op::OP_I32GEU); }
@@ -983,14 +957,6 @@ impl WasmBuilder {
             self.load_u8(byte_offset)
         }
     }
-    pub fn guest_load_u16(&mut self, byte_offset: u32) {
-        if Self::ATOMIC_GUEST_MEMORY {
-            self.atomic_op(0x13, 1, byte_offset)
-        }
-        else {
-            self.load_unaligned_u16(byte_offset)
-        }
-    }
     pub fn guest_load_i32(&mut self, byte_offset: u32) {
         if Self::ATOMIC_GUEST_MEMORY {
             self.atomic_op(0x10, 2, byte_offset)
@@ -1024,30 +990,6 @@ impl WasmBuilder {
                 32 => self.memory_op(op::OP_I64LOAD32U, op::MEM_NO_ALIGN, byte_offset),
                 _ => self.memory_op(op::OP_I64LOAD, op::MEM_NO_ALIGN, byte_offset),
             }
-        }
-    }
-    pub fn guest_store_u8(&mut self, byte_offset: u32) {
-        if Self::ATOMIC_GUEST_MEMORY {
-            self.atomic_op(0x19, 0, byte_offset)
-        }
-        else {
-            self.store_u8(byte_offset)
-        }
-    }
-    pub fn guest_store_u16(&mut self, byte_offset: u32) {
-        if Self::ATOMIC_GUEST_MEMORY {
-            self.atomic_op(0x1A, 1, byte_offset)
-        }
-        else {
-            self.store_unaligned_u16(byte_offset)
-        }
-    }
-    pub fn guest_store_i32(&mut self, byte_offset: u32) {
-        if Self::ATOMIC_GUEST_MEMORY {
-            self.atomic_op(0x17, 2, byte_offset)
-        }
-        else {
-            self.store_unaligned_i32(byte_offset)
         }
     }
     pub fn guest_store_i64(&mut self, byte_offset: u32) {
@@ -1200,5 +1142,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "../../../tests/ir/wasm/builder.rs"]
+#[path = "../../../tests/wasmgen/builder.rs"]
 mod capacity_tests;

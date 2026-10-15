@@ -1,0 +1,505 @@
+//! One registry of the JIT switches (docs/jit-unification-plan.md, cross-phase
+//! rule 1). Each A/B switch of the x64 page tier has a name
+//! here, so that the V86 option `jit_switches`, the tests (JIT_SWITCHES, read
+//! by tests/lib/jit_switches.mjs) and build-time defaults (JIT_DEFAULTS) set
+//! them one way, vCPU workers copy them and measurements can record them
+//! (src/jit_switches.js). The older setters (x64_page_set_outline, ...) stay
+//! as aliases: jit_switch reads a value however it was set. The engine's tail
+//! calls (jit_set_tail_calls) are a host capability, not a switch. (The IR
+//! region tiers' switches went with them in docs/jit-unification-plan.md M11.)
+//!
+//! Values apply in the order of SWITCHES.
+
+use crate::cpu::execution;
+use crate::step_profile;
+use crate::x64::{pagegen, pages};
+
+pub struct Switch {
+    /// the name in jit_switches, JIT_SWITCHES and JIT_DEFAULTS
+    pub name: &'static str,
+    /// the value of a fresh instance, before src/cpu.js applies its settings
+    pub default: u32,
+    /// false: the value is out of range, or the module refuses the change now
+    /// (most IR settings only change while nothing is compiled)
+    set: unsafe fn(u32) -> bool,
+    get: unsafe fn(&str) -> Option<u32>,
+}
+
+fn flag(value: u32) -> Option<bool> { (value <= 1).then_some(value == 1) }
+
+pub const SWITCHES: &[Switch] = &[
+    // the x64 page tier (crate::x64), and compatibility mode's helpers
+    Switch {
+        name: "x64_page",
+        default: 1,
+        set: |v| flag(v).map(pages::x64_page_set_enabled).is_some(),
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_chaining",
+        default: 0,
+        // (chained page functions end in a Wasm tail call)
+        set: |v| match flag(v) {
+            Some(on) if !on || crate::x64::helpers::tail_calls() => {
+                unsafe { pages::x64_page_set_chaining(on) };
+                true
+            },
+            _ => false,
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_recompile_misses",
+        default: 64,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::x64_page_set_recompile_misses(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.5b, P4.5c)
+    Switch {
+        name: "x64_heat_batch",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_heat_batch(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_miss_run",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_miss_run(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.15: the access cache's entries per
+    // table; the page tier recompiles)
+    Switch {
+        name: "x64_jac_entries",
+        default: 2048,
+        set: |v| unsafe {
+            crate::x64::jac::set_entries(v as usize) && {
+                pages::reset();
+                true
+            }
+        },
+        get: |_| Some(crate::x64::jac::entries() as u32),
+    },
+    // (docs/jit-unification-plan.md P4.14)
+    Switch {
+        name: "x64_hot_inline",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_hot_inline(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        // (the execution count of a cold page function that recompiles its
+        // page with inline lookups: long after V8 optimized the cold one,
+        // so that only pages that stay hot pay for a new function that
+        // starts over in Liftoff; docs/jit-unification-plan.md appendix C, M5)
+        name: "x64_hot_count",
+        default: 1 << 22,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_hot_count(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    // (P7.2b: x64_hot_count of 32-bit compatibility-mode functions)
+    Switch {
+        name: "x64_compat_hot_count",
+        default: 1 << 16,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_compat_hot_count(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    // (docs/jit-unification-plan.md P7.2: 32-bit compatibility-mode code in
+    // the page tier instead of Tier-0; on since M9, which passed its D gate)
+    Switch {
+        name: "x64_page_compat32",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_compat32(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (P7.3: 32-bit legacy protected-mode code in the page tier instead of
+    // Tier-0; on since M8, which passed its D gate: P7.4)
+    Switch {
+        name: "x64_page_legacy32",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_legacy32(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (P7.7: 16-bit protected-mode code in the page tier, on since M10;
+    // off, it runs in the interpreter)
+    Switch {
+        name: "x64_page_prot16",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_prot16(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (real-mode and virtual-8086 code, P7.8)
+    Switch {
+        name: "x64_page_v86",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_v86(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    // (P7.2b, P7.3: interpreted instructions on a page of legacy-mode code
+    // before its first compile, and its unserved entries before a recompile)
+    Switch {
+        name: "x64_legacy_heat",
+        default: 50_000,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_legacy_heat(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    // (P7.3b: multi-page functions of legacy-mode code)
+    Switch {
+        name: "x64_page_clusters",
+        default: 1,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { pages::x64_page_set_clusters(on) })
+                .is_some()
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_span_crossings",
+        default: 4096,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_span_crossings(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_span_entries",
+        default: 8,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_span_entries(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    Switch {
+        name: "x64_legacy_recompile_misses",
+        default: 4096,
+        set: |v| {
+            v >= 1 && {
+                unsafe { pages::set_legacy_recompile_misses(v) };
+                true
+            }
+        },
+        get: pages::switch_value,
+    },
+    // (P7.2: compatibility mode's memory operands in the 32-bit TLB, as
+    // Tier-0's)
+    Switch {
+        name: "x64_compat_tlb",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_compat_tlb).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_bucket_dispatch",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_bucket_dispatch).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_block_count",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_block_count).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_outline",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_outline).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_cvt",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_cvt).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_loops",
+        default: 2,
+        // (2: only in compiles with inline lookups, P4.14's hot recompiles)
+        set: pagegen::set_loops,
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_xmm_locals",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_xmm_locals).is_some(),
+        get: pagegen::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.23)
+    Switch {
+        name: "x64_exit_flags",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_exit_flags).is_some(),
+        get: pagegen::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.22; functions of either kind must
+    // not chain to each other)
+    Switch {
+        name: "x64_fast_chain",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| {
+                    pagegen::x64_page_set_fast_chain(on);
+                    pages::reset();
+                })
+                .is_some()
+        },
+        get: pagegen::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.21)
+    Switch {
+        name: "x64_fast_lookup",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_fast_lookup).is_some(),
+        get: pagegen::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.20)
+    Switch {
+        name: "x64_i32_ops",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_i32_ops).is_some(),
+        get: pagegen::switch_value,
+    },
+    // (docs/jit-unification-plan.md P4.18)
+    Switch {
+        name: "x64_sse_fast_check",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_sse_fast_check).is_some(),
+        get: pagegen::switch_value,
+    },
+    Switch {
+        name: "x64_sti_shadow",
+        default: 1,
+        set: |v| flag(v).map(pagegen::x64_page_set_sti_shadow).is_some(),
+        get: pagegen::switch_value,
+    },
+    // 32-bit and 16-bit code in the page tier (x64_page_legacy32,
+    // x64_page_compat32, x64_page_prot16 and x64_page_v86 take effect with
+    // it): CPU.configure_jit_backend sets it unless its setting ir_tier0 is
+    // false (IR Tier-0's name, which it replaced in P7.5; the region tiers
+    // took that code without it until M11 deleted them)
+    Switch {
+        name: "ir_tier0",
+        default: 0,
+        set: |v| unsafe { crate::jit::jit_set_page32(v) },
+        get: |_| Some(unsafe { pages::page32_tier0() } as u32),
+    },
+    Switch {
+        name: "ir_relaxed_fma",
+        default: 0,
+        set: |v| unsafe { crate::x64::helpers::ir_set_relaxed_fma(v) },
+        get: |_| Some(unsafe { crate::x64::helpers::ir_relaxed_fma() }),
+    },
+    // measurement: the step profile of both tiers (crate::step_profile)
+    Switch {
+        name: "step_profile",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { step_profile::set_enabled(on) })
+                .is_some()
+        },
+        get: |_| Some(step_profile::enabled() as u32),
+    },
+    // measurement: retired instructions by mode and how they ran
+    // (crate::cpu::execution's mode ledger)
+    Switch {
+        name: "mode_ledger",
+        default: 0,
+        set: |v| {
+            flag(v)
+                .map(|on| unsafe { execution::set_ledger(on) })
+                .is_some()
+        },
+        get: |_| Some(execution::ledger_on() as u32),
+    },
+];
+
+const COUNT: usize = SWITCHES.len();
+const UNSET: u32 = u32::MAX;
+
+/// name=value pairs, comma separated, set at build time (Makefile JIT_DEFAULTS)
+const BUILD_DEFAULTS: &str = match option_env!("JIT_DEFAULTS") {
+    Some(defaults) => defaults,
+    None => "",
+};
+
+/// The values set through jit_set_switch, which vCPU workers copy (UNSET:
+/// never set here)
+static mut EXPLICIT: [u32; COUNT] = [UNSET; COUNT];
+/// In a vCPU worker: the machine's values it applied last
+static mut COPIED: [u32; COUNT] = [UNSET; COUNT];
+/// "name default\n" for each switch, by id (jit_switch_text)
+static mut NAMES: Option<String> = None;
+
+#[no_mangle]
+pub fn jit_switch_count() -> u32 { COUNT as u32 }
+
+/// The value of switch `id`, or u32::MAX for an unknown id or a value that
+/// cannot be read now (a module busy compiling)
+#[no_mangle]
+pub unsafe fn jit_switch(id: u32) -> u32 {
+    match SWITCHES.get(id as usize) {
+        Some(s) => (s.get)(s.name).unwrap_or(UNSET),
+        None => UNSET,
+    }
+}
+
+#[no_mangle]
+pub unsafe fn jit_set_switch(id: u32, value: u32) -> bool {
+    let Some(s) = SWITCHES.get(id as usize)
+    else {
+        return false;
+    };
+    if value == UNSET || !(s.set)(value) {
+        return false;
+    }
+    EXPLICIT[id as usize] = value;
+    true
+}
+
+/// The value last set through jit_set_switch, or u32::MAX (what a vCPU worker
+/// is started with, src/browser/starter.js)
+#[no_mangle]
+pub unsafe fn jit_switch_explicit(id: u32) -> u32 {
+    if (id as usize) < COUNT {
+        EXPLICIT[id as usize]
+    }
+    else {
+        UNSET
+    }
+}
+
+/// The address of a text: 0, the switches ("name default\n" by id); 1, the
+/// build-time defaults (JIT_DEFAULTS)
+#[no_mangle]
+pub unsafe fn jit_switch_text(which: u32) -> u32 { text(which).as_ptr() as u32 }
+#[no_mangle]
+pub unsafe fn jit_switch_text_length(which: u32) -> u32 { text(which).len() as u32 }
+
+unsafe fn text(which: u32) -> &'static str {
+    if which == 1 {
+        return BUILD_DEFAULTS;
+    }
+    (*(&raw mut NAMES)).get_or_insert_with(|| {
+        SWITCHES
+            .iter()
+            .map(|s| format!("{} {}\n", s.name, s.default))
+            .collect()
+    })
+}
+
+/// In a vCPU worker (cpu::copy_machine_configuration): apply the values set on
+/// the machine instance since the last call, each change once
+pub unsafe fn copy_from_machine() {
+    if crate::parallel::machine_instance() {
+        return;
+    }
+    let explicit = *crate::parallel::machine(&raw mut EXPLICIT);
+    for id in 0..COUNT {
+        let value = explicit[id];
+        if value != UNSET && value != COPIED[id] {
+            COPIED[id] = value;
+            (SWITCHES[id].set)(value);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_are_unique_and_defaults_in_range() {
+        for (i, s) in SWITCHES.iter().enumerate() {
+            assert!(
+                SWITCHES[..i].iter().all(|t| t.name != s.name),
+                "{} twice",
+                s.name
+            );
+            assert!(s.default != UNSET, "{}", s.name);
+            assert!(
+                s.name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'),
+                "{}",
+                s.name
+            );
+        }
+    }
+
+    #[test]
+    fn build_defaults_name_switches() {
+        for pair in BUILD_DEFAULTS
+            .split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+        {
+            let (name, value) = pair
+                .split_once('=')
+                .expect("JIT_DEFAULTS: name=value pairs");
+            assert!(
+                SWITCHES.iter().any(|s| s.name == name.trim()),
+                "JIT_DEFAULTS: unknown switch {}",
+                name
+            );
+            value.trim().parse::<u32>().expect("JIT_DEFAULTS: a number");
+        }
+    }
+}

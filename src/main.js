@@ -1,4 +1,5 @@
 import { CPU } from "./cpu.js";
+import { A64CPU } from "./arm/cpu.js";
 import { save_state, restore_state, save_state_stream, restore_state_stream } from "./state.js";
 export { V86 } from "./browser/starter.js";
 
@@ -20,8 +21,11 @@ export function v86(bus, wasm)
     this.tick_counter = 0;
     this.worker = null;
 
+    // the CPU of the core's family (docs/arm64-virt-android16-plan.md P1.2):
+    // the ARM core exports the ISA marker isa_aarch64
+    const stop_idling = () => { this.running && this.idle && this.next_tick(0); };
     /** @type {CPU} */
-    this.cpu = new CPU(bus, wasm, () => { this.running && this.idle && this.next_tick(0); });
+    this.cpu = wasm.exports["isa_aarch64"] ? /** @type {?} */ (new A64CPU(bus, wasm, stop_idling)) : new CPU(bus, wasm, stop_idling);
 
     this.bus = bus;
 
@@ -35,7 +39,7 @@ v86.prototype.run = function()
     this.stopping = false;
     this.cpu.clock.resume();
 
-    if(this.cpu.devices?.acpi?.soft_off)
+    if(this.cpu.powered_off())
     {
         // The guest turned the machine off (ACPI S5/S4): power it on again
         this.cpu.reboot_internal("power-on");
@@ -76,7 +80,7 @@ v86.prototype.do_tick = function()
         return;
     }
 
-    if(this.cpu.devices?.acpi?.soft_off)
+    if(this.cpu.powered_off())
     {
         // The guest turned the machine off; stop at the end of this slice
         this.stopping = true;

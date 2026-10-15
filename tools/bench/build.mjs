@@ -2,6 +2,12 @@
 // Builds the CPU benchmark suite (tests/bench) into PE images linked at
 // 0x400000 and the benchmark BIOS. Requires nasm and the MinGW-w64 i686
 // toolchain (i686-w64-mingw32-gcc/ld). Output: build/bench/.
+//
+// With the MinGW-w64 x86-64 toolchain (x86_64-w64-mingw32-gcc/ld) the C
+// benchmarks whose profile has an entry in suite.json's profiles64 are also
+// built as PE32+ images (docs/jit-unification-plan.md P0.3), started by the
+// long-mode boot (lib/long_mode.asm, lib/crt0_64.asm): build/bench/x86_64/,
+// and `image64` in the manifest. The i686 images do not change.
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -12,6 +18,8 @@ const out = path.join(root, "build/bench");
 const suite = JSON.parse(fs.readFileSync(path.join(src, "suite.json"), "utf8"));
 const CC = process.env.BENCH_CC || "i686-w64-mingw32-gcc";
 const LD = process.env.BENCH_LD || "i686-w64-mingw32-ld";
+const CC64 = process.env.BENCH_CC64 || "x86_64-w64-mingw32-gcc";
+const LD64 = process.env.BENCH_LD64 || "x86_64-w64-mingw32-ld";
 const COMMON = ["-ffreestanding", "-fno-asynchronous-unwind-tables", "-fno-stack-protector",
     "-fno-pic", "-fno-common", "-Wall", "-Wno-unused-function", "-I", path.join(src, "lib")];
 
@@ -42,16 +50,34 @@ function codebloat() {
     return s;
 }
 
-function compile(file, profile, object) {
-    if(file.endsWith(".asm")) run("nasm", ["-f", "win32", "-I", path.join(src, "src") + "/", file, "-o", object]);
+function compile(file, profile, object, wide = false) {
+    if(file.endsWith(".asm")) run("nasm", ["-f", wide ? "win64" : "win32", "-I", path.join(src, "src") + "/", file, "-o", object]);
+    else if(wide) run(CC64, [...suite.profiles64[profile].split(" "), ...COMMON, "-c", file, "-o", object]);
     else run(CC, [...suite.profiles[profile].split(" "), ...COMMON, "-c", file, "-o", object]);
 }
+const available = tool => { try { run(tool, ["--version"]); return true; } catch{ return false; } };
 
 const libgcc = run(CC, ["-print-libgcc-file-name"]).toString().trim();
 run("nasm", ["-f", "bin", path.join(src, "lib/boot.asm"), "-o", path.join(out, "boot.bin")]);
 const crt0 = path.join(out, "crt0.o");
 compile(path.join(src, "lib/crt0.asm"), null, crt0);
 const runtime = {};
+// x86-64: the long-mode boot with 2 MiB pages, with 4 KiB pages, and halting
+// in compatibility mode
+const wide = available(CC64) && available(LD64);
+const out64 = path.join(out, "x86_64");
+let libgcc64, crt0_64;
+const runtime64 = {};
+if(wide) {
+    fs.mkdirSync(out64, { recursive: true });
+    libgcc64 = run(CC64, ["-print-libgcc-file-name"]).toString().trim();
+    run("nasm", ["-f", "bin", path.join(src, "lib/long_mode.asm"), "-o", path.join(out, "long_mode.bin")]);
+    run("nasm", ["-f", "bin", "-DLARGE_PAGES=0", path.join(src, "lib/long_mode.asm"), "-o", path.join(out, "long_mode_4k.bin")]);
+    run("nasm", ["-f", "bin", "-DCOMPAT=1", path.join(src, "lib/long_mode.asm"), "-o", path.join(out, "long_mode_compat.bin")]);
+    crt0_64 = path.join(out64, "crt0.o");
+    compile(path.join(src, "lib/crt0_64.asm"), null, crt0_64, true);
+}
+else console.log(`(no ${CC64}: x86-64 images skipped)`);
 const only = process.argv[2] ? new RegExp(process.argv[2]) : null;
 const manifest = [];
 for(const bench of suite.benchmarks) {
@@ -73,8 +99,22 @@ for(const bench of suite.benchmarks) {
     if(stale(object, inputs)) compile(file, profile, object);
     objects.push(object);
     run(LD, ["-m", "i386pe", "--image-base=0x400000", "-e", "_start", "-o", image, ...objects, libgcc]);
-    manifest.push({ ...bench, image: path.relative(root, image) });
-    process.stdout.write(`${bench.name} `);
+    const entry = { ...bench, image: path.relative(root, image) };
+    // (the C benchmarks with a 64-bit profile: same source, x86-64 code)
+    if(wide && !file.endsWith(".asm") && suite.profiles64[profile]) {
+        runtime64[profile] ??= path.join(out64, `rt.${profile}.o`);
+        compile(path.join(src, "lib/rt.c"), profile, runtime64[profile], true);
+        const object64 = path.join(out64, `${bench.name}.o`), image64 = path.join(out64, `${bench.name}.exe`);
+        if(stale(object64, inputs)) compile(file, profile, object64, true);
+        run(LD64, ["-m", "i386pep", "--image-base=0x400000", "-e", "_start", "-o", image64, crt0_64, runtime64[profile], object64, libgcc64]);
+        entry.image64 = path.relative(root, image64);
+    }
+    manifest.push(entry);
+    process.stdout.write(`${bench.name}${entry.image64 ? "+64" : ""} `);
 }
-fs.writeFileSync(path.join(out, "manifest.json"), JSON.stringify({ boot: "build/bench/boot.bin", benchmarks: manifest }, null, 1));
+fs.writeFileSync(path.join(out, "manifest.json"), JSON.stringify({
+    boot: "build/bench/boot.bin",
+    ...wide ? { boot64: "build/bench/long_mode.bin", boot64_small_pages: "build/bench/long_mode_4k.bin", boot_compat: "build/bench/long_mode_compat.bin" } : {},
+    benchmarks: manifest,
+}, null, 1));
 console.log(`\nbuilt ${manifest.length} benchmarks into ${path.relative(root, out)}`);

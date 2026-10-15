@@ -42,8 +42,8 @@ pub fn allocate_memory(size: u32) -> u32 {
     let layout = alloc::Layout::from_size_align(size as usize, 0x1000).unwrap();
     // RAM reads as zero at power-on. The pages the heap grows by are zero,
     // but below its current end the allocator may return chunks freed
-    // before, their headers still in them: with Tier-0, the 16 chunks of
-    // 2 MiB of ir::runtime::schedule's reserve_compiler_heap
+    // before, their headers still in them: with the page tier's 32-bit code, the 16 chunks of
+    // 2 MiB of jit::reserve_compiler_heap
     // (0x0020000A00400010 at guest 0x3FFEA0, ...). Only that part is cleared
     // (alloc_zeroed would commit every page of the guest's RAM up front).
     let heap_end = heap_end();
@@ -82,6 +82,15 @@ pub fn in_mapped_range(addr: u32) -> bool {
                 || unsafe { crate::cpu::smm::in_tseg(addr) })
 }
 
+/// Whether `addr` is in a page of guest RAM in mem8: decoded by the low bus,
+/// or RAM relocated above 4 GiB, whose backing is a hole of the low bus
+/// (in_mapped_range) yet plain RAM to IA-32e mode's fetches
+/// (crate::x64::physical::ram_page)
+pub fn is_ram_backing(addr: u32) -> bool {
+    !in_mapped_range(addr)
+        || addr < unsafe { *memory_size } && unsafe { crate::x64::physical::is_low_ram_hole(addr) }
+}
+
 /// RAM that the low bus does not decode: relocated above 4 GiB, or TSEG
 /// outside SMM (crate::cpu::smm)
 #[inline]
@@ -91,6 +100,19 @@ fn low_ram_hole(addr: u32) -> bool {
         && unsafe {
             crate::x64::physical::is_low_ram_hole(addr) || crate::cpu::smm::tseg_blackhole(addr)
         }
+}
+
+/// Memory-mapped I/O whose accesses may raise or unmask an interrupt: what
+/// lies above RAM (the APIC, the IOAPIC, HPET, PCI memory BARs), except a
+/// device's plain memory (mmio_ram), SMRAM and the extended RAM aperture.
+/// Compiled code leaves an access there to the interpreter, which delivers
+/// the interrupt at the instruction boundary (docs/jit-unification-plan.md
+/// P3.0b). The legacy VGA window below 1 MiB raises none.
+pub unsafe fn may_interrupt(addr: u32) -> bool {
+    addr >= *memory_size
+        && !aperture::contains(addr)
+        && smram_ram(addr, 1, false).is_none()
+        && mmio_ram::read_host(addr, 1).is_none()
 }
 
 #[inline]
@@ -319,7 +341,7 @@ pub unsafe fn write8(addr: u32, value: i32) {
 
 #[inline]
 pub unsafe fn write8_ram(addr: u32, value: i32) {
-    jit::jit_dirty_page(Page::page_of(addr));
+    jit::jit_dirty_bytes(addr, 1);
     write8_no_mmap_or_dirty_check(addr, value);
 }
 
@@ -354,7 +376,7 @@ pub unsafe fn write16(addr: u32, value: i32) {
 }
 #[inline]
 pub unsafe fn write16_ram(addr: u32, value: i32) {
-    jit::jit_dirty_cache_small(addr, addr + 2);
+    jit::jit_dirty_bytes_small(addr, addr + 2);
     write16_no_mmap_or_dirty_check(addr, value);
 }
 pub unsafe fn write16_no_mmap_or_dirty_check(addr: u32, value: i32) {
@@ -373,7 +395,7 @@ pub unsafe fn write32(addr: u32, value: i32) {
 
 #[inline]
 pub unsafe fn write32_ram(addr: u32, value: i32) {
-    jit::jit_dirty_cache_small(addr, addr + 4);
+    jit::jit_dirty_bytes_small(addr, addr + 4);
     write32_no_mmap_or_dirty_check(addr, value);
 }
 

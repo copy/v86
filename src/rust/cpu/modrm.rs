@@ -106,7 +106,7 @@ pub unsafe fn resolve_modrm16(m: i32) -> OrPageFault<i32> { resolve(m, 16) }
 pub unsafe fn resolve_modrm32(m: i32) -> OrPageFault<i32> { resolve(m, 32) }
 pub unsafe fn resolve_modrm32_(m: i32) -> OrPageFault<i32> { resolve(m, 32) }
 #[cfg(feature = "ir-test-hooks")]
-#[path = "../../../tests/ir/decode/legacy_modrm.rs"]
+#[path = "../../../tests/decode/legacy_modrm.rs"]
 pub mod legacy;
 
 #[cfg(feature = "ir-test-hooks")]

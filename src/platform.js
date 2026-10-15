@@ -5,6 +5,7 @@
 
 import { dbg_assert } from "./log.js";
 import { h } from "./lib.js";
+import { MACHINE_TYPES } from "./machine_options.js";
 
 /** Must match MAX_CORES in src/rust/cpu/apic.rs */
 export const MAX_CORES = 8;
@@ -23,12 +24,9 @@ export const ACPI_PM_PCI_ID = 0x07 << 3;
 /** The PCI subsystem (vendor 1AF4, device 1100) of QEMU's emulated devices */
 export const QEMU_PCI_SUBSYSTEM = [0xF4, 0x1A, 0x00, 0x11];
 
-/**
- * settings.machine_type: "i440fx" (the default: i440FX host bridge, PIIX3/4,
- * IDE) or "q35" (Q35 MCH, ICH9 LPC with its power management, AHCI).
- * See docs/q35.md.
- */
-export const MACHINE_TYPES = ["i440fx", "q35"];
+// settings.machine_type: see src/machine_options.js ("i440fx", "q35" and,
+// with cpu_type "arm64", "virt"); this file describes the PC machines
+export { MACHINE_TYPES } from "./machine_options.js";
 
 /**
  * Version of the device layout a snapshot records with its machine type;
@@ -192,6 +190,10 @@ export function machine_type(settings)
     if(!MACHINE_TYPES.includes(machine))
     {
         throw new Error("machine_type must be one of " + MACHINE_TYPES.map(m => "\"" + m + "\"").join(", ") + ", got " + JSON.stringify(machine));
+    }
+    if(machine === "virt")
+    {
+        throw new Error("machine_type \"virt\" is not a PC machine (cpu_type \"arm64\")");
     }
     return machine;
 }

@@ -1,9 +1,9 @@
-// Decode rules shared by the 32-bit interpreter and both IR code generators
+// Decode rules shared by the 32-bit interpreter and the page tier
 // (docs/simd-xsave-plan.md 5.2): which row the 66/F2/F3 prefixes select
 // (decode_rules::mandatory_variant), the order of repeated F2/F3, #UD for a
 // mandatory prefix without a row of its own, the three-byte maps and VEX.
-// Each case runs in the interpreter, then hot under Tier-0 and under the
-// region tiers. (tests/ir/decode/vex_modes.mjs: C4/C5 by mode.)
+// Each case runs in the interpreter, then hot under the page tier.
+// (tests/decode/vex_modes.mjs: C4/C5 by mode.)
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -66,7 +66,7 @@ async function run_all(program, before = () => {}, set = machines, verify = () =
         }
     }
 }
-/** The interpreter, then Tier-0 and the region tiers, with `options` */
+/** The interpreter, then the page tier, with `options` */
 async function create_machines(options = {})
 {
     const set = [];
@@ -163,11 +163,11 @@ try
         (vm, run) => assert.equal(word(vm, OUT), 42, `F3 IMUL (${run})`));
     console.log(`PASS: ${undefined_forms.length} undefined mandatory prefixes raise #UD, F3 IMUL ignores the prefix`);
 
-    // The three-byte maps decode in all three decoders. SSSE3 (P3) and SSE4
-    // (P4b) are #UD without their feature; every other encoding is #UD until
-    // its semantics come (docs/simd-xsave-plan.md), whether or not the
-    // machine has its CPUID feature; so are F2/F3 at the SSSE3 opcodes, F3 at
-    // CRC32's and an opcode byte without rows
+    // The three-byte maps decode in the interpreter and the page tier. SSSE3
+    // (P3) and SSE4 (P4b) are #UD without their feature; every other encoding
+    // is #UD until its semantics come (docs/simd-xsave-plan.md), whether or
+    // not the machine has its CPUID feature; so are F2/F3 at the SSSE3
+    // opcodes, F3 at CRC32's and an opcode byte without rows
     const featured_forms = [
         [0x66, 0x0F, 0x38, 0x00, 0xC1], [0x0F, 0x38, 0x00, 0xC1],                  // pshufb
         [0x66, 0x0F, 0x3A, 0x0F, 0xC1, 0x08], [0x0F, 0x3A, 0x0F, 0xC1, 0x08],      // palignr

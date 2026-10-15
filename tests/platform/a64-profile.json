@@ -1,0 +1,782 @@
+{
+ "about": "The v86-aarch64-v1 CPU profile (docs/arm64-virt-android16-plan.md, 'CPU profile' and P0.3): every ID register, the IMPLEMENTATION DEFINED choices and the differences allowed against the QEMU cortex-a35 reference. tools/cpu_contract.mjs takes the a64 profiles' expected values from this file and compares the reference's registers with it; fields are [name, high bit, low bit, value].",
+ "profile": "v86-aarch64-v1",
+ "revision": 1,
+ "architecture": "Armv8.0-A",
+ "arm_arm": "Arm Architecture Reference Manual for A-profile architecture, DDI 0487 issue L.b (the latest issue found on 2026-10-15)",
+ "reference": {
+  "qemu": "9.2.0",
+  "cpu": "cortex-a35,pmu=off,cntfrq=1000000000",
+  "machine": "virt-9.2,gic-version=3,its=off,virtualization=off,secure=off"
+ },
+ "llvm_mattr": "+v8a,+fp-armv8,+neon,+aes,+sha2,+crc",
+ "hwcap": {
+  "value": "0x8ff",
+  "names": "fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid"
+ },
+ "id_space_rules": ["op0=3, op1=0, CRn=0, CRm=0: MIDR_EL1 (op2=0), MPIDR_EL1 (op2=5), REVIDR_EL1 (op2=6); every other op2 is UNDEF at every EL (as QEMU)", "op0=3, op1=0, CRn=0, CRm=1-7: the registers listed; every unallocated encoding reads 0 at EL1 and is UNDEF at EL0 (Linux emulates EL0 reads with HWCAP_CPUID); Linux 6.18 reads ID_AA64MMFR3_EL1, MMFR4, ISAR3 and PFR2 unconditionally", "EL0 access to the ID registers is UNDEF (EC 0x00); there is no FEAT_IDST"],
+ "id_space": [
+  {
+   "name": "MIDR_EL1",
+   "encoding": "S3_0_C0_C0_0",
+   "value": "0x00000000000f0860",
+   "fields": [
+    ["Implementer", 31, 24, 0],
+    ["Variant", 23, 20, 0],
+    ["Architecture", 19, 16, 15],
+    ["PartNum", 15, 4, 134],
+    ["Revision", 3, 0, 0]
+   ],
+   "note": "Implementer 0x00 is reserved for software use: not any Cortex part"
+  },
+  {
+   "encoding": "S3_0_C0_C0_1",
+   "value": "UNDEF"
+  },
+  {
+   "encoding": "S3_0_C0_C0_2",
+   "value": "UNDEF"
+  },
+  {
+   "encoding": "S3_0_C0_C0_3",
+   "value": "UNDEF"
+  },
+  {
+   "encoding": "S3_0_C0_C0_4",
+   "value": "UNDEF"
+  },
+  {
+   "name": "MPIDR_EL1",
+   "encoding": "S3_0_C0_C0_5",
+   "value": "per core",
+   "per_core": "0x80000000 | core",
+   "fields": [
+    ["RES1", 31, 31, 1],
+    ["U", 30, 30, 0],
+    ["MT", 24, 24, 0],
+    ["Aff3", 39, 32, 0],
+    ["Aff2", 23, 16, 0],
+    ["Aff1", 15, 8, 0],
+    ["Aff0", 7, 0, "core"]
+   ]
+  },
+  {
+   "name": "REVIDR_EL1",
+   "encoding": "S3_0_C0_C0_6",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C0_7",
+   "value": "UNDEF"
+  },
+  {
+   "name": "ID_PFR0_EL1",
+   "encoding": "S3_0_C0_C1_0",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_PFR1_EL1",
+   "encoding": "S3_0_C0_C1_1",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_DFR0_EL1",
+   "encoding": "S3_0_C0_C1_2",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_AFR0_EL1",
+   "encoding": "S3_0_C0_C1_3",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR0_EL1",
+   "encoding": "S3_0_C0_C1_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR1_EL1",
+   "encoding": "S3_0_C0_C1_5",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR2_EL1",
+   "encoding": "S3_0_C0_C1_6",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR3_EL1",
+   "encoding": "S3_0_C0_C1_7",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR0_EL1",
+   "encoding": "S3_0_C0_C2_0",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR1_EL1",
+   "encoding": "S3_0_C0_C2_1",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR2_EL1",
+   "encoding": "S3_0_C0_C2_2",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR3_EL1",
+   "encoding": "S3_0_C0_C2_3",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR4_EL1",
+   "encoding": "S3_0_C0_C2_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR5_EL1",
+   "encoding": "S3_0_C0_C2_5",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR4_EL1",
+   "encoding": "S3_0_C0_C2_6",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_ISAR6_EL1",
+   "encoding": "S3_0_C0_C2_7",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "MVFR0_EL1",
+   "encoding": "S3_0_C0_C3_0",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "MVFR1_EL1",
+   "encoding": "S3_0_C0_C3_1",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "MVFR2_EL1",
+   "encoding": "S3_0_C0_C3_2",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "encoding": "S3_0_C0_C3_3",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_PFR2_EL1",
+   "encoding": "S3_0_C0_C3_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_DFR1_EL1",
+   "encoding": "S3_0_C0_C3_5",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "name": "ID_MMFR5_EL1",
+   "encoding": "S3_0_C0_C3_6",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "AArch32 is not implemented"
+  },
+  {
+   "encoding": "S3_0_C0_C3_7",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64PFR0_EL1",
+   "encoding": "S3_0_C0_C4_0",
+   "value": "0x1100000001000011",
+   "fields": [
+    ["EL0", 3, 0, 1],
+    ["EL1", 7, 4, 1],
+    ["EL2", 11, 8, 0],
+    ["EL3", 15, 12, 0],
+    ["FP", 19, 16, 0],
+    ["AdvSIMD", 23, 20, 0],
+    ["GIC", 27, 24, 1],
+    ["RAS", 31, 28, 0],
+    ["SVE", 35, 32, 0],
+    ["SEL2", 39, 36, 0],
+    ["MPAM", 43, 40, 0],
+    ["AMU", 47, 44, 0],
+    ["DIT", 51, 48, 0],
+    ["RME", 55, 52, 0],
+    ["CSV2", 59, 56, 1],
+    ["CSV3", 63, 60, 1]
+   ],
+   "note": "AArch64 only at EL0 and EL1, no EL2 or EL3, FP and AdvSIMD without FP16, GICv3 system registers, CSV2 and CSV3 (the core does not speculate)"
+  },
+  {
+   "name": "ID_AA64PFR1_EL1",
+   "encoding": "S3_0_C0_C4_1",
+   "value": "0x0000000000000000",
+   "fields": [
+    ["BT", 3, 0, 0],
+    ["SSBS", 7, 4, 0],
+    ["MTE", 11, 8, 0],
+    ["RAS_frac", 15, 12, 0],
+    ["MPAM_frac", 19, 16, 0],
+    ["RES0", 23, 20, 0],
+    ["SME", 27, 24, 0],
+    ["RNDR_trap", 31, 28, 0],
+    ["CSV2_frac", 35, 32, 0],
+    ["NMI", 39, 36, 0],
+    ["MTE_frac", 43, 40, 0],
+    ["GCS", 47, 44, 0],
+    ["THE", 51, 48, 0],
+    ["MTEX", 55, 52, 0],
+    ["DF2", 59, 56, 0],
+    ["PFAR", 63, 60, 0]
+   ]
+  },
+  {
+   "name": "ID_AA64PFR2_EL1",
+   "encoding": "S3_0_C0_C4_2",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C4_3",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64ZFR0_EL1",
+   "encoding": "S3_0_C0_C4_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "name": "ID_AA64SMFR0_EL1",
+   "encoding": "S3_0_C0_C4_5",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C4_6",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64FPFR0_EL1",
+   "encoding": "S3_0_C0_C4_7",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "name": "ID_AA64DFR0_EL1",
+   "encoding": "S3_0_C0_C5_0",
+   "value": "0x0000000000101006",
+   "fields": [
+    ["DebugVer", 3, 0, 6],
+    ["TraceVer", 7, 4, 0],
+    ["PMUVer", 11, 8, 0],
+    ["BRPs", 15, 12, 1],
+    ["PMSS", 19, 16, 0],
+    ["WRPs", 23, 20, 1],
+    ["SEBEP", 27, 24, 0],
+    ["CTX_CMPs", 31, 28, 0],
+    ["PMSVer", 35, 32, 0],
+    ["DoubleLock", 39, 36, 0],
+    ["TraceFilt", 43, 40, 0],
+    ["TraceBuffer", 47, 44, 0],
+    ["MTPMU", 51, 48, 0],
+    ["BRBE", 55, 52, 0],
+    ["ExtTrcBuff", 59, 56, 0],
+    ["HPMN0", 63, 60, 0]
+   ],
+   "note": "Armv8.0 debug, 2 breakpoints (1 context-aware), 2 watchpoints, no PMU, OS Double Lock"
+  },
+  {
+   "name": "ID_AA64DFR1_EL1",
+   "encoding": "S3_0_C0_C5_1",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "name": "ID_AA64DFR2_EL1",
+   "encoding": "S3_0_C0_C5_2",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C5_3",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64AFR0_EL1",
+   "encoding": "S3_0_C0_C5_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "name": "ID_AA64AFR1_EL1",
+   "encoding": "S3_0_C0_C5_5",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C5_6",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C5_7",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64ISAR0_EL1",
+   "encoding": "S3_0_C0_C6_0",
+   "value": "0x0000000000011120",
+   "fields": [
+    ["RES0", 3, 0, 0],
+    ["AES", 7, 4, 2],
+    ["SHA1", 11, 8, 1],
+    ["SHA2", 15, 12, 1],
+    ["CRC32", 19, 16, 1],
+    ["Atomic", 23, 20, 0],
+    ["TME", 27, 24, 0],
+    ["RDM", 31, 28, 0],
+    ["SHA3", 35, 32, 0],
+    ["SM3", 39, 36, 0],
+    ["SM4", 43, 40, 0],
+    ["DP", 47, 44, 0],
+    ["FHM", 51, 48, 0],
+    ["TS", 55, 52, 0],
+    ["TLB", 59, 56, 0],
+    ["RNDR", 63, 60, 0]
+   ],
+   "note": "AES with 64-bit PMULL, SHA1, SHA-256, CRC32; the same value as the cortex-a35 reference"
+  },
+  {
+   "name": "ID_AA64ISAR1_EL1",
+   "encoding": "S3_0_C0_C6_1",
+   "value": "0x0000000000000000",
+   "fields": [
+    ["DPB", 3, 0, 0],
+    ["APA", 7, 4, 0],
+    ["API", 11, 8, 0],
+    ["JSCVT", 15, 12, 0],
+    ["FCMA", 19, 16, 0],
+    ["LRCPC", 23, 20, 0],
+    ["GPA", 27, 24, 0],
+    ["GPI", 31, 28, 0],
+    ["FRINTTS", 35, 32, 0],
+    ["SB", 39, 36, 0],
+    ["SPECRES", 43, 40, 0],
+    ["BF16", 47, 44, 0],
+    ["DGH", 51, 48, 0],
+    ["I8MM", 55, 52, 0],
+    ["XS", 59, 56, 0],
+    ["LS64", 63, 60, 0]
+   ],
+   "note": "no PAuth: PACIASP and AUTIASP execute as hints"
+  },
+  {
+   "name": "ID_AA64ISAR2_EL1",
+   "encoding": "S3_0_C0_C6_2",
+   "value": "0x0000000000000000",
+   "fields": [
+    ["WFxT", 3, 0, 0],
+    ["RPRES", 7, 4, 0],
+    ["GPA3", 11, 8, 0],
+    ["APA3", 15, 12, 0],
+    ["MOPS", 19, 16, 0],
+    ["BC", 23, 20, 0],
+    ["PAC_frac", 27, 24, 0],
+    ["CLRBHB", 31, 28, 0],
+    ["SYSREG_128", 35, 32, 0],
+    ["SYSINSTR_128", 39, 36, 0],
+    ["PRFMSLC", 43, 40, 0],
+    ["PCDPHINT", 47, 44, 0],
+    ["RPRFM", 51, 48, 0],
+    ["CSSC", 55, 52, 0],
+    ["LUT", 59, 56, 0],
+    ["ATS1A", 63, 60, 0]
+   ]
+  },
+  {
+   "name": "ID_AA64ISAR3_EL1",
+   "encoding": "S3_0_C0_C6_3",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C6_4",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C6_5",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C6_6",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C6_7",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "name": "ID_AA64MMFR0_EL1",
+   "encoding": "S3_0_C0_C7_0",
+   "value": "0x000000000f000022",
+   "fields": [
+    ["PARange", 3, 0, 2],
+    ["ASIDBits", 7, 4, 2],
+    ["BigEnd", 11, 8, 0],
+    ["SNSMem", 15, 12, 0],
+    ["BigEndEL0", 19, 16, 0],
+    ["TGran16", 23, 20, 0],
+    ["TGran64", 27, 24, 15],
+    ["TGran4", 31, 28, 0],
+    ["TGran16_2", 35, 32, 0],
+    ["TGran64_2", 39, 36, 0],
+    ["TGran4_2", 43, 40, 0],
+    ["ExS", 47, 44, 0],
+    ["RES0_48", 51, 48, 0],
+    ["RES0_52", 55, 52, 0],
+    ["FGT", 59, 56, 0],
+    ["ECV", 63, 60, 0]
+   ],
+   "note": "40-bit PA, 16-bit ASIDs, 4 KiB granule only (TGran16 = 0 and TGran64 = 0xF mean unsupported), no mixed endianness"
+  },
+  {
+   "name": "ID_AA64MMFR1_EL1",
+   "encoding": "S3_0_C0_C7_1",
+   "value": "0x0000000000000000",
+   "fields": [
+    ["HAFDBS", 3, 0, 0],
+    ["VMIDBits", 7, 4, 0],
+    ["VH", 11, 8, 0],
+    ["HPDS", 15, 12, 0],
+    ["LO", 19, 16, 0],
+    ["PAN", 23, 20, 0],
+    ["SpecSEI", 27, 24, 0],
+    ["XNX", 31, 28, 0],
+    ["TWED", 35, 32, 0],
+    ["ETS", 39, 36, 0],
+    ["HCX", 43, 40, 0],
+    ["AFP", 47, 44, 0],
+    ["nTLBPA", 51, 48, 0],
+    ["TIDCP1", 55, 52, 0],
+    ["CMOW", 59, 56, 0],
+    ["ECBHB", 63, 60, 0]
+   ],
+   "note": "no hardware AF/DBM, PAN, VHE"
+  },
+  {
+   "name": "ID_AA64MMFR2_EL1",
+   "encoding": "S3_0_C0_C7_2",
+   "value": "0x0000000000000000",
+   "fields": [
+    ["CnP", 3, 0, 0],
+    ["UAO", 7, 4, 0],
+    ["LSM", 11, 8, 0],
+    ["IESB", 15, 12, 0],
+    ["VARange", 19, 16, 0],
+    ["CCIDX", 23, 20, 0],
+    ["NV", 27, 24, 0],
+    ["ST", 31, 28, 0],
+    ["AT", 35, 32, 0],
+    ["IDS", 39, 36, 0],
+    ["FWB", 43, 40, 0],
+    ["RES0", 47, 44, 0],
+    ["TTL", 51, 48, 0],
+    ["BBM", 55, 52, 0],
+    ["EVT", 59, 56, 0],
+    ["E0PD", 63, 60, 0]
+   ],
+   "note": "no E0PD, 48-bit VA"
+  },
+  {
+   "name": "ID_AA64MMFR3_EL1",
+   "encoding": "S3_0_C0_C7_3",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "name": "ID_AA64MMFR4_EL1",
+   "encoding": "S3_0_C0_C7_4",
+   "value": "0x0000000000000000",
+   "fields": "all 0"
+  },
+  {
+   "encoding": "S3_0_C0_C7_5",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C7_6",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  },
+  {
+   "encoding": "S3_0_C0_C7_7",
+   "value": "0x0000000000000000",
+   "note": "unallocated: reads 0 at EL1, UNDEF at EL0"
+  }
+ ],
+ "other_registers": [
+  {
+   "name": "CTR_EL0",
+   "encoding": "S3_3_C0_C0_1",
+   "value": "0x000000008444c004",
+   "fields": [
+    ["RES1", 31, 31, 1],
+    ["TminLine", 37, 32, 0],
+    ["DIC", 29, 29, 0],
+    ["IDC", 28, 28, 0],
+    ["CWG", 27, 24, 4],
+    ["ERG", 23, 20, 4],
+    ["DminLine", 19, 16, 4],
+    ["L1Ip", 15, 14, 3],
+    ["IminLine", 3, 0, 4]
+   ],
+   "note": "64-byte lines and granules, PIPT instruction cache, IDC = DIC = 0 (a test variant with IDC = DIC = 1 shows that v86 never needs the guest's IC)"
+  },
+  {
+   "name": "DCZID_EL0",
+   "encoding": "S3_3_C0_C0_7",
+   "value": "0x0000000000000004",
+   "fields": [
+    ["DZP", 4, 4, "1 at EL0 when SCTLR_EL1.DZE = 0, else 0"],
+    ["BS", 3, 0, 4]
+   ]
+  },
+  {
+   "name": "CLIDR_EL1",
+   "encoding": "S3_1_C0_C0_1",
+   "value": "0x000000000a200023",
+   "fields": [
+    ["ICB", 34, 30, 0],
+    ["LoUU", 29, 27, 1],
+    ["LoC", 26, 24, 2],
+    ["LoUIS", 23, 21, 1],
+    ["Ctype3", 8, 6, 0],
+    ["Ctype2", 5, 3, 4],
+    ["Ctype1", 2, 0, 3]
+   ],
+   "note": "separate L1 instruction and data caches, a unified L2; LoUIS = LoUU = 1, LoC = 2 (never 0: Linux would treat CTR.IDC as 1)"
+  },
+  {
+   "name": "CCSIDR_EL1",
+   "encoding": "S3_1_C0_C0_0",
+   "value": "by CSSELR_EL1",
+   "by_csselr": {
+    "0": {
+     "name": "L1 data",
+     "encoding": "CSSELR 0",
+     "value": "0x00000000700fe01a",
+     "fields": [
+      ["WT", 31, 31, 0],
+      ["WB", 30, 30, 1],
+      ["RA", 29, 29, 1],
+      ["WA", 28, 28, 1],
+      ["NumSets", 27, 13, 127],
+      ["Associativity", 12, 3, 3],
+      ["LineSize", 2, 0, 2]
+     ],
+     "note": "32 KiB, 4 ways, 64-byte lines (the cortex-a35 reference's geometry)"
+    },
+    "1": {
+     "name": "L1 instruction",
+     "encoding": "CSSELR 1",
+     "value": "0x00000000200fe01a",
+     "fields": [
+      ["WT", 31, 31, 0],
+      ["WB", 30, 30, 0],
+      ["RA", 29, 29, 1],
+      ["WA", 28, 28, 0],
+      ["NumSets", 27, 13, 127],
+      ["Associativity", 12, 3, 3],
+      ["LineSize", 2, 0, 2]
+     ],
+     "note": "32 KiB, 4 ways, 64-byte lines"
+    },
+    "2": {
+     "name": "L2",
+     "encoding": "CSSELR 2",
+     "value": "0x00000000703fe07a",
+     "fields": [
+      ["WT", 31, 31, 0],
+      ["WB", 30, 30, 1],
+      ["RA", 29, 29, 1],
+      ["WA", 28, 28, 1],
+      ["NumSets", 27, 13, 511],
+      ["Associativity", 12, 3, 15],
+      ["LineSize", 2, 0, 2]
+     ],
+     "note": "512 KiB, 16 ways, 64-byte lines"
+    },
+    "other": "0 (a level or type without a cache)"
+   }
+  },
+  {
+   "name": "CSSELR_EL1",
+   "encoding": "S3_2_C0_C0_0",
+   "value": "0x0000000000000000",
+   "note": "read-write (InD, Level, TnD as written), saved in snapshots"
+  },
+  {
+   "name": "AIDR_EL1",
+   "encoding": "S3_1_C0_C0_7",
+   "value": "0x0000000000000000",
+   "fields": "all 0",
+   "note": "read unconditionally by Linux 6.18 on every core: must not UNDEF"
+  },
+  {
+   "encoding": "S3_1_C0_C0_2",
+   "name": "CCSIDR2_EL1",
+   "value": "UNDEF",
+   "note": "no FEAT_CCIDX"
+  },
+  {
+   "name": "CNTFRQ_EL0",
+   "encoding": "S3_3_C14_C0_0",
+   "value": "0x000000003b9aca00",
+   "note": "reset value 1 GHz; writable at EL1, read-only at EL0 (CNTKCTL_EL1); a write changes the register only; snapshotted"
+  },
+  {
+   "name": "FPCR",
+   "value": "0x0000000000000000",
+   "note": "reset value; RMode, FZ, DN and AHP take effect, the trap enables are RAZ/WI"
+  },
+  {
+   "name": "FPSR",
+   "value": "0x0000000000000000",
+   "note": "reset value"
+  },
+  {
+   "name": "ICC_SRE_EL1",
+   "value": "0x0000000000000007",
+   "note": "SRE RAO/WI (with DFB and DIB RAO/WI); 5 priority bits, 16-bit INTIDs, GICD_CTLR.DS = 1"
+  }
+ ],
+ "implementation_defined": ["A store crossing a page checks both pages first: a fault in either writes nothing, FAR is the first faulting byte", "A load or store to a physical address with nothing mapped is a synchronous external abort (DFSC 0x10, FAR valid), as the reference (P0.2 platform probe); an address beyond the 40-bit PA range with the MMU off is an address size fault at level 0 (DFSC 0x00)", "Exclusives: a 64-byte reservation granule; STXR to an address other than the LDXR's fails; exception entry does not clear the local monitor (as QEMU); ERET and CLREX clear it", "TCR_EL1.TG0/TG1 naming a granule the profile does not declare, or a reserved encoding, act as 4 KiB (as QEMU's sanitize_gran_size)", "HVC is taken by the emulator as PSCI 1.1 and SMCCC whatever its immediate (the reference handles HVC #1 the same); unknown function IDs return NOT_SUPPORTED (-1); SMCCC_VERSION is NOT_SUPPORTED, as the reference; SMC is UNDEF (EC 0x00)", "One system counter, monotonic across cores and continuous over snapshot restore; without EL2, CNTVOFF is 0", "Unallocated and out-of-profile non-hint encodings are UNDEF (EC 0x00); unimplemented HINT #0-#127 are NOPs; every DMB and DSB CRm value is a full barrier"],
+ "allowed_differences": {
+  "cpu": [
+   {
+    "registers": ["MIDR_EL1", "REVIDR_EL1"],
+    "why": "v86 does not claim to be a Cortex part (reference 0x411fd040)"
+   },
+   {
+    "registers": ["ID_AA64PFR0_EL1.EL0", "ID_AA64PFR0_EL1.EL1", "ID_PFR0_EL1", "ID_PFR1_EL1", "ID_PFR2_EL1", "ID_DFR0_EL1", "ID_DFR1_EL1", "ID_AFR0_EL1", "ID_MMFR0_EL1", "ID_MMFR1_EL1", "ID_MMFR2_EL1", "ID_MMFR3_EL1", "ID_MMFR4_EL1", "ID_MMFR5_EL1", "ID_ISAR0_EL1", "ID_ISAR1_EL1", "ID_ISAR2_EL1", "ID_ISAR3_EL1", "ID_ISAR4_EL1", "ID_ISAR5_EL1", "ID_ISAR6_EL1", "MVFR0_EL1", "MVFR1_EL1", "MVFR2_EL1"],
+    "why": "no AArch32: the reference runs AArch32 EL0 (probe aarch32=ran there, enoexec on v86) and /proc/cpuinfo lists 32-bit features"
+   },
+   {
+    "registers": ["ID_AA64DFR0_EL1.BRPs", "ID_AA64DFR0_EL1.WRPs", "ID_AA64DFR0_EL1.CTX_CMPs"],
+    "why": "2 breakpoints and 2 watchpoints (reference 6, 4 and 2 context breakpoints)"
+   },
+   {
+    "registers": ["ID_AA64PFR0_EL1.CSV2", "ID_AA64PFR0_EL1.CSV3"],
+    "why": "the reference reads 0 and Linux reaches the same mitigations through its MIDR safe list; the vulnerabilities/* texts may differ"
+   },
+   {
+    "registers": ["CTR_EL0.L1Ip"],
+    "why": "PIPT (reference VIPT, 0x84448004)"
+   },
+   {
+    "registers": ["ID_AA64MMFR0_EL1.TGran16", "ID_AA64MMFR0_EL1.TGran64"],
+    "why": "v1 declares the 4 KiB granule only (v1.1 adds 16 and 64 KiB)"
+   },
+   {
+    "registers": ["ID_AA64MMFR0_EL1.BigEnd", "ID_AA64MMFR0_EL1.SNSMem"],
+    "why": "no mixed endianness (no big-endian data at EL1) and no Secure memory without EL3 (reference 1 and 1)"
+   },
+   {
+    "behaviour": "SIMD stores (STP of Q registers, ST1-ST4) faulting across a page",
+    "why": "the reference writes element by element and leaves a partial write; v86 writes nothing; tests/a64/system_oracle.mjs compares PC, ESR, FAR and registers only"
+   },
+   {
+    "behaviour": "the probe's excl_aba on 2 and 4 cores",
+    "why": "QEMU's STXR compares values, so an ABA write between LDXR and STXR goes unnoticed (excl_aba=0); v86 fails it (excl_aba=1)"
+   },
+   {
+    "behaviour": "\"CPU features: detected\" lines in dmesg",
+    "why": "follow from the register differences above"
+   }
+  ],
+  "dtb": [
+   {
+    "node": "/chosen/rng-seed",
+    "why": "v86 writes one (the reference runs with dtb-randomness=off)"
+   },
+   {
+    "node": "flash@0, fw-cfg@9020000, pl061@9030000, gpio-keys, platform-bus@c000000",
+    "why": "v86 has no pflash, fw-cfg, GPIO controller, power button or dynamic sysbus devices"
+   },
+   {
+    "node": "memory",
+    "why": "with extended RAM v86 has two memory ranges, from 0x4000_0000 and from 4 GiB; the reference has one from 0x4000_0000 (the probe's pagemap high-page check is judged on v86 only)"
+   }
+  ],
+  "behavior": [{"instruction": "DC ZVA on Device memory (the MMU off, or a Device mapping)", "why": "v86 takes the alignment fault the Arm ARM requires for Device memory (DDI 0487 L.b, DC ZVA); QEMU 9.2 zeroes the block (target/arm/tcg/helper-a64.c, HELPER(dc_zva))"},
+    {"instruction": "an unaligned load or store to a Device mapping with the MMU on", "why": "v86 takes the Alignment fault the Arm ARM requires for any unaligned access to Device memory; the reference QEMU 9.2 (TCG on the owner's arm64 Mac) completes it (tests/a64/mmu.mjs keeps its misaligned probes on Normal memory)"},
+    {"instruction": "PSTATE.NZCV on exception entry", "why": "AArch64.TakeException leaves NZCV as it was, as v86 does; QEMU 9.2 clears it (pstate_write in arm_cpu_do_interrupt_aarch64); tests/a64/lockstep.mjs adopts QEMU's flags at an exception entry"},
+    {"instruction": "reads of RAM below the kernel (0x4000_0000)", "why": "QEMU's boot stub lives at the start of RAM; v86 starts the kernel directly and leaves it zero"},
+    {"instruction": "debug exceptions while OSLSR_EL1.OSLK is set (it is at reset)", "why": "the Arm ARM disables breakpoint, watchpoint and step exceptions under the OS Lock, as v86 does; QEMU 9.2 tests OSLSR bit 0 instead of OSLK (bit 1) and never blocks them (target/arm/debug_helper.c, arm_generate_debug_exceptions)"},
+    {"instruction": "unlinked context ID breakpoints (DBGBCR.BT 0b0010)", "why": "v86 implements them on its context-aware breakpoint; QEMU 9.2 does not (LOG_UNIMP)"},
+    {"instruction": "SP alignment checking (SCTLR_EL1.SA, SA0)", "why": "v86 takes the SP alignment fault (EC 0x26) the Arm ARM requires; QEMU 9.2 does not check SP alignment (an EL0 load through a misaligned SP becomes an ordinary alignment fault with the MMU off)"},
+    {"instruction": "WFE at EL0 with SCTLR_EL1.nTWE 0", "why": "v86 traps it (EC 0x01) when it would wait, as the Arm ARM says; QEMU 9.2 never traps WFE (it yields)"},
+    {"instruction": "the syndrome of a trapped MSR DAIFSet/DAIFClr at EL0", "why": "v86 reports the instruction's op1 3 and op2 6/7; QEMU 9.2 swaps op1 and op2 (syn_aa64_sysregtrap's arguments)"}]
+ }
+}

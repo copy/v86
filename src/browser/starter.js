@@ -2,6 +2,7 @@ import { wasm_fallback_path } from "./wasm_paths.js";
 import { instantiate_v86, memory_import } from "../parallel/relocate.js";
 import { default_worker_url, parallel_unsupported_reason } from "../parallel/machine.js";
 import { CPUWorkerController, encode_worker_file } from "./cpu_worker.js";
+import { get_jit_switches } from "../jit_switches.js";
 import { v86 } from "../main.js";
 import { LOG_CPU, LOG_VGA, WASM_TABLE_OFFSET, WASM_TABLE_SIZE } from "../const.js";
 import { get_rand_int, load_file, read_sized_string_from_mem } from "../lib.js";
@@ -11,6 +12,7 @@ import { Bus } from "../bus.js";
 import { BOOT_ORDER_FD_FIRST, BOOT_ORDER_HD_FIRST, BOOT_ORDER_CD_FIRST } from "../rtc.js";
 import { EEXIST, ENOENT } from "../../lib/9p.js";
 import { check_graphics_adapter_options, load_graphics_adapter } from "../graphics_adapter.js";
+import { check_machine_options } from "../machine_options.js";
 
 import { SpeakerAdapter } from "./speaker.js";
 import { NetworkAdapter } from "./network.js";
@@ -117,31 +119,26 @@ function create_local_channel()
     return { device: end(0, 1), host: end(1, 0) };
 }
 
-/** The guest CPUs of new V86() (`cpu_type`); the first is the default */
-export const CPU_TYPES = ["x86", "x86_64"];
-
 /**
- * Check the guest CPU of new V86() (`cpu_type`)
- * @param {!Object} options
- * @return {string} one of CPU_TYPES
+ * Check a loaded core (docs/arm64-virt-android16-plan.md P1.3): the ARM core
+ * exports the ISA marker isa_aarch64, the x86 core does not, and the core's
+ * own table entries end below WASM_TABLE_OFFSET, where compiled code's begin
+ * @param {!Object} exports
+ * @param {string} cpu_type
+ * @param {WebAssembly.Table} wasm_table
  */
-function check_cpu_type(options)
+function check_core(exports, cpu_type, wasm_table)
 {
-    if(options["experimental_x64"] !== undefined)
+    const arm = !!exports["isa_aarch64"];
+    if(arm !== (cpu_type === "arm64"))
     {
-        throw new Error("experimental_x64 was replaced by cpu_type: \"x86_64\"");
+        throw new Error("The Wasm core is the " + (arm ? "ARM" : "x86") + " core (" + (arm ? "v86-arm64.wasm" : "v86.wasm") +
+            "), cpu_type is \"" + cpu_type + "\": wasm_path names the wrong file");
     }
-    const cpu_type = options["cpu_type"];
-    if(cpu_type === undefined)
+    if(wasm_table && wasm_table.length > WASM_TABLE_OFFSET && wasm_table.get(WASM_TABLE_OFFSET - 1) !== null)
     {
-        return CPU_TYPES[0];
+        throw new Error("The Wasm core's own table entries reach WASM_TABLE_OFFSET (" + WASM_TABLE_OFFSET + "): raise it in src/const.js");
     }
-    if(!CPU_TYPES.includes(cpu_type))
-    {
-        throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
-            CPU_TYPES.map(name => "\"" + name + "\"").join(", "));
-    }
-    return cpu_type;
 }
 
 /**
@@ -173,7 +170,11 @@ export function V86(options)
 
     // The display adapter is required; its plugin loads with the other files
     this.graphics_adapter = check_graphics_adapter_options(options);
-    this.cpu_type = check_cpu_type(options);
+    // the guest CPU, the machine and the options that belong to them
+    // (src/machine_options.js; CPU.init checks again)
+    const machine = check_machine_options(options);
+    this.cpu_type = machine.cpu_type;
+    this.machine_type = machine.machine_type;
 
     const bus = Bus.create();
     this.bus = bus[0];
@@ -206,9 +207,14 @@ export function V86(options)
     this.parallel_forced = parallel_option === true;
     this.parallel_requested = false;
     this.parallel_fallback = "not requested";
+    if(this.cpu_type === "arm64" && parallel_option === true)
+    {
+        throw new Error("parallel: true is not supported with cpu_type \"arm64\" yet (docs/arm64-virt-android16-plan.md P8.2)");
+    }
     if(parallel_option === true || parallel_option === "auto")
     {
-        const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
+        const reason = this.cpu_type === "arm64" ? "arm64: cores in workers come with P8.2" :
+            (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
             parallel_unsupported_reason(options.cpu_cores);
         if(!reason || this.parallel_forced) this.parallel_requested = true;
@@ -225,10 +231,10 @@ export function V86(options)
         "microtick": () => cpu ? cpu.clock.now() : v86.microtick(),
         "get_rand_int": function() { return get_rand_int(); },
         "stop_idling": function() { return cpu.stop_idling(); },
-        "x64_native_publish": (token, pointer, length) => cpu.publish_wide_native(token, pointer, length),
-        "x64_native_execute": (token, budget) => cpu.wide_native_functions.get(token)?.(budget) || 0,
-        "x64_native_discard": () => cpu.wide_native_functions.clear(),
-        "x64_page_publish": (id, slot, pointer, length) => cpu.x64_page_publish(id, slot, pointer, length),
+        // (cores built before the wide-native path was removed import it:
+        // the M1 baselines, docs/jit-unification-plan.md P1.2)
+        "x64_native_discard": () => {},
+        "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
@@ -259,9 +265,11 @@ export function V86(options)
             dbg_trace(LOG_CPU);
         },
 
-        "ir_codegen_finalize": (id, slot, ptr, len) => { cpu.ir_auto_publish(id, slot, ptr, len); },
         // v86-parallel.wasm: wake a vCPU waiting on a word of the shared memory
         "parallel_notify": address => { Atomics.notify(new Int32Array(wasm_memory.buffer), address >>> 2); },
+        // the ARM core: device registers of the virt machine (src/virt/io.js)
+        "a64_mmio_read": (owner, offset, width) => cpu.io.mmio_read(owner, offset, width),
+        "a64_mmio_write": (owner, offset, width, value) => { cpu.io.mmio_write(owner, offset, width, value); },
         // extended RAM pages (src/extended_memory.js)
         "extended_load": (page, pointer) => { cpu.extended_store.load(page, wasm_memory, pointer); },
         "extended_store": (page, pointer) => { cpu.extended_store.store(page, wasm_memory, pointer); },
@@ -279,8 +287,12 @@ export function V86(options)
             /* global __dirname */
 
             return new Promise(resolve => {
-                let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
-                let v86_bin_fallback = "v86-fallback.wasm";
+                // the core of the CPU's family (docs/arm64-virt-android16-plan.md
+                // P1.3): the ARM core for arm64, the x86 core otherwise; the
+                // fallback stays in the family
+                const arm = this.cpu_type === "arm64";
+                let v86_bin = arm ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") : DEBUG ? "v86-debug.wasm" : "v86.wasm";
+                let v86_bin_fallback = arm ? "v86-arm64-fallback.wasm" : "v86-fallback.wasm";
                 // cores in vCPU workers need the relocatable build (src/parallel);
                 // "auto" falls back to the cooperative build
                 if(this.parallel_requested)
@@ -365,6 +377,7 @@ export function V86(options)
     Promise.resolve().then(() => wasm_fn({ "env": wasm_shared_funcs }))
         .then((exports) => {
             if(this.destroyed) return;
+            check_core(exports, this.cpu_type, wasm_table);
             wasm_memory = exports.memory;
             exports["rust_init"]();
 
@@ -419,7 +432,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
 
     settings.acpi = options.acpi;
-    settings.machine_type = options.machine_type;
+    settings.machine_type = this.machine_type;
     settings.pcie_root_ports = options.pcie_root_ports;
     settings.hpet = options.hpet;
     settings.smbus = options.smbus;
@@ -436,17 +449,14 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["cpu_type"] = this.cpu_type;
     settings["cpu_features"] = options["cpu_features"];
     settings["cpu_features_unreleased"] = options["cpu_features_unreleased"]; // (tests and development)
+    settings["jit_switches"] = options["jit_switches"]; // (src/jit_switches.js)
     settings.disable_jit = options.disable_jit;
     settings["jit_backend"] = options["jit_backend"];
-    settings["ir_region_budget"] = options["ir_region_budget"];
-    settings["ir_stats"] = options["ir_stats"];
-    settings["ir_verify"] = options["ir_verify"];
-    settings["ir_dump"] = options["ir_dump"];
+    // (ir_region_budget, ir_stats, ir_verify, ir_dump, ir_opt_level,
+    // ir_passes_disabled and ir_page_mode are deprecated and ignored: the IR
+    // region tiers went in docs/jit-unification-plan.md M11)
     settings["ir_sync_publication"] = options["ir_sync_publication"];
-    settings["ir_opt_level"] = options["ir_opt_level"];
-    settings["ir_passes_disabled"] = options["ir_passes_disabled"];
     settings["ir_tier0"] = options["ir_tier0"];
-    settings["ir_page_mode"] = options["ir_page_mode"];
     settings["x87_fast_math"] = options["x87_fast_math"];
     settings["x87_jit_cache"] = options["x87_jit_cache"];
     settings.load_devices = true;
@@ -498,7 +508,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: "ne2k" };
+    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "virtio" : "ne2k" };
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -710,6 +720,13 @@ V86.prototype.continue_init = async function(emulator, options)
             case "initrd":
                 settings.initrd = buffer.buffer;
                 break;
+            // machine_type "virt" (src/virt/loader.js)
+            case "kernel":
+                settings.kernel = buffer.buffer;
+                break;
+            case "dtb":
+                settings.dtb = buffer.buffer;
+                break;
 
             case "bios":
                 settings.bios = buffer.buffer;
@@ -748,7 +765,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(name === "bios" || name === "vga_bios" ||
             name === "initial_state" || name === "multiboot" ||
-            name === "bzimage" || name === "initrd")
+            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb")
         {
             // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
@@ -794,6 +811,8 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("multiboot", options.multiboot);
     add_file("bzimage", options.bzimage);
     add_file("initrd", options.initrd);
+    add_file("kernel", options.kernel);
+    add_file("dtb", options.dtb);
 
     if(options.filesystem && options.filesystem.handle9p)
     {
@@ -985,12 +1004,13 @@ V86.prototype.continue_init = async function(emulator, options)
             // application processors in vCPU workers (src/parallel/machine.js)
             const bytes = parallel_bytes;
             const worker_settings = {};
-            for(const key of ["disable_jit", "jit_backend", "ir_region_budget", "ir_opt_level", "ir_passes_disabled",
-                "ir_tier0", "ir_page_mode", "ir_verify", "cpu_type", "x87_fast_math", "x87_jit_cache", "cpuid_level", "cpu_quantum",
-                "parallel_fault"])
+            for(const key of ["disable_jit", "jit_backend", "ir_tier0", "cpu_type", "x87_fast_math", "x87_jit_cache",
+                "cpuid_level", "cpu_quantum", "parallel_fault"])
             {
                 if(settings[key] !== undefined) worker_settings[key] = settings[key];
             }
+            // the JIT switches set on the machine (src/jit_switches.js)
+            worker_settings["jit_switches"] = get_jit_switches(this.v86.cpu.wm.exports, this.v86.cpu.wasm_memory, true);
             // (the same compiler policy as the machine's core, see CPU.prototype.init)
             worker_settings["disable_jit"] = !!settings.disable_jit || !settings.experimental_smp_jit;
             await this.v86.cpu.start_parallel({ bytes, settings: worker_settings,
@@ -1059,30 +1079,72 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
         {
             let wasm;
 
+            // The limits of the imported table and memory (the import section)
+            function import_limits(bytes)
+            {
+                let at = 8;
+                const uleb = () => { let result = 0, shift = 0, byte; do { byte = bytes[at++]; result += (byte & 0x7F) * 2 ** shift; shift += 7; } while(byte & 0x80); return result; };
+                const name = () => { const n = uleb(); at += n; };
+                const result = { table: 0, memory: null };
+                while(at < bytes.length)
+                {
+                    const id = bytes[at++], size = uleb(), end = at + size;
+                    if(id === 2)
+                    {
+                        for(let count = uleb(); count--;)
+                        {
+                            name(); name();
+                            const kind = bytes[at++];
+                            if(kind === 0) uleb();
+                            else if(kind === 1) { at++; const flags = uleb(); result.table = uleb(); if(flags & 1) uleb(); }
+                            else if(kind === 2) { const flags = uleb(); const initial = uleb(); const maximum = flags & 1 ? uleb() : undefined; result.memory = { initial, maximum, shared: !!(flags & 2) }; }
+                            else if(kind === 3) at += 2;
+                        }
+                        return result;
+                    }
+                    at = end;
+                }
+                return result;
+            }
+
             globalThis.onmessage = function(e)
             {
                 if(!wasm)
                 {
-                    const env = Object.fromEntries([
-                        "cpu_exception_hook", "run_hardware_timers",
-                        "cpu_event_halt", "microtick", "get_rand_int", "stop_idling",
-                        "io_port_read8", "io_port_read16", "io_port_read32",
-                        "io_port_write8", "io_port_write16", "io_port_write32",
-                        "mmap_read8", "mmap_read32",
-                        "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
-                        "ir_codegen_finalize", "jit_clear_func",
-                        "x64_native_publish", "x64_native_execute", "x64_native_discard", "x64_page_publish",
-                        "extended_load", "extended_store",
-                    ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
-
-                    env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", initial: 1024 });
+                    // Every import of the core (whichever it is: x86 or ARM,
+                    // cooperative or parallel) gets a stand-in: functions
+                    // that must not run, the table and memory with the
+                    // limits the module declares (the parallel core imports
+                    // a shared memory)
+                    const module = new WebAssembly.Module(e.data);
+                    const limits = import_limits(new Uint8Array(e.data));
+                    const env = {};
+                    let memory = null;
+                    for(const { name, kind } of WebAssembly.Module.imports(module))
+                    {
+                        if(kind === "function")
+                        {
+                            env[name] = () => console.error("zstd worker unexpectedly called " + name);
+                        }
+                        else if(kind === "table")
+                        {
+                            env[name] = new WebAssembly.Table({ element: "anyfunc", initial: limits.table || 0 });
+                        }
+                        else if(kind === "memory")
+                        {
+                            const m = limits.memory;
+                            env[name] = memory = new WebAssembly.Memory(m.shared ?
+                                { initial: m.initial, maximum: m.maximum, shared: true } : { initial: m.initial });
+                        }
+                    }
                     env["abort"] = () => { throw new Error("zstd worker aborted"); };
                     env["log_from_wasm"] = env["console_log_from_wasm"] = (off, len) => {
-                        console.log(read_sized_string_from_mem(wasm.exports.memory.buffer, off, len));
+                        console.log(read_sized_string_from_mem((memory || wasm.exports.memory).buffer, off, len));
                     };
                     env["dbg_trace_from_wasm"] = () => console.trace();
 
-                    wasm = new WebAssembly.Instance(new WebAssembly.Module(e.data), { "env": env });
+                    const instance = new WebAssembly.Instance(module, { "env": env });
+                    wasm = { exports: memory && !instance.exports.memory ? Object.assign({ memory }, instance.exports) : instance.exports };
                     return;
                 }
 
@@ -1267,7 +1329,8 @@ V86.prototype.power_state = async function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("power_state");
     const acpi = this.v86.cpu.devices.acpi;
-    if(!acpi) return "S0";
+    // (the virt machine: PSCI SYSTEM_OFF, the machine's power hook)
+    if(!acpi) return this.v86.cpu.powered_off() ? "S5" : "S0";
     return acpi.sleeping ? "S3" : acpi.soft_off ? "S" + acpi.soft_off : "S0";
 };
 
@@ -2269,8 +2332,10 @@ V86.prototype.write_memory = function(blob, offset)
  */
 V86.prototype.read_memory_chunks = async function*(offset, length, chunk_size = 1024 * 1024)
 {
-    if(!Number.isSafeInteger(offset) || offset < 0 || offset >= 0x1000000000 ||
-        !Number.isSafeInteger(length) || length < 0 || offset + length > 0x1000000000 ||
+    // (the machine's physical address space: 36 bits on the PC machines, 40 on virt)
+    const limit = this.cpu_type === "arm64" ? 0x10000000000 : 0x1000000000;
+    if(!Number.isSafeInteger(offset) || offset < 0 || offset >= limit ||
+        !Number.isSafeInteger(length) || length < 0 || offset + length > limit ||
         !Number.isInteger(chunk_size) || chunk_size < 1 || chunk_size > 16 * 1024 * 1024)
         throw new RangeError("Invalid physical range or chunk size");
     for(let done = 0; done < length; done += chunk_size)
@@ -2305,20 +2370,18 @@ V86.prototype.get_instruction_stats = function()
     return print_stats.stats_to_string(this.v86.cpu);
 };
 
-/** Opt-in diagnostics; 0 disables, otherwise a power-of-two sampling period. Clears compiled caches. */
+/** Deprecated: the IR region tiers' diagnostics (docs/jit-unification-plan.md M11 deleted them). Returns false. */
 V86.prototype.configure_ir_diagnostics = function(period)
 {
-    if(this.worker_controller) return this.worker_controller.rpc("configure_ir_diagnostics", [period]);
-    return this.v86.cpu.configure_ir_diagnostics(period);
+    return false;
 };
 // eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
 V86.prototype["configure_ir_diagnostics"] = V86.prototype.configure_ir_diagnostics;
 
-/** Return the last 16 compiler dumps as independent copies; optionally clear the ring. */
+/** Deprecated: the IR region tiers' compiler dumps (docs/jit-unification-plan.md M11 deleted them). Returns an empty list. */
 V86.prototype.get_ir_dumps = function(clear = false)
 {
-    if(this.worker_controller) return this.worker_controller.rpc("get_ir_dumps", [!!clear]);
-    return this.v86.cpu.get_ir_dumps(!!clear);
+    return [];
 };
 // eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
 V86.prototype["get_ir_dumps"] = V86.prototype.get_ir_dumps;

@@ -160,6 +160,7 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  *     rom_size: (undefined | number),
  *     rom_address: (undefined | number),
  *     qemu_compatible: (undefined | boolean),
+ *     irq_line: (undefined | {raise: function(), lower: function()}),
  * }}
  */
 var VirtIO_Options;
@@ -247,6 +248,13 @@ export function VirtIO(cpu, options)
     // Remaining PCI space is appended by capabilities further below.
 
     this.pci_id = options.pci_id;
+    // How the device signals its interrupt: the PCI function's INTx (the
+    // virtio-mmio transport of the virt machine brings its own line,
+    // docs/arm64-virt-android16-plan.md P1.8)
+    this.irq_line = options.irq_line || {
+        raise: () => this.pci.raise_irq(this.pci_id),
+        lower: () => this.pci.lower_irq(this.pci_id),
+    };
 
     // PCI bars gets filled in by capabilities further below, and by the
     // device's own memory BARs (virtio-vga's frame buffer)
@@ -1255,14 +1263,14 @@ VirtIO.prototype.raise_irq = function(type)
 {
     dbg_log("Raise irq " + h(type), LOG_VIRTIO);
     this.isr_status |= type;
-    this.pci.raise_irq(this.pci_id);
+    this.irq_line.raise();
 };
 
 VirtIO.prototype.lower_irq = function()
 {
     dbg_log("Lower irq ", LOG_VIRTIO);
     this.isr_status = 0;
-    this.pci.lower_irq(this.pci_id);
+    this.irq_line.lower();
 };
 
 /**

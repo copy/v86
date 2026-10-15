@@ -7,7 +7,8 @@
 // four rounding modes, DAZ, FZ, masked and unmasked exceptions) and checks
 // the destination, MXCSR and the fault: #XM, or #UD without
 // CR4.OSXMMEXCPT, with the destination unchanged. Every case runs in the
-// interpreter, then hot under Tier-0 and the region tiers (the AVX helper).
+// interpreter, then hot under the page tier. (The region tiers, a second
+// compiled arm, were deleted in M11.)
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -116,7 +117,7 @@ function program256(form, memory, list)
 }
 
 const machines = [];
-async function run(vm, code, warm, interpreter, until)
+async function run(vm, code, warm, interpreter)
 {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     if(warm) cpu.jit_clear_cache();
@@ -128,7 +129,7 @@ async function run(vm, code, warm, interpreter, until)
     const start = compiled_activations(e);
     vm.run();
     const deadline = performance.now() + 60000;
-    while(word(vm, 0x600) !== 0xCAFE || warm && !interpreter && (compiled_activations(e) === start || !until(vm)))
+    while(word(vm, 0x600) !== 0xCAFE || warm && !interpreter && compiled_activations(e) === start)
     {
         assert(performance.now() < deadline, "program/JIT timeout");
         await sleep(1);
@@ -169,9 +170,6 @@ async function create_machines()
     }
     return set;
 }
-/** The build has Wasm SIMD (the portable one's regions decline XMM state) */
-const simd = vm => vm.v86.cpu.wm.exports["ir_wasm_simd_supported"]() !== 0;
-
 let total = 0;
 try
 {
@@ -220,17 +218,13 @@ try
                         vm.write_memory(Uint8Array.from([h & 255, h >>> 8 & 255, 8, 0, 0, 0x8E, h >>> 16 & 255, h >>> 24]), IDT + vector * 8);
                         vm.write_memory(Uint8Array.from(handler(vector, error_code)), h);
                     });
-                    const e = vm.v86.cpu.wm.exports;
-                    e.ir_avx_calls_reset();
                     for(const warm of [true, false])
                     {
                         vm.write_memory(data, DATA);
                         vm.write_memory(new Uint8Array(list.length * out_stride), OUT);
                         vm.write_memory(new Uint8Array(list.length * 4), FAULTS);
                         vm.write_memory(Uint8Array.of(warm ? 0 : 1), 0x604);
-                        // (the region tiers ran the VEX forms: wait for the AVX helpers,
-                        // which these operands go through, natively lifted forms too)
-                        await run(vm, code, warm, vm === machines[0], vm => vm !== machines[2] || !simd(vm) || e.ir_avx_calls() >= list.length);
+                        await run(vm, code, warm, vm === machines[0]);
                         runs.push({ run: `machine ${m} ${warm ? "hot" : "one round"}`, out: Uint8Array.from(vm.read_memory(OUT, list.length * out_stride)),
                             faults: Uint8Array.from(vm.read_memory(FAULTS, list.length * 4)) });
                     }
@@ -277,7 +271,7 @@ try
         }
         console.log(`PASS: ${xmm_exceptions ? "all forms, unmasked exceptions as #XM" : "unmasked exceptions as #UD without CR4.OSXMMEXCPT"}`);
     }
-    console.log(`PASS: ${total} exact AVX floating-point cases (${VEX_FORMS.length} VEX.128 and VEX.LIG forms, ${VEX256_FORMS.length} VEX.256 ones, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model on 3 arms`);
+    console.log(`PASS: ${total} exact AVX floating-point cases (${VEX_FORMS.length} VEX.128 and VEX.LIG forms, ${VEX256_FORMS.length} VEX.256 ones, register and memory sources, ${MXCSRS.length} MXCSR settings) match the model in the interpreter and the page tier`);
 }
 finally
 {

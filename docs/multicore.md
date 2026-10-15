@@ -111,7 +111,9 @@ already run on one core see no change.
 **Cross-core coherence is a complete protocol.**
 
 - LOCK, implicitly locked XCHG, CMPXCHG8B and CMPXCHG16B are atomic in the
-  interpreter, Tier-0 and the region pipeline. This includes operands that cross
+  interpreter and the x64 page tier (and were in IR Tier-0 and the region
+  pipeline until [jit-unification-plan.md](jit-unification-plan.md) deleted
+  them in P7.5 and M11). This includes operands that cross
   a page or touch MMIO: faults and partial commits follow what the instruction
   specifies.
 - Each core has its own TLB. Other cores' TLBs are invalidated only by the
@@ -361,9 +363,9 @@ Times are the best of 3 warm rounds.
 | `make multicore-boot-tests` | INIT/SIPI, APIC routing (physical, flat, cluster), NMI, IOAPIC level re-delivery, slice budgets, real SeaBIOS on 2/3/4/8 cores, kvm-unit-tests `apic`/`ioapic`/`smptest` |
 | `make multicore-clock-tests` | Deterministic IRQ sequences, pause and host-gap limits, clock state in snapshots |
 | `make multicore-topology-tests`, `make multicore-linux-tests` | CPUID/MADT/AML/fw_cfg/CMOS agree for 1–8 cores; Linux `lscpu` and sysfs show 1 socket; pinned processes make progress on every core |
-| `make multicore-coherence-tests` | 101 scenarios per build: interpreter, Tier-0 and region pipeline × seeds 1–10 × quantum 17/257/4096; atomics, shared loads, SMC through an alias, DMA, IPI shootdown, asynchronous publication. Mutated builds (flush on every switch, no INVLPG) must fail. |
+| `make multicore-coherence-tests` | Scenarios per build: interpreter and page tier (Tier-0 and the region pipeline until P7.5 and M11) × seeds 1–10 × quantum 17/257/4096; atomics, shared loads, SMC through an alias, DMA, IPI shootdown. Mutated builds (flush on every switch, no INVLPG) must fail. |
 | `make multicore-atomic-tests`, `make multicore-memory-order-tests` | 107 atomic boundary cases per backend (crossing pages, MMIO, faults); 96 lock-free publication and queue cases |
-| `make multicore-state-tests`, `make multicore-os-stress-tests` | Snapshots taken with pending IPIs or in the middle of REP/HLT; Linux fork/signal/migration/IDE/NE2K stress on all three backends, reboot, S5 |
+| `make multicore-state-tests`, `make multicore-os-stress-tests` | Snapshots taken with pending IPIs or in the middle of REP/HLT; Linux fork/signal/migration/IDE/NE2K stress on the interpreter and the page tier, reboot, S5 |
 | `make x64-multicore-tests` | Long mode on 4 cores: state and TLB isolation, CX16, fixed IPIs and NMIs to cores in HLT, broadcast IPIs, snapshot replay |
 | `make multicore-parallel-tests` (and `-release`, `-browser-tests`) | Litmus tests (counters, message passing, store buffering, SMC, an IPI wake-up ring, A/D races, locks of different widths on the same bytes), worker lifecycle and injected faults, relocation, Linux boot, headless Chrome with COOP/COEP |
 | `node tests/parallel/soak.mjs` | 4 cores in parallel with JIT for 90 minutes: 775 rounds, 2325 stop/run cycles, 775 snapshots restored in place, 155 S3/RTC wake-ups; no oops, soft lockups or RCU stalls |

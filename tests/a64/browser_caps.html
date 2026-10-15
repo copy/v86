@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Host Wasm capabilities</title>
+<!--
+The host capability matrix of docs/arm64-virt-android16-plan.md P0.8 (results
+in its appendix A): what an ARM guest's cores need from the browser. Serve
+the checkout with tools/dev-server.py (cross-origin isolation, for
+SharedArrayBuffer) and open /tests/a64/browser_caps.html; the JSON at the end
+of the page goes into the appendix. `node tests/a64/browser_caps.html` is not
+a thing: Node's V8 is checked with tests/a64/browser_caps.mjs.
+-->
+<style>
+    :root { --bg: #fff; --fg: #111; --muted: #666; --ok: #0a7a2f; --no: #b3261e; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #999; --ok: #5bd17f; --no: #ff8a80; } }
+    body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 52rem; padding: 16px; }
+    table { border-collapse: collapse; width: 100%; }
+    td { border-bottom: 1px solid var(--muted); padding: 4px 8px; vertical-align: top; }
+    .yes { color: var(--ok); } .no { color: var(--no); }
+    pre { white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+</style>
+<h1>Host Wasm capabilities</h1>
+<table id="table"></table>
+<pre id="json"></pre>
+<script type="module">
+import { probe } from "./browser_caps.mjs";
+const result = await probe();
+const table = document.getElementById("table");
+for(const [key, value] of Object.entries(result))
+{
+    const row = table.insertRow();
+    row.insertCell().textContent = key;
+    const cell = row.insertCell();
+    cell.textContent = typeof value === "object" ? JSON.stringify(value) : String(value);
+    if(value === true) cell.className = "yes";
+    if(value === false) cell.className = "no";
+}
+document.getElementById("json").textContent = JSON.stringify(result, null, 1);
+</script>

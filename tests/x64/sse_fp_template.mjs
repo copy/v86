@@ -6,8 +6,14 @@
 // vectors of special and random operands under MXCSR values that allow and
 // that refuse the native path, in a loop until the page tier has compiled
 // the code; every result and MXCSR must equal the interpreter's.
+// With x64_sse_fast_check (JIT_SWITCHES; docs/jit-unification-plan.md
+// P4.18) the instructions go through x86tpl::ops::float, which also takes
+// SQRT, MIN and MAX (PS PD SS SD) and RCP and RSQRT (PS SS), tested too,
+// and runs refused ones exactly in place, but those whose register facts
+// hold only for admitted operands, which retry (as IR Tier-0's did).
 //
-// SSE_FP_SEED, SSE_FP_VECTORS (per form, default 256), SSE_FP_ROUNDS (8);
+// SSE_FP_SEED, SSE_FP_VECTORS (per form, default 256), SSE_FP_ROUNDS (8),
+// SSE_FP_FORMS (a regular expression of the mnemonics to test);
 // SSE_FP_ORDINARY=1: only ordinary operands under MXCSR 0x1FA0, where the
 // native path must take (nearly) every instruction.
 import assert from "node:assert/strict";
@@ -26,11 +32,13 @@ const COUNT = +(process.env.SSE_FP_VECTORS || 256);
 const ROUNDS = +(process.env.SSE_FP_ROUNDS || 8);
 const VECTORS = 0x400000, OUT = 0x600000, STRIDE = 48, OUT_STRIDE = 32;
 const ORDINARY = +process.env.SSE_FP_ORDINARY;
+const FORMS = new RegExp(process.env.SSE_FP_FORMS || ".");
 
 // operands: bit patterns of every class the guards distinguish
+// (ordinary operands are positive: SQRT and RSQRT refuse negative ones)
 function single()
 {
-    const sign = int(2) << 31;
+    const sign = ORDINARY ? 0 : int(2) << 31;
     switch(ORDINARY ? 11 : int(12))
     {
         case 0: return sign;                                              // zero
@@ -47,7 +55,7 @@ function single()
 }
 function double()
 {
-    const sign = BigInt(int(2)) << 63n;
+    const sign = BigInt(ORDINARY ? 0 : int(2)) << 63n;
     const mantissa = () => BigInt(int(0x100000)) << 32n | BigInt(int(0x100000000));
     switch(ORDINARY ? 11 : int(12))
     {
@@ -95,9 +103,10 @@ for(let v = 0; v < COUNT; v++)
 }
 
 const forms = [];
-for(const op of ["add", "sub", "mul", "div"])
+for(const op of ["add", "sub", "mul", "div", "sqrt", "min", "max", "rcp", "rsqrt"])
     for(const suffix of ["ps", "pd", "ss", "sd"])
-        for(const memory of [false, true]) forms.push({ op: op + suffix, memory });
+        for(const memory of [false, true])
+            if((!op.startsWith("r") || !suffix.endsWith("d")) && FORMS.test(op + suffix)) forms.push({ op: op + suffix, memory });
 let body = `
 mov rax, cr4
 or rax, 0x600                 ; OSFXSR, OSXMMEXCPT
@@ -147,7 +156,7 @@ for(const jit of [false, true])
         },
     });
     results.push(output);
-    console.log(`${jit ? "page tier" : "interpreter"}: native ${stats[1]}, compiled ${stats[0]}, steps ${stats[4]}, templated ${stats[10]}`);
+    console.log(`${jit ? "page tier" : "interpreter"}: native ${stats[1]}, compiled ${stats[0]}, steps ${stats[4]}, retries ${stats[2]}, templated ${stats[10]}`);
     if(jit) assert.ok(stats[1] > forms.length * COUNT, "the page tier ran the forms: " + stats);
     // (ordinary operands: a refusal of the template is a retry; LDMXCSR and
     // STMXCSR are steps either way)

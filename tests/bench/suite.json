@@ -8,6 +8,13 @@
     "avx": "-O2 -march=pentium4 -mavx -mprefer-vector-width=128 -mfpmath=sse -fno-math-errno",
     "mmx": "-O2 -march=pentium-mmx -mmmx -mfpmath=387"
   },
+  "comment64": "x86-64 builds of the C benchmarks with these profiles (tools/bench/build.mjs, docs/jit-unification-plan.md P0.3): nocona as pentium4's counterpart; int without SSE registers or vectorization, as the i686 int profile",
+  "profiles64": {
+    "int": "-O2 -mtune=nocona -mgeneral-regs-only -fno-tree-vectorize",
+    "x87": "-O2 -mtune=nocona -mfpmath=387 -fno-math-errno",
+    "sse": "-O2 -mtune=nocona -mfpmath=sse -fno-math-errno",
+    "avx": "-O2 -mtune=nocona -mavx -mprefer-vector-width=128 -mfpmath=sse -fno-math-errno"
+  },
   "benchmarks": [
     {"name": "500.bytecode", "category": "int", "source": "bytecode.c", "profile": "int", "iterations": 310, "about": "perlbench-like switch-dispatched bytecode interpreter" },
     {"name": "502.codebloat", "category": "int", "source": "@codebloat", "profile": "int", "iterations": 250, "about": "gcc-like: 600 distinct functions, large code footprint, calls in data-dependent order" },

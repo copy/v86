@@ -12,6 +12,9 @@ ir-test-hooks = []
 # Host-parallel build (docs/multicore.md): the CPU state block is a static so that each
 # vCPU worker's relocated instance has its own; guest RAM is shared.
 parallel = []
+# The ARM core, build/v86-arm64.wasm (docs/arm64-virt-android16-plan.md P1.0):
+# AArch64 instead of x86; src/rust/lib.rs selects the modules.
+aarch64 = []
 
 [lib]
 crate-type = ["cdylib"]
@@ -33,3 +36,8 @@ lto = true
 opt-level = 3
 incremental = false
 panic = "abort"
+# One code generation unit: a change no longer moves unrelated functions
+# (tools/wasm_diff.mjs compares cores function by function), the core is 3.4%
+# smaller and XP and Windows 8.1 reach the desktop 2-3% sooner, for about 5 s
+# more build time (docs/jit-unification-plan.md P0.14, appendix C)
+codegen-units = 1

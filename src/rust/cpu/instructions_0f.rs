@@ -504,6 +504,7 @@ pub unsafe fn instr_0F06() {
         if false {
             dbg_log!("clts");
         }
+        crate::step_profile::note_event(crate::step_profile::event::CLTS, 0);
         *cr &= !CR0_TS;
     };
 }

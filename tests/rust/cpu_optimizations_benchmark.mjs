@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
 // cpu_optimizations_benchmark.mjs [baseline.wasm candidate.wasm]: two cores in
-// their default IR configuration; without paths, the region tiers alone
-// against the default (Tier-0 on) on one core.
+// their default JIT configuration; without paths, the interpreter against the
+// default (32-bit code in the x64 page tier) on one core. (The region tiers,
+// the reference until then, were deleted in M11.)
 const baseline = process.argv[2];
 const candidate = process.argv[3] || "build/v86.wasm";
 const arms = baseline ? [{ label: baseline, wasm: baseline, options: {} }, { label: candidate, wasm: candidate, options: {} }] :
-    [{ label: "regions", wasm: candidate, options: { ir_tier0: false } }, { label: "tier0", wasm: candidate, options: {} }];
+    [{ label: "interpreter", wasm: candidate, options: { disable_jit: true } }, { label: "pages", wasm: candidate, options: {} }];
 const u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24 & 255];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const bios = Uint8Array.from(fs.readFileSync("build/jit-capacity.bin")).buffer;

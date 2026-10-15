@@ -550,6 +550,24 @@ export interface V86Options {
     initrd?: V86Image;
 
     /**
+     * machine_type "virt" only (in development: docs/aarch64.md): an arm64
+     * Linux Image or EFI zboot image to boot
+     */
+    kernel?: V86Image;
+
+    /**
+     * machine_type "virt" only, for debugging: a device tree instead of the
+     * one v86 generates from the platform
+     */
+    dtb?: V86Image;
+
+    /**
+     * machine_type "virt" only: virtio-blk disks in order (not together
+     * with hda and hdb, which are the first two on virt)
+     */
+    virtio_disks?: Array<V86Image & { readonly?: boolean; id?: string }>;
+
+    /**
      * Automatically fetch bzimage and initrd from the 9p filesystem
      */
     bzimage_initrd_from_filesystem?: boolean;
@@ -672,9 +690,17 @@ export interface V86Options {
      * two SMIs per call, so such guests are better off on "i440fx". A
      * snapshot only restores into an emulator of the same machine type. See
      * docs/q35.md.
-     * @default "i440fx"
+     *
+     * "virt" is the machine of cpu_type "arm64" (and its default; see
+     * docs/virt.md): no PC firmware, chipset or VGA. The PC machines' options
+     * (bios, vga_bios, fda, fdb, cdrom, bzimage, multiboot, acpi: true, hpet,
+     * smbus, pcie_root_ports, qemu_compatible, uart1-3, parallel1, modem,
+     * cpuid_level, cpu_features, x87_*, high_memory_size) are errors there,
+     * as are kernel, dtb and virtio_disks on the PC machines, and every
+     * other combination of cpu_type and machine_type.
+     * @default "i440fx" ("virt" with cpu_type "arm64")
      */
-    machine_type?: "i440fx" | "q35";
+    machine_type?: "i440fx" | "q35" | "virt";
 
     /**
      * machine_type "q35" only: the number of ICH9 PCI Express root ports
@@ -731,10 +757,12 @@ export interface V86Options {
      * The guest's CPU. "x86" is the 32-bit CPU v86 always had; "x86_64"
      * (experimental) adds long mode, NX, SYSCALL, CMPXCHG16B, ..., needed by
      * 64-bit operating systems such as Windows 8.1 x64 or x86_64 Linux.
+     * "arm64" (experimental, in development: docs/aarch64.md) is an Armv8.0-A
+     * CPU on machine_type "virt", with its own core (v86-arm64.wasm).
      * Other values fail at startup.
      * @default "x86"
      */
-    cpu_type?: "x86" | "x86_64";
+    cpu_type?: "x86" | "x86_64" | "arm64";
 
     /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1
@@ -797,32 +825,42 @@ export interface V86Options {
     disable_jit?: boolean;
     /** Compiler selection. IR is the only backend (the legacy one was removed). */
     jit_backend?: "ir";
-    /** 0: no optional optimization; 1: Tier-1 canonicalization; 2: full Tier-2. Default 2. */
-    /** Optional MIR verification: debug builds by default; every_pass also checks release builds. */
-    /** Startup diagnostic sampling: off=0, sampled=128, debug=1. */
+    /**
+     * Deprecated and ignored: the IR region tiers' settings (docs/jit-unification-plan.md
+     * M11 deleted the region tiers; the x64 page tier compiles all code).
+     */
     ir_stats?: "off" | "sampled" | "debug";
+    /** Deprecated and ignored (see ir_stats). */
     ir_verify?: "off" | "debug" | "every_pass";
-    /** Bounded compiler dump ring; off by default. */
+    /** Deprecated and ignored (see ir_stats). */
     ir_dump?: "off" | "hir" | "mir" | "wasm" | "all";
+    /** Deprecated and ignored (see ir_stats). */
     ir_opt_level?: 0 | 1 | 2;
-    /** Startup-only diagnostic controls. Verification and recovery cannot be disabled. */
-    ir_passes_disabled?: Array<"prune" | "merge" | "phis" | "copy" | "fold" | "flags" | "helper_state" |
-        "gvn" | "dce" | "licm" | "mir_fold" | "stack" | "allocation" | "state_elision" | "ram_loop" | "ram_forward" | "ram_guard">;
-    /** Page-granular Tier-0 compilation below the IR region tier (default true). */
+    /** Deprecated and ignored (see ir_stats). */
+    ir_passes_disabled?: string[];
+    /** Deprecated and ignored (see ir_stats). */
+    ir_page_mode?: boolean;
+    /**
+     * 32-bit and 16-bit code in the x64 page tier (default true; JIT switches
+     * x64_page_legacy32, x64_page_compat32, x64_page_prot16 and x64_page_v86).
+     * False leaves that code to the interpreter. (The name is IR Tier-0's,
+     * which the page tier replaced.)
+     */
     ir_tier0?: boolean;
-    /** Bounded automatic IR policy. */
+    /** Deprecated and ignored (see ir_stats). */
     ir_region_budget?: {
-        /** Entry visits before Tier 1; integer 1..1000000, default 16. */
         hot_threshold?: number;
-        /** Further visits before Tier 2; integer 1..1000000, default 64. */
         promotion_threshold?: number;
-        /** Tier 1 byte window; integer 15..960, default 192. Tier 2 doubles it, capped at 960. */
         max_source_bytes?: number;
-        /** Region execution budget; integer 1..4096, default 256. */
         execution_budget?: number;
-        /** REP helper iteration limit; integer 1..4096, default 64. */
         rep_iterations?: number;
     };
+    /**
+     * JIT switches by name (src/rust/jit_switches.rs; docs/jit-unification-plan.md), as
+     * { x64_outline: 0 } or "x64_outline=0,x64_loops=1", applied after the other JIT settings.
+     * An unknown name, or a value the JIT refuses, fails the construction.
+     */
+    jit_switches?: { [name: string]: number | boolean } | string;
     /** Use approximate f64 x87 add/sub/mul/div (default true). False selects compatible arithmetic. */
     x87_fast_math?: boolean;
     /** Cache bounded register-only x87 regions in Wasm f64 locals (default true, requires x87_fast_math). */
@@ -1348,67 +1386,23 @@ export class V86 {
      */
     get_instruction_stats(): string | Promise<string>;
 
-    /** Runtime snapshot. Counters are per core lifetime; IR counters wrap at 2^32. */
-    /** Compiled artifacts, not proof of publication/execution. Truncation bits: HIR=1, MIR=2, Wasm=4. */
-    get_ir_dumps(clear?: boolean): Array<{pc: number; tier: number; hir: string; mir: string; wasm: Uint8Array; truncated: number}> | Promise<Array<{pc: number; tier: number; hir: string; mir: string; wasm: Uint8Array; truncated: number}>>;
+    /** Runtime snapshot of the JIT. */
     get_jit_info(): V86JitInfo | Promise<V86JitInfo>;
-    /** Clears compiled caches and starts a diagnostic session. 0 disables; otherwise a power of two, max 65536. */
-    configure_ir_diagnostics(sample_period: number): boolean | Promise<boolean>;
+    /** Deprecated: the IR region tiers' compiler dumps (deleted in M11); returns []. */
+    get_ir_dumps(clear?: boolean): unknown[];
+    /** Deprecated: the IR region tiers' diagnostics (deleted in M11); returns false. */
+    configure_ir_diagnostics(sample_period: number): boolean;
 }
 
 export interface V86JitInfo {
     backend: "ir";
     ir_available: boolean;
-    ir_region_budget: Required<NonNullable<V86Options["ir_region_budget"]>> | null;
-    ir_stats: NonNullable<V86Options["ir_stats"]> | null;
-    ir_verify: NonNullable<V86Options["ir_verify"]> | null;
-    ir_dump: NonNullable<V86Options["ir_dump"]> | null;
-    ir_opt_level: 0 | 1 | 2 | null;
-    ir_passes_disabled: NonNullable<V86Options["ir_passes_disabled"]> | null;
     ir: {
-        visits: number; linked_visits: number;
-        tier1_attempts: number; tier2_attempts: number;
-        tier1_published: number; tier2_published: number;
-        compile_stops: number; publication_failures: number; suppressed: number;
-        unsupported_stops: number; budget_stops: number; invalid_ir_stops: number;
-        budget_retries: number;
-        batched_entries: number;
-        queued_entries: number;
-        fusion_attempts: number; fusion_budget_stops: number;
-        fusion_unsupported_stops: number; fusion_invalid_stops: number;
-        hot_entries: number; pending: number; enabled: number;
-        hot_replacements: number;
-        probation_visits: number;
-        hot_filter: boolean;
-        cache_entries: number; cache_hits: number; cache_capacity: number; cache_evictions: number;
-        cache_fast_checks: number; cache_full_checks: number;
-        cache_post_fetch_reuses: number; cache_target_hits: number; cache_negative_hits: number;
-        cache_successor_hits: number;
-        cache_fast_validation: boolean;
-        fused_publications: number; fused_hits: number; fused_guest_steps: number;
-        fusion_enabled: boolean;
-        /** Tier-0 page functions (ir_tier0); counters wrap at 2^32. */
-        tier0: { enabled: boolean; page_functions: number; instructions: number; wasm_bytes: number;
-            activations: number; chains: number } | null;
-        diagnostics: V86IrDiagnostics | null;
-    } | null;
-}
-
-export interface V86IrDiagnostics {
-    schema: number; enabled: boolean; sample_period: number; session: number;
-    empty_scope_sampled_ms: number; empty_scope_wall_ms: number;
-    totals: Record<string, number>;
-    timings: Record<string, {sampled_ms: number; sampled_calls: number; estimated_ms: number}>;
-    exits: Record<string, {count: number; guest_steps: number}>;
-    admission: Record<string, number>;
-    chain_stops: Record<string, number>;
-    compiler: Record<string, {ms: number; calls: number; max_ms: number; max_pc: number; max_tier: number}>;
-    publication: {wall_ms: number; calls: number; succeeded: number};
-    discovery_latency: Record<string, {ms: number; count: number; max_ms: number}>;
-    missing_entries: Record<string, number>;
-    helper_exits: Record<string, {count: number; guest_steps: number}>;
-    control_exits: Record<string, {count: number; guest_steps: number}>;
-    interpreter_hotspots: Array<{pc: number; cr3: number; physical: number; samples: number; guest_steps: number; inclusive_ms: number}>;
-    hotspot_replacements: number;
-    hotspots: Array<{pc: number; cr3: number; reason: string; samples: number; guest_steps: number; inclusive_ms: number; tier: number; fused: boolean}>;
+        /** 1 when the JIT compiles (disable_jit, or jit_set_enabled at run time), else 0. */
+        enabled: 0 | 1;
+        /** Deprecated: IR Tier-0 was deleted (its code is the page tier's, page_tier); always null. */
+        tier0: null;
+        /** The x64 page tier's 32-bit and 16-bit modes; counters wrap at 2^32. */
+        page_tier: { legacy32: boolean; compat32: boolean; prot16: boolean; v86: boolean; functions: number; native_instructions: number; activations: number } | null;
+    };
 }

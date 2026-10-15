@@ -32,7 +32,8 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
             if(!plugin["worker_script"]) throw new Error("CPU Worker: " + plugin["name"] + " has no worker_script for its device");
             return { "name": plugin["name"], "script": new URL(plugin["worker_script"], location.href).href };
         }),
-        "wasm_path": new URL(o.wasm_path || "build/v86.wasm", location.href).href,
+        // (the core of the CPU's family: docs/arm64-virt-android16-plan.md P1.3)
+        "wasm_path": new URL(o.wasm_path || (o["cpu_type"] === "arm64" ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
         "wasm_fallback_path": o["wasm_fallback_path"] && new URL(o["wasm_fallback_path"], location.href).href,
         // (cores in vCPU workers, which this worker starts: absolute URLs)
         "parallel": o["parallel"],
@@ -52,11 +53,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "cpu_clock": o.cpu_clock, "cpu_quantum": o.cpu_quantum, "cpu_schedule_seed": o.cpu_schedule_seed,
         "experimental_smp_jit": o.experimental_smp_jit, "disable_jit": o.disable_jit,
         "cpu_type": o["cpu_type"], "cpu_features": o["cpu_features"], "cpu_features_unreleased": o["cpu_features_unreleased"],
-        "jit_backend": o["jit_backend"], "ir_region_budget": o["ir_region_budget"],
-        "ir_stats": o["ir_stats"],
-        "ir_verify": o["ir_verify"], "ir_dump": o["ir_dump"],
-        "ir_opt_level": o["ir_opt_level"], "ir_passes_disabled": o["ir_passes_disabled"],
-        "ir_tier0": o["ir_tier0"],
+        "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"],
         "x87_fast_math": o["x87_fast_math"],
         "x87_jit_cache": o["x87_jit_cache"],
         "fastboot": o.fastboot, "bootmenu": o.bootmenu, "cmdline": o.cmdline,
@@ -67,10 +64,13 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "modem": o.modem && { "uart": o.modem.uart },
         "preserve_mac_from_state_image": o.preserve_mac_from_state_image,
         "mac_address_translation": o.mac_address_translation,
-        "net_device": { "type": o.net_device?.type || "ne2k", ...placement(o.net_device) },
+        "net_device": { "type": o.net_device?.type || (o["cpu_type"] === "arm64" ? "virtio" : "ne2k"), ...placement(o.net_device) },
         "bios": file(o.bios), "vga_bios": file(o.vga_bios), "hda": file(o.hda), "hdb": file(o.hdb),
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
+        // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
+        "kernel": file(o.kernel), "dtb": file(o.dtb),
+        "virtio_disks": o.virtio_disks && o.virtio_disks.map(disk => Object.assign({}, file(disk), { "readonly": disk.readonly, "id": disk.id })),
         "initial_state": file(o.initial_state),
         "filesystem": fs && { "baseurl": fs.baseurl && new URL(fs.baseurl, location.href).href,
             "basefs": typeof fs.basefs === "string" ? new URL(fs.basefs, location.href).href : file(fs.basefs),

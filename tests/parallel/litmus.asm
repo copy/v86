@@ -21,7 +21,9 @@
 ;    entry ends up with exactly the right accessed/dirty bits
 ; 7. long mode (when CONTROL + 0x340 is set): every core enters 64-bit mode
 ;    and increments a 16-byte counter with LOCK CMPXCHG16B (both halves)
-;    and its low qword with LOCK ADD: low = 2 * total, high = total
+;    and its low qword with LOCK ADD: low = 2 * total, high = total; then
+;    in 32-bit compatibility mode (WOW64's) LOCK XADD, a LOCK CMPXCHG loop
+;    and LOCK INC on dwords: total, 3 * total, total
 ;
 ; Results (host reads them): CONTROL + 0 cores (input), +4 rounds (input),
 ; +16.. counters, +64.. errors per phase, +128 finished cores, +0x180..
@@ -52,6 +54,7 @@ C_MIXED equ CONTROL + 0x302     ; dword at an offset of 2: its low word is also 
 C_WIDE equ CONTROL + 0x320      ; 16 bytes, 16-aligned
 LONG_MODE equ CONTROL + 0x340   ; input: run phase 7
 LONG_TABLES equ CONTROL + 0x344 ; core 0 built the 4-level tables
+C_COMPAT equ CONTROL + 0x350    ; 3 dwords: compatibility mode's counters
 LM_PML4 equ 0x3A8000            ; then PDPT, PD: 32 MiB identity mapped
 RECORDS equ CONTROL + 0x400     ; 64 bytes per core: +0 barrier sense
 MP_DATA equ CONTROL + 0x1000    ; per core: data, flag, ack on separate lines
@@ -631,12 +634,30 @@ long_mode_entry:
     lock add qword [C_WIDE], 1
     dec r8d
     jnz .loop
+    ; (to compatibility mode: the 32-bit code segment, LMA set)
+    push 8
+    mov eax, compat_entry
+    push rax
+    o64 retf
+bits 32
+compat_entry:
+    mov ecx, [ROUNDS]
+.round:
+    mov eax, 1
+    lock xadd [C_COMPAT], eax
+    mov eax, [C_COMPAT + 4]
+.cas:
+    lea edx, [eax + 3]
+    lock cmpxchg [C_COMPAT + 4], edx
+    jnz .cas                        ; (EAX now holds the current value)
+    lock inc dword [C_COMPAT + 8]
+    dec ecx
+    jnz .round
     lock inc dword [FINISHED]
 .halt:
     cli
     hlt
     jmp .halt
-bits 32
 
 align 8
 gdt:

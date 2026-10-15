@@ -1,34 +1,40 @@
 #!/usr/bin/env node
-// Tier-0 differential fuzzing: random integer/SSE/x87 instruction sequences
-// run hot in a loop (so their page is compiled by the IR Tier-0 page tier) and
-// must leave exactly the interpreter's state: GPRs, EFLAGS (including the
-// rarely read AF/OF, captured by PUSHFD/LAHF inside the loop), memory, XMM and
-// x87 registers, and the retired-instruction count. Each program must also
-// have entered Tier-0 code, and most of all programs' instructions must have
-// run in it: else the comparison proves nothing about Tier-0.
+// Legacy-mode differential fuzzing: random integer/SSE/x87 instruction
+// sequences run hot in a loop (so their page is compiled by the x64 page tier,
+// x64_page_legacy32, docs/jit-unification-plan.md P7.3; written for IR Tier-0,
+// deleted in P7.5) and must leave exactly the interpreter's state: GPRs,
+// EFLAGS (including the rarely read AF/OF, captured by PUSHFD/LAHF inside the
+// loop), memory, XMM and x87 registers, and the retired-instruction count.
+// Each program must also have entered page functions, and most of all
+// programs' instructions must have run in them: else the comparison proves
+// nothing about the page tier.
 //
 //   node tests/ir/differential/tier0_fuzz.mjs [cases=40] [seed=1] [wasm]
 // Needs build/bench/boot.bin (make bench-build): flat protected mode, paging.
-// FUZZ_STRADDLE=1 places each program across a page boundary and compiles
-// Tier-0 page functions with their neighbor pages (ir_t0_set_ranges).
-// Debugging: FUZZ_DEBUG=1 prints each case's MXCSR and code, FUZZ_BODY=<hex>
-// replaces the random instructions.
+// FUZZ_STRADDLE=1 places each program across a page boundary (multi-page
+// functions, P7.3b). Debugging: FUZZ_DEBUG=1 prints each case's MXCSR and
+// code, FUZZ_BODY=<hex> replaces the random instructions. JIT_SWITCHES applies
+// to the compiled machine (tests/lib/jit_switches.mjs). FUZZ_COVERAGE=<share>
+// lowers the share of instructions that must run in page functions (0.5).
+// FUZZ_SS16=1 runs the programs on a 16-bit stack (SS.B clear, a 64 KiB
+// segment at SS16; half the cases start at SP 0xFFF0, half at SP 8, whose
+// pushes wrap): 32-bit code on a 16-bit stack, as Windows 98's thunks (M11).
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
+import { jit_switches_from_env } from "../../lib/jit_switches.mjs";
 
 const cases = Number(process.argv[2] || 40);
 let seed = Number(process.argv[3] || 1) >>> 0;
-const wasm = process.argv[4] || "build/v86-ir-runtime.wasm";
+const wasm = process.argv[4] || "build/v86.wasm";
 const manifest = JSON.parse(fs.readFileSync("build/bench/manifest.json", "utf8"));
 const boot = fs.readFileSync(manifest.boot);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// (Tier-0 compiles a page that got hot at the start of the next CPU frame, so
-// a program's first frame, at least ~100k instructions, runs interpreted; FP
-// programs also reload MXCSR, interpreted, at the top, and Tier-0 must
-// recompile the page with an entry after it)
-const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, ITERATIONS = 50000;
+// (a program's first instructions run interpreted until its page is hot; FP
+// programs also reload MXCSR, interpreted, at the top, and the page tier
+// must recompile the page with an entry after it)
+const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, SS16 = 0x640000, ITERATIONS = 50000;
 const random = () => {
     seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0;
     return seed;
@@ -45,9 +51,12 @@ const rr = (r, m) => 0xC0 | r << 3 | m;
 
 // FUZZ_KIND=i0..i33 / s0..s13 restricts programs to one instruction kind
 // (s11: SSE floating point over special values, see fp_instruction; s13: VEX
-// forms among legacy ones, see vex_instruction; b: BMI, see bmi_instruction).
+// forms among legacy ones, see vex_instruction; b: BMI, see bmi_instruction;
+// j, g, e, d, o, a, m, v, c, p: P3.7's templates, r: P3.1's, see
+// p37_instruction).
 const only = process.env.FUZZ_KIND || "";
 const straddle = process.env.FUZZ_STRADDLE === "1";
+const ss16 = process.env.FUZZ_SS16 === "1";
 function instruction() {
     const op = random() % 8, r = reg(), m = reg();
     const kind = random() % 34;
@@ -91,8 +100,106 @@ function instruction() {
         }
     }
 }
-// b: BMI1 and BMI2's VEX forms, TZCNT, LZCNT and MOVBE (P10; Tier-0 has
-// templates for the hot ones of plan 5.1 and steps the others) on registers
+// P3.7's templates (docs/jit-unification-plan.md; IR Tier-0's, one kind per
+// switch, t0_*, now the page tier's forms), among integer instructions:
+// j: JECXZ and JCXZ over the instruction after them, taken and
+//   not: ECX is often zero, or CX zero with the rest of ECX not
+// g: MOV r32/r16/m16, Sreg; PUSH Sreg then POP r32 (the
+//   push writes 16 bits of the slot)
+// e: XCHG [ebx + disp8] with r32, r16 and r8
+// d: CLD and STD
+// o: POP m32 after PUSH r32/imm32/m32; POP [esp + disp8]
+//   stays a step (its address uses ESP)
+// a: PUSHAD, an instruction, POPAD
+// v: MOVQ from MMX and XMM, MOVDQU and MOVSS stores
+//   across the end of DATA's page (EDI = EBX + 0xFFE), which the fast path
+//   refuses (the bytes there are compared)
+// c: CLI (IF is clear in these programs: PUSHFD shows it)
+// p: POP [ESP] and POP [ESP + 4]
+// r (P3.1t): REP MOVS and STOS of bytes,
+//   words and dwords between ESI and EDI in DATA: apart, overlapping
+//   forward and backward, with DF set, ECX 0, across the end of DATA's
+//   page, with a 16-bit address size or a DS override, STOS of a repeated
+//   byte and of other values
+// m: MOV ES/FS/GS from r16 and m16 with the flat data
+//   selector, a null one or 0x18 (based at 4 KiB, added to the GDT for
+//   it), then a load through the segment; MOV DS with the flat selector;
+//   DS to 0x18 and back, which change flat segmentation (refused: steps)
+function p37_instruction() {
+    if(random() % 3 === 0) return instruction();
+    const r = reg(), seg = random() % 6;
+    switch(only) {
+        case "j": switch(random() % 4) {
+            case 0: return random() & 1 ? [0x31, 0xC9] : [0xB9, ...u32(random() & 0xFFFF0000)]; // ECX 0, CX 0
+            case 1: { const next = instruction(); return [0x67, 0xE3, next.length, ...next]; }   // JCXZ over it
+            default: { const next = instruction(); return [0xE3, next.length, ...next]; }       // JECXZ over it
+        }
+        case "g": switch(random() % 4) {
+            case 0: return [0x8C, rr(seg, r)];                                    // MOV r32, Sreg
+            case 1: return [0x66, 0x8C, rr(seg, r)];                              // MOV r16, Sreg
+            case 2: return [0x8C, 0x43 | seg << 3, disp()];                       // MOV m16, Sreg
+            default: return [...pick([[0x06], [0x0E], [0x16], [0x1E], [0x0F, 0xA0], [0x0F, 0xA8]]), 0x58 | r]; // PUSH Sreg; POP r32
+        }
+        case "e": switch(random() % 3) {
+            case 0: return [0x87, ...mem(r)];                                     // XCHG m32, r32
+            case 1: return [0x66, 0x87, ...mem(r)];                               // XCHG m16, r16
+            default: return [0x86, 0x43 | pick(BYTE_REGS) << 3, disp()];          // XCHG m8, r8
+        }
+        case "d": return [pick([0xFC, 0xFD])];                                    // CLD, STD
+        case "o": switch(random() % 4) {
+            case 0: return [0x50 | r, 0x8F, 0x43, disp()];                        // PUSH r32; POP m32
+            case 1: return [0x68, ...u32(random()), 0x8F, 0x43, disp()];          // PUSH imm32; POP m32
+            case 2: return [0xFF, 0x73, disp(), 0x8F, 0x43, disp()];              // PUSH m32; POP m32
+            default: return [0x50 | r, 0x50 | r, 0x8F, 0x44, 0x24, 0x00, 0x58 | r]; // POP [esp] (a step)
+        }
+        case "r": {
+            const size = pick([1, 2, 4]), movs = random() & 1;
+            const op = [...size === 2 ? [0x66] : [], (movs ? 0xA4 : 0xAA) | (size > 1 ? 1 : 0)];
+            const lea = (register, offset) => [0x8D, 0x83 | register << 3, ...u32(offset)]; // LEA r32, [EBX + offset]
+            const count = n => [0xB9, ...u32(n)];                                 // MOV ECX, n
+            // (stores stay below DATA + 120, the loop counter at 124: at
+            // most 56 bytes from a destination at most 60)
+            const n = random() % (56 / size + 1);
+            const a = random() % 120, b = random() % 61;
+            const rep = (prefix = [], stos = false) => [0xF3, ...prefix, ...stos ? [...size === 2 ? [0x66] : [], 0xAA | (size > 1 ? 1 : 0)] : op];
+            switch(random() % 8) {
+                case 0: return [...lea(6, a), ...lea(7, b), ...count(n), ...rep()];       // apart or overlapping
+                case 1: { const s = random() % 48; return [...lea(6, s), ...lea(7, s + size * (1 + random() % 3)), ...count(n), ...rep()]; } // forward overlap
+                case 2: return [...lea(6, 60 + a % 40), ...lea(7, 60 + b % 40), ...count(n), 0xFD, ...rep(), 0xFC]; // DF set: downward
+                case 3: return [...lea(6, a), ...lea(7, b), ...count(0), ...rep()];       // ECX 0
+                case 4: return [...lea(6, a), ...lea(7, 0xFF0 - 2 * (random() & 7)), ...count(4 + random() % 8), ...rep()]; // across the page end
+                case 5: return [0xB8, ...u32(pick([0, 0x41414141, 0xFFFFFFFF, random()])), ...lea(7, b), ...count(n), ...rep([], true)]; // STOS values
+                case 6: return [...lea(6, a), ...lea(7, b), ...count(0x10000), 0x67, ...rep()]; // 16-bit address size: CX 0
+                default: return [...lea(6, a), ...lea(7, b), ...count(n), ...rep([0x3E])]; // a DS override
+            }
+        }
+        case "v": {
+            const x = random() & 7;
+            const store = pick([[0x0F, 0x7F], [0x66, 0x0F, 0xD6], [0xF3, 0x0F, 0x7F], [0xF3, 0x0F, 0x11]]);
+            return [0x8D, 0xBB, ...u32(0xFFE), ...store, 0x07 | x << 3];          // LEA EDI, [EBX+0xFFE]; store [EDI]
+        }
+        case "c": return [0xFA];                                                  // CLI
+        case "p": return random() & 1
+            ? [0x50 | r, 0x50 | r, 0x8F, 0x04, 0x24, 0x58 | r, 0x58 | r]          // POP [ESP]
+            : [0x50 | r, 0x50 | r, 0x50 | r, 0x8F, 0x44, 0x24, 0x04, 0x58 | r, 0x58 | r]; // POP [ESP+4]
+        case "m": {
+            // (ES, FS or GS, and its segment-override prefix)
+            const s = pick([0, 4, 5]), prefix = { 0: 0x26, 4: 0x64, 5: 0x65 }[s], sel = pick([0x10, 0x18]);
+            const load = (selector, sreg) => [0x66, 0xB8 | r, selector, 0x00, 0x8E, rr(sreg, r)];
+            switch(random() % 6) {
+                case 0: return load(sel, s);                                      // MOV Sreg, r16
+                case 1: { const d = disp(); return [0x66, 0xC7, 0x43, d, sel, 0x00, 0x8E, 0x43 | s << 3, d]; } // MOV Sreg, m16
+                case 2: return [0x66, 0x31, rr(r, r), 0x8E, rr(s, r), ...load(0x18, s)]; // null, then 0x18
+                case 3: return load(0x10, 3);                                     // MOV DS, the flat selector
+                case 4: return [...load(0x18, 3), 0x8B, 0x43 | r << 3, disp(), ...load(0x10, 3)]; // DS non-flat and back
+                default: return [...load(0x18, s), prefix, 0x8B, 0x43 | r << 3, disp()]; // a load through it
+            }
+        }
+        default: return [0x60, ...instruction(), 0x61];                          // PUSHAD; ...; POPAD
+    }
+}
+// b: BMI1 and BMI2's VEX forms, TZCNT, LZCNT and MOVBE (P10; the page tier
+// has templates for the hot ones of plan 5.1 and steps the others) on registers
 // and [ebx + disp8]
 function bmi_instruction() {
     // (then a SETcc m8 half the time: a condition right after the flags,
@@ -120,7 +227,7 @@ function bmi_form() {
 }
 // SSE floating point (docs/simd-xsave-plan.md 7.4): the arithmetic forms,
 // conversions and compares, and the moves and shuffles carrying values between
-// them (Tier-0 tracks which registers hold neither NaNs nor denormals), on
+// them (compiled code tracks which registers hold neither NaNs nor denormals), on
 // zeros, denormals, infinities, NaNs and values that overflow or underflow.
 function fp_instruction(x, y) {
     const prefix = pick([[], [0x66], [0xF3], [0xF2]]);
@@ -159,7 +266,7 @@ function special_words() {
     if(random() & 1) return Array.from({ length: 4 }, () => random() % 5 ? pick(SPECIAL_SINGLE) : random());
     return Array.from({ length: 2 }, () => random() % 5 ? pick(SPECIAL_DOUBLE) : [random(), random()]).flat();
 }
-// s12: what Tier-0 knows about registers within a block. Values around the
+// s12: what compiled code knows about registers within a block. Values around the
 // smallest normal, whose sums and differences are exact denormals, consumed
 // by forms that are then admitted natively unless that knowledge is right
 // (MXCSR with only PE set keeps a missed DE or IE visible).
@@ -181,7 +288,7 @@ function near_words() {
 }
 function tracking_instruction(x, y) {
     const single = near_single;
-    // Patterns for each fact Tier-0 keeps, a consumer reading what a wrong
+    // Patterns for each fact compiled code keeps, a consumer reading what a wrong
     // fact would leave unchecked (z: another register)
     const z = (x + 1 + random() % 7) & 7;
     const packed = single ? [] : [0x66], scalar = single ? [0xF3] : [0xF2];
@@ -216,7 +323,7 @@ function tracking_instruction(x, y) {
         default: return [0x0F, 0x57, rr(x, x)];                                                   // XORPS x, x
     }
 }
-// s13: VEX forms (AVX, P5 part 5; their Tier-0 templates are the legacy ones
+// s13: VEX forms (AVX, P5 part 5; their templates are the legacy ones
 // with a first source and bits 255:128 of the destination zeroed) among legacy
 // forms with templates (CMPPS, MOVMSKPS, PMOVMSKB, BLENDVPS...), over special
 // values. VEX.vvvv (z) is the first source; an immediate shift's destination.
@@ -344,6 +451,7 @@ function program() {
         const float = only ? only === "x" : random() % 7 === 0;
         // Single-kind programs still interleave PUSHFD/LAHF to expose FLAGS.
         body.push(...(only && only !== "s12" && k % 4 === 3 ? [0x9C, 0x8F, 0x43, disp()] : only === "b" ? bmi_instruction() :
+            ["j", "g", "e", "d", "o", "a", "m", "v", "c", "p", "r"].includes(only) ? p37_instruction() :
             float ? x87() : vector ? simd() : instruction()));
     }
     // DEC DWORD [ebx + 124]; JNZ top; HLT
@@ -352,10 +460,10 @@ function program() {
     return [...body, ...tail, 0x0F, 0x85, ...u32(jump), 0xF4];
 }
 
-async function machine(tier0) {
+async function machine(compiled) {
     const vm = new V86({
         graphics_adapter: "bochs_vga",
-        wasm_path: wasm, disable_jit: !tier0, memory_size: 128 << 20, // reference: the interpreter only
+        wasm_path: wasm, disable_jit: !compiled, memory_size: 128 << 20, // reference: the interpreter only
         // (page functions are installed as they are compiled, not in a Promise
         // continuation, which a whole program can run ahead of)
         ir_sync_publication: true,
@@ -363,6 +471,11 @@ async function machine(tier0) {
         // x86-64 profile's LZCNT)
         cpu_features: ["SSSE3", "SSE4.1", "SSE4.2", "XSAVE", "AVX", ...only === "b" ? ["BMI1", "BMI2", "LZCNT", "MOVBE"] : []],
         ...only === "b" ? { cpu_type: "x86_64" } : {}, cpu_features_unreleased: true,
+        // (the page tier counts each instruction: blocks count theirs at
+        // entry by default, more than run when a retry leaves one early; and
+        // compiles, and recompiles for new entries, as soon as long mode)
+        ...compiled ? { jit_switches: { x64_block_count: 0, x64_legacy_heat: 2000, x64_legacy_recompile_misses: 64,
+            ...jit_switches_from_env() } } : {},
         bios: { buffer: Uint8Array.from(boot).buffer }, disable_keyboard: true, disable_mouse: true,
         disable_speaker: true, net_device: { type: "none" }, autostart: false,
     });
@@ -375,9 +488,15 @@ async function machine(tier0) {
         await sleep(1);
     }
     await vm.stop();
-    if(tier0) assert(e.ir_auto_set_tier0(1));
-    if(tier0 && straddle) assert(e.ir_t0_set_ranges(1));
-    return { vm, cpu, e, tier0 };
+    if(only === "m") {
+        // A fourth descriptor: data based at 0x1000, not yet accessed (run
+        // clears the bit again for each case)
+        const view = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset), gdt = cpu.gdtr_offset[0] >>> 0;
+        view.setUint32(gdt + 24, 0x1000FFFF, true);
+        view.setUint32(gdt + 28, 0x00CF9200, true);
+        cpu.gdtr_size[0] = 31;
+    }
+    return { vm, cpu, e, compiled };
 }
 
 async function run(m, code, init, page, split) {
@@ -387,10 +506,19 @@ async function run(m, code, init, page, split) {
     const base = split ? CODE + page * 0x2000 + 0x1000 - split : CODE + page * 0x1000;
     cpu.mem8.set(code, base);
     cpu.mem8.set(init.data, DATA);
+    if(only === "v" || only === "r") cpu.mem8.fill(0, DATA + 0xFF0, DATA + 0x1010);
+    if(only === "m") cpu.mem8[(cpu.gdtr_offset[0] >>> 0) + 29] &= ~1;
     cpu.mem8.fill(0, STACK - 0x1000, STACK);
     new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).setUint32(DATA + 124, ITERATIONS, true);
     cpu.reg32.set(init.regs);
     cpu.reg32[3] = DATA; cpu.reg32[4] = STACK;
+    if(ss16) {
+        // (SS 0x20, a 16-bit data segment at SS16)
+        cpu.mem8.fill(0, SS16, SS16 + 0x10000);
+        cpu.sreg[2] = 0x20; cpu.segment_offsets[2] = SS16; cpu.segment_limits[2] = 0xFFFF;
+        cpu.segment_access_bytes[2] = 0x93; cpu.segment_is_null[2] = 0; cpu.stack_size_32[0] = 0;
+        cpu.reg32[4] = init.sp16;
+    }
     cpu.flags[0] = 2; cpu.flags_changed[0] = 0; cpu.in_hlt[0] = 0;
     cpu.instruction_pointer[0] = base;
     e.fpu_discard_cache();
@@ -405,40 +533,45 @@ async function run(m, code, init, page, split) {
     e.set_control_word(0x37F); cpu.fpu_status_word[0] = 0;
     e.update_state_flags();
     new Uint32Array(e.memory.buffer)[664 >> 2] = 0;
-    // (page function activations, and the instructions that the interpreter
-    // loop ran outside page functions)
-    const entries = e.ir_t0_entries(), interpreted = e.ir_interpreted_stat(0, 0);
+    // (page function activations, and native and stepped instructions)
+    const activations = e.x64_page_stat(13), native = e.x64_page_stat(1), steps = e.x64_page_stat(4);
     vm.run();
     const end = performance.now() + 20000;
     while(!cpu.in_hlt[0]) {
         if(performance.now() > end) {
             await vm.stop();
             const v = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset);
-            throw new Error(`timeout (${m.tier0 ? "tier-0" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
+            throw new Error(`timeout (${m.compiled ? "page tier" : "interpreter"}): eip ${(cpu.instruction_pointer[0] >>> 0).toString(16)} ` +
                 `status ${v.getUint32(0x608, true).toString(16)} counter ${v.getUint32(DATA + 124, true)} ` +
                 `retired ${new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0} code ${Buffer.from(code).toString("hex")}`);
         }
         await sleep(0);
     }
     await vm.stop();
-    m.entries = (e.ir_t0_entries() - entries) >>> 0;
-    m.interpreted = (e.ir_interpreted_stat(0, 0) - interpreted) >>> 0;
+    const count = new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0;
+    m.entries = e.x64_page_stat(13) - activations;
+    m.interpreted = Math.max(0, count - (e.x64_page_stat(1) - native) - (e.x64_page_stat(4) - steps));
     return {
         regs: Array.from(cpu.reg32, v => v >>> 0),
         eip: cpu.instruction_pointer[0] >>> 0,
         eflags: e.get_eflags() >>> 0,
         data: Array.from(cpu.mem8.subarray(DATA, DATA + 256)),
         stack: Array.from(cpu.mem8.subarray(STACK - 64, STACK)),
+        ...ss16 ? { stack_low: Array.from(cpu.mem8.subarray(SS16, SS16 + 64)), stack_top: Array.from(cpu.mem8.subarray(SS16 + 0xFFC0, SS16 + 0x10000)) } : {},
         xmm: Array.from(new Uint32Array(cpu.reg_xmm32s.buffer, cpu.reg_xmm32s.byteOffset, 32), v => v >>> 0),
         ymm: Array.from(new Uint32Array(cpu.reg_xmm32s.buffer, cpu.reg_xmm32s.byteOffset + 1616, 32), v => v >>> 0),
         mxcsr: cpu.mxcsr[0] >>> 0,
         count: new Uint32Array(e.memory.buffer)[664 >> 2] >>> 0,
         fpu: (e.fpu_sync_all(), [cpu.fpu_stack_ptr[0], cpu.fpu_stack_empty[0], cpu.fpu_status_word[0], ...Array.from(new Uint8Array(cpu.fpu_st.buffer, cpu.fpu_st.byteOffset, 128))]),
         status: new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).getUint32(0x608, true),
+        // (v: the bytes across the end of DATA's page)
+        ...only === "v" || only === "r" ? { page_end: Array.from(cpu.mem8.subarray(DATA + 0xFF0, DATA + 0x1010)) } : {},
+        // (m: the descriptor at 0x18, whose accessed bit its first load sets)
+        ...only === "m" ? { descriptor: Array.from(cpu.mem8.subarray((cpu.gdtr_offset[0] >>> 0) + 24, (cpu.gdtr_offset[0] >>> 0) + 32)) } : {},
     };
 }
 
-const reference = await machine(false), tier0 = await machine(true);
+const reference = await machine(false), page = await machine(true);
 // (instructions retired in all, and in page functions; the smallest share of
 // one program's in page functions)
 let failures = 0, uncompiled = 0, retired = 0, compiled = 0, least = 1;
@@ -449,6 +582,8 @@ for(let c = 0; c < cases; c++) {
     const reset_state = (xmm, mxcsr) => [...xmm.flatMap(u32), ...u32(mxcsr)];
     const init = {
         regs: Array.from({ length: 8 }, () => random()),
+        // (FUZZ_SS16: the initial SP, below STACK or wrapping)
+        sp16: ss16 ? random() & 1 ? 0xFFF0 : 8 : 0,
         data: special ? Array.from({ length: 16 }, () => special_words().flatMap(u32)).flat()
             : Array.from({ length: 256 }, () => random() & 255),
         // Finite floats: exponents kept in range so arithmetic rarely makes NaNs.
@@ -460,13 +595,15 @@ for(let c = 0; c < cases; c++) {
     };
     if(special || near) init.data.push(...reset_state(init.xmm, init.mxcsr));
     const split = straddle ? 4 + random() % (code.length - 8) : 0;
-    const expected = await run(reference, code, init, c, split), actual = await run(tier0, code, init, c, split);
+    const expected = await run(reference, code, init, c, split), actual = await run(page, code, init, c, split);
     if(process.env.FUZZ_DEBUG) console.log(`case ${c}: mxcsr ${expected.mxcsr.toString(16)} / ${actual.mxcsr.toString(16)} count ${expected.count} ` +
-        `page function entries ${tier0.entries} interpreted ${tier0.interpreted} code ${Buffer.from(code).toString("hex")}`);
+        `page function entries ${page.entries} interpreted ${page.interpreted} code ${Buffer.from(code).toString("hex")}` +
+        ` (compiled ${page.e.x64_page_stat(0)} failed ${page.e.x64_page_stat(7)} retries ` +
+        `${page.e.x64_page_stat(2)} steps ${page.e.x64_page_stat(4)} unknown ${page.e.x64_page_stat(3)})`);
     retired += actual.count;
-    compiled += actual.count - tier0.interpreted;
-    least = Math.min(least, 1 - tier0.interpreted / actual.count);
-    if(!tier0.entries) {
+    compiled += actual.count - page.interpreted;
+    least = Math.min(least, 1 - page.interpreted / actual.count);
+    if(!page.entries) {
         uncompiled++;
         console.log(`case ${c}: no page function ran (${actual.count} instructions, eip ${actual.eip.toString(16)}, status ${actual.status.toString(16)})\n` +
             `  code ${Buffer.from(code).toString("hex")}`);
@@ -480,18 +617,17 @@ for(let c = 0; c < cases; c++) {
         }
     }
 }
-const pages = tier0.e.ir_t0_stat(0);
-// (instructions that page functions left to the interpreter, ir_t0_step)
-let stepped = 0;
-for(let key = 0; key < 0x10000; key++) stepped += tier0.e.ir_t0_steps(key) >>> 0;
-await reference.vm.destroy(); await tier0.vm.destroy();
-assert(pages > 0, "no Tier-0 page was compiled");
+// (legacy-mode compiles, x64_page_stat 37, and steps: instructions that page
+// functions left to the interpreter)
+const pages = page.e.x64_page_stat(37), stepped = page.e.x64_page_stat(4);
+await reference.vm.destroy(); await page.vm.destroy();
+assert(pages > 0, "no page was compiled");
 const percent = share => `${(100 * share).toFixed(1)}%`;
 const coverage = `${percent(compiled / retired)} of the instructions ran in page functions (${percent((compiled - stepped) / retired)} ` +
     `templated), at least ${percent(least)} of each program's`;
-if(failures || uncompiled || compiled * 2 < retired) {
+if(failures || uncompiled || compiled < retired * Number(process.env.FUZZ_COVERAGE || 0.5)) {
     console.log(`FAIL: ${failures}/${cases} cases differ, no page function ran in ${uncompiled}; ${coverage}`);
     process.exit(1);
 }
-console.log(`PASS: ${cases} random programs, Tier-0 (${pages} page compiles) matches the interpreter; ${coverage}`);
+console.log(`PASS: ${cases} random programs, the page tier (${pages} page compiles) matches the interpreter; ${coverage}`);
 process.exit(0);

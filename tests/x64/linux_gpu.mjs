@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // x86_64 Linux (Alpine 3.24, the official virt ISO) on a display adapter:
 // installs Mesa and the GPU test programs from build/x64-linux/gpu-repo.tar
-// (tools/alpine_gpu_repo.mjs), loads the adapter's DRM driver and runs the
+// (tools/alpine_repo.mjs), loads the adapter's DRM driver and runs the
 // steps of a scenario on the serial console, saving screenshots.
 //
 //     GPU_ADAPTER=bochs_vga node tests/x64/linux_gpu.mjs
@@ -24,21 +24,23 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { create_trace_renderer } from "./gpu_trace.mjs";
 import { create_remote_renderer } from "./gpu_remote_renderer.mjs";
+import { IMAGES, directory_of } from "../lib/alpine_image.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const directory = root + "build/x64-linux/";
+// (the pinned ISO and its unpacked files: tests/lib/alpine_image.mjs)
+const directory = directory_of("x86_64");
 const adapter = process.env.GPU_ADAPTER || "bochs_vga";
 const scenario = process.env.GPU_SCENARIO || "drm";
 const out = process.env.GPU_OUT || path.join(directory, "gpu-" + adapter + (process.env.GPU_LEVEL ? "-" + process.env.GPU_LEVEL : ""));
 fs.mkdirSync(out, { recursive: true });
 
-const iso = directory + "alpine-virt-3.24.0-x86_64.iso";
+const iso = directory + IMAGES["x86_64-virt"].name;
 const repo = directory + "gpu-repo.tar";
 for(const file of [iso, directory + "boot/vmlinuz-virt", directory + "boot/initramfs-virt"])
 {
     assert.ok(fs.existsSync(file), file + " is missing: run tests/x64/linux_boot.mjs once (X64_LINUX_PREPARE_ONLY=1)");
 }
-assert.ok(fs.existsSync(repo), repo + " is missing: run tools/alpine_gpu_repo.mjs");
+assert.ok(fs.existsSync(repo), repo + " is missing: run tools/alpine_repo.mjs");
 
 const DRIVER = { bochs_vga: "bochs", vmware_svga: "vmwgfx", virtio_gpu: "virtio_gpu" }[adapter];
 // the levels with 3D (vmware_svga's vgpu9 and up)

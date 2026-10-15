@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { PARALLEL_WASM, ROOT } from "./guest.mjs";
+import { with_jit_switches } from "../lib/jit_switches.mjs";
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 const kernel = ROOT + "build/parallel-litmus.bin";
@@ -21,12 +22,12 @@ const JIT = !+process.env.DISABLE_JIT;
 
 async function machine(rounds, options = {})
 {
-    const emulator = new V86({
+    const emulator = new V86(with_jit_switches({
         graphics_adapter: "bochs_vga",
         multiboot: { url: kernel }, memory_size: 32 << 20, acpi: true, cpu_cores: CORES,
         disable_jit: !JIT, experimental_smp_jit: JIT, ir_sync_publication: true,
         parallel: true, wasm_path: PARALLEL_WASM, autostart: false, log_level: 0, ...options,
-    });
+    }));
     const errors = [];
     emulator.add_listener("emulator-error", error => errors.push(error));
     await new Promise((resolve, reject) => {

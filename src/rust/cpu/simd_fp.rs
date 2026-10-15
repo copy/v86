@@ -377,7 +377,7 @@ impl Fp {
     }
 }
 
-/// One lane natively, by ir::native_fp's rule (see there): with MXCSR at its
+/// One lane natively, by x86tpl::native_fp's rule (see there): with MXCSR at its
 /// defaults and PE set (checked by the caller), host IEEE arithmetic gives
 /// SoftFloat's result and changes no flag unless an operand is denormal or
 /// the result is NaN, infinite or (MUL, DIV) tiny but not an exact zero. MIN,

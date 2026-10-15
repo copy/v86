@@ -14,13 +14,14 @@ const assert = require("node:assert/strict");
     const cpu = {
         get_jit_info: () => ({ backend: "ir" }),
         devices: { ide: { primary: { master: { buffer } } } },
+        disk_devices() { return [["hda", { buffer }]]; },
         wm: { exports: {
             performance_recording_enable(value) { counterEnabled = !!value; if (value) counters = [0, 0, 0]; },
             performance_recording_get(index) { return counters[index]; },
         }, wasm_table: { get() { return null; } } },
         main_loop() { time += 4; instructions = instructions + 100 >>> 0; counters[0] += 25; counters[1] += 75; return 0; },
-        ir_publish_cached(owner, id, slot, code, automatic) {
-            publicationCalls.push([id, slot, code.length, automatic]);
+        jit_publish(client, id, slot, pointer, length) {
+            publicationCalls.push([id, slot, pointer, length]);
             return new Promise(resolve => { resolvePublish = resolve; });
         },
         jit_clear_func() {},
@@ -38,7 +39,7 @@ const assert = require("node:assert/strict");
     time = 15; reads.shift()();
     time = 20; reads.shift()();
     cpu.main_loop();
-    const published = cpu.ir_publish_cached({}, 1n, 1, new Uint8Array(200), true);
+    const published = cpu.jit_publish(0, 1n, 1, 0x1000, 200);
     time += 10;
     resolvePublish(true);
     assert.equal(await published, true, "the wrapper forwards the publication result");
@@ -59,8 +60,8 @@ const assert = require("node:assert/strict");
     assert.equal(recorder.timer, null);
 
     recorder.start();
-    const late = cpu.ir_publish_cached({}, 2n, 1, new Uint8Array(100), true), resolveLate = resolvePublish;
-    const failed = cpu.ir_publish_cached({}, 3n, 2, new Uint8Array(100), false), resolveFailed = resolvePublish;
+    const late = cpu.jit_publish(0, 2n, 1, 0x2000, 100), resolveLate = resolvePublish;
+    const failed = cpu.jit_publish(0, 3n, 2, 0x3000, 100), resolveFailed = resolvePublish;
     assert.equal(recorder.pending_jit.size, 2);
     resolveFailed(false);
     assert.equal(await failed, false);
@@ -68,7 +69,7 @@ const assert = require("node:assert/strict");
     const second = recorder.stop();
     assert.equal(second.summary.jit_requests, 2);
     assert.equal(second.summary.jit_finished, 0, "a failed publication is not a finished one");
-    assert.deepEqual(publicationCalls.slice(-2), [[2n, 1, 100, true], [3n, 2, 100, false]], "the wrapper forwards the publication arguments");
+    assert.deepEqual(publicationCalls.slice(-2), [[2n, 1, 0x2000, 100], [3n, 2, 0x3000, 100]], "the wrapper forwards the publication arguments");
 
     recorder.start();
     resolveLate(true);

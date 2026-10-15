@@ -101,7 +101,10 @@ export function HPET(cpu)
     }
 
     cpu.io.mmap_register_range(HPET_ADDRESS, HPET_SIZE, this,
-        addr => this.read32(addr - HPET_ADDRESS & ~3) >>> ((addr & 3) << 3) & 0xFF,
+        addr => {
+            this.note_read();
+            return this.read32(addr - HPET_ADDRESS & ~3) >>> ((addr & 3) << 3) & 0xFF;
+        },
         (addr, value) => {
             const shift = (addr & 3) << 3;
             const offset = addr - HPET_ADDRESS & ~3;
@@ -109,11 +112,21 @@ export function HPET(cpu)
             const others = (offset & ~4) === GINTR_STA ? 0 : this.read32(offset) & ~(0xFF << shift);
             this.write32(offset, others | (value & 0xFF) << shift);
         },
-        addr => this.read32(addr - HPET_ADDRESS),
+        addr => {
+            this.note_read();
+            return this.read32(addr - HPET_ADDRESS);
+        },
         (addr, value) => this.write32(addr - HPET_ADDRESS, value));
 
     this.reset();
 }
+
+/** A register read, for the step profile (docs/jit-unification-plan.md P4.0: what QueryPerformanceCounter reads) */
+HPET.prototype.note_read = function()
+{
+    const note = this.cpu.wm?.exports["step_profile_note_event"];
+    if(note) note(10, 0); // step_profile::event::HPET_READ
+};
 
 HPET.prototype.reset = function()
 {

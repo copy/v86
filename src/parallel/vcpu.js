@@ -19,6 +19,7 @@ import { relocate } from "./relocate.js";
 import { PM_TIMER_TICKS_PER_MS, pm_timer_shared_max } from "../acpi.js";
 import { ExtendedStore } from "../extended_memory.js";
 import * as C from "./control.js";
+import { set_jit_switches } from "../jit_switches.js";
 
 const CORE_EVENT_INIT = 1;
 const CORE_EVENT_SIPI = 2;
@@ -92,10 +93,9 @@ export async function run_vcpu(init, post, handle)
         "microtick": () => cpu ? cpu.clock.now() : now(),
         "get_rand_int": () => Math.random() * 0x100000000 | 0,
         "stop_idling": () => {},
-        "x64_native_publish": (token, pointer, length) => cpu.publish_wide_native(token, pointer, length),
-        "x64_native_execute": (token, budget) => cpu.wide_native_functions.get(token)?.(budget) || 0,
-        "x64_native_discard": () => cpu.wide_native_functions.clear(),
-        "x64_page_publish": (id, slot, pointer, length) => cpu.x64_page_publish(id, slot, pointer, length),
+        // (cores built before the wide-native path was removed import it)
+        "x64_native_discard": () => {},
+        "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
         "io_port_read8": port => request(C.OP_IN8, port),
         "io_port_read16": port => request(C.OP_IN16, port),
         "io_port_read32": read32,
@@ -118,7 +118,6 @@ export async function run_vcpu(init, post, handle)
             console.error("[vCPU " + core + "] " + new TextDecoder().decode(bytes));
         },
         "dbg_trace_from_wasm": () => {},
-        "ir_codegen_finalize": (id, slot, pointer, length) => { cpu.ir_auto_publish(id, slot, pointer, length); },
         "jit_clear_func": index => cpu.jit_clear_func(index),
         "parallel_notify": address => { Atomics.notify(new Int32Array(memory.buffer), address >>> 2); },
         // the machine's extended RAM store (src/extended_memory.js)
@@ -138,24 +137,14 @@ export async function run_vcpu(init, post, handle)
     cpu.configure_jit_backend(settings);
     // no event loop in this worker: install generated code synchronously
     cpu.ir_sync_publication = true;
-    cpu.publish_wide_native = (token, pointer, length) =>
-    {
-        const bytes = new Uint8Array(memory.buffer, pointer >>> 0, length >>> 0).slice();
-        try
-        {
-            const instance = new WebAssembly.Instance(new WebAssembly.Module(bytes),
-                { "e": { "m": memory, "x64_native_guard": exports["x64_native_guard"] } });
-            if(exports["x64_native_ready"](token, true)) cpu.wide_native_functions.set(token, instance.exports["f"]);
-        }
-        catch(e)
-        {
-            exports["x64_native_ready"](token, false);
-        }
-    };
     // (the CPU profile, CPUID level and x64 capabilities, is the machine's:
     // crate::cpu::cpu::copy_machine_configuration)
     exports["set_x87_fast_math"]?.(settings["x87_fast_math"] !== false);
     exports["set_x87_jit_cache"]?.(settings["x87_jit_cache"] !== false);
+    // the machine's JIT switches (src/browser/starter.js), over what
+    // configure_jit_backend set; later changes arrive through
+    // crate::jit_switches::copy_from_machine
+    set_jit_switches(exports, memory, settings["jit_switches"], "jit_switches (from the machine)");
     cpu.mem8 = view(Uint8Array, memory, init.mem8, init.memory_size);
     cpu.mem32s = view(Uint32Array, memory, init.mem8, init.memory_size >> 2);
     exports["parallel_set_active"](true);
@@ -287,16 +276,14 @@ export async function run_vcpu(init, post, handle)
         // compiled code: other cores' publications and code writes
         exports["parallel_poll"]();
         const now = cpu.clock.now();
-        // this core's compile budget (as the machine's loop does for its core)
-        exports["begin_cpu_frame"](now);
         const next_timer = exports["apic_timer"](now);
         const retired = cpu.run_cpu_slice(quantum);
         steps = steps + retired | 0;
         ctrl[word(C.STEPS)] = steps;
         ctrl[word(C.SLICES)]++;
-        // (cumulative: a reset or restore clears the caches' own counters;
-        // Tier-0, the IR cache and x64 page functions)
-        const entries = exports["ir_t0_entries"]() + exports["ir_cache_stat"](2) + exports["x64_page_stat"](6) >>> 0;
+        // (cumulative: a reset or restore clears the page tier's own
+        // counters; its functions' entries)
+        const entries = exports["x64_page_stat"](6) >>> 0;
         jit_entries += entries >= last_entries ? entries - last_entries : entries;
         last_entries = entries;
         ctrl[word(C.JIT_ENTRIES)] = jit_entries;

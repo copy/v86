@@ -10,10 +10,12 @@ typedef long long i64;
 #define NOINLINE __attribute__((noinline))
 #define UNUSED __attribute__((unused))
 
-void *memcpy(void *dst, const void *src, unsigned n);
-void *memset(void *dst, int value, unsigned n);
-void *memmove(void *dst, const void *src, unsigned n);
-int memcmp(const void *a, const void *b, unsigned n);
+// (size_t: unsigned int for i686, a 64-bit count for x86-64)
+typedef __SIZE_TYPE__ size_t;
+void *memcpy(void *dst, const void *src, size_t n);
+void *memset(void *dst, int value, size_t n);
+void *memmove(void *dst, const void *src, size_t n);
+int memcmp(const void *a, const void *b, size_t n);
 
 // FNV-1a style accumulation of results into the checksum.
 static inline u32 mix(u32 h, u32 v) { return (h ^ v) * 0x01000193u; }

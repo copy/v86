@@ -7,41 +7,10 @@
 use crate::cpu::apic;
 use crate::cpu::string::{StringExecution, StringOutcome};
 
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-struct CoreStatistics {
-    retired: u64,
-    rep_elements: u64,
-    faults: u64,
-    halts: u64,
-    runtime_ms: f64,
-}
-static mut CORE_STATISTICS: [CoreStatistics; 8] = [CoreStatistics {
-    retired: 0,
-    rep_elements: 0,
-    faults: 0,
-    halts: 0,
-    runtime_ms: 0.0,
-}; 8];
-// Tier-0 fallback dispatches are counted by generated code even when they
-// fault. Remove those dispatch counts before adding the native JIT delta;
-// the interpreter ledger already accounts their actual retirement.
-static mut JIT_ACCOUNTED_DISPATCHES: u32 = 0;
-// Retired instructions and REP elements of the current core not yet added to
-// CORE_STATISTICS: two plain adds per instruction instead of an indexed
-// update. Flushed on core switch and before any read or reset.
-static mut PENDING_RETIRED: u64 = 0;
-static mut PENDING_REP_ELEMENTS: u64 = 0;
-pub unsafe fn flush_core_statistics() {
-    if PENDING_RETIRED | PENDING_REP_ELEMENTS != 0 {
-        let stats =
-            &mut (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()];
-        stats.retired += PENDING_RETIRED;
-        stats.rep_elements += PENDING_REP_ELEMENTS;
-        PENDING_RETIRED = 0;
-        PENDING_REP_ELEMENTS = 0;
-    }
-}
+// The per-core counters are crate::core_stats's (both cores count there)
+use crate::core_stats::retired_now;
+pub use crate::core_stats::{flush_core_statistics, note_halt, note_jit_rep, note_native_retired};
+use crate::core_stats::{CORE_STATISTICS, PENDING_REP_ELEMENTS, PENDING_RETIRED};
 
 struct ExecutionState {
     deterministic: bool,
@@ -55,6 +24,8 @@ struct ExecutionState {
     // callback inside that window must not deliver an IRQ; the dispatch
     // loop polls again at the instruction boundary.
     defer_irqs: bool,
+    // handle_irqs was called while defer_irqs held
+    irq_noted: bool,
 }
 
 impl ExecutionState {
@@ -68,6 +39,7 @@ impl ExecutionState {
             retired: 0,
             rep_elements: 0,
             defer_irqs: false,
+            irq_noted: false,
         }
     }
 
@@ -132,6 +104,19 @@ pub unsafe fn set_irq_deferral(enabled: bool) { execution_state.defer_irqs = ena
 #[inline(always)]
 pub unsafe fn irqs_deferred() -> bool { execution_state.defer_irqs }
 
+/// Whether handle_irqs was called while delivery was held, and nothing has
+/// delivered since (cpu::run_compat_instruction)
+#[inline(always)]
+pub unsafe fn irq_check_owed() -> bool { execution_state.irq_noted }
+
+/// handle_irqs while delivery is held: the hold's end looks again
+#[inline(always)]
+pub unsafe fn note_held_irq() { execution_state.irq_noted = true; }
+
+/// handle_irqs outside a hold delivers what is deliverable: nothing is owed
+#[inline(always)]
+pub unsafe fn held_irqs_served() { execution_state.irq_noted = false; }
+
 /// This mode uses the bounded interpreter and never a JIT/IR dispatch path.
 #[no_mangle]
 pub unsafe fn set_deterministic_execution(enabled: bool) {
@@ -183,60 +168,115 @@ pub unsafe fn begin_shadow_instruction() {
     }
 }
 
-pub unsafe fn note_halt() {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].halts += 1;
+/// How retired instructions ran (the mode ledger)
+#[derive(Clone, Copy)]
+pub enum Way {
+    /// by the interpreter, outside compiled code
+    Interpreted = 0,
+    // 1 and 2 were IR Tier-0's page functions and the instructions they
+    // stepped (deleted in P7.5), 3 the IR regions (deleted in M11); the
+    // numbering, which tools read, stays
+    /// the x64 page tier, the instructions it stepped and the ones it
+    /// retried in the interpreter after refusing an access
+    PageNative = 4,
+    PageStep = 5,
+    PageRetry = 6,
 }
-pub unsafe fn note_jit_rep(elements: u32) {
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].rep_elements +=
-        elements as u64;
-}
-pub unsafe fn jit_dispatches() -> u32 { JIT_ACCOUNTED_DISPATCHES }
-pub unsafe fn note_jit_interpreted(dispatches: u32) {
-    JIT_ACCOUNTED_DISPATCHES = JIT_ACCOUNTED_DISPATCHES.wrapping_add(dispatches);
-}
-pub unsafe fn note_native_retired(steps: u32, accounted_before: u32) {
-    let interpreted = JIT_ACCOUNTED_DISPATCHES.wrapping_sub(accounted_before);
-    dbg_assert!(
-        steps >= interpreted,
-        "JIT dispatch ledger exceeds generated step count"
-    );
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[apic::current_core()].retired +=
-        steps.saturating_sub(interpreted) as u64;
-}
-#[no_mangle]
-pub unsafe fn core_statistics_reset() {
-    PENDING_RETIRED = 0;
-    PENDING_REP_ELEMENTS = 0;
-    *crate::parallel::machine(&raw mut CORE_STATISTICS) = [CoreStatistics::default(); 8];
-}
-#[no_mangle]
-pub unsafe fn core_statistics_addr(core: u32) -> u32 {
-    assert!(core < 8);
-    flush_core_statistics();
-    crate::parallel::machine(&raw mut CORE_STATISTICS)
-        .cast::<CoreStatistics>()
-        .add(core as usize) as u32
-}
-#[no_mangle]
-pub fn core_statistics_size() -> u32 { std::mem::size_of::<CoreStatistics>() as u32 }
-#[no_mangle]
-pub unsafe fn core_statistics_get(core: u32, field: u32) -> f64 {
-    assert!(core < 8);
-    flush_core_statistics();
-    let stats = (*crate::parallel::machine(&raw mut CORE_STATISTICS))[core as usize];
-    match field {
-        0 => stats.retired as f64,
-        1 => stats.rep_elements as f64,
-        2 => stats.faults as f64,
-        3 => stats.halts as f64,
-        4 => stats.runtime_ms,
-        _ => 0.0,
+const WAYS: usize = 7;
+/// x64::state::ExecutionMode
+const MODES: usize = 7;
+/// The mode ledger (docs/jit-unification-plan.md P0.6, the JIT switch
+/// mode_ledger, off by default): retired instructions (cross-phase rule 3:
+/// what core_statistics_get(core, 0) counts) by mode, by whether 32-bit code
+/// ran with flat segments (index 1), and by Way. While it is on, its sum
+/// grows exactly as the retired count does.
+static mut LEDGER: Option<[[[u64; WAYS]; 2]; MODES]> = None;
+
+#[inline(always)]
+pub fn ledger_on() -> bool { unsafe { (*(&raw const LEDGER)).is_some() } }
+/// Off: the ledger is dropped; on: an empty one unless it was on
+pub unsafe fn set_ledger(on: bool) {
+    if on != ledger_on() {
+        LEDGER = on.then_some([[[0; WAYS]; 2]; MODES]);
     }
 }
 #[no_mangle]
-pub unsafe fn core_statistics_runtime(core: u32, elapsed_ms: f64) {
-    assert!(core < 8 && elapsed_ms.is_finite() && elapsed_ms >= 0.0);
-    (*crate::parallel::machine(&raw mut CORE_STATISTICS))[core as usize].runtime_ms += elapsed_ms;
+pub unsafe fn mode_ledger_reset() {
+    if let Some(ledger) = (*(&raw mut LEDGER)).as_mut() {
+        *ledger = [[[0; WAYS]; 2]; MODES];
+    }
+}
+/// Retired instructions of mode `mode` (ExecutionMode), with flat 32-bit
+/// segments or not (`flat`), that ran the Way `way`
+#[no_mangle]
+pub unsafe fn mode_ledger_get(mode: u32, flat: u32, way: u32) -> f64 {
+    (*(&raw const LEDGER))
+        .as_ref()
+        .and_then(|l| l.get(mode as usize)?.get(flat as usize)?.get(way as usize))
+        .map_or(0.0, |&n| n as f64)
+}
+
+/// Retirements of one Way from one mode, while the ledger is on: begun before
+/// the instructions run, so that their mode is the row
+pub struct LedgerSpan {
+    mode: u8,
+    flat: u8,
+    retired: u64,
+    counter: u32,
+}
+#[inline(always)]
+pub unsafe fn ledger_begin() -> Option<LedgerSpan> {
+    if ledger_on() {
+        Some(ledger_begin_now())
+    }
+    else {
+        None
+    }
+}
+#[cold]
+#[inline(never)]
+unsafe fn ledger_begin_now() -> LedgerSpan {
+    use crate::x64::state::ExecutionMode;
+    let mode = crate::x64::state::mode();
+    let flat = matches!(
+        mode,
+        ExecutionMode::Protected32 | ExecutionMode::Compatibility32
+    ) && crate::cpu::cpu::has_flat_segmentation();
+    LedgerSpan {
+        mode: mode as u8,
+        flat: flat as u8,
+        retired: retired_now(),
+        counter: *crate::cpu::global_pointers::instruction_counter,
+    }
+}
+unsafe fn ledger_add(span: &LedgerSpan, way: Way, retired: u64) {
+    if let Some(ledger) = (*(&raw mut LEDGER)).as_mut() {
+        ledger[span.mode as usize][span.flat as usize][way as usize] += retired;
+    }
+}
+/// Instructions retired one by one (finish_instruction) since the span began
+#[inline(always)]
+pub unsafe fn ledger_end(span: Option<LedgerSpan>, way: Way) {
+    if let Some(span) = span {
+        ledger_add(&span, way, retired_now() - span.retired);
+    }
+}
+/// Instructions compiled code retired since the span began, as
+/// note_native_retired counts them: the instruction counter's advance
+#[inline(always)]
+pub unsafe fn ledger_end_native(span: Option<LedgerSpan>, way: Way) {
+    if let Some(span) = span {
+        let native = (*crate::cpu::global_pointers::instruction_counter).wrapping_sub(span.counter);
+        ledger_add(&span, way, native as u64);
+    }
+}
+/// `retired` instructions compiled code retired since the span began, counted
+/// by the caller
+#[inline(always)]
+pub unsafe fn ledger_end_count(span: Option<LedgerSpan>, way: Way, retired: u32) {
+    if let Some(span) = span {
+        ledger_add(&span, way, retired as u64);
+    }
 }
 
 /// Used after reset/restore, with the previous pending delta already consumed.

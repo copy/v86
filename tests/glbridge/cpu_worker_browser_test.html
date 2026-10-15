@@ -6,7 +6,7 @@ import { V86 } from "../../build/libv86.mjs";
 import { WorkerPerformanceRecorder } from "../../src/browser/cpu_worker.js";
 const params = new URLSearchParams(location.search);
 const irBackend = params.get("jit_backend") === "ir";
-const corePath = irBackend ? "../../build/v86-ir-runtime.wasm" : "../../build/v86.wasm";
+const corePath = "../../build/v86.wasm";
 const jitOptions = irBackend ? { jit_backend: "ir" } : {};
 const checks = [];
 const check = (value, message) => { if(!value) throw new Error(message); checks.push(message); };

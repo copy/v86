@@ -5,6 +5,10 @@
 // This is the single source for
 //   src/rust/cpu/global_pointers.rs  the constants between the GENERATED markers
 //   src/state_layout.js              offsets and per-core ranges for JavaScript
+// and for the ARM core's own state block (docs/arm64-virt-android16-plan.md
+// P1.4: each core has its 4096 bytes, from offset 64)
+//   src/rust/aarch64/state.rs        the constants between the GENERATED markers
+//   src/arm/state_layout.js          offsets and per-core ranges for JavaScript
 // Regenerate with `node gen/state_layout.js`; `--check` fails if either file is
 // stale, a field overlaps another, or a Rust static is missing from STATICS.
 //
@@ -32,7 +36,7 @@ import url from "node:url";
 
 const ROOT = path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 
-const RUST_SIZE = { u8: 1, bool: 1, u16: 2, i32: 4, u32: 4, u64: 8, reg128: 16, F80: 16, CachedStateFlags: 1, "[u64; 8]": 64 };
+const RUST_SIZE = { u8: 1, bool: 1, u16: 2, i32: 4, u32: 4, u64: 8, u128: 16, reg128: 16, F80: 16, CachedStateFlags: 1, "[u64; 8]": 64 };
 
 // size: bytes the field owns. JavaScript views some 1-byte Rust fields as
 // 32-bit (e.g. protected_mode), so a slot can be larger than the Rust type.
@@ -139,6 +143,8 @@ export const STATE_FIELDS = [
     { name: "x64_page_lazy_kind", offset: 1824, rust: "u32", size: 4, owner: "scratch", note: "lazy EFLAGS record a page function tail-called with (0: flags are materialized)" },
     { name: "x64_page_lazy_a", offset: 1832, rust: "u64", size: 8, owner: "scratch", note: "its first operand" },
     { name: "x64_page_lazy_b", offset: 1840, rust: "u64", size: 8, owner: "scratch", note: "its second operand" },
+    { name: "x64_page_rep_elements", offset: 1848, rust: "u32", size: 4, owner: "scratch", note: "REP elements legacy-mode page functions ran in an activation (into the core's statistics after it)" },
+    { name: "x64_chain_gprs", offset: 1864, rust: "u64", count: 16, size: 128, owner: "scratch", note: "the GPRs a page function tail-calls with (x64_fast_chain)" },
     // System management mode (src/rust/cpu/smm.rs). Its own per-core range, so
     // that snapshots from before it restore it to its reset value.
     { name: "smm_state", offset: 1856, rust: "u32", size: 4, owner: "core", note: "bit 0: in SMM; bit 1: NMIs were blocked at the SMI; bit 2: the state is in the 64-bit save map" },
@@ -160,12 +166,138 @@ export const STATE_FIELDS = [
     { name: "ymm_hi", offset: 2448, rust: "reg128", count: 16, size: 256, owner: "core", range: "xstate", init: "keep", note: "bits 255:128 of YMM0-YMM15" },
 ];
 
+// The ARM core's state block (src/rust/aarch64/state.rs): the hottest fields
+// first (PC, X0-X30 and the current SP, NZCV), then FPCR/FPSR and V0-V31,
+// then the EL1 system registers, the timers, the GIC CPU interface, the
+// exclusive monitor and the debug registers. Bits of PSTATE other than NZCV
+// are in `pstate` as SPSR_EL1 lays them out (D, A, I, F at 9:6, SS 21, IL 20,
+// EL 3:2, SP 0). SVE state beyond 128 bits (not in v1) goes outside.
+export const A64_STATE_FIELDS = [
+    { name: "x", offset: 64, rust: "u64", count: 32, size: 256, owner: "core", note: "X0-X30, then the current SP (SP_EL0 or SP_EL1 by PSTATE.SP)" },
+    { name: "pc", offset: 320, rust: "u64", size: 8, owner: "core" },
+    { name: "nzcv", offset: 328, rust: "u32", size: 4, owner: "core", note: "N Z C V at bits 31:28" },
+    { name: "pstate", offset: 332, rust: "u32", size: 4, owner: "core", note: "PSTATE but NZCV, as in SPSR_EL1" },
+    { name: "fpcr", offset: 336, rust: "u32", size: 4, owner: "core" },
+    { name: "fpsr", offset: 340, rust: "u32", size: 4, owner: "core" },
+    { name: "instruction_counter", offset: 344, rust: "u32", size: 4, owner: "machine", note: "dispatch/JIT step counter for budgets" },
+    { name: "slice_budget", offset: 348, rust: "u32", size: 4, owner: "machine", note: "maximum retired work in one generated activation" },
+    { name: "v", offset: 352, rust: "u128", count: 32, size: 512, owner: "core", note: "V0-V31" },
+    // the inactive stack pointer and the EL1 system registers (P3.1)
+    { name: "sp_el", offset: 864, rust: "u64", count: 2, size: 16, owner: "core", range: "sys", note: "SP_EL0, SP_EL1 while not the current SP" },
+    { name: "elr_el1", offset: 880, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "spsr_el1", offset: 888, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "esr_el1", offset: 896, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "far_el1", offset: 904, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "vbar_el1", offset: 912, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "sctlr_el1", offset: 920, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cpacr_el1", offset: 928, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "ttbr0_el1", offset: 936, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "ttbr1_el1", offset: 944, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tcr_el1", offset: 952, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "mair_el1", offset: 960, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "amair_el1", offset: 968, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "contextidr_el1", offset: 976, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidr_el0", offset: 984, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidrro_el0", offset: 992, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "tpidr_el1", offset: 1000, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "par_el1", offset: 1008, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "afsr0_el1", offset: 1016, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "afsr1_el1", offset: 1024, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "actlr_el1", offset: 1032, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "csselr_el1", offset: 1040, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cntkctl_el1", offset: 1048, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "cntfrq_el0", offset: 1056, rust: "u64", size: 8, owner: "core", range: "sys", note: "writable at EL1; the counter's rate does not follow it" },
+    { name: "mdscr_el1", offset: 1064, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "osdlr_el1", offset: 1072, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "oslsr_el1", offset: 1080, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "mdccint_el1", offset: 1088, rust: "u64", size: 8, owner: "core", range: "sys" },
+    { name: "disr_el1", offset: 1096, rust: "u64", size: 8, owner: "core", range: "sys" },
+    // the generic timer's EL1 virtual and physical timers (P3.6)
+    { name: "cntv_ctl", offset: 1104, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntv_cval", offset: 1112, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntp_ctl", offset: 1120, rust: "u64", size: 8, owner: "core", range: "timer" },
+    { name: "cntp_cval", offset: 1128, rust: "u64", size: 8, owner: "core", range: "timer" },
+    // the GICv3 CPU interface (P3.5): ICC_PMR, BPR0/1, IGRPEN0/1, CTLR, the
+    // active priorities AP0R0/AP1R0 and the running priority stack
+    { name: "icc_pmr", offset: 1136, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_bpr", offset: 1140, rust: "u32", count: 2, size: 8, owner: "core", range: "gic" },
+    { name: "icc_igrpen", offset: 1148, rust: "u32", count: 2, size: 8, owner: "core", range: "gic" },
+    { name: "icc_ctlr", offset: 1156, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_ap0r", offset: 1160, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_ap1r", offset: 1164, rust: "u32", size: 4, owner: "core", range: "gic" },
+    { name: "icc_active", offset: 1168, rust: "u32", count: 8, size: 32, owner: "core", range: "gic", note: "INTIDs being handled, innermost last" },
+    { name: "icc_active_count", offset: 1200, rust: "u32", size: 4, owner: "core", range: "gic" },
+    // the local exclusive monitor (P3.3): the reserved granule and the value
+    // for the parallel build's compare-exchange
+    { name: "excl_valid", offset: 1208, rust: "u32", size: 4, owner: "core", range: "exclusive" },
+    { name: "excl_addr", offset: 1216, rust: "u64", size: 8, owner: "core", range: "exclusive" },
+    { name: "excl_value", offset: 1232, rust: "u128", size: 16, owner: "core", range: "exclusive" },
+    // the debug registers (P3.8): 2 breakpoints, 2 watchpoints
+    { name: "dbgbvr", offset: 1248, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgbcr", offset: 1264, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgwvr", offset: 1280, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    { name: "dbgwcr", offset: 1296, rust: "u64", count: 2, size: 16, owner: "core", range: "debug" },
+    // waiting (WFI, WFE) and the event register
+    { name: "waiting", offset: 1312, rust: "u32", size: 4, owner: "core", range: "wait", note: "0 running, 1 WFI, 2 WFE" },
+    { name: "event_register", offset: 1316, rust: "u32", size: 4, owner: "core", range: "wait" },
+    // the A64 page tier's activation (docs/jit-unification-plan.md P6, J2):
+    // set by the runtime before each call, read by generated code at small
+    // offsets (jitrt::step's StepAbi and pagegen::frame's AccessAbi)
+    { name: "a64_page_exit", offset: 1328, rust: "u32", size: 4, owner: "scratch", note: "why the last page function returned (jitrt::step::EXIT_*)" },
+    { name: "a64_page_chain", offset: 1332, rust: "u32", size: 4, owner: "scratch", note: "native instructions of the page functions an activation tail-called from" },
+    { name: "a64_page_linear", offset: 1336, rust: "u64", size: 8, owner: "scratch", note: "virtual address of the page a page function runs at" },
+    { name: "a64_jac_epoch", offset: 1344, rust: "u64", size: 8, owner: "scratch", note: "tag bits of the running core's access cache epoch" },
+    { name: "a64_jac_base", offset: 1352, rust: "u32", size: 4, owner: "scratch", note: "access cache read table of the running core and EL" },
+    { name: "a64_code_base", offset: 1356, rust: "u32", size: 4, owner: "scratch", note: "chaining table of the running core and EL" },
+];
+
 // Every static in src/rust, by file. The check fails on a static that is not
 // listed here, so new state has to be classified when it is added.
 export const STATICS = {
     // one local APIC per core, indexed by core; the scheduler's current core and INIT/SIPI events
     // the state block of this instance in the parallel build: each relocated instance has its own
-    "cpu/global_pointers.rs": { STATE_BLOCK: "core" },
+    "state_block.rs": { STATE_BLOCK: "core" },
+    // the ARM core (docs/arm64-virt-android16-plan.md P1.0): its scheduler's
+    // current core, the machine's core count, the yield flag of this
+    // instance, guest RAM's base
+    "aarch64/isa_hooks.rs": { CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_YIELD: "scratch" },
+    // the address space (P1.5): RAM's size, the regions, the map's generation,
+    // guest memory, the status of the last read or write from JavaScript
+    "aarch64/root.rs": { TEST_RETIRED: "debug" },
+    // the interpreter's decode cache (keyed and checked by the instruction
+    // word: valid in every instance), the decoder's mnemonic for the oracle
+    // (and UNDEF telemetry; per core: the load-exclusive spin detection,
+    // P3.9, and the stepped instruction's EX bit, P3.8)
+    "aarch64/execute.rs": { DECODE_CACHE: "cache", UNDEF_COUNTS: "debug", UNDEF_LAST: "debug", UNDEF_NEXT: "debug", SPIN: "core",
+        STEPPED_EXCLUSIVE_LOADS: "core", STEPPED_EXCLUSIVE_LOAD: "scratch", STEPPED_CORE: "scratch" },
+    // the AES S-boxes (read-only); SoftFloat's globals around each FP operation
+    "aarch64/crypto.rs": { SBOX: "machine", INVERSE_SBOX: "machine" },
+    "aarch64/fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
+    // the debug fast paths, derived from the running core's registers
+    "aarch64/debug.rs": { ANY_BREAKPOINT: "cache", ANY_WATCHPOINT: "cache" },
+    // the GIC (P4.2): distributor, redistributors and CPU interfaces, each
+    // core's interrupt request lines
+    "aarch64/gic.rs": { GIC: "machine", SIGNAL: "machine" },
+    // the granules of the test profile v1.1 (P3.4); per core TLBs and the
+    // generation the fetch fast path checks (P3.5)
+    "aarch64/mmu.rs": { GRANULES: "machine" },
+    "aarch64/tlb.rs": { TLBS: "core", GENERATION: "cache" },
+    // the cooperative cores (P3.9): the saved state of the cores not
+    // running, their pending events, the round robin, the global monitor
+    // (P3.7); each core's event stream (P4.3)
+    "aarch64/smp.rs": { SAVED: "core", EVENTS: "machine", ROUND: "machine", MONITORS: "machine", MONITOR_GRANULE: "machine" },
+    "aarch64/timer.rs": { EVENT_STREAM_LAST: "core" },
+    // the A64 page tier (J2): its switches, functions and code pages, the
+    // access caches and chaining tables per core (derived from the TLBs),
+    // the code pages' translations, the flow a step asked for
+    "aarch64/jit/mod.rs": { NEON: "machine", HELPERS: "machine", RELAXED_FMA: "machine", FMA_FUSED: "machine", ASID_TAG: "machine", EXPLICIT: "machine", NAMES: "machine" },
+    "aarch64/jit/pages.rs": { ENABLED: "machine", HOT: "machine", ACCESS: "cache", CHAIN: "cache", CHAINING: "machine",
+        CODE_TLB: "cache", RUNTIME: "machine", CODE_WRITES: "machine", STEP_FLOW: "scratch", WRITES: "debug", RESETS: "debug", HELPERS: "debug", EVICTIONS: "debug", COMPILE_MS: "debug", ASIDS: "cache" },
+    "aarch64/decode.rs": { BUFFER: "debug" },
+    // PSCI: the cores' power states and pending CPU_ON starts, a SYSTEM_OFF
+    // or SYSTEM_RESET request
+    "aarch64/psci.rs": { POWER: "machine", START: "machine", REQUEST: "machine", SNAPSHOT: "scratch" },
+    "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {
         INTERPRETED: "debug", INTERPRETED_OFFSETS: "debug", INTERPRETED_PAGES: "debug", INTERPRETED_VEX: "debug", INTERPRETED_WATCH: "debug",
@@ -177,13 +309,14 @@ export const STATICS = {
         // active TSC offset lives in context.rs across switches; old interpolation slots remain for test hooks
         tsc_last_extra: "machine", tsc_last_value: "machine", tsc_number_of_same_readings: "machine",
         tsc_offset: "core", tsc_resolution: "machine", tsc_speed: "machine",
-        X64_COMPAT_JIT: "machine",
     },
     "cpu/exceptions.rs": { DELIVERING: "scratch", EXTERNAL: "scratch", SHUTDOWN: "core", BSP_RESET: "machine" },
     "cpu/context.rs": { CONTEXTS: "core" },
-    "cpu/execution.rs": { execution_state: "machine", CORE_STATISTICS: "core", JIT_ACCOUNTED_DISPATCHES: "scratch",
-        // flushed into CORE_STATISTICS before every read, reset and core switch
-        PENDING_RETIRED: "scratch", PENDING_REP_ELEMENTS: "scratch" },
+    "cpu/execution.rs": { execution_state: "machine", LEDGER: "debug" },
+    // both cores' per-core counters (docs/arm64-virt-android16-plan.md P1.10);
+    // the pending ones are flushed into CORE_STATISTICS before every read,
+    // reset and core switch
+    "core_stats.rs": { CORE_STATISTICS: "core", PENDING_RETIRED: "scratch", PENDING_REP_ELEMENTS: "scratch" },
     "cpu/fpu.rs": { X87_JIT_CACHE: "machine" },
     // (IOAPIC_LOCK guards it while cores run in workers; UNUSED stands in for it in the normal build)
     "cpu/ioapic.rs": { IOAPIC: "machine", IOAPIC_LOCK: "machine", UNUSED: "machine" },
@@ -192,53 +325,34 @@ export const STATICS = {
     // TEST_FEATURES replaces them per thread under cargo test
     "cpu/features.rs": { FEATURES: "machine", TEST_FEATURES: "debug" },
     // cargo test only: decode rows whose semantics come later
-    "ir/frontend/decode.rs": { TEST_DECODE_UNIMPLEMENTED: "debug" },
+    "decode/decode.rs": { TEST_DECODE_UNIMPLEMENTED: "debug" },
     // the chipset's SMRAM control (Q35 MCH: G_SMRAME, D_OPEN) and TSEG; per
     // instance: the TSEG generation its fast RAM limit reflects
     "cpu/smm.rs": { SMRAM_CONTROL: "machine", TSEG: "machine", TSEG_SEEN: "cache" },
     "cpu/memory.rs": { mem8: "machine", ram_fast_limit: "machine" },
     // device memory regions (frame buffers) and where they are mapped
-    "cpu/mmio_ram.rs": { TABLE: "machine" },
-    "cpu/pic.rs": { PIC: "machine" },
+    "cpu/mmio_ram.rs": { TABLE: "machine", TEST_TABLE: "debug" },
+    "cpu/pic.rs": { PIC: "machine", PORT_WRITTEN: "machine" },
     // SoftFloat's state around one SSE instruction (saved and restored)
     "cpu/simd_fp.rs": { softfloat_roundingMode: "scratch", softfloat_exceptionFlags: "scratch" },
-    "ir/debug.rs": { AUDIT: "debug", RECORDS: "debug" },
-    "ir/frontend/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
-    "ir/runtime/cache.rs": {
-        // compiled code and lookup caches; hits re-check the live TLB and CPU context
-        CACHE: "machine", COLLECTION_PENDING: "machine", FAST: "machine", FAST_CHAINS: "machine", FAST_HITS: "debug",
-        FAST_STAMP: "machine", FUSION_PROFILE: "debug", LINK_RANDOM: "machine", MERGED_VALIDATION_ENABLED: "machine",
-        MISSING_ENTRIES: "machine", MISSING_HINT_ENABLED: "machine", MISSING_HINT_HITS: "debug", NEG_STAMP: "machine",
-        PAGE_FAST: "machine", PAGE_OUT: "machine", PAGE_REFILL: "machine", POLL_REUSE_ENABLED: "machine",
-        STRICT_VALIDATION: "machine", T0_CHAINS: "machine", T0_ENTRIES: "debug", T0_LINKABLE: "machine", T0_SLOTS: "machine",
-        // the running activation and its entry state; never across a host yield
-        ACTIVE: "scratch", T0_CONTROL: "scratch", T0_CS: "scratch",
-    },
+    "decode/encodings.rs": { ENCODINGS: "machine", OPCODES: "machine", FORMS: "debug" },
     // (calls of the AVX helper, for tests)
-    "ir/runtime/avx.rs": { CALLS: "debug" },
-    "ir/runtime/diagnostics.rs": Object.fromEntries([
-        "ADMISSION", "CALIBRATION", "CALLS", "CELLS", "CHAIN", "CLOCK", "COMPILER", "COMPILER_BENCHMARK", "COMPILER_BUCKETS",
-        "COMPILE_CONTEXT", "CONTROL_EXITS", "CURRENT", "DEPTH", "DISCOVERY", "HELPER_EXITS", "HOT", "HOT_REPLACEMENTS",
-        "INTERPRETER_HOT", "IN_BATCH", "MISSING", "PERIOD", "PUBLICATION", "RANDOM", "REASONS", "SESSION", "STACK", "TIMES",
-        "TOTALS", "START",
-    ].map(name => [name, "debug"])),
-    "ir/runtime/entry.rs": { ADMISSION_EPOCH: "machine", CONTINUATION_EPOCH: "machine", EXIT_KIND: "scratch" },
-    "ir/runtime/live.rs": { LIVE: "machine" },
-    "ir/runtime/memory.rs": { RMW_VALUE: "scratch" },
-    "ir/runtime/region.rs": { TIER1_INSTRUCTIONS: "debug", TIER2_INSTRUCTIONS: "debug" },
-    "ir/runtime/rep.rs": { LAST_RESULT: "scratch" },
-    "ir/runtime/schedule.rs": {
-        DIRECT_T2: "machine", FORCED: "machine", HEAT: "machine", HEAT_STEPS: "machine", HEAT_STEPS_PER_VISIT: "machine",
-        PAGE_HEAT: "machine", SCHEDULER: "machine", T0_RANGES: "machine", TIER0: "machine", RESERVED: "machine",
-    },
-    "ir/runtime/tier0.rs": {
-        COMPILED: "machine", STEPS: "debug", T0_LINK: "machine", T0_TAIL_CALLS: "machine", TEMPLATES: "machine",
-        // (the host's relaxed multiply-adds: whether they fuse, whether FMA uses them)
-        RELAXED_FMA_FUSED: "machine", RELAXED_FMA: "machine",
-        // the operands of one ir_t0_sse_fp call
-        T0_SSE_FP: "scratch", SSE_FP_CALLS: "debug", FMA_CALLS: "debug",
-    },
-    "jit.rs": { JIT_STATE: "machine", WATCHED: "machine" },
+    "jit.rs": { ENABLED: "machine", RESERVED: "machine" },
+    // (the ISA-neutral runtime, P5: an instance's table and watched pages;
+    // LOG is a unit test's)
+    "jitrt/mod.rs": { STATE: "machine" },
+    "jitrt/host.rs": { ENV: "machine" },
+    "jitrt/publish.rs": { CLIENTS: "machine" },
+    "jitrt/capacity.rs": { QUOTA: "machine", REQUESTS: "machine" },
+    "jitrt/stat.rs": { STATS: "machine" },
+    "jitrt/watch.rs": { WATCHED: "machine", LOG: "debug" },
+    // (unit tests')
+    "jitrt/step.rs": { STATE: "debug" },
+    "jitrt/access.rs": { CACHE: "debug", KEPT: "debug" },
+    // the JIT switches set on this instance, the machine's ones a vCPU worker applied, the names
+    "jit_switches.rs": { EXPLICIT: "machine", COPIED: "machine", NAMES: "machine" },
+    // the step profile (docs/jit-unification-plan.md P0.5)
+    "step_profile.rs": { PROFILE: "debug", SAMPLES: "debug", PAIRS: "debug", PAIRS_FROZEN: "debug", SNAPSHOT: "debug", X64_LEGACY: "debug", X64_LEGACY_STALE: "debug" },
     // the parallel runtime: where this instance's statics are and whether
     // cores run in workers, then machine-wide words reached through machine():
     // wake-ups, yield flags, the locks of locked operations and the code
@@ -270,19 +384,38 @@ export const STATICS = {
     // are released at the next safe point; aperture slots are remapped on demand
     "x64/extended.rs": { EXTENDED: "machine", LOCK: "machine", DEPTH: "scratch", RELEASE_PENDING: "cache",
         LEGACY_TLB_CACHED: "cache", SLOT_PAGE: "cache", NEXT: "cache" },
-    "x64/cache.rs": { CACHE: "cache" },
     // page functions and their bookkeeping; entries re-check the live translation
-    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug", STEP_PROFILE: "debug",
+    // the page tier's exact SSE/FMA paths (their operand block and call
+    // counts), the host's tail calls and relaxed multiply-adds (P7.5: from
+    // ir/runtime/tier0.rs)
+    "x64/helpers.rs": {
+        SSE_FP_OPERANDS: "scratch", SSE_FP_CALLS: "debug", FMA_CALLS: "debug", TAIL_CALLS: "machine",
+        RELAXED_FMA_FUSED: "machine", RELAXED_FMA: "machine",
+    },
+    "x64/pages.rs": { RUNTIME: "machine", FAST: "machine", ACTIVE: "scratch", IN_ACTIVATION: "scratch", SEGMENTED_ACTIVE: "scratch", CODE_WRITES: "machine", STEPS: "debug", ACCESS_REFUSED: "debug",
         // per core, tagged with that core's access cache epoch
         CODE_TLB: "cache", CHAIN: "cache",
         COUNTERS: "debug", CHAINING: "machine", LAST_UNSERVED: "cache", BOUNCE: "scratch", RECOMPILE_MISSES: "machine", TIMING: "debug", TIME_IN_CALLS: "debug", TIME_IN_EXECUTE: "debug", TIME_FIRST_CALLS: "debug", BYTES_COMPILED: "debug",
-        // (step profile: stepped instructions by RIP)
-        STEP_RIPS: "debug", SORTED: "debug" },
+        // (step profile: stepped instructions by RIP; whether the last
+        // activation ended in a step, for its exit event)
+        STEP_RIPS: "debug", SORTED: "debug", STEP_EXITED: "debug",
+        // interpreted heat of a page without a function, valid while the
+        // runtime's functions are unchanged (P4.5b); the P4.5 switches
+        HEAT_BATCH: "machine", BATCH_HEAT: "machine", MISS_RUN: "machine",
+        // page functions' execution counters, their free cells, and the
+        // switches x64_hot_inline and x64_hot_count (P4.14)
+        HOT_COUNTS: "machine", HOT_FREE: "machine", HOT_NEXT: "machine", HOT_INLINE: "machine", HOT_COUNT: "machine", COMPAT_HOT_COUNT: "machine",
+        // the switches x64_page_compat32 (P7.2) and x64_page_legacy32 (P7.3)
+        COMPAT32: "machine", COMPAT_ACTIVE: "machine", LEGACY32: "machine", PAGE32_TIER0: "machine", LEGACY_ACTIVE: "machine", PROT16: "machine", PROT16_ACTIVE: "machine", V86: "machine", V86_ACTIVE: "machine", LEGACY_HEAT: "machine", LEGACY_MISSES: "machine", CLUSTERS: "machine", SPAN_CROSSINGS: "machine", SPAN_ENTRIES: "machine", SPAN_DECLINED: "scratch" },
     // derived from each core's x64 TLB (flushed with it); FRAME_BUFFER_WRITES:
     // some entry maps the VGA frame buffer
-    "x64/jac.rs": { JAC: "cache", FRAME_BUFFER_WRITES: "cache" },
+    "x64/jac.rs": { JAC: "cache", FRAME_BUFFER_WRITES: "cache", ENTRIES: "machine" },
     "x64/execute.rs": { DECODE_CACHE: "cache" },
-    "x64/pagegen.rs": { SIZE_STATS: "debug", OUTLINE_ACCESS: "machine", BLOCK_COUNT: "machine", BUCKET_DISPATCH: "machine" },
+    "x64/pagegen.rs": { SIZE_STATS: "debug", OUTLINE_ACCESS: "machine", BLOCK_COUNT: "machine", BUCKET_DISPATCH: "machine", CVT: "machine",
+        STI_SHADOW: "machine", LOOPS: "machine", XMM_LOCALS: "machine",
+        SSE_FAST_CHECK: "machine", I32_OPS: "machine", FAST_LOOKUP: "machine", FAST_CHAIN: "machine",
+        EXIT_FLAGS: "machine", COMPAT_TLB: "machine" },
+    "x64/replay.rs": { RECORDS: "debug", INPUT: "debug", OUTPUT: "debug", OUTPUTS: "debug" },
     "x64/debug.rs": { PENDING: "scratch" },
     "x64/system.rs": { FAULT_LOG: "debug", FAULT_NEXT: "debug", USER_TRACE: "debug", USER_TRACE_NEXT: "debug", USER_TRACE_ENABLED: "debug" },
     "x64/profile.rs": { PERIOD: "debug", COUNTDOWN: "debug", SAMPLES: "debug" },
@@ -291,9 +424,9 @@ export const STATICS = {
 
 const OWNERS = new Set(["core", "cache", "scratch", "machine", "debug"]);
 
-function validate()
+function validate(fields)
 {
-    const sorted = [...STATE_FIELDS].sort((a, b) => a.offset - b.offset);
+    const sorted = [...fields].sort((a, b) => a.offset - b.offset);
     for(const [i, f] of sorted.entries())
     {
         assert.ok(OWNERS.has(f.owner) && f.owner !== "debug", f.name + ": owner");
@@ -313,9 +446,9 @@ function validate()
 }
 
 /** [start, end) byte ranges covering the core fields, merged across unused gaps within a range */
-export function core_ranges()
+export function core_ranges(fields = STATE_FIELDS)
 {
-    const sorted = [...STATE_FIELDS].sort((a, b) => a.offset - b.offset);
+    const sorted = [...fields].sort((a, b) => a.offset - b.offset);
     const ranges = [];
     let current = null, range;
     for(const f of sorted)
@@ -341,10 +474,10 @@ export function core_ranges()
     return ranges;
 }
 
-function rust_consts()
+function rust_consts(fields)
 {
     const lines = [];
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset))
     {
         const type = f.rust;
         for(const line of f.doc || []) lines.push("// " + line);
@@ -361,18 +494,18 @@ function rust_consts()
 const BEGIN = "// BEGIN GENERATED by gen/state_layout.js (edit the layout there)\n";
 const END = "// END GENERATED\n";
 
-function rust_file(current)
+function rust_file(current, fields, name)
 {
     const start = current.indexOf(BEGIN);
     const end = current.indexOf(END);
-    assert.ok(start !== -1 && end > start, "global_pointers.rs: GENERATED markers missing");
-    return current.slice(0, start + BEGIN.length) + rust_consts() + current.slice(end);
+    assert.ok(start !== -1 && end > start, name + ": GENERATED markers missing");
+    return current.slice(0, start + BEGIN.length) + rust_consts(fields) + current.slice(end);
 }
 
-function js_file()
+function js_file(fields)
 {
     const offsets = {};
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset))
     {
         for(const [alias] of f.aliases || []) offsets[alias] = f.offset;
         offsets[f.name] = f.offset;
@@ -389,21 +522,21 @@ ${Object.entries(offsets).map(([name, offset]) => `    ${name}: ${offset},`).joi
  * changes (CPU.prototype.save_core_state/load_core_state)
  */
 export const CORE_STATE_RANGES = [
-${core_ranges().map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
+${core_ranges(fields).map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
 ];
 
 /** [offset, size] of the core state that INIT keeps (the rest takes its reset value) */
 export const INIT_PRESERVED = [
-${init_preserved().map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
+${init_preserved(fields).map(([a, b]) => `    [${a}, ${b}],`).join("\n")}
 ];
 `;
 }
 
 /** [offset, size] of the fields marked init: "keep", adjacent ones merged */
-function init_preserved()
+function init_preserved(fields)
 {
     const kept = [];
-    for(const f of [...STATE_FIELDS].sort((a, b) => a.offset - b.offset).filter(f => f.init === "keep"))
+    for(const f of [...fields].sort((a, b) => a.offset - b.offset).filter(f => f.init === "keep"))
     {
         const last = kept[kept.length - 1];
         if(last && last[0] + last[1] === f.offset) last[1] += f.size;
@@ -456,17 +589,26 @@ function check_statics()
 
 if(process.argv[1] === url.fileURLToPath(import.meta.url))
 {
-    validate();
+    validate(STATE_FIELDS);
+    validate(A64_STATE_FIELDS);
     const check = process.argv.includes("--check");
     const rust_path = path.join(ROOT, "src/rust/cpu/global_pointers.rs");
-    const outputs = [[rust_path, rust_file(fs.readFileSync(rust_path, "utf8"))], [path.join(ROOT, "src/state_layout.js"), js_file()]];
+    const a64_rust_path = path.join(ROOT, "src/rust/aarch64/state.rs");
+    const outputs = [
+        [rust_path, rust_file(fs.readFileSync(rust_path, "utf8"), STATE_FIELDS, "global_pointers.rs")],
+        [path.join(ROOT, "src/state_layout.js"), js_file(STATE_FIELDS)],
+        [a64_rust_path, rust_file(fs.readFileSync(a64_rust_path, "utf8"), A64_STATE_FIELDS, "aarch64/state.rs")],
+        [path.join(ROOT, "src/arm/state_layout.js"), js_file(A64_STATE_FIELDS)],
+    ];
     for(const [file, content] of outputs)
     {
         if(check) assert.equal(fs.existsSync(file) && fs.readFileSync(file, "utf8"), content, file + " is stale; run node gen/state_layout.js");
         else fs.writeFileSync(file, content);
     }
     check_statics();
-    const core_bytes = core_ranges().reduce((n, [a, b]) => n + b - a, 0);
-    console.log(`state layout: ${STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges())} (${core_bytes} bytes), ` +
+    const core_bytes = fields => core_ranges(fields).reduce((n, [a, b]) => n + b - a, 0);
+    console.log(`state layout: ${STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges())} (${core_bytes(STATE_FIELDS)} bytes), ` +
         `${Object.values(STATICS).reduce((n, s) => n + Object.keys(s).length, 0)} Rust statics classified`);
+    console.log(`ARM state layout: ${A64_STATE_FIELDS.length} fields, per-core ranges ${JSON.stringify(core_ranges(A64_STATE_FIELDS))} ` +
+        `(${core_bytes(A64_STATE_FIELDS)} bytes)`);
 }

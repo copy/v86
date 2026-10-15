@@ -26,9 +26,10 @@ import { deflateSync as deflate_sync } from "node:zlib";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { ReadOnlyOverlayDisk } from "../smp/disk_fixture.mjs";
+import { site_directory } from "../lib/site.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const site = path.resolve(process.env.SITE || path.join(root, "../retro-gaming-site")) + "/";
+const site = path.resolve(process.env.SITE || site_directory(root)) + "/";
 const build = process.env.BUILD || "current";
 const scenario = process.env.SCENARIO || "boot";
 const out = path.resolve(process.env.OUT || path.join(root, "build/r1-windows9x", `${build}-${scenario.replace(":", "-")}`)) + "/";

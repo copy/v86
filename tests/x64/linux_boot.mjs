@@ -9,35 +9,19 @@ import {setTimeout as delay} from "node:timers/promises";
 import {setImmediate as set_immediate} from "node:timers";
 import {fileURLToPath} from "node:url";
 import {prepare_glibc, check_glibc, qemu_cpu, GLIBC_COMMAND} from "./linux_glibc.mjs";
+import {prepare as prepare_alpine} from "../lib/alpine_image.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const directory = root + "build/x64-linux/";
 // X64_LINUX_FLAVOR: "virt" (default, the virt kernel) or "lts" (the standard
 // ISO's lts kernel, which also has hibernation, for the S4 cycles)
 const flavor = process.env.X64_LINUX_FLAVOR || "virt";
-const {name, digest} = {
-    virt: {name: "alpine-virt-3.24.0-x86_64.iso", digest: "6cd1a38ae05cf96a5d0cbb2ddd6c630834babfeca1ecc5d1f05ec0b06b886102"},
-    lts: {name: "alpine-standard-3.24.0-x86_64.iso", digest: "9f8bf67c1604381bf056f907d77adaf301fad9cc7b9e1fb73660c1b66f3ebd9f"},
-}[flavor];
-assert.ok(name, "X64_LINUX_FLAVOR is virt or lts");
+assert.ok(["virt", "lts"].includes(flavor), "X64_LINUX_FLAVOR is virt or lts");
+// (the pinned ISO, downloaded, checked and unpacked: tests/lib/alpine_image.mjs)
+const prepared = await prepare_alpine("x86_64-" + flavor);
+const {name, sha256: digest} = prepared.image;
 const kernel_file = `boot/vmlinuz-${flavor}`, initrd_file = `boot/initramfs-${flavor}`;
-const source = "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/" + name;
+const source = prepared.source;
 const hash = bytes => create_hash("sha256").update(bytes).digest("hex");
-fs.mkdirSync(directory, {recursive: true});
-if(!fs.existsSync(directory + name))
-{
-    const response = await fetch(source);
-    assert.ok(response.ok, `Official image HTTP ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    assert.equal(hash(bytes), digest, "official pinned Alpine ISO SHA-256");
-    fs.writeFileSync(directory + name, bytes);
-}
-assert.equal(hash(fs.readFileSync(directory + name)), digest, "official pinned Alpine ISO SHA-256");
-for(const file of [kernel_file, initrd_file])
-{
-    if(fs.existsSync(directory + file)) continue;
-    const unpack = spawnSync("bsdtar", ["-xf", directory + name, "-C", directory, file], {encoding: "utf8"});
-    assert.equal(unpack.status, 0, unpack.stderr);
-}
 // 64-bit and compatibility-mode probes from one freestanding source. They are
 // delivered as a ustar image on the IDE disk and unpacked by the guest shell.
 // Concurrent configurations get separate probe builds and result files.
@@ -286,7 +270,6 @@ try
     if(process.env.X64_ARCH_CAPABILITIES === "0") cpu.wm.exports.set_x64_arch_capabilities(0);
     if(process.env.X64_STEP_PROFILE) cpu.wm.exports.x64_page_profile(1);
     // compiled 32-bit code in compatibility mode (the probe's i386 process)
-    if(process.env.X64_COMPAT_JIT) cpu.wm.exports.x64_set_compat_jit(process.env.X64_COMPAT_JIT !== "0");
     // X64_RELAXED_FMA=0: FMA through the exact helper, not relaxed SIMD's
     // fused multiply-adds (an A/B switch for the timings)
     if(process.env.X64_RELAXED_FMA === "0") cpu.wm.exports.ir_set_relaxed_fma(0);

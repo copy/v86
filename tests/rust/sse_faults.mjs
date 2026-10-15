@@ -6,9 +6,9 @@
 // operand is #GP(0) without effect and before #PF, except for MOVUPS,
 // MOVUPD, MOVDQU and LDDQU; UNPCKLPS/UNPCKLPD read 8 bytes of an aligned
 // m128; narrower operands, MMX forms and the masked stores need no
-// alignment. Each program runs in the interpreter, then hot under Tier-0 and
-// the region tiers; the fault log, registers and memory must agree after the
-// hot run and after one more round.
+// alignment. Each program runs in the interpreter, then hot under the page
+// tier; the fault log, registers and memory must agree after the hot run and
+// after one more round.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { V86 } from "../../build/libv86.mjs";
@@ -426,11 +426,8 @@ try
 {
     for(const arm of [{ disable_jit: true }, ...COMPILED_ARMS.map(arm => arm.options)])
     {
-        // (the region tiers alone: an entry compiles the first time it runs,
-        // a fault's resume point runs once a round)
-        const regions = arm.ir_tier0 === false ? { ir_region_budget: { hot_threshold: 1 }, ir_sync_publication: true } : {};
         const vm = new V86({ graphics_adapter: "bochs_vga", wasm_path: candidate, bios: { buffer: bios.slice(0) }, memory_size: 32 << 20,
-            cpu_features: ["SSSE3"], ...arm, ...regions, disable_keyboard: true, disable_mouse: true, disable_speaker: true,
+            cpu_features: ["SSSE3"], ...arm, disable_keyboard: true, disable_mouse: true, disable_speaker: true,
             net_device: { type: "none" }, autostart: false });
         machines.push(vm);
         await new Promise(resolve => vm.add_listener("emulator-loaded", resolve));

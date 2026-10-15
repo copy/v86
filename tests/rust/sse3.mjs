@@ -21,13 +21,13 @@ const ops = [["addsubps",0xF2,0xD0,4], ["addsubpd",0x66,0xD0,8],
 async function run(vm, program, warm = true) {
     const cpu = vm.v86.cpu, e = cpu.wm.exports;
     // Programs reuse CODE: start each warm run from an empty compiler state
-    // (Tier-0 needs 4x the heat to recompile a page after each rewrite).
+    // (compiled code needs more heat to recompile a page after each rewrite).
     if(warm) cpu.jit_clear_cache();
     vm.write_memory(Uint8Array.from(program), CODE);
     vm.write_memory(new Uint8Array(4), 0x600);
     cpu.reg32[4] = 0x8000;
     // Defined EFLAGS: programs record them, and a previous program's flags
-    // depend on where its VM stopped (a region boundary or the loop head).
+    // depend on where its VM stopped (an exit from compiled code or the loop head).
     cpu.flags[0] = 2; cpu.flags_changed[0] = 0;
     cpu.instruction_pointer[0] = CODE; cpu.in_hlt[0] = 0;
     const start = compiled_activations(e);
@@ -67,7 +67,8 @@ function calculate(name, width, source, target) {
     return output;
 }
 try {
-    // Compare the interpreter with both IR code generators within one build.
+    // Compare the interpreter with the page tier within one build (the region
+    // tiers, a second compiled arm, were deleted in M11).
     for(const options of [{ disable_jit: true }, ...COMPILED_ARMS.map(arm => arm.options)]) {
         const vm = new V86({ graphics_adapter: "bochs_vga", wasm_path: candidate, bios: { buffer: bios.slice(0) }, memory_size: 32 << 20,
             ...options, disable_keyboard: true, disable_mouse: true, disable_speaker: true,
@@ -132,8 +133,7 @@ try {
                     assert.deepEqual(bytes.slice(n*32,n*32+16),expected[n],`${name} oracle ${n}`);
             }
         }
-        assert.deepEqual(results[1],results[0],`${name}: interpreter/Tier-0 bits`);
-        assert.deepEqual(results[2],results[0],`${name}: interpreter/regions bits`);
+        assert.deepEqual(results[1],results[0],`${name}: interpreter/page tier bits`);
         cases += 96;
     }
     console.log(`PASS: ${cases} SSE3 cases, finite oracle, special bits, aliases and memory boundaries`);
@@ -156,7 +156,7 @@ try {
             vm.write_memory(data,DATA); vm.write_memory(new Uint8Array(8192),OUT);
             await run(vm,loop(p)); results.push(Uint8Array.from(vm.read_memory(OUT,800)));
         }
-        assert.deepEqual(results[2],results[1],"SSE3 mixed sequence, including NaN fallback: regions/Tier-0");
+        assert.deepEqual(results[1],results[0],"SSE3 mixed sequence, including NaN fallback: interpreter/page tier");
     }
     console.log("PASS: mixed SSE3 cached sequences, alias chains, memory barriers and FXSAVE");
 
@@ -204,8 +204,7 @@ try {
                 assert.equal(v.getUint16(n*16+10,true),control,"FISTTP preserves rounding control");
             }
         }
-        assert.deepEqual(results[1],results[0],"FISTTP interpreter/Tier-0 result and status");
-        assert.deepEqual(results[2],results[0],"FISTTP interpreter/regions result and status");
+        assert.deepEqual(results[1],results[0],"FISTTP interpreter/page tier result and status");
         integer_cases += expected.length;
     }
     console.log(`PASS: FXSAVE/FXRSTOR state and ${integer_cases} FISTTP cases across 12 controls`);

@@ -8,13 +8,14 @@ import { createHash as create_hash } from "node:crypto";
 import { setImmediate as set_immediate } from "node:timers";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { smp_modes, with_smp_mode, mode_hits } from "../lib/smp_modes.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const module_url = new URL(process.env.V86_MODULE || (+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js"), import.meta.url);
 const { V86 } = await import(module_url.href);
 const mutation = process.env.SMP_OS_MUTATION || "";
 assert.ok(["", "network-corruption"].includes(mutation));
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
+const modes = smp_modes();
 const seeds = process.env.SMP_SEEDS?.split(",").map(Number) || Array.from({ length: 10 }, (_, i) => i + 1);
 const quantums = process.env.SMP_QUANTUMS?.split(",").map(Number) || [257, 4096];
 const cores = +(process.env.CPU_CORES || 4);
@@ -25,7 +26,6 @@ const log_dir = process.env.C3_LOG_DIR;
 const boot_cache = process.env.C3_BOOT_CACHE;
 if(boot_cache) fs.mkdirSync(boot_cache, { recursive: true });
 if(log_dir) fs.mkdirSync(log_dir, { recursive: true });
-assert.ok(modes.every(mode => ["interpreter", "tier0", "region"].includes(mode)));
 assert.ok(Number.isInteger(cores) && cores >= 2 && cores <= 8);
 assert.ok(Number.isInteger(rounds) && rounds >= 16 && rounds <= 4096 && rounds % 8 === 0);
 assert.ok(seeds.length && seeds.every(seed => Number.isInteger(seed) && seed >= 1 && seed <= 0xFFFFFFFF));
@@ -51,15 +51,13 @@ for(const mode of modes)
 {
     const disk = new Uint8Array(4 << 20);
     // PARALLEL=1: the application processors run in vCPU workers
-    const emulator = new V86({ graphics_adapter: "bochs_vga", ...(parallel ? { wasm_path: path.join(root, "build/v86-parallel.wasm"), parallel: true } :
+    const emulator = new V86(with_smp_mode({ graphics_adapter: "bochs_vga", ...(parallel ? { wasm_path: path.join(root, "build/v86-parallel.wasm"), parallel: true } :
         { wasm_fn: async imports => (await WebAssembly.instantiate(wasm_module, imports)).exports }),
         bios: { url: path.join(root, "bios/seabios.bin") }, vga_bios: { url: path.join(root, "bios/vgabios.bin") },
         cdrom: { url: path.join(root, "images/linux4.iso") }, hda: { buffer: disk.buffer },
         memory_size: 128 << 20, cpu_cores: cores, acpi: true, cpu_schedule_seed: seeds[0],
-        disable_jit: mode === "interpreter", experimental_smp_jit: mode !== "interpreter", ir_tier0: mode === "tier0",
-        ...(mode === "region" ? { ir_page_mode: false } : {}),
-        ir_sync_publication: true, ir_region_budget: { hot_threshold: 8, promotion_threshold: 128 },
-        filesystem: {}, net_device: { type: "ne2k" }, autostart: false, log_level: 0 });
+        disable_jit: mode === "interpreter", experimental_smp_jit: mode !== "interpreter",
+        ir_sync_publication: true, filesystem: {}, net_device: { type: "ne2k" }, autostart: false, log_level: 0 }, mode, false));
     let serial = "", phase = "load", cpu, packets = 0, received = 0, poweroffs = 0, disk_reads = 0, disk_writes = 0;
     const started_ms = performance.now();
     const results = [];
@@ -143,7 +141,6 @@ for(const mode of modes)
         const jit = per_core_jit.map((value, i) => value - jit_before[i]);
         if(mode === "interpreter") assert.ok(jit.every(value => value === 0));
         else assert.ok(jit.every(value => value > 0), "each core executes compiled code during workload");
-        if(mode === "region") assert.equal(cpu.wm.exports.ir_t0_entries(), 0, "region arm does not execute Tier-0");
         const record = { seed, quantum, wall_ms: Math.round(performance.now() - round_started_ms), snapshot: !!saved, ...first, packets: packets - net_before, disk_read_bytes: disk_reads - reads_before, disk_write_bytes: disk_writes - writes_before, jit };
         results.push(record);
         console.log(`${mode}: OS stress passed ${JSON.stringify(record)}`);
@@ -158,9 +155,8 @@ for(const mode of modes)
         });
         cpu = emulator.v86.cpu;
         const e = cpu.wm.exports;
-        if(mode === "region") assert.equal(e.ir_auto_set_page_mode(0), 1);
         const run_slice = cpu.run_cpu_slice.bind(cpu);
-        const jit_count = () => mode === "interpreter" ? (e.ir_t0_entries() >>> 0) + (e.ir_cache_stat(2) >>> 0) : mode === "tier0" ? e.ir_t0_entries() >>> 0 : e.ir_cache_stat(2) >>> 0;
+        const jit_count = () => mode_hits(e, mode);
         cpu.run_cpu_slice = budget => { const id = cpu.active_core, before = jit_count(); const r = run_slice(budget); per_core_jit[id] += (jit_count() - before) >>> 0; return r; };
         // (with vCPU workers the machine's own core runs through main_loop)
         const main_loop = cpu.main_loop.bind(cpu);
@@ -210,8 +206,9 @@ for(const mode of modes)
             if(+process.env.SMP_RECOVER_INTERPRETER)
             {
                 await emulator.restore_state(failure_state);
-                const budget = cpu.ir_region_budget;
-                assert.equal(cpu.wm.exports.ir_auto_config(0, budget.hot_threshold, budget.promotion_threshold, budget.max_source_bytes, budget.execution_budget, budget.rep_iterations), 1);
+                // (no compilation: the page tier neither compiles nor enters
+                // its functions with the JIT disabled)
+                assert.equal(cpu.wm.exports.jit_set_enabled(0), 1);
                 const recovery_begin = serial.length;
                 emulator.run();
                 const recovery_deadline = performance.now() + 30000;

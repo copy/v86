@@ -310,6 +310,10 @@ UART.prototype.get_state = function()
     state[8] = this.modem_status;
     state[9] = this.scratch_register;
     state[10] = this.irq;
+    // the bytes the guest has not read yet (a restore must not keep the
+    // queue of the timeline it discards: Linux's 8250 driver sizes the FIFO
+    // by looping 256 bytes back, which a stale queue hands to the console)
+    state[11] = this.input.slice();
 
     return state;
 };
@@ -327,6 +331,7 @@ UART.prototype.set_state = function(state)
     this.modem_status = state[8];
     this.scratch_register = state[9];
     this.irq = state[10];
+    this.input = state[11] ? Array.from(state[11]) : [];
 };
 
 UART.prototype.CheckInterrupt = function()

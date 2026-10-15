@@ -1,18 +1,19 @@
 // Compiled-code arms for tests that compare generated code with the
-// interpreter. IR is the only compiler, with two code generators: Tier-0 page
-// functions (on by default) and the region tiers, which run alone when Tier-0
-// is off. Tests run their compiled side once per arm.
+// interpreter. 32-bit protected-mode code runs in the x64 page tier by
+// default since M8 (x64_page_legacy32, docs/jit-unification-plan.md P7.3),
+// 16-bit code since M10; the region tiers, a second arm until then, were
+// deleted in M11. Tests run their compiled side once per arm (tests check the
+// page tier's step counts on the first compiled machine, x64_page_steps).
 export const COMPILED_ARMS = [
-    { label: "tier0", options: {} },
-    { label: "regions", options: { ir_tier0: false } },
+    { label: "pages", options: { ir_sync_publication: true } },
 ];
 
-// The region tiers compile asynchronously: a hot run of VEX forms waits until
-// no VEX instruction was interpreted (ir_interpreted_stat field 6) through a
-// whole round of its program (they run natively or through the AVX helpers).
-// The run calls it once a round has ended (the program sets the word at
-// `marker`); it clears the word until two calls in a row found the count
-// unchanged, which spans a round from its start to its end.
+// A hot run of VEX forms waits until no VEX instruction was interpreted
+// (ir_interpreted_stat field 6) through a whole round of its program (they
+// run in page functions). The run calls it once a round has ended (the
+// program sets the word at `marker`); it clears the word until two calls in a
+// row found the count unchanged, which spans a round from its start to its
+// end.
 export function vex_settled(marker)
 {
     let last = -1, quiet = 0;
@@ -26,9 +27,8 @@ export function vex_settled(marker)
     };
 }
 
-// Activations of compiled IR code of either kind. The performance recording
-// counters cannot show this: Tier-0 does not run while recording is enabled.
+// Activations of compiled code: the page tier's (x64_page_stat 13)
 export function compiled_activations(exports)
 {
-    return (exports["ir_t0_entries"]() + exports["ir_cache_stat"](2)) >>> 0;
+    return exports["x64_page_stat"](13) >>> 0;
 }

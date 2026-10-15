@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {spawn, spawnSync} from "node:child_process";
 import {setImmediate as yield_event, setTimeout as delay} from "node:timers/promises";
 import {fileURLToPath} from "node:url";
+import { with_jit_switches } from "../lib/jit_switches.mjs";
 export const root = fileURLToPath(new URL("../../", import.meta.url));
 export function assemble(name, source)
 {
@@ -98,13 +99,13 @@ export async function actual(directory, {address = 0x300000, magic = 0xC064C064,
     // long-mode code), X64_IR_TIER0=0 additionally with ir_tier0: false.
     const jit = process.env.X64_JIT ? {disable_jit: false, experimental_smp_jit: true, ir_sync_publication: true,
         ...(process.env.X64_IR_TIER0 === "0" ? {ir_tier0: false} : {})} : {};
-    const emulator = new V86({graphics_adapter: "bochs_vga", multiboot: {url: directory + "guest.bin"}, memory_size: 32 << 20, acpi: true,
-        cpu_cores: Number(process.env.X64_CORES || 1), disable_jit: true, autostart: false, log_level: 0, ...jit, ...options});
+    // (JIT_SWITCHES too: tests/lib/jit_switches.mjs)
+    const emulator = new V86(with_jit_switches({graphics_adapter: "bochs_vga", multiboot: {url: directory + "guest.bin"}, memory_size: 32 << 20, acpi: true,
+        cpu_cores: Number(process.env.X64_CORES || 1), disable_jit: true, autostart: false, log_level: 0, ...jit, ...options}));
     try
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
-        if(process.env.X64_COMPAT_JIT) cpu.wm.exports.x64_set_compat_jit(process.env.X64_COMPAT_JIT !== "0");
         if(setup) await setup(emulator);
         const deadline = performance.now() + timeout;
         let rounds = 0;

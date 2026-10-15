@@ -8,10 +8,24 @@
 //
 //   node tools/cpu_contract.mjs          write tests/platform/cpu-contract.json
 //   node tools/cpu_contract.mjs --check  fail if the emulator differs from that file
+//
+// The AArch64 profiles a64-1 and a64-4 (docs/arm64-virt-android16-plan.md
+// P0.3) hold the ID registers that tests/a64/id_registers.c reads at EL1,
+// expected from tests/platform/a64-profile.json, not observed: --check
+// compares them with that file and runs the reader on v86's ARM core (P3.1;
+// a64-4 on its cooperative cores, P3.9).
+//
+//   node tools/cpu_contract.mjs --a64-only       rewrite only a64-1 and a64-4
+//   node tools/cpu_contract.mjs --a64-reference  read the QEMU reference's
+//       registers (1 and 4 cores) and fail on a difference from the profile
+//       that its allowed-differences list does not name
+//   node tools/cpu_contract.mjs --a64-v86  only the reader on v86's ARM core,
+//       which must match the profile with no difference at all
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assemble, actual } from "../tests/x64/guest_runner.mjs";
+import * as a64_runner from "../tests/a64/guest_runner.mjs";
 
 // the release build: the debug build asserts on an unknown MSR in the legacy
 // profile, which (upstream's policy) reads it as 0 rather than raising #GP
@@ -19,6 +33,7 @@ process.env.TEST_RELEASE_BUILD = "1";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const contract_path = root + "tests/platform/cpu-contract.json";
+const a64_profile_path = root + "tests/platform/a64-profile.json";
 
 const LEAVES = [
     [0, 0], [1, 0], [2, 0], [4, 0], [4, 1], [4, 2], [4, 3], [6, 0], [7, 0], [7, 1], [0xA, 0],
@@ -166,28 +181,160 @@ image_end:
 `;
 
 const hex = n => "0x" + (n >>> 0).toString(16).padStart(8, "0");
-const directory = assemble("cpu-contract", source);
-const observed = {};
-for(const [name, options] of Object.entries(PROFILES))
+
+async function observe_x86()
 {
-    const bytes = await actual(directory, { length: MSR_AT - OUT + 12 * MSRS.length, options });
-    assert.notEqual(bytes.readUInt32LE(4), 0xBAD, name + ": unexpected exception");
-    const cpuid = {};
-    LEAVES.forEach(([leaf, sub], i) => {
-        const at = CPUID_AT - OUT + 16 * i;
-        cpuid[`${hex(leaf)}.${sub}`] = [0, 4, 8, 12].map(o => hex(bytes.readUInt32LE(at + o)));
-    });
-    const msrs = {};
-    MSRS.forEach((msr, i) => {
-        const at = MSR_AT - OUT + 12 * i;
-        msrs[hex(msr)] = bytes.readUInt32LE(at) ? "#GP" : VOLATILE.has(msr) ? "readable" :
-            hex(bytes.readUInt32LE(at + 8)) + ":" + hex(bytes.readUInt32LE(at + 4)).slice(2);
-    });
-    observed[name] = { options, cpuid, msrs };
+    const directory = assemble("cpu-contract", source);
+    const observed = {};
+    for(const [name, options] of Object.entries(PROFILES))
+    {
+        const bytes = await actual(directory, { length: MSR_AT - OUT + 12 * MSRS.length, options });
+        assert.notEqual(bytes.readUInt32LE(4), 0xBAD, name + ": unexpected exception");
+        const cpuid = {};
+        LEAVES.forEach(([leaf, sub], i) => {
+            const at = CPUID_AT - OUT + 16 * i;
+            cpuid[`${hex(leaf)}.${sub}`] = [0, 4, 8, 12].map(o => hex(bytes.readUInt32LE(at + o)));
+        });
+        const msrs = {};
+        MSRS.forEach((msr, i) => {
+            const at = MSR_AT - OUT + 12 * i;
+            msrs[hex(msr)] = bytes.readUInt32LE(at) ? "#GP" : VOLATILE.has(msr) ? "readable" :
+                hex(bytes.readUInt32LE(at + 8)) + ":" + hex(bytes.readUInt32LE(at + 4)).slice(2);
+        });
+        observed[name] = { options, cpuid, msrs };
+    }
+    return observed;
 }
+
+// -------- AArch64
+
+const A64_PROFILES = { "a64-1": 1, "a64-4": 4 };
+const hex64 = n => "0x" + BigInt(n).toString(16).padStart(16, "0");
+
+/** The registers as tests/a64/id_registers.c prints them, from the profile */
+function a64_expected(profile, cores)
+{
+    const registers = {};
+    for(const r of profile.id_space) registers[r.encoding] = r.value;
+    const other = Object.fromEntries(profile.other_registers.map(r => [r.name, r]));
+    registers["CLIDR_EL1"] = other.CLIDR_EL1.value;
+    registers["AIDR_EL1"] = other.AIDR_EL1.value;
+    for(let csselr = 0; csselr < 6; csselr++)
+    {
+        registers[`CCSIDR_EL1.${csselr}`] = other.CCSIDR_EL1.by_csselr[csselr]?.value || hex64(0);
+        registers[`CSSELR_EL1.${csselr}`] = hex64(csselr);
+    }
+    registers["CCSIDR2_EL1"] = other.CCSIDR2_EL1.value;
+    for(const name of ["CTR_EL0", "DCZID_EL0", "CNTFRQ_EL0", "FPCR", "FPSR"]) registers[name] = other[name].value;
+    const mpidr = Array.from({ length: cores }, (_, core) => hex64(0x80000000 + core));
+    registers["S3_0_C0_C0_5"] = mpidr[0];
+    return { options: { cpu_type: "aarch64", cpu_cores: cores }, profile: profile.profile, registers, mpidr };
+}
+
+/** tests/a64/id_registers.c's output in a64_expected()'s form */
+function a64_parse(text, cores)
+{
+    const registers = {}, mpidr = [];
+    for(const line of text.split("\n"))
+    {
+        let m;
+        if((m = line.match(/^A64_ID (\S+) (?:(0x[0-9a-f]+)|UNDEF esr=(0x[0-9a-f]+))$/)))
+        {
+            // (an UNDEF is EC 0x00 with IL set)
+            registers[m[1]] = m[2] || (BigInt(m[3]) === 0x2000000n ? "UNDEF" : "UNDEF esr=" + m[3]);
+        }
+        else if((m = line.match(/^A64_MPIDR (\d+) (0x[0-9a-f]+)$/))) mpidr[+m[1]] = m[2];
+    }
+    assert.ok(text.includes("A64_ID_DONE"), "the ID register reader did not finish:\n" + text);
+    assert.equal(mpidr.length, cores, `MPIDR of ${mpidr.length} cores, expected ${cores}`);
+    return { registers, mpidr };
+}
+
+/** Differences of `observed` from the profile that its allowed list does not name */
+function a64_compare(profile, expected, observed)
+{
+    const allowed = new Set(profile.allowed_differences.cpu.flatMap(d => d.registers || []));
+    const described = new Map(profile.id_space.filter(r => r.name).map(r => [r.encoding, r]));
+    for(const r of profile.other_registers) described.set(r.name, r);
+    const problems = [], tolerated = [];
+    for(const [key, want] of Object.entries(expected.registers))
+    {
+        const got = observed.registers[key];
+        if(got === want || want === "per core" && got !== undefined) continue;
+        const register = described.get(key), name = register?.name || key;
+        let fields = [];
+        if(Array.isArray(register?.fields) && /^0x/.test(got) && /^0x/.test(want))
+        {
+            for(const [field, high, low] of register.fields)
+            {
+                const mask = (1n << BigInt(high - low + 1)) - 1n;
+                if((BigInt(got) >> BigInt(low) & mask) !== (BigInt(want) >> BigInt(low) & mask)) fields.push(field);
+            }
+        }
+        const entry = `${name} (${key}): reference ${got}, profile ${want}` + (fields.length ? ` [${fields.join(", ")}]` : "");
+        const ok = allowed.has(name) || fields.length && fields.every(field => allowed.has(name + "." + field));
+        (ok ? tolerated : problems).push(entry);
+    }
+    observed.mpidr.forEach((value, core) => {
+        if(value !== expected.mpidr[core]) problems.push(`MPIDR_EL1 of core ${core}: reference ${value}, profile ${expected.mpidr[core]}`);
+    });
+    return { problems, tolerated };
+}
+
+const a64_profile = JSON.parse(fs.readFileSync(a64_profile_path, "utf8"));
+const a64 = Object.fromEntries(Object.entries(A64_PROFILES).map(([name, cores]) => [name, a64_expected(a64_profile, cores)]));
+
+if(process.argv.includes("--a64-reference"))
+{
+    const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
+    let failed = false;
+    for(const [name, cores] of Object.entries(A64_PROFILES))
+    {
+        const result = await a64_runner.reference(directory, { cores });
+        assert.equal(result.status, "ok", name + ": " + result.text);
+        fs.mkdirSync(root + "build/a64-linux", { recursive: true });
+        fs.writeFileSync(root + `build/a64-linux/qemu-id_registers-${cores}c.txt`, result.text);
+        const { problems, tolerated } = a64_compare(a64_profile, a64[name], a64_parse(result.text, cores));
+        console.log(`${name}: QEMU ${a64_profile.reference.cpu} against ${a64_profile.profile}: ` +
+            `${tolerated.length} allowed differences, ${problems.length} others`);
+        for(const line of tolerated) console.log("  allowed: " + line);
+        for(const line of problems) console.log("  NOT ALLOWED: " + line);
+        failed ||= problems.length > 0;
+    }
+    process.exit(failed ? 1 : 0);
+}
+
+/**
+ * v86's ARM core (P3.1): tests/a64/id_registers.c on v86 must read exactly the
+ * profile's values, with no allowed difference (those are the reference's);
+ * a64-4 on the cooperative cores (P3.9)
+ */
+async function a64_v86_check()
+{
+    const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
+    let failed = false;
+    for(const [name, cores] of Object.entries(A64_PROFILES))
+    {
+        const result = await a64_runner.actual(directory, { cores });
+        assert.equal(result.status, "ok", name + " on v86: " + result.text);
+        const { problems, tolerated } = a64_compare(a64_profile, a64[name], a64_parse(result.text, cores));
+        const differences = [...problems, ...tolerated];
+        console.log(`${name}: v86 against ${a64_profile.profile}: ${differences.length} differences`);
+        for(const line of differences) console.log("  " + line.replace("reference", "v86"));
+        failed ||= differences.length > 0;
+    }
+    return !failed;
+}
+if(process.argv.includes("--a64-v86")) process.exit(await a64_v86_check() ? 0 : 1);
+
+const committed = fs.existsSync(contract_path) ? JSON.parse(fs.readFileSync(contract_path, "utf8")) : null;
+const observed = process.argv.includes("--a64-only") ? Object.fromEntries(Object.entries(committed.profiles).filter(([name]) => !A64_PROFILES[name]))
+    : await observe_x86();
+Object.assign(observed, a64);
 const vendor = regs => [regs[1], regs[3], regs[2]].map(r => Buffer.from(Uint32Array.of(parseInt(r, 16)).buffer).toString("latin1")).join("");
 const document = {
     about: "Observed CPUID (EAX, EBX, ECX, EDX per leaf.subleaf) and RDMSR (EDX:EAX or #GP) of the bootstrap processor per profile; " +
+        "the a64 profiles' ID registers (tests/a64/id_registers.c) are expected from tests/platform/a64-profile.json; " +
         "generated by tools/cpu_contract.mjs, checked by `node tools/cpu_contract.mjs --check`",
     vendor: vendor(observed["x64-1"].cpuid["0x00000000.0"]),
     profiles: observed,
@@ -195,10 +342,11 @@ const document = {
 
 if(process.argv.includes("--check"))
 {
-    const committed = JSON.parse(fs.readFileSync(contract_path, "utf8"));
     assert.deepEqual(document, committed, "the CPU differs from tests/platform/cpu-contract.json " +
         "(update it with `node tools/cpu_contract.mjs` if the change is intended)");
-    console.log(`CPU contract matches (${Object.keys(PROFILES).length} profiles, ${LEAVES.length} CPUID leaves, ${MSRS.length} MSRs)`);
+    assert.ok(await a64_v86_check(), "v86's ARM core differs from tests/platform/a64-profile.json");
+    console.log(`CPU contract matches (${Object.keys(PROFILES).length} profiles, ${LEAVES.length} CPUID leaves, ${MSRS.length} MSRs; ` +
+        `${Object.keys(A64_PROFILES).join(", ")} match a64-profile.json, and v86's ARM core reads them)`);
 }
 else
 {

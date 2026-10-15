@@ -1,21 +1,27 @@
 #!/usr/bin/env node
 
-// Architectural counters across interpreter, Tier-0 and region execution.
+// Architectural counters across interpreter and page-tier execution.
 // Initial protected-mode contexts are injected only to isolate accounting.
 // All increments, REP progress, faults and halts come from guest instructions.
 import assert from "node:assert/strict";
 import { setImmediate as set_immediate } from "node:timers";
+import { smp_modes, with_smp_mode, mode_hits } from "../lib/smp_modes.mjs";
 
 const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
-const modes = process.env.SMP_MODES?.split(",") || ["interpreter", "tier0", "region"];
-assert.ok(modes.every(mode => ["interpreter", "tier0", "region"].includes(mode)));
+const modes = smp_modes();
+// SMP_CORES=1: CPU 0's program alone (IR Tier-0's REP template ran on one core
+// only, until P7.5: its elements must count the same)
 const fields = ["retired_instructions", "rep_elements", "faults", "halt_count", "runtime_ms"];
 const specifications = [
     { loops: 2048, elements: 1000, destination: 0x40000, fault: "ud" },
     { loops: 2085, elements: 0, destination: 0x44000, fault: "none" },
     { loops: 2122, elements: 10, destination: 0x4FFB, fault: "pf" },
 ];
+specifications.length = Number(process.env.SMP_CORES || specifications.length);
+// (alone, CPU 0 loops long enough for the page tier to compile its page)
+if(specifications.length === 1) specifications[0].loops = 1 << 18;
 const u32 = value => [value & 255, value >>> 8 & 255, value >>> 16 & 255, value >>> 24];
+const COMPARED = 24;
 
 function guest(core)
 {
@@ -26,6 +32,10 @@ function guest(core)
         0xB0, 0x5A, 0xAA,                  // mov al, 5A; stosb (not a REP element)
         0xB9, ...u32(loops), 0x31, 0xC0,   // mov ecx, loops; xor eax,eax
         0x40, 0x49, 0x75, 0xFC,            // inc eax; dec ecx; jnz: exactly 3N
+        0xBE, ...u32(0x52000),              // mov esi, zeros
+        0xBF, ...u32(0x53000),              // mov edi, zeros
+        0xB9, ...u32(COMPARED),             // mov ecx, COMPARED
+        0xF3, 0xA6,                        // repe cmpsb: COMPARED elements, all equal
         0xB9, ...u32(elements),             // mov ecx, REP count
         0xBF, ...u32(destination),          // mov edi, REP destination
         0xB0, 0x5A,                        // mov al, 5A
@@ -107,30 +117,22 @@ async function halted(cpu, label)
 
 for(const mode of modes)
 {
-    const emulator = new V86({
+    const emulator = new V86(with_smp_mode({
         graphics_adapter: "bochs_vga",
         wasm_path: process.env.WASM_PATH,
         memory_size: 16 << 20, acpi: true, cpu_cores: specifications.length,
         cpu_quantum: 17, cpu_schedule_seed: 42,
-        disable_jit: mode === "interpreter", experimental_smp_jit: true,
-        ir_tier0: mode === "tier0", ir_sync_publication: true,
-        ir_region_budget: { hot_threshold: 2, promotion_threshold: 8 },
+        disable_jit: mode === "interpreter", experimental_smp_jit: true, ir_sync_publication: true,
         autostart: false, log_level: 0,
-    });
+    }, mode));
     try
     {
         await new Promise(resolve => emulator.add_listener("emulator-loaded", resolve));
         const cpu = emulator.v86.cpu;
         const ex = cpu.wm.exports;
         assert.equal(typeof ex.core_statistics_get, "function", "rebuild Wasm with architectural statistics exports");
-        if(mode !== "interpreter")
-        {
-            assert.equal(ex.ir_auto_set_idle_mode(0, 1), 1);
-            assert.equal(ex.ir_auto_set_page_threshold(2), 1);
-            if(mode === "region") assert.equal(ex.ir_auto_set_page_mode(0), 1);
-        }
         initialize(cpu);
-        const hits = () => mode === "tier0" ? ex.ir_t0_entries() >>> 0 : ex.ir_cache_stat(2) >>> 0;
+        const hits = () => mode_hits(ex, mode);
         const per_core_hits = specifications.map(() => 0);
         const run_cpu_slice = cpu.run_cpu_slice.bind(cpu);
         cpu.run_cpu_slice = budget => {
@@ -140,16 +142,19 @@ for(const mode of modes)
             per_core_hits[core] += (hits() - before) >>> 0;
             return result;
         };
+        const hits_before = hits();
         cpu.clock.resume();
         const rounds = await halted(cpu, mode);
         cpu.clock.pause();
+        // (one core does not run through run_cpu_slice: all hits are its)
+        if(specifications.length === 1) per_core_hits[0] = (hits() - hits_before) >>> 0;
         const original = statistics(cpu);
         for(let core = 0; core < specifications.length; core++)
         {
             const specification = specifications[core];
             const expected = {
-                retired_instructions: specification.loops * 3 + (specification.fault === "pf" ? 11 : 12),
-                rep_elements: specification.fault === "pf" ? 5 : specification.elements,
+                retired_instructions: specification.loops * 3 + (specification.fault === "pf" ? 15 : 16),
+                rep_elements: COMPARED + (specification.fault === "pf" ? 5 : specification.elements),
                 faults: specification.fault === "none" ? 0 : 1,
                 halt_count: 1,
             };
@@ -166,15 +171,19 @@ for(const mode of modes)
             if(mode !== "interpreter") assert.ok(per_core_hits[core] > 0, `${mode} CPU ${core}: compiled code really executed`);
         }
         assert.ok(cpu.mem8.slice(0x40000, 0x40000 + 1000).every(byte => byte === 0x5A), "completed REP committed all 1000 stores");
-        assert.deepEqual(Array.from(cpu.mem8.slice(0x4FFB, 0x5001)), [0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0]);
+        if(specifications.length > 2) assert.deepEqual(Array.from(cpu.mem8.slice(0x4FFB, 0x5001)), [0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0]);
         if(mode === "interpreter")
         {
-            assert.equal(ex.ir_t0_entries(), 0);
-            assert.equal(ex.ir_cache_stat(2), 0);
+            assert.equal(ex.x64_page_stat(1), 0);
             assert.ok(cpu.cores[0].steps > original[0].retired_instructions,
                 "REP continuation and fault dispatches must not inflate architectural retirement");
         }
-        if(mode === "region") assert.equal(ex.ir_t0_entries(), 0, "region arm never used Tier-0");
+        if(specifications.length === 1)
+        {
+            // (the snapshot checks below are about separate cores)
+            console.log(`${mode}, one core: exact statistics passed ${JSON.stringify({ per_core_hits, counters: original })}`);
+            continue;
+        }
 
         const saved = await emulator.save_state();
         cpu.switch_core(1);

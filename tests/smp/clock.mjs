@@ -7,6 +7,7 @@ import { MachineClock } from "../../src/machine_clock.js";
 import { PIT } from "../../src/pit.js";
 import { RTC } from "../../src/rtc.js";
 import { ACPI } from "../../src/acpi.js";
+import { create_platform } from "../../src/platform.js";
 import { set_log_level } from "../../src/log.js";
 
 set_log_level(0);
@@ -25,6 +26,8 @@ function machine(options)
     const lines = new Map();
     const cpu = {
         clock,
+        // (an i440FX machine with ACPI: the PM block's layout)
+        platform: create_platform({ acpi: true }, 64 << 20),
         io: { register_read() {}, register_write() {}, unregister_range() {}, ports: [] },
         devices: { pci: { register_device: device => new Int32Array(new Uint8Array(device.pci_space).buffer) } },
         shared_irq_sources: Array.from({ length: 24 }, () => new Set()),

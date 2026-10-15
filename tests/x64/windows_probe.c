@@ -248,7 +248,13 @@ void __attribute__((stdcall)) entry(void)
     GetNativeSystemInfo(&info);
     system_cpus = info.dwNumberOfProcessors;
     text("X64_WIN_BEGIN arch=" ARCH " processors="); number(system_cpus);
-    text(" architecture="); number(info.wProcessorArchitecture); text("\r\n");
+    text(" architecture="); number(info.wProcessorArchitecture);
+    /* QueryPerformanceCounter's source (docs/jit-unification-plan.md open
+       question 4): 14318180 Hz the HPET, 3579545 Hz the ACPI PM timer, other
+       values the TSC */
+    LARGE_INTEGER qpf;
+    text(" qpf="); hex(QueryPerformanceFrequency(&qpf) ? (unsigned long long)qpf.QuadPart : 0);
+    text("\r\n");
     FlushFileBuffers(result);
     if(system_cpus < 1 || system_cpus > 8) finish(12);
     /* topology API */

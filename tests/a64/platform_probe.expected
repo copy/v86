@@ -1,0 +1,15 @@
+A64_PLATFORM psci_version 65537
+A64_PLATFORM psci_features.cpu_on64 -1
+A64_PLATFORM psci_features.cpu_on64.arg 0
+A64_PLATFORM psci_features.unknown.arg -1
+A64_PLATFORM smccc_version -1
+A64_PLATFORM smccc_arch_features.workaround_1 -1
+A64_PLATFORM psci_unknown_function -1
+A64_PLATFORM smccc_unknown_function -1
+A64_PLATFORM hvc_imm1 65537
+A64_PLATFORM smc fault esr=0x02000000
+A64_PLATFORM load_0x0a100000 fault esr=0x96000010 far=0xa100000
+A64_PLATFORM load_0x09040000 fault esr=0x96000010 far=0x9040000
+A64_PLATFORM load_0x40000000_plus_ram fault esr=0x96000010 far=0x48000000
+A64_PLATFORM load_0x100_0000_0000 fault esr=0x96000000 far=0x10000000000
+A64_PLATFORM load_0x80_0000_0000 value=0xffffffff

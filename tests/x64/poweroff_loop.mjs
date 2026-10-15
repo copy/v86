@@ -12,12 +12,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
+import { ROOT as root, IMAGES, directory_of } from "../lib/alpine_image.mjs";
 
-const root = fileURLToPath(new URL("../../", import.meta.url));
-const directory = root + "build/x64-linux/";
+// (the pinned ISO and its unpacked files: tests/lib/alpine_image.mjs)
+const directory = directory_of("x86_64");
 const kernel = directory + "boot/vmlinuz-virt", initrd = directory + "boot/initramfs-virt";
-const iso = directory + "alpine-virt-3.24.0-x86_64.iso";
+const iso = directory + IMAGES["x86_64-virt"].name;
 for(const file of [kernel, initrd, iso]) assert.ok(fs.existsSync(file), file + " (run tests/x64/linux_boot.mjs once)");
 const cycles = +(process.env.POWEROFF_CYCLES || 20), cores = +(process.env.X64_CORES || 4);
 const jit = process.env.X64_JIT !== "0";
