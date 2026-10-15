@@ -19,7 +19,7 @@ use std::ptr;
 #[cfg(feature = "parallel")]
 use std::sync::atomic::{fence, AtomicU16, AtomicU32, AtomicU64, AtomicU8, Ordering::SeqCst};
 
-pub const MAX_CORES: usize = crate::cpu::apic::MAX_CORES;
+pub const MAX_CORES: usize = crate::isa::MAX_CORES;
 
 #[cfg(feature = "parallel")]
 mod js {
@@ -61,13 +61,13 @@ pub fn machine<T>(p: *mut T) -> *mut T {
 }
 
 /// The machine instance's copy of a field of this instance's CPU state block
-/// (cpu::global_pointers): the state blocks are in slots below the static
+/// (crate::state_block): the state blocks are in slots below the static
 /// data, one per core (src/parallel/relocate.js), the machine's in slot 0
 #[inline(always)]
 pub fn machine_state<T>(p: *mut T) -> *mut T {
     #[cfg(feature = "parallel")]
     {
-        (p as u32).wrapping_sub(crate::cpu::global_pointers::state_base()) as *mut T
+        (p as u32).wrapping_sub(crate::state_block::state_base()) as *mut T
     }
     #[cfg(not(feature = "parallel"))]
     {
@@ -142,12 +142,9 @@ pub unsafe fn parallel_set_active(active: bool) {
     ACTIVE = active;
     if active {
         let yield_flags = machine(&raw mut CORE_YIELD).cast::<u32>();
-        *yield_flags.add(crate::cpu::apic::current_core()) =
-            &raw mut crate::cpu::cpu::core_yield as u32;
+        *yield_flags.add(crate::isa::current_core()) = crate::isa::core_yield_address();
         if !is_worker() {
-            code::allocate(*crate::cpu::global_pointers::memory_size / 4096);
-            // (writes of other cores to extended RAM do not retire code)
-            crate::x64::pages::retire_extended();
+            crate::isa::machine_set_active();
         }
     }
 }
@@ -162,32 +159,9 @@ pub unsafe fn parallel_attach(base: u32, core: u32) {
     assert!(base != 0 && (core as usize) < MAX_CORES && core != 0);
     INSTANCE_BASE = base;
     ACTIVE = true;
-    use crate::cpu::{cpu, global_pointers as gp, memory};
-    memory::mem8 = *machine(&raw mut memory::mem8);
-    memory::ram_fast_limit = *machine(&raw mut memory::ram_fast_limit);
-    *gp::memory_size = *machine_state(gp::memory_size);
-    *gp::acpi_enabled = *machine_state(gp::acpi_enabled);
-    *gp::x87_native_policy = *machine_state(gp::x87_native_policy);
-    cpu::copy_machine_configuration();
-    crate::x64::physical::copy_from_machine();
-    crate::cpu::apic::attach_worker(core);
+    crate::isa::attach_worker(core);
     let yield_flags = machine(&raw mut CORE_YIELD).cast::<u32>();
-    *yield_flags.add(core as usize) = &raw mut cpu::core_yield as u32;
-}
-
-/// The TSC offset of this instance's core, published while it is parked
-#[no_mangle]
-pub unsafe fn parallel_tsc_offset(high: bool) -> u32 {
-    let offset = crate::cpu::cpu::tsc_offset;
-    (if high { offset >> 32 } else { offset }) as u32
-}
-#[no_mangle]
-pub unsafe fn parallel_set_tsc_offset(low: u32, high: u32) {
-    use crate::cpu::cpu;
-    cpu::tsc_offset = low as u64 | (high as u64) << 32;
-    cpu::tsc_last_value = 0;
-    cpu::tsc_resolution = u64::MAX;
-    cpu::tsc_number_of_same_readings = 0;
+    *yield_flags.add(core as usize) = crate::isa::core_yield_address();
 }
 
 /// After a stop of all cores: the machine may have changed its physical bus
@@ -195,7 +169,7 @@ pub unsafe fn parallel_set_tsc_offset(low: u32, high: u32) {
 #[no_mangle]
 pub unsafe fn parallel_sync() {
     if is_worker() {
-        crate::x64::physical::copy_from_machine();
+        crate::isa::sync_worker();
         sync_worker_configuration();
     }
 }
@@ -205,11 +179,7 @@ pub unsafe fn parallel_sync() {
 /// slices
 pub unsafe fn sync_worker_configuration() {
     if is_worker() {
-        use crate::cpu::global_pointers as gp;
-        *gp::acpi_enabled = *machine_state(gp::acpi_enabled);
-        crate::cpu::cpu::copy_machine_configuration();
-        // (the chipset's TSEG)
-        crate::cpu::smm::sync_worker();
+        crate::isa::sync_worker_configuration();
     }
 }
 
@@ -226,7 +196,7 @@ impl SpinLock {
         #[cfg(feature = "parallel")]
         {
             let word = unsafe { &*(&raw const self.0 as *const AtomicU32) };
-            let owner = crate::cpu::apic::current_core() as u32 + 1;
+            let owner = crate::isa::current_core() as u32 + 1;
             while word
                 .compare_exchange_weak(0, owner, SeqCst, SeqCst)
                 .is_err()
@@ -274,7 +244,7 @@ impl SpinLock {
 /// locks nor wait for it to acknowledge code publications. The machine then
 /// stops (src/parallel/machine.js).
 #[no_mangle]
-pub unsafe fn parallel_fail() { release_core(crate::cpu::apic::current_core()) }
+pub unsafe fn parallel_fail() { release_core(crate::isa::current_core()) }
 
 /// The machine found a core's worker failed or gone (the same as
 /// parallel_fail, in case the worker could not run it)
@@ -294,8 +264,7 @@ unsafe fn release_core(core: usize) {
         locked_operations().fetch_and(!EXCLUSIVE, SeqCst);
     }
     split_lock().release_held_by(core);
-    crate::cpu::ioapic::lock().release_held_by(core);
-    crate::x64::extended::release_held_by(core);
+    crate::isa::release_locks_held_by(core);
     code::set_idle(core, true);
 }
 
@@ -304,33 +273,11 @@ unsafe fn release_core(core: usize) {
 #[no_mangle]
 pub unsafe fn parallel_test_fault() {
     split_lock().lock();
-    crate::cpu::ioapic::lock().lock();
+    crate::isa::lock_for_test_fault();
     #[cfg(target_arch = "wasm32")]
     std::arch::wasm32::unreachable();
     #[cfg(not(target_arch = "wasm32"))]
     unreachable!("parallel_test_fault");
-}
-
-/// Registers and lazy flags an instruction may change before it commits a
-/// locked read-modify-write: restored when another core changed the operand
-/// in between and the instruction runs again
-#[cfg(feature = "parallel")]
-pub struct Registers([u8; 60], [u8; 96]);
-#[cfg(feature = "parallel")]
-impl Registers {
-    pub unsafe fn save() -> Self {
-        use crate::cpu::global_pointers::{reg32, x64_gpr_hi};
-        let mut saved = Registers([0; 60], [0; 96]);
-        // reg32 .. flags, and the upper and extra 64-bit GPR halves
-        ptr::copy_nonoverlapping(reg32 as *const u8, saved.0.as_mut_ptr(), 60);
-        ptr::copy_nonoverlapping(x64_gpr_hi as *const u8, saved.1.as_mut_ptr(), 96);
-        saved
-    }
-    pub unsafe fn restore(&self) {
-        use crate::cpu::global_pointers::{reg32, x64_gpr_hi};
-        ptr::copy_nonoverlapping(self.0.as_ptr(), reg32 as *mut u8, 60);
-        ptr::copy_nonoverlapping(self.1.as_ptr(), x64_gpr_hi as *mut u8, 96);
-    }
 }
 
 // Guest RAM accesses (host pointers into mem8). Naturally aligned accesses
@@ -765,7 +712,7 @@ pub mod code {
     static mut INVALIDATE_SEEN: u32 = 0;
     static mut CLAIMED: Vec<u32> = Vec::new(); // publication sequence per page, 0: none
 
-    unsafe fn me() -> usize { crate::cpu::apic::current_core() }
+    unsafe fn me() -> usize { crate::isa::current_core() }
     /// For generated code that leaves for poll() when other cores published
     /// or invalidated code (x64 page functions chaining): the machine's
     /// PUBLISH_NEXT, this instance's PUBLISH_SEEN, the machine's
@@ -857,7 +804,7 @@ pub mod code {
             claimed.resize(page as usize + 1, 0);
         }
         claimed[page as usize] = seq;
-        for core in 0..crate::cpu::apic::core_count() {
+        for core in 0..crate::isa::core_count() {
             if core != me() {
                 kick(core);
             }
@@ -932,7 +879,7 @@ pub mod code {
         }
         let acked = machine(&raw mut ACKED).cast::<u32>();
         let idle = machine(&raw mut IDLE).cast::<u32>();
-        for core in 0..crate::cpu::apic::core_count() {
+        for core in 0..crate::isa::core_count() {
             if core == me() {
                 continue;
             }
@@ -954,12 +901,12 @@ pub mod code {
         if published(pages.clone()) {
             return true;
         }
-        let deadline = crate::cpu::cpu::js::microtick() + ms;
+        let deadline = crate::isa::microtick() + ms;
         for _ in 0..MAX_PUBLICATION_CHECKS {
             if published(pages.clone()) {
                 return true;
             }
-            if crate::cpu::cpu::js::microtick() >= deadline {
+            if crate::isa::microtick() >= deadline {
                 break;
             }
         }
@@ -1018,18 +965,7 @@ pub mod code {
             &raw mut PUBLISH_SEEN,
             &mut pages,
         );
-        // (the x64 interpreter checks every store: only the access cache's
-        // write entries of those pages must go)
-        if overflow || pages.len() > 32 {
-            crate::cpu::cpu::full_clear_tlb();
-            crate::x64::jac::flush_all();
-        }
-        else {
-            for &page in &pages {
-                crate::cpu::cpu::tlb_set_has_code(crate::page::Page::page_of(page << 12), true);
-                crate::x64::jac::retire_writes_on(me(), page << 12);
-            }
-        }
+        crate::isa::others_published(&pages, overflow);
         word_store(
             machine(&raw mut ACKED).cast::<u32>().add(me()),
             PUBLISH_SEEN,
@@ -1043,14 +979,7 @@ pub mod code {
             &raw mut INVALIDATE_SEEN,
             &mut pages,
         );
-        if overflow {
-            crate::jit::jit_clear_cache_js();
-        }
-        else {
-            for page in pages {
-                crate::jit::jit_retire_page(crate::page::Page::page_of(page << 12));
-            }
-        }
+        crate::isa::others_wrote(pages, overflow);
     }
 
     unsafe fn append(next: *mut u32, ring: *mut u64, size: usize, page: u32) -> u32 {

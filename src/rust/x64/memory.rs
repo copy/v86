@@ -60,7 +60,7 @@ static mut LOCKED: Option<Locked> = None;
 pub unsafe fn run_locked(mut instruction: impl FnMut() -> Result<(), Fault>) -> Result<(), Fault> {
     #[cfg(feature = "parallel")]
     {
-        let saved = crate::parallel::Registers::save();
+        let saved = crate::cpu::isa_hooks::Registers::save();
         loop {
             LOCKED = Some(Locked {
                 operand: None,

@@ -4,9 +4,11 @@
 //
 // make jit-gate, before each commit:
 //   git diff --check, state-layout-check, warning-free `cargo check` of the
-//   plain and the parallel build, rustfmt, eslint (when installed: ESLINT,
+//   plain and the parallel build and of the ARM core's two (ARM64 plan
+//   P1.0: --features aarch64, aarch64,parallel), rustfmt, eslint (when installed: ESLINT,
 //   node_modules/.bin/eslint or npx's cache), the import rule of
-//   src/rust/x86tpl (P2.10) and, when something that feeds build/v86.wasm
+//   src/rust/x86tpl (P2.10), the cores' boundaries
+//   (tools/check_a64_imports.mjs) and, when something that feeds build/v86.wasm
 //   changed, core-split-check (ARM64 plan P0.7); when x64 or shared JIT code
 //   changed, replay-check (P2.0: the generated code byte for byte,
 //   tools/replay_check.mjs; REPLAY_ALLOW_CHANGES=x64 for a change meant to
@@ -93,9 +95,13 @@ const steps = [
     { name: "state-layout-check", command: ["make", "state-layout-check"] },
     { name: "cargo check (warning-free)", command: ["cargo", ...cargo_check], env: warning_free },
     { name: "cargo check --features parallel (warning-free)", command: ["cargo", ...cargo_check, "--features", "parallel"], env: warning_free },
+    { name: "cargo check --features aarch64 (warning-free)", command: ["cargo", ...cargo_check, "--features", "aarch64"], env: warning_free },
+    { name: "cargo check --features aarch64,parallel (warning-free)", command: ["cargo", ...cargo_check, "--features", "aarch64,parallel"],
+        env: warning_free },
     { name: "rustfmt", command: ["make", "rustfmt"] },
     { name: "eslint", command: eslint_command, skip: eslint ? null : "eslint not installed (set ESLINT to its bin/eslint.js)" },
     { name: "x86tpl and jitrt imports (P2.10, P5.1)", command: ["node", "tools/check_x86tpl_imports.mjs"] },
+    { name: "the cores' boundaries (ARM64 plan P1.0)", command: ["node", "tools/check_a64_imports.mjs"] },
     { name: "core-split-check (ARM64 plan P0.7)", command: ["node", "tools/core_split_check.mjs", ...(base ? ["--base", base] : [])],
         skip: feeds_core || full ? null : "nothing that feeds build/v86.wasm changed" },
     // (P2.0: the base's and the working tree's generated code, byte for

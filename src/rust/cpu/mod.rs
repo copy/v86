@@ -15,6 +15,7 @@ pub mod instructions_0f;
 pub mod instructions_0f38;
 pub mod instructions_0f3a;
 pub mod ioapic;
+pub mod isa_hooks;
 pub mod memory;
 pub mod misc_instr;
 pub mod mmio_ram;

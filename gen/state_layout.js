@@ -167,7 +167,12 @@ export const STATE_FIELDS = [
 export const STATICS = {
     // one local APIC per core, indexed by core; the scheduler's current core and INIT/SIPI events
     // the state block of this instance in the parallel build: each relocated instance has its own
-    "cpu/global_pointers.rs": { STATE_BLOCK: "core" },
+    "state_block.rs": { STATE_BLOCK: "core" },
+    // the ARM core (docs/arm64-virt-android16-plan.md P1.0): its scheduler's
+    // current core, the machine's core count, the yield flag of this
+    // instance, guest RAM's base
+    "aarch64/isa_hooks.rs": { CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_YIELD: "scratch" },
+    "aarch64/root.rs": { MEM8: "machine" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {
         INTERPRETED: "debug", INTERPRETED_OFFSETS: "debug", INTERPRETED_PAGES: "debug", INTERPRETED_VEX: "debug", INTERPRETED_WATCH: "debug",

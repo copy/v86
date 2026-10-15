@@ -339,6 +339,35 @@ build/v86-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Carg
 	cargo rustc --release $(CARGO_FLAGS_SAFE)
 	cp build/wasm32-unknown-unknown/release/v86.wasm build/v86-fallback.wasm || true
 
+# The ARM core (docs/arm64-virt-android16-plan.md P1.0): the same crate with
+# the feature aarch64 and its own cargo target directory, so that the cores
+# do not rebuild each other; no x86 softfloat
+CARGO_FLAGS_ARM64_SAFE=\
+		--target wasm32-unknown-unknown \
+		--features aarch64 \
+		-- \
+		-C linker=tools/rust-lld-wrapper \
+		-C link-args="--import-table --global-base=4096 $(STRIP_DEBUG_FLAG)" \
+		-C link-args="build/zstddeclib.o" \
+		--verbose
+CARGO_FLAGS_ARM64=$(CARGO_FLAGS_ARM64_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
+
+build/v86-arm64.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/arm64 cargo rustc --release $(CARGO_FLAGS_ARM64)
+	cp build/arm64/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64.wasm
+	BLOCK_SIZE=K ls -l build/v86-arm64.wasm
+
+build/v86-arm64-debug.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/arm64 cargo rustc $(CARGO_FLAGS_ARM64)
+	cp build/arm64/wasm32-unknown-unknown/debug/v86.wasm build/v86-arm64-debug.wasm
+
+build/v86-arm64-fallback.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+	mkdir -p build/
+	CARGO_TARGET_DIR=build/arm64-fallback cargo rustc --release $(CARGO_FLAGS_ARM64_SAFE)
+	cp build/arm64-fallback/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64-fallback.wasm
+
 debug-with-profiler: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	cargo rustc --features profiler $(CARGO_FLAGS)

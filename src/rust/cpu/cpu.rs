@@ -4526,7 +4526,7 @@ unsafe fn wide_read_write(
 #[inline(always)]
 unsafe fn read_write_ram(phys_addr: u32, bytes: u32, instruction: &dyn Fn(i32) -> i32) {
     #[cfg(feature = "parallel")]
-    let saved = crate::parallel::Registers::save();
+    let saved = crate::cpu::isa_hooks::Registers::save();
     loop {
         let x = match bytes {
             1 => memory::read8_no_mmap_check(phys_addr),
