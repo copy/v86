@@ -732,13 +732,13 @@ try
     if(+process.env.WIN_DUMP_MODULES)
     {
         fs.mkdirSync(path.join(out, "modules"), {recursive: true});
-        const publish = cpu.x64_page_publish.bind(cpu);
+        const publish = cpu.jit_publish.bind(cpu);
         let published = 0, dumped = 0;
-        cpu.x64_page_publish = (id, slot, pointer, length) => {
+        cpu.jit_publish = (client, id, slot, pointer, length) => {
             if(published++ % 64 === 0 && dumped < +process.env.WIN_DUMP_MODULES)
                 fs.writeFileSync(path.join(out, "modules", `m${String(dumped++).padStart(4, "0")}.wasm`),
                     new Uint8Array(cpu.wasm_memory.buffer, pointer >>> 0, length >>> 0));
-            return publish(id, slot, pointer, length);
+            return publish(client, id, slot, pointer, length);
         };
     }
     // WIN_RECORD=<file>: the inputs of the page tier's compilations, saved at

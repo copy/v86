@@ -555,15 +555,6 @@ CPU.prototype.jit_publish = function(client, id, slot, pointer, length)
         () => exports["jit_ready"](client, id, slot), () => exports["jit_cancel"](client, id, slot));
 };
 
-// (the x64 page tier's own import, of cores built before J1a: until vJ2,
-// docs/jit-unification-plan.md P5.4)
-CPU.prototype.x64_page_publish = function(id, slot, pointer, length)
-{
-    const exports = this.wm.exports;
-    return this.publish_code(slot, pointer, length, () => exports["x64_page_install"](id, slot),
-        () => exports["x64_page_ready"](id, slot), () => exports["x64_page_cancel"](id, slot));
-};
-
 CPU.prototype.publish_code = function(slot, pointer, length, install, ready, cancel)
 {
     const wasm = this.wm, exports = wasm.exports, table = wasm.wasm_table;

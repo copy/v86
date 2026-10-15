@@ -4,9 +4,9 @@
 //! slot and calls jit_ready, or calls jit_cancel when either failed. Each
 //! piece of code goes Pending -> Ready -> Dead (Phase), Dead from any phase
 //! when the client retires it; its slot is freed at the client's next cold
-//! point. (The x64 page tier's own import and exports, x64_page_publish,
-//! x64_page_install, x64_page_ready and x64_page_cancel, stay for cores and
-//! hosts of before J1a until vJ2.)
+//! point. (The x64 page tier's own import and exports of before J1a,
+//! x64_page_publish, x64_page_install, x64_page_ready and x64_page_cancel,
+//! were removed at vJ2: cross-phase rule 10.)
 
 use super::ClientId;
 

@@ -234,7 +234,6 @@ export function V86(options)
         // (cores built before the wide-native path was removed import it:
         // the M1 baselines, docs/jit-unification-plan.md P1.2)
         "x64_native_discard": () => {},
-        "x64_page_publish": (id, slot, pointer, length) => cpu.x64_page_publish(id, slot, pointer, length),
         "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },

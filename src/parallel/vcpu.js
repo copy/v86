@@ -95,7 +95,6 @@ export async function run_vcpu(init, post, handle)
         "stop_idling": () => {},
         // (cores built before the wide-native path was removed import it)
         "x64_native_discard": () => {},
-        "x64_page_publish": (id, slot, pointer, length) => cpu.x64_page_publish(id, slot, pointer, length),
         "jit_publish": (client, id, slot, pointer, length) => cpu.jit_publish(client, id, slot, pointer, length),
         "io_port_read8": port => request(C.OP_IN8, port),
         "io_port_read16": port => request(C.OP_IN16, port),

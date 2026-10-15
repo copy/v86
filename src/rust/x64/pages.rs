@@ -1855,9 +1855,8 @@ fn retire_with(r: &mut Runtime, index: usize, unchain: bool) {
     }
 }
 
-/// Called by the host before table.set: false if the function was retired
-/// meanwhile (its source changed, or reset).
-#[no_mangle]
+/// Called by the host before table.set (jitrt::publish's install answer):
+/// false if the function was retired meanwhile (its source changed, or reset).
 pub fn x64_page_install(id: u64, slot: u32) -> bool {
     let r = rt();
     let Some(f) = r.pending(id, slot).map(|i| &r.functions[i])
@@ -1902,7 +1901,6 @@ pub fn x64_page_published(address: u32) -> bool {
             .is_some_and(|&i| r.functions[i].phase == Phase::Ready)
     })
 }
-#[no_mangle]
 pub fn x64_page_ready(id: u64, slot: u32) -> bool {
     if rt().ready(id, slot).is_none() {
         return false;
@@ -1935,7 +1933,6 @@ unsafe fn time_first_call(slot: u32) {
     TIME_FIRST_CALLS += time::microtick() - t0;
     *gp::x64_page_exit = pagegen::EXIT_NORMAL;
 }
-#[no_mangle]
 pub fn x64_page_cancel(id: u64, slot: u32) {
     let r = rt();
     if let Some(i) = r.alive(id, slot) {
