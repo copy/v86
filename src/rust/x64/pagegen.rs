@@ -3348,6 +3348,8 @@ struct Decoder<'a> {
     /// (CompileEnv::segmented)
     legacy: bool,
     segmented: bool,
+    /// CompileEnv::stack16
+    stack16: bool,
     /// The bytes of the span (CompileEnv::span: 4096 a page)
     span_bytes: usize,
     /// CompileEnv::volatile
@@ -3367,6 +3369,7 @@ impl Decoder<'_> {
             self.span_bytes,
             self.ip_base,
         );
+        let stack16 = self.stack16;
         let volatile = self.volatile.contains(&offset);
         *self.cache.entry(offset).or_insert_with(|| {
             let d = decode::decode_with(GuestIp(page + offset as u64), mode, |i| {
@@ -3392,6 +3395,14 @@ impl Decoder<'_> {
                 // loads and others: legacy_template)
                 _ if legacy && !segmented && d.address.is_some_and(|a| a.segment == 5) => Op::Step,
                 Op::Step if legacy => legacy_template(&d).unwrap_or(Op::Step),
+                op => op,
+            };
+            // (a stack of the other width than the code's, M11: PUSHA and
+            // POPA's 32 bytes wrap at SP 0 push by push, ENTER's template is
+            // 16-bit code's on a 16-bit stack)
+            let op = match op {
+                Op::Pusha | Op::Popa if stack16 && !code16(mode) => Op::Step,
+                Op::Enter { .. } if !stack16 => Op::Step,
                 op => op,
             };
             let op = if volatile { volatile_op(&d, op) } else { op };
@@ -3477,6 +3488,11 @@ pub struct CompileEnv {
     pub prot16: bool,
     pub ip_base: i32,
     pub mode16: Mode16,
+    /// The stack is 16-bit (SS.B clear): SP wraps at 64 KiB, ESP's high
+    /// half kept. 16-bit code's but on a 32-bit stack, and 32-bit code
+    /// compiled for segment bases on a 16-bit stack (Windows 98's thunks,
+    /// M11)
+    pub stack16: bool,
     /// The consecutive linear pages the function covers (P7.3b; 1 but in
     /// legacy mode): offsets run over all of them, and span_hosts are their
     /// pages' host addresses as compiled (mem8 + physical). Its prologue
@@ -3518,6 +3534,7 @@ impl CompileEnv {
         legacy: bool,
         segmented: bool,
         prot16: Option<(i32, Mode16)>,
+        stack16: bool,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3548,6 +3565,7 @@ impl CompileEnv {
                 prot16: prot16.is_some(),
                 ip_base: prot16.map_or(0, |p| p.0),
                 mode16: prot16.map_or(Mode16::Protected, |p| p.1),
+                stack16,
                 span: span_hosts.len().max(1) as u8,
                 span_hosts: hosts,
                 volatile: [u16::MAX; MAX_VOLATILE],
@@ -3587,6 +3605,7 @@ impl CompileEnv {
         legacy: bool,
         segmented: bool,
         prot16: Option<(i32, Mode16)>,
+        stack16: bool,
         span_hosts: &[u32],
     ) -> CompileEnv {
         let mut hosts = [0; MAX_SPAN];
@@ -3614,6 +3633,7 @@ impl CompileEnv {
             prot16: prot16.is_some(),
             ip_base: prot16.map_or(0, |p| p.0),
             mode16: prot16.map_or(Mode16::Protected, |p| p.1),
+            stack16,
             span: span_hosts.len().max(1) as u8,
             span_hosts: hosts,
             volatile: [u16::MAX; MAX_VOLATILE],
@@ -3646,12 +3666,13 @@ pub fn compile(
     legacy: bool,
     segmented: bool,
     prot16: Option<(i32, Mode16)>,
+    stack16: bool,
     span_hosts: &[u32],
     volatile: &[u16],
     name: String,
 ) -> Option<Compiled> {
     let mut env = CompileEnv::current(
-        chaining, outline, counter, compat, legacy, segmented, prot16, span_hosts,
+        chaining, outline, counter, compat, legacy, segmented, prot16, stack16, span_hosts,
     );
     env.volatile[..volatile.len()].copy_from_slice(volatile);
     #[cfg(feature = "ir-test-hooks")]
@@ -3820,6 +3841,7 @@ pub fn compile_with(
         },
         legacy: env.legacy,
         segmented: env.segmented,
+        stack16: env.stack16,
         ip_base: env.prot16.then_some(env.ip_base),
         span_bytes: PAGE * env.span as usize,
         volatile: env.volatile,
@@ -6602,8 +6624,8 @@ impl Emitter {
                 self.c32(delta as i32);
                 self.b.add_i32();
             }
-            if self.env.prot16 {
-                // (16-bit code's SP wraps at 64 KiB, P7.7)
+            if self.env.stack16 {
+                // (a 16-bit stack's SP wraps at 64 KiB, P7.7)
                 self.c32(0xFFFF);
                 self.b.and_i32();
             }
@@ -6676,10 +6698,10 @@ impl Emitter {
             self.b.extend_unsigned_i32_to_i64();
         }
     }
-    /// RSP += `bytes` (in compatibility mode ESP, wrapped; in 16-bit code SP,
-    /// ESP's high half kept: P7.7)
+    /// RSP += `bytes` (in compatibility mode ESP, wrapped; on a 16-bit stack
+    /// SP, ESP's high half kept: P7.7)
     fn adjust_sp(&mut self, bytes: u64) {
-        if self.env.prot16 {
+        if self.env.stack16 {
             self.g(4);
             self.c64(0xFFFF_0000);
             self.b.and_i64();
@@ -8165,34 +8187,46 @@ impl Emitter {
                 self.b.extend_unsigned_i32_to_i64();
                 self.set_reg(esi, 32);
             },
-            Op::Leave if self.env.prot16 => {
-                // (16-bit code, P7.7: SP = BP, then POP BP; ESP's and EBP's
-                // high halves stay)
+            Op::Leave if self.env.prot16 || self.env.stack16 => {
+                // (16-bit code, P7.7, or a 16-bit stack, M11: SP = BP on a
+                // 16-bit stack, ESP's high half kept, else ESP = EBP; then
+                // POP BP, or EBP in 32-bit code)
+                let width = if self.env.prot16 { 16 } else { 32 };
                 self.lookup_base = None;
                 self.g(5);
                 self.b.wrap_i64_to_i32();
-                self.c32(0xFFFF);
-                self.b.and_i32();
+                if self.env.stack16 {
+                    self.c32(0xFFFF);
+                    self.b.and_i32();
+                }
                 self.c32(gp::segment_offsets as i32 + 2 * 4);
                 self.b.load_aligned_i32(0);
                 self.b.add_i32();
                 self.b.extend_unsigned_i32_to_i64();
                 self.s(ADDR);
-                self.host(2, false, start);
-                self.load(16);
+                self.host(width as u32 / 8, false, start);
+                self.load(width);
                 self.s(TV);
-                self.g(4);
-                self.c64(0xFFFF_0000);
-                self.b.and_i64();
-                self.g(5);
-                self.c64(2);
-                self.b.add_i64();
-                self.c64(0xFFFF);
-                self.b.and_i64();
-                self.b.or_i64();
+                if self.env.stack16 {
+                    self.g(4);
+                    self.c64(0xFFFF_0000);
+                    self.b.and_i64();
+                    self.g(5);
+                    self.c64(width as u64 / 8);
+                    self.b.add_i64();
+                    self.c64(0xFFFF);
+                    self.b.and_i64();
+                    self.b.or_i64();
+                }
+                else {
+                    self.g(5);
+                    self.c64(width as u64 / 8);
+                    self.b.add_i64();
+                    self.wrap32();
+                }
                 self.s(4);
                 self.g(TV);
-                self.set_reg(register(5, 16, false), 16);
+                self.set_reg(register(5, width, false), width);
             },
             Op::Leave => {
                 let (bytes, width) = (self.slot_bytes(), self.slot_bytes() as u8 * 8);
@@ -12488,6 +12522,7 @@ mod sti_shadow_tests {
             false,
             false,
             None,
+            false,
             &[],
         );
         compile_with(&env, page, &[], &[0], "sti".into())

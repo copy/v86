@@ -16,6 +16,9 @@
 // code, FUZZ_BODY=<hex> replaces the random instructions. JIT_SWITCHES applies
 // to the compiled machine (tests/lib/jit_switches.mjs). FUZZ_COVERAGE=<share>
 // lowers the share of instructions that must run in page functions (0.5).
+// FUZZ_SS16=1 runs the programs on a 16-bit stack (SS.B clear, a 64 KiB
+// segment at SS16; half the cases start at SP 0xFFF0, half at SP 8, whose
+// pushes wrap): 32-bit code on a 16-bit stack, as Windows 98's thunks (M11).
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { V86 } from "../../../build/libv86.mjs";
@@ -31,7 +34,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // (a program's first instructions run interpreted until its page is hot; FP
 // programs also reload MXCSR, interpreted, at the top, and the page tier
 // must recompile the page with an entry after it)
-const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, ITERATIONS = 50000;
+const CODE = 0x500000, DATA = 0x600000, STACK = 0x610000, SS16 = 0x640000, ITERATIONS = 50000;
 const random = () => {
     seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0;
     return seed;
@@ -53,6 +56,7 @@ const rr = (r, m) => 0xC0 | r << 3 | m;
 // p37_instruction).
 const only = process.env.FUZZ_KIND || "";
 const straddle = process.env.FUZZ_STRADDLE === "1";
+const ss16 = process.env.FUZZ_SS16 === "1";
 function instruction() {
     const op = random() % 8, r = reg(), m = reg();
     const kind = random() % 34;
@@ -508,6 +512,13 @@ async function run(m, code, init, page, split) {
     new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset).setUint32(DATA + 124, ITERATIONS, true);
     cpu.reg32.set(init.regs);
     cpu.reg32[3] = DATA; cpu.reg32[4] = STACK;
+    if(ss16) {
+        // (SS 0x20, a 16-bit data segment at SS16)
+        cpu.mem8.fill(0, SS16, SS16 + 0x10000);
+        cpu.sreg[2] = 0x20; cpu.segment_offsets[2] = SS16; cpu.segment_limits[2] = 0xFFFF;
+        cpu.segment_access_bytes[2] = 0x93; cpu.segment_is_null[2] = 0; cpu.stack_size_32[0] = 0;
+        cpu.reg32[4] = init.sp16;
+    }
     cpu.flags[0] = 2; cpu.flags_changed[0] = 0; cpu.in_hlt[0] = 0;
     cpu.instruction_pointer[0] = base;
     e.fpu_discard_cache();
@@ -546,6 +557,7 @@ async function run(m, code, init, page, split) {
         eflags: e.get_eflags() >>> 0,
         data: Array.from(cpu.mem8.subarray(DATA, DATA + 256)),
         stack: Array.from(cpu.mem8.subarray(STACK - 64, STACK)),
+        ...ss16 ? { stack_low: Array.from(cpu.mem8.subarray(SS16, SS16 + 64)), stack_top: Array.from(cpu.mem8.subarray(SS16 + 0xFFC0, SS16 + 0x10000)) } : {},
         xmm: Array.from(new Uint32Array(cpu.reg_xmm32s.buffer, cpu.reg_xmm32s.byteOffset, 32), v => v >>> 0),
         ymm: Array.from(new Uint32Array(cpu.reg_xmm32s.buffer, cpu.reg_xmm32s.byteOffset + 1616, 32), v => v >>> 0),
         mxcsr: cpu.mxcsr[0] >>> 0,
@@ -570,6 +582,8 @@ for(let c = 0; c < cases; c++) {
     const reset_state = (xmm, mxcsr) => [...xmm.flatMap(u32), ...u32(mxcsr)];
     const init = {
         regs: Array.from({ length: 8 }, () => random()),
+        // (FUZZ_SS16: the initial SP, below STACK or wrapping)
+        sp16: ss16 ? random() & 1 ? 0xFFF0 : 8 : 0,
         data: special ? Array.from({ length: 16 }, () => special_words().flatMap(u32)).flat()
             : Array.from({ length: 256 }, () => random() & 255),
         // Finite floats: exponents kept in range so arithmetic rarely makes NaNs.

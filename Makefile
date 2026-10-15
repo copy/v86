@@ -1103,6 +1103,12 @@ x64-legacy32-tests: bench-build build/v86-ir-runtime.wasm build/libv86.mjs build
 	FUZZ_MODE=v86 FUZZ_KIND=i node tests/ir/differential/prot16_fuzz.mjs 12 2
 	FUZZ_MODE=v86 FUZZ_KIND=k node tests/ir/differential/prot16_fuzz.mjs 12 3
 	for mode in real v86; do FUZZ_MODE=$$mode FUZZ_STRADDLE=1 node tests/ir/differential/prot16_fuzz.mjs 20 3 || exit 1; done
+	# (a stack of the other width than the code's: M11)
+	FUZZ_MODE=prot16ss32 node tests/ir/differential/prot16_fuzz.mjs 30 1
+	FUZZ_MODE=prot16ss32 FUZZ_STRADDLE=1 node tests/ir/differential/prot16_fuzz.mjs 20 3
+	FUZZ_SS16=1 node tests/ir/differential/tier0_fuzz.mjs 30 1
+	for kind in p j g m; do FUZZ_SS16=1 FUZZ_KIND=$$kind node tests/ir/differential/tier0_fuzz.mjs 20 3 || exit 1; done
+	FUZZ_SS16=1 FUZZ_STRADDLE=1 node tests/ir/differential/tier0_fuzz.mjs 20 4
 
 # Every long-mode encoding of the opcode map executed at CPL3; needs the
 # expectations written by x64-decode-tests.

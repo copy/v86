@@ -85,7 +85,8 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
         .collect();
     let hosts = env.span > 1 || !volatile.is_empty();
     // (bit 6: 16-bit code, P7.7: then its IP base, i32, and its mode, a
-    // byte: 0 protected, 1 real, 2 virtual-8086 mode, P7.8, last)
+    // byte: 0 protected, 1 real, 2 virtual-8086 mode, P7.8, last; bit 7: a
+    // stack of the other width, M11)
     r.push(
         env.compat as u8
             | (env.compat_tlb as u8) << 1
@@ -93,7 +94,8 @@ fn encode(env: &CompileEnv, bytes: &[u8], next: &[u8], entries: &[u16], name: &s
             | (env.segmented as u8) << 3
             | (hosts as u8) << 4
             | (!volatile.is_empty() as u8) << 5
-            | (env.prot16 as u8) << 6,
+            | (env.prot16 as u8) << 6
+            | ((env.stack16 != env.prot16) as u8) << 7,
     );
     if hosts {
         r.push(env.span);
@@ -210,6 +212,8 @@ pub fn replay(record: &[u8]) -> Option<Vec<u8>> {
         legacy,
         segmented,
         prot16,
+        // (bit 7: the stack's width is not the code's)
+        prot16.is_some() != (mode & 128 != 0),
         &hosts,
     );
     env.volatile = volatile;
@@ -330,6 +334,7 @@ pub fn corpus() -> Vec<Vec<u8>> {
         false,
         false,
         None,
+        false,
         &[],
     );
     let mut records = Vec::new();

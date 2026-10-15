@@ -576,7 +576,12 @@ const SEGMENTED_KEY: u32 = 1 << 29;
 const PROT16_KEY: u32 = 1 << 28;
 const REAL_KEY: u32 = 1 << 27;
 const V86_KEY: u32 = 1 << 26;
-const MODE_BITS: u32 = COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY | REAL_KEY | V86_KEY;
+/// (M11) the stack's width is not the code's: 16-bit protected-mode code on
+/// a 32-bit stack, 32-bit code compiled for segment bases on a 16-bit stack
+/// (prot16_ss32_runnable, segmented_ss16_runnable)
+const STACK_KEY: u32 = 1 << 25;
+const MODE_BITS: u32 =
+    COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY | REAL_KEY | V86_KEY | STACK_KEY;
 /// The code key of a function's key: its page as compiled from
 fn physical_key(key: u32) -> u32 { key & !MODE_BITS }
 /// The code's mode, as function keys, code translations and chaining tables
@@ -590,7 +595,13 @@ const MODE_SEGMENTED: usize = 3;
 const MODE_PROT16: usize = 4;
 const MODE_REAL: usize = 5;
 const MODE_V86: usize = 6;
-const MODE_KEYS: [u32; 7] = [
+const MODE_PROT16_SS32: usize = 7;
+const MODE_SEGMENTED_SS16: usize = 8;
+/// 16-bit code's modes (their functions require CS's base, ip_base)
+fn code16(mode: usize) -> bool {
+    matches!(mode, MODE_PROT16 | MODE_REAL | MODE_V86 | MODE_PROT16_SS32)
+}
+const MODE_KEYS: [u32; 9] = [
     0,
     COMPAT_KEY,
     COMPAT_KEY | LEGACY_KEY,
@@ -598,6 +609,8 @@ const MODE_KEYS: [u32; 7] = [
     COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY,
     COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY | REAL_KEY,
     COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY | V86_KEY,
+    COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | PROT16_KEY | STACK_KEY,
+    COMPAT_KEY | LEGACY_KEY | SEGMENTED_KEY | STACK_KEY,
 ];
 unsafe fn code_mode() -> usize {
     if state::mode().is_long() {
@@ -614,6 +627,12 @@ unsafe fn code_mode() -> usize {
     }
     else if v86_runnable() {
         MODE_V86
+    }
+    else if prot16_ss32_runnable() {
+        MODE_PROT16_SS32
+    }
+    else if segmented_ss16_runnable() {
+        MODE_SEGMENTED_SS16
     }
     else if legacy_runnable() {
         MODE_LEGACY
@@ -876,14 +895,34 @@ pub unsafe fn segmented_runnable() -> bool {
         && *gp::stack_size_32
         && *gp::segment_offsets.add(cpu::CS as usize) == 0
 }
+/// The current code runs in the page tier as 32-bit code compiled for
+/// segment bases on a 16-bit stack (M11): segmented_runnable but SS.B
+/// clear. Windows 98's 16-to-32-bit thunks (2.8% of Diablo's time, 1.4% of
+/// Red Alert 2's, left to the region tiers in M10)
+pub unsafe fn segmented_ss16_runnable() -> bool {
+    LEGACY_ACTIVE
+        && state::mode() == state::ExecutionMode::Protected32
+        && !*gp::stack_size_32
+        && *gp::segment_offsets.add(cpu::CS as usize) == 0
+}
+/// The current code runs in the page tier as 16-bit protected-mode code on
+/// a 32-bit stack (M11): prot16_runnable but SS.B set
+pub unsafe fn prot16_ss32_runnable() -> bool {
+    PROT16_ACTIVE
+        && state::mode() == state::ExecutionMode::Protected16
+        && *gp::stack_size_32
+        && !crate::cpu::smm::smm_active()
+}
 /// compat_runnable, legacy_runnable, segmented_runnable, prot16_runnable,
-/// real_runnable or v86_runnable
+/// real_runnable, v86_runnable, prot16_ss32_runnable or
+/// segmented_ss16_runnable
 pub unsafe fn runnable32() -> bool { runnable_kind() != 0 }
 /// 1 for compat_runnable or legacy_runnable (flat segments), 2 for
 /// segmented_runnable only, 3 for prot16_runnable, 4 for real_runnable, 5
-/// for v86_runnable, else 0: a step that changes it leaves (context; in a
-/// function compiled for segment bases, which runs flat segments too, only
-/// a change to or from 0)
+/// for v86_runnable, 6 for prot16_ss32_runnable, 7 for
+/// segmented_ss16_runnable, else 0: a step that changes it leaves (context;
+/// in a function compiled for segment bases, which runs flat segments too,
+/// only a change to or from 0)
 #[inline(always)]
 unsafe fn runnable_kind() -> u8 {
     if compat_runnable() || legacy_runnable() {
@@ -900,6 +939,12 @@ unsafe fn runnable_kind() -> u8 {
     }
     else if v86_runnable() {
         5
+    }
+    else if prot16_ss32_runnable() {
+        6
+    }
+    else if segmented_ss16_runnable() {
+        7
     }
     else {
         0
@@ -1016,7 +1061,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
             // (P7.7: 16-bit code compiled under a CS of another base, whose
             // prologue would leave at once: the page compiles for this one
             // once that recurs)
-            if mode >= MODE_PROT16 && r.functions[i].ip_base != ip_base_of(rip) {
+            if code16(mode) && r.functions[i].ip_base != ip_base_of(rip) {
                 step_profile::note_event(event::MISS, event::MISS_UNSERVED);
                 let state = r.pages.entry(page).or_default();
                 state.misses += 1;
@@ -1105,7 +1150,7 @@ pub unsafe fn run(budget: u32) -> Attempt {
             // compile waits for LEGACY_HEAT, as DOS and the BIOS write their
             // code pages (a Windows 98 boot: 330 compiles after writes of
             // real-mode and virtual-8086 pages at HOT, 150 at LEGACY_HEAT)
-            let hot = if mode >= MODE_PROT16 || mode >= MODE_COMPAT && state.compiles == 0 {
+            let hot = if code16(mode) || mode >= MODE_COMPAT && state.compiles == 0 {
                 LEGACY_HEAT
             }
             else {
@@ -1242,7 +1287,7 @@ unsafe fn miss_run(r: &mut Runtime, page: u32, budget: u32, rip: u64) -> Attempt
     // (16-bit code, P7.8: a basic block at a time, as the interpreter runs
     // code without compiled code; one instruction at a time cost a Windows
     // 98 boot, whose real-mode and virtual-8086 code is mostly cold, 3%)
-    let blocks = kind >= 3;
+    let blocks = matches!(kind, 3..=6);
     loop {
         crate::x64::extended::safe_point();
         let ran = if blocks {
@@ -1557,6 +1602,8 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let legacy = page & LEGACY_KEY != 0;
     let segmented = page & SEGMENTED_KEY != 0;
     let prot16 = page & PROT16_KEY != 0;
+    // (M11: a stack of the other width than the code's)
+    let stack16 = prot16 != (page & STACK_KEY != 0);
     // (P7.8: real-mode and virtual-8086 code, 16-bit code too)
     let mode16 = if page & REAL_KEY != 0 {
         pagegen::Mode16::Real
@@ -1655,11 +1702,15 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
     let name = format!(
         "x64_page{}_{:x}",
         if prot16 {
-            match mode16 {
-                pagegen::Mode16::Protected => "16",
-                pagegen::Mode16::Real => "r16",
-                pagegen::Mode16::V86 => "v16",
+            match (mode16, stack16) {
+                (pagegen::Mode16::Protected, false) => "16ss32",
+                (pagegen::Mode16::Protected, true) => "16",
+                (pagegen::Mode16::Real, _) => "r16",
+                (pagegen::Mode16::V86, _) => "v16",
             }
+        }
+        else if segmented && stack16 {
+            "s32ss16"
         }
         else if segmented {
             "s32"
@@ -1687,6 +1738,7 @@ unsafe fn compile_mode(page: u32, hot: bool) -> Attempt {
         legacy,
         segmented,
         prot16.then_some((ip_base, mode16)),
+        stack16,
         &hosts,
         &volatile,
         name,
@@ -2857,10 +2909,7 @@ pub unsafe fn x64_page_load_seg(segment: u32, selector: u32, segmented: u32) -> 
     }
     // (a function compiled for segment bases runs flat segments too; 16-bit
     // code, P7.7, P7.8, any)
-    if legacy_runnable()
-        || segmented != 0
-            && (segmented_runnable() || prot16_runnable() || real_runnable() || v86_runnable())
-    {
+    if legacy_runnable() || segmented != 0 && runnable_kind() >= 2 {
         0
     }
     else {

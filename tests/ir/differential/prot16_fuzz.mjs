@@ -3,7 +3,7 @@
 // random 16-bit programs run hot in a loop in a 16-bit code segment of
 // protected mode, real mode or virtual-8086 mode (FUZZ_MODE prot16, real or
 // v86; so their page is compiled by the x64 page tier with x64_page_prot16
-// or x64_page_v86) and
+// or x64_page_v86; prot16ss32: protected mode with a 32-bit stack, M11) and
 // must leave exactly the interpreter's state: the GPRs, FLAGS (PUSHF inside
 // the loop stores them), the data, stack and counter segments, and the
 // retired-instruction count. Each program must also have run in page
@@ -52,8 +52,8 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const only = process.env.FUZZ_KIND || "";
 const straddle = process.env.FUZZ_STRADDLE === "1";
 const MODE = process.env.FUZZ_MODE || "prot16";
-assert(["prot16", "real", "v86"].includes(MODE), "FUZZ_MODE: prot16, real or v86");
-const paragraphs = MODE !== "prot16";
+assert(["prot16", "prot16ss32", "real", "v86"].includes(MODE), "FUZZ_MODE: prot16, prot16ss32, real or v86");
+const paragraphs = MODE === "real" || MODE === "v86";
 assert(!paragraphs || cases <= 24, "real and virtual-8086 mode: at most 24 cases (below 1 MiB)");
 assert(!paragraphs || only !== "z", "kind z needs protected mode (no null selectors)");
 assert(!["i", "k"].includes(only) || MODE === "v86", "kinds i and k need virtual-8086 mode");
@@ -80,8 +80,8 @@ const random = () => {
 const pick = list => list[random() % list.length];
 const u16 = n => [n & 255, n >>> 8 & 255];
 const u32 = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24 & 255];
-/** A 16-bit descriptor (G = 0, D/B = 0): base, limit 0xFFFF, access byte */
-const descriptor = (base, access) => [0xFF, 0xFF, base & 255, base >>> 8 & 255, base >>> 16 & 255, access, 0x00, base >>> 24 & 255];
+/** A 16-bit descriptor (G = 0, D/B = 0, or `flags` 0x40: B = 1): base, limit 0xFFFF, access byte */
+const descriptor = (base, access, flags = 0) => [0xFF, 0xFF, base & 255, base >>> 8 & 255, base >>> 16 & 255, access, flags, base >>> 24 & 255];
 
 // Registers: AX CX DX BX SP BP SI DI; destinations never SP (4)
 const DESTINATIONS = [0, 1, 2, 3, 5, 6, 7];
@@ -264,7 +264,8 @@ async function machine(compiled) {
     if(!paragraphs) {
         cpu.mem8.set(descriptor(DATA, 0x93), gdt + SEL.data);
         cpu.mem8.set(descriptor(FAR - FAR_IP, 0x9B), gdt + SEL.far);
-        cpu.mem8.set(descriptor(STACK, 0x93), gdt + SEL.stack);
+        // (prot16ss32: a 32-bit stack, SS.B set)
+        cpu.mem8.set(descriptor(STACK, 0x93, MODE === "prot16ss32" ? 0x40 : 0), gdt + SEL.stack);
         cpu.mem8.set(descriptor(COUNTER, 0x93), gdt + SEL.counter);
         cpu.gdtr_size[0] = SEL.far + 7;
     }
@@ -399,6 +400,9 @@ for(let c = 0; c < cases; c++) {
         far: far_routine(),
     };
     init.regs[4] = 0xFFF0;
+    // (a 32-bit stack: LEAVE sets ESP from all of EBP, whose random high
+    // half would leave the stack segment)
+    if(MODE === "prot16ss32") init.regs[5] &= 0xFFFF;
     const split = straddle ? 4 + random() % Math.max(1, code.length - 8) : 0;
     const expected = await run(reference, code, init, c, split), actual = await run(compiled, code, init, c, split);
     if(process.env.FUZZ_DEBUG) console.log(`case ${c}: count ${expected.count} entries ${compiled.entries} native ${compiled.native} ` +
