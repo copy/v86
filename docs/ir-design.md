@@ -74,40 +74,51 @@ QEMU and SDM models) to check them.
 ## 2. Architecture
 
 ```text
-                         Guest x86 code / CPU state
-                                      |
-                      +---------------v----------------+
-                      | CPU dispatch + interpreter     |
-                      | page heat / observed entries   |
-                      +---------------+----------------+
-                                      |
-                      +---------------v----------------+
-                      | x64 page tier (pages.rs)       |
-                      | mode key, spans, invalidation  |
-                      +---------------+----------------+
-                                      |
-                      +---------------v----------------+
-                      | pagegen: blocks, templates,    |
-                      | locals, lazy flags, loops      |
-                      +---------------+----------------+
-                                      |
-                      +---------------v----------------+
-                      | x86tpl: x86 leaves + templates |
-                      | wasmgen: WasmBuilder, leaves   |
-                      +---------------+----------------+
-                                      |
-                      +---------------v----------------+
-                      | Host instantiate + publication |
-                      | (x64_page_publish), table slot |
-                      +---------------+----------------+
-                                      |
-                       +--------------+---------------+
-                       |                              |
-                next page / chain              exit / step / retry
-                       |                              |
-                 compiled code              CPU helpers / interpreter
-                                              / main-loop safepoint
+              Guest x86 code / CPU state            (ARM core: guest A64 code)
+                           |                                    |
+           +---------------v----------------+   +---------------v--------------+
+           | CPU dispatch + interpreter     |   | A64 interpreter, run_core    |
+           | page heat / observed entries   |   | block boundaries             |
+           +---------------+----------------+   +---------------+--------------+
+                           |                                    |
+           +---------------v----------------+   +---------------v--------------+
+           | x64 page tier (x64/pages.rs)   |   | A64 page tier                |
+           | mode key, spans, invalidation  |   | (aarch64/jit/pages.rs)       |
+           +---------------+----------------+   +---------------+--------------+
+                           |                                    |
+           +---------------v----------------+   +---------------v--------------+
+           | x64/pagegen.rs: blocks, x86    |   | aarch64/jit/pagegen.rs:      |
+           | templates, lazy flags, the     |   | A64 templates, NEON (neon.rs)|
+           | write-back, jac or 32-bit TLB  |   | helper calls                 |
+           +---------------+----------------+   +---------------+--------------+
+                           |      (PageEmitter hooks)           |
+           +---------------v------------------------------------v--------------+
+           | pagegen/frame.rs (J1b): the frame, structured loops, dispatch,    |
+           | access-cache lookups, chaining lookup and tail call               |
+           +---------------+---------------------------------------------------+
+                           |
+           +---------------v---------------------------------------------------+
+           | x86tpl: x86 leaves + templates (x86 only)                         |
+           | wasmgen: WasmBuilder, ISA-neutral leaves                          |
+           +---------------+---------------------------------------------------+
+                           |
+           +---------------v---------------------------------------------------+
+           | jitrt (J1a, J1b): table slots, watched pages, publication          |
+           | (jit_publish), slot budget, heat, page runtime, step (StepOutcome,|
+           | StepAbi), access cache (TagLayout, Bus), chaining tables, jit_stat|
+           +---------------+---------------------------------------------------+
+                           |
+            +--------------+---------------+
+            |                              |
+     next page / chain              exit / step / retry
+            |                              |
+      compiled code              CPU helpers / interpreter
+                                   / main-loop safepoint
 ```
+
+The x86 core (`v86.wasm`) has only the left column; the ARM core
+(`v86-arm64.wasm`, [arm64-virt-android16-plan.md](arm64-virt-android16-plan.md))
+only the right one, over the same jitrt and pagegen/frame.rs.
 
 The execution modes, each with its own mode key (a function compiled for one
 mode never runs in another):
@@ -136,9 +147,11 @@ Key code locations:
 | Responsibility | Location |
 |---|---|
 | Encoding catalogue and the decoder tables (generated) | [gen/x86_table.js](../gen/x86_table.js), [gen/generate_decoder.js](../gen/generate_decoder.js), [decode](../src/rust/decode/) |
-| The ISA-neutral runtime (J1a): table slots and their owners, watched pages and the write/reset listeners, publication, the slot budget, page heat, the generic page runtime, `jit_stat` | [jitrt](../src/rust/jitrt/); [jit.rs](../src/rust/jit.rs) is the x86 core's composition root |
+| The ISA-neutral runtime (J1a, J1b): table slots and their owners, watched pages and the write/reset listeners, publication, the slot budget, page heat, the generic page runtime, `jit_stat`; the single step (`StepOutcome`, `StepAbi`, `StepFrontend`), the access cache (`TagLayout`, the `Bus` extension point), the chaining tables | [jitrt](../src/rust/jitrt/); [jit.rs](../src/rust/jit.rs) is the x86 core's composition root, [aarch64/root.rs](../src/rust/aarch64/root.rs) the ARM core's |
+| The page functions' neutral skeleton (J1b): frame, structured loops, page dispatch, access-cache lookups, chaining; the ISA module implements `PageEmitter` | [pagegen/frame.rs](../src/rust/pagegen/frame.rs), [pagegen/loops.rs](../src/rust/pagegen/loops.rs) |
 | The page tier's runtime: when and how to compile, spans, chaining, invalidation, statistics (the client X86 of jitrt's page runtime) | [pages.rs](../src/rust/x64/pages.rs), [physical.rs](../src/rust/x64/physical.rs) |
-| Analysis and emission: blocks, templates, locals, flags, loops | [pagegen.rs](../src/rust/x64/pagegen.rs), [pagegen_vec.rs](../src/rust/x64/pagegen_vec.rs), [loops.rs](../src/rust/x64/loops.rs) |
+| Analysis and emission: blocks, x86 templates, locals, flags | [pagegen.rs](../src/rust/x64/pagegen.rs), [pagegen_vec.rs](../src/rust/x64/pagegen_vec.rs) |
+| The A64 page tier (J2): its runtime and code generator, jitrt's second client | [aarch64/jit](../src/rust/aarch64/jit/) |
 | Inline memory access and helpers of generated code | [memory.rs](../src/rust/x64/memory.rs), [helpers.rs](../src/rust/x64/helpers.rs) |
 | x86 leaf templates every engine shares | [x86tpl](../src/rust/x86tpl/), [wasmgen/leaves.rs](../src/rust/wasmgen/leaves.rs) |
 | Recording and replay of compilations (test cores) | [replay.rs](../src/rust/x64/replay.rs), `tools/replay_check.mjs` |

@@ -2560,3 +2560,47 @@ vCPU worker 的 `jit_publish` 绑定）、`multicore-linux-jit-tests`、`jit-tie
   臂间伪迹，与代码无关；M11 门禁里 718 的 0.81 也是它。
 - J1a 出口：本节各项。标签 `vJ1a`。J1b（P5.6、P5.8、P5.9）要求 ARM64 计划 P1 通过验收，J2 要求 ARM64 计划 P1–P3：这两步在
   ARM64 计划开工之前不做。
+
+### J1b
+
+在 ARM64 计划 A0–A3 之后做（所有者的顺序：ARM64 计划 P0–P3，然后 J1b、J2）。开工条件“ARM64 计划 P1 通过验收”在 A1（`vA1`）满足。
+
+**P5.6、P5.8（`fbe845cf`）。** `jitrt::step`：`StepOutcome`（Continue、Chain、Exit）、页函数的退出码、`StepAbi`（退出码字的
+状态块偏移，由组合根给出；x86 经 `CompileEnv::step`）、`StepFrontend` trait 与通用驱动；`x64_page_step` 经它运行
+（`pages::X86Step`：执行上下文与 `CODE_WRITES`、模式账本下的宽解释器、`step_result` 的结果）。P5.6 的“全局量只定义为偏移，
+由组合根解析成小立即数常量”：单步只有退出码字一个全局量，x86 用状态块里的固定偏移（`x64_page_exit`），ARM 核心用它自己的
+状态块字段。`jitrt::access`：一个核心的访问缓存（`MAX_ENTRIES` 空间里四张 16 字节表项的表、epoch、大区域、全局位）、
+`TagLayout`、填充、`flush`、`flush_nonglobal`、`invalidate_page`、`retire_writes`，以及 `Bus` 扩展点；`x64/jac.rs` 在它之上
+保留 x86 的缓存与统计（`X86Bus`），ARM 核心的 `AddressSpace` 实现 `Bus`。`jitrt::chain`：链接表（`fill`、`forget_page`、
+`forget_nonglobal`、`unchain`），`x64/pages.rs` 按核心、代码模式与 CPL 各一张。访存路径的选择（jac 或 32 位 TLB）留在 x86
+侧。`gen/state_layout.js` 补上 A1–A3 漏掉的 ARM 核心静态量与新模块测试用的静态量。
+
+**P5.9（`486fc045`）。** `src/rust/pagegen`：`frame.rs` 是页函数里与 ISA 无关的部分——帧的标签（exit、leave、retry、调度环、
+step）、块图上结构化布局的层（P4.16 的 `frame::structured`；环路分析从 `x64/loops.rs` 移到 `pagegen/loops.rs`）、页内调度
+（跨度表、分桶、整表）、goto 与落空、带头部与调度的环路单元、经 `PageEmitter` 的钩子按序生成函数体；访问缓存的查找（P4.14：
+模块的查找函数、外置与内联查找，`AccessAbi` 与 `LookupLocals`）与链接查找、尾调用（`jitrt::chain` 的布局）。
+`x64/pagegen.rs` 是 x86 模块，实现 `PageEmitter`：flags、RIP、写回、单步、jac 与 32 位 TLB 之间的选择、保留的翻译都在
+x86 侧。`pagegen` 的导入与 jitrt 一样由 `tools/check_x86tpl_imports.mjs` 检查（std、wasmgen、leb、jitrt；没有 aarch64 特性）。
+
+**验收。**
+- 重放：P5.6/P5.8 与 P5.9 之后各一次，默认构建与并行构建各 3976 条记录与 `vJ1a` 逐字节相同。导入规则；`state-layout-check`；
+  两个核心及其并行构建 `cargo check` 无警告；jitrt 与 `pagegen/frame.rs` 里没有 `feature = "aarch64"`。
+- `X64_JIT=1 make x64-system-tests` 与 `x64-page-tier-tests`、`x64-multicore-tests`、`extended-memory-tests`、`highmem-tests`、
+  `x64-guest-tests`、`x64-legacy32-tests`、`multicore-coherence-tests`、`multicore-state-tests`、`smp-tests`、
+  `multicore-parallel-tests`、`multicore-linux-jit-tests`、`jit-tiers-tests`、`jit-disabled-tests` 通过。
+- `api-tests` 的 `tests/api/state.js` 偶发失败（sync cdrom：恢复后 init 被杀，exitcode 3）。原因是 UART 的接收队列不在快照里：
+  Linux 的 8250 驱动以回环送出 0..255 来测 FIFO 深度，快照恰在这时保存，恢复时队列却是被丢弃的那条时间线的，这些字节成了
+  控制台输入，其中的 ^\ 给 init 发了 SIGQUIT。缺陷早就存在，ARM64 计划的工作只是改变了启动 2 秒时客体所处的位置（`vJ1a`
+  0/10，`571260a0` 0/10，`b8c25e12` 1/10，`e4fdd6d8` 1/8，J1b 4/12；样本太少，归不到哪一个提交）。修复是 `dfa38e93`：队列存入
+  `state[11]`，旧快照恢复为空队列；state.js 加了一个确定的回归用例（修复前失败）。之后 `api-tests` 通过。
+- R 级门禁（相对 `vJ1a`，工作树 `build/wt-vj1a`，3 个会话，`build/bench/j1bgate/`）：《暗黑破坏神》126.2 → 125.4 MIPS（0.994），
+  《红色警戒 2》234.5 → 233.5（0.996），《主题医院》977.2 → 974.4（0.997），Win98 冷启动 6.8 → 6.7 s（1.015），XP 12.97 → 12.92 s
+  （1.004），Win8.1 171 → 166 s（1.030，样本 161–180 s）；都在 ±1% 以内或更快。（第一遍的 Win8.1 六个会话都没有找到映像：
+  树臂下 `windows_boot.mjs` 的默认路径相对于树根，要给 `WIN_IMAGE`；补跑一遍。）bench 暖分：i686 1.004、compat32 1.012、
+  x86_64 1.000，没有一项低于 0.97；冷分 0.996、0.994、0.996，单项最低的 523.strings（compat32，0.85）、541.recursion（x86_64，
+  0.93）、718.avx.ymm（i686，0.94）是短基准，暖分都在 1.00–1.03，同 J1a 记下的臂间伪迹。
+- ARM64 宿主：本机就是 Apple M 系列，上面的 bench 即是。[ir-design.md](ir-design.md) 的架构图按 J1b 更新（`pagegen/frame.rs`，
+  jitrt 的 step、access、chain，以及 J2 的 A64 一列）。
+- J1b 出口：标签 `vJ1b`，打在本记录的提交上。它前面已有 J2 的第一部分（`94e24279`）与 P6.3b 的标量 FP（`e5860bf9`），只改 ARM
+  核心，`v86.wasm` 与 `486fc045` 的逐字节相同（`core-split-check`）。
+
