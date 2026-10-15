@@ -2687,10 +2687,26 @@ ARM 在 `aarch64/jit/mod.rs`；属于 jitrt 的 `Fn1Ret` 签名）；开关登�
 JIT 让 1/2/4 核分别快 6.1、6.5、7.3 倍；QEMU（TCG，同一宿主）1 核跑完这一阶是 1.7 s。ARM64 计划的 E 级初值（1 核 JIT 启动
 到 login 并跑完 probe，不超过 x86_64 page tier 的 3 倍）要 live 阶，等 ARM64 计划 P5；`boot_to_login_ms` 同样。
 
-**P6.7（未做）。** `tools/alpine_gpu_repo.mjs` 已泛化为（`8a6fcb48`） `tools/alpine_repo.mjs`（`--arch`、`--set gpu|jit`，按 arch 区分输出
-目录；`jit` 集为 nodejs、openjdk21-jdk、luajit、pcre2-tools，3.24 的索引里都有，nodejs 是 24.18.1）。生成仓库要从 Alpine 的镜像
-下载这些包，需要所有者同意；客体里装包还要 ARM64 计划 P5 的 virtio 块设备（或者把包放进 initramfs）。所以 node、java、
-luajit 在 JIT、解释器与 QEMU 上的对照，以及 JIT 负载中途的快照，还没有做。
+**P6.7（客体 JIT 负载，`4b8a64e9`）。** `tools/alpine_gpu_repo.mjs` 泛化为 `tools/alpine_repo.mjs`（`8a6fcb48`：`--arch`、
+`--set gpu|jit`，按 arch 区分输出目录）。所有者 2026-10-16 同意下载后，`--arch aarch64 --set jit` 取得 Alpine 3.24 的 55 个包
+（179 MiB：nodejs 24.18.1、openjdk21-jdk、luajit、pcre2-tools 及其依赖）。virt 板还没有磁盘（ARM64 计划 P5），所以
+`linux_boot.mjs` 的 `A64_WORKLOAD=jit` 把这些包（去掉 JDK 的 jmods 与 busybox）解开成 probe 之后的又一个 cpio，在 initramfs 阶
+跑完 probe 之后依次运行：V8（`tests/a64/jit_workload/work.js`：调用、数值、对象、字符串、正则、类型数组）、HotSpot 的
+`java Hello.java`（JVM 里先跑 javac，再经 C1、C2）、LuaJIT 的 `-jon` 与 `-joff`（同一行输出）、`pcre2test -jit`（`-C jit`
+报告 JIT 可用）；各自输出只取决于精确运算的校验和，与 QEMU 逐字比较。RAM 1.5 GiB：ARM 核心一次分配的客体内存必须小于
+2 GiB（wasm32 的 `Vec` 上限，2 GiB 时 `a64_allocate_memory` panic “capacity overflow”，现在 `create_memory` 先报清楚的错；
+更大的内存属于 ARM64 计划 P8）。结果（与 QEMU 的输出都相同）：
+
+| 运行 | 全程 | 退役指令 | 说明 |
+| --- | --- | --- | --- |
+| QEMU 1 核 | 27 s | – | 参考 |
+| page tier 1 核 | 75 s | 9.1 × 10⁹，122 MIPS | 98% 原生；客体 JIT 写代码页 2176 次，一页最多重编 37 次，共 11970 次编译，没有驱逐 |
+| page tier 1 核，负载中途快照 | 80 s | 8.6 × 10⁹ | 负载开始 1.5 s 后保存、在新机器里恢复后跑完 |
+| 解释器 1 核 | 433 s | 10.4 × 10⁹，24 MIPS | |
+| page tier 2 核 | 82 s | 10.3 × 10⁹ | 对照 QEMU 2 核 |
+| page tier 4 核 | 82 s | 9.9 × 10⁹ | 对照 QEMU 4 核 |
+
+`make a64-jit-guest-tests` 加入 QEMU 参考、page tier 与中途快照三项。
 
 **规则 10。** J1 保留的旧导入在这里删除：JS 不再提供 `x64_page_publish`，`CPU.x64_page_publish` 删除，x64 page tier 的
 `x64_page_install`、`x64_page_ready`、`x64_page_cancel` 不再导出（只作为 `jitrt::publish` 的回答）。J1a 之前构建的核心不能再用
@@ -2705,6 +2721,5 @@ luajit 在 JIT、解释器与 QEMU 上的对照，以及 JIT 负载中途的快�
   （输出与 QEMU 相同），kvm-unit-tests 4k/16k/64k 全部通过；`a64_asid_tag=1` 时同样（litmus、initramfs 与 kvm-unit-tests）。
 - `make a64-gate`、`jit-gate`（重放 3976 条与 `vJ1b` 逐字节相同，`x64-page-tier-tests`、`x64-legacy32-tests`）、
   `api-tests` 通过。两个核心及其并行构建 `cargo check` 无警告。
-- J2 出口：没有达到。P6.7 的客体 JIT 负载（node、java、luajit 在 JIT、解释器与 QEMU 上一致，负载中途快照）要下载 Alpine 的包
-  （等所有者同意），还要 ARM64 计划 P5 的 virtio 块设备或更大的 initramfs；ARM64 计划 A4 验收里 A3 的 live 阶用例同样等 P5。
-  所以 `vJ2` 不打，P6.7 完成后再打。
+- J2 出口：本节各项（P6.0–P6.7，P6.6a 的设计债留到 A64 默认开启前）。标签 `vJ2`。还没做的属于 ARM64 计划的后续阶段：live 阶
+  与 `boot_to_login_ms`、E 级初值的比较（P5），2 GiB 以上的 RAM 与 Worker 里的核（P8）。

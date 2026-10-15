@@ -15,9 +15,9 @@ does not contain the ARM code (the plan's "Wasm core" section).
 | --- | --- |
 | Option | `cpu_type: "arm64"` (machine_type "virt", its default) |
 | Profile | `v86-aarch64-v1`, [tests/platform/a64-profile.json](../tests/platform/a64-profile.json) |
-| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives), kpti=1, single-user mode, snapshot, reboot and poweroff; kvm-unit-tests arm64 at 4, 16 and 64 KiB |
+| Verified guests | Alpine 3.24 aarch64 (Linux 6.18, the official ISO's kernel and initramfs) on 1/2/4 cooperative cores, interpreted and with the page tier: the probe (threads, signals, cross-modified and dual-mapped code, FP across context switches, exclusives), kpti=1, single-user mode, snapshot, reboot and poweroff; kvm-unit-tests arm64 at 4, 16 and 64 KiB; guest JITs (V8 in nodejs, HotSpot, LuaJIT, PCRE2) with their output equal to QEMU's |
 | Boot time | Alpine's initramfs stage through the probe: 5.7 / 6.1 / 6.8 s on 1/2/4 cores with the page tier, 34.6 / 40.1 / 49.9 s interpreted (release build, Apple M-series Mac; QEMU TCG: 1.7 s on 1 core) |
-| Not done | virtio devices and the live stage (P5), cores in workers (P8), the JIT workloads in the guest (P6.7) |
+| Not done | virtio devices and the live stage (P5); cores in workers and 2 GiB of RAM or more (P8: the core holds guest memory in one allocation of the 32-bit Wasm memory) |
 
 ## CPU profile
 
@@ -61,6 +61,7 @@ macOS.
 | --- | --- | --- |
 | Alpine 3.24 aarch64 initramfs and live stages, the probe (`tests/a64/linux_probe.c`), 1/2/4 cores | `A64_LINUX_QEMU=1 A64_STAGE=initramfs\|live A64_CORES=N node tests/a64/linux_boot.mjs` | QEMU |
 | The same on v86 (initramfs, single, lifecycle; `A64_JIT=1`: the page tier; `A64_KPTI=1`, `A64_WORKLOAD=N`, `A64_MIDWAY_SNAPSHOT=1`) | `A64_STAGE=initramfs A64_CORES=N node tests/a64/linux_boot.mjs` | v86 |
+| The guest JIT workloads after the probe (node, `java Hello.java`, luajit `-jon`/`-joff`, `pcre2test -jit`; packages from `node tools/alpine_repo.mjs --arch aarch64 --set jit`, 1.5 GiB of RAM) | `A64_WORKLOAD=jit A64_STAGE=initramfs node tests/a64/linux_boot.mjs` (with `A64_LINUX_QEMU=1` first for the reference) | both |
 | Bare-metal guests (`tests/a64/guest_runner.mjs`, runtime in `tests/a64/baremetal/`) | `node tests/a64/float_ref.mjs`, `node tests/a64/platform_probe.mjs` | `A64_TARGET=qemu` (v86: A1) |
 | Decode oracle (llvm-mc with the profile's `-mattr`) | `node tests/a64/oracle/decode.mjs --self-test` | — |
 | kvm-unit-tests arm64, 4k/16k/64k | `make a64-kvm-unit-tests-qemu` | QEMU (v86: A2) |

@@ -1578,6 +1578,10 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
 - P6.4：`a64_asid_tag` 没有把 ASID 放进 `TagLayout` 的位（TBI 下用户地址顶字节任意，标签里放不下 16 位 ASID），而是每个
   ASID 一个访问缓存 epoch，详见 JIT 计划。默认仍关，留给 P9.3 测量后按 F 级翻转。顺带修正两处：带标签的指针不再填访问缓存
   （TLBI 按去标签的页失效，带标签的条目会留下）；访问缓存 epoch 回绕时清空代码 TLB 与链接表。
+- A3 记下的 CSV2_3 与 SSBS（v86 的 MIDR 不在 Linux 的安全列表上，内核报告检测到 Spectre-BHB 与 Spectre-v4）：所有者
+  2026-10-16 交给实现者决定，结论是不声明。现在没有运行时开销（没有打开任何缓解代码，只是 sysfs 里的字样）；CSV2_3 属于
+  v8.8，声明它只为去掉一行提示，却让 profile 离 cortex-a35 与 v8.0 更远；SSBS 属于 v8.5，要新增 PSTATE.SSBS 与 `MSR SSBS`，
+  Linux 还会开始切换它。只有某个客体（例如 Android）因此打开了有开销的缓解时才重新考虑。
 - P3.7 的修正：J2 第一部分让建立保留时扫描所有核的访问缓存写表，以免别的核的编译存储绕过全局监视器；但每次
   load-exclusive 换页都扫 8 个核的写表，连解释器都受累（v8.0 没有 LSE，每个原子操作都是 LDXR/STXR）：2 核 initramfs 的
   probe_done 从 40 s 变成 64 s，4 核出现 soft lockup。改为切换到某个核时只清它写往其他核保留页的条目（运行期间没有别的核能
@@ -1592,6 +1596,7 @@ JIT 计划附录 C 的 J2 一节有完整记录，这里记 A64 一侧的结论�
   - P6.6b 指标（initramfs 阶跑完 probe，3 次会话的中位数，表在 JIT 计划 J2 一节与 docs/aarch64.md）：probe_done_ms 解释器
     1/2/4 核 34.6、40.1、49.9 s，JIT 5.7、6.1、6.8 s；JIT 的 MIPS 135、129、123，97% 的指令原生执行，没有驱逐。E 级初值的比较
     （对 x86_64 page tier 的 3 倍）要 live 阶，等 P5。
-  - 没做的：P6.7（node、java、luajit 与 pcre2 的 JIT 负载）要从 Alpine 镜像下载包（所有者同意之前不下载），客体里还要 P5 的
-    virtio 块设备或者更大的 initramfs；live 阶与 `boot_to_login_ms` 也等 P5。所以 A4 的验收中“node、java、luajit 的输出在
-    JIT、解释器与 QEMU 上一致”与“JIT 负载中途快照”这两项未完成，`vJ2` 不打。
+  - P6.7：所有者 2026-10-16 同意下载；`A64_WORKLOAD=jit`（包解成 initramfs 里的又一个 cpio，1.5 GiB RAM）下 node、
+    `java Hello.java`、luajit（`-jon` 与 `-joff`）与 `pcre2test -jit` 的输出在 QEMU、解释器（1 核 433 s）与 page tier（1/2/4 核
+    75–82 s）上一致，page tier 中途快照恢复后结果不变。ARM 核心的客体内存必须小于 2 GiB（wasm32 一次分配的上限），更大的属于 P8。
+  - 还没做的：live 阶与 `boot_to_login_ms`、E 级初值的比较（等 P5）。JIT 计划的 `vJ2` 已打。
