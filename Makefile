@@ -342,29 +342,31 @@ build/v86-fallback.wasm: $(RUST_FILES) build/softfloat.o build/zstddeclib.o Carg
 
 # The ARM core (docs/arm64-virt-android16-plan.md P1.0): the same crate with
 # the feature aarch64 and its own cargo target directory, so that the cores
-# do not rebuild each other; no x86 softfloat
+# do not rebuild each other; SoftFloat with the ARM specialization
+# (build/softfloat_arm.o) instead of the x86 one
 CARGO_FLAGS_ARM64_SAFE=\
 		--target wasm32-unknown-unknown \
 		--features aarch64 \
 		-- \
 		-C linker=tools/rust-lld-wrapper \
 		-C link-args="--import-table --global-base=4096 $(STRIP_DEBUG_FLAG)" \
+		-C link-args="build/softfloat_arm.o" \
 		-C link-args="build/zstddeclib.o" \
 		--verbose
 CARGO_FLAGS_ARM64=$(CARGO_FLAGS_ARM64_SAFE) -C target-feature=+bulk-memory -C target-feature=+multivalue -C target-feature=+simd128
 
-build/v86-arm64.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+build/v86-arm64.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	CARGO_TARGET_DIR=build/arm64 cargo rustc --release $(CARGO_FLAGS_ARM64)
 	cp build/arm64/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64.wasm
 	BLOCK_SIZE=K ls -l build/v86-arm64.wasm
 
-build/v86-arm64-debug.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+build/v86-arm64-debug.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	CARGO_TARGET_DIR=build/arm64 cargo rustc $(CARGO_FLAGS_ARM64)
 	cp build/arm64/wasm32-unknown-unknown/debug/v86.wasm build/v86-arm64-debug.wasm
 
-build/v86-arm64-fallback.wasm: $(RUST_FILES) build/zstddeclib.o Cargo.toml
+build/v86-arm64-fallback.wasm: $(RUST_FILES) build/softfloat_arm.o build/zstddeclib.o Cargo.toml
 	mkdir -p build/
 	CARGO_TARGET_DIR=build/arm64-fallback cargo rustc --release $(CARGO_FLAGS_ARM64_SAFE)
 	cp build/arm64-fallback/wasm32-unknown-unknown/release/v86.wasm build/v86-arm64-fallback.wasm
@@ -389,6 +391,16 @@ build/softfloat.o: lib/softfloat/softfloat.c
 	    -DSOFTFLOAT_FAST_INT64 -DINLINE_LEVEL=5 -DSOFTFLOAT_FAST_DIV32TO16 -DSOFTFLOAT_FAST_DIV64TO32 \
 	    -o build/softfloat.o \
 	    lib/softfloat/softfloat.c
+
+build/softfloat_arm.o: lib/softfloat/softfloat.c tools/softfloat_arm.mjs
+	mkdir -p build
+	node tools/softfloat_arm.mjs lib/softfloat/softfloat.c build/softfloat_arm.c
+	clang -c -Wall \
+	    --target=wasm32 -O3 -flto -nostdlib -fvisibility=hidden -ffunction-sections -fdata-sections \
+	    -DSOFTFLOAT_FAST_INT64 -DINLINE_LEVEL=5 -DSOFTFLOAT_FAST_DIV32TO16 -DSOFTFLOAT_FAST_DIV64TO32 \
+	    -DSOFTFLOAT_ROUND_ODD \
+	    -o build/softfloat_arm.o \
+	    build/softfloat_arm.c
 
 build/zstddeclib.o: lib/zstd/zstddeclib.c
 	mkdir -p build
@@ -1027,10 +1039,11 @@ a64-litmus-tests:
 a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/core_loader.mjs
 	node tests/a64/address_space.mjs
+	node tests/a64/pl011_hello.mjs
 	$(call A64_PENDING,A2 (DTB, PL011/PL031, timers) and A3 (device reset))
 # (api-tests' arm64 part)
-a64-api-tests:
-	$(call A64_PENDING,A1)
+a64-api-tests: build/libv86.js build/v86-arm64.wasm
+	node tests/api/arm64-options.js
 a64-guest-quick-tests:
 	$(call A64_PENDING,A2)
 a64-guest-tests:

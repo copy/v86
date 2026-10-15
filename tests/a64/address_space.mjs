@@ -89,7 +89,7 @@ try
     console.log("PASS 16- and 64-bit device accesses (a 16-bit FIFO read pops once)");
 
     // holes, the PA range, accesses across regions write nothing
-    assert.equal(read(0x09000000, 4)[0], 1, "a hole: external abort");
+    assert.equal(read(0x0b000000, 4)[0], 1, "a hole: external abort");
     assert.equal(read(1n << 40n, 1)[0], 2, "beyond 40 bits: address size fault");
     const end = 0x40000000 + (64 << 20);
     assert.equal(write(end - 8, 8, 0), 0);

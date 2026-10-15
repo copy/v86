@@ -768,6 +768,7 @@
     "node": "memory",
     "why": "with extended RAM v86 has two memory ranges, from 0x4000_0000 and from 4 GiB; the reference has one from 0x4000_0000 (the probe's pagemap high-page check is judged on v86 only)"
    }
-  ]
+  ],
+  "behavior": [{"instruction": "DC ZVA with the MMU off", "why": "v86 takes the alignment fault the Arm ARM requires for Device memory (DDI 0487 L.b, DC ZVA); QEMU 9.2 zeroes the block (target/arm/tcg/helper-a64.c, HELPER(dc_zva))"}]
  }
 }

@@ -6,7 +6,7 @@
 // the runner polls the block's magic over QMP and reads it with pmemsave.
 //
 //   build(name, sources, { cflags })  -> the directory of guest.bin
-//   reference(directory, { cores })   -> { status, text, ... } from QEMU
+//   reference(directory, { cores })   -> { status, text, serial, ... } from QEMU
 //   actual(directory, { cores })      -> the same from v86
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -106,7 +106,7 @@ for(const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]]
 export async function reference(directory, { cores = 1, memory = 128, timeout = 60000, extra = [] } = {})
 {
     const args = ["-machine", QEMU_MACHINE, "-cpu", QEMU_CPU, "-m", memory + "M", "-smp", smp(cores),
-        "-display", "none", "-serial", "none", "-monitor", "none", "-qmp", "stdio", "-no-reboot", "-no-shutdown",
+        "-display", "none", "-serial", "file:" + directory + "qemu-serial.txt", "-monitor", "none", "-qmp", "stdio", "-no-reboot", "-no-shutdown",
         "-kernel", directory + "guest.bin", ...extra,
         ...(process.env.A64_QEMU_TRACE ? ["-d", "int,guest_errors", "-D", directory + "qemu.log"] : [])];
     const child = spawn(qemu_binary(), args, { stdio: ["pipe", "pipe", "pipe"] });
@@ -175,7 +175,9 @@ export async function reference(directory, { cores = 1, memory = 128, timeout = 
     }
     // (SIGTERM is only a shutdown request, which -no-shutdown turns into a pause)
     finally { child.kill("SIGKILL"); }
-    return parse(fs.readFileSync(dump));
+    const result = parse(fs.readFileSync(dump));
+    result.serial = fs.existsSync(directory + "qemu-serial.txt") ? fs.readFileSync(directory + "qemu-serial.txt", "latin1") : "";
+    return result;
 }
 
 /**
@@ -200,6 +202,8 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
             emulator.add_listener("emulator-error", reject);
         });
         const cpu = emulator.v86.cpu;
+        let serial = "";
+        emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
         const at = RESULT - 0x40000000;
         const block = () => Buffer.from(cpu.mem8.buffer, cpu.mem8.byteOffset + at, TEXT - RESULT + TEXT_SIZE);
         const deadline = performance.now() + timeout;
@@ -214,6 +218,7 @@ export async function actual(directory, { cores = 1, memory = 128, timeout = 600
             cpu.run_cores();
         }
         const result = parse(Buffer.from(block()));
+        result.serial = serial;
         fs.writeFileSync(directory + "v86.bin", Buffer.from(block()));
         return result;
     }

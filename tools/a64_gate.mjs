@@ -6,10 +6,12 @@
 //   the cores' boundaries (tools/check_a64_imports.mjs), the decode oracle's
 //   self-test, the bare-metal reference checks on QEMU (float_convs and
 //   float_madds against QEMU's .ref files, the platform probe, the ID
-//   registers against the profile's allowed differences) and, when something
-//   that feeds build/v86.wasm changed, core-split-check (P0.7: a change only
-//   to src/rust/aarch64/ leaves v86.wasm byte for byte as it was). The ARM
-//   core's unit targets join from A1.
+//   registers against the profile's allowed differences), the ARM core's
+//   own targets (A1: its unit tests and the decoder against the oracle,
+//   the integer oracle, the loader, the address space and the PL011 against
+//   QEMU, the arm64 options) and, when something that feeds build/v86.wasm
+//   changed, core-split-check (P0.7: a change only to src/rust/aarch64/
+//   leaves v86.wasm byte for byte as it was).
 // make a64-gate-full, at a milestone's exit and when the owner runs it:
 //   the same, then the long reference runs (kvm-unit-tests arm64 at 4k, 16k
 //   and 64k, Alpine's initramfs and live stages on 1, 2 and 4 cores, all on
@@ -52,6 +54,10 @@ const steps = [
     { name: "float_convs, float_madds (QEMU)", command: ["node", "tests/a64/float_ref.mjs"], skip: no_qemu },
     { name: "platform probe (QEMU)", command: ["node", "tests/a64/platform_probe.mjs"], skip: no_qemu },
     { name: "ID registers against the profile (QEMU)", command: ["node", "tools/cpu_contract.mjs", "--a64-reference"], skip: no_qemu },
+    { name: "ARM core: unit tests, decoder (llvm-mc)", command: ["make", "--no-print-directory", "a64-decode-tests"], skip: llvm_mc ? null : "no llvm-mc" },
+    { name: "ARM core: integer oracle (QEMU)", command: ["make", "--no-print-directory", "a64-isa-tests"], skip: no_qemu },
+    { name: "ARM core: loader, address space, PL011 (QEMU)", command: ["make", "--no-print-directory", "a64-virt-device-tests"], skip: no_qemu },
+    { name: "ARM core: arm64 options", command: ["make", "--no-print-directory", "a64-api-tests"] },
     { name: "core-split-check (P0.7)", command: ["node", "tools/core_split_check.mjs", ...(base ? ["--base", base] : [])],
         skip: feeds_core || full ? null : "nothing that feeds build/v86.wasm changed" },
 ];

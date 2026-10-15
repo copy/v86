@@ -1326,3 +1326,60 @@ flowchart TD
   SW_TTBR0_PAN、PSEUDO_NMI 与 `kvm-arm.mode=protected` 维持附录 B 与风险表中的结论：没有 EL2 时 AVF 不可用；FEAT_PAN 仍是
   v2 候选，由 P9.3 的测量决定。
 - 在 A0 中 `v86.wasm` 不变（P0.7 的比较）。`make platform-contract-tests` 通过（14 个 x86 profile 加 a64-1、a64-4）。
+
+### A1（2026-10-15）
+
+- P1.0（`1ca41db1`）：一个 crate、两个核心。`lib.rs` 给 x86 模块挂 `cfg(not(feature = "aarch64"))`，核心的挂钩点统一叫
+  `crate::isa`（x86 核心是 `cpu::isa_hooks`，ARM 核心是 `aarch64::isa_hooks`），共享模块只经它接触 ISA；`state!` 宏、
+  `StateBlock` 与 `state_base` 移到 `crate::state_block`。`parallel.rs` 的 4 个挂钩点（set_active、attach、sync、poll）、
+  核编号、microtick、TSC 偏移导出与 `Registers` 移到挂钩点后面并 `#[inline(always)]`，x86 的 code 段因此不变：
+  `core-split-check` 报 3144 个函数中 0 个改变，只差 3 字节 panic 位置数据（评审原型是 10 字节）。
+  - 偏差：`jit.rs` 的 5 个 ISA 挂钩点没有做。J1a 先合入，`jitrt::watch` 已经是与 ISA 无关的监听器，ARM 核心的
+    `aarch64::root` 直接用它（初始化、脏页退役、清空都经 `jitrt`），x86 的 `jit.rs` 不动。
+  - 骨架核心 178 KB、2 个导入（评审原型 193 KB、3 个），实例化后导出 ISA 标记 `isa_aarch64`。`make jit-gate` 加入
+    `--features aarch64` 与 `aarch64,parallel` 两项无警告的 `cargo check` 以及 `tools/check_a64_imports.mjs`；后者也拒绝
+    `src/rust/aarch64/` 引用 `crate::jit` 等 x86 专用模块（J1a 已合入，过渡期的例外不再需要）。
+- P1.1（`49d3d3b4`）：组合校验在 `src/machine_options.js`，V86 构造函数与 `CPU.init` 各调一次。x86 与 x86_64 跑在
+  i440fx（缺省）与 q35 上，arm64 只跑在 virt（缺省）上；PC 机器的固件、磁盘、芯片组与 CPU 选项在 virt 上报错，
+  `kernel`、`dtb`、`virtio_disks` 在 PC 机器上报错；virt 没有 VGA、ACPI 与 NE2000（网卡缺省为 virtio）。
+  `tests/api/arm64-options.js` 进 `api-tests`，另由 `a64-api-tests` 单独运行。
+- P1.10（`e8038628`）：`CORE_STATISTICS`、挂起计数、flush、`note_halt` 等与 `core_statistics_*` 导出移到
+  `crate::core_stats`，两个核心都经它计数，`core_statistics_get(c, 0)` 仍是退役指令数。移动改变了被调函数的名字，
+  所以 `tools/wasm_diff.mjs` 学会配对移到别的模块的函数（记为 moved，对它的调用按旧名比较），导出按名字与目标比较：
+  x86 核心报 0 个改变，2230 个只是移位，2 个移动。
+- P1.4（`571260a0`）：ARM 状态块 1244 字节：X0–X30 与当前 SP（下标 31）在 64，PC 320，NZCV 328，PSTATE 332，
+  FPCR/FPSR 336/340，V0–V31 在 352；其后是 SP_EL0/1、EL1 系统寄存器、定时器、GIC CPU 接口、独占监视器、调试寄存器与等待
+  状态。生成 `src/rust/aarch64/state.rs` 与 `src/arm/state_layout.js`；x86 的生成结果不变，`state-layout-check` 覆盖两者。
+- P1.2、P1.3、P1.5–P1.9（`b8c25e12`）：
+  - AddressSpace（`src/rust/aarch64/bus.rs`）：40 位物理地址，RAM、ROM、MMIO（带 owner，可在 4 GiB 以上）与空洞，
+    generation 与映射变化钩子，code key，写入经 `jitrt::watch` 通知；1–16 字节事务与探测都不跨区域，跨区域的访问
+    什么也不写。cargo 测试含一次 jac 式填充。Bus 就绪清单的各项都已满足。
+  - `src/arm/cpu.js` 的 A64CPU；`src/main.js` 按核心家族构造 CPU；加载器按 cpu_type 选核心，回退只在同一家族内，
+    两个方向检查 ISA 标记，并检查 Rust 自身的表项都在 `WASM_TABLE_OFFSET` 之下；zstd worker 的桩按模块的导入表生成
+    （并行核心的共享内存也在内）。
+  - `dma_classify`、`physical_limit`、`powered_off` 是 CPU 的方法，virtio 经它们访问内存与上报关机；virtio 的中断经
+    `irq_line`（缺省 PCI INTx）。`src/io.js` 在所有构建下拒绝重叠的区间；virt 的 IO（`src/virt/io.js`）按精确的
+    64 位区间注册 1/2/4/8 字节处理函数。快照 state[103] 记 `["virt", VIRT_LAYOUT_VERSION, profile]`，两个方向互相拒绝。
+- P2.1、P2.2 的整数部分、P0.5 的 v86 端（`4be9f6f3`）：
+  - 解码器覆盖编码索引中 FP 与 AdvSIMD 以外的全部组；profile 外的编码 UNDEF。SYSL、DCPS1–3、DRPS 解码为指令，
+    执行时 UNDEF（不在 Debug 状态）。`tests/a64/decode_check.mjs`：347 万个字（系统、异常、分支寄存器、数据处理与
+    访存的全部字段组合，加 100 万个按高 8 位分层的随机字）与 llvm-mc 0 差异。llvm-mc 多认的几类已列出、按非指令处理：
+    op0 为 0x 的 MRS/MSR（寄存器形式）、mrrs/msrr/sysp/smstart/smstop 与 `msr PM, #`。
+  - 解释器：整数、分支、全部寻址方式的单寄存器与成对访存、独占（64 字节粒度）、acquire/release、CRC32、系统指令；
+    译码缓存按指令字重验；`interpret_one` 在故障前不写任何状态。`tests/a64/integer_oracle.mjs`：2,400 例 × 3 个种子
+    与 QEMU 0 差异。
+  - 偏差（写进允许差异）：MMU 关闭时 DC ZVA 按 Arm ARM 对 Device 内存产生对齐故障，QEMU 照常清零。
+  - 裸机运行库增加只用通用寄存器的构建（`general_regs_only`）：printf 保存 Q 寄存器要用 SIMD 的 STP，P2.5 之前的整数
+    测试用它。
+  - MMU（P3.4）与 GIC CPU 接口（P3.5）此时是桩：MMU 关闭的地址即物理地址。
+- P4.5 的最小 PL011（DR、FR、接收 FIFO，无中断）与 arm64 Image 加载器：`tests/a64/pl011_hello.mjs` 中第一段 A64 程序在
+  轮询 FR 的同时写 DR，QEMU 与 v86 的串口输出（`Hello from A64 through the PL011`）与结果块逐字一致（FR 的 TXFE/RXFE
+  为 0x90，PeriphID 为 0x41011）。`guest_runner.mjs` 两端都收集串口输出。
+- 本地门禁：`make a64-gate` 加入 ARM 核心自己的目标——`a64-decode-tests`（cargo 测试与解码对照）、`a64-isa-tests`
+  （整数对照）、`a64-virt-device-tests`（加载器、地址空间、PL011）与 `a64-api-tests`；全部通过。`address_space.mjs` 的空洞
+  地址从 0x0900_0000 改为 0x0B00_0000，因为 PL011 现在注册在前者。
+- x86（验收）：发布门禁 `R-x64-UP,R-x64-SMP,R-q35 --quick` 8 项通过；`highmem-tests`、`extended-memory-tests`、`api-tests`、
+  `state-layout-check`、`rust-test`（127 项）通过；`nasmtests-force-jit` 16,499/16,499；`core-split-check` 报 `v86.wasm` 与
+  `4be9f6f3` 逐字节一致（3,000,264 字节）。M1 存档（规则 6）：`vM1` 的核心（`build/wt-vm1`）启动 `linux.iso`，在 shell 循环
+  中途存档；当前构建恢复后循环跑完，新命令照常执行。
+- P1 的验收（A1 中 P1 的部分）至此完成，JIT 计划 J1b 的前提满足。
