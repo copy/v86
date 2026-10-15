@@ -119,7 +119,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   arm/state_layout.js
+	   arm/state_layout.js arm/cpu.js virt/platform.js virt/io.js
 LIB_FILES=9p.js filesystem.js marshall.js
 BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 	      network.js starter.js wasm_paths.js worker_bus.js state_stream_transport.js cpu_worker.js dummy_screen.js ansi_screen.js \
@@ -194,7 +194,7 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 .PHONY: graphics-adapters
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
 
-build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/browser/*.js lib/*.js
+build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	-ls -lh build/v86_all.js
 	java -jar $(CLOSURE) \
@@ -209,7 +209,7 @@ build/v86_all.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--js src/browser/main.js
 	ls -lh build/v86_all.js
 
-build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/browser/*.js lib/*.js
+build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/v86_all_debug.js\
@@ -222,7 +222,7 @@ build/v86_all_debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/para
 		--js $(BROWSER_FILES)\
 		--js src/browser/main.js
 
-build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js lib/*.js src/browser/*.js
+build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -237,7 +237,7 @@ build/libv86.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.
 		--js $(LIB_FILES)
 	ls -lh build/libv86.js
 
-build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js lib/*.js src/browser/*.js
+build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	java -jar $(CLOSURE) \
@@ -254,7 +254,7 @@ build/libv86.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*
 		--emit_use_strict=false
 	ls -lh build/libv86.mjs
 
-build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js lib/*.js src/browser/*.js
+build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.js\
@@ -269,7 +269,7 @@ build/libv86-debug.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/paral
 		--js $(LIB_FILES)
 	ls -lh build/libv86-debug.js
 
-build/libv86-debug.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js lib/*.js src/browser/*.js
+build/libv86-debug.mjs: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86-debug.mjs\
@@ -705,7 +705,7 @@ sse3-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v86-fal
 	node tests/rust/sse3.mjs build/v86-debug.wasm
 
 # Keep the worker's public option/event wire names stable across bundles.
-build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/browser/*.js lib/*.js
+build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
@@ -714,7 +714,7 @@ build/cpu-worker.js: $(GRAPHICS_ADAPTER_PLUGINS) $(CLOSURE) src/*.js src/paralle
 
 # The vCPU workers of the host-parallel build (src/parallel/vcpu.js), paired
 # with v86-parallel.wasm: `parallel: true` loads both next to the bundles
-build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/browser/*.js lib/*.js
+build/vcpu-worker.js: $(CLOSURE) src/*.js src/parallel/*.js src/arm/*.js src/virt/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
@@ -1006,6 +1006,7 @@ A64_PENDING = @echo "A64_PENDING $@: arrives with $(1) (docs/arm64-virt-android1
 	a64-android-prep-tests android-reference-tests android-guest-tests
 a64-decode-tests:
 	node tests/a64/oracle/decode.mjs --self-test
+	RUST_TEST_THREADS=1 cargo test --features aarch64 aarch64::
 	$(call A64_PENDING,P2.1 (the v86 decoder against the oracle))
 a64-isa-tests:
 	$(call A64_PENDING,A1)
@@ -1021,8 +1022,10 @@ a64-kvm-unit-tests:
 	$(call A64_PENDING,A2)
 a64-litmus-tests:
 	$(call A64_PENDING,A3)
-a64-virt-device-tests:
-	$(call A64_PENDING,A1)
+a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
+	node tests/a64/core_loader.mjs
+	node tests/a64/address_space.mjs
+	$(call A64_PENDING,A2 (DTB, PL011/PL031, timers) and A3 (device reset))
 # (api-tests' arm64 part)
 a64-api-tests:
 	$(call A64_PENDING,A1)

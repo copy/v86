@@ -252,7 +252,10 @@ export const STATICS = {
     // current core, the machine's core count, the yield flag of this
     // instance, guest RAM's base
     "aarch64/isa_hooks.rs": { CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_YIELD: "scratch" },
-    "aarch64/root.rs": { MEM8: "machine" },
+    // the address space (P1.5): RAM's size, the regions, the map's generation,
+    // guest memory, the status of the last read or write from JavaScript
+    "aarch64/root.rs": { TEST_RETIRED: "debug" },
+    "aarch64/bus.rs": { BUS: "machine", MEM8: "machine", MEM8_SIZE: "machine", MAP_CHANGED: "machine", STATUS: "scratch", LAST_WRITE: "debug" },
     "cpu/apic.rs": { APICS: "core", APIC_AUX: "core", CURRENT_CORE: "machine", CORE_COUNT: "machine", CORE_EVENTS: "machine", NMI_PENDING: "machine", SMI_PENDING: "machine" },
     "cpu/cpu.rs": {
         INTERPRETED: "debug", INTERPRETED_OFFSETS: "debug", INTERPRETED_PAGES: "debug", INTERPRETED_VEX: "debug", INTERPRETED_WATCH: "debug",

@@ -4,6 +4,7 @@
 //! the ISA-neutral modules (jitrt, wasmgen, leb, page, zstd, parallel, the
 //! state block) and names no x86 module (tools/check_a64_imports.mjs).
 
+pub mod bus;
 pub mod isa_hooks;
 pub mod root;
 pub mod state;

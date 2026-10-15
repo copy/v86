@@ -1,0 +1,521 @@
+//! The ARM core's physical address space (docs/arm64-virt-android16-plan.md
+//! P1.5; the JIT plan's `Bus`): 64-bit physical addresses up to the
+//! profile's 40 bits, guest RAM from 0x4000_0000 at backing offset 0 of
+//! guest memory (mem8), and regions of ROM (read-only backing), MMIO (with
+//! the owner that handles it, also above 4 GiB) and holes. Unlike the x86
+//! core's physical bus there is no VGA hole and no 4 GiB split; an access
+//! never spans regions (it faults instead, writing nothing).
+//!
+//! Every write to RAM goes through `write` or `written` (CPU stores, DC
+//! ZVA, store-exclusive, DMA, the loader and snapshot restore), which retire
+//! code compiled from the page (crate::jitrt::watch, and with cores in
+//! workers crate::parallel::code). A change of the map bumps the generation
+//! and drops all compiled code and cached translations.
+//!
+//! JavaScript passes 64-bit addresses as two 32-bit halves (low, high).
+
+use crate::page::Page;
+
+/// Guest RAM's base
+pub const RAM_BASE: u64 = 0x4000_0000;
+/// The physical address range of profile v86-aarch64-v1 (40 bits)
+pub const PA_LIMIT: u64 = 1 << 40;
+/// The largest access: a Q register (larger SIMD accesses are split into these)
+pub const MAX_ACCESS: u32 = 16;
+/// The largest probe (DC ZVA, an exclusive pair): one 64-byte granule
+pub const MAX_PROBE: u64 = 64;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Kind {
+    /// read-only backing at `backing` in guest memory
+    Rom { backing: u32 },
+    /// a device: its accesses go to the owner (src/virt), offset from the region's base
+    Mmio { owner: u32 },
+}
+
+/// What a physical address is
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Lookup {
+    /// guest memory at `backing` (RAM, or ROM when not `writable`); compiled
+    /// code from it is watched under `code_key`
+    Ram { backing: u32, code_key: u32, writable: bool },
+    Mmio { owner: u32, offset: u64 },
+    Hole,
+}
+
+/// A synchronous external abort or (beyond the PA range) an address size fault
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Fault {
+    External,
+    AddressSize,
+}
+
+#[derive(Clone, Copy)]
+struct Region {
+    base: u64,
+    size: u64,
+    kind: Kind,
+}
+
+pub struct AddressSpace {
+    ram_size: u64,
+    /// the non-RAM regions, sorted by base, not overlapping
+    regions: Vec<Region>,
+    generation: u32,
+}
+
+static mut BUS: AddressSpace = AddressSpace { ram_size: 0, regions: Vec::new(), generation: 0 };
+/// Guest memory's base in the Wasm memory (crate::aarch64::root's Env.mem8)
+pub static mut MEM8: *mut u8 = std::ptr::null_mut();
+/// The bytes of guest memory (RAM and the ROMs after it)
+pub static mut MEM8_SIZE: u32 = 0;
+
+#[inline(always)]
+pub fn bus() -> &'static AddressSpace { unsafe { &*(&raw const BUS) } }
+#[inline(always)]
+fn bus_mut() -> &'static mut AddressSpace { unsafe { &mut *(&raw mut BUS) } }
+
+impl AddressSpace {
+    #[inline(always)]
+    pub fn ram_size(&self) -> u64 { self.ram_size }
+    #[inline(always)]
+    pub fn generation(&self) -> u32 { self.generation }
+
+    /// What `pa` is
+    #[inline]
+    pub fn lookup(&self, pa: u64) -> Lookup {
+        let offset = pa.wrapping_sub(RAM_BASE);
+        if offset < self.ram_size {
+            return Lookup::Ram {
+                backing: offset as u32,
+                code_key: (offset >> 12) as u32,
+                writable: true,
+            };
+        }
+        match self.region_of(pa) {
+            Some(r) => match r.kind {
+                Kind::Rom { backing } => {
+                    let at = backing + (pa - r.base) as u32;
+                    Lookup::Ram { backing: at, code_key: at >> 12, writable: false }
+                },
+                Kind::Mmio { owner } => Lookup::Mmio { owner, offset: pa - r.base },
+            },
+            None => Lookup::Hole,
+        }
+    }
+
+    fn region_of(&self, pa: u64) -> Option<&Region> {
+        let i = self.regions.partition_point(|r| r.base <= pa);
+        let r = self.regions.get(i.checked_sub(1)?)?;
+        (pa - r.base < r.size).then_some(r)
+    }
+
+    /// The region (RAM, a ROM, a device) holding all of [pa, pa + len), or a
+    /// fault: a hole, beyond the PA range, or more than one region
+    pub fn span(&self, pa: u64, len: u64) -> Result<Lookup, Fault> {
+        debug_assert!(len >= 1);
+        let last = pa.checked_add(len - 1).ok_or(Fault::AddressSize)?;
+        if last >= PA_LIMIT {
+            return Err(Fault::AddressSize);
+        }
+        let first = self.lookup(pa);
+        let end = self.lookup(last);
+        match (first, end) {
+            (Lookup::Ram { backing: a, writable: wa, .. }, Lookup::Ram { backing: b, writable: wb, .. })
+                if wa == wb && b.wrapping_sub(a) as u64 == len - 1 =>
+            {
+                Ok(first)
+            },
+            (Lookup::Mmio { owner: a, offset: o }, Lookup::Mmio { owner: b, offset: p }) if a == b && p - o == len - 1 => {
+                Ok(first)
+            },
+            _ => Err(Fault::External),
+        }
+    }
+
+    /// The code key of the page `pa` is on, if it is guest memory
+    pub fn code_key(&self, pa: u64) -> Option<u32> {
+        match self.lookup(pa) {
+            Lookup::Ram { code_key, .. } => Some(code_key),
+            _ => None,
+        }
+    }
+
+    fn map(&mut self, base: u64, size: u64, kind: Kind) -> bool {
+        let Some(end) = base.checked_add(size) else { return false };
+        if size == 0 || end > PA_LIMIT {
+            return false;
+        }
+        // (not over RAM or another region)
+        if base < RAM_BASE + self.ram_size && end > RAM_BASE {
+            return false;
+        }
+        let i = self.regions.partition_point(|r| r.base < base);
+        if self.regions.get(i).is_some_and(|r| r.base < end)
+            || i > 0 && self.regions[i - 1].base + self.regions[i - 1].size > base
+        {
+            return false;
+        }
+        if let Kind::Rom { backing } = kind {
+            if backing as u64 + size > unsafe { MEM8_SIZE } as u64 {
+                return false;
+            }
+        }
+        self.regions.insert(i, Region { base, size, kind });
+        self.changed();
+        true
+    }
+
+    fn unmap(&mut self, base: u64) -> bool {
+        let Some(i) = self.regions.iter().position(|r| r.base == base) else { return false };
+        self.regions.remove(i);
+        self.changed();
+        true
+    }
+
+    /// The map changed: translations and compiled code that cached it go
+    fn changed(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        for hook in unsafe { &*(&raw const MAP_CHANGED) } {
+            hook();
+        }
+    }
+}
+
+/// Called when the map changes (the TLB, compiled code: crate::aarch64::root)
+static mut MAP_CHANGED: Vec<fn()> = Vec::new();
+pub fn on_map_changed(hook: fn()) { unsafe { (*(&raw mut MAP_CHANGED)).push(hook) } }
+
+#[cfg(target_arch = "wasm32")]
+mod js {
+    #[link(wasm_import_module = "env")]
+    extern "C" {
+        pub fn a64_mmio_read(owner: u32, offset: u64, size: u32) -> u64;
+        pub fn a64_mmio_write(owner: u32, offset: u64, size: u32, value: u64);
+    }
+}
+// (cargo test: a device that reads its offset and keeps the last write)
+#[cfg(not(target_arch = "wasm32"))]
+mod js {
+    pub static mut LAST_WRITE: (u32, u64, u32, u64) = (0, 0, 0, 0);
+    pub unsafe fn a64_mmio_read(owner: u32, offset: u64, size: u32) -> u64 {
+        offset ^ (owner as u64) << 32 ^ (size as u64) << 48
+    }
+    pub unsafe fn a64_mmio_write(owner: u32, offset: u64, size: u32, value: u64) {
+        LAST_WRITE = (owner, offset, size, value)
+    }
+}
+
+#[inline(always)]
+unsafe fn host(backing: u32) -> *mut u8 { MEM8.add(backing as usize) }
+
+/// A write reached guest memory at `backing` (len bytes, within one page or
+/// across pages): retire code compiled from the pages
+#[inline]
+pub fn written(backing: u32, len: u32) {
+    if len == 0 {
+        return;
+    }
+    let first = backing >> 12;
+    let last = (backing + (len - 1)) >> 12;
+    for page in first..=last {
+        if crate::aarch64::root::page_watched(page) {
+            let lo = if page == first { backing & 0xFFF } else { 0 };
+            let hi = if page == last { ((backing + (len - 1)) & 0xFFF) + 1 } else { 0x1000 };
+            crate::aarch64::root::dirty_bytes(Page::page_of(page << 12), lo, hi);
+        }
+    }
+}
+
+/// Read `size` bytes (1, 2, 4, 8) at `pa`, little-endian
+pub unsafe fn read(pa: u64, size: u32) -> Result<u64, Fault> {
+    debug_assert!(matches!(size, 1 | 2 | 4 | 8));
+    match bus().span(pa, size as u64)? {
+        Lookup::Ram { backing, .. } => {
+            let p = host(backing);
+            Ok(match size {
+                1 => crate::parallel::load8(p) as u64,
+                2 => crate::parallel::load16(p) as u64,
+                4 => crate::parallel::load32(p) as u64,
+                _ => crate::parallel::load64(p),
+            })
+        },
+        Lookup::Mmio { owner, offset } => Ok(js::a64_mmio_read(owner, offset, size)),
+        Lookup::Hole => Err(Fault::External),
+    }
+}
+
+/// Write `size` bytes (1, 2, 4, 8) at `pa`, little-endian; a write to ROM is ignored
+pub unsafe fn write(pa: u64, size: u32, value: u64) -> Result<(), Fault> {
+    debug_assert!(matches!(size, 1 | 2 | 4 | 8));
+    match bus().span(pa, size as u64)? {
+        Lookup::Ram { backing, writable, .. } => {
+            if writable {
+                let p = host(backing);
+                match size {
+                    1 => crate::parallel::store8(p, value as u8),
+                    2 => crate::parallel::store16(p, value as u16),
+                    4 => crate::parallel::store32(p, value as u32),
+                    _ => crate::parallel::store64(p, value),
+                }
+                written(backing, size);
+            }
+            Ok(())
+        },
+        Lookup::Mmio { owner, offset } => {
+            js::a64_mmio_write(owner, offset, size, value);
+            Ok(())
+        },
+        Lookup::Hole => Err(Fault::External),
+    }
+}
+
+/// Read a Q register's 16 bytes at `pa` (a device sees two 8-byte reads)
+pub unsafe fn read128(pa: u64) -> Result<u128, Fault> {
+    match bus().span(pa, 16)? {
+        Lookup::Ram { backing, .. } => {
+            let [lo, hi] = crate::parallel::load128(host(backing));
+            Ok(lo as u128 | (hi as u128) << 64)
+        },
+        Lookup::Mmio { owner, offset } => {
+            let lo = js::a64_mmio_read(owner, offset, 8);
+            let hi = js::a64_mmio_read(owner, offset + 8, 8);
+            Ok(lo as u128 | (hi as u128) << 64)
+        },
+        Lookup::Hole => Err(Fault::External),
+    }
+}
+
+/// Write a Q register's 16 bytes at `pa`, all or nothing
+pub unsafe fn write128(pa: u64, value: u128) -> Result<(), Fault> {
+    match bus().span(pa, 16)? {
+        Lookup::Ram { backing, writable, .. } => {
+            if writable {
+                crate::parallel::store128(host(backing), [value as u64, (value >> 64) as u64]);
+                written(backing, 16);
+            }
+            Ok(())
+        },
+        Lookup::Mmio { owner, offset } => {
+            js::a64_mmio_write(owner, offset, 8, value as u64);
+            js::a64_mmio_write(owner, offset + 8, 8, (value >> 64) as u64);
+            Ok(())
+        },
+        Lookup::Hole => Err(Fault::External),
+    }
+}
+
+/// Whether [pa, pa + len) (at most 64 bytes) is one region of guest memory
+/// that may be written, where (DC ZVA, a store-exclusive pair) an access
+/// completes at once: its backing
+pub fn probe_writable(pa: u64, len: u64) -> Result<Option<u32>, Fault> {
+    debug_assert!(len >= 1 && len <= MAX_PROBE);
+    Ok(match bus().span(pa, len)? {
+        Lookup::Ram { backing, writable: true, .. } => Some(backing),
+        Lookup::Hole => return Err(Fault::External),
+        _ => None,
+    })
+}
+
+const fn pa(low: u32, high: u32) -> u64 { low as u64 | (high as u64) << 32 }
+
+/// Guest memory of `size` bytes (RAM first, then any ROM backing): its
+/// address in the Wasm memory. Once, before the RAM is mapped.
+#[no_mangle]
+pub unsafe fn a64_allocate_memory(size: u32) -> u32 {
+    assert!(MEM8.is_null(), "a64_allocate_memory: already allocated");
+    let memory = vec![0u8; size as usize].leak();
+    MEM8 = memory.as_mut_ptr();
+    MEM8_SIZE = size;
+    MEM8 as u32
+}
+
+/// RAM of `size` bytes at 0x4000_0000, backed by the start of guest memory
+#[no_mangle]
+pub unsafe fn a64_bus_set_ram(size: u32) -> bool {
+    if size > MEM8_SIZE || bus().regions.iter().any(|r| r.base < RAM_BASE + size as u64 && r.base + r.size > RAM_BASE) {
+        return false;
+    }
+    let b = bus_mut();
+    b.ram_size = size as u64;
+    b.changed();
+    true
+}
+
+/// Map a device's registers (`owner`, src/virt) at [base, base + size)
+#[no_mangle]
+pub unsafe fn a64_bus_map_mmio(base_low: u32, base_high: u32, size_low: u32, size_high: u32, owner: u32) -> bool {
+    bus_mut().map(pa(base_low, base_high), pa(size_low, size_high), Kind::Mmio { owner })
+}
+/// Map read-only guest memory at [base, base + size), from `backing`
+#[no_mangle]
+pub unsafe fn a64_bus_map_rom(base_low: u32, base_high: u32, size_low: u32, size_high: u32, backing: u32) -> bool {
+    bus_mut().map(pa(base_low, base_high), pa(size_low, size_high), Kind::Rom { backing })
+}
+/// Unmap the region at `base`
+#[no_mangle]
+pub unsafe fn a64_bus_unmap(base_low: u32, base_high: u32) -> bool { bus_mut().unmap(pa(base_low, base_high)) }
+#[no_mangle]
+pub fn a64_bus_generation() -> u32 { bus().generation() }
+
+/// What `pa` is: 0 a hole, 1 RAM, 2 ROM, 3 MMIO (a64_bus_lookup_detail: the
+/// backing or the owner)
+#[no_mangle]
+pub fn a64_bus_lookup(pa_low: u32, pa_high: u32) -> u32 {
+    match bus().lookup(pa(pa_low, pa_high)) {
+        Lookup::Hole => 0,
+        Lookup::Ram { writable: true, .. } => 1,
+        Lookup::Ram { .. } => 2,
+        Lookup::Mmio { .. } => 3,
+    }
+}
+#[no_mangle]
+pub fn a64_bus_lookup_detail(pa_low: u32, pa_high: u32) -> f64 {
+    match bus().lookup(pa(pa_low, pa_high)) {
+        Lookup::Hole => -1.0,
+        Lookup::Ram { backing, .. } => backing as f64,
+        Lookup::Mmio { owner, .. } => owner as f64,
+    }
+}
+/// The code key of `pa`'s page, -1 when it is not guest memory
+#[no_mangle]
+pub fn a64_bus_code_key(pa_low: u32, pa_high: u32) -> i32 {
+    bus().code_key(pa(pa_low, pa_high)).map_or(-1, |key| key as i32)
+}
+
+/// A read through the bus (tests, the debugger): the value, or with
+/// a64_bus_status 1 an external abort, 2 an address size fault
+static mut STATUS: u32 = 0;
+#[no_mangle]
+pub fn a64_bus_status() -> u32 { unsafe { STATUS } }
+fn status(result: Result<(), Fault>) {
+    unsafe {
+        STATUS = match result {
+            Ok(()) => 0,
+            Err(Fault::External) => 1,
+            Err(Fault::AddressSize) => 2,
+        }
+    }
+}
+#[no_mangle]
+pub unsafe fn a64_bus_read(pa_low: u32, pa_high: u32, size: u32) -> u64 {
+    let result = read(pa(pa_low, pa_high), size);
+    status(result.map(|_| ()));
+    result.unwrap_or(0)
+}
+#[no_mangle]
+pub unsafe fn a64_bus_write(pa_low: u32, pa_high: u32, size: u32, value: u64) -> u32 {
+    status(write(pa(pa_low, pa_high), size, value));
+    STATUS
+}
+/// JavaScript wrote guest memory at [backing, backing + len) (the loader,
+/// snapshot restore, a device's DMA): retire code compiled from it
+#[no_mangle]
+pub fn a64_bus_written(backing: u32, len: u32) { written(backing, len) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    unsafe fn setup(ram: u32, extra: u32) {
+        let b = bus_mut();
+        b.regions.clear();
+        b.ram_size = 0;
+        MEM8 = std::ptr::null_mut();
+        a64_allocate_memory(ram + extra);
+        assert!(a64_bus_set_ram(ram));
+    }
+
+    #[test]
+    fn address_space() {
+        unsafe {
+            setup(1 << 20, 0x10000);
+            let b = bus();
+            assert_eq!(b.lookup(RAM_BASE), Lookup::Ram { backing: 0, code_key: 0, writable: true });
+            assert_eq!(b.lookup(RAM_BASE + 0x1234), Lookup::Ram { backing: 0x1234, code_key: 1, writable: true });
+            assert_eq!(b.lookup(RAM_BASE + (1 << 20)), Lookup::Hole);
+            assert_eq!(b.lookup(0), Lookup::Hole);
+            // a 0x200 window inside a 128 KiB block, and devices above 4 GiB
+            let generation = b.generation();
+            assert!(a64_bus_map_mmio(0x0a00_0200, 0, 0x200, 0, 7));
+            assert!(a64_bus_map_mmio(0x0a00_0400, 0, 0x200, 0, 8));
+            assert!(a64_bus_map_mmio(0x1000_0000, 0x40, 0x1000_0000, 0, 9));
+            assert!(a64_bus_map_mmio(0, 0x80, 0x1000, 0, 10));
+            assert_ne!(b.generation(), generation);
+            assert!(!a64_bus_map_mmio(0x0a00_0300, 0, 0x200, 0, 11), "overlap");
+            assert!(!a64_bus_map_mmio(0x4000_0000, 0, 0x1000, 0, 11), "over RAM");
+            assert!(!a64_bus_map_mmio(0, 0x100, 0x1000, 0, 11), "beyond 40 bits");
+            assert_eq!(b.lookup(0x0a00_01ff), Lookup::Hole);
+            assert_eq!(b.lookup(0x0a00_0200), Lookup::Mmio { owner: 7, offset: 0 });
+            assert_eq!(b.lookup(0x0a00_03ff), Lookup::Mmio { owner: 7, offset: 0x1ff });
+            assert_eq!(b.lookup(0x0a00_0400), Lookup::Mmio { owner: 8, offset: 0 });
+            assert_eq!(b.lookup(0x40_1000_0010), Lookup::Mmio { owner: 9, offset: 0x10 });
+            assert_eq!(b.lookup(0x80_0000_0fff), Lookup::Mmio { owner: 10, offset: 0xfff });
+            // 16-bit and 64-bit device accesses
+            assert_eq!(read(0x0a00_0204, 2), Ok(0x4 ^ 7 << 32 ^ 2 << 48));
+            write(0x80_0000_0008, 8, 0x1122_3344_5566_7788).unwrap();
+            assert_eq!(*&raw const js::LAST_WRITE, (10, 8, 8, 0x1122_3344_5566_7788));
+            // RAM
+            write(RAM_BASE + 8, 8, 0x0102_0304_0506_0708).unwrap();
+            assert_eq!(read(RAM_BASE + 8, 4), Ok(0x0506_0708));
+            assert_eq!(read(RAM_BASE + 12, 2), Ok(0x0304));
+            write128(RAM_BASE + 0x100, 0xAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111).unwrap();
+            assert_eq!(read128(RAM_BASE + 0x100), Ok(0xAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111));
+            // an access over the end of RAM faults and writes nothing
+            let end = RAM_BASE + (1 << 20);
+            write(end - 8, 8, 0).unwrap();
+            assert_eq!(write(end - 4, 8, u64::MAX), Err(Fault::External));
+            assert_eq!(read(end - 8, 8), Ok(0));
+            assert_eq!(read(0x0a00_03fe, 4), Err(Fault::External), "across two devices");
+            assert_eq!(read(1 << 40, 1), Err(Fault::AddressSize));
+            assert_eq!(read(0x0900_0000, 4), Err(Fault::External));
+            // ROM: reads its backing, ignores writes; its own code keys
+            assert!(a64_bus_map_rom(0, 0, 0x10000, 0, 1 << 20));
+            *MEM8.add((1 << 20) + 4) = 0x5a;
+            assert_eq!(read(4, 1), Ok(0x5a));
+            write(4, 1, 0).unwrap();
+            assert_eq!(read(4, 1), Ok(0x5a));
+            assert_eq!(b.code_key(0x2000), Some(((1 << 20) + 0x2000) >> 12));
+            assert_eq!(b.code_key(0x0a00_0200), None);
+            // probes
+            assert_eq!(probe_writable(RAM_BASE + 0x40, 64), Ok(Some(0x40)));
+            assert_eq!(probe_writable(0x40, 64), Ok(None));
+            assert_eq!(probe_writable(end - 32, 64), Err(Fault::External));
+            assert!(a64_bus_unmap(0x0a00_0200, 0));
+            assert_eq!(b.lookup(0x0a00_0200), Lookup::Hole);
+        }
+    }
+
+    /// A fill of a page-function access cache (the JIT plan's jac, as
+    /// x64::pages::x64_page_access does): a guest page resolved to a host
+    /// pointer and a code key, valid while the generation stays
+    #[test]
+    fn access_cache_fill() {
+        unsafe {
+            setup(1 << 16, 0);
+            struct Entry {
+                page: u64,
+                host: *mut u8,
+                code_key: u32,
+                generation: u32,
+            }
+            let fill = |pa: u64| match bus().span(pa & !0xFFF, 0x1000) {
+                Ok(Lookup::Ram { backing, code_key, writable: true }) => Some(Entry {
+                    page: pa & !0xFFF,
+                    host: host(backing),
+                    code_key,
+                    generation: bus().generation(),
+                }),
+                _ => None,
+            };
+            let entry = fill(RAM_BASE + 0x3008).unwrap();
+            assert_eq!(entry.page, RAM_BASE + 0x3000);
+            assert_eq!(entry.code_key, 3);
+            *entry.host.add(8) = 0x77;
+            assert_eq!(read(RAM_BASE + 0x3008, 1), Ok(0x77));
+            assert!(fill(0x0900_0000).is_none());
+            a64_bus_map_mmio(0x0900_0000, 0, 0x1000, 0, 1);
+            assert_ne!(entry.generation, bus().generation(), "the map changed: the entry is stale");
+        }
+    }
+}

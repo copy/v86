@@ -13,11 +13,16 @@ pub(crate) static mut CORE_COUNT: usize = 1;
 /// Set by parallel::kick: leave the current slice
 pub(crate) static mut CORE_YIELD: u8 = 0;
 
+#[cfg(target_arch = "wasm32")]
 mod js {
     #[link(wasm_import_module = "env")]
     extern "C" {
         pub fn microtick() -> f64;
     }
+}
+#[cfg(not(target_arch = "wasm32"))]
+mod js {
+    pub unsafe fn microtick() -> f64 { 0.0 }
 }
 
 #[inline(always)]

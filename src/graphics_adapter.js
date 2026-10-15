@@ -359,6 +359,9 @@ GraphicsAdapter.prototype.create_handle = function()
             else io.register_write_consecutive(port, owner, w8_1, w8_2);
         },
         "mmap_register": (address, size, r8, w8, r32, w32) => io.mmap_register(address, size, r8, w8, r32, w32),
+        // an exact range inside a 128 KiB block (docs/arm64-virt-android16-plan.md P1.7)
+        "mmap_register_range": (address, size, r8, w8, r32, w32) => io.mmap_register_range(address, size, owner, r8, w8, r32, w32),
+        "mmap_unregister_range": (address, size) => io.mmap_unregister_range(address, size, owner),
         "allocate_io": size => this.allocate_io(size),
 
         "mmio_ram_allocate": size => cpu.mmio_ram_allocate(size),

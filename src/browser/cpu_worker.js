@@ -32,7 +32,8 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
             if(!plugin["worker_script"]) throw new Error("CPU Worker: " + plugin["name"] + " has no worker_script for its device");
             return { "name": plugin["name"], "script": new URL(plugin["worker_script"], location.href).href };
         }),
-        "wasm_path": new URL(o.wasm_path || "build/v86.wasm", location.href).href,
+        // (the core of the CPU's family: docs/arm64-virt-android16-plan.md P1.3)
+        "wasm_path": new URL(o.wasm_path || (o["cpu_type"] === "arm64" ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
         "wasm_fallback_path": o["wasm_fallback_path"] && new URL(o["wasm_fallback_path"], location.href).href,
         // (cores in vCPU workers, which this worker starts: absolute URLs)
         "parallel": o["parallel"],

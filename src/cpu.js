@@ -388,6 +388,56 @@ CPU.prototype.read_blob = function(offset, length)
     return this.mem8.subarray(offset, offset + length);
 };
 
+// Legacy VGA memory and the BIOS ROMs, never RAM for a device
+const LEGACY_HOLE_START = 0xA0000;
+const LEGACY_HOLE_END = 0x100000;
+const PAGE_SIZE = 4096;
+// x64_phys_kind
+const PHYS_KIND_RAM = 1;
+const PHYS_KIND_EXTENDED = 3;
+
+/** The end of the physical address space: the 36-bit bus */
+CPU.prototype.physical_limit = 0x1000000000;
+
+/**
+ * Where a device's DMA to [address, address + length) goes (the machine's
+ * DMA facade, docs/arm64-virt-android16-plan.md P1.6)
+ * @param {number} address
+ * @param {number} length
+ * @return {number} the offset of one contiguous plain-RAM backing,
+ *     -1 for other RAM, -2 for anything that is not RAM
+ */
+CPU.prototype.dma_classify = function(address, length)
+{
+    if(!Number.isSafeInteger(address) || !Number.isSafeInteger(length) || address < 0 || length <= 0 ||
+        address + length > this.physical_limit ||
+        address < LEGACY_HOLE_END && address + length > LEGACY_HOLE_START)
+    {
+        return -2;
+    }
+
+    const kind = this.wm.exports["x64_phys_kind"];
+    const resolve = this.wm.exports["x64_phys_resolve"];
+    const first = resolve(address >>> 0, Math.floor(address / 0x100000000));
+    let contiguous = first >= 0;
+
+    for(let page = address - address % PAGE_SIZE; page < address + length; page += PAGE_SIZE)
+    {
+        const low = page >>> 0;
+        const high = Math.floor(page / 0x100000000);
+        const page_kind = kind(low, high);
+        if(page_kind !== PHYS_KIND_RAM && page_kind !== PHYS_KIND_EXTENDED) return -2;
+        // (extended RAM frames are cached, never a view)
+        if(contiguous && (page_kind !== PHYS_KIND_RAM ||
+            page > address && resolve(low, high) !== first + (page - address)))
+        {
+            contiguous = false;
+        }
+    }
+
+    return contiguous ? first : -1;
+};
+
 /** Validate a complete 36-bit DMA range without reading any device. */
 CPU.prototype.validate_physical_range = function(address, length)
 {
@@ -1635,6 +1685,16 @@ CPU.prototype.core_runnable = function(core)
  * budgets bound host work; deterministic time separately counts committed work.
  * @return {number} milliseconds until the machine needs to run again
  */
+/**
+ * Whether the guest turned the machine off (ACPI S5 or S4): the machine's
+ * power hook (src/main.js; docs/arm64-virt-android16-plan.md P1.8)
+ * @return {boolean}
+ */
+CPU.prototype.powered_off = function()
+{
+    return !!this.devices?.acpi?.soft_off;
+};
+
 CPU.prototype.run_cores = function()
 {
     if(this.parallel)

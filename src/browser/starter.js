@@ -120,6 +120,28 @@ function create_local_channel()
 }
 
 /**
+ * Check a loaded core (docs/arm64-virt-android16-plan.md P1.3): the ARM core
+ * exports the ISA marker isa_aarch64, the x86 core does not, and the core's
+ * own table entries end below WASM_TABLE_OFFSET, where compiled code's begin
+ * @param {!Object} exports
+ * @param {string} cpu_type
+ * @param {WebAssembly.Table} wasm_table
+ */
+function check_core(exports, cpu_type, wasm_table)
+{
+    const arm = !!exports["isa_aarch64"];
+    if(arm !== (cpu_type === "arm64"))
+    {
+        throw new Error("The Wasm core is the " + (arm ? "ARM" : "x86") + " core (" + (arm ? "v86-arm64.wasm" : "v86.wasm") +
+            "), cpu_type is \"" + cpu_type + "\": wasm_path names the wrong file");
+    }
+    if(wasm_table && wasm_table.length > WASM_TABLE_OFFSET && wasm_table.get(WASM_TABLE_OFFSET - 1) !== null)
+    {
+        throw new Error("The Wasm core's own table entries reach WASM_TABLE_OFFSET (" + WASM_TABLE_OFFSET + "): raise it in src/const.js");
+    }
+}
+
+/**
  * Constructor for emulator instances.
  *
  * For API usage, see v86.d.ts in the root of this repository.
@@ -185,9 +207,14 @@ export function V86(options)
     this.parallel_forced = parallel_option === true;
     this.parallel_requested = false;
     this.parallel_fallback = "not requested";
+    if(this.cpu_type === "arm64" && parallel_option === true)
+    {
+        throw new Error("parallel: true is not supported with cpu_type \"arm64\" yet (docs/arm64-virt-android16-plan.md P8.2)");
+    }
     if(parallel_option === true || parallel_option === "auto")
     {
-        const reason = (options.cpu_cores || 1) <= 1 ? "one core" :
+        const reason = this.cpu_type === "arm64" ? "arm64: cores in workers come with P8.2" :
+            (options.cpu_cores || 1) <= 1 ? "one core" :
             options.cpu_clock && options.cpu_clock["mode"] === "deterministic" ? "deterministic clock" :
             parallel_unsupported_reason(options.cpu_cores);
         if(!reason || this.parallel_forced) this.parallel_requested = true;
@@ -241,6 +268,9 @@ export function V86(options)
 
         // v86-parallel.wasm: wake a vCPU waiting on a word of the shared memory
         "parallel_notify": address => { Atomics.notify(new Int32Array(wasm_memory.buffer), address >>> 2); },
+        // the ARM core: device registers of the virt machine (src/virt/io.js)
+        "a64_mmio_read": (owner, offset, width) => cpu.io.mmio_read(owner, offset, width),
+        "a64_mmio_write": (owner, offset, width, value) => { cpu.io.mmio_write(owner, offset, width, value); },
         // extended RAM pages (src/extended_memory.js)
         "extended_load": (page, pointer) => { cpu.extended_store.load(page, wasm_memory, pointer); },
         "extended_store": (page, pointer) => { cpu.extended_store.store(page, wasm_memory, pointer); },
@@ -258,8 +288,12 @@ export function V86(options)
             /* global __dirname */
 
             return new Promise(resolve => {
-                let v86_bin = DEBUG ? "v86-debug.wasm" : "v86.wasm";
-                let v86_bin_fallback = "v86-fallback.wasm";
+                // the core of the CPU's family (docs/arm64-virt-android16-plan.md
+                // P1.3): the ARM core for arm64, the x86 core otherwise; the
+                // fallback stays in the family
+                const arm = this.cpu_type === "arm64";
+                let v86_bin = arm ? (DEBUG ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") : DEBUG ? "v86-debug.wasm" : "v86.wasm";
+                let v86_bin_fallback = arm ? "v86-arm64-fallback.wasm" : "v86-fallback.wasm";
                 // cores in vCPU workers need the relocatable build (src/parallel);
                 // "auto" falls back to the cooperative build
                 if(this.parallel_requested)
@@ -344,6 +378,7 @@ export function V86(options)
     Promise.resolve().then(() => wasm_fn({ "env": wasm_shared_funcs }))
         .then((exports) => {
             if(this.destroyed) return;
+            check_core(exports, this.cpu_type, wasm_table);
             wasm_memory = exports.memory;
             exports["rust_init"]();
 
@@ -474,7 +509,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
     // Enable unconditionally, so that state images don't miss hardware
     // TODO: Should be properly fixed in restore_state
-    settings.net_device = options.net_device || { type: "ne2k" };
+    settings.net_device = options.net_device || { type: this.cpu_type === "arm64" ? "virtio" : "ne2k" };
 
     // built-in devices behind PCI Express root ports (machine_type "q35"):
     // pcie_root_port of their options, and pcie_plugged (false: the slot
@@ -1036,30 +1071,72 @@ V86.prototype.zstd_decompress_worker = async function(decompressed_size, src)
         {
             let wasm;
 
+            // The limits of the imported table and memory (the import section)
+            function import_limits(bytes)
+            {
+                let at = 8;
+                const uleb = () => { let result = 0, shift = 0, byte; do { byte = bytes[at++]; result += (byte & 0x7F) * 2 ** shift; shift += 7; } while(byte & 0x80); return result; };
+                const name = () => { const n = uleb(); at += n; };
+                const result = { table: 0, memory: null };
+                while(at < bytes.length)
+                {
+                    const id = bytes[at++], size = uleb(), end = at + size;
+                    if(id === 2)
+                    {
+                        for(let count = uleb(); count--;)
+                        {
+                            name(); name();
+                            const kind = bytes[at++];
+                            if(kind === 0) uleb();
+                            else if(kind === 1) { at++; const flags = uleb(); result.table = uleb(); if(flags & 1) uleb(); }
+                            else if(kind === 2) { const flags = uleb(); const initial = uleb(); const maximum = flags & 1 ? uleb() : undefined; result.memory = { initial, maximum, shared: !!(flags & 2) }; }
+                            else if(kind === 3) at += 2;
+                        }
+                        return result;
+                    }
+                    at = end;
+                }
+                return result;
+            }
+
             globalThis.onmessage = function(e)
             {
                 if(!wasm)
                 {
-                    const env = Object.fromEntries([
-                        "cpu_exception_hook", "run_hardware_timers",
-                        "cpu_event_halt", "microtick", "get_rand_int", "stop_idling",
-                        "io_port_read8", "io_port_read16", "io_port_read32",
-                        "io_port_write8", "io_port_write16", "io_port_write32",
-                        "mmap_read8", "mmap_read32",
-                        "mmap_write8", "mmap_write16", "mmap_write32", "mmap_write64", "mmap_write128",
-                        "jit_clear_func",
-                        "x64_native_discard", "x64_page_publish", "jit_publish",
-                        "extended_load", "extended_store",
-                    ].map(f => [f, () => console.error("zstd worker unexpectedly called " + f)]));
-
-                    env["__indirect_function_table"] = new WebAssembly.Table({ element: "anyfunc", initial: 1024 });
+                    // Every import of the core (whichever it is: x86 or ARM,
+                    // cooperative or parallel) gets a stand-in: functions
+                    // that must not run, the table and memory with the
+                    // limits the module declares (the parallel core imports
+                    // a shared memory)
+                    const module = new WebAssembly.Module(e.data);
+                    const limits = import_limits(new Uint8Array(e.data));
+                    const env = {};
+                    let memory = null;
+                    for(const { name, kind } of WebAssembly.Module.imports(module))
+                    {
+                        if(kind === "function")
+                        {
+                            env[name] = () => console.error("zstd worker unexpectedly called " + name);
+                        }
+                        else if(kind === "table")
+                        {
+                            env[name] = new WebAssembly.Table({ element: "anyfunc", initial: limits.table || 0 });
+                        }
+                        else if(kind === "memory")
+                        {
+                            const m = limits.memory;
+                            env[name] = memory = new WebAssembly.Memory(m.shared ?
+                                { initial: m.initial, maximum: m.maximum, shared: true } : { initial: m.initial });
+                        }
+                    }
                     env["abort"] = () => { throw new Error("zstd worker aborted"); };
                     env["log_from_wasm"] = env["console_log_from_wasm"] = (off, len) => {
-                        console.log(read_sized_string_from_mem(wasm.exports.memory.buffer, off, len));
+                        console.log(read_sized_string_from_mem((memory || wasm.exports.memory).buffer, off, len));
                     };
                     env["dbg_trace_from_wasm"] = () => console.trace();
 
-                    wasm = new WebAssembly.Instance(new WebAssembly.Module(e.data), { "env": env });
+                    const instance = new WebAssembly.Instance(module, { "env": env });
+                    wasm = { exports: memory && !instance.exports.memory ? Object.assign({ memory }, instance.exports) : instance.exports };
                     return;
                 }
 
@@ -1244,7 +1321,8 @@ V86.prototype.power_state = async function()
 {
     if(this.worker_controller) return this.worker_controller.rpc("power_state");
     const acpi = this.v86.cpu.devices.acpi;
-    if(!acpi) return "S0";
+    // (the virt machine: PSCI SYSTEM_OFF, the machine's power hook)
+    if(!acpi) return this.v86.cpu.powered_off() ? "S5" : "S0";
     return acpi.sleeping ? "S3" : acpi.soft_off ? "S" + acpi.soft_off : "S0";
 };
 
@@ -2246,8 +2324,10 @@ V86.prototype.write_memory = function(blob, offset)
  */
 V86.prototype.read_memory_chunks = async function*(offset, length, chunk_size = 1024 * 1024)
 {
-    if(!Number.isSafeInteger(offset) || offset < 0 || offset >= 0x1000000000 ||
-        !Number.isSafeInteger(length) || length < 0 || offset + length > 0x1000000000 ||
+    // (the machine's physical address space: 36 bits on the PC machines, 40 on virt)
+    const limit = this.cpu_type === "arm64" ? 0x10000000000 : 0x1000000000;
+    if(!Number.isSafeInteger(offset) || offset < 0 || offset >= limit ||
+        !Number.isSafeInteger(length) || length < 0 || offset + length > limit ||
         !Number.isInteger(chunk_size) || chunk_size < 1 || chunk_size > 16 * 1024 * 1024)
         throw new RangeError("Invalid physical range or chunk size");
     for(let done = 0; done < length; done += chunk_size)

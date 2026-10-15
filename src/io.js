@@ -365,8 +365,22 @@ IO.prototype.mmap_register_range = function(addr, size, owner, read8, write8, re
     }
 
     const range = { start: addr, end: addr + size, owner, read8, write8, read32, write32 };
+    const first = addr >>> MMAP_BLOCK_BITS, last = addr + size - 1 >>> MMAP_BLOCK_BITS;
 
-    for(let block = addr >>> MMAP_BLOCK_BITS; block <= addr + size - 1 >>> MMAP_BLOCK_BITS; block++)
+    // (an error in every build, before anything is mapped: the later range
+    // would shadow part of the earlier one; docs/arm64-virt-android16-plan.md P1.7)
+    for(let block = first; block <= last; block++)
+    {
+        for(const other of this.mmio_blocks.get(block)?.ranges || [])
+        {
+            if(!(other.end <= range.start || range.end <= other.start))
+            {
+                throw new Error("MMIO range " + h(addr, 8) + " (" + owner.name + ") overlaps " + h(other.start, 8) + " (" + other.owner.name + ")");
+            }
+        }
+    }
+
+    for(let block = first; block <= last; block++)
     {
         let shared = this.mmio_blocks.get(block);
         if(!shared)
@@ -379,11 +393,6 @@ IO.prototype.mmap_register_range = function(addr, size, owner, read8, write8, re
             };
             this.mmio_blocks.set(block, shared);
             this.install_block_dispatch(block, shared);
-        }
-        for(const other of shared.ranges)
-        {
-            dbg_assert(other.end <= range.start || range.end <= other.start,
-                "MMIO range " + h(addr, 8) + " (" + owner.name + ") overlaps " + h(other.start, 8) + " (" + other.owner.name + ")");
         }
         shared.ranges.push(range);
     }
