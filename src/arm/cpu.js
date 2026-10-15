@@ -334,12 +334,36 @@ A64CPU.prototype.load_core_state = function(saved)
     }
 };
 
+/**
+ * Run `f` with each core (or only `only`) switched in, between slices; the
+ * running core is the same afterwards
+ * @param {function(number):*} f
+ * @param {number=} only
+ * @return {!Array<*>}
+ */
+A64CPU.prototype.each_core = function(f, only)
+{
+    const exports = this.wm.exports;
+    const running = exports["a64_current_core"]();
+    const results = [];
+    for(let core = 0; core < this.cores; core++)
+    {
+        if(only !== undefined && core !== only) continue;
+        exports["a64_switch_core"](core);
+        results.push(f(core));
+    }
+    exports["a64_switch_core"](running);
+    return results;
+};
+
 A64CPU.prototype.get_state = function(skip_memory = false)
 {
     const state = [];
     state[0] = this.memory_size[0];
     state[1] = this.cores;
-    state[2] = [this.save_core_state()];
+    // (every core's state block, P3.9: each switched in for a moment; then the running one again)
+    state[2] = this.each_core(() => this.save_core_state());
+    state[3] = this.wm.exports["a64_current_core"]();
     // the machine (P3.10): the devices, the GIC and the cores' power states (bytes of the core), the boot
     state[4] = DEVICE_ORDER.map(name => this.devices[name] ? this.devices[name].get_state() : null);
     state[5] = this.machine_state_bytes(0).slice();
@@ -391,7 +415,8 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
 {
     this.validate_state(state);
     if(state[95]) this.clock.set_state(state[95]);
-    this.load_core_state(state[2][0]);
+    state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved), core));
+    this.wm.exports["a64_switch_core"](state[3] || 0);
     (state[4] || []).forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
     if(state[5]) this.machine_state_bytes(0).set(state[5]);
     if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
@@ -453,11 +478,27 @@ A64CPU.prototype.zstd_read_free = function(ptr, length) { return this.wm.exports
 
 A64CPU.prototype.get_diagnostics = function()
 {
+    const exports = this.wm.exports;
+    const power = ["on", "off", "on-pending"];
+    const psci = this.machine_state_bytes(1);
+    const cores = this.each_core(core => {
+        const word = offset => new Int32Array(this.wasm_memory.buffer, this.state_base + offset, 1)[0];
+        const waiting = word(STATE_OFFSETS.waiting);
+        return {
+            "pc": this.read_pc(),
+            "state": power[psci[core]] === "on" ? ["runnable", "wfi", "wfe", "off"][waiting] : power[psci[core]],
+            "el": word(STATE_OFFSETS.pstate) >> 2 & 3,
+            "retired_instructions": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 0) : 0,
+            "halt_count": exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
+        };
+    });
     return {
         "cpu_type": "arm64",
         "machine_type": "virt",
+        "active_core": exports["a64_current_core"](),
+        "cores": cores,
         "pc": this.read_pc(),
-        "retired": this.wm.exports["core_statistics_get"] ? this.wm.exports["core_statistics_get"](0, 0) : 0,
+        "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
     };
 };

@@ -14,7 +14,10 @@
 // rest of the 2^32 space. --no-fp-simd leaves out the FP and SIMD groups
 // (as A1's decoder, which had none, was checked).
 //
-//   node tests/a64/decode_check.mjs [--sample N] [--seed S] [--no-fp-simd]
+// --words FILE checks the words of a file instead (hexadecimal, one per line:
+// the corpus of tests/a64/trace_replay.mjs, P2.10).
+//
+//   node tests/a64/decode_check.mjs [--sample N] [--seed S] [--no-fp-simd] [--words FILE]
 import fs from "node:fs";
 import { decode as oracle } from "./oracle/decode.mjs";
 import { root } from "./guest_runner.mjs";
@@ -150,7 +153,8 @@ for(let i = 0; i < SAMPLE; i++)
     add((i & 0xFF) << 24 | Number(rng & 0xFFFFFFn));
 }
 
-const list = [...words];
+const words_file = option("--words", null);
+const list = words_file ? fs.readFileSync(words_file, "utf8").split("\n").filter(Boolean).map(w => parseInt(w, 16) >>> 0) : [...words];
 const decoded = oracle(list);
 const differences = new Map();
 let different = 0;
@@ -171,5 +175,7 @@ for(const [key, { count, example }] of [...differences].sort((a, b) => b[1].coun
 {
     console.log(`${key} x${count}  e.g. ${example}`);
 }
-console.log(`decode check: ${list.length} words${ALL_GROUPS ? "" : " (no FP/SIMD)"}, ${different} differences`);
+const instructions = decoded.filter((d, i) => d.valid && !oracle_over_accepts(list[i], d.mnemonic, d.text)).length;
+console.log(`decode check: ${list.length} words${words_file ? " of " + words_file + ` (${instructions} instructions of profile v1)` : ""}` +
+    `${ALL_GROUPS ? "" : " (no FP/SIMD)"}, ${different} differences`);
 process.exit(different ? 1 : 0);

@@ -84,7 +84,8 @@ const CASES = [
     ["EL0: DAIF read trapped", 0, { sctlr_clear: UMA }, "mrs x0, daif"],
     ["EL0: DAIF allowed", 0, { sctlr_set: UMA }, "mrs x0, daif"],
     ["EL0: WFI trapped", 0, { sctlr_clear: NTWI }, "wfi"],
-    ["EL0: WFE trapped", 0, { sctlr_clear: NTWE }, "wfe", [3, 0x07e00001n]],
+    // (the ERET into EL0 set the event register: the first WFE consumes it, the second would wait and traps)
+    ["EL0: WFE trapped", 0, { sctlr_clear: NTWE }, "wfe\n    wfe", [3, 0x07e00001n]],
     ["EL0: FP trapped", 0, { cpacr: 1 }, "fmov d0, x1"],
     ["EL0: FP off", 0, { cpacr: 0 }, "fmov d0, x1"],
     ["EL0: SVC", 0, {}, "svc #7"],

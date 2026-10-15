@@ -1479,3 +1479,86 @@ flowchart TD
     的单核 4k 子集、快照恢复、reboot 与 poweroff 全部通过。
   - `make a64-gate` 通过。x86 不变：`core-split-check` 报 `v86.wasm` 与 `d7e1f293` 逐字节一致（3,000,264 字节）。
   - P3 中留给 A3 的部分：P3.7（独占监视器的跨核细节）与 P3.9（协作式多核），以及多核的 kvm-unit-tests 与 a64-4 契约。
+
+### A3 中 P2b 与 P3 的部分（2026-10-16；J2 的开工条件，P5 未做）
+
+- P3.9 协作式多核（`smp.rs` 重写）：
+  - 一个 Wasm 实例里一次只跑一个核。状态块的每核区间（偏移 64–1320）在切换时与各核的保存副本交换；GIC 的
+    CPU 接口、TLB 与统计本来就按核分开，不动。
+  - 切换后重算调试快路径，递增取指快路径的 generation。软件单步的 EX 标志按核保存。
+  - 调度：每轮从下一个核开始轮转，多核时每核一次 4096 条，凑满 50,000 条或所有核都在等待时返回。单核仍是一次
+    50,000 条。
+  - 可运行的判定：PSCI 电源状态，加上 WFI/WFE 的唤醒条件（读不在运行的核的 PSTATE 与事件寄存器）。
+    CPU_ON 的核在下一轮从复位状态进入（状态块清零后 `reset_core`，清 TLB 与调试寄存器）。
+    `AFFINITY_INFO` 在启动前报 ON_PENDING，重复的 CPU_ON 返回 ON_PENDING（-5），同 QEMU。
+  - 定时器按核计算（`timer::tick_all`、`next_due(core)`，非运行核的寄存器从其保存副本读）。GICD/GICR 读之前
+    刷新所有核的定时器线。
+  - 事件：SEV 给所有核，event stream 与全局监视器清除给对应核；不在运行的核的事件在它下次运行时进入事件寄存器。
+  - YIELD 结束本核的这一轮。另外，同一核在同一条 load-exclusive 上连续 4 次读到同一个值（没有 WFE 的锁等待，
+    例如 kvm-unit-tests 的 spinlock），也结束这一轮。有了它 spinlock-test 的 4×1000 万次加锁用 73 s，没有时
+    60 s 内做不完。
+  - 快照：state[2] 存所有核的状态块（逐个切入保存，再切回），state[3] 是正在运行的核。恢复后清除所有核的
+    独占监视器，并给每个核一个事件（WFE 可以提前结束，不会错过）。2 核的 lifecycle 阶（存档 94 MB、
+    恢复、reboot、poweroff）通过。
+  - `get_diagnostics()` 增加每核的 PC、状态（runnable/wfi/wfe/off/on-pending）、EL 与退役数。
+  - 偏差：确定性时钟模式下的"已提交指令账本"没有做（ARM 机器还没有确定性模式）。
+- P3.7 全局独占监视器：
+  - `smp.rs` 记录持有保留的核及其 64 字节粒度（RAM backing 偏移 >> 6）。
+  - `bus::written`（CPU 写）清除其他核在这些粒度上的保留；`a64_bus_written`（设备 DMA 与 JS 写入）清除所有核
+    的保留。被清除的核得到一个 WFE 事件。
+  - STXR 同时要求本地监视器与全局保留；CLREX 与 STXR 释放全局保留；复位与恢复时全部清除。
+  - "保留所在页走 TLB 慢路径"在解释器里不需要（每次写都经 `written`），留给 J2 的写快路径。
+- 修正：EL0 的 WFE 先看事件寄存器，只有真的要等待时才按 SCTLR.nTWE 陷阱（Arm ARM 的伪代码顺序）。
+  system_oracle 的这个用例改为两条 WFE（ERET 已置位事件寄存器）。
+- kvm-unit-tests（解释器，4k，以及用测试 profile v1.1 的 16k/64k；`run.mjs --granules-all`）：
+  - 计划列出的全部用例在三种 granule 下都通过：selftest-setup（smp=2 mem=256）、selftest-vectors-kernel/user、
+    selftest-smp、psci、timer、gicv3-ipi、gicv3-active、cache、debug-bp/wp/sstep、fpu（smp=2）、pl031、spinlock-test。
+  - psci 的 cpu-on 子项在 QEMU 与 v86 上同样 SKIP（需要 ERRATA_6c7a5dce22b3=y）。
+  - spinlock-test 在 v86 上的超时放宽到 300 s。
+  - `make a64-kvm-unit-tests` 改为跑全部用例与三种 granule。
+- 协作式 litmus（`tests/a64/litmus.c`、`litmus.mjs`；`make a64-litmus-tests`；`tests/parallel/litmus.mjs` 的
+  `LITMUS_MODES=a64-cooperative` 调用它）：
+  - 所有核先打开 MMU，2 核与 4 核各 1000 轮。MP（DMB 与 STLR/LDAR）、SB、LB、IRIW（4 核）、2+2W 的禁止结果
+    都是 0 次。
+  - LDXR/STXR 计数器精确。另一核写同值后 STXR 必然失败（100/100）。
+  - 不发 IPI 的 TLBI VAE1IS shootdown 后无陈旧读。WFI 加 SGI 的环与 WFE/SEV 的环都走完。
+  - QEMU 也跑同一程序（`--qemu`，真正并行的 MTTCG）：每个测试都出现多种允许的结果（v86 上每个测试只出现一种
+    交错），禁止结果同样是 0。QEMU 的 STXR 比较值，"同值写后失败"那一行在 QEMU 上只报告。
+- Alpine（initramfs 阶，解释器）：
+  - 2 核 44 s、4 核 58 s 输出 `A64_PROBE_OK`（cpus、threads、计数器、每核检查、excl_aba=1 全对）。
+  - `A64_KPTI=1` 变体（命令行加 `kpti=1`）在 1/2/4 核都通过，dmesg 出现 KPTI。
+  - `vulnerabilities/meltdown` 为 `Not affected`。
+  - "CPU features: detected" 与 QEMU 的差别只有允许的几项：参考多 32-bit EL0/EL1 Support；v86 多 Spectre-v4 与
+    Spectre-BHB，因为 MIDR 不在 Linux 6.18 的安全列表上。
+  - 这两项没有运行时开销：spectre_v2 报 "Mitigation: CSV2, but not BHB"，spec_store_bypass 报 "Vulnerable"，
+    都没有打开缓解代码。若要让它们消失，需要在 profile 中声明 CSV2_3 或 SSBS，这是所有者的决定，记在这里。
+  - `make a64-multicore-guest-tests` 跑 2/4 核与三种核数的 kpti=1 变体；live 阶等 P5。
+- P3 的 a64-4 契约：`cpu_contract --a64-v86` 在 4 个协作核上读到的 ID 寄存器与 profile 0 差异。
+- P2.10 语料与轨迹差分（`tools/a64_qemu/trace_sample.c`、`tests/a64/trace_replay.mjs`；`make a64-trace-tests`）：
+  - 偏差：macOS 上没有 qemu-aarch64（user 模式），参考改为 qemu-system-aarch64 跑 initramfs 阶。
+    - initramfs 里没有 luajit，负载用 busybox（链接 musl）：awk 的浮点、printf、sha256/md5/sha1、gzip、sort、sed。
+      新的 `/a64-workload`，由命令行的 `A64_WORKLOAD=N` 打开。
+    - 插件在 `-icount` 下只对 EL0 指令抽样，经 FIFO 边产生边重放。
+    - 计划里的 `corpus_oracle.mjs` 并入 `decode_check.mjs --words`。
+  - QEMU 9.2 的两个坑：
+    - aarch64 TCG 的翻译块是位置无关的（CF_PCREL），同一物理页在不同进程的不同虚拟地址上共用一个块，所以翻译时
+      的地址可能属于别的进程。
+    - 指令回调读到的 "pc" 只在块边界同步。
+    - 插件因此取"已同步 pc 所在的页（或下一页）+ 翻译时的页内偏移"，再读回该地址的指令字核对；
+      1,000 万次抽样里找不到的为 0。
+  - 结果：1,000 万条抽样（7,725 个不同的字，覆盖 probe 与负载）全部在 v86 的 EL0 harness 中重放，0 差异
+    （182 s）。
+    - harness 自建 48 位 VA、4 KiB 页的页表，映射代码页与访问到的页，写入读到的值。
+    - 比较 X0–X30、SP、PC、NZCV、FPCR、FPSR、TPIDR_EL0，FP/SIMD 与分支类再比较 V0–V31，以及写入的每个字节。
+    - 不比较的：store-exclusive 7,341 条（监视器状态不在样本里）、DC ZVA 191 条（QEMU 不报它的写）、
+      计数器 18 条、CTR_EL0 1 条。
+  - 语料：QEMU 翻译过的全部 116,002 个不同的字（含内核）在 v86 上的解码与 llvm-mc（v1 特性）0 差异；其中
+    115,999 个是 v1 的指令。
+  - P2b 的验收项"busybox awk 的浮点脚本与 musl 的浮点、向量路径结果与 QEMU 一致"：`A64_WORKLOAD=1` 的输出在
+    v86 与 QEMU 上逐字相同，`linux_boot.mjs` 在有参考日志时自动比较。
+- `make a64-portable-tests`（`v86-arm64-fallback.wasm`，不用 Wasm SIMD）：整数、SIMD、FP、crypto oracle 0 差异，
+  Alpine initramfs 阶通过。
+- 门禁：`a64-gate` 加入 litmus；`a64-gate-full` 加入多核 Alpine、轨迹重放与可移植核心。`core-split-check`：
+  `v86.wasm` 与 `e7ac27ca` 逐字节一致。
+- 至此 P1–P3 的验收完成（P2a、P2b、P3 全部），JIT 计划 J2 的开工条件中属于本计划的部分已满足；A3 余下的是
+  P5（virtio 与 live 阶）。

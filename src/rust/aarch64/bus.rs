@@ -247,13 +247,21 @@ mod js {
 #[inline(always)]
 unsafe fn host(backing: u32) -> *mut u8 { MEM8.add(backing as usize) }
 
-/// A write reached guest memory at `backing` (len bytes, within one page or
-/// across pages): retire code compiled from the pages
+/// A write of the running core reached guest memory at `backing` (len
+/// bytes, within one page or across pages): retire code compiled from the
+/// pages, clear other cores' exclusive reservations of its granules
 #[inline]
 pub fn written(backing: u32, len: u32) {
     if len == 0 {
         return;
     }
+    crate::aarch64::smp::monitors_written(backing, len, false);
+    retire_code(backing, len);
+}
+
+/// Retire code compiled from the pages of [backing, backing + len)
+#[inline]
+fn retire_code(backing: u32, len: u32) {
     let first = backing >> 12;
     let last = (backing + (len - 1)) >> 12;
     for page in first..=last {
@@ -528,7 +536,13 @@ pub unsafe fn a64_bus_write(pa_low: u32, pa_high: u32, size: u32, value: u64) ->
 /// JavaScript wrote guest memory at [backing, backing + len) (the loader,
 /// snapshot restore, a device's DMA): retire code compiled from it
 #[no_mangle]
-pub fn a64_bus_written(backing: u32, len: u32) { written(backing, len) }
+pub fn a64_bus_written(backing: u32, len: u32) {
+    // (a device's write: every core's reservation of the granules clears)
+    if len != 0 {
+        crate::aarch64::smp::monitors_written(backing, len, true);
+        retire_code(backing, len);
+    }
+}
 
 #[cfg(test)]
 mod tests {

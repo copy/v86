@@ -1029,10 +1029,17 @@ a64-isa-tests: build/v86-arm64.wasm
 # (P2.12: the FP, AdvSIMD and crypto cases on the host's arm64 CPU; macOS on arm64 only)
 a64-native-tests: build/v86-arm64.wasm
 	node tests/a64/native_oracle.mjs
-a64-trace-tests:
-	$(call A64_PENDING,A3)
-a64-portable-tests:
-	$(call A64_PENDING,A3)
+# (L, P2.10: 10 million instructions sampled at EL0 from Alpine's workload on
+# QEMU and replayed on the interpreter; every word QEMU translated decodes as llvm-mc decodes it)
+a64-trace-tests: build/v86-arm64.wasm
+	node tests/a64/trace_replay.mjs
+# (the portable core, without Wasm SIMD: the ISA oracles and Alpine's initramfs stage on it)
+a64-portable-tests: build/v86-arm64-fallback.wasm
+	A64_WASM=build/v86-arm64-fallback.wasm node tests/a64/integer_oracle.mjs
+	A64_WASM=build/v86-arm64-fallback.wasm node tests/a64/simd_oracle.mjs
+	A64_WASM=build/v86-arm64-fallback.wasm node tests/a64/fp_oracle.mjs
+	A64_WASM=build/v86-arm64-fallback.wasm node tests/a64/crypto_oracle.mjs
+	A64_WASM=build/v86-arm64-fallback.wasm A64_STAGE=initramfs node tests/a64/linux_boot.mjs
 # (P3.1, P3.2: the ID registers on v86, and the exceptions oracle against QEMU)
 a64-system-tests: build/v86-arm64.wasm
 	node tools/cpu_contract.mjs --a64-v86
@@ -1041,14 +1048,13 @@ a64-mmu-tests: build/v86-arm64.wasm
 	node tests/a64/mmu.mjs
 	node tests/a64/mmu.mjs --seed 2
 	node tests/a64/mmu_granule.mjs
-# (the single-core cases on the interpreter; the SMP ones with P3.9)
-# (gicv3-active on one core: its interrupts go to the core itself; psci needs two cores)
+# (L: every case on the interpreter, the SMP ones on its cooperative cores
+# (P3.9), at 4k, and at 16k and 64k with the test profile v1.1)
 a64-kvm-unit-tests: build/v86-arm64.wasm
-	node tests/kvm-unit-tests/arm64.mjs --single-core 4k
-	node tests/kvm-unit-tests/run.mjs --arm64 --cores 1 --append active --timeout 60 build/kvm-unit-tests/arm64-4k/arm/gic.flat
-	$(call A64_PENDING,A3 (selftest-setup, selftest-smp, psci, gicv3-ipi, gicv3-active on 4 cores, fpu-context, spinlock-test: P3.9))
-a64-litmus-tests:
-	$(call A64_PENDING,A3)
+	node tests/kvm-unit-tests/arm64.mjs
+# (P3.9: MP, SB, LB, IRIW, 2+2W, exclusives, TLBI shootdown, SGI and WFE rings on 2 and 4 cooperative cores)
+a64-litmus-tests: build/v86-arm64.wasm
+	node tests/a64/litmus.mjs
 a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 	node tests/a64/core_loader.mjs
 	node tests/a64/address_space.mjs
@@ -1068,11 +1074,17 @@ a64-guest-tests: build/v86-arm64.wasm
 	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=single A64_CORES=1 node tests/a64/linux_boot.mjs
 	A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
-	$(call A64_PENDING,A3 (2 and 4 cores, the live stage))
+	$(call A64_PENDING,A3 (the live stage: virtio, P5))
 a64-lifecycle-guest-tests:
 	$(call A64_PENDING,A6)
-a64-multicore-guest-tests:
-	$(call A64_PENDING,A3)
+# (L: the initramfs stage on 2 and 4 cooperative cores, and its kpti=1 variant on 1, 2 and 4)
+a64-multicore-guest-tests: build/v86-arm64.wasm
+	A64_STAGE=initramfs A64_CORES=2 node tests/a64/linux_boot.mjs
+	A64_STAGE=initramfs A64_CORES=4 node tests/a64/linux_boot.mjs
+	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=2 node tests/a64/linux_boot.mjs
+	A64_STAGE=initramfs A64_KPTI=1 A64_CORES=4 node tests/a64/linux_boot.mjs
+	$(call A64_PENDING,A3 (the live stage on 1, 2 and 4 cores: virtio, P5))
 a64-page-tier-tests:
 	$(call A64_PENDING,A4)
 a64-jit-guest-tests:

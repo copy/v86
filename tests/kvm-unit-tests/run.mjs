@@ -20,6 +20,8 @@
 //   --qemu            run arm64 tests on the fixed QEMU reference
 //                     (docs/arm64-virt-android16-plan.md P0.6); v86 runs need
 //                     the ARM core
+//   --granules-all    (v86, arm64) the test profile v1.1 with the 16 and 64 KiB
+//                     granules (P3.4), for the 16k and 64k builds
 // Environment: TEST_RELEASE_BUILD=1 uses build/libv86.mjs, DISABLE_JIT=1 the interpreter,
 // JIT_SWITCHES the JIT switches (tests/lib/jit_switches.mjs).
 //
@@ -34,7 +36,7 @@ import url from "node:url";
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const options = { acpi: false, cores: 1, memory: 64, timeout: 60, expect_pass: 0, quiet: false, cpu_features: undefined, cpu_type: undefined,
-    arm64: false, append: "", qemu: false };
+    arm64: false, append: "", qemu: false, granules_all: false };
 let test_file;
 for(let i = 2; i < process.argv.length; i++)
 {
@@ -48,6 +50,7 @@ for(let i = 2; i < process.argv.length; i++)
     else if(arg === "--cpu-features") options.cpu_features = process.argv[++i].split(",");
     else if(arg === "--cpu-type") options.cpu_type = process.argv[++i];
     else if(arg === "--arm64") options.arm64 = true;
+    else if(arg === "--granules-all") options.granules_all = true;
     else if(arg === "--append") options.append = process.argv[++i];
     else if(arg === "--qemu") options.qemu = true;
     else if(arg.startsWith("--")) { console.error("unknown option " + arg); process.exit(4); }
@@ -92,8 +95,16 @@ if(options.arm64 && !options.qemu)
     const emulator = new V86({
         cpu_type: "arm64", graphics_adapter: "none", cpu_cores: options.cores, memory_size: options.memory << 20,
         wasm_path: process.env.A64_WASM || root + "build/v86-arm64.wasm", kernel: { url: test_file }, cmdline: options.append,
-        autostart: true, log_level: 0,
+        autostart: !options.granules_all, log_level: 0,
     });
+    if(options.granules_all)
+    {
+        // (the test profile v1.1: the 16 and 64 KiB granules too, before the guest runs)
+        emulator.add_listener("emulator-loaded", () => {
+            emulator.v86.cpu.wm.exports["a64_set_granules"](7);
+            emulator.run();
+        });
+    }
     emulator.add_listener("serial0-output-byte", byte => {
         const c = String.fromCharCode(byte);
         serial += c;

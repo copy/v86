@@ -13,7 +13,7 @@
 // P0.3) hold the ID registers that tests/a64/id_registers.c reads at EL1,
 // expected from tests/platform/a64-profile.json, not observed: --check
 // compares them with that file and runs the reader on v86's ARM core (P3.1;
-// a64-1 now, a64-4 with the cooperative cores of P3.9).
+// a64-4 on its cooperative cores, P3.9).
 //
 //   node tools/cpu_contract.mjs --a64-only       rewrite only a64-1 and a64-4
 //   node tools/cpu_contract.mjs --a64-reference  read the QEMU reference's
@@ -307,13 +307,13 @@ if(process.argv.includes("--a64-reference"))
 /**
  * v86's ARM core (P3.1): tests/a64/id_registers.c on v86 must read exactly the
  * profile's values, with no allowed difference (those are the reference's);
- * the profiles of one core now, a64-4 with the cooperative cores (P3.9)
+ * a64-4 on the cooperative cores (P3.9)
  */
 async function a64_v86_check()
 {
     const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
     let failed = false;
-    for(const [name, cores] of Object.entries(A64_PROFILES).filter(([, cores]) => cores === 1))
+    for(const [name, cores] of Object.entries(A64_PROFILES))
     {
         const result = await a64_runner.actual(directory, { cores });
         assert.equal(result.status, "ok", name + " on v86: " + result.text);
@@ -346,7 +346,7 @@ if(process.argv.includes("--check"))
         "(update it with `node tools/cpu_contract.mjs` if the change is intended)");
     assert.ok(await a64_v86_check(), "v86's ARM core differs from tests/platform/a64-profile.json");
     console.log(`CPU contract matches (${Object.keys(PROFILES).length} profiles, ${LEAVES.length} CPUID leaves, ${MSRS.length} MSRs; ` +
-        `${Object.keys(A64_PROFILES).join(", ")} match a64-profile.json; v86's ARM core reads them: a64-1, a64-4 with P3.9)`);
+        `${Object.keys(A64_PROFILES).join(", ")} match a64-profile.json, and v86's ARM core reads them)`);
 }
 else
 {

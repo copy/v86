@@ -32,38 +32,54 @@ fn fires(control: u64, compare: u64, now: u64) -> bool {
 
 /// Bring the current core's timer interrupt lines and event stream up to
 /// the counter: called on timer register writes and from the run loop
-pub fn tick() {
+pub fn tick() { tick_core(crate::isa::current_core(), counter()) }
+
+/// Every core's timers (the cores that are not running too: their registers
+/// are in their saved state, crate::aarch64::smp::field)
+pub fn tick_all() {
     let now = counter();
-    let core = crate::isa::current_core();
+    for core in 0..crate::isa::core_count() {
+        tick_core(core, now);
+    }
+}
+
+fn tick_core(core: usize, now: u64) {
+    use crate::aarch64::smp::field;
     unsafe {
-        let virtual_line = fires(*cntv_ctl, *cntv_cval, now) && *cntv_ctl & CTL_IMASK == 0;
-        let physical_line = fires(*cntp_ctl, *cntp_cval, now) && *cntp_ctl & CTL_IMASK == 0;
+        let (vctl, vcval) = (*field(core, cntv_ctl), *field(core, cntv_cval));
+        let (pctl, pcval) = (*field(core, cntp_ctl), *field(core, cntp_cval));
+        let virtual_line = fires(vctl, vcval, now) && vctl & CTL_IMASK == 0;
+        let physical_line = fires(pctl, pcval, now) && pctl & CTL_IMASK == 0;
         crate::aarch64::gic::set_ppi(core, PPI_VIRTUAL, virtual_line);
         crate::aarch64::gic::set_ppi(core, PPI_PHYSICAL, physical_line);
         // the event stream: an event whenever bit EVNTI of the counter has toggled
-        let kctl = *cntkctl_el1;
+        let kctl = *field(core, cntkctl_el1);
         if kctl >> 2 & 1 != 0 {
             let shift = (kctl >> 4 & 15) + 1;
             if now >> shift != EVENT_STREAM_LAST[core] >> shift {
-                *event_register = 1;
+                crate::aarch64::smp::event_to(core);
             }
         }
         EVENT_STREAM_LAST[core] = now;
     }
 }
 
-/// Nanoseconds until the current core's timers or event stream next need
-/// it (u64::MAX: never), for a core that waits
-pub fn next_due() -> u64 {
+/// Nanoseconds until core `core`'s timers or event stream next need it
+/// (u64::MAX: never), for a core that waits
+pub fn next_due(core: usize) -> u64 {
+    use crate::aarch64::smp::field;
     let now = counter();
     let mut due = u64::MAX;
     unsafe {
-        for (control, compare) in [(*cntv_ctl, *cntv_cval), (*cntp_ctl, *cntp_cval)] {
+        for (control, compare) in [
+            (*field(core, cntv_ctl), *field(core, cntv_cval)),
+            (*field(core, cntp_ctl), *field(core, cntp_cval)),
+        ] {
             if control & CTL_ENABLE != 0 && control & CTL_IMASK == 0 {
                 due = due.min(compare.saturating_sub(now));
             }
         }
-        let kctl = *cntkctl_el1;
+        let kctl = *field(core, cntkctl_el1);
         if kctl >> 2 & 1 != 0 {
             due = due.min(1u64 << ((kctl >> 4 & 15) + 1));
         }

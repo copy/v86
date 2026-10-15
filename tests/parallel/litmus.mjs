@@ -10,8 +10,9 @@
 // the JIT modes compile in the page tier (x64_page_compat32, P7.2).
 //
 // LITMUS_MODES: comma-separated from cooperative, cooperative-jit, parallel,
-// parallel-jit (default: all but parallel-jit); LITMUS_CORES (default 2,4);
-// LITMUS_ROUNDS (default 2000).
+// parallel-jit (default: all but parallel-jit), and a64-cooperative (the
+// A64 litmus tests on the ARM core's cooperative cores, tests/a64/litmus.mjs);
+// LITMUS_CORES (default 2,4); LITMUS_ROUNDS (default 2000).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -99,6 +100,15 @@ for(const cores of core_counts)
 {
     for(const mode of modes)
     {
+        if(mode === "a64-cooperative")
+        {
+            // (the ARM core's own litmus guest and checks, tests/a64/litmus.mjs)
+            const a64 = spawnSync("node", [ROOT + "tests/a64/litmus.mjs", "--cores", String(cores), "--rounds", String(rounds)],
+                { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+            assert.equal(a64.status, 0, `a64-cooperative ${cores} cores:\n${a64.stdout}`);
+            console.log(a64.stdout.trim());
+            continue;
+        }
         await run(mode, cores);
     }
 }

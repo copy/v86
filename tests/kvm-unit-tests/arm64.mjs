@@ -5,12 +5,17 @@
 // granule and run by run.mjs.
 //
 //   node tests/kvm-unit-tests/arm64.mjs [--qemu] [--single-core] [4k 16k 64k]
-//   (without --qemu the cases run on v86's ARM core; --single-core only those of one core)
+//   (without --qemu the cases run on v86's ARM core, its cooperative cores for
+//   the SMP ones (P3.9), and the 16k and 64k builds with the test profile
+//   v1.1; --single-core only the cases of one core)
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const MAX_SMP = 4;
+// (the interpreter's cores take turns: the spinlock test's 4 x 10 million
+// lock rounds need longer there than the 60 s the others get)
+const V86_TIMEOUT = { "spinlock-test": 300 };
 // [name, file, cores, test_args, memory MiB]
 export const CASES = [
     ["selftest-setup", "selftest", 2, "setup smp=2 mem=256", 256],
@@ -42,8 +47,9 @@ for(const granule of granules.length ? granules : ["4k", "16k", "64k"])
     for(const [name, file, cores, test_args, memory] of CASES)
     {
         if(single_core && cores > 1) continue;
-        const once = () => spawnSync("node", [here + "run.mjs", "--arm64", ...(qemu ? ["--qemu"] : []), "--cores", String(cores),
-            ...(memory ? ["--memory", String(memory)] : []), "--append", test_args, "--timeout", "60",
+        const timeout = !qemu && V86_TIMEOUT[name] || 60;
+        const once = () => spawnSync("node", [here + "run.mjs", "--arm64", ...(qemu ? ["--qemu"] : granule !== "4k" ? ["--granules-all"] : []),
+            "--cores", String(cores), ...(memory ? ["--memory", String(memory)] : []), "--append", test_args, "--timeout", String(timeout),
             `${here}../../build/kvm-unit-tests/arm64-${granule}/arm/${file}.flat`], { encoding: "utf8" });
         let run = once(), note = "";
         // (the timer test's "latency within 10 ms" checks measure the host:

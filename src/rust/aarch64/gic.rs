@@ -635,7 +635,7 @@ fn bytes_read(bytes: &[u8], irq: usize, size: u32) -> u64 {
 }
 
 pub fn gicd_read(offset: u64, size: u32) -> u64 {
-    crate::aarch64::timer::tick();
+    crate::aarch64::timer::tick_all();
     let d = &gic().dist;
     let word = ((offset & 0x7F) / 4) as usize;
     let value = match offset {
@@ -787,8 +787,8 @@ pub fn gicd_write(offset: u64, size: u32, value: u64) {
 }
 
 pub fn gicr_read(offset: u64, size: u32) -> u64 {
-    // (the timers' lines as of now: they follow the counter)
-    crate::aarch64::timer::tick();
+    // (every core's timer lines as of now: they follow the counter)
+    crate::aarch64::timer::tick_all();
     let core = (offset / GICR_STRIDE) as usize;
     if core >= cores() {
         return 0;

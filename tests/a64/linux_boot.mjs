@@ -79,12 +79,35 @@ fs.writeFileSync(probe_directory + "root/a64-init", [
     "$B mount -t proc proc /proc; $B mount -t sysfs sys /sys; $B mount -t devtmpfs dev /dev",
     "$B mkdir -p /tmp; $B mount -t tmpfs tmp /tmp",
     "/a64-probe nodisk \"$@\"",
+    "[ -n \"$A64_WORKLOAD\" ] && /a64-workload \"$A64_WORKLOAD\"",
     "$B cat /proc/interrupts",
+    "for f in /sys/devices/system/cpu/vulnerabilities/*; do $B echo \"A64_VULN ${f##*/}: $($B cat $f)\"; done",
     "$B echo A64_INIT_DONE",
     "$B poweroff -f",
     ""].join("\n"), { mode: 0o755 });
+// (A64_WORKLOAD=N on the command line: busybox and musl at work, N times
+// over, between A64_WORKLOAD_BEGIN and A64_WORKLOAD_END: floating point in
+// awk and printf, hashing, compression, sorting, sed; the output must equal
+// the reference's, P2b, and tests/a64/trace_replay.mjs samples it, P2.10)
+fs.writeFileSync(probe_directory + "root/a64-workload", [
+    "#!/bin/busybox sh",
+    "B=/bin/busybox",
+    "N=${1:-1}",
+    "$B echo A64_WORKLOAD_BEGIN",
+    "$B awk -v n=$((N*20000)) 'BEGIN { s = 0; for (i = 1; i <= n; i++) s += sin(i) * sqrt(i) / (1 + log(i)); " +
+        "printf \"awk-math %.12g %.6e %.9f %.15g\\n\", s, exp(10.5), atan2(1, 1) * 4, cos(0.5) ^ 3.5 }'",
+    "$B awk -v n=$((N*5000)) 'BEGIN { for (i = 0; i < n; i++) { x = i * 0.1; s += x * x - int(x) / 3; t = t (i % 10) } " +
+        "printf \"awk-loop %.10f %d %s %d\\n\", s, length(t), substr(t, 1, 20), index(t, \"789012\") }'",
+    "$B seq 1 $((N*20000)) | $B sha256sum",
+    "$B seq 1 $((N*20000)) | $B md5sum",
+    "$B seq 1 $((N*5000)) | $B gzip -9 | $B gzip -d | $B sha1sum",
+    "$B seq 1 $((N*3000)) | $B sort -rn | $B head -3 | $B tr '\\n' ' '; $B echo",
+    "$B seq 1 $((N*2000)) | $B sed -e 's/1/one/g' -e 's/\\([0-9]\\)\\([0-9]\\)/\\2\\1/' | $B md5sum",
+    "$B printf '%.6f %e %g %x %o\\n' 3.14159265 1234.5678 0.000012345 3735928559 511",
+    "$B echo A64_WORKLOAD_END",
+    ""].join("\n"), { mode: 0o755 });
 const tar_args = ["--uid", "0", "--gid", "0", "--no-xattrs", "--no-mac-metadata"];
-run("bsdtar", ["--format", "newc", ...tar_args, "-cf", probe_directory + "probe.cpio", "-C", probe_directory + "root", "a64-init", "a64-probe"]);
+run("bsdtar", ["--format", "newc", ...tar_args, "-cf", probe_directory + "probe.cpio", "-C", probe_directory + "root", "a64-init", "a64-probe", "a64-workload"]);
 run("bsdtar", ["--format", "ustar", ...tar_args, "-cf", probe_directory + "probe.tar", "-C", probe_directory + "root", "a64-probe"]);
 const initrd_probe = probe_directory + "initramfs-virt+probe.cpio";
 fs.writeFileSync(initrd_probe, Buffer.concat([fs.readFileSync(prepared.initrd), fs.readFileSync(probe_directory + "probe.cpio")]));
@@ -107,7 +130,26 @@ const timeout = Number(process.env.A64_LINUX_TIMEOUT || 180000);
 // (a root that does not exist: init looks for it, then enters single mode before mounting it)
 const SINGLE_CMDLINE = "console=ttyAMA0 earlycon nokaslr panic=-1 single root=/dev/vda";
 const SINGLE_COMMANDS = "cat /proc/interrupts; echo A64_SINGLE_$((6*7)) && echo A64_SINGLE_OK; /bin/busybox poweroff -f\n";
-const tag = `${qemu_reference ? "qemu" : "v86"}-${stage}-${cores}c`;
+// (A64_KPTI=1: the initramfs stage with kpti=1, KPTI forced on although CSV3 says it is not needed, P3.9)
+const kpti = !!+process.env.A64_KPTI;
+assert.ok(!kpti || stage === "initramfs", "A64_KPTI is a variant of the initramfs stage");
+// (A64_WORKLOAD=N: the initramfs stage runs /a64-workload N after the probe)
+const workload = +process.env.A64_WORKLOAD || 0;
+assert.ok(!workload || stage === "initramfs", "A64_WORKLOAD is a variant of the initramfs stage");
+const INITRAMFS_CMDLINE = ref => `console=ttyAMA0 earlycon nokaslr panic=-1${kpti ? " kpti=1" : ""}` +
+    `${workload ? " A64_WORKLOAD=" + workload : ""} rdinit=/a64-init -- ref=${ref}`;
+const tag_of = target => `${target}-${stage}${kpti ? "-kpti" : ""}${workload ? "-wl" + workload : ""}-${cores}c`;
+const workload_output = text => text.match(/A64_WORKLOAD_BEGIN\r?\n([\s\S]*?)A64_WORKLOAD_END/)?.[1].replace(/\r/g, "");
+const tag = tag_of(qemu_reference ? "qemu" : "v86");
+
+// The "CPU features: detected" lines may differ from the reference's only
+// where the profile's register differences lead (tests/platform/a64-profile.json):
+// the reference's 32-bit EL0 and EL1 (no AArch32 in v1); Spectre-v4 and
+// Spectre-BHB on v86, whose MIDR is on none of Linux's safe lists (the
+// reference's Cortex-A35 is on all of them)
+const FEATURES_ONLY_ON_REFERENCE = ["32-bit EL0 Support", "32-bit EL1 Support"];
+const FEATURES_ONLY_ON_V86 = ["Spectre-v4", "Spectre-BHB"];
+const detected = text => [...new Set([...text.matchAll(/CPU features: detected: ([^\r\n]+)/g)].map(m => m[1].trim()))].sort();
 
 /** The probe's lines in `text`, judged against `cores` and the stage */
 function check_probe(text, reference)
@@ -149,7 +191,7 @@ if(qemu_reference)
     const args = ["-machine", machine, ...base, "-serial", "stdio", "-monitor", "none", "-kernel", prepared.kernel,
         "-initrd", live || single ? prepared.initrd : initrd_probe,
         "-append", live ? "console=ttyAMA0 earlycon nokaslr panic=-1 modules=loop,squashfs,sd-mod,usb-storage"
-            : single ? SINGLE_CMDLINE : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=qemu",
+            : single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("qemu"),
         ...(live ? ["-drive", `if=none,id=iso,file=${prepared.iso},format=raw,readonly=on`, "-device", "virtio-blk-device,drive=iso",
             "-drive", `if=none,id=probe,file=${probe_directory}probe.tar,format=raw,snapshot=on`, "-device", "virtio-blk-device,drive=probe,serial=a64probe"] : [])];
     const plugins = !!+process.env.A64_QEMU_PLUGINS;
@@ -286,7 +328,7 @@ const emulator = new V86({
     cpu_type: "arm64", graphics_adapter: "none", cpu_cores: cores, memory_size: 512 << 20, autostart: true, log_level: 0,
     wasm_path: process.env.A64_WASM || ROOT + "build/v86-arm64.wasm",
     kernel: { url: prepared.kernel }, initrd: { url: single ? prepared.initrd : initrd_probe },
-    cmdline: single ? SINGLE_CMDLINE : "console=ttyAMA0 earlycon nokaslr panic=-1 rdinit=/a64-init -- ref=v86",
+    cmdline: single ? SINGLE_CMDLINE : INITRAMFS_CMDLINE("v86"),
 });
 const verbose = !!+process.env.A64_VERBOSE;
 let transcript = "", probe_ms, typed = false;
@@ -340,7 +382,33 @@ assert.ok(!trouble, "the kernel reports: " + trouble?.[0]);
     }
 }
 const lines = single ? { single: /A64_SINGLE_42\r?\nA64_SINGLE_OK/.test(transcript) } : check_probe(transcript, false);
-const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, ...lines };
+const features = detected(transcript);
+let reference_features;
+if(!single)
+{
+    // (CSV3: meltdown is not a concern, with or without kpti=1; kpti=1 turns KPTI on all the same)
+    const meltdown = transcript.match(/A64_VULN meltdown: ([^\r\n]*)/);
+    assert.equal(meltdown?.[1], "Not affected", "vulnerabilities/meltdown");
+    assert.equal(features.some(f => /^Kernel page table isolation/.test(f)), kpti, "KPTI " + (kpti ? "on" : "off"));
+    // (the same stage on the reference, if it ran: A64_LINUX_QEMU=1)
+    const reference_log = directory + tag_of("qemu") + ".log";
+    if(fs.existsSync(reference_log))
+    {
+        const reference_text = fs.readFileSync(reference_log, "latin1");
+        reference_features = detected(reference_text);
+        if(workload)
+        {
+            assert.ok(workload_output(transcript), "the workload's output");
+            assert.equal(workload_output(transcript), workload_output(reference_text), "the workload's output, against the reference's");
+        }
+        const only_v86 = features.filter(f => !reference_features.includes(f) && !FEATURES_ONLY_ON_V86.includes(f));
+        const only_reference = reference_features.filter(f => !features.includes(f) && !FEATURES_ONLY_ON_REFERENCE.includes(f));
+        assert.deepEqual([only_v86, only_reference], [[], []], "CPU features: detected, beyond the allowed differences (v86, reference)");
+    }
+}
+const vulnerabilities = Object.fromEntries([...transcript.matchAll(/A64_VULN (\S+): ([^\r\n]*)/g)].map(m => [m[1], m[2]]));
+const result = { tag, ms: Math.round(performance.now() - started), probe_done_ms: probe_ms, ...lines, features,
+    reference_features: reference_features ? "compared" : "no reference log", vulnerabilities };
 fs.writeFileSync(directory + `result-${tag}.json`, JSON.stringify({ ...manifest, ...result }, null, 2) + "\n");
 console.log(JSON.stringify(result));
 console.log(`A64_LINUX_BOOT_OK ${tag}`);

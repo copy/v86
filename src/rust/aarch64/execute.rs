@@ -48,6 +48,8 @@ pub enum Flow {
     Wait(u32),
     /// the core stopped (CPU_OFF, SYSTEM_OFF)
     Off,
+    /// YIELD: the next instruction, and the other cores may run first
+    Yield,
 }
 
 #[inline(always)]
@@ -426,19 +428,18 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
             Ok(Flow::Set)
         },
         Op::Hint => match i.imm {
-            // WFE: wait unless the event register is set (EL0: SCTLR_EL1.nTWE)
-            2 => {
-                if cpu::el() == 0 && cpu::sctlr() & SCTLR_NTWE == 0 {
-                    return Err(Exception::Wfx(1));
+            // WFE: wait unless the event register is set (it traps at EL0 with
+            // SCTLR_EL1.nTWE clear only when it would wait)
+            2 => unsafe {
+                if *event_register != 0 {
+                    *event_register = 0;
+                    Ok(Flow::Next)
                 }
-                unsafe {
-                    if *event_register != 0 {
-                        *event_register = 0;
-                        Ok(Flow::Next)
-                    }
-                    else {
-                        Ok(Flow::Wait(2))
-                    }
+                else if cpu::el() == 0 && cpu::sctlr() & SCTLR_NTWE == 0 {
+                    Err(Exception::Wfx(1))
+                }
+                else {
+                    Ok(Flow::Wait(2))
                 }
             },
             3 => {
@@ -455,11 +456,13 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
                 unsafe { *event_register = 1 };
                 Ok(Flow::Next)
             },
-            // NOP, YIELD and the unimplemented hints (ESB, PSB, CSDB, PAC, BTI, ...)
+            1 => Ok(Flow::Yield),
+            // NOP and the unimplemented hints (ESB, PSB, CSDB, PAC, BTI, ...)
             _ => Ok(Flow::Next),
         },
         Op::Clrex => {
             unsafe { *excl_valid = 0 };
+            crate::aarch64::smp::release();
             Ok(Flow::Next)
         },
         Op::Barrier => {
@@ -539,7 +542,7 @@ pub fn execute(inst: &Inst, address: u64) -> Result<Flow, Exception> {
         },
         Op::LoadStore => load_store(i),
         Op::LoadStorePair => load_store_pair(i),
-        Op::Exclusive => exclusive(i),
+        Op::Exclusive => exclusive(i, address),
         Op::LoadAcquireStoreRelease => {
             let size_log = i.cond as u32;
             let size = 1u32 << size_log;
@@ -966,8 +969,15 @@ fn load_store_pair(i: &Inst) -> Result<Flow, Exception> {
 /// The exclusive monitor's granule (P3.3: 64 bytes)
 const GRANULE: u64 = !63;
 
+/// A spin on a load-exclusive (P3.9): the PC and value of each core's last
+/// one and how often it repeated with no store-exclusive between. A core
+/// that keeps reading the same value at the same load waits for another
+/// core (a lock without WFE): its turn ends there, as a YIELD's does
+static mut SPIN: [(u64, u128, u32); crate::isa::MAX_CORES] = [(0, 0, 0); crate::isa::MAX_CORES];
+const SPIN_YIELD: u32 = 4;
+
 /// LDXR/STXR/LDAXR/STLXR/LDXP/STXP/LDAXP/STLXP
-fn exclusive(i: &Inst) -> Result<Flow, Exception> {
+fn exclusive(i: &Inst, address: u64) -> Result<Flow, Exception> {
     let rt = i.rd as u32;
     let rt2 = i.ra as u32;
     let rs = i.rm as u32;
@@ -1006,12 +1016,29 @@ fn exclusive(i: &Inst) -> Result<Flow, Exception> {
             *excl_addr = pa & GRANULE;
             *excl_value = first as u128 | (second as u128) << 64;
         }
+        // (guest RAM: the global monitor marks the granule too, P3.7)
+        match ram_backing(pa) {
+            Some(backing) => crate::aarch64::smp::reserve(backing),
+            None => crate::aarch64::smp::release(),
+        }
         if i.sub & 4 != 0 {
             crate::parallel::full_fence();
         }
         set_x(rt, first);
         if pair {
             set_x(rt2, second);
+        }
+        let value = first as u128 | (second as u128) << 64;
+        let spin = unsafe { &mut SPIN[crate::isa::current_core()] };
+        if spin.0 == address && spin.1 == value {
+            spin.2 += 1;
+            if spin.2 >= SPIN_YIELD {
+                spin.2 = 0;
+                return Ok(Flow::Yield);
+            }
+        }
+        else {
+            *spin = (address, value, 0);
         }
         return Ok(Flow::Next);
     }
@@ -1045,8 +1072,13 @@ fn exclusive(i: &Inst) -> Result<Flow, Exception> {
         )
     };
     let pa = crate::aarch64::mmu::physical_address_of(base).unwrap_or(base);
-    let success = unsafe { *excl_valid != 0 && *excl_addr == pa & GRANULE };
+    // (the local monitor, and for guest RAM the global one: another core's or
+    // a device's write to the granule cleared it)
+    let success = unsafe { *excl_valid != 0 && *excl_addr == pa & GRANULE }
+        && ram_backing(pa).map_or(true, crate::aarch64::smp::reserved);
     unsafe { *excl_valid = 0 };
+    crate::aarch64::smp::release();
+    unsafe { SPIN[crate::isa::current_core()].0 = 0 };
     if success {
         if i.sub & 4 != 0 {
             crate::parallel::full_fence();
@@ -1058,6 +1090,14 @@ fn exclusive(i: &Inst) -> Result<Flow, Exception> {
     }
     set_w(rs, if success { 0 } else { 1 });
     Ok(Flow::Next)
+}
+
+/// The offset in guest RAM's backing of physical address `pa`, if it is RAM
+fn ram_backing(pa: u64) -> Option<u32> {
+    match crate::aarch64::bus::bus().lookup(pa) {
+        crate::aarch64::bus::Lookup::Ram { backing, .. } => Some(backing),
+        _ => None,
+    }
 }
 
 // ---- UNDEF telemetry (P2.3): counts by EL and encoding class, the last ones
@@ -1118,8 +1158,19 @@ fn fetch_at(address: u64) -> Result<u32, Exception> {
     memory::fetch(address)
 }
 
-/// The stepped instruction was a load-exclusive (ISS.EX of the step exception)
+/// The stepped instruction was a load-exclusive (ISS.EX of the step exception), per core
+static mut STEPPED_EXCLUSIVE_LOADS: [bool; crate::isa::MAX_CORES] = [false; crate::isa::MAX_CORES];
 static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
+static mut STEPPED_CORE: usize = 0;
+
+/// (crate::aarch64::smp) another core runs now
+pub fn core_switched() {
+    unsafe {
+        STEPPED_EXCLUSIVE_LOADS[STEPPED_CORE] = STEPPED_EXCLUSIVE_LOAD;
+        STEPPED_CORE = crate::isa::current_core();
+        STEPPED_EXCLUSIVE_LOAD = STEPPED_EXCLUSIVE_LOADS[STEPPED_CORE];
+    }
+}
 
 /// Execute the instruction at the PC (P2.9): it retires, or takes its
 /// exception having written no state. What the core does next. Software
@@ -1155,7 +1206,7 @@ pub fn interpret_one() -> Flow {
         Ok(flow) => {
             crate::core_stats::add_pending(1, 0);
             match flow {
-                Flow::Next => set_pc(address.wrapping_add(4)),
+                Flow::Next | Flow::Yield => set_pc(address.wrapping_add(4)),
                 Flow::Jump(target) => set_pc(target),
                 Flow::Wait(_) | Flow::Off => set_pc(address.wrapping_add(4)),
                 Flow::Set => {},

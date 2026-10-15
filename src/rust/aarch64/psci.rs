@@ -26,10 +26,16 @@ pub const SUCCESS: i64 = 0;
 pub const NOT_SUPPORTED: i64 = -1;
 pub const INVALID_PARAMETERS: i64 = -2;
 pub const ALREADY_ON: i64 = -4;
+pub const ON_PENDING_RESULT: i64 = -5;
+
+// the cores' power states (AFFINITY_INFO's values)
+pub const ON: u8 = 0;
+pub const OFF: u8 = 1;
+pub const ON_PENDING: u8 = 2;
 
 /// The cores' power states: 0 on, 1 off, 2 on pending (AFFINITY_INFO)
 pub static mut POWER: [u8; crate::isa::MAX_CORES] = [0, 1, 1, 1, 1, 1, 1, 1];
-/// A core started by CPU_ON: its entry point and context ID (P3.7 starts it)
+/// A core started by CPU_ON: its entry point and context ID (the scheduler starts it, crate::aarch64::smp)
 pub static mut START: [(u64, u64); crate::isa::MAX_CORES] = [(0, 0); crate::isa::MAX_CORES];
 /// SYSTEM_OFF (1) or SYSTEM_RESET (2) was called
 pub static mut REQUEST: u32 = 0;
@@ -120,15 +126,16 @@ pub fn call() -> After {
             },
             f if f == CPU_ON || f == CPU_ON | FN64 || f == V01_CPU_ON => match core_of(a1) {
                 None => INVALID_PARAMETERS,
-                Some(core) if POWER[core] == 0 => ALREADY_ON,
+                Some(core) if POWER[core] == ON => ALREADY_ON,
+                Some(core) if POWER[core] == ON_PENDING => ON_PENDING_RESULT,
                 Some(core) => {
-                    POWER[core] = 2;
+                    POWER[core] = ON_PENDING;
                     START[core] = (a2, a3);
                     SUCCESS
                 },
             },
             CPU_OFF | V01_CPU_OFF => {
-                POWER[crate::isa::current_core()] = 1;
+                POWER[crate::isa::current_core()] = OFF;
                 after = After::Off;
                 0
             },
