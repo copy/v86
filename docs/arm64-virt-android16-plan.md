@@ -1383,3 +1383,99 @@ flowchart TD
   `4be9f6f3` 逐字节一致（3,000,264 字节）。M1 存档（规则 6）：`vM1` 的核心（`build/wt-vm1`）启动 `linux.iso`，在 shell 循环
   中途存档；当前构建恢复后循环跑完，新命令照常执行。
 - P1 的验收（A1 中 P1 的部分）至此完成，JIT 计划 J1b 的前提满足。
+
+### A2（2026-10-15）
+
+- P2a 与 P2b 的大部分（`0dba15d7`）：
+  - `simd_decode.rs` 解码 v8.0 的标量 FP、AdvSIMD 与 crypto 各类（不含 FP16、RDM、DotProd、FCMA、JSCVT、FRINTTS、
+    SHA512/SHA3/SM）以及结构加载存储；`decode_check.mjs` 覆盖 FP/SIMD 组的全部字段组合（530 万个字），与 llvm-mc
+    0 差异。`tests/a64/encodings.json` 列出每个编码类及其在 v1 中的状态。
+  - `simd.rs`：整数 AdvSIMD 在 u128 上逐元素运算，以及 SIMD&FP 的加载存储（B–Q、成对、literal、LD1–4/ST1–4/LDnR）。
+    `fp.rs`：ARM-VFPv2 特化的 SoftFloat（`build/softfloat_arm.o`，定义 `SOFTFLOAT_ROUND_ODD`，由 `tools/softfloat_arm.mjs`
+    生成），外包 FZ（输入置 IDC，输出只置 UFC）、DN、AHP、融合乘加的 NaN 顺序、FMAX/FMIN(NM)、估值与步进、FCVTXN。
+    `simd_fp.rs` 是标量与向量 FP 指令；`crypto.rs` 是 AES、SHA1、SHA256（PMULL 在 `simd.rs`）。FPCR/FPSR 的
+    MRS/MSR 服从 CPACR_EL1.FPEN。
+  - 对照 QEMU：simd_oracle 16,000 例（266 个助记符与形式，两个种子）；fp_oracle 9,600 例（每个助记符轮换 RMode×FZ×DN
+    的 16 种组合）；crypto_oracle 1,600 例，另加 FIPS-197、FIPS 180-4 与 GCM 的已知答案；`float_convs`、`float_madds`
+    的 .ref 在 v86 上一致。结果都是 0 差异。`native_oracle.mjs` 在所有者的 M1 Pro 上执行同一组用例（P2.12），也是 0 差异。
+  - UNDEF 遥测（P2.3）：按 EL 与编码类计数，保留最后 16 条（`get_diagnostics().undefined`）。
+  - `tests/a64/lockstep.mjs`：裸机客体在 QEMU（execlog）与 v86 上逐指令对照，用来定位 oracle 报出的差异。
+  - 未做：P2.10 的语料与轨迹差分（A3），`a64-trace-tests` 与 `a64-portable-tests` 仍是 pending。
+- P3.3–P3.5（`4dfa11ed`）：
+  - `mmu.rs` 按 VMSAv8-64 遍历 EL1&0 regime，Arm ARM 留有选择的地方跟 QEMU 9.2（`target/arm/ptw.c`）：TnSZ 越界与
+    EPDn 在第 0 级故障；不支持的 granule 按 4 KiB 处理；故障顺序为转换、地址大小、AF，然后是 Device 对齐，最后是
+    权限（含 APTable/XNTable/PXNTable、WXN 与 EL0 可写页隐含的 PXN）。AT S1E1R/W、S1E0R/W 写 PAR_EL1，格式同 QEMU。
+    16/64 KiB 由测试 profile v1.1 打开（`a64_set_granules`，ID_AA64MMFR0 随之改变）。
+  - `tlb.rs`：每核一份，带 ASID 标签，每项记两个 EL 的权限并登记来源 block；按 VA 的 TLBI 删除 block 覆盖的全部页。
+    写 TTBR 不再整体清空（由 ASID 区分）。
+  - `tests/a64/mmu.mjs` 与 `mmu_granule.mjs`：随机 regime 与页表，加载、存储、LDTR/STTR、AT、EL1 与 EL0 取指，
+    以及配合各种 TLBI 的重映射，共 900 例（约 12,800 个探测点，三个种子），与 QEMU 一致。
+  - 修正的 v86 错误：报给 EL1 的数据中止不再置 ISV（DDI 0487 规定为 0，QEMU 也如此）；SCTLR_EL1 复位为参考的
+    0x00C50838，写入时只屏蔽 MTE 位；DC ZVA 对 Device 映射同样对齐故障，并保持 CM 为 0；空的 PCIe 窗口读全 1。
+- P4.1–P4.6、P3.6、P3.8（`2dab6c5d`）：
+  - `gic.rs`：QEMU virt 的 GICv3，在核心内解码（总线 owner `OWNER_GICD`/`OWNER_GICR`）。DS=1、ARE、288 个 INTID、
+    5 位优先级，group 0 走 FIQ、group 1 走 IRQ，支持边沿与电平输入、IROUTER 路由、SGI，ICC_* 寄存器支持 EOImode、
+    BPR/CBPR 与活动优先级。ID 与 TYPER 的取值同参考。
+  - 运行循环只在指令边界上投递 IRQ 与 FIQ。WFI 在有挂起中断时唤醒（与 DAIF 无关）；WFE 由事件或未屏蔽的中断唤醒；
+    等待中的核休眠到它的定时器到期。`timer.rs` 由计数器驱动 PPI 27、30 与 event stream；计数器为
+    `MachineClock` 的时间 × 1e6。
+  - `src/virt`：
+    - `dtb.js` 按 QEMU dumpdtb 的布局生成设备树。`tests/a64/dtb.mjs` 比较 1、2、4 核，只在允许清单上不同。
+    - `loader.js` 按 `hw/arm/boot.c` 放置内核、initrd 与 DTB，用自带的 inflate 解开 EFI zboot：Alpine 的 vmlinuz-virt
+      在 0.4 s 内得到与宿主 gunzip 相同的 Image。
+    - `pl011.js` 与 `pl031.js` 照 QEMU 的设备实现，带中断。
+    - 空的 virtio-mmio 槽位与 PCIe 窗口的读法同参考。
+  - `debug.rs`：2 个断点（其中一个可感知上下文，可链接）、2 个观察点、软件单步及其状态机。OS Lock 按 Arm ARM 屏蔽调试异常。
+  - 偏差（相对本计划 P4.6 的文字）：
+    - initrd 与 DTB 的位置跟 QEMU 走：initrd 在 RAM + min(RAM/2, 128 MiB) 或内核之后，DTB 在 initrd 之后按 2 MiB
+      对齐。原文写的是"覆盖内核的 1 GiB 对齐窗口内"。
+    - gzip 用 `src/virt/inflate.js` 同步解开，浏览器与 Node 走同一条路径，而不是用 `DecompressionStream` 或 zlib。
+    - Image 头 flags 的页大小为 16 或 64 KiB 时拒绝加载（v1 只声明 4 KiB），`linux_loader.mjs` 有对应用例。
+- P4.7、P4.8、P3.10（`d7e1f293`）：
+  - `tests/a64/linux_boot.mjs` 的 v86 分支与参考用同一套内核、initrd 与命令行。
+  - initramfs 阶：未修改的 vmlinuz-virt 加 initramfs-virt ‖ probe.cpio，在 1 核解释器上约 35 s 输出
+    `A64_PROBE_OK cpus=1` 与 `A64_PROBE_XC`，然后经 PSCI 关机。全程没有 EL1 的 UNDEF，没有 Oops、BUG、WARNING、SError
+    或 stall，arch_timer 有计数。
+  - `single` 阶：Alpine 自己的 init 加 `single` 与一个不存在的 root，在 QEMU 与 v86 上都出现 "Entering single mode"，
+    shell 有响应。
+  - lifecycle 阶：在 single 的提示符处存档（约 92 MB），恢复到新机器后 shell 继续；`reboot -f`（SYSTEM_RESET）重新加载
+    内核回到 single；`poweroff -f`（SYSTEM_OFF）让模拟器停止。整个流程约 135–147 s。
+  - 快照保存机器时钟（恢复后计数器连续）、设备、GIC 与 PSCI 电源状态；恢复时清空 TLB、清除独占监视器并重算中断线。
+    `snapshot_io_pending` 与 x86 一样是属性。
+- P3.1、P3.2（本次提交）：
+  - `tools/cpu_contract.mjs --a64-v86` 在 v86 上运行 `tests/a64/id_registers.c`，a64-1 与 profile 0 差异（不用允许清单）。
+    它也并入 `--check`，因此进入 `platform-contract-tests`；a64-4 随 P3.9 加入。
+  - `tests/a64/system_oracle.mjs`：56 个用例（EL1 与 EL0）× 3 轮，共 168 个故障点，覆盖 EC 0x00、0x01、0x07、0x0E、
+    0x15、0x18、0x20、0x21、0x22、0x24、0x25、0x3C（以及只由 v86 检查的 0x26）。每个故障点比较 ESR、FAR、ELR、SPSR、
+    X0–X7 与 NZCV，与 QEMU 0 差异。
+  - 它找出 3 个 v86 错误，均已修正：
+    - 非法异常返回置位 PSTATE.IL 后，下一条指令没有产生 EC 0x0E。
+    - 非法返回没有清掉当前的 DAIF（应该完全取自 SPSR）。
+    - EL0 的 MSR DAIFSet/DAIFClr 被陷阱时，ISS 报成了 DAIF 寄存器，而不是指令自身的编码（op0 0、op1 3、CRn 4、
+      CRm 为立即数、op2 6/7）。
+  - 新增的允许差异（QEMU 9.2 偏离 Arm ARM 之处）：
+    - QEMU 不检查 SP 对齐（SCTLR.SA/SA0）。
+    - QEMU 从不陷阱 EL0 的 WFE。
+    - QEMU 的 DAIFSet 陷阱 ISS 把 op1 与 op2 对调（`syn_aa64_sysregtrap` 的实参顺序）。
+    这几个用例在 v86 上改为对照架构规定的 syndrome。CTR_EL0 的 L1Ip 本来就在允许清单上，用例把它屏蔽后再比较。
+  - `make a64-system-tests` 从 pending 变为上面两项；`a64-gate` 加入 `a64-system-tests` 与 `a64-mmu-tests`；`a64-gate-full`
+    加入 v86 的 `a64-kvm-unit-tests` 与 `a64-guest-tests`。`a64-guest-quick-tests`（initramfs 阶）与 `a64-guest-tests`
+    （QEMU 参考，加上 v86 的 initramfs、single 与 lifecycle 三阶）不再是 pending。
+- kvm-unit-tests（4k，1 核解释器）：selftest-vectors-kernel、selftest-vectors-user、timer、cache、debug-bp、debug-wp、
+  debug-sstep、pl031 通过；gicv3-active 以 1 核运行（中断发给自己）也通过，已加入 `a64-kvm-unit-tests`。
+  - psci 的用例在少于 2 个核时整体 SKIP（"At least 2 cpus required"），所以和 selftest-setup/smp、gicv3-ipi、
+    fpu-context、spinlock-test 一起移到 A3（P3.9）。
+  - PSCI 的单核部分（VERSION、FEATURES、MIGRATE_INFO_TYPE、SYSTEM_OFF、SYSTEM_RESET）由 Alpine 的 initramfs 与
+    lifecycle 阶覆盖。
+- 运行中发现的 QEMU 9.2 偏差，已写进 `tests/platform/a64-profile.json` 的允许清单：
+  - MMU 关闭时 DC ZVA 不对 Device 内存产生对齐故障；MMU 开启时对 Device 映射的非对齐访问照常完成。
+  - 异常进入时清除 NZCV。
+  - QEMU 的引导桩留在 RAM 中。
+  - OSLSR 的错误使 OS Lock 从不屏蔽调试异常。
+  - 不支持非链接的上下文断点。
+  - 不检查 SP 对齐；从不陷阱 WFE；DAIFSet 陷阱的 ISS 中 op1 与 op2 对调。
+- 验收（A2）：
+  - 1 核解释器上 `A64_PROBE_OK cpus=1` 与 PSCI 关机、"Entering single mode"、DTB 只在允许清单上不同、kvm-unit-tests
+    的单核 4k 子集、快照恢复、reboot 与 poweroff 全部通过。
+  - `make a64-gate` 通过。x86 不变：`core-split-check` 报 `v86.wasm` 与 `d7e1f293` 逐字节一致（3,000,264 字节）。
+  - P3 中留给 A3 的部分：P3.7（独占监视器的跨核细节）与 P3.9（协作式多核），以及多核的 kvm-unit-tests 与 a64-4 契约。

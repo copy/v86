@@ -6,7 +6,8 @@
 // image_size is 0, 2 MiB more below 4 KiB); the initrd at RAM + min(RAM / 2,
 // 128 MiB), or above the kernel; the device tree after the initrd, 2 MiB
 // aligned (some kernels map its 2 MiB block early). The core starts at the
-// kernel's first byte with x0 the device tree's address.
+// kernel's first byte with x0 the device tree's address. A kernel built for
+// 16 or 64 KiB pages is refused (profile v1 declares the 4 KiB granule only).
 
 import { VIRT_RAM_BASE } from "./platform.js";
 import { gunzip } from "./inflate.js";
@@ -47,6 +48,12 @@ export function image_placement(image)
     {
         // (a raw binary: where QEMU loads one that is not an Image)
         return { offset: DEFAULT_TEXT_OFFSET, size: image.length };
+    }
+    // (flags bits 2:1, the kernel's page size: unspecified, 4, 16 or 64 KiB; profile v1 has the 4 KiB granule only)
+    const page_size = view.getUint32(24, true) >> 1 & 3;
+    if(page_size > 1)
+    {
+        throw new Error("kernel: built for " + (page_size === 2 ? 16 : 64) + " KiB pages; the CPU profile supports 4 KiB pages only");
     }
     const text_offset = view.getUint32(8, true) + view.getUint32(12, true) * 0x100000000;
     const image_size = view.getUint32(16, true) + view.getUint32(20, true) * 0x100000000;

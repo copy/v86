@@ -336,12 +336,13 @@ pub fn exception_return() {
             spsr & PSTATE_SAVED
         }
         else {
-            get_pstate() & !(PSTATE_IL | PSTATE_SS) | PSTATE_IL | spsr & PSTATE_DAIF
+            // (NZCV and DAIF still come from SPSR_EL1)
+            get_pstate() & !(PSTATE_IL | PSTATE_SS | PSTATE_DAIF) | PSTATE_IL | spsr & PSTATE_DAIF
         };
         set_nzcv(spsr & 0xF000_0000);
         set_pstate(new);
         // (an AArch64 return: the PC as written, with TBI not applied here; bits 1:0 stay for a PC alignment fault)
-        set_pc(if new >> PSTATE_EL_SHIFT & 3 == 0 && legal { target } else { target });
+        set_pc(target);
         *excl_valid = 0;
         *event_register = 1;
     }

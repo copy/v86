@@ -274,8 +274,10 @@ pub fn write_pstate_field(field: u8, imm: u32) -> Result<(), Exception> {
         },
         _ => {
             if el == 0 && cpu::sctlr() & SCTLR_UMA == 0 {
-                // (MSR DAIFSet/DAIFClr at EL0 traps as an MSR to DAIF)
-                let reg = key(3, 3, 4, 2, 1);
+                // (the trap reports the instruction's own encoding: op0 0, op1 3, CRn 4, CRm the
+                // immediate, op2 6 for DAIFSet and 7 for DAIFClr, Rt 31; the reference swaps op1 and op2)
+                let op2 = if field == 1 { 6 } else { 7 };
+                let reg = key(0, 3, 4, imm & 15, op2);
                 return Err(Exception::SystemRegister(trap_iss(reg, 31, false)));
             }
             let bits = (imm & 0xF) << 6;

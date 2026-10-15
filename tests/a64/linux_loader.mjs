@@ -29,6 +29,15 @@ const { offset, size } = image_placement(image);
 assert.equal(offset, 0x200000, "the Image's text_offset is 0: it goes 2 MiB into RAM");
 assert.ok(size >= image.length, "image_size covers the BSS");
 console.log(`PASS the kernel at RAM + 0x${offset.toString(16)}, reaching 0x${size.toString(16)} bytes`);
+// (the header's page size: a 16 or 64 KiB kernel is refused under profile v1)
+for(const [bits, ok] of [[0, true], [1, true], [2, false], [3, false]])
+{
+    const header = image.slice(0, 64);
+    new DataView(header.buffer).setUint32(24, bits << 1, true);
+    if(ok) image_placement(header);
+    else assert.throws(() => image_placement(header), /KiB pages/);
+}
+console.log("PASS kernels for 16 and 64 KiB pages are refused");
 
 // inflate against zlib on random data of every kind (stored, fixed and dynamic blocks)
 for(const level of [0, 1, 6, 9])

@@ -1129,6 +1129,11 @@ static mut STEPPED_EXCLUSIVE_LOAD: bool = false;
 /// an exception the instruction generated saves it as 0, a fault as 1).
 pub fn interpret_one() -> Flow {
     let address = get_pc();
+    // (an illegal exception return left PSTATE.IL set: the next instruction takes EC 0x0E)
+    if get_pstate() & PSTATE_IL != 0 {
+        take_sync(Exception::IllegalState);
+        return Flow::Set;
+    }
     let stepping = crate::aarch64::debug::stepping();
     if stepping && get_pstate() & PSTATE_SS == 0 {
         take_sync(Exception::SoftwareStep(unsafe { STEPPED_EXCLUSIVE_LOAD }));

@@ -919,7 +919,7 @@ acpi-sleep-tests: build/v86-debug.wasm images/linux4.iso
 
 # Platform contract: generated state layout, CPU profile options, topology,
 # firmware tables (the ACPICA part needs iasl/acpiexec)
-platform-contract-tests: build/v86-debug.wasm build/libv86.mjs build/v86.wasm
+platform-contract-tests: build/v86-debug.wasm build/libv86.mjs build/v86.wasm build/v86-arm64.wasm
 	node gen/state_layout.js --check
 	node gen/cpu_features.js --check
 	node tools/cpu_contract.mjs --check
@@ -1033,16 +1033,20 @@ a64-trace-tests:
 	$(call A64_PENDING,A3)
 a64-portable-tests:
 	$(call A64_PENDING,A3)
-a64-system-tests:
-	$(call A64_PENDING,A2)
+# (P3.1, P3.2: the ID registers on v86, and the exceptions oracle against QEMU)
+a64-system-tests: build/v86-arm64.wasm
+	node tools/cpu_contract.mjs --a64-v86
+	node tests/a64/system_oracle.mjs
 a64-mmu-tests: build/v86-arm64.wasm
 	node tests/a64/mmu.mjs
 	node tests/a64/mmu.mjs --seed 2
 	node tests/a64/mmu_granule.mjs
 # (the single-core cases on the interpreter; the SMP ones with P3.9)
+# (gicv3-active on one core: its interrupts go to the core itself; psci needs two cores)
 a64-kvm-unit-tests: build/v86-arm64.wasm
 	node tests/kvm-unit-tests/arm64.mjs --single-core 4k
-	$(call A64_PENDING,A3 (selftest-setup, selftest-smp, psci, gicv3-ipi, gicv3-active, fpu-context, spinlock-test: P3.9))
+	node tests/kvm-unit-tests/run.mjs --arm64 --cores 1 --append active --timeout 60 build/kvm-unit-tests/arm64-4k/arm/gic.flat
+	$(call A64_PENDING,A3 (selftest-setup, selftest-smp, psci, gicv3-ipi, gicv3-active on 4 cores, fpu-context, spinlock-test: P3.9))
 a64-litmus-tests:
 	$(call A64_PENDING,A3)
 a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
@@ -1055,10 +1059,16 @@ a64-virt-device-tests: build/v86-arm64.wasm build/v86.wasm
 # (api-tests' arm64 part)
 a64-api-tests: build/libv86.js build/v86-arm64.wasm
 	node tests/api/arm64-options.js
-a64-guest-quick-tests:
-	$(call A64_PENDING,A2)
-a64-guest-tests:
-	$(call A64_PENDING,A2)
+# (Alpine on the 1-core interpreter: the initramfs stage with the probe, about 40 s)
+a64-guest-quick-tests: build/v86-arm64.wasm
+	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+# (L: the QEMU reference, then the interpreter's initramfs, single and lifecycle stages)
+a64-guest-tests: build/v86-arm64.wasm
+	A64_LINUX_QEMU=1 A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=initramfs A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=single A64_CORES=1 node tests/a64/linux_boot.mjs
+	A64_STAGE=lifecycle A64_CORES=1 node tests/a64/linux_boot.mjs
+	$(call A64_PENDING,A3 (2 and 4 cores, the live stage))
 a64-lifecycle-guest-tests:
 	$(call A64_PENDING,A6)
 a64-multicore-guest-tests:

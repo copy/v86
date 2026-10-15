@@ -774,6 +774,9 @@
     {"instruction": "PSTATE.NZCV on exception entry", "why": "AArch64.TakeException leaves NZCV as it was, as v86 does; QEMU 9.2 clears it (pstate_write in arm_cpu_do_interrupt_aarch64); tests/a64/lockstep.mjs adopts QEMU's flags at an exception entry"},
     {"instruction": "reads of RAM below the kernel (0x4000_0000)", "why": "QEMU's boot stub lives at the start of RAM; v86 starts the kernel directly and leaves it zero"},
     {"instruction": "debug exceptions while OSLSR_EL1.OSLK is set (it is at reset)", "why": "the Arm ARM disables breakpoint, watchpoint and step exceptions under the OS Lock, as v86 does; QEMU 9.2 tests OSLSR bit 0 instead of OSLK (bit 1) and never blocks them (target/arm/debug_helper.c, arm_generate_debug_exceptions)"},
-    {"instruction": "unlinked context ID breakpoints (DBGBCR.BT 0b0010)", "why": "v86 implements them on its context-aware breakpoint; QEMU 9.2 does not (LOG_UNIMP)"}]
+    {"instruction": "unlinked context ID breakpoints (DBGBCR.BT 0b0010)", "why": "v86 implements them on its context-aware breakpoint; QEMU 9.2 does not (LOG_UNIMP)"},
+    {"instruction": "SP alignment checking (SCTLR_EL1.SA, SA0)", "why": "v86 takes the SP alignment fault (EC 0x26) the Arm ARM requires; QEMU 9.2 does not check SP alignment (an EL0 load through a misaligned SP becomes an ordinary alignment fault with the MMU off)"},
+    {"instruction": "WFE at EL0 with SCTLR_EL1.nTWE 0", "why": "v86 traps it (EC 0x01) when it would wait, as the Arm ARM says; QEMU 9.2 never traps WFE (it yields)"},
+    {"instruction": "the syndrome of a trapped MSR DAIFSet/DAIFClr at EL0", "why": "v86 reports the instruction's op1 3 and op2 6/7; QEMU 9.2 swaps op1 and op2 (syn_aa64_sysregtrap's arguments)"}]
  }
 }

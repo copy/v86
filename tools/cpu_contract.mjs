@@ -12,12 +12,15 @@
 // The AArch64 profiles a64-1 and a64-4 (docs/arm64-virt-android16-plan.md
 // P0.3) hold the ID registers that tests/a64/id_registers.c reads at EL1,
 // expected from tests/platform/a64-profile.json, not observed: --check
-// compares them with that file until the ARM core runs the reader (P3.1).
+// compares them with that file and runs the reader on v86's ARM core (P3.1;
+// a64-1 now, a64-4 with the cooperative cores of P3.9).
 //
 //   node tools/cpu_contract.mjs --a64-only       rewrite only a64-1 and a64-4
 //   node tools/cpu_contract.mjs --a64-reference  read the QEMU reference's
 //       registers (1 and 4 cores) and fail on a difference from the profile
 //       that its allowed-differences list does not name
+//   node tools/cpu_contract.mjs --a64-v86  only the reader on v86's ARM core,
+//       which must match the profile with no difference at all
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -301,6 +304,29 @@ if(process.argv.includes("--a64-reference"))
     process.exit(failed ? 1 : 0);
 }
 
+/**
+ * v86's ARM core (P3.1): tests/a64/id_registers.c on v86 must read exactly the
+ * profile's values, with no allowed difference (those are the reference's);
+ * the profiles of one core now, a64-4 with the cooperative cores (P3.9)
+ */
+async function a64_v86_check()
+{
+    const directory = a64_runner.build("id-registers", [root + "tests/a64/id_registers.c"]);
+    let failed = false;
+    for(const [name, cores] of Object.entries(A64_PROFILES).filter(([, cores]) => cores === 1))
+    {
+        const result = await a64_runner.actual(directory, { cores });
+        assert.equal(result.status, "ok", name + " on v86: " + result.text);
+        const { problems, tolerated } = a64_compare(a64_profile, a64[name], a64_parse(result.text, cores));
+        const differences = [...problems, ...tolerated];
+        console.log(`${name}: v86 against ${a64_profile.profile}: ${differences.length} differences`);
+        for(const line of differences) console.log("  " + line.replace("reference", "v86"));
+        failed ||= differences.length > 0;
+    }
+    return !failed;
+}
+if(process.argv.includes("--a64-v86")) process.exit(await a64_v86_check() ? 0 : 1);
+
 const committed = fs.existsSync(contract_path) ? JSON.parse(fs.readFileSync(contract_path, "utf8")) : null;
 const observed = process.argv.includes("--a64-only") ? Object.fromEntries(Object.entries(committed.profiles).filter(([name]) => !A64_PROFILES[name]))
     : await observe_x86();
@@ -318,8 +344,9 @@ if(process.argv.includes("--check"))
 {
     assert.deepEqual(document, committed, "the CPU differs from tests/platform/cpu-contract.json " +
         "(update it with `node tools/cpu_contract.mjs` if the change is intended)");
+    assert.ok(await a64_v86_check(), "v86's ARM core differs from tests/platform/a64-profile.json");
     console.log(`CPU contract matches (${Object.keys(PROFILES).length} profiles, ${LEAVES.length} CPUID leaves, ${MSRS.length} MSRs; ` +
-        `${Object.keys(A64_PROFILES).join(", ")} match a64-profile.json, run on v86 from P3.1)`);
+        `${Object.keys(A64_PROFILES).join(", ")} match a64-profile.json; v86's ARM core reads them: a64-1, a64-4 with P3.9)`);
 }
 else
 {
